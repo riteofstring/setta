@@ -1,4 +1,4 @@
-import type { SetStateAction } from "react";
+import type { ReactNode, SetStateAction } from "react";
 import {
   SectionTypeEnum,
   type ChatWindowMode,
@@ -12,6 +12,7 @@ export type SectionContainerAreaProps = {
   bgColor: string;
   isMinimized: boolean;
   isUserView: boolean;
+  renderDictArea?: (props: SectionContainerAreaDictProps) => ReactNode;
   chatHost?: ChatWindowPlacement | "section_layout" | "standalone_page";
   chatModeOverride?: ChatWindowMode;
   projectChatId?: string | null;
@@ -21,7 +22,10 @@ export type SectionContainerAreaProps = {
 };
 
 type SectionIdProps = Pick<SectionContainerAreaProps, "sectionId">;
-type DictAreaProps = Pick<SectionContainerAreaProps, "sectionId" | "bgColor">;
+export type SectionContainerAreaDictProps = Pick<
+  SectionContainerAreaProps,
+  "sectionId" | "bgColor"
+>;
 type CallableAreaProps = Pick<
   SectionContainerAreaProps,
   "sectionId" | "bgColor" | "isMinimized"
@@ -47,7 +51,7 @@ type ChatSectionAreaProps = Pick<
 
 export type SectionContainerAreaView =
   | { kind: "callable"; props: CallableAreaProps }
-  | { kind: "dict"; props: DictAreaProps }
+  | { kind: "dict"; props: SectionContainerAreaDictProps }
   | { kind: "image"; props: SectionIdProps }
   | { kind: "chart"; props: SectionIdProps }
   | { kind: "draw"; props: SectionIdProps }
@@ -55,7 +59,7 @@ export type SectionContainerAreaView =
   | { kind: "textBlock"; props: SectionIdProps }
   | { kind: "prompt"; props: SectionIdProps }
   | { kind: "metaControl"; props: SectionIdProps }
-  | { kind: "globalVariables"; props: DictAreaProps }
+  | { kind: "globalVariables"; props: SectionContainerAreaDictProps }
   | { kind: "code"; props: SectionIdProps }
   | { kind: "genPythonCode"; props: SectionIdProps }
   | { kind: "genPythonMetadata"; props: SectionIdProps }

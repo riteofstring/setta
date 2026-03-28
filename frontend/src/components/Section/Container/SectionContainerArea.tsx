@@ -33,18 +33,24 @@ import { TerminalArea } from "../Layouts/TerminalArea";
 import { TextBlock } from "../Layouts/TextBlock";
 import {
   buildSectionContainerAreaView,
+  type SectionContainerAreaDictProps,
   type SectionContainerAreaProps,
 } from "./sectionContainerAreaView";
 import { SectionContainerAreaDictBoundary } from "./SectionContainerAreaDictBoundary";
 
+function renderDefaultDictArea(props: SectionContainerAreaDictProps) {
+  return <SectionContainerAreaDictBoundary {...props} />;
+}
+
 function _SectionContainerArea(props: SectionContainerAreaProps) {
+  const renderDictArea = props.renderDictArea ?? renderDefaultDictArea;
   const view = buildSectionContainerAreaView(props);
 
   switch (view.kind) {
     case "callable":
       return <CallableArea {...view.props} />;
     case "dict":
-      return <SectionContainerAreaDictBoundary {...view.props} />;
+      return renderDictArea(view.props);
     case "image":
       return <ImageArea {...view.props} />;
     case "chart":

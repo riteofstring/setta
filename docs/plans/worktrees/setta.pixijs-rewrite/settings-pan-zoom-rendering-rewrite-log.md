@@ -4392,3 +4392,33 @@ Record:
     - representative requests returned `200`, including `loadSettings`, `loadProjectConfig`, and `backendInitStatus`
 - Next action:
   - Continue the retained-scene seam lift by moving the live dict-area handoff one level higher above `frontend/src/components/Section/Container/SectionContainerAreaDictBoundary.tsx`, starting with the `SectionContainerArea.tsx` path.
+
+## 2026-03-28 153
+
+- Item: Lift the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/SectionContainerArea.tsx`, starting with `SectionCanvasArea.tsx`.
+- Status: `done`
+- Details:
+  - Added a caller-owned dict-renderer seam to the generic section-area boundary:
+    - `frontend/src/components/Section/Container/sectionContainerAreaView.ts`
+    - `frontend/src/components/Section/Container/SectionContainerArea.tsx`
+  - Lifted the production dict-area renderer ownership into the canvas-area caller:
+    - `frontend/src/components/Section/Container/SectionCanvasArea.tsx`
+    - `frontend/src/components/Section/Container/SectionCanvasArea.test.tsx`
+  - Updated the focused section-area coverage to pin the higher seam:
+    - `frontend/src/components/Section/Container/SectionContainerArea.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionContainerArea.tsx` on the same section-type dispatch path while letting callers provide the dict renderer explicitly
+    - keeping the canvas path on the same `SectionContainerAreaDictBoundary` renderer via the new `renderDictArea(...)` seam
+    - leaving the current settings dict/param DOM path intact while shrinking the generic area boundary’s direct ownership of the dict renderer
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerAreaView.test.ts src/components/Section/Container/SectionContainerArea.test.tsx src/components/Section/Container/SectionCanvasArea.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - bootstrap was rejected in that browser session, so verification reused the existing authenticated `/settings` tab
+    - `All Settings` stayed visible/reachable and the settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the seam lift
+    - representative visible labels and controls included `Filter`, `TAG`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Zoom On Pinch`, `Create Project`, `Summarize Codebase`, and `Plan Next Steps`
+    - representative requests returned `200`, including `/api/loadSettings`, `/api/loadProjectConfig`, `/api/getFileBrowserRoot`, `/api/getFolderContents`, `/api/serverMode`, and `/api/authRefreshStatus`
+- Next action:
+  - Continue the retained-scene seam lift by moving the remaining caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/SectionContainerArea.tsx`, starting with the window-surface caller in `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`.

@@ -87,7 +87,7 @@ vi.mock("./SectionContainerAreaDictBoundary", () => ({
 }));
 
 describe("SectionContainerArea", () => {
-  it("routes dict sections through the dedicated dict-area boundary", () => {
+  it("routes dict sections through the caller-owned dict-area boundary", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerArea
         sectionId="section-1"
@@ -95,10 +95,17 @@ describe("SectionContainerArea", () => {
         bgColor="bg-setta-50"
         isMinimized={false}
         isUserView={false}
+        renderDictArea={({ sectionId, bgColor }) => (
+          <div
+            data-testid="mock-caller-dict-area"
+            data-section-id={sectionId}
+            data-bg-color={bgColor}
+          />
+        )}
       />,
     );
 
-    expect(markup).toContain('data-testid="mock-section-container-dict-area"');
+    expect(markup).toContain('data-testid="mock-caller-dict-area"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-bg-color="bg-setta-50"');
   });
