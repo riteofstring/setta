@@ -1,4 +1,3 @@
-import type { MouseEventHandler } from "react";
 import {
   buildLiveDictAreaEdgeStripSurfaceBlock,
   type LiveDictAreaEdgeStripSurfaceBlock,
@@ -13,7 +12,10 @@ import {
   type LiveDictAreaRenderBoundary,
   type LiveDictAreaRenderBoundaryInput,
 } from "./groupContainerLiveDictAreaRenderBoundary";
-import type { LiveDictAreaUnpinnedParamAreaDomPacket } from "./groupContainerNodeCanaryPacket";
+import {
+  buildLiveDictAreaUnpinnedParamAreaSurfaceBlock,
+  type LiveDictAreaUnpinnedParamAreaSurfaceBlock,
+} from "./groupContainerUnpinnedParamAreaSurfaceBlock";
 
 export type {
   LiveDictAreaEdgeStripSurfaceBlock,
@@ -23,21 +25,15 @@ export type {
   LiveDictAreaPinnedParamAreaSurfaceBlock,
   LiveDictAreaPinnedParamAreaSurfaceProps,
 } from "./groupContainerPinnedParamAreaSurfaceBlock";
-
-export type LiveDictAreaUnpinnedParamAreaSurfaceProps = {
-  domPacket: LiveDictAreaUnpinnedParamAreaDomPacket;
-  handleColumnResizeStart: MouseEventHandler<HTMLDivElement>;
-  sectionId: string;
-};
+export type {
+  LiveDictAreaUnpinnedParamAreaSurfaceBlock,
+  LiveDictAreaUnpinnedParamAreaSurfaceProps,
+} from "./groupContainerUnpinnedParamAreaSurfaceBlock";
 
 export type LiveDictAreaSurfaceBlock =
   | LiveDictAreaEdgeStripSurfaceBlock
   | LiveDictAreaPinnedParamAreaSurfaceBlock
-  | {
-      key: string;
-      kind: "unpinned-param-area";
-      props: LiveDictAreaUnpinnedParamAreaSurfaceProps;
-    };
+  | LiveDictAreaUnpinnedParamAreaSurfaceBlock;
 
 export type LiveDictAreaSurface = Omit<LiveDictAreaRenderBoundary, "blocks"> & {
   blocks: LiveDictAreaSurfaceBlock[];
@@ -73,13 +69,7 @@ function buildLiveDictAreaSurfaceBlock(
     });
   }
 
-  return {
-    key: block.key,
-    kind: block.kind,
-    props: {
-      domPacket: block.domPacket,
-      handleColumnResizeStart: block.handleColumnResizeStart,
-      sectionId: block.sectionId,
-    },
-  };
+  return buildLiveDictAreaUnpinnedParamAreaSurfaceBlock({
+    rendererBlock: block,
+  });
 }

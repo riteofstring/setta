@@ -2810,3 +2810,30 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, and `GET /api/plugins/runtime`
 - Next action:
   - Continue the live dict-area surface pass by extracting the unpinned param-area block into the next block-specific surface helper above `groupContainerLiveDictAreaSurface.ts`.
+
+## 2026-03-27 105
+
+- Item: Extract the unpinned param-area block into the next block-specific live surface helper above `groupContainerLiveDictAreaSurface.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed live-surface helper for the dict-area unpinned param area:
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaSurfaceBlock.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaSurfaceBlock.test.ts`
+  - Updated the higher-level `LiveDictAreaSurface` builder to compose through the new unpinned helper instead of shaping the unpinned param-area surface block inline:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSurface.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the unpinned param-area renderer block into explicit component-facing surface props with stable `key`, `kind`, and `sectionId` wiring
+    - keeping `groupContainerLiveDictAreaSurface.ts` focused on higher-level block composition instead of mixed composition-plus-unpinned-param-area shaping
+    - leaving the current DOM unpinned param-area mount path intact while deepening the live dict-area surface contract above the renderer boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerUnpinnedParamAreaSurfaceBlock.test.ts src/components/Params/groupContainerLiveDictAreaSurface.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the settings shell rendered normally with `All Settings` visible and the dict/param area populated without obvious clipping, overlap, or missing content
+    - representative visible controls included `toggle agentic edges`, `toggle arg edges`, `toggle snap to grid`, `fit view`, and settings panels such as `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, and `languageServer`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/getDefaultConfigName`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, and `POST /api/checkWorkspaceInitialized`
+    - remaining console noise was limited to existing React 19 `element.ref` deprecation warnings
+- Next action:
+  - Continue the live dict-area surface pass by lifting the now fully block-composed `LiveDictAreaSurface` builder into the next higher-level caller above `groupContainerLiveDictAreaSurface.ts`.
