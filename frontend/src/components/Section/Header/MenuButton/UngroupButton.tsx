@@ -1,4 +1,4 @@
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { MenuItem } from "./DropdownMenuItem";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useShareCapabilities } from "state/hooks/share";
 import { route_ungroup_groups } from "utils/generatedEndpoints";

@@ -1,4 +1,4 @@
-import { MenuItem } from "components/Utils/atoms/menubar/menudropdownitem";
+import { MenuItem } from "./DropdownMenuItem";
 import { getSectionInfo } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 

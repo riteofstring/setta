@@ -1,47 +1,47 @@
 import json
 from datetime import datetime
-from typing import Annotated, Any, Literal
+from enum import Enum
+from typing import Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import Field, field_validator
-from setta.types.generated.go_shared_types import (
-    AssistantChatMessage as GoAssistantChatMessage,
-    ChatFileAttachment as GoChatFileAttachment,
-    ChatRole,
-    MessageImageURL as GoMessageImageURL,
-    MessageImageURLContent as GoMessageImageURLContent,
-    MessageTextContent as GoMessageTextContent,
-    MessageThinkingContent as GoMessageThinkingContent,
-    SystemChatMessage as GoSystemChatMessage,
-    ToolCall as GoToolCall,
-    ToolCallFunction as GoToolCallFunction,
-    ToolChatMessage as GoToolChatMessage,
-    ToolReferenceContent as GoToolReferenceContent,
-    UserChatMessage as GoUserChatMessage,
-)
-from setta.types.id import create_new_id
+from pydantic import BaseModel, Field, field_validator
+
+from setta.database.utils import create_new_id
 from setta.utils.timestamps import get_now_timestamp
 
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 
-ChatFileAttachment = GoChatFileAttachment
+class ChatRole(str, Enum):
+    system = "system"
+    user = "user"
+    assistant = "assistant"
+    tool = "tool"
 
 
-class MessageTextContent(GoMessageTextContent):
+class ChatFileAttachment(BaseModel):
+    id: str
+    name: str
+    mimeType: str | None = None
+    size: int | None = None
+
+
+class MessageTextContent(BaseModel):
     type: Literal["text"] = "text"
+    text: str
 
 
-class MessageImageUrl(GoMessageImageURL):
+class MessageImageUrl(BaseModel):
+    url: str
     detail: Literal["auto", "low", "high"] | None = None
 
 
-class MessageImageUrlContent(GoMessageImageURLContent):
+class MessageImageUrlContent(BaseModel):
     type: Literal["image_url"] = "image_url"
     image_url: MessageImageUrl
 
 
-class MessageThinkingContent(GoMessageThinkingContent):
+class MessageThinkingContent(BaseModel):
     type: Literal["thinking"] = "thinking"
     thinking: str = ""
     summary: str | None = ""
@@ -51,11 +51,13 @@ class MessageThinkingContent(GoMessageThinkingContent):
 MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent
 
 
-class ToolReferenceContent(GoToolReferenceContent):
+class ToolReferenceContent(BaseModel):
     type: Literal["tool_reference"] = "tool_reference"
+    tool_name: str
 
 
-class ToolCallFunction(GoToolCallFunction):
+class ToolCallFunction(BaseModel):
+    name: str
     arguments: dict[str, Any] = Field(default_factory=dict)
 
     @field_validator("arguments", mode="before")
@@ -71,13 +73,17 @@ class ToolCallFunction(GoToolCallFunction):
         return {}
 
 
-class ToolCall(GoToolCall):
+class ToolCall(BaseModel):
     id: str = Field(default_factory=create_new_id)
     type: Literal["function"] = "function"
     function: ToolCallFunction
 
 
-class _OpenAIMessageMixin:
+class BaseChatMessage(BaseModel):
+    id: str = Field(default_factory=create_new_id)
+    role: Any
+    createdAt: int = 0
+
     def to_openai_format(self) -> dict[str, Any]:
         output = self.model_dump(exclude_none=True)
         output.pop("id", None)
@@ -86,24 +92,21 @@ class _OpenAIMessageMixin:
         return output
 
 
-class SystemChatMessage(GoSystemChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
+class ContentChatMessage(BaseChatMessage):
+    content: list[MessageContent] = Field(default_factory=list)
+    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+
+
+class SystemChatMessage(ContentChatMessage):
     role: Literal[ChatRole.system] = ChatRole.system
-    createdAt: int = 0
-    content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
 
 
-class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
+class AssistantChatMessage(ContentChatMessage):
     role: Literal[ChatRole.assistant] = ChatRole.assistant
-    createdAt: int = 0
-    content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
     tool_calls: list[ToolCall] | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
-        output = _OpenAIMessageMixin.to_openai_format(self)
+        output = super().to_openai_format()
         tool_calls = output.get("tool_calls")
         if tool_calls:
             for call in tool_calls:
@@ -112,18 +115,13 @@ class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
         return output
 
 
-class UserChatMessage(GoUserChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
+class UserChatMessage(ContentChatMessage):
     role: Literal[ChatRole.user] = ChatRole.user
-    createdAt: int = 0
-    content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
 
 
-class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
-    id: str = Field(default_factory=create_new_id)
+class ToolChatMessage(BaseChatMessage):
     role: Literal[ChatRole.tool] = ChatRole.tool
-    createdAt: int = 0
+    tool_call_id: str
     tool_name: str | None = None
     arguments: JSONValue = Field(default_factory=dict)
     result: JSONValue = None
@@ -135,7 +133,7 @@ class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
     completed_at: datetime | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
-        output = _OpenAIMessageMixin.to_openai_format(self)
+        output = super().to_openai_format()
         output.pop("arguments", None)
         output.pop("result", None)
         output.pop("is_error", None)
@@ -143,12 +141,3 @@ class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
         output.pop("completed_at", None)
         output.pop("tool_name", None)
         return output
-
-
-BaseChatMessageUnion = (
-    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
-)
-
-BaseChatMessageUnionWithDiscriminator = Annotated[
-    BaseChatMessageUnion, Field(discriminator="role")
-]
