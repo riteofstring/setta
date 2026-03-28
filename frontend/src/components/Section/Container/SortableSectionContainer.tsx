@@ -4,64 +4,31 @@ import {
   transformToString,
 } from "forks/dnd-kit/adapter/zoom";
 import { isTempSection, useDndState } from "forks/dnd-kit/dndState";
+import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import { useDndProps } from "forks/dnd-kit/useDndUtils";
 import _ from "lodash";
 import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
-import { renderSectionContainerNestedSections } from "./SectionContainerNestedSections";
-import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
-import { SortableSectionBody } from "./SortableSectionBody";
+import { SectionContainer } from "./SectionContainer";
 
-type SortableSectionContainerProps = {
-  sectionId: string;
-  className?: string;
-  renderCoreBody: SectionContainerCoreBodyRenderer;
-};
-
-type RegularSortableSectionContainerProps = SortableSectionContainerProps & {
-  forceApplyTransform: boolean;
-};
-
-type SortableHookResult = ReturnType<typeof useSortable>;
-
-type SortableCoreProps = SortableSectionContainerProps & {
-  applyTransform: boolean;
-  attributes: SortableHookResult["attributes"];
-  listeners: SortableHookResult["listeners"];
-  setNodeRef: SortableHookResult["setNodeRef"];
-  transform: SortableHookResult["transform"];
-  transition: SortableHookResult["transition"];
-  isDragging: boolean;
-};
-
-function _SortableSectionContainer({
-  sectionId,
-  className,
-  renderCoreBody,
-}: SortableSectionContainerProps) {
+function _SortableSectionContainer({ sectionId, className }) {
   return isTempSection(sectionId) ? (
     <TempDNDSortableSectionContainer
       sectionId={sectionId}
       className={className}
-      renderCoreBody={renderCoreBody}
     />
   ) : (
     <RegularSortableSectionContainer
       sectionId={sectionId}
       className={className}
       forceApplyTransform={false}
-      renderCoreBody={renderCoreBody}
     />
   );
 }
 
 export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 
-function _TempDNDSortableSectionContainer({
-  sectionId,
-  className,
-  renderCoreBody,
-}: SortableSectionContainerProps) {
+function _TempDNDSortableSectionContainer({ sectionId, className }) {
   const [forceApplyTransform, setForceApplyTransform] = useState(true);
 
   useEffect(() => {
@@ -74,7 +41,6 @@ function _TempDNDSortableSectionContainer({
       sectionId={sectionId}
       className={className}
       forceApplyTransform={forceApplyTransform}
-      renderCoreBody={renderCoreBody}
     />
   );
 }
@@ -87,8 +53,7 @@ function _RegularSortableSectionContainer({
   sectionId,
   forceApplyTransform,
   className,
-  renderCoreBody,
-}: RegularSortableSectionContainerProps) {
+}) {
   const animateLayoutChanges = useAnimateLayoutChanges();
   const dndProps = useDndProps({ sectionId, isTopLevel: false });
 
@@ -113,7 +78,6 @@ function _RegularSortableSectionContainer({
       transition={transition}
       isDragging={isDragging}
       className={className}
-      renderCoreBody={renderCoreBody}
       applyTransform={
         forceApplyTransform ||
         isDragging ||
@@ -140,8 +104,7 @@ function _SortableCore({
   applyTransform,
   isDragging,
   className,
-  renderCoreBody,
-}: SortableCoreProps) {
+}) {
   const overIsSelf = useDndState((x) => x.overId === sectionId);
   const scaledTransform = applyZoomToTransform(
     applyTransform ? transform : null,
@@ -179,21 +142,29 @@ function _SortableCore({
       {...stackProps}
       tabIndex={-1}
     >
-      <SortableSectionBody
+      <TempSectionOrNot
         sectionId={sectionId}
         applyTransform={applyTransform}
         listeners={listeners}
-        renderCoreBody={renderCoreBody}
-        renderNestedSections={renderSectionContainerNestedSections}
       />
     </div>
   );
 }
 
+function TempSectionOrNot({ sectionId, applyTransform, listeners }) {
+  if (isTempSection(sectionId)) {
+    if (applyTransform) {
+      return <TempDNDSection />;
+    }
+    return null;
+  } else {
+    return <SectionContainer sectionId={sectionId} dragListeners={listeners} />;
+  }
+}
+
 const SortableCore = React.memo(
   _SortableCore,
   (p, n) =>
-    p.renderCoreBody === n.renderCoreBody &&
     p.sectionId === n.sectionId &&
     p.transform === n.transform &&
     p.transition === n.transition &&

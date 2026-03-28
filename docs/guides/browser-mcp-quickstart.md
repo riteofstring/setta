@@ -72,3 +72,29 @@ Optional overrides:
 If browser installs fail with permissions under `~/Library/Caches`, install to a
 repo-local path:
 `PLAYWRIGHT_BROWSERS_PATH=setta_files/runtime/playwright-browsers npx playwright install`
+
+## Playwright recording (manual repro capture)
+
+Use the recorder helper when you want a saved Playwright codegen output while
+starting Setta the normal dev way:
+- `SETTA_HOME=~/.setta-development`
+- `SETTA_FILES_ROOT=<worktree>/setta_files_dev`
+- initial route `/home`
+
+`./scripts/record-playwright-e2e.sh`
+
+Artifacts are written under `${TMPDIR:-/tmp}/setta-playwright-recordings/<repo>/recording-<timestamp>/` by default.
+Use `--artifact-dir <dir>` or `SETTA_E2E_RECORD_ROOT_DIR=<dir>` to override.
+Use `--reset` to clear the active dev `setta_files_dev` state first, matching the
+same reset step used by the normal `reset.sh` flow.
+
+Bundle contents:
+- `recording.spec.ts`: generated Playwright script
+- `network.har`: captured network activity
+- `bootstrap-storage-state.json`: auth/bootstrap state loaded into the recorder
+- `final-storage-state.json`: storage state after you finish the recording
+- `session.json`: metadata describing the recording bundle
+- `logs/`: backend/frontend/bootstrap logs for the disposable session
+
+Pass extra `playwright codegen` flags directly, for example:
+`./scripts/record-playwright-e2e.sh --browser chromium`
