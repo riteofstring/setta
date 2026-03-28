@@ -359,3 +359,30 @@ Record:
       - the bootstrap consume request returned `401`, but the existing browser auth cookies kept the page authenticated during verification
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/components/Params/GroupContainer.tsx` before any Pixi renderer code lands.
+
+## 2026-03-26 015
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/components/Params/GroupContainer.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the `GroupContainer` param-area decisions behind a typed helper boundary so the non-Pixi slice no longer leaves its edge-input filtering, pinned/unpinned list shaping, and unpinned min-height policy inline in the component:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/groupContainerView.ts`
+    - `frontend/src/components/Params/groupContainerView.test.ts`
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - filtering edge-input params out of the visible pinned/unpinned lists while keeping nested-depth accounting
+    - deciding when the pinned stack should round its bottom edge
+    - normalizing the legacy unpinned min-height setting and suppressing min-height application when the unpinned list is hidden or layout-locked
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerView.test.ts src/components/Params/GroupContainer.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` stayed authenticated at `http://127.0.0.1:3044/settings`
+      - `All Settings` rendered normally with no obvious overlap, clipping, or collapsed layout in the visible dict/param stack
+      - representative rows remained visible, including `Auto Backup`, `autobackupFreq 300`, `Grid Color`, `Grid Pattern`, `Dict`, and `Param Defaults`
+      - relevant backend/auth/settings requests returned `200`, including `api/authRefreshStatus`, `api/loadSettings`, `api/backendInitStatus`, and `api/loadProjectConfig`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx` before any Pixi renderer code lands.

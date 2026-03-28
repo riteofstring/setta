@@ -49,15 +49,17 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import {
+  buildFilteredParamListView,
+  buildPinnedParamsAreaView,
+  buildUnpinnedParamsAreaView,
+  getPinnedParamsBgClassName,
+} from "./groupContainerView";
+import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
 } from "./paramAreaMeasurements";
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
-
-const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
-const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
-const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
 
 function _ParamGroupContainer({
   sectionId,
@@ -233,16 +235,6 @@ function _ParamGroupContainer({
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
-  if (sectionTypeName === SectionTypeEnum.Callable) {
-    return "bg-white dark:bg-blue-950/30";
-  }
-  if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
-    return "bg-setta-50 dark:bg-blue-950/30";
-  }
-  return "bg-setta-100/50 dark:bg-blue-950/30";
-}
-
 function useMeasuredParamAreaMinHeight({
   sectionId,
   heightKey,
@@ -405,12 +397,12 @@ function EdgesStrip({
       label:
         port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
     }));
-    const filteredPinned = filterEdgeInputs(
-      pinned.requiredParamIdsToPaths,
-      pinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
+    const pinnedView = buildFilteredParamListView({
+      requiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
+      topLevelParamIds: pinned.topLevelParamIds,
+      edgeInputParams: impl.edgeInputParams,
+    });
+    const hasPinnedParams = pinnedView.topLevelParamIds.length > 0;
     const showsUnpinnedParams = !impl.hideUnpinnedParams;
     return {
       inputPorts,
@@ -690,8 +682,9 @@ function GetPinnedParams({
   const {
     requiredParamIdsToPaths,
     topLevelParamIds,
-    shouldRoundBottom,
+    hideUnpinnedParams,
     positionAndSizeLocked,
+    edgeInputParams,
     styleColor,
   } = useProjectState((x) => {
     const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
@@ -700,23 +693,17 @@ function GetPinnedParams({
       true,
       true,
     );
-    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const filteredPinned = filterEdgeInputs(
+    return {
       requiredParamIdsToPaths,
       topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const showsUnpinnedParams = !impl.hideUnpinnedParams;
-    const shouldRoundBottom = !showsUnpinnedParams;
-    return {
-      ...filteredPinned,
-      shouldRoundBottom,
+      hideUnpinnedParams: impl.hideUnpinnedParams,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      edgeInputParams: impl.edgeInputParams,
       styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
@@ -733,34 +720,39 @@ function GetPinnedParams({
       : null,
   );
 
-  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
+  const pinnedView = buildPinnedParamsAreaView({
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+    edgeInputParams,
+    hideUnpinnedParams,
+  });
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
   const heightKey = getPinnedParamsAreaHeightKey(sectionId);
 
   useEffect(() => {
-    setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
-  }, [maxNestedDepth]);
+    setMaxNestedDepth((s) => ({ ...s, pinned: pinnedView.maxNestedDepth }));
+  }, [pinnedView.maxNestedDepth, setMaxNestedDepth]);
 
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: topLevelParamIds,
+    paramIds: pinnedView.topLevelParamIds,
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    topLevelParamIds.length > 0 && (
+    pinnedView.topLevelParamIds.length > 0 && (
       <PinnedParamsArea
         sectionId={sectionId}
-        topLevelParamIds={topLevelParamIds}
-        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        topLevelParamIds={pinnedView.topLevelParamIds}
+        requiredParamIdsToPaths={pinnedView.requiredParamIdsToPaths}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        shouldRoundBottom={shouldRoundBottom}
+        shouldRoundBottom={pinnedView.shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
         contentRef={contentRef}
@@ -849,10 +841,12 @@ function GetUnpinnedParams({
 }: GetUnpinnedParamsProps) {
   const {
     hideUnpinnedParams,
+    pinnedRequiredParamIdsToPaths,
+    pinnedTopLevelParamIds,
     requiredParamIdsToPaths,
     topLevelParamIds,
-    hasPinnedParams,
     positionAndSizeLocked,
+    edgeInputParams,
     styleColor,
   } = useProjectState((x) => {
     const impl = getCurrEffectiveSectionImplWithTypeGuard(
@@ -862,23 +856,14 @@ function GetUnpinnedParams({
     );
     const pinned = getCurrShownParamIds(x, sectionId, true, true);
     const unpinned = getCurrShownParamIds(x, sectionId, false, true);
-    const filteredPinned = filterEdgeInputs(
-      pinned.requiredParamIdsToPaths,
-      pinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const filteredUnpinned = filterEdgeInputs(
-      unpinned.requiredParamIdsToPaths,
-      unpinned.topLevelParamIds,
-      impl.edgeInputParams,
-    );
-    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
     return {
       hideUnpinnedParams: impl.hideUnpinnedParams,
-      requiredParamIdsToPaths: filteredUnpinned.requiredParamIdsToPaths,
-      topLevelParamIds: filteredUnpinned.topLevelParamIds,
-      hasPinnedParams,
+      pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
+      pinnedTopLevelParamIds: pinned.topLevelParamIds,
+      requiredParamIdsToPaths: unpinned.requiredParamIdsToPaths,
+      topLevelParamIds: unpinned.topLevelParamIds,
       positionAndSizeLocked: impl.positionAndSizeLocked,
+      edgeInputParams: impl.edgeInputParams,
       styleColor: impl.styleColor ?? null,
     };
   }, _.isEqual);
@@ -898,25 +883,17 @@ function GetUnpinnedParams({
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
-  const baseUnpinnedMinHeight = Number.isFinite(
-    sizingPolicy.globals.unpinnedParamsAreaMinHeight,
-  )
-    ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
-    : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
-  const normalizedUnpinnedMinHeight =
-    baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-      ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-      : baseUnpinnedMinHeight;
-  const resolvedPolicyMinHeight =
-    hasPinnedParams &&
-    normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
-      ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
-      : normalizedUnpinnedMinHeight;
-  const resolvedMinHeight = resolvedPolicyMinHeight;
-  const shouldApplyMinHeight =
-    !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
-
-  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
+  const unpinnedView = buildUnpinnedParamsAreaView({
+    pinnedRequiredParamIdsToPaths,
+    pinnedTopLevelParamIds,
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+    edgeInputParams,
+    hideUnpinnedParams,
+    canEditLayout,
+    positionAndSizeLocked,
+    configuredMinHeight: sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+  });
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
 
@@ -929,13 +906,13 @@ function GetUnpinnedParams({
   );
 
   useEffect(() => {
-    setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
-  }, [maxNestedDepth]);
+    setMaxNestedDepth((s) => ({ ...s, unpinned: unpinnedView.maxNestedDepth }));
+  }, [setMaxNestedDepth, unpinnedView.maxNestedDepth]);
 
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: hideUnpinnedParams ? [] : topLevelParamIds,
+    paramIds: hideUnpinnedParams ? [] : unpinnedView.topLevelParamIds,
     contentRef: containerRef,
     rowsRef: containerRef,
   });
@@ -948,14 +925,16 @@ function GetUnpinnedParams({
         }`}
         ref={setContainerRef}
         style={
-          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
+          unpinnedView.shouldApplyMinHeight
+            ? { minHeight: unpinnedView.minHeight }
+            : undefined
         }
       >
         {!hideUnpinnedParams && (
           <ParamDndList
             sectionId={sectionId}
-            paramIds={topLevelParamIds}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            paramIds={unpinnedView.topLevelParamIds}
+            requiredParamIdsToPaths={unpinnedView.requiredParamIdsToPaths}
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
             listKey="unpinned"
@@ -965,35 +944,4 @@ function GetUnpinnedParams({
       </div>
     </div>
   );
-}
-
-function getLongestListLength(obj: Record<string, Array<string>>) {
-  return Object.values(obj).reduce(
-    (max, arr) => (arr.length > max ? arr.length : max),
-    0,
-  );
-}
-
-function filterEdgeInputs(
-  requiredParamIdsToPaths: Record<string, Array<string>>,
-  topLevelParamIds: Array<string>,
-  edgeInputParams: Array<string>,
-) {
-  if (edgeInputParams.length === 0) {
-    return { requiredParamIdsToPaths, topLevelParamIds };
-  }
-  const edgeInputSet = new Set(edgeInputParams);
-  const filteredParamIdsToPaths: Record<string, Array<string>> = {};
-  for (const [paramId, path] of Object.entries(requiredParamIdsToPaths)) {
-    if (!edgeInputSet.has(paramId)) {
-      filteredParamIdsToPaths[paramId] = path;
-    }
-  }
-  const filteredTopLevel = topLevelParamIds.filter(
-    (paramId) => !edgeInputSet.has(paramId),
-  );
-  return {
-    requiredParamIdsToPaths: filteredParamIdsToPaths,
-    topLevelParamIds: filteredTopLevel,
-  };
 }

@@ -13,10 +13,8 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  ParamGroupContainer,
-  getPinnedParamsBgClassName,
-} from "./GroupContainer";
+import { ParamGroupContainer } from "./GroupContainer";
+import { getPinnedParamsBgClassName } from "./groupContainerView";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
