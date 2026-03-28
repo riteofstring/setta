@@ -654,3 +654,29 @@ Record:
       - relevant requests returned `200`, including `/settings`, `/api/serverMode`, `/api/loadSettings`, `/api/loadProjectConfig`, and `/api/authRefreshStatus`
 - Next action:
   - Continue workstream `3. Scene Packet And Edge Packet Extraction` with the next bounded dict/param canary packet step, using the new live area packet boundary as the source for the first retained-scene node-layout packet before any Pixi mounting lands.
+
+## 2026-03-26 026
+
+- Item: Extract the first retained-scene node-layout packet for the live dict/param canary path.
+- Status: `done`
+- Details:
+  - Added a pure typed node-layout packet boundary above the live dict/param area packets:
+    - `frontend/src/components/Section/Layouts/dictAreaNodeLayoutPackets.ts`
+    - `frontend/src/components/Section/Layouts/dictAreaNodeLayoutPackets.test.ts`
+  - The new helper takes the live area packet boundary as input and deterministically:
+    - lifts the live pinned/unpinned param-area packets into ordered fixed-vs-grow layout blocks
+    - folds the existing edge-strip height estimate into the same layout packet without starting Pixi mounting yet
+    - aggregates fixed block ids, grow block ids, total visible param-row count, and total min-height contribution for the future retained-scene layout step
+    - normalizes invalid min heights while preserving live placeholder/value/group row packets unchanged
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/dictAreaNodeLayoutPackets.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+      - `All Settings` stayed visible and the settings shell / dict-param canary area rendered normally with no obvious overlap, clipping, or missing content
+      - representative visible labels and controls included `settings`, `Filter`, `TAG`, `gui`, `sectionSizingPolicy`, `shortcuts`, `backend`, `languageServer`, `All Settings`, `Close worktree label`, and `Open settings`
+      - relevant requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/getDefaultConfigName`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue workstream `3. Scene Packet And Edge Packet Extraction` by routing the live dict/param canary through this node-layout packet boundary as the mounting input for the first retained-scene node renderer step.
