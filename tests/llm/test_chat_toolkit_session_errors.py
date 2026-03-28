@@ -16,19 +16,19 @@ from setta.llm.chat_toolkit.section_sync import (
 )
 from setta.sdk_contracts.generated import ListenerDependencyCatalog
 from setta.types.chat import (
-    AssistantChatMessage,
     Chat,
-    ChatRole,
     ChatSectionState,
-    SystemChatMessage,
-    UserChatMessage,
 )
 from setta.types.generated.go_shared_types import (
+    AssistantChatMessage,
     ChatFileAttachment,
     ChatSendEvent,
+    ChatRole,
     LLMConfig,
     MessageFinalizedEvent,
     MessageTextContent,
+    SystemChatMessage,
+    UserChatMessage,
 )
 from setta.types.id import ID
 

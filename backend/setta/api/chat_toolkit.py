@@ -20,18 +20,15 @@ from setta.llm.chat_toolkit import (
 from setta.llm.chat_toolkit.stream_assembler import AssistantMessageBuilder
 from setta.mcp.tool_metadata import ToolArgumentPreviewIdType, ToolArgumentPreviewKind
 from setta.types.chat import (
-    AssistantChatMessage,
     BaseChatMessageUnion,
     Chat,
-    ChatRole,
     ChatSectionState,
     LLMStreamingResponseChunk,
-    SystemChatMessage,
-    ToolChatMessage,
-    UserChatMessage,
 )
 from setta.types.generated.go_shared_types import (
+    AssistantChatMessage,
     ChatMetadata,
+    ChatRole,
     ChatSendEvent,
     ChatStopEvent,
     MessageDeltaEvent,
@@ -42,10 +39,13 @@ from setta.types.generated.go_shared_types import (
     MessageTextDelta,
     MessageThinkingDelta,
     StreamingEventType,
+    SystemChatMessage,
     ToolArgumentPreviewDeltaEvent,
     ToolCall,
     ToolCallDeltaEvent,
+    ToolChatMessage,
     ToolResultEvent,
+    UserChatMessage,
 )
 from setta.types.id import ID
 from setta.types.protocol import SectionDependencyKey

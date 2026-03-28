@@ -1,17 +1,15 @@
 from typing import Literal
 
 from setta.types.generated.go_shared_types import (
+    AssistantChatMessage,
     ChatFileAttachment,
     MessageImageURL,
     MessageImageURLContent,
     MessageTextContent,
     MessageThinkingContent,
+    SystemChatMessage,
     ToolCall,
     ToolReferenceContent,
-)
-from setta.types.chat import (
-    AssistantChatMessage,
-    SystemChatMessage,
     UserChatMessage,
 )
 

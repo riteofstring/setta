@@ -1,16 +1,19 @@
 from typing import Awaitable, Callable, NotRequired, TypedDict
 
-from setta.types.chat import (
+from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
+    ChatMetadata,
+    SystemChatMessage,
+    ToolCall,
+    ToolChatMessage,
+    UserChatMessage,
+)
+from setta.types.chat import (
     BaseChatMessageUnion,
     Chat,
     ChatSectionState,
     LLMStreamingResponseChunk,
-    SystemChatMessage,
-    ToolChatMessage,
-    UserChatMessage,
 )
-from setta.types.generated.go_shared_types import ChatMetadata, ToolCall
 from setta.types.id import ID
 
 ListenerEndpointCaller = Callable[[str, object], Awaitable[object]]

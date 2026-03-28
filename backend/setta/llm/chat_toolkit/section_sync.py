@@ -1,20 +1,20 @@
 from pydantic import TypeAdapter
 from setta.types.chat import (
-    AssistantChatMessage,
     BaseChatMessageUnion,
     BaseChatMessageUnionWithDiscriminator,
     ChatSectionBranch,
     ChatSectionState,
     LLMStreamingResponseChunk,
-    ToolChatMessage,
 )
 from setta.types.generated.go_shared_types import (
+    AssistantChatMessage,
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
     MessageStopEvent,
     MessageTextContent,
     MessageThinkingContent,
+    ToolChatMessage,
     ToolArgumentPreviewDeltaEvent,
     ToolCall,
     ToolCallDeltaEvent,

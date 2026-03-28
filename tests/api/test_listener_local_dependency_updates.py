@@ -16,11 +16,10 @@ from setta.sdk_contracts.generated import (
     ListenerSnapshot,
 )
 from setta.types.chat import (
-    AssistantChatMessage,
     ChatSectionState,
-    UserChatMessage,
 )
 from setta.types.generated.go_shared_types import (
+    AssistantChatMessage,
     DependencyValueType,
     ListenerDependencyMode,
     ListenerMessageType,
@@ -31,6 +30,7 @@ from setta.types.generated.go_shared_types import (
     MessageTextContent,
     SectionRepresentationMode,
     SectionType,
+    UserChatMessage,
 )
 from setta.types.id import ID
 from setta.types.protocol import create_dep_key
