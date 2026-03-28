@@ -4422,3 +4422,27 @@ Record:
     - representative requests returned `200`, including `/api/loadSettings`, `/api/loadProjectConfig`, `/api/getFileBrowserRoot`, `/api/getFolderContents`, `/api/serverMode`, and `/api/authRefreshStatus`
 - Next action:
   - Continue the retained-scene seam lift by moving the remaining caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/SectionContainerArea.tsx`, starting with the window-surface caller in `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`.
+
+## 2026-03-28 154
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`.
+- Status: `done`
+- Details:
+  - Raised the remaining window-surface dict-area handoff so `SectionWindowSurfaceBody` now owns the dict renderer seam above `SectionContainerArea` instead of leaving that ownership in the generic area boundary:
+    - `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`
+    - `frontend/src/components/Section/Container/SectionWindowSurfaceBody.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionWindowSurfaceBody` on the same override-vs-area-vs-none branching path
+    - routing dict sections through `SectionContainerAreaDictBoundary` from the window-surface caller via `renderDictArea(...)`
+    - leaving the current floating/window-surface dict/param DOM path intact while shrinking `SectionContainerArea.tsx` ownership further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionWindowSurfaceBody.test.tsx src/components/Section/Container/sectionWindowSurfaceBodyView.test.ts src/components/Section/Container/SectionWindowSurface.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - directly exercised the floating/window-surface path on the visible `gui` section by clicking `Open section in floating window`
+    - the resulting floating surface rendered dict/param content cleanly, including `defaultZoomLevel`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Pan On Scroll`, `Selection Mode`, `Show Grid Lines`, `Wire Color`, and `Zoom On Pinch`, with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAgentRuns`, and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Continue the retained-scene seam lift by moving the remaining caller-owned dict-area renderer seam one level higher above `frontend/src/components/Section/Container/SectionWindowSurfaceBody.tsx`, starting with `frontend/src/components/Section/Container/SectionWindowSurface.tsx`.
