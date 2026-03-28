@@ -152,7 +152,7 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
 
     @listener.listen(
         deps=[dep_id(section_id)],
-        dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+        dependency_mode=ListenerDependencyMode.realtime_only,
     )
     async def _noop(_state, _ctx) -> None:
         return None

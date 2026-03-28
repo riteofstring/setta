@@ -1151,9 +1151,9 @@ class SettaListener:
             dependencies = tuple(deps) if deps is not None else ()
             if dependency_mode is None:
                 if deps_provided:
-                    normalized_mode = ListenerDependencyMode.ALWAYS
+                    normalized_mode = ListenerDependencyMode.always
                 else:
-                    normalized_mode = ListenerDependencyMode.REFRESH_ONLY
+                    normalized_mode = ListenerDependencyMode.refresh_only
             else:
                 try:
                     normalized_mode = ListenerDependencyMode(dependency_mode)
@@ -1166,7 +1166,7 @@ class SettaListener:
                     ) from error
                 if (
                     not deps_provided
-                    and normalized_mode is not ListenerDependencyMode.REFRESH_ONLY
+                    and normalized_mode is not ListenerDependencyMode.refresh_only
                 ):
                     raise ValueError(
                         "Listener dependency_mode requires deps (use deps=[] for all dependencies)"
@@ -1416,14 +1416,14 @@ class SettaListener:
                 continue
 
             mode = spec.dependency_mode
-            if mode is ListenerDependencyMode.REALTIME_ONLY:
+            if mode is ListenerDependencyMode.realtime_only:
                 continue
 
-            if mode is ListenerDependencyMode.ALWAYS:
+            if mode is ListenerDependencyMode.always:
                 should_run = bool(changed) or spec.run_on_refresh
                 if not spec.dependency_names:
                     should_run = True
-            else:  # ListenerDependencyMode.REFRESH_ONLY
+            else:  # ListenerDependencyMode.refresh_only
                 should_run = True
 
             if should_run:
@@ -1762,7 +1762,7 @@ class SettaListener:
 
         callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
         for spec in self._callbacks.values():
-            if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
+            if spec.dependency_mode is ListenerDependencyMode.refresh_only:
                 continue
             if not spec.structured_dependencies:
                 changed = {
@@ -1847,7 +1847,7 @@ class SettaListener:
         callbacks_to_run: dict[str, list[DependencyEvent]] = {}
         for event in content.dependencyEvents:
             for spec in self._callbacks.values():
-                if spec.dependency_mode is ListenerDependencyMode.REFRESH_ONLY:
+                if spec.dependency_mode is ListenerDependencyMode.refresh_only:
                     continue
                 if not spec.structured_dependencies:
                     callbacks_to_run.setdefault(spec.callback_id, []).append(event)
@@ -2214,7 +2214,7 @@ class SettaListener:
 
         for spec in self._callbacks.values():
             self._scheduler.reset(spec.callback_id)
-            if spec.dependency_mode is ListenerDependencyMode.REALTIME_ONLY:
+            if spec.dependency_mode is ListenerDependencyMode.realtime_only:
                 continue
             dependencies = spec.dependency_names
             if not dependencies:

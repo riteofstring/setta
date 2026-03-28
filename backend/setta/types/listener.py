@@ -1,4 +1,3 @@
-from enum import Enum
 from typing import Annotated, Literal
 
 from pydantic import Field, PrivateAttr, TypeAdapter, model_validator
@@ -98,10 +97,7 @@ from setta.types.generated.go_shared_types import (
 from setta.types.id import ID
 
 
-class ListenerDependencyMode(str, Enum):
-    REFRESH_ONLY = GeneratedListenerDependencyMode.refresh_only.value
-    REALTIME_ONLY = GeneratedListenerDependencyMode.realtime_only.value
-    ALWAYS = GeneratedListenerDependencyMode.always.value
+ListenerDependencyMode = GeneratedListenerDependencyMode
 
 
 class ListenerInitContent(SDKListenerInitRequest):

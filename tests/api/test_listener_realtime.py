@@ -715,7 +715,7 @@ class TestSettaListenerRealtimeIntegration:
 
         @listener.listen(
             deps=(dependency_key,),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+            dependency_mode=ListenerDependencyMode.realtime_only,
         )
         def on_action(_state, ctx):
             action_calls.append(
@@ -785,7 +785,7 @@ class TestSettaListenerRealtimeIntegration:
 
         @listener.listen(
             deps=(dependency_key,),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+            dependency_mode=ListenerDependencyMode.realtime_only,
         )
         def on_action(state, ctx):
             pass
@@ -822,7 +822,7 @@ class TestSettaListenerRealtimeIntegration:
 
         @listener.listen(
             deps=("Welcome",),
-            dependency_mode=ListenerDependencyMode.REFRESH_ONLY,
+            dependency_mode=ListenerDependencyMode.refresh_only,
         )
         def on_refresh(_state, ctx):
             refresh_calls.append(dict(ctx.changed))
@@ -874,7 +874,7 @@ class TestSettaListenerRealtimeIntegration:
 
         @listener.listen(
             deps=("Welcome",),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+            dependency_mode=ListenerDependencyMode.realtime_only,
         )
         def on_realtime(_state, ctx):
             realtime_calls.append(dict(ctx.changed))
@@ -930,7 +930,7 @@ class TestSettaListenerRealtimeIntegration:
         refresh_spec = next(
             spec for spec in listener._callbacks.values() if spec.function is on_refresh
         )
-        assert refresh_spec.dependency_mode == ListenerDependencyMode.REFRESH_ONLY
+        assert refresh_spec.dependency_mode == ListenerDependencyMode.refresh_only
 
         section_id = next(iter(project_state.sections))
         dependency_key = create_dep_key(sectionId=section_id)
@@ -959,7 +959,7 @@ class TestSettaListenerRealtimeIntegration:
             return None
 
         spec = next(iter(listener._callbacks.values()))
-        assert spec.dependency_mode == ListenerDependencyMode.ALWAYS
+        assert spec.dependency_mode == ListenerDependencyMode.always
 
     async def test_listener_rejects_invalid_dependency_mode_inputs(self) -> None:
         listener = SettaListener(project_name="Demo Project")
@@ -975,7 +975,7 @@ class TestSettaListenerRealtimeIntegration:
             match="Listener dependency_mode requires deps",
         ):
 
-            @listener.listen(dependency_mode=ListenerDependencyMode.REALTIME_ONLY)
+            @listener.listen(dependency_mode=ListenerDependencyMode.realtime_only)
             def _missing_deps(_state, _ctx) -> None:
                 return None
 
@@ -986,7 +986,7 @@ class TestSettaListenerRealtimeIntegration:
 
         @listener.listen(
             deps=(),
-            dependency_mode=ListenerDependencyMode.REALTIME_ONLY,
+            dependency_mode=ListenerDependencyMode.realtime_only,
         )
         def on_realtime(_state, ctx):
             realtime_calls.append(dict(ctx.changed))
@@ -1041,7 +1041,7 @@ class TestSettaListenerRealtimeIntegration:
 
         @listener.listen(
             deps=(),
-            dependency_mode=ListenerDependencyMode.ALWAYS,
+            dependency_mode=ListenerDependencyMode.always,
         )
         def on_any(_state, ctx):
             any_calls.append(dict(ctx.changed))

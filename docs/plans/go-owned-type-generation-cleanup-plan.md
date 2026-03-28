@@ -216,6 +216,9 @@ That means:
 - `backend/setta/types/artifact.py` no longer hand-owns chart-settings field layouts:
   - the Python chart-settings classes now subclass Go-generated models and only keep discriminator literals
 - `backend/setta/types/listener.py` no longer owns the dependency-mode values; it now wraps the Go-owned generated values and keeps only the Python-facing member names and runtime glue.
+- the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
+  - `backend/setta/types/listener.py` now re-exports the generated `ListenerDependencyMode` directly
+  - listener callers/tests now use the Go-owned enum member names directly (`always`, `realtime_only`, `refresh_only`) instead of legacy uppercase aliases
 - the Go -> Python generator now applies discovered wrapper overrides to nested owner-backed field types too, so generated Python models use the same public wrapper names for embedded fields that they use for top-level discovered roots.
 - the Go -> Python generator now also preserves named Go string-enum field types inside generated models instead of flattening them to plain `str`, which makes the generated Python surface much closer to the real backend schema.
 - `internal/stringenumvalues` now resolves named string wrappers transitively across imported owner types, so the TS generator no longer needs hardcoded enum cases for:
