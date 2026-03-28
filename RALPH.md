@@ -56,7 +56,7 @@ This file is the reusable loop entrypoint for this worktree.
   - `auto` relaunches Ralph visibly when possible: `cmux` in a cmux shell, `tmux` in a tmux shell, `Terminal.app` in Apple Terminal, otherwise background launch
   - `background` always launches lifecycle processes in the background with logs under the loop output dir
   - `tmux` requires a live tmux shell and opens lifecycle processes in new tmux windows
-  - `cmux` requires a live cmux shell and opens lifecycle processes in new cmux workspaces
+  - `cmux` requires a live cmux shell and opens lifecycle processes in new terminal tabs inside the current cmux workspace
   - `terminal` opens lifecycle processes in new macOS Terminal windows
 - `aireset` and `restart-aireset` fall back to `ai.sh` if `aireset.sh` fails.
 - Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.

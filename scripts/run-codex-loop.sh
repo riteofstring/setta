@@ -331,7 +331,7 @@ start_command_in_tmux_window() {
   tmux new-window -n "${session_name}" "${terminal_command}"
 }
 
-start_command_in_cmux_workspace() {
+start_command_in_cmux_surface() {
   local target_name="$1"
   local target_root="$2"
   local label="$3"
@@ -341,7 +341,7 @@ start_command_in_cmux_workspace() {
   local session_name=""
   local log_path=""
   local terminal_command=""
-  local workspace_ref=""
+  local surface_ref=""
 
   if ! command -v cmux >/dev/null 2>&1 || [[ -z "${CMUX_WORKSPACE_ID:-}" ]]; then
     echo "cmux launch requested, but this shell is not running inside cmux." >&2
@@ -352,10 +352,15 @@ start_command_in_cmux_workspace() {
   log_path="${run_dir}/${target_name}-${label}.log"
   terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
 
-  echo "[bootstrap] ${target_name}: opening cmux workspace ${session_name} for ${command_display}"
-  workspace_ref="$(cmux new-workspace --cwd "${target_root}" --command "${terminal_command}" || true)"
-  if [[ -n "${workspace_ref}" ]]; then
-    cmux rename-workspace --workspace "${workspace_ref}" "${session_name}" >/dev/null 2>&1 || true
+  echo "[bootstrap] ${target_name}: opening cmux tab ${session_name} for ${command_display}"
+  surface_ref="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"
+  if [[ -n "${surface_ref}" ]]; then
+    cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
+    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${terminal_command}" >/dev/null 2>&1 || true
+    cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1 || true
+  else
+    echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
+    exit 1
   fi
 }
 
@@ -404,7 +409,7 @@ start_command_in_visible_terminal() {
       start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
       ;;
     cmux)
-      start_command_in_cmux_workspace "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
+      start_command_in_cmux_surface "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
       ;;
     terminal)
       start_command_in_terminal_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
