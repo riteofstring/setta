@@ -11,21 +11,24 @@ import {
   createAppRouter,
   type CreateAppRouterArgs,
 } from "components/Pages/router";
-import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { RouterProvider, type RouterProviderProps } from "react-router-dom";
 
 export type AppProps = {
   router: RouterProviderProps["router"];
 };
 
-type BuildAppPropsInput = Pick<CreateAppRouterArgs, "renderDictArea">;
+type BuildAppPropsInput = Pick<
+  CreateAppRouterArgs,
+  "SectionBoundary" | "renderDictArea"
+>;
 
 export function buildAppProps({
+  SectionBoundary,
   renderDictArea,
 }: BuildAppPropsInput): AppProps {
   return {
     router: createAppRouter({
-      SectionBoundary: SectionContainerBoundary,
+      SectionBoundary,
       renderDictArea,
     }),
   };

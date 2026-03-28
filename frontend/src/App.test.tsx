@@ -7,7 +7,7 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("owns the lifted section-boundary seam above router.tsx", async () => {
+  it("accepts a caller-owned section boundary above router.tsx", async () => {
     const router = {
       dispose: vi.fn(),
       navigate: vi.fn(),
@@ -15,22 +15,21 @@ describe("App", () => {
       subscribe: vi.fn(),
     };
     const renderDictArea = vi.fn();
-    const SectionContainerBoundary = vi.fn();
+    const SectionBoundary = vi.fn();
 
     vi.doMock("components/Pages/router", () => ({
       createAppRouter: vi.fn(() => router),
-    }));
-    vi.doMock("components/Section/Container/SectionContainerBoundary", () => ({
-      SectionContainerBoundary,
     }));
 
     const { buildAppProps } = await import("./App");
     const { createAppRouter } = await import("components/Pages/router");
 
-    expect(buildAppProps({ renderDictArea })).toEqual({ router });
+    expect(buildAppProps({ SectionBoundary, renderDictArea })).toEqual({
+      router,
+    });
     expect(createAppRouter).toHaveBeenCalledOnce();
     expect(createAppRouter).toHaveBeenCalledWith({
-      SectionBoundary: SectionContainerBoundary,
+      SectionBoundary,
       renderDictArea,
     });
   });

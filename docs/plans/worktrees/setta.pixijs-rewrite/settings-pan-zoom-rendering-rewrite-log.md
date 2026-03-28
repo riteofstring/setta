@@ -5802,3 +5802,33 @@ Record:
     - remaining console noise was limited to existing React 19 `ref` warnings plus a form-field accessibility issue
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-App-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/App.tsx`, starting with `frontend/src/index.tsx`.
+
+## 2026-03-28 194
+
+- Item: Lift the App-owned `SectionContainerBoundary` seam into `frontend/src/index.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the entrypoint now owns the default `SectionContainerBoundary` handoff above `frontend/src/App.tsx`:
+    - `frontend/src/index.tsx`
+    - `frontend/src/index.test.tsx`
+    - `frontend/src/App.tsx`
+    - `frontend/src/App.test.tsx`
+  - Preserved the current non-Pixi behavior for:
+    - `index.tsx` now owning `buildAppProps({ SectionBoundary: SectionContainerBoundary, renderDictArea })` while still subscribing once and mounting the same strict-mode app shell
+    - `App.tsx` shrinking into a thinner caller-owned adapter that accepts `SectionBoundary` plus `renderDictArea` and still builds the same router before handing off to `RouterProvider`
+    - the focused entrypoint/app tests now pin the lifted ownership split while keeping the router module on the same caller-owned boundary contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/App.test.tsx src/index.test.tsx src/components/Pages/routerModule.test.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/App.tsx src/App.test.tsx src/index.tsx src/index.test.tsx src/components/Pages/router.tsx src/components/Pages/routerModule.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - verified `/home`
+    - created a fresh project and verified the resulting live project route `http://127.0.0.1:3044/jumping_caring`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, blank state, or seam-lift-specific regression
+    - representative visible labels included `New Project`, `Open settings`, `Go`, `Project`, `Edit`, `Run`, `PROJECT AI CHAT`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, `toggle minimap`, and `fit view`
+    - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/getFileBrowserRoot`, `POST /api/getAIFollowSnapshot`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-entrypoint-owned `SectionContainerBoundary` seam into the next higher bootstrap/runtime caller layer above `frontend/src/index.tsx`.
