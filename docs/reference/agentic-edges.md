@@ -16,7 +16,7 @@ Scope semantics (used by agentic scope enforcement):
 
 ## Data model
 Agentic edges live on `ProjectConfig.agenticEdges` and use the `AgenticEdge`
-model (`backend/setta/types/agentic_edges.py`):
+model (`backend/setta/types/project_config.py`):
 - `id`: edge id.
 - `sourceSectionId` / `targetSectionId`: section endpoints (no port ids).
 - `kind`: one of the edge kinds above.
