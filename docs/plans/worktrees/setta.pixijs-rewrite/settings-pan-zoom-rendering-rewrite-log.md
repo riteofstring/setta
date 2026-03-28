@@ -5254,3 +5254,33 @@ Record:
     - representative requests returned `200`, including `POST /api/createTopLevelSection`, `POST /api/createChildSections`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the new `SectionContainerSection` boundary into the next higher caller layer above `frontend/src/components/Section/Container/SectionContainerSection.tsx` while keeping the unstable direct `/settings` canary explicit.
+
+## 2026-03-28 179
+
+- Item: Lift the top-level section boundary ownership into `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section seam one caller higher so `SectionContainerBoundary.tsx` now owns the `isTopLevel={true}` handoff above `SectionContainerSection.tsx` instead of mirroring that prop from the xyflow node wrapper:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+    - `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+  - Updated focused coverage to pin the lifted top-level boundary ownership and keep optional drag-listener forwarding intact:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `SectionContainerBoundary.tsx` now explicitly owning the top-level section handoff while still delegating into the recursive `SectionContainerSection` wrapper
+    - `wrapNode.tsx` shrinking into a thinner xyflow mount seam that only supplies the section id to the lifted top-level boundary
+    - the existing top-level section DOM path staying stable while the retained-scene seam moves one caller higher above `SectionContainerSection.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerBoundary.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/forks/xyflow/core/components/wrapNode.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3043/palm_wood`) in a fresh sub-agent context:
+    - the live project route loaded without requiring a fresh bootstrap session, and the UI switched into the `OVERVIEW` tab successfully
+    - the target top-level `ListRoot` section (`section[data-section-id="01385ba6-a2a2-418a-a112-2124fe1d84b2"]`) was visibly rendered with no obvious clipping or overlap in the canary area
+    - representative visible labels included `OVERVIEW`, `palm_wood`, `Generated Python Code`, `ListRoot`, `thick_calling`, and `sliding_sleet`
+    - representative requests returned `200`, including `GET /palm_wood`, `GET /api/serverMode`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/runCode`, `POST /api/setTopLevelSectionLayout`, and `GET /api/getAgentRuns`
+    - the same route did not present a visible nested-child subtree beneath that `ListRoot`, so this CDP pass stayed scoped to the top-level section-boundary seam rather than claiming nested child-layout verification
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-top-level-owned `SectionContainerBoundary` seam into the next higher xyflow caller layer above `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`.

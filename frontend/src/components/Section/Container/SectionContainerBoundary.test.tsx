@@ -19,14 +19,28 @@ vi.mock("./SectionContainerSection", () => ({
 }));
 
 describe("SectionContainerBoundary", () => {
-  it("delegates the top-level section props into the lifted section-container boundary", () => {
+  it("owns the top-level section handoff above the lifted section-container boundary", () => {
     const markup = renderToStaticMarkup(
-      <SectionContainerBoundary sectionId="section-1" isTopLevel={true} />,
+      <SectionContainerBoundary sectionId="section-1" />,
     );
 
     expect(markup).toContain('data-testid="mock-section-container-section"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-is-top-level="true"');
     expect(markup).toContain('data-has-drag-listeners="false"');
+  });
+
+  it("still forwards drag listeners through the lifted top-level boundary", () => {
+    const markup = renderToStaticMarkup(
+      <SectionContainerBoundary
+        sectionId="section-2"
+        dragListeners={{ onPointerDown: "listener" }}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="mock-section-container-section"');
+    expect(markup).toContain('data-section-id="section-2"');
+    expect(markup).toContain('data-is-top-level="true"');
+    expect(markup).toContain('data-has-drag-listeners="true"');
   });
 });

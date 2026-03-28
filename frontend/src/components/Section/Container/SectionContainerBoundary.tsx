@@ -4,10 +4,13 @@ import {
   type SectionContainerSectionProps,
 } from "./SectionContainerSection";
 
-type SectionContainerBoundaryProps = SectionContainerSectionProps;
+export type SectionContainerBoundaryProps = Omit<
+  SectionContainerSectionProps,
+  "isTopLevel"
+>;
 
 function _SectionContainerBoundary(props: SectionContainerBoundaryProps) {
-  return <SectionContainerSection {...props} />;
+  return <SectionContainerSection {...props} isTopLevel={true} />;
 }
 
 export const SectionContainerBoundary = React.memo(_SectionContainerBoundary);

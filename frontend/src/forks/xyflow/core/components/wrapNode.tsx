@@ -69,7 +69,7 @@ const _NodeWrapper = ({
       data-id={id}
       data-testid={`rf__node-${id}`}
     >
-      <SectionContainerBoundary sectionId={id} isTopLevel={true} />
+      <SectionContainerBoundary sectionId={id} />
     </div>
   );
 };
