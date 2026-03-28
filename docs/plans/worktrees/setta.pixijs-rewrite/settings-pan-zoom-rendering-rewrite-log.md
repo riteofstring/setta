@@ -928,3 +928,30 @@ Record:
     - relevant requests returned `200`, including `/api/serverMode`, `/api/loadSettings`, `/api/backendInitStatus`, `/api/authRefreshStatus`, `/api/loadProjectConfig`, and `/api/getLatestLspDiagnostics`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next node-level scene-owned packet above this dict-area visual boundary before any broad Pixi node drawing lands.
+
+## 2026-03-26 036
+
+- Item: Lift the live dict-area scene and visual composition into one higher-level node scene packet boundary.
+- Status: `done`
+- Details:
+  - Added a pure typed node-scene packet helper above the existing live param-area scene packet and node visual packet layers:
+    - `frontend/src/components/Params/groupContainerNodeScenePacket.ts`
+    - `frontend/src/components/Params/groupContainerNodeScenePacket.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to build one live dict-area node scene packet and consume its `visualPacket` instead of stitching together the scene, layout, block, renderer, and visual helpers inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the live edge-strip scene inputs, live param-area scene packet, and higher-level node visual packet from one typed boundary
+    - keeps the current DOM mount path stable while hiding the intermediate scene/layout/block/renderer helper chain behind one deeper module
+    - leaves the existing edge-strip and pinned/unpinned DOM surfaces intact while exposing both `scenePacket` and `visualPacket` from the same node-level contract for the future retained-scene renderer
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeScenePacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+    - `All Settings` was visible and the visible settings/dict-param stack rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, `languageServer`, `defaultZoomLevel 1.0`, `Grid Color`, `Pan On Drag`, and `Auto Refetch Callable Params On LSP Mismatch`
+    - relevant requests returned `200`, including `/api/authRefreshStatus`, `/api/loadSettings`, `/api/loadProjectConfig`, `/api/getDefaultConfigName`, and `/api/llm/apiKeys`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next higher-level scene-owned packet above `groupContainerNodeScenePacket.ts`, using this deeper node boundary as the single live dict-area composition input before any broad Pixi node drawing lands.

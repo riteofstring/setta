@@ -51,14 +51,8 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import type { LiveDictAreaEdgeStripVisualPacket } from "./groupContainerEdgeStripVisualPacket";
-import { buildLiveDictAreaNodeLayoutView } from "./groupContainerNodeLayoutView";
-import { buildLiveDictAreaNodeVisualPacket } from "./groupContainerNodeVisualPacket";
+import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
-import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
-import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
-import {
-  buildLiveDictAreaSceneRendererPackets,
-} from "./groupContainerSceneRendererPackets";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
 import { getPinnedParamsBgClassName } from "./groupContainerView";
 import {
@@ -287,86 +281,56 @@ function _ParamGroupContainer({
       }),
     _.isEqual,
   );
-  const liveDictAreaNodeLayoutView = useMemo(
+  const liveDictAreaNodeScenePacket = useMemo(
     () =>
-      buildLiveDictAreaNodeLayoutView({
-        inputPortCount: edgeInputParams.length,
-        outputPortCount: edgeOutputPorts.length,
-        liveScenePacket: buildLiveDictAreaScenePacket({
-          edgeInputParams,
-          hideUnpinnedParams,
-          paramFilter,
-          getParamDisplayName: (paramId: string) =>
-            displayNamesById[paramId] ?? paramId,
-          pinned: {
-            requiredParamIdsToPaths: pinnedRequiredParamIdsToPaths,
-            topLevelParamIds: pinnedTopLevelParamIds,
-          },
-          unpinned: {
-            canEditLayout,
-            configuredMinHeight: unpinnedParamsAreaMinHeight,
-            pinnedRequiredParamIdsToPaths,
-            pinnedTopLevelParamIds,
-            positionAndSizeLocked,
-            requiredParamIdsToPaths: unpinnedRequiredParamIdsToPaths,
-            topLevelParamIds: unpinnedTopLevelParamIds,
-          },
-        }),
+      buildLiveDictAreaNodeScenePacket({
+        canConnect: canEditStructure && !isSelectingParams,
+        edgeInputParams,
+        hideUnpinnedParams,
+        paramFilter,
+        getParamDisplayName: (paramId: string) =>
+          displayNamesById[paramId] ?? paramId,
+        inputPorts: edgeInputPorts,
+        isSelectingParams,
+        outputPorts: edgeOutputPorts,
+        pinned: {
+          requiredParamIdsToPaths: pinnedRequiredParamIdsToPaths,
+          topLevelParamIds: pinnedTopLevelParamIds,
+        },
+        selectedParamIds: selectedParams,
+        unpinned: {
+          canEditLayout,
+          configuredMinHeight: unpinnedParamsAreaMinHeight,
+          pinnedRequiredParamIdsToPaths,
+          pinnedTopLevelParamIds,
+          positionAndSizeLocked,
+          requiredParamIdsToPaths: unpinnedRequiredParamIdsToPaths,
+          topLevelParamIds: unpinnedTopLevelParamIds,
+        },
       }),
     [
       canEditLayout,
+      canEditStructure,
       displayNamesById,
-      edgeOutputPorts.length,
       edgeInputParams,
+      edgeInputPorts,
+      edgeOutputPorts,
       hideUnpinnedParams,
+      isSelectingParams,
       paramFilter,
       pinnedRequiredParamIdsToPaths,
       pinnedTopLevelParamIds,
       positionAndSizeLocked,
+      selectedParams,
       unpinnedParamsAreaMinHeight,
       unpinnedRequiredParamIdsToPaths,
       unpinnedTopLevelParamIds,
     ],
   );
-  const liveDictAreaSceneBlockView = useMemo(
-    () =>
-      buildLiveDictAreaSceneBlockView({
-        nodeLayoutView: liveDictAreaNodeLayoutView,
-      }),
-    [liveDictAreaNodeLayoutView],
-  );
-  const liveDictAreaSceneRendererPackets = useMemo(
-    () =>
-      buildLiveDictAreaSceneRendererPackets({
-        sceneBlockView: liveDictAreaSceneBlockView,
-      }),
-    [liveDictAreaSceneBlockView],
-  );
-  const liveDictAreaNodeVisualPacket = useMemo(
-    () =>
-      buildLiveDictAreaNodeVisualPacket({
-        edgeStrip: {
-          canConnect: canEditStructure && !isSelectingParams,
-          inputPorts: edgeInputPorts,
-          isSelectingParams,
-          outputPorts: edgeOutputPorts,
-          selectedParamIds: selectedParams,
-        },
-        rendererPackets: liveDictAreaSceneRendererPackets,
-      }),
-    [
-      canEditStructure,
-      edgeInputPorts,
-      edgeOutputPorts,
-      isSelectingParams,
-      liveDictAreaSceneRendererPackets,
-      selectedParams,
-    ],
-  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeVisualPacket.maxNestedDepth);
-  }, [liveDictAreaNodeVisualPacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeScenePacket.visualPacket.maxNestedDepth);
+  }, [liveDictAreaNodeScenePacket.visualPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -379,7 +343,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeVisualPacket.blocks.map((block) => {
+        {liveDictAreaNodeScenePacket.visualPacket.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
