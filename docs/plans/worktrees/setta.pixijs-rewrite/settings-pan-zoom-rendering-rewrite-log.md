@@ -1143,3 +1143,30 @@ Record:
     - representative requests returned `200`, including `GET /api/backendInitStatus`, `POST /api/loadSettings`, and `GET /api/authRefreshStatus`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned painter helper from `groupContainerNodePainterPacket.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-26 044
+
+- Item: Extract the pinned param-area block into the next block-specific scene-owned painter helper.
+- Status: `done`
+- Details:
+  - Added a pure typed painter-packet helper for the live dict-area pinned param area:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaPainterPacket.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaPainterPacket.test.ts`
+  - Updated the higher-level node painter packet boundary to compose through the new pinned helper instead of building the pinned painter block inline:
+    - `frontend/src/components/Params/groupContainerNodePainterPacket.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the pinned param-area draw block into one explicit painter packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node painter packet as a composition boundary instead of a mixed composition-plus-pinned-block-shaping module
+    - leaving the current DOM pinned param-area mount path intact while deepening the future retained-scene block-specific painter contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerPinnedParamAreaPainterPacket.test.ts src/components/Params/groupContainerNodePainterPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+    - `All Settings` was visible and the settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `All Settings`, `Grid Color`, `Pan On Drag`, `Auto Refetch Callable Params On LSP Mismatch`, and `Auto Backup`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, and `POST /api/getLatestLspDiagnostics`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned painter helper from `groupContainerNodePainterPacket.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.

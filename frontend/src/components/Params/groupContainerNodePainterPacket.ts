@@ -1,36 +1,25 @@
-import type {
-  LiveDictAreaNodeDrawBlock,
-  LiveDictAreaNodeDrawPacket,
-  LiveDictAreaPinnedParamAreaDrawPacket,
-  LiveDictAreaUnpinnedParamAreaDrawPacket,
-} from "./groupContainerNodeDrawPacket";
 import {
   buildLiveDictAreaEdgeStripPainterPacket,
   type LiveDictAreaEdgeStripPainterPacket,
 } from "./groupContainerEdgeStripPainterPacket";
+import type {
+  LiveDictAreaNodeDrawBlock,
+  LiveDictAreaNodeDrawPacket,
+  LiveDictAreaUnpinnedParamAreaDrawPacket,
+} from "./groupContainerNodeDrawPacket";
+import {
+  buildLiveDictAreaPinnedParamAreaPainterPacket,
+  type LiveDictAreaPinnedParamAreaPainterPacket,
+} from "./groupContainerPinnedParamAreaPainterPacket";
 
-export type LiveDictAreaPinnedParamAreaPainterPacket = {
-  blockId: LiveDictAreaPinnedParamAreaDrawPacket["blockId"];
-  kind: LiveDictAreaPinnedParamAreaDrawPacket["kind"];
-  mount: LiveDictAreaPinnedParamAreaDrawPacket["mount"];
-  positionAndSizeLocked:
-    LiveDictAreaPinnedParamAreaDrawPacket["surfacePacket"]["positionAndSizeLocked"];
-  sectionTypeName:
-    LiveDictAreaPinnedParamAreaDrawPacket["surfacePacket"]["sectionTypeName"];
-  styleColor:
-    LiveDictAreaPinnedParamAreaDrawPacket["surfacePacket"]["styleColor"];
-  visualPacket:
-    LiveDictAreaPinnedParamAreaDrawPacket["surfacePacket"]["visualPacket"];
-};
+export type { LiveDictAreaPinnedParamAreaPainterPacket } from "./groupContainerPinnedParamAreaPainterPacket";
 
 export type LiveDictAreaUnpinnedParamAreaPainterPacket = {
   blockId: LiveDictAreaUnpinnedParamAreaDrawPacket["blockId"];
   kind: LiveDictAreaUnpinnedParamAreaDrawPacket["kind"];
   mount: LiveDictAreaUnpinnedParamAreaDrawPacket["mount"];
-  styleColor:
-    LiveDictAreaUnpinnedParamAreaDrawPacket["surfacePacket"]["styleColor"];
-  visualPacket:
-    LiveDictAreaUnpinnedParamAreaDrawPacket["surfacePacket"]["visualPacket"];
+  styleColor: LiveDictAreaUnpinnedParamAreaDrawPacket["surfacePacket"]["styleColor"];
+  visualPacket: LiveDictAreaUnpinnedParamAreaDrawPacket["surfacePacket"]["visualPacket"];
 };
 
 export type LiveDictAreaNodePainterBlock =
@@ -59,7 +48,9 @@ export function buildLiveDictAreaNodePainterPacket({
       })
     : null;
   const pinnedParamAreaBlock = nodeDrawPacket.pinnedParamAreaBlock
-    ? buildPinnedParamAreaPainterPacket(nodeDrawPacket.pinnedParamAreaBlock)
+    ? buildLiveDictAreaPinnedParamAreaPainterPacket({
+        drawPacket: nodeDrawPacket.pinnedParamAreaBlock,
+      })
     : null;
   const unpinnedParamAreaBlock = nodeDrawPacket.unpinnedParamAreaBlock
     ? buildUnpinnedParamAreaPainterPacket(nodeDrawPacket.unpinnedParamAreaBlock)
@@ -105,19 +96,6 @@ function buildNodePainterBlock({
   }
 
   return unpinnedParamAreaBlock;
-}
-function buildPinnedParamAreaPainterPacket(
-  drawPacket: LiveDictAreaPinnedParamAreaDrawPacket,
-): LiveDictAreaPinnedParamAreaPainterPacket {
-  return {
-    blockId: drawPacket.blockId,
-    kind: drawPacket.kind,
-    mount: drawPacket.mount,
-    positionAndSizeLocked: drawPacket.surfacePacket.positionAndSizeLocked,
-    sectionTypeName: drawPacket.surfacePacket.sectionTypeName,
-    styleColor: drawPacket.surfacePacket.styleColor,
-    visualPacket: drawPacket.surfacePacket.visualPacket,
-  };
 }
 
 function buildUnpinnedParamAreaPainterPacket(
