@@ -577,9 +577,10 @@ test.describe.serial("state machine sections", () => {
         "workflow-edge--signal",
       );
 
-      await page
-        .getByTestId(`workflow-edge-hitbox-${chatToEndEdge.id}`)
-        .click({ force: true });
+      await selectStateMachineEdge(
+        page,
+        chatToEndEdge.id,
+      );
       const inspector = page.getByTestId("workflow-edge-inspector");
       await expect(inspector).toBeVisible();
       await selectComboboxOption(
@@ -2469,7 +2470,11 @@ async function selectStateMachineEdge(
     .toBe(true);
   await page.evaluate(
     async ({ workflowEdgeId }) => {
+      const { setActiveSectionIds } = await import(
+        "/src/state/actions/activeSections.ts"
+      );
       const { useProjectState } = await import("/src/state/definitions.ts");
+      setActiveSectionIds([], { syncMode: "ui-only" });
       useProjectState.setState((state) => {
         for (const edge of state.projectConfig.stateMachineEdges) {
           edge.selected = edge.id === workflowEdgeId;
@@ -2488,11 +2493,15 @@ async function selectStateMachineEdge(
               .getState()
               .projectConfig.stateMachineEdges.filter((edge) => edge.selected)
               .map((edge) => edge.id);
+            const activeSectionIds =
+              definitions.useActiveSectionUI.getState().activeIds;
             return {
               selected:
                 selectedEdgeIds.length === 1 &&
-                selectedEdgeIds[0] === workflowEdgeId,
+                selectedEdgeIds[0] === workflowEdgeId &&
+                activeSectionIds.length === 0,
               selectedEdgeIds,
+              activeSectionIds,
             };
           },
           { workflowEdgeId: edgeId },
@@ -2501,6 +2510,7 @@ async function selectStateMachineEdge(
     )
     .toMatchObject({
       selected: true,
+      activeSectionIds: [],
       selectedEdgeIds: [edgeId],
     });
 }
@@ -2511,9 +2521,13 @@ async function selectComboboxOption(
   optionName: string,
 ): Promise<void> {
   const input = page.locator(inputSelector);
-  await input.click();
-  await input.fill(optionName);
-  await page.getByRole("option", { name: optionName, exact: true }).click();
+  const option = page.getByRole("option", { name: optionName, exact: true });
+  await expect(input).toBeVisible();
+  await input.focus();
+  await page.keyboard.press("ArrowDown");
+  await expect(option).toBeVisible();
+  await option.click();
+  await expect(input).toHaveValue(optionName);
 }
 
 async function expectNodeTextWithinBounds(
