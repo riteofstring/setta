@@ -9,6 +9,7 @@ Execution rules:
 - Prefer the narrowest relevant tests and verification for the work you changed.
 - For UI work, do not claim visual verification without the required CDP check.
 - Never work in the `main` worktree or on the `main` branch. `main` is a pristine reference only.
+- A read-only reference app session may be running from `main` for visual comparison. You may inspect it, but never edit files, commit, or run implementation work there.
 - Make changes only in the current non-main worktree.
 
 Sub-agent rules:

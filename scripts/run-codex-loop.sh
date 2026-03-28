@@ -48,6 +48,8 @@ Options:
                              Default: config or repo root
   --worktree-lifecycle MODE  Per-iteration lifecycle for this worktree:
                              none|kill|ai|aireset|restart-ai|restart-aireset
+  --main-lifecycle MODE      One-time read-only reference lifecycle for main:
+                             none|kill|ai|aireset|restart-ai|restart-aireset
   --terminal-mode MODE       Visible launch mode for Ralph and lifecycle:
                              auto|background|tmux|cmux|terminal
   --model NAME               Optional model override passed to `codex exec`
@@ -62,6 +64,7 @@ Examples:
   ./__PROGRAM_NAME__ --config-file ./RALPH.md --output-dir ./tmp/ralph-loop
   ./__PROGRAM_NAME__ --terminal-mode cmux --worktree-lifecycle restart-aireset
   ./__PROGRAM_NAME__ --terminal-mode terminal --worktree-lifecycle restart-aireset
+  ./__PROGRAM_NAME__ --main-lifecycle restart-ai
   ./__PROGRAM_NAME__ --iterations 20 -- --full-auto
 EOF
 }
@@ -734,6 +737,7 @@ build_self_exec_args() {
     --output-dir "${output_dir}"
     --workdir "${workdir}"
     --worktree-lifecycle "${worktree_lifecycle:-none}"
+    --main-lifecycle "${main_lifecycle:-none}"
     --terminal-mode "${resolved_terminal_mode}"
   )
 
@@ -832,6 +836,7 @@ new_session_every=""
 output_dir=""
 workdir=""
 worktree_lifecycle=""
+main_lifecycle=""
 terminal_mode=""
 model=""
 yolo_mode=""
@@ -907,6 +912,11 @@ while [[ $# -gt 0 ]]; do
       worktree_lifecycle="$2"
       shift 2
       ;;
+    --main-lifecycle)
+      require_value "$1" "${2:-}"
+      main_lifecycle="$2"
+      shift 2
+      ;;
     --terminal-mode)
       require_value "$1" "${2:-}"
       terminal_mode="$2"
@@ -968,6 +978,7 @@ config_iterations="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "$
 config_new_session_every="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "new_session_every")")")"
 config_workdir="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "workdir")")")"
 config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "worktree_lifecycle")")")"
+config_main_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_lifecycle")")")"
 config_terminal_mode="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "terminal_mode")")")"
 config_model="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "model")")")"
 config_yolo="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "yolo")")")"
@@ -1031,6 +1042,10 @@ fi
 
 if [[ -z "${worktree_lifecycle}" ]]; then
   worktree_lifecycle="${config_worktree_lifecycle}"
+fi
+
+if [[ -z "${main_lifecycle}" ]]; then
+  main_lifecycle="${config_main_lifecycle}"
 fi
 
 if [[ -z "${terminal_mode}" ]]; then
@@ -1136,6 +1151,16 @@ if [[ -n "${worktree_lifecycle}" ]]; then
   esac
 fi
 
+if [[ -n "${main_lifecycle}" ]]; then
+  case "${main_lifecycle}" in
+    none|kill|ai|aireset|restart-ai|restart-aireset) ;;
+    *)
+      echo "Unsupported --main-lifecycle value: ${main_lifecycle}" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 resolved_terminal_mode="$(resolve_terminal_mode "${terminal_mode}")"
 
 if [[ "${print_prompt_only}" != "1" ]] && ! command -v codex >/dev/null 2>&1; then
@@ -1169,6 +1194,7 @@ echo "Plan file: ${plan_file}"
 echo "Log file: ${log_file}"
 echo "Yolo mode: ${yolo_mode}"
 echo "Worktree lifecycle: ${worktree_lifecycle:-none} (per iteration)"
+echo "Main lifecycle: ${main_lifecycle:-none} (reference only)"
 echo "Terminal mode: ${resolved_terminal_mode}"
 
 main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
@@ -1193,6 +1219,18 @@ if [[ "${resolved_terminal_mode}" != "background" ]] && [[ "${RALPH_VISIBLE_LAUN
 fi
 
 echo "Worktree session: $(workspace_session_state "${workdir}")"
+if [[ -n "${main_worktree_root}" ]]; then
+  echo "Main session: $(workspace_session_state "${main_worktree_root}")"
+fi
+
+if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
+  if [[ -z "${main_worktree_root}" ]]; then
+    echo "Cannot run main lifecycle; main worktree root could not be discovered." >&2
+    exit 1
+  fi
+  echo "[reference] Bootstrapping main (${main_lifecycle})"
+  run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}" "${resolved_terminal_mode}"
+fi
 
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   run_dir="$(printf '%s/run-%03d' "${output_dir}" "${iteration}")"

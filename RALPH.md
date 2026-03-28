@@ -7,6 +7,7 @@ iterations: 100
 new_session_every: 1
 yolo: true
 worktree_lifecycle: restart-aireset
+main_lifecycle: restart-ai
 terminal_mode: auto
 verify_command: Choose the narrowest relevant verification for the current subtask. For frontend or visual work, run the relevant tests and include the required Chrome DevTools MCP check before claiming completion.
 ---
@@ -29,6 +30,7 @@ This file is the reusable loop entrypoint for this worktree.
 - Default entrypoint: `./ralph.sh`
 - Yolo mode defaults on for this worktree config.
 - Never run the Ralph loop in the `main` worktree. `main` must remain pristine and untouched.
+- `main` may run a read-only reference app session for visual comparison, but Ralph must never edit code there.
 
 ## Sub-agents
 
@@ -45,7 +47,15 @@ This file is the reusable loop entrypoint for this worktree.
 
 - `./ralph.sh` can run lifecycle actions before each iteration so every Codex pass starts from a fresh app session.
 - Default bootstrap for this worktree is `restart-aireset`.
+- Default reference bootstrap for `main` is `restart-ai`.
 - Supported lifecycle modes for the current worktree only:
+  - `none`
+  - `kill`
+  - `ai`
+  - `aireset`
+  - `restart-ai`
+  - `restart-aireset`
+- Supported lifecycle modes for `main` reference startup:
   - `none`
   - `kill`
   - `ai`
@@ -59,6 +69,7 @@ This file is the reusable loop entrypoint for this worktree.
   - `cmux` requires a live cmux shell and opens lifecycle processes in new terminal tabs inside the current cmux workspace
   - `terminal` opens lifecycle processes in new macOS Terminal windows
 - `aireset` and `restart-aireset` fall back to `ai.sh` if `aireset.sh` fails.
+- `main` lifecycle is for a read-only visual reference session only; no code changes or commits may happen there.
 - Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
 - Example:
   - `./ralph.sh --terminal-mode cmux --worktree-lifecycle restart-aireset`
