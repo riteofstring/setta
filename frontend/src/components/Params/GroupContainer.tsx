@@ -50,13 +50,12 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
+import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
 import {
   type LiveDictAreaEdgeStripDomPacket,
   type LiveDictAreaPinnedParamAreaDomPacket,
   type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeCanaryPacket";
-import { buildLiveDictAreaNodeCanaryBoundary } from "./groupContainerNodeCanaryBoundary";
-import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
 import { getPinnedParamsBgClassName } from "./groupContainerView";
@@ -288,9 +287,10 @@ function _ParamGroupContainer({
       }),
     _.isEqual,
   );
-  const liveDictAreaNodeScenePacket = useMemo(
+  const liveDictAreaBoundary = useMemo(
     () =>
-      buildLiveDictAreaNodeScenePacket({
+      buildLiveDictAreaBoundary({
+        bgColor,
         canConnect: canEditStructure && !isSelectingParams,
         edgeInputParams,
         hideUnpinnedParams,
@@ -304,7 +304,10 @@ function _ParamGroupContainer({
           requiredParamIdsToPaths: pinnedRequiredParamIdsToPaths,
           topLevelParamIds: pinnedTopLevelParamIds,
         },
+        positionAndSizeLocked,
+        sectionTypeName,
         selectedParamIds: selectedParams,
+        styleColor,
         unpinned: {
           canEditLayout,
           configuredMinHeight: unpinnedParamsAreaMinHeight,
@@ -316,6 +319,7 @@ function _ParamGroupContainer({
         },
       }),
     [
+      bgColor,
       canEditLayout,
       canEditStructure,
       displayNamesById,
@@ -328,33 +332,18 @@ function _ParamGroupContainer({
       pinnedRequiredParamIdsToPaths,
       pinnedTopLevelParamIds,
       positionAndSizeLocked,
+      sectionTypeName,
       selectedParams,
+      styleColor,
       unpinnedParamsAreaMinHeight,
       unpinnedRequiredParamIdsToPaths,
       unpinnedTopLevelParamIds,
     ],
   );
-  const liveDictAreaNodeCanaryBoundary = useMemo(
-    () =>
-      buildLiveDictAreaNodeCanaryBoundary({
-        bgColor,
-        nodeScenePacket: liveDictAreaNodeScenePacket,
-        positionAndSizeLocked,
-        sectionTypeName,
-        styleColor,
-      }),
-    [
-      bgColor,
-      liveDictAreaNodeScenePacket,
-      positionAndSizeLocked,
-      sectionTypeName,
-      styleColor,
-    ],
-  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeCanaryBoundary.maxNestedDepth);
-  }, [liveDictAreaNodeCanaryBoundary.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaBoundary.maxNestedDepth);
+  }, [liveDictAreaBoundary.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -367,7 +356,7 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeCanaryBoundary.blocks.map((block) => {
+        {liveDictAreaBoundary.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip

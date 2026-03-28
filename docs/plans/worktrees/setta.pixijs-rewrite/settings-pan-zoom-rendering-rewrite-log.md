@@ -1991,3 +1991,31 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the live dict-area canary boundary into the next higher-level scene-owned boundary above `groupContainerNodeCanaryBoundary.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 075
+
+- Item: Lift the live dict-area canary boundary into one higher-level scene-owned boundary above `groupContainerNodeCanaryBoundary.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed live dict-area boundary helper above the existing node-scene and node-canary boundary chain:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaBoundary.test.ts`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new higher-level live dict-area boundary instead of building `groupContainerNodeScenePacket.ts` and then `groupContainerNodeCanaryBoundary.ts` inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the raw live dict-area scene inputs plus the existing canary boundary from one deeper module
+    - keeps the current DOM edge-strip and pinned/unpinned param-area surfaces intact while hiding the scene-packet-to-canary-boundary wiring hop behind one higher-level boundary
+    - preserves the existing non-Pixi block order and `maxNestedDepth` behavior while exposing the same node-scene and canary payload from the new boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaBoundary.test.ts src/components/Params/groupContainerNodeCanaryBoundary.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - authenticated `/settings` loaded with `All Settings` visible
+    - the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, missing content, or broken mount order after the new live dict-area boundary wiring
+    - representative visible labels and controls included `Project`, `Edit`, `Run`, `settings`, `Filter`, `TAG`, `All`, `languageServer`, `shortcuts`, `backend`, `sectionSizingPolicy`, `gui`, and the bottom tabs `Core`, `Section Defaults Struct...`, `Section Defaults Conte...`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `GET /api/getAgentRuns`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, `GET /settings`, `GET /index.css`, and `GET /src/App.tsx`
+    - console showed the existing React 19 `Accessing element.ref was removed...` messages, but they did not block rendering or this verification
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the live dict-area boundary into the next higher-level scene-owned boundary above `groupContainerLiveDictAreaBoundary.ts` before any broad Pixi node drawing lands.
