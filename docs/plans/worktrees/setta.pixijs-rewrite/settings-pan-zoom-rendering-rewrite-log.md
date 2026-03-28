@@ -3645,3 +3645,37 @@ Record:
     - standalone section-route behavior remained covered by the targeted Playwright route spec in this verification pass
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining router-creation seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still feeds the assembled app route stack into `createBrowserRouter(...)` before any broad Pixi node drawing lands.
+
+## 2026-03-27 133
+
+- Item: Lift the standalone page route-state bookkeeping out of `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated route-state boundary above the existing target boundary:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx`
+  - Updated `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.tsx` so the load boundary now owns only:
+    - `useLoadProjectConfig()` load-state normalization
+    - CodeMirror style loading
+    - mouse-location listener setup
+    - plugin runtime bootstrap gating
+  - Moved the remaining route param and navigation bookkeeping into the new boundary:
+    - `projectConfigName`
+    - `sectionSlug`
+    - `chatId`
+    - `windowSpaceSlug`
+    - `navigate`
+  - Updated the focused load-boundary test so it now pins the lifted ownership seam instead of re-testing route param capture inline:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageLoadBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the existing authenticated worktree session was reused; bootstrap was not needed
+    - the settings shell rendered normally with visible `Settings` / `Connected to server` state after the new route-state boundary wiring
+    - representative requests returned `200`, including settings/config/backend-init/diagnostics requests; Vite asset `304` responses were expected cache hits
+    - non-blocking console noise was limited to existing React 19 `element.ref` warnings and accessibility warnings about missing form `id`/`name` attributes plus `aria-labelledby` mismatches
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining router-creation seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the caller that still feeds the assembled app route stack into `createBrowserRouter(...)` before any broad Pixi node drawing lands.

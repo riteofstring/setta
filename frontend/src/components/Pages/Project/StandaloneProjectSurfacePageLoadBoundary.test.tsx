@@ -15,7 +15,7 @@ const hoisted = vi.hoisted(() => ({
   addMouseLocationListenerMock: vi.fn(),
   codeMirrorStyleLoaderMock: vi.fn(),
   pluginRuntimeBootstrapMock: vi.fn(),
-  targetBoundaryMock: vi.fn(),
+  routeStateBoundaryMock: vi.fn(),
 }));
 
 vi.mock("state/hooks/project", () => ({
@@ -34,34 +34,21 @@ vi.mock("components/Utils/CodeMirror/useCodeMirrorStyleLoader", () => ({
   useCodeMirrorStyleLoader: hoisted.codeMirrorStyleLoaderMock,
 }));
 
-vi.mock("./StandaloneProjectSurfacePageTargetBoundary", () => ({
-  StandaloneProjectSurfacePageTargetBoundary: ({
+vi.mock("./StandaloneProjectSurfacePageRouteStateBoundary", () => ({
+  StandaloneProjectSurfacePageRouteStateBoundary: ({
     doneLoading,
     is404,
-    projectConfigName,
-    sectionSlug,
-    chatId,
-    windowSpaceSlug,
-    navigate,
   }: {
     doneLoading: boolean;
     is404: boolean;
-    projectConfigName: string | undefined;
-    sectionSlug: string | undefined;
-    chatId: string | undefined;
-    windowSpaceSlug: string | undefined;
-    navigate: (path: string) => void;
   }) => {
-    hoisted.targetBoundaryMock({
+    hoisted.routeStateBoundaryMock({
       doneLoading,
       is404,
-      projectConfigName,
-      sectionSlug,
-      chatId,
-      windowSpaceSlug,
-      navigate,
     });
-    return <div data-testid="mock-standalone-project-surface-target-boundary" />;
+    return (
+      <div data-testid="mock-standalone-project-surface-route-state-boundary" />
+    );
   },
 }));
 
@@ -74,7 +61,7 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     hoisted.addMouseLocationListenerMock.mockClear();
     hoisted.codeMirrorStyleLoaderMock.mockClear();
     hoisted.pluginRuntimeBootstrapMock.mockClear();
-    hoisted.targetBoundaryMock.mockClear();
+    hoisted.routeStateBoundaryMock.mockClear();
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -89,7 +76,7 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     vi.restoreAllMocks();
   });
 
-  it("derives standalone load state and route params before handing off to the lifted target boundary", async () => {
+  it("derives standalone load state before handing off to the lifted route-state boundary", async () => {
     hoisted.loadProjectConfigResult = [false, true];
 
     await act(async () => {
@@ -108,20 +95,13 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     expect(hoisted.codeMirrorStyleLoaderMock).toHaveBeenCalledWith(false, true);
     expect(hoisted.addMouseLocationListenerMock).toHaveBeenCalledTimes(1);
     expect(hoisted.pluginRuntimeBootstrapMock).toHaveBeenCalledWith(false);
-    expect(hoisted.targetBoundaryMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({
+    expect(hoisted.routeStateBoundaryMock).toHaveBeenLastCalledWith({
         doneLoading: false,
         is404: true,
-        projectConfigName: "demo",
-        chatId: "chat-alpha",
-        sectionSlug: undefined,
-        windowSpaceSlug: undefined,
-        navigate: expect.any(Function),
-      }),
-    );
+    });
   });
 
-  it("reuses the same lifted route/lifecycle boundary for caller-supplied load state", async () => {
+  it("reuses the same lifted lifecycle boundary for caller-supplied load state", async () => {
     await act(async () => {
       root.render(
         <MemoryRouter initialEntries={["/demo/section/languageserver"]}>
@@ -143,16 +123,9 @@ describe("StandaloneProjectSurfacePageLoadBoundary", () => {
     expect(hoisted.codeMirrorStyleLoaderMock).toHaveBeenCalledWith(true, false);
     expect(hoisted.addMouseLocationListenerMock).toHaveBeenCalledTimes(1);
     expect(hoisted.pluginRuntimeBootstrapMock).toHaveBeenCalledWith(true);
-    expect(hoisted.targetBoundaryMock).toHaveBeenLastCalledWith(
-      expect.objectContaining({
-        doneLoading: true,
-        is404: false,
-        projectConfigName: "demo",
-        sectionSlug: "languageserver",
-        chatId: undefined,
-        windowSpaceSlug: undefined,
-        navigate: expect.any(Function),
-      }),
-    );
+    expect(hoisted.routeStateBoundaryMock).toHaveBeenLastCalledWith({
+      doneLoading: true,
+      is404: false,
+    });
   });
 });
