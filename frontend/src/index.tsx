@@ -4,6 +4,7 @@ import "utils/workspaceHistoryHandoffInit";
 import "@glideapps/glide-data-grid/dist/index.css";
 import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
 import { SectionContainerDefaultBoundary } from "components/Section/Container/SectionContainerDefaultBoundary";
+import { SortableSectionSection } from "components/Section/Container/SortableSectionSection";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -19,10 +20,23 @@ function renderStandaloneProjectSurfaceRouteDictArea(
   return <SectionContainerAreaDictBoundary {...props} />;
 }
 
+function renderStandaloneProjectSurfaceRouteSectionBoundary({
+  sectionId,
+}: {
+  sectionId: string;
+}) {
+  return (
+    <SectionContainerDefaultBoundary
+      sectionId={sectionId}
+      SectionBoundary={SortableSectionSection}
+    />
+  );
+}
+
 subscribe();
 
 const appProps = buildRuntimeBootstrapAppProps({
-  SectionBoundary: SectionContainerDefaultBoundary,
+  SectionBoundary: renderStandaloneProjectSurfaceRouteSectionBoundary,
   renderDictArea: renderStandaloneProjectSurfaceRouteDictArea,
 });
 

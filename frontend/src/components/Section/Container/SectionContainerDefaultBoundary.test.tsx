@@ -2,7 +2,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import type { SectionContainerBoundaryProps } from "./SectionContainerBoundary";
 import { SectionContainerDefaultBoundary } from "./SectionContainerDefaultBoundary";
-import { SortableSectionSection } from "./SortableSectionSection";
 import {
   renderDefaultSectionContainerCoreBody,
   renderDefaultSectionContainerNestedSections,
@@ -37,14 +36,16 @@ vi.mock("./sectionContainerDefaultRenderers", () => ({
   renderDefaultSectionContainerNestedSections: () => null,
 }));
 
-vi.mock("./SortableSectionSection", () => ({
-  SortableSectionSection: () => null,
-}));
-
 describe("SectionContainerDefaultBoundary", () => {
-  it("owns the default recursive renderers and SectionBoundary above the top-level boundary seam", () => {
+  it("owns the default recursive renderers while forwarding the caller-owned SectionBoundary through the top-level boundary seam", () => {
+    function MockSectionBoundary() {
+      return null;
+    }
     const markup = renderToStaticMarkup(
-      <SectionContainerDefaultBoundary sectionId="section-1" />,
+      <SectionContainerDefaultBoundary
+        sectionId="section-1"
+        SectionBoundary={MockSectionBoundary}
+      />,
     );
     const forwardedProps = mockSectionContainerBoundary.mock.calls[0]?.[0];
 
@@ -54,7 +55,7 @@ describe("SectionContainerDefaultBoundary", () => {
     expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
-    expect(forwardedProps?.SectionBoundary).toBe(SortableSectionSection);
+    expect(forwardedProps?.SectionBoundary).toBe(MockSectionBoundary);
     expect(forwardedProps?.renderCoreBody).toBe(
       renderDefaultSectionContainerCoreBody,
     );
@@ -63,11 +64,15 @@ describe("SectionContainerDefaultBoundary", () => {
     );
   });
 
-  it("still forwards drag listeners through the injected top-level boundary seam", () => {
+  it("still forwards drag listeners through the lifted caller-owned top-level boundary seam", () => {
+    function MockSectionBoundary() {
+      return null;
+    }
     const markup = renderToStaticMarkup(
       <SectionContainerDefaultBoundary
         sectionId="section-2"
         dragListeners={{ onPointerDown: "listener" }}
+        SectionBoundary={MockSectionBoundary}
       />,
     );
     const forwardedProps = mockSectionContainerBoundary.mock.calls[1]?.[0];
@@ -78,7 +83,7 @@ describe("SectionContainerDefaultBoundary", () => {
     expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
-    expect(forwardedProps?.SectionBoundary).toBe(SortableSectionSection);
+    expect(forwardedProps?.SectionBoundary).toBe(MockSectionBoundary);
     expect(forwardedProps?.dragListeners).toEqual({
       onPointerDown: "listener",
     });
