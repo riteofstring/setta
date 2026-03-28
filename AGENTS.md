@@ -6,6 +6,16 @@
 - Treat `backend/setta/` as the Python package surface for CLI dispatch, source SDKs, packaging, and shipped assets.
 - If a Python file outside that package surface looks unused, prove the surviving caller or replacement owner before deleting it.
 
+## Go-Backed Python
+
+- Distinguish `Go-owned Python types` from `Go-backed Python`:
+- `Go-owned Python types` means Python consumes generated Go-owned contracts/models instead of handwritten Python schema mirrors.
+- `Go-backed Python` means that when the retained Python SDK needs canonical Setta behavior locally, Python should delegate that work to Go, either through the running backend or through the `setta sdk-local-core` subprocess path.
+- Do not treat “the Python model is generated from Go” as proof that the behavior is already Go-backed.
+- Canonical validation, derived metadata, and correctness-sensitive local runtime behavior should not stay implemented in handwritten Python just because Python has the data locally.
+- Python should keep ergonomic helper behavior: transport/session glue, context managers, callback scheduling, iterators, friendly lookup/builders, and other read-only convenience layers over authoritative Go-owned contracts.
+- If Python is only parsing backend-authored payloads or using generated contracts as DTOs, that does not by itself require a local Go subprocess call.
+
 ## Project Structure & Module Organization
 
 - `cmd/` contains the active Go entrypoints (`setta`, `setta-server`, generators, test seeders).

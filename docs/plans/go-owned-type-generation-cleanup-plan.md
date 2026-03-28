@@ -3,6 +3,16 @@
 ## Goal
 Make Go the source of truth for shared backend, frontend, and Python types.
 
+This plan is about shared type/schema ownership. It is not the same thing as
+"Go-backed Python" runtime ownership:
+- Go-owned/generated Python types mean Python consumes Go-authored contracts
+  instead of handwritten schema mirrors.
+- Go-backed Python means canonical local behavior in the retained Python SDK is
+  delegated to Go, either via the running backend or the `sdk-local-core`
+  subprocess path.
+- Finishing type cleanup does not, by itself, mean every correctness-sensitive
+  Python behavior has moved behind a Go call.
+
 Status: complete.
 
 The merge-prep cleanup removed a large amount of duplicate ownership, and the
@@ -370,7 +380,7 @@ That means:
 - the remaining project-config default duplication has now been collapsed into the generated Go-owned Python surface:
   - `internal/pythonsharedtypes` now emits the `ProjectConfig` Python defaults directly from the Go-owned defaults, including the materialized default codegen target payload
   - the generated `ProjectConfig` model now also owns the Python-side `ID` typing and `id` / `name` default factories that used to force handwritten field redeclarations
-  - `backend/setta/types/project_config.py` is now just the Python-only plugin-target normalization / duplicate-language validation layer
+  - the last handwritten `backend/setta/types/project_config.py` validation shim has now been deleted; callers use the generated `ProjectConfig` model directly and rely on Go-owned validation at the backend mutation boundary
 - `backend/setta/types/listener.py` now also owns the handwritten websocket envelope adapters:
   - the Python message classes subclass Go-generated listener message models and only keep the Python-side typed content wrappers, discriminator literals, and `TypeAdapter`
 - the listener register/ack transport family has been reduced further:
@@ -782,14 +792,12 @@ Current handwritten files in `backend/setta/types/`:
 - `chat.py`
 - `id.py`
 - `protocol.py`
-- `project_config.py`
 
 Final classification:
 - `id.py`: keep. Pydantic-specific `ID` integration and local ID factories are genuinely Python-only.
 - `protocol.py`: keep. The remaining code is Python-only dependency-key/value glue: frozen/hashable dependency keys for dictionary/set usage plus discriminated-union adapters used by the generated SDK contracts.
 - `chat.py`: keep. The remaining code is Python-only chat/runtime glue: the message/container union coercion boundary used by the chat toolkit.
 - `artifact.py`: keep. The file is now just the Python-side artifact union/type-adapter boundary used by the listener runtime; it no longer owns handwritten artifact model wrappers.
-- `project_config.py`: keep. The remaining code is now only the Python-side plugin-target normalization and duplicate-language validation; the generated Go-owned `ProjectConfig` model now owns the field layout, defaults, and `ID` typing directly.
 - there is no longer an obvious handwritten Python shared-schema owner left in `backend/setta/types/`.
 
 ## Optional Follow-ups
@@ -931,7 +939,6 @@ Guardrail:
 Primary targets:
 - `chat.py`
 - `protocol.py`
-- any remaining reducible wrapper content in `project_config.py`
 - any remaining reducible wrapper content in `artifact.py`
 
 Work:
