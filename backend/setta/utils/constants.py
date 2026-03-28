@@ -67,10 +67,6 @@ class C:
     LAUNCH_INTENT_TOKEN_TTL_SECONDS = 60 * 5
     SESSION_SECRET_BYTES = 32
 
-    REALTIME_BINARY_MAX_BYTES = int(
-        os.environ.get("SETTA_REALTIME_BINARY_MAX_BYTES", str(10 * 1024 * 1024)) or 0
-    )
-
     @classproperty
     def BACKEND(cls):
         return f"http://{cls.HOST}:{cls.PORT}"
