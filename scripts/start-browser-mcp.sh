@@ -123,16 +123,18 @@ get_bootstrap_url() {
   local status_payload=""
   status_payload="$(setta status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
   if [[ "$status_payload" != __SETTA_JSON_B64__* ]]; then
-    return 1
+    get_bootstrap_url_from_backend_log
+    return $?
   fi
 
   local b64_payload="${status_payload#__SETTA_JSON_B64__}"
   local python_bin=""
   python_bin="$(resolve_python_bin || true)"
   if [[ -z "$python_bin" ]]; then
-    return 1
+    get_bootstrap_url_from_backend_log
+    return $?
   fi
-  SETTA_STATUS_B64="$b64_payload" "$python_bin" - <<'PY'
+  if SETTA_STATUS_B64="$b64_payload" "$python_bin" - <<'PY'
 import base64
 import json
 import os
@@ -146,6 +148,42 @@ url = data.get("bootstrapUrlFragment", "") or data.get("bootstrapUrlPlain", "")
 if url:
     print(url)
 PY
+  then
+    return 0
+  fi
+
+  get_bootstrap_url_from_backend_log
+}
+
+get_bootstrap_url_from_backend_log() {
+  local backend_log_file="${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}"
+  if [[ ! -f "${backend_log_file}" ]]; then
+    return 1
+  fi
+
+  awk '
+    /Bootstrap URL \(recommended\):/ {
+      want_url = 1
+      next
+    }
+    want_url {
+      if (match($0, /https?:\/\/[^[:space:]]+/)) {
+        url = substr($0, RSTART, RLENGTH)
+        want_url = 0
+        next
+      }
+      if ($0 ~ /[^[:space:]]/) {
+        want_url = 0
+      }
+    }
+    END {
+      if (url != "") {
+        print url
+        exit 0
+      }
+      exit 1
+    }
+  ' "${backend_log_file}"
 }
 
 open_devtools_tab() {

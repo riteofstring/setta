@@ -540,6 +540,81 @@ wait_for_dev_stack_ready() {
   done
 }
 
+extract_runtime_value_from_log() {
+  local log_path="$1"
+  local pattern="$2"
+  local replacement="$3"
+
+  if [[ ! -f "${log_path}" ]]; then
+    return 1
+  fi
+
+  sed -nE "s/${pattern}/${replacement}/p" "${log_path}" | tail -n1
+}
+
+extract_frontend_url_from_log() {
+  local log_path="$1"
+  extract_runtime_value_from_log "${log_path}" '.*Local:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
+}
+
+extract_backend_url_from_log() {
+  local log_path="$1"
+  extract_runtime_value_from_log "${log_path}" '.*Ready:[[:space:]]*(http:\/\/[^[:space:]]+).*$' '\1'
+}
+
+extract_debug_port_from_log() {
+  local log_path="$1"
+  extract_runtime_value_from_log "${log_path}" '.*Starting Chrome with remote debugging on port ([0-9]+).*$' '\1'
+}
+
+extract_bootstrap_url_from_log() {
+  local log_path="$1"
+
+  if [[ ! -f "${log_path}" ]]; then
+    return 1
+  fi
+
+  awk '
+    /Bootstrap URL \(recommended\):/ {
+      want_url = 1
+      next
+    }
+    want_url {
+      if (match($0, /http:\/\/[^[:space:]]+/)) {
+        url = substr($0, RSTART, RLENGTH)
+        want_url = 0
+        next
+      }
+      if ($0 ~ /[^[:space:]]/) {
+        want_url = 0
+      }
+    }
+    END {
+      if (url != "") {
+        print url
+        exit 0
+      }
+      exit 1
+    }
+  ' "${log_path}"
+}
+
+lifecycle_log_label() {
+  local lifecycle_mode="$1"
+
+  case "${lifecycle_mode}" in
+    ai|restart-ai)
+      printf 'ai\n'
+      ;;
+    aireset|restart-aireset)
+      printf 'aireset\n'
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 run_lifecycle_mode() {
   local target_name="$1"
   local target_root="$2"
@@ -689,6 +764,12 @@ Loop context:
 - verification guidance: ${verify_command}
 - follow the repository's AGENTS.md instructions as the highest-priority repo policy
 - use the plan and log files as the durable handoff instead of relying on prior chat context
+- current worktree frontend url: ${worktree_frontend_url:-unknown}
+- current worktree backend url: ${worktree_backend_url:-unknown}
+- current worktree bootstrap url: ${worktree_bootstrap_url:-unknown}
+- current worktree debug port: ${worktree_debug_port:-unknown}
+- current worktree runtime log: ${worktree_runtime_log_path:-unknown}
+- use these current runtime values instead of guessing old ports if defaults were reassigned during startup
 
 After reading the files, continue the current effort by selecting exactly one bounded next subtask that can be completed, verified, logged, and committed within this iteration.
 
@@ -1213,6 +1294,12 @@ fi
 
 mkdir -p "${output_dir}"
 
+worktree_frontend_url=""
+worktree_backend_url=""
+worktree_bootstrap_url=""
+worktree_debug_port=""
+worktree_runtime_log_path=""
+
 start_prompt_file="${output_dir}/rendered-start-prompt.txt"
 followup_rendered_prompt_file="${output_dir}/rendered-followup-prompt.txt"
 render_prompt "${prompt_file}" "${start_prompt_file}" "start"
@@ -1297,6 +1384,28 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     echo "[$iteration/$iterations] Bootstrapping worktree (${worktree_lifecycle})"
     run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${run_dir}" "${resolved_terminal_mode}"
   fi
+
+  worktree_frontend_url=""
+  worktree_backend_url=""
+  worktree_bootstrap_url=""
+  worktree_debug_port=""
+  worktree_runtime_log_path=""
+  if worktree_log_label="$(lifecycle_log_label "${worktree_lifecycle:-}")"; then
+    worktree_runtime_log_path="${run_dir}/worktree-${worktree_log_label}.log"
+    worktree_frontend_url="$(extract_frontend_url_from_log "${worktree_runtime_log_path}" || true)"
+    worktree_backend_url="$(extract_backend_url_from_log "${worktree_runtime_log_path}" || true)"
+    worktree_bootstrap_url="$(extract_bootstrap_url_from_log "${worktree_runtime_log_path}" || true)"
+    worktree_debug_port="$(extract_debug_port_from_log "${worktree_runtime_log_path}" || true)"
+  fi
+
+  if [[ "${mode}" == "resume" ]]; then
+    prompt_for_iteration="${run_dir}/rendered-resume-prompt.txt"
+    render_prompt "${followup_prompt_file}" "${prompt_for_iteration}" "resume"
+  else
+    prompt_for_iteration="${run_dir}/rendered-start-prompt.txt"
+    render_prompt "${prompt_file}" "${prompt_for_iteration}" "start"
+  fi
+
   if [[ "${mode}" == "start" ]] && [[ -n "${pre_session_command}" ]]; then
     pre_session_log="${run_dir}/pre-session.log"
     echo "[$iteration/$iterations] Running pre-session command"
