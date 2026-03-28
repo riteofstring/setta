@@ -115,3 +115,36 @@ Record:
   - Tightened the handoff language so later implementation does not skip directly from cleanup into Pixi work.
 - Next action:
   - When the first vertical slice starts, treat the restored non-Pixi refactor as a hard gate before any scene migration code lands.
+
+## 2026-03-26 005
+
+- Item: Lock the first branch-local vertical slice scope and carry-forward prerequisites.
+- Status: `done`
+- Details:
+  - Updated the rewrite plan to name the first branch-local proving ground:
+    - Settings project `All Settings`
+  - Locked the first parity canary path to the dict/param stack instead of the whole graph generically:
+    - `frontend/src/components/Section/Layouts/DictArea.tsx`
+    - `frontend/src/components/Params/GroupContainer.tsx`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx`
+    - `frontend/src/forks/dnd-kit/ParamDndContext.tsx`
+    - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`
+  - Recorded the slice interaction requirements explicitly:
+    - first-click CodeMirror editing
+    - popup combobox overlay
+    - param-row drag/reorder inside the graph surface
+    - retained-scene edges in the same slice
+  - Updated the architecture summary to mirror the same branch-local slice choice and to keep the current `xyflow` container shell on probation rather than assuming it survives unchanged.
+  - Recorded the benchmark carry-forward gap:
+    - this worktree has the `2026-03-07` settings benchmark report locally
+    - the later tier1 section-benchmark reports referenced by the plan still live only in `setta.frontend-performance-11`
+    - the earlier settings benchmark entrypoint/spec referenced by the report are not present in this worktree and must be re-established locally before the first Pixi slice can be benchmarked in-branch
+- Next action:
+  - Re-establish a branch-local `All Settings` benchmark harness, then start the cleanup-first non-Pixi pass on the dict/param cluster before any Pixi renderer code lands.

@@ -497,11 +497,45 @@ Tasks:
 - document the slice scene and node type to use as the proving ground
 - lock the initial success/failure gate before implementation expands
 
+### Branch-Local Start Slice
+
+- proving-ground scene:
+  - Settings project `All Settings`
+- why this scene starts first:
+  - the local report `perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md` already shows the main cliffs in the dict/param stack
+  - the report isolates row-count and real-widget cost, which is the right pre-Pixi baseline for the rewrite
+- parity canary node path:
+  - dict-style param trees with text-heavy rows and code-like inputs
+- cleanup-first target file cluster before any Pixi code:
+  - `frontend/src/components/Section/Layouts/DictArea.tsx`
+  - `frontend/src/components/Params/GroupContainer.tsx`
+  - `frontend/src/components/Params/GetParamSwitch.tsx`
+  - `frontend/src/components/Params/ParamContainer.tsx`
+  - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+  - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+  - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx`
+  - `frontend/src/forks/dnd-kit/ParamDndContext.tsx`
+  - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+  - `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+  - `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`
+  - `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`
+- interaction requirements this slice must preserve:
+  - first-click CodeMirror activation without visible chrome changes
+  - one popup-style combobox interaction anchored to the scene
+  - one param-row drag/reorder path inside the graph surface
+  - retained-scene edges and hit testing in the same proving ground
+- branch-local benchmark carry-forward note:
+  - this worktree already contains the `2026-03-07` settings benchmark report
+  - the later tier1 section-benchmark reports listed in `Evidence Base` still live only in the imported source worktree `setta.frontend-performance-11`
+  - the older settings benchmark report references a benchmark entrypoint/spec that are not present in this worktree, so a branch-local benchmark harness must be re-established before the first Pixi slice lands
+
 Exit gate:
 
 - restart base agreed
 - vertical slice scope agreed
 - benchmark gate agreed
+- first cleanup-first file cluster named
+- branch-local benchmark carry-forward gaps named
 
 ## 1. Architecture Lock And RFC
 

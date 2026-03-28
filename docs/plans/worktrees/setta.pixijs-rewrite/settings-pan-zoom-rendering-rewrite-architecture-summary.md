@@ -201,6 +201,47 @@ To make that work:
 - reuse heavyweight overlays where possible
 - keep active nodes mounted while actively used instead of flapping them in and out
 
+## Initial Branch-Local Slice
+
+First proving ground:
+
+- Settings project `All Settings`
+
+Why this scene starts first:
+
+- the current worktree already contains a local benchmark report for it:
+  - `perf/reports/frontend/2026-03-07_settings-all-settings-pan-zoom-benchmark.md`
+- that report shows the dominant regression in the dict/param stack, not in the top-level `xyflow` shell
+- it is the clearest branch-local baseline for the cleanup-first, pre-Pixi gate
+
+First text-heavy node path:
+
+- dict-style param trees rendered through:
+  - `DictArea`
+  - `GroupContainer`
+  - `GetParamSwitch`
+  - `ParamContainer`
+  - `ParamInput`
+
+Why this path is the parity canary:
+
+- it carries the dense row count that already hurts the benchmark
+- it includes the code-like inputs that need first-click editing via `TextInputCodeMirror`
+- it includes popup-style controls that can stay DOM-backed on activation via `IdNameCombobox`
+- it includes graph-surface drag/reorder behavior through `ParamDndContext`
+
+First coordinator shell kept on probation:
+
+- `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+- `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+- `frontend/src/forks/xyflow/core/container/NodeRenderer.tsx`
+- `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`
+
+Pre-implementation prerequisite:
+
+- the branch has the report, but not the earlier benchmark entrypoint/spec referenced by that report
+- before the first Pixi slice lands, re-establish a branch-local benchmark harness so the rewrite can be measured in this worktree rather than inferred from prior branch artifacts
+
 ## CodeMirror Strategy
 
 The existing code already contains a useful pattern:
