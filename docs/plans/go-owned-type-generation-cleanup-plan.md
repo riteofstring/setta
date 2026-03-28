@@ -440,6 +440,16 @@ That means:
     - `WriteFileBrowserFileContentRequestInput -> httpapi.WriteFileBrowserFileContentRequest`
     - `TransferFileBrowserEntryRequestInput -> httpapi.TransferFileBrowserEntryRequest`
   - `internal/httpapi/filebrowser_routes.go` now owns the frontend-facing file-browser request wrappers and translates them into the narrower `internal/filebrowser` service requests locally, so `frontendbindings` no longer has to mirror that route surface
+  - more AI endpoint request families now point at exact `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `StartStateMachineRunRequestInput -> httpapi.StartStateMachineRunRequest`
+    - `StopStateMachineRunRequestInput -> httpapi.StopStateMachineRunRequest`
+    - `ResetStateMachineRequestInput -> httpapi.ResetStateMachineRequest`
+    - `GetStateMachineRunRequestInput -> httpapi.GetStateMachineRunRequest`
+    - `RunDetachedRequestInput -> httpapi.RunDetachedRequest`
+    - `GetRunStatusRequestInput -> httpapi.GetRunStatusRequest`
+    - `CancelRunRequestInput -> httpapi.CancelRunRequest`
+    - `GetRunnerSummaryRequestInput -> httpapi.GetRunnerSummaryRequest`
+    - `SetChatSectionStateRequestInput -> httpapi.SetChatSectionStateRequest`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -479,6 +489,8 @@ It has now also improved for the launcher status / update and most launcher-home
 It has also improved for the backend-init/auth-refresh/setta-home status contracts and the workspace-launch request/response family; those route-level shapes now live in `httpapi` instead of `frontendbindings`.
 
 It has also improved for the file-browser request family; the remaining file-browser shared surface in `frontendbindings` is now mostly direct aliases to `internal/filebrowser` response owners.
+
+It has also improved for the detached-run, state-machine-run, and chat-section-state AI endpoint request families; those are no longer local `frontendbindings` mirrors.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

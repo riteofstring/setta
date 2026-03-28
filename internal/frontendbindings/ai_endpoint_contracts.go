@@ -145,51 +145,25 @@ type StopAgentRunRequestInput struct {
 	RunID string `json:"runId"`
 }
 
-type StartStateMachineRunRequestInput struct {
-	ProjectConfigID string  `json:"projectConfigId"`
-	MachineGroupID  string  `json:"machineGroupId"`
-	StartSectionID  *string `json:"startSectionId,omitempty"`
-}
+type StartStateMachineRunRequestInput httpapi.StartStateMachineRunRequest
 
-type StopStateMachineRunRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	MachineGroupID  string `json:"machineGroupId"`
-}
+type StopStateMachineRunRequestInput httpapi.StopStateMachineRunRequest
 
-type ResetStateMachineRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	MachineGroupID  string `json:"machineGroupId"`
-}
+type ResetStateMachineRequestInput httpapi.ResetStateMachineRequest
 
-type GetStateMachineRunRequestInput struct {
-	ProjectConfigID string `json:"projectConfigId"`
-	MachineGroupID  string `json:"machineGroupId"`
-}
+type GetStateMachineRunRequestInput httpapi.GetStateMachineRunRequest
 
 type StateMachineRunControlResponse httpapi.StateMachineRunControlResponse
 
-type RunDetachedRequestInput struct {
-	ProjectID               string            `json:"projectConfigId"`
-	EntrySectionID          string            `json:"entrySectionId"`
-	RunSnapshotMode         RunSnapshotMode   `json:"runSnapshotMode"`
-	SectionVariantOverrides map[string]string `json:"sectionVariantOverrides"`
-	ParamOverrides          map[string]string `json:"paramOverrides"`
-	Tags                    map[string]string `json:"tags"`
-}
+type RunDetachedRequestInput httpapi.RunDetachedRequest
 
 type RunDetachedResponse httpapi.RunDetachedResponse
 
-type GetRunStatusRequestInput struct {
-	RunID string `json:"runId"`
-}
+type GetRunStatusRequestInput httpapi.GetRunStatusRequest
 
-type CancelRunRequestInput struct {
-	RunID string `json:"runId"`
-}
+type CancelRunRequestInput httpapi.CancelRunRequest
 
-type GetRunnerSummaryRequestInput struct {
-	ProjectID string `json:"projectConfigId"`
-}
+type GetRunnerSummaryRequestInput httpapi.GetRunnerSummaryRequest
 
 type RunChainStepInput struct {
 	ID                     string           `json:"id"`
@@ -254,12 +228,7 @@ type UpdateTranscriptionProfileRequestInput struct {
 	Profile TranscriptionProfile `json:"profile"`
 }
 
-type SetChatSectionStateRequestInput struct {
-	FrontendOpID    *string          `json:"frontendOpId,omitempty"`
-	ProjectConfigID string           `json:"projectConfigId"`
-	SectionID       string           `json:"sectionId"`
-	State           ChatSectionState `json:"state"`
-}
+type SetChatSectionStateRequestInput httpapi.SetChatSectionStateRequest
 
 type GetChatSectionChatIDResponse string
 
