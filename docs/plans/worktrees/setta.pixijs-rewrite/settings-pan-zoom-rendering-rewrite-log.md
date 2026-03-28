@@ -982,3 +982,29 @@ Record:
     - representative backend/settings requests returned `200`, including `POST /api/loadProjectConfig`, `GET /api/llm/apiKeys`, `GET /api/llm/config`, `GET /api/getAgentProfiles`, and `GET /api/getEngineConfigs`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next higher-level scene-owned draw packet above `groupContainerNodeSurfacePacket.ts`, using this node-surface boundary as the single live dict-area surface input before any broad Pixi node drawing lands.
+
+## 2026-03-26 038
+
+- Item: Lift the live dict-area surface packet into one higher-level node draw packet above the node-surface boundary.
+- Status: `done`
+- Details:
+  - Added a pure typed node-draw packet helper above the existing node-surface boundary:
+    - `frontend/src/components/Params/groupContainerNodeDrawPacket.ts`
+    - `frontend/src/components/Params/groupContainerNodeDrawPacket.test.ts`
+  - Updated the production non-Pixi `GroupContainer` mount path to consume the new node-draw packet instead of branching directly on the node-surface packet blocks:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - lifts the ordered edge, pinned, and unpinned surface blocks into stable draw packets with explicit block ids plus mount metadata
+    - keeps the underlying surface packets attached to the same higher-level draw boundary so the current DOM mount path stays stable while the future retained-scene renderer gets one deeper input
+    - preserves the existing non-Pixi DOM mount order and block behavior while removing the remaining direct node-surface block branching from `GroupContainer`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeDrawPacket.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerNodeSurfacePacket.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - `/settings` loaded authenticated with `All Settings` visible
+    - the visible dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `/api/loadSettings`, `/api/loadProjectConfig`, `/api/authRefreshStatus`, `/api/plugins/runtime`, and `/api/llm/config`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned draw packet from `groupContainerNodeDrawPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.

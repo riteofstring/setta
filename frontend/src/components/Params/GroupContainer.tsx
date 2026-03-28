@@ -50,6 +50,7 @@ import {
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
+import { buildLiveDictAreaNodeDrawPacket } from "./groupContainerNodeDrawPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import {
   buildLiveDictAreaNodeSurfacePacket,
@@ -349,10 +350,17 @@ function _ParamGroupContainer({
       styleColor,
     ],
   );
+  const liveDictAreaNodeDrawPacket = useMemo(
+    () =>
+      buildLiveDictAreaNodeDrawPacket({
+        nodeSurfacePacket: liveDictAreaNodeSurfacePacket,
+      }),
+    [liveDictAreaNodeSurfacePacket],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeSurfacePacket.maxNestedDepth);
-  }, [liveDictAreaNodeSurfacePacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeDrawPacket.maxNestedDepth);
+  }, [liveDictAreaNodeDrawPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -365,13 +373,13 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeSurfacePacket.blocks.map((block) => {
+        {liveDictAreaNodeDrawPacket.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
-                key={block.visualPacket.mount.frameId}
+                key={block.mount.frameId}
                 sectionId={sectionId}
-                surfacePacket={block}
+                surfacePacket={block.surfacePacket}
               />
             );
           }
@@ -379,9 +387,9 @@ function _ParamGroupContainer({
           if (block.kind === "pinned-param-area") {
             return (
               <GetPinnedParams
-                key={block.visualPacket.mount.frameId}
+                key={block.mount.frameId}
                 sectionId={sectionId}
-                surfacePacket={block}
+                surfacePacket={block.surfacePacket}
                 handleColumnResizeStart={handleColumnResizeStart}
               />
             );
@@ -389,9 +397,9 @@ function _ParamGroupContainer({
 
           return (
             <GetUnpinnedParams
-              key={block.visualPacket.mount.frameId}
+              key={block.mount.frameId}
               sectionId={sectionId}
-              surfacePacket={block}
+              surfacePacket={block.surfacePacket}
               handleColumnResizeStart={handleColumnResizeStart}
             />
           );
