@@ -438,3 +438,29 @@ Record:
       - relevant requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`.
+
+## 2026-03-26 018
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the `ReactFlow` container decisions behind a typed helper boundary so the non-Pixi slice no longer leaves its wire-color fallback, scroll-to-pan translation math, wrapper dimension normalization, and render gating inline in the component:
+    - `frontend/src/forks/xyflow/core/container/ReactFlow.tsx`
+    - `frontend/src/forks/xyflow/core/container/reactFlowView.ts`
+    - `frontend/src/forks/xyflow/core/container/reactFlowView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - resolving light and dark wire colors while tolerating older backend builds that omit those settings
+    - keeping renderer mount gating tied to positive wrapper dimensions from the observed canvas host
+    - translating browser scroll offsets back into zoom-aware viewport pan deltas before resetting the sentinel scroll position
+    - writing the same drawable width/height back into the xyflow store after subtracting the overview and UI editor panes
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/reactFlowView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - `/settings` loaded with `All Settings` visible
+      - the visible settings/dict-param area plus the canvas wrapper looked structurally intact with no obvious clipping, overlap, or missing layout
+      - representative requests visible during verification returned `200`, including `loadProjectConfig`, `getAgentRuns`, `plugins/runtime`, `llm/apiKeys`, `llm/config`, `getAgentProfiles`, `getPromptTemplates`, and `setTopLevelSectionLayout`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the xyflow container cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`.
