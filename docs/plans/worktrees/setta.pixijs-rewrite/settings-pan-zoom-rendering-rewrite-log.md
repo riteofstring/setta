@@ -5164,6 +5164,44 @@ Record:
 - Item: Lift the `SortableSectionSection` boundary into `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`.
 - Status: `done`
 - Details:
+  - Raised the sortable nested-section seam one caller higher so `SectionContainerNestedSections.tsx` now owns the dedicated `SortableSectionSection` handoff above `SortableSectionContainer`:
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerSection.tsx`
+  - Updated focused coverage to pin the higher ownership boundary and keep the surrounding callers on thinner pass-through seams:
+    - `frontend/src/components/Section/Container/SectionContainerNestedSections.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerSection.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - regular nested sections still rendering through the same `SectionContainer` path, now via `SortableSectionSection` owned directly by `SectionContainerNestedSections.tsx`
+    - the recursive nested-section renderer and core-body seams still flowing through the same caller-owned contracts
+    - the joined code-terminal wrapper and ordered nested child mount path staying unchanged while shrinking the surrounding callers
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerNestedSections.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SortableSectionContainer.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerNestedSections.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx src/components/Section/Container/SectionContainer.tsx src/components/Section/Container/SectionContainerSection.tsx src/components/Section/Container/SectionContainerNestedSections.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check:
+    - initial fresh-context verification on the existing runtime did not yield a trustworthy nested-section canary
+    - used the one allowed lifecycle self-recovery via `./aireset.sh`, which restarted the worktree on `http://127.0.0.1:3046/` and `http://127.0.0.1:8046`
+    - `pnpm -C frontend cdp-port` returned `9267` after the restart, while `source activate.sh && setta status --connect-info --latest --json --workspace .` still returned `Error: No matching Setta sessions found.`
+    - post-restart fresh-context CDP retry still failed to produce a trustworthy live canary:
+      - `http://127.0.0.1:3046/wind_sand` rendered `Project Not Found`
+      - fallback `http://127.0.0.1:3046/settings` fell into the `Unhandled Thrown Error!` overlay with the stack rooted at `getCurrSectionVariantId`
+      - representative successful requests still included `GET /api/serverMode` `200`, `POST /api/loadSettings` `200`, `GET /api/backendInitStatus` `200`, and `GET /api/authRefreshStatus` `200`
+    - because the targeted seam still depends on the unstable live nested/settings canary path and the restarted runtime exposed no trustworthy surface, the live visual gate is deferred for this completed slice
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the lifted `SortableSectionSection` boundary one caller higher above `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`, starting with the recursive section-container caller in `frontend/src/components/Section/Container/SectionContainerSection.tsx`, while keeping the unstable live canary explicit.
+
+## 2026-03-28 176
+
+- Item: Lift the `SortableSectionSection` boundary into `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`.
+- Status: `done`
+- Details:
   - Raised the sortable nested-section seam one caller higher so `SectionContainerNestedSections.tsx` now owns the dedicated `SortableSectionSection` handoff above `SortableSectionContainer.tsx`:
     - `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx`
     - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`

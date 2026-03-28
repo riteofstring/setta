@@ -68,7 +68,6 @@ vi.mock("./SectionContainerNestedSections", () => ({
     isGroup,
     layoutVariant,
     isJoinedCodeTerminalGroup,
-    SectionBoundary,
     renderCoreBody,
     renderNestedSections,
   }: {
@@ -76,9 +75,6 @@ vi.mock("./SectionContainerNestedSections", () => ({
     isGroup: boolean;
     layoutVariant?: "default" | "tight";
     isJoinedCodeTerminalGroup: boolean;
-    SectionBoundary: (
-      props: SortableSectionBodySectionBoundaryProps,
-    ) => ReactNode;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
     renderNestedSections: (
       props: SectionContainerNestedSectionsProps,
@@ -90,7 +86,6 @@ vi.mock("./SectionContainerNestedSections", () => ({
       data-is-group={String(isGroup)}
       data-layout-variant={layoutVariant ?? "default"}
       data-is-joined-code-terminal-group={String(isJoinedCodeTerminalGroup)}
-      data-has-section-boundary={String(Boolean(SectionBoundary))}
       data-has-render-core-body={String(Boolean(renderCoreBody))}
       data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     />
@@ -111,7 +106,6 @@ describe("SectionContainerSection", () => {
     expect(markup).toContain(
       'data-testid="mock-section-container-nested-sections"',
     );
-    expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
   });

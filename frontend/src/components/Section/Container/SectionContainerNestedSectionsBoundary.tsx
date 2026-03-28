@@ -4,7 +4,6 @@ import type { SectionContainerNestedSectionsProps } from "./sectionContainerNest
 import {
   renderDefaultSectionContainerCoreBody,
   renderDefaultSectionContainerNestedSections,
-  SectionContainerSection,
 } from "./SectionContainerSection";
 
 function _SectionContainerNestedSectionsBoundary(
@@ -13,7 +12,6 @@ function _SectionContainerNestedSectionsBoundary(
   return (
     <SectionContainerNestedSections
       {...props}
-      SectionBoundary={SectionContainerSection}
       renderCoreBody={renderDefaultSectionContainerCoreBody}
       renderNestedSections={renderDefaultSectionContainerNestedSections}
     />

@@ -152,7 +152,6 @@ vi.mock("./SectionContainerNestedSections", () => ({
     isGroup,
     layoutVariant,
     isJoinedCodeTerminalGroup,
-    SectionBoundary,
     renderCoreBody,
     renderNestedSections,
   }: {
@@ -160,9 +159,6 @@ vi.mock("./SectionContainerNestedSections", () => ({
     isGroup: boolean;
     layoutVariant?: "default" | "tight";
     isJoinedCodeTerminalGroup: boolean;
-    SectionBoundary: (
-      props: SortableSectionBodySectionBoundaryProps,
-    ) => ReactNode;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
     renderNestedSections: (
       props: SectionContainerNestedSectionsProps,
@@ -177,12 +173,19 @@ vi.mock("./SectionContainerNestedSections", () => ({
         isJoinedCodeTerminalGroup ? "true" : "false"
       }
     >
-      <SectionBoundary
-        sectionId={`${sectionId}-child`}
-        dragListeners={{ onPointerDown: "listener" }}
-        renderCoreBody={renderCoreBody}
-        renderNestedSections={renderNestedSections}
-      />
+      {renderCoreBody({
+        sectionId: `${sectionId}-child`,
+        sectionTypeName: "Code",
+        bgColor: "bg:nested",
+        isMinimized: false,
+        isUserView: false,
+      })}
+      {renderNestedSections({
+        sectionId: `${sectionId}-child`,
+        isGroup: false,
+        layoutVariant: "default",
+        isJoinedCodeTerminalGroup: false,
+      })}
     </div>
   ),
 }));
@@ -305,11 +308,8 @@ describe("SectionContainer", () => {
     expect(markup).toContain('data-bg-color="bg:Code"');
     expect(markup).toContain('data-layout-variant="tight"');
     expect(markup).toContain('data-is-joined-code-terminal-group="false"');
-    expect(markup).toContain('data-testid="mock-sortable-section-boundary"');
     expect(markup).toContain('data-section-id="section-1-child"');
-    expect(markup).toContain('data-has-drag-listeners="true"');
-    expect(markup).toContain('data-has-render-core-body="true"');
-    expect(markup).toContain('data-has-render-nested-sections="true"');
+    expect(markup).toContain('data-bg-color="bg:nested"');
   });
 
   it("keeps the joined code-terminal wrapper and passes the lifted body through the joined core branch", () => {

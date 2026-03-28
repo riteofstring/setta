@@ -21,7 +21,6 @@ export function renderDefaultSectionContainerNestedSections(
   return (
     <SectionContainerNestedSections
       {...props}
-      SectionBoundary={SectionContainerSection}
       renderCoreBody={renderDefaultSectionContainerCoreBody}
       renderNestedSections={renderDefaultSectionContainerNestedSections}
     />

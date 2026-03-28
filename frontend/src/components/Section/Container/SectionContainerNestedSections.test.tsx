@@ -58,17 +58,25 @@ vi.mock("./SortableSectionContainer", () => ({
       data-has-section-boundary={String(Boolean(SectionBoundary))}
       data-has-render-core-body={String(Boolean(renderCoreBody))}
       data-has-render-nested-sections={String(Boolean(renderNestedSections))}
-    />
+    >
+      <SectionBoundary
+        sectionId={sectionId}
+        dragListeners={{ onPointerDown: "listener" }}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+      />
+    </div>
   ),
 }));
 
-function MockSectionBoundary({
-  sectionId,
-}: SortableSectionBodySectionBoundaryProps) {
-  return (
-    <div data-testid="mock-section-boundary" data-section-id={sectionId} />
-  );
-}
+vi.mock("./SortableSectionSection", () => ({
+  SortableSectionSection: ({ sectionId }: { sectionId: string }) => (
+    <div
+      data-testid="mock-sortable-section-section"
+      data-section-id={sectionId}
+    />
+  ),
+}));
 
 function renderNestedSections({
   sectionId,
@@ -110,7 +118,6 @@ describe("SectionContainerNestedSections", () => {
         isGroup={false}
         layoutVariant="default"
         isJoinedCodeTerminalGroup={false}
-        SectionBoundary={MockSectionBoundary}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,
@@ -125,6 +132,7 @@ describe("SectionContainerNestedSections", () => {
     expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-core-body="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
+    expect(markup).toContain('data-testid="mock-sortable-section-section"');
   });
 
   it("keeps the joined code-terminal wrapper while routing the same lifted sortable section boundary", () => {
@@ -134,7 +142,6 @@ describe("SectionContainerNestedSections", () => {
         isGroup={true}
         layoutVariant="tight"
         isJoinedCodeTerminalGroup={true}
-        SectionBoundary={MockSectionBoundary}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,
