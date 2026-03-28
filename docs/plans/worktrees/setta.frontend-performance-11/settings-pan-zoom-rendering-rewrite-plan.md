@@ -1,82 +1,82 @@
 # Settings Pan/Zoom Rendering Rewrite Plan
 
 Date: 2026-03-25
+Updated: 2026-03-26
 Worktree: `setta.frontend-performance-11`
 Current branch: `frontend-performance-11-hybrid-rendering`
 Current HEAD at start: `e66075715`
 Archived prior plan: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-hybrid-rendering-plan.md`
 Related log: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-rendering-rewrite-log.md`
+Related summary: `docs/plans/worktrees/setta.frontend-performance-11/settings-pan-zoom-rendering-rewrite-architecture-summary.md`
 
 ## Goal
 
-Achieve genuinely high-performance pan and zoom on dense Setta canvases such as `settings` and `tier1Synthetic`, while keeping visual output faithful enough that users do not see the UI change shape during motion.
+Achieve genuinely high-performance pan and zoom on dense Setta canvases such as `settings` and `tier1Synthetic`, while preserving near-1:1 visual parity and exact interaction behavior where users actively edit or manipulate content.
 
 This plan is not satisfied by:
 
 - removing only the old simplified fallback
 - reducing hitching subjectively in short checks
 - improving only `RunTask` while `Paint` stays bad
+- getting a prettier approximation that drifts from current product visuals
 
-This plan is satisfied only when the authoritative benchmark shows a major drop in motion-time `Paint` cost on the dense scenes that matter.
+This plan is satisfied only when:
+
+- the authoritative benchmark shows a major drop in motion-time `Paint` cost on the dense scenes that matter
+- the UI no longer changes shape during motion
+- active interaction remains faithful and immediate
 
 ## Reset Decision
 
-Archive the old hybrid-rendering plan as a useful correctness checkpoint, but stop treating it as the performance path.
+Archive the old hybrid-rendering plan as useful research and a correctness checkpoint, but stop treating it as the performance path.
 
 The benchmark evidence says:
 
-- faithful SnapDOM image previews fixed correctness
+- faithful SnapDOM/image previews fixed correctness
 - queueing capture work reduced some burstiness
-- but every follow-up locality or warm-pool tuning pass still failed the `Paint` gate
+- but every locality or warm-pool follow-up still failed the `Paint` gate
 
 Conclusion:
 
-- incremental tuning of the current `live DOM + SnapDOM capture + image overlay + locality heuristics` path is unlikely to get us to the required performance envelope
+- incremental tuning of `live DOM + SnapDOM capture + image overlay + locality heuristics` is unlikely to get us to the required performance envelope
 - the next effort must be a rendering-system rewrite, not another threshold pass
 
 ## Executive Architecture Decision
 
 Default assumption:
 
-1. Keep `xyflow` as the viewport, coordinate system, drag/select shell, edge/handle integration, and authoritative node-position source.
-2. Replace or bypass a large chunk of the current dense-section rendering path during overview and motion states.
-3. Treat the dense section body as a separately rendered surface, not as fully live DOM that the browser has to paint while the whole canvas is moving.
-
-Escalation rule:
-
-- If a rendering spike shows that `xyflow` itself still forces too much DOM participation, layer coupling, or transform cost even after dense body rendering is bypassed, then the next step is not more tuning.
-- The next step is to fork or replace the relevant `xyflow` rendering slice for dense scenes.
+1. Treat dense-scene rendering as a retained-scene/GPU-first problem, not a DOM-preview problem.
+2. Use a bespoke scene model rendered by PixiJS first.
+3. Keep DOM for panes, app chrome, and active node overlays only.
+4. Rewrite graph-level motion, rendering, and hit testing first.
+5. Preserve node-internal DOM behavior where possible by reusing existing DOM subtrees only when nodes are active.
 
 This does not mean "rewrite the whole frontend".
 
 It means:
 
-- keep the rest of the app
-- keep current product behavior
-- rewrite the dense scene rendering model
+- keep the app
+- keep the product behavior
+- change the dense-scene rendering substrate
 
-## What This Means For `xyflow`
+## Branching Decision
 
-Current recommendation:
+Implementation should not continue from the current hybrid-rendering branch tip once the architecture is locked.
 
-- do not abandon `xyflow` as the first move
-- do not assume `xyflow` stays untouched either
+Recommended execution base:
 
-Working position:
+- start the rewrite from `main`
+- use `main` as the visual oracle if it is closer to the desired appearance
+- cherry-pick or port only the useful benchmark harness, benchmark scenes, and research findings from this worktree
 
-- keep `xyflow` for camera state, transforms, drag/select, edge routing, section positions, and hit-test coordination
-- replace or bypass the expensive node-body DOM rendering path for dense sections during overview and motion states
+Reason:
 
-Put differently:
-
-- not an immediate `xyflow` replacement project
-- very likely an `xyflow` rendering-system replacement or bypass project
-
-If the spike proves that `xyflow` cannot support a clean dual-renderer architecture without dragging too much DOM cost along with it, then abandoning its node-rendering path becomes part of this plan. That is escalation, not day-one scope.
+- the current worktree history is too tied to the now-rejected DOM/image-preview path
+- that history is valuable as research, but not as the implementation base
 
 ## Why The Old Path Is Archived
 
-The current retained correctness checkpoint still loses badly on the benchmark:
+The retained correctness checkpoint still loses badly on the benchmark:
 
 - `settings` queued-image checkpoint:
   - benchmark `Paint`: `434.401ms`
@@ -100,92 +100,260 @@ The open problem is:
 
 ## Primary Architecture Hypothesis
 
-Build a dual-renderer model for dense scenes.
+Build a retained-scene renderer for dense scenes with active DOM overlays.
 
-### Layer 1: Always-Live Interaction Shell
+### Layer 1: Retained Scene Renderer
 
-Keep a very light DOM shell live in or around `xyflow`:
+The resting dense graph should be rendered by a retained renderer:
 
-- section frame
-- header / title / selection state
-- drag and resize affordances
-- handles / ports / edge anchors
-- active-section focus chrome
+- PixiJS first
+- GPU-backed fast path
+- scene graph aligned to camera transforms
+- node bodies and edges drawn there
 
-This shell must stay interactive and aligned with the camera at all times.
+This layer owns:
 
-### Layer 2: Dense Body Surface Renderer
+- inactive dense node visuals
+- overview and motion states
+- scene-level hit regions
+- graph-level selection and movement visuals
 
-Dense section bodies should not be represented as fully live browser-painted DOM during overview pan/zoom.
+### Layer 2: Active Node Overlay Layer
 
-Instead, render them through a dedicated motion-friendly surface:
+Complex interactive DOM should not remain mounted for the whole graph.
 
-- likely a parallel canvas/WebGL renderer
-- possibly a bitmap-atlas / tile renderer if that proves simpler and fast enough
+Instead:
 
-That renderer owns the visual body content for:
+- when a node becomes active, selected for editing, or otherwise interaction-heavy, mount the real existing DOM subtree as an overlay
+- keep that overlay mounted while the node is in active use
+- drop back to scene rendering when inactive
 
-- inactive dense sections
-- low-zoom states
-- active pan/zoom states
+This layer owns:
 
-### Layer 3: Local Detail DOM
+- CodeMirror
+- comboboxes
+- resize handles where needed
+- node-internal `dnd-kit` interactions
+- any DOM-heavy widget behavior that is too expensive or too risky to port initially
 
-Mount real body DOM only where it is actually needed:
+### Layer 3: Panes And App Chrome
 
-- active section
-- explicitly interactive neighborhood around the active section or pointer focus
-- editing/detail zoom states where true DOM interaction is required
+Keep the existing DOM app shell:
+
+- panes
+- toolbars
+- menus
+- modals
+- popovers
+- non-graph UI
 
 Strict rule:
 
-- the live DOM budget must be bounded and intentional
-- "all sections mounted but hidden differently" is not acceptable as the primary strategy anymore
+- the live DOM budget for the graph must be bounded and intentional
+- "all nodes mounted but hidden differently" is not acceptable anymore
 
-## Candidate Rewrite Paths
+## What This Means For JSX And Component Structure
 
-### Path A: Parallel Overview Renderer While Keeping `xyflow` As Coordinator
+Not all of the current JSX should survive as the hot rendering path for dense scenes.
 
-This is the recommended first spike.
+Clean target:
 
-Model:
+- keep behavior, state wiring, and product semantics
+- stop treating nested JSX as the only source of truth for dense resting visuals
+- extract scene packets and layout primitives from the same underlying section data
 
-- `xyflow` still manages nodes, camera, edges, selection, drag, and layout positions
-- dense bodies emit renderer packets instead of large DOM
-- a parallel renderer draws those packets in canvas/WebGL space
-- only the local detail neighborhood mounts real DOM
+What should remain:
 
-Why this is the default:
+- pane JSX
+- app-shell JSX
+- active-node JSX overlays
+- controller/state components that coordinate selection, editing, commands, and data flow
 
-- highest chance of removing motion-time paint cost without rewriting the whole app
-- preserves most existing interaction/state infrastructure
-- clearer rollback story than full `xyflow` abandonment
+What should change:
 
-### Path B: Fork / Replace `xyflow` Node Rendering For Dense Scenes
+- dense resting-state node bodies should no longer be represented by the current deep JSX trees during motion
+- the DOM body view should become an active overlay implementation, not the universal rendering substrate
 
-This is the default escalation if Path A still leaves too much DOM or transform coupling.
+This is the clean boundary:
 
-Model:
+- semantic source of truth remains in Setta data/state
+- active DOM components remain the faithful interaction implementation
+- scene rendering becomes a separate visual backend for the same semantics
 
-- keep the app and maybe even the store model
-- but replace more of the `xyflow` node-rendering stack with a dense-scene-specific renderer
+## Visual Parity Strategy
 
-Use this if:
+Visual parity must be deliberate and systematic, not hand-tuned per widget.
 
-- `xyflow` wrappers still force too much live DOM
-- camera synchronization is cheap but node rendering is not
-- the dual-renderer integration seam inside current `xyflow` is too constrained
+### 1. Shared Design Tokens
 
-### Path C: Full Dense-Scene Renderer With `xyflow` Reduced To Legacy / Sparse Use
+Define shared tokens for:
 
-This is the aggressive option.
+- colors
+- spacing
+- radii
+- font families
+- font sizes
+- font weights
+- strokes
+- shadows
+- icons
 
-Model:
+Both scene rendering and active DOM overlays read from the same token layer.
 
-- dense scenes get a dedicated scene renderer and interaction system
-- `xyflow` stays only for sparse scenes or legacy compatibility
+### 2. Canonical Layout And Measurement Layer
 
-This should not be the first move unless the spike quickly proves that Paths A and B are structurally blocked.
+This is mandatory.
+
+Create one canonical layer for:
+
+- wrap rules
+- truncation rules
+- row heights
+- inner padding
+- gap rules
+- icon/text alignment
+- code-like text line layout
+
+Without this, scene parity will drift even if colors and radii match.
+
+### 3. Semantic Scene Primitives
+
+Do not try to mirror the entire DOM wrapper tree in the scene renderer.
+
+Instead, define semantic primitives such as:
+
+- section chrome
+- header row
+- param row
+- badge
+- inline code field preview
+- edge anchor visual
+
+The scene should be built from these primitives, not from a one-to-one translation of JSX wrappers.
+
+### 4. Active DOM As Exact Interaction Oracle
+
+When exact live behavior matters, use the real existing DOM subtree.
+
+That is how parity stays clean:
+
+- scene for resting visuals
+- real DOM for active interaction
+
+Target standard:
+
+- visually indistinguishable in normal use
+
+Important caveat:
+
+- exact subpixel text identity across all zoom levels is not the right success criterion
+- practical near-1:1 parity in normal use is the right target
+
+## Text And Layout Risk
+
+The biggest rendering risk is text.
+
+This plan must explicitly solve:
+
+- text measurement
+- wrapping
+- truncation
+- row height consistency
+- baseline alignment
+- code-like text parity
+
+Specific rule:
+
+- no renderer workstream is complete until its text/layout story is explicit
+
+If text parity cannot be made coherent with the chosen scene backend, the vertical slice fails.
+
+## Edge Strategy
+
+The rewrite must specify edges from the beginning.
+
+Dense graph systems often fail on:
+
+- edge routing cost
+- edge hit testing
+- edge-anchor coherence
+- alignment between moving node visuals and edge handles
+
+Plan rule:
+
+- edges are part of the retained-scene vertical slice
+- edge strategy cannot be deferred until after node chrome is "working"
+
+## `xyflow` Position
+
+Current recommendation:
+
+- do not keep optimizing `xyflow`'s current DOM renderer
+- keep only the `xyflow` pieces that remain useful and cheap
+- do not commit to full `xyflow` abandonment before the retained-scene slice proves what is necessary
+
+Working position:
+
+- `xyflow` may survive as a thin coordinator for viewport state, selection, transforms, and positioning
+- if it drags too much DOM participation or coupling back into the hot path, fork or replace that slice quickly
+
+This is not:
+
+- definitely keep `xyflow`
+- definitely throw all of `xyflow` away immediately
+
+This is:
+
+- prove what `xyflow` can still do cheaply
+- remove the rest if it blocks the architecture
+
+## `dnd-kit` Scope Boundary
+
+Do not turn this rewrite into a full drag-and-drop framework rewrite.
+
+Split drag behavior into two classes:
+
+### Graph-Level Drag And Placement
+
+Rewrite this natively in the scene system:
+
+- node movement
+- scene-level placement
+- graph-level selection drag
+- graph-level hit testing
+
+### Node-Internal Drag And Reorder
+
+Preserve this inside active DOM overlays initially:
+
+- param lists
+- nested param trees
+- dict/list-like editing controls
+- other complex node-internal `dnd-kit` flows
+
+This keeps scope disciplined:
+
+- rewrite the graph hot path
+- preserve complex node-internal interaction behavior until profiling proves it must move
+
+## Recommended Backend Stack
+
+Recommended stack:
+
+- bespoke scene model
+- PixiJS backend first
+- React/Tailwind for panes and overlays
+
+Not recommended as the primary hot path:
+
+- more SnapDOM/image-overlay tuning
+- `@pixi/react` as the main scene reconciliation layer
+- raw WebGL/WebGPU from scratch on day 1
+
+Reason:
+
+- Pixi provides the retained renderer pieces we need without turning this into a rendering-engine-from-scratch project
+- the product-specific source of truth should still be Setta's own scene model
 
 ## Explicit Non-Goals
 
@@ -194,6 +362,7 @@ This should not be the first move unless the spike quickly proves that Paths A a
 - no full-frontend rewrite
 - no per-widget canvas conversion as the core strategy
 - no assumption that every inactive dense section body can remain fully live DOM
+- no assumption that nested JSX structure should be mirrored 1:1 in the scene renderer
 - no `Terminal` architecture work in this plan unless it becomes unavoidable through shared renderer changes
 
 ## Success Criteria
@@ -202,106 +371,165 @@ This should not be the first move unless the spike quickly proves that Paths A a
 
 - no visible fallback-style appearance swaps during pan or zoom
 - no second-click requirement to interact with a section
-- no obvious handoff glitch when a section transitions from overview-rendered to live DOM
-- active editing/detail state remains faithful and immediately interactive
+- no obvious handoff glitch when a node transitions from scene rendering to active DOM
+- active editing state remains faithful and immediately interactive
+- active-node overlays preserve current complex behaviors cleanly
 
 ### Benchmark Criteria
 
-The old plan optimized for plausibility. This plan optimizes for benchmark movement.
-
-Minimum spike gate:
+Minimum slice gate:
 
 - beat the retained queued-image checkpoint on both `settings` and `tier1Synthetic`
 - reduce benchmark `Paint` materially on both scenes, not just one
 - reduce slow overview pan `Paint` materially on both scenes
 
-Practical keep gate for architecture choice:
+Practical keep gate:
 
 - the chosen rewrite path must show that it can move benchmark `Paint` substantially closer to untouched `main`, not just trade `Paint` for `RunTask`
-- if a spike cannot show that direction clearly, discard it fast
+- if a vertical slice cannot show that direction clearly, discard it fast
 
 ## Workstreams
 
-## 1. Architecture Spike And Decision Gate
+## 0. Reset Base And Lock The Slice
 
 Deliverables:
 
-- a short RFC comparing:
-  - Path A
-  - Path B
-  - Path C
-- one chosen primary implementation path
-- one explicit escalation rule
+- decision to execute from `main`
+- list of benchmark harness and research assets to port forward
+- explicit vertical-slice scope
 
 Tasks:
 
-- identify the exact dense-scene seams:
-  - shell DOM
-  - body DOM
-  - edge / handle anchors
-  - active-section handoff
-- decide whether canvas 2D is enough or whether WebGL is required
-- define renderer packets for dense section bodies
-- define how the local detail DOM neighborhood is chosen
+- identify the exact files and harnesses to carry forward from this worktree
+- document the slice scene and node type to use as the proving ground
+- lock the initial success/failure gate before implementation expands
 
 Exit gate:
 
-- one architecture chosen
-- one benchmark hypothesis written
-- one rollback/escalation condition written
+- restart base agreed
+- vertical slice scope agreed
+- benchmark gate agreed
 
-## 2. Dense Body Render Packet Extraction
+## 1. Architecture Lock And RFC
 
-Goal:
+Deliverables:
 
-- turn dense section bodies into renderer-friendly data instead of relying on mounted DOM as the source of truth for visuals during motion
+- one short RFC for the retained-scene/GPU-first architecture
+- one explicit `xyflow` escalation rule
+- one explicit overlay ownership rule
 
 Tasks:
 
-- define a compact render packet schema for Tier 1 dense sections
-- separate packet generation from DOM rendering
-- ensure packets can be generated from the same source-of-truth data as the live DOM version
+- specify the scene layer, overlay layer, and pane layer
+- specify how nodes move between inactive scene rendering and active DOM overlay ownership
+- specify the exact scope boundary for `dnd-kit`
+- specify the exact edge strategy for the slice
+
+Exit gate:
+
+- one architecture locked
+- one escalation rule written
+- one rollback condition written
+
+## 2. Canonical Parity Layer
+
+Goal:
+
+- make visual parity systematic instead of ad hoc
+
+Tasks:
+
+- extract shared design tokens
+- define the canonical text/layout measurement rules
+- define semantic scene primitives for dense nodes
+- identify the ugliest text-heavy node type and make it the parity canary
 
 Important requirement:
 
-- packet generation must be deterministic and typed
-- no heuristic keyword-matching shortcuts
+- scene parity must not depend on duplicating arbitrary DOM wrapper structure
+- parity must come from tokens, layout rules, and semantic primitives
 
-## 3. Parallel Renderer Spike
+## 3. Scene Packet And Edge Packet Extraction
 
 Goal:
 
-- prove that a dedicated overview/motion renderer can cut motion-time `Paint`
+- generate deterministic renderer packets from Setta state instead of using mounted DOM as the visual source of truth
 
 Tasks:
 
-- render dense section bodies in a separate surface aligned to the `xyflow` camera
-- keep shell DOM live
-- keep only the active/local detail DOM mounted
-- measure:
-  - benchmark `Paint`
-  - slow overview pan `Paint`
-  - handoff latency into interactive DOM
+- define packet schemas for node visuals
+- define packet schemas for edges and hit regions
+- keep packet generation deterministic and typed
+- ensure packets come from the same source-of-truth section data as active DOM overlays
+
+Strict rule:
+
+- no heuristic keyword-based shortcuts
+
+## 4. Vertical Slice Implementation
+
+Goal:
+
+- prove the architecture with one real slice before broad migration
+
+The slice must include:
+
+- one nasty dense benchmark scene
+- one text-heavy dense node type
+- retained-scene pan and zoom
+- retained-scene edges
+- retained-scene hit testing and selection
+- one active DOM node overlay using the current real widget subtree
+
+Tasks:
+
+- implement Pixi scene renderer for the slice
+- align the scene to the camera transform
+- render edges in the same slice
+- support one active node overlay that preserves current CodeMirror/combobox/resize behavior
+- benchmark the slice on `settings` and `tier1Synthetic`
 
 Exit gate:
 
-- the spike must beat the retained queued-image checkpoint on both dense scenes
-- if it does not, stop and escalate to Path B instead of tuning thresholds
+- if the slice does not materially beat the retained queued-image checkpoint on both dense scenes, stop and rethink before broader rollout
 
-## 4. Interaction Handoff
+## 5. Overlay Ownership And Interaction Handoff
 
 Goal:
 
-- make renderer-to-DOM transitions invisible to the user
+- make scene-to-DOM transitions invisible and predictable
 
 Tasks:
 
-- define the local live-DOM neighborhood policy
-- mount real DOM ahead of interaction, not after visible delay
-- ensure pointer, selection, and keyboard ownership swap cleanly
-- keep edge handles and shell alignment correct during transitions
+- define exactly when a node becomes an active DOM overlay
+- keep active overlays mounted while actively used
+- ensure pointer, keyboard, selection, and focus ownership swap cleanly
+- ensure edge anchors stay coherent when a node is overlay-owned
 
-## 5. Dense Scene Integration
+Important requirement:
+
+- handoff policy must be coarse and stable
+- no zoom-threshold flapping like the old preview path
+
+## 6. `xyflow` Viability Gate
+
+Goal:
+
+- decide how much of `xyflow` survives after the slice
+
+Tasks:
+
+- measure whether `xyflow` still forces too much DOM wrapper cost
+- measure whether its viewport/selection shell still helps more than it hurts
+- fork or replace the dense-scene rendering slice quickly if it blocks the retained-scene design
+
+Decision outcomes:
+
+- keep thin `xyflow` shell
+- fork dense-scene renderer path
+- or replace more of `xyflow` if needed
+
+## 7. Tier 1 Rollout
 
 Goal:
 
@@ -309,19 +537,10 @@ Goal:
 
 Tasks:
 
-- wire Tier 1 sections to the new renderer path
-- keep sparse sections on current DOM rendering unless profiling says otherwise
-- measure `settings` and `tier1Synthetic` continuously during rollout
-
-## 6. `xyflow` Escalation Gate
-
-Trigger this only if the parallel-renderer spike still leaves too much `Paint` or handoff complexity.
-
-Escalation tasks:
-
-- fork or replace the dense-scene node-rendering path inside `frontend/src/forks/xyflow/core`
-- reduce or remove `xyflow` node wrapper DOM for dense scenes
-- preserve camera and coordinate contracts only if they are still an advantage
+- wire Tier 1 dense sections to the new renderer path
+- keep sparse scenes on DOM until profiling justifies migration
+- benchmark continuously against `settings` and `tier1Synthetic`
+- reject expansions that preserve correctness but fail the `Paint` gate
 
 ## Evidence Base
 
@@ -340,13 +559,12 @@ These collectively show:
 
 ## Immediate Next Actions
 
-1. Lock the architecture choice process:
-   - Path A spike first
-   - Path B as explicit escalation
-   - Path C only if A and B both fail quickly
-2. Write the renderer spike RFC:
-   - render packet shape
-   - surface choice
-   - detail neighborhood rules
-3. Implement the first dense-scene parallel renderer spike against `settings` and `tier1Synthetic`.
-4. Reject the spike immediately if it does not beat the retained queued-image checkpoint on benchmark `Paint` for both scenes.
+1. Update the rewrite RFC language to retained-scene/GPU-first rather than "canvas-first".
+2. Add explicit text/layout and edge strategy sections before implementation work expands.
+3. Lock the vertical slice:
+   - one benchmark scene
+   - one text-heavy node type
+   - edges included
+   - one active DOM overlay
+4. Restart the implementation from `main`.
+5. Reject the slice quickly if it does not materially beat the retained queued-image checkpoint on benchmark `Paint` for both dense scenes.
