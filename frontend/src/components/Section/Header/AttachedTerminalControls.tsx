@@ -89,9 +89,11 @@ export function AttachedTerminalControls({
         return;
       }
       setIsCreatingTerminal(true);
-      void createAttachedTerminalAndRefreshProjectState(sectionId).finally(() => {
-        setIsCreatingTerminal(false);
-      });
+      void createAttachedTerminalAndRefreshProjectState(sectionId).finally(
+        () => {
+          setIsCreatingTerminal(false);
+        },
+      );
       return;
     }
 

@@ -54,8 +54,8 @@ export async function createPendingWorkspaceLaunchFromIntent({
 }): Promise<CreatePendingWorkspaceLaunchResult> {
   const response: CreateWorkspaceLaunchIntentRouteResponse =
     await route_create_workspace_launch_intent({
-    launchRequest,
-    returnUrl,
+      launchRequest,
+      returnUrl,
     });
   if (!res200(response) || !response.data) {
     const detail = getErrorDetail(response.data);

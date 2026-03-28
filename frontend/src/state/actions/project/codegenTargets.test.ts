@@ -1,8 +1,8 @@
 import { useAllProjectMetadata, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
-  createProjectCodegenPluginTarget,
   createProjectChatWindowingState,
+  createProjectCodegenPluginTarget,
   createProjectCodegenPythonTarget,
   createProjectConfig,
   createSingletonSections,

@@ -10,10 +10,10 @@ from setta.types.chat import (
     MessageStopEvent,
     MessageTextContent,
     MessageThinkingContent,
-    ToolCall,
-    ToolCallFunction,
     ToolArgumentPreviewDeltaEvent,
+    ToolCall,
     ToolCallDeltaEvent,
+    ToolCallFunction,
     ToolResultEvent,
 )
 from setta.types.id import ID

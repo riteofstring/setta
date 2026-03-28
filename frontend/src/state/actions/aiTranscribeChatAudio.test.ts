@@ -885,8 +885,7 @@ describe("transcription session actions", () => {
       hasResponse: true,
       data: {
         detail: {
-          message:
-            "sampleRateHz cannot change within a transcription session.",
+          message: "sampleRateHz cannot change within a transcription session.",
           errorCode: "invalid_request",
         },
       },

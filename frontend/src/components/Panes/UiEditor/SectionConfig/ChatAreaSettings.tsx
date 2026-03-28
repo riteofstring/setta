@@ -339,10 +339,7 @@ export function ChatAreaSettings({ sectionId }: ChatAreaSettingsProps) {
   }, [allLLMConfigs, selectedEngineConfig]);
   const selectableLLMConfigId = useMemo(
     () =>
-      resolveSelectableLLMConfigId(
-        availableConfigGroups,
-        selectedLLMConfigId,
-      ),
+      resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
     [availableConfigGroups, selectedLLMConfigId],
   );
 

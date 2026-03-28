@@ -11,8 +11,8 @@ import {
   route_remove_launcher_recent_workspace,
 } from "utils/generatedEndpoints";
 import type {
-  LauncherFilesystemRootsResponse,
   LauncherDirectoryEntryPayload,
+  LauncherFilesystemRootsResponse,
   LauncherListDirectoryRequestInput,
   LauncherListDirectoryResponse,
   LauncherOpenWorkspaceResponse,
@@ -182,7 +182,7 @@ export function LauncherHomePage() {
   async function loadRecentWorkspaces() {
     const response: LauncherRecentWorkspacesRouteResponse =
       await route_get_launcher_recent_workspaces({
-      setta_home: launcherContext.settaHome,
+        setta_home: launcherContext.settaHome,
       });
     if (!res200(response) || !response.data) {
       setRecentWorkspacesError("Failed to load recent workspaces.");
@@ -311,10 +311,10 @@ export function LauncherHomePage() {
 
     const response: LauncherOpenWorkspaceRouteResponse =
       await route_open_launcher_workspace({
-      workspaceRoot,
-      createIfMissing,
-      settaFilesLocation: "auto",
-      settaHome: launcherContext.settaHome,
+        workspaceRoot,
+        createIfMissing,
+        settaFilesLocation: "auto",
+        settaHome: launcherContext.settaHome,
       });
 
     if (!res200(response) || !response.data) {
@@ -347,9 +347,9 @@ export function LauncherHomePage() {
     setRecentActionInFlight("pin");
     const response: LauncherRecentWorkspacesRouteResponse =
       await route_pin_launcher_recent_workspace({
-      workspaceRoot: entry.workspaceRoot,
-      pinned: !entry.pinned,
-      settaHome: launcherContext.settaHome,
+        workspaceRoot: entry.workspaceRoot,
+        pinned: !entry.pinned,
+        settaHome: launcherContext.settaHome,
       });
     setRecentActionInFlight(null);
 
@@ -368,8 +368,8 @@ export function LauncherHomePage() {
     setRecentActionInFlight("remove");
     const response: LauncherRecentWorkspacesRouteResponse =
       await route_remove_launcher_recent_workspace({
-      workspaceRoot: entry.workspaceRoot,
-      settaHome: launcherContext.settaHome,
+        workspaceRoot: entry.workspaceRoot,
+        settaHome: launcherContext.settaHome,
       });
     setRecentActionInFlight(null);
 

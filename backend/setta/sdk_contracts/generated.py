@@ -5,8 +5,10 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from setta.types.artifact import BaseArtifactUnionWithDiscriminator
-from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator
-from setta.types.protocol import BaseDependencyValueUnionWithDiscriminator
+from setta.types.protocol import (
+    BaseDependencyKeyUnionWithDiscriminator,
+    BaseDependencyValueUnionWithDiscriminator,
+)
 
 SETTA_SDK_CONTRACT_VERSION = 2
 

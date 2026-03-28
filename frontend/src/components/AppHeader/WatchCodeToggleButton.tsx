@@ -1,10 +1,10 @@
 import { RiRadarLine } from "react-icons/ri";
+import { setWatchCodeEnabledAndRefreshProjectState } from "state/actions/project/watchCode";
 import {
   NULL_PROJECT_CONFIG_ID,
   useProjectState,
   useShareSession,
 } from "state/definitions";
-import { setWatchCodeEnabledAndRefreshProjectState } from "state/actions/project/watchCode";
 
 export function WatchCodeToggleButton() {
   const enabled = useProjectState(

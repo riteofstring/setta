@@ -1,6 +1,4 @@
-import {
-  buildBinaryDownloadRoute,
-} from "./transportRouteConstants";
+import { buildBinaryDownloadRoute } from "./transportRouteConstants";
 import { buildBackendURL as buildBackendURLInternal } from "./transportUrlCore";
 
 export {

@@ -41,9 +41,10 @@ const aiActionMocks = vi.hoisted(() => ({
 }));
 
 vi.mock("state/actions/ai", async () => {
-  const actual = await vi.importActual<typeof import("state/actions/ai")>(
-    "state/actions/ai",
-  );
+  const actual =
+    await vi.importActual<typeof import("state/actions/ai")>(
+      "state/actions/ai",
+    );
   return {
     ...actual,
     saveLLMConfig: aiActionMocks.saveLLMConfig,

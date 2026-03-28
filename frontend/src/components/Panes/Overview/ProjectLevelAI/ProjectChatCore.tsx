@@ -87,9 +87,7 @@ import {
   matchesConversationSearchText,
   tokenizeConversationSearchQuery,
 } from "utils/conversationSearch";
-import {
-  route_get_file_browser_root,
-} from "utils/generatedEndpoints";
+import { route_get_file_browser_root } from "utils/generatedEndpoints";
 import {
   AgentRun,
   BaseChatMessageUnion,

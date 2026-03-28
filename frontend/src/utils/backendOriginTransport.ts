@@ -9,13 +9,13 @@ import {
   buildBackendOriginWebsocketURL as buildBackendOriginWebsocketURLInternal,
 } from "./transportUrlCore";
 
-export type BuildListenerWebsocketUrlOptions = {
+type BuildListenerWebsocketUrlOptions = {
   listenerId: string;
   projectConfigId: string;
   shareSessionId: string | null;
 };
 
-export type BuildTerminalWebsocketUrlOptions = {
+type BuildTerminalWebsocketUrlOptions = {
   projectConfigId: string;
   sectionId: string;
   shareSessionId: string | null;

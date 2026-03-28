@@ -136,7 +136,9 @@ describe("ai tool argument preview streaming", () => {
     const previewState =
       useToolArgumentPreview.getState().byProjectConfigId["project-1"];
     expect(
-      previewState.previewParamValueBySectionAndParamId["section-c"]?.["param-a"],
+      previewState.previewParamValueBySectionAndParamId["section-c"]?.[
+        "param-a"
+      ],
     ).toEqual({
       toolCallId: "tool-call-3",
       value: "updated",

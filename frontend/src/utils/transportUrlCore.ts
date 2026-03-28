@@ -20,7 +20,7 @@ function resolveBackendUrl(address: string): string {
   return `${C_ADDRESSES.BACKEND}${address}`;
 }
 
-export function replaceAddressParams(
+function replaceAddressParams(
   address: string,
   addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): string {

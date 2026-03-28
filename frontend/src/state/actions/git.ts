@@ -676,8 +676,9 @@ export async function selectGitCommit(commitHash: string): Promise<void> {
     };
   });
 
-  const res: GitCommitDetailsRouteResponse =
-    await route_get_git_commit_details({ commitHash });
+  const res: GitCommitDetailsRouteResponse = await route_get_git_commit_details(
+    { commitHash },
+  );
   if (requestId !== commitDetailsRequestId) {
     return;
   }

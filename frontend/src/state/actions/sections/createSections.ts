@@ -251,7 +251,7 @@ function normalizeSectionNameCandidate(value: string): string {
     .trim();
 }
 
-export function getValidSectionNameForOpenedFile(fileName: string): string {
+function getValidSectionNameForOpenedFile(fileName: string): string {
   const trimmedName = fileName.trim();
   const extensionIndex = trimmedName.lastIndexOf(".");
   const baseName =

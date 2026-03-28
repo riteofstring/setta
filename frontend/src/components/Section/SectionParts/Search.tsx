@@ -13,6 +13,7 @@ import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import { setParametersRequestWaitingForLSP } from "state/actions/lsp";
+import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 import {
   getCodeObjCore,
   getCurrEffectiveCodeObjImpl,
@@ -38,7 +39,6 @@ import {
 import { route_clear_text_field_completion } from "utils/generatedEndpoints";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import { setCallableAndRefreshProjectState } from "state/actions/project/callable";
 
 export function SectionSearch({
   sectionId,

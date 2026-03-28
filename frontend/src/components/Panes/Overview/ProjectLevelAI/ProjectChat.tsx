@@ -874,10 +874,7 @@ function ProjectChatSurface({
   );
   const selectableLLMConfigId = useMemo(
     () =>
-      resolveSelectableLLMConfigId(
-        availableConfigGroups,
-        selectedLLMConfigId,
-      ),
+      resolveSelectableLLMConfigId(availableConfigGroups, selectedLLMConfigId),
     [availableConfigGroups, selectedLLMConfigId],
   );
   const llmSelectionUnavailableReason = useMemo(

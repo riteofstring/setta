@@ -252,10 +252,10 @@ export async function loadShareProjectConfig({
   useProjectLoading.setState({ projectIsLoading: true, projectIs404: false });
   const stateRes: ShareProjectConfigRouteResponse =
     await route_load_share_project_config(
-    shareSession.shareDeploymentName,
-    shareSession.shareDeploymentVersion,
-    { projectConfigId },
-  );
+      shareSession.shareDeploymentName,
+      shareSession.shareDeploymentVersion,
+      { projectConfigId },
+    );
   if (!res200(stateRes)) {
     const errorCode = getErrorCode(stateRes.data);
     if (

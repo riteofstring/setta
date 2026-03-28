@@ -3,7 +3,7 @@ import {
   buildListenerWebsocketUrl,
 } from "utils/backendOriginTransport";
 
-export type BuildPluginListenerWebsocketUrlOptions = {
+type BuildPluginListenerWebsocketUrlOptions = {
   listenerId: string;
   projectConfigId: string;
   shareSessionId: string | null;

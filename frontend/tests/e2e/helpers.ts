@@ -1140,7 +1140,7 @@ export async function setSectionEdgeInputsFromFrontend(
   });
 }
 
-export async function setSectionEdgeOutputsFromFrontend(
+async function setSectionEdgeOutputsFromFrontend(
   page: Page,
   payload: {
     projectConfigId: string;
@@ -1581,7 +1581,7 @@ export async function emitChatStreamDelta(
   }, payload);
 }
 
-export async function refreshProjectStateFromBackend(
+async function refreshProjectStateFromBackend(
   page: Page,
   projectConfigId: string,
 ): Promise<void> {

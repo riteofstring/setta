@@ -19,24 +19,24 @@ describe("generated settings support", () => {
     expect(settings.backend.renameRefactorMode).toBe(
       RenameRefactorModeEnum.ALWAYS_ASK,
     );
-    expect(settings.sectionSizingPolicy.byType.Callable.hideSearchMinHeight).toBe(
-      42,
-    );
+    expect(
+      settings.sectionSizingPolicy.byType.Callable.hideSearchMinHeight,
+    ).toBe(42);
     expect(settings.sectionSizingPolicy.byType.StateMachineStart.minWidth).toBe(
       240,
     );
-    expect(settings.sectionSizingPolicy.byType.StateMachineStart.minHeight).toBe(
-      96,
-    );
+    expect(
+      settings.sectionSizingPolicy.byType.StateMachineStart.minHeight,
+    ).toBe(96);
     expect(settings.sectionSizingPolicy.byType.StateMachineGate.minHeight).toBe(
       120,
     );
     expect(settings.sectionSizingPolicy.byType.StateMachineEnd.minWidth).toBe(
       240,
     );
-    expect(settings.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight).toBe(
-      36,
-    );
+    expect(
+      settings.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
+    ).toBe(36);
     expect(
       settings.sectionSizingPolicy.metaControlByType.DropdownParam
         .sizeModeHeight,
@@ -87,9 +87,9 @@ describe("generated settings support", () => {
       RunSnapshotModeEnum.ephemeral,
     );
     expect(settings.sectionSizingPolicy.globals.autoMaxHeight).toBe(200);
-    expect(settings.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight).toBe(
-      36,
-    );
+    expect(
+      settings.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
+    ).toBe(36);
     expect(
       settings.sectionSizingPolicy.metaControlByType.DropdownParam
         .sizeModeHeight,

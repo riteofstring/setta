@@ -12,12 +12,12 @@ import {
   route_get_file_browser_download_urls,
   route_get_file_browser_file_content,
 } from "utils/generatedEndpoints";
-import { isSpreadsheetPath } from "utils/spreadsheet";
 import {
   BinaryDownloadResponse,
   FileBrowserFileContentResponse,
   GetFileBrowserDownloadURLsResponse,
 } from "utils/generatedTypes";
+import { isSpreadsheetPath } from "utils/spreadsheet";
 import type { FileNode } from "./FileBrowserPane";
 
 const LazyFileBrowserSpreadsheetEditor = lazy(async () => {

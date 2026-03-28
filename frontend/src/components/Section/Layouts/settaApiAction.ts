@@ -1,7 +1,7 @@
 import { post } from "utils/requestTransport";
 import { buildSettaApiPayload } from "utils/settaApiPresets";
 
-export type SettaApiButtonRequestConfig = {
+type SettaApiButtonRequestConfig = {
   requestUrl: string;
   requestBody: string;
 };

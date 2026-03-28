@@ -25,12 +25,20 @@ import {
   createProjectChatWindowingState,
   createProjectConfig,
   createProjectStateSingleConfig,
-  createSettaProjectConfigDiagnostics,
   createSettaLspDiagnosticsPayload,
+  createSettaProjectConfigDiagnostics,
   createWindowSpaceConfig,
   type ProjectStateSingleConfigInput,
 } from "utils/generatedTypes";
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 const routeCreateProjectConfigMock = vi.fn();
 const routeLoadProjectConfigMock = vi.fn();

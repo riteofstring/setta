@@ -4,13 +4,11 @@ import { useRenameRefactors } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { RenameRefactorModeEnum } from "utils/generatedTypes";
 
-const {
-  routeAcceptRenameRefactorMock,
-  routeDeclineRenameRefactorMock,
-} = vi.hoisted(() => ({
-  routeAcceptRenameRefactorMock: vi.fn(),
-  routeDeclineRenameRefactorMock: vi.fn(),
-}));
+const { routeAcceptRenameRefactorMock, routeDeclineRenameRefactorMock } =
+  vi.hoisted(() => ({
+    routeAcceptRenameRefactorMock: vi.fn(),
+    routeDeclineRenameRefactorMock: vi.fn(),
+  }));
 
 vi.mock("utils/generatedEndpoints", () => ({
   route_accept_rename_refactor: routeAcceptRenameRefactorMock,

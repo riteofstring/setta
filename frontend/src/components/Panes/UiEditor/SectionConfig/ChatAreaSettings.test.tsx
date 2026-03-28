@@ -13,8 +13,8 @@ import "testUtils/reactRefreshPreamble";
 import {
   AgenticEdgeContextModeEnum,
   AgenticEdgeKindEnum,
-  createAgenticSummaryCacheStatus,
   createAgenticEdge,
+  createAgenticSummaryCacheStatus,
   createAllLLMConfigs,
   createChatSectionImpl,
   createCore,
@@ -109,7 +109,9 @@ async function flushEffects(): Promise<void> {
   });
 }
 
-function seedChatSections(options: { includeSummaryContextEdge?: boolean } = {}) {
+function seedChatSections(
+  options: { includeSummaryContextEdge?: boolean } = {},
+) {
   const { includeSummaryContextEdge = false } = options;
   const sourceSectionId = "chat-source";
   const targetSectionId = "chat-target";

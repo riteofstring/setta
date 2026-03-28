@@ -15,8 +15,8 @@ import {
   DependencyValueTypeEnum,
   WebsocketConnectionTypeEnum,
   WebsocketMsgTypeForFrontendEnum,
-  createBinaryContentRef,
   createAgentRun,
+  createBinaryContentRef,
   createListenerCoverageSnapshot,
   createProjectConfig,
   createSettaLspDiagnosticsPayload,
@@ -468,7 +468,9 @@ describe("openWebSocket", () => {
         }
       | undefined;
 
-    expect(realtimeMessage?.content?.projectConfigId).toBe("project-ui-covered");
+    expect(realtimeMessage?.content?.projectConfigId).toBe(
+      "project-ui-covered",
+    );
     expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
       "section-covered",
     );

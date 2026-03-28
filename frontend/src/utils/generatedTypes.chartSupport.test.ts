@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   ChartTypeEnum,
   SectionTypeEnum,
@@ -8,6 +7,7 @@ import {
   createScatterChartSettings,
   createUserDefaultChartSectionImpl,
 } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 
 describe("generated chart support", () => {
   it("exports canonical chart type enums and settings factories", () => {

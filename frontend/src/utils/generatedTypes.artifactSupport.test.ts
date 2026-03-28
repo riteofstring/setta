@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest";
 import {
   ArtifactTypeEnum,
   DrawAreaBrushShapeEnum,
@@ -11,6 +10,7 @@ import {
   createDrawAreaLayerItemTransformArtifact,
   type UpdateArtifactMsgContent,
 } from "utils/generatedTypes";
+import { describe, expect, it } from "vitest";
 
 describe("generated artifact support", () => {
   it("exports canonical artifact and draw-area enums", () => {
@@ -59,7 +59,10 @@ describe("generated artifact support", () => {
       artifacts: [
         createBrushStrokeArtifact({
           value: createBrushStroke({
-            points: [[0, 0], [1, 1]],
+            points: [
+              [0, 0],
+              [1, 1],
+            ],
           }),
         }),
       ],

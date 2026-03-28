@@ -98,7 +98,7 @@ export function setNextAppSpecPatchStreamBase(spec: Spec): void {
   nextBaseSpec = cloneSpec(spec);
 }
 
-export function clearNextAppSpecPatchStreamBase(): void {
+function clearNextAppSpecPatchStreamBase(): void {
   nextBaseSpec = null;
 }
 
@@ -107,6 +107,6 @@ export function __resetAppSpecPatchStreamsForTests(): void {
   clearNextAppSpecPatchStreamBase();
 }
 
-export function __getAppSpecPatchStreamCountForTests(): number {
+function __getAppSpecPatchStreamCountForTests(): number {
   return streamByToolCallId.size;
 }

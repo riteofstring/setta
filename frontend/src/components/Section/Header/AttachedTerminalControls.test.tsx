@@ -52,11 +52,11 @@ vi.mock("utils/generatedEndpoints", async () => {
   };
 });
 
-import { AttachedTerminalControls } from "./AttachedTerminalControls";
 import {
   route_create_child_sections,
   route_get_latest_project_state,
 } from "utils/generatedEndpoints";
+import { AttachedTerminalControls } from "./AttachedTerminalControls";
 
 const mockedRouteCreateChildSections = vi.mocked(route_create_child_sections);
 const mockedRouteGetLatestProjectState = vi.mocked(

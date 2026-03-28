@@ -75,8 +75,9 @@ export async function fetchListenerCoverageSnapshot(
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  const res: ListenerCoverageRouteResponse =
-    await route_get_listener_coverage({ projectConfigId });
+  const res: ListenerCoverageRouteResponse = await route_get_listener_coverage({
+    projectConfigId,
+  });
   if (!res200(res)) {
     return;
   }

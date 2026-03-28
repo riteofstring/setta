@@ -40,8 +40,10 @@ type LauncherControlsState = {
   launcherSetupButtonLabel: string;
 };
 
-type LauncherStatusRouteResponse = ResponseDataAndStatus<LauncherStatusResponse>;
-type LauncherUpdateRouteResponse = ResponseDataAndStatus<LauncherUpdateResponse>;
+type LauncherStatusRouteResponse =
+  ResponseDataAndStatus<LauncherStatusResponse>;
+type LauncherUpdateRouteResponse =
+  ResponseDataAndStatus<LauncherUpdateResponse>;
 
 type DesktopLauncherSettingsSectionProps = {
   settaHome?: string | null;
@@ -266,11 +268,10 @@ export function DesktopLauncherSettingsSection({
       if (missingRequiredSettaHome) {
         return null;
       }
-      const response: LauncherStatusRouteResponse = await route_get_launcher_status(
-        {
+      const response: LauncherStatusRouteResponse =
+        await route_get_launcher_status({
           setta_home: normalizedSettaHome,
-        },
-      );
+        });
       if (!res200(response) || !response.data) {
         return null;
       }

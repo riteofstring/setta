@@ -3,20 +3,44 @@ from typing import Annotated, Literal
 from pydantic import Field, TypeAdapter
 from setta.types.generated.go_shared_types import (
     ArtifactType,
-    BrushStroke as GoBrushStroke,
-    BrushStrokeArtifact as GoBrushStrokeArtifact,
-    BrushStrokeWithTransform as GoBrushStrokeWithTransform,
     BinaryContentRef,
     ChartType,
-    DrawAreaLayer as GoDrawAreaLayer,
-    DrawAreaLayerItem as GoDrawAreaLayerItem,
-    DrawAreaLayerItemTransform as GoDrawAreaLayerItemTransform,
-    DrawAreaLayerItemTransformArtifact as GoDrawAreaLayerItemTransformArtifact,
     DrawAreaBrushShape,
-    FileArtifact as GoFileArtifact,
-    ImageArtifact as GoImageArtifact,
+)
+from setta.types.generated.go_shared_types import (
+    BrushStroke as GoBrushStroke,
+)
+from setta.types.generated.go_shared_types import (
+    BrushStrokeArtifact as GoBrushStrokeArtifact,
+)
+from setta.types.generated.go_shared_types import (
+    BrushStrokeWithTransform as GoBrushStrokeWithTransform,
+)
+from setta.types.generated.go_shared_types import (
     ChartDataArtifact as GoChartDataArtifact,
+)
+from setta.types.generated.go_shared_types import (
+    DrawAreaLayer as GoDrawAreaLayer,
+)
+from setta.types.generated.go_shared_types import (
+    DrawAreaLayerItem as GoDrawAreaLayerItem,
+)
+from setta.types.generated.go_shared_types import (
+    DrawAreaLayerItemTransform as GoDrawAreaLayerItemTransform,
+)
+from setta.types.generated.go_shared_types import (
+    DrawAreaLayerItemTransformArtifact as GoDrawAreaLayerItemTransformArtifact,
+)
+from setta.types.generated.go_shared_types import (
+    FileArtifact as GoFileArtifact,
+)
+from setta.types.generated.go_shared_types import (
+    ImageArtifact as GoImageArtifact,
+)
+from setta.types.generated.go_shared_types import (
     LineChartSettings as GoLineChartSettings,
+)
+from setta.types.generated.go_shared_types import (
     ScatterChartSettings as GoScatterChartSettings,
 )
 from setta.types.id import create_new_id

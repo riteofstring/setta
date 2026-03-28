@@ -41,8 +41,9 @@ describe("generated project codegen support", () => {
         ?.representation,
     ).toBe(CodeObjValueRepresentationModeEnum.string);
     expect(
-      pythonTarget.codeObjValuePolicy.typePolicies[CodeObjTypeEnum.DropzoneParam]
-        ?.representation,
+      pythonTarget.codeObjValuePolicy.typePolicies[
+        CodeObjTypeEnum.DropzoneParam
+      ]?.representation,
     ).toBe(CodeObjValueRepresentationModeEnum.file_path);
   });
 
@@ -81,7 +82,8 @@ describe("generated project codegen support", () => {
         ?.representation,
     ).toBe(CodeObjValueRepresentationModeEnum.json_parsed);
     expect(
-      codeObjValuePolicy.typePolicies[CodeObjTypeEnum.TextParam]?.representation,
+      codeObjValuePolicy.typePolicies[CodeObjTypeEnum.TextParam]
+        ?.representation,
     ).toBe(CodeObjValueRepresentationModeEnum.string);
   });
 

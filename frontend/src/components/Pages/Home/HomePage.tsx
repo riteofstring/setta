@@ -54,7 +54,10 @@ import {
   SETTINGS_ROUTER_PATH,
 } from "utils/constants";
 import { route_set_as_default_project } from "utils/generatedEndpoints";
-import { type ProjectConfig, type ProjectMetadataEntry } from "utils/generatedTypes";
+import {
+  type ProjectConfig,
+  type ProjectMetadataEntry,
+} from "utils/generatedTypes";
 import { LoadingSpinner } from "../LoadingSpinner";
 
 const HOME_WORKSPACE_PANE_NAME = PaneNameEnum.homeWorkspace;

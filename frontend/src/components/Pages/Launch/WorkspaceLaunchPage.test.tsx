@@ -46,7 +46,8 @@ describe("WorkspaceLaunchPage back navigation helpers", () => {
 
     expect(resolved).toEqual({
       kind: "navigate",
-      target: "/projects/demo?tab=recent&__setta_open_workspace_switcher=1#pane",
+      target:
+        "/projects/demo?tab=recent&__setta_open_workspace_switcher=1#pane",
     });
   });
 

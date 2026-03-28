@@ -18,8 +18,8 @@ import {
   route_load_app_project_config,
 } from "utils/generatedEndpoints";
 import type {
-  AppDeploymentStateResponse,
   AppDeploymentSessionResponse,
+  AppDeploymentStateResponse,
   ProjectStateSingleConfig,
 } from "utils/generatedTypes";
 

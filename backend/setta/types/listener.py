@@ -61,16 +61,38 @@ from setta.sdk_contracts.generated import (
 )
 from setta.types.generated.go_shared_types import (
     ListenerDependencyEventMessage as GoListenerDependencyEventMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerDependencyMode as GeneratedListenerDependencyMode,
+)
+from setta.types.generated.go_shared_types import (
     ListenerErrorMessage as GoListenerErrorMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerForceRefreshMessage as GoListenerForceRefreshMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerFrontendEmitMessage as GoListenerFrontendEmitMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerInitMessage as GoListenerInitMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerMessageType,
+)
+from setta.types.generated.go_shared_types import (
     ListenerRealtimeEventMessage as GoListenerRealtimeEventMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerRegisterAckMessage as GoListenerRegisterAckMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerRegisterMessage as GoListenerRegisterMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerRouterEndpointCallMessage as GoListenerRouterEndpointCallMessage,
+)
+from setta.types.generated.go_shared_types import (
     ListenerRouterEndpointResultMessage as GoListenerRouterEndpointResultMessage,
 )
 from setta.types.id import ID
@@ -199,13 +221,11 @@ class WebsocketMsgListenerRouterEndpointCall(GoListenerRouterEndpointCallMessage
     )
 
 
-class WebsocketMsgListenerRouterEndpointResult(
-    GoListenerRouterEndpointResultMessage
-):
+class WebsocketMsgListenerRouterEndpointResult(GoListenerRouterEndpointResultMessage):
     content: ListenerRouterEndpointResultContent
-    messageType: Literal[
+    messageType: Literal[ListenerMessageType.ListenerRouterEndpointResult] = (
         ListenerMessageType.ListenerRouterEndpointResult
-    ] = ListenerMessageType.ListenerRouterEndpointResult
+    )
 
 
 class WebsocketMsgListenerRegister(GoListenerRegisterMessage):

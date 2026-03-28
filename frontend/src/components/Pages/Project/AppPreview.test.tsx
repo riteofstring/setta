@@ -14,12 +14,12 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import "testUtils/reactRefreshPreamble";
 import {
   createAppDefinition,
   createProjectConfig,
   createProjectStateSingleConfig,
 } from "utils/generatedTypes";
-import "testUtils/reactRefreshPreamble";
 
 import { AppPreview } from "./AppPreview";
 

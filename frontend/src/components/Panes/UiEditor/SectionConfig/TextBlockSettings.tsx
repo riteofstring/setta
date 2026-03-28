@@ -22,8 +22,8 @@ import {
   route_set_text_block_meta_control_style,
 } from "utils/generatedEndpoints";
 import {
-  type DocstringToMarkdownResponse,
   TextBlockFormatEnum,
+  type DocstringToMarkdownResponse,
 } from "utils/generatedTypes";
 import { clampTextBlockMasterFontSize } from "utils/textBlockTypography";
 

@@ -59,10 +59,8 @@ describe("watchCode hydrate actions", () => {
   });
 
   it("rehydrates project state after a successful setWatchCodeEnabled mutation", async () => {
-    const {
-      route_get_latest_project_state,
-      route_set_watch_code_enabled,
-    } = await import("utils/generatedEndpoints");
+    const { route_get_latest_project_state, route_set_watch_code_enabled } =
+      await import("utils/generatedEndpoints");
     const { processProjectStateUpdateFromBackend } = await import(
       "state/actions/sectionInfos"
     );
@@ -98,10 +96,8 @@ describe("watchCode hydrate actions", () => {
   });
 
   it("does not rehydrate when setWatchCodeEnabled fails", async () => {
-    const {
-      route_get_latest_project_state,
-      route_set_watch_code_enabled,
-    } = await import("utils/generatedEndpoints");
+    const { route_get_latest_project_state, route_set_watch_code_enabled } =
+      await import("utils/generatedEndpoints");
     const { processProjectStateUpdateFromBackend } = await import(
       "state/actions/sectionInfos"
     );

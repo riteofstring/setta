@@ -10,32 +10,82 @@ from setta.mcp.tool_metadata import (
 )
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage as GoAssistantChatMessage,
+)
+from setta.types.generated.go_shared_types import (
     Chat as GoChat,
+)
+from setta.types.generated.go_shared_types import (
     ChatFileAttachment as GoChatFileAttachment,
+)
+from setta.types.generated.go_shared_types import (
     ChatMetadata as GoChatMetadata,
+)
+from setta.types.generated.go_shared_types import (
     ChatRole,
-    ChatSectionBranch as GoChatSectionBranch,
-    ChatSectionState as GoChatSectionState,
     LLMConfig,
-    MessageDeltaEvent as GoMessageDeltaEvent,
-    MessageFinalizedEvent as GoMessageFinalizedEvent,
-    MessageImageURL as GoMessageImageURL,
-    MessageImageURLContent as GoMessageImageURLContent,
-    MessageStartEvent as GoMessageStartEvent,
-    MessageStopEvent as GoMessageStopEvent,
-    MessageTextContent as GoMessageTextContent,
-    MessageTextDelta as GoMessageTextDelta,
-    MessageThinkingContent as GoMessageThinkingContent,
-    MessageThinkingDelta as GoMessageThinkingDelta,
     StreamingEventType,
+)
+from setta.types.generated.go_shared_types import (
+    ChatSectionBranch as GoChatSectionBranch,
+)
+from setta.types.generated.go_shared_types import (
+    ChatSectionState as GoChatSectionState,
+)
+from setta.types.generated.go_shared_types import (
+    MessageDeltaEvent as GoMessageDeltaEvent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageFinalizedEvent as GoMessageFinalizedEvent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageImageURL as GoMessageImageURL,
+)
+from setta.types.generated.go_shared_types import (
+    MessageImageURLContent as GoMessageImageURLContent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageStartEvent as GoMessageStartEvent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageStopEvent as GoMessageStopEvent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageTextContent as GoMessageTextContent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageTextDelta as GoMessageTextDelta,
+)
+from setta.types.generated.go_shared_types import (
+    MessageThinkingContent as GoMessageThinkingContent,
+)
+from setta.types.generated.go_shared_types import (
+    MessageThinkingDelta as GoMessageThinkingDelta,
+)
+from setta.types.generated.go_shared_types import (
     SystemChatMessage as GoSystemChatMessage,
+)
+from setta.types.generated.go_shared_types import (
     ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
+)
+from setta.types.generated.go_shared_types import (
     ToolCall as GoToolCall,
+)
+from setta.types.generated.go_shared_types import (
     ToolCallDeltaEvent as GoToolCallDeltaEvent,
+)
+from setta.types.generated.go_shared_types import (
     ToolCallFunction as GoToolCallFunction,
+)
+from setta.types.generated.go_shared_types import (
     ToolChatMessage as GoToolChatMessage,
+)
+from setta.types.generated.go_shared_types import (
     ToolReferenceContent as GoToolReferenceContent,
+)
+from setta.types.generated.go_shared_types import (
     ToolResultEvent as GoToolResultEvent,
+)
+from setta.types.generated.go_shared_types import (
     UserChatMessage as GoUserChatMessage,
 )
 from setta.types.id import ID, create_new_id

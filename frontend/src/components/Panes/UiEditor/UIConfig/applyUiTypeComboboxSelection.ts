@@ -70,13 +70,14 @@ export async function applyUiTypeComboboxSelection(args: {
     }
     return;
   }
-  const changeRes: ChangeParamImplRouteResponse =
-    await route_change_param_impl({
+  const changeRes: ChangeParamImplRouteResponse = await route_change_param_impl(
+    {
       projectConfigId,
       sectionId,
       paramInfoId,
       selectedId,
-    });
+    },
+  );
   if (!res200(changeRes)) {
     addTemporaryNotification(
       getErrorDetail(changeRes.data) ?? "Failed to update parameter type.",

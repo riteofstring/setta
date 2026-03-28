@@ -1,18 +1,9 @@
 import type { ResponseDataAndStatus } from "./requestTransport";
 import { ENDPOINT_ORIGIN_POLICY } from "./serverModeBoundaryPolicy";
-import {
-  buildBackendURL,
-  replaceAddressParams,
-  resolveEndpointOrigin,
-} from "./transportUrlCore";
+import { resolveEndpointOrigin } from "./transportUrlCore";
 
 export type { ResponseDataAndStatus } from "./requestTransport";
-export {
-  buildBackendURL,
-  ENDPOINT_ORIGIN_POLICY,
-  replaceAddressParams,
-  resolveEndpointOrigin,
-};
+export { ENDPOINT_ORIGIN_POLICY, resolveEndpointOrigin };
 
 export function res200<T>(
   res: ResponseDataAndStatus<T>,

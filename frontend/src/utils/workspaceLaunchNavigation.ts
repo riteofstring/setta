@@ -3,7 +3,7 @@ import { HOME_ROUTER_PATH } from "utils/constants";
 
 const OPEN_WORKSPACE_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
 
-export type WorkspaceLaunchBackNavigation =
+type WorkspaceLaunchBackNavigation =
   | { kind: "navigate"; target: string }
   | { kind: "assign"; target: string };
 
@@ -63,7 +63,10 @@ export function resolveWorkspaceLaunchBackNavigation(
         target: buildWorkspaceSwitcherTarget(resolvedReturnUrl),
       };
     }
-    resolvedReturnUrl.searchParams.set(OPEN_WORKSPACE_SWITCHER_QUERY_PARAM, "1");
+    resolvedReturnUrl.searchParams.set(
+      OPEN_WORKSPACE_SWITCHER_QUERY_PARAM,
+      "1",
+    );
     return { kind: "assign", target: resolvedReturnUrl.toString() };
   } catch {
     return {

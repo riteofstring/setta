@@ -3,12 +3,22 @@ from typing import Annotated, Literal
 from pydantic import ConfigDict, Field
 from setta.types.generated.go_shared_types import (
     BinaryContentRef,
-    BinaryDependencyValue as GoBinaryDependencyValue,
     DependencyKeyType,
     DependencyValueType,
+)
+from setta.types.generated.go_shared_types import (
+    BinaryDependencyValue as GoBinaryDependencyValue,
+)
+from setta.types.generated.go_shared_types import (
     FileReadDependencyValue as GoFileReadDependencyValue,
+)
+from setta.types.generated.go_shared_types import (
     LiteralDependencyValue as GoLiteralDependencyValue,
+)
+from setta.types.generated.go_shared_types import (
     SectionDependencyKey as GoSectionDependencyKey,
+)
+from setta.types.generated.go_shared_types import (
     SectionParamDependencyKey as GoSectionParamDependencyKey,
 )
 from setta.types.id import ID

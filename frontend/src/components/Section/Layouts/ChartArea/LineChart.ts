@@ -115,7 +115,9 @@ export function updateLineChartWithNewData(
     // The xAxisColumn can be made empty in the side pane.
     // In this case, none of the columns are used for the x axis.
     // So we use row count.
-    const numRows = Array.isArray(datasets[0].data) ? datasets[0].data.length : 0;
+    const numRows = Array.isArray(datasets[0].data)
+      ? datasets[0].data.length
+      : 0;
     labels = [...Array(numRows).keys()];
   }
 

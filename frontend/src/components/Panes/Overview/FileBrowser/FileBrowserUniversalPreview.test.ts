@@ -4,14 +4,14 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import {
-  createFileBrowserDownloadURLEntry,
-  createFileBrowserFileContentResponse,
-} from "utils/generatedTypes";
-import {
   route_binary_download,
   route_get_file_browser_download_urls,
   route_get_file_browser_file_content,
 } from "utils/generatedEndpoints";
+import {
+  createFileBrowserDownloadURLEntry,
+  createFileBrowserFileContentResponse,
+} from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   FileBrowserUniversalPreview,
@@ -180,8 +180,9 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
         contentId: "content-1",
       });
       expect(
-        host.querySelector('[data-testid="file-browser-universal-preview-text"]')
-          ?.textContent,
+        host.querySelector(
+          '[data-testid="file-browser-universal-preview-text"]',
+        )?.textContent,
       ).toContain("Hello from the Go file browser.");
     } finally {
       await act(async () => {
@@ -220,7 +221,10 @@ describe("FileBrowserUniversalPreview kind resolution", () => {
         paths: ["/workspace/photo.png"],
       });
       expect(
-        host.querySelector('[data-testid="file-browser-universal-preview-image"] img')
+        host
+          .querySelector(
+            '[data-testid="file-browser-universal-preview-image"] img',
+          )
           ?.getAttribute("src"),
       ).toBe("https://example.com/file-browser/photo.png");
     } finally {

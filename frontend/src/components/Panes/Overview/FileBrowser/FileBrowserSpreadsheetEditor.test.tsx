@@ -434,16 +434,16 @@ describe("FileBrowserSpreadsheetEditor layout", () => {
       expect(host.textContent).toContain("report.csv");
       expect(
         (
-          host.querySelector('input[data-spreadsheet-cell="1:0"]') as
-            | HTMLInputElement
-            | null
+          host.querySelector(
+            'input[data-spreadsheet-cell="1:0"]',
+          ) as HTMLInputElement | null
         )?.value,
       ).toBe("alpha");
       expect(
         (
-          host.querySelector('input[data-spreadsheet-cell="1:1"]') as
-            | HTMLInputElement
-            | null
+          host.querySelector(
+            'input[data-spreadsheet-cell="1:1"]',
+          ) as HTMLInputElement | null
         )?.value,
       ).toBe("ready");
     } finally {

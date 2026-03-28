@@ -291,8 +291,9 @@ export function receiveAgenticScopeViolationEdges({
 export async function requestAIFollowSnapshot(
   projectConfigId: string,
 ): Promise<void> {
-  const res: AIFollowSnapshotRouteResponse =
-    await route_get_ai_follow_snapshot({ projectConfigId });
+  const res: AIFollowSnapshotRouteResponse = await route_get_ai_follow_snapshot(
+    { projectConfigId },
+  );
   if (!res200(res)) {
     return;
   }

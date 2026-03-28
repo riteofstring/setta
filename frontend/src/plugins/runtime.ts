@@ -2,11 +2,7 @@ import throttle from "lodash/throttle";
 import { useEffect } from "react";
 import { sendRealtimeDependencyEvent } from "state/actions/realtimeDependencySend";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
-import {
-  useActiveSectionUI,
-  useProjectState,
-  useShareSession,
-} from "state/definitions";
+import { useActiveSectionUI, useProjectState } from "state/definitions";
 import { buildPluginPaneOverviewTabName } from "utils/constants";
 import { res200 } from "utils/endpointUtils";
 import { route_plugins_runtime } from "utils/generatedEndpoints";
@@ -27,9 +23,9 @@ import {
 import { createWithEqualityFn } from "zustand/traditional";
 import { createStore, type StateCreator, type StoreApi } from "zustand/vanilla";
 import {
-	isPluginPaneIconName,
-	PluginPaneIconNameEnum,
-	type PluginPaneIconName,
+  isPluginPaneIconName,
+  PluginPaneIconNameEnum,
+  type PluginPaneIconName,
 } from "./paneIcons";
 import { buildPluginAssetUrl } from "./transport";
 

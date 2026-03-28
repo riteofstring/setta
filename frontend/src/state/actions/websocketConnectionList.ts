@@ -11,8 +11,7 @@ export function setWebsocketConnections(
     const mergedConnections = [...connections];
     for (const existingConnection of state.connections) {
       if (
-        existingConnection.connectionType !==
-        WebsocketConnectionTypeEnum.SERVER
+        existingConnection.connectionType !== WebsocketConnectionTypeEnum.SERVER
       ) {
         continue;
       }

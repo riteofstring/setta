@@ -9,11 +9,11 @@ import {
   route_set_code_section_diagnostics_mute,
 } from "utils/generatedEndpoints";
 import {
-  SectionTypeEnum,
   createProjectConfig,
+  SectionTypeEnum,
   SettaLspDiagnosticsPayload,
-  type SettaLspDiagnostic,
   type Core,
+  type SettaLspDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";

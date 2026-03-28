@@ -3,16 +3,16 @@ import {
   useProjectState,
   useShareSession,
 } from "state/definitions";
+import { res200 } from "utils/endpointUtils";
 import {
   route_set_code_section_diagnostic_code_suppression,
   route_set_code_section_diagnostics_mute,
 } from "utils/generatedEndpoints";
 import {
-  SettaLspDiagnosticsPayload,
   SectionTypeEnum,
+  SettaLspDiagnosticsPayload,
   type SettaLspDiagnostic,
 } from "utils/generatedTypes";
-import { res200 } from "utils/endpointUtils";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
@@ -245,7 +245,10 @@ export function setCodeSectionDiagnosticCodeSuppression(
 
 function updateLocalCodeSectionDiagnosticsIgnoreState(
   sectionId: string,
-  update: (curr: { muted: boolean; suppressedCodes: Array<string | number> }) => {
+  update: (curr: {
+    muted: boolean;
+    suppressedCodes: Array<string | number>;
+  }) => {
     muted: boolean;
     suppressedCodes: Array<string | number>;
   },

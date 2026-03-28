@@ -2,12 +2,12 @@
 export const GoRoutePrefixes = {
   api: "/api",
 } as const;
-export const GoRootRoutes = {
+const GoRootRoutes = {
   bootstrapPage: "/__setta__/bootstrap",
   bootstrapConsume: "/__setta__/bootstrap/consume",
   toolsCall: "/__setta__/tools/call",
 } as const;
-export const GoPluginRootRoutes = {
+const GoPluginRootRoutes = {
   pluginAssetWildcard: "/plugins/{pluginId}/*",
 } as const;
 export const GoHTTPRoutes = {
@@ -309,7 +309,7 @@ export const GoHTTPRoutes = {
   pluginsLockApply: "/plugins/lock/apply",
   pluginsRestart: "/plugins/restart",
 } as const;
-export const GoWebsocketRoutes = {
+const GoWebsocketRoutes = {
   frontend: "/ws/frontend",
   listenerById: "/ws/listeners/{listenerID}",
   terminalBySection: "/ws/terminals/{projectID}/{sectionID}",

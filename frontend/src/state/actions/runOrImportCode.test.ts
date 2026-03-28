@@ -141,12 +141,13 @@ describe("runCodeBlock", () => {
 
   it("rehydrates project state after a successful run when the backend creates the attached terminal", async () => {
     useProjectState.setState(buildProjectState({ attachedTerminalId: null }));
-    const latestProjectState =
-      createProjectStateSingleConfigWithCompletedOpIds({
+    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIds(
+      {
         projectState: buildProjectState({
           attachedTerminalId: terminalSectionId,
         }),
-      });
+      },
+    );
     routeGetLatestProjectStateMock.mockResolvedValue({
       status: 200,
       data: latestProjectState,

@@ -111,10 +111,10 @@ function applyGenCodePrefixUpdate(value: string) {
     send: (frontendOpId) => {
       const promise: Promise<ProjectCodeMutationRouteResponse> =
         route_set_gen_code_prefix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodePrefix: value,
-        frontendOpId,
-      });
+          projectConfigId: getCurrProjectConfigId(),
+          genCodePrefix: value,
+          frontendOpId,
+        });
       lastGenCodePrefixPromise = promise;
       return promise;
     },
@@ -134,10 +134,10 @@ function applyGenCodeSuffixUpdate(value: string) {
     send: (frontendOpId) => {
       const promise: Promise<ProjectCodeMutationRouteResponse> =
         route_set_gen_code_suffix({
-        projectConfigId: getCurrProjectConfigId(),
-        genCodeSuffix: value,
-        frontendOpId,
-      });
+          projectConfigId: getCurrProjectConfigId(),
+          genCodeSuffix: value,
+          frontendOpId,
+        });
       lastGenCodeSuffixPromise = promise;
       return promise;
     },

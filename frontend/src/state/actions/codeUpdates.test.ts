@@ -27,9 +27,8 @@ vi.mock("utils/generatedEndpoints", () => ({
 }));
 
 vi.mock("./sectionInfos", async () => {
-  const actual = await vi.importActual<typeof import("./sectionInfos")>(
-    "./sectionInfos",
-  );
+  const actual =
+    await vi.importActual<typeof import("./sectionInfos")>("./sectionInfos");
   return {
     ...actual,
     processProjectStateUpdateFromBackend: vi.fn(),
@@ -99,7 +98,9 @@ function setupCodeSection({
     state.projectConfig = createProjectConfig({
       id: "project-1",
       watchCodeEnabled,
-      codegenTargets: hasPythonCodegen ? [createProjectCodegenPythonTarget()] : [],
+      codegenTargets: hasPythonCodegen
+        ? [createProjectCodegenPythonTarget()]
+        : [],
       sectionVariantMap: { [sectionId]: variantId },
     });
     state.sections = { [sectionId]: sectionCore };

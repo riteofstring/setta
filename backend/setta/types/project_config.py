@@ -3,30 +3,50 @@ from typing import Any, Literal
 from pydantic import Field, field_validator, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.types.generated.go_shared_types import (
+    AgenticEdge,
     CodeObjType,
-    CodeObjTypeValuePolicy as GoCodeObjTypeValuePolicy,
-    CodeObjValueOverride as GoCodeObjValueOverride,
-    CodeObjValuePolicy as GoCodeObjValuePolicy,
     CodeObjValueRepresentationMode,
     Edge,
-    ProjectCodegenPluginTarget as GoProjectCodegenPluginTarget,
     ProjectCodegenLanguage,
-    ProjectCodegenPythonTarget as GoProjectCodegenPythonTarget,
-    ProjectConfig as GoProjectConfig,
-    SectionCodegenOverride as GoSectionCodegenOverride,
-    SectionCodegenPolicy as GoSectionCodegenPolicy,
     SectionCodegenMode,
     SectionRepresentationMode,
-    SectionTypeCodegenPolicy as GoSectionTypeCodegenPolicy,
     SectionType,
     StateMachineEdge,
     TopLevelSectionLayout,
-    ViewMode as ViewModeConfig,
     Viewport,
     WatchCodeFolder,
     WatchCodeRegistryEntry,
     WindowSpaceConfig,
-    AgenticEdge,
+)
+from setta.types.generated.go_shared_types import (
+    CodeObjTypeValuePolicy as GoCodeObjTypeValuePolicy,
+)
+from setta.types.generated.go_shared_types import (
+    CodeObjValueOverride as GoCodeObjValueOverride,
+)
+from setta.types.generated.go_shared_types import (
+    CodeObjValuePolicy as GoCodeObjValuePolicy,
+)
+from setta.types.generated.go_shared_types import (
+    ProjectCodegenPluginTarget as GoProjectCodegenPluginTarget,
+)
+from setta.types.generated.go_shared_types import (
+    ProjectCodegenPythonTarget as GoProjectCodegenPythonTarget,
+)
+from setta.types.generated.go_shared_types import (
+    ProjectConfig as GoProjectConfig,
+)
+from setta.types.generated.go_shared_types import (
+    SectionCodegenOverride as GoSectionCodegenOverride,
+)
+from setta.types.generated.go_shared_types import (
+    SectionCodegenPolicy as GoSectionCodegenPolicy,
+)
+from setta.types.generated.go_shared_types import (
+    SectionTypeCodegenPolicy as GoSectionTypeCodegenPolicy,
+)
+from setta.types.generated.go_shared_types import (
+    ViewMode as ViewModeConfig,
 )
 from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string

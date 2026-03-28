@@ -60,9 +60,7 @@ describe("WorktreeHint", () => {
     const { host, root } = await renderWorktreeHint();
 
     try {
-      expect(
-        routeGetBackendInitStatusMock,
-      ).toHaveBeenCalledOnce();
+      expect(routeGetBackendInitStatusMock).toHaveBeenCalledOnce();
       expect(
         host.querySelector('[data-testid="worktree-hint"]')?.textContent,
       ).toContain("feature/cleanup");
@@ -128,9 +126,7 @@ describe("WorktreeHint", () => {
     try {
       // The Go route remains the source of truth, but callers should not render
       // a label when no worktree name is available.
-      expect(
-        routeGetBackendInitStatusMock,
-      ).toHaveBeenCalledOnce();
+      expect(routeGetBackendInitStatusMock).toHaveBeenCalledOnce();
       expect(host.querySelector('[data-testid="worktree-hint"]')).toBeNull();
     } finally {
       await act(async () => {
