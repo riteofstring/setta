@@ -391,13 +391,7 @@ type PluginRescanResponse httpapi.PluginsRescanResponse
 
 type PluginEnableDisableRequestInput httpapi.PluginEnableDisableRequest
 
-type PluginInstallRequestInput struct {
-	SourceSpec string                  `json:"sourceSpec"`
-	Scope      *PluginScope            `json:"scope"`
-	Installer  *PluginInstallerBackend `json:"installer"`
-	Enable     *bool                   `json:"enable"`
-	Force      *bool                   `json:"force"`
-}
+type PluginInstallRequestInput httpapi.PluginInstallRequest
 
 type PluginLinkRequestInput httpapi.PluginLinkRequest
 

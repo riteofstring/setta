@@ -292,6 +292,7 @@ That means:
     - `PluginLockApplyResponse -> plugins.PluginLockApplyResult`
   - more exact plugin mutation request contracts now also point at exported `httpapi` owners instead of mirrored `frontendbindings` structs:
     - `PluginEnableDisableRequestInput -> httpapi.PluginEnableDisableRequest`
+    - `PluginInstallRequestInput -> httpapi.PluginInstallRequest`
     - `PluginLinkRequestInput -> httpapi.PluginLinkRequest`
     - `PluginUninstallRequestInput -> httpapi.PluginUninstallRequest`
     - `PluginUpdateRequestInput -> httpapi.PluginUpdateRequest`

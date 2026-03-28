@@ -93,6 +93,14 @@ type PluginLinkRequest struct {
 	Force           *bool                `json:"force"`
 }
 
+type PluginInstallRequest struct {
+	SourceSpec string                          `json:"sourceSpec"`
+	Scope      *plugins.PluginScope            `json:"scope"`
+	Installer  *plugins.PluginInstallerBackend `json:"installer"`
+	Enable     *bool                           `json:"enable"`
+	Force      *bool                           `json:"force"`
+}
+
 type PluginUninstallRequest struct {
 	PluginID string               `json:"pluginId"`
 	Scope    *plugins.PluginScope `json:"scope"`
@@ -204,16 +212,8 @@ func pluginEnableDisableHandler(operation func(context.Context, plugins.EnableDi
 }
 
 func pluginInstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
-	type installPluginRequest struct {
-		SourceSpec string                          `json:"sourceSpec"`
-		Scope      *string                         `json:"scope"`
-		Installer  *plugins.PluginInstallerBackend `json:"installer"`
-		Enable     *bool                           `json:"enable"`
-		Force      *bool                           `json:"force"`
-	}
-
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[installPluginRequest](r)
+		payload, err := decodeJSONBody[PluginInstallRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -248,18 +248,16 @@ func pluginInstallHandler(deps PluginRouteDependencies) http.HandlerFunc {
 	}
 }
 
-func normalizePluginInstallScope(raw *string) (*plugins.PluginScope, error) {
+func normalizePluginInstallScope(raw *plugins.PluginScope) (*plugins.PluginScope, error) {
 	if raw == nil {
 		return nil, nil
 	}
 
-	trimmed := strings.TrimSpace(*raw)
-	scope := plugins.PluginScope(trimmed)
-	switch scope {
+	switch *raw {
 	case plugins.PluginScopeWorkspace, plugins.PluginScopeGlobal:
-		return &scope, nil
+		return raw, nil
 	default:
-		return nil, fmt.Errorf("Invalid install scope: %q. Use \"workspace\" or \"global\".", trimmed)
+		return nil, fmt.Errorf("Invalid install scope: %q. Use \"workspace\" or \"global\".", string(*raw))
 	}
 }
 
