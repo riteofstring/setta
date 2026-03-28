@@ -6,6 +6,7 @@ import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -27,6 +28,7 @@ import {
   useResizeEvent,
   useSettings,
   useTemporaryMiscState,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
@@ -50,10 +52,12 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import {
   buildFilteredParamListView,
-  buildPinnedParamsAreaView,
-  buildUnpinnedParamsAreaView,
   getPinnedParamsBgClassName,
 } from "./groupContainerView";
+import {
+  buildPinnedParamsAreaScenePacket,
+  buildUnpinnedParamsAreaScenePacket,
+} from "./groupContainerScenePackets";
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
@@ -673,6 +677,33 @@ type GetUnpinnedParamsProps = {
   setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
 };
 
+function buildParamDisplayNameMap({
+  state,
+  sectionId,
+  topLevelParamIds,
+  requiredParamIdsToPaths,
+}: {
+  state: ZustandProjectState;
+  sectionId: string;
+  topLevelParamIds: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+}): Record<string, string> {
+  const paramIds = new Set(topLevelParamIds);
+
+  Object.values(requiredParamIdsToPaths).forEach((path) => {
+    path.forEach((paramId) => {
+      paramIds.add(paramId);
+    });
+  });
+
+  const displayNamesById: Record<string, string> = {};
+  for (const paramId of paramIds) {
+    displayNamesById[paramId] = getParamDisplayName(state, sectionId, paramId);
+  }
+
+  return displayNamesById;
+}
+
 function GetPinnedParams({
   sectionId,
   handleColumnResizeStart,
@@ -683,6 +714,7 @@ function GetPinnedParams({
     requiredParamIdsToPaths,
     topLevelParamIds,
     hideUnpinnedParams,
+    paramFilter,
     positionAndSizeLocked,
     edgeInputParams,
     styleColor,
@@ -702,6 +734,7 @@ function GetPinnedParams({
       requiredParamIdsToPaths,
       topLevelParamIds,
       hideUnpinnedParams: impl.hideUnpinnedParams,
+      paramFilter: impl.paramFilter,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       edgeInputParams: impl.edgeInputParams,
       styleColor: impl.styleColor ?? null,
@@ -719,40 +752,66 @@ function GetPinnedParams({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null,
   );
-
-  const pinnedView = buildPinnedParamsAreaView({
-    requiredParamIdsToPaths,
-    topLevelParamIds,
-    edgeInputParams,
-    hideUnpinnedParams,
-  });
+  const displayNamesById = useProjectState(
+    (state) =>
+      buildParamDisplayNameMap({
+        state,
+        sectionId,
+        topLevelParamIds,
+        requiredParamIdsToPaths,
+      }),
+    _.isEqual,
+  );
+  const pinnedScenePacket = useMemo(
+    () =>
+      buildPinnedParamsAreaScenePacket({
+        edgeInputParams,
+        getParamDisplayName: (paramId: string) =>
+          displayNamesById[paramId] ?? paramId,
+        hideUnpinnedParams,
+        paramFilter,
+        requiredParamIdsToPaths,
+        topLevelParamIds,
+      }),
+    [
+      displayNamesById,
+      edgeInputParams,
+      hideUnpinnedParams,
+      paramFilter,
+      requiredParamIdsToPaths,
+      topLevelParamIds,
+    ],
+  );
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
   const heightKey = getPinnedParamsAreaHeightKey(sectionId);
 
   useEffect(() => {
-    setMaxNestedDepth((s) => ({ ...s, pinned: pinnedView.maxNestedDepth }));
-  }, [pinnedView.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth((s) => ({
+      ...s,
+      pinned: pinnedScenePacket?.maxNestedDepth ?? 0,
+    }));
+  }, [pinnedScenePacket?.maxNestedDepth, setMaxNestedDepth]);
 
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: pinnedView.topLevelParamIds,
+    paramIds: pinnedScenePacket?.topLevelParamIds ?? [],
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    pinnedView.topLevelParamIds.length > 0 && (
+    pinnedScenePacket && (
       <PinnedParamsArea
         sectionId={sectionId}
-        topLevelParamIds={pinnedView.topLevelParamIds}
-        requiredParamIdsToPaths={pinnedView.requiredParamIdsToPaths}
+        topLevelParamIds={pinnedScenePacket.topLevelParamIds}
+        requiredParamIdsToPaths={pinnedScenePacket.requiredParamIdsToPaths}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        shouldRoundBottom={pinnedView.shouldRoundBottom}
+        shouldRoundBottom={pinnedScenePacket.shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
         contentRef={contentRef}
@@ -841,6 +900,7 @@ function GetUnpinnedParams({
 }: GetUnpinnedParamsProps) {
   const {
     hideUnpinnedParams,
+    paramFilter,
     pinnedRequiredParamIdsToPaths,
     pinnedTopLevelParamIds,
     requiredParamIdsToPaths,
@@ -858,6 +918,7 @@ function GetUnpinnedParams({
     const unpinned = getCurrShownParamIds(x, sectionId, false, true);
     return {
       hideUnpinnedParams: impl.hideUnpinnedParams,
+      paramFilter: impl.paramFilter,
       pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
       pinnedTopLevelParamIds: pinned.topLevelParamIds,
       requiredParamIdsToPaths: unpinned.requiredParamIdsToPaths,
@@ -883,17 +944,46 @@ function GetUnpinnedParams({
   const { canEditLayout } = useShareCapabilities();
   const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
-  const unpinnedView = buildUnpinnedParamsAreaView({
-    pinnedRequiredParamIdsToPaths,
-    pinnedTopLevelParamIds,
-    requiredParamIdsToPaths,
-    topLevelParamIds,
-    edgeInputParams,
-    hideUnpinnedParams,
-    canEditLayout,
-    positionAndSizeLocked,
-    configuredMinHeight: sizingPolicy.globals.unpinnedParamsAreaMinHeight,
-  });
+  const displayNamesById = useProjectState(
+    (state) =>
+      buildParamDisplayNameMap({
+        state,
+        sectionId,
+        topLevelParamIds,
+        requiredParamIdsToPaths,
+      }),
+    _.isEqual,
+  );
+  const unpinnedScenePacket = useMemo(
+    () =>
+      buildUnpinnedParamsAreaScenePacket({
+        canEditLayout,
+        configuredMinHeight: sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+        edgeInputParams,
+        getParamDisplayName: (paramId: string) =>
+          displayNamesById[paramId] ?? paramId,
+        hideUnpinnedParams,
+        paramFilter,
+        pinnedRequiredParamIdsToPaths,
+        pinnedTopLevelParamIds,
+        positionAndSizeLocked,
+        requiredParamIdsToPaths,
+        topLevelParamIds,
+      }),
+    [
+      canEditLayout,
+      displayNamesById,
+      edgeInputParams,
+      hideUnpinnedParams,
+      paramFilter,
+      pinnedRequiredParamIdsToPaths,
+      pinnedTopLevelParamIds,
+      positionAndSizeLocked,
+      requiredParamIdsToPaths,
+      sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+      topLevelParamIds,
+    ],
+  );
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
 
@@ -906,13 +996,16 @@ function GetUnpinnedParams({
   );
 
   useEffect(() => {
-    setMaxNestedDepth((s) => ({ ...s, unpinned: unpinnedView.maxNestedDepth }));
-  }, [setMaxNestedDepth, unpinnedView.maxNestedDepth]);
+    setMaxNestedDepth((s) => ({
+      ...s,
+      unpinned: unpinnedScenePacket?.maxNestedDepth ?? 0,
+    }));
+  }, [setMaxNestedDepth, unpinnedScenePacket?.maxNestedDepth]);
 
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: hideUnpinnedParams ? [] : unpinnedView.topLevelParamIds,
+    paramIds: unpinnedScenePacket?.topLevelParamIds ?? [],
     contentRef: containerRef,
     rowsRef: containerRef,
   });
@@ -925,19 +1018,19 @@ function GetUnpinnedParams({
         }`}
         ref={setContainerRef}
         style={
-          unpinnedView.shouldApplyMinHeight
-            ? { minHeight: unpinnedView.minHeight }
+          unpinnedScenePacket?.shouldApplyMinHeight
+            ? { minHeight: unpinnedScenePacket.minHeight }
             : undefined
         }
       >
-        {!hideUnpinnedParams && (
+        {unpinnedScenePacket && (
           <ParamDndList
             sectionId={sectionId}
-            paramIds={unpinnedView.topLevelParamIds}
-            requiredParamIdsToPaths={unpinnedView.requiredParamIdsToPaths}
+            paramIds={unpinnedScenePacket.topLevelParamIds}
+            requiredParamIdsToPaths={unpinnedScenePacket.requiredParamIdsToPaths}
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
-            listKey="unpinned"
+            listKey={unpinnedScenePacket.listKey}
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
         )}

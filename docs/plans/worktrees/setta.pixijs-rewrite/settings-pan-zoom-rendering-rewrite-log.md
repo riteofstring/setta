@@ -626,3 +626,31 @@ Record:
       - relevant requests returned `200`, including `api/getAgentRuns`, `api/getEngineConfigs`, `api/getPromptTemplates`, `api/getExternalAgentHealth`, `api/plugins/runtime`, `api/llm/config`, `api/llm/apiKeys`, `api/loadProjectConfig`, `api/getFileBrowserRoot`, and `api/getFolderContents`
 - Next action:
   - Continue workstream `3. Scene Packet And Edge Packet Extraction` by lifting the pinned/unpinned live param-area shell into a higher-level dict/param scene packet before any Pixi mounting lands.
+
+## 2026-03-26 025
+
+- Item: Lift the pinned/unpinned live param-area shell into a higher-level dict/param scene packet.
+- Status: `done`
+- Details:
+  - Added a pure typed live dict/param-area packet boundary above the existing row packets:
+    - `frontend/src/components/Params/groupContainerScenePackets.ts`
+    - `frontend/src/components/Params/groupContainerScenePackets.test.ts`
+  - Kept the current non-Pixi DOM renderer stable by routing the live pinned/unpinned shell through the new area packet builders while preserving the existing `ParamDndList` render path:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - lifts pinned and unpinned param-area shell metadata into stable ordered packets
+    - carries nested live row packets inside each area packet instead of leaving the shell split across ad hoc component state
+    - preserves filtered row visibility by flattening the required param paths into a deterministic live row order before building the nested row packets
+    - keeps the existing pinned rounding and unpinned min-height policies attached to the packet boundary for future scene mounting
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerScenePackets.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - `/settings` loaded authenticated with `All Settings` visible
+      - the dict/param stack remained structurally intact after the live area-packet refactor, with representative visible labels and controls including `Auto Backup`, `Autosave`, `defaultTerminalShell`, `defaultZoomLevel`, `Grid Color`, `Pan On Drag`, and `basedpyright analysis`
+      - no obvious overlap, clipping, or missing content was observed in the viewport
+      - relevant requests returned `200`, including `/settings`, `/api/serverMode`, `/api/loadSettings`, `/api/loadProjectConfig`, and `/api/authRefreshStatus`
+- Next action:
+  - Continue workstream `3. Scene Packet And Edge Packet Extraction` with the next bounded dict/param canary packet step, using the new live area packet boundary as the source for the first retained-scene node-layout packet before any Pixi mounting lands.
