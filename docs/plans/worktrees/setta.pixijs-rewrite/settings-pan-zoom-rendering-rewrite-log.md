@@ -735,3 +735,33 @@ Record:
       - relevant requests returned `200`, including `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, `api/getDefaultConfigName`, `api/getFileBrowserRoot`, `api/loadAllProjectMetadata`, `api/getFolderContents`, `api/checkWorkspaceInitialized`, and `api/loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by routing the live `GroupContainer` mount path through the new block-frame packets before any Pixi node drawing lands.
+
+## 2026-03-26 029
+
+- Item: Route the live `GroupContainer` DOM mount path through the ordered block-frame packets.
+- Status: `done`
+- Details:
+  - Updated the production non-Pixi `GroupContainer` path to consume `liveDictAreaNodeLayoutView.blockFrames` directly instead of mounting the edge strip, pinned area, and unpinned area in a hardcoded sequence:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The live DOM path now stamps each mounted dict-area block with stable block-frame metadata from the packet boundary:
+    - `data-dict-area-block-frame-id`
+    - `data-dict-area-block-id`
+    - `data-dict-area-block-mount-kind`
+    - `data-dict-area-block-order-index`
+  - Kept the current non-Pixi renderer behavior intact while switching the mount path over to the retained-scene block ordering:
+    - edge strip still mounts only when present
+    - pinned and unpinned param areas still use the existing DOM surfaces and measurement behavior
+    - max nested depth still follows the same live param-area packets
+  - Added focused render coverage for the block-frame-driven DOM mount order and metadata, and consolidated the existing test fixture setup:
+    - `frontend/src/components/Params/GroupContainer.test.tsx`
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerNodeLayoutView.test.ts src/components/Params/groupContainerBlockFramePackets.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+      - visible context included `All Settings`, `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, plus controls such as `Pan On Drag`, `Autosave`, `Grid Pattern`, and `Grid Color`
+      - relevant requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the first retained-scene node renderer work from this block-frame-driven mount path, starting with the next bounded scene-owned dict-area block step before broad Pixi node drawing lands.

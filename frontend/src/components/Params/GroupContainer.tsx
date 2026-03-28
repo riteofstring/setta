@@ -57,8 +57,12 @@ import {
 import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
 import {
   buildLiveDictAreaNodeLayoutView,
-  type LiveDictAreaNodeLayoutParamAreaView,
 } from "./groupContainerNodeLayoutView";
+import type {
+  DictAreaBlockFrameMountPacket,
+  LiveDictAreaEdgeStripFramePacket,
+  LiveDictAreaParamAreaFramePacket,
+} from "./groupContainerBlockFramePackets";
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
@@ -307,18 +311,19 @@ function _ParamGroupContainer({
       unpinnedTopLevelParamIds,
     ],
   );
-  const pinnedScenePacket = liveDictAreaNodeLayoutView.pinnedParamArea;
-  const unpinnedScenePacket = liveDictAreaNodeLayoutView.unpinnedParamArea;
+  const liveDictAreaBlockFrames = liveDictAreaNodeLayoutView.blockFrames;
+  const pinnedFramePacket = liveDictAreaNodeLayoutView.pinnedParamAreaFrame;
+  const unpinnedFramePacket = liveDictAreaNodeLayoutView.unpinnedParamAreaFrame;
 
   useEffect(() => {
     setMaxNestedDepth({
-      pinned: pinnedScenePacket?.maxNestedDepth ?? 0,
-      unpinned: unpinnedScenePacket?.maxNestedDepth ?? 0,
+      pinned: pinnedFramePacket?.maxNestedDepth ?? 0,
+      unpinned: unpinnedFramePacket?.maxNestedDepth ?? 0,
     });
   }, [
-    pinnedScenePacket?.maxNestedDepth,
+    pinnedFramePacket?.maxNestedDepth,
     setMaxNestedDepth,
-    unpinnedScenePacket?.maxNestedDepth,
+    unpinnedFramePacket?.maxNestedDepth,
   ]);
 
   return (
@@ -332,29 +337,70 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        <>
-          <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
-          <GetPinnedParams
-            sectionId={sectionId}
-            scenePacket={pinnedScenePacket}
-            handleColumnResizeStart={handleColumnResizeStart}
-            positionAndSizeLocked={positionAndSizeLocked}
-            sectionTypeName={sectionTypeName}
-            styleColor={styleColor}
-          />
-          <GetUnpinnedParams
-            sectionId={sectionId}
-            scenePacket={unpinnedScenePacket}
-            handleColumnResizeStart={handleColumnResizeStart}
-            styleColor={styleColor}
-          />
-        </>
+        {liveDictAreaBlockFrames.map((blockFrame) => {
+          if (blockFrame.kind === "edge-strip") {
+            return (
+              <EdgesStrip
+                key={blockFrame.frame.frameId}
+                sectionId={sectionId}
+                bgColor={bgColor}
+                framePacket={blockFrame}
+              />
+            );
+          }
+
+          if (blockFrame.id === "pinned") {
+            return (
+              <GetPinnedParams
+                key={blockFrame.frame.frameId}
+                sectionId={sectionId}
+                framePacket={blockFrame}
+                handleColumnResizeStart={handleColumnResizeStart}
+                positionAndSizeLocked={positionAndSizeLocked}
+                sectionTypeName={sectionTypeName}
+                styleColor={styleColor}
+              />
+            );
+          }
+
+          return (
+            <GetUnpinnedParams
+              key={blockFrame.frame.frameId}
+              sectionId={sectionId}
+              framePacket={blockFrame}
+              handleColumnResizeStart={handleColumnResizeStart}
+              styleColor={styleColor}
+            />
+          );
+        })}
       </div>
     </ParamDndContext>
   );
 }
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
+
+type DictAreaBlockFrameDataProps = {
+  "data-dict-area-block-frame-id": string;
+  "data-dict-area-block-id": string;
+  "data-dict-area-block-mount-kind": "fixed" | "grow";
+  "data-dict-area-block-order-index": number;
+};
+
+function getDictAreaBlockFrameDataProps({
+  blockId,
+  frame,
+}: {
+  blockId: string;
+  frame: DictAreaBlockFrameMountPacket;
+}): DictAreaBlockFrameDataProps {
+  return {
+    "data-dict-area-block-frame-id": frame.frameId,
+    "data-dict-area-block-id": blockId,
+    "data-dict-area-block-mount-kind": frame.mountKind,
+    "data-dict-area-block-order-index": frame.orderIndex,
+  };
+}
 
 function useMeasuredParamAreaMinHeight({
   sectionId,
@@ -475,9 +521,11 @@ function useMeasuredParamAreaMinHeight({
 function EdgesStrip({
   sectionId,
   bgColor,
+  framePacket,
 }: {
   sectionId: string;
   bgColor: string;
+  framePacket: LiveDictAreaEdgeStripFramePacket;
 }) {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
@@ -666,6 +714,10 @@ function EdgesStrip({
       className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${stripBorderColorClassName} ${edgeStripBgColorClassName} ${roundedBottomClassName}`}
       ref={stripRef}
       data-params-fixed="true"
+      {...getDictAreaBlockFrameDataProps({
+        blockId: framePacket.id,
+        frame: framePacket.frame,
+      })}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
         <div className="flex flex-col pl-2">
@@ -769,7 +821,7 @@ type MaxNestedDepth = {
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  scenePacket: LiveDictAreaNodeLayoutParamAreaView | null;
+  framePacket: LiveDictAreaParamAreaFramePacket | null;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
@@ -778,6 +830,7 @@ type GetPinnedParamsProps = {
 
 type PinnedParamsAreaProps = {
   sectionId: string;
+  framePacket: LiveDictAreaParamAreaFramePacket;
   topLevelParamIds: Array<string>;
   requiredParamIdsToPaths: Record<string, Array<string>>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
@@ -792,7 +845,7 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  scenePacket: LiveDictAreaNodeLayoutParamAreaView | null;
+  framePacket: LiveDictAreaParamAreaFramePacket | null;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   styleColor: string | null;
 };
@@ -826,7 +879,7 @@ function buildParamDisplayNameMap({
 
 function GetPinnedParams({
   sectionId,
-  scenePacket,
+  framePacket,
   handleColumnResizeStart,
   positionAndSizeLocked,
   sectionTypeName,
@@ -852,21 +905,22 @@ function GetPinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: scenePacket?.topLevelParamIds ?? [],
+    paramIds: framePacket?.topLevelParamIds ?? [],
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    scenePacket && (
+    framePacket && (
       <PinnedParamsArea
         sectionId={sectionId}
-        topLevelParamIds={scenePacket.topLevelParamIds}
-        requiredParamIdsToPaths={scenePacket.requiredParamIdsToPaths}
+        framePacket={framePacket}
+        topLevelParamIds={framePacket.topLevelParamIds}
+        requiredParamIdsToPaths={framePacket.requiredParamIdsToPaths}
         handleColumnResizeStart={handleColumnResizeStart}
         hasSectionStyleTheme={hasSectionStyleTheme}
-        shouldRoundBottom={scenePacket.shouldRoundBottom}
+        shouldRoundBottom={framePacket.shouldRoundBottom}
         positionAndSizeLocked={positionAndSizeLocked}
         sectionTypeName={sectionTypeName}
         contentRef={contentRef}
@@ -879,6 +933,7 @@ function GetPinnedParams({
 
 function PinnedParamsArea({
   sectionId,
+  framePacket,
   topLevelParamIds,
   requiredParamIdsToPaths,
   handleColumnResizeStart,
@@ -913,6 +968,10 @@ function PinnedParamsArea({
     <section
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
+      {...getDictAreaBlockFrameDataProps({
+        blockId: framePacket.id,
+        frame: framePacket.frame,
+      })}
     >
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
@@ -950,7 +1009,7 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  scenePacket,
+  framePacket,
   handleColumnResizeStart,
   styleColor,
 }: GetUnpinnedParamsProps) {
@@ -981,32 +1040,40 @@ function GetUnpinnedParams({
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: scenePacket?.topLevelParamIds ?? [],
+    paramIds: framePacket?.topLevelParamIds ?? [],
     contentRef: containerRef,
     rowsRef: containerRef,
   });
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+    <div
+      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
+      {...(framePacket
+        ? getDictAreaBlockFrameDataProps({
+            blockId: framePacket.id,
+            frame: framePacket.frame,
+          })
+        : {})}
+    >
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
           isScrollable ? "nowheel" : ""
         }`}
         ref={setContainerRef}
         style={
-          scenePacket?.shouldApplyMinHeight
-            ? { minHeight: scenePacket.minHeight }
+          framePacket?.shouldApplyMinHeight
+            ? { minHeight: framePacket.minHeight }
             : undefined
         }
       >
-        {scenePacket && (
+        {framePacket && (
           <ParamDndList
             sectionId={sectionId}
-            paramIds={scenePacket.topLevelParamIds}
-            requiredParamIdsToPaths={scenePacket.requiredParamIdsToPaths}
+            paramIds={framePacket.topLevelParamIds}
+            requiredParamIdsToPaths={framePacket.requiredParamIdsToPaths}
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
-            listKey={scenePacket.listKey}
+            listKey={framePacket.listKey}
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
         )}
