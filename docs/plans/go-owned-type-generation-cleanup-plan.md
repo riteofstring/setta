@@ -260,6 +260,9 @@ That means:
   - the matching manual converter alias entries were removed too
 - `backend/setta/types/project_config.py` no longer hand-owns the project codegen target / policy field layouts:
   - those Python classes now subclass Go-generated base models and only keep Python-side richer key typing, defaults, and validation.
+- the nested project-config policy leaf wrappers have been reduced further:
+  - `SectionTypeCodegenPolicy`, `SectionCodegenOverride`, `CodeObjTypeValuePolicy`, and `CodeObjValueOverride` no longer exist as handwritten subclasses in `backend/setta/types/project_config.py`
+  - the remaining Python code now supplies their defaults explicitly at construction time instead of preserving separate handwritten leaf wrapper classes
 - `backend/setta/types/project_config.py` no longer hand-owns the top-level `ProjectConfig` field layout:
   - the Python class now subclasses the Go-generated `ProjectConfig` model and only keeps Python-side defaults, richer key typing, and validation
 - the dead Python-only project-config policy helper layer has been removed:

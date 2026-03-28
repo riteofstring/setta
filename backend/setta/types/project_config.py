@@ -52,14 +52,8 @@ from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
 
 
-class SectionTypeCodegenPolicy(GoSectionTypeCodegenPolicy):
-    mode: SectionCodegenMode = SectionCodegenMode.inherit
-    representation: SectionRepresentationMode = SectionRepresentationMode.expression
-
-
-class SectionCodegenOverride(GoSectionCodegenOverride):
-    mode: SectionCodegenMode = SectionCodegenMode.inherit
-    representation: SectionRepresentationMode = SectionRepresentationMode.expression
+SectionTypeCodegenPolicy = GoSectionTypeCodegenPolicy
+SectionCodegenOverride = GoSectionCodegenOverride
 
 
 def default_section_allowlist() -> list[SectionType]:
@@ -107,6 +101,7 @@ def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolic
     policies: dict[SectionType, SectionTypeCodegenPolicy] = {}
     for section_type in SectionType:
         policies[section_type] = SectionTypeCodegenPolicy(
+            mode=SectionCodegenMode.inherit,
             representation=default_section_representation(section_type)
         )
     return policies
@@ -126,16 +121,8 @@ class SectionCodegenPolicy(GoSectionCodegenPolicy):
     sectionOverrides: dict[ID, SectionCodegenOverride] = Field(default_factory=dict)
 
 
-class CodeObjTypeValuePolicy(GoCodeObjTypeValuePolicy):
-    representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.expression
-    )
-
-
-class CodeObjValueOverride(GoCodeObjValueOverride):
-    representation: CodeObjValueRepresentationMode = (
-        CodeObjValueRepresentationMode.expression
-    )
+CodeObjTypeValuePolicy = GoCodeObjTypeValuePolicy
+CodeObjValueOverride = GoCodeObjValueOverride
 
 
 def default_code_obj_type_value_policies() -> dict[CodeObjType, CodeObjTypeValuePolicy]:
