@@ -51,11 +51,11 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import {
-  buildLiveDictAreaNodeMountPacket,
+  buildLiveDictAreaNodeDomPacket,
   type LiveDictAreaEdgeStripMountPacket,
   type LiveDictAreaPinnedParamAreaMountPacket,
   type LiveDictAreaUnpinnedParamAreaMountPacket,
-} from "./groupContainerNodeMountPacket";
+} from "./groupContainerNodeDomPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import { buildLiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
@@ -352,17 +352,17 @@ function _ParamGroupContainer({
       styleColor,
     ],
   );
-  const liveDictAreaNodeMountPacket = useMemo(
+  const liveDictAreaNodeDomPacket = useMemo(
     () =>
-      buildLiveDictAreaNodeMountPacket({
+      buildLiveDictAreaNodeDomPacket({
         nodeSurfacePacket: liveDictAreaNodeSurfacePacket,
       }),
     [liveDictAreaNodeSurfacePacket],
   );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeMountPacket.maxNestedDepth);
-  }, [liveDictAreaNodeMountPacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodeDomPacket.maxNestedDepth);
+  }, [liveDictAreaNodeDomPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -375,13 +375,13 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeMountPacket.domBlocks.map((block) => {
+        {liveDictAreaNodeDomPacket.domBlocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                canvasPacket={block}
+                domPacket={block}
               />
             );
           }
@@ -391,7 +391,7 @@ function _ParamGroupContainer({
               <GetPinnedParams
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                canvasPacket={block}
+                domPacket={block}
                 handleColumnResizeStart={handleColumnResizeStart}
               />
             );
@@ -401,7 +401,7 @@ function _ParamGroupContainer({
             <GetUnpinnedParams
               key={block.mount.frameId}
               sectionId={sectionId}
-              canvasPacket={block}
+              domPacket={block}
               handleColumnResizeStart={handleColumnResizeStart}
             />
           );
@@ -553,13 +553,13 @@ function useMeasuredParamAreaMinHeight({
 
 function EdgesStrip({
   sectionId,
-  canvasPacket,
+  domPacket,
 }: {
   sectionId: string;
-  canvasPacket: LiveDictAreaEdgeStripMountPacket;
+  domPacket: LiveDictAreaEdgeStripMountPacket;
 }) {
   const { bgColor, positionAndSizeLocked, styleColor, visualPacket } =
-    canvasPacket;
+    domPacket;
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
@@ -796,7 +796,7 @@ function EdgesStrip({
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  canvasPacket: LiveDictAreaPinnedParamAreaMountPacket;
+  domPacket: LiveDictAreaPinnedParamAreaMountPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
@@ -814,7 +814,7 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  canvasPacket: LiveDictAreaUnpinnedParamAreaMountPacket;
+  domPacket: LiveDictAreaUnpinnedParamAreaMountPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
@@ -856,11 +856,11 @@ function buildParamDisplayNameMap({
 
 function GetPinnedParams({
   sectionId,
-  canvasPacket,
+  domPacket,
   handleColumnResizeStart,
 }: GetPinnedParamsProps) {
   const { positionAndSizeLocked, sectionTypeName, styleColor, visualPacket } =
-    canvasPacket;
+    domPacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -977,10 +977,10 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  canvasPacket,
+  domPacket,
   handleColumnResizeStart,
 }: GetUnpinnedParamsProps) {
-  const { styleColor, visualPacket } = canvasPacket;
+  const { styleColor, visualPacket } = domPacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(

@@ -1419,3 +1419,29 @@ Record:
     - representative requests returned `200`, including `GET /api/getAgentRuns`, `POST /api/setActiveViewMode`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the extracted edge, pinned, and unpinned mount helpers back through the next higher-level node mount boundary before any broad Pixi node drawing lands.
+
+## 2026-03-26 054
+
+- Item: Compose the extracted mount helpers into a node-level DOM packet above `groupContainerNodeMountPacket.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed node-level DOM packet helper above the existing mount boundary:
+    - `frontend/src/components/Params/groupContainerNodeDomPacket.ts`
+    - `frontend/src/components/Params/groupContainerNodeDomPacket.test.ts`
+  - Updated the production non-Pixi `GroupContainer` mount path to consume the new node-level DOM packet instead of consuming `groupContainerNodeMountPacket.ts` directly:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - Kept the current non-Pixi DOM behavior intact while deepening the live dict-area mount boundary:
+    - composes the extracted edge-strip, pinned, and unpinned mount helpers through one higher-level `domBlocks` packet
+    - preserves the existing DOM block order plus `scenePacket`, `edgeStrip`, and `maxNestedDepth` on the same node-level boundary
+    - cleans up the `GroupContainer` wiring so the live DOM path no longer reaches straight into the node mount packet and no longer passes misleading `canvasPacket` props for mount-packet inputs
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeDomPacket.test.ts src/components/Params/groupContainerNodeMountPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `All Settings` stayed active and the visible settings shell plus dict/param stack rendered normally after the new node DOM packet composition
+    - representative visible labels and controls included `Core Name Editable`, `Core Name Type`, `defaultVal`, `Has Secret`, `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `Config Language`, `edgeInputParams`, `Hide Unpinned Params`, `renderError`, and `renderedText`
+    - no console errors were reported, and relevant backend requests returned `200`, including `GET/POST /api/getAgentRuns`, `POST /api/getFileBrowserRoot`, and `POST /api/getFolderContents`
+- Next action:
+  - Continue the first retained-scene node renderer work by using `groupContainerNodeDomPacket.ts` as the single live DOM/scene handoff boundary and start the first scene-owned canary that consumes that deeper node packet before any broad Pixi node drawing lands.
