@@ -18,7 +18,6 @@ from setta.utils.profile_config import (
     SettaProfileConfig,
     SettaProfileConfigError,
     SettaProfileNotFoundError,
-    clear_setta_profile_config_cache,
     load_setta_profile,
 )
 from setta.utils.setta_home import resolve_setta_home
@@ -221,102 +220,6 @@ def resolve_setta_paths(
 @lru_cache(maxsize=1)
 def get_setta_paths() -> SettaPaths:
     return resolve_setta_paths()
-
-
-@lru_cache(maxsize=1)
-def get_setta_paths_without_profile_env() -> SettaPaths:
-    return resolve_setta_paths(allow_profile_env_overrides=False)
-
-
-def clear_setta_paths_cache() -> None:
-    get_setta_paths.cache_clear()
-    get_setta_paths_without_profile_env.cache_clear()
-    # clear_setta_paths_cache is the "big hammer" tests use when they change env vars.
-    # Keep dependent caches in sync so overrides behave as expected.
-    from setta.utils.user_config import clear_setta_user_config_cache
-
-    clear_setta_user_config_cache()
-    clear_setta_profile_config_cache()
-
-
-def normalize_workspace_path(
-    path: Path | str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate.expanduser().resolve(strict=False)
-    return (root / candidate).resolve(strict=False)
-
-
-def normalize_state_path(
-    path: Path | str, setta_files_root: Path | None = None
-) -> Path:
-    root = setta_files_root or get_setta_paths().setta_files_root
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate.expanduser().resolve(strict=False)
-    return (root / candidate).resolve(strict=False)
-
-
-def workspace_relative_path(
-    path: Path | str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(path, workspace_root=root)
-    try:
-        return resolved.relative_to(root)
-    except ValueError:
-        return resolved
-
-
-def ensure_within_workspace_root(
-    path: Path, *, label: str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    resolved = path.resolve(strict=False)
-    if not resolved.is_relative_to(root):
-        raise ValueError(f"{label} must be within the project root.")
-    return resolved
-
-
-def resolve_workspace_child_path(
-    raw_path: str, *, label: str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    trimmed = raw_path.strip()
-    if not trimmed:
-        raise ValueError(f"Missing {label}.")
-    resolved = normalize_workspace_path(trimmed, workspace_root=root)
-    if not resolved.is_relative_to(root):
-        raise ValueError(f"{label} must be within the project root.")
-    return resolved
-
-
-def validate_workspace_root(path: Path) -> None:
-    if not path.exists():
-        raise ValueError(f"Workspace root does not exist: {path}")
-    if not path.is_dir():
-        raise ValueError(f"Workspace root is not a directory: {path}")
-
-
-def validate_optional_dir(raw_path: Path | str | None, *, label: str) -> Path | None:
-    if raw_path is None:
-        return None
-    path = resolve_path(raw_path)
-    if path.exists() and not path.is_dir():
-        raise ValueError(f"{label} is not a directory: {path}")
-    return path
-
-
-def get_optional_dir_validation_error(
-    raw_path: Path | str | None, *, label: str
-) -> str | None:
-    try:
-        validate_optional_dir(raw_path, label=label)
-    except ValueError as exc:
-        return str(exc)
-    return None
 
 
 def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:

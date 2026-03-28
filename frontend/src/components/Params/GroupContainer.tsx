@@ -1,11 +1,11 @@
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { Handle } from "forks/xyflow/core/components/Handle";
+import { HandlePosition } from "forks/xyflow/core/types";
 import _ from "lodash";
 import React, {
   useCallback,
   useEffect,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -27,7 +27,6 @@ import {
   useResizeEvent,
   useSettings,
   useTemporaryMiscState,
-  type ZustandProjectState,
 } from "state/definitions";
 import { useParametersRequestWaitingForLSPResult } from "state/hooks/lsp";
 import { useIsScrollable } from "state/hooks/sectionSizes";
@@ -49,24 +48,16 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
-import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
-import {
-  buildLiveDictAreaNodeDomPacket,
-  type LiveDictAreaEdgeStripDomPacket,
-  type LiveDictAreaPinnedParamAreaDomPacket,
-  type LiveDictAreaUnpinnedParamAreaDomPacket,
-} from "./groupContainerNodeDomPacket";
-import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
-import { buildLiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
-import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
-import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
-import { getPinnedParamsBgClassName } from "./groupContainerView";
 import {
   buildParamAreaMeasureKey,
   measureParamAreaMinHeight,
 } from "./paramAreaMeasurements";
 import { attachParamAreaObservers } from "./paramAreaObservers";
 import { ParamDndList } from "./ParamDndList";
+
+const DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36;
+const LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT = 38;
+const UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED = 36;
 
 function _ParamGroupContainer({
   sectionId,
@@ -210,160 +201,6 @@ function _ParamGroupContainer({
     });
   }, [paramsFixedHeightKey, waitingForResult]);
 
-  const {
-    edgeInputPorts,
-    hideUnpinnedParams,
-    paramFilter,
-    positionAndSizeLocked,
-    edgeInputParams,
-    edgeOutputPorts,
-    pinnedRequiredParamIdsToPaths,
-    pinnedTopLevelParamIds,
-    selectedParams,
-    unpinnedRequiredParamIdsToPaths,
-    unpinnedTopLevelParamIds,
-    styleColor,
-  } = useProjectState((state) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const pinned = getCurrShownParamIds(state, sectionId, true, true);
-    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
-
-    return {
-      edgeInputPorts: impl.edgeInputParams.map((paramId) => {
-        const path = {
-          ...pinned.requiredParamIdsToPaths,
-          ...unpinned.requiredParamIdsToPaths,
-        }[paramId];
-        const rawLabel = path
-          ? paramNameFromPathArray(state, sectionId, path)
-          : getParamDisplayName(state, sectionId, paramId);
-        const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
-        return { id: paramId, label };
-      }),
-      hideUnpinnedParams: impl.hideUnpinnedParams,
-      paramFilter: impl.paramFilter,
-      positionAndSizeLocked: impl.positionAndSizeLocked,
-      edgeInputParams: impl.edgeInputParams,
-      edgeOutputPorts: impl.edgeOutputPorts.map((port) => ({
-        id: port.id,
-        label:
-          port.accessor.trim() === ""
-            ? C.EDGE_OUTPUT_BASE_LABEL
-            : port.accessor,
-      })),
-      pinnedRequiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
-      pinnedTopLevelParamIds: pinned.topLevelParamIds,
-      selectedParams: impl.selectedParams ?? [],
-      unpinnedRequiredParamIdsToPaths: unpinned.requiredParamIdsToPaths,
-      unpinnedTopLevelParamIds: unpinned.topLevelParamIds,
-      styleColor: impl.styleColor ?? null,
-    };
-  }, _.isEqual);
-  const { canEditLayout, canEditStructure } = useShareCapabilities();
-  const isSelectingParams = useMisc((x) => x.isSelectingParams);
-  const unpinnedParamsAreaMinHeight = useSettings(
-    (state) => state.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
-  );
-  const allRequiredParamIdsToPaths = useMemo(
-    () => ({
-      ...pinnedRequiredParamIdsToPaths,
-      ...unpinnedRequiredParamIdsToPaths,
-    }),
-    [pinnedRequiredParamIdsToPaths, unpinnedRequiredParamIdsToPaths],
-  );
-  const allTopLevelParamIds = useMemo(
-    () => [...pinnedTopLevelParamIds, ...unpinnedTopLevelParamIds],
-    [pinnedTopLevelParamIds, unpinnedTopLevelParamIds],
-  );
-  const displayNamesById = useProjectState(
-    (state) =>
-      buildParamDisplayNameMap({
-        state,
-        sectionId,
-        topLevelParamIds: allTopLevelParamIds,
-        requiredParamIdsToPaths: allRequiredParamIdsToPaths,
-      }),
-    _.isEqual,
-  );
-  const liveDictAreaNodeScenePacket = useMemo(
-    () =>
-      buildLiveDictAreaNodeScenePacket({
-        canConnect: canEditStructure && !isSelectingParams,
-        edgeInputParams,
-        hideUnpinnedParams,
-        paramFilter,
-        getParamDisplayName: (paramId: string) =>
-          displayNamesById[paramId] ?? paramId,
-        inputPorts: edgeInputPorts,
-        isSelectingParams,
-        outputPorts: edgeOutputPorts,
-        pinned: {
-          requiredParamIdsToPaths: pinnedRequiredParamIdsToPaths,
-          topLevelParamIds: pinnedTopLevelParamIds,
-        },
-        selectedParamIds: selectedParams,
-        unpinned: {
-          canEditLayout,
-          configuredMinHeight: unpinnedParamsAreaMinHeight,
-          pinnedRequiredParamIdsToPaths,
-          pinnedTopLevelParamIds,
-          positionAndSizeLocked,
-          requiredParamIdsToPaths: unpinnedRequiredParamIdsToPaths,
-          topLevelParamIds: unpinnedTopLevelParamIds,
-        },
-      }),
-    [
-      canEditLayout,
-      canEditStructure,
-      displayNamesById,
-      edgeInputParams,
-      edgeInputPorts,
-      edgeOutputPorts,
-      hideUnpinnedParams,
-      isSelectingParams,
-      paramFilter,
-      pinnedRequiredParamIdsToPaths,
-      pinnedTopLevelParamIds,
-      positionAndSizeLocked,
-      selectedParams,
-      unpinnedParamsAreaMinHeight,
-      unpinnedRequiredParamIdsToPaths,
-      unpinnedTopLevelParamIds,
-    ],
-  );
-  const liveDictAreaNodeSurfacePacket = useMemo(
-    () =>
-      buildLiveDictAreaNodeSurfacePacket({
-        bgColor,
-        nodeScenePacket: liveDictAreaNodeScenePacket,
-        positionAndSizeLocked,
-        sectionTypeName,
-        styleColor,
-      }),
-    [
-      bgColor,
-      liveDictAreaNodeScenePacket,
-      positionAndSizeLocked,
-      sectionTypeName,
-      styleColor,
-    ],
-  );
-  const liveDictAreaNodeDomPacket = useMemo(
-    () =>
-      buildLiveDictAreaNodeDomPacket({
-        nodeSurfacePacket: liveDictAreaNodeSurfacePacket,
-      }),
-    [liveDictAreaNodeSurfacePacket],
-  );
-
-  useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeDomPacket.maxNestedDepth);
-  }, [liveDictAreaNodeDomPacket.maxNestedDepth, setMaxNestedDepth]);
-
   return (
     <ParamDndContext>
       <div
@@ -375,37 +212,20 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeDomPacket.domBlocks.map((block) => {
-          if (block.kind === "edge-strip") {
-            return (
-              <EdgesStrip
-                key={block.mount.frameId}
-                sectionId={sectionId}
-                domPacket={block}
-              />
-            );
-          }
-
-          if (block.kind === "pinned-param-area") {
-            return (
-              <GetPinnedParams
-                key={block.mount.frameId}
-                sectionId={sectionId}
-                domPacket={block}
-                handleColumnResizeStart={handleColumnResizeStart}
-              />
-            );
-          }
-
-          return (
-            <GetUnpinnedParams
-              key={block.mount.frameId}
-              sectionId={sectionId}
-              domPacket={block}
-              handleColumnResizeStart={handleColumnResizeStart}
-            />
-          );
-        })}
+        <>
+          <EdgesStrip sectionId={sectionId} bgColor={bgColor} />
+          <GetPinnedParams
+            sectionId={sectionId}
+            handleColumnResizeStart={handleColumnResizeStart}
+            setMaxNestedDepth={setMaxNestedDepth}
+            sectionTypeName={sectionTypeName}
+          />
+          <GetUnpinnedParams
+            sectionId={sectionId}
+            handleColumnResizeStart={handleColumnResizeStart}
+            setMaxNestedDepth={setMaxNestedDepth}
+          />
+        </>
       </div>
     </ParamDndContext>
   );
@@ -413,26 +233,14 @@ function _ParamGroupContainer({
 
 export const ParamGroupContainer = React.memo(_ParamGroupContainer);
 
-type DictAreaBlockFrameDataProps = {
-  "data-dict-area-block-frame-id": string;
-  "data-dict-area-block-id": string;
-  "data-dict-area-block-mount-kind": "fixed" | "grow";
-  "data-dict-area-block-order-index": number;
-};
-
-function getDictAreaBlockFrameDataProps({
-  blockId,
-  frame,
-}: {
-  blockId: string;
-  frame: DictAreaBlockFrameMountPacket;
-}): DictAreaBlockFrameDataProps {
-  return {
-    "data-dict-area-block-frame-id": frame.frameId,
-    "data-dict-area-block-id": blockId,
-    "data-dict-area-block-mount-kind": frame.mountKind,
-    "data-dict-area-block-order-index": frame.orderIndex,
-  };
+export function getPinnedParamsBgClassName(sectionTypeName: SectionTypeEnum) {
+  if (sectionTypeName === SectionTypeEnum.Callable) {
+    return "bg-white dark:bg-blue-950/30";
+  }
+  if (sectionTypeName === SectionTypeEnum.GlobalVariables) {
+    return "bg-setta-50 dark:bg-blue-950/30";
+  }
+  return "bg-setta-100/50 dark:bg-blue-950/30";
 }
 
 function useMeasuredParamAreaMinHeight({
@@ -553,17 +361,66 @@ function useMeasuredParamAreaMinHeight({
 
 function EdgesStrip({
   sectionId,
-  domPacket,
+  bgColor,
 }: {
   sectionId: string;
-  domPacket: LiveDictAreaEdgeStripDomPacket;
+  bgColor: string;
 }) {
-  const { bgColor, positionAndSizeLocked, styleColor, visualPacket } =
-    domPacket;
+  const { canEditStructure } = useShareCapabilities();
+  const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
   const heightKey = getEdgesStripHeightKey(sectionId);
+  const {
+    inputPorts,
+    outputPorts,
+    shouldRoundBottom,
+    positionAndSizeLocked,
+    selectedParams,
+    styleColor,
+  } = useProjectState((state) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const selectedParams = impl.selectedParams ?? [];
+    const pinned = getCurrShownParamIds(state, sectionId, true, true);
+    const unpinned = getCurrShownParamIds(state, sectionId, false, true);
+    const requiredParamIdsToPaths = {
+      ...pinned.requiredParamIdsToPaths,
+      ...unpinned.requiredParamIdsToPaths,
+    };
+    const inputPorts = impl.edgeInputParams.map((paramId) => {
+      const path = requiredParamIdsToPaths[paramId];
+      const rawLabel = path
+        ? paramNameFromPathArray(state, sectionId, path)
+        : getParamDisplayName(state, sectionId, paramId);
+      const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
+      return { id: paramId, label };
+    });
+    const outputPorts = impl.edgeOutputPorts.map((port) => ({
+      id: port.id,
+      label:
+        port.accessor.trim() === "" ? C.EDGE_OUTPUT_BASE_LABEL : port.accessor,
+    }));
+    const filteredPinned = filterEdgeInputs(
+      pinned.requiredParamIdsToPaths,
+      pinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
+    const showsUnpinnedParams = !impl.hideUnpinnedParams;
+    return {
+      inputPorts,
+      outputPorts,
+      shouldRoundBottom: !hasPinnedParams && !showsUnpinnedParams,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      selectedParams,
+      styleColor: impl.styleColor ?? null,
+    };
+  }, _.isEqual);
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -576,17 +433,15 @@ function EdgesStrip({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null,
   );
-  const hasEdges =
-    visualPacket.inputPortCount > 0 || visualPacket.outputPortCount > 0;
+
+  const hasEdges = inputPorts.length > 0 || outputPorts.length > 0;
+  const selectedParamIdSet = new Set(selectedParams);
+  const canConnect = canEditStructure && !isSelectingParams;
   const handlePreventSectionClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS}`;
-  const rowPreventSectionClassName = visualPacket.inputColumn.ports.some(
-    (port) => port.isSelectable,
-  )
+  const rowPreventSectionClassName = isSelectingParams
     ? handlePreventSectionClassName
     : "";
-  const handleSelectableClassName = visualPacket.inputColumn.ports.some(
-    (port) => port.isSelectable,
-  )
+  const handleSelectableClassName = isSelectingParams
     ? "arg-edge-handle--selecting"
     : "";
   const stripBorderColorClassName = hasSectionStyleTheme
@@ -645,7 +500,7 @@ function EdgesStrip({
       }
       resizeObserver.disconnect();
     };
-  }, [hasEdges, visualPacket.inputPortCount, visualPacket.outputPortCount]);
+  }, [hasEdges, inputPorts.length, outputPorts.length]);
 
   useEffect(() => {
     if (!hasEdges) {
@@ -657,8 +512,8 @@ function EdgesStrip({
     }
     const nextHeight = resolveEdgeStripHeight({
       measuredHeight,
-      inputPortCount: visualPacket.inputPortCount,
-      outputPortCount: visualPacket.outputPortCount,
+      inputPortCount: inputPorts.length,
+      outputPortCount: outputPorts.length,
     });
     if (nextHeight === lastHeightRef.current) {
       return;
@@ -668,9 +523,9 @@ function EdgesStrip({
   }, [
     hasEdges,
     heightKey,
-    visualPacket.inputPortCount,
+    inputPorts.length,
     measuredHeight,
-    visualPacket.outputPortCount,
+    outputPorts.length,
   ]);
 
   useEffect(() => {
@@ -682,8 +537,12 @@ function EdgesStrip({
     };
   }, [heightKey]);
 
+  if (!hasEdges) {
+    return null;
+  }
+
   let roundedBottomClassName = "";
-  if (visualPacket.shouldRoundBottom) {
+  if (shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
       ? "rounded-b-sm"
       : "rounded-b-xl";
@@ -694,36 +553,32 @@ function EdgesStrip({
       className={`section-w-full section-row-pin-main relative z-0 -mt-4 flex shrink-0 flex-col overflow-visible border-b pt-5 ${stripBorderColorClassName} ${edgeStripBgColorClassName} ${roundedBottomClassName}`}
       ref={stripRef}
       data-params-fixed="true"
-      {...getDictAreaBlockFrameDataProps({
-        blockId: visualPacket.blockId,
-        frame: visualPacket.mount,
-      })}
     >
       <div className="grid grid-cols-[minmax(0,1fr)_0.75rem_minmax(0,1fr)] py-2">
         <div className="flex flex-col pl-2">
           <div
             className={`text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
-            {visualPacket.inputColumn.title}
+            In
           </div>
           <div className="-ml-2 flex flex-col gap-1 pt-1">
-            {visualPacket.inputColumn.ports.map((port) => (
+            {inputPorts.map((port) => (
               <div
                 key={port.id}
                 className={`relative flex items-center gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowHoverClassName} ${
-                  port.isSelected
+                  selectedParamIdSet.has(port.id)
                     ? edgeRowSelectedClassName
                     : edgeRowTextColorClassName
-                } ${port.isSelectable ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
+                } ${isSelectingParams ? "cursor-pointer" : ""} ${rowPreventSectionClassName}`}
                 onMouseDown={(e) => {
-                  if (!port.isSelectable) {
+                  if (!isSelectingParams) {
                     return;
                   }
                   e.stopPropagation();
                   e.preventDefault();
                 }}
                 onClick={(e) => {
-                  if (!port.isSelectable) {
+                  if (!isSelectingParams) {
                     return;
                   }
                   e.stopPropagation();
@@ -734,16 +589,16 @@ function EdgesStrip({
               >
                 <Handle
                   id={port.id}
-                  type={port.handleType}
-                  position={port.handlePosition}
+                  type="target"
+                  position={HandlePosition.Left}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={visualPacket.canConnect}
-                  isConnectableStart={visualPacket.canConnect}
-                  isConnectableEnd={visualPacket.canConnect}
+                  isConnectable={canConnect}
+                  isConnectableStart={canConnect}
+                  isConnectableEnd={canConnect}
                   className={`arg-edge-handle arg-edge-handle--target ${handlePreventSectionClassName} ${handleSelectableClassName}`}
                   onClick={(e) => {
-                    if (!port.isSelectable) {
+                    if (!isSelectingParams) {
                       return;
                     }
                     e.stopPropagation();
@@ -765,10 +620,10 @@ function EdgesStrip({
           <div
             className={`text-right text-[0.5rem] font-bold uppercase ${edgeLabelColorClassName}`}
           >
-            {visualPacket.outputColumn.title}
+            Out
           </div>
           <div className="-mr-2 flex flex-col gap-1 pt-1">
-            {visualPacket.outputColumn.ports.map((port) => (
+            {outputPorts.map((port) => (
               <div
                 key={port.id}
                 className={`relative flex items-center justify-end gap-2 rounded-sm px-2 py-1 text-[0.65rem] transition-colors ${edgeRowTextColorClassName} ${edgeRowHoverClassName}`}
@@ -776,13 +631,13 @@ function EdgesStrip({
                 <span className="truncate">{port.label}</span>
                 <Handle
                   id={port.id}
-                  type={port.handleType}
-                  position={port.handlePosition}
+                  type="source"
+                  position={HandlePosition.Right}
                   onConnect={createEdgeFromConnection}
                   isValidConnection={isValidDataEdgeConnection}
-                  isConnectable={visualPacket.canConnect}
-                  isConnectableStart={visualPacket.canConnect}
-                  isConnectableEnd={visualPacket.canConnect}
+                  isConnectable={canConnect}
+                  isConnectableStart={canConnect}
+                  isConnectableEnd={canConnect}
                   className={`arg-edge-handle arg-edge-handle--source ${handlePreventSectionClassName}`}
                 />
               </div>
@@ -794,17 +649,25 @@ function EdgesStrip({
   );
 }
 
+type MaxNestedDepth = {
+  pinned: number;
+  unpinned: number;
+};
+
 type GetPinnedParamsProps = {
   sectionId: string;
-  domPacket: LiveDictAreaPinnedParamAreaDomPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
+  sectionTypeName: SectionTypeEnum;
 };
 
 type PinnedParamsAreaProps = {
   sectionId: string;
-  visualPacket: LiveDictAreaPinnedParamAreaVisualPacket;
+  topLevelParamIds: Array<string>;
+  requiredParamIdsToPaths: Record<string, Array<string>>;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
   hasSectionStyleTheme: boolean;
+  shouldRoundBottom: boolean;
   positionAndSizeLocked: boolean;
   sectionTypeName: SectionTypeEnum;
   contentRef: React.RefObject<HTMLDivElement>;
@@ -814,53 +677,49 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  domPacket: LiveDictAreaUnpinnedParamAreaDomPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
+  setMaxNestedDepth: React.Dispatch<React.SetStateAction<MaxNestedDepth>>;
 };
-
-type UnpinnedParamsAreaProps = {
-  sectionId: string;
-  visualPacket: LiveDictAreaUnpinnedParamAreaVisualPacket;
-  handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
-  hasSectionStyleTheme: boolean;
-  isScrollable: boolean;
-  setContainerRef: React.RefCallback<HTMLDivElement>;
-};
-
-function buildParamDisplayNameMap({
-  state,
-  sectionId,
-  topLevelParamIds,
-  requiredParamIdsToPaths,
-}: {
-  state: ZustandProjectState;
-  sectionId: string;
-  topLevelParamIds: string[];
-  requiredParamIdsToPaths: Record<string, string[]>;
-}): Record<string, string> {
-  const paramIds = new Set(topLevelParamIds);
-
-  Object.values(requiredParamIdsToPaths).forEach((path) => {
-    path.forEach((paramId) => {
-      paramIds.add(paramId);
-    });
-  });
-
-  const displayNamesById: Record<string, string> = {};
-  for (const paramId of paramIds) {
-    displayNamesById[paramId] = getParamDisplayName(state, sectionId, paramId);
-  }
-
-  return displayNamesById;
-}
 
 function GetPinnedParams({
   sectionId,
-  domPacket,
   handleColumnResizeStart,
+  setMaxNestedDepth,
+  sectionTypeName,
 }: GetPinnedParamsProps) {
-  const { positionAndSizeLocked, sectionTypeName, styleColor, visualPacket } =
-    domPacket;
+  const {
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+    shouldRoundBottom,
+    positionAndSizeLocked,
+    styleColor,
+  } = useProjectState((x) => {
+    const { requiredParamIdsToPaths, topLevelParamIds } = getCurrShownParamIds(
+      x,
+      sectionId,
+      true,
+      true,
+    );
+    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const filteredPinned = filterEdgeInputs(
+      requiredParamIdsToPaths,
+      topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const showsUnpinnedParams = !impl.hideUnpinnedParams;
+    const shouldRoundBottom = !showsUnpinnedParams;
+    return {
+      ...filteredPinned,
+      shouldRoundBottom,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      styleColor: impl.styleColor ?? null,
+    };
+  }, _.isEqual);
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -873,40 +732,52 @@ function GetPinnedParams({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null,
   );
+
+  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const headerRef = useRef<HTMLElement | null>(null);
   const rowsRef = useRef<HTMLDivElement | null>(null);
   const heightKey = getPinnedParamsAreaHeightKey(sectionId);
 
+  useEffect(() => {
+    setMaxNestedDepth((s) => ({ ...s, pinned: maxNestedDepth }));
+  }, [maxNestedDepth]);
+
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: visualPacket.list.topLevelParamIds,
+    paramIds: topLevelParamIds,
     contentRef,
     headerRef,
     rowsRef,
   });
 
   return (
-    <PinnedParamsArea
-      sectionId={sectionId}
-      visualPacket={visualPacket}
-      handleColumnResizeStart={handleColumnResizeStart}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      positionAndSizeLocked={positionAndSizeLocked}
-      sectionTypeName={sectionTypeName}
-      contentRef={contentRef}
-      headerRef={headerRef}
-      rowsRef={rowsRef}
-    />
+    topLevelParamIds.length > 0 && (
+      <PinnedParamsArea
+        sectionId={sectionId}
+        topLevelParamIds={topLevelParamIds}
+        requiredParamIdsToPaths={requiredParamIdsToPaths}
+        handleColumnResizeStart={handleColumnResizeStart}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        shouldRoundBottom={shouldRoundBottom}
+        positionAndSizeLocked={positionAndSizeLocked}
+        sectionTypeName={sectionTypeName}
+        contentRef={contentRef}
+        headerRef={headerRef}
+        rowsRef={rowsRef}
+      />
+    )
   );
 }
 
 function PinnedParamsArea({
   sectionId,
-  visualPacket,
+  topLevelParamIds,
+  requiredParamIdsToPaths,
   handleColumnResizeStart,
   hasSectionStyleTheme,
+  shouldRoundBottom,
   positionAndSizeLocked,
   sectionTypeName,
   contentRef,
@@ -926,7 +797,7 @@ function PinnedParamsArea({
     ? "text-[color:var(--setta-section-style-muted-text)] after:text-[color:var(--setta-section-style-muted-text)]"
     : "text-setta-300 after:text-setta-300 dark:text-setta-500 dark:after:text-setta-500";
   let roundedBottomClassName = "";
-  if (visualPacket.shouldRoundBottom) {
+  if (shouldRoundBottom) {
     roundedBottomClassName = positionAndSizeLocked
       ? "rounded-b-sm"
       : "rounded-b-xl";
@@ -936,10 +807,6 @@ function PinnedParamsArea({
     <section
       className={`relative flex min-h-0 w-full shrink-0 flex-col items-start border-b shadow-sm ${pinnedBorderColorClassName} ${pinnedBgClassName} ${roundedBottomClassName}`}
       data-params-fixed="true"
-      {...getDictAreaBlockFrameDataProps({
-        blockId: visualPacket.blockId,
-        frame: visualPacket.mount,
-      })}
     >
       <div
         className="flex min-h-0 w-full flex-1 flex-col pb-3 pt-2"
@@ -952,7 +819,7 @@ function PinnedParamsArea({
           <p
             className={`text-[0.5rem] font-bold uppercase ${pinnedLabelColorClassName}`}
           >
-            {visualPacket.header.title}
+            Pinned Params
           </p>
         </header>
 
@@ -962,11 +829,11 @@ function PinnedParamsArea({
         >
           <ParamDndList
             sectionId={sectionId}
-            paramIds={visualPacket.list.topLevelParamIds}
-            requiredParamIdsToPaths={visualPacket.list.requiredParamIdsToPaths}
+            paramIds={topLevelParamIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
             onResizeStart={handleColumnResizeStart}
             isTopLevel={true}
-            listKey={visualPacket.list.listKey}
+            listKey="pinned"
             hasSectionStyleTheme={hasSectionStyleTheme}
           />
         </div>
@@ -977,10 +844,44 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  domPacket,
   handleColumnResizeStart,
+  setMaxNestedDepth,
 }: GetUnpinnedParamsProps) {
-  const { styleColor, visualPacket } = domPacket;
+  const {
+    hideUnpinnedParams,
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+    hasPinnedParams,
+    positionAndSizeLocked,
+    styleColor,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+      x,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const pinned = getCurrShownParamIds(x, sectionId, true, true);
+    const unpinned = getCurrShownParamIds(x, sectionId, false, true);
+    const filteredPinned = filterEdgeInputs(
+      pinned.requiredParamIdsToPaths,
+      pinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const filteredUnpinned = filterEdgeInputs(
+      unpinned.requiredParamIdsToPaths,
+      unpinned.topLevelParamIds,
+      impl.edgeInputParams,
+    );
+    const hasPinnedParams = filteredPinned.topLevelParamIds.length > 0;
+    return {
+      hideUnpinnedParams: impl.hideUnpinnedParams,
+      requiredParamIdsToPaths: filteredUnpinned.requiredParamIdsToPaths,
+      topLevelParamIds: filteredUnpinned.topLevelParamIds,
+      hasPinnedParams,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
+      styleColor: impl.styleColor ?? null,
+    };
+  }, _.isEqual);
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -993,7 +894,29 @@ function GetUnpinnedParams({
       ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
       : null,
   );
+
+  const { canEditLayout } = useShareCapabilities();
+  const sizingPolicy = useSettings((x) => x.sectionSizingPolicy, _.isEqual);
   const heightKey = getUnpinnedParamsAreaHeightKey(sectionId);
+  const baseUnpinnedMinHeight = Number.isFinite(
+    sizingPolicy.globals.unpinnedParamsAreaMinHeight,
+  )
+    ? sizingPolicy.globals.unpinnedParamsAreaMinHeight
+    : DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT;
+  const normalizedUnpinnedMinHeight =
+    baseUnpinnedMinHeight === LEGACY_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      ? DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      : baseUnpinnedMinHeight;
+  const resolvedPolicyMinHeight =
+    hasPinnedParams &&
+    normalizedUnpinnedMinHeight === DEFAULT_UNPINNED_PARAMS_AREA_MIN_HEIGHT
+      ? UNPINNED_PARAMS_AREA_MIN_HEIGHT_WITH_PINNED
+      : normalizedUnpinnedMinHeight;
+  const resolvedMinHeight = resolvedPolicyMinHeight;
+  const shouldApplyMinHeight =
+    !hideUnpinnedParams && canEditLayout && !positionAndSizeLocked;
+
+  const maxNestedDepth = getLongestListLength(requiredParamIdsToPaths);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const { ref: scrollRef, isScrollable } = useIsScrollable();
 
@@ -1005,63 +928,72 @@ function GetUnpinnedParams({
     [scrollRef],
   );
 
+  useEffect(() => {
+    setMaxNestedDepth((s) => ({ ...s, unpinned: maxNestedDepth }));
+  }, [maxNestedDepth]);
+
   useMeasuredParamAreaMinHeight({
     sectionId,
     heightKey,
-    paramIds: visualPacket.list.topLevelParamIds,
+    paramIds: hideUnpinnedParams ? [] : topLevelParamIds,
     contentRef: containerRef,
     rowsRef: containerRef,
   });
 
   return (
-    <UnpinnedParamsArea
-      sectionId={sectionId}
-      visualPacket={visualPacket}
-      handleColumnResizeStart={handleColumnResizeStart}
-      hasSectionStyleTheme={hasSectionStyleTheme}
-      isScrollable={isScrollable}
-      setContainerRef={setContainerRef}
-    />
-  );
-}
-
-function UnpinnedParamsArea({
-  sectionId,
-  visualPacket,
-  handleColumnResizeStart,
-  hasSectionStyleTheme,
-  isScrollable,
-  setContainerRef,
-}: UnpinnedParamsAreaProps) {
-  return (
-    <div
-      className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"
-      {...getDictAreaBlockFrameDataProps({
-        blockId: visualPacket.blockId,
-        frame: visualPacket.mount,
-      })}
-    >
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <div
         className={`section-args-nested grid min-h-0 min-w-0 !max-w-full flex-1 auto-rows-min grid-cols-subgrid content-start gap-y-1 overflow-x-clip overflow-y-scroll py-2 pr-1.5 ${
           isScrollable ? "nowheel" : ""
         }`}
         ref={setContainerRef}
         style={
-          visualPacket.container.shouldApplyMinHeight
-            ? { minHeight: visualPacket.container.minHeight }
-            : undefined
+          shouldApplyMinHeight ? { minHeight: resolvedMinHeight } : undefined
         }
       >
-        <ParamDndList
-          sectionId={sectionId}
-          paramIds={visualPacket.list.topLevelParamIds}
-          requiredParamIdsToPaths={visualPacket.list.requiredParamIdsToPaths}
-          onResizeStart={handleColumnResizeStart}
-          isTopLevel={true}
-          listKey={visualPacket.list.listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
+        {!hideUnpinnedParams && (
+          <ParamDndList
+            sectionId={sectionId}
+            paramIds={topLevelParamIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={handleColumnResizeStart}
+            isTopLevel={true}
+            listKey="unpinned"
+            hasSectionStyleTheme={hasSectionStyleTheme}
+          />
+        )}
       </div>
     </div>
   );
+}
+
+function getLongestListLength(obj: Record<string, Array<string>>) {
+  return Object.values(obj).reduce(
+    (max, arr) => (arr.length > max ? arr.length : max),
+    0,
+  );
+}
+
+function filterEdgeInputs(
+  requiredParamIdsToPaths: Record<string, Array<string>>,
+  topLevelParamIds: Array<string>,
+  edgeInputParams: Array<string>,
+) {
+  if (edgeInputParams.length === 0) {
+    return { requiredParamIdsToPaths, topLevelParamIds };
+  }
+  const edgeInputSet = new Set(edgeInputParams);
+  const filteredParamIdsToPaths: Record<string, Array<string>> = {};
+  for (const [paramId, path] of Object.entries(requiredParamIdsToPaths)) {
+    if (!edgeInputSet.has(paramId)) {
+      filteredParamIdsToPaths[paramId] = path;
+    }
+  }
+  const filteredTopLevel = topLevelParamIds.filter(
+    (paramId) => !edgeInputSet.has(paramId),
+  );
+  return {
+    requiredParamIdsToPaths: filteredParamIdsToPaths,
+    topLevelParamIds: filteredTopLevel,
+  };
 }
