@@ -4,20 +4,16 @@ import {
   buildLiveDictAreaEdgeStripRendererBlock,
   type LiveDictAreaEdgeStripRendererBlock,
 } from "./groupContainerEdgeStripRendererBlock";
+import {
+  buildLiveDictAreaPinnedParamAreaRendererBlock,
+  type LiveDictAreaPinnedParamAreaRendererBlock,
+} from "./groupContainerPinnedParamAreaRendererBlock";
 import type {
-  LiveDictAreaPinnedParamAreaDomPacket,
   LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeCanaryPacket";
 
 export type { LiveDictAreaEdgeStripRendererBlock } from "./groupContainerEdgeStripRendererBlock";
-
-export type LiveDictAreaPinnedParamAreaRendererBlock = {
-  domPacket: LiveDictAreaPinnedParamAreaDomPacket;
-  handleColumnResizeStart: MouseEventHandler<HTMLDivElement>;
-  key: string;
-  kind: "pinned-param-area";
-  sectionId: string;
-};
+export type { LiveDictAreaPinnedParamAreaRendererBlock } from "./groupContainerPinnedParamAreaRendererBlock";
 
 export type LiveDictAreaUnpinnedParamAreaRendererBlock = {
   domPacket: LiveDictAreaUnpinnedParamAreaDomPacket;
@@ -74,13 +70,11 @@ function buildLiveDictAreaRendererBlock({
   }
 
   if (block.kind === "pinned-param-area") {
-    return {
-      domPacket: block.domPacket,
+    return buildLiveDictAreaPinnedParamAreaRendererBlock({
+      canaryRenderer: block,
       handleColumnResizeStart,
-      key: block.key,
-      kind: block.kind,
       sectionId,
-    };
+    });
   }
 
   return {

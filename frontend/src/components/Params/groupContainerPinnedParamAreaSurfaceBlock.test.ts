@@ -6,8 +6,8 @@ import {
 } from "./groupContainerPinnedParamAreaSurfaceBlock";
 import {
   buildLiveDictAreaRenderer,
-  type LiveDictAreaPinnedParamAreaRendererBlock,
 } from "./groupContainerLiveDictAreaRenderer";
+import type { LiveDictAreaPinnedParamAreaRendererBlock } from "./groupContainerPinnedParamAreaRendererBlock";
 
 describe("buildLiveDictAreaPinnedParamAreaSurfaceBlock", () => {
   it("lifts the pinned param-area renderer block into component-facing surface props", () => {

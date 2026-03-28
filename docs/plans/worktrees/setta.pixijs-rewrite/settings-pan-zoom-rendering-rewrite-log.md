@@ -2080,6 +2080,33 @@ Record:
 
 ## 2026-03-27 077
 
+- Item: Resume from the current repo frontier and extract the pinned param-area renderer block from `groupContainerLiveDictAreaRenderer.ts`.
+- Status: `done`
+- Details:
+  - Repo state had already advanced beyond the previous durable-log tail when this iteration started; this entry resumes from the actual code frontier instead of re-landing the already-present live dict-area boundary chain.
+  - Added a pure typed pinned renderer-block helper for the live dict-area renderer:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaRendererBlock.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaRendererBlock.test.ts`
+  - Updated the higher-level live dict-area renderer boundary to compose through the new pinned helper instead of shaping the pinned renderer block inline:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.test.ts`
+  - Updated the pinned surface helper to depend on the lower-level pinned renderer-block boundary instead of importing the type from the higher-level renderer module:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaSurfaceBlock.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaSurfaceBlock.test.ts`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerPinnedParamAreaRendererBlock.test.ts src/components/Params/groupContainerLiveDictAreaRenderer.test.ts src/components/Params/groupContainerPinnedParamAreaSurfaceBlock.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded in an authenticated worktree session without needing bootstrap
+    - `All Settings` was visible in the accessibility tree and the dict/param area rendered normally after the pinned renderer-block extraction
+    - representative requests returned `200`, including `GET /settings`, `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the live dict-area renderer cleanup by extracting the unpinned param-area renderer block from `groupContainerLiveDictAreaRenderer.ts`.
+
+## 2026-03-27 077
+
 - Item: Lift the live dict-area renderer into one higher-level scene-owned render boundary above `groupContainerLiveDictAreaRenderer.ts`.
 - Status: `done`
 - Details:
