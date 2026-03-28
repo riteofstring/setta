@@ -148,3 +148,26 @@ Record:
     - the earlier settings benchmark entrypoint/spec referenced by the report are not present in this worktree and must be re-established locally before the first Pixi slice can be benchmarked in-branch
 - Next action:
   - Re-establish a branch-local `All Settings` benchmark harness, then start the cleanup-first non-Pixi pass on the dict/param cluster before any Pixi renderer code lands.
+
+## 2026-03-26 006
+
+- Item: Re-establish the branch-local `All Settings` benchmark harness in the `pixijs-rewrite` worktree.
+- Status: `done`
+- Details:
+  - Restored the historical benchmark harness files that the local `2026-03-07` report referenced but this worktree did not yet contain:
+    - `frontend/src/components/Pages/Project/settingsAllSettingsBenchmark.tsx`
+    - `frontend/src/components/Section/Layouts/SettingsAllSettingsBenchmarkDictArea.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+  - Wired the harness into the live Settings surface so the branch-local app can step through the benchmark ladder via `settingsBenchmarkStage`:
+    - wrapped `UIPage` with `SettingsAllSettingsBenchmarkProvider`
+    - exposed the active benchmark stage on `.react-flow`
+    - gated section handles, section headers, section bodies, and dict-area rendering for the benchmark stages
+  - Verification:
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3043/settings`)
+      - verified `frame-only`, `static-param-list`, and `full`
+      - confirmed `.react-flow[data-settings-benchmark-stage]` matched each selected stage after clicking `All Settings`
+      - confirmed the stage visuals stepped from minimal placeholders to static benchmark rows to real param containers
+- Next action:
+  - Start the cleanup-first non-Pixi pass on the dict/param cluster, using the restored branch-local harness as the baseline verification path for the first vertical slice.

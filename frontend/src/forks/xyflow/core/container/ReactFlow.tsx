@@ -1,3 +1,4 @@
+import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import Background from "forks/xyflow/background/Background";
 import _ from "lodash";
 import {
@@ -30,6 +31,7 @@ const wrapperStyle: CSSProperties = {
 const SCROLL_INIT = 5000;
 
 const ReactFlow = () => {
+  const benchmark = useSettingsAllSettingsBenchmark();
   const snapToGrid = useLocalStorage((x) => x.snapToGrid);
   const showAgenticEdges = useLocalStorage((x) => x.showAgenticEdges);
   const showArgEdges = useLocalStorage((x) => x.showArgEdges);
@@ -84,6 +86,7 @@ const ReactFlow = () => {
       data-show-agentic-edges={showAgenticEdges ? "true" : "false"}
       data-show-arg-edges={showArgEdges ? "true" : "false"}
       data-connecting={isConnecting ? "true" : "false"}
+      data-settings-benchmark-stage={benchmark.active ? benchmark.stage : "off"}
     >
       {/* The purpose of this div is to allow us to set scrollTop and scrollLeft to a large initial value*/}
       {/* so that onScroll can be triggered in any direction. */}
