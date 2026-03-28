@@ -19,6 +19,16 @@ type TypeErrorIgnoreState struct {
 }
 
 func (d *Document) SetSectionCodeObjectValue(projectID string, sectionID string, codeObjID string, value string) error {
+	return d.SetSectionCodeObjectValueForVariant(projectID, sectionID, "", codeObjID, value)
+}
+
+func (d *Document) SetSectionCodeObjectValueForVariant(
+	projectID string,
+	sectionID string,
+	sectionVariantID string,
+	codeObjID string,
+	value string,
+) error {
 	if d == nil {
 		return ErrProjectNotFound
 	}
@@ -27,7 +37,12 @@ func (d *Document) SetSectionCodeObjectValue(projectID string, sectionID string,
 	if err != nil {
 		return err
 	}
-	if err := project.SetSectionCodeObjectValue(sectionID, codeObjID, value); err != nil {
+	if err := project.SetSectionCodeObjectValueForVariant(
+		sectionID,
+		sectionVariantID,
+		codeObjID,
+		value,
+	); err != nil {
 		return err
 	}
 	d.Projects[project.ID] = project
@@ -35,11 +50,28 @@ func (d *Document) SetSectionCodeObjectValue(projectID string, sectionID string,
 }
 
 func (r *Runtime) SetSectionCodeObjectValue(ctx context.Context, projectID string, sectionID string, codeObjID string, value string) (Snapshot, error) {
+	return r.SetSectionCodeObjectValueForVariant(ctx, projectID, sectionID, "", codeObjID, value)
+}
+
+func (r *Runtime) SetSectionCodeObjectValueForVariant(
+	ctx context.Context,
+	projectID string,
+	sectionID string,
+	sectionVariantID string,
+	codeObjID string,
+	value string,
+) (Snapshot, error) {
 	if r == nil {
 		return Snapshot{}, ErrRuntimeClosed
 	}
 	return r.MutateAndSave(ctx, func(document Document) (Document, error) {
-		if err := document.SetSectionCodeObjectValue(projectID, sectionID, codeObjID, value); err != nil {
+		if err := document.SetSectionCodeObjectValueForVariant(
+			projectID,
+			sectionID,
+			sectionVariantID,
+			codeObjID,
+			value,
+		); err != nil {
 			return document, err
 		}
 		if err := r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(ctx, &document, projectID); err != nil {

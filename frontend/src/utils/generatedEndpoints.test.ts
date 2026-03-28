@@ -2798,6 +2798,7 @@ describe("generatedEndpoints project shell and layout", () => {
     await route_set_param_entered_value({
       projectConfigId: "project-alpha",
       sectionId: "dict-section",
+      sectionVariantId: "dict-variant",
       paramInfoId: "param-a",
       value: "updated",
       frontendOpId: "frontend-op-param-value",
@@ -2812,6 +2813,7 @@ describe("generatedEndpoints project shell and layout", () => {
       body: JSON.stringify({
         projectConfigId: "project-alpha",
         sectionId: "dict-section",
+        sectionVariantId: "dict-variant",
         paramInfoId: "param-a",
         value: "updated",
         frontendOpId: "frontend-op-param-value",

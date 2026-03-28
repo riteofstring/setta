@@ -3,6 +3,7 @@ import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
+  dispatchOptimisticProjectStateUpdate,
   getAttachedTerminalParentIdForTerminalSection,
   getCurrCodeObjVariantIfPresent,
   getCurrEffectiveCodeObjImplIfPresent,
@@ -17,6 +18,7 @@ import {
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
+  setCodeObjVariantImplValue,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
@@ -2074,5 +2076,220 @@ describe("processProjectStateUpdateFromBackend", () => {
       projectStateSetSpy.mockRestore();
       nodeInternalsSetSpy.mockRestore();
     }
+  });
+
+  it("reapplies pending param value edits to the captured variant instead of the newly active variant", () => {
+    const projectId = "project-1";
+    const sectionId = "callable-section";
+    const sectionVariantAId = "section-variant-a";
+    const sectionVariantBId = "section-variant-b";
+    const sectionImplAId = "section-impl-a";
+    const sectionImplBId = "section-impl-b";
+    const paramId = "param-x";
+    const paramVariantAId = "param-variant-a";
+    const paramVariantBId = "param-variant-b";
+    const paramImplAId = "param-impl-a";
+    const paramImplBId = "param-impl-b";
+
+    const sectionCore = createCore({
+      id: sectionId,
+      name: "Callable",
+      variants: [sectionVariantAId, sectionVariantBId],
+      defaultVariant: sectionVariantAId,
+    });
+    const sectionVariantA = createVariant({
+      id: sectionVariantAId,
+      impl: sectionImplAId,
+      nonPresetImpls: [sectionImplAId],
+    });
+    const sectionVariantB = createVariant({
+      id: sectionVariantBId,
+      impl: sectionImplBId,
+      nonPresetImpls: [sectionImplBId],
+    });
+    const paramCore = createCore({
+      id: paramId,
+      name: "x",
+      variants: [paramVariantAId, paramVariantBId],
+      defaultVariant: paramVariantAId,
+      unsharedKeys: ["value"],
+    });
+    const paramVariantA = createVariant({
+      id: paramVariantAId,
+      impl: paramImplAId,
+      nonPresetImpls: [paramImplAId],
+    });
+    const paramVariantB = createVariant({
+      id: paramVariantBId,
+      impl: paramImplBId,
+      nonPresetImpls: [paramImplBId],
+    });
+
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: projectId,
+        sectionVariantMap: { [sectionId]: sectionVariantAId },
+      }),
+      sections: { [sectionId]: sectionCore },
+      sectionImpls: {
+        [sectionImplAId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
+            id: sectionImplAId,
+            codeObjVariantMap: { [paramId]: paramVariantAId },
+          },
+        ),
+        [sectionImplBId]: createCallableSectionImpl(
+          createUserDefaultCallableSectionImpl(),
+          {
+            id: sectionImplBId,
+            codeObjVariantMap: { [paramId]: paramVariantBId },
+          },
+        ),
+      },
+      sectionVariants: {
+        [sectionVariantAId]: sectionVariantA,
+        [sectionVariantBId]: sectionVariantB,
+      },
+      codeObjs: { [paramId]: paramCore },
+      codeObjImpls: {
+        [paramImplAId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: paramImplAId,
+            value: "1",
+          },
+        ),
+        [paramImplBId]: createCodeParamCodeObjImpl(
+          createUserDefaultCodeParamCodeObjImpl(),
+          {
+            id: paramImplBId,
+            value: "2",
+          },
+        ),
+      },
+      codeObjVariants: {
+        [paramVariantAId]: paramVariantA,
+        [paramVariantBId]: paramVariantB,
+      },
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: { [sectionId]: null },
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    } as ZustandProjectState);
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      transform: [0, 0, 1],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+
+    dispatchOptimisticProjectStateUpdate({
+      apply: (state) => {
+        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
+          state,
+          paramId,
+          paramVariantAId,
+          { value: "3" },
+        );
+      },
+      send: () => new Promise(() => {}),
+      projectConfigId: projectId,
+    });
+
+    expect(
+      getCurrEffectiveCodeObjImplIfPresent(
+        useProjectState.getState(),
+        sectionId,
+        paramId,
+      )?.value,
+    ).toBe("3");
+
+    processProjectStateUpdateFromBackend({
+      projectState: createProjectStateSingleConfig({
+        projectConfig: createProjectConfig({
+          id: projectId,
+          sectionVariantMap: { [sectionId]: sectionVariantBId },
+        }),
+        sections: { [sectionId]: sectionCore },
+        sectionImpls: {
+          [sectionImplAId]: createCallableSectionImpl(
+            createUserDefaultCallableSectionImpl(),
+            {
+              id: sectionImplAId,
+              codeObjVariantMap: { [paramId]: paramVariantAId },
+            },
+          ),
+          [sectionImplBId]: createCallableSectionImpl(
+            createUserDefaultCallableSectionImpl(),
+            {
+              id: sectionImplBId,
+              codeObjVariantMap: { [paramId]: paramVariantBId },
+            },
+          ),
+        },
+        sectionVariants: {
+          [sectionVariantAId]: sectionVariantA,
+          [sectionVariantBId]: sectionVariantB,
+        },
+        codeObjs: { [paramId]: paramCore },
+        codeObjImpls: {
+          [paramImplAId]: createCodeParamCodeObjImpl(
+            createUserDefaultCodeParamCodeObjImpl(),
+            {
+              id: paramImplAId,
+              value: "1",
+            },
+          ),
+          [paramImplBId]: createCodeParamCodeObjImpl(
+            createUserDefaultCodeParamCodeObjImpl(),
+            {
+              id: paramImplBId,
+              value: "2",
+            },
+          ),
+        },
+        codeObjVariants: {
+          [paramVariantAId]: paramVariantA,
+          [paramVariantBId]: paramVariantB,
+        },
+        artifactGroups: {},
+        singletonSections: createSingletonSections(),
+        parentSectionMap: { [sectionId]: null },
+        shownParamIds: {},
+        requiredDecodedImages: [],
+        genCodeBinding: null,
+      }),
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    expect(
+      useProjectState.getState().projectConfig.sectionVariantMap[sectionId],
+    ).toBe(sectionVariantBId);
+    expect(
+      getCurrEffectiveCodeObjImplIfPresent(
+        useProjectState.getState(),
+        sectionId,
+        paramId,
+      )?.value,
+    ).toBe("2");
+
+    const stateWithOriginalVariantSelected = JSON.parse(
+      JSON.stringify(useProjectState.getState()),
+    ) as ZustandProjectState;
+    stateWithOriginalVariantSelected.projectConfig.sectionVariantMap[
+      sectionId
+    ] = sectionVariantAId;
+    expect(
+      getCurrEffectiveCodeObjImplIfPresent(
+        stateWithOriginalVariantSelected,
+        sectionId,
+        paramId,
+      )?.value,
+    ).toBe("3");
   });
 });

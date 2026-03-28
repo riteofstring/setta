@@ -21,6 +21,7 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrEffectiveSectionImpl,
+  getCurrSectionVariantId,
   getParamDisplayNameIfPresent,
 } from "state/actions/sectionInfos";
 import {
@@ -31,6 +32,7 @@ import {
   useAppConfigs,
   useDecodedImages,
   useImages,
+  useProjectState,
   useServerMode,
 } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
@@ -808,7 +810,14 @@ function AppParamInput({
   canEditParams,
 }: AppParamInputProps) {
   const isPasswordParam = codeObjImpl.type === CodeObjTypeEnum.PasswordParam;
-  const [value, setPendingValue] = useLocalPendingValue(baseValue);
+  const sectionVariantId = useProjectState((x) =>
+    getCurrSectionVariantId(x, sectionId),
+  );
+  const [value, setPendingValue] = useLocalPendingValue(
+    baseValue,
+    undefined,
+    `${sectionVariantId}:${paramInfoId}`,
+  );
   const [isRevealing, setIsRevealing] = React.useState(false);
 
   function onChange(nextValue, options?: { skipBackendUpdate?: boolean }) {
@@ -827,6 +836,7 @@ function AppParamInput({
       debouncedSetPasswordParamValue(
         configId,
         sectionId,
+        sectionVariantId,
         paramInfoId,
         nextValueStr,
       );
@@ -835,6 +845,7 @@ function AppParamInput({
     debouncedSetParamEnteredValue(
       configId,
       sectionId,
+      sectionVariantId,
       paramInfoId,
       nextValueStr,
     );
@@ -1311,10 +1322,17 @@ const notifyParamUpdateError = _.throttle(
 );
 
 const debouncedSetParamEnteredValue = _.debounce(
-  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
+  (
+    configId: string,
+    sectionId: string,
+    sectionVariantId: string,
+    paramInfoId: string,
+    value: string,
+  ) => {
     route_set_param_entered_value({
       projectConfigId: configId,
       sectionId,
+      sectionVariantId,
       paramInfoId,
       value,
     }).then((response) => {
@@ -1332,10 +1350,17 @@ const debouncedSetParamEnteredValue = _.debounce(
 );
 
 const debouncedSetPasswordParamValue = _.debounce(
-  (configId: string, sectionId: string, paramInfoId: string, value: string) => {
+  (
+    configId: string,
+    sectionId: string,
+    sectionVariantId: string,
+    paramInfoId: string,
+    value: string,
+  ) => {
     route_set_param_entered_value({
       projectConfigId: configId,
       sectionId,
+      sectionVariantId,
       paramInfoId,
       value,
     }).then((response) => {

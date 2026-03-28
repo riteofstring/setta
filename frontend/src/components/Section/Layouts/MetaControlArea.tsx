@@ -7,13 +7,15 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrCodeObjVariantIfPresent,
   getCurrEffectiveCodeObjImplIfPresent,
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   getParamDisplayNameIfPresent,
   getSectionCore,
-  setCurrEffectiveCodeObjImplValue,
+  setCodeObjVariantImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -122,6 +124,10 @@ function MetaControlValueArea({
         defaultVal: "",
         sectionName,
         paramDisplayName,
+        codeObjVariantId:
+          getCurrCodeObjVariantIfPresent(x, sectionId, controlParamId)?.id ??
+          null,
+        sectionVariantId: getCurrSectionVariantId(x, sectionId),
         buttonConfig: {
           actionMode: buttonImpl.actionMode,
           requestMethod: buttonImpl.requestMethod,
@@ -163,6 +169,10 @@ function MetaControlValueArea({
       defaultVal: childlessImpl.defaultVal,
       sectionName,
       paramDisplayName,
+      codeObjVariantId:
+        getCurrCodeObjVariantIfPresent(x, sectionId, controlParamId)?.id ??
+        null,
+      sectionVariantId: getCurrSectionVariantId(x, sectionId),
       buttonConfig: null,
       dropzoneMode: isDropzone ? childlessImpl.mode : null,
       dropzoneMaxAttachments: isDropzone
@@ -200,6 +210,8 @@ function MetaControlValueArea({
   const hasMetaControlState = metaControlState !== null;
   const codeObjType =
     metaControlState?.codeObjType ?? CodeObjTypeEnum.TextParam;
+  const codeObjVariantId = metaControlState?.codeObjVariantId ?? null;
+  const sectionVariantId = metaControlState?.sectionVariantId ?? null;
   const baseValue = metaControlState?.baseValue ?? "";
   const defaultVal = metaControlState?.defaultVal ?? "";
   const sectionName = metaControlState?.sectionName ?? "";
@@ -232,23 +244,28 @@ function MetaControlValueArea({
   const [value, setPendingValue] = useLocalPendingValue(
     baseValue,
     (pendingValue) => {
-      if (!hasMetaControlState || codeObjType === CodeObjTypeEnum.ButtonParam) {
+      if (
+        !hasMetaControlState ||
+        codeObjType === CodeObjTypeEnum.ButtonParam ||
+        !codeObjVariantId
+      ) {
         return;
       }
       if (codeObjType === CodeObjTypeEnum.PasswordParam) {
         return;
       }
       useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
           state,
-          sectionId,
           controlParamId,
+          codeObjVariantId,
           {
             value: pendingValue,
           },
         );
       });
     },
+    codeObjVariantId,
   );
 
   const handleValueChange: ParamValueChange = (
@@ -274,9 +291,26 @@ function MetaControlValueArea({
     }
     if (!options?.skipBackendUpdate) {
       if (codeObjType === CodeObjTypeEnum.PasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, controlParamId, valueStr);
+        if (!sectionVariantId) {
+          return;
+        }
+        debouncedSetPasswordParamValue(
+          sectionId,
+          sectionVariantId,
+          controlParamId,
+          valueStr,
+        );
       } else {
-        debouncedSetParamEnteredValue(sectionId, controlParamId, valueStr);
+        if (!sectionVariantId || !codeObjVariantId) {
+          return;
+        }
+        debouncedSetParamEnteredValue(
+          sectionId,
+          sectionVariantId,
+          controlParamId,
+          codeObjVariantId,
+          valueStr,
+        );
       }
     }
   };
@@ -412,13 +446,19 @@ function MetaControlValueArea({
 export const MetaControlArea = React.memo(_MetaControlArea);
 
 const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId: string, paramInfoId: string, value: string) => {
+  (
+    sectionId: string,
+    sectionVariantId: string,
+    paramInfoId: string,
+    codeObjVariantId: string,
+    value: string,
+  ) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
           state,
-          sectionId,
           paramInfoId,
+          codeObjVariantId,
           {
             value,
           },
@@ -428,6 +468,7 @@ const debouncedSetParamEnteredValue = _.debounce(
         route_set_param_entered_value({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
+          sectionVariantId,
           paramInfoId,
           value,
           frontendOpId,
@@ -438,10 +479,16 @@ const debouncedSetParamEnteredValue = _.debounce(
 );
 
 const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId: string, paramInfoId: string, value: string) => {
+  (
+    sectionId: string,
+    sectionVariantId: string,
+    paramInfoId: string,
+    value: string,
+  ) => {
     route_set_param_entered_value({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
+      sectionVariantId,
       paramInfoId,
       value,
     });

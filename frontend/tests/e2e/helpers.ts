@@ -1313,6 +1313,38 @@ export async function setParamEnteredValueFromFrontend(
     value: string;
   },
 ): Promise<void> {
+  const sectionVariantId = await page.evaluate(
+    ({ projectConfigId, sectionId }) => {
+      return import("/src/state/actions/sectionInfos").then(
+        ({ getCurrProjectConfigId }) => {
+          if (getCurrProjectConfigId() !== projectConfigId) {
+            throw new Error(
+              `Active project mismatch while resolving section variant: expected ${projectConfigId}.`,
+            );
+          }
+          return import("/src/state/definitions").then(
+            ({ useProjectState }) => {
+              return (
+                useProjectState.getState().projectConfig.sectionVariantMap[
+                  sectionId
+                ] ?? null
+              );
+            },
+          );
+        },
+      );
+    },
+    {
+      projectConfigId: payload.projectConfigId,
+      sectionId: payload.sectionId,
+    },
+  );
+  if (!sectionVariantId) {
+    throw new Error(
+      `No active section variant found for ${payload.sectionId} in ${payload.projectConfigId}.`,
+    );
+  }
+
   await applyProjectMutationsFromFrontend(page, {
     projectConfigId: payload.projectConfigId,
     operations: [
@@ -1320,6 +1352,7 @@ export async function setParamEnteredValueFromFrontend(
         routeName: "route_set_param_entered_value",
         payload: {
           sectionId: payload.sectionId,
+          sectionVariantId,
           paramInfoId: payload.paramInfoId,
           value: payload.value,
           frontendOpId: null,

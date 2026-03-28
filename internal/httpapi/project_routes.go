@@ -1347,11 +1347,12 @@ type ChangeParamImplRequest struct {
 }
 
 type SetParamEnteredValueRequest struct {
-	FrontendOpID *string `json:"frontendOpId"`
-	ProjectID    string  `json:"projectConfigId"`
-	SectionID    string  `json:"sectionId"`
-	ParamInfoID  string  `json:"paramInfoId"`
-	Value        string  `json:"value"`
+	FrontendOpID     *string `json:"frontendOpId"`
+	ProjectID        string  `json:"projectConfigId"`
+	SectionID        string  `json:"sectionId"`
+	SectionVariantID string  `json:"sectionVariantId"`
+	ParamInfoID      string  `json:"paramInfoId"`
+	Value            string  `json:"value"`
 }
 
 type UpdateParamImplConfigRequest struct {
@@ -1532,6 +1533,7 @@ func ensureProjectParamValueMutationAllowed(
 	runtime *projectstate.Runtime,
 	projectID string,
 	sectionID string,
+	sectionVariantID string,
 	paramInfoID string,
 ) bool {
 	if !deps.ModePolicy.IsDeployment() {
@@ -1543,7 +1545,11 @@ func ensureProjectParamValueMutationAllowed(
 		writeParamValueMutationError(w, r, err)
 		return false
 	}
-	payload, _, _, impl, err := project.ResolveSectionCodeObject(sectionID, paramInfoID)
+	payload, _, _, impl, err := project.ResolveSectionCodeObjectForVariant(
+		sectionID,
+		sectionVariantID,
+		paramInfoID,
+	)
 	if err != nil {
 		writeParamValueMutationError(w, r, err)
 		return false
@@ -2135,17 +2141,39 @@ func setParamEnteredValueHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		if !ensureProjectParamValueMutationAllowed(w, r, deps, runtime, projectID, sectionID, paramInfoID) {
+		sectionVariantID := strings.TrimSpace(payload.SectionVariantID)
+		if !ensureProjectParamValueMutationAllowed(
+			w,
+			r,
+			deps,
+			runtime,
+			projectID,
+			sectionID,
+			sectionVariantID,
+			paramInfoID,
+		) {
 			return
 		}
 
-		snapshot, err := runtime.SetSectionCodeObjectValue(
-			projectMutationContext(r.Context(), payload.FrontendOpID),
-			projectID,
-			sectionID,
-			paramInfoID,
-			payload.Value,
-		)
+		var snapshot projectstate.Snapshot
+		if sectionVariantID != "" {
+			snapshot, err = runtime.SetSectionCodeObjectValueForVariant(
+				projectMutationContext(r.Context(), payload.FrontendOpID),
+				projectID,
+				sectionID,
+				sectionVariantID,
+				paramInfoID,
+				payload.Value,
+			)
+		} else {
+			snapshot, err = runtime.SetSectionCodeObjectValue(
+				projectMutationContext(r.Context(), payload.FrontendOpID),
+				projectID,
+				sectionID,
+				paramInfoID,
+				payload.Value,
+			)
+		}
 		if err != nil {
 			writeParamValueMutationError(w, r, err)
 			return

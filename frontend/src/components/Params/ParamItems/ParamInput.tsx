@@ -2,9 +2,11 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
+  getCurrCodeObjVariantIfPresent,
   getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
   getCurrProjectConfigId,
-  setCurrEffectiveCodeObjImplValue,
+  getCurrSectionVariantId,
+  setCodeObjVariantImplValue,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -42,15 +44,28 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     if (!impl) {
       return null;
     }
+    const codeObjVariant = getCurrCodeObjVariantIfPresent(
+      x,
+      sectionId,
+      paramInfoId,
+      true, // preview
+    );
+    if (!codeObjVariant) {
+      return null;
+    }
     return {
       baseValue: impl.value,
       codeObjType: impl.type,
+      codeObjVariantId: codeObjVariant.id,
+      sectionVariantId: getCurrSectionVariantId(x, sectionId, true),
     };
   }, _.isEqual);
   const hasPreviewParamState = previewParamState !== null;
   const baseValue = previewParamState?.baseValue ?? "";
   const codeObjType =
     previewParamState?.codeObjType ?? CodeObjTypeEnum.TextParam;
+  const codeObjVariantId = previewParamState?.codeObjVariantId ?? null;
+  const sectionVariantId = previewParamState?.sectionVariantId ?? null;
   const isPasswordParam = codeObjType === CodeObjTypeEnum.PasswordParam;
   const previewValue = useToolArgumentPreview((state) => {
     const previewState = state.byProjectConfigId[projectConfigId];
@@ -70,20 +85,21 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
   const [value, setPendingValue] = useLocalPendingValue(
     globalValue,
     (pendingValue) => {
-      if (!hasPreviewParamState || isPasswordParam) {
+      if (!hasPreviewParamState || isPasswordParam || !codeObjVariantId) {
         return;
       }
       useProjectState.setState((state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
           state,
-          sectionId,
           paramInfoId,
+          codeObjVariantId,
           {
             value: pendingValue,
           },
         );
       });
     },
+    codeObjVariantId,
   );
   const [isRevealing, setIsRevealing] = React.useState(false);
 
@@ -105,9 +121,26 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
     }
     if (!options?.skipBackendUpdate) {
       if (isPasswordParam) {
-        debouncedSetPasswordParamValue(sectionId, paramInfoId, vStr);
+        if (!sectionVariantId) {
+          return;
+        }
+        debouncedSetPasswordParamValue(
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          vStr,
+        );
       } else {
-        debouncedSetParamEnteredValue(sectionId, paramInfoId, vStr);
+        if (!sectionVariantId || !codeObjVariantId) {
+          return;
+        }
+        debouncedSetParamEnteredValue(
+          sectionId,
+          sectionVariantId,
+          paramInfoId,
+          codeObjVariantId,
+          vStr,
+        );
       }
     }
   }
@@ -197,6 +230,7 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 
   return (
     <ParamUI
+      key={codeObjVariantId}
       sectionId={sectionId}
       paramInfoId={paramInfoId}
       value={value}
@@ -210,13 +244,13 @@ function _ParamInput({ sectionId, paramInfoId, maybeErrorMessage }) {
 }
 
 const debouncedSetParamEnteredValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
+  (sectionId, sectionVariantId, paramInfoId, codeObjVariantId, value) => {
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<"BaseChildlessCodeObj">(
+        setCodeObjVariantImplValue<"BaseChildlessCodeObj">(
           state,
-          sectionId,
           paramInfoId,
+          codeObjVariantId,
           {
             value,
           },
@@ -226,6 +260,7 @@ const debouncedSetParamEnteredValue = _.debounce(
         route_set_param_entered_value({
           projectConfigId: getCurrProjectConfigId(),
           sectionId,
+          sectionVariantId,
           paramInfoId,
           value,
           frontendOpId,
@@ -236,10 +271,11 @@ const debouncedSetParamEnteredValue = _.debounce(
 );
 
 const debouncedSetPasswordParamValue = _.debounce(
-  (sectionId, paramInfoId, value) => {
+  (sectionId, sectionVariantId, paramInfoId, value) => {
     route_set_param_entered_value({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
+      sectionVariantId,
       paramInfoId,
       value,
     });

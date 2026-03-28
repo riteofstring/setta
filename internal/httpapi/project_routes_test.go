@@ -641,6 +641,84 @@ func TestRegisterProjectRoutesParamValueRejectsDeploymentPolicyWhenParamChangesD
 	}
 }
 
+func TestRegisterProjectRoutesSetParamEnteredValueTargetsExplicitSectionVariant(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": callableRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	_, createdVariant, err := projectRuntime.CreateNewSectionVariant(
+		context.Background(),
+		"project-alpha",
+		projectstate.CreateNewSectionVariantInput{SectionID: "callable-section"},
+	)
+	if err != nil {
+		t.Fatalf("create new section variant: %v", err)
+	}
+	if _, err := projectRuntime.SetSectionVariant(
+		context.Background(),
+		"project-alpha",
+		"callable-section",
+		"callable-variant-1",
+	); err != nil {
+		t.Fatalf("restore original section variant: %v", err)
+	}
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetParamEnteredValue,
+		strings.NewReader(fmt.Sprintf(
+			`{"projectConfigId":"project-alpha","sectionId":"callable-section","sectionVariantId":"%s","paramInfoId":"param-existing","value":"3"}`,
+			createdVariant.VariantID,
+		)),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	project := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+
+	originalPayload, _, _, _, err := project.ResolveSectionCodeObject(
+		"callable-section",
+		"param-existing",
+	)
+	if err != nil {
+		t.Fatalf("resolve original variant param payload: %v", err)
+	}
+	if got, _ := originalPayload["value"].(string); got != "user_value" {
+		t.Fatalf("expected original variant param value user_value, got %q", got)
+	}
+
+	targetedPayload, _, _, _, err := project.ResolveSectionCodeObjectForVariant(
+		"callable-section",
+		createdVariant.VariantID,
+		"param-existing",
+	)
+	if err != nil {
+		t.Fatalf("resolve explicit variant param payload: %v", err)
+	}
+	if got, _ := targetedPayload["value"].(string); got != "3" {
+		t.Fatalf("expected explicit variant param value 3, got %q", got)
+	}
+}
+
 func TestRegisterProjectRoutesParamValueRejectsDeploymentCodeParamEdits(t *testing.T) {
 	t.Parallel()
 

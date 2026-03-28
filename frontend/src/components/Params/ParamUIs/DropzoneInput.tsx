@@ -11,9 +11,10 @@ import { addTemporaryNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
-import { useShareSession } from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   DropzoneConfigForFrontend,
@@ -414,6 +415,9 @@ export function DropzoneInput({
   const { isDeploymentMode } = useShareSession((state) => ({
     isDeploymentMode: state.isDeploymentMode,
   }));
+  const sectionVariantId = useProjectState((state) =>
+    sectionId ? getCurrSectionVariantId(state, sectionId) : "",
+  );
   const dropzonePolicy = useMemo(() => resolveDropzonePolicy(mode), [mode]);
 
   const parsedStatefulValue = useMemo(() => {
@@ -507,6 +511,7 @@ export function DropzoneInput({
     const res = await route_set_param_entered_value({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
+      sectionVariantId,
       paramInfoId,
       value: updatedValue,
       frontendOpId: null,

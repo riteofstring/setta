@@ -101,6 +101,8 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectstate.SectionImpl{}),
 		reflect.TypeOf(projectstate.CodeSectionImpl{}),
 		reflect.TypeOf(projectstate.CodeFileBinding{}),
+		reflect.TypeOf(projectstate.TerminalSessionMode("")),
+		reflect.TypeOf(projectstate.TerminalSectionImpl{}),
 		reflect.TypeOf(projectstate.DrawSectionImpl{}),
 		reflect.TypeOf(projectstate.GeneratedSectionKind("")),
 		reflect.TypeOf(projectstate.GeneratedSectionImpl{}),

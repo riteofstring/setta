@@ -153,6 +153,7 @@ function _UIElement({
         codeObj.displayName = pendingValue;
       });
     },
+    id,
   );
   const [localDescription, setLocalDescription] = useLocalValue(description);
   const debouncedSetParamDisplayName = React.useMemo(

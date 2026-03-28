@@ -623,7 +623,27 @@ func (p *Project) setCurrentCodeObjectField(sectionID string, codeObjID string, 
 }
 
 func (p *Project) setSectionCodeObjectField(sectionID string, codeObjID string, fieldName string, fieldValue any) error {
-	_, codeObj, variant, impl, err := p.ResolveSectionCodeObject(sectionID, codeObjID)
+	return p.setSectionCodeObjectFieldForVariant(
+		sectionID,
+		"",
+		codeObjID,
+		fieldName,
+		fieldValue,
+	)
+}
+
+func (p *Project) setSectionCodeObjectFieldForVariant(
+	sectionID string,
+	sectionVariantID string,
+	codeObjID string,
+	fieldName string,
+	fieldValue any,
+) error {
+	_, codeObj, variant, impl, err := p.ResolveSectionCodeObjectForVariant(
+		sectionID,
+		sectionVariantID,
+		codeObjID,
+	)
 	if err != nil {
 		return err
 	}

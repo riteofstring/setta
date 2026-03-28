@@ -190,6 +190,206 @@ func TestProjectSetCallableSkipsWhenSignatureContextUnavailable(t *testing.T) {
 	}
 }
 
+// Callable params are variant-local state. Writing a value in one section
+// variant must not overwrite the value stored in another variant.
+func TestProjectCallableParamValuesStayScopedToTheirSectionVariants(t *testing.T) {
+	t.Parallel()
+
+	project := callableTestProject(t)
+
+	created, err := project.CreateNewSectionVariant(CreateNewSectionVariantInput{
+		SectionID: "callable-section",
+	})
+	if err != nil {
+		t.Fatalf("create new section variant: %v", err)
+	}
+
+	if err := project.SetSectionCodeObjectValue("callable-section", "param-existing", "3"); err != nil {
+		t.Fatalf("set new variant param value: %v", err)
+	}
+
+	if err := project.SetSectionVariant("callable-section", "callable-variant-1"); err != nil {
+		t.Fatalf("set original section variant: %v", err)
+	}
+	if err := project.SetSectionCodeObjectValue("callable-section", "param-existing", "2"); err != nil {
+		t.Fatalf("set original variant param value: %v", err)
+	}
+
+	originalPayload, _, _, _, err := project.ResolveSectionCodeObject(
+		"callable-section",
+		"param-existing",
+	)
+	if err != nil {
+		t.Fatalf("resolve original variant param payload: %v", err)
+	}
+	if got := payloadRawStringField(originalPayload, "value"); got != "2" {
+		t.Fatalf("expected original variant param value 2, got %q", got)
+	}
+
+	if err := project.SetSectionVariant("callable-section", created.VariantID); err != nil {
+		t.Fatalf("set created section variant: %v", err)
+	}
+
+	createdPayload, _, _, _, err := project.ResolveSectionCodeObject(
+		"callable-section",
+		"param-existing",
+	)
+	if err != nil {
+		t.Fatalf("resolve created variant param payload: %v", err)
+	}
+	if got := payloadRawStringField(createdPayload, "value"); got != "3" {
+		t.Fatalf("expected created variant param value 3, got %q", got)
+	}
+}
+
+// Frontend param writes are variant-local mutations. The explicit variant-owner
+// path must update the targeted variant even if the section has since switched
+// to another active variant.
+func TestProjectSetSectionCodeObjectValueForVariantTargetsExplicitVariant(t *testing.T) {
+	t.Parallel()
+
+	project := callableTestProject(t)
+
+	created, err := project.CreateNewSectionVariant(CreateNewSectionVariantInput{
+		SectionID: "callable-section",
+	})
+	if err != nil {
+		t.Fatalf("create new section variant: %v", err)
+	}
+	if err := project.SetSectionVariant("callable-section", "callable-variant-1"); err != nil {
+		t.Fatalf("restore original section variant: %v", err)
+	}
+
+	if err := project.SetSectionCodeObjectValueForVariant(
+		"callable-section",
+		created.VariantID,
+		"param-existing",
+		"3",
+	); err != nil {
+		t.Fatalf("set explicit variant param value: %v", err)
+	}
+
+	originalPayload, _, _, _, err := project.ResolveSectionCodeObject(
+		"callable-section",
+		"param-existing",
+	)
+	if err != nil {
+		t.Fatalf("resolve original variant param payload: %v", err)
+	}
+	if got := payloadRawStringField(originalPayload, "value"); got != "user_value" {
+		t.Fatalf("expected original variant param value user_value, got %q", got)
+	}
+
+	createdPayload, _, _, _, err := project.ResolveSectionCodeObjectForVariant(
+		"callable-section",
+		created.VariantID,
+		"param-existing",
+	)
+	if err != nil {
+		t.Fatalf("resolve explicit variant param payload: %v", err)
+	}
+	if got := payloadRawStringField(createdPayload, "value"); got != "3" {
+		t.Fatalf("expected explicit variant param value 3, got %q", got)
+	}
+}
+
+// Newly discovered callable params must clone into new section variants as
+// variant-local state, so later value edits do not bleed across variants.
+func TestProjectCallableParamValuesStayScopedToTheirSectionVariantsAfterSetCallable(t *testing.T) {
+	t.Parallel()
+
+	project := testCreateTopLevelSectionProject(t)
+	createdSection, err := project.CreateTopLevelSection(
+		CreateTopLevelSectionInput{ImplType: "Callable"},
+		DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create callable section: %v", err)
+	}
+
+	resolver := &stubCallableSignatureResolver{
+		ok: true,
+		result: CallableSignatureResult{
+			Status: SignatureHelpStatusMatched,
+			Params: []CallableParamProposal{
+				{
+					Name:           "iterable",
+					Description:    "Values to sort.",
+					PassingStyle:   "POSITIONAL_ONLY",
+					TypeAnnotation: "list[int]",
+				},
+			},
+		},
+	}
+
+	setCallableResponse, err := project.SetCallable(
+		context.Background(),
+		createdSection.SectionID,
+		"sorted",
+		true,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("set callable: %v", err)
+	}
+	if len(setCallableResponse.ChildCodeObjs) != 1 {
+		t.Fatalf("expected one callable param, got %#v", setCallableResponse.ChildCodeObjs)
+	}
+	paramID := setCallableResponse.ChildCodeObjs[0].CodeObjID
+	originalVariantID := project.SectionVariantMap[createdSection.SectionID]
+	if originalVariantID == "" {
+		t.Fatalf("expected active variant for created section %q", createdSection.SectionID)
+	}
+
+	newVariant, err := project.CreateNewSectionVariant(CreateNewSectionVariantInput{
+		SectionID: createdSection.SectionID,
+	})
+	if err != nil {
+		t.Fatalf("create new section variant: %v", err)
+	}
+
+	if err := project.SetSectionCodeObjectValueForVariant(
+		createdSection.SectionID,
+		originalVariantID,
+		paramID,
+		"2",
+	); err != nil {
+		t.Fatalf("set original variant param value: %v", err)
+	}
+	if err := project.SetSectionCodeObjectValueForVariant(
+		createdSection.SectionID,
+		newVariant.VariantID,
+		paramID,
+		"3",
+	); err != nil {
+		t.Fatalf("set created variant param value: %v", err)
+	}
+
+	originalPayload, _, _, _, err := project.ResolveSectionCodeObjectForVariant(
+		createdSection.SectionID,
+		originalVariantID,
+		paramID,
+	)
+	if err != nil {
+		t.Fatalf("resolve original variant param payload: %v", err)
+	}
+	if got := payloadRawStringField(originalPayload, "value"); got != "2" {
+		t.Fatalf("expected original variant param value 2, got %q", got)
+	}
+
+	createdPayload, _, _, _, err := project.ResolveSectionCodeObjectForVariant(
+		createdSection.SectionID,
+		newVariant.VariantID,
+		paramID,
+	)
+	if err != nil {
+		t.Fatalf("resolve created variant param payload: %v", err)
+	}
+	if got := payloadRawStringField(createdPayload, "value"); got != "3" {
+		t.Fatalf("expected created variant param value 3, got %q", got)
+	}
+}
+
 func callableTestProject(t *testing.T) Project {
 	t.Helper()
 

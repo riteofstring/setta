@@ -492,13 +492,24 @@ async function setParamValueFromFrontend(
       nextValue,
     }) => {
       const { res200 } = await import("/src/utils/endpointUtils");
+      const { useProjectState } = await import("/src/state/definitions");
       const { route_set_param_entered_value } = await import(
         "/src/utils/generatedEndpoints"
       );
+      const sectionVariantId =
+        useProjectState.getState().projectConfig.sectionVariantMap[
+          targetSectionId
+        ] ?? null;
+      if (!sectionVariantId) {
+        throw new Error(
+          `No active section variant for ${targetSectionId} while setting param value.`,
+        );
+      }
 
       const response = await route_set_param_entered_value({
         projectConfigId: targetProjectConfigId,
         sectionId: targetSectionId,
+        sectionVariantId,
         paramInfoId: targetParamInfoId,
         value: nextValue,
         frontendOpId: null,
