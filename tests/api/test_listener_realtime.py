@@ -17,7 +17,6 @@ from setta.api.listener import (
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerDependencyCatalogEntry,
-    ListenerErrorEvent,
     ListenerForceRefreshEvent,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
@@ -29,6 +28,9 @@ from setta.types.generated.go_shared_types import (
     CodeObjType,
     DependencyValueType,
     ListenerDependencyMode,
+    ListenerErrorContent,
+    ListenerErrorMessage,
+    ListenerMessageType,
     LiteralDependencyValue,
     ParameterPassingStyle,
     SectionType,
@@ -41,7 +43,6 @@ from setta.types.listener import (
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
-    WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerRealtimeEvent,
@@ -1218,8 +1219,9 @@ class TestSettaListenerRealtimeIntegration:
 
     async def test_listener_error_prints_when_logging_unconfigured(self) -> None:
         listener = SettaListener(project_name="Project Missing")
-        error_message = WebsocketMsgListenerError(
-            content=ListenerErrorEvent(
+        error_message = ListenerErrorMessage(
+            messageType=ListenerMessageType.ListenerError,
+            content=ListenerErrorContent(
                 error="project_state_unavailable",
                 details={"projectName": "dog"},
             )

@@ -340,6 +340,12 @@ That means:
 - `backend/setta/types/protocol.py` and `backend/setta/types/listener.py` have also been trimmed further by deleting duplicate inherited field lines that no longer changed behavior:
   - the dependency-value wrappers in `protocol.py` now keep only their discriminator literals, not duplicate `payload` annotations
   - `ListenerRealtimeEventContent` no longer restates the inherited `dependencyValues` field from the generated SDK contract model
+- `backend/setta/types/listener.py` no longer keeps handwritten simple websocket envelope subclasses for:
+  - `ListenerError`
+  - `ListenerRegisterAck`
+  - `ListenerRouterEndpointCall`
+  - `ListenerRouterEndpointResult`
+  - those message variants now use the generated Go-owned websocket envelope models directly, while the handwritten listener layer keeps only the envelopes that still add typed SDK content or validation
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line

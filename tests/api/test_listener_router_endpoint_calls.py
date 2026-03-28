@@ -1,23 +1,26 @@
 import asyncio
 
 import pytest
-
 from setta.api.listener import SettaListener
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
-    ListenerErrorEvent,
     ListenerForceRefreshEvent,
     ListenerRenderedDependencyValues,
-    ListenerRouterEndpointResult,
     ListenerSnapshot,
+)
+from setta.types.generated.go_shared_types import (
+    ListenerErrorContent,
+    ListenerErrorMessage,
+    ListenerMessageType,
+    ListenerRouterEndpointCallMessage,
+    ListenerRouterEndpointResultContent,
+    ListenerRouterEndpointResultMessage,
 )
 from setta.types.id import ID
 from setta.types.listener import (
     PythonScriptWebsocketMsgTypeAdapter,
-    WebsocketMsgListenerError,
-    WebsocketMsgListenerRouterEndpointCall,
-    WebsocketMsgListenerRouterEndpointResult,
 )
+
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
 )
@@ -64,7 +67,7 @@ class TestListenerRouterEndpointCall:
         parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             sent_payloads[0]
         )
-        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+        assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
         assert parsed_message.content.endpointName == "route_get_chat_section_chat_id"
         assert parsed_message.content.payload == {
             "frontendOpId": None,
@@ -73,8 +76,9 @@ class TestListenerRouterEndpointCall:
         }
 
         listener._handle_router_endpoint_result(
-            WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResult(
+            ListenerRouterEndpointResultMessage(
+                messageType=ListenerMessageType.ListenerRouterEndpointResult,
+                content=ListenerRouterEndpointResultContent(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=True,
@@ -110,11 +114,12 @@ class TestListenerRouterEndpointCall:
         parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             sent_payloads[0]
         )
-        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+        assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
 
         listener._handle_router_endpoint_result(
-            WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResult(
+            ListenerRouterEndpointResultMessage(
+                messageType=ListenerMessageType.ListenerRouterEndpointResult,
+                content=ListenerRouterEndpointResultContent(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=False,
@@ -156,11 +161,12 @@ class TestListenerRouterEndpointCall:
         parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             sent_payloads[0]
         )
-        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+        assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
 
         listener._handle_router_endpoint_result(
-            WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResult(
+            ListenerRouterEndpointResultMessage(
+                messageType=ListenerMessageType.ListenerRouterEndpointResult,
+                content=ListenerRouterEndpointResultContent(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=True,
@@ -212,11 +218,12 @@ class TestListenerRouterEndpointCall:
         parsed_message = PythonScriptWebsocketMsgTypeAdapter.validate_json(
             sent_payloads[0]
         )
-        assert isinstance(parsed_message, WebsocketMsgListenerRouterEndpointCall)
+        assert isinstance(parsed_message, ListenerRouterEndpointCallMessage)
 
         listener._handle_router_endpoint_result(
-            WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResult(
+            ListenerRouterEndpointResultMessage(
+                messageType=ListenerMessageType.ListenerRouterEndpointResult,
+                content=ListenerRouterEndpointResultContent(
                     projectConfigId=project_config_id,
                     callId=parsed_message.content.callId,
                     ok=True,
@@ -225,8 +232,9 @@ class TestListenerRouterEndpointCall:
             )
         )
         listener._handle_listener_error(
-            WebsocketMsgListenerError(
-                content=ListenerErrorEvent(
+            ListenerErrorMessage(
+                messageType=ListenerMessageType.ListenerError,
+                content=ListenerErrorContent(
                     error="listener_refresh_failed",
                     details={
                         "callId": parsed_message.content.callId,

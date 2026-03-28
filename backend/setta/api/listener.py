@@ -40,12 +40,10 @@ from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
     ListenerForceRefreshEvent,
     ListenerFrontendEmitRequest,
-    ListenerRegisterAckStatus,
     ListenerRegisterCallbackSpec,
     ListenerRegisterRequest,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
-    ListenerRouterEndpointCall,
     ListenerSnapshot,
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
@@ -58,6 +56,12 @@ from setta.types.artifact import (
 from setta.types.generated.go_shared_types import (
     CodeObjType,
     ListenerDependencyMode,
+    ListenerErrorMessage,
+    ListenerMessageType,
+    ListenerRegisterAckMessage,
+    ListenerRouterEndpointCallContent,
+    ListenerRouterEndpointCallMessage,
+    ListenerRouterEndpointResultMessage,
     Route,
     SectionType,
 )
@@ -69,15 +73,11 @@ from setta.types.listener import (
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
-    WebsocketMsgListenerError,
     WebsocketMsgListenerForceRefresh,
     WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerInit,
     WebsocketMsgListenerRealtimeEvent,
     WebsocketMsgListenerRegister,
-    WebsocketMsgListenerRegisterAck,
-    WebsocketMsgListenerRouterEndpointCall,
-    WebsocketMsgListenerRouterEndpointResult,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -989,7 +989,7 @@ class SettaListener:
         message: Any,
     ) -> None:
         """Delegate parsed websocket messages to dedicated handlers."""
-        if isinstance(message, WebsocketMsgListenerRegisterAck):
+        if isinstance(message, ListenerRegisterAckMessage):
             self._handle_register_ack(message)
             return
         if isinstance(message, WebsocketMsgListenerRealtimeEvent):
@@ -1001,10 +1001,10 @@ class SettaListener:
         if isinstance(message, WebsocketMsgListenerForceRefresh):
             await self._handle_force_refresh(message.content)
             return
-        if isinstance(message, WebsocketMsgListenerError):
+        if isinstance(message, ListenerErrorMessage):
             self._handle_listener_error(message)
             return
-        if isinstance(message, WebsocketMsgListenerRouterEndpointResult):
+        if isinstance(message, ListenerRouterEndpointResultMessage):
             self._handle_router_endpoint_result(message)
             return
         logger.debug(
@@ -1013,7 +1013,7 @@ class SettaListener:
             getattr(message, "messageType", type(message)),
         )
 
-    def _handle_register_ack(self, message: WebsocketMsgListenerRegisterAck) -> None:
+    def _handle_register_ack(self, message: ListenerRegisterAckMessage) -> None:
         """Handle ListenerRegisterAck responses from the server."""
         received_project_id = message.content.projectConfigId
         if self._project_config_id is None:
@@ -1056,7 +1056,7 @@ class SettaListener:
                 callback_id,
             )
 
-        rejected: list[tuple[str, ListenerRegisterAckStatus]] = [
+        rejected = [
             (callback_id, status)
             for callback_id, status in ack_statuses.items()
             if status.status == "rejected"
@@ -1087,7 +1087,7 @@ class SettaListener:
             accepted_count,
         )
 
-    def _handle_listener_error(self, message: WebsocketMsgListenerError) -> None:
+    def _handle_listener_error(self, message: ListenerErrorMessage) -> None:
         """Surface listener errors."""
         if message.content.error == "listener_refresh_failed" and isinstance(
             message.content.details, dict
@@ -1113,7 +1113,7 @@ class SettaListener:
         logger.error(text)
 
     def _handle_router_endpoint_result(
-        self, message: WebsocketMsgListenerRouterEndpointResult
+        self, message: ListenerRouterEndpointResultMessage
     ) -> None:
         content = message.content
         future = self._pending_router_endpoint_calls.get(content.callId)
@@ -1976,8 +1976,9 @@ class SettaListener:
             serialized_payload = dict(payload)
         else:
             raise ValueError("router endpoint payload must be a dict or pydantic model")
-        message = WebsocketMsgListenerRouterEndpointCall(
-            content=ListenerRouterEndpointCall(
+        message = ListenerRouterEndpointCallMessage(
+            messageType=ListenerMessageType.ListenerRouterEndpointCall,
+            content=ListenerRouterEndpointCallContent(
                 projectConfigId=project_config_id,
                 callId=call_id,
                 endpointName=endpoint_name,

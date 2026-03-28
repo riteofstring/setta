@@ -9,7 +9,6 @@ from setta.sdk_contracts.generated import (
     ListenerForceRefreshEvent,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
-    ListenerRouterEndpointResult,
     ListenerSnapshot,
 )
 from setta.types.chat import (
@@ -20,6 +19,10 @@ from setta.types.chat import (
 from setta.types.generated.go_shared_types import (
     DependencyValueType,
     ListenerDependencyMode,
+    ListenerMessageType,
+    ListenerRouterEndpointCallMessage,
+    ListenerRouterEndpointResultContent,
+    ListenerRouterEndpointResultMessage,
     LiteralDependencyValue,
     MessageTextContent,
     SectionType,
@@ -29,8 +32,6 @@ from setta.types.listener import (
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
-    WebsocketMsgListenerRouterEndpointCall,
-    WebsocketMsgListenerRouterEndpointResult,
 )
 from setta.types.project_config import SectionRepresentationMode
 from setta.types.protocol import SectionDependencyKey
@@ -95,11 +96,12 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
 
     async def capture(payload: str) -> None:
         message = PythonScriptWebsocketMsgTypeAdapter.validate_json(payload)
-        if not isinstance(message, WebsocketMsgListenerRouterEndpointCall):
+        if not isinstance(message, ListenerRouterEndpointCallMessage):
             return
         listener._handle_router_endpoint_result(
-            WebsocketMsgListenerRouterEndpointResult(
-                content=ListenerRouterEndpointResult(
+            ListenerRouterEndpointResultMessage(
+                messageType=ListenerMessageType.ListenerRouterEndpointResult,
+                content=ListenerRouterEndpointResultContent(
                     projectConfigId=project_config_id,
                     callId=message.content.callId,
                     ok=True,
