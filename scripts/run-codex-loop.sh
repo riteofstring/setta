@@ -169,6 +169,20 @@ shell_join_args() {
   printf '%s\n' "${joined}"
 }
 
+extract_cmux_ref() {
+  local payload="$1"
+  local ref_prefix="$2"
+  local ref=""
+
+  ref="$(printf '%s\n' "${payload}" | sed -nE "s/.*(${ref_prefix}:[0-9]+).*/\\1/p" | head -n1)"
+  if [[ -z "${ref}" ]]; then
+    echo "Unable to parse ${ref_prefix} ref from cmux output: ${payload}" >&2
+    exit 1
+  fi
+
+  printf '%s\n' "${ref}"
+}
+
 discover_main_worktree_root() {
   local repo_root="$1"
   git -C "${repo_root}" worktree list --porcelain 2>/dev/null | awk '
@@ -342,6 +356,7 @@ start_command_in_cmux_surface() {
   local log_path=""
   local terminal_command=""
   local surface_ref=""
+  local surface_output=""
 
   if ! command -v cmux >/dev/null 2>&1 || [[ -z "${CMUX_WORKSPACE_ID:-}" ]]; then
     echo "cmux launch requested, but this shell is not running inside cmux." >&2
@@ -353,11 +368,13 @@ start_command_in_cmux_surface() {
   terminal_command="$(build_logged_shell_command "${target_root}" "${session_name}" "${command_body}" "${log_path}")"
 
   echo "[bootstrap] ${target_name}: opening cmux tab ${session_name} for ${command_display}"
-  surface_ref="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"
+  surface_output="$(cmux new-surface --type terminal --workspace "${CMUX_WORKSPACE_ID}")"
+  surface_ref="$(extract_cmux_ref "${surface_output}" "surface")"
   if [[ -n "${surface_ref}" ]]; then
     cmux rename-tab --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${session_name}" >/dev/null 2>&1 || true
-    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${terminal_command}" >/dev/null 2>&1 || true
-    cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1 || true
+    sleep 1
+    cmux send --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" "${terminal_command}" >/dev/null 2>&1
+    cmux send-key --workspace "${CMUX_WORKSPACE_ID}" --surface "${surface_ref}" Enter >/dev/null 2>&1
   else
     echo "Failed to create a new cmux terminal tab for ${session_name}" >&2
     exit 1
@@ -718,19 +735,61 @@ launch_self_in_visible_terminal() {
   local run_dir="$2"
   local program_name=""
   local command_body=""
+  local status_file=""
+  local status_file_quoted=""
 
   program_name="${RALPH_PROGRAM_NAME:-$(basename "$0")}"
   build_self_exec_args
+  status_file="${run_dir}/codex-loop.exit"
+  status_file_quoted="$(printf '%q' "${status_file}")"
   command_body="$(
     shell_join_args \
-      env \
-      "RALPH_PROGRAM_NAME=${program_name}" \
-      "RALPH_VISIBLE_LAUNCHED=1" \
-      "${SCRIPT_DIR}/run-codex-loop.sh" \
-      "${SELF_EXEC_ARGS[@]}"
+      bash \
+      -lc \
+      "$(
+        shell_join_args \
+          env \
+          "RALPH_PROGRAM_NAME=${program_name}" \
+          "RALPH_VISIBLE_LAUNCHED=1" \
+          "${SCRIPT_DIR}/run-codex-loop.sh" \
+          "${SELF_EXEC_ARGS[@]}"
+      ); exit_code=\$?; printf '%s\n' \"\$exit_code\" > ${status_file_quoted}; exit \$exit_code"
   )"
 
   start_command_in_visible_terminal "${resolved_mode}" "codex" "${workdir}" "loop" "${program_name}" "${command_body}" "${run_dir}"
+}
+
+follow_visible_launch_output() {
+  local run_dir="$1"
+  local log_path="${run_dir}/codex-loop.log"
+  local status_file="${run_dir}/codex-loop.exit"
+  local tail_pid=""
+  local exit_code=""
+
+  while [[ ! -f "${log_path}" ]] && [[ ! -f "${status_file}" ]]; do
+    sleep 1
+  done
+
+  if [[ -f "${log_path}" ]]; then
+    tail -n +1 -F "${log_path}" &
+    tail_pid=$!
+  fi
+
+  while [[ ! -f "${status_file}" ]]; do
+    sleep 1
+  done
+
+  if [[ -n "${tail_pid}" ]]; then
+    kill "${tail_pid}" >/dev/null 2>&1 || true
+    wait "${tail_pid}" 2>/dev/null || true
+  fi
+
+  exit_code="$(tr -d '[:space:]' < "${status_file}")"
+  if [[ -z "${exit_code}" ]]; then
+    exit_code="1"
+  fi
+
+  return "${exit_code}"
 }
 
 config_file="${ROOT_DIR}/RALPH.md"
@@ -1101,7 +1160,8 @@ fi
 if [[ "${resolved_terminal_mode}" != "background" ]] && [[ "${RALPH_VISIBLE_LAUNCHED:-0}" != "1" ]]; then
   launch_self_in_visible_terminal "${resolved_terminal_mode}" "${output_dir}"
   echo "Launched ${RALPH_PROGRAM_NAME:-ralph.sh} in a visible ${resolved_terminal_mode} session."
-  exit 0
+  follow_visible_launch_output "${output_dir}"
+  exit $?
 fi
 
 echo "Worktree session: $(workspace_session_state "${workdir}")"
