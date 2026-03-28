@@ -981,15 +981,6 @@ export function getSectionDescendants(
   return ids;
 }
 
-export function getSectionImplChildren(
-  sectionImpl: BaseSectionImplUnion,
-): Array<string> {
-  if (!isBaseParentSectionImpl(sectionImpl)) {
-    return [];
-  }
-  return [...sectionImpl.children];
-}
-
 export function manualDndChildrenReset() {
   updateDndChildren(
     getDisplayedSectionIdToChildren(useProjectState.getState()),
@@ -1017,39 +1008,6 @@ function getComparableProjectState(
   });
 }
 
-function pruneProjectChatWindowingForExistingSections(
-  projectState: ProjectStateSingleConfig,
-): ProjectStateSingleConfig {
-  const existingSectionIds = new Set(Object.keys(projectState.sections));
-  let changed = false;
-  const nextInstancesById = Object.fromEntries(
-    Object.entries(projectState.projectChatWindowing.instancesById).filter(
-      ([, instance]) => {
-        const sectionId = instance.sectionIdOrNull;
-        if (!sectionId || existingSectionIds.has(sectionId)) {
-          return true;
-        }
-        changed = true;
-        return false;
-      },
-    ),
-  );
-  if (!changed) {
-    return projectState;
-  }
-  const nextOrder = projectState.projectChatWindowing.order.filter(
-    (instanceId) => instanceId in nextInstancesById,
-  );
-  return {
-    ...projectState,
-    projectChatWindowing: {
-      ...projectState.projectChatWindowing,
-      instancesById: nextInstancesById,
-      order: nextOrder,
-    },
-  };
-}
-
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1059,7 +1017,6 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
-  x.projectState = pruneProjectChatWindowingForExistingSections(x.projectState);
   recordAuthoritativeProjectChatWindowingState(
     x.projectState.projectConfig.id,
     x.projectState.projectChatWindowing,
@@ -1082,7 +1039,6 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  reconcilePendingViewport(nextPending);
   reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
@@ -1154,23 +1110,14 @@ function applyViewportFromProjectState(
   projectState: ProjectStateSingleConfig,
 ): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
-  const currentState = useProjectState.getState();
-  const currentConfig = currentState.projectConfig;
+  const currentConfig = useProjectState.getState().projectConfig;
   const viewModeChanged =
     currentConfig.activeViewModeId !==
     projectState.projectConfig.activeViewModeId;
   const viewportChanged =
     !_.isEqual(currentConfig.viewport, viewport) ||
     currentConfig.viewportInitialized !== viewportInitialized;
-  const visibleTopLevelSectionIdsChanged = !_.isEqual(
-    getVisibleTopLevelSectionIdsForAutoFit(currentState),
-    getVisibleTopLevelSectionIdsForAutoFit(projectState),
-  );
-  if (
-    !viewportChanged &&
-    !viewModeChanged &&
-    (!(!viewport || !viewportInitialized) || !visibleTopLevelSectionIdsChanged)
-  ) {
+  if (!viewportChanged && !viewModeChanged) {
     return false;
   }
   if (!viewport || !viewportInitialized) {
@@ -1188,25 +1135,6 @@ function applyViewportFromProjectState(
     transform: [viewport.x, viewport.y, viewport.zoom],
   });
   return false;
-}
-
-function getVisibleTopLevelSectionIdsForAutoFit(
-  projectState: ProjectStateSingleConfig,
-): string[] {
-  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
-  const orderedSectionIds = Object.keys(topLevelSections);
-  const { activeViewModeId, isEditingViewMode, viewModes } =
-    projectState.projectConfig;
-  if (isEditingViewMode || !activeViewModeId) {
-    return orderedSectionIds;
-  }
-  const activeViewMode = viewModes[activeViewModeId];
-  if (!activeViewMode) {
-    return orderedSectionIds;
-  }
-  return orderedSectionIds.filter(
-    (sectionId) => activeViewMode.visibilityBySectionId[sectionId],
-  );
 }
 
 function getFitViewOptionsForVisibleSections(
@@ -1642,40 +1570,6 @@ export function createTopLevelSectionLayoutDict(
 type TopLevelSectionLayoutMap =
   ProjectStateSingleConfig["projectConfig"]["topLevelSections"];
 
-type PendingViewportState = Viewport | null;
-
-const pendingViewportRef: {
-  opId: string | null;
-  snapshot: PendingViewportState;
-  hasQueuedSend: boolean;
-} = {
-  opId: null,
-  snapshot: null,
-  hasQueuedSend: false,
-};
-
-function applyViewportSnapshotToProjectState(
-  state: ZustandProjectState,
-  viewport: PendingViewportState,
-) {
-  state.projectConfig.viewport = viewport;
-  state.projectConfig.viewportInitialized = viewport !== null;
-  const { activeViewModeId, viewModes } = state.projectConfig;
-  if (!activeViewModeId) {
-    return;
-  }
-  const activeViewMode = viewModes[activeViewModeId];
-  if (!activeViewMode) {
-    return;
-  }
-  activeViewMode.viewport = viewport;
-  activeViewMode.viewportInitialized = viewport !== null;
-}
-
-function applyPendingViewport(state: ZustandProjectState) {
-  applyViewportSnapshotToProjectState(state, pendingViewportRef.snapshot);
-}
-
 const pendingTopLevelLayoutRef: {
   opId: string | null;
   snapshot: TopLevelSectionLayoutMap | null;
@@ -1744,41 +1638,6 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   }
 }, 500);
 
-const sendViewportToBackend = _.debounce(() => {
-  if (!pendingViewportRef.opId) {
-    return;
-  }
-  const opId = pendingViewportRef.opId;
-  const snapshot = pendingViewportRef.snapshot;
-  pendingViewportRef.hasQueuedSend = false;
-  const projectConfigId = getCurrProjectConfigId();
-  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
-    removePendingOp(opId);
-    if (pendingViewportRef.opId === opId) {
-      pendingViewportRef.opId = null;
-    }
-    pendingViewportRef.snapshot = null;
-    return;
-  }
-  const result = route_set_viewport({
-    projectConfigId,
-    viewport: snapshot,
-    frontendOpId: opId,
-  });
-  if (result instanceof Promise) {
-    void result.then((res) => {
-      if (isResponseDataAndStatus(res) && res200(res)) {
-        acknowledgePendingOp(opId);
-      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
-        removePendingOp(opId);
-        if (pendingViewportRef.opId === opId) {
-          pendingViewportRef.opId = null;
-        }
-      }
-    });
-  }
-}, 1000);
-
 function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
   const currentOpId = pendingTopLevelLayoutRef.opId;
   if (!currentOpId) {
@@ -1804,30 +1663,6 @@ function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
   pendingTopLevelLayoutRef.opId = null;
   pendingTopLevelLayoutRef.snapshot = null;
   pendingTopLevelLayoutRef.hasQueuedSend = false;
-}
-
-function reconcilePendingViewport(nextPending: PendingOperation[]) {
-  const currentOpId = pendingViewportRef.opId;
-  if (!currentOpId) {
-    return;
-  }
-  const stillPending = nextPending.some((op) => op.opId === currentOpId);
-  if (stillPending) {
-    return;
-  }
-  if (pendingViewportRef.hasQueuedSend) {
-    const opId = createNewId();
-    pendingViewportRef.opId = opId;
-    nextPending.push({
-      opId,
-      apply: applyPendingViewport,
-      acknowledged: false,
-    });
-    return;
-  }
-  pendingViewportRef.opId = null;
-  pendingViewportRef.snapshot = null;
-  pendingViewportRef.hasQueuedSend = false;
 }
 
 export function debounced_route_set_top_level_section_layout() {
@@ -1924,10 +1759,7 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  route_ungroup_groups({
-    projectConfigId: getCurrProjectConfigId(),
-    groupIds,
-  });
+  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
 }
 
 function addPendingOp(apply: (x: ZustandProjectState) => void) {
@@ -2170,61 +2002,29 @@ export function updateAllProjectMetadata(x: AllProjectMetadata) {
   useAllProjectMetadata.setState(x);
 }
 
-function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
+function dispatchViewportUpdate(viewport: Viewport | null) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  if (pendingViewportRef.opId) {
-    const pendingOps = usePendingOperations.getState().pending;
-    const stillPending = pendingOps.some(
-      (opInfo) => opInfo.opId === pendingViewportRef.opId,
-    );
-    if (!stillPending) {
-      pendingViewportRef.opId = null;
-    }
-  }
-  const currentProjectState = useProjectState.getState();
-  const snapshotUnchanged = _.isEqual(pendingViewportRef.snapshot, viewport);
-  const currentMatches =
-    _.isEqual(currentProjectState.projectConfig.viewport, viewport) &&
-    currentProjectState.projectConfig.viewportInitialized ===
-      (viewport !== null);
-  if (
-    !pendingViewportRef.hasQueuedSend &&
-    !pendingViewportRef.opId &&
-    snapshotUnchanged &&
-    currentMatches
-  ) {
+  if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
     return;
   }
-  pendingViewportRef.snapshot = viewport;
-  pendingViewportRef.hasQueuedSend = true;
-  useProjectState.setState((state) => {
-    applyViewportSnapshotToProjectState(state, viewport);
+  dispatchOptimisticProjectStateUpdate({
+    apply: (state) => {
+      state.projectConfig.viewport = viewport;
+      state.projectConfig.viewportInitialized = viewport !== null;
+    },
+    send: (frontendOpId) =>
+      route_set_viewport({
+        projectConfigId,
+        viewport,
+        frontendOpId,
+      }),
   });
-  if (!pendingViewportRef.opId) {
-    pendingViewportRef.opId = addPendingOp(applyPendingViewport);
-  }
-  sendViewportToBackend();
-  if (immediate) {
-    sendViewportToBackend.flush();
-  }
 }
 
-export const debouncedDispatchViewportUpdate = Object.assign(
+export const debouncedDispatchViewportUpdate = _.debounce(
   () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
-  {
-    cancel: () => {
-      sendViewportToBackend.cancel();
-    },
-    flush: () => {
-      sendViewportToBackend.flush();
-    },
-  },
+  1000,
 );
-
-export function dispatchViewportUpdateImmediately() {
-  debouncedDispatchViewportUpdate.cancel();
-  dispatchViewportUpdate(getCurrProjectConfigViewport(), true);
-}
