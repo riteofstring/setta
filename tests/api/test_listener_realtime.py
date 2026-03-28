@@ -44,8 +44,6 @@ from setta.types.listener import (
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
-    WebsocketMsgListenerDependencyEvent,
-    WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -1819,17 +1817,19 @@ class TestSettaListenerBinaryParsing:
             ],
             sequence=1,
         )
-        message = WebsocketMsgListenerRealtimeEvent(
-            messageType=ListenerMessageType.ListenerRealtimeEvent,
-            content=content,
+        payload = json.dumps(
+            {
+                "messageType": ListenerMessageType.ListenerRealtimeEvent.value,
+                "content": content.model_dump(mode="json"),
+            }
         )
 
-        parsed = listener._parse_websocket_payload(message.model_dump_json())
+        parsed = listener._parse_websocket_payload(payload)
 
-        assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
-        assert parsed.content.projectConfigId == ID("project-1")
-        assert parsed.content.deltas[0].dependency == dependency
-        assert parsed.content.deltas[0].value == _literal_dependency_value("hello")
+        assert isinstance(parsed, ListenerRealtimeEventContent)
+        assert parsed.projectConfigId == ID("project-1")
+        assert parsed.deltas[0].dependency == dependency
+        assert parsed.deltas[0].value == _literal_dependency_value("hello")
 
     def test_text_dependency_event_round_trips_through_parser(self) -> None:
         listener = SettaListener(project_name="Text Parse")
@@ -1845,17 +1845,19 @@ class TestSettaListenerBinaryParsing:
             ],
             sequence=1,
         )
-        message = WebsocketMsgListenerDependencyEvent(
-            messageType=ListenerMessageType.ListenerDependencyEvent,
-            content=content,
+        payload = json.dumps(
+            {
+                "messageType": ListenerMessageType.ListenerDependencyEvent.value,
+                "content": content.model_dump(mode="json"),
+            }
         )
 
-        parsed = listener._parse_websocket_payload(message.model_dump_json())
+        parsed = listener._parse_websocket_payload(payload)
 
-        assert isinstance(parsed, WebsocketMsgListenerDependencyEvent)
-        assert parsed.content.projectConfigId == ID("project-1")
-        assert parsed.content.dependencyEvents[0].dependencyKey == dependency
-        assert parsed.content.dependencyEvents[0].payload == _literal_dependency_value(
+        assert isinstance(parsed, ListenerDependencyEventContent)
+        assert parsed.projectConfigId == ID("project-1")
+        assert parsed.dependencyEvents[0].dependencyKey == dependency
+        assert parsed.dependencyEvents[0].payload == _literal_dependency_value(
             "updated"
         )
 
@@ -1920,17 +1922,19 @@ class TestSettaListenerBinaryParsing:
             deltas=[delta_one, delta_two],
             sequence=1,
         )
-        message = WebsocketMsgListenerRealtimeEvent(
-            messageType=ListenerMessageType.ListenerRealtimeEvent,
-            content=content,
+        payload = encode_binary_frame(
+            {
+                "messageType": ListenerMessageType.ListenerRealtimeEvent.value,
+                "content": content.model_dump(mode="json"),
+            },
+            b"payload",
         )
-        payload = encode_binary_frame(message.model_dump(mode="json"), b"payload")
 
         parsed = listener._parse_websocket_payload(payload)
 
-        assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
-        assert parsed.content.deltas[0].binaryPayload == b"payload"
-        assert parsed.content.deltas[1].binaryPayload == b"payload"
+        assert isinstance(parsed, ListenerRealtimeEventContent)
+        assert parsed.deltas[0].binaryPayload == b"payload"
+        assert parsed.deltas[1].binaryPayload == b"payload"
 
     def test_binary_dependency_event_applies_payload_to_all_events(self) -> None:
         listener = SettaListener(project_name="Binary Parse")
@@ -1956,14 +1960,16 @@ class TestSettaListenerBinaryParsing:
             dependencyEvents=[event_one, event_two],
             sequence=1,
         )
-        message = WebsocketMsgListenerDependencyEvent(
-            messageType=ListenerMessageType.ListenerDependencyEvent,
-            content=content,
+        payload = encode_binary_frame(
+            {
+                "messageType": ListenerMessageType.ListenerDependencyEvent.value,
+                "content": content.model_dump(mode="json"),
+            },
+            b"payload",
         )
-        payload = encode_binary_frame(message.model_dump(mode="json"), b"payload")
 
         parsed = listener._parse_websocket_payload(payload)
 
-        assert isinstance(parsed, WebsocketMsgListenerDependencyEvent)
-        assert parsed.content.dependencyEvents[0].binaryPayload == b"payload"
-        assert parsed.content.dependencyEvents[1].binaryPayload == b"payload"
+        assert isinstance(parsed, ListenerDependencyEventContent)
+        assert parsed.dependencyEvents[0].binaryPayload == b"payload"
+        assert parsed.dependencyEvents[1].binaryPayload == b"payload"

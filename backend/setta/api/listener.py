@@ -74,8 +74,6 @@ from setta.types.listener import (
     ListenerRealtimeDelta,
     ListenerRealtimeEventContent,
     PythonScriptWebsocketMsgTypeAdapter,
-    WebsocketMsgListenerDependencyEvent,
-    WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.project_config import (
     CodeObjValueRepresentationMode,
@@ -942,32 +940,49 @@ class SettaListener:
             except ValueError as exc:
                 logger.warning("Received malformed binary listener payload: %s", exc)
                 return None
-            try:
-                message = PythonScriptWebsocketMsgTypeAdapter.validate_python(header)
-            except ValidationError:
-                logger.warning("Received malformed listener payload: %s", header)
-                return None
-            if isinstance(message, WebsocketMsgListenerRealtimeEvent):
-                if not message.content.deltas:
+            if (
+                isinstance(header, dict)
+                and header.get("messageType")
+                == ListenerMessageType.ListenerRealtimeEvent.value
+            ):
+                try:
+                    content = ListenerRealtimeEventContent.model_validate(
+                        header.get("content")
+                    )
+                except ValidationError:
+                    logger.warning("Received malformed listener payload: %s", header)
+                    return None
+                if not content.deltas:
                     logger.warning(
                         "Binary realtime event must contain at least one delta."
                     )
                     return None
-                for delta in message.content.deltas:
+                for delta in content.deltas:
                     delta.binaryPayload = binary_payload
-                return message
-            if isinstance(message, WebsocketMsgListenerDependencyEvent):
-                if not message.content.dependencyEvents:
+                return content
+            if (
+                isinstance(header, dict)
+                and header.get("messageType")
+                == ListenerMessageType.ListenerDependencyEvent.value
+            ):
+                try:
+                    content = ListenerDependencyEventContent.model_validate(
+                        header.get("content")
+                    )
+                except ValidationError:
+                    logger.warning("Received malformed listener payload: %s", header)
+                    return None
+                if not content.dependencyEvents:
                     logger.warning(
                         "Binary dependency event must contain at least one event."
                     )
                     return None
-                for event in message.content.dependencyEvents:
+                for event in content.dependencyEvents:
                     event.binaryPayload = binary_payload
-                return message
+                return content
             logger.warning(
                 "Binary websocket payload uses unsupported message type: %s",
-                getattr(message, "messageType", type(message)),
+                header.get("messageType") if isinstance(header, dict) else type(header),
             )
             return None
         try:
@@ -975,6 +990,42 @@ class SettaListener:
         except json.JSONDecodeError:
             logger.warning("Received malformed listener payload: %s", payload)
             return None
+        if (
+            isinstance(raw_message, dict)
+            and raw_message.get("messageType")
+            == ListenerMessageType.ListenerRealtimeEvent.value
+        ):
+            try:
+                message = ListenerRealtimeEventContent.model_validate(
+                    raw_message.get("content")
+                )
+            except ValidationError:
+                logger.warning("Received malformed listener payload: %s", payload)
+                return None
+            logger.debug(
+                "Listener %s received %s message",
+                self._log_identifier,
+                ListenerMessageType.ListenerRealtimeEvent,
+            )
+            return message
+        if (
+            isinstance(raw_message, dict)
+            and raw_message.get("messageType")
+            == ListenerMessageType.ListenerDependencyEvent.value
+        ):
+            try:
+                message = ListenerDependencyEventContent.model_validate(
+                    raw_message.get("content")
+                )
+            except ValidationError:
+                logger.warning("Received malformed listener payload: %s", payload)
+                return None
+            logger.debug(
+                "Listener %s received %s message",
+                self._log_identifier,
+                ListenerMessageType.ListenerDependencyEvent,
+            )
+            return message
         if (
             isinstance(raw_message, dict)
             and raw_message.get("messageType")
@@ -1013,11 +1064,11 @@ class SettaListener:
         if isinstance(message, ListenerRegisterAckMessage):
             self._handle_register_ack(message)
             return
-        if isinstance(message, WebsocketMsgListenerRealtimeEvent):
-            await self._handle_realtime_event(message.content)
+        if isinstance(message, ListenerRealtimeEventContent):
+            await self._handle_realtime_event(message)
             return
-        if isinstance(message, WebsocketMsgListenerDependencyEvent):
-            await self._handle_dependency_event(message.content)
+        if isinstance(message, ListenerDependencyEventContent):
+            await self._handle_dependency_event(message)
             return
         if isinstance(message, ListenerForceRefreshEvent):
             await self._handle_force_refresh(message)

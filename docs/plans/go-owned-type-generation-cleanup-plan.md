@@ -381,6 +381,9 @@ That means:
 - `backend/setta/types/listener.py` no longer keeps a handwritten `WebsocketMsgListenerForceRefresh` envelope:
   - force-refresh payloads now validate the generated `ListenerForceRefreshEvent` content directly at the parse boundary instead of preserving a separate websocket wrapper class just to retype `content`
   - the inbound listener websocket union is now narrower and stays focused on the message families that still need typed realtime/dependency wrapper content or generated websocket envelope decoding
+- `backend/setta/types/listener.py` no longer keeps handwritten realtime/dependency websocket envelope classes either:
+  - realtime and dependency payloads now validate `ListenerRealtimeEventContent` and `ListenerDependencyEventContent` directly at the parse boundary instead of wrapping those content models inside separate websocket message subclasses
+  - the remaining handwritten listener layer is narrower: typed realtime/dependency content wrappers and runtime-only binary payload side channels remain, but websocket-envelope ownership has been pushed out of that path
 - `backend/setta/types/listener.py` no longer keeps a handwritten `ListenerInitContent` wrapper:
   - the generated Go-owned init request/message models now carry the wire shape directly
   - the only remaining bootstrap requirement, that either `projectConfigId` or `projectName` must be provided, is enforced at the actual listener bootstrap call site instead of through a separate Python schema subclass
