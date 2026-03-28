@@ -1,6 +1,7 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
+import { buildLiveDictAreaEdgeStripRendererBlock } from "./groupContainerEdgeStripRendererBlock";
 import { buildLiveDictAreaRenderer } from "./groupContainerLiveDictAreaRenderer";
 
 describe("buildLiveDictAreaRenderer", () => {
@@ -54,10 +55,19 @@ describe("buildLiveDictAreaRenderer", () => {
       liveDictAreaBoundary,
       sectionId: "section-1",
     });
+    const edgeStripBlock = liveDictAreaBoundary.edgeStripBlock
+      ? buildLiveDictAreaEdgeStripRendererBlock({
+          canaryRenderer: liveDictAreaBoundary.edgeStripBlock,
+          sectionId: "section-1",
+        })
+      : null;
 
     expect(result.nodeScenePacket).toEqual(liveDictAreaBoundary.nodeScenePacket);
     expect(result.canaryPacket).toEqual(liveDictAreaBoundary.canaryPacket);
     expect(result.canaryView).toEqual(liveDictAreaBoundary.canaryView);
+    expect(result.blocks.find((block) => block.kind === "edge-strip")).toEqual(
+      edgeStripBlock,
+    );
     expect(result.blocks.map((block) => block.key)).toEqual([
       "dict-area-block:edges",
       "dict-area-block:pinned",

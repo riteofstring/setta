@@ -2,9 +2,9 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaEdgeStripSurfaceBlock } from "./groupContainerEdgeStripSurfaceBlock";
 import { buildLiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
+import { type LiveDictAreaEdgeStripRendererBlock } from "./groupContainerEdgeStripRendererBlock";
 import {
   buildLiveDictAreaRenderer,
-  type LiveDictAreaEdgeStripRendererBlock,
 } from "./groupContainerLiveDictAreaRenderer";
 
 describe("buildLiveDictAreaEdgeStripSurfaceBlock", () => {

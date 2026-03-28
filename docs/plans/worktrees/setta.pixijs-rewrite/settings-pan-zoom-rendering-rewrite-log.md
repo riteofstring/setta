@@ -1801,6 +1801,37 @@ Record:
 
 ## 2026-03-27 068
 
+- Item: Extract the edge-strip block into the first block-specific helper above `groupContainerLiveDictAreaRenderer.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed renderer-block helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripRendererBlock.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripRendererBlock.test.ts`
+  - Updated the higher-level live dict-area renderer boundary to compose through the new edge-strip helper instead of shaping the edge-strip renderer block inline:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaRenderer.test.ts`
+  - Updated the edge-strip surface block to depend on the new block-specific helper type instead of importing that type from the higher-level renderer module:
+    - `frontend/src/components/Params/groupContainerEdgeStripSurfaceBlock.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripSurfaceBlock.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the edge-strip canary renderer into one explicit section-scoped renderer block with stable `key`, `kind`, and `sectionId`
+    - keeping `groupContainerLiveDictAreaRenderer.ts` as a higher-level composition boundary instead of a mixed composition-plus-edge-strip-shaping module
+    - leaving the current DOM edge-strip surface intact while deepening the first scene-owned live-renderer contract one block further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripRendererBlock.test.ts src/components/Params/groupContainerLiveDictAreaRenderer.test.ts src/components/Params/groupContainerEdgeStripSurfaceBlock.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - used the already-authenticated worktree tab and navigated it to `/settings`
+    - `All Settings` became visible and the settings shell plus dict/param area rendered normally
+    - representative visible labels and controls included `Section Defaults Structure and Code`, `Content and Media`, `Param Defaults`, `toggle agentic edges`, `watch code settings`, `Auto Backup`, `autobackupFreq 300`, and `defaultTerminalShell null`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, and `POST /api/getAIFollowSnapshot`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the pinned param-area block into the next block-specific helper above `groupContainerLiveDictAreaRenderer.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-27 068
+
 - Item: Extract the pinned param-area block into the next block-specific helper above `groupContainerNodeCanaryRenderView.ts`.
 - Status: `done`
 - Details:

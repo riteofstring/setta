@@ -1,4 +1,4 @@
-import type { LiveDictAreaEdgeStripRendererBlock } from "./groupContainerLiveDictAreaRenderer";
+import type { LiveDictAreaEdgeStripRendererBlock } from "./groupContainerEdgeStripRendererBlock";
 
 export type LiveDictAreaEdgeStripSurfaceProps = {
   domPacket: LiveDictAreaEdgeStripRendererBlock["domPacket"];

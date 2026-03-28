@@ -1,17 +1,15 @@
 import type { MouseEventHandler } from "react";
 import type { LiveDictAreaBoundary } from "./groupContainerLiveDictAreaBoundary";
+import {
+  buildLiveDictAreaEdgeStripRendererBlock,
+  type LiveDictAreaEdgeStripRendererBlock,
+} from "./groupContainerEdgeStripRendererBlock";
 import type {
-  LiveDictAreaEdgeStripDomPacket,
   LiveDictAreaPinnedParamAreaDomPacket,
   LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeCanaryPacket";
 
-export type LiveDictAreaEdgeStripRendererBlock = {
-  domPacket: LiveDictAreaEdgeStripDomPacket;
-  key: string;
-  kind: "edge-strip";
-  sectionId: string;
-};
+export type { LiveDictAreaEdgeStripRendererBlock } from "./groupContainerEdgeStripRendererBlock";
 
 export type LiveDictAreaPinnedParamAreaRendererBlock = {
   domPacket: LiveDictAreaPinnedParamAreaDomPacket;
@@ -69,12 +67,10 @@ function buildLiveDictAreaRendererBlock({
   sectionId: string;
 }): LiveDictAreaRendererBlock {
   if (block.kind === "edge-strip") {
-    return {
-      domPacket: block.domPacket,
-      key: block.key,
-      kind: block.kind,
+    return buildLiveDictAreaEdgeStripRendererBlock({
+      canaryRenderer: block,
       sectionId,
-    };
+    });
   }
 
   if (block.kind === "pinned-param-area") {
