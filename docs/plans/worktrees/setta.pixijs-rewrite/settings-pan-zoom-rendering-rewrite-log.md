@@ -4252,3 +4252,31 @@ Record:
     - caveat: the first viewport primarily showed the overview/tag list, so some deeper settings rows were confirmed by scrolling and the accessibility tree rather than the initial fold
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/GroupContainer.tsx`, starting with `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 149
+
+- Item: Lift the live dict-area mount seam into `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx`.
+- Status: `done`
+- Details:
+  - Moved the `useGroupContainerShellBoundary(...)` ownership up into `LiveDictAreaLayout` so the live dict-area layout now builds the shell boundary for the dict canary path and passes only pure wrapper props into the lower DnD wrapper:
+    - `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx`
+  - Added focused layout-level coverage for the new ownership boundary and refreshed the surrounding dict-area view assertion text to match the seam move:
+    - `frontend/src/components/Section/Layouts/LiveDictAreaLayout.test.tsx`
+    - `frontend/src/components/Section/Layouts/dictAreaView.test.ts`
+  - This keeps the retained-scene mount seam moving upward through the live dict-area call chain while preserving the existing non-Pixi DOM mount path for:
+    - `KwargsControls`
+    - the shell-backed dict/param surface under the DnD wrapper
+    - the existing waiting overlay and ordered block mount behavior
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Layouts/LiveDictAreaLayout.test.tsx src/components/Section/Layouts/DictArea.test.tsx src/components/Section/Layouts/dictAreaView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app in a fresh sub-agent context
+    - initial CDP access was unavailable, so one allowed lifecycle self-recovery was used via `./aireset.sh`
+    - the restart reassigned the worktree session to `http://127.0.0.1:3046/` and `http://127.0.0.1:8046`
+    - `/settings` loaded after bootstrapping the restarted worktree session and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `PROJECT AI CHAT`, `New Chat`, `View Threads`, `Project AI Settings`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, and the bottom tabs `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `/api/loadSettings`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getAgentRuns`, and `/api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Section/Layouts/LiveDictAreaLayout.tsx`, starting with `frontend/src/components/Section/Layouts/DictAreaLiveBoundary.tsx` before any broad Pixi node drawing lands.
