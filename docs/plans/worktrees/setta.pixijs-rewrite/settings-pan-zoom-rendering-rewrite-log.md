@@ -3936,3 +3936,33 @@ Record:
     - relevant requests returned `200`, including `GET /api/authRefreshStatus`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
 - Next action:
   - Resume the current live dict-area surface pass by lifting the remaining mode-wrapper-owned JSX out of `frontend/src/components/Pages/router.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 139
+
+- Item: Lift the remaining mode-wrapper-owned JSX/state boundary out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated route boundary component above the lifted router composition seam:
+    - `frontend/src/components/Pages/ModeWrappedRouteBoundary.tsx`
+    - `frontend/src/components/Pages/ModeWrappedRouteBoundary.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new boundary instead of owning:
+    - server-mode initialization side effects
+    - unresolved loading-shell JSX
+    - mode-error retry-shell JSX
+    - final mode-to-route-element resolution
+  - The new boundary now owns the remaining non-Pixi mode-wrapper seam for:
+    - kicking off `initializeServerMode()` only while the mode is unresolved
+    - rendering the existing loading/error shells without leaving that UI inline in `router.tsx`
+    - resetting the server-mode store on retry and handing resolved modes back through `resolveModeElementForServerMode(...)`
+    - leaving `router.tsx` focused on route-element assembly plus final router composition only
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/ModeWrappedRouteBoundary.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts --grep "settings view tabs filter sections and minimap"`
+    - result: passed (`1` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - reused the existing authenticated worktree tab; bootstrap was not required in that browser session
+    - `/settings` loaded cleanly and the visible settings surface rendered as expected with the settings shell plus tabs/content including `Core`, `Section Defaults ...`, `Param Defaults`, and `All Settings`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/llm/config`, and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining top-level route-helper assembly seam out of `frontend/src/components/Pages/router.tsx`, starting with the precomputed route-element bundles before any broad Pixi node drawing lands.
