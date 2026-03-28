@@ -51,12 +51,15 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { resolveEdgeStripHeight } from "./edgeStripUtils";
 import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePackets";
 import { buildLiveDictAreaNodeDrawPacket } from "./groupContainerNodeDrawPacket";
+import {
+  buildLiveDictAreaNodePainterPacket,
+  type LiveDictAreaEdgeStripPainterPacket,
+  type LiveDictAreaPinnedParamAreaPainterPacket,
+  type LiveDictAreaUnpinnedParamAreaPainterPacket,
+} from "./groupContainerNodePainterPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import {
   buildLiveDictAreaNodeSurfacePacket,
-  type LiveDictAreaEdgeStripSurfacePacket,
-  type LiveDictAreaPinnedParamAreaSurfacePacket,
-  type LiveDictAreaUnpinnedParamAreaSurfacePacket,
 } from "./groupContainerNodeSurfacePacket";
 import type { LiveDictAreaPinnedParamAreaVisualPacket } from "./groupContainerPinnedParamAreaVisualPacket";
 import type { LiveDictAreaUnpinnedParamAreaVisualPacket } from "./groupContainerUnpinnedParamAreaVisualPacket";
@@ -357,10 +360,17 @@ function _ParamGroupContainer({
       }),
     [liveDictAreaNodeSurfacePacket],
   );
+  const liveDictAreaNodePainterPacket = useMemo(
+    () =>
+      buildLiveDictAreaNodePainterPacket({
+        nodeDrawPacket: liveDictAreaNodeDrawPacket,
+      }),
+    [liveDictAreaNodeDrawPacket],
+  );
 
   useEffect(() => {
-    setMaxNestedDepth(liveDictAreaNodeDrawPacket.maxNestedDepth);
-  }, [liveDictAreaNodeDrawPacket.maxNestedDepth, setMaxNestedDepth]);
+    setMaxNestedDepth(liveDictAreaNodePainterPacket.maxNestedDepth);
+  }, [liveDictAreaNodePainterPacket.maxNestedDepth, setMaxNestedDepth]);
 
   return (
     <ParamDndContext>
@@ -373,13 +383,13 @@ function _ParamGroupContainer({
             <i className="section-args gg-spinner !scale-100 before:!border-t-blue-500 after:!border-blue-500" />
           </div>
         )}
-        {liveDictAreaNodeDrawPacket.blocks.map((block) => {
+        {liveDictAreaNodePainterPacket.blocks.map((block) => {
           if (block.kind === "edge-strip") {
             return (
               <EdgesStrip
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                surfacePacket={block.surfacePacket}
+                painterPacket={block}
               />
             );
           }
@@ -389,7 +399,7 @@ function _ParamGroupContainer({
               <GetPinnedParams
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                surfacePacket={block.surfacePacket}
+                painterPacket={block}
                 handleColumnResizeStart={handleColumnResizeStart}
               />
             );
@@ -399,7 +409,7 @@ function _ParamGroupContainer({
             <GetUnpinnedParams
               key={block.mount.frameId}
               sectionId={sectionId}
-              surfacePacket={block.surfacePacket}
+              painterPacket={block}
               handleColumnResizeStart={handleColumnResizeStart}
             />
           );
@@ -551,13 +561,13 @@ function useMeasuredParamAreaMinHeight({
 
 function EdgesStrip({
   sectionId,
-  surfacePacket,
+  painterPacket,
 }: {
   sectionId: string;
-  surfacePacket: LiveDictAreaEdgeStripSurfacePacket;
+  painterPacket: LiveDictAreaEdgeStripPainterPacket;
 }) {
   const { bgColor, positionAndSizeLocked, styleColor, visualPacket } =
-    surfacePacket;
+    painterPacket;
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);
@@ -794,7 +804,7 @@ function EdgesStrip({
 
 type GetPinnedParamsProps = {
   sectionId: string;
-  surfacePacket: LiveDictAreaPinnedParamAreaSurfacePacket;
+  painterPacket: LiveDictAreaPinnedParamAreaPainterPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
@@ -812,7 +822,7 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  surfacePacket: LiveDictAreaUnpinnedParamAreaSurfacePacket;
+  painterPacket: LiveDictAreaUnpinnedParamAreaPainterPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
@@ -854,11 +864,11 @@ function buildParamDisplayNameMap({
 
 function GetPinnedParams({
   sectionId,
-  surfacePacket,
+  painterPacket,
   handleColumnResizeStart,
 }: GetPinnedParamsProps) {
   const { positionAndSizeLocked, sectionTypeName, styleColor, visualPacket } =
-    surfacePacket;
+    painterPacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -975,10 +985,10 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  surfacePacket,
+  painterPacket,
   handleColumnResizeStart,
 }: GetUnpinnedParamsProps) {
-  const { styleColor, visualPacket } = surfacePacket;
+  const { styleColor, visualPacket } = painterPacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(

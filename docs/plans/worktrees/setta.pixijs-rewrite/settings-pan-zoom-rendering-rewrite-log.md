@@ -1090,3 +1090,29 @@ Record:
     - relevant requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `GET /api/serverMode`
 - Next action:
   - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific draw helpers into the next higher-level scene-owned painter boundary above `groupContainerNodeDrawPacket.ts` before any broad Pixi node drawing lands.
+
+## 2026-03-26 042
+
+- Item: Compose the edge, pinned, and unpinned block-specific draw helpers into the next higher-level scene-owned painter boundary above `groupContainerNodeDrawPacket.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed node-level painter packet helper above the existing block-specific draw helpers:
+    - `frontend/src/components/Params/groupContainerNodePainterPacket.ts`
+    - `frontend/src/components/Params/groupContainerNodePainterPacket.test.ts`
+  - Updated the production non-Pixi `GroupContainer` mount path and its DOM block surfaces to consume the new node-level painter packet instead of branching directly on the node draw packet:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper now deterministically:
+    - composes the extracted edge-strip, pinned, and unpinned draw helpers into one higher-level painter contract
+    - exposes the scene-owned visual payload plus the current DOM-facing style/mount context from one node-level boundary
+    - keeps the existing non-Pixi DOM edge-strip and pinned/unpinned param-area surfaces intact while deepening the future retained-scene painter contract above `groupContainerNodeDrawPacket.ts`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodePainterPacket.test.ts src/components/Params/GroupContainer.test.tsx src/components/Params/groupContainerNodeDrawPacket.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+    - `All Settings` was visible and the settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content in the viewport
+    - relevant requests returned `200`, including `/api/serverMode`, `/api/authRefreshStatus`, `/api/loadSettings`, `/api/backendInitStatus`, `/api/getDefaultConfigName`, and `/api/loadProjectConfig`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned painter helper from `groupContainerNodePainterPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
