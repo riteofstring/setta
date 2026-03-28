@@ -5,6 +5,7 @@ prompt_file: scripts/ralph-default-prompt.md
 workdir: .
 iterations: 100
 new_session_every: 1
+codex_inactivity_timeout_seconds: 1800
 yolo: true
 worktree_lifecycle: restart-aireset
 main_lifecycle: restart-ai
@@ -29,6 +30,7 @@ This file is the reusable loop entrypoint for this worktree.
 - Make frequent descriptive commits.
 - Default entrypoint: `./ralph.sh`
 - Yolo mode defaults on for this worktree config.
+- Ralph should kill and retry any Codex iteration that shows no transcript activity for 30 minutes.
 - Never run the Ralph loop in the `main` worktree. `main` must remain pristine and untouched.
 - `main` may run a read-only reference app session for visual comparison, but Ralph must never edit code there.
 
@@ -40,7 +42,15 @@ This file is the reusable loop entrypoint for this worktree.
 
 ## CDP handoff
 
-- If Chrome CDP is inaccessible, stop and tell the user that `ai.sh` should be restarted.
+- If Chrome CDP or the current worktree app session becomes inaccessible during an iteration, do not block immediately.
+- First attempt one bounded self-recovery of the current non-main worktree lifecycle:
+  - prefer `./aireset.sh`
+  - if that fails, retry once with `./ai.sh`
+- After any self-recovery restart, refresh the current runtime values before continuing:
+  - `setta status --connect-info --latest --json --workspace <worktree>`
+  - `pnpm -C frontend cdp-port`
+- Retry the blocked verification after the restart using the refreshed runtime values instead of stale ports or URLs.
+- If the recovery attempt still does not restore CDP/app access, return `BLOCKED`.
 - Do not claim CDP visual verification when CDP access is unavailable.
 
 ## Lifecycle bootstrap
@@ -72,5 +82,6 @@ This file is the reusable loop entrypoint for this worktree.
 - `main` lifecycle is for a read-only visual reference session only; no code changes or commits may happen there.
 - `main` reference startup is asynchronous; Ralph does not block Codex on `main` becoming ready.
 - Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
+- If an iteration returns `BLOCKED` with `LOOP_RECOVERY: restart_worktree_lifecycle`, Ralph should continue to the next iteration instead of stopping so the configured worktree bootstrap can retry automatically.
 - Example:
   - `./ralph.sh --terminal-mode cmux --worktree-lifecycle restart-aireset`

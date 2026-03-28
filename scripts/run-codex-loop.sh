@@ -42,6 +42,10 @@ Options:
   --iterations N             Total loop iterations. Default: config or 100
   --new-session-every N      Start a fresh Codex session every N iterations.
                              Default: config or 1
+  --codex-inactivity-timeout-seconds N
+                             Kill and retry a Codex iteration after N seconds
+                             without transcript activity. 0 disables the
+                             watchdog. Default: config or 1800
   --output-dir PATH          Directory for run logs and responses.
                              Default: mktemp dir
   --workdir PATH             Working directory passed to `codex exec --cd`.
@@ -158,6 +162,159 @@ sanitize_single_line() {
   value="${value//$'\r'/ }"
   value="${value//$'\n'/ }"
   printf '%s\n' "${value}"
+}
+
+file_mtime_seconds() {
+  local file_path="$1"
+
+  if [[ ! -e "${file_path}" ]]; then
+    return 1
+  fi
+
+  if stat -f '%m' "${file_path}" >/dev/null 2>&1; then
+    stat -f '%m' "${file_path}"
+    return 0
+  fi
+
+  stat -c '%Y' "${file_path}"
+}
+
+latest_activity_epoch() {
+  local fallback_epoch="$1"
+  shift
+  local latest_epoch="${fallback_epoch}"
+  local candidate_epoch=""
+  local candidate_path=""
+
+  for candidate_path in "$@"; do
+    if candidate_epoch="$(file_mtime_seconds "${candidate_path}" 2>/dev/null)"; then
+      if [[ "${candidate_epoch}" -gt "${latest_epoch}" ]]; then
+        latest_epoch="${candidate_epoch}"
+      fi
+    fi
+  done
+
+  printf '%s\n' "${latest_epoch}"
+}
+
+terminate_process_tree() {
+  local target_pid="$1"
+  local signal_name="${2:-TERM}"
+  local child_pid=""
+
+  if ! kill -0 "${target_pid}" >/dev/null 2>&1; then
+    return 0
+  fi
+
+  while IFS= read -r child_pid; do
+    if [[ -n "${child_pid}" ]]; then
+      terminate_process_tree "${child_pid}" "${signal_name}"
+    fi
+  done < <(pgrep -P "${target_pid}" 2>/dev/null || true)
+
+  kill "-${signal_name}" "${target_pid}" >/dev/null 2>&1 || true
+}
+
+wait_for_process_exit() {
+  local target_pid="$1"
+  local timeout_seconds="$2"
+  local start_ts=""
+  local elapsed_seconds=""
+
+  start_ts="$(date +%s)"
+  while kill -0 "${target_pid}" >/dev/null 2>&1; do
+    elapsed_seconds="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed_seconds}" -ge "${timeout_seconds}" ]]; then
+      return 1
+    fi
+    sleep 1
+  done
+
+  return 0
+}
+
+CODEX_WATCHDOG_TIMED_OUT="0"
+CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH=""
+
+run_codex_iteration() {
+  local prompt_path="$1"
+  local transcript_path="$2"
+  local response_path="$3"
+  local inactivity_timeout_seconds="$4"
+  local pipe_path="${transcript_path}.pipe"
+  local tee_pid=""
+  local codex_pid=""
+  local exit_code="0"
+  local poll_seconds="30"
+  local restore_errexit="0"
+  local start_ts=""
+  local now_ts=""
+  local last_activity_epoch=""
+
+  CODEX_WATCHDOG_TIMED_OUT="0"
+  CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH=""
+
+  rm -f "${pipe_path}"
+  mkfifo "${pipe_path}"
+  tee "${transcript_path}" < "${pipe_path}" &
+  tee_pid="$!"
+
+  start_ts="$(date +%s)"
+  codex "${codex_args[@]}" < "${prompt_path}" > "${pipe_path}" 2>&1 &
+  codex_pid="$!"
+
+  if [[ "${inactivity_timeout_seconds}" -gt 0 ]]; then
+    poll_seconds="$(( inactivity_timeout_seconds / 6 ))"
+    if [[ "${poll_seconds}" -lt 1 ]]; then
+      poll_seconds="1"
+    elif [[ "${poll_seconds}" -gt 30 ]]; then
+      poll_seconds="30"
+    fi
+  fi
+
+  while kill -0 "${codex_pid}" >/dev/null 2>&1; do
+    sleep "${poll_seconds}"
+
+    if [[ "${inactivity_timeout_seconds}" -le 0 ]]; then
+      continue
+    fi
+
+    now_ts="$(date +%s)"
+    last_activity_epoch="$(latest_activity_epoch "${start_ts}" "${transcript_path}" "${response_path}")"
+    if [[ $(( now_ts - last_activity_epoch )) -lt "${inactivity_timeout_seconds}" ]]; then
+      continue
+    fi
+
+    CODEX_WATCHDOG_TIMED_OUT="1"
+    CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH="${last_activity_epoch}"
+    printf '%s\n' "[watchdog] No Codex transcript activity for ${inactivity_timeout_seconds}s. Terminating stalled iteration." \
+      | tee -a "${transcript_path}"
+    terminate_process_tree "${codex_pid}" "TERM"
+    if ! wait_for_process_exit "${codex_pid}" "10"; then
+      terminate_process_tree "${codex_pid}" "KILL"
+      wait_for_process_exit "${codex_pid}" "5" || true
+    fi
+    break
+  done
+
+  if [[ $- == *e* ]]; then
+    restore_errexit="1"
+    set +e
+  fi
+  wait "${codex_pid}"
+  exit_code="$?"
+  wait "${tee_pid}"
+  if [[ "${restore_errexit}" == "1" ]]; then
+    set -e
+  fi
+
+  rm -f "${pipe_path}"
+
+  if [[ "${CODEX_WATCHDOG_TIMED_OUT}" == "1" ]]; then
+    return 124
+  fi
+
+  return "${exit_code}"
 }
 
 shell_join_args() {
@@ -764,12 +921,16 @@ Loop context:
 - verification guidance: ${verify_command}
 - follow the repository's AGENTS.md instructions as the highest-priority repo policy
 - use the plan and log files as the durable handoff instead of relying on prior chat context
+- current worktree lifecycle mode: ${worktree_lifecycle:-none}
 - current worktree frontend url: ${worktree_frontend_url:-unknown}
 - current worktree backend url: ${worktree_backend_url:-unknown}
 - current worktree bootstrap url: ${worktree_bootstrap_url:-unknown}
 - current worktree debug port: ${worktree_debug_port:-unknown}
 - current worktree runtime log: ${worktree_runtime_log_path:-unknown}
 - use these current runtime values instead of guessing old ports if defaults were reassigned during startup
+- if you restart the current worktree lifecycle inside the iteration, refresh runtime values before continuing:
+  - connect info: `setta status --connect-info --latest --json --workspace ${workdir}`
+  - debug port: `pnpm -C frontend cdp-port`
 
 After reading the files, continue the current effort by selecting exactly one bounded next subtask that can be completed, verified, logged, and committed within this iteration.
 
@@ -783,6 +944,7 @@ LOOP_SUMMARY: <one sentence>
 LOOP_NEXT_ACTION: <one sentence>
 LOOP_VERIFY_COMMAND: <command or none>
 LOOP_VERIFY_RESULT: <pass|fail|not_run|blocked>
+LOOP_RECOVERY: <none|restart_worktree_lifecycle>
 LOOP_COMMIT: <full sha|none>
 EOF
 }
@@ -854,6 +1016,7 @@ build_self_exec_args() {
     --verify-command "${verify_command}"
     --iterations "${iterations}"
     --new-session-every "${new_session_every}"
+    --codex-inactivity-timeout-seconds "${codex_inactivity_timeout_seconds}"
     --output-dir "${output_dir}"
     --workdir "${workdir}"
     --worktree-lifecycle "${worktree_lifecycle:-none}"
@@ -963,6 +1126,7 @@ yolo_mode=""
 stop_on_error="0"
 print_prompt_only="0"
 stop_on_pre_session_exit_code=""
+codex_inactivity_timeout_seconds=""
 codex_extra_args=()
 
 while [[ $# -gt 0 ]]; do
@@ -1015,6 +1179,11 @@ while [[ $# -gt 0 ]]; do
     --new-session-every)
       require_value "$1" "${2:-}"
       new_session_every="$2"
+      shift 2
+      ;;
+    --codex-inactivity-timeout-seconds)
+      require_value "$1" "${2:-}"
+      codex_inactivity_timeout_seconds="$2"
       shift 2
       ;;
     --output-dir)
@@ -1096,6 +1265,7 @@ config_verify_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_valu
 config_pre_session_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "pre_session_command")")")"
 config_iterations="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "iterations")")")"
 config_new_session_every="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "new_session_every")")")"
+config_codex_inactivity_timeout_seconds="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "codex_inactivity_timeout_seconds")")")"
 config_workdir="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "workdir")")")"
 config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "worktree_lifecycle")")")"
 config_main_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_lifecycle")")")"
@@ -1149,6 +1319,14 @@ if [[ -z "${new_session_every}" ]]; then
     new_session_every="${config_new_session_every}"
   else
     new_session_every="1"
+  fi
+fi
+
+if [[ -z "${codex_inactivity_timeout_seconds}" ]]; then
+  if [[ -n "${config_codex_inactivity_timeout_seconds}" ]]; then
+    codex_inactivity_timeout_seconds="${config_codex_inactivity_timeout_seconds}"
+  else
+    codex_inactivity_timeout_seconds="1800"
   fi
 fi
 
@@ -1247,6 +1425,11 @@ if [[ ! "${new_session_every}" =~ ^[0-9]+$ ]] || [[ "${new_session_every}" -lt 1
   exit 1
 fi
 
+if [[ ! "${codex_inactivity_timeout_seconds}" =~ ^[0-9]+$ ]]; then
+  echo "--codex-inactivity-timeout-seconds must be a non-negative integer" >&2
+  exit 1
+fi
+
 if [[ -n "${stop_on_pre_session_exit_code}" ]] && (
   [[ ! "${stop_on_pre_session_exit_code}" =~ ^[0-9]+$ ]] \
   || [[ "${stop_on_pre_session_exit_code}" -lt 0 ]] \
@@ -1314,6 +1497,7 @@ fi
 echo "Output directory: ${output_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: ${new_session_every}"
+echo "Codex inactivity timeout seconds: ${codex_inactivity_timeout_seconds}"
 echo "Workdir: ${workdir}"
 echo "Config file: ${config_file}"
 echo "Plan file: ${plan_file}"
@@ -1472,14 +1656,29 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   set +e
-  codex "${codex_args[@]}" < "${prompt_for_iteration}" 2>&1 | tee "${transcript_file}"
-  exit_code="${PIPESTATUS[0]}"
+  run_codex_iteration "${prompt_for_iteration}" "${transcript_file}" "${response_file}" "${codex_inactivity_timeout_seconds}"
+  exit_code="$?"
   set -e
 
   if [[ "${mode}" == "start" ]] && [[ "${new_session_every}" -gt 1 ]] && [[ ! -s "${session_id_file}" ]]; then
     if thread_id="$(extract_thread_id "${transcript_file}")"; then
       printf '%s\n' "${thread_id}" > "${session_id_file}"
     fi
+  fi
+
+  if [[ "${exit_code}" -eq 124 ]] && [[ "${CODEX_WATCHDOG_TIMED_OUT}" == "1" ]]; then
+    rm -f "${session_id_file}"
+    write_status_file "${status_file}" \
+      "status=stalled-timeout" \
+      "mode=${mode}" \
+      "exit_code=${exit_code}" \
+      "inactivity_timeout_seconds=${codex_inactivity_timeout_seconds}" \
+      "last_activity_epoch=${CODEX_WATCHDOG_LAST_ACTIVITY_EPOCH}"
+    echo "[$iteration/$iterations] Codex stalled with no transcript activity for ${codex_inactivity_timeout_seconds}s. Cleared session reuse and continuing." >&2
+    if [[ "${stop_on_error}" == "1" ]]; then
+      exit "${exit_code}"
+    fi
+    continue
   fi
 
   if [[ "${exit_code}" -ne 0 ]]; then
@@ -1499,6 +1698,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   loop_next_action="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_NEXT_ACTION")")"
   loop_verify_command="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_VERIFY_COMMAND")")"
   loop_verify_result="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_VERIFY_RESULT")")"
+  loop_recovery="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_RECOVERY")")"
   loop_commit="$(sanitize_single_line "$(extract_loop_field "${response_file}" "LOOP_COMMIT")")"
 
   if [[ -z "${loop_status}" ]] && [[ -f "${transcript_file}" ]]; then
@@ -1507,7 +1707,12 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     loop_next_action="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_NEXT_ACTION")")"
     loop_verify_command="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_VERIFY_COMMAND")")"
     loop_verify_result="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_VERIFY_RESULT")")"
+    loop_recovery="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_RECOVERY")")"
     loop_commit="$(sanitize_single_line "$(extract_loop_field "${transcript_file}" "LOOP_COMMIT")")"
+  fi
+
+  if [[ -z "${loop_recovery}" ]]; then
+    loop_recovery="none"
   fi
 
   if [[ "${loop_status}" != "SUBTASK_DONE" ]] && [[ "${loop_status}" != "TASK_DONE" ]] && [[ "${loop_status}" != "BLOCKED" ]]; then
@@ -1516,6 +1721,19 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
       "mode=${mode}" \
       "loop_status=${loop_status}"
     echo "[$iteration/$iterations] Missing or invalid LOOP_STATUS in the agent output" >&2
+    if [[ "${stop_on_error}" == "1" ]]; then
+      exit 1
+    fi
+    continue
+  fi
+
+  if [[ "${loop_recovery}" != "none" ]] && [[ "${loop_recovery}" != "restart_worktree_lifecycle" ]]; then
+    write_status_file "${status_file}" \
+      "status=invalid-output" \
+      "mode=${mode}" \
+      "loop_status=${loop_status}" \
+      "loop_recovery=${loop_recovery}"
+    echo "[$iteration/$iterations] Missing or invalid LOOP_RECOVERY in the agent output" >&2
     if [[ "${stop_on_error}" == "1" ]]; then
       exit 1
     fi
@@ -1543,6 +1761,7 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
     "loop_next_action=${loop_next_action}" \
     "loop_verify_command=${loop_verify_command}" \
     "loop_verify_result=${loop_verify_result}" \
+    "loop_recovery=${loop_recovery}" \
     "loop_commit=${loop_commit}" \
     "before_head=${before_head}" \
     "after_head=${after_head}"
@@ -1559,6 +1778,10 @@ for ((iteration = 1; iteration <= iterations; iteration += 1)); do
   fi
 
   if [[ "${loop_status}" == "BLOCKED" ]]; then
+    if [[ "${loop_recovery}" == "restart_worktree_lifecycle" ]] && [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
+      echo "[$iteration/$iterations] Recoverable blocker requested fresh worktree bootstrap. Continue to the next iteration."
+      continue
+    fi
     echo "[$iteration/$iterations] Blocked. Stop here and inspect the blocker before starting another conversation."
     break
   fi
