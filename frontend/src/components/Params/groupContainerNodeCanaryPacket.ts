@@ -8,9 +8,12 @@ import {
   type LiveDictAreaPinnedParamAreaCanaryPacket,
 } from "./groupContainerPinnedParamAreaCanaryPacket";
 import {
+  buildLiveDictAreaUnpinnedParamAreaCanaryPacket,
+  type LiveDictAreaUnpinnedParamAreaCanaryPacket,
+} from "./groupContainerUnpinnedParamAreaCanaryPacket";
+import {
   buildLiveDictAreaNodeDomPacket,
   type LiveDictAreaNodeDomPacket,
-  type LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeDomPacket";
 import type { LiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import { buildLiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
@@ -19,17 +22,10 @@ import type { LiveDictAreaSceneParamAreaPacket } from "./groupContainerScenePack
 export type {
   LiveDictAreaEdgeStripDomPacket,
   LiveDictAreaPinnedParamAreaDomPacket,
-  LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeDomPacket";
 export type { LiveDictAreaEdgeStripCanaryPacket } from "./groupContainerEdgeStripCanaryPacket";
 export type { LiveDictAreaPinnedParamAreaCanaryPacket } from "./groupContainerPinnedParamAreaCanaryPacket";
-
-export type LiveDictAreaUnpinnedParamAreaCanaryPacket = {
-  blockId: LiveDictAreaUnpinnedParamAreaDomPacket["blockId"];
-  domPacket: LiveDictAreaUnpinnedParamAreaDomPacket;
-  kind: "unpinned-param-area";
-  scenePacket: LiveDictAreaSceneParamAreaPacket;
-};
+export type { LiveDictAreaUnpinnedParamAreaCanaryPacket } from "./groupContainerUnpinnedParamAreaCanaryPacket";
 
 export type LiveDictAreaNodeCanaryPacket = {
   blocks: (
@@ -84,15 +80,13 @@ export function buildLiveDictAreaNodeCanaryPacket({
       })
     : null;
   const unpinnedParamAreaBlock = nodeDomPacket.domUnpinnedParamAreaBlock
-    ? {
-        blockId: nodeDomPacket.domUnpinnedParamAreaBlock.blockId,
+    ? buildLiveDictAreaUnpinnedParamAreaCanaryPacket({
         domPacket: nodeDomPacket.domUnpinnedParamAreaBlock,
-        kind: "unpinned-param-area" as const,
         scenePacket: getRequiredSceneParamArea({
           nodeDomPacket,
           paramAreaId: "unpinned",
         }),
-      }
+      })
     : null;
 
   return {
