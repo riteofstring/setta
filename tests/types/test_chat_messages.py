@@ -1,9 +1,8 @@
 import json
 
+from setta.types.generated.go_shared_types import ChatFileAttachment, MessageTextContent
 from setta.types.chat import (
     AssistantChatMessage,
-    ChatFileAttachment,
-    MessageTextContent,
     ToolCall,
     ToolCallFunction,
     ToolChatMessage,

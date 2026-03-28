@@ -11,14 +11,18 @@ from setta.api.chat_toolkit import (
 )
 from setta.api.listener_endpoint_client import RouterEndpointAPI
 from setta.api.listener import ListenerCallbackContext, SettaListener
+from setta.types.generated.go_shared_types import (
+    ChatFileAttachment,
+    ChatSendEvent,
+    LLMConfig,
+    MessageTextContent,
+)
 from setta.types.chat import (
     AssistantChatMessage,
     Chat,
-    ChatFileAttachment,
     ChatRole,
     ChatSectionState,
     MessageFinalizedEvent,
-    MessageTextContent,
     SystemChatMessage,
     UserChatMessage,
 )
@@ -26,7 +30,6 @@ from setta.llm.chat_toolkit.section_sync import (
     apply_stream_delta,
     build_chat_section_state,
 )
-from setta.types.generated.go_shared_types import ChatSendEvent, LLMConfig
 from setta.types.id import ID
 from setta.types.listener import ListenerDependencyCatalog
 from tests.helpers.listener_runtime_state import (

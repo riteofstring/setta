@@ -1,15 +1,17 @@
 from typing import Literal
 
-from setta.types.chat import (
-    AssistantChatMessage,
+from setta.types.generated.go_shared_types import (
     ChatFileAttachment,
-    MessageImageUrl,
-    MessageImageUrlContent,
+    MessageImageURL,
+    MessageImageURLContent,
     MessageTextContent,
     MessageThinkingContent,
+    ToolReferenceContent,
+)
+from setta.types.chat import (
+    AssistantChatMessage,
     SystemChatMessage,
     ToolCall,
-    ToolReferenceContent,
     UserChatMessage,
 )
 
@@ -40,10 +42,10 @@ def message_image_url(
     url: str,
     *,
     detail: Literal["auto", "low", "high"] | None = None,
-) -> MessageImageUrlContent:
-    return MessageImageUrlContent(
+) -> MessageImageURLContent:
+    return MessageImageURLContent(
         type="image_url",
-        image_url=MessageImageUrl(url=url, detail=detail),
+        image_url=MessageImageURL(url=url, detail=detail),
     )
 
 
@@ -52,7 +54,7 @@ def tool_reference(tool_name: str) -> ToolReferenceContent:
 
 
 def system_message(
-    content: list[MessageTextContent | MessageImageUrlContent | MessageThinkingContent],
+    content: list[MessageTextContent | MessageImageURLContent | MessageThinkingContent],
     *,
     attachments: list[ChatFileAttachment] | None = None,
 ) -> SystemChatMessage:
@@ -60,7 +62,7 @@ def system_message(
 
 
 def user_message(
-    content: list[MessageTextContent | MessageImageUrlContent | MessageThinkingContent],
+    content: list[MessageTextContent | MessageImageURLContent | MessageThinkingContent],
     *,
     attachments: list[ChatFileAttachment] | None = None,
 ) -> UserChatMessage:
@@ -68,7 +70,7 @@ def user_message(
 
 
 def assistant_message(
-    content: list[MessageTextContent | MessageImageUrlContent | MessageThinkingContent],
+    content: list[MessageTextContent | MessageImageURLContent | MessageThinkingContent],
     *,
     tool_calls: list[ToolCall] | None = None,
     attachments: list[ChatFileAttachment] | None = None,

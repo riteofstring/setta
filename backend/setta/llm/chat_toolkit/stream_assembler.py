@@ -1,8 +1,7 @@
-from setta.types.chat import (
-    AssistantChatMessage,
+from setta.types.chat import AssistantChatMessage, ToolCall
+from setta.types.generated.go_shared_types import (
     MessageTextContent,
     MessageThinkingContent,
-    ToolCall,
 )
 from setta.types.id import create_new_id
 

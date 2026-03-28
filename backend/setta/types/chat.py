@@ -93,19 +93,9 @@ from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
-ChatFileAttachment = GoChatFileAttachment
-MessageTextContent = GoMessageTextContent
-MessageImageUrl = GoMessageImageURL
-MessageImageUrlContent = GoMessageImageURLContent
-MessageThinkingContent = GoMessageThinkingContent
-ToolReferenceContent = GoToolReferenceContent
-MessageTextDelta = GoMessageTextDelta
-MessageThinkingDelta = GoMessageThinkingDelta
-ToolCallDeltaEvent = GoToolCallDeltaEvent
-MessageStopEvent = GoMessageStopEvent
-
-
-MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent
+MessageContent = (
+    GoMessageTextContent | GoMessageImageURLContent | GoMessageThinkingContent
+)
 
 
 class ToolCallFunction(GoToolCallFunction):
@@ -144,7 +134,7 @@ class SystemChatMessage(GoSystemChatMessage, _OpenAIMessageMixin):
     role: Literal[ChatRole.system] = ChatRole.system
     createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+    attachments: list[GoChatFileAttachment] = Field(default_factory=list)
 
 
 class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
@@ -152,7 +142,7 @@ class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
     role: Literal[ChatRole.assistant] = ChatRole.assistant
     createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+    attachments: list[GoChatFileAttachment] = Field(default_factory=list)
     tool_calls: list[ToolCall] | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
@@ -170,7 +160,7 @@ class UserChatMessage(GoUserChatMessage, _OpenAIMessageMixin):
     role: Literal[ChatRole.user] = ChatRole.user
     createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
-    attachments: list[ChatFileAttachment] = Field(default_factory=list)
+    attachments: list[GoChatFileAttachment] = Field(default_factory=list)
 
 
 class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
@@ -181,7 +171,7 @@ class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
     arguments: JSONValue = Field(default_factory=dict)
     result: JSONValue = None
     content: list[
-        TextContent | ImageContent | EmbeddedResource | ToolReferenceContent
+        TextContent | ImageContent | EmbeddedResource | GoToolReferenceContent
     ] = Field(default_factory=list)
     is_error: bool = False
     started_at: datetime = Field(default_factory=get_now_timestamp)
@@ -255,7 +245,7 @@ class ChatSectionState(GoChatSectionState):
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
-MessageContentDelta = MessageTextDelta | MessageThinkingDelta
+MessageContentDelta = GoMessageTextDelta | GoMessageThinkingDelta
 
 
 class MessageStartEvent(GoMessageStartEvent):
@@ -291,10 +281,10 @@ class MessageFinalizedEvent(GoMessageFinalizedEvent):
 LLMStreamingResponseChunk = (
     MessageStartEvent
     | MessageDeltaEvent
-    | ToolCallDeltaEvent
+    | GoToolCallDeltaEvent
     | ToolResultEvent
     | ToolArgumentPreviewDeltaEvent
-    | MessageStopEvent
+    | GoMessageStopEvent
     | MessageFinalizedEvent
 )
 

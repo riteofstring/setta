@@ -219,6 +219,8 @@ That means:
 - `internal/frontendbindings/project_state_support.go` now points the detailed chat-message schema family at `internal/scriptablechat` instead of keeping local placeholder owners.
 - the chat message adapters now live in `backend/setta/types/chat.py`:
   - the Python classes subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
+- `backend/setta/types/chat.py` no longer keeps pass-through `Foo = GoFoo` aliases for generated chat leaf content/delta/event models:
+  - internal chat/toolkit callers now import `ChatFileAttachment`, `MessageTextContent`, `MessageImageURL`, `MessageImageURLContent`, `MessageThinkingContent`, `ToolReferenceContent`, `MessageTextDelta`, `MessageThinkingDelta`, `ToolCallDeltaEvent`, and `MessageStopEvent` from `go_shared_types.py` directly instead of routing them through a handwritten rename layer
 - `backend/setta/types/artifact.py` no longer hand-owns the draw-area artifact payload layouts:
   - the Python classes now subclass Go-generated base models and only keep Python-side chart settings, tuple-typed point wrappers, ids, and defaults.
 - the chart artifact family now has real Go owners for the remaining shared schema pieces:

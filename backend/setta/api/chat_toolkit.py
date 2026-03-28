@@ -30,15 +30,10 @@ from setta.types.chat import (
     MessageDeltaEvent,
     MessageFinalizedEvent,
     MessageStartEvent,
-    MessageStopEvent,
-    MessageTextContent,
-    MessageTextDelta,
-    MessageThinkingDelta,
     StreamingEventType,
     SystemChatMessage,
     ToolArgumentPreviewDeltaEvent,
     ToolCall,
-    ToolCallDeltaEvent,
     ToolChatMessage,
     ToolResultEvent,
     UserChatMessage,
@@ -46,6 +41,11 @@ from setta.types.chat import (
 from setta.types.generated.go_shared_types import (
     ChatSendEvent,
     ChatStopEvent,
+    MessageStopEvent,
+    MessageTextContent,
+    MessageTextDelta,
+    MessageThinkingDelta,
+    ToolCallDeltaEvent,
 )
 from setta.types.id import ID
 from setta.types.protocol import SectionDependencyKey

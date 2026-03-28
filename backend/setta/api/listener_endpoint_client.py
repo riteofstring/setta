@@ -6,16 +6,10 @@ from setta.types.chat import (
     Chat,
     ChatMetadata,
     ChatSectionState,
-    MessageDeltaEvent,
-    MessageFinalizedEvent,
-    MessageStartEvent,
-    MessageStopEvent,
+    LLMStreamingResponseChunk,
     SystemChatMessage,
-    ToolArgumentPreviewDeltaEvent,
     ToolCall,
-    ToolCallDeltaEvent,
     ToolChatMessage,
-    ToolResultEvent,
     UserChatMessage,
 )
 from setta.types.id import ID
@@ -67,15 +61,7 @@ class ListenerEmitChatStreamDeltaRequestPayload(TypedDict):
     projectConfigId: NotRequired[ID]
     sectionId: ID
     chatId: ID
-    chunk: (
-        MessageStartEvent
-        | MessageDeltaEvent
-        | ToolCallDeltaEvent
-        | ToolResultEvent
-        | ToolArgumentPreviewDeltaEvent
-        | MessageStopEvent
-        | MessageFinalizedEvent
-    )
+    chunk: LLMStreamingResponseChunk
 
 
 class ListenerRunMcpToolsRequestPayload(TypedDict):
