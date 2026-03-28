@@ -3294,3 +3294,30 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, and `GET /api/llm/apiKeys`
 - Next action:
   - Continue the live dict-area surface pass by lifting the now-caller-owned nested-section boundary one level higher above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 120
+
+- Item: Lift the now-caller-owned nested-section boundary one level higher above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx` in the live xyflow node wrapper path.
+- Status: `done`
+- Details:
+  - Added a typed higher-level section-container boundary for the live node path:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+  - Updated the xyflow node wrapper to consume the new boundary instead of wiring the default core-body and nested-sections renderers inline:
+    - `frontend/src/forks/xyflow/core/components/wrapNode.tsx`
+  - Added focused coverage to pin the lifted ownership seam:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping the live xyflow node wrapper on the same `SectionContainer` DOM/canvas path
+    - moving the default `SectionContainerCoreCanvasBody` plus `SectionContainerNestedSectionsBoundary` ownership into one higher-level boundary above `wrapNode.tsx`
+    - leaving `wrapNode.tsx` focused on node positioning, drag behavior, resize observation, and wrapper chrome instead of section-container renderer assembly
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` stayed authenticated without needing a new bootstrap consume
+    - the visible settings shell, dict/param area, and representative controls such as `Core`, `Section Defaults Structure and Code`, `Param Defaults`, and `All Settings` rendered normally with no obvious clipping, overlap, or missing content
+    - representative requests returned `200`, including `/settings`, `/api/loadSettings`, `/api/loadProjectConfig`, `/api/backendInitStatus`, and `/api/authRefreshStatus`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining standalone-section caller one level higher above `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.tsx`, before any broad Pixi node drawing lands.

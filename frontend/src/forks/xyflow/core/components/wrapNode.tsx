@@ -1,10 +1,5 @@
 import cc from "classcat";
-import {
-  SectionContainer,
-  type SectionContainerCoreBodyRenderer,
-} from "components/Section/Container/SectionContainer";
-import { SectionContainerCoreCanvasBody } from "components/Section/Container/SectionContainerCoreCanvasBody";
-import { renderSectionContainerNestedSections } from "components/Section/Container/SectionContainerNestedSectionsBoundary";
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import _ from "lodash";
 import type { CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
@@ -21,10 +16,6 @@ export const arrowKeyDiffs: Record<string, Position> = {
   ArrowLeft: { x: -1, y: 0 },
   ArrowRight: { x: 1, y: 0 },
 };
-
-const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
-  props,
-) => <SectionContainerCoreCanvasBody {...props} />;
 
 const _NodeWrapper = ({
   id,
@@ -78,12 +69,7 @@ const _NodeWrapper = ({
       data-id={id}
       data-testid={`rf__node-${id}`}
     >
-      <SectionContainer
-        sectionId={id}
-        isTopLevel={true}
-        renderCoreBody={renderSectionContainerCoreBody}
-        renderNestedSections={renderSectionContainerNestedSections}
-      />
+      <SectionContainerBoundary sectionId={id} isTopLevel={true} />
     </div>
   );
 };
