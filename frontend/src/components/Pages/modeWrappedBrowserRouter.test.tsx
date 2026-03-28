@@ -1,30 +1,10 @@
 import type { ReactNode } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import { createBrowserRouter } from "react-router-dom";
 import type { ModeRouteElements } from "./modeRouteResolver";
 import { buildModeWrappedAppRouteStack } from "./modeWrappedAppRouteStack";
 import { createModeWrappedBrowserRouter } from "./modeWrappedBrowserRouter";
-
-vi.mock(
-  "components/Section/Container/SectionContainerAreaDictBoundary",
-  () => ({
-    SectionContainerAreaDictBoundary: ({
-      bgColor,
-      sectionId,
-    }: {
-      bgColor: string;
-      sectionId: string;
-    }) => (
-      <div
-        data-testid="mock-section-container-area-dict-boundary"
-        data-bg-color={bgColor}
-        data-section-id={sectionId}
-      />
-    ),
-  }),
-);
 
 vi.mock("./modeWrappedAppRouteStack", () => ({
   buildModeWrappedAppRouteStack: vi.fn(),
@@ -48,9 +28,9 @@ function createModeRouteElements(label: string): ModeRouteElements {
 }
 
 describe("createModeWrappedBrowserRouter", () => {
-  it("owns the lifted browser-router creation seam above router.tsx", () => {
-    // The helper should be the only boundary that feeds the assembled
-    // mode-wrapped app route stack into createBrowserRouter.
+  it("owns only the final browser-router creation seam above router.tsx", () => {
+    // The helper should stay on the final route-stack-to-browser-router call
+    // and leave the lifted dict-area renderer ownership to its caller.
     const builtRouteStack = [
       {
         id: "mock-route",
@@ -72,8 +52,10 @@ describe("createModeWrappedBrowserRouter", () => {
 
     const mockedCreateBrowserRouter = vi.mocked(createBrowserRouter);
     mockedCreateBrowserRouter.mockReturnValue(browserRouter);
+    const renderDictArea = vi.fn(() => <div data-testid="dict-area" />);
 
     const args = {
+      renderDictArea,
       renderModeElement: (routeElements: ModeRouteElements): ReactNode => (
         <div data-ide-route={routeElements.ide !== null} />
       ),
@@ -93,43 +75,11 @@ describe("createModeWrappedBrowserRouter", () => {
 
     expect(router).toBe(browserRouter);
     expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledOnce();
-    expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledWith({
-      ...args,
-      renderDictArea: expect.any(Function),
-    });
+    expect(mockedBuildModeWrappedAppRouteStack).toHaveBeenCalledWith(args);
     expect(mockedCreateBrowserRouter).toHaveBeenCalledOnce();
     expect(mockedCreateBrowserRouter).toHaveBeenCalledWith(builtRouteStack);
 
     const routedArgs = mockedBuildModeWrappedAppRouteStack.mock.calls[0][0];
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-section-id="section-1"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-bg-color="#123456"');
+    expect(routedArgs.renderDictArea).toBe(renderDictArea);
   });
 });

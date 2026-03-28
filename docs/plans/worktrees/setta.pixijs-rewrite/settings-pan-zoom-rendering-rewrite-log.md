@@ -4963,3 +4963,35 @@ Record:
     - because the targeted seam still serves the standalone section dict-area path and the live worktree app currently exposes no healthy standalone-section surface canary, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked fully visually verified
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`, starting with `frontend/src/components/Pages/router.tsx`, while keeping the live standalone-section canary issue explicit for later resolution.
+
+## 2026-03-28 170
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone/share dict-area renderer seam one caller higher so `router.tsx` now owns the shared `renderDictArea(...)` handoff above `modeWrappedBrowserRouter.ts`:
+    - `frontend/src/components/Pages/router.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.ts`
+  - Updated focused coverage to pin the new ownership boundary and keep `modeWrappedBrowserRouter.ts` on a caller-owned pass-through seam:
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - the top-level router module still assembling the same mode-wrapped browser router before the app shell mounts
+    - the standalone/share route stack still receiving the same `SectionContainerAreaDictBoundary` renderer, now supplied by `router.tsx` instead of `modeWrappedBrowserRouter.ts`
+    - `modeWrappedBrowserRouter.ts` staying focused on the final route-stack-to-browser-router handoff instead of mixed browser-router plus dict-renderer ownership
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/modeWrappedAppRouteStack.test.tsx src/components/Pages/routerModule.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-routing.spec.ts --grep "app routes select the configured UI root"`
+    - result: passed (`1` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - `http://127.0.0.1:3044/settings/chat` rendered normally with the expected chat navigation, composer, and project controls present
+    - the live standalone section-route canary is still not trustworthy on this worktree runtime:
+      - `http://127.0.0.1:3044/settings/section/gui` failed closed to `settings · Section Not Found` instead of rendering the standalone section surface
+    - representative requests returned `200`, including `GET /settings/chat`, `GET /settings/section/gui`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+    - because the targeted seam still serves the standalone section dict-area path and the live worktree runtime still exposes no healthy standalone-section surface canary, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked fully visually verified
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with `frontend/src/App.tsx`, while keeping the live standalone-section canary issue explicit for later resolution.
