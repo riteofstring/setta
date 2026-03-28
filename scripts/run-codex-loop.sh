@@ -252,8 +252,9 @@ start_command_in_tmux_window() {
   local target_name="$1"
   local target_root="$2"
   local label="$3"
-  local launcher_path="$4"
-  local run_dir="$5"
+  local command_display="$4"
+  local command_body="$5"
+  local run_dir="$6"
   local window_name=""
   local log_path=""
   local shell_path=""
@@ -267,9 +268,9 @@ start_command_in_tmux_window() {
   log_path="${run_dir}/${target_name}-${label}.log"
   shell_path="${SHELL:-/bin/zsh}"
 
-  echo "[bootstrap] ${target_name}: opening tmux window ${window_name} for $(basename "${launcher_path}")"
+  echo "[bootstrap] ${target_name}: opening tmux window ${window_name} for ${command_display}"
   tmux new-window -n "${window_name}" \
-    "cd '${target_root}' && '${launcher_path}' 2>&1 | tee '${log_path}'; exit_code=\${PIPESTATUS[0]}; echo; echo '[ralph] ${window_name} exited with code' \$exit_code; exec '${shell_path}' -l"
+    "cd '${target_root}' && ( ${command_body} ) 2>&1 | tee '${log_path}'; exit_code=\${PIPESTATUS[0]}; echo; echo '[ralph] ${window_name} exited with code' \$exit_code; exec '${shell_path}' -l"
 }
 
 run_lifecycle_mode() {
@@ -280,6 +281,8 @@ run_lifecycle_mode() {
   local resolved_terminal_mode="$5"
   local label=""
   local launcher_path=""
+  local command_display=""
+  local command_body=""
   local should_restart="0"
   local session_state="not_running"
 
@@ -308,19 +311,27 @@ run_lifecycle_mode() {
     ai)
       label="ai"
       launcher_path="${ai_script}"
+      command_display="./ai.sh"
+      command_body="\"${ai_script}\""
       ;;
     aireset)
       label="aireset"
       launcher_path="${aireset_script}"
+      command_display="./aireset.sh (fallback ./ai.sh)"
+      command_body="\"${aireset_script}\" || \"${ai_script}\""
       ;;
     restart-ai)
       label="ai"
       launcher_path="${ai_script}"
+      command_display="./ai.sh"
+      command_body="\"${ai_script}\""
       should_restart="1"
       ;;
     restart-aireset)
       label="aireset"
       launcher_path="${aireset_script}"
+      command_display="./aireset.sh (fallback ./ai.sh)"
+      command_body="\"${aireset_script}\" || \"${ai_script}\""
       should_restart="1"
       ;;
     *)
@@ -353,17 +364,17 @@ run_lifecycle_mode() {
     fi
 
     if [[ "${resolved_terminal_mode}" == "tmux" ]]; then
-      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${launcher_path}" "${run_dir}"
+      start_command_in_tmux_window "${target_name}" "${target_root}" "${label}" "${command_display}" "${command_body}" "${run_dir}"
       return 0
     fi
 
     local log_path="${run_dir}/${target_name}-${label}.log"
     local pid_path="${run_dir}/${target_name}-${label}.pid"
     local pid=""
-    echo "[bootstrap] ${target_name}: starting $(basename "${launcher_path}") in background"
+    echo "[bootstrap] ${target_name}: starting ${command_display} in background"
     pid="$(
       cd "${target_root}"
-      nohup "${launcher_path}" > "${log_path}" 2>&1 &
+      nohup bash -lc "${command_body}" > "${log_path}" 2>&1 &
       echo $!
     )"
     printf '%s\n' "${pid}" > "${pid_path}"
