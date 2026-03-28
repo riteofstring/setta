@@ -51,7 +51,7 @@ from setta.sdk_contracts.generated import (
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.types.artifact import (
     BaseArtifactTypeAdapter,
-    BaseArtifactUnionWithDiscriminator,
+    BaseArtifactUnion,
 )
 from setta.types.generated.go_shared_types import (
     CodeObjType,
@@ -1904,10 +1904,7 @@ class SettaListener:
         self,
         *,
         dependency_values: Mapping[str, Any] | None = None,
-        artifact_updates: Sequence[
-            BaseArtifactUnionWithDiscriminator | Mapping[str, Any]
-        ]
-        | None = None,
+        artifact_updates: Sequence[BaseArtifactUnion | Mapping[str, Any]] | None = None,
     ) -> None:
         if self._runtime_state is None:
             raise RuntimeError(
@@ -1918,7 +1915,7 @@ class SettaListener:
                 "Listener is not registered with the server; wait for registration to complete before emitting"
             )
         serialized_values = dict(dependency_values or {})
-        serialized_artifact_updates: list[BaseArtifactUnionWithDiscriminator] = []
+        serialized_artifact_updates: list[BaseArtifactUnion] = []
         if artifact_updates:
             for artifact in artifact_updates:
                 try:

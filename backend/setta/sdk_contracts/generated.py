@@ -4,10 +4,10 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from setta.types.artifact import BaseArtifactUnionWithDiscriminator
+from setta.types.artifact import BaseArtifactUnion
 from setta.types.protocol import (
     BaseDependencyKeyUnionWithDiscriminator,
-    BaseDependencyValueUnionWithDiscriminator,
+    BaseDependencyValueUnion,
 )
 
 SETTA_SDK_CONTRACT_VERSION = 2
@@ -127,9 +127,7 @@ class ListenerErrorEvent(SettaSDKContractBaseModel):
 class ListenerFrontendEmitRequest(SettaSDKContractBaseModel):
     projectConfigId: str
     dependencyValues: dict[str, Any] = Field(default_factory=dict)
-    artifactUpdates: list[BaseArtifactUnionWithDiscriminator] = Field(
-        default_factory=list
-    )
+    artifactUpdates: list[BaseArtifactUnion] = Field(default_factory=list)
 
 
 class ListenerRouterEndpointCall(SettaSDKContractBaseModel):
@@ -150,7 +148,7 @@ class ListenerRouterEndpointResult(SettaSDKContractBaseModel):
 
 class ListenerRealtimeDelta(SettaSDKContractBaseModel):
     dependency: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
+    value: BaseDependencyValueUnion
 
 
 class ListenerRealtimeEvent(SettaSDKContractBaseModel):
@@ -163,7 +161,7 @@ class ListenerRealtimeEvent(SettaSDKContractBaseModel):
 
 class ListenerDependencyEventEntry(SettaSDKContractBaseModel):
     dependencyKey: BaseDependencyKeyUnionWithDiscriminator
-    payload: BaseDependencyValueUnionWithDiscriminator | None = None
+    payload: BaseDependencyValueUnion | None = None
     timestampMs: int
 
 
@@ -203,7 +201,7 @@ class LocalCoreResultEnvelope(SettaSDKContractBaseModel):
 
 class LocalCoreListenerRealtimeDelta(SettaSDKContractBaseModel):
     dependency: BaseDependencyKeyUnionWithDiscriminator
-    value: BaseDependencyValueUnionWithDiscriminator
+    value: BaseDependencyValueUnion
     binaryPayloadBase64: str | None = None
 
 

@@ -42,6 +42,4 @@ BaseArtifactUnion = Annotated[
     Discriminator(_artifact_type),
 ]
 
-BaseArtifactUnionWithDiscriminator = BaseArtifactUnion
-
-BaseArtifactTypeAdapter = TypeAdapter(BaseArtifactUnionWithDiscriminator)
+BaseArtifactTypeAdapter = TypeAdapter(BaseArtifactUnion)

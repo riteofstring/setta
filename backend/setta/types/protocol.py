@@ -66,5 +66,3 @@ BaseDependencyValueUnion = Annotated[
     | Annotated[GoBinaryDependencyValue, Tag(DependencyValueType.Binary.value)],
     Discriminator(_dependency_value_type),
 ]
-
-BaseDependencyValueUnionWithDiscriminator = BaseDependencyValueUnion

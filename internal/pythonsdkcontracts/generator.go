@@ -72,7 +72,7 @@ func Build() (GeneratedContracts, error) {
 	if len(externalImports) > 0 {
 		builder.WriteString("\n")
 	}
-	for _, line := range sortedImportNames(externalImports) {
+	for _, line := range sortedGroupedImportLines(externalImports) {
 		builder.WriteString(renderImportLine(line))
 		builder.WriteString("\n")
 	}
@@ -295,4 +295,41 @@ func sortedImportNames(imports map[string]struct{}) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func sortedGroupedImportLines(imports map[string]struct{}) []string {
+	groupedImports := map[string]map[string]struct{}{}
+	ungroupedImports := map[string]struct{}{}
+	for line := range imports {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "from ") || !strings.Contains(trimmed, " import ") {
+			ungroupedImports[trimmed] = struct{}{}
+			continue
+		}
+		module, names, ok := strings.Cut(strings.TrimPrefix(trimmed, "from "), " import ")
+		if !ok {
+			ungroupedImports[trimmed] = struct{}{}
+			continue
+		}
+		nameSet := groupedImports[module]
+		if nameSet == nil {
+			nameSet = map[string]struct{}{}
+			groupedImports[module] = nameSet
+		}
+		for _, name := range strings.Split(names, ",") {
+			cleanedName := strings.TrimSpace(name)
+			if cleanedName == "" {
+				continue
+			}
+			nameSet[cleanedName] = struct{}{}
+		}
+	}
+	lines := make([]string, 0, len(groupedImports)+len(ungroupedImports))
+	for module, nameSet := range groupedImports {
+		importNames := sortedImportNames(nameSet)
+		lines = append(lines, "from "+module+" import "+strings.Join(importNames, ", "))
+	}
+	lines = append(lines, sortedImportNames(ungroupedImports)...)
+	sort.Strings(lines)
+	return lines
 }

@@ -278,6 +278,10 @@ That means:
 - `backend/setta/types/artifact.py` no longer keeps handwritten draw-area artifact model subclasses at all:
   - `BrushStroke`, `BrushStrokeWithTransform`, `DrawAreaLayerItemTransform`, `BrushStrokeArtifact`, and `DrawAreaLayerItemTransformArtifact` now also come directly from the generated Go-owned models
   - the module now exists only as the public artifact union/type-adapter boundary used by the listener/runtime path
+- the Python SDK contract generator no longer points listener/runtime payload fields at pointless `...WithDiscriminator` alias names when the real union type is already directly usable:
+  - `internal/pythonsdkcontracts/contracts.go` now emits `BaseArtifactUnion` and `BaseDependencyValueUnion` directly for listener frontend-emit / realtime / dependency payloads
+  - the generated `backend/setta/sdk_contracts/generated.py` module now imports those real union types directly instead of preserving a no-behavior Python rename layer
+  - `backend/setta/types/artifact.py` and `backend/setta/types/protocol.py` no longer keep `BaseArtifactUnionWithDiscriminator = BaseArtifactUnion` or `BaseDependencyValueUnionWithDiscriminator = BaseDependencyValueUnion`
 - the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
   - `backend/setta/types/listener.py` no longer re-exports `ListenerDependencyMode`
   - listener callers/tests now import the Go-owned enum directly from `go_shared_types.py` and use the Go-owned member names (`always`, `realtime_only`, `refresh_only`)
