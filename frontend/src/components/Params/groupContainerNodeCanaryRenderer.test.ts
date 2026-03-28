@@ -5,6 +5,7 @@ import { buildLiveDictAreaNodeCanaryPacket } from "./groupContainerNodeCanaryPac
 import { buildLiveDictAreaNodeCanaryRenderer } from "./groupContainerNodeCanaryRenderer";
 import { buildLiveDictAreaNodeCanaryRenderView } from "./groupContainerNodeCanaryRenderView";
 import { buildLiveDictAreaNodeCanaryView } from "./groupContainerNodeCanaryView";
+import { buildLiveDictAreaPinnedParamAreaCanaryRenderer } from "./groupContainerPinnedParamAreaCanaryRenderer";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 
 describe("buildLiveDictAreaNodeCanaryRenderer", () => {
@@ -70,22 +71,31 @@ describe("buildLiveDictAreaNodeCanaryRenderer", () => {
           canaryView: canaryView.edgeStripBlock,
         })
       : null;
+    const pinnedParamAreaRenderer = canaryView.pinnedParamAreaBlock
+      ? buildLiveDictAreaPinnedParamAreaCanaryRenderer({
+          canaryView: canaryView.pinnedParamAreaBlock,
+        })
+      : null;
 
     expect(result.canaryPacket).toEqual(nodeCanaryPacket);
     expect(result.canaryView).toEqual(canaryView);
     expect(result.blocks).toEqual([
       edgeStripRenderer,
-      renderView.pinnedParamAreaBlock,
+      pinnedParamAreaRenderer,
       renderView.unpinnedParamAreaBlock,
     ]);
     expect(result.edgeStrip).toEqual(renderView.edgeStrip);
     expect(result.edgeStripBlock).toEqual(edgeStripRenderer);
+    expect(result.pinnedParamAreaBlock).toEqual(pinnedParamAreaRenderer);
     expect(result.scenePacket).toEqual(renderView.scenePacket);
     expect(result.maxNestedDepth).toEqual({
       pinned: 2,
       unpinned: 2,
     });
     expect(result.edgeStripBlock?.canaryView).toEqual(canaryView.edgeStripBlock);
+    expect(result.pinnedParamAreaBlock?.canaryView).toEqual(
+      canaryView.pinnedParamAreaBlock,
+    );
     expect(result.blocks.map((block) => block.key)).toEqual([
       "dict-area-block:edges",
       "dict-area-block:pinned",
@@ -139,6 +149,9 @@ describe("buildLiveDictAreaNodeCanaryRenderer", () => {
 
     expect(result.edgeStripBlock).toBeNull();
     expect(result.unpinnedParamAreaBlock).toBeNull();
+    expect(result.pinnedParamAreaBlock?.canaryView).toEqual(
+      result.canaryView.pinnedParamAreaBlock,
+    );
     expect(result.blocks.map((block) => block.blockId)).toEqual(["pinned"]);
     expect(result.canaryView.blocks.map((block) => block.blockId)).toEqual([
       "pinned",
