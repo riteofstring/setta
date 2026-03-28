@@ -330,3 +330,32 @@ Record:
       - relevant backend/auth/settings requests visible during verification returned `200`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx` before any Pixi renderer code lands.
+
+## 2026-03-26 014
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the inline text CodeMirror activation/autocomplete path behind a typed helper boundary so the non-Pixi slice no longer leaves its mouse/focus activation rules and core editor identity decisions inline in the component:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/textInputCodeMirrorView.ts`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - left-click activation marking the section active and swapping from the dummy editor to the real editor
+    - tab-focus activation only when the editor is enabled and not already active
+    - stable CodeMirror id generation plus python-only autocomplete gating and tooltip-parent normalization
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/editor/codemirror-autocomplete-clip.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - `/settings` stayed authenticated and loaded cleanly with `All Settings` open
+      - the visible settings list rendered normally without obvious layout breakage or clipping after the cleanup
+      - representative entries remained visible, including `textParamCodeObjDefault`, `passwordParamCodeObjDefault`, and `dictSectionDefault`
+      - observed requests included `POST /api/loadSettings` `200`, `GET /api/backendInitStatus` `200`, `GET /api/authRefreshStatus` `200`, and `POST /api/loadProjectConfig` `200`
+      - the bootstrap consume request returned `401`, but the existing browser auth cookies kept the page authenticated during verification
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/components/Params/GroupContainer.tsx` before any Pixi renderer code lands.
