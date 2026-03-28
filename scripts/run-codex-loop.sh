@@ -46,8 +46,15 @@ Options:
                              Default: mktemp dir
   --workdir PATH             Working directory passed to `codex exec --cd`.
                              Default: config or repo root
+  --main-worktree-root PATH  Override the main worktree root used by main
+                             lifecycle modes.
+  --worktree-lifecycle MODE  One-time pre-loop lifecycle for this worktree:
+                             none|kill|ai|aireset|restart-ai|restart-aireset
+  --main-lifecycle MODE      One-time pre-loop lifecycle for the main worktree:
+                             none|kill|ai|aireset|restart-ai|restart-aireset
   --model NAME               Optional model override passed to `codex exec`
   --yolo                     Run with `--dangerously-bypass-approvals-and-sandbox`
+  --no-yolo                  Disable the default/configured yolo mode
   --stop-on-error            Exit immediately after a failed iteration
   --print-prompt             Render the resolved start prompt and exit
   --help                     Show this help text
@@ -55,6 +62,7 @@ Options:
 Examples:
   ./__PROGRAM_NAME__ --iterations 3
   ./__PROGRAM_NAME__ --config-file ./RALPH.md --output-dir ./tmp/ralph-loop
+  ./__PROGRAM_NAME__ --worktree-lifecycle restart-aireset --main-lifecycle restart-ai
   ./__PROGRAM_NAME__ --iterations 20 -- --full-auto
 EOF
 }
@@ -66,6 +74,24 @@ require_value() {
     echo "Missing value for ${flag}" >&2
     exit 1
   fi
+}
+
+parse_bool() {
+  local raw_value="${1:-}"
+  local normalized=""
+  normalized="$(printf '%s' "${raw_value}" | tr '[:upper:]' '[:lower:]')"
+  case "${normalized}" in
+    1|true|yes|on)
+      printf '1\n'
+      ;;
+    0|false|no|off|'')
+      printf '0\n'
+      ;;
+    *)
+      echo "Invalid boolean value: ${raw_value}" >&2
+      exit 1
+      ;;
+  esac
 }
 
 trim_value() {
@@ -130,6 +156,99 @@ sanitize_single_line() {
   value="${value//$'\r'/ }"
   value="${value//$'\n'/ }"
   printf '%s\n' "${value}"
+}
+
+discover_main_worktree_root() {
+  local repo_root="$1"
+  git -C "${repo_root}" worktree list --porcelain 2>/dev/null | awk '
+    $1 == "worktree" { current = $2; next }
+    $1 == "branch" && $2 == "refs/heads/main" { print current; exit }
+  '
+}
+
+run_lifecycle_mode() {
+  local target_name="$1"
+  local target_root="$2"
+  local lifecycle_mode="$3"
+  local run_dir="$4"
+
+  if [[ -z "${lifecycle_mode}" ]] || [[ "${lifecycle_mode}" == "none" ]]; then
+    return 0
+  fi
+
+  if [[ ! -d "${target_root}" ]]; then
+    echo "Lifecycle target root not found for ${target_name}: ${target_root}" >&2
+    exit 1
+  fi
+
+  local kill_script="${target_root}/kill.sh"
+  local ai_script="${target_root}/ai.sh"
+  local aireset_script="${target_root}/aireset.sh"
+
+  run_logged_command() {
+    local label="$1"
+    shift
+    local log_path="${run_dir}/${target_name}-${label}.log"
+    echo "[bootstrap] ${target_name}: ${label}"
+    (
+      cd "${target_root}"
+      "$@"
+    ) 2>&1 | tee "${log_path}"
+  }
+
+  start_background_command() {
+    local label="$1"
+    local launcher_path="$2"
+    local log_path="${run_dir}/${target_name}-${label}.log"
+    local pid_path="${run_dir}/${target_name}-${label}.pid"
+    local pid=""
+
+    if [[ ! -x "${launcher_path}" ]]; then
+      echo "Launcher not found or not executable: ${launcher_path}" >&2
+      exit 1
+    fi
+
+    echo "[bootstrap] ${target_name}: starting $(basename "${launcher_path}") in background"
+    pid="$(
+      cd "${target_root}"
+      nohup "${launcher_path}" > "${log_path}" 2>&1 &
+      echo $!
+    )"
+    printf '%s\n' "${pid}" > "${pid_path}"
+    sleep 3
+    if ! kill -0 "${pid}" 2>/dev/null; then
+      echo "Background startup failed for ${target_name} via ${launcher_path}" >&2
+      if [[ -f "${log_path}" ]]; then
+        echo "Last log lines from ${log_path}:" >&2
+        tail -n 40 "${log_path}" >&2 || true
+      fi
+      exit 1
+    fi
+  }
+
+  case "${lifecycle_mode}" in
+    kill)
+      run_logged_command "kill" "${kill_script}"
+      ;;
+    ai)
+      start_background_command "ai" "${ai_script}"
+      ;;
+    aireset)
+      start_background_command "aireset" "${aireset_script}"
+      ;;
+    restart-ai)
+      run_logged_command "kill" "${kill_script}"
+      start_background_command "ai" "${ai_script}"
+      ;;
+    restart-aireset)
+      run_logged_command "kill" "${kill_script}"
+      start_background_command "aireset" "${aireset_script}"
+      ;;
+    *)
+      echo "Unsupported lifecycle mode for ${target_name}: ${lifecycle_mode}" >&2
+      exit 1
+      ;;
+  esac
 }
 
 render_prompt() {
@@ -235,8 +354,11 @@ iterations=""
 new_session_every=""
 output_dir=""
 workdir=""
+main_worktree_root=""
+worktree_lifecycle=""
+main_lifecycle=""
 model=""
-yolo_mode="0"
+yolo_mode=""
 stop_on_error="0"
 print_prompt_only="0"
 stop_on_pre_session_exit_code=""
@@ -304,6 +426,21 @@ while [[ $# -gt 0 ]]; do
       workdir="$2"
       shift 2
       ;;
+    --main-worktree-root)
+      require_value "$1" "${2:-}"
+      main_worktree_root="$2"
+      shift 2
+      ;;
+    --worktree-lifecycle)
+      require_value "$1" "${2:-}"
+      worktree_lifecycle="$2"
+      shift 2
+      ;;
+    --main-lifecycle)
+      require_value "$1" "${2:-}"
+      main_lifecycle="$2"
+      shift 2
+      ;;
     --model)
       require_value "$1" "${2:-}"
       model="$2"
@@ -311,6 +448,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --yolo)
       yolo_mode="1"
+      shift
+      ;;
+    --no-yolo)
+      yolo_mode="0"
       shift
       ;;
     --stop-on-error)
@@ -355,7 +496,11 @@ config_pre_session_command="$(strip_wrapping_quotes "$(trim_value "$(frontmatter
 config_iterations="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "iterations")")")"
 config_new_session_every="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "new_session_every")")")"
 config_workdir="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "workdir")")")"
+config_main_worktree_root="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_worktree_root")")")"
+config_worktree_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "worktree_lifecycle")")")"
+config_main_lifecycle="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "main_lifecycle")")")"
 config_model="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "model")")")"
+config_yolo="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "yolo")")")"
 config_stop_on_pre_session_exit_code="$(strip_wrapping_quotes "$(trim_value "$(frontmatter_value "${config_file}" "stop_on_pre_session_exit_code")")")"
 
 if [[ -z "${prompt_file}" ]]; then
@@ -414,8 +559,24 @@ if [[ -z "${workdir}" ]]; then
   fi
 fi
 
+if [[ -z "${main_worktree_root}" ]]; then
+  main_worktree_root="${config_main_worktree_root}"
+fi
+
+if [[ -z "${worktree_lifecycle}" ]]; then
+  worktree_lifecycle="${config_worktree_lifecycle}"
+fi
+
+if [[ -z "${main_lifecycle}" ]]; then
+  main_lifecycle="${config_main_lifecycle}"
+fi
+
 if [[ -z "${model}" ]]; then
   model="${config_model}"
+fi
+
+if [[ -z "${yolo_mode}" ]]; then
+  yolo_mode="$(parse_bool "${config_yolo}")"
 fi
 
 if [[ -z "${stop_on_pre_session_exit_code}" ]]; then
@@ -427,6 +588,9 @@ followup_prompt_file="$(resolve_path "${config_dir}" "${followup_prompt_file}")"
 plan_file="$(resolve_path "${config_dir}" "${plan_file}")"
 log_file="$(resolve_path "${config_dir}" "${log_file}")"
 workdir="$(resolve_path "${config_dir}" "${workdir}")"
+if [[ -n "${main_worktree_root}" ]] && [[ "${main_worktree_root}" != "auto" ]]; then
+  main_worktree_root="$(resolve_path "${config_dir}" "${main_worktree_root}")"
+fi
 if [[ -n "${output_dir}" ]]; then
   output_dir="$(resolve_path "${ROOT_DIR}" "${output_dir}")"
 fi
@@ -499,6 +663,26 @@ if [[ ! -d "${workdir}" ]]; then
   exit 1
 fi
 
+if [[ -n "${worktree_lifecycle}" ]]; then
+  case "${worktree_lifecycle}" in
+    none|kill|ai|aireset|restart-ai|restart-aireset) ;;
+    *)
+      echo "Unsupported --worktree-lifecycle value: ${worktree_lifecycle}" >&2
+      exit 1
+      ;;
+  esac
+fi
+
+if [[ -n "${main_lifecycle}" ]]; then
+  case "${main_lifecycle}" in
+    none|kill|ai|aireset|restart-ai|restart-aireset) ;;
+    *)
+      echo "Unsupported --main-lifecycle value: ${main_lifecycle}" >&2
+      exit 1
+      ;;
+  esac
+fi
+
 if [[ "${print_prompt_only}" != "1" ]] && ! command -v codex >/dev/null 2>&1; then
   echo "codex CLI not found on PATH" >&2
   exit 1
@@ -528,10 +712,37 @@ echo "Workdir: ${workdir}"
 echo "Config file: ${config_file}"
 echo "Plan file: ${plan_file}"
 echo "Log file: ${log_file}"
+echo "Yolo mode: ${yolo_mode}"
+echo "Worktree lifecycle: ${worktree_lifecycle:-none}"
+echo "Main lifecycle: ${main_lifecycle:-none}"
 
 if [[ "${print_prompt_only}" == "1" ]]; then
   cat "${start_prompt_file}"
   exit 0
+fi
+
+if [[ "${main_worktree_root}" == "auto" ]] || [[ -z "${main_worktree_root}" ]]; then
+  main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
+fi
+
+if [[ -n "${main_worktree_root}" ]]; then
+  echo "Main worktree root: ${main_worktree_root}"
+fi
+
+if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
+  run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${output_dir}"
+fi
+
+if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
+  if [[ -z "${main_worktree_root}" ]]; then
+    echo "Unable to determine the main worktree root for --main-lifecycle." >&2
+    exit 1
+  fi
+  if [[ "${main_worktree_root}" == "${workdir}" ]] && [[ "${main_lifecycle}" == "${worktree_lifecycle}" ]]; then
+    echo "[bootstrap] main lifecycle matches worktree lifecycle on the same root; skipping duplicate run"
+  else
+    run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}"
+  fi
 fi
 
 for ((iteration = 1; iteration <= iterations; iteration += 1)); do
