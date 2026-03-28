@@ -48,6 +48,8 @@ describe("buildSectionContainerView", () => {
         props: {
           sectionId: "section-2",
           isUserView: false,
+          sectionTypeName: SectionTypeEnum.Code,
+          bgColor: "bg-white dark:bg-setta-900",
         },
         bodyProps: {
           sectionId: "section-2",
@@ -89,6 +91,8 @@ describe("buildSectionContainerView", () => {
         props: {
           sectionId: "section-3",
           isUserView: true,
+          sectionTypeName: SectionTypeEnum.Code,
+          bgColor: "bg-white dark:bg-setta-900",
           forceHideOutline: true,
           hideAgenticEdgeHandles: true,
           omitAgenticHandleScopeClass: true,

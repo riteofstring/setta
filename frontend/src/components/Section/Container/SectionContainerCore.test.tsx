@@ -68,12 +68,10 @@ vi.mock("state/activeSectionUI", () => ({
 
 vi.mock("state/definitions", () => ({
   useAgenticScopeHighlights: (
-    selector: (
-      state: {
-        readSectionIdsByProjectConfigId: Record<string, Record<string, boolean>>;
-        writeSectionIdsByProjectConfigId: Record<string, Record<string, boolean>>;
-      },
-    ) => unknown,
+    selector: (state: {
+      readSectionIdsByProjectConfigId: Record<string, Record<string, boolean>>;
+      writeSectionIdsByProjectConfigId: Record<string, Record<string, boolean>>;
+    }) => unknown,
   ) =>
     selector({
       readSectionIdsByProjectConfigId: {
@@ -144,31 +142,6 @@ vi.mock("./sectionChrome", () => ({
   getSectionContainerShellClassName: () => "mock-section-shell",
 }));
 
-vi.mock("./SectionContainerCoreCanvasBody", () => ({
-  SectionContainerCoreCanvasBody: ({
-    sectionId,
-    sectionTypeName,
-    bgColor,
-    isMinimized,
-    isUserView,
-  }: {
-    sectionId: string;
-    sectionTypeName: string;
-    bgColor: string;
-    isMinimized: boolean;
-    isUserView: boolean;
-  }) => (
-    <div
-      data-testid="mock-core-canvas-body"
-      data-section-id={sectionId}
-      data-section-type={sectionTypeName}
-      data-bg-color={bgColor}
-      data-is-minimized={isMinimized ? "true" : "false"}
-      data-is-user-view={isUserView ? "true" : "false"}
-    />
-  ),
-}));
-
 vi.mock("./SectionContainerCoreResizabe", () => ({
   SectionContainerCoreResizable: ({
     sectionTypeName,
@@ -233,14 +206,18 @@ describe("SectionContainerCore", () => {
       <SectionContainerCore
         sectionId="section-123"
         isUserView={false}
-        bodyProps={{
-          sectionId: "section-123",
-          sectionTypeName: SectionTypeEnum.Code,
-          bgColor: "bg-setta-50",
-          isMinimized: false,
-          isUserView: false,
-        }}
-      />,
+        sectionTypeName={SectionTypeEnum.Code}
+        bgColor="bg-setta-50"
+      >
+        <div
+          data-testid="mock-core-canvas-body"
+          data-section-id="section-123"
+          data-section-type={SectionTypeEnum.Code}
+          data-bg-color="bg-setta-50"
+          data-is-minimized="false"
+          data-is-user-view="false"
+        />
+      </SectionContainerCore>,
     );
 
     expect(markup).toContain('data-testid="mock-core-resizable"');

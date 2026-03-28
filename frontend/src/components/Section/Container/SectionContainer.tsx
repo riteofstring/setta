@@ -19,6 +19,7 @@ import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
 import { SectionContainerCore } from "./SectionContainerCore";
+import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import { buildSectionContainerView } from "./sectionContainerView";
 import { getOutlineColor } from "./utils";
@@ -124,7 +125,9 @@ function _SectionContainer({
     isJoinedCodeTerminalGroup: view.kind === "joined-code-terminal-group",
   });
   const core = view.core ? (
-    <SectionContainerCore {...view.core.props} bodyProps={view.core.bodyProps} />
+    <SectionContainerCore {...view.core.props}>
+      <SectionContainerCoreCanvasBody {...view.core.bodyProps} />
+    </SectionContainerCore>
   ) : null;
 
   return (
@@ -165,7 +168,9 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
-  p.renderNestedSections === n.renderNestedSections &&
-  _.isEqual(p.dragListeners, n.dragListeners),
+export const SectionContainer = React.memo(
+  _SectionContainer,
+  (p, n) =>
+    p.renderNestedSections === n.renderNestedSections &&
+    _.isEqual(p.dragListeners, n.dragListeners),
 );

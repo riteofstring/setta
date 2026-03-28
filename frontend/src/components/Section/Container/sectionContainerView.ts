@@ -6,6 +6,8 @@ import { getBgColor } from "./utils";
 export type SectionContainerCoreViewProps = {
   sectionId: string;
   isUserView: boolean;
+  sectionTypeName: SectionType;
+  bgColor: string;
   forceHideOutline?: boolean;
   hideAgenticEdgeHandles?: boolean;
   omitAgenticHandleScopeClass?: boolean;
@@ -82,11 +84,14 @@ export function buildSectionContainerView({
   }
 
   const useMetaControlStyle =
-    sectionTypeName === SectionTypeEnum.MetaControl || textBlockMetaControlStyle;
+    sectionTypeName === SectionTypeEnum.MetaControl ||
+    textBlockMetaControlStyle;
   const bodyProps: SectionContainerCoreBodyProps = {
     sectionId,
     sectionTypeName,
-    bgColor: useMetaControlStyle ? "bg-transparent" : getBgColor(sectionTypeName),
+    bgColor: useMetaControlStyle
+      ? "bg-transparent"
+      : getBgColor(sectionTypeName),
     isMinimized,
     isUserView,
   };
@@ -103,6 +108,8 @@ export function buildSectionContainerView({
         props: {
           sectionId,
           isUserView,
+          sectionTypeName,
+          bgColor: bodyProps.bgColor,
           forceHideOutline: true,
           hideAgenticEdgeHandles: true,
           omitAgenticHandleScopeClass: true,
@@ -125,6 +132,8 @@ export function buildSectionContainerView({
           props: {
             sectionId,
             isUserView,
+            sectionTypeName,
+            bgColor: bodyProps.bgColor,
           },
           bodyProps,
         },

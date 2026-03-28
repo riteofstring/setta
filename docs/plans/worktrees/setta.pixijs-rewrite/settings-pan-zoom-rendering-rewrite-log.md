@@ -3046,3 +3046,35 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the live dict-area surface pass by lifting the new `SectionContainerCore.tsx` body boundary into the next higher-level caller in `frontend/src/components/Section/Container/SectionContainer.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 113
+
+- Item: Lift the `SectionContainerCore.tsx` body boundary into the next higher-level caller in `frontend/src/components/Section/Container/SectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Updated `SectionContainer.tsx` to own the live `SectionContainerCoreCanvasBody` handoff directly instead of leaving that ownership inside `SectionContainerCore.tsx`:
+    - `frontend/src/components/Section/Container/SectionContainer.tsx`
+  - Shrunk `SectionContainerCore.tsx` back down to a higher-level shell that now accepts shell props plus children rather than the lifted body props:
+    - `frontend/src/components/Section/Container/SectionContainerCore.tsx`
+  - Updated the typed view contract so the section-container view now carries the shell-facing `sectionTypeName` and `bgColor` props separately from the body props:
+    - `frontend/src/components/Section/Container/sectionContainerView.ts`
+  - Updated focused coverage to pin the new ownership seam:
+    - `frontend/src/components/Section/Container/SectionContainer.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCore.test.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerView.test.ts`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping `SectionContainer.tsx` as the higher-level owner of the live core-canvas-body boundary
+    - leaving `SectionContainerCore.tsx` responsible only for the section shell, handles, outline/state styling, and resizable chrome
+    - keeping the current DOM/live canvas path intact while deepening the section-container contract above `SectionContainerCore.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerView.test.ts src/components/Section/Container/SectionContainer.test.tsx src/components/Section/Container/SectionContainerCore.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded authenticated after bootstrap and stayed usable
+    - visible labels and controls included `All Settings`, `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, plus the settings shell and dict/param area panels
+    - the visible surface showed no obvious clipping, overlap, or missing content after the lifted ownership boundary
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SectionContainer.tsx` body boundary into the next higher-level caller, starting with `frontend/src/components/Section/Container/SortableSectionBody.tsx`, before any broad Pixi node drawing lands.

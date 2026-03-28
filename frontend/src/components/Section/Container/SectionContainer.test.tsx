@@ -106,44 +106,66 @@ vi.mock("./ContainerSwitch", () => ({
 
 vi.mock("./SectionContainerCore", () => ({
   SectionContainerCore: ({
-    bodyProps,
+    sectionId,
+    isUserView,
+    sectionTypeName,
+    bgColor,
     forceHideOutline = false,
     hideAgenticEdgeHandles = false,
     omitAgenticHandleScopeClass = false,
     joinedCorners = "none",
+    children,
   }: {
-    bodyProps: {
-      sectionId: string;
-      sectionTypeName: string;
-      bgColor: string;
-      isMinimized: boolean;
-      isUserView: boolean;
-    };
+    sectionId: string;
+    isUserView: boolean;
+    sectionTypeName: string;
+    bgColor: string;
     forceHideOutline?: boolean;
     hideAgenticEdgeHandles?: boolean;
     omitAgenticHandleScopeClass?: boolean;
     joinedCorners?: string;
+    children: ReactNode;
   }) => (
     <div
       data-testid="mock-section-container-core"
+      data-section-id={sectionId}
+      data-is-user-view={isUserView ? "true" : "false"}
+      data-section-type={sectionTypeName}
+      data-bg-color={bgColor}
       data-force-hide-outline={forceHideOutline ? "true" : "false"}
-      data-hide-agentic-edge-handles={
-        hideAgenticEdgeHandles ? "true" : "false"
-      }
+      data-hide-agentic-edge-handles={hideAgenticEdgeHandles ? "true" : "false"}
       data-omit-agentic-handle-scope-class={
         omitAgenticHandleScopeClass ? "true" : "false"
       }
       data-joined-corners={joinedCorners}
     >
-      <div
-        data-testid="mock-section-container-core-body"
-        data-section-id={bodyProps.sectionId}
-        data-section-type={bodyProps.sectionTypeName}
-        data-bg-color={bodyProps.bgColor}
-        data-is-minimized={bodyProps.isMinimized ? "true" : "false"}
-        data-is-user-view={bodyProps.isUserView ? "true" : "false"}
-      />
+      {children}
     </div>
+  ),
+}));
+
+vi.mock("./SectionContainerCoreCanvasBody", () => ({
+  SectionContainerCoreCanvasBody: ({
+    sectionId,
+    sectionTypeName,
+    bgColor,
+    isMinimized,
+    isUserView,
+  }: {
+    sectionId: string;
+    sectionTypeName: string;
+    bgColor: string;
+    isMinimized: boolean;
+    isUserView: boolean;
+  }) => (
+    <div
+      data-testid="mock-section-container-core-body"
+      data-section-id={sectionId}
+      data-section-type={sectionTypeName}
+      data-bg-color={bgColor}
+      data-is-minimized={isMinimized ? "true" : "false"}
+      data-is-user-view={isUserView ? "true" : "false"}
+    />
   ),
 }));
 
