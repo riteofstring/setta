@@ -2419,3 +2419,31 @@ Record:
     - notable console noise was limited to existing accessibility warnings about missing form `id`/`name` attributes and unmatched `aria-labelledby` targets; no runtime error investigation was needed for this bounded slice
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `LiveDictAreaLayout.tsx` boundary into the next higher-level section layout caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 091
+
+- Item: Lift the new `LiveDictAreaLayout.tsx` boundary into the next higher-level section layout caller in `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed section-container dict-area boundary above the existing live dict-area layout:
+    - `frontend/src/components/Section/Container/SectionContainerDictArea.tsx`
+    - `frontend/src/components/Section/Container/sectionContainerDictAreaView.ts`
+    - `frontend/src/components/Section/Container/sectionContainerDictAreaView.test.ts`
+  - Updated the production `AreaSwitch` dict branch to consume the new section-container boundary instead of calling `DictArea.tsx` directly:
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+  - Shrank `frontend/src/components/Section/Layouts/DictArea.tsx` to a live-only wrapper over `LiveDictAreaLayout`, so the benchmark/live routing now lives one level higher in the section-container caller.
+  - Kept the current non-Pixi DOM path intact while lifting the dict-area handoff:
+    - the new section-container boundary now owns the deterministic benchmark-vs-live routing above `LiveDictAreaLayout`
+    - `AreaSwitch` still presents the same dict surface contract to the surrounding section chrome
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionContainerDictAreaView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx src/components/Section/Layouts/DictArea.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded in the authenticated app and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `settings`, `Filter`, `TAG`, `All Settings`, `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `Open section in floating window`, `Lock position and size`, `Minimize section`, `Delete section`, `Remove arg`, and `Add arg`
+    - representative requests returned `200`, including `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, `POST /api/loadSettings`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `SectionContainerDictArea.tsx` boundary into the next higher-level section-area routing boundary above `AreaSwitch` before any broad Pixi node drawing lands.

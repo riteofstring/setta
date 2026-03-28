@@ -32,7 +32,6 @@ import {
   GenPythonCodeArea,
   GenPythonMetadataArea,
 } from "../Layouts/CodeArea";
-import { DictArea } from "../Layouts/DictArea";
 import { DrawArea } from "../Layouts/DrawArea/DrawArea";
 import { GlobalVariablesArea } from "../Layouts/GlobalVariablesArea";
 import { IframeArea } from "../Layouts/IframeArea";
@@ -49,6 +48,7 @@ import { TextBlock } from "../Layouts/TextBlock";
 import { Incrementer } from "../SectionParts/Incrementer";
 import "./dndline.css";
 import { MetaControlMenuButton } from "./MetaControlMenuButton";
+import { SectionContainerDictArea } from "./SectionContainerDictArea";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import { TextBlockMetaControlMenuButton } from "./TextBlockMetaControlMenuButton";
 import { getBgColor } from "./utils";
@@ -268,7 +268,9 @@ export function AreaSwitch({
         />
       );
     case SectionTypeEnum.Dict:
-      return <DictArea sectionId={sectionId} bgColor={bgColor} />;
+      return (
+        <SectionContainerDictArea sectionId={sectionId} bgColor={bgColor} />
+      );
     case SectionTypeEnum.Image:
       return <ImageArea sectionId={sectionId} />;
     case SectionTypeEnum.Chart:
