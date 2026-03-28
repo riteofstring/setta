@@ -488,7 +488,7 @@ func effectiveCodeObjType(payload map[string]any, impl CodeObjectImpl) string {
 }
 
 func codeObjImplPayloadObject(impl CodeObjectImpl) map[string]any {
-	payload, err := rawObjectFromProjectPayload(codeObjImplPayloadUnchecked(impl))
+	payload, err := normalizedCodeObjImplPayloadObject(impl)
 	if err != nil {
 		return map[string]any{
 			"id":   impl.ID,

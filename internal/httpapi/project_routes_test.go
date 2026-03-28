@@ -7762,6 +7762,77 @@ func TestRegisterProjectRoutesDeleteKwargPersistsLatestState(t *testing.T) {
 	}
 }
 
+func TestRegisterProjectRoutesDeleteKwargToEmptyPersistsLatestState(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": passwordParamRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	handler := newProjectRouteTestHandler(t, config.ModeIDE, projectRuntime, t.TempDir(), nil, nil, nil)
+	post := func(route string, body string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(http.MethodPost, "/api"+route, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+
+	for index := 0; index < 2; index += 1 {
+		response := post(RouteDeleteKwarg, `{"projectConfigId":"project-alpha","sectionId":"dict-a"}`)
+		if response.Code != http.StatusOK {
+			t.Fatalf("expected 200 for %s on delete %d, got %d with body %q", RouteDeleteKwarg, index+1, response.Code, response.Body.String())
+		}
+	}
+
+	latestResponse := post(RouteGetLatestProjectState, `{"projectConfigId":"project-alpha"}`)
+	if latestResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 latest-state response, got %d with body %q", latestResponse.Code, latestResponse.Body.String())
+	}
+
+	var payload ProjectStateSingleConfigWithCompletedOpIDs
+	if err := json.Unmarshal(latestResponse.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode latest project payload: %v", err)
+	}
+
+	sharedRootSharedModifier := decodeProjectRouteRawObject(t, payload.ProjectState.CodeObjs["shared-root"].SharedModifier)
+	children, ok := sharedRootSharedModifier["children"].([]any)
+	if !ok || children == nil {
+		t.Fatalf("expected shared-root sharedModifier children array, got %#v", sharedRootSharedModifier["children"])
+	}
+	if len(children) != 0 {
+		t.Fatalf("expected shared-root children [] after deleting all kwargs, got %#v", children)
+	}
+
+	dictVariantID := payload.ProjectState.ProjectConfig.SectionVariantMap["dict-a"]
+	shown := payload.ProjectState.ShownParamIDs[dictVariantID]
+	if got := shown.Pinned.TopLevelParamIDs; len(got) != 0 {
+		t.Fatalf("expected no pinned shown params after deleting all kwargs, got %#v", got)
+	}
+	if got := shown.Unpinned.TopLevelParamIDs; len(got) != 0 {
+		t.Fatalf("expected no unpinned shown params after deleting all kwargs, got %#v", got)
+	}
+	if len(shown.Pinned.RequiredParamIDsToPaths) != 0 {
+		t.Fatalf("expected empty pinned path map after deleting all kwargs, got %#v", shown.Pinned.RequiredParamIDsToPaths)
+	}
+	if len(shown.Unpinned.RequiredParamIDsToPaths) != 0 {
+		t.Fatalf("expected empty unpinned path map after deleting all kwargs, got %#v", shown.Unpinned.RequiredParamIDsToPaths)
+	}
+}
+
 func TestRegisterProjectRoutesKwargMutationsRejectInvalidInputs(t *testing.T) {
 	t.Parallel()
 

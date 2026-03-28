@@ -713,7 +713,7 @@ func effectiveCodeObjectPayload(
 	if !ok {
 		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, variant.ImplID)
 	}
-	base, err := rawObjectFromProjectPayload(codeObjImplPayloadUnchecked(impl))
+	base, err := normalizedCodeObjImplPayloadObject(impl)
 	if err != nil {
 		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
@@ -725,17 +725,17 @@ func effectiveCodeObjectPayload(
 	if err != nil {
 		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
-	return mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier), codeObj, variant, impl, nil
+	merged := mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier)
+	normalizeCodeObjImplPayloadCollections(merged, strings.TrimSpace(impl.Type))
+	return merged, codeObj, variant, impl, nil
 }
 
 func codeObjImplPayloadUnchecked(impl CodeObjectImpl) RawJSON {
-	if len(impl.Payload) > 0 {
-		return cloneRawJSON(impl.Payload)
+	payload, err := CodeObjectImplPayload(impl)
+	if err != nil {
+		panic(err)
 	}
-	return mustMarshalProjectObject(map[string]any{
-		"id":   impl.ID,
-		"type": impl.Type,
-	})
+	return payload
 }
 
 func payloadStringMapField(object map[string]any, key string) map[string]string {

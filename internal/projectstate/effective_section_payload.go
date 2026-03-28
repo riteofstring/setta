@@ -3,6 +3,7 @@ package projectstate
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 )
 
@@ -204,7 +205,29 @@ func cloneProjectValue(value any) any {
 		}
 		return cloned
 	default:
-		return typed
+		reflected := reflect.ValueOf(value)
+		if !reflected.IsValid() {
+			return typed
+		}
+		switch reflected.Kind() {
+		case reflect.Slice:
+			if reflected.IsNil() {
+				return reflect.MakeSlice(reflected.Type(), 0, 0).Interface()
+			}
+			cloned := reflect.MakeSlice(reflected.Type(), reflected.Len(), reflected.Len())
+			for index := 0; index < reflected.Len(); index++ {
+				cloned.Index(index).Set(reflect.ValueOf(cloneProjectValue(reflected.Index(index).Interface())))
+			}
+			return cloned.Interface()
+		case reflect.Array:
+			cloned := reflect.New(reflected.Type()).Elem()
+			for index := 0; index < reflected.Len(); index++ {
+				cloned.Index(index).Set(reflect.ValueOf(cloneProjectValue(reflected.Index(index).Interface())))
+			}
+			return cloned.Interface()
+		default:
+			return typed
+		}
 	}
 }
 

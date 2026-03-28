@@ -707,35 +707,11 @@ func effectiveCodeObjChildren(project projectstate.Project, codeObjVariantMap ma
 }
 
 func effectiveCodeObjObject(project projectstate.Project, codeObjVariantMap map[string]string, codeObjID string) (map[string]any, error) {
-	codeObj, ok := project.CodeObjs[codeObjID]
-	if !ok {
-		return nil, fmt.Errorf("%w: %q", projectstate.ErrCodeObjNotFound, codeObjID)
-	}
-	variantID, ok := codeObjVariantMap[codeObjID]
-	if !ok {
-		return nil, fmt.Errorf("%w: codeObj=%q", projectstate.ErrCodeObjVariantNotFound, codeObjID)
-	}
-	variant, ok := project.CodeObjVariants[variantID]
-	if !ok {
-		return nil, fmt.Errorf("%w: %q", projectstate.ErrCodeObjVariantNotFound, variantID)
-	}
-	impl, ok := project.CodeObjImpls[variant.ImplID]
-	if !ok {
-		return nil, fmt.Errorf("%w: %q", projectstate.ErrCodeObjImplNotFound, variant.ImplID)
-	}
-	base, err := rawObjectFromPayload(codeObjImplPayloadUnchecked(impl))
+	payload, _, _, _, err := project.EffectiveCodeObjectPayload(codeObjVariantMap, codeObjID)
 	if err != nil {
 		return nil, err
 	}
-	sharedModifier, err := rawObjectFromModifier(codeObj.SharedModifier)
-	if err != nil {
-		return nil, err
-	}
-	modifier, err := rawObjectFromModifier(variant.Modifier)
-	if err != nil {
-		return nil, err
-	}
-	return mergeObjects(mergeObjects(base, sharedModifier), modifier), nil
+	return payload, nil
 }
 
 func codeObjType(project projectstate.Project, codeObjID string, payload map[string]any) string {
@@ -808,22 +784,7 @@ func sectionImplPayloadUnchecked(impl projectstate.SectionImpl) json.RawMessage 
 }
 
 func codeObjImplPayload(impl projectstate.CodeObjectImpl) (json.RawMessage, error) {
-	payload := codeObjImplPayloadUnchecked(impl)
-	_, err := rawObjectFromPayload(payload)
-	if err != nil {
-		return nil, err
-	}
-	return payload, nil
-}
-
-func codeObjImplPayloadUnchecked(impl projectstate.CodeObjectImpl) json.RawMessage {
-	if len(impl.Payload) > 0 {
-		return cloneRawJSON(impl.Payload)
-	}
-	return mustMarshal(map[string]any{
-		"id":   impl.ID,
-		"type": impl.Type,
-	})
+	return projectstate.CodeObjectImplPayload(impl)
 }
 
 func fallbackSectionType(impl projectstate.SectionImpl) string {

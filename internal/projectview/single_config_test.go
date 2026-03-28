@@ -484,6 +484,165 @@ func TestSingleConfigByProjectIDIncludesEmptyShownParamIDsForCallableWithoutRoot
 	}
 }
 
+func TestSingleConfigByProjectIDIncludesEmptyShownParamIDsForDictWithoutChildren(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.SectionVariantMap["empty-dict-section"] = "empty-dict-variant"
+	project.Sections["empty-dict-section"] = projectstate.Section{
+		ID:               "empty-dict-section",
+		Name:             "Empty Dict Section",
+		VariantIDs:       []string{"empty-dict-variant"},
+		DefaultVariantID: "empty-dict-variant",
+	}
+	project.SectionVariants["empty-dict-variant"] = projectstate.SectionVariant{
+		ID:     "empty-dict-variant",
+		Name:   "Empty Dict Variant",
+		ImplID: "empty-dict-impl",
+	}
+	project.SectionImpls["empty-dict-impl"] = projectstate.SectionImpl{
+		ID:      "empty-dict-impl",
+		Kind:    projectstate.SectionKind("frontend"),
+		Payload: mustRawJSON(t, map[string]any{"id": "empty-dict-impl", "type": "Dict", "topLevelParamId": "empty-root", "codeObjVariantMap": map[string]any{"empty-root": "empty-root-variant"}}),
+	}
+	project.CodeObjs["empty-root"] = projectstate.CodeObject{
+		ID:               "empty-root",
+		Name:             "empty_root",
+		VariantIDs:       []string{"empty-root-variant"},
+		DefaultVariantID: "empty-root-variant",
+	}
+	project.CodeObjVariants["empty-root-variant"] = projectstate.CodeObjectVariant{
+		ID:     "empty-root-variant",
+		Name:   "Empty Root Variant",
+		ImplID: "empty-root-impl",
+	}
+	project.CodeObjImpls["empty-root-impl"] = projectstate.CodeObjectImpl{
+		ID:   "empty-root-impl",
+		Type: "NestedParam",
+	}
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	shown, ok := view.ShownParamIDs["empty-dict-variant"]
+	if !ok {
+		t.Fatalf("expected empty dict shown params entry, got %#v", view.ShownParamIDs)
+	}
+	if !reflect.DeepEqual(shown.Pinned.TopLevelParamIDs, []string{}) {
+		t.Fatalf("expected empty pinned top-level params, got %#v", shown.Pinned.TopLevelParamIDs)
+	}
+	if !reflect.DeepEqual(shown.Unpinned.TopLevelParamIDs, []string{}) {
+		t.Fatalf("expected empty unpinned top-level params, got %#v", shown.Unpinned.TopLevelParamIDs)
+	}
+	if len(shown.Pinned.RequiredParamIDsToPaths) != 0 {
+		t.Fatalf("expected empty pinned path map, got %#v", shown.Pinned.RequiredParamIDsToPaths)
+	}
+	if len(shown.Unpinned.RequiredParamIDsToPaths) != 0 {
+		t.Fatalf("expected empty unpinned path map, got %#v", shown.Unpinned.RequiredParamIDsToPaths)
+	}
+
+	var rootImplPayload map[string]any
+	if err := json.Unmarshal(view.CodeObjImpls["empty-root-impl"], &rootImplPayload); err != nil {
+		t.Fatalf("decode empty dict root payload: %v", err)
+	}
+	children, ok := rootImplPayload["children"].([]any)
+	if !ok || children == nil {
+		t.Fatalf("expected normalized root children array, got %#v", rootImplPayload["children"])
+	}
+	if len(children) != 0 {
+		t.Fatalf("expected normalized root children to be empty, got %#v", children)
+	}
+}
+
+func TestSingleConfigByProjectIDKeepsFreshDictRootChildrenAfterDeletingLastKwarg(t *testing.T) {
+	project := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+	}
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
+	project.ProjectChatWindowing = &defaultWindowing
+
+	createdSection, err := project.CreateTopLevelSection(
+		projectstate.CreateTopLevelSectionInput{ImplType: "Dict"},
+		projectstate.DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create dict section: %v", err)
+	}
+	if _, err := project.AddKwarg(createdSection.SectionID); err != nil {
+		t.Fatalf("add first kwarg: %v", err)
+	}
+	if _, err := project.DeleteKwarg(createdSection.SectionID); err != nil {
+		t.Fatalf("delete last kwarg: %v", err)
+	}
+
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": project,
+		},
+	}
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	dictVariantID := view.ProjectConfig.SectionVariantMap[createdSection.SectionID]
+	shown, ok := view.ShownParamIDs[dictVariantID]
+	if !ok {
+		t.Fatalf("expected shown params entry for %s, got %#v", dictVariantID, view.ShownParamIDs)
+	}
+	if len(shown.Pinned.TopLevelParamIDs) != 0 || len(shown.Unpinned.TopLevelParamIDs) != 0 {
+		t.Fatalf("expected no visible params after deleting last kwarg, got %#v", shown)
+	}
+
+	dictImplID := view.SectionVariants[dictVariantID].Impl
+	var dictPayload map[string]any
+	if err := json.Unmarshal(view.SectionImpls[dictImplID], &dictPayload); err != nil {
+		t.Fatalf("decode dict payload: %v", err)
+	}
+	rootID, ok := dictPayload["topLevelParamId"].(string)
+	if !ok || rootID == "" {
+		t.Fatalf("expected dict root id after add/delete flow, got %#v", dictPayload["topLevelParamId"])
+	}
+	rootCore, ok := view.CodeObjs[rootID]
+	if !ok {
+		t.Fatalf("expected root code object %q in view", rootID)
+	}
+	rootVariantID, ok := dictPayload["codeObjVariantMap"].(map[string]any)[rootID].(string)
+	if !ok || rootVariantID == "" {
+		t.Fatalf("expected dict codeObjVariantMap entry for root %q, got %#v", rootID, dictPayload["codeObjVariantMap"])
+	}
+	rootImplID := view.CodeObjVariants[rootVariantID].Impl
+	var rootImplPayload map[string]any
+	if err := json.Unmarshal(view.CodeObjImpls[rootImplID], &rootImplPayload); err != nil {
+		t.Fatalf("decode root impl payload: %v", err)
+	}
+	rootImplChildren, ok := rootImplPayload["children"].([]any)
+	if !ok || rootImplChildren == nil {
+		t.Fatalf("expected root impl children array, got %#v", rootImplPayload["children"])
+	}
+	if len(rootImplChildren) != 0 {
+		t.Fatalf("expected root impl children to be empty, got %#v", rootImplChildren)
+	}
+
+	var rootModifier map[string]any
+	if err := json.Unmarshal(rootCore.SharedModifier, &rootModifier); err != nil {
+		t.Fatalf("decode root shared modifier: %v", err)
+	}
+	rootChildren, ok := rootModifier["children"].([]any)
+	if !ok || rootChildren == nil {
+		t.Fatalf("expected root sharedModifier children array, got %#v", rootModifier["children"])
+	}
+	if len(rootChildren) != 0 {
+		t.Fatalf("expected root sharedModifier children to be empty, got %#v", rootChildren)
+	}
+}
+
 func TestSingleConfigByProjectIDMaterializesLegacySectionImplDefaults(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]
