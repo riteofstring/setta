@@ -9,6 +9,7 @@ new_session_every: 1
 yolo: true
 worktree_lifecycle: none
 main_lifecycle: none
+terminal_mode: auto
 verify_command: Choose the narrowest relevant verification for the current subtask. For frontend or visual work, run the relevant tests and include the required Chrome DevTools MCP check before claiming completion.
 ---
 
@@ -51,5 +52,9 @@ This file is the reusable loop entrypoint for this worktree.
   - `aireset`
   - `restart-ai`
   - `restart-aireset`
+- Terminal mode:
+  - `auto` uses tmux/cmux windows when `tmux` is available in the current shell, otherwise background launch
+  - `background` always launches lifecycle processes in the background with logs under the loop output dir
+  - `tmux` requires a live tmux/cmux shell and opens lifecycle processes in new tmux windows
 - Example:
-  - `./ralph.sh --worktree-lifecycle restart-aireset --main-lifecycle restart-ai`
+  - `./ralph.sh --terminal-mode tmux --worktree-lifecycle restart-aireset --main-lifecycle restart-ai`
