@@ -267,6 +267,9 @@ That means:
   - deleted the test that existed only to exercise that dead helper layer
 - `backend/setta/types/listener.py` now also owns the handwritten websocket envelope adapters:
   - the Python message classes subclass Go-generated listener message models and only keep the Python-side typed content wrappers, discriminator literals, and `TypeAdapter`
+- the listener register/ack transport family has been reduced further:
+  - `ListenerRegisterCallback`, `ListenerRegisterContent`, and `ListenerRegisterAckContent` no longer exist as handwritten subclasses in `backend/setta/types/listener.py`
+  - that register/ack family now reuses the generated Python SDK contract models directly, while the handwritten listener layer keeps only the websocket envelope/type-adapter glue and the runtime-only pieces
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line

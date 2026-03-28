@@ -163,20 +163,12 @@ class ListenerRealtimeDelta(SDKListenerRealtimeDelta):
         self._binary_payload = value
 
 
-class ListenerRegisterCallback(SDKListenerRegisterCallbackSpec):
-    dependencyMode: ListenerDependencyMode
-
-
-class ListenerRegisterContent(SDKListenerRegisterRequest):
-    callbacks: dict[str, ListenerRegisterCallback] = Field(default_factory=dict)
+ListenerRegisterCallback = SDKListenerRegisterCallbackSpec
 
 
 ListenerRegisterAckStatus = SDKListenerRegisterAckStatus
-
-
-class ListenerRegisterAckContent(SDKListenerRegisterAckEvent):
-    projectConfigId: ID
-    callbacks: dict[str, ListenerRegisterAckStatus] = Field(default_factory=dict)
+ListenerRegisterContent = SDKListenerRegisterRequest
+ListenerRegisterAckContent = SDKListenerRegisterAckEvent
 
 
 class WebsocketMsgListenerRealtimeEvent(GoListenerRealtimeEventMessage):
