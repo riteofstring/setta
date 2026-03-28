@@ -1,8 +1,10 @@
 package externalagentconfigs
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -558,6 +560,171 @@ func TestSystemCheckerMarksUnavailableWhenManagedStoreUnavailableAndEnvVarsMissi
 	}
 }
 
+func TestSystemCheckerCachesStableCodexPreflightResults(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	counterPath := filepath.Join(t.TempDir(), "codex-version-count.txt")
+	commandPath := writeCountingVersionedExecutableFixture(
+		t,
+		t.TempDir(),
+		"codex",
+		"codex 0.25.1",
+		counterPath,
+	)
+	now := time.Date(2026, time.March, 27, 18, 0, 0, 0, time.UTC)
+	checker, err := NewSystemChecker(SystemCheckerOptions{
+		WorkspaceRoot: workspaceRoot,
+		Now: func() time.Time {
+			return now
+		},
+	})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+
+	config := Config{
+		ID:                 "codex",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		CommandPath:        &commandPath,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	}
+
+	// Repeated checks with unchanged inputs should reuse the cached preflight
+	// result instead of re-running the codex CLI version probe.
+	firstStatus, err := checker.Check(config)
+	if err != nil {
+		t.Fatalf("first check: %v", err)
+	}
+	secondStatus, err := checker.Check(config)
+	if err != nil {
+		t.Fatalf("second check: %v", err)
+	}
+	if !firstStatus.Available || !secondStatus.Available {
+		t.Fatalf("expected cached codex preflight to stay available, got %#v and %#v", firstStatus, secondStatus)
+	}
+	if got := readInvocationCount(t, counterPath); got != 1 {
+		t.Fatalf("expected one codex version probe, got %d", got)
+	}
+}
+
+func TestSystemCheckerExpiresCachedPreflightResultsAfterTTL(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	counterPath := filepath.Join(t.TempDir(), "codex-version-count.txt")
+	commandPath := writeCountingVersionedExecutableFixture(
+		t,
+		t.TempDir(),
+		"codex",
+		"codex 0.25.1",
+		counterPath,
+	)
+	now := time.Date(2026, time.March, 27, 18, 30, 0, 0, time.UTC)
+	checker, err := NewSystemChecker(SystemCheckerOptions{
+		WorkspaceRoot: workspaceRoot,
+		Now: func() time.Time {
+			return now
+		},
+	})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+
+	config := Config{
+		ID:                 "codex",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		CommandPath:        &commandPath,
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	}
+
+	if _, err := checker.Check(config); err != nil {
+		t.Fatalf("first check: %v", err)
+	}
+	now = now.Add(preflightCacheTTL - time.Second)
+	if _, err := checker.Check(config); err != nil {
+		t.Fatalf("second check before ttl expiry: %v", err)
+	}
+	if got := readInvocationCount(t, counterPath); got != 1 {
+		t.Fatalf("expected cached preflight before ttl expiry, got %d probes", got)
+	}
+
+	now = now.Add(2 * time.Second)
+	if _, err := checker.Check(config); err != nil {
+		t.Fatalf("third check after ttl expiry: %v", err)
+	}
+	if got := readInvocationCount(t, counterPath); got != 2 {
+		t.Fatalf("expected ttl expiry to trigger a second probe, got %d", got)
+	}
+}
+
+func TestSystemCheckerInvalidatesCacheWhenWhitelistedEnvStatusChanges(t *testing.T) {
+	workspaceRoot := t.TempDir()
+	counterPath := filepath.Join(t.TempDir(), "codex-version-count.txt")
+	commandPath := writeCountingVersionedExecutableFixture(
+		t,
+		t.TempDir(),
+		"codex",
+		"codex 0.25.1",
+		counterPath,
+	)
+	now := time.Date(2026, time.March, 27, 19, 0, 0, 0, time.UTC)
+	checker, err := NewSystemChecker(SystemCheckerOptions{
+		WorkspaceRoot: workspaceRoot,
+		Now: func() time.Time {
+			return now
+		},
+	})
+	if err != nil {
+		t.Fatalf("new checker: %v", err)
+	}
+
+	config := Config{
+		ID:                 "codex",
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
+		CommandPath:        &commandPath,
+		EnvVarWhitelist:    []string{"OPENAI_API_KEY"},
+		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
+	}
+
+	// The cache key must include resolved env-var availability so a newly added
+	// workspace .env key invalidates the stale unavailable result immediately.
+	initialStatus, err := checker.Check(config)
+	if err != nil {
+		t.Fatalf("initial check: %v", err)
+	}
+	if initialStatus.Available {
+		t.Fatalf("expected initial status to be unavailable, got %#v", initialStatus)
+	}
+	if !containsIssue(initialStatus.Issues, "Missing env vars: OPENAI_API_KEY") {
+		t.Fatalf("expected missing env var issue, got %#v", initialStatus.Issues)
+	}
+	if got := readInvocationCount(t, counterPath); got != 1 {
+		t.Fatalf("expected one probe after initial missing-env check, got %d", got)
+	}
+
+	if err := os.WriteFile(
+		filepath.Join(workspaceRoot, ".env"),
+		[]byte("OPENAI_API_KEY=test-key\n"),
+		0o600,
+	); err != nil {
+		t.Fatalf("write workspace env: %v", err)
+	}
+
+	updatedStatus, err := checker.Check(config)
+	if err != nil {
+		t.Fatalf("updated check: %v", err)
+	}
+	if !updatedStatus.Available {
+		t.Fatalf("expected updated status to become available, got %#v", updatedStatus)
+	}
+	if got := readInvocationCount(t, counterPath); got != 2 {
+		t.Fatalf("expected env fingerprint change to re-run the probe, got %d", got)
+	}
+}
+
 func TestReadOpenCodeSDKVersionFromSidecarRootReadsPackageJSONVersion(t *testing.T) {
 	sidecarRoot := t.TempDir()
 	packageJSONPath := filepath.Join(sidecarRoot, "node_modules", "@opencode-ai", "sdk", "package.json")
@@ -672,6 +839,53 @@ func writeVersionedExecutableFixture(t *testing.T, dir string, name string, vers
 		t.Fatalf("write executable fixture: %v", err)
 	}
 	return path
+}
+
+func writeCountingVersionedExecutableFixture(
+	t *testing.T,
+	dir string,
+	name string,
+	version string,
+	counterPath string,
+) string {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	script := fmt.Sprintf(`#!/bin/sh
+COUNTER_FILE=%q
+count=0
+if [ -f "$COUNTER_FILE" ]; then
+  count=$(cat "$COUNTER_FILE")
+fi
+count=$((count + 1))
+printf '%%s' "$count" > "$COUNTER_FILE"
+if [ "$1" = "--version" ]; then
+  echo %q
+  exit 0
+fi
+if [ "$1" = "app-server" ] && [ "$2" = "--help" ]; then
+  exit 0
+fi
+exit 0
+`, counterPath, version)
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatalf("write counting executable fixture: %v", err)
+	}
+	return path
+}
+
+func readInvocationCount(t *testing.T, counterPath string) int {
+	t.Helper()
+
+	content, err := os.ReadFile(counterPath)
+	if err != nil {
+		t.Fatalf("read invocation counter: %v", err)
+	}
+	count, err := strconv.Atoi(strings.TrimSpace(string(content)))
+	if err != nil {
+		t.Fatalf("parse invocation counter: %v", err)
+	}
+	return count
 }
 
 func defaultFixtureVersion(name string) string {

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	"setta/internal/llmconfig"
@@ -34,6 +35,7 @@ type Status struct {
 }
 
 const defaultCLITimeout = 5 * time.Second
+const preflightCacheTTL = 30 * time.Second
 
 type Checker interface {
 	Check(config Config) (Status, error)
@@ -43,12 +45,60 @@ type SystemCheckerOptions struct {
 	WorkspaceRoot          string
 	ManagedAPIKeysLockRoot string
 	ProcessEnv             map[string]string
+	Now                    func() time.Time
 }
 
 type SystemChecker struct {
 	workspaceRoot          string
 	managedAPIKeysLockRoot string
 	processEnv             map[string]string
+	now                    func() time.Time
+	cacheMu                sync.Mutex
+	cache                  map[string]preflightCacheEntry
+}
+
+type preflightCacheEntry struct {
+	fingerprint string
+	status      Status
+	createdAt   time.Time
+}
+
+type preflightCacheFingerprint struct {
+	Config           Config   `json:"config"`
+	PresentEnvVars   []string `json:"presentEnvVars"`
+	MissingEnvVars   []string `json:"missingEnvVars"`
+	CorruptionIssue  string   `json:"corruptionIssue"`
+	UnavailableIssue string   `json:"unavailableIssue"`
+	WorkingDir       *string  `json:"workingDir,omitempty"`
+	WorkingDirIssue  string   `json:"workingDirIssue"`
+	BaseURL          *string  `json:"baseUrl,omitempty"`
+	BaseURLIssue     string   `json:"baseUrlIssue"`
+	CommandPath      *string  `json:"commandPath,omitempty"`
+	CommandPathIssue string   `json:"commandPathIssue"`
+}
+
+func cloneStatus(status Status) Status {
+	cloned := status
+	cloned.Issues = append([]string(nil), status.Issues...)
+	cloned.BaseURL = cloneStringPtr(status.BaseURL)
+	cloned.WorkingDir = cloneStringPtr(status.WorkingDir)
+	cloned.CommandPath = cloneStringPtr(status.CommandPath)
+	cloned.NodeVersion = cloneStringPtr(status.NodeVersion)
+	cloned.SDKVersion = cloneStringPtr(status.SDKVersion)
+	cloned.CLIVersion = cloneStringPtr(status.CLIVersion)
+	cloned.EnvVars = EnvVarStatus{
+		Present: append([]string(nil), status.EnvVars.Present...),
+		Missing: append([]string(nil), status.EnvVars.Missing...),
+	}
+	return cloned
+}
+
+func buildPreflightCacheFingerprint(value preflightCacheFingerprint) (string, error) {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		return "", fmt.Errorf("encode preflight cache fingerprint: %w", err)
+	}
+	return string(encoded), nil
 }
 
 func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
@@ -60,10 +110,16 @@ func NewSystemChecker(options SystemCheckerOptions) (*SystemChecker, error) {
 	if processEnv == nil {
 		processEnv = llmconfig.CurrentProcessEnv()
 	}
+	now := options.Now
+	if now == nil {
+		now = time.Now
+	}
 	return &SystemChecker{
 		workspaceRoot:          workspaceRoot,
 		managedAPIKeysLockRoot: strings.TrimSpace(options.ManagedAPIKeysLockRoot),
 		processEnv:             processEnv,
+		now:                    now,
+		cache:                  map[string]preflightCacheEntry{},
 	}, nil
 }
 
@@ -100,14 +156,33 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 		addIssue(fmt.Sprintf("Missing env vars: %s", strings.Join(envVars.Status.Missing, ", ")), true)
 	}
 	workingDir, workingDirIssue := c.resolveWorkingDir(normalized)
+	baseURL, baseURLIssue := validateBaseURL(normalized)
+	commandPath, commandIssue := c.resolveCommandPath(normalized)
+	cacheFingerprint, err := buildPreflightCacheFingerprint(preflightCacheFingerprint{
+		Config:           cloneConfig(normalized),
+		PresentEnvVars:   append([]string(nil), envVars.Status.Present...),
+		MissingEnvVars:   append([]string(nil), envVars.Status.Missing...),
+		CorruptionIssue:  envVars.CorruptionIssue,
+		UnavailableIssue: envVars.UnavailableIssue,
+		WorkingDir:       cloneStringPtr(workingDir),
+		WorkingDirIssue:  workingDirIssue,
+		BaseURL:          cloneStringPtr(baseURL),
+		BaseURLIssue:     baseURLIssue,
+		CommandPath:      cloneStringPtr(commandPath),
+		CommandPathIssue: commandIssue,
+	})
+	if err != nil {
+		return Status{}, err
+	}
+	if cached, ok := c.loadCachedStatus(normalized.ID, cacheFingerprint); ok {
+		return cached, nil
+	}
 	if workingDirIssue != "" {
 		addIssue(workingDirIssue, true)
 	}
-	baseURL, baseURLIssue := validateBaseURL(normalized)
 	if baseURLIssue != "" {
 		addIssue(baseURLIssue, true)
 	}
-	commandPath, commandIssue := c.resolveCommandPath(normalized)
 	if commandIssue != "" {
 		addIssue(commandIssue, true)
 	}
@@ -181,7 +256,42 @@ func (c *SystemChecker) Check(config Config) (Status, error) {
 			Missing: append([]string(nil), envVars.Status.Missing...),
 		},
 	}
+	c.storeCachedStatus(normalized.ID, cacheFingerprint, status)
 	return status, nil
+}
+
+func (c *SystemChecker) loadCachedStatus(configID string, fingerprint string) (Status, bool) {
+	if c == nil {
+		return Status{}, false
+	}
+	now := c.now()
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+	entry, ok := c.cache[configID]
+	if !ok {
+		return Status{}, false
+	}
+	if now.Sub(entry.createdAt) > preflightCacheTTL {
+		delete(c.cache, configID)
+		return Status{}, false
+	}
+	if entry.fingerprint != fingerprint {
+		return Status{}, false
+	}
+	return cloneStatus(entry.status), true
+}
+
+func (c *SystemChecker) storeCachedStatus(configID string, fingerprint string, status Status) {
+	if c == nil {
+		return
+	}
+	c.cacheMu.Lock()
+	defer c.cacheMu.Unlock()
+	c.cache[configID] = preflightCacheEntry{
+		fingerprint: fingerprint,
+		status:      cloneStatus(status),
+		createdAt:   c.now(),
+	}
 }
 
 func isSupported(toolType ToolType, runMode RunMode) bool {
