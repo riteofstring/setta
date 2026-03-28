@@ -53,7 +53,7 @@ import type { DictAreaBlockFrameMountPacket } from "./groupContainerBlockFramePa
 import { buildLiveDictAreaNodeDrawPacket } from "./groupContainerNodeDrawPacket";
 import {
   buildLiveDictAreaNodeCanvasPacket,
-  type LiveDictAreaEdgeStripPainterPacket,
+  type LiveDictAreaEdgeStripCanvasPacket,
   type LiveDictAreaPinnedParamAreaPainterPacket,
   type LiveDictAreaUnpinnedParamAreaPainterPacket,
 } from "./groupContainerNodeCanvasPacket";
@@ -389,7 +389,7 @@ function _ParamGroupContainer({
               <EdgesStrip
                 key={block.mount.frameId}
                 sectionId={sectionId}
-                painterPacket={block}
+                canvasPacket={block}
               />
             );
           }
@@ -561,13 +561,13 @@ function useMeasuredParamAreaMinHeight({
 
 function EdgesStrip({
   sectionId,
-  painterPacket,
+  canvasPacket,
 }: {
   sectionId: string;
-  painterPacket: LiveDictAreaEdgeStripPainterPacket;
+  canvasPacket: LiveDictAreaEdgeStripCanvasPacket;
 }) {
   const { bgColor, positionAndSizeLocked, styleColor, visualPacket } =
-    painterPacket;
+    canvasPacket;
   const lastHeightRef = useRef(0);
   const stripRef = useRef<HTMLElement | null>(null);
   const [measuredHeight, setMeasuredHeight] = useState<number | null>(null);

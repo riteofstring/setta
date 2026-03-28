@@ -1224,3 +1224,33 @@ Record:
     - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, and `POST /api/getLatestLspDiagnostics`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the first block-specific scene-owned canvas helper from `groupContainerNodeCanvasPacket.ts`, starting with the edge-strip block before any broad Pixi node drawing lands.
+
+## 2026-03-26 047
+
+- Item: Extract the edge-strip block into the first block-specific scene-owned canvas helper.
+- Status: `done`
+- Details:
+  - Added a pure typed canvas-packet helper for the live dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripCanvasPacket.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripCanvasPacket.test.ts`
+  - Updated the higher-level node canvas packet boundary to compose through the new edge-strip canvas helper instead of passing the edge-strip painter block through inline:
+    - `frontend/src/components/Params/groupContainerNodeCanvasPacket.ts`
+  - Updated the production non-Pixi `GroupContainer` edge-strip mount site to consume the new canvas-specific edge-strip packet type while keeping the current DOM path unchanged:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the edge-strip painter block into one explicit canvas packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node canvas packet as a composition boundary instead of a mixed composition-plus-edge-strip-shaping module
+    - leaving the current DOM edge-strip mount path intact while deepening the future retained-scene block-specific canvas contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripCanvasPacket.test.ts src/components/Params/groupContainerNodeCanvasPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - bootstrap authenticated into `/home`, then `/settings` loaded with `All Settings` visible at `http://127.0.0.1:3044/settings`
+    - the visible settings shell and dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `defaultZoomLevel`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, `Zoom On Scroll`, plus edge-strip-related top-bar toggles `toggle agentic edges`, `toggle arg edges`, and `toggle shared chat edge mode`
+    - a dedicated edge-strip subsection was not visible in the current viewport/session, so the CDP pass verified the authenticated settings/dict-param surface rather than a separate edge-strip row
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `GET /api/plugins/runtime`, and `GET /api/getEngineConfigs`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned canvas helper from `groupContainerNodeCanvasPacket.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
