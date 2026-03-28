@@ -2986,6 +2986,95 @@ func TestAppCreateNewSectionVariantRouteBroadcastsProjectStateUpdate(t *testing.
 	}
 }
 
+func TestAppSetSectionVariantRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = websocketSetSectionVariantCodegenProject(t)
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed section variant codegen project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetSectionVariant,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"callable-section","variantId":"callable-variant-2","frontendOpId":"set-section-variant-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new set section variant request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set section variant: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if !containsAppString(content.CompletedOpIDs, "set-section-variant-op") {
+		t.Fatalf("expected completed set-section-variant-op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+	if got := content.ProjectState.ProjectConfig.SectionVariantMap["callable-section"]; got != "callable-variant-2" {
+		t.Fatalf("expected websocket update to select callable-variant-2, got %q", got)
+	}
+	generatedSectionID := content.ProjectState.SingletonSections.GenPythonCode
+	if generatedSectionID == nil || *generatedSectionID == "" {
+		t.Fatalf("expected generated python singleton in websocket update, got %#v", content.ProjectState.SingletonSections)
+	}
+	generatedVariantID := content.ProjectState.ProjectConfig.SectionVariantMap[*generatedSectionID]
+	if generatedVariantID == "" {
+		t.Fatalf("expected generated python variant mapping for %q", *generatedSectionID)
+	}
+	generatedImplID := content.ProjectState.SectionVariants[generatedVariantID].Impl
+	payload := string(content.ProjectState.SectionImpls[generatedImplID])
+	if !strings.Contains(payload, `sorted(`) {
+		t.Fatalf("expected websocket update to include regenerated python for sorted variant, got %q", payload)
+	}
+}
+
 func TestAppToggleIsEditingViewModeRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -5608,6 +5697,98 @@ func appCallableAutoRefetchProject(t *testing.T) projectstate.Project {
 	}.Normalized()
 	if err != nil {
 		t.Fatalf("normalize callable auto-refetch project: %v", err)
+	}
+	return project
+}
+
+func websocketSetSectionVariantCodegenProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
+	project, err := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{Language: string(projectstate.CodeLanguagePython)},
+		},
+		TopLevelSectionIDs: []string{
+			"callable-section",
+		},
+		TopLevelSections: map[string]projectstate.TopLevelSectionLayout{
+			"callable-section": {X: 40, Y: 40},
+		},
+		WindowSpaces: map[string]projectstate.WindowSpaceConfig{},
+		SectionVariantMap: map[string]string{
+			"callable-section": "callable-variant-1",
+		},
+		ProjectChatWindowing: &defaultWindowing,
+		Sections: map[string]projectstate.Section{
+			"callable-section": {
+				ID:               "callable-section",
+				Name:             "Callable Section",
+				VariantIDs:       []string{"callable-variant-1", "callable-variant-2"},
+				DefaultVariantID: "callable-variant-1",
+				UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"callable-variant-1": {
+				ID:     "callable-variant-1",
+				ImplID: "callable-impl-1",
+			},
+			"callable-variant-2": {
+				ID:     "callable-variant-2",
+				ImplID: "callable-impl-2",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"callable-impl-1": {
+				ID:   "callable-impl-1",
+				Kind: projectstate.SectionKind("callable"),
+				Payload: projectstate.RawJSON(`{
+					"id":"callable-impl-1",
+					"type":"Callable",
+					"callable":null,
+					"codeObjVariantMap":{}
+				}`),
+			},
+			"callable-impl-2": {
+				ID:   "callable-impl-2",
+				Kind: projectstate.SectionKind("callable"),
+				Payload: projectstate.RawJSON(`{
+					"id":"callable-impl-2",
+					"type":"Callable",
+					"callable":"callable-2",
+					"codeObjVariantMap":{
+						"callable-2":"callable-code-variant-2"
+					}
+				}`),
+			},
+		},
+		CodeObjs: map[string]projectstate.CodeObject{
+			"callable-2": {
+				ID:               "callable-2",
+				Name:             "sorted",
+				VariantIDs:       []string{"callable-code-variant-2"},
+				DefaultVariantID: "callable-code-variant-2",
+			},
+		},
+		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
+			"callable-code-variant-2": {
+				ID:     "callable-code-variant-2",
+				ImplID: "callable-code-impl-2",
+			},
+		},
+		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
+			"callable-code-impl-2": {
+				ID:      "callable-code-impl-2",
+				Type:    "CodeCallable",
+				Payload: projectstate.RawJSON(`{"id":"callable-code-impl-2","type":"CodeCallable","children":[]}`),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize section variant codegen project: %v", err)
 	}
 	return project
 }

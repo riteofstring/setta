@@ -9,6 +9,8 @@ import {
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
+  seedLocalStorage,
+  setCallableFromFrontend,
   setCodeObjNameFromFrontend,
   setOverviewTab,
   setParamEnteredValueFromFrontend,
@@ -199,6 +201,96 @@ async function loadLatestCodegenProjectState(
     throw new Error("Missing latest project state response.");
   }
   return response.projectState;
+}
+
+async function createSectionVariantFromFrontend(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+): Promise<string> {
+  return await page.evaluate(
+    async ({
+      targetProjectConfigId,
+      targetSectionId,
+    }: {
+      targetProjectConfigId: string;
+      targetSectionId: string;
+    }) => {
+      const { res200 } = await import("/src/utils/endpointUtils");
+      const { processProjectStateUpdateFromBackend } = await import(
+        "/src/state/actions/sectionInfos"
+      );
+      const {
+        route_create_new_section_variant,
+        route_get_latest_project_state,
+      } = await import("/src/utils/generatedEndpoints");
+
+      const createResponse = await route_create_new_section_variant({
+        projectConfigId: targetProjectConfigId,
+        sectionId: targetSectionId,
+        frontendOpId: null,
+      });
+      if (!res200(createResponse)) {
+        throw new Error(
+          `create_new_section_variant failed: ${createResponse.status}`,
+        );
+      }
+
+      const latestResponse = await route_get_latest_project_state({
+        projectConfigId: targetProjectConfigId,
+      });
+      if (!res200(latestResponse)) {
+        throw new Error(
+          `get_latest_project_state failed: ${latestResponse.status}`,
+        );
+      }
+      processProjectStateUpdateFromBackend(latestResponse.data);
+      return createResponse.data.variantId;
+    },
+    {
+      targetProjectConfigId: projectConfigId,
+      targetSectionId: sectionId,
+    },
+  );
+}
+
+async function setSectionVariantFromFrontend(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  variantId: string,
+): Promise<void> {
+  await page.evaluate(
+    async ({
+      targetProjectConfigId,
+      targetSectionId,
+      targetVariantId,
+    }: {
+      targetProjectConfigId: string;
+      targetSectionId: string;
+      targetVariantId: string;
+    }) => {
+      const { res200 } = await import("/src/utils/endpointUtils");
+      const { route_set_section_variant } = await import(
+        "/src/utils/generatedEndpoints"
+      );
+
+      const response = await route_set_section_variant({
+        projectConfigId: targetProjectConfigId,
+        sectionId: targetSectionId,
+        variantId: targetVariantId,
+        frontendOpId: null,
+      });
+      if (!res200(response)) {
+        throw new Error(`set_section_variant failed: ${response.status}`);
+      }
+    },
+    {
+      targetProjectConfigId: projectConfigId,
+      targetSectionId: sectionId,
+      targetVariantId: variantId,
+    },
+  );
 }
 
 function getSectionChildren(
@@ -781,6 +873,98 @@ test("generated python updates for callable and param changes and reports missin
     await expect
       .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
       .not.toMatch(/bg-red-200/);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("generated python updates when switching callable section variants", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await seedLocalStorage(page, {
+    overviewTab: "Overview",
+    overviewVis: true,
+    uiEditorVis: true,
+    uiEditorTab: { Callable: "SectionVariantsConfig" },
+  });
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const initialState = await loadCodegenProjectState(page);
+    const generatedSectionId = initialState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+    const generatedCodeContent = page.locator(
+      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+    );
+    await expect(generatedCodeContent).toBeVisible();
+
+    const sectionId = await createCallableSection(
+      page,
+      projectContext.projectConfigId,
+    );
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
+    await expect(sectionNode).toBeVisible();
+    await sectionNode.click();
+
+    const originalVariantId = (await loadCodegenProjectState(page))
+      .projectConfig.sectionVariantMap[sectionId];
+    if (!originalVariantId) {
+      throw new Error("Expected original callable section variant.");
+    }
+    const generatedCodeWithoutCallable = (
+      (await generatedCodeContent.textContent()) ?? ""
+    ).replace(/\s+/g, " ");
+
+    const secondVariantId = await createSectionVariantFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+    );
+
+    await setCallableFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      callableName: "sorted",
+      refetchParams: false,
+    });
+
+    await expect
+      .poll(async () =>
+        ((await generatedCodeContent.textContent()) ?? "").replace(/\s+/g, " "),
+      )
+      .toContain("sorted");
+
+    await setSectionVariantFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+      originalVariantId,
+    );
+
+    await expect
+      .poll(async () =>
+        ((await generatedCodeContent.textContent()) ?? "").replace(/\s+/g, " "),
+      )
+      .toBe(generatedCodeWithoutCallable);
+
+    await setSectionVariantFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      sectionId,
+      secondVariantId,
+    );
+
+    await expect
+      .poll(async () =>
+        ((await generatedCodeContent.textContent()) ?? "").replace(/\s+/g, " "),
+      )
+      .toContain("sorted");
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

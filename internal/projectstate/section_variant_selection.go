@@ -35,6 +35,9 @@ func (r *Runtime) SetSectionVariant(ctx context.Context, projectID string, secti
 		if err := document.SetSectionVariant(projectID, sectionID, variantID); err != nil {
 			return Document{}, err
 		}
+		if err := r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(ctx, &document, projectID); err != nil {
+			return Document{}, err
+		}
 		return document, nil
 	})
 }

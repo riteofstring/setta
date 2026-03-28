@@ -1069,6 +1069,70 @@ func TestRuntimeSetCallableReconcilesGeneratedPythonSectionsWhenConfigured(t *te
 	}
 }
 
+func TestRuntimeSetSectionVariantReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	project := testRuntimeSemanticMutationPythonProject(t)
+	createdVariant, err := project.CreateNewSectionVariant(CreateNewSectionVariantInput{
+		SectionID: "callable-section",
+	})
+	if err != nil {
+		t.Fatalf("create new section variant for semantic mutation fixture: %v", err)
+	}
+	if _, err := project.SetCallable(
+		context.Background(),
+		"callable-section",
+		"sorted",
+		false,
+		nil,
+	); err != nil {
+		t.Fatalf("set callable in created section variant: %v", err)
+	}
+	if err := project.SetSectionVariant("callable-section", "callable-variant-1"); err != nil {
+		t.Fatalf("restore original active section variant: %v", err)
+	}
+
+	store := newTestStore(t, filepath.Join(t.TempDir(), "project.json"))
+	document := Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}
+	if err := store.Save(context.Background(), document); err != nil {
+		t.Fatalf("save initial document: %v", err)
+	}
+	runtime := openTestRuntimeWithOptions(t, store, RuntimeOptions{
+		PythonCodegenSectionReconciler: testRuntimeSemanticMutationPythonGeneratedSectionReconciler(),
+	})
+
+	snapshot, err := runtime.SetSectionVariant(
+		context.Background(),
+		"project-alpha",
+		"callable-section",
+		createdVariant.VariantID,
+	)
+	if err != nil {
+		t.Fatalf("set section variant through runtime: %v", err)
+	}
+
+	projectSnapshot, err := snapshot.Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("lookup mutated project: %v", err)
+	}
+	impl, ok := projectSnapshot.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl after section variant mutation, got %#v", projectSnapshot.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `callable=sorted`) {
+		t.Fatalf("expected generated python payload to include switched variant callable, got %q", string(impl.Payload))
+	}
+	if !strings.Contains(string(impl.Payload), `arg=user_value`) {
+		t.Fatalf("expected generated python payload to preserve switched variant param value, got %q", string(impl.Payload))
+	}
+}
+
 func TestRuntimeSetSectionCodeObjectValueReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
 	t.Parallel()
 

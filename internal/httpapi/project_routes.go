@@ -2500,13 +2500,18 @@ func setSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.SetSectionVariant(
+		snapshot, err := runtime.SetSectionVariant(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.SectionID,
 			payload.VariantID,
-		); err != nil {
+		)
+		if err != nil {
 			writeSectionVariantMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
