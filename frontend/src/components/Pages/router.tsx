@@ -1,16 +1,15 @@
-import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
-import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
-import { createElement } from "react";
+import type { CreateModeWrappedBrowserRouterArgs } from "./modeWrappedBrowserRouter";
 import { createModeWrappedBrowserRouter } from "./modeWrappedBrowserRouter";
 import { buildModeWrappedRouterArgs } from "./modeWrappedRouterArgs";
 
-function renderStandaloneProjectSurfaceRouteDictArea(
-  props: SectionContainerAreaDictProps,
-) {
-  return createElement(SectionContainerAreaDictBoundary, props);
-}
+export type CreateAppRouterArgs = Pick<
+  CreateModeWrappedBrowserRouterArgs,
+  "renderDictArea"
+>;
 
-export const router = createModeWrappedBrowserRouter({
-  ...buildModeWrappedRouterArgs(),
-  renderDictArea: renderStandaloneProjectSurfaceRouteDictArea,
-});
+export function createAppRouter({ renderDictArea }: CreateAppRouterArgs) {
+  return createModeWrappedBrowserRouter({
+    ...buildModeWrappedRouterArgs(),
+    renderDictArea,
+  });
+}

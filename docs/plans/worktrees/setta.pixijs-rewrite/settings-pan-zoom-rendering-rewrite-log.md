@@ -4995,3 +4995,37 @@ Record:
     - because the targeted seam still serves the standalone section dict-area path and the live worktree runtime still exposes no healthy standalone-section surface canary, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked fully visually verified
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with `frontend/src/App.tsx`, while keeping the live standalone-section canary issue explicit for later resolution.
+
+## 2026-03-28 171
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/App.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone/share dict-area renderer seam one caller higher so `App.tsx` now owns the shared `renderDictArea(...)` handoff above `frontend/src/components/Pages/router.tsx`:
+    - `frontend/src/App.tsx`
+    - `frontend/src/components/Pages/router.tsx`
+  - Added focused coverage to pin the new top-level ownership boundary and keep `router.tsx` on a caller-owned pass-through seam:
+    - `frontend/src/App.test.tsx`
+    - `frontend/src/components/Pages/routerModule.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedBrowserRouter.test.tsx`
+    - `frontend/src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - the app shell still creating one top-level router before rendering `RouterProvider`
+    - the standalone/share route stack still receiving the same `SectionContainerAreaDictBoundary` renderer, now supplied by `App.tsx` instead of `router.tsx`
+    - `router.tsx` staying focused on router-args assembly plus browser-router creation instead of mixed router creation plus dict-renderer ownership
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/App.test.tsx src/components/Pages/routerModule.test.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/modeWrappedAppRouteStack.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/app/app-mode-routing.spec.ts --grep "app routes select the configured UI root"`
+    - result: passed (`1` passed)
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` in a fresh sub-agent context:
+    - `http://127.0.0.1:3044/settings/chat` rendered normally with visible controls including `Start a new thread`, `Create Project`, `Summarize Codebase`, `Plan Next Steps`, `Type a message...`, and the send control
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+    - the live standalone section-route canary is still not trustworthy on this worktree runtime:
+      - `http://127.0.0.1:3044/settings/section/gui` crashed into the unhandled error overlay
+      - the stack starts at `getCurrSectionVariantId` in `src/state/actions/sectionInfos.ts:349`
+    - because the targeted seam still serves the standalone section dict-area path and the live worktree runtime still exposes no healthy standalone-section surface canary, this slice is being treated as code-complete with the live section-surface CDP gate deferred rather than falsely marked fully visually verified
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/App.tsx`, starting with `frontend/src/index.tsx`, while keeping the live standalone-section canary issue explicit for later resolution.

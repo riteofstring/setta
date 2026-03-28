@@ -1,4 +1,3 @@
-import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 afterEach(() => {
@@ -7,7 +6,7 @@ afterEach(() => {
 });
 
 describe("router module", () => {
-  it("owns the lifted dict-area renderer seam above modeWrappedBrowserRouter", async () => {
+  it("owns only the router-args handoff above modeWrappedBrowserRouter", async () => {
     const routerArgs = {
       renderModeElement: vi.fn(),
       indexRouteElements: {
@@ -55,25 +54,8 @@ describe("router module", () => {
       revalidate: vi.fn(),
       subscribe: vi.fn(),
     };
+    const renderDictArea = vi.fn();
 
-    vi.doMock(
-      "components/Section/Container/SectionContainerAreaDictBoundary",
-      () => ({
-        SectionContainerAreaDictBoundary: ({
-          bgColor,
-          sectionId,
-        }: {
-          bgColor: string;
-          sectionId: string;
-        }) => (
-          <div
-            data-testid="mock-section-container-area-dict-boundary"
-            data-bg-color={bgColor}
-            data-section-id={sectionId}
-          />
-        ),
-      }),
-    );
     vi.doMock("./modeWrappedRouterArgs", () => ({
       buildModeWrappedRouterArgs: vi.fn(() => routerArgs),
     }));
@@ -81,49 +63,19 @@ describe("router module", () => {
       createModeWrappedBrowserRouter: vi.fn(() => routerValue),
     }));
 
-    const { router } = await import("./router");
+    const { createAppRouter } = await import("./router");
     const { buildModeWrappedRouterArgs } = await import("./modeWrappedRouterArgs");
     const { createModeWrappedBrowserRouter } = await import(
       "./modeWrappedBrowserRouter"
     );
 
+    const router = createAppRouter({ renderDictArea });
+    expect(router).toBe(routerValue);
     expect(buildModeWrappedRouterArgs).toHaveBeenCalledOnce();
     expect(createModeWrappedBrowserRouter).toHaveBeenCalledOnce();
     expect(createModeWrappedBrowserRouter).toHaveBeenCalledWith({
       ...routerArgs,
-      renderDictArea: expect.any(Function),
+      renderDictArea,
     });
-    const routedArgs = vi.mocked(createModeWrappedBrowserRouter).mock.calls[0][0];
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-section-id="section-1"');
-    expect(
-      renderToStaticMarkup(
-        <>
-          {routedArgs.renderDictArea({
-            sectionId: "section-1",
-            bgColor: "#123456",
-          })}
-        </>,
-      ),
-    ).toContain('data-bg-color="#123456"');
-    expect(router).toBe(routerValue);
   });
 });
