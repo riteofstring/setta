@@ -1,7 +1,6 @@
 import {
   buildLiveDictAreaNodeCanvasPacket,
   type LiveDictAreaNodeCanvasPacket,
-  type LiveDictAreaUnpinnedParamAreaCanvasPacket,
 } from "./groupContainerNodeCanvasPacket";
 import { buildLiveDictAreaNodeDrawPacket } from "./groupContainerNodeDrawPacket";
 import {
@@ -13,11 +12,14 @@ import {
   type LiveDictAreaPinnedParamAreaMountPacket,
 } from "./groupContainerPinnedParamAreaMountPacket";
 import type { LiveDictAreaNodeSurfacePacket } from "./groupContainerNodeSurfacePacket";
+import {
+  buildLiveDictAreaUnpinnedParamAreaMountPacket,
+  type LiveDictAreaUnpinnedParamAreaMountPacket,
+} from "./groupContainerUnpinnedParamAreaMountPacket";
 
-export type LiveDictAreaUnpinnedParamAreaMountPacket =
-  LiveDictAreaUnpinnedParamAreaCanvasPacket;
 export type { LiveDictAreaEdgeStripMountPacket } from "./groupContainerEdgeStripMountPacket";
 export type { LiveDictAreaPinnedParamAreaMountPacket } from "./groupContainerPinnedParamAreaMountPacket";
+export type { LiveDictAreaUnpinnedParamAreaMountPacket } from "./groupContainerUnpinnedParamAreaMountPacket";
 
 export type LiveDictAreaNodeMountPacket = {
   domBlocks: (
@@ -54,6 +56,11 @@ export function buildLiveDictAreaNodeMountPacket({
         canvasPacket: nodeCanvasPacket.domPinnedParamAreaBlock,
       })
     : null;
+  const unpinnedParamAreaBlock = nodeCanvasPacket.domUnpinnedParamAreaBlock
+    ? buildLiveDictAreaUnpinnedParamAreaMountPacket({
+        canvasPacket: nodeCanvasPacket.domUnpinnedParamAreaBlock,
+      })
+    : null;
 
   return {
     domBlocks: nodeCanvasPacket.domBlocks.flatMap((block) => {
@@ -61,14 +68,14 @@ export function buildLiveDictAreaNodeMountPacket({
         block,
         edgeStripBlock,
         pinnedParamAreaBlock,
-        unpinnedParamAreaBlock: nodeCanvasPacket.domUnpinnedParamAreaBlock,
+        unpinnedParamAreaBlock,
       });
 
       return mountBlock ? [mountBlock] : [];
     }),
     domEdgeStripBlock: edgeStripBlock,
     domPinnedParamAreaBlock: pinnedParamAreaBlock,
-    domUnpinnedParamAreaBlock: nodeCanvasPacket.domUnpinnedParamAreaBlock,
+    domUnpinnedParamAreaBlock: unpinnedParamAreaBlock,
     edgeStrip: nodeCanvasPacket.edgeStrip,
     maxNestedDepth: nodeCanvasPacket.maxNestedDepth,
     scenePacket: nodeCanvasPacket.scenePacket,
