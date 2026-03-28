@@ -69,10 +69,11 @@ Per-file rule:
 
 1. Before changing a messy target file, use the relevant architecture/cleanup skill to simplify and deepen the module first.
 2. Make the cleanup a separate step with a clear boundary.
-3. Write or update tests for the new behavior before implementing the Pixi/scene work.
-4. Implement the new behavior.
-5. Run the relevant tests and verification.
-6. Append the log with status, files touched, benchmark/test state, and next action.
+3. The cleanup/refactor step must end in a working, verified state on the current non-Pixi path before any Pixi/scene rewrite begins for that slice.
+4. Write or update tests for the intended behavior before implementing the Pixi/scene work.
+5. Implement the new behavior only after the refactored baseline is working again.
+6. Run the relevant tests and verification.
+7. Append the log with status, files touched, benchmark/test state, and next action.
 
 Skill rule:
 
@@ -84,8 +85,9 @@ TDD rule:
 - every work item should explicitly follow:
   - baseline / context read
   - cleanup/refactor of the target file or cluster
+  - restore the refactored code to a working, verified non-Pixi state
   - tests for the intended new behavior
-  - implementation
+  - Pixi/scene implementation
   - test run and verification
   - append-only log update
 
@@ -644,6 +646,7 @@ Tasks:
 - benchmark continuously against `settings` and `tier1Synthetic`
 - reject expansions that preserve correctness but fail the `Paint` gate
 - apply the cleanup-first, test-first workflow for each file cluster before scene migration work lands
+- do not begin Pixi migration for a slice until the refactored non-Pixi version of that slice is working and verified
 
 ## Evidence Base
 
@@ -665,7 +668,7 @@ These collectively show:
 1. Update the rewrite RFC language to retained-scene/GPU-first rather than "canvas-first".
 2. Lock the stricter visible-surface rule: visible graph pixels stay scene-owned by default, and code editing cannot require an extra activation click.
 3. Add explicit text/layout and edge strategy sections before implementation work expands.
-4. Add the cleanup-first, skill-assisted TDD workflow to the branch handoff checklist.
+4. Add the cleanup-first, skill-assisted TDD workflow to the branch handoff checklist, including the rule that the refactored non-Pixi slice must be working before Pixi work starts.
 5. Lock the vertical slice: one benchmark scene, one text-heavy node type, edges included, first-click CodeMirror editing, one popup control, and one graph-surface drag/reorder path.
 6. Restart the implementation from `main`.
 7. Transfer the revised plan and append-only log into the new branch once it exists.

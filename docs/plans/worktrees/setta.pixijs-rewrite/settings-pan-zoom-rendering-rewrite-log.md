@@ -102,3 +102,16 @@ Record:
   - Preserved the earlier entries as the imported research history from the previous worktree.
 - Next action:
   - Start the branch-local vertical slice from `main` with the cleanup-first, test-first workflow on the first selected file cluster.
+
+## 2026-03-26 004
+
+- Item: Clarify the pre-Pixi gate in the rewrite docs.
+- Status: `done`
+- Details:
+  - Updated the rewrite plan to make the workflow requirement explicit:
+    - cleanup/refactor is its own stage with a clear boundary
+    - the refactored non-Pixi path for a slice must be working and verified before any Pixi/scene rewrite begins for that slice
+    - Pixi implementation should start only after that working baseline is restored
+  - Tightened the handoff language so later implementation does not skip directly from cleanup into Pixi work.
+- Next action:
+  - When the first vertical slice starts, treat the restored non-Pixi refactor as a hard gate before any scene migration code lands.
