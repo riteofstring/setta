@@ -1283,3 +1283,31 @@ Record:
     - representative requests returned `200`, including `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, `POST /api/loadSettings`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific scene-owned canvas helper from `groupContainerNodeCanvasPacket.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-26 049
+
+- Item: Extract the unpinned param-area block into the next block-specific scene-owned canvas helper.
+- Status: `done`
+- Details:
+  - Added a pure typed canvas-packet helper for the live dict-area unpinned param area:
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaCanvasPacket.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaCanvasPacket.test.ts`
+  - Updated the higher-level node canvas packet boundary to compose through the new unpinned helper instead of passing the unpinned painter block through inline:
+    - `frontend/src/components/Params/groupContainerNodeCanvasPacket.ts`
+  - Updated the production non-Pixi `GroupContainer` unpinned mount site to consume the new canvas-specific unpinned packet type while keeping the current DOM path unchanged:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the unpinned param-area painter block into one explicit canvas packet with stable `blockId`, `kind`, and mount metadata
+    - keeping the higher-level node canvas packet as a composition boundary instead of a mixed composition-plus-unpinned-block-shaping module
+    - leaving the current DOM unpinned param-area mount path intact while deepening the future retained-scene block-specific canvas contract
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerUnpinnedParamAreaCanvasPacket.test.ts src/components/Params/groupContainerNodeCanvasPacket.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+    - `/settings` loaded authenticated with `All Settings` visible
+    - the visible dict/param area rendered normally after the unpinned canvas packet extraction, with representative labels and controls including `Param Defaults`, `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `Autosave`, `Grid Color`, `Pan On Drag`, `Show Grid Lines`, and `Time Param` with `minHeight 32.0` and `minWidth 200.0`
+    - relevant requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/plugins/runtime`, `GET /api/llm/apiKeys`, `GET /api/llm/config`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getExternalAgentConfigs`, `GET /api/getExternalAgentHealth`, `GET /api/getEngineConfigs`, `GET /api/getTranscriptionProfiles`, `POST /api/setProjectChatWindowingState`, `POST /api/getFileBrowserRoot`, `GET /api/getAgentRuns`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the first retained-scene node renderer work by composing the edge, pinned, and unpinned block-specific canvas helpers into the next higher-level scene-owned packet above `groupContainerNodeCanvasPacket.ts` before any broad Pixi node drawing lands.

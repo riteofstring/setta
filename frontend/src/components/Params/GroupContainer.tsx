@@ -55,7 +55,7 @@ import {
   buildLiveDictAreaNodeCanvasPacket,
   type LiveDictAreaEdgeStripCanvasPacket,
   type LiveDictAreaPinnedParamAreaCanvasPacket,
-  type LiveDictAreaUnpinnedParamAreaPainterPacket,
+  type LiveDictAreaUnpinnedParamAreaCanvasPacket,
 } from "./groupContainerNodeCanvasPacket";
 import { buildLiveDictAreaNodeScenePacket } from "./groupContainerNodeScenePacket";
 import {
@@ -409,7 +409,7 @@ function _ParamGroupContainer({
             <GetUnpinnedParams
               key={block.mount.frameId}
               sectionId={sectionId}
-              painterPacket={block}
+              canvasPacket={block}
               handleColumnResizeStart={handleColumnResizeStart}
             />
           );
@@ -822,7 +822,7 @@ type PinnedParamsAreaProps = {
 
 type GetUnpinnedParamsProps = {
   sectionId: string;
-  painterPacket: LiveDictAreaUnpinnedParamAreaPainterPacket;
+  canvasPacket: LiveDictAreaUnpinnedParamAreaCanvasPacket;
   handleColumnResizeStart: React.MouseEventHandler<HTMLDivElement>;
 };
 
@@ -985,10 +985,10 @@ function PinnedParamsArea({
 
 function GetUnpinnedParams({
   sectionId,
-  painterPacket,
+  canvasPacket,
   handleColumnResizeStart,
 }: GetUnpinnedParamsProps) {
-  const { styleColor, visualPacket } = painterPacket;
+  const { styleColor, visualPacket } = canvasPacket;
   const darkMode = useLocalStorage((x) => x.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(sectionId);
   const previewStyleColor = useTemporaryMiscState(
