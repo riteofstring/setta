@@ -206,3 +206,46 @@ Record:
   - This satisfies the pre-edit CDP visual baseline gate required before starting the cleanup-first non-Pixi pass on the dict/param cluster.
 - Next action:
   - Start the cleanup-first non-Pixi pass on `frontend/src/components/Params/ParamContainer.tsx`, with tests added or updated before behavior changes.
+
+## 2026-03-26 009
+
+- Item: Start the cleanup-first non-Pixi pass on `frontend/src/components/Params/ParamContainer.tsx`.
+- Status: `blocked`
+- Details:
+  - Refactored `frontend/src/components/Params/ParamContainer.tsx` to collapse the duplicated article branches behind a typed shared wrapper plus a new pure helper module:
+    - `frontend/src/components/Params/paramContainerView.ts`
+  - Added focused Vitest coverage for the new helper boundary:
+    - `frontend/src/components/Params/paramContainerView.test.ts`
+  - Verification completed before the blocker:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/paramContainerView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+  - Verification blocker:
+    - required Chrome DevTools MCP visual check could not run
+    - fresh-context CDP sub-agent reported `127.0.0.1:9266` was not listening
+    - because the required post-edit visual gate is unavailable, this cleanup slice is not being marked complete or committed in this iteration
+- Next action:
+  - Restart `./ai.sh` for this worktree so CDP is reachable again, then rerun the post-edit `/settings` visual verification on `All Settings`; if it passes, append the success result and commit this `ParamContainer` cleanup slice.
+
+## 2026-03-26 010
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/components/Params/ParamContainer.tsx`.
+- Status: `done`
+- Details:
+  - Kept the `ParamContainer` cleanup refactor in the non-Pixi path and finished the verification/commit gate for this slice:
+    - `frontend/src/components/Params/ParamContainer.tsx`
+    - `frontend/src/components/Params/paramContainerView.ts`
+    - `frontend/src/components/Params/paramContainerView.test.ts`
+  - The refactor boundary now lives in a pure typed helper so the container renders through one shared article wrapper while preserving the existing leaf/top-level-nested/nested layout variants.
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/paramContainerView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3043/settings`) after bootstrapping via `http://127.0.0.1:8043/__setta__/bootstrap#token=...`
+      - page stayed authenticated and did not reproduce the earlier `401` failure
+      - relevant settings/auth requests returned `200`
+      - `Param Defaults` / `All Settings` and the visible dict/param area rendered normally without obvious layout breakage
+- Next action:
+  - Continue the cleanup-first non-Pixi pass across the remaining first-slice dict/param cluster, starting with the next bounded file around the `DictArea`/param-stack path before any Pixi renderer code lands.
