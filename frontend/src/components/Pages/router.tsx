@@ -39,8 +39,7 @@ import {
   type ModeRouteElements,
 } from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
-import { ShareStandaloneProjectSurfacePage } from "./Project/ShareStandaloneProjectSurfacePage";
-import { StandaloneProjectSurfacePage } from "./Project/StandaloneProjectSurfacePage";
+import { buildStandaloneProjectSurfaceRouteElements } from "./Project/StandaloneProjectSurfaceRouteElements";
 import { APP_ROUTE_IDS } from "./routeConfig";
 
 const LazyAppWrapper = lazy(async () => {
@@ -213,18 +212,6 @@ const ideProjectRouteElement = (
   </GlobalWrapper>
 );
 
-const ideStandaloneProjectRouteElement = (
-  <GlobalWrapper>
-    <ModalContainer>
-      <StandaloneProjectSurfacePage />
-    </ModalContainer>
-  </GlobalWrapper>
-);
-
-const shareStandaloneProjectRouteElement = (
-  <ShareStandaloneProjectSurfacePage />
-);
-
 const ideWorkspaceLaunchRouteElement = (
   <GlobalWrapper>
     <WorkspaceLaunchPage />
@@ -322,6 +309,16 @@ const shareNotFoundRouteElement = (
   </ShareWrapper>
 );
 
+const standaloneProjectSurfaceRouteElements =
+  buildStandaloneProjectSurfaceRouteElements({
+    app: appRouteElement,
+    launcher: <ProjectRootRedirect />,
+  });
+
+function createStandaloneProjectSurfaceRouteElement() {
+  return <ModeWrapper {...standaloneProjectSurfaceRouteElements} />;
+}
+
 const indexRoute = {
   id: APP_ROUTE_IDS.index,
   path: INDEX_ROUTER_PATH,
@@ -377,53 +374,25 @@ const viewModeRoute = {
 const projectChatStandaloneRoute = {
   id: APP_ROUTE_IDS.projectChatStandalone,
   path: PROJECT_CHAT_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
+  element: createStandaloneProjectSurfaceRouteElement(),
 };
 
 const projectChatThreadStandaloneRoute = {
   id: APP_ROUTE_IDS.projectChatThreadStandalone,
   path: PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
+  element: createStandaloneProjectSurfaceRouteElement(),
 };
 
 const windowSpaceStandaloneRoute = {
   id: APP_ROUTE_IDS.windowSpaceStandalone,
   path: WINDOW_SPACE_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
+  element: createStandaloneProjectSurfaceRouteElement(),
 };
 
 const sectionStandaloneRoute = {
   id: APP_ROUTE_IDS.sectionStandalone,
   path: SECTION_STANDALONE_ROUTER_PATH,
-  element: (
-    <ModeWrapper
-      ide={ideStandaloneProjectRouteElement}
-      share={shareStandaloneProjectRouteElement}
-      app={appRouteElement}
-      launcher={<ProjectRootRedirect />}
-    />
-  ),
+  element: createStandaloneProjectSurfaceRouteElement(),
 };
 
 const catchAllRoute = {

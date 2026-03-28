@@ -3508,3 +3508,29 @@ Record:
     - `http://127.0.0.1:3044/settings/section/languageserver` rendered the expected section surface with visible labels and controls including `languageServer`, `ARGS`, `Filter`, `basedpyright`, and `analysis`, with no obvious clipping, overlap, or missing content
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining share-route entry seam one level higher above `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePage.tsx`, starting with the standalone/share route element assembly in `frontend/src/components/Pages/router.tsx`, before any broad Pixi node drawing lands.
+
+## 2026-03-27 128
+
+- Item: Lift the standalone/share route-element assembly seam out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed standalone route-elements boundary above the lifted standalone/share page entrypoints:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new boundary instead of directly assembling the IDE/share standalone surface route elements inline.
+  - The new boundary now owns the non-Pixi standalone/share route-element seam for:
+    - wrapping the IDE standalone surface in the shared `GlobalWrapper` + `ModalContainer` route shell
+    - handing the share route element off to `ShareStandaloneProjectSurfacePage`
+    - preserving caller-supplied `app` and `launcher` route elements while leaving `router.tsx` focused on route ordering, path IDs, and higher-level `ModeWrapper` assembly
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/router.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|deployment allowLLM=false blocks managed standalone section and window-space routes|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - bootstrap succeeded and redirected into the authenticated app shell without needing an existing tab fallback
+    - `http://127.0.0.1:3044/settings/chat` rendered cleanly with visible controls including `Settings`, `New`, `Hide Threads`, `Search in conversation`, `Start a new thread`, and `Type a message...`
+    - `http://127.0.0.1:3044/settings/section/languageserver` rendered cleanly with visible labels and controls including `languageServer`, `ARGS`, `Filter`, `basedpyright`, `analysis`, and `diagnosticSeverityOverrides`
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the remaining standalone/share route-definition seam one level higher above `frontend/src/components/Pages/router.tsx`, using the new route-elements boundary as the caller-facing input for the remaining standalone route-object assembly before any broad Pixi node drawing lands.
