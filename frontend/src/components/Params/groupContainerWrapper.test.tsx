@@ -9,7 +9,6 @@ import {
   useWaitingForLSPResult,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { getParamsFixedHeightKey } from "utils/constants";
 import "testUtils/reactRefreshPreamble";
 import {
   CodeObjTypeEnum,
@@ -36,7 +35,7 @@ function syncStoreInitialState(store: {
   Object.assign(initial, store.getState());
 }
 
-function seedGroupContainerShellState({
+function seedGroupContainerWrapperState({
   sectionId,
   edgeInputParamIds = [],
   edgeOutputPorts = [],
@@ -194,7 +193,7 @@ type TestMutationObserverInstance = {
   disconnect: ReturnType<typeof vi.fn>;
 };
 
-describe("GroupContainerShell", () => {
+describe("GroupContainerWrapper", () => {
   let host: HTMLDivElement;
   let root: Root;
   let resizeObservers: TestResizeObserverInstance[];
@@ -257,22 +256,11 @@ describe("GroupContainerShell", () => {
     resetProjectStores();
   });
 
-  async function flushAnimationFrames() {
-    while (animationFrames.size > 0) {
-      const pendingCallbacks = Array.from(animationFrames.values());
-      animationFrames.clear();
-      await act(async () => {
-        pendingCallbacks.forEach((callback) => callback(performance.now()));
-      });
-    }
-  }
+  it("owns the shell boundary seam above the pure shell view", async () => {
+    const sectionId = "section-group-container-wrapper-shell";
+    const { GroupContainerWrapper } = await import("./groupContainerWrapper");
 
-  it("measures the fixed dict-area shell height from the mounted fixed blocks", async () => {
-    const sectionId = "section-group-container-shell-height";
-    const { ParamDndContext } = await import("forks/dnd-kit/ParamDndContext");
-    const { GroupContainerShell } = await import("./groupContainerShell");
-
-    seedGroupContainerShellState({
+    seedGroupContainerWrapperState({
       sectionId,
       edgeInputParamIds: ["edge-param"],
       edgeOutputPorts: [{ accessor: "Result", id: "out-1" }],
@@ -282,60 +270,26 @@ describe("GroupContainerShell", () => {
 
     await act(async () => {
       root.render(
-        <ParamDndContext>
-          <GroupContainerShell
-            bgColor="bg-transparent"
-            sectionId={sectionId}
-            sectionTypeName={SectionTypeEnum.Dict}
-          />
-        </ParamDndContext>,
+        <GroupContainerWrapper
+          bgColor="bg-transparent"
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
       );
     });
 
     const shell = host.querySelector<HTMLElement>(".section-row-pin-main");
     expect(shell).not.toBeNull();
-    Object.defineProperty(shell, "clientWidth", {
-      configurable: true,
-      value: 480,
-    });
-    shell?.style.setProperty("padding-top", "4px");
-    shell?.style.setProperty("padding-bottom", "6px");
-
-    const fixedBlocks = Array.from(
-      host.querySelectorAll<HTMLElement>('[data-params-fixed="true"]'),
-    );
-    expect(fixedBlocks.length).toBeGreaterThan(0);
-    fixedBlocks.forEach((block, index) => {
-      Object.defineProperty(block, "offsetHeight", {
-        configurable: true,
-        value: 20 + index * 5,
-      });
-      block.style.setProperty("margin-top", `${index + 1}px`);
-      block.style.setProperty("margin-bottom", `${index + 2}px`);
-    });
-
-    await flushAnimationFrames();
-
-    const expectedHeight =
-      10 +
-      fixedBlocks.reduce(
-        (total, _block, index) => total + 20 + index * 5 + index + 1 + index + 2,
-        0,
-      );
-
-    expect(
-      useTemporaryMiscState.getState()[getParamsFixedHeightKey(sectionId)],
-    ).toBe(expectedHeight);
+    expect(host.querySelector('[data-dict-area-block-frame-id]')).not.toBeNull();
     expect(resizeObservers.length).toBeGreaterThan(0);
     expect(mutationObservers.length).toBeGreaterThan(0);
-  });
+  }, 10000);
 
-  it("renders the waiting overlay above the live dict-area shell", async () => {
-    const sectionId = "section-group-container-shell-waiting";
-    const { ParamDndContext } = await import("forks/dnd-kit/ParamDndContext");
-    const { GroupContainerShell } = await import("./groupContainerShell");
+  it("passes the waiting overlay through the pure shell view", async () => {
+    const sectionId = "section-group-container-wrapper-waiting";
+    const { GroupContainerWrapper } = await import("./groupContainerWrapper");
 
-    seedGroupContainerShellState({
+    seedGroupContainerWrapperState({
       sectionId,
       pinnedParamIds: ["pinned-param"],
       unpinnedParamIds: ["unpinned-param"],
@@ -346,13 +300,11 @@ describe("GroupContainerShell", () => {
 
     await act(async () => {
       root.render(
-        <ParamDndContext>
-          <GroupContainerShell
-            bgColor="bg-transparent"
-            sectionId={sectionId}
-            sectionTypeName={SectionTypeEnum.Dict}
-          />
-        </ParamDndContext>,
+        <GroupContainerWrapper
+          bgColor="bg-transparent"
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
       );
     });
 

@@ -4197,3 +4197,29 @@ Record:
       - caveat: the verifier checked the live viewport state and sampled requests, but did not traverse every nested settings subpanel in this pass
 - Next action:
   - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerShell.tsx`, starting with the shell caller above the shell boundary before any broad Pixi node drawing lands.
+
+## 2026-03-27 147
+
+- Item: Lift the live dict-area mount seam into the wrapper layer above `frontend/src/components/Params/groupContainerShell.tsx`.
+- Status: `done`
+- Details:
+  - Moved the `GroupContainerShell` boundary ownership up into the wrapper layer so the wrapper now builds the shell boundary and the shell is a pure view over mount props plus the waiting overlay:
+    - `frontend/src/components/Params/groupContainerWrapper.tsx`
+    - `frontend/src/components/Params/groupContainerShell.tsx`
+  - Replaced the old shell-owned integration test with wrapper-owned integration coverage and removed the now-redundant shell test file:
+    - `frontend/src/components/Params/groupContainerWrapper.test.tsx`
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+  - This keeps the retained-scene mount seam moving upward through the live dict-area call chain while preserving the existing non-Pixi DOM mount path and DnD wrapper behavior.
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerWrapper.test.tsx src/components/Params/groupContainerShellBoundary.test.tsx src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+    - note: an earlier run in a separate temp workspace hit a transient `.react-flow__pane` readiness timeout; the immediate rerun with the same command passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded and `All Settings` was visible and focusable in the bottom tab strip
+    - the visible settings shell plus dict/param area rendered without obvious clipping, overlap, or missing content
+    - representative visible labels and controls included `Project`, `Edit`, `Run`, `Open settings`, `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, `All Settings`, `minHeight`, `minWidth`, `Size Mode Height`, `Size Mode Width`, `Text Param`, `Time Param`, and `Slider Param`
+    - representative requests returned `200`, including `GET /settings`, `POST /api/loadSettings`, and `GET /api/backendInitStatus`
+- Next action:
+  - Continue the retained-scene canary by lifting the live dict-area mount seam into the next higher-level caller above `frontend/src/components/Params/groupContainerWrapper.tsx`, starting with `frontend/src/components/Params/GroupContainer.tsx` before any broad Pixi node drawing lands.

@@ -1,24 +1,20 @@
 import React from "react";
-import { LiveDictAreaMount } from "./groupContainerLiveDictAreaMount";
 import {
-  useGroupContainerShellBoundary,
-  type GroupContainerShellBoundaryInput,
-} from "./groupContainerShellBoundary";
+  LiveDictAreaMount,
+  type LiveDictAreaMountProps,
+} from "./groupContainerLiveDictAreaMount";
 
-export type GroupContainerShellProps = GroupContainerShellBoundaryInput;
+export type GroupContainerShellProps = {
+  liveDictAreaMountProps: LiveDictAreaMountProps;
+  setOuterRef: (node: HTMLDivElement | null) => void;
+  waitingForResult: boolean;
+};
 
 export function GroupContainerShell({
-  sectionId,
-  bgColor,
-  sectionTypeName,
+  liveDictAreaMountProps,
+  setOuterRef,
+  waitingForResult,
 }: GroupContainerShellProps) {
-  const { liveDictAreaMountProps, setOuterRef, waitingForResult } =
-    useGroupContainerShellBoundary({
-      bgColor,
-      sectionId,
-      sectionTypeName,
-    });
-
   return (
     <div
       className="section-row-pin-main section-w-full relative -mt-3 flex min-h-0 flex-col pt-2"
