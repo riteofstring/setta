@@ -376,6 +376,18 @@ That means:
     - `SetTopLevelSectionLayoutRequestInput -> httpapi.SetTopLevelSectionLayoutRequest`
     - `SetViewportRequestInput -> httpapi.SetViewportRequest`
     - `SetActiveIDsRequestInput -> httpapi.SetActiveIDsRequest`
+    - `CreateViewModeRequestInput -> httpapi.CreateViewModeRequest`
+    - `SetActiveViewModeRequestInput -> httpapi.SetActiveViewModeRequest`
+    - `ToggleIsEditingViewModeRequestInput -> httpapi.ToggleIsEditingViewModeRequest`
+    - `ToggleViewModeUserFacingRequestInput -> httpapi.ToggleViewModeUserFacingRequest`
+    - `ToggleViewModeTabRequestInput -> httpapi.ToggleViewModeTabRequest`
+    - `SetViewModeNameRequestInput -> httpapi.SetViewModeNameRequest`
+    - `SetViewModeSortOrderRequestInput -> httpapi.SetViewModeSortOrderRequest`
+    - `DeleteViewModeRequestInput -> httpapi.DeleteViewModeRequest`
+    - `AutoLayoutTopLevelSectionsRequestInput -> httpapi.AutoLayoutTopLevelSectionsRequest`
+    - `GroupSectionsRequestInput -> httpapi.GroupSectionsRequest`
+    - `UngroupGroupsRequestInput -> httpapi.UngroupGroupsRequest`
+    - `SetCodeFileBindingRequestInput -> httpapi.SetCodeFileBindingRequest`
   - more frontend geometry/layout helper types now point at exact `projectstate` owners instead of mirrored `frontendbindings` structs:
     - `ViewportInput -> projectstate.Viewport`
     - `ViewportBoundsInput -> projectstate.ViewportBounds`

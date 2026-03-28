@@ -6145,7 +6145,7 @@ export function createCreateTopLevelSectionResponse(options: Partial<CreateTopLe
 
 
 export type CreateViewModeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
 };
 export function createCreateViewModeRequestInput(options: Partial<CreateViewModeRequestInput> = {}): CreateViewModeRequestInput {
@@ -6157,7 +6157,7 @@ export type CreateViewModeResponse = string;
 
 
 export type SetActiveViewModeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   activeViewModeId: string;
 };
@@ -6167,7 +6167,7 @@ export function createSetActiveViewModeRequestInput(options: Partial<SetActiveVi
 
 
 export type ToggleIsEditingViewModeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
 };
 export function createToggleIsEditingViewModeRequestInput(options: Partial<ToggleIsEditingViewModeRequestInput> = {}): ToggleIsEditingViewModeRequestInput {
@@ -6176,7 +6176,7 @@ export function createToggleIsEditingViewModeRequestInput(options: Partial<Toggl
 
 
 export type ToggleViewModeUserFacingRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
@@ -6186,7 +6186,7 @@ export function createToggleViewModeUserFacingRequestInput(options: Partial<Togg
 
 
 export type ToggleViewModeTabRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
@@ -6196,7 +6196,7 @@ export function createToggleViewModeTabRequestInput(options: Partial<ToggleViewM
 
 
 export type SetViewModeNameRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   viewModeId: string;
   name: string;
@@ -6207,7 +6207,7 @@ export function createSetViewModeNameRequestInput(options: Partial<SetViewModeNa
 
 
 export type SetViewModeSortOrderRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   orderedViewModeIds: Array<string>;
 };
@@ -6217,7 +6217,7 @@ export function createSetViewModeSortOrderRequestInput(options: Partial<SetViewM
 
 
 export type DeleteViewModeRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   viewModeId: string;
 };
@@ -6266,9 +6266,9 @@ export function createToggleSectionVisibilityRequestInput(options: Partial<Toggl
 
 
 export type AutoLayoutTopLevelSectionsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
-  margin?: number | null;
+  margin: number | null;
 };
 export function createAutoLayoutTopLevelSectionsRequestInput(options: Partial<AutoLayoutTopLevelSectionsRequestInput> = {}): AutoLayoutTopLevelSectionsRequestInput {
   return options as AutoLayoutTopLevelSectionsRequestInput;
@@ -6535,7 +6535,7 @@ export function createSetWatchCodeInputsRequestInput(options: Partial<SetWatchCo
 
 
 export type GroupSectionsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   sectionIds: Array<string>;
 };
@@ -6545,7 +6545,7 @@ export function createGroupSectionsRequestInput(options: Partial<GroupSectionsRe
 
 
 export type UngroupGroupsRequestInput = {
-  frontendOpId?: string | null;
+  frontendOpId: string | null;
   projectConfigId: string;
   groupIds: Array<string>;
 };

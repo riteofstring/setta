@@ -574,54 +574,23 @@ type CreateTopLevelSectionRequestInput httpapi.CreateTopLevelSectionRequest
 
 type CreateTopLevelSectionResponse projectstate.CreateTopLevelSectionResult
 
-type CreateViewModeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-}
+type CreateViewModeRequestInput httpapi.CreateViewModeRequest
 
 type CreateViewModeResponse string
 
-type SetActiveViewModeRequestInput struct {
-	FrontendOpID     *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID  string  `json:"projectConfigId"`
-	ActiveViewModeID string  `json:"activeViewModeId"`
-}
+type SetActiveViewModeRequestInput httpapi.SetActiveViewModeRequest
 
-type ToggleIsEditingViewModeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-}
+type ToggleIsEditingViewModeRequestInput httpapi.ToggleIsEditingViewModeRequest
 
-type ToggleViewModeUserFacingRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	ViewModeID      string  `json:"viewModeId"`
-}
+type ToggleViewModeUserFacingRequestInput httpapi.ToggleViewModeUserFacingRequest
 
-type ToggleViewModeTabRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	ViewModeID      string  `json:"viewModeId"`
-}
+type ToggleViewModeTabRequestInput httpapi.ToggleViewModeTabRequest
 
-type SetViewModeNameRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	ViewModeID      string  `json:"viewModeId"`
-	Name            string  `json:"name"`
-}
+type SetViewModeNameRequestInput httpapi.SetViewModeNameRequest
 
-type SetViewModeSortOrderRequestInput struct {
-	FrontendOpID       *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID    string   `json:"projectConfigId"`
-	OrderedViewModeIDs []string `json:"orderedViewModeIds"`
-}
+type SetViewModeSortOrderRequestInput httpapi.SetViewModeSortOrderRequest
 
-type DeleteViewModeRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	ViewModeID      string  `json:"viewModeId"`
-}
+type DeleteViewModeRequestInput httpapi.DeleteViewModeRequest
 
 type SetSectionNameRequestInput httpapi.SetSectionNameRequest
 
@@ -631,11 +600,7 @@ type DeclineRenameRefactorRequestInput httpapi.DeclineRenameRefactorRequest
 
 type ToggleSectionVisibilityRequestInput httpapi.ToggleSectionVisibilityRequest
 
-type AutoLayoutTopLevelSectionsRequestInput struct {
-	FrontendOpID    *string `json:"frontendOpId,omitempty"`
-	ProjectConfigID string  `json:"projectConfigId"`
-	Margin          *int    `json:"margin,omitempty"`
-}
+type AutoLayoutTopLevelSectionsRequestInput httpapi.AutoLayoutTopLevelSectionsRequest
 
 type SetShowParamDisplayNamesRequestInput httpapi.SetShowParamDisplayNamesRequest
 
@@ -728,17 +693,9 @@ type SetWatchCodeInputsRequestInput struct {
 	WatchCodeFiles   []string          `json:"watchCodeFiles"`
 }
 
-type GroupSectionsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	SectionIDs      []string `json:"sectionIds"`
-}
+type GroupSectionsRequestInput httpapi.GroupSectionsRequest
 
-type UngroupGroupsRequestInput struct {
-	FrontendOpID    *string  `json:"frontendOpId,omitempty"`
-	ProjectConfigID string   `json:"projectConfigId"`
-	GroupIDs        []string `json:"groupIds"`
-}
+type UngroupGroupsRequestInput httpapi.UngroupGroupsRequest
 
 type SetSectionSizesRequestInput struct {
 	FrontendOpID    *string                `json:"frontendOpId,omitempty"`
@@ -1256,12 +1213,7 @@ type SetTextBlockMasterFontSizeRequestInput struct {
 	MasterFontSizePx float64 `json:"masterFontSizePx"`
 }
 
-type SetCodeFileBindingRequestInput struct {
-	FrontendOpID    *string               `json:"frontendOpId,omitempty"`
-	ProjectConfigID string                `json:"projectConfigId"`
-	SectionID       string                `json:"sectionId"`
-	Binding         CodeFileBindingUpdate `json:"binding"`
-}
+type SetCodeFileBindingRequestInput httpapi.SetCodeFileBindingRequest
 
 type ViewportInput projectstate.Viewport
 
