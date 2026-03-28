@@ -281,6 +281,8 @@ That means:
 - more project-config default-only wrappers have now been collapsed:
   - `SectionCodegenPolicy`, `CodeObjValuePolicy`, and `ProjectCodegenPythonTarget` no longer exist as handwritten subclasses in `backend/setta/types/project_config.py`
   - the Python layer now constructs the generated Go-owned models directly through explicit default factory helpers instead of preserving wrapper classes just to inject default values
+- `backend/setta/types/project_config.py` no longer keeps pass-through `Foo = GoFoo` aliases for the generated codegen-policy/python-target models:
+  - the file now imports and uses the generated names directly instead of preserving a separate handwritten rename layer for `SectionTypeCodegenPolicy`, `SectionCodegenOverride`, `SectionCodegenPolicy`, `CodeObjTypeValuePolicy`, `CodeObjValueOverride`, `CodeObjValuePolicy`, and `ProjectCodegenPythonTarget`
 - `backend/setta/types/project_config.py` no longer hand-owns the top-level `ProjectConfig` field layout:
   - the Python class now subclasses the Go-generated `ProjectConfig` model and only keeps Python-side defaults, richer key typing, and validation
 - the dead Python-only project-config policy helper layer has been removed:

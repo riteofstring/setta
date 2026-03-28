@@ -5,12 +5,19 @@ from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.types.generated.go_shared_types import (
     AgenticEdge,
     CodeObjType,
+    CodeObjTypeValuePolicy,
+    CodeObjValueOverride,
+    CodeObjValuePolicy,
     CodeObjValueRepresentationMode,
     Edge,
     ProjectCodegenLanguage,
+    ProjectCodegenPythonTarget,
     SectionCodegenMode,
+    SectionCodegenOverride,
+    SectionCodegenPolicy,
     SectionRepresentationMode,
     SectionType,
+    SectionTypeCodegenPolicy,
     StateMachineEdge,
     TopLevelSectionLayout,
     Viewport,
@@ -19,41 +26,16 @@ from setta.types.generated.go_shared_types import (
     WindowSpaceConfig,
 )
 from setta.types.generated.go_shared_types import (
-    CodeObjTypeValuePolicy as GoCodeObjTypeValuePolicy,
-)
-from setta.types.generated.go_shared_types import (
-    CodeObjValueOverride as GoCodeObjValueOverride,
-)
-from setta.types.generated.go_shared_types import (
-    CodeObjValuePolicy as GoCodeObjValuePolicy,
-)
-from setta.types.generated.go_shared_types import (
     ProjectCodegenPluginTarget as GoProjectCodegenPluginTarget,
 )
 from setta.types.generated.go_shared_types import (
-    ProjectCodegenPythonTarget as GoProjectCodegenPythonTarget,
-)
-from setta.types.generated.go_shared_types import (
     ProjectConfig as GoProjectConfig,
-)
-from setta.types.generated.go_shared_types import (
-    SectionCodegenOverride as GoSectionCodegenOverride,
-)
-from setta.types.generated.go_shared_types import (
-    SectionCodegenPolicy as GoSectionCodegenPolicy,
-)
-from setta.types.generated.go_shared_types import (
-    SectionTypeCodegenPolicy as GoSectionTypeCodegenPolicy,
 )
 from setta.types.generated.go_shared_types import (
     ViewMode as ViewModeConfig,
 )
 from setta.types.id import ID, create_new_id
 from setta.utils.generate_memorable_string import generate_memorable_string
-
-
-SectionTypeCodegenPolicy = GoSectionTypeCodegenPolicy
-SectionCodegenOverride = GoSectionCodegenOverride
 
 
 def default_section_allowlist() -> list[SectionType]:
@@ -107,9 +89,6 @@ def default_section_type_policies() -> dict[SectionType, SectionTypeCodegenPolic
     return policies
 
 
-SectionCodegenPolicy = GoSectionCodegenPolicy
-
-
 def default_section_codegen_policy() -> SectionCodegenPolicy:
     return SectionCodegenPolicy(
         allowlist=default_section_allowlist(),
@@ -118,10 +97,6 @@ def default_section_codegen_policy() -> SectionCodegenPolicy:
         typePolicies=default_section_type_policies(),
         sectionOverrides={},
     )
-
-
-CodeObjTypeValuePolicy = GoCodeObjTypeValuePolicy
-CodeObjValueOverride = GoCodeObjValueOverride
 
 
 def default_code_obj_type_value_policies() -> dict[CodeObjType, CodeObjTypeValuePolicy]:
@@ -150,17 +125,11 @@ def default_code_obj_representation(
     return CodeObjValueRepresentationMode.expression
 
 
-CodeObjValuePolicy = GoCodeObjValuePolicy
-
-
 def default_code_obj_value_policy() -> CodeObjValuePolicy:
     return CodeObjValuePolicy(
         typePolicies=default_code_obj_type_value_policies(),
         codeObjOverrides={},
     )
-
-
-ProjectCodegenPythonTarget = GoProjectCodegenPythonTarget
 
 
 def default_python_codegen_target() -> ProjectCodegenPythonTarget:
