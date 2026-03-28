@@ -1,13 +1,6 @@
-import type { SectionType } from "utils/generatedTypes";
-import type { SectionContainerAreaProps } from "./sectionContainerAreaView";
+import type { SectionCanvasAreaProps } from "./sectionCanvasAreaView";
 
-export type SectionCanvasBodyProps = {
-  sectionId: string;
-  sectionTypeName: SectionType;
-  bgColor: string;
-  isMinimized: boolean;
-  isUserView: boolean;
-};
+export type SectionCanvasBodyProps = SectionCanvasAreaProps;
 
 type SectionCanvasBodyViewInput = SectionCanvasBodyProps & {
   externalizedWindowId: string | null;
@@ -21,7 +14,7 @@ type SectionWindowPlaceholderProps = {
 
 export type SectionCanvasBodyView =
   | { kind: "placeholder"; props: SectionWindowPlaceholderProps }
-  | { kind: "area"; props: SectionContainerAreaProps }
+  | { kind: "area"; props: SectionCanvasAreaProps }
   | { kind: "none" };
 
 export function buildSectionCanvasBodyView({
@@ -55,7 +48,6 @@ export function buildSectionCanvasBodyView({
       bgColor,
       isMinimized,
       isUserView,
-      chatHost: "section_layout",
     },
   };
 }

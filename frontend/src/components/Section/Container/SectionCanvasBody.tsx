@@ -2,7 +2,7 @@ import React from "react";
 import { getExternalProjectChatWindowBindingForSectionInState } from "state/actions/projectChatWindowing";
 import { useProjectState } from "state/definitions";
 import { SectionTypeEnum } from "utils/generatedTypes";
-import { SectionContainerArea } from "./SectionContainerArea";
+import { SectionCanvasArea } from "./SectionCanvasArea";
 import { SectionWindowPlaceholder } from "./SectionWindowPlaceholder";
 import {
   buildSectionCanvasBodyView,
@@ -28,7 +28,7 @@ function _SectionCanvasBody(props: SectionCanvasBodyProps) {
     case "placeholder":
       return <SectionWindowPlaceholder {...view.props} />;
     case "area":
-      return <SectionContainerArea {...view.props} />;
+      return <SectionCanvasArea {...view.props} />;
     case "none":
       return null;
     default:

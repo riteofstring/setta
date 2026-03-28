@@ -2928,3 +2928,33 @@ Record:
     - representative sampled requests returned `200`, including `GET /settings` and the Vite/frontend asset requests used to load the page
 - Next action:
   - Continue the live dict-area surface pass by lifting the new area-level dict boundary above `SectionContainerArea.tsx` into the next higher-level section body caller on the canvas path before any broad Pixi node drawing lands.
+
+## 2026-03-27 109
+
+- Item: Lift the area-level dict boundary above `SectionContainerArea.tsx` into the next higher-level canvas body caller in `frontend/src/components/Section/Container/SectionCanvasBody.tsx`.
+- Status: `done`
+- Details:
+  - Added a higher-level canvas-area boundary and helper above the existing section-area renderer:
+    - `frontend/src/components/Section/Container/SectionCanvasArea.tsx`
+    - `frontend/src/components/Section/Container/sectionCanvasAreaView.ts`
+    - `frontend/src/components/Section/Container/sectionCanvasAreaView.test.ts`
+  - Updated the canvas-body boundary to hand off its on-canvas branch through the new higher-level boundary instead of shaping lower-level `SectionContainerArea` props inline:
+    - `frontend/src/components/Section/Container/SectionCanvasBody.tsx`
+    - `frontend/src/components/Section/Container/sectionCanvasBodyView.ts`
+    - `frontend/src/components/Section/Container/sectionCanvasBodyView.test.ts`
+  - The refactor preserves the existing non-Pixi behavior for:
+    - keeping window-placeholder and minimized-section suppression inside `SectionCanvasBody`
+    - moving the `chatHost: "section_layout"` and area-prop shaping into one deeper canvas-area helper above `SectionContainerArea`
+    - leaving the current dict benchmark/live dispatch and chat surface behavior intact while shrinking the canvas-body boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/sectionCanvasAreaView.test.ts src/components/Section/Container/sectionCanvasBodyView.test.ts src/components/Section/Container/SectionContainerCoreResizabe.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - reused an already authenticated `/settings` tab because it was already available in that browser session
+    - `All Settings` stayed visible and the visible settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content after the new canvas-area boundary wiring
+    - representative visible labels and controls included `Project`, `Edit`, `Run`, `All Settings`, `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `Autosave`, `sectionSizingPolicy`, `languageServer`, and the chat actions `CREATE PROJECT`, `SUMMARIZE CODEBASE`, and `PLAN NEXT STEPS`
+    - representative requests returned `200`, including `POST /api/loadProjectConfig`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the live dict-area surface pass by lifting the new `SectionCanvasArea.tsx` boundary into the next higher-level section body caller in `frontend/src/components/Section/Container/SectionContainerCoreBody.tsx` before any broad Pixi node drawing lands.

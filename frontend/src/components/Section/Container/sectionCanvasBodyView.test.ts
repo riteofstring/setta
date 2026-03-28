@@ -38,7 +38,7 @@ describe("buildSectionCanvasBodyView", () => {
     });
   });
 
-  it("builds the on-canvas section area props with the section-layout chat host", () => {
+  it("builds the higher-level on-canvas area props for the canvas boundary", () => {
     expect(
       buildSectionCanvasBodyView({
         sectionId: "section-1",
@@ -56,7 +56,6 @@ describe("buildSectionCanvasBodyView", () => {
         bgColor: "bg-setta-50",
         isMinimized: false,
         isUserView: true,
-        chatHost: "section_layout",
       },
     });
   });
