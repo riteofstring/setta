@@ -4,10 +4,6 @@ import {
   type ManagedChatSurfaceAuthorityState,
 } from "components/Chat/sharePolicyChatAccess";
 import {
-  renderDefaultSectionContainerCoreBody,
-  renderDefaultSectionContainerNestedSections,
-} from "components/Section/Container/sectionContainerDefaultRenderers";
-import {
   memo,
   useEffect,
   useRef,
@@ -116,8 +112,6 @@ type StandaloneProjectSurfacePageStateBoundaryProps = Omit<
   | "standaloneProjectChatThreadMissing"
   | "setStandaloneProjectChatId"
   | "onProjectChatBlockedErrorCodeChange"
-  | "renderCoreBody"
-  | "renderNestedSections"
 > & {
   projectConfigName: string | undefined;
   projectChatHistoryEntries: Array<{
@@ -207,6 +201,8 @@ function _StandaloneProjectSurfacePageStateBoundary({
   projectChatHistoryEntries,
   navigate,
   renderDictArea,
+  renderCoreBody,
+  renderNestedSections,
 }: StandaloneProjectSurfacePageStateBoundaryProps) {
   const projectChatThreadTitle = resolveStandaloneProjectChatThreadTitle({
     target,
@@ -337,8 +333,8 @@ function _StandaloneProjectSurfacePageStateBoundary({
       }
       standaloneProjectChatThreadMissing={standaloneProjectChatThreadMissing}
       renderDictArea={renderDictArea}
-      renderCoreBody={renderDefaultSectionContainerCoreBody}
-      renderNestedSections={renderDefaultSectionContainerNestedSections}
+      renderCoreBody={renderCoreBody}
+      renderNestedSections={renderNestedSections}
       setStandaloneProjectChatId={setStandaloneProjectChatId}
       onProjectChatBlockedErrorCodeChange={setStandaloneSurfaceErrorCode}
     />

@@ -1,11 +1,25 @@
 /* @vitest-environment jsdom */
 
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { SectionTypeEnum, createWindowSpaceConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePageTargetBoundary } from "./StandaloneProjectSurfacePageTargetBoundary";
+
+const defaultRendererMocks = vi.hoisted(() => ({
+  renderDefaultSectionContainerCoreBody: vi.fn(() => null),
+  renderDefaultSectionContainerNestedSections: vi.fn(() => null),
+}));
+
+vi.mock(
+  "components/Section/Container/sectionContainerDefaultRenderers",
+  () => defaultRendererMocks,
+);
 
 type MockSectionCore = {
   name: string;
@@ -125,6 +139,8 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
     canUseManagedChat,
     projectChatHistoryEntries,
     managedChatAuthorityState,
+    renderCoreBody,
+    renderNestedSections,
     renderDictArea,
   }: {
     projectConfigId: string;
@@ -138,6 +154,8 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
       };
       sections: Record<string, unknown>;
     };
+    renderCoreBody: unknown;
+    renderNestedSections: unknown;
     renderDictArea: unknown;
   }) => {
     stateBoundaryMock({
@@ -147,6 +165,8 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
       canUseManagedChat,
       projectChatHistoryEntries,
       managedChatAuthorityState,
+      renderCoreBody,
+      renderNestedSections,
       hasRenderDictArea: Boolean(renderDictArea),
     });
     return <div data-testid="mock-standalone-project-surface-page-state" />;
@@ -273,6 +293,8 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
             label: "Alpha Chat",
           },
         ],
+        renderCoreBody: renderDefaultSectionContainerCoreBody,
+        renderNestedSections: renderDefaultSectionContainerNestedSections,
       }),
     );
   });

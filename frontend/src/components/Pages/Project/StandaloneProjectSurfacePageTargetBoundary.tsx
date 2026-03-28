@@ -1,3 +1,7 @@
+import {
+  renderDefaultSectionContainerCoreBody,
+  renderDefaultSectionContainerNestedSections,
+} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { type ComponentProps, useMemo } from "react";
 import {
   useAIStore,
@@ -23,6 +27,8 @@ export type StandaloneProjectSurfacePageTargetBoundaryProps = Omit<
   | "managedChatAuthorityState"
   | "canUseManagedChat"
   | "projectChatHistoryEntries"
+  | "renderCoreBody"
+  | "renderNestedSections"
 > & {
   sectionSlug: string | undefined;
   chatId: string | undefined;
@@ -103,6 +109,8 @@ function _StandaloneProjectSurfacePageTargetBoundary({
       {...stateBoundaryProps}
       {...targetState}
       doneLoading={stateBoundaryProps.doneLoading && targetReady}
+      renderCoreBody={renderDefaultSectionContainerCoreBody}
+      renderNestedSections={renderDefaultSectionContainerNestedSections}
     />
   );
 }

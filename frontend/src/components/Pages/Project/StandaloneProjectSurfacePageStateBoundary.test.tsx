@@ -1,25 +1,11 @@
 /* @vitest-environment jsdom */
 
-import {
-  renderDefaultSectionContainerCoreBody,
-  renderDefaultSectionContainerNestedSections,
-} from "components/Section/Container/sectionContainerDefaultRenderers";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { SectionTypeEnum, createWindowSpaceConfig } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePageStateBoundary } from "./StandaloneProjectSurfacePageStateBoundary";
-
-const defaultRendererMocks = vi.hoisted(() => ({
-  renderDefaultSectionContainerCoreBody: vi.fn(() => null),
-  renderDefaultSectionContainerNestedSections: vi.fn(() => null),
-}));
-
-vi.mock(
-  "components/Section/Container/sectionContainerDefaultRenderers",
-  () => defaultRendererMocks,
-);
 
 const pageBoundaryMock = vi.fn();
 
@@ -80,6 +66,9 @@ const managedChatAuthorityState = {
   sectionImpls: {},
 };
 
+const renderCoreBody = vi.fn(() => null);
+const renderNestedSections = vi.fn(() => null);
+
 function createBaseProps() {
   return {
     doneLoading: true,
@@ -104,6 +93,8 @@ function createBaseProps() {
     ],
     navigate: vi.fn(),
     renderDictArea: () => null,
+    renderCoreBody,
+    renderNestedSections,
   };
 }
 
@@ -146,8 +137,8 @@ describe("StandaloneProjectSurfacePageStateBoundary", () => {
       expect.objectContaining({
         hasRenderDictArea: true,
         projectChatThreadTitle: "Alpha Chat",
-        renderCoreBody: renderDefaultSectionContainerCoreBody,
-        renderNestedSections: renderDefaultSectionContainerNestedSections,
+        renderCoreBody,
+        renderNestedSections,
         standaloneProjectChatId: "chat-alpha",
         standaloneProjectChatThreadRouteInvalid: false,
         standaloneProjectChatThreadMissing: false,
