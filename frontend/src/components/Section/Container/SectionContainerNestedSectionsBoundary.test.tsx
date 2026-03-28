@@ -50,7 +50,7 @@ vi.mock("./SectionContainerCoreCanvasBody", () => ({
   ),
 }));
 
-vi.mock("./SectionContainerSection", () => ({
+vi.mock("./SectionContainerSectionBoundary", () => ({
   renderDefaultSectionContainerCoreBody: () => null,
   renderDefaultSectionContainerNestedSections: () => null,
 }));

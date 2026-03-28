@@ -1,10 +1,10 @@
 import React from "react";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
-import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import {
   renderDefaultSectionContainerCoreBody,
   renderDefaultSectionContainerNestedSections,
-} from "./SectionContainerSection";
+} from "./SectionContainerSectionBoundary";
+import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 
 function _SectionContainerNestedSectionsBoundary(
   props: SectionContainerNestedSectionsProps,

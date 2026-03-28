@@ -93,9 +93,40 @@ vi.mock("./SectionContainerNestedSections", () => ({
 }));
 
 describe("SectionContainerSection", () => {
-  it("owns the default recursive section-container boundary above the generic section container", () => {
+  it("delegates caller-owned core-body and nested-section renderers into the generic section container", () => {
+    const renderCoreBody = ({
+      sectionId,
+      sectionTypeName,
+      bgColor,
+    }: SectionContainerCoreBodyProps) => (
+      <div
+        data-testid="mock-section-container-core-body"
+        data-section-id={sectionId}
+        data-section-type={sectionTypeName}
+        data-bg-color={bgColor}
+      />
+    );
+    const renderNestedSections = ({
+      sectionId,
+      isGroup,
+      layoutVariant,
+      isJoinedCodeTerminalGroup,
+    }: SectionContainerNestedSectionsProps) => (
+      <div
+        data-testid="mock-section-container-nested-sections"
+        data-section-id={sectionId}
+        data-is-group={String(isGroup)}
+        data-layout-variant={layoutVariant ?? "default"}
+        data-is-joined-code-terminal-group={String(isJoinedCodeTerminalGroup)}
+      />
+    );
     const markup = renderToStaticMarkup(
-      <SectionContainerSection sectionId="section-1" isTopLevel={true} />,
+      <SectionContainerSection
+        sectionId="section-1"
+        isTopLevel={true}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+      />,
     );
 
     expect(markup).toContain('data-testid="mock-section-container"');
@@ -106,7 +137,7 @@ describe("SectionContainerSection", () => {
     expect(markup).toContain(
       'data-testid="mock-section-container-nested-sections"',
     );
-    expect(markup).toContain('data-has-render-core-body="true"');
-    expect(markup).toContain('data-has-render-nested-sections="true"');
+    expect(markup).toContain('data-bg-color="bg:blue"');
+    expect(markup).toContain('data-layout-variant="default"');
   });
 });

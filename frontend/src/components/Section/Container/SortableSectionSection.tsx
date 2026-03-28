@@ -9,6 +9,8 @@ function _SortableSectionSection(
     <SectionContainerSection
       dragListeners={props.dragListeners}
       isTopLevel={false}
+      renderCoreBody={props.renderCoreBody}
+      renderNestedSections={props.renderNestedSections}
       sectionId={props.sectionId}
     />
   );

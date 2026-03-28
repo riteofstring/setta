@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
-import type { SectionContainerSectionProps } from "./SectionContainerSection";
+import type { SectionContainerSectionBoundaryProps } from "./SectionContainerSection";
 import { SortableSectionSection } from "./SortableSectionSection";
 
 vi.mock("./SectionContainerSection", () => ({
@@ -8,12 +8,16 @@ vi.mock("./SectionContainerSection", () => ({
     sectionId,
     isTopLevel,
     dragListeners,
-  }: SectionContainerSectionProps) => (
+    renderCoreBody,
+    renderNestedSections,
+  }: SectionContainerSectionBoundaryProps) => (
     <div
       data-testid="mock-section-container-section"
       data-section-id={sectionId}
       data-is-top-level={String(isTopLevel)}
       data-has-drag-listeners={dragListeners ? "true" : "false"}
+      data-has-render-core-body={String(Boolean(renderCoreBody))}
+      data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     />
   ),
 }));
@@ -33,5 +37,7 @@ describe("SortableSectionSection", () => {
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-is-top-level="false"');
     expect(markup).toContain('data-has-drag-listeners="true"');
+    expect(markup).toContain('data-has-render-core-body="true"');
+    expect(markup).toContain('data-has-render-nested-sections="true"');
   });
 });

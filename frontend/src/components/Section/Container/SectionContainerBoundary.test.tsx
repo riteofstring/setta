@@ -1,16 +1,16 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SectionContainerBoundary } from "./SectionContainerBoundary";
-import type { SectionContainerSectionProps } from "./SectionContainerSection";
+import type { SectionContainerSectionBoundaryOnlyProps } from "./SectionContainerSectionBoundary";
 
-vi.mock("./SectionContainerSection", () => ({
-  SectionContainerSection: ({
+vi.mock("./SectionContainerSectionBoundary", () => ({
+  SectionContainerSectionBoundary: ({
     sectionId,
     isTopLevel,
     dragListeners,
-  }: SectionContainerSectionProps) => (
+  }: SectionContainerSectionBoundaryOnlyProps) => (
     <div
-      data-testid="mock-section-container-section"
+      data-testid="mock-section-container-section-boundary"
       data-section-id={sectionId}
       data-is-top-level={String(isTopLevel)}
       data-has-drag-listeners={String(Boolean(dragListeners))}
@@ -24,7 +24,9 @@ describe("SectionContainerBoundary", () => {
       <SectionContainerBoundary sectionId="section-1" />,
     );
 
-    expect(markup).toContain('data-testid="mock-section-container-section"');
+    expect(markup).toContain(
+      'data-testid="mock-section-container-section-boundary"',
+    );
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-is-top-level="true"');
     expect(markup).toContain('data-has-drag-listeners="false"');
@@ -38,7 +40,9 @@ describe("SectionContainerBoundary", () => {
       />,
     );
 
-    expect(markup).toContain('data-testid="mock-section-container-section"');
+    expect(markup).toContain(
+      'data-testid="mock-section-container-section-boundary"',
+    );
     expect(markup).toContain('data-section-id="section-2"');
     expect(markup).toContain('data-is-top-level="true"');
     expect(markup).toContain('data-has-drag-listeners="true"');

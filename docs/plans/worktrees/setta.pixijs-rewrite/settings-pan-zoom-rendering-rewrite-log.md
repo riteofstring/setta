@@ -5924,3 +5924,43 @@ Record:
     - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Treat `frontend/src/index.tsx` as the natural stopping point for this top-level ownership chain and move the next iteration back to the next retained-scene/Pixi slice above the cleaned section-boundary stack.
+
+## 2026-03-28 198
+
+- Item: Lift the default recursive section-renderer ownership above `frontend/src/components/Section/Container/SectionContainerSection.tsx`.
+- Status: `done`
+- Details:
+  - Added a typed higher-level section boundary above the lower recursive section wrapper:
+    - `frontend/src/components/Section/Container/SectionContainerSectionBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerSectionBoundary.test.tsx`
+  - Updated the direct top-level and nested-section boundaries to consume the lifted boundary/default renderers instead of importing the recursive defaults from `SectionContainerSection.tsx`:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`
+  - Shrunk `SectionContainerSection.tsx` into a thinner caller-owned section wrapper so it now consumes caller-provided `renderCoreBody(...)` and `renderNestedSections(...)` instead of hardcoding the default recursive renderers inline.
+  - Updated the sortable wrapper seam to forward those lifted caller-owned renderers through the nested section path without changing visible behavior:
+    - `frontend/src/components/Section/Container/SortableSectionSection.tsx`
+  - Refreshed focused coverage so the new ownership split is pinned at the higher boundary and the lower wrapper tests the caller-owned seam directly:
+    - `frontend/src/components/Section/Container/SectionContainerBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerSection.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionSection.test.tsx`
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerSectionBoundary.test.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SortableSectionSection.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+      - result: passed
+    - `pnpm -C frontend exec vitest run src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/SectionContainerNestedSections.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainer.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Section/Container/SectionContainerBoundary.tsx src/components/Section/Container/SectionContainerBoundary.test.tsx src/components/Section/Container/SectionContainerSection.tsx src/components/Section/Container/SectionContainerSection.test.tsx src/components/Section/Container/SectionContainerSectionBoundary.tsx src/components/Section/Container/SectionContainerSectionBoundary.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx src/components/Section/Container/SortableSectionSection.tsx src/components/Section/Container/SortableSectionSection.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - verified `/home`
+    - created a fresh project and verified the resulting live project route `http://127.0.0.1:3044/petal_nice`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, blank state, or section-shell regression after the seam lift
+    - representative visible labels included `WORKSPACE BROWSER`, `WORKSPACE PROJECTS`, `New Project`, `Create a New Project!`, `Project`, `Edit`, `Run`, `Chat Window 1`, `CREATE PROJECT`, `SUMMARIZE CODEBASE`, `PLAN NEXT STEPS`, and the message box
+    - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, and `POST /api/getFolderContents`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the new `SectionContainerSectionBoundary` ownership one caller higher above the direct section-container boundaries, starting with the recursive top-level and nested-section caller stack before any broad Pixi node drawing lands.
