@@ -2607,3 +2607,34 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `SortableSectionBody.tsx` boundary into the next higher-level nested-section caller in `frontend/src/components/Section/Container/ManyNestedSections.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 098
+
+- Item: Lift the `SortableSectionBody.tsx` boundary into the next higher-level nested-section caller in `frontend/src/components/Section/Container/ManyNestedSections.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated nested-section body boundary plus a pure typed helper above the existing sortable section caller:
+    - `frontend/src/components/Section/Container/ManyNestedSectionsBody.tsx`
+    - `frontend/src/components/Section/Container/manyNestedSectionsView.ts`
+    - `frontend/src/components/Section/Container/manyNestedSectionsView.test.ts`
+    - `frontend/src/components/Section/Container/ManyNestedSectionsBody.test.tsx`
+  - Updated `frontend/src/components/Section/Container/ManyNestedSections.tsx` to consume the new boundary instead of owning the tight-vs-default nested layout classes and direct `SortableSectionContainer` mapping inline.
+  - Kept the current non-Pixi nested-section DOM path intact while lifting the next caller boundary one level higher:
+    - the new helper now owns the deterministic layout-variant selection for tight, default, kanban, and task-list nested section stacks
+    - the new body boundary now owns the direct `SortableSectionContainer` mapping plus the existing navigation-rail click handoff for non-group, non-kanban stacks
+    - `ManyNestedSections.tsx` now stays focused on DnD child lookup, embedded-terminal filtering, and section-orientation/view-mode store selection
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/manyNestedSectionsView.test.ts src/components/Section/Container/ManyNestedSectionsBody.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check required one bounded lifecycle recovery:
+      - first fresh-context verifier session loaded `http://127.0.0.1:3044/settings` but stayed on the loading screen, so the visual gate could not be completed there
+      - restarted the current non-main worktree once with `./aireset.sh`, which relaunched the worktree app on `http://127.0.0.1:3046/` / `http://127.0.0.1:8046`
+      - reran the CDP check in a fresh sub-agent context after bootstrap via `http://127.0.0.1:8046/__setta__/bootstrap#token=...`
+      - `/settings` then rendered normally with no obvious clipping, overlap, or missing major content in the visible nested-section/settings shell
+      - representative visible labels and controls included `settings`, `Filter`, tag rows `gui`, `languageServer`, `sectionSizingPolicy`, `backend`, and `shortcuts`, section controls such as `Open section in floating window`, `Lock position and size`, `Minimize section`, and `Delete section`, plus bottom tabs `Core`, `Section Defaults Structure and Code`, `Section Defaults Content and Media`, `Param Defaults`, and `All Settings`
+      - representative requests returned `200`, including `POST /__setta__/bootstrap/consume`, the frontend navigation to `/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8046`, and `GET /settings`
+      - remaining console noise was limited to existing React 19 `element.ref` warnings
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `ManyNestedSectionsBody.tsx` boundary into the next higher-level nested-section caller in `frontend/src/components/Section/Container/SectionContainer.tsx` before any broad Pixi node drawing lands.
