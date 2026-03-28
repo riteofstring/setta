@@ -450,6 +450,31 @@ That means:
     - `CancelRunRequestInput -> httpapi.CancelRunRequest`
     - `GetRunnerSummaryRequestInput -> httpapi.GetRunnerSummaryRequest`
     - `SetChatSectionStateRequestInput -> httpapi.SetChatSectionStateRequest`
+  - more simple AI CRUD/lookup request families now point at exact backend owners instead of mirrored `frontendbindings` structs:
+    - `CreateAgentProfileRequestInput -> httpapi.CreateAgentProfileRequest`
+    - `GetAgentProfileRequestInput -> httpapi.GetAgentProfileRequest`
+    - `DeleteAgentProfileRequestInput -> httpapi.DeleteAgentProfileRequest`
+    - `GetPromptTemplateRequestInput -> httpapi.GetPromptTemplateRequest`
+    - `CreatePromptTemplateRequestInput -> httpapi.CreatePromptTemplateRequest`
+    - `DeletePromptTemplateRequestInput -> httpapi.DeletePromptTemplateRequest`
+    - `GetExternalAgentConfigRequestInput -> httpapi.GetExternalAgentConfigRequest`
+    - `DeleteExternalAgentConfigRequestInput -> httpapi.DeleteExternalAgentConfigRequest`
+    - `GetAgentRunRequestInput -> httpapi.GetAgentRunRequest`
+    - `StartAgentRunRequestInput -> httpapi.StartAgentRunRequest`
+    - `StopAgentRunRequestInput -> httpapi.StopAgentRunRequest`
+    - `GetEngineConfigRequestInput -> httpapi.GetEngineConfigRequest`
+    - `CreateEngineConfigRequestInput -> httpapi.CreateEngineConfigRequest`
+    - `DeleteEngineConfigRequestInput -> httpapi.DeleteEngineConfigRequest`
+    - `RunChainStepInput -> runchains.StepInput`
+    - `RunChainSpecInput -> runchains.SpecInput`
+    - `StartRunChainRequestInput -> httpapi.StartRunChainRequest`
+    - `StopRunChainRequestInput -> httpapi.StopRunChainRequest`
+  - the corresponding `internal/httpapi` route files now export those simple request structs instead of trapping them as route-local implementation details:
+    - `agent_profile_routes.go`
+    - `prompt_template_routes.go`
+    - `external_agent_config_routes.go`
+    - `engine_config_routes.go`
+    - `agent_run_routes.go`
   - the exact terminal route request shapes now also point at `httpapi` owners instead of mirrored `frontendbindings` structs:
     - `DeleteTerminalsRequestInput -> httpapi.DeleteTerminalsRequest`
     - `InterruptTerminalProcessesRequestInput -> httpapi.InterruptTerminalProcessesRequest`
@@ -496,6 +521,8 @@ It has also improved for the file-browser request family; the remaining file-bro
 It has also improved for the detached-run, state-machine-run, and chat-section-state AI endpoint request families; those are no longer local `frontendbindings` mirrors.
 
 It has also improved for the exact terminal delete/interrupt request contracts; only the looser `RunCodeRequestInput` wrapper remains in `terminal_support.go`.
+
+It has also improved for the simple AI CRUD/lookup route contracts and run-chain input models; those now come from `httpapi` / `runchains` instead of `frontendbindings`.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

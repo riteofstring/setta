@@ -52,7 +52,7 @@ type createExternalAgentConfigRequest struct {
 	CodexSkipGitRepoCheck   *bool                                       `json:"codexSkipGitRepoCheck"`
 }
 
-type getExternalAgentConfigRequest struct {
+type GetExternalAgentConfigRequest struct {
 	ConfigID string `json:"configId"`
 }
 
@@ -60,7 +60,7 @@ type updateExternalAgentConfigRequest struct {
 	Config *externalagentconfigs.Config `json:"config"`
 }
 
-type deleteExternalAgentConfigRequest struct {
+type DeleteExternalAgentConfigRequest struct {
 	ConfigID string `json:"configId"`
 }
 
@@ -174,7 +174,7 @@ func getExternalAgentConfigHandler(deps ExternalAgentConfigRouteDependencies) ht
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[getExternalAgentConfigRequest](r)
+		payload, err := decodeStrictJSONBody[GetExternalAgentConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -300,7 +300,7 @@ func deleteExternalAgentConfigHandler(service *externalagentconfigs.Service, web
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[deleteExternalAgentConfigRequest](r)
+		payload, err := decodeStrictJSONBody[DeleteExternalAgentConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return

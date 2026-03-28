@@ -34,7 +34,7 @@ type PromptTemplateRouteDependencies struct {
 	WebsocketHub *realtime.WebsocketHub
 }
 
-type createPromptTemplateRequest struct {
+type CreatePromptTemplateRequest struct {
 	Name        *string                 `json:"name"`
 	Description *string                 `json:"description"`
 	Template    *string                 `json:"template"`
@@ -43,7 +43,7 @@ type createPromptTemplateRequest struct {
 	Metadata    map[string]any          `json:"metadata"`
 }
 
-type getPromptTemplateRequest struct {
+type GetPromptTemplateRequest struct {
 	TemplateID string `json:"templateId"`
 }
 
@@ -61,7 +61,7 @@ type promptTemplatePayload struct {
 	Metadata    map[string]any          `json:"metadata"`
 }
 
-type deletePromptTemplateRequest struct {
+type DeletePromptTemplateRequest struct {
 	TemplateID string `json:"templateId"`
 }
 
@@ -185,7 +185,7 @@ func getPromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Handler
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[getPromptTemplateRequest](r)
+		payload, err := decodeStrictJSONBody[GetPromptTemplateRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -219,7 +219,7 @@ func createPromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[createPromptTemplateRequest](r)
+		payload, err := decodeStrictJSONBody[CreatePromptTemplateRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -359,7 +359,7 @@ func deletePromptTemplateHandler(deps PromptTemplateRouteDependencies) http.Hand
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[deletePromptTemplateRequest](r)
+		payload, err := decodeStrictJSONBody[DeletePromptTemplateRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -511,7 +511,7 @@ func broadcastLinkedPromptTemplateProjectStateUpdates(
 	return nil
 }
 
-func buildCreatedPromptTemplate(payload createPromptTemplateRequest) (prompttemplates.Template, *promptTemplateRouteError) {
+func buildCreatedPromptTemplate(payload CreatePromptTemplateRequest) (prompttemplates.Template, *promptTemplateRouteError) {
 	if payload.Name == nil {
 		return prompttemplates.Template{}, &promptTemplateRouteError{
 			Status:  http.StatusBadRequest,

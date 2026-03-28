@@ -30,25 +30,25 @@ type AgentRunRouteDependencies struct {
 	Chains     *runchains.Runtime
 }
 
-type getAgentRunRequest struct {
+type GetAgentRunRequest struct {
 	RunID string `json:"runId"`
 }
 
-type startAgentRunRequest struct {
+type StartAgentRunRequest struct {
 	ProfileID string         `json:"profileId"`
 	Inputs    map[string]any `json:"inputs"`
 }
 
-type stopAgentRunRequest struct {
+type StopAgentRunRequest struct {
 	RunID string `json:"runId"`
 }
 
-type startRunChainRequest struct {
+type StartRunChainRequest struct {
 	Spec   runchains.SpecInput `json:"spec"`
 	Inputs map[string]any      `json:"inputs"`
 }
 
-type stopRunChainRequest struct {
+type StopRunChainRequest struct {
 	RunID string `json:"runId"`
 }
 
@@ -101,7 +101,7 @@ func getAgentRunHandler(store *agentruns.RunStore) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		payload, err := decodeStrictJSONBody[getAgentRunRequest](r)
+		payload, err := decodeStrictJSONBody[GetAgentRunRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -136,7 +136,7 @@ func startAgentRunHandler(profileStore *agentprofiles.Store, runtime *agentruns.
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[startAgentRunRequest](r)
+		payload, err := decodeStrictJSONBody[StartAgentRunRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -179,7 +179,7 @@ func stopAgentRunHandler(runtime *agentruns.Runtime) http.HandlerFunc {
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[stopAgentRunRequest](r)
+		payload, err := decodeStrictJSONBody[StopAgentRunRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -213,7 +213,7 @@ func startRunChainHandler(runtime *runchains.Runtime) http.HandlerFunc {
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[startRunChainRequest](r)
+		payload, err := decodeStrictJSONBody[StartRunChainRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -241,7 +241,7 @@ func stopRunChainHandler(runtime *runchains.Runtime) http.HandlerFunc {
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[stopRunChainRequest](r)
+		payload, err := decodeStrictJSONBody[StopRunChainRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return

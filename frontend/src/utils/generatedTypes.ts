@@ -230,14 +230,14 @@ export function createSetLLMAPIKeysRequestInput(
 }
 
 export type CreateAgentProfileRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  systemPrompt?: string | null;
-  enableBackgroundSummaryFill?: boolean | null;
-  enableLlmChatTitles?: boolean | null;
-  engineConfigId?: string | null;
+  name: string | null;
+  description: string | null;
+  systemPrompt: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
   toolAllowlist: Array<string>;
-  memoryScope?: string | null;
+  memoryScope: string | null;
 };
 export function createCreateAgentProfileRequestInput(
   options: Partial<CreateAgentProfileRequestInput> = {},
@@ -295,10 +295,10 @@ export function createGetPromptTemplateRequestInput(
 }
 
 export type CreatePromptTemplateRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  template?: string | null;
-  format?: PromptFormat | null;
+  name: string | null;
+  description: string | null;
+  template: string | null;
+  format: PromptFormat | null;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
@@ -791,11 +791,11 @@ export function createEngineConfigDefaults(
 }
 
 export type CreateEngineConfigRequestInput = {
-  name?: string | null;
-  engineType?: EngineType | null;
-  settaLlmConfigId?: string | null;
-  externalAgentConfigId?: string | null;
-  defaults?: EngineConfigDefaults | null;
+  name: string | null;
+  engineType: EngineType | null;
+  settaLlmConfigId: string | null;
+  externalAgentConfigId: string | null;
+  defaults: EngineConfigDefaults | null;
 };
 export function createCreateEngineConfigRequestInput(
   options: Partial<CreateEngineConfigRequestInput> = {},

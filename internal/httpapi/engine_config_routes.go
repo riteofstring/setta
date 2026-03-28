@@ -30,11 +30,11 @@ type EngineConfigRouteDependencies struct {
 	WebsocketHub *realtime.WebsocketHub
 }
 
-type getEngineConfigRequest struct {
+type GetEngineConfigRequest struct {
 	ConfigID string `json:"configId"`
 }
 
-type createEngineConfigRequest struct {
+type CreateEngineConfigRequest struct {
 	Name                  *string                         `json:"name"`
 	EngineType            *agentruns.EngineType           `json:"engineType"`
 	SettaLLMConfigID      *string                         `json:"settaLlmConfigId"`
@@ -46,7 +46,7 @@ type updateEngineConfigRequest struct {
 	Config *updateEngineConfigPayload `json:"config"`
 }
 
-type deleteEngineConfigRequest struct {
+type DeleteEngineConfigRequest struct {
 	ConfigID string `json:"configId"`
 }
 
@@ -107,7 +107,7 @@ func getEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runtime
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[getEngineConfigRequest](r)
+		payload, err := decodeStrictJSONBody[GetEngineConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -138,7 +138,7 @@ func createEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runt
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[createEngineConfigRequest](r)
+		payload, err := decodeStrictJSONBody[CreateEngineConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -211,7 +211,7 @@ func deleteEngineConfigHandler(store *agentruns.EngineStore, llm *llmconfig.Runt
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[deleteEngineConfigRequest](r)
+		payload, err := decodeStrictJSONBody[DeleteEngineConfigRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -250,7 +250,7 @@ func broadcastEngineConfigsUpdated(ctx context.Context, store *agentruns.EngineS
 	return err
 }
 
-func buildCreatedEngineConfig(payload createEngineConfigRequest) (agentruns.EngineConfig, *engineConfigRouteError) {
+func buildCreatedEngineConfig(payload CreateEngineConfigRequest) (agentruns.EngineConfig, *engineConfigRouteError) {
 	if payload.Name == nil {
 		return agentruns.EngineConfig{}, &engineConfigRouteError{
 			Status:  http.StatusBadRequest,

@@ -224,14 +224,14 @@ export function createSetLLMAPIKeysRequestInput(options: Partial<SetLLMAPIKeysRe
 
 
 export type CreateAgentProfileRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  systemPrompt?: string | null;
-  enableBackgroundSummaryFill?: boolean | null;
-  enableLlmChatTitles?: boolean | null;
-  engineConfigId?: string | null;
+  name: string | null;
+  description: string | null;
+  systemPrompt: string | null;
+  enableBackgroundSummaryFill: boolean | null;
+  enableLlmChatTitles: boolean | null;
+  engineConfigId: string | null;
   toolAllowlist: Array<string>;
-  memoryScope?: string | null;
+  memoryScope: string | null;
 };
 export function createCreateAgentProfileRequestInput(options: Partial<CreateAgentProfileRequestInput> = {}): CreateAgentProfileRequestInput {
   return options as CreateAgentProfileRequestInput;
@@ -286,10 +286,10 @@ export function createGetPromptTemplateRequestInput(options: Partial<GetPromptTe
 
 
 export type CreatePromptTemplateRequestInput = {
-  name?: string | null;
-  description?: string | null;
-  template?: string | null;
-  format?: PromptFormat | null;
+  name: string | null;
+  description: string | null;
+  template: string | null;
+  format: PromptFormat | null;
   inputSchema: Record<string, unknown>;
   metadata: Record<string, unknown>;
 };
@@ -746,11 +746,11 @@ export function createEngineConfigDefaults(options: Partial<EngineConfigDefaults
 
 
 export type CreateEngineConfigRequestInput = {
-  name?: string | null;
-  engineType?: EngineType | null;
-  settaLlmConfigId?: string | null;
-  externalAgentConfigId?: string | null;
-  defaults?: EngineConfigDefaults | null;
+  name: string | null;
+  engineType: EngineType | null;
+  settaLlmConfigId: string | null;
+  externalAgentConfigId: string | null;
+  defaults: EngineConfigDefaults | null;
 };
 export function createCreateEngineConfigRequestInput(options: Partial<CreateEngineConfigRequestInput> = {}): CreateEngineConfigRequestInput {
   return options as CreateEngineConfigRequestInput;

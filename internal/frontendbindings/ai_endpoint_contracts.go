@@ -4,6 +4,7 @@ import (
 	"setta/internal/httpapi"
 	"setta/internal/llmconfig"
 	"setta/internal/notifications"
+	"setta/internal/runchains"
 )
 
 type SettaNotificationType string
@@ -39,55 +40,29 @@ type SetLLMAPIKeysRequestInput struct {
 	ExpectedRevision int     `json:"expectedRevision"`
 }
 
-type CreateAgentProfileRequestInput struct {
-	Name                        *string  `json:"name,omitempty"`
-	Description                 *string  `json:"description,omitempty"`
-	SystemPrompt                *string  `json:"systemPrompt,omitempty"`
-	EnableBackgroundSummaryFill *bool    `json:"enableBackgroundSummaryFill,omitempty"`
-	EnableLlmChatTitles         *bool    `json:"enableLlmChatTitles,omitempty"`
-	EngineConfigID              *string  `json:"engineConfigId,omitempty"`
-	ToolAllowlist               []string `json:"toolAllowlist"`
-	MemoryScope                 *string  `json:"memoryScope,omitempty"`
-}
+type CreateAgentProfileRequestInput httpapi.CreateAgentProfileRequest
 
-type GetAgentProfileRequestInput struct {
-	ProfileID string `json:"profileId"`
-}
+type GetAgentProfileRequestInput httpapi.GetAgentProfileRequest
 
-type DeleteAgentProfileRequestInput struct {
-	ProfileID string `json:"profileId"`
-}
+type DeleteAgentProfileRequestInput httpapi.DeleteAgentProfileRequest
 
 type PromptTemplateListResponse []PromptTemplate
 
-type GetPromptTemplateRequestInput struct {
-	TemplateID string `json:"templateId"`
-}
+type GetPromptTemplateRequestInput httpapi.GetPromptTemplateRequest
 
-type CreatePromptTemplateRequestInput struct {
-	Name        *string        `json:"name,omitempty"`
-	Description *string        `json:"description,omitempty"`
-	Template    *string        `json:"template,omitempty"`
-	Format      *PromptFormat  `json:"format,omitempty"`
-	InputSchema map[string]any `json:"inputSchema"`
-	Metadata    map[string]any `json:"metadata"`
-}
+type CreatePromptTemplateRequestInput httpapi.CreatePromptTemplateRequest
 
 type UpdatePromptTemplateRequestInput struct {
 	Template PromptTemplate `json:"template"`
 }
 
-type DeletePromptTemplateRequestInput struct {
-	TemplateID string `json:"templateId"`
-}
+type DeletePromptTemplateRequestInput httpapi.DeletePromptTemplateRequest
 
 type ExternalAgentConfigListResponse []ExternalAgentConfig
 
 type ExternalAgentPreflightStatusListResponse []ExternalAgentPreflightStatus
 
-type GetExternalAgentConfigRequestInput struct {
-	ConfigID string `json:"configId"`
-}
+type GetExternalAgentConfigRequestInput httpapi.GetExternalAgentConfigRequest
 
 type CreateExternalAgentConfigRequestInput struct {
 	Name                    *string                            `json:"name,omitempty"`
@@ -114,9 +89,7 @@ type UpdateExternalAgentConfigRequestInput struct {
 	Config ExternalAgentConfig `json:"config"`
 }
 
-type DeleteExternalAgentConfigRequestInput struct {
-	ConfigID string `json:"configId"`
-}
+type DeleteExternalAgentConfigRequestInput httpapi.DeleteExternalAgentConfigRequest
 
 type DeleteTranscriptionProfileRequestInput struct {
 	ProfileID string `json:"profileId"`
@@ -132,18 +105,11 @@ type StopLLMChatResponse struct {
 
 type TranscriptionSessionDeltaResponse httpapi.TranscriptionSessionDeltaResponse
 
-type GetAgentRunRequestInput struct {
-	RunID string `json:"runId"`
-}
+type GetAgentRunRequestInput httpapi.GetAgentRunRequest
 
-type StartAgentRunRequestInput struct {
-	ProfileID string         `json:"profileId"`
-	Inputs    map[string]any `json:"inputs"`
-}
+type StartAgentRunRequestInput httpapi.StartAgentRunRequest
 
-type StopAgentRunRequestInput struct {
-	RunID string `json:"runId"`
-}
+type StopAgentRunRequestInput httpapi.StopAgentRunRequest
 
 type StartStateMachineRunRequestInput httpapi.StartStateMachineRunRequest
 
@@ -165,48 +131,19 @@ type CancelRunRequestInput httpapi.CancelRunRequest
 
 type GetRunnerSummaryRequestInput httpapi.GetRunnerSummaryRequest
 
-type RunChainStepInput struct {
-	ID                     string           `json:"id"`
-	Name                   string           `json:"name"`
-	EngineConfigID         string           `json:"engineConfigId"`
-	AgentProfileID         *string          `json:"agentProfileId,omitempty"`
-	Prompt                 *string          `json:"prompt,omitempty"`
-	Messages               []map[string]any `json:"messages,omitempty"`
-	Inputs                 map[string]any   `json:"inputs,omitempty"`
-	IncludePreviousOutputs *bool            `json:"includePreviousOutputs,omitempty"`
-}
+type RunChainStepInput runchains.StepInput
 
-type RunChainSpecInput struct {
-	ID            string              `json:"id"`
-	Name          string              `json:"name"`
-	Steps         []RunChainStepInput `json:"steps"`
-	StopOnFailure *bool               `json:"stopOnFailure,omitempty"`
-}
+type RunChainSpecInput runchains.SpecInput
 
-type StartRunChainRequestInput struct {
-	Spec   RunChainSpecInput `json:"spec"`
-	Inputs map[string]any    `json:"inputs"`
-}
+type StartRunChainRequestInput httpapi.StartRunChainRequest
 
-type StopRunChainRequestInput struct {
-	RunID string `json:"runId"`
-}
+type StopRunChainRequestInput httpapi.StopRunChainRequest
 
-type GetEngineConfigRequestInput struct {
-	ConfigID string `json:"configId"`
-}
+type GetEngineConfigRequestInput httpapi.GetEngineConfigRequest
 
-type CreateEngineConfigRequestInput struct {
-	Name                  *string               `json:"name,omitempty"`
-	EngineType            *EngineType           `json:"engineType,omitempty"`
-	SettaLLMConfigID      *string               `json:"settaLlmConfigId,omitempty"`
-	ExternalAgentConfigID *string               `json:"externalAgentConfigId,omitempty"`
-	Defaults              *EngineConfigDefaults `json:"defaults,omitempty"`
-}
+type CreateEngineConfigRequestInput httpapi.CreateEngineConfigRequest
 
-type DeleteEngineConfigRequestInput struct {
-	ConfigID string `json:"configId"`
-}
+type DeleteEngineConfigRequestInput httpapi.DeleteEngineConfigRequest
 
 type UpdateAgentProfileRequestInput struct {
 	Profile AgentProfile `json:"profile"`

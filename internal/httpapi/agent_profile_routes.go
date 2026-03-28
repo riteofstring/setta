@@ -29,7 +29,7 @@ type AgentProfileRouteDependencies struct {
 	WebsocketHub *realtime.WebsocketHub
 }
 
-type createAgentProfileRequest struct {
+type CreateAgentProfileRequest struct {
 	Name                        *string  `json:"name"`
 	Description                 *string  `json:"description"`
 	SystemPrompt                *string  `json:"systemPrompt"`
@@ -40,7 +40,7 @@ type createAgentProfileRequest struct {
 	MemoryScope                 *string  `json:"memoryScope"`
 }
 
-type getAgentProfileRequest struct {
+type GetAgentProfileRequest struct {
 	ProfileID string `json:"profileId"`
 }
 
@@ -60,7 +60,7 @@ type agentProfilePayload struct {
 	MemoryScope                 *string  `json:"memoryScope"`
 }
 
-type deleteAgentProfileRequest struct {
+type DeleteAgentProfileRequest struct {
 	ProfileID string `json:"profileId"`
 }
 
@@ -180,7 +180,7 @@ func getAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerFunc
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[getAgentProfileRequest](r)
+		payload, err := decodeStrictJSONBody[GetAgentProfileRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -214,7 +214,7 @@ func createAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerF
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[createAgentProfileRequest](r)
+		payload, err := decodeStrictJSONBody[CreateAgentProfileRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -290,7 +290,7 @@ func deleteAgentProfileHandler(deps AgentProfileRouteDependencies) http.HandlerF
 			return
 		}
 
-		payload, err := decodeStrictJSONBody[deleteAgentProfileRequest](r)
+		payload, err := decodeStrictJSONBody[DeleteAgentProfileRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -336,7 +336,7 @@ func broadcastAgentProfilesUpdated(
 	return err
 }
 
-func buildCreatedAgentProfile(payload createAgentProfileRequest) (agentprofiles.Profile, *agentProfileRouteError) {
+func buildCreatedAgentProfile(payload CreateAgentProfileRequest) (agentprofiles.Profile, *agentProfileRouteError) {
 	if payload.Name == nil || strings.TrimSpace(*payload.Name) == "" {
 		return agentprofiles.Profile{}, &agentProfileRouteError{
 			Status:  http.StatusBadRequest,
