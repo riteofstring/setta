@@ -1,10 +1,11 @@
 import { NodeIdProvider } from "forks/xyflow/core/contexts/NodeIdContext";
 import _ from "lodash";
-import React, { type ReactElement } from "react";
+import React from "react";
 import {
   getActiveViewModeConfig,
   getCurrEffectiveSectionImpl,
   getEmbeddedAttachedTerminalForCodeSection,
+  getSectionShouldRender,
   getSectionViewModeVisibility,
   isBaseCodeSectionType,
 } from "state/actions/sectionInfos";
@@ -18,34 +19,18 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { AgenticEdgeHandles } from "./AgenticEdgeHandles";
 import { ContainerSwitch } from "./ContainerSwitch";
+import { MaybeManyNestedSections } from "./ManyNestedSections";
 import { SectionContainerCore } from "./SectionContainerCore";
-import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
-import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
-import { buildSectionContainerView } from "./sectionContainerView";
-import type {
-  SortableSectionBodySectionBoundary,
-  SortableSectionNestedSectionsRenderer,
-} from "./sortableSectionBodyView";
 import { getOutlineColor } from "./utils";
-
-export type SectionContainerCoreBodyRenderer = (
-  props: SectionContainerCoreBodyProps,
-) => ReactElement | null;
 
 function _SectionContainer({
   sectionId,
   isTopLevel,
   dragListeners,
-  SectionBoundary,
-  renderNestedSections,
-  renderCoreBody,
 }: {
   sectionId: string;
   isTopLevel: boolean;
   dragListeners?: any;
-  SectionBoundary: SortableSectionBodySectionBoundary;
-  renderNestedSections: SortableSectionNestedSectionsRenderer;
-  renderCoreBody: SectionContainerCoreBodyRenderer;
 }) {
   const {
     visibility,
@@ -58,8 +43,6 @@ function _SectionContainer({
     hasPythonCodegen,
     hasMetadata,
     sectionTypeName,
-    textBlockMetaControlStyle,
-    isMinimized,
     positionAndSizeLocked,
     isInOtherProjectConfigs,
     attachedTerminalId,
@@ -94,9 +77,6 @@ function _SectionContainer({
       hasPythonCodegen: projectConfigHasPythonCodegen(x.projectConfig),
       hasMetadata: Boolean(pythonTarget?.generateMetadata),
       sectionTypeName: impl.type,
-      textBlockMetaControlStyle:
-        impl.type === SectionTypeEnum.TextBlock ? impl.metaControlStyle : false,
-      isMinimized: impl.isMinimized,
       positionAndSizeLocked: impl.positionAndSizeLocked,
       isInOtherProjectConfigs: impl.isInOtherProjectConfigs,
       attachedTerminalId,
@@ -109,40 +89,16 @@ function _SectionContainer({
   );
   const isJoinedGroupActive = isActiveSection || isAttachedTerminalActive;
 
-  const view = buildSectionContainerView({
-    sectionId,
-    visibility,
-    isEditingViewMode,
-    isGroup,
-    isCode,
-    isUserView,
-    isGenPython,
-    isGenPythonMetadata,
-    hasPythonCodegen,
-    hasMetadata,
-    sectionTypeName,
-    textBlockMetaControlStyle,
-    isMinimized,
-    isJoinedAttachedTerminalGroup,
-  });
-
-  if (view.kind === "none") {
+  if (isGenPython && !hasPythonCodegen) {
+    return null;
+  }
+  if (isGenPythonMetadata && !hasMetadata) {
     return null;
   }
 
-  const nestedSections = (
-    <SectionContainerNestedSections
-      {...view.nestedSectionsProps}
-      isJoinedCodeTerminalGroup={view.kind === "joined-code-terminal-group"}
-      renderCoreBody={renderCoreBody}
-      renderNestedSections={renderNestedSections}
-    />
-  );
-  const core = view.core ? (
-    <SectionContainerCore {...view.core.props}>
-      {renderCoreBody(view.core.bodyProps)}
-    </SectionContainerCore>
-  ) : null;
+  if (!getSectionShouldRender(visibility, isEditingViewMode)) {
+    return null;
+  }
 
   return (
     <NodeIdProvider value={sectionId}>
@@ -156,7 +112,7 @@ function _SectionContainer({
         isUserView={isUserView}
       >
         <>
-          {view.kind === "joined-code-terminal-group" ? (
+          {!isGroup && isJoinedAttachedTerminalGroup ? (
             <div
               className={`agentic-handle-scope transition-radius relative flex w-min flex-col ${positionAndSizeLocked ? "rounded-sm" : "rounded-lg"} outline outline-4 ${getOutlineColor(
                 {
@@ -168,13 +124,42 @@ function _SectionContainer({
               data-joined-code-terminal-group
             >
               <AgenticEdgeHandles isUserView={isUserView} />
-              {core}
-              {nestedSections}
+              <SectionContainerCore
+                sectionId={sectionId}
+                isUserView={isUserView}
+                forceHideOutline={true}
+                hideAgenticEdgeHandles={true}
+                omitAgenticHandleScopeClass={true}
+                joinedCorners="code-terminal-parent"
+              />
+              <div className="-mt-px">
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                  layoutVariant="tight"
+                />
+              </div>
             </div>
           ) : (
             <>
-              {core}
-              {nestedSections}
+              {!isGroup && (
+                <SectionContainerCore
+                  sectionId={sectionId}
+                  isUserView={isUserView}
+                />
+              )}
+              {isCode ? (
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                  layoutVariant="tight"
+                />
+              ) : (
+                <MaybeManyNestedSections
+                  sectionId={sectionId}
+                  isGroup={isGroup}
+                />
+              )}
             </>
           )}
         </>
@@ -182,11 +167,6 @@ function _SectionContainer({
     </NodeIdProvider>
   );
 }
-export const SectionContainer = React.memo(
-  _SectionContainer,
-  (p, n) =>
-    p.SectionBoundary === n.SectionBoundary &&
-    p.renderCoreBody === n.renderCoreBody &&
-    p.renderNestedSections === n.renderNestedSections &&
-    _.isEqual(p.dragListeners, n.dragListeners),
+export const SectionContainer = React.memo(_SectionContainer, (p, n) =>
+  _.isEqual(p.dragListeners, n.dragListeners),
 );
