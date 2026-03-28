@@ -64,6 +64,8 @@ describe("SectionSearch", () => {
   const sectionId = "callable-section";
   const sectionVariantId = "callable-section-variant";
   const sectionImplId = "callable-section-impl";
+  const previewSectionVariantId = "callable-section-preview-variant";
+  const previewSectionImplId = "callable-section-preview-impl";
   const currentCallableId = "callable-current";
   const currentCallableVariantId = "callable-current-variant";
   const currentCallableImplId = "callable-current-impl";
@@ -186,6 +188,54 @@ describe("SectionSearch", () => {
     try {
       expect(host.textContent ?? "").not.toContain("Unhandled Thrown Error!");
       expect(host.querySelector(`#${sectionId}-search`)).not.toBeNull();
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+    }
+  });
+
+  it("shows the preview variant callable when the active variant has no callable", async () => {
+    useProjectState.setState((state) => {
+      state.sections[sectionId].variants = [
+        sectionVariantId,
+        previewSectionVariantId,
+      ];
+      state.sectionImpls[sectionImplId].callable = null;
+      state.sectionImpls[sectionImplId].codeObjVariantMap = {};
+      state.sectionImpls[previewSectionImplId] = createCallableSectionImpl(
+        createUserDefaultCallableSectionImpl(),
+        {
+          id: previewSectionImplId,
+          callable: currentCallableId,
+          codeObjVariantMap: {
+            [currentCallableId]: currentCallableVariantId,
+          },
+        },
+      );
+      state.sectionVariants[previewSectionVariantId] = createVariant({
+        id: previewSectionVariantId,
+        name: "Preview",
+        impl: previewSectionImplId,
+        nonPresetImpls: [previewSectionImplId],
+      });
+    });
+
+    const { host, root } = await renderSectionSearch(
+      sectionId,
+      currentCallableId,
+    );
+
+    try {
+      expect(host.textContent ?? "").not.toContain("math.sqrt");
+
+      await act(async () => {
+        useProjectState.setState((state) => {
+          state.previewSectionVariantMap[sectionId] = previewSectionVariantId;
+        });
+      });
+
+      expect(host.textContent ?? "").toContain("math.sqrt");
     } finally {
       await act(async () => {
         root.unmount();

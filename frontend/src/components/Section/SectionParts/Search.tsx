@@ -218,11 +218,17 @@ function SectionSearchCore({
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
+      true,
     );
     const { configLanguage } = sectionImpl;
     if (callable) {
       const codeObj = getCodeObjCore(x, callable);
-      const impl = getCurrEffectiveCodeObjImplIfPresent(x, sectionId, callable);
+      const impl = getCurrEffectiveCodeObjImplIfPresent(
+        x,
+        sectionId,
+        callable,
+        true,
+      );
       if (!impl) {
         return { name: "", description: "", configLanguage };
       }
