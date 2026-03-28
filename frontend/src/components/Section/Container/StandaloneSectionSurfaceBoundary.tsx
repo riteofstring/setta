@@ -1,6 +1,5 @@
 import React, { type ComponentProps } from "react";
 import { SectionTypeEnum, type SectionType } from "utils/generatedTypes";
-import { SectionContainerAreaDictBoundary } from "./SectionContainerAreaDictBoundary";
 import { SectionContainerNestedSectionsBoundary } from "./SectionContainerNestedSectionsBoundary";
 import { SectionWindowSurface } from "./SectionWindowSurface";
 import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
@@ -10,6 +9,7 @@ type StandaloneSectionSurfaceBoundaryProps = Pick<
   "onProjectChatBlockedErrorCodeChange" | "projectChatSurfaceId" | "sectionId"
 > & {
   sectionType: SectionType;
+  renderDictArea: (props: SectionContainerAreaDictProps) => React.ReactNode;
 };
 
 function StandaloneSectionNestedSectionsBody({
@@ -34,17 +34,12 @@ function StandaloneSectionNestedSectionsBody({
   );
 }
 
-function renderStandaloneSectionSurfaceDictArea(
-  props: SectionContainerAreaDictProps,
-) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
-
 function _StandaloneSectionSurfaceBoundary({
   sectionId,
   sectionType,
   projectChatSurfaceId,
   onProjectChatBlockedErrorCodeChange,
+  renderDictArea,
 }: StandaloneSectionSurfaceBoundaryProps) {
   const bodyOverride =
     sectionType === SectionTypeEnum.Group ||
@@ -64,7 +59,7 @@ function _StandaloneSectionSurfaceBoundary({
       projectChatSurfaceId={projectChatSurfaceId}
       onProjectChatBlockedErrorCodeChange={onProjectChatBlockedErrorCodeChange}
       bodyOverride={bodyOverride}
-      renderDictArea={renderStandaloneSectionSurfaceDictArea}
+      renderDictArea={renderDictArea}
     />
   );
 }

@@ -56,16 +56,19 @@ vi.mock("components/Section/Container/StandaloneSectionSurfaceBoundary", () => (
     sectionId,
     sectionType,
     projectChatSurfaceId,
+    renderDictArea,
   }: {
     sectionId: string;
     sectionType: string;
     projectChatSurfaceId: string;
+    renderDictArea?: unknown;
   }) => (
     <div
       data-testid="mock-standalone-section-surface-boundary"
       data-section-id={sectionId}
       data-section-type={sectionType}
       data-project-chat-surface-id={projectChatSurfaceId}
+      data-has-render-dict-area={String(Boolean(renderDictArea))}
     />
   ),
 }));
@@ -149,6 +152,7 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain(`data-section-type="${SectionTypeEnum.Group}"`);
     expect(markup).toContain('data-project-chat-surface-id="');
+    expect(markup).toContain('data-has-render-dict-area="true"');
     expect(markup).toContain('data-testid="mock-floating-box"');
   });
 

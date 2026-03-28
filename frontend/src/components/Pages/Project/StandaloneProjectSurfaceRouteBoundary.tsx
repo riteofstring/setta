@@ -7,7 +7,9 @@ import {
   buildStandalonePageProjectChatSurfaceId,
   buildStandalonePageSectionProjectChatSurfaceId,
 } from "components/ChatWindowing/projectChatSurfaceIds";
+import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
 import { StandaloneSectionSurfaceBoundary } from "components/Section/Container/StandaloneSectionSurfaceBoundary";
+import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
 import { memo, type ReactNode, type SetStateAction } from "react";
@@ -49,6 +51,12 @@ export type StandaloneSurfaceTarget =
     };
 
 export type StandaloneSurfaceErrorCode = "chat_not_found" | "llm_disallowed";
+
+function renderStandaloneProjectSurfaceRouteDictArea(
+  props: SectionContainerAreaDictProps,
+) {
+  return <SectionContainerAreaDictBoundary {...props} />;
+}
 
 function StandaloneSurfaceShell({ children }: { children: ReactNode }) {
   return (
@@ -245,6 +253,7 @@ function _StandaloneProjectSurfaceRouteBoundary({
           onProjectChatBlockedErrorCodeChange={
             onProjectChatBlockedErrorCodeChange
           }
+          renderDictArea={renderStandaloneProjectSurfaceRouteDictArea}
         />
       </div>
     </StandaloneSurfaceShell>

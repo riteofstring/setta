@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { StandaloneSectionSurfaceBoundary } from "./StandaloneSectionSurfaceBoundary";
+import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
 
 vi.mock("./SectionWindowSurface", () => ({
   SectionWindowSurface: ({
@@ -62,12 +63,14 @@ vi.mock("./SectionContainerNestedSectionsBoundary", () => ({
 
 describe("StandaloneSectionSurfaceBoundary", () => {
   it("injects the standalone section surface defaults and nested-sections boundary for group sections", () => {
+    const renderDictArea = (_props: SectionContainerAreaDictProps) => null;
     const markup = renderToStaticMarkup(
       <StandaloneSectionSurfaceBoundary
         sectionId="section-1"
         sectionType={SectionTypeEnum.Group}
         projectChatSurfaceId="surface-1"
         onProjectChatBlockedErrorCodeChange={() => undefined}
+        renderDictArea={renderDictArea}
       />,
     );
 
@@ -92,11 +95,13 @@ describe("StandaloneSectionSurfaceBoundary", () => {
   });
 
   it("keeps standalone non-group sections on the default section window body path", () => {
+    const renderDictArea = (_props: SectionContainerAreaDictProps) => null;
     const markup = renderToStaticMarkup(
       <StandaloneSectionSurfaceBoundary
         sectionId="section-2"
         sectionType={SectionTypeEnum.TextBlock}
         projectChatSurfaceId="surface-2"
+        renderDictArea={renderDictArea}
       />,
     );
 
