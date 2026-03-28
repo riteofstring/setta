@@ -288,6 +288,7 @@ func newCreatedTopLevelSectionState(
 		},
 		variant: SectionVariant{
 			ID:               variantID,
+			Name:             sectionName,
 			ImplID:           impl.ID,
 			NonPresetImplIDs: []string{impl.ID},
 		},

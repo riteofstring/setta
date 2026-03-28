@@ -2432,13 +2432,17 @@ func createNewSectionVariantHandler(deps ProjectRouteDependencies) http.HandlerF
 			return
 		}
 
-		_, result, err := runtime.CreateNewSectionVariant(
+		snapshot, result, err := runtime.CreateNewSectionVariant(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.CreateNewSectionVariantInput{SectionID: payload.SectionID},
 		)
 		if err != nil {
 			writeSectionVariantMutationError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, result)

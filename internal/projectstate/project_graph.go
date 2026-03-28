@@ -364,6 +364,9 @@ func (p Project) Normalized() (Project, error) {
 	if normalized.CodeObjImpls == nil {
 		normalized.CodeObjImpls = map[string]CodeObjectImpl{}
 	}
+	if err := normalized.ensureSectionVariantNames(); err != nil {
+		return Project{}, fmt.Errorf("normalize section variant names: %w", err)
+	}
 	normalizedWindowing := ProjectChatWindowingOrDefault(
 		normalized.ProjectChatWindowing,
 	)

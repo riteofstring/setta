@@ -140,11 +140,19 @@ func TestProjectCreateNewSectionVariantDuplicatesParamVariantStateAndEdges(t *te
 	}
 
 	newVariant := project.SectionVariants[result.VariantID]
+	if newVariant.Name == "" {
+		t.Fatal("expected created section variant name")
+	}
 	if newVariant.ImplID == "source-impl" {
 		t.Fatalf("expected a cloned section impl id, got %#v", newVariant)
 	}
 	if !reflect.DeepEqual(newVariant.NonPresetImplIDs, []string{newVariant.ImplID}) {
 		t.Fatalf("expected non-preset impl ids [%s], got %#v", newVariant.ImplID, newVariant.NonPresetImplIDs)
+	}
+	if sourceVariantName := project.SectionVariants["source-variant"].Name; sourceVariantName == "" {
+		t.Fatal("expected normalized source variant name")
+	} else if newVariant.Name == sourceVariantName {
+		t.Fatalf("expected created variant name to differ from source variant name %q", sourceVariantName)
 	}
 
 	originalPayload, err := effectiveSectionPayload(project, "source-section", "source-variant")
@@ -223,6 +231,60 @@ func TestProjectCreateNewSectionVariantDuplicatesParamVariantStateAndEdges(t *te
 	}
 	if copiedIncoming == nil {
 		t.Fatalf("expected an incoming edge copy for %q, got %#v", result.VariantID, project.Edges)
+	}
+}
+
+func TestProjectNormalizedAssignsNamesToBlankSectionVariants(t *testing.T) {
+	t.Parallel()
+
+	project, err := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"source-section": "source-variant-a",
+		},
+		Sections: map[string]Section{
+			"source-section": {
+				ID:               "source-section",
+				Name:             "Source",
+				VariantIDs:       []string{"source-variant-a", "source-variant-b"},
+				DefaultVariantID: "source-variant-a",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"source-variant-a": {
+				ID:     "source-variant-a",
+				ImplID: "source-impl-a",
+			},
+			"source-variant-b": {
+				ID:     "source-variant-b",
+				ImplID: "source-impl-b",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"source-impl-a": {
+				ID:      "source-impl-a",
+				Kind:    SectionKind("dict"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "source-impl-a", "type": "Dict"}),
+			},
+			"source-impl-b": {
+				ID:      "source-impl-b",
+				Kind:    SectionKind("dict"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "source-impl-b", "type": "Dict"}),
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("Normalized returned error: %v", err)
+	}
+
+	firstVariant := project.SectionVariants["source-variant-a"]
+	secondVariant := project.SectionVariants["source-variant-b"]
+	if firstVariant.Name != "Source" {
+		t.Fatalf("expected first repaired variant name Source, got %q", firstVariant.Name)
+	}
+	if secondVariant.Name != "Source_2" {
+		t.Fatalf("expected second repaired variant name Source_2, got %q", secondVariant.Name)
 	}
 }
 

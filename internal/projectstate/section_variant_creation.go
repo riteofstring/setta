@@ -90,6 +90,15 @@ func (p *Project) CreateNewSectionVariant(input CreateNewSectionVariantInput) (C
 	newVariant := SectionVariant{
 		ID: newVariantID,
 	}
+	existingVariantNames := collectSectionVariantNames(section, p.SectionVariants)
+	preferredVariantName := sourceVariant.Name
+	if strings.TrimSpace(preferredVariantName) == "" {
+		preferredVariantName = section.Name
+	}
+	newVariant.Name, err = nextAvailableSectionVariantName(existingVariantNames, preferredVariantName)
+	if err != nil {
+		return CreateNewSectionVariantResult{}, err
+	}
 
 	sourceImplPreset := sectionImplIsPreset(sourceImpl)
 	if sourceImplPreset {

@@ -2908,6 +2908,84 @@ func TestAppMoveSectionsRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	}
 }
 
+func TestAppCreateNewSectionVariantRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteCreateNewSectionVariant,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"allowed-callable-section","frontendOpId":"create-section-variant-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new create section variant request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post create section variant: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if !containsAppString(content.CompletedOpIDs, "create-section-variant-op") {
+		t.Fatalf("expected completed create-section-variant-op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+
+	sectionCore := content.ProjectState.Sections["allowed-callable-section"]
+	if len(sectionCore.Variants) < 2 {
+		t.Fatalf("expected allowed-callable-section to gain a variant, got %#v", sectionCore.Variants)
+	}
+	activeVariantID := content.ProjectState.ProjectConfig.SectionVariantMap["allowed-callable-section"]
+	if activeVariantID == "" {
+		t.Fatal("expected active variant after section variant creation")
+	}
+	if got := content.ProjectState.SectionVariants[activeVariantID].Name; got == "" {
+		t.Fatal("expected created section variant name in websocket update")
+	}
+}
+
 func TestAppToggleIsEditingViewModeRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

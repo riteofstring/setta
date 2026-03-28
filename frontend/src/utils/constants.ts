@@ -120,7 +120,7 @@ export const UIEditorTabNamePrettified = {
   [UIEditorTabNameEnum.SectionConfig]: "Section",
   [UIEditorTabNameEnum.QuickInfoConfig]: "Quick Info",
   [UIEditorTabNameEnum.InfoConfig]: "Text Editor",
-  [UIEditorTabNameEnum.SectionVariantsConfig]: "Version",
+  [UIEditorTabNameEnum.SectionVariantsConfig]: "Variants",
 } as const satisfies Record<UIEditorTabName, string>;
 
 export const PROJECT_CONFIG_PREVIEW_IMG_COLORS = [

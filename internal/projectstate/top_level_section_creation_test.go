@@ -54,6 +54,16 @@ func TestProjectCreateTopLevelSectionPrunesStaleLayoutStateAndUsesDeterministicP
 		t.Fatal("expected created top-level section name")
 	} else if _, err := validateSectionName(project, result.SectionID, createdSection.Name); err != nil {
 		t.Fatalf("expected created top-level section name to remain valid, got %q with error %v", createdSection.Name, err)
+	} else {
+		activeVariantID := project.SectionVariantMap[result.SectionID]
+		createdVariant := project.SectionVariants[activeVariantID]
+		if createdVariant.Name != createdSection.Name {
+			t.Fatalf(
+				"expected created default variant name %q to match section name, got %q",
+				createdSection.Name,
+				createdVariant.Name,
+			)
+		}
 	}
 
 	for _, viewModeID := range []string{"focus", "secondary"} {
