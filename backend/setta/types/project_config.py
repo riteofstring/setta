@@ -1,6 +1,4 @@
-from typing import Any
-
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, model_validator
 from setta.code_gen.utils import GEN_CODE_CLASS_NAME, GEN_CODE_INSTANCE_NAME
 from setta.types.generated.go_shared_types import (
     AgenticEdge,
@@ -10,6 +8,7 @@ from setta.types.generated.go_shared_types import (
     CodeObjValueRepresentationMode,
     Edge,
     ProjectCodegenLanguage,
+    ProjectCodegenPluginTarget,
     ProjectCodegenPythonTarget,
     SectionCodegenMode,
     SectionCodegenPolicy,
@@ -22,9 +21,6 @@ from setta.types.generated.go_shared_types import (
     WatchCodeFolder,
     WatchCodeRegistryEntry,
     WindowSpaceConfig,
-)
-from setta.types.generated.go_shared_types import (
-    ProjectCodegenPluginTarget as GoProjectCodegenPluginTarget,
 )
 from setta.types.generated.go_shared_types import (
     ProjectConfig as GoProjectConfig,
@@ -141,21 +137,6 @@ def default_python_codegen_target() -> ProjectCodegenPythonTarget:
     )
 
 
-class ProjectCodegenPluginTarget(GoProjectCodegenPluginTarget):
-    language: str
-    options: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("language")
-    @classmethod
-    def validate_language(cls, value: str) -> str:
-        normalized = value.strip()
-        if normalized == "":
-            raise ValueError("Plugin codegen target language cannot be empty.")
-        if normalized == ProjectCodegenLanguage.python.value:
-            raise ValueError("Plugin codegen target language cannot be python.")
-        return normalized
-
-
 ProjectCodegenTarget = ProjectCodegenPythonTarget | ProjectCodegenPluginTarget
 
 
@@ -195,9 +176,19 @@ class ProjectConfig(GoProjectConfig, extra="forbid"):
     def _validate_codegen_targets(self):
         seen: set[str] = set()
         for target in self.codegenTargets:
-            if target.language in seen:
+            language = target.language
+            if isinstance(target, ProjectCodegenPluginTarget):
+                normalized = target.language.strip()
+                if normalized == "":
+                    raise ValueError("Plugin codegen target language cannot be empty.")
+                if normalized == ProjectCodegenLanguage.python.value:
+                    raise ValueError("Plugin codegen target language cannot be python.")
+                if normalized != target.language:
+                    target.language = normalized
+                language = normalized
+            if language in seen:
                 raise ValueError(
-                    f"Duplicate codegen target language: {target.language}"
+                    f"Duplicate codegen target language: {language}"
                 )
-            seen.add(target.language)
+            seen.add(language)
         return self

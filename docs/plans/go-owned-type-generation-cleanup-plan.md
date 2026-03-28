@@ -306,6 +306,9 @@ That means:
   - the Python layer now constructs the generated Go-owned models directly through explicit default factory helpers instead of preserving wrapper classes just to inject default values
 - `backend/setta/types/project_config.py` no longer keeps pass-through `Foo = GoFoo` aliases for the generated codegen-policy/python-target models:
   - the file now imports and uses the generated names directly instead of preserving a separate handwritten rename layer for `SectionTypeCodegenPolicy`, `SectionCodegenOverride`, `SectionCodegenPolicy`, `CodeObjTypeValuePolicy`, `CodeObjValueOverride`, `CodeObjValuePolicy`, and `ProjectCodegenPythonTarget`
+- `backend/setta/types/project_config.py` no longer keeps a handwritten `ProjectCodegenPluginTarget` subclass:
+  - plugin target construction now uses the generated Go-owned model directly
+  - the remaining Python-side language trimming and validation now happens in `ProjectConfig` validation instead of through a thin custom subclass
 - `backend/setta/types/project_config.py` no longer hand-owns the top-level `ProjectConfig` field layout:
   - the Python class now subclasses the Go-generated `ProjectConfig` model and only keeps Python-side defaults, richer key typing, and validation
 - the dead Python-only project-config policy helper layer has been removed:
@@ -697,7 +700,7 @@ Final classification:
 - `protocol.py`: keep. The remaining code is Python-only dependency-key/value glue: frozen/hashable dependency keys for dictionary/set usage plus discriminated-union adapters used by the generated SDK contracts.
 - `chat.py`: keep. The remaining code is Python-only chat/runtime glue: OpenAI-format conversion, JSON argument parsing, typed content unions, and richer wrappers over generated Go-owned chat/event models.
 - `artifact.py`: keep. The remaining code is Python-only artifact/runtime glue: artifact-id factories, tuple aliases, discriminator defaults, and the adapter/type-adapter layer used by the listener runtime.
-- `project_config.py`: keep. The remaining code is Python-only defaulting and validation over generated Go-owned project-state/codegen models.
+- `project_config.py`: keep for now. The remaining code is Python-only defaulting and validation over generated Go-owned project-state/codegen models, but the Python-side materialization of Go-owned defaults is still unfinished cleanup.
 - there is no longer an obvious handwritten Python shared-schema owner left in `backend/setta/types/`.
 
 ## Optional Follow-ups
