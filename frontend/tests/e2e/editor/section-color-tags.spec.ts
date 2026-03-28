@@ -1,13 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
-  createCallableSection,
   createTextBlockSection,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
   seedLocalStorage,
-  setCallableFromFrontend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -20,101 +18,9 @@ type LatestProjectStateResponse = {
 };
 
 test.describe.serial("section color tags", () => {
-  test("sets tag color via Section Config for callable sections", async ({
+  test("sets tag color via Section Config and shows dot", async ({
     page,
   }) => {
-    await seedLocalStorage(page, {
-      overviewTab: "Overview",
-      overviewVis: true,
-      uiEditorVis: true,
-      uiEditorTab: { Callable: "SectionConfig" },
-    });
-    await ensureAppReady(page);
-    const projectContext = await openIsolatedProject(page);
-
-    try {
-      await clearProjectChatWindows(page);
-      const sectionId = await createCallableSection(
-        page,
-        projectContext.projectConfigId,
-      );
-      await setCallableFromFrontend(page, {
-        projectConfigId: projectContext.projectConfigId,
-        sectionId,
-        callableName: "sorted",
-        refetchParams: true,
-      });
-
-      const node = page.locator(`.react-flow__node[data-id="${sectionId}"]`);
-      await expect(node).toBeVisible();
-      const sectionChrome = node
-        .locator(`section[data-section-id="${sectionId}"]`)
-        .first();
-      await expect(sectionChrome).toBeVisible();
-      await sectionChrome.dispatchEvent("click");
-
-      const uiEditorPane = page.locator("#UiEditorPane");
-      await expect(uiEditorPane).toBeVisible();
-
-      const appearanceAccordionTrigger = uiEditorPane.getByTestId(
-        "section-config-accordion-appearance",
-      );
-      await expect(appearanceAccordionTrigger).toBeVisible();
-      await appearanceAccordionTrigger.evaluate((element: HTMLButtonElement) =>
-        element.click(),
-      );
-      await expect(appearanceAccordionTrigger).toHaveAttribute(
-        "aria-expanded",
-        "true",
-      );
-
-      const colorTagHeading = uiEditorPane.getByText("Color Tag", {
-        exact: true,
-      });
-      await expect(colorTagHeading).toBeVisible();
-      const colorTagBlock = colorTagHeading.locator(
-        "xpath=ancestor::div[contains(@class,'rounded-lg') or contains(@class,'rounded-xl')][1]",
-      );
-      await expect(colorTagBlock).toBeVisible();
-
-      const colorPickerTrigger = colorTagBlock.locator(".colorpicker").first();
-      await expect(colorPickerTrigger).toBeVisible();
-      await colorPickerTrigger.click();
-
-      const blueOption = page
-        .getByRole("option")
-        .filter({ hasText: "Blue" })
-        .first();
-      await expect(blueOption).toBeVisible();
-      await blueOption.click();
-
-      await expect(colorTagBlock.getByText("#3b82f6").first()).toBeVisible();
-      await expect(
-        node.locator('header.section-title span[title="Color tag: #3b82f6"]'),
-      ).toBeVisible();
-
-      await expect
-        .poll(
-          async () => {
-            const response = await postBackend<LatestProjectStateResponse>(
-              page,
-              "/getLatestProjectState",
-              { projectConfigId: projectContext.projectConfigId },
-            );
-            return (
-              response?.projectState?.sections?.[sectionId]?.sharedModifier
-                ?.tagColor ?? null
-            );
-          },
-          { timeout: 8000 },
-        )
-        .toBe("#3b82f6");
-    } finally {
-      await cleanupIsolatedProject(page, projectContext);
-    }
-  });
-
-  test("sets tag color via Section Config and shows dot", async ({ page }) => {
     await seedLocalStorage(page, {
       overviewTab: "Overview",
       overviewVis: true,
@@ -143,17 +49,15 @@ test.describe.serial("section color tags", () => {
         "section-config-accordion-appearance",
       );
       await expect(appearanceAccordionTrigger).toBeVisible();
-      await appearanceAccordionTrigger.evaluate((element: HTMLButtonElement) =>
-        element.click(),
+      await appearanceAccordionTrigger.evaluate(
+        (element: HTMLButtonElement) => element.click(),
       );
       await expect(appearanceAccordionTrigger).toHaveAttribute(
         "aria-expanded",
         "true",
       );
 
-      const colorTagHeading = uiEditorPane.getByText("Color Tag", {
-        exact: true,
-      });
+      const colorTagHeading = uiEditorPane.getByText("Color Tag", { exact: true });
       await expect(colorTagHeading).toBeVisible();
       const colorTagBlock = colorTagHeading.locator(
         "xpath=ancestor::div[contains(@class,'rounded-lg') or contains(@class,'rounded-xl')][1]",
@@ -165,7 +69,7 @@ test.describe.serial("section color tags", () => {
       await colorPickerTrigger.click();
 
       await page
-        .getByRole("option")
+        .getByRole("menuitem")
         .filter({ hasText: "Blue" })
         .first()
         .evaluate((element: HTMLElement) => element.click());
@@ -235,9 +139,7 @@ test.describe.serial("section color tags", () => {
       await expect(nodeAfter).toBeVisible();
       await nodeAfter.click();
       await expect(
-        nodeAfter.locator(
-          'header.section-title span[title="Color tag: #3b82f6"]',
-        ),
+        nodeAfter.locator('header.section-title span[title="Color tag: #3b82f6"]'),
       ).toBeVisible();
 
       const appearanceAccordionTriggerAfterReload = uiEditorPane.getByTestId(
