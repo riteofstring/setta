@@ -251,6 +251,9 @@ That means:
 - `backend/setta/types/chat.py` no longer keeps a handwritten `ChatMetadata` subclass:
   - callers and tests now use the generated Go-owned `ChatMetadata` model directly
   - the remaining handwritten chat layer is narrower and stays focused on typed message containers, typed event payloads, defaults that still materially affect runtime construction, and OpenAI-format helpers
+- `backend/setta/types/chat.py` has also dropped dead unused handwritten surface:
+  - removed the unused `LLMStreamingResponse` wrapper and the unused `APIKeys` alias
+  - dead handwritten names do not count as acceptable leftovers just because they are inert
 - `backend/setta/types/chat.py` has been trimmed further by deleting duplicate field redeclarations and dead timestamp validators:
   - the generated chat models already parse ISO `lastUpdated` datetimes correctly, so the handwritten `Chat` / `ChatMetadata` validators were unnecessary
   - redundant inherited field lines such as `name`, `llmConfig`, `systemPrompt`, `tool_name`, and `completed_at` have been removed where they no longer changed behavior

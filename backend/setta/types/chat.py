@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, Field
+from pydantic import Field
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage as GoAssistantChatMessage,
 )
@@ -184,13 +184,3 @@ LLMStreamingResponseChunk = (
     | GoMessageStopEvent
     | GoMessageFinalizedEvent
 )
-
-
-class LLMStreamingResponse(BaseModel):
-    chatId: ID
-    chunk: LLMStreamingResponseChunk
-    sectionId: ID | None = None
-    projectConfigId: ID | None = None
-
-
-APIKeys = dict[str, str]
