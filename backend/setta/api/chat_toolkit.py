@@ -34,6 +34,7 @@ from setta.types.chat import (
     MessageTextContent,
     MessageTextDelta,
     MessageThinkingDelta,
+    StreamingEventType,
     SystemChatMessage,
     ToolArgumentPreviewDeltaEvent,
     ToolCall,
@@ -173,7 +174,9 @@ class ChatStreamEmitterClient:
             chat_id=chat_id,
             chunk=MessageDeltaEvent(
                 message_id=message_id,
-                content=[MessageTextDelta(index=index, text=text)],
+                content=[
+                    MessageTextDelta(type="text_delta", index=index, text=text)
+                ],
             ),
         )
 
@@ -195,6 +198,7 @@ class ChatStreamEmitterClient:
                 message_id=message_id,
                 content=[
                     MessageThinkingDelta(
+                        type="thinking_delta",
                         index=index,
                         thinking=thinking,
                         summary=summary,
@@ -218,6 +222,7 @@ class ChatStreamEmitterClient:
             section_id=section_id,
             chat_id=chat_id,
             chunk=ToolCallDeltaEvent(
+                type=StreamingEventType.tool_call_delta,
                 message_id=message_id,
                 tool_call_id=tool_call_id,
                 arguments_delta=arguments_delta,
@@ -275,7 +280,10 @@ class ChatStreamEmitterClient:
         await self._emit(
             section_id=section_id,
             chat_id=chat_id,
-            chunk=MessageStopEvent(message_id=message_id),
+            chunk=MessageStopEvent(
+                type=StreamingEventType.message_stop,
+                message_id=message_id,
+            ),
         )
 
     async def emit_message_finalized(
@@ -421,7 +429,7 @@ class ChatSession:
         )
         sync = ChatSectionSyncClient(ctx.project_manager, history)
 
-        content = [MessageTextContent(text=resolved_event.text)]
+        content = [MessageTextContent(type="text", text=resolved_event.text)]
         attachments = resolved_event.attachments
         if resolved_event.role == ChatRole.user:
             first_message = UserChatMessage(
@@ -543,7 +551,7 @@ class ChatSession:
 
     async def complete(self, *, text: str) -> AssistantChatMessage:
         assistant_message = AssistantChatMessage(
-            content=[MessageTextContent(text=text)],
+            content=[MessageTextContent(type="text", text=text)],
         )
         await self._history.append(
             chat_id=self.chat_id,

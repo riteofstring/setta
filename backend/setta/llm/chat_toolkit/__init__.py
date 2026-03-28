@@ -19,7 +19,7 @@ from .tool_calls import ToolCallAccumulator, ToolCallBuilder
 
 
 def message_text(text: str) -> MessageTextContent:
-    return MessageTextContent(text=text)
+    return MessageTextContent(type="text", text=text)
 
 
 def message_thinking(
@@ -29,6 +29,7 @@ def message_thinking(
     signature: str | None = None,
 ) -> MessageThinkingContent:
     return MessageThinkingContent(
+        type="thinking",
         thinking=thinking,
         summary=summary,
         signature=signature,
@@ -40,11 +41,14 @@ def message_image_url(
     *,
     detail: Literal["auto", "low", "high"] | None = None,
 ) -> MessageImageUrlContent:
-    return MessageImageUrlContent(image_url=MessageImageUrl(url=url, detail=detail))
+    return MessageImageUrlContent(
+        type="image_url",
+        image_url=MessageImageUrl(url=url, detail=detail),
+    )
 
 
 def tool_reference(tool_name: str) -> ToolReferenceContent:
-    return ToolReferenceContent(tool_name=tool_name)
+    return ToolReferenceContent(type="tool_reference", tool_name=tool_name)
 
 
 def system_message(

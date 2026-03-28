@@ -94,33 +94,18 @@ from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 ChatFileAttachment = GoChatFileAttachment
-
-
-class MessageTextContent(GoMessageTextContent):
-    type: Literal["text"] = "text"
-
-
-class MessageImageUrl(GoMessageImageURL):
-    detail: Literal["auto", "low", "high"] | None = None
-
-
-class MessageImageUrlContent(GoMessageImageURLContent):
-    type: Literal["image_url"] = "image_url"
-    image_url: MessageImageUrl
-
-
-class MessageThinkingContent(GoMessageThinkingContent):
-    type: Literal["thinking"] = "thinking"
-    thinking: str = ""
-    summary: str | None = ""
-    signature: str | None = ""
+MessageTextContent = GoMessageTextContent
+MessageImageUrl = GoMessageImageURL
+MessageImageUrlContent = GoMessageImageURLContent
+MessageThinkingContent = GoMessageThinkingContent
+ToolReferenceContent = GoToolReferenceContent
+MessageTextDelta = GoMessageTextDelta
+MessageThinkingDelta = GoMessageThinkingDelta
+ToolCallDeltaEvent = GoToolCallDeltaEvent
+MessageStopEvent = GoMessageStopEvent
 
 
 MessageContent = MessageTextContent | MessageImageUrlContent | MessageThinkingContent
-
-
-class ToolReferenceContent(GoToolReferenceContent):
-    type: Literal["tool_reference"] = "tool_reference"
 
 
 class ToolCallFunction(GoToolCallFunction):
@@ -270,16 +255,6 @@ class ChatSectionState(GoChatSectionState):
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
-class MessageTextDelta(GoMessageTextDelta):
-    type: Literal["text_delta"] = "text_delta"
-
-
-class MessageThinkingDelta(GoMessageThinkingDelta):
-    type: Literal["thinking_delta"] = "thinking_delta"
-    summary: str | None = None
-    signature: str | None = None
-
-
 MessageContentDelta = MessageTextDelta | MessageThinkingDelta
 
 
@@ -293,13 +268,6 @@ class MessageDeltaEvent(GoMessageDeltaEvent):
     content: list[MessageContentDelta] | None = None
 
 
-class ToolCallDeltaEvent(GoToolCallDeltaEvent):
-    type: Literal[StreamingEventType.tool_call_delta] = (
-        StreamingEventType.tool_call_delta
-    )
-    tool_name: str | None = None
-
-
 class ToolResultEvent(GoToolResultEvent):
     type: Literal[StreamingEventType.tool_result] = StreamingEventType.tool_result
     result: ToolChatMessage
@@ -311,10 +279,6 @@ class ToolArgumentPreviewDeltaEvent(GoToolArgumentPreviewDeltaEvent):
     )
     preview_kind: ToolArgumentPreviewKind
     target_ids_by_type: dict[ToolArgumentPreviewIdType, list[ID]]
-
-
-class MessageStopEvent(GoMessageStopEvent):
-    type: Literal[StreamingEventType.message_stop] = StreamingEventType.message_stop
 
 
 class MessageFinalizedEvent(GoMessageFinalizedEvent):

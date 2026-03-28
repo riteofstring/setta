@@ -3,7 +3,13 @@
 ## Goal
 Make Go the source of truth for shared backend, frontend, and Python types.
 
-Status: complete for the current merge-prep cleanup scope.
+Status: not complete.
+
+The merge-prep cleanup removed a large amount of duplicate ownership, but the
+broader goal is still not finished: `backend/setta/types/` still contains too
+many handwritten Python wrappers whose only purpose is to preserve legacy
+Python-side typing, discriminator, or default behavior around Go-generated
+models.
 
 That means:
 - `backend/setta/types/` should contain very few handwritten files.
@@ -19,6 +25,50 @@ That means:
 - Delete tests that only assert that specific generated type names appear in generated output.
 
 ## Current State
+
+### Why This Is Not Finished
+- The intended end state is not just "far fewer handwritten files"; it is that
+  Go is the real source of truth and Python adapts to that generated surface
+  instead of re-introducing hand-maintained shape decisions in thin wrappers.
+- Some surviving handwritten classes in `backend/setta/types/` still do not
+  meet that bar. They subclass generated Go-owned Python models but only
+  restate discriminator literals, duplicate defaults already present on the
+  generated base, or narrow Python unions without adding meaningful runtime
+  behavior.
+- Example: `backend/setta/types/chat.py::MessageThinkingDelta` currently exists
+  as a handwritten subclass of the generated `MessageThinkingDelta`, but the
+  generated base already owns the actual fields. The remaining handwritten
+  class mostly exists to preserve Python-side discriminator narrowing rather
+  than to express a distinct Python-only runtime concern.
+- That pattern indicates the cleanup is still incomplete. It means Python is
+  still partially dictating shared type shape in places where the Go-owned
+  generated model should be authoritative.
+- Similar remaining work likely includes:
+  - literal-only subclasses
+  - duplicate field/default redeclarations that do not change behavior
+  - Python-side public unions and wrappers that only exist because callers have
+    not yet been updated to consume the generated Go-owned surface directly
+
+### Remaining Bar
+- Audit every surviving handwritten class in `backend/setta/types/` and delete
+  any class that only restates generated structure without meaningful
+  Python-only behavior.
+- Adapt Python callers and tests to consume generated Go-owned models directly
+  wherever possible instead of preserving legacy handwritten wrapper surfaces.
+- Keep handwritten code only when it is genuinely Python-only runtime glue, for
+  example:
+  - OpenAI-format helpers or other SDK-only conversion helpers
+  - private non-serialized runtime state such as binary payload side channels
+  - hashable/frozen key wrappers when required by Python runtime container use
+  - minimal helper functions such as id generation when they are not shared
+    schema owners
+- If a remaining handwritten wrapper is still needed only because the generator
+  emits types that are too broad for Python callers to use directly, that
+  should be treated as generator/runtime follow-up work, not as a justification
+  to keep an unnecessary handwritten schema layer indefinitely.
+- Completion should mean that no handwritten class remains solely to narrow a
+  discriminator, restate a generated default, or preserve a legacy Python type
+  surface when the Go-owned generated type can be used directly.
 
 ### Completed
 - Go type discovery is no longer driven by a hand-maintained frontend root manifest.

@@ -4,7 +4,6 @@ from pydantic import Field, TypeAdapter
 from setta.types.generated.go_shared_types import (
     ArtifactType,
     BinaryContentRef,
-    ChartType,
     DrawAreaBrushShape,
 )
 from setta.types.generated.go_shared_types import (
@@ -72,14 +71,8 @@ def create_file_artifact_id(extension: str = ".bin"):
 ChartData = dict[str, list[str | float]]
 CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
-
-
-class LineChartSettings(GoLineChartSettings):
-    type: Literal[ChartType.line] = ChartType.line
-
-
-class ScatterChartSettings(GoScatterChartSettings):
-    type: Literal[ChartType.scatter] = ChartType.scatter
+LineChartSettings = GoLineChartSettings
+ScatterChartSettings = GoScatterChartSettings
 
 
 class BrushStroke(GoBrushStroke):

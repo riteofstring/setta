@@ -93,7 +93,7 @@ class TestChatSessionErrors:
         llm_config = LLMConfig(id="test-llm", model="gpt-test")
         section_id = ID("section-1")
         first_message = UserChatMessage(
-            content=[MessageTextContent(text="Hello")],
+            content=[MessageTextContent(type="text", text="Hello")],
         )
         chat = _build_chat(
             chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message
@@ -159,7 +159,7 @@ class TestChatSessionErrors:
         llm_config = LLMConfig(id="test-llm", model="gpt-test")
         section_id = ID("section-1")
         first_message = UserChatMessage(
-            content=[MessageTextContent(text="Hello")],
+            content=[MessageTextContent(type="text", text="Hello")],
         )
         chat = _build_chat(
             chat_id=ID("chat-1"), llm_config=llm_config, first_message=first_message

@@ -121,11 +121,11 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
         messages=[
             UserChatMessage(
                 id=ID("msg-1"),
-                content=[MessageTextContent(text="hi")],
+                content=[MessageTextContent(type="text", text="hi")],
             ),
             AssistantChatMessage(
                 id=ID("msg-2"),
-                content=[MessageTextContent(text="hello")],
+                content=[MessageTextContent(type="text", text="hello")],
             ),
         ],
     )
@@ -133,19 +133,19 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
         messages=[
             UserChatMessage(
                 id=ID("msg-1"),
-                content=[MessageTextContent(text="hi")],
+                content=[MessageTextContent(type="text", text="hi")],
             ),
             AssistantChatMessage(
                 id=ID("msg-2"),
-                content=[MessageTextContent(text="hello")],
+                content=[MessageTextContent(type="text", text="hello")],
             ),
             UserChatMessage(
                 id=ID("msg-3"),
-                content=[MessageTextContent(text="more")],
+                content=[MessageTextContent(type="text", text="more")],
             ),
             AssistantChatMessage(
                 id=ID("msg-4"),
-                content=[MessageTextContent(text="done")],
+                content=[MessageTextContent(type="text", text="done")],
             ),
         ],
     )

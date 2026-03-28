@@ -19,7 +19,7 @@ class TestChatSectionSync:
         state = build_chat_section_state(messages=[], input_text="draft")
         assistant = AssistantChatMessage(
             id="assistant-1",
-            content=[MessageTextContent(text="")],
+            content=[MessageTextContent(type="text", text="")],
         )
 
         started = apply_stream_delta(
@@ -33,7 +33,7 @@ class TestChatSectionSync:
 
         delta = MessageDeltaEvent(
             message_id="assistant-1",
-            content=[MessageTextDelta(index=0, text="Hello")],
+            content=[MessageTextDelta(type="text_delta", index=0, text="Hello")],
         )
         updated = apply_stream_delta(state=started, chunk=delta)
 
@@ -45,7 +45,7 @@ class TestChatSectionSync:
         state = build_chat_section_state(messages=[])
         assistant = AssistantChatMessage(
             id="assistant-1",
-            content=[MessageTextContent(text="")],
+            content=[MessageTextContent(type="text", text="")],
         )
 
         started = apply_stream_delta(
@@ -56,7 +56,7 @@ class TestChatSectionSync:
         assistant.content[0].text += "Hi"
         delta = MessageDeltaEvent(
             message_id="assistant-1",
-            content=[MessageTextDelta(index=0, text="Hi")],
+            content=[MessageTextDelta(type="text_delta", index=0, text="Hi")],
         )
         updated = apply_stream_delta(state=started, chunk=delta)
 
@@ -68,6 +68,7 @@ class TestChatSectionSync:
     def test_tool_call_and_preview_deltas_update_arguments(self) -> None:
         state = build_chat_section_state(messages=[])
         tool_delta = ToolCallDeltaEvent(
+            type="tool_call_delta",
             message_id="assistant-1",
             tool_call_id="tool-1",
             arguments_delta='{"value":',
@@ -94,7 +95,7 @@ class TestChatSectionSync:
     def test_tool_result_and_finalized_clear_waiting_state(self) -> None:
         assistant = AssistantChatMessage(
             id="assistant-1",
-            content=[MessageTextContent(text="Hello")],
+            content=[MessageTextContent(type="text", text="Hello")],
         )
         state = build_chat_section_state(
             messages=[assistant],
