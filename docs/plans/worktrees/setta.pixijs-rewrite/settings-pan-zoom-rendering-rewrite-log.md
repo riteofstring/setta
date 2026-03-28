@@ -3734,3 +3734,30 @@ Record:
     - representative requests returned `200`, including `GET /settings`, `GET /settings/chat`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/authRefreshStatus`, `GET /api/plugins/runtime`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `GET /api/getFileBrowserRoot`, and `GET /api/getLatestLspDiagnostics`
 - Next action:
   - Continue the live dict-area surface pass by lifting the remaining route-element ownership seam one level higher above `frontend/src/components/Pages/router.tsx`, starting with the mode-specific home/project/catch-all route-element bundles before any broad Pixi node drawing lands.
+
+## 2026-03-27 135
+
+- Item: Lift the mode-specific home/project/catch-all route-element bundles out of `frontend/src/components/Pages/router.tsx`.
+- Status: `done`
+- Details:
+  - Added a dedicated helper boundary for the home/project/catch-all route-element bundles:
+    - `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.tsx`
+    - `frontend/src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx`
+  - Updated `frontend/src/components/Pages/router.tsx` to consume the new helper instead of owning those mode-specific route-element bundles inline.
+  - Exported the shared route-grid container from the new helper so the remaining launcher home route element can reuse the same shell without duplicating the grid wrapper.
+  - The new helper now owns the non-Pixi route-element bundle seam for:
+    - assembling the `home`, `project`, and `catchAll` `ModeRouteElements` bundles for IDE/share/app/launcher modes
+    - preserving the shared project/view-mode bundle wiring through one lifted `projectRouteElements` object
+    - leaving `router.tsx` focused on the remaining index/workspace-launch/share-index route wiring plus mode/bootstrap ownership instead of the larger inline home/project/catch-all JSX trees
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/modeWrappedHomeProjectCatchAllRouteElements.test.tsx src/components/Pages/modeWrappedBrowserRouter.test.tsx src/components/Pages/router.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - `http://127.0.0.1:3044/settings` rendered normally with the settings workspace visible and no obvious clipping, overlap, or missing-content issues
+    - `http://127.0.0.1:3044/settings/chat` rendered normally with the chat settings surface visible and no obvious clipping, overlap, or missing-content issues
+    - `http://127.0.0.1:3044/does-not-exist` rendered normally as the fallback `Project Not Found` page with no obvious clipping, overlap, or missing-content issues
+    - representative requests returned `200`, including `/api/loadSettings`, `/api/backendInitStatus`, `/api/authRefreshStatus`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getFileBrowserRoot`, `/api/getFolderContents`, `/api/llm/config`, and `/api/plugins/runtime`; static asset revalidations were expected `304`s
+- Next action:
+  - Continue the live dict-area surface pass by lifting the next remaining route-element ownership seam above `frontend/src/components/Pages/router.tsx`, starting with the index/workspace-launch/share-index route-element bundle wiring before any broad Pixi node drawing lands.
