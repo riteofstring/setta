@@ -14,7 +14,7 @@ afterEach(() => {
 });
 
 describe("index", () => {
-  it("owns only the final subscription and root-mount seams below appRuntimeBootstrap", async () => {
+  it("owns the lifted section-boundary and dict-area seams above appRuntimeBootstrap.tsx", async () => {
     const routerValue = {
       dispose: vi.fn(),
       navigate: vi.fn(),
@@ -44,14 +44,84 @@ describe("index", () => {
     vi.doMock("./appRuntimeBootstrap", () => ({
       buildRuntimeBootstrapAppProps,
     }));
+    vi.doMock("components/Section/Container/SectionContainerBoundary", () => ({
+      SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
+        <div
+          data-testid="mock-section-container-boundary"
+          data-section-id={sectionId}
+        />
+      ),
+    }));
+    vi.doMock(
+      "components/Section/Container/SectionContainerAreaDictBoundary",
+      () => ({
+        SectionContainerAreaDictBoundary: ({
+          bgColor,
+          sectionId,
+        }: {
+          bgColor: string;
+          sectionId: string;
+        }) => (
+          <div
+            data-testid="mock-section-container-area-dict-boundary"
+            data-bg-color={bgColor}
+            data-section-id={sectionId}
+          />
+        ),
+      }),
+    );
 
     await import("./index");
 
     const { createRoot } = await import("react-dom/client");
+    const { SectionContainerBoundary } = await import(
+      "components/Section/Container/SectionContainerBoundary"
+    );
 
     expect(subscribe).toHaveBeenCalledOnce();
     expect(buildRuntimeBootstrapAppProps).toHaveBeenCalledOnce();
-    expect(buildRuntimeBootstrapAppProps).toHaveBeenCalledWith();
+    expect(buildRuntimeBootstrapAppProps).toHaveBeenCalledWith({
+      SectionBoundary: SectionContainerBoundary,
+      renderDictArea: expect.any(Function),
+    });
+
+    const routedArgs = vi.mocked(buildRuntimeBootstrapAppProps).mock
+      .calls[0][0];
+    expect(
+      renderToStaticMarkup(
+        <routedArgs.SectionBoundary sectionId="section-1" />,
+      ),
+    ).toContain('data-testid="mock-section-container-boundary"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-testid="mock-section-container-area-dict-boundary"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-section-id="section-1"');
+    expect(
+      renderToStaticMarkup(
+        <>
+          {routedArgs.renderDictArea({
+            sectionId: "section-1",
+            bgColor: "#123456",
+          })}
+        </>,
+      ),
+    ).toContain('data-bg-color="#123456"');
 
     expect(createRoot).toHaveBeenCalledOnce();
     expect(createRoot).toHaveBeenCalledWith(document.getElementById("root"));

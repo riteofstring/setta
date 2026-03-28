@@ -5894,3 +5894,33 @@ Record:
     - representative requests returned `200`, including `POST /__setta__/bootstrap/consume`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, `POST /api/getDefaultConfigName`, `POST /api/getFileBrowserRoot`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, `POST /api/checkWorkspaceInitialized`, and `POST /api/createProjectConfig`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-runtime-bootstrap-owned `SectionContainerBoundary` seam into the next higher bootstrap/runtime caller layer above `frontend/src/appRuntimeBootstrap.tsx`.
+
+## 2026-03-28 197
+
+- Item: Lift the runtime-bootstrap-owned `SectionContainerBoundary` seam into `frontend/src/index.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so the entrypoint now owns the default `SectionContainerBoundary` and standalone dict-area handoff above `frontend/src/appRuntimeBootstrap.tsx`:
+    - `frontend/src/index.tsx`
+    - `frontend/src/index.test.tsx`
+    - `frontend/src/appRuntimeBootstrap.tsx`
+    - `frontend/src/appRuntimeBootstrap.test.tsx`
+  - Preserved the current non-Pixi behavior for:
+    - `index.tsx` now owning `buildRuntimeBootstrapAppProps({ SectionBoundary: SectionContainerBoundary, renderDictArea })` while still subscribing once and mounting the same strict-mode app shell
+    - `appRuntimeBootstrap.tsx` shrinking into a thinner caller-owned adapter that accepts `SectionBoundary` plus `renderDictArea` and still builds the same app props below the entrypoint
+    - the focused entrypoint/runtime-bootstrap tests now pin the lifted ownership split while keeping the same router/app bootstrap behavior
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/appRuntimeBootstrap.test.tsx src/appBootstrap.test.tsx src/index.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/appRuntimeBootstrap.tsx src/appRuntimeBootstrap.test.tsx src/index.tsx src/index.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - bootstrap via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` succeeded and `/home` rendered normally
+    - created a fresh project and verified the resulting live project route `http://127.0.0.1:3044/balm_saying`
+    - the visible `/home` and live project shells rendered normally with no obvious clipping, overlap, blank state, or seam-lift-specific regression
+    - representative visible labels included `WORKSPACE BROWSER`, `WORKSPACE PROJECTS`, `New Project`, `Delete`, `Open settings`, `Project`, `Edit`, `Run`, `Select A Section to Edit`, `Create terminal`, `Open section in floating window`, `Lock position and size`, and `Minimize section`
+    - representative requests returned `200`, including `POST /api/createProjectConfig`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `GET /api/getAgentProfiles`, `GET /api/getPromptTemplates`, `POST /api/getFileBrowserRoot`, `POST /api/getFolderContents`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Treat `frontend/src/index.tsx` as the natural stopping point for this top-level ownership chain and move the next iteration back to the next retained-scene/Pixi slice above the cleaned section-boundary stack.
