@@ -71,7 +71,6 @@ CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
 
 class BrushStroke(GoBrushStroke):
-    lineCap: DrawAreaBrushShape
     points: list[CanvasPoint | Literal["BREAK"]] = Field(default_factory=list)
     globalCompositeOperation: Literal[
         "color",
@@ -104,9 +103,6 @@ class BrushStroke(GoBrushStroke):
 
 
 class BrushStrokeWithTransform(GoBrushStrokeWithTransform):
-    strokeStyle: str
-    lineWidth: float
-    lineCap: DrawAreaBrushShape
     points: list[CanvasPoint | Literal["BREAK"]] = Field(default_factory=list)
     globalCompositeOperation: str = "source-over"
     transform: DrawAreaTransform
@@ -133,7 +129,6 @@ class DrawAreaLayer(GoDrawAreaLayer):
 class ImageArtifact(GoImageArtifact):
     type: Literal[ArtifactType.Image] = ArtifactType.Image
     id: str = Field(default_factory=create_png_artifact_id)
-    value: BinaryContentRef
 
 
 class BrushStrokeArtifact(GoBrushStrokeArtifact):
@@ -159,7 +154,6 @@ class ChartDataArtifact(GoChartDataArtifact):
 class FileArtifact(GoFileArtifact):
     type: Literal[ArtifactType.File] = ArtifactType.File
     id: str = Field(default_factory=create_file_artifact_id)
-    value: BinaryContentRef
 
 
 BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings

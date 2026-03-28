@@ -236,6 +236,9 @@ That means:
   - the Python classes subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
 - `backend/setta/types/chat.py` no longer keeps pass-through `Foo = GoFoo` aliases for generated chat leaf content/delta/event models:
   - internal chat/toolkit callers now import `ChatFileAttachment`, `MessageTextContent`, `MessageImageURL`, `MessageImageURLContent`, `MessageThinkingContent`, `ToolReferenceContent`, `MessageTextDelta`, `MessageThinkingDelta`, `ToolCallDeltaEvent`, and `MessageStopEvent` from `go_shared_types.py` directly instead of routing them through a handwritten rename layer
+- `backend/setta/types/chat.py` has been trimmed further by deleting duplicate field redeclarations and dead timestamp validators:
+  - the generated chat models already parse ISO `lastUpdated` datetimes correctly, so the handwritten `Chat` / `ChatMetadata` validators were unnecessary
+  - redundant inherited field lines such as `name`, `llmConfig`, `systemPrompt`, `tool_name`, and `completed_at` have been removed where they no longer changed behavior
 - `backend/setta/types/artifact.py` no longer hand-owns the draw-area artifact payload layouts:
   - the Python classes now subclass Go-generated base models and only keep Python-side chart settings, tuple-typed point wrappers, ids, and defaults.
 - the chart artifact family now has real Go owners for the remaining shared schema pieces:
@@ -246,6 +249,8 @@ That means:
   - the Python chart-settings classes now subclass Go-generated models and only keep discriminator literals
 - `backend/setta/types/artifact.py` no longer keeps pass-through aliases for generated chart-settings models:
   - the file now imports and uses `LineChartSettings` and `ScatterChartSettings` from `go_shared_types.py` directly instead of preserving a local rename layer
+- `backend/setta/types/artifact.py` has also been trimmed by deleting duplicate inherited field lines that did not change behavior:
+  - redundant redeclarations such as `BrushStroke.lineCap`, `BrushStrokeWithTransform.strokeStyle/lineWidth/lineCap`, and `ImageArtifact.value` / `FileArtifact.value` are gone
 - the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
   - `backend/setta/types/listener.py` no longer re-exports `ListenerDependencyMode`
   - listener callers/tests now import the Go-owned enum directly from `go_shared_types.py` and use the Go-owned member names (`always`, `realtime_only`, `refresh_only`)
@@ -687,7 +692,7 @@ Final classification:
 - `id.py`: keep. Pydantic-specific `ID` integration and local ID factories are genuinely Python-only.
 - `listener.py`: keep. The remaining code is Python SDK/runtime glue: binary payload storage via `PrivateAttr`, stricter init validation, and typed websocket adapters over generated SDK contracts.
 - `protocol.py`: keep. The remaining code is Python-only dependency-key/value glue: frozen/hashable dependency keys for dictionary/set usage plus discriminated-union adapters used by the generated SDK contracts.
-- `chat.py`: keep. The remaining code is Python-only chat/runtime glue: OpenAI-format conversion, JSON argument parsing, datetime parsing, typed content unions, and richer wrappers over generated Go-owned chat/event models.
+- `chat.py`: keep. The remaining code is Python-only chat/runtime glue: OpenAI-format conversion, JSON argument parsing, typed content unions, and richer wrappers over generated Go-owned chat/event models.
 - `artifact.py`: keep. The remaining code is Python-only artifact/runtime glue: artifact-id factories, tuple aliases, discriminator defaults, and the adapter/type-adapter layer used by the listener runtime.
 - `project_config.py`: keep. The remaining code is Python-only defaulting and validation over generated Go-owned project-state/codegen models.
 - there is no longer an obvious handwritten Python shared-schema owner left in `backend/setta/types/`.

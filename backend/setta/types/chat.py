@@ -89,7 +89,7 @@ from setta.types.generated.go_shared_types import (
     UserChatMessage as GoUserChatMessage,
 )
 from setta.types.id import ID, create_new_id
-from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
+from setta.utils.timestamps import get_now_timestamp
 
 JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 
@@ -167,7 +167,6 @@ class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
     id: str = Field(default_factory=create_new_id)
     role: Literal[ChatRole.tool] = ChatRole.tool
     createdAt: int = 0
-    tool_name: str | None = None
     arguments: JSONValue = Field(default_factory=dict)
     result: JSONValue = None
     content: list[
@@ -175,7 +174,6 @@ class ToolChatMessage(GoToolChatMessage, _OpenAIMessageMixin):
     ] = Field(default_factory=list)
     is_error: bool = False
     started_at: datetime = Field(default_factory=get_now_timestamp)
-    completed_at: datetime | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
         output = _OpenAIMessageMixin.to_openai_format(self)
@@ -199,34 +197,15 @@ BaseChatMessageUnionWithDiscriminator = Annotated[
 
 class ChatMetadata(GoChatMetadata):
     id: ID = Field(default_factory=create_new_id)
-    name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
-    llmConfig: LLMConfig
     projectConfigId: ID | None = None
-
-    @field_validator("lastUpdated", mode="before")
-    @classmethod
-    def parse_last_updated(cls, value: object):
-        if isinstance(value, str):
-            return parse_timestamp_str(value)
-        return value
 
 
 class Chat(GoChat):
     id: ID = Field(default_factory=create_new_id)
-    name: str
     lastUpdated: datetime = Field(default_factory=get_now_timestamp)
-    llmConfig: LLMConfig
     projectConfigId: ID | None = None
     messages: list[BaseChatMessageUnion]
-    systemPrompt: str | None = None
-
-    @field_validator("lastUpdated", mode="before")
-    @classmethod
-    def parse_last_updated(cls, value: object):
-        if isinstance(value, str):
-            return parse_timestamp_str(value)
-        return value
 
 
 class ChatSectionBranch(GoChatSectionBranch):
