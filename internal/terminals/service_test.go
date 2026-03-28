@@ -315,6 +315,7 @@ func TestServiceRunCommandWaitsForDefaultShellPromptAndHandlesLongEcho(t *testin
 		ID:         sessionID,
 		ProjectID:  "project-alpha",
 		AllowInput: true,
+		Env:        defaultShellEnv(),
 	}); err != nil {
 		t.Fatalf("open default-shell terminal: %v", err)
 	} else if !created {
@@ -328,7 +329,11 @@ func TestServiceRunCommandWaitsForDefaultShellPromptAndHandlesLongEcho(t *testin
 		t.Fatalf("run long command in default-shell terminal: %v", err)
 	}
 
-	output := waitForHistoryContains(t, service, sessionID, "RUN_DEFAULT_SHELL_OK")
+	attachment := attachTerminalForTest(t, service, sessionID)
+	ensureNoOutputContains(t, attachment, "RUN_DEFAULT_SHELL_OK", 200*time.Millisecond)
+	syncInitialTerminalSizeForTest(t, service, sessionID)
+
+	output := waitForOutputContains(t, attachment, "RUN_DEFAULT_SHELL_OK")
 	if !strings.Contains(output, "RUN_DEFAULT_SHELL_OK") {
 		t.Fatalf("expected backend-owned output from default-shell terminal, got %q", output)
 	}
@@ -415,6 +420,7 @@ func TestServiceDefaultShellStartupDoesNotExposePromptReadyProbe(t *testing.T) {
 		ID:         sessionID,
 		ProjectID:  "project-alpha",
 		AllowInput: true,
+		Env:        defaultShellEnv(),
 	}); err != nil {
 		t.Fatalf("open default-shell terminal: %v", err)
 	} else if !created {
@@ -444,6 +450,7 @@ func TestServiceRunCommandBeforeFirstAttachKeepsPromptReadyProbeOutOfHistory(t *
 		ID:         sessionID,
 		ProjectID:  "project-alpha",
 		AllowInput: true,
+		Env:        defaultShellEnv(),
 	}); err != nil {
 		t.Fatalf("open default-shell terminal: %v", err)
 	} else if !created {
@@ -454,6 +461,14 @@ func TestServiceRunCommandBeforeFirstAttachKeepsPromptReadyProbeOutOfHistory(t *
 		t.Fatalf("run command before attach: %v", err)
 	}
 
+	attachment := attachTerminalForTest(t, service, sessionID)
+	renderedAttachmentHistory := renderVisibleTerminalHistory(string(attachment.History))
+	if strings.Contains(renderedAttachmentHistory, "PRE_ATTACH_RUN_OK") {
+		t.Fatalf("did not expect deferred command output before initial resize, got %q", renderedAttachmentHistory)
+	}
+	ensureNoOutputContains(t, attachment, "PRE_ATTACH_RUN_OK", 200*time.Millisecond)
+	syncInitialTerminalSizeForTest(t, service, sessionID)
+
 	history := waitForHistoryContains(t, service, sessionID, "PRE_ATTACH_RUN_OK")
 	if !strings.Contains(history, "PRE_ATTACH_RUN_OK") {
 		t.Fatalf("expected pre-attach history to include run output, got %q", history)
@@ -461,11 +476,6 @@ func TestServiceRunCommandBeforeFirstAttachKeepsPromptReadyProbeOutOfHistory(t *
 	renderedHistory := renderVisibleTerminalHistory(history)
 	if strings.Contains(renderedHistory, "SETTA_CLEAR_CMD") {
 		t.Fatalf("expected pre-attach history to hide prompt-ready bootstrap command, got %q", renderedHistory)
-	}
-	attachment := attachTerminalForTest(t, service, sessionID)
-	renderedAttachmentHistory := renderVisibleTerminalHistory(string(attachment.History))
-	if strings.Contains(renderedAttachmentHistory, "SETTA_CLEAR_CMD") {
-		t.Fatalf("expected attachment history to hide prompt-ready bootstrap command, got %q", renderedAttachmentHistory)
 	}
 }
 
@@ -479,6 +489,7 @@ func TestServiceRunCommandBeforeFirstAttachStartsVisibleTranscriptWithTheCommand
 		ID:         sessionID,
 		ProjectID:  "project-alpha",
 		AllowInput: true,
+		Env:        defaultShellEnv(),
 	}); err != nil {
 		t.Fatalf("open default-shell terminal: %v", err)
 	} else if !created {
@@ -489,6 +500,9 @@ func TestServiceRunCommandBeforeFirstAttachStartsVisibleTranscriptWithTheCommand
 	if err := service.RunCommand(sessionID, []byte(commandText)); err != nil {
 		t.Fatalf("run command before attach: %v", err)
 	}
+
+	attachTerminalForTest(t, service, sessionID)
+	syncInitialTerminalSizeForTest(t, service, sessionID)
 
 	history := waitForTerminalHistory(t, service, sessionID, func(history string) bool {
 		renderedHistory := renderVisibleTerminalHistory(history)
@@ -525,6 +539,9 @@ func TestServiceRunCommandBeforeFirstAttachPreservesRegularShellTranscript(t *te
 		t.Fatalf("run command before attach: %v", err)
 	}
 
+	attachTerminalForTest(t, service, sessionID)
+	syncInitialTerminalSizeForTest(t, service, sessionID)
+
 	history := waitForTerminalHistory(t, service, sessionID, func(history string) bool {
 		renderedHistory := renderVisibleTerminalHistory(history)
 		return strings.Contains(renderedHistory, "HELLO_SIMPLE") && strings.HasSuffix(renderedHistory, prompt)
@@ -553,11 +570,15 @@ func TestServiceRunCommandClearsPendingPromptInput(t *testing.T) {
 		ID:         sessionID,
 		ProjectID:  "project-alpha",
 		AllowInput: true,
+		Env:        defaultShellEnv(),
 	}); err != nil {
 		t.Fatalf("open default-shell terminal: %v", err)
 	} else if !created {
 		t.Fatal("expected default-shell terminal to be created")
 	}
+
+	attachTerminalForTest(t, service, sessionID)
+	syncInitialTerminalSizeForTest(t, service, sessionID)
 
 	if err := service.Write(sessionID, []byte("printf 'STALE_INPUT'")); err != nil {
 		t.Fatalf("write pending shell input: %v", err)
@@ -569,6 +590,41 @@ func TestServiceRunCommandClearsPendingPromptInput(t *testing.T) {
 	output := waitForHistoryContains(t, service, sessionID, "RUN_CLEAR_OK")
 	if !strings.Contains(output, "RUN_CLEAR_OK") {
 		t.Fatalf("expected cleared-prompt run output, got %q", output)
+	}
+}
+
+func TestServiceRunCommandBeforeInitialResizeDefersExecutionForDefaultShell(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-deferred-until-resize", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Env:        defaultShellEnv(),
+	}); err != nil {
+		t.Fatalf("open default-shell terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected default-shell terminal to be created")
+	}
+
+	if err := service.RunCommand(sessionID, []byte("printf 'DEFERRED_RESIZE_OK\\n'\n")); err != nil {
+		t.Fatalf("run command before initial resize: %v", err)
+	}
+
+	attachment := attachTerminalForTest(t, service, sessionID)
+	if history := renderVisibleTerminalHistory(string(attachment.History)); strings.Contains(history, "DEFERRED_RESIZE_OK") {
+		t.Fatalf("did not expect deferred command output before initial resize, got %q", history)
+	}
+	ensureNoOutputContains(t, attachment, "DEFERRED_RESIZE_OK", 200*time.Millisecond)
+
+	syncInitialTerminalSizeForTest(t, service, sessionID)
+
+	output := waitForOutputContains(t, attachment, "DEFERRED_RESIZE_OK")
+	if !strings.Contains(output, "DEFERRED_RESIZE_OK") {
+		t.Fatalf("expected deferred command output after initial resize, got %q", output)
 	}
 }
 
@@ -843,8 +899,14 @@ func interactiveBashCommand(t *testing.T) []string {
 }
 
 func interactivePromptEnv(prompt string) []string {
-	env := append([]string(nil), os.Environ()...)
+	env := defaultShellEnv()
 	env = append(env, "PS1="+prompt, "PROMPT="+prompt)
+	return env
+}
+
+func defaultShellEnv() []string {
+	env := append([]string(nil), os.Environ()...)
+	env = append(env, "BASH_SILENCE_DEPRECATION_WARNING=1")
 	return env
 }
 
@@ -924,6 +986,14 @@ func ensureNoOutputContains(t *testing.T, attachment *Attachment, needle string,
 		case <-timeout.C:
 			return
 		}
+	}
+}
+
+func syncInitialTerminalSizeForTest(t *testing.T, service *Service, sessionID string) {
+	t.Helper()
+
+	if err := service.Resize(sessionID, 120, 30); err != nil {
+		t.Fatalf("sync initial terminal size: %v", err)
 	}
 }
 

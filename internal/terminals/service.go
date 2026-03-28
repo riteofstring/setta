@@ -135,6 +135,8 @@ type session struct {
 	managedDefaultShell           bool
 	attachedOnce                  bool
 	preAttachBackendRunNormalized bool
+	initialSizeSynced             bool
+	pendingRunCommands            [][]byte
 
 	promptReadyOnce                  sync.Once
 	promptReadyStart                 sync.Once
@@ -215,6 +217,7 @@ func BuildTerminalID(sectionID string, shareSessionID string) string {
 }
 
 func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
+	sizeExplicitlyProvided := options.Columns > 0 && options.Rows > 0
 	normalized, err := s.normalizeOpenOptions(options)
 	if err != nil {
 		return SessionInfo{}, false, err
@@ -270,6 +273,7 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 		},
 		attachments:         make(map[string]chan []byte),
 		managedDefaultShell: usesDefaultCommand,
+		initialSizeSynced:   !usesDefaultCommand || sizeExplicitlyProvided,
 		promptReady:         promptReady,
 		promptReadyMarker:   promptReadyMarker,
 	}
@@ -409,6 +413,9 @@ func (s *Service) RunCommand(sessionID string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	if session.enqueueRunCommandUntilInitialResize(data) {
+		return nil
+	}
 	s.ensurePromptReady(session)
 	if err := session.waitForPromptReady(); err != nil {
 		return err
@@ -466,10 +473,18 @@ func (s *Service) Resize(sessionID string, columns int, rows int) error {
 		return fmt.Errorf("resize terminal: %w", err)
 	}
 
-	session.mu.Lock()
-	session.columns = columns
-	session.rows = rows
-	session.mu.Unlock()
+	pendingCommands := session.applyResize(columns, rows)
+	if len(pendingCommands) > 0 {
+		s.ensurePromptReady(session)
+		if err := session.waitForPromptReady(); err != nil {
+			return err
+		}
+	}
+	for _, command := range pendingCommands {
+		if err := s.runCommand(session, command); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1128,6 +1143,36 @@ func (session *session) consumePreAttachBackendRunNormalization() bool {
 	}
 	session.preAttachBackendRunNormalized = true
 	return true
+}
+
+func (session *session) enqueueRunCommandUntilInitialResize(data []byte) bool {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
+	if !session.managedDefaultShell || session.initialSizeSynced {
+		return false
+	}
+	commandCopy := append([]byte(nil), data...)
+	session.pendingRunCommands = append(session.pendingRunCommands, commandCopy)
+	return true
+}
+
+func (session *session) applyResize(columns int, rows int) [][]byte {
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
+	session.columns = columns
+	session.rows = rows
+	if session.initialSizeSynced {
+		return nil
+	}
+	session.initialSizeSynced = true
+	if len(session.pendingRunCommands) == 0 {
+		return nil
+	}
+	pending := append([][]byte(nil), session.pendingRunCommands...)
+	session.pendingRunCommands = nil
+	return pending
 }
 
 func resolveDefaultCommand(envLookup func(string) (string, bool)) ([]string, error) {

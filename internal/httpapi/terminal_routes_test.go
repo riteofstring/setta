@@ -1028,6 +1028,7 @@ func TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal(t *test
 		t.Fatalf("expected generated-entry terminal session %q to remain interactive", terminalID)
 	}
 	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
+	syncHTTPTestTerminalSize(t, terminalService, terminalID)
 	output := waitForHTTPTestOutputContains(t, terminalService, terminalID, attachment, "ROUTE_GENERATED_OK")
 	if !strings.Contains(output, "ROUTE_GENERATED_OK") {
 		t.Fatalf("expected generated entry output in temporary terminal, got %q", output)
@@ -1066,6 +1067,7 @@ func TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry(t *te
 	})
 
 	attachment := attachHTTPTestTerminal(t, terminalService, existingTerminalSessionID)
+	syncHTTPTestTerminalSize(t, terminalService, existingTerminalSessionID)
 	waitForHTTPReusableSession(t, terminalService, existingTerminalSessionID, true)
 
 	handler, err := NewHandler(Dependencies{
@@ -1175,6 +1177,7 @@ func TestRegisterTerminalRoutesGeneratedEntryDoesNotReuseAttachedTerminal(t *tes
 	}
 
 	fallbackAttachment := attachHTTPTestTerminal(t, terminalService, terminals.BuildTerminalID("terminal-seed-1", ""))
+	syncHTTPTestTerminalSize(t, terminalService, terminals.BuildTerminalID("terminal-seed-1", ""))
 	output := waitForHTTPTestOutputContains(t, terminalService, terminals.BuildTerminalID("terminal-seed-1", ""), fallbackAttachment, "ROUTE_GENERATED_OK")
 	if !strings.Contains(output, "ROUTE_GENERATED_OK") {
 		t.Fatalf("expected generated entry output in fallback top-level terminal, got %q", output)
@@ -2415,6 +2418,14 @@ func attachHTTPTestTerminal(t *testing.T, service *terminals.Service, sessionID 
 	}
 	t.Cleanup(attachment.Close)
 	return attachment
+}
+
+func syncHTTPTestTerminalSize(t *testing.T, service *terminals.Service, sessionID string) {
+	t.Helper()
+
+	if err := service.Resize(sessionID, 120, 30); err != nil {
+		t.Fatalf("sync terminal size %q: %v", sessionID, err)
+	}
 }
 
 func addHTTPTestAuthCookie(t *testing.T, request *http.Request, authService *auth.Service) {

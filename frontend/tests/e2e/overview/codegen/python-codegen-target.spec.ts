@@ -820,6 +820,33 @@ test("generated python run hides internal readiness markers across repeated runs
         return (output.match(/RUN_OK_MARKER/g) ?? []).length;
       })
       .toBe(1);
+    await expect
+      .poll(async () => {
+        const output = ((await terminalNode.textContent()) ?? "").replace(
+          /\r/g,
+          "",
+        );
+        const markerIndex = output.indexOf("RUN_OK_MARKER");
+        if (markerIndex < 0) {
+          return false;
+        }
+        return /\n%\s*\n/.test(output.slice(markerIndex));
+      })
+      .toBe(false);
+    await expect
+      .poll(async () => {
+        const output = ((await terminalNode.textContent()) ?? "").replace(
+          /\r/g,
+          "",
+        );
+        const firstNonEmptyLine =
+          output
+            .split("\n")
+            .map((line) => line.trim())
+            .find((line) => line.length > 0) ?? "";
+        return firstNonEmptyLine;
+      })
+      .not.toBe("%");
 
     await Promise.all([
       page.waitForRequest("**/runCode"),

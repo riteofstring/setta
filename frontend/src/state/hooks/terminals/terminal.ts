@@ -84,21 +84,20 @@ export function useTerminal({
     });
     const { terminal, ws, fitAddon } = session;
 
-    // Ensure the terminal matches the DOM size on mount/reattach.
-    requestAnimationFrame(() => {
+    const syncTerminalSize = () => {
       fitTerminal({
         container,
         fitAddon,
         terminal,
       });
-    });
+      queueTerminalResizeFromCurrentSize(sessionKey, terminal, container);
+    };
+
+    // Ensure the terminal matches the DOM size on mount/reattach.
+    requestAnimationFrame(syncTerminalSize);
 
     const resizeObserver = new ResizeObserver(() => {
-      fitTerminal({
-        container,
-        fitAddon,
-        terminal,
-      });
+      syncTerminalSize();
     });
     resizeObserver.observe(container);
 
@@ -390,6 +389,27 @@ function queueTerminalResize(sessionKey: string, message: string) {
     latest.pendingResizeTimeoutId = null;
     flushTerminalResize(sessionKey);
   }, delay);
+}
+
+function queueTerminalResizeFromCurrentSize(
+  sessionKey: string,
+  terminal: Terminal,
+  container: HTMLDivElement,
+) {
+  if (container.clientWidth < 16 || container.clientHeight < 16) {
+    return;
+  }
+  if (terminal.cols < 1 || terminal.rows < 1) {
+    return;
+  }
+  queueTerminalResize(
+    sessionKey,
+    JSON.stringify({
+      messageType: C.WS_TERMINAL_RESIZE,
+      cols: terminal.cols,
+      rows: terminal.rows,
+    }),
+  );
 }
 
 function flushTerminalResize(sessionKey: string) {

@@ -4153,6 +4153,61 @@ func TestRegisterRoutesTerminalResizeMessageResizesPTY(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutesTerminalResizeFlushesDeferredDefaultShellRun(t *testing.T) {
+	t.Parallel()
+	skipIfPTYUnsupported(t)
+
+	authService := newTestAuthService(t, config.ModeIDE)
+	terminalService := newRouteTerminalService(t)
+	terminalID := terminals.BuildTerminalID("section-a", "")
+	defaultShellEnv := append([]string(nil), os.Environ()...)
+	defaultShellEnv = append(defaultShellEnv, "BASH_SILENCE_DEPRECATION_WARNING=1")
+	openRouteTerminalForTest(t, terminalService, terminals.OpenOptions{
+		ID:         terminalID,
+		ProjectID:  "project-a",
+		AllowInput: true,
+		Env:        defaultShellEnv,
+	})
+	if err := terminalService.RunCommand(terminalID, []byte("printf 'ROUTE_DEFER_OK\\n'\n")); err != nil {
+		t.Fatalf("queue deferred route command: %v", err)
+	}
+
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	broadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: hub,
+	})
+	server := newRouteServer(t, RouteDependencies{
+		Transport: Dependencies{
+			Auth:       authService,
+			ModePolicy: modes.NewPolicy(config.ModeIDE),
+		},
+		WebsocketHub:        hub,
+		ListenerBroadcaster: broadcaster,
+		Terminals:           terminalService,
+	})
+	defer server.Close()
+
+	conn := dialRouteConnection(t, server.URL, RouteTerminalBySection, authHeaderForCookie(t, authService), withTerminalPath("project-a", "section-a"))
+	defer conn.CloseNow()
+
+	if ready := readNextRawFrame(t, conn); ready != TerminalReadyMessage {
+		t.Fatalf("expected terminal ready marker, got %q", ready)
+	}
+	history := readNextRawFrame(t, conn)
+	if strings.Contains(history, "ROUTE_DEFER_OK") {
+		t.Fatalf("did not expect deferred command output before initial resize, got %q", history)
+	}
+
+	if err := conn.Write(context.Background(), websocket.MessageText, []byte(`{"messageType":"terminalResize","rows":24,"cols":80}`)); err != nil {
+		t.Fatalf("write terminal resize message: %v", err)
+	}
+
+	output := readUntilRawFrameContains(t, conn, "ROUTE_DEFER_OK", 6)
+	if !strings.Contains(output, "ROUTE_DEFER_OK") {
+		t.Fatalf("expected deferred route output after initial resize, got %q", output)
+	}
+}
+
 func TestRegisterRoutesTerminalClosesOnInvalidResizePayload(t *testing.T) {
 	t.Parallel()
 	skipIfPTYUnsupported(t)
