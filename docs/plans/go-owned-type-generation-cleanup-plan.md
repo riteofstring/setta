@@ -450,6 +450,9 @@ That means:
     - `CancelRunRequestInput -> httpapi.CancelRunRequest`
     - `GetRunnerSummaryRequestInput -> httpapi.GetRunnerSummaryRequest`
     - `SetChatSectionStateRequestInput -> httpapi.SetChatSectionStateRequest`
+  - the exact terminal route request shapes now also point at `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `DeleteTerminalsRequestInput -> httpapi.DeleteTerminalsRequest`
+    - `InterruptTerminalProcessesRequestInput -> httpapi.InterruptTerminalProcessesRequest`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -491,6 +494,8 @@ It has also improved for the backend-init/auth-refresh/setta-home status contrac
 It has also improved for the file-browser request family; the remaining file-browser shared surface in `frontendbindings` is now mostly direct aliases to `internal/filebrowser` response owners.
 
 It has also improved for the detached-run, state-machine-run, and chat-section-state AI endpoint request families; those are no longer local `frontendbindings` mirrors.
+
+It has also improved for the exact terminal delete/interrupt request contracts; only the looser `RunCodeRequestInput` wrapper remains in `terminal_support.go`.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

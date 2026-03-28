@@ -2,13 +2,9 @@ package frontendbindings
 
 import "setta/internal/httpapi"
 
-type DeleteTerminalsRequestInput struct {
-	SectionIDs []string `json:"sectionIds"`
-}
+type DeleteTerminalsRequestInput httpapi.DeleteTerminalsRequest
 
-type InterruptTerminalProcessesRequestInput struct {
-	ProjectID string `json:"projectId"`
-}
+type InterruptTerminalProcessesRequestInput httpapi.InterruptTerminalProcessesRequest
 
 type InterruptTerminalProcessesResponse httpapi.InterruptTerminalProcessesResponse
 
