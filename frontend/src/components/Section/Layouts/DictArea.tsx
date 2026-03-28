@@ -1,19 +1,13 @@
 import React from "react";
-import { SectionTypeEnum } from "utils/generatedTypes";
-import { ParamGroupContainer } from "../../Params/GroupContainer";
-import { KwargsControls } from "../SectionParts/KwargsControls";
+import { LiveDictAreaLayout } from "./LiveDictAreaLayout";
 
-function _DictArea({ sectionId, bgColor }) {
-  return (
-    <>
-      <KwargsControls sectionId={sectionId} />
-      <ParamGroupContainer
-        sectionId={sectionId}
-        bgColor={bgColor}
-        sectionTypeName={SectionTypeEnum.Dict}
-      />
-    </>
-  );
+type DictAreaProps = {
+  sectionId: string;
+  bgColor: string;
+};
+
+function _DictArea({ sectionId, bgColor }: DictAreaProps) {
+  return <LiveDictAreaLayout sectionId={sectionId} bgColor={bgColor} />;
 }
 
 export const DictArea = React.memo(_DictArea);
