@@ -1,4 +1,3 @@
-import { useSettingsAllSettingsBenchmark } from "components/Pages/Project/settingsAllSettingsBenchmark";
 import { useReactFlow } from "forks/xyflow/core/store";
 import React from "react";
 import {
@@ -44,7 +43,6 @@ function _SectionContainerCore({
   omitAgenticHandleScopeClass = false,
   joinedCorners = "none",
 }: SectionContainerCoreProps) {
-  const benchmark = useSettingsAllSettingsBenchmark();
   const {
     sectionTypeName,
     isInOtherProjectConfigs,
@@ -151,9 +149,7 @@ function _SectionContainerCore({
       } as React.CSSProperties)
     : sectionStyleVars;
   const shouldRenderSharedChatHandles =
-    !hideAgenticEdgeHandles &&
-    !isAttachedTerminalChild &&
-    benchmark.renderSectionHandles;
+    !hideAgenticEdgeHandles && !isAttachedTerminalChild;
   const isWorkflowOnlyNodeSection =
     sectionTypeName === SectionTypeEnum.StateMachineStart ||
     sectionTypeName === SectionTypeEnum.StateMachineGate ||
@@ -186,9 +182,7 @@ function _SectionContainerCore({
       {shouldRenderStateMachineEdgeHandles ? (
         <StateMachineEdgeHandles isUserView={isUserView} />
       ) : null}
-      {benchmark.renderSectionHandles ? (
-        <MinimizedDataEdgeHandles sectionId={sectionId} />
-      ) : null}
+      <MinimizedDataEdgeHandles sectionId={sectionId} />
       <SectionContainerCoreResizable
         sectionId={sectionId}
         sectionTypeName={sectionTypeName}

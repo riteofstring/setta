@@ -1,6 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
-  allowExpectedApiError,
   ensureAppReady,
   ensureManagedChatEngine,
   getViewportBoundsForPlacement,
@@ -36,20 +35,13 @@ type LatestProjectStateResponse = {
 };
 
 test.describe.serial("agentic edges", () => {
-  test("rejects chat-to-chat links when the target chat is not executable", async ({
+  test("connects between plain chat sections through shared chat handles", async ({
     page,
   }) => {
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
 
     try {
-      allowExpectedApiError(page, {
-        path: "/api/createAgenticEdge",
-        statuses: [422],
-        method: "POST",
-        count: 1,
-        ttlMs: 60_000,
-      });
       const firstChat = await createChatSection(
         page,
         projectContext.projectConfigId,
@@ -95,7 +87,9 @@ test.describe.serial("agentic edges", () => {
           async () => getAgenticEdgeCount(page, projectContext.projectConfigId),
           { timeout: 8000 },
         )
-        .toBe(initialCount);
+        .toBeGreaterThan(initialCount);
+
+      await assertConnectedHandlesStayVisible(page, sourceHandle, targetHandle);
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
