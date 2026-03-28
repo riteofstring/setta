@@ -133,10 +133,13 @@ type session struct {
 	history     historyBuffer
 	attachments map[string]chan []byte
 
-	promptReadyOnce      sync.Once
-	promptReady          chan struct{}
-	promptReadyMarker    string
-	promptReadyDetection []byte
+	promptReadyOnce    sync.Once
+	promptReadyStart   sync.Once
+	promptReady        chan struct{}
+	promptReadyMarker  string
+	promptReadyBuffer  []byte
+	promptReadyActive  bool
+	promptReadyRestore func()
 }
 
 type historyBuffer struct {
@@ -271,9 +274,7 @@ func (s *Service) Open(options OpenOptions) (SessionInfo, bool, error) {
 
 	go s.readLoop(session)
 	go s.waitLoop(session)
-	if session.promptReadyMarker != "" {
-		s.bootstrapPromptReady(session)
-	} else {
+	if session.promptReadyMarker == "" {
 		session.markPromptReady()
 	}
 
@@ -400,6 +401,7 @@ func (s *Service) RunCommand(sessionID string, data []byte) error {
 	if err != nil {
 		return err
 	}
+	s.ensurePromptReady(session)
 	if err := session.waitForPromptReady(); err != nil {
 		return err
 	}
@@ -595,9 +597,9 @@ func (s *Service) readLoop(session *session) {
 	for {
 		n, err := session.pty.Read(buffer)
 		if n > 0 {
-			chunk := buffer[:n]
+			chunk, promptReady := session.captureOutput(buffer[:n])
 			session.appendOutput(chunk)
-			if session.observePromptReady(chunk) {
+			if promptReady {
 				session.markPromptReady()
 			}
 		}
@@ -833,23 +835,28 @@ func (h *historyBuffer) Bytes() []byte {
 }
 
 func buildPromptReadyMarker(id uint64) string {
-	return fmt.Sprintf("__SETTA_PROMPT_READY_%d__", id)
+	return "SETTA_RDY"
 }
 
 func buildPromptReadyCommand(marker string) []byte {
-	// Print the readiness marker via octal escapes so the shell's echoed input
-	// does not contain the marker literal. Only actual probe execution should
-	// satisfy prompt readiness.
-	return []byte(fmt.Sprintf(
-		"printf '%s'\\n",
-		shellPrintfOctal(marker+"\n\x1b[2J\x1b[H"),
-	))
+	// Emit a unique readiness marker once the interactive shell can execute
+	// commands. The terminal service suppresses all startup traffic before this
+	// marker so the user never sees probe commands or shell bootstrap noise in
+	// the live terminal buffer.
+	return []byte(fmt.Sprintf("printf '%%s\\n' '%s'\n", marker))
 }
 
 func (s *Service) bootstrapPromptReady(session *session) {
 	if session == nil || session.promptReadyMarker == "" {
 		return
 	}
+	session.setPromptReadyActive(true)
+	restore, err := suppressPromptReadyEcho(session)
+	if err != nil {
+		session.markPromptReady()
+		return
+	}
+	session.setPromptReadyRestore(restore)
 	if err := s.writeToSession(session, buildPromptReadyCommand(session.promptReadyMarker), false); err != nil {
 		session.markPromptReady()
 		return
@@ -859,8 +866,18 @@ func (s *Service) bootstrapPromptReady(session *session) {
 		timer := time.NewTimer(defaultPromptReadyWait)
 		defer timer.Stop()
 		<-timer.C
+		session.appendOutput(session.flushPromptReadyBuffer())
 		session.markPromptReady()
 	}()
+}
+
+func (s *Service) ensurePromptReady(session *session) {
+	if session == nil || session.promptReadyMarker == "" {
+		return
+	}
+	session.promptReadyStart.Do(func() {
+		s.bootstrapPromptReady(session)
+	})
 }
 
 func (s *Service) expandRunCommandEchoWidth(session *session, commandLen int) (func(), error) {
@@ -889,29 +906,60 @@ func (s *Service) expandRunCommandEchoWidth(session *session, commandLen int) (f
 	}, nil
 }
 
-func (session *session) observePromptReady(data []byte) bool {
+func (session *session) captureOutput(data []byte) ([]byte, bool) {
 	if session == nil || len(data) == 0 {
-		return false
+		return nil, false
 	}
 
 	session.mu.Lock()
 	defer session.mu.Unlock()
 
-	if session.promptReadyMarker == "" {
-		return false
-	}
-	session.promptReadyDetection = append(session.promptReadyDetection, data...)
-	if len(session.promptReadyDetection) > len(session.promptReadyMarker)*4 {
-		start := len(session.promptReadyDetection) - len(session.promptReadyMarker)*4
-		session.promptReadyDetection = append([]byte(nil), session.promptReadyDetection[start:]...)
-	}
-	if !bytes.Contains(session.promptReadyDetection, []byte(session.promptReadyMarker)) {
-		return false
+	if session.promptReadyMarker == "" || !session.promptReadyActive {
+		return append([]byte(nil), data...), false
 	}
 
+	session.promptReadyBuffer = append(session.promptReadyBuffer, data...)
+	bufferLimit := session.history.limit
+	if bufferLimit <= 0 {
+		bufferLimit = defaultHistoryLimitBytes
+	}
+	if len(session.promptReadyBuffer) > bufferLimit {
+		start := len(session.promptReadyBuffer) - bufferLimit
+		session.promptReadyBuffer = append([]byte(nil), session.promptReadyBuffer[start:]...)
+	}
+
+	outputStart, ok := findPromptReadyLineEndRawOffset(session.promptReadyBuffer, session.promptReadyMarker)
+	if !ok {
+		return nil, false
+	}
+
+	output := append([]byte(nil), session.promptReadyBuffer[outputStart:]...)
 	session.promptReadyMarker = ""
-	session.promptReadyDetection = nil
-	return true
+	session.promptReadyActive = false
+	session.promptReadyBuffer = nil
+	return output, true
+}
+
+func (session *session) flushPromptReadyBuffer() []byte {
+	if session == nil {
+		return nil
+	}
+
+	session.mu.Lock()
+	defer session.mu.Unlock()
+
+	if session.promptReadyMarker == "" || !session.promptReadyActive || len(session.promptReadyBuffer) == 0 {
+		session.promptReadyMarker = ""
+		session.promptReadyActive = false
+		session.promptReadyBuffer = nil
+		return nil
+	}
+
+	buffer := append([]byte(nil), session.promptReadyBuffer...)
+	session.promptReadyMarker = ""
+	session.promptReadyActive = false
+	session.promptReadyBuffer = nil
+	return buffer
 }
 
 func (session *session) markPromptReady() {
@@ -919,6 +967,10 @@ func (session *session) markPromptReady() {
 		return
 	}
 	session.promptReadyOnce.Do(func() {
+		if restore := session.takePromptReadyRestore(); restore != nil {
+			restore()
+		}
+		session.clearPromptReadyState()
 		close(session.promptReady)
 	})
 }
@@ -937,6 +989,108 @@ func shellPrintfOctal(value string) string {
 		fmt.Fprintf(&builder, "\\%03o", value[index])
 	}
 	return builder.String()
+}
+
+func findPromptReadyLineEndRawOffset(raw []byte, marker string) (int, bool) {
+	if len(raw) == 0 || marker == "" {
+		return 0, false
+	}
+
+	normalized, offsets := normalizeTerminalSearchBuffer(raw)
+	markerIndex := bytes.LastIndex(normalized, []byte(marker))
+	if markerIndex < 0 {
+		return 0, false
+	}
+
+	lineEnd := bytes.IndexByte(normalized[markerIndex:], '\n')
+	if lineEnd < 0 {
+		return 0, false
+	}
+	return offsets[markerIndex+lineEnd], true
+}
+
+func normalizeTerminalSearchBuffer(raw []byte) ([]byte, []int) {
+	normalized := make([]byte, 0, len(raw))
+	offsets := make([]int, 0, len(raw))
+
+	for index := 0; index < len(raw); index++ {
+		current := raw[index]
+		if current == 0x1b {
+			if index+1 >= len(raw) {
+				break
+			}
+			switch raw[index+1] {
+			case '[':
+				index += 2
+				for index < len(raw) {
+					if raw[index] >= 0x40 && raw[index] <= 0x7e {
+						break
+					}
+					index++
+				}
+			case ']':
+				index += 2
+				for index < len(raw) {
+					if raw[index] == 0x07 {
+						break
+					}
+					if raw[index] == 0x1b && index+1 < len(raw) && raw[index+1] == '\\' {
+						index++
+						break
+					}
+					index++
+				}
+			default:
+				index++
+			}
+			continue
+		}
+		if current == '\b' {
+			if len(normalized) > 0 {
+				normalized = normalized[:len(normalized)-1]
+				offsets = offsets[:len(offsets)-1]
+			}
+			continue
+		}
+		if current == '\r' {
+			continue
+		}
+		if current < 0x20 && current != '\n' && current != '\t' {
+			continue
+		}
+		normalized = append(normalized, current)
+		offsets = append(offsets, index+1)
+	}
+
+	return normalized, offsets
+}
+
+func (session *session) clearPromptReadyState() {
+	session.mu.Lock()
+	session.promptReadyMarker = ""
+	session.promptReadyActive = false
+	session.promptReadyBuffer = nil
+	session.mu.Unlock()
+}
+
+func (session *session) setPromptReadyRestore(restore func()) {
+	session.mu.Lock()
+	session.promptReadyRestore = restore
+	session.mu.Unlock()
+}
+
+func (session *session) setPromptReadyActive(active bool) {
+	session.mu.Lock()
+	session.promptReadyActive = active
+	session.mu.Unlock()
+}
+
+func (session *session) takePromptReadyRestore() func() {
+	session.mu.Lock()
+	restore := session.promptReadyRestore
+	session.promptReadyRestore = nil
+	session.mu.Unlock()
+	return restore
 }
 
 func resolveDefaultCommand(envLookup func(string) (string, bool)) ([]string, error) {

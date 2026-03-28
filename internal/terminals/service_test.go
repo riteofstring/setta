@@ -315,6 +315,90 @@ func TestServiceRunCommandWaitsForDefaultShellPromptAndHandlesLongEcho(t *testin
 	}
 }
 
+func TestSessionCaptureOutputSuppressesPromptReadyBootstrapTraffic(t *testing.T) {
+	t.Parallel()
+
+	marker := buildPromptReadyMarker(42)
+	session := &session{
+		promptReadyMarker: marker,
+		promptReadyActive: true,
+		history: historyBuffer{
+			limit: defaultHistoryLimitBytes,
+		},
+	}
+
+	output, ready := session.captureOutput([]byte(marker + "\r\n"))
+	if !ready || len(output) != 0 {
+		t.Fatalf("expected prompt-ready marker output to complete readiness without leaking output, got ready=%t output=%q", ready, string(output))
+	}
+
+	output, ready = session.captureOutput([]byte("kevins-MacBook-Pro% "))
+	if ready {
+		t.Fatal("expected post-ready prompt output to pass through without re-triggering readiness")
+	}
+	if got := string(output); got != "kevins-MacBook-Pro% " {
+		t.Fatalf("expected post-ready prompt output to pass through unchanged, got %q", got)
+	}
+	if session.promptReadyMarker != "" {
+		t.Fatalf("expected prompt-ready marker to be cleared after detection, got %q", session.promptReadyMarker)
+	}
+	if len(session.promptReadyBuffer) != 0 {
+		t.Fatalf("expected prompt-ready buffer to be cleared after detection, got %q", string(session.promptReadyBuffer))
+	}
+}
+
+func TestFindPromptReadyLineEndRawOffsetNormalizesTerminalRedisplayNoise(t *testing.T) {
+	t.Parallel()
+
+	raw := []byte(
+		"\x1b[1m\x1b[7m%\x1b[27m\x1b[1m\x1b[0m " +
+			"S\b" +
+			"SETTA_RDY" +
+			"\x1b[?2004l\r\r\n" +
+			"prompt% ",
+	)
+
+	offset, ok := findPromptReadyLineEndRawOffset(raw, "SETTA_RDY")
+	if !ok {
+		t.Fatal("expected normalized prompt-ready detection to find the marker")
+	}
+	if got := string(raw[offset:]); got != "prompt% " {
+		t.Fatalf("expected raw offset to point at post-marker output, got %q", got)
+	}
+}
+
+func TestServiceDefaultShellStartupDoesNotExposePromptReadyProbe(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-default-shell-clean-start", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+	}); err != nil {
+		t.Fatalf("open default-shell terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected default-shell terminal to be created")
+	}
+
+	attachment := attachTerminalForTest(t, service, sessionID)
+	output := waitForTerminalHistory(t, service, sessionID, func(history string) bool {
+		return len(history) > 0
+	})
+	probeEchoPrefix := "printf '%s\\n' 'SETTA_RDY'"
+	if strings.Contains(output, "SETTA_RDY") {
+		t.Fatalf("expected prompt-ready marker to stay hidden from terminal history, got %q", output)
+	}
+	if strings.Contains(output, probeEchoPrefix) {
+		t.Fatalf("expected prompt-ready probe command echo to stay hidden from terminal history, got %q", output)
+	}
+	if history := string(attachment.History); strings.Contains(history, "SETTA_RDY") {
+		t.Fatalf("expected initial attachment history to stay clean, got %q", history)
+	}
+}
+
 func TestServiceRunCommandClearsPendingPromptInput(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)
@@ -725,6 +809,18 @@ func waitForReusableSession(t *testing.T, service *Service, sessionID string, wa
 
 func waitForHistoryContains(t *testing.T, service *Service, sessionID string, needle string) string {
 	t.Helper()
+	return waitForTerminalHistory(t, service, sessionID, func(history string) bool {
+		return strings.Contains(history, needle)
+	})
+}
+
+func waitForTerminalHistory(
+	t *testing.T,
+	service *Service,
+	sessionID string,
+	matches func(string) bool,
+) string {
+	t.Helper()
 
 	deadline := time.Now().Add(5 * time.Second)
 	lastHistory := ""
@@ -732,18 +828,18 @@ func waitForHistoryContains(t *testing.T, service *Service, sessionID string, ne
 		history, err := service.History(sessionID)
 		if err == nil {
 			lastHistory = history
-			if strings.Contains(history, needle) {
+			if matches(history) {
 				return history
 			}
 		} else if errors.Is(err, ErrUnknownSession) {
-			t.Fatalf("terminal session %q closed before %q appeared; last history: %q", sessionID, needle, lastHistory)
+			t.Fatalf("terminal session %q closed before history condition was met; last history: %q", sessionID, lastHistory)
 		} else {
 			t.Fatalf("read terminal history for %q: %v", sessionID, err)
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
 
-	t.Fatalf("timed out waiting for %q in terminal history %q", needle, lastHistory)
+	t.Fatalf("timed out waiting for terminal history condition; last history: %q", lastHistory)
 	return ""
 }
 

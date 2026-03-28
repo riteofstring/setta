@@ -175,6 +175,40 @@ test("embedded terminal keeps code editor visible", async ({ page }) => {
   }
 });
 
+test("terminal startup stays clean while preserving input readiness", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await addTerminalOutputInstrumentation(page);
+  await ensureAppReady(page);
+
+  const { projectConfigId } = await createNewProjectConfig(page);
+
+  try {
+    const terminalId = await createTerminalSection(page);
+    await waitForTerminalReady(page, terminalId, {
+      required: !process.env.CI,
+      timeoutMs: process.env.CI ? 5000 : 20000,
+    });
+    await waitForTerminalOutputToStabilize(page, terminalId, {
+      timeoutMs: 10000,
+      stableMs: 500,
+    });
+
+    const initialOutput = await getTerminalOutputBuffer(page, terminalId);
+    expect(initialOutput).not.toContain("SETTA_RDY");
+    expect(initialOutput).not.toContain("printf '%s\\n' 'SETTA_RDY'");
+
+    await ensureTerminalAcceptsInput(
+      page,
+      terminalId,
+      `STARTUP_CLEAN_READY_${Date.now()}`,
+    );
+  } finally {
+    await deleteProjectConfigById(page, projectConfigId);
+  }
+});
+
 test("terminal text selection stays aligned at react flow zoom", async ({
   page,
 }) => {
