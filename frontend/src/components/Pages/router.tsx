@@ -20,12 +20,8 @@ import {
 import {
   HOME_ROUTER_PATH,
   INDEX_ROUTER_PATH,
-  PROJECT_CHAT_STANDALONE_ROUTER_PATH,
-  PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
   PROJECT_CONFIG_ROUTER_PATH,
-  SECTION_STANDALONE_ROUTER_PATH,
   VIEW_MODE_ROUTER_PATH,
-  WINDOW_SPACE_STANDALONE_ROUTER_PATH,
   WORKSPACE_LAUNCH_ROUTER_PATH,
 } from "utils/constants";
 import type { ProjectConfig } from "utils/generatedTypes";
@@ -40,6 +36,7 @@ import {
 } from "./modeRouteResolver";
 import { MainContainer } from "./Project/MainContainer";
 import { buildStandaloneProjectSurfaceRouteElements } from "./Project/StandaloneProjectSurfaceRouteElements";
+import { buildStandaloneProjectSurfaceRoutes } from "./Project/StandaloneProjectSurfaceRoutes";
 import { APP_ROUTE_IDS } from "./routeConfig";
 
 const LazyAppWrapper = lazy(async () => {
@@ -315,9 +312,10 @@ const standaloneProjectSurfaceRouteElements =
     launcher: <ProjectRootRedirect />,
   });
 
-function createStandaloneProjectSurfaceRouteElement() {
-  return <ModeWrapper {...standaloneProjectSurfaceRouteElements} />;
-}
+const standaloneProjectSurfaceRoutes = buildStandaloneProjectSurfaceRoutes({
+  routeElements: standaloneProjectSurfaceRouteElements,
+  renderModeElement: (routeElements) => <ModeWrapper {...routeElements} />,
+});
 
 const indexRoute = {
   id: APP_ROUTE_IDS.index,
@@ -371,30 +369,6 @@ const viewModeRoute = {
   ),
 };
 
-const projectChatStandaloneRoute = {
-  id: APP_ROUTE_IDS.projectChatStandalone,
-  path: PROJECT_CHAT_STANDALONE_ROUTER_PATH,
-  element: createStandaloneProjectSurfaceRouteElement(),
-};
-
-const projectChatThreadStandaloneRoute = {
-  id: APP_ROUTE_IDS.projectChatThreadStandalone,
-  path: PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
-  element: createStandaloneProjectSurfaceRouteElement(),
-};
-
-const windowSpaceStandaloneRoute = {
-  id: APP_ROUTE_IDS.windowSpaceStandalone,
-  path: WINDOW_SPACE_STANDALONE_ROUTER_PATH,
-  element: createStandaloneProjectSurfaceRouteElement(),
-};
-
-const sectionStandaloneRoute = {
-  id: APP_ROUTE_IDS.sectionStandalone,
-  path: SECTION_STANDALONE_ROUTER_PATH,
-  element: createStandaloneProjectSurfaceRouteElement(),
-};
-
 const catchAllRoute = {
   id: APP_ROUTE_IDS.catchAll,
   path: "*",
@@ -446,11 +420,8 @@ const appRoutes = [
   indexRoute,
   homeRoute,
   workspaceLaunchRoute,
-  projectChatThreadStandaloneRoute,
-  projectChatStandaloneRoute,
-  windowSpaceStandaloneRoute,
+  ...standaloneProjectSurfaceRoutes,
   viewModeRoute,
-  sectionStandaloneRoute,
   projectRoute,
   catchAllRoute,
 ];
