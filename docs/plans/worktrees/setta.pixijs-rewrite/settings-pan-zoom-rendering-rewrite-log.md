@@ -4805,3 +4805,35 @@ Record:
     - no restart or recovery was needed
 - Next action:
   - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.tsx`, starting with `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`.
+
+## 2026-03-28 166
+
+- Item: Lift the caller-owned dict-area renderer seam into `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`.
+- Status: `done`
+- Details:
+  - Raised the standalone/share dict-area renderer seam one caller higher so `StandaloneProjectSurfaceAppRouteStack.tsx` now owns the shared dict renderer above `StandaloneProjectSurfaceRouteElements.tsx`:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.tsx`
+  - Updated focused coverage to pin the higher ownership boundary and keep the route-elements layer on a pass-through seam:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx`
+    - `frontend/src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+  - This refactor preserves the existing non-Pixi behavior for:
+    - routing the standalone IDE and share surfaces through the same `SectionContainerAreaDictBoundary` renderer from the higher-level app-route stack via `renderDictArea(...)`
+    - leaving `StandaloneProjectSurfaceRouteElements.tsx` responsible only for route-element shell composition instead of mixed shell plus dict-renderer ownership
+    - keeping the direct standalone/share entry pages on caller-owned pass-through seams
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteElements.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageEntry.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePage.test.tsx src/components/Pages/Project/ShareStandaloneProjectSurfacePageBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context
+    - `http://127.0.0.1:3044/settings/section/gui` rendered normally with the standalone settings editor surface intact, including the `ARGS` panel plus controls such as `Add arg`, `Delete selected args`, `Grid Color`, `Grid Pattern`, `Pan On Drag`, and `Zoom On Scroll`
+    - `http://127.0.0.1:3044/settings/chat` rendered normally with the shared project-chat frame, including conversation search, `New Chat`, `View Threads`, the message composer, and send controls
+    - representative requests returned `200`, including `GET /settings/section/gui`, `GET /settings/chat`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, `POST /api/loadProjectConfig`, and `GET /api/serverMode`
+    - no restart or recovery was needed
+- Next action:
+  - Continue the retained-scene seam lift by moving the caller-owned dict-area renderer seam one level higher above `frontend/src/components/Pages/Project/StandaloneProjectSurfaceAppRouteStack.tsx`, starting with `frontend/src/components/Pages/modeWrappedAppRouteStack.ts`.

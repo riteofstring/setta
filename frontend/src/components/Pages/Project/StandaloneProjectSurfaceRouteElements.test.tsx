@@ -45,9 +45,9 @@ vi.mock("./ShareStandaloneProjectSurfacePage", () => ({
 }));
 
 describe("IdeStandaloneProjectSurfaceRouteElement", () => {
-  it("wraps the standalone project surface in the shared ide route shell", () => {
+  it("wraps the standalone project surface in the shared ide route shell while reusing the caller-owned dict-area renderer seam", () => {
     const markup = renderToStaticMarkup(
-      <IdeStandaloneProjectSurfaceRouteElement />,
+      <IdeStandaloneProjectSurfaceRouteElement renderDictArea={() => null} />,
     );
 
     expect(markup).toContain('data-testid="mock-global-wrapper"');
@@ -60,10 +60,11 @@ describe("IdeStandaloneProjectSurfaceRouteElement", () => {
 });
 
 describe("buildStandaloneProjectSurfaceRouteElements", () => {
-  it("reuses the lifted standalone/share entrypoints while preserving app and launcher routes", () => {
+  it("reuses the lifted standalone/share entrypoints while preserving the caller-owned dict-area renderer seam plus app and launcher routes", () => {
     const routeElements = buildStandaloneProjectSurfaceRouteElements({
       app: <div data-testid="mock-app-route" />,
       launcher: <div data-testid="mock-launcher-route" />,
+      renderDictArea: () => null,
     });
 
     const ideMarkup = renderToStaticMarkup(<>{routeElements.ide}</>);

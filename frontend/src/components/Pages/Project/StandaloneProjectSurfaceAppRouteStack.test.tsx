@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
 import {
   PROJECT_CHAT_STANDALONE_ROUTER_PATH,
   PROJECT_CHAT_THREAD_STANDALONE_ROUTER_PATH,
   SECTION_STANDALONE_ROUTER_PATH,
   WINDOW_SPACE_STANDALONE_ROUTER_PATH,
 } from "utils/constants";
-import { APP_ROUTE_IDS } from "../routeConfig";
+import { describe, expect, it, vi } from "vitest";
 import type { ModeRouteElements } from "../modeRouteResolver";
+import { APP_ROUTE_IDS } from "../routeConfig";
 import { buildStandaloneProjectSurfaceAppRouteStack } from "./StandaloneProjectSurfaceAppRouteStack";
 
 vi.mock("components/Modals/ModalContainer", () => ({
@@ -24,14 +24,28 @@ vi.mock("../GlobalWrapper", () => ({
 }));
 
 vi.mock("./StandaloneProjectSurfacePage", () => ({
-  StandaloneProjectSurfacePage: () => (
-    <div data-testid="mock-standalone-project-surface-page" />
+  StandaloneProjectSurfacePage: ({
+    renderDictArea,
+  }: {
+    renderDictArea: unknown;
+  }) => (
+    <div
+      data-testid="mock-standalone-project-surface-page"
+      data-has-render-dict-area={Boolean(renderDictArea) ? "true" : "false"}
+    />
   ),
 }));
 
 vi.mock("./ShareStandaloneProjectSurfacePage", () => ({
-  ShareStandaloneProjectSurfacePage: () => (
-    <div data-testid="mock-share-standalone-project-surface-page" />
+  ShareStandaloneProjectSurfacePage: ({
+    renderDictArea,
+  }: {
+    renderDictArea: unknown;
+  }) => (
+    <div
+      data-testid="mock-share-standalone-project-surface-page"
+      data-has-render-dict-area={Boolean(renderDictArea) ? "true" : "false"}
+    />
   ),
 }));
 
@@ -62,6 +76,8 @@ describe("buildStandaloneProjectSurfaceAppRouteStack", () => {
     const appRoute = <div data-testid="mock-app-route" />;
     const launcherRoute = <div data-testid="mock-launcher-route" />;
     let renderCount = 0;
+    const ideMarkupByRender = new Array<string>();
+    const shareMarkupByRender = new Array<string>();
     const renderModeElement = vi.fn(
       (routeElements: ModeRouteElements): ReactNode => {
         renderCount += 1;
@@ -69,9 +85,11 @@ describe("buildStandaloneProjectSurfaceAppRouteStack", () => {
         expect(routeElements.launcher).toBe(launcherRoute);
         expect(routeElements.ide).not.toBeNull();
         expect(routeElements.share).not.toBeNull();
-        return (
-          <div data-testid={`mock-standalone-route-${renderCount}`} />
+        ideMarkupByRender.push(renderToStaticMarkup(<>{routeElements.ide}</>));
+        shareMarkupByRender.push(
+          renderToStaticMarkup(<>{routeElements.share}</>),
         );
+        return <div data-testid={`mock-standalone-route-${renderCount}`} />;
       },
     );
 
@@ -113,6 +131,16 @@ describe("buildStandaloneProjectSurfaceAppRouteStack", () => {
     ]);
 
     expect(renderModeElement).toHaveBeenCalledTimes(4);
+    expect(ideMarkupByRender).toEqual(
+      Array.from({ length: 4 }, () =>
+        expect.stringContaining('data-has-render-dict-area="true"'),
+      ),
+    );
+    expect(shareMarkupByRender).toEqual(
+      Array.from({ length: 4 }, () =>
+        expect.stringContaining('data-has-render-dict-area="true"'),
+      ),
+    );
     expect(routes[0]).toBe(indexRoute);
     expect(routes[1]).toBe(homeRoute);
     expect(routes[2]).toBe(workspaceLaunchRoute);

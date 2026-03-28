@@ -1,25 +1,26 @@
-import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
-import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { ModalContainer } from "components/Modals/ModalContainer";
 import { memo } from "react";
-import type { ModeRouteElements } from "../modeRouteResolver";
 import { GlobalWrapper } from "../GlobalWrapper";
+import type { ModeRouteElements } from "../modeRouteResolver";
 import { ShareStandaloneProjectSurfacePage } from "./ShareStandaloneProjectSurfacePage";
 import { StandaloneProjectSurfacePage } from "./StandaloneProjectSurfacePage";
 
-function renderStandaloneProjectSurfaceRouteDictArea(
-  props: SectionContainerAreaDictProps,
-) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
+export type StandaloneProjectSurfaceRouteElementsArgs = Pick<
+  ModeRouteElements,
+  "app" | "launcher"
+> & {
+  renderDictArea: Parameters<
+    typeof StandaloneProjectSurfacePage
+  >[0]["renderDictArea"];
+};
 
-function _IdeStandaloneProjectSurfaceRouteElement() {
+function _IdeStandaloneProjectSurfaceRouteElement({
+  renderDictArea,
+}: Pick<StandaloneProjectSurfaceRouteElementsArgs, "renderDictArea">) {
   return (
     <GlobalWrapper>
       <ModalContainer>
-        <StandaloneProjectSurfacePage
-          renderDictArea={renderStandaloneProjectSurfaceRouteDictArea}
-        />
+        <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
       </ModalContainer>
     </GlobalWrapper>
   );
@@ -32,13 +33,16 @@ export const IdeStandaloneProjectSurfaceRouteElement = memo(
 export function buildStandaloneProjectSurfaceRouteElements({
   app,
   launcher,
-}: Pick<ModeRouteElements, "app" | "launcher">): ModeRouteElements {
+  renderDictArea,
+}: StandaloneProjectSurfaceRouteElementsArgs): ModeRouteElements {
   return {
-    ide: <IdeStandaloneProjectSurfaceRouteElement />,
-    share: (
-      <ShareStandaloneProjectSurfacePage
-        renderDictArea={renderStandaloneProjectSurfaceRouteDictArea}
+    ide: (
+      <IdeStandaloneProjectSurfaceRouteElement
+        renderDictArea={renderDictArea}
       />
+    ),
+    share: (
+      <ShareStandaloneProjectSurfacePage renderDictArea={renderDictArea} />
     ),
     app,
     launcher,

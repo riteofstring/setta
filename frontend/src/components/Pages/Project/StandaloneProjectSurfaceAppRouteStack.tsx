@@ -1,3 +1,5 @@
+import { SectionContainerAreaDictBoundary } from "components/Section/Container/SectionContainerAreaDictBoundary";
+import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import type { ReactNode } from "react";
 import type { RouteObject } from "react-router-dom";
 import type { ModeRouteElements } from "../modeRouteResolver";
@@ -19,6 +21,12 @@ type BuildStandaloneProjectSurfaceAppRouteStackArgs = {
   catchAllRoute: AppRoute;
 };
 
+function renderStandaloneProjectSurfaceRouteDictArea(
+  props: SectionContainerAreaDictProps,
+) {
+  return <SectionContainerAreaDictBoundary {...props} />;
+}
+
 export function buildStandaloneProjectSurfaceAppRouteStack({
   app,
   launcher,
@@ -34,6 +42,7 @@ export function buildStandaloneProjectSurfaceAppRouteStack({
     buildStandaloneProjectSurfaceRouteElements({
       app,
       launcher,
+      renderDictArea: renderStandaloneProjectSurfaceRouteDictArea,
     });
 
   const standaloneProjectSurfaceRoutes = buildStandaloneProjectSurfaceRoutes({
