@@ -1,44 +1,30 @@
 package frontendbindings
 
-import "setta/internal/filebrowser"
+import (
+	"setta/internal/filebrowser"
+	"setta/internal/httpapi"
+)
 
-type CreateFileRequestInput struct {
-	Filepath string `json:"filepath"`
-}
+type CreateFileRequestInput httpapi.CreateFileRequest
 
-type CheckIfFileExistsRequestInput struct {
-	Filepath string `json:"filepath"`
-}
+type CheckIfFileExistsRequestInput httpapi.CheckIfFileExistsRequest
 
 type CheckIfFileExistsResponse bool
 
-type CheckWorkspaceInitializedRequestInput struct {
-	FolderPath                string `json:"folderPath"`
-	AllowOutsideWorkspaceRoot *bool  `json:"allowOutsideWorkspaceRoot,omitempty"`
-}
+type CheckWorkspaceInitializedRequestInput httpapi.CheckWorkspaceInitializedRequest
 
 type CheckWorkspaceInitializedResponse bool
 
 type FileBrowserRootResponse filebrowser.RootResponse
 
-type MissingFolderBehavior string
+type MissingFolderBehavior httpapi.MissingFolderBehavior
 
 const (
-	MissingFolderBehaviorError MissingFolderBehavior = "error"
-	MissingFolderBehaviorEmpty MissingFolderBehavior = "empty"
+	MissingFolderBehaviorError MissingFolderBehavior = MissingFolderBehavior(httpapi.MissingFolderBehaviorError)
+	MissingFolderBehaviorEmpty MissingFolderBehavior = MissingFolderBehavior(httpapi.MissingFolderBehaviorEmpty)
 )
 
-type GetFolderContentsRequestInput struct {
-	FolderPath                string                 `json:"folderPath"`
-	AllowOutsideWorkspaceRoot *bool                  `json:"allowOutsideWorkspaceRoot,omitempty"`
-	IncludeMtime              *bool                  `json:"includeMtime,omitempty"`
-	IncludeSize               *bool                  `json:"includeSize,omitempty"`
-	IncludeHidden             *bool                  `json:"includeHidden,omitempty"`
-	IncludeSettaInitialized   *bool                  `json:"includeSettaInitialized,omitempty"`
-	IgnorePatterns            *[]string              `json:"ignorePatterns,omitempty"`
-	MaxEntries                *int                   `json:"maxEntries,omitempty"`
-	MissingFolderBehavior     *MissingFolderBehavior `json:"missingFolderBehavior,omitempty"`
-}
+type GetFolderContentsRequestInput httpapi.GetFolderContentsRequest
 
 type FolderContentItemType filebrowser.FolderContentItemType
 
@@ -51,36 +37,23 @@ type FolderContentItem filebrowser.FolderContentItem
 
 type GetFolderContentsResponse []FolderContentItem
 
-type GetFileBrowserDownloadURLsRequestInput struct {
-	Paths []string `json:"paths"`
-}
+type GetFileBrowserDownloadURLsRequestInput httpapi.GetFileBrowserDownloadURLsRequest
 
-type FileBrowserDownloadRouteParams struct {
-	Token string `json:"token"`
-}
+type FileBrowserDownloadRouteParams httpapi.FileBrowserDownloadRouteParams
 
 type FileBrowserDownloadURLEntry filebrowser.FileBrowserDownloadURLEntry
 
 type GetFileBrowserDownloadURLsResponse []FileBrowserDownloadURLEntry
 
-type GetFileBrowserFileContentRequestInput struct {
-	Path     string `json:"path"`
-	MaxBytes *int64 `json:"maxBytes,omitempty"`
-}
+type GetFileBrowserFileContentRequestInput httpapi.GetFileBrowserFileContentRequest
 
 type FileBrowserFileContentResponse filebrowser.FileContentResponse
 
-type GetFileBrowserFileStatRequestInput struct {
-	Path string `json:"path"`
-}
+type GetFileBrowserFileStatRequestInput httpapi.GetFileBrowserFileStatRequest
 
 type FileBrowserFileStatResponse filebrowser.FileStatResponse
 
-type WriteFileBrowserFileContentRequestInput struct {
-	Path            string `json:"path"`
-	ContentID       string `json:"contentId"`
-	ExpectedMtimeNs *int64 `json:"expectedMtimeNs,omitempty"`
-}
+type WriteFileBrowserFileContentRequestInput httpapi.WriteFileBrowserFileContentRequest
 
 type WriteFileBrowserFileContentResponse filebrowser.WriteFileContentResponse
 
@@ -91,10 +64,6 @@ const (
 	TransferOperationMove TransferOperation = TransferOperation(filebrowser.TransferOperationMove)
 )
 
-type TransferFileBrowserEntryRequestInput struct {
-	SourcePath            string            `json:"sourcePath"`
-	DestinationFolderPath string            `json:"destinationFolderPath"`
-	Operation             TransferOperation `json:"operation"`
-}
+type TransferFileBrowserEntryRequestInput httpapi.TransferFileBrowserEntryRequest
 
 type TransferFileBrowserEntryResponse filebrowser.TransferResponse

@@ -57,8 +57,116 @@ type CreateFileRequest struct {
 	Filepath string `json:"filepath"`
 }
 
+type CheckWorkspaceInitializedRequest struct {
+	FolderPath                string `json:"folderPath"`
+	AllowOutsideWorkspaceRoot *bool  `json:"allowOutsideWorkspaceRoot,omitempty"`
+}
+
+func (r CheckWorkspaceInitializedRequest) toServiceRequest() filebrowser.CheckWorkspaceInitializedRequest {
+	return filebrowser.CheckWorkspaceInitializedRequest{
+		FolderPath:                r.FolderPath,
+		AllowOutsideWorkspaceRoot: r.AllowOutsideWorkspaceRoot != nil && *r.AllowOutsideWorkspaceRoot,
+	}
+}
+
+type MissingFolderBehavior string
+
+const (
+	MissingFolderBehaviorError MissingFolderBehavior = "error"
+	MissingFolderBehaviorEmpty MissingFolderBehavior = "empty"
+)
+
+type GetFolderContentsRequest struct {
+	FolderPath                string                 `json:"folderPath"`
+	AllowOutsideWorkspaceRoot *bool                  `json:"allowOutsideWorkspaceRoot,omitempty"`
+	IncludeMtime              *bool                  `json:"includeMtime,omitempty"`
+	IncludeSize               *bool                  `json:"includeSize,omitempty"`
+	IncludeHidden             *bool                  `json:"includeHidden,omitempty"`
+	IncludeSettaInitialized   *bool                  `json:"includeSettaInitialized,omitempty"`
+	IgnorePatterns            *[]string              `json:"ignorePatterns,omitempty"`
+	MaxEntries                *int                   `json:"maxEntries,omitempty"`
+	MissingFolderBehavior     *MissingFolderBehavior `json:"missingFolderBehavior,omitempty"`
+}
+
+func (r GetFolderContentsRequest) toServiceRequest() filebrowser.ListFolderRequest {
+	var ignorePatterns []string
+	if r.IgnorePatterns != nil {
+		ignorePatterns = *r.IgnorePatterns
+	}
+	return filebrowser.ListFolderRequest{
+		FolderPath:                r.FolderPath,
+		AllowOutsideWorkspaceRoot: r.AllowOutsideWorkspaceRoot != nil && *r.AllowOutsideWorkspaceRoot,
+		IncludeMtime:              r.IncludeMtime != nil && *r.IncludeMtime,
+		IncludeSize:               r.IncludeSize != nil && *r.IncludeSize,
+		IncludeHidden:             r.IncludeHidden != nil && *r.IncludeHidden,
+		IncludeSettaInitialized:   r.IncludeSettaInitialized != nil && *r.IncludeSettaInitialized,
+		IgnorePatterns:            ignorePatterns,
+		MaxEntries:                r.MaxEntries,
+		MissingFolderBehavior:     missingFolderBehaviorOrEmpty(r.MissingFolderBehavior),
+	}
+}
+
+type GetFileBrowserDownloadURLsRequest struct {
+	Paths []string `json:"paths"`
+}
+
+func (r GetFileBrowserDownloadURLsRequest) toServiceRequest() filebrowser.FileBrowserDownloadURLRequest {
+	return filebrowser.FileBrowserDownloadURLRequest{Paths: r.Paths}
+}
+
+type FileBrowserDownloadRouteParams struct {
+	Token string `json:"token"`
+}
+
+type GetFileBrowserFileContentRequest struct {
+	Path     string `json:"path"`
+	MaxBytes *int64 `json:"maxBytes,omitempty"`
+}
+
+func (r GetFileBrowserFileContentRequest) toServiceRequest() filebrowser.FileContentRequest {
+	return filebrowser.FileContentRequest{
+		Path:     r.Path,
+		MaxBytes: r.MaxBytes,
+	}
+}
+
 type GetFileBrowserFileStatRequest struct {
 	Path string `json:"path"`
+}
+
+type WriteFileBrowserFileContentRequest struct {
+	Path            string `json:"path"`
+	ContentID       string `json:"contentId"`
+	ExpectedMtimeNs *int64 `json:"expectedMtimeNs,omitempty"`
+}
+
+func (r WriteFileBrowserFileContentRequest) toServiceRequest() filebrowser.WriteFileContentRequest {
+	return filebrowser.WriteFileContentRequest{
+		Path:            r.Path,
+		ContentID:       r.ContentID,
+		ExpectedMtimeNs: r.ExpectedMtimeNs,
+	}
+}
+
+type TransferFileBrowserEntryRequest struct {
+	SourcePath            string                        `json:"sourcePath"`
+	DestinationFolderPath string                        `json:"destinationFolderPath"`
+	Operation             filebrowser.TransferOperation `json:"operation"`
+}
+
+func (r TransferFileBrowserEntryRequest) toServiceRequest() filebrowser.TransferRequest {
+	return filebrowser.TransferRequest{
+		SourcePath:            r.SourcePath,
+		DestinationFolderPath: r.DestinationFolderPath,
+		Operation:             r.Operation,
+	}
+}
+
+func missingFolderBehaviorOrEmpty(value *MissingFolderBehavior) string {
+	if value == nil {
+		return ""
+	}
+	return string(*value)
 }
 
 func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependencies) error {
@@ -155,13 +263,13 @@ func checkWorkspaceInitializedHandler(deps FileBrowserRouteDependencies) http.Ha
 			}
 			return
 		}
-		payload, err := decodeJSONBody[filebrowser.CheckWorkspaceInitializedRequest](r)
+		payload, err := decodeJSONBody[CheckWorkspaceInitializedRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
 
-		initialized, err := deps.Browser.CheckWorkspaceInitialized(r.Context(), payload)
+		initialized, err := deps.Browser.CheckWorkspaceInitialized(r.Context(), payload.toServiceRequest())
 		if err != nil {
 			writeFileBrowserRouteError(w, r, err)
 			return
@@ -194,13 +302,13 @@ func getFolderContentsHandler(deps FileBrowserRouteDependencies) http.HandlerFun
 			}
 			return
 		}
-		payload, err := decodeJSONBody[filebrowser.ListFolderRequest](r)
+		payload, err := decodeJSONBody[GetFolderContentsRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
 
-		items, err := deps.Browser.ListFolder(r.Context(), payload)
+		items, err := deps.Browser.ListFolder(r.Context(), payload.toServiceRequest())
 		if err != nil {
 			writeFileBrowserRouteError(w, r, err)
 			return
@@ -217,13 +325,13 @@ func getFileBrowserDownloadURLsHandler(deps FileBrowserRouteDependencies) http.H
 			}
 			return
 		}
-		payload, err := decodeJSONBody[filebrowser.FileBrowserDownloadURLRequest](r)
+		payload, err := decodeJSONBody[GetFileBrowserDownloadURLsRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
 
-		entries, err := deps.Browser.BuildDownloadURLs(r.Context(), payload, func(token string) string {
+		entries, err := deps.Browser.BuildDownloadURLs(r.Context(), payload.toServiceRequest(), func(token string) string {
 			return buildAbsoluteAPIRouteURL(r, RouteFileBrowserDownload, map[string]string{
 				"token": token,
 			})
@@ -244,13 +352,13 @@ func getFileBrowserFileContentHandler(deps FileBrowserRouteDependencies) http.Ha
 			}
 			return
 		}
-		payload, err := decodeJSONBody[filebrowser.FileContentRequest](r)
+		payload, err := decodeJSONBody[GetFileBrowserFileContentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
 
-		response, err := deps.Browser.ReadFileContent(r.Context(), payload)
+		response, err := deps.Browser.ReadFileContent(r.Context(), payload.toServiceRequest())
 		if err != nil {
 			writeFileBrowserRouteError(w, r, err)
 			return
@@ -290,13 +398,13 @@ func writeFileBrowserFileContentHandler(deps FileBrowserRouteDependencies) http.
 			}
 			return
 		}
-		payload, err := decodeJSONBody[filebrowser.WriteFileContentRequest](r)
+		payload, err := decodeJSONBody[WriteFileBrowserFileContentRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
 
-		response, err := deps.Browser.WriteFileContent(r.Context(), payload)
+		response, err := deps.Browser.WriteFileContent(r.Context(), payload.toServiceRequest())
 		if err != nil {
 			writeFileBrowserRouteError(w, r, err)
 			return
@@ -313,13 +421,13 @@ func transferFileBrowserEntryHandler(deps FileBrowserRouteDependencies) http.Han
 			}
 			return
 		}
-		payload, err := decodeJSONBody[filebrowser.TransferRequest](r)
+		payload, err := decodeJSONBody[TransferFileBrowserEntryRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
 		}
 
-		response, err := deps.Browser.Transfer(r.Context(), payload)
+		response, err := deps.Browser.Transfer(r.Context(), payload.toServiceRequest())
 		if err != nil {
 			writeFileBrowserRouteError(w, r, err)
 			return

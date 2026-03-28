@@ -427,6 +427,19 @@ That means:
     - `LaunchSessionInfo -> httpapi.LaunchSessionInfo`
     - `LaunchResponse -> httpapi.LaunchResponse`
   - `internal/httpapi/workspace_launch_routes.go` now owns the frontend-facing launch enum wrappers and request/response contracts that used to live only in `frontendbindings`
+  - the file-browser request contract family now points at exact `httpapi` owners instead of mirrored `frontendbindings` structs:
+    - `CreateFileRequestInput -> httpapi.CreateFileRequest`
+    - `CheckIfFileExistsRequestInput -> httpapi.CheckIfFileExistsRequest`
+    - `CheckWorkspaceInitializedRequestInput -> httpapi.CheckWorkspaceInitializedRequest`
+    - `MissingFolderBehavior -> httpapi.MissingFolderBehavior`
+    - `GetFolderContentsRequestInput -> httpapi.GetFolderContentsRequest`
+    - `GetFileBrowserDownloadURLsRequestInput -> httpapi.GetFileBrowserDownloadURLsRequest`
+    - `FileBrowserDownloadRouteParams -> httpapi.FileBrowserDownloadRouteParams`
+    - `GetFileBrowserFileContentRequestInput -> httpapi.GetFileBrowserFileContentRequest`
+    - `GetFileBrowserFileStatRequestInput -> httpapi.GetFileBrowserFileStatRequest`
+    - `WriteFileBrowserFileContentRequestInput -> httpapi.WriteFileBrowserFileContentRequest`
+    - `TransferFileBrowserEntryRequestInput -> httpapi.TransferFileBrowserEntryRequest`
+  - `internal/httpapi/filebrowser_routes.go` now owns the frontend-facing file-browser request wrappers and translates them into the narrower `internal/filebrowser` service requests locally, so `frontendbindings` no longer has to mirror that route surface
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -464,6 +477,8 @@ It has also improved for the `git`, `filebrowser`, terminal-runtime, and detache
 It has now also improved for the launcher status / update and most launcher-home route families; the remaining launcher-local surface is the intentional setup/install request payload mismatch rather than another accidental mirror owner.
 
 It has also improved for the backend-init/auth-refresh/setta-home status contracts and the workspace-launch request/response family; those route-level shapes now live in `httpapi` instead of `frontendbindings`.
+
+It has also improved for the file-browser request family; the remaining file-browser shared surface in `frontendbindings` is now mostly direct aliases to `internal/filebrowser` response owners.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.
