@@ -516,3 +516,30 @@ Record:
       - relevant backend/auth/settings requests returned `200`, including `api/serverMode`, `api/backendInitStatus`, `api/loadSettings`, and `api/authRefreshStatus`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the xyflow container cluster before any Pixi renderer code lands, starting with `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`.
+
+## 2026-03-26 021
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the `EdgeRenderer` container decisions behind a typed helper boundary so the non-Pixi slice no longer leaves its svg mount gate, z-index ordering, active-variant filtering, handle-position lookup, and wrapped-edge prop shaping inline in the component:
+    - `frontend/src/forks/xyflow/core/container/EdgeRenderer.tsx`
+    - `frontend/src/forks/xyflow/core/container/edgeRendererView.ts`
+    - `frontend/src/forks/xyflow/core/container/edgeRendererView.test.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - suppressing the edge svg until the xyflow canvas has positive width and height
+    - rendering only edges whose source and target variants are still the active variants for their sections
+    - skipping hidden edges and edges whose source/target handle positions are not yet registered
+    - keeping the surviving edges sorted by `zIndex` and mapped into the same wrapped-edge prop surface used for reconnect behavior
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/forks/xyflow/core/container/edgeRendererView.test.ts`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - `/settings` loaded authenticated with `All Settings` visible
+      - the visible settings shell, dict/param area, and canvas/edge shell rendered normally with no obvious clipping, overlap, or missing content
+      - representative visible context included the `settings` heading, tag rows such as `shortcuts`, `sectionSizingPolicy`, `gui`, `languageServer`, and `backend`, canvas controls such as `toggle agentic edges`, `toggle arg edges`, `toggle snap to grid`, and `toggle minimap`, plus bottom tabs including `Param Defaults` and `All Settings`
+      - relevant requests returned `200`, including `api/loadProjectConfig`, `api/getAgentRuns`, `api/plugins/runtime`, `api/llm/config`, `api/getPromptTemplates`, `api/getExternalAgentConfigs`, `api/getExternalAgentHealth`, `api/getEngineConfigs`, `api/getTranscriptionProfiles`, and `api/setTopLevelSectionLayout`
+- Next action:
+  - Treat the first branch-local cleanup-first non-Pixi file cluster as complete and start the first Pixi-side branch-local slice step from the plan, beginning with retained-scene packet extraction for edges and hit regions on the cleaned `xyflow` boundary.
