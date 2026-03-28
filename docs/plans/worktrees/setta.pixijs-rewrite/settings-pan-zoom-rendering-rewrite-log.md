@@ -2205,3 +2205,30 @@ Record:
     - representative requests returned `200`, including `GET /`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, `POST /api/getDefaultConfigName`, `POST /api/getFileBrowserRoot`, and `POST /api/loadAllProjectMetadata`; static frontend assets were expected `304` cache hits
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the new `groupContainerLiveDictAreaSectionContainer.tsx` boundary into the next higher-level `GroupContainer` shell boundary before any broad Pixi node drawing lands.
+
+## 2026-03-27 083
+
+- Item: Lift the new `groupContainerLiveDictAreaSectionContainer.tsx` boundary into one higher-level `GroupContainer` shell boundary above it.
+- Status: `done`
+- Details:
+  - Added a typed `GroupContainer` shell boundary above the existing live dict-area section-container boundary:
+    - `frontend/src/components/Params/groupContainerShell.tsx`
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+  - Updated the production non-Pixi `GroupContainer` path to consume the new shell boundary instead of owning the shell-level fixed-height measurement, waiting overlay, and section-container mount inline:
+    - `frontend/src/components/Params/GroupContainer.tsx`
+  - The new shell boundary now deterministically:
+    - composes the current shell-level fixed-height measurement and pending-height flush behavior from one deeper component boundary above `LiveDictAreaSectionContainer`
+    - keeps the current waiting spinner overlay and live dict-area section-container path intact while hiding the last shell-level observer and overlay wiring hop behind one higher-level boundary
+    - preserves the existing non-Pixi dict/param shell structure while shrinking `GroupContainer.tsx` to the remaining DnD wrapper boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerShell.test.tsx src/components/Params/groupContainerLiveDictAreaSectionContainer.test.tsx src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded successfully after the bootstrap handoff and the settings shell rendered normally
+    - `All Settings` remained visible with no obvious clipping, overlap, or missing blocks after the new shell-boundary wiring
+    - representative visible labels and controls included `Auto Refetch Callable Params On LSP Mismatch`, `Auto Backup`, `autobackupFreq 300`, `defaultTerminalShell null`, `Grid Color`, `Pan On Drag`, `Zoom On Scroll`, `label "Start"`, `machineGroupId ...`, `Size height 96.0 width 240.0`, and `View Mode`
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadProjectConfig`, and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Continue the first retained-scene node renderer work by lifting the new `groupContainerShell.tsx` boundary into the next higher-level `GroupContainer` wrapper above the remaining `ParamDndContext` boundary before any broad Pixi node drawing lands.
