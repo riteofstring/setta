@@ -2755,3 +2755,30 @@ Record:
     - representative requests returned `200`, including `POST /api/getFolderContents`, `GET /api/getAgentRuns`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node renderer work by lifting the nested-section child renderer seam one caller higher above `ManyNestedSections.tsx` in `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx` before any broad Pixi node drawing lands.
+
+## 2026-03-27 103
+
+- Item: Extract the edge-strip block into the first block-specific live surface helper above `groupContainerLiveDictAreaSurface.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed live-surface helper for the dict-area edge strip:
+    - `frontend/src/components/Params/groupContainerEdgeStripSurfaceBlock.ts`
+    - `frontend/src/components/Params/groupContainerEdgeStripSurfaceBlock.test.ts`
+  - Updated the higher-level `LiveDictAreaSurface` builder to compose through the new edge-strip helper instead of shaping the edge-strip surface block inline:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSurface.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the edge-strip renderer block into explicit component-facing surface props with stable `key`, `kind`, and `sectionId` wiring
+    - keeping `groupContainerLiveDictAreaSurface.ts` as a composition boundary instead of a mixed composition-plus-edge-strip-shaping module
+    - leaving the current DOM edge-strip mount path intact while deepening the live dict-area surface contract above the renderer boundary
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerEdgeStripSurfaceBlock.test.ts src/components/Params/groupContainerLiveDictAreaSurface.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - `/settings` loaded as the authenticated app shell and `All Settings` stayed visible
+    - the settings shell plus dict/param area rendered normally with no obvious clipping, overlap, or missing content
+    - representative edge-adjacent controls remained present, including `toggle arg edges`, `Add arg`, `Remove arg`, and `Convert to edge connectors`
+    - representative requests returned `200`, including `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/getEngineConfigs`, and `/api/setTopLevelSectionLayout`
+- Next action:
+  - Continue the live dict-area surface pass by extracting the pinned param-area block into the next block-specific surface helper above `groupContainerLiveDictAreaSurface.ts`.

@@ -1,19 +1,22 @@
 import type { MouseEventHandler } from "react";
 import {
+  buildLiveDictAreaEdgeStripSurfaceBlock,
+  type LiveDictAreaEdgeStripSurfaceBlock,
+} from "./groupContainerEdgeStripSurfaceBlock";
+import {
   buildLiveDictAreaRenderBoundary,
   type LiveDictAreaRenderBoundary,
   type LiveDictAreaRenderBoundaryInput,
 } from "./groupContainerLiveDictAreaRenderBoundary";
 import type {
-  LiveDictAreaEdgeStripDomPacket,
   LiveDictAreaPinnedParamAreaDomPacket,
   LiveDictAreaUnpinnedParamAreaDomPacket,
 } from "./groupContainerNodeCanaryPacket";
 
-export type LiveDictAreaEdgeStripSurfaceProps = {
-  domPacket: LiveDictAreaEdgeStripDomPacket;
-  sectionId: string;
-};
+export type {
+  LiveDictAreaEdgeStripSurfaceBlock,
+  LiveDictAreaEdgeStripSurfaceProps,
+} from "./groupContainerEdgeStripSurfaceBlock";
 
 export type LiveDictAreaPinnedParamAreaSurfaceProps = {
   domPacket: LiveDictAreaPinnedParamAreaDomPacket;
@@ -28,11 +31,7 @@ export type LiveDictAreaUnpinnedParamAreaSurfaceProps = {
 };
 
 export type LiveDictAreaSurfaceBlock =
-  | {
-      key: string;
-      kind: "edge-strip";
-      props: LiveDictAreaEdgeStripSurfaceProps;
-    }
+  | LiveDictAreaEdgeStripSurfaceBlock
   | {
       key: string;
       kind: "pinned-param-area";
@@ -56,7 +55,9 @@ export function buildLiveDictAreaSurface(
 
   return {
     ...liveDictAreaRenderBoundary,
-    blocks: liveDictAreaRenderBoundary.blocks.map(buildLiveDictAreaSurfaceBlock),
+    blocks: liveDictAreaRenderBoundary.blocks.map(
+      buildLiveDictAreaSurfaceBlock,
+    ),
     liveDictAreaRenderBoundary,
   };
 }
@@ -65,14 +66,9 @@ function buildLiveDictAreaSurfaceBlock(
   block: LiveDictAreaRenderBoundary["blocks"][number],
 ): LiveDictAreaSurfaceBlock {
   if (block.kind === "edge-strip") {
-    return {
-      key: block.key,
-      kind: block.kind,
-      props: {
-        domPacket: block.domPacket,
-        sectionId: block.sectionId,
-      },
-    };
+    return buildLiveDictAreaEdgeStripSurfaceBlock({
+      rendererBlock: block,
+    });
   }
 
   if (block.kind === "pinned-param-area") {
