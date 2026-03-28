@@ -386,3 +386,30 @@ Record:
       - relevant backend/auth/settings requests returned `200`, including `api/authRefreshStatus`, `api/loadSettings`, `api/backendInitStatus`, and `api/loadProjectConfig`
 - Next action:
   - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx` before any Pixi renderer code lands.
+
+## 2026-03-26 016
+
+- Item: Complete the cleanup-first non-Pixi pass on `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx`.
+- Status: `done`
+- Details:
+  - Refactored the thin combobox wrapper behind a typed helper boundary so the non-Pixi slice no longer leaves its hook option defaults and root wrapper sizing policy inline:
+    - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx`
+    - `frontend/src/components/Utils/Combobox/idNameComboboxView.ts`
+    - `frontend/src/components/Utils/Combobox/idNameComboboxView.test.ts`
+    - `frontend/src/components/Utils/Combobox/IdNameCombobox.test.tsx`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - defaulting `selectedItemCanBeNull` and `clearInputAfterSelection` before passing the wrapper config into `useIdNameCombobox`
+    - keeping the compact vs regular combobox root height policy stable across callers
+    - preserving the real wrapper boundary for portaled menu open/select behavior and disabled-state no-open behavior
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Utils/Combobox/idNameComboboxView.test.ts src/components/Utils/Combobox/IdNameCombobox.test.tsx src/components/Utils/Combobox/ComboboxParts.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/app/app-mode-dropdown-portal-theme.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`)
+      - the verifier used the already-authenticated `/settings` tab after the provided bootstrap URL was rejected in that browser session
+      - `All Settings` rendered the dict/param stack normally
+      - the visible `Tag filter` dropdown opened as a normal portal/menu with expected options such as `All` and `Untagged`
+      - relevant requests returned `200`, including `GET /settings`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `GET /api/backendInitStatus`, and `POST /api/loadProjectConfig`
+- Next action:
+  - Continue the cleanup-first non-Pixi pass on the next bounded first-slice file in the dict/param cluster, starting with `frontend/src/forks/dnd-kit/ParamDndContext.tsx` before any Pixi renderer code lands.
