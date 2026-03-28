@@ -257,6 +257,9 @@ That means:
 - `backend/setta/types/artifact.py` no longer keeps handwritten `DrawAreaLayer` or `DrawAreaLayerItem` wrappers:
   - those shapes were not part of the discriminated artifact union/runtime adapter boundary
   - the only remaining internal import now uses the generated Go-owned `DrawAreaLayer` model directly
+- `backend/setta/types/artifact.py` no longer keeps handwritten `ImageArtifact`, `ChartDataArtifact`, or `FileArtifact` subclasses:
+  - those artifact variants now use the generated Go-owned models directly
+  - the remaining artifact union discrimination is handled by a tagged/custom discriminator instead of literal-only Python subclasses
 - the handwritten Python-facing dependency-mode rename layer has now been removed entirely:
   - `backend/setta/types/listener.py` no longer re-exports `ListenerDependencyMode`
   - listener callers/tests now import the Go-owned enum directly from `go_shared_types.py` and use the Go-owned member names (`always`, `realtime_only`, `refresh_only`)

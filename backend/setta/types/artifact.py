@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import Field, TypeAdapter
+from pydantic import Discriminator, Field, Tag, TypeAdapter
 from setta.types.generated.go_shared_types import (
     ArtifactType,
     LineChartSettings,
@@ -43,19 +43,6 @@ def create_json_artifact_id():
     return create_artifact_id(".json")
 
 
-def create_csv_artifact_id():
-    return create_artifact_id(".csv")
-
-
-def create_png_artifact_id():
-    return create_artifact_id(".png")
-
-
-def create_file_artifact_id(extension: str = ".bin"):
-    return create_artifact_id(extension)
-
-
-ChartData = dict[str, list[str | float]]
 CanvasPoint = tuple[float, float]
 DrawAreaTransform = tuple[float, float, float, float, float, float]
 
@@ -103,11 +90,6 @@ class DrawAreaLayerItemTransform(GoDrawAreaLayerItemTransform):
     eraserStrokes: list[BrushStrokeWithTransform] = Field(default_factory=list)
 
 
-class ImageArtifact(GoImageArtifact):
-    type: Literal[ArtifactType.Image] = ArtifactType.Image
-    id: str = Field(default_factory=create_png_artifact_id)
-
-
 class BrushStrokeArtifact(GoBrushStrokeArtifact):
     type: Literal[ArtifactType.BrushStroke] = ArtifactType.BrushStroke
     id: str = Field(default_factory=create_json_artifact_id)
@@ -122,33 +104,33 @@ class DrawAreaLayerItemTransformArtifact(GoDrawAreaLayerItemTransformArtifact):
     value: DrawAreaLayerItemTransform
 
 
-class ChartDataArtifact(GoChartDataArtifact):
-    type: Literal[ArtifactType.ChartData] = ArtifactType.ChartData
-    id: str = Field(default_factory=create_csv_artifact_id)
-    value: ChartData
-
-
-class FileArtifact(GoFileArtifact):
-    type: Literal[ArtifactType.File] = ArtifactType.File
-    id: str = Field(default_factory=create_file_artifact_id)
-
-
 BaseChartSettingsUnion = LineChartSettings | ScatterChartSettings
 
 BaseChartSettingsUnionWithDiscriminator = Annotated[
     BaseChartSettingsUnion, Field(discriminator="type")
 ]
 
-BaseArtifactUnion = (
-    ImageArtifact
-    | BrushStrokeArtifact
-    | DrawAreaLayerItemTransformArtifact
-    | ChartDataArtifact
-    | FileArtifact
-)
+def _artifact_type(value: Any) -> str | None:
+    raw_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    if isinstance(raw_type, ArtifactType):
+        return raw_type.value
+    if isinstance(raw_type, str):
+        return raw_type
+    return None
 
-BaseArtifactUnionWithDiscriminator = Annotated[
-    BaseArtifactUnion, Field(discriminator="type")
+
+BaseArtifactUnion = Annotated[
+    Annotated[GoImageArtifact, Tag(ArtifactType.Image.value)]
+    | Annotated[BrushStrokeArtifact, Tag(ArtifactType.BrushStroke.value)]
+    | Annotated[
+        DrawAreaLayerItemTransformArtifact,
+        Tag(ArtifactType.DrawAreaLayerItemTransform.value),
+    ]
+    | Annotated[GoChartDataArtifact, Tag(ArtifactType.ChartData.value)]
+    | Annotated[GoFileArtifact, Tag(ArtifactType.File.value)],
+    Discriminator(_artifact_type),
 ]
+
+BaseArtifactUnionWithDiscriminator = BaseArtifactUnion
 
 BaseArtifactTypeAdapter = TypeAdapter(BaseArtifactUnionWithDiscriminator)
