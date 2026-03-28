@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
+import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 import { SortableSectionContainer } from "./SortableSectionContainer";
 
 const mockUseSortable = vi.fn();
@@ -40,11 +42,15 @@ vi.mock("./SortableSectionBody", () => ({
   SortableSectionBody: ({
     sectionId,
     listeners,
+    SectionBoundary,
     renderCoreBody,
     renderNestedSections,
   }: {
     sectionId: string;
     listeners: Record<string, unknown>;
+    SectionBoundary: (
+      props: SortableSectionBodySectionBoundaryProps,
+    ) => ReactNode;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
     renderNestedSections: (props: {
       sectionId: string;
@@ -57,6 +63,35 @@ vi.mock("./SortableSectionBody", () => ({
       data-testid="mock-sortable-section-body"
       data-section-id={sectionId}
       data-has-listeners={listeners ? "true" : "false"}
+    >
+      <SectionBoundary
+        sectionId={sectionId}
+        dragListeners={listeners}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+      />
+    </div>
+  ),
+}));
+
+vi.mock("./SortableSectionSection", () => ({
+  SortableSectionSection: ({
+    sectionId,
+    dragListeners,
+    renderCoreBody,
+    renderNestedSections,
+  }: {
+    sectionId: string;
+    dragListeners?: Record<string, unknown>;
+    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
+    renderNestedSections: (
+      props: SectionContainerNestedSectionsProps,
+    ) => ReactNode;
+  }) => (
+    <div
+      data-testid="mock-sortable-section-section"
+      data-section-id={sectionId}
+      data-has-drag-listeners={dragListeners ? "true" : "false"}
     >
       {renderCoreBody({
         sectionId,
@@ -89,7 +124,7 @@ describe("SortableSectionContainer", () => {
     });
   });
 
-  it("passes the standard nested-sections renderer through the sortable body boundary", () => {
+  it("owns the lifted sortable section boundary while passing the standard nested-sections renderer through the sortable body seam", () => {
     const renderCoreBody = ({
       sectionId,
       sectionTypeName,
@@ -132,6 +167,7 @@ describe("SortableSectionContainer", () => {
 
     expect(markup).toContain('data-sortable-section-id="section-1"');
     expect(markup).toContain('data-testid="mock-sortable-section-body"');
+    expect(markup).toContain('data-testid="mock-sortable-section-section"');
     expect(markup).toContain('data-has-listeners="true"');
     expect(markup).toContain('data-testid="mock-section-container-core-body"');
     expect(markup).toContain(

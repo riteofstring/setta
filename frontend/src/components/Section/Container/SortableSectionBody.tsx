@@ -1,6 +1,5 @@
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
 import React from "react";
-import { SortableSectionSection } from "./SortableSectionSection";
 import {
   buildSortableSectionBodyView,
   type SortableSectionBodyProps,
@@ -8,13 +7,14 @@ import {
 
 function _SortableSectionBody(props: SortableSectionBodyProps) {
   const view = buildSortableSectionBodyView(props);
+  const SectionBoundary = props.SectionBoundary;
 
   switch (view.kind) {
     case "temp":
       return <TempDNDSection />;
     case "section":
       return (
-        <SortableSectionSection
+        <SectionBoundary
           {...view.props}
           renderCoreBody={props.renderCoreBody}
           renderNestedSections={props.renderNestedSections}

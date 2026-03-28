@@ -5097,3 +5097,35 @@ Record:
     - because the restarted live settings canary is still not trustworthy on this worktree runtime and the failure reproduces independently of this boundary lift, this slice is being treated as code-complete with the live visual gate deferred rather than falsely marked fully visually verified
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the new `SortableSectionSection` boundary one caller higher into `frontend/src/components/Section/Container/SortableSectionContainer.tsx` while keeping the unstable live settings canary explicit.
+
+## 2026-03-28 174
+
+- Item: Lift the `SortableSectionSection` boundary into `frontend/src/components/Section/Container/SortableSectionContainer.tsx`.
+- Status: `done`
+- Details:
+  - Raised the sortable nested-section seam one caller higher so `SortableSectionContainer.tsx` now owns the dedicated `SortableSectionSection` handoff above `SortableSectionBody.tsx`:
+    - `frontend/src/components/Section/Container/SortableSectionContainer.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionBody.tsx`
+    - `frontend/src/components/Section/Container/sortableSectionBodyView.ts`
+  - Updated focused coverage to pin both sides of the lifted seam:
+    - `frontend/src/components/Section/Container/SortableSectionContainer.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionBody.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `SortableSectionContainer.tsx` staying responsible for sortable transform state, z-indexing, and edge-handle scheduling while now owning the explicit `SortableSectionSection` boundary handoff
+    - `SortableSectionBody.tsx` shrinking into a thinner injected seam that only decides temp vs live section-body routing before delegating to the caller-provided section boundary
+    - regular nested sections still rendering through the same `SectionContainer` path, while temp DnD sections still short-circuit through `TempDNDSection`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SortableSectionSection.test.tsx src/components/Section/Container/SortableSectionBody.test.tsx src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/sortableSectionBodyView.test.ts`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Section/Container/SortableSectionSection.tsx src/components/Section/Container/SortableSectionBody.tsx src/components/Section/Container/SortableSectionContainer.tsx src/components/Section/Container/sortableSectionBodyView.ts src/components/Section/Container/SortableSectionSection.test.tsx src/components/Section/Container/SortableSectionBody.test.tsx src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/sortableSectionBodyView.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` in a fresh sub-agent context:
+    - bootstrap succeeded and representative requests returned `200`, including `POST /__setta__/bootstrap/consume`, `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/backendInitStatus`, and `GET /api/authRefreshStatus`
+    - the live settings canary is still not trustworthy on this worktree runtime:
+      - `http://127.0.0.1:3044/settings` fell into the `Unhandled Thrown Error!` overlay instead of rendering the settings surface
+      - the visible stack again rooted at `getCurrSectionVariantId` in `src/state/actions/sectionInfos.ts:349`, flowing through `buildLiveDictAreaSectionState` and `groupContainerLiveDictAreaSectionStoreBoundary`
+    - because this live settings failure remains the same independent runtime blocker seen in the previous seam-lift slice, this sortable-section boundary lift is being treated as code-complete with the live visual gate deferred rather than falsely marked fully visually verified
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the lifted `SortableSectionSection` boundary one caller higher into `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx` while keeping the unstable live settings canary explicit.

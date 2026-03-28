@@ -10,6 +10,7 @@ import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import { SortableSectionBody } from "./SortableSectionBody";
+import { SortableSectionSection } from "./SortableSectionSection";
 import type { SortableSectionNestedSectionsRenderer } from "./sortableSectionBodyView";
 
 type SortableSectionContainerProps = {
@@ -192,6 +193,7 @@ function _SortableCore({
         sectionId={sectionId}
         applyTransform={applyTransform}
         listeners={listeners}
+        SectionBoundary={SortableSectionSection}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />

@@ -1,29 +1,22 @@
 import { getDndSectionId } from "forks/dnd-kit/dndState";
-import type { ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { SortableSectionBody } from "./SortableSectionBody";
 import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyView";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 
 vi.mock("forks/dnd-kit/DummySection", () => ({
   TempDNDSection: () => <div data-testid="mock-temp-dnd-section" />,
 }));
 
-vi.mock("./SortableSectionSection", () => ({
-  SortableSectionSection: ({
-    sectionId,
-    dragListeners,
-    renderCoreBody,
-    renderNestedSections,
-  }: {
-    sectionId: string;
-    dragListeners?: Record<string, unknown>;
-    renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
-    renderNestedSections: (
-      props: SectionContainerNestedSectionsProps,
-    ) => ReactNode;
-  }) => (
+function MockSectionBoundary({
+  sectionId,
+  dragListeners,
+  renderCoreBody,
+  renderNestedSections,
+}: SortableSectionBodySectionBoundaryProps) {
+  return (
     <div
       data-testid="mock-sortable-section-section"
       data-section-id={sectionId}
@@ -43,8 +36,8 @@ vi.mock("./SortableSectionSection", () => ({
         isJoinedCodeTerminalGroup: false,
       })}
     </div>
-  ),
-}));
+  );
+}
 
 function renderNestedSections({
   sectionId,
@@ -70,6 +63,7 @@ describe("SortableSectionBody", () => {
         sectionId={getDndSectionId("section-1")}
         applyTransform={true}
         listeners={{}}
+        SectionBoundary={MockSectionBoundary}
         renderCoreBody={() => <div data-testid="unused-render-core-body" />}
         renderNestedSections={renderNestedSections}
       />,
@@ -85,6 +79,7 @@ describe("SortableSectionBody", () => {
         sectionId={getDndSectionId("section-1")}
         applyTransform={false}
         listeners={{}}
+        SectionBoundary={MockSectionBoundary}
         renderCoreBody={() => <div data-testid="unused-render-core-body" />}
         renderNestedSections={renderNestedSections}
       />,
@@ -112,6 +107,7 @@ describe("SortableSectionBody", () => {
         sectionId="section-1"
         applyTransform={false}
         listeners={{ onPointerDown: "listener" }}
+        SectionBoundary={MockSectionBoundary}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,

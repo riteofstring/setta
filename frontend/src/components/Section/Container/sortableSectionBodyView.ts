@@ -1,5 +1,5 @@
 import { isTempSection } from "forks/dnd-kit/dndState";
-import type { ReactElement } from "react";
+import type { ComponentType, ReactElement } from "react";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 
@@ -9,13 +9,29 @@ export type SortableSectionNestedSectionsRenderer = (
   props: SectionContainerNestedSectionsProps,
 ) => ReactElement | null;
 
+export type SortableSectionBodySectionBoundaryProps = {
+  sectionId: string;
+  dragListeners: SortableSectionDragListeners;
+  renderCoreBody: SectionContainerCoreBodyRenderer;
+  renderNestedSections: SortableSectionNestedSectionsRenderer;
+};
+
+export type SortableSectionBodySectionBoundary =
+  ComponentType<SortableSectionBodySectionBoundaryProps>;
+
 export type SortableSectionBodyProps = {
   sectionId: string;
   applyTransform: boolean;
   listeners: SortableSectionDragListeners;
+  SectionBoundary: SortableSectionBodySectionBoundary;
   renderCoreBody: SectionContainerCoreBodyRenderer;
   renderNestedSections: SortableSectionNestedSectionsRenderer;
 };
+
+type SortableSectionBodyViewArgs = Pick<
+  SortableSectionBodyProps,
+  "sectionId" | "applyTransform" | "listeners"
+>;
 
 type SectionContainerViewProps = {
   sectionId: string;
@@ -31,7 +47,7 @@ export function buildSortableSectionBodyView({
   sectionId,
   applyTransform,
   listeners,
-}: SortableSectionBodyProps): SortableSectionBodyView {
+}: SortableSectionBodyViewArgs): SortableSectionBodyView {
   if (isTempSection(sectionId)) {
     return applyTransform ? { kind: "temp" } : { kind: "none" };
   }
