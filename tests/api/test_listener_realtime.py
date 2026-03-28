@@ -1,9 +1,9 @@
 import asyncio
 import contextlib
-from dataclasses import dataclass
 import io
 import json
 import logging
+from dataclasses import dataclass
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import AsyncMock
@@ -25,8 +25,11 @@ from setta.sdk_contracts.generated import (
 )
 from setta.types.generated.go_shared_types import (
     BinaryContentRef,
+    BinaryDependencyValue,
     CodeObjType,
+    DependencyValueType,
     ListenerDependencyMode,
+    LiteralDependencyValue,
     ParameterPassingStyle,
     SectionType,
 )
@@ -39,8 +42,8 @@ from setta.types.listener import (
     PythonScriptWebsocketMsgTypeAdapter,
     WebsocketMsgListenerDependencyEvent,
     WebsocketMsgListenerError,
-    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerForceRefresh,
+    WebsocketMsgListenerFrontendEmit,
     WebsocketMsgListenerRealtimeEvent,
 )
 from setta.types.project_config import (
@@ -48,8 +51,6 @@ from setta.types.project_config import (
 )
 from setta.types.protocol import (
     BaseDependencyKeyUnion,
-    BinaryDependencyValue,
-    LiteralDependencyValue,
     create_dep_key,
 )
 
@@ -61,6 +62,20 @@ from tests.helpers.listener_runtime_state import (
 
 if TYPE_CHECKING:
     from websockets import ClientConnection
+
+
+def _literal_dependency_value(payload: str) -> LiteralDependencyValue:
+    return LiteralDependencyValue(
+        type=DependencyValueType.Literal,
+        payload=payload,
+    )
+
+
+def _binary_dependency_value(payload: BinaryContentRef) -> BinaryDependencyValue:
+    return BinaryDependencyValue(
+        type=DependencyValueType.Binary,
+        payload=payload,
+    )
 
 
 class _StubWebsocket:
@@ -448,7 +463,7 @@ class TestSettaListenerRealtimeIntegration:
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value=LiteralDependencyValue(payload="Updated-1"),
+                    value=_literal_dependency_value("Updated-1"),
                 )
             ],
             sequence=1,
@@ -462,7 +477,7 @@ class TestSettaListenerRealtimeIntegration:
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value=LiteralDependencyValue(payload="Updated-2"),
+                    value=_literal_dependency_value("Updated-2"),
                 )
             ],
             sequence=2,
@@ -566,7 +581,7 @@ class TestSettaListenerRealtimeIntegration:
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency_key,
-                    value=LiteralDependencyValue(payload="Updated"),
+                    value=_literal_dependency_value("Updated"),
                 )
             ],
             sequence=1,
@@ -637,7 +652,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Update-A"),
+                        value=_literal_dependency_value("Update-A"),
                     )
                 ],
                 sequence=1,
@@ -652,7 +667,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Update-B"),
+                        value=_literal_dependency_value("Update-B"),
                     )
                 ],
                 sequence=2,
@@ -698,7 +713,7 @@ class TestSettaListenerRealtimeIntegration:
                     deltas=[
                         ListenerRealtimeDelta(
                             dependency=dependency_key,
-                            value=LiteralDependencyValue(payload="Update-A"),
+                            value=_literal_dependency_value("Update-A"),
                         )
                     ],
                     sequence=1,
@@ -748,7 +763,7 @@ class TestSettaListenerRealtimeIntegration:
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        payload=LiteralDependencyValue(payload="payload-a"),
+                        payload=_literal_dependency_value("payload-a"),
                         timestampMs=1,
                     )
                 ],
@@ -764,7 +779,7 @@ class TestSettaListenerRealtimeIntegration:
                 dependencyEvents=[
                     DependencyEvent(
                         dependencyKey=dependency_key,
-                        payload=LiteralDependencyValue(payload="payload-b"),
+                        payload=_literal_dependency_value("payload-b"),
                         timestampMs=2,
                     )
                 ],
@@ -808,7 +823,7 @@ class TestSettaListenerRealtimeIntegration:
                     dependencyEvents=[
                         DependencyEvent(
                             dependencyKey=dependency_key,
-                            payload=LiteralDependencyValue(payload="payload-b"),
+                            payload=_literal_dependency_value("payload-b"),
                             timestampMs=2,
                         )
                     ],
@@ -855,7 +870,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Updated"),
+                        value=_literal_dependency_value("Updated"),
                     )
                 ],
                 sequence=1,
@@ -902,7 +917,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Updated"),
+                        value=_literal_dependency_value("Updated"),
                     )
                 ],
                 sequence=1,
@@ -943,7 +958,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Updated"),
+                        value=_literal_dependency_value("Updated"),
                     )
                 ],
                 sequence=1,
@@ -1015,7 +1030,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Updated"),
+                        value=_literal_dependency_value("Updated"),
                     )
                 ],
                 sequence=1,
@@ -1077,7 +1092,7 @@ class TestSettaListenerRealtimeIntegration:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Updated"),
+                        value=_literal_dependency_value("Updated"),
                     )
                 ],
                 sequence=1,
@@ -1163,14 +1178,14 @@ class TestSettaListenerRealtimeIntegration:
                         sectionId=SECTION_ONE_ID,
                         codeObjId=PARAM_SLIDER_ID,
                     ),
-                    value=LiteralDependencyValue(payload="5"),
+                    value=_literal_dependency_value("5"),
                 ),
                 ListenerRealtimeDelta(
                     dependency=create_dep_key(
                         sectionId=SECTION_ONE_ID,
                         codeObjId=PARAM_SWITCH_ID,
                     ),
-                    value=LiteralDependencyValue(payload="true"),
+                    value=_literal_dependency_value("true"),
                 ),
             ],
             sequence=1,
@@ -1425,7 +1440,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=dependency_key,
-                        value=LiteralDependencyValue(payload="Updated while unavailable"),
+                        value=_literal_dependency_value("Updated while unavailable"),
                     )
                 ],
                 sequence=1,
@@ -1504,11 +1519,11 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=slider_key,
-                        value=LiteralDependencyValue(payload="5"),
+                        value=_literal_dependency_value("5"),
                     ),
                     ListenerRealtimeDelta(
                         dependency=switch_key,
-                        value=LiteralDependencyValue(payload="true"),
+                        value=_literal_dependency_value("true"),
                     ),
                 ],
                 sequence=1,
@@ -1572,7 +1587,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue(payload="5"),
+                        value=_literal_dependency_value("5"),
                     )
                 ],
                 dependencyValues=dependency_values,
@@ -1624,7 +1639,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue(payload="5"),
+                        value=_literal_dependency_value("5"),
                     )
                 ],
                 dependencyValues=dependency_values,
@@ -1671,7 +1686,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue(payload="5"),
+                        value=_literal_dependency_value("5"),
                     )
                 ],
                 dependencyValues=dependency_values,
@@ -1721,7 +1736,7 @@ class TestSettaListenerBootstrapFailure:
                 deltas=[
                     ListenerRealtimeDelta(
                         dependency=fixture.count_key(),
-                        value=LiteralDependencyValue(payload="5"),
+                        value=_literal_dependency_value("5"),
                     )
                 ],
                 dependencyValues=dependency_values,
@@ -1803,7 +1818,7 @@ class TestSettaListenerBinaryParsing:
             deltas=[
                 ListenerRealtimeDelta(
                     dependency=dependency,
-                    value=LiteralDependencyValue(payload="hello"),
+                    value=_literal_dependency_value("hello"),
                 )
             ],
             sequence=1,
@@ -1815,7 +1830,7 @@ class TestSettaListenerBinaryParsing:
         assert isinstance(parsed, WebsocketMsgListenerRealtimeEvent)
         assert parsed.content.projectConfigId == ID("project-1")
         assert parsed.content.deltas[0].dependency == dependency
-        assert parsed.content.deltas[0].value == LiteralDependencyValue(payload="hello")
+        assert parsed.content.deltas[0].value == _literal_dependency_value("hello")
 
     def test_text_dependency_event_round_trips_through_parser(self) -> None:
         listener = SettaListener(project_name="Text Parse")
@@ -1825,7 +1840,7 @@ class TestSettaListenerBinaryParsing:
             dependencyEvents=[
                 DependencyEvent(
                     dependencyKey=dependency,
-                    payload=LiteralDependencyValue(payload="updated"),
+                    payload=_literal_dependency_value("updated"),
                     timestampMs=123,
                 )
             ],
@@ -1838,8 +1853,8 @@ class TestSettaListenerBinaryParsing:
         assert isinstance(parsed, WebsocketMsgListenerDependencyEvent)
         assert parsed.content.projectConfigId == ID("project-1")
         assert parsed.content.dependencyEvents[0].dependencyKey == dependency
-        assert parsed.content.dependencyEvents[0].payload == LiteralDependencyValue(
-            payload="updated"
+        assert parsed.content.dependencyEvents[0].payload == _literal_dependency_value(
+            "updated"
         )
 
     def test_text_force_refresh_round_trips_through_parser(self) -> None:
@@ -1887,11 +1902,11 @@ class TestSettaListenerBinaryParsing:
         )
         delta_one = ListenerRealtimeDelta(
             dependency=dependency_one,
-            value=BinaryDependencyValue(payload=ref),
+            value=_binary_dependency_value(ref),
         )
         delta_two = ListenerRealtimeDelta(
             dependency=dependency_two,
-            value=BinaryDependencyValue(payload=ref),
+            value=_binary_dependency_value(ref),
         )
         content = ListenerRealtimeEventContent(
             projectConfigId=ID("project-1"),
@@ -1918,12 +1933,12 @@ class TestSettaListenerBinaryParsing:
         )
         event_one = DependencyEvent(
             dependencyKey=dependency_one,
-            payload=BinaryDependencyValue(payload=ref),
+            payload=_binary_dependency_value(ref),
             timestampMs=123,
         )
         event_two = DependencyEvent(
             dependencyKey=dependency_two,
-            payload=BinaryDependencyValue(payload=ref),
+            payload=_binary_dependency_value(ref),
             timestampMs=456,
         )
         content = ListenerDependencyEventContent(

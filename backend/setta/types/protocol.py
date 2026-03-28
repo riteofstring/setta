@@ -1,12 +1,12 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Discriminator, Field, Tag
+from setta.types.generated.go_shared_types import (
+    BinaryDependencyValue as GoBinaryDependencyValue,
+)
 from setta.types.generated.go_shared_types import (
     DependencyKeyType,
     DependencyValueType,
-)
-from setta.types.generated.go_shared_types import (
-    BinaryDependencyValue as GoBinaryDependencyValue,
 )
 from setta.types.generated.go_shared_types import (
     FileReadDependencyValue as GoFileReadDependencyValue,
@@ -51,22 +51,20 @@ BaseDependencyKeyUnionWithDiscriminator = Annotated[
 ]
 
 
-class LiteralDependencyValue(GoLiteralDependencyValue):
-    type: Literal[DependencyValueType.Literal] = DependencyValueType.Literal
+def _dependency_value_type(value: Any) -> str | None:
+    raw_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    if isinstance(raw_type, DependencyValueType):
+        return raw_type.value
+    if isinstance(raw_type, str):
+        return raw_type
+    return None
 
 
-class FileReadDependencyValue(GoFileReadDependencyValue):
-    type: Literal[DependencyValueType.FileRead] = DependencyValueType.FileRead
-
-
-class BinaryDependencyValue(GoBinaryDependencyValue):
-    type: Literal[DependencyValueType.Binary] = DependencyValueType.Binary
-
-
-BaseDependencyValueUnion = (
-    LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue
-)
-
-BaseDependencyValueUnionWithDiscriminator = Annotated[
-    BaseDependencyValueUnion, Field(discriminator="type")
+BaseDependencyValueUnion = Annotated[
+    Annotated[GoLiteralDependencyValue, Tag(DependencyValueType.Literal.value)]
+    | Annotated[GoFileReadDependencyValue, Tag(DependencyValueType.FileRead.value)]
+    | Annotated[GoBinaryDependencyValue, Tag(DependencyValueType.Binary.value)],
+    Discriminator(_dependency_value_type),
 ]
+
+BaseDependencyValueUnionWithDiscriminator = BaseDependencyValueUnion

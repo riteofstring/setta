@@ -8,8 +8,12 @@ from setta.sdk_contracts.generated import (
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
 )
+from setta.types.generated.go_shared_types import (
+    DependencyValueType,
+    LiteralDependencyValue,
+)
 from setta.types.id import ID
-from setta.types.protocol import LiteralDependencyValue, create_dep_key
+from setta.types.protocol import create_dep_key
 
 
 @pytest.mark.asyncio
@@ -55,7 +59,10 @@ async def test_local_core_renders_realtime_dependency_values_via_hidden_go_cli()
                 deltas=[
                     LocalCoreListenerRealtimeDelta(
                         dependency=param_key,
-                        value=LiteralDependencyValue(payload="2"),
+                        value=LiteralDependencyValue(
+                            type=DependencyValueType.Literal,
+                            payload="2",
+                        ),
                     )
                 ],
             )

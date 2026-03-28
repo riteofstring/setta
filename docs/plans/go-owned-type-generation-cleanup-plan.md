@@ -273,6 +273,9 @@ That means:
 - `backend/setta/types/protocol.py` now owns the narrow Python-only dependency protocol glue:
   - frozen/hashable dependency-key wrappers for listener-runtime dictionary/set usage
   - discriminated-union adapters over Go-generated dependency-value models
+- `backend/setta/types/protocol.py` no longer keeps handwritten dependency-value subclasses:
+  - `LiteralDependencyValue`, `FileReadDependencyValue`, and `BinaryDependencyValue` now come directly from the generated Go-owned models
+  - the remaining union discrimination is handled by a tagged/custom discriminator instead of literal-only Python subclasses
 - the frontend-facing project codegen policy family now has a real Go owner in `internal/projectview` instead of empty `frontendbindings` placeholders:
   - `ProjectCodegenLanguage`
   - `SectionCodegenMode`

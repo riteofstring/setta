@@ -1,7 +1,6 @@
 import asyncio
 
 import pytest
-
 from setta.api import SettaListener, dep_id
 from setta.api.listener import ListenerCallbackContext
 from setta.sdk_contracts.generated import (
@@ -13,15 +12,17 @@ from setta.sdk_contracts.generated import (
     ListenerRouterEndpointResult,
     ListenerSnapshot,
 )
-from setta.types.generated.go_shared_types import (
-    ListenerDependencyMode,
-    MessageTextContent,
-    SectionType,
-)
 from setta.types.chat import (
     AssistantChatMessage,
     ChatSectionState,
     UserChatMessage,
+)
+from setta.types.generated.go_shared_types import (
+    DependencyValueType,
+    ListenerDependencyMode,
+    LiteralDependencyValue,
+    MessageTextContent,
+    SectionType,
 )
 from setta.types.id import ID
 from setta.types.listener import (
@@ -32,7 +33,8 @@ from setta.types.listener import (
     WebsocketMsgListenerRouterEndpointResult,
 )
 from setta.types.project_config import SectionRepresentationMode
-from setta.types.protocol import LiteralDependencyValue, SectionDependencyKey
+from setta.types.protocol import SectionDependencyKey
+
 from tests.helpers.listener_runtime_state import (
     build_listener_runtime_state_from_catalog,
 )
@@ -170,7 +172,10 @@ async def test_chat_section_update_waits_for_authoritative_refresh() -> None:
 
     delta = ListenerRealtimeDelta(
         dependency=SectionDependencyKey(sectionId=section_id),
-        value=LiteralDependencyValue(payload=repr(first_state.model_dump(mode="json"))),
+        value=LiteralDependencyValue(
+            type=DependencyValueType.Literal,
+            payload=repr(first_state.model_dump(mode="json")),
+        ),
     )
     await listener._handle_realtime_event(
         ListenerRealtimeEventContent(

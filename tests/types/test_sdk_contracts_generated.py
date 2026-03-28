@@ -10,8 +10,12 @@ from setta.sdk_contracts.generated import (
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
 )
+from setta.types.generated.go_shared_types import (
+    DependencyValueType,
+    LiteralDependencyValue,
+)
 from setta.types.id import ID
-from setta.types.protocol import LiteralDependencyValue, create_dep_key
+from setta.types.protocol import create_dep_key
 
 
 def test_generated_listener_register_request_round_trips_dependency_key_unions() -> (
@@ -93,7 +97,10 @@ def test_generated_local_core_realtime_request_round_trips_dependency_unions() -
         deltas=[
             LocalCoreListenerRealtimeDelta(
                 dependency=dependency,
-                value=LiteralDependencyValue(payload="world"),
+                value=LiteralDependencyValue(
+                    type=DependencyValueType.Literal,
+                    payload="world",
+                ),
             )
         ],
     )
@@ -107,4 +114,7 @@ def test_generated_local_core_realtime_request_round_trips_dependency_unions() -
     assert parsed.dependencyCatalog.entries[0].dependencyKey == dependency
     assert parsed.currentDependencyValues.entries[0].dependencyKey == dependency
     assert parsed.deltas[0].dependency == dependency
-    assert parsed.deltas[0].value == LiteralDependencyValue(payload="world")
+    assert parsed.deltas[0].value == LiteralDependencyValue(
+        type=DependencyValueType.Literal,
+        payload="world",
+    )
