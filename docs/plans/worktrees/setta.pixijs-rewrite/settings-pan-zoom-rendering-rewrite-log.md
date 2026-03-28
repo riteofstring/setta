@@ -1798,3 +1798,30 @@ Record:
     - representative requests returned `200`, including `POST /api/getFolderContents`
 - Next action:
   - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryRenderView.ts`, starting with the pinned param-area block before any broad Pixi node drawing lands.
+
+## 2026-03-27 068
+
+- Item: Extract the pinned param-area block into the next block-specific helper above `groupContainerNodeCanaryRenderView.ts`.
+- Status: `done`
+- Details:
+  - Added a pure typed canary-render helper for the live dict-area pinned param area:
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaCanaryRenderView.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaCanaryRenderView.test.ts`
+  - Updated the higher-level node canary render boundary to compose through the new pinned helper instead of shaping that render block inline:
+    - `frontend/src/components/Params/groupContainerNodeCanaryRenderView.ts`
+  - The new helper preserves the existing non-Pixi behavior for:
+    - lifting the live pinned param-area canary view into one explicit render block with a stable frame-id key
+    - keeping `groupContainerNodeCanaryRenderView.ts` focused on higher-level block composition instead of mixed composition-plus-pinned-render shaping
+    - leaving the current DOM pinned param-area mount path intact while deepening the first scene-owned canary render contract one block further
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerPinnedParamAreaCanaryRenderView.test.ts src/components/Params/groupContainerNodeCanaryRenderView.test.ts src/components/Params/GroupContainer.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts frontend/tests/e2e/params/params-section-scroll.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings`) in a fresh sub-agent context
+    - the verifier used the already-authenticated browser session after `POST /__setta__/bootstrap/consume` returned `401` for the provided bootstrap token in that tab
+    - `/settings` loaded with `All Settings` visible and the dict/param area rendered normally with no obvious clipping, overlap, or missing content after the pinned helper extraction
+    - representative visible labels and controls included `shortcuts`, `languageServer`, `backend`, `gui`, `sectionSizingPolicy`, `Param Defaults`, `All Settings`, `minHeight`, `minWidth`, and `Size Mode`
+    - representative requests returned `200`, including `GET /api/serverMode`, `GET /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/loadAllProjectMetadata`, `POST /api/getFolderContents`, and `GET /api/checkWorkspaceInitialized`
+- Next action:
+  - Continue the first retained-scene node renderer work by extracting the next block-specific helper from `groupContainerNodeCanaryRenderView.ts`, starting with the unpinned param-area block before any broad Pixi node drawing lands.
