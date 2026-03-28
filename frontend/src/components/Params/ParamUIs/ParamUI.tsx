@@ -38,11 +38,6 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
-import {
-  useShouldAutoActivateCodeMirrorOnMount,
-  useShouldAutoOpenColorPickerOnMount,
-  useShouldAutoOpenComboboxOnMount,
-} from "../paramEditorActivation";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -250,11 +245,6 @@ export function ParamUI({
       value,
       hasSecret: passwordHasSecret,
     });
-  const shouldAutoActivateCodeMirrorOnMount =
-    useShouldAutoActivateCodeMirrorOnMount();
-  const shouldAutoOpenComboboxOnMount = useShouldAutoOpenComboboxOnMount();
-  const shouldAutoOpenColorPickerOnMount =
-    useShouldAutoOpenColorPickerOnMount();
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
 
@@ -279,9 +269,6 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
-          shouldAutoActivateCodeMirrorOnMount={
-            shouldAutoActivateCodeMirrorOnMount
-          }
         />
       );
     case CodeObjTypeEnum.TextParam:
@@ -298,9 +285,6 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
-          shouldAutoActivateCodeMirrorOnMount={
-            shouldAutoActivateCodeMirrorOnMount
-          }
         />
       );
     case CodeObjTypeEnum.DateParam:
@@ -384,7 +368,6 @@ export function ParamUI({
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
-          shouldAutoOpenColorPickerOnMount={shouldAutoOpenColorPickerOnMount}
         />
       );
     case CodeObjTypeEnum.DropdownParam:
@@ -395,7 +378,6 @@ export function ParamUI({
           value={value}
           onChange={onChange}
           isDisabled={isDisabled}
-          shouldAutoOpenComboboxOnMount={shouldAutoOpenComboboxOnMount}
         />
       );
     case CodeObjTypeEnum.PasswordParam:
@@ -426,9 +408,6 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
-          shouldAutoActivateCodeMirrorOnMount={
-            shouldAutoActivateCodeMirrorOnMount
-          }
         />
       );
     case CodeObjTypeEnum.DropzoneParam:
@@ -462,7 +441,6 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
-  shouldAutoActivateCodeMirrorOnMount,
 }: {
   sectionId: string;
   paramInfoId: string;
@@ -475,7 +453,6 @@ function TextParamConfigured({
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
-  shouldAutoActivateCodeMirrorOnMount: boolean;
 }) {
   return (
     <>
@@ -495,7 +472,6 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
-        shouldAutoActivateOnMount={shouldAutoActivateCodeMirrorOnMount}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
       />
       {waitingForResult && (
@@ -678,7 +654,6 @@ function ColorPickerParamConfigured({
   onChange,
   onEscape,
   isDisabled,
-  shouldAutoOpenColorPickerOnMount,
 }) {
   return (
     <ConfiguredColorPickerInput
@@ -690,7 +665,6 @@ function ColorPickerParamConfigured({
       wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
       isDisabled={isDisabled}
-      shouldAutoOpenOnMount={shouldAutoOpenColorPickerOnMount}
     />
   );
 }
@@ -701,14 +675,6 @@ function DropdownParamConfigured({
   value,
   onChange,
   isDisabled,
-  shouldAutoOpenComboboxOnMount,
-}: {
-  sectionId: string;
-  paramInfoId: string;
-  value: string;
-  onChange: ParamValueChange;
-  isDisabled: boolean;
-  shouldAutoOpenComboboxOnMount: boolean;
 }) {
   return (
     <ConfiguredDropdownInput
@@ -718,7 +684,6 @@ function DropdownParamConfigured({
       onChange={onChange}
       outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
       isDisabled={isDisabled}
-      shouldAutoOpenOnMount={shouldAutoOpenComboboxOnMount}
     />
   );
 }

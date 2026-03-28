@@ -54,7 +54,7 @@ export function MetaControlSettings({ sectionId }: { sectionId: string }) {
       return;
     }
     if (!selectedId || !controlParamId) {
-      throw new Error();
+      return;
     }
     void applyUiTypeComboboxSelection({
       projectConfigId: getCurrProjectConfigId(),

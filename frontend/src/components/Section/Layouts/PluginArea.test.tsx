@@ -34,6 +34,7 @@ let pluginImpl: PluginImplShape = {
 
 const addTemporaryNotificationMock = vi.fn();
 const routeDeleteSectionsMock = vi.fn();
+const routeGetLatestProjectStateMock = vi.fn();
 const onOverviewTabClickMock = vi.fn();
 const usePluginSectionKindMock = vi.fn(() => pluginSectionKind);
 const usePluginSectionFallbackReasonMock = vi.fn(() => fallbackReason);
@@ -51,6 +52,7 @@ const usePluginRuntimeStoreMock = vi.fn(
 );
 const getCurrEffectiveSectionImplOfTypeMock = vi.fn(() => pluginImpl);
 const getCurrProjectConfigIdMock = vi.fn(() => currentProjectConfigId);
+const processProjectStateUpdateFromBackendMock = vi.fn();
 const useProjectStateMock = vi.fn(
   (selector: (state: Record<string, unknown>) => unknown) => selector({}),
 );
@@ -101,6 +103,8 @@ vi.mock("state/actions/sectionInfos", () => ({
     getCurrEffectiveSectionImplOfTypeMock(...args),
   getCurrProjectConfigId: (...args: unknown[]) =>
     getCurrProjectConfigIdMock(...args),
+  processProjectStateUpdateFromBackend: (...args: unknown[]) =>
+    processProjectStateUpdateFromBackendMock(...args),
 }));
 
 vi.mock("state/definitions", () => ({
@@ -110,6 +114,8 @@ vi.mock("state/definitions", () => ({
 vi.mock("utils/generatedEndpoints", () => ({
   route_delete_sections: (...args: unknown[]) =>
     routeDeleteSectionsMock(...args),
+  route_get_latest_project_state: (...args: unknown[]) =>
+    routeGetLatestProjectStateMock(...args),
 }));
 
 function isElementNode(value: unknown): value is ElementNode {
@@ -201,6 +207,11 @@ describe("PluginArea fallback actions", () => {
     runtimeStatus = "loaded";
     runtimeStatusMessage = null;
     currentProjectConfigId = "project-config-1";
+    routeGetLatestProjectStateMock.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: { projectState: "latest" },
+    });
     pluginImpl = {
       pluginId: "setta-fixture-plugin",
       kind: "fixture-kind",
@@ -373,6 +384,12 @@ describe("PluginArea fallback actions", () => {
     expect(routeDeleteSectionsMock).toHaveBeenCalledWith({
       projectConfigId: "project-config-1",
       sectionIds: ["section-delete"],
+    });
+    expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
+      projectConfigId: "project-config-1",
+    });
+    expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith({
+      projectState: "latest",
     });
     expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
       "Plugin section deleted.",
