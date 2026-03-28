@@ -7,9 +7,33 @@ import "@fontsource/work-sans";
 import "@fontsource/work-sans/500.css";
 import "@fontsource/work-sans/600.css";
 import "@fontsource/work-sans/700.css";
-import { router } from "components/Pages/router";
-import { RouterProvider } from "react-router-dom";
+import {
+  createAppRouter,
+  type CreateAppRouterArgs,
+} from "components/Pages/router";
+import { RouterProvider, type RouterProviderProps } from "react-router-dom";
 
-export function App() {
+export type AppProps = {
+  router: RouterProviderProps["router"];
+};
+
+type BuildAppPropsInput = Pick<
+  CreateAppRouterArgs,
+  "SectionBoundary" | "renderDictArea"
+>;
+
+export function buildAppProps({
+  SectionBoundary,
+  renderDictArea,
+}: BuildAppPropsInput): AppProps {
+  return {
+    router: createAppRouter({
+      SectionBoundary,
+      renderDictArea,
+    }),
+  };
+}
+
+export function App({ router }: AppProps) {
   return <RouterProvider router={router} />;
 }
