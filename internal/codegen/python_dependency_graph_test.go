@@ -178,6 +178,86 @@ func TestBuildPythonDependencyGraphCallableSectionExportsParamsAndUniquePaths(t 
 	}
 }
 
+// Dict sections should export nested child sections into the dependency graph,
+// so moving a section into a Dict updates generated Python immediately.
+func TestBuildPythonDependencyGraphDictSectionExportsNestedChildSections(t *testing.T) {
+	t.Parallel()
+
+	project := projectstate.Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []projectstate.ProjectCodegenTarget{
+			{Language: string(projectstate.CodeLanguagePython)},
+		},
+		TopLevelSectionIDs: []string{"dict-section"},
+		SectionVariantMap: map[string]string{
+			"dict-section": "dict-variant",
+			"list-section": "list-variant",
+		},
+		Sections: map[string]projectstate.Section{
+			"dict-section": {
+				ID:               "dict-section",
+				Name:             "Settings",
+				VariantIDs:       []string{"dict-variant"},
+				DefaultVariantID: "dict-variant",
+			},
+			"list-section": {
+				ID:               "list-section",
+				Name:             "Items",
+				ParentSectionID:  "dict-section",
+				VariantIDs:       []string{"list-variant"},
+				DefaultVariantID: "list-variant",
+			},
+		},
+		SectionVariants: map[string]projectstate.SectionVariant{
+			"dict-variant": {
+				ID:     "dict-variant",
+				ImplID: "dict-impl",
+			},
+			"list-variant": {
+				ID:     "list-variant",
+				ImplID: "list-impl",
+			},
+		},
+		SectionImpls: map[string]projectstate.SectionImpl{
+			"dict-impl": {
+				ID: "dict-impl",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"dict-impl","type":"Dict","children":["list-section"],"codeObjVariantMap":{}}`,
+				),
+			},
+			"list-impl": {
+				ID: "list-impl",
+				Payload: mustRawJSON(
+					t,
+					`{"id":"list-impl","type":"ListRoot","children":[]}`,
+				),
+			},
+		},
+	}
+
+	exported := mustPythonCodegenExport(t, project)
+	graph, err := BuildPythonDependencyGraph(exported, PythonDependencyGraphOptions{})
+	if err != nil {
+		t.Fatalf("build python dependency graph: %v", err)
+	}
+
+	dictNode := mustSectionNode(t, graph, PythonSectionDependencyKey("dict-section"))
+	childKey := PythonSectionDependencyKey("list-section")
+	if !dictNode.Deps[childKey] {
+		t.Fatalf("expected dict node to depend on nested child section, deps=%#v", dictNode.Deps)
+	}
+	if len(dictNode.DepOrder) != 1 || dictNode.DepOrder[0] != childKey {
+		t.Fatalf("expected dict child order to include nested list section, got %#v", dictNode.DepOrder)
+	}
+
+	listNode := mustSectionNode(t, graph, childKey)
+	if listNode.FullPathName != "Settings__Items" {
+		t.Fatalf("unexpected nested list path %q", listNode.FullPathName)
+	}
+}
+
 // The standalone sanitizer should stay in lockstep with the source helper for identifier-safe names.
 func TestSanitizePythonIdentifierMatchesSourceContracts(t *testing.T) {
 	t.Parallel()

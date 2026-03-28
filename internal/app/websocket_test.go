@@ -2799,6 +2799,98 @@ func TestAppDeleteSectionsRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	}
 }
 
+func TestAppMoveSectionsRouteBroadcastsProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project, dictSectionID, listSectionID := websocketMoveSectionsTestProject(t)
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed move sections project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteMoveSections,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionIds":["`+listSectionID+`"],"newParentId":"`+dictSectionID+`","newIndex":0,"frontendOpId":"move-sections-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new move sections request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post move sections: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if !containsAppString(content.CompletedOpIDs, "move-sections-op") {
+		t.Fatalf("expected completed move-sections-op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+	if len(content.PendingOpIDs) != 0 {
+		t.Fatalf("expected no pending op ids after move, got %#v", content.PendingOpIDs)
+	}
+	if parent := content.ProjectState.ParentSectionMap[listSectionID]; parent == nil || *parent != dictSectionID {
+		t.Fatalf("expected moved list parent %q, got %#v", dictSectionID, parent)
+	}
+
+	dictVariantID := content.ProjectState.ProjectConfig.SectionVariantMap[dictSectionID]
+	dictImplID := content.ProjectState.SectionVariants[dictVariantID].Impl
+	var dictPayload struct {
+		Children []string `json:"children"`
+	}
+	if err := json.Unmarshal(content.ProjectState.SectionImpls[dictImplID], &dictPayload); err != nil {
+		t.Fatalf("decode dict impl payload: %v", err)
+	}
+	if len(dictPayload.Children) != 1 || dictPayload.Children[0] != listSectionID {
+		t.Fatalf("expected moved list child in websocket update, got %#v", dictPayload.Children)
+	}
+}
+
 func TestAppToggleIsEditingViewModeRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -3083,6 +3175,45 @@ func websocketIncrementerTestProject(t *testing.T) (projectstate.Project, string
 		t.Fatalf("create list root project fixture: %v", err)
 	}
 	return project, result.SectionID
+}
+
+func websocketMoveSectionsTestProject(t *testing.T) (projectstate.Project, string, string) {
+	t.Helper()
+
+	defaultWindowing := projectstate.DefaultProjectChatWindowingState()
+	project := projectstate.Project{
+		ID:                   "project-alpha",
+		Name:                 "Alpha",
+		ProjectChatWindowing: &defaultWindowing,
+	}
+	dictName := "Settings"
+	listName := "Items"
+
+	dictResult, err := project.CreateTopLevelSection(
+		projectstate.CreateTopLevelSectionInput{
+			ImplType: "Dict",
+			Name:     &dictName,
+			Position: &projectstate.Position{X: 240, Y: 80},
+		},
+		projectstate.DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create dict project fixture: %v", err)
+	}
+
+	listResult, err := project.CreateTopLevelSection(
+		projectstate.CreateTopLevelSectionInput{
+			ImplType: "ListRoot",
+			Name:     &listName,
+			Position: &projectstate.Position{X: 40, Y: 80},
+		},
+		projectstate.DefaultStructuralMutationSettings(),
+	)
+	if err != nil {
+		t.Fatalf("create list project fixture: %v", err)
+	}
+
+	return project, dictResult.SectionID, listResult.SectionID
 }
 
 func TestAppServesTerminalWebsocketRoute(t *testing.T) {

@@ -768,6 +768,7 @@ func createdGeneratedCodeSectionDefaults(implType string) map[string]any {
 
 func createdDictSectionDefaults() map[string]any {
 	defaults := createdBaseSectionWithParamsDefaults("Dict")
+	defaults["children"] = []any{}
 	defaults["topLevelParamId"] = nil
 	defaults["isJsonSource"] = false
 	defaults["jsonSourceKeys"] = []any{}

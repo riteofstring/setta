@@ -129,7 +129,7 @@ func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[st
 	}
 
 	switch sectionType {
-	case "Code", "GenPythonCode", "GenPythonMetadata", "Group", "ListRoot":
+	case "Code", "Dict", "GenPythonCode", "GenPythonMetadata", "Group", "ListRoot":
 		defaults["children"] = []any{}
 	}
 
@@ -149,7 +149,7 @@ func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[st
 func normalizeSectionImplPayloadCollections(payload map[string]any) {
 	sectionType := payloadStringField(payload, "type")
 	switch sectionType {
-	case "Code", "GenPythonCode", "GenPythonMetadata", "Group", "ListRoot":
+	case "Code", "Dict", "GenPythonCode", "GenPythonMetadata", "Group", "ListRoot":
 		children, ok := payload["children"].([]any)
 		if !ok || children == nil {
 			payload["children"] = []any{}

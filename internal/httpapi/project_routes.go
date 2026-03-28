@@ -3618,7 +3618,7 @@ func moveSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeMoveSectionsError(w, r, err)
 			return
 		}
-		if _, err := runtime.MoveSections(
+		snapshot, err := runtime.MoveSections(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			projectstate.MoveSectionsInput{
@@ -3628,8 +3628,13 @@ func moveSectionsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 				PositionsByID: payload.PositionsByID,
 			},
 			settings,
-		); err != nil {
+		)
+		if err != nil {
 			writeMoveSectionsError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

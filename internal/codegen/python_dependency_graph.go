@@ -312,6 +312,17 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 		}
 		return key, node, nil
 	case "Dict":
+		children := make([]string, 0, len(section.ArrayStringField("children")))
+		for _, childID := range section.ArrayStringField("children") {
+			childSection, err := b.export.ResolveSection(childID)
+			if err != nil {
+				return PythonDependencyKey{}, nil, err
+			}
+			if !isPythonDependencyGraphSectionType(childSection.Type) {
+				continue
+			}
+			children = append(children, childID)
+		}
 		node := &PythonSectionNode{
 			PythonDependencyNodeBase: PythonDependencyNodeBase{
 				ID:               section.ID,
@@ -325,12 +336,20 @@ func (b *pythonDependencyGraphBuilder) exportSection(
 			SectionType:    section.Type,
 			Representation: section.Policy.Representation,
 		}
-		deps, depOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
+		paramDeps, paramOrder, err := b.exportSectionParams(section, node, false, section.Policy.IncludeInCodegen)
 		if err != nil {
 			return PythonDependencyKey{}, nil, err
 		}
-		node.Deps = deps
-		node.DepOrder = depOrder
+		childDeps, childOrder, err := b.exportSections(children, false, node)
+		if err != nil {
+			return PythonDependencyKey{}, nil, err
+		}
+		node.Deps, node.DepOrder = mergeDependencyCollections(
+			paramDeps,
+			paramOrder,
+			childDeps,
+			childOrder,
+		)
 		b.addNode(key, node)
 		return key, node, nil
 	case "GlobalVariables":
@@ -657,6 +676,40 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 		order = append(order, key)
 	}
 	return deps, order, nil
+}
+
+func mergeDependencyCollections(
+	primaryDeps map[PythonDependencyKey]bool,
+	primaryOrder []PythonDependencyKey,
+	secondaryDeps map[PythonDependencyKey]bool,
+	secondaryOrder []PythonDependencyKey,
+) (map[PythonDependencyKey]bool, []PythonDependencyKey) {
+	mergedDeps := make(map[PythonDependencyKey]bool, len(primaryDeps)+len(secondaryDeps))
+	mergedOrder := make([]PythonDependencyKey, 0, len(primaryOrder)+len(secondaryOrder))
+	appendUnique := func(key PythonDependencyKey) {
+		for _, existing := range mergedOrder {
+			if existing == key {
+				return
+			}
+		}
+		mergedOrder = append(mergedOrder, key)
+	}
+
+	for key, used := range primaryDeps {
+		mergedDeps[key] = used
+	}
+	for _, key := range primaryOrder {
+		appendUnique(key)
+	}
+
+	for key, used := range secondaryDeps {
+		mergedDeps[key] = used
+	}
+	for _, key := range secondaryOrder {
+		appendUnique(key)
+	}
+
+	return mergedDeps, mergedOrder
 }
 
 func (b *pythonDependencyGraphBuilder) addNode(key PythonDependencyKey, node PythonDependencyNode) {

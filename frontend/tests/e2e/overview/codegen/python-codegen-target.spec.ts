@@ -79,6 +79,36 @@ type LoadedCodegenProjectState = {
   };
 };
 
+type LatestCodegenProjectState = {
+  projectConfig: {
+    sectionVariantMap: Record<string, string>;
+  };
+  parentSectionMap: Record<string, string | null>;
+  sections: Record<
+    string,
+    {
+      sharedModifier?: { children?: string[] };
+    }
+  >;
+  sectionVariants: Record<
+    string,
+    {
+      impl: string;
+    }
+  >;
+  sectionImpls: Record<
+    string,
+    {
+      type: string;
+      children?: string[];
+    }
+  >;
+};
+
+type LatestCodegenProjectStateResponse = {
+  projectState: LatestCodegenProjectState | null;
+};
+
 type CreateTopLevelSectionResponse = {
   sectionId?: string;
   metaControlParamId?: string | null;
@@ -154,6 +184,40 @@ async function loadCodegenProjectState(
     throw new Error("Missing project config response.");
   }
   return response;
+}
+
+async function loadLatestCodegenProjectState(
+  page: Page,
+  projectConfigId: string,
+): Promise<LatestCodegenProjectState> {
+  const response = await postBackend<LatestCodegenProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  if (!response?.projectState) {
+    throw new Error("Missing latest project state response.");
+  }
+  return response.projectState;
+}
+
+function getSectionChildren(
+  state: LatestCodegenProjectState,
+  sectionId: string,
+): string[] {
+  const coreChildren = state.sections[sectionId]?.sharedModifier?.children;
+  if (coreChildren) {
+    return coreChildren;
+  }
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (!variantId) {
+    return [];
+  }
+  const implId = state.sectionVariants[variantId]?.impl;
+  if (!implId) {
+    return [];
+  }
+  return state.sectionImpls[implId]?.children ?? [];
 }
 
 async function getGeneratedPythonSectionSize(page: Page): Promise<{
@@ -697,6 +761,97 @@ test("generated python updates for callable and param changes and reports missin
     await expect
       .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
       .not.toMatch(/bg-red-200/);
+  } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("generated python updates when a list section is moved into a dict section", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+
+  try {
+    const dictResponse = (await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "Dict",
+      name: "Settings",
+      position: { x: 280, y: 100 },
+    })) as CreateTopLevelSectionResponse | null;
+    const dictSectionId = dictResponse?.sectionId;
+    if (!dictSectionId) {
+      throw new Error("Expected created dict section id.");
+    }
+
+    const listResponse = (await createTopLevelSectionFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      implType: "ListRoot",
+      name: "Items",
+      position: { x: 40, y: 100 },
+    })) as CreateTopLevelSectionResponse | null;
+    const listSectionId = listResponse?.sectionId;
+    if (!listSectionId) {
+      throw new Error("Expected created list section id.");
+    }
+
+    const initialState = await loadCodegenProjectState(page);
+    const generatedSectionId = initialState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+    const generatedCodeContent = page.locator(
+      `.react-flow__node[data-id="${generatedSectionId}"] [data-section-main-editor] .cm-content`,
+    );
+    await expect(generatedCodeContent).toBeVisible();
+    await expect(generatedCodeContent).toContainText("state.Settings = {}");
+    await expect(generatedCodeContent).toContainText("state.Items = []");
+
+    await Promise.all([
+      page.waitForRequest("**/moveSections"),
+      page.evaluate(
+        async ({ sectionId, parentSectionId }) => {
+          const { moveSectionsWithBackend } = await import(
+            "/src/state/actions/sections/moveSections"
+          );
+          moveSectionsWithBackend({
+            sectionIds: [sectionId],
+            newParentId: parentSectionId,
+            newIndex: 0,
+            positionsById: null,
+          });
+        },
+        { sectionId: listSectionId, parentSectionId: dictSectionId },
+      ),
+    ]);
+
+    await expect
+      .poll(async () => {
+        const latestState = await loadLatestCodegenProjectState(
+          page,
+          projectContext.projectConfigId,
+        );
+        const children = getSectionChildren(latestState, dictSectionId);
+        return {
+          parentId: latestState.parentSectionMap[listSectionId] ?? null,
+          childIDs: children,
+        };
+      })
+      .toMatchObject({
+        parentId: dictSectionId,
+        childIDs: [listSectionId],
+      });
+
+    await expect
+      .poll(async () => (await generatedCodeContent.textContent()) ?? "")
+      .not.toContain("state.Items = []");
+    await expect(generatedCodeContent).toContainText(
+      "state.Settings__Items = []",
+    );
+    await expect(generatedCodeContent).toContainText(
+      "'Items': state.Settings__Items",
+    );
   } finally {
     await cleanupIsolatedProject(page, projectContext);
   }

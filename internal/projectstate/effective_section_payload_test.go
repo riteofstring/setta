@@ -1,6 +1,9 @@
 package projectstate
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t *testing.T) {
 	t.Parallel()
@@ -265,6 +268,9 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	if got := dictPayload["jsonSourceMissing"]; got != false {
 		t.Fatalf("expected dict jsonSourceMissing false, got %#v", got)
 	}
+	if children, ok := dictPayload["children"].([]any); !ok || len(children) != 0 {
+		t.Fatalf("expected dict children empty array, got %#v", dictPayload["children"])
+	}
 
 	generatedPayload, err := effectiveSectionPayload(project, "generated-section", "generated-variant")
 	if err != nil {
@@ -293,24 +299,34 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 func TestSectionImplPayloadNormalizesNullChildrenToEmptyArray(t *testing.T) {
 	t.Parallel()
 
-	payload, err := SectionImplPayload(SectionImpl{
-		ID:      "list-root-impl",
-		Kind:    SectionKind("frontend"),
-		Payload: mustMarshalProjectObject(map[string]any{"id": "list-root-impl", "type": "ListRoot", "children": nil}),
-	})
-	if err != nil {
-		t.Fatalf("section impl payload: %v", err)
-	}
+	for _, spec := range []struct {
+		name        string
+		sectionType string
+	}{
+		{name: "list root", sectionType: "ListRoot"},
+		{name: "dict", sectionType: "Dict"},
+	} {
+		t.Run(spec.name, func(t *testing.T) {
+			payload, err := SectionImplPayload(SectionImpl{
+				ID:      strings.ToLower(strings.ReplaceAll(spec.sectionType, " ", "-")) + "-impl",
+				Kind:    SectionKind("frontend"),
+				Payload: mustMarshalProjectObject(map[string]any{"id": "test-impl", "type": spec.sectionType, "children": nil}),
+			})
+			if err != nil {
+				t.Fatalf("section impl payload: %v", err)
+			}
 
-	object, err := rawObjectFromProjectPayload(payload)
-	if err != nil {
-		t.Fatalf("decode normalized payload: %v", err)
-	}
-	children, ok := object["children"].([]any)
-	if !ok {
-		t.Fatalf("expected normalized children array, got %#v", object["children"])
-	}
-	if len(children) != 0 {
-		t.Fatalf("expected normalized children to be empty, got %#v", children)
+			object, err := rawObjectFromProjectPayload(payload)
+			if err != nil {
+				t.Fatalf("decode normalized payload: %v", err)
+			}
+			children, ok := object["children"].([]any)
+			if !ok {
+				t.Fatalf("expected normalized children array, got %#v", object["children"])
+			}
+			if len(children) != 0 {
+				t.Fatalf("expected normalized children to be empty, got %#v", children)
+			}
+		})
 	}
 }
