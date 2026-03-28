@@ -2,6 +2,7 @@ import { ProjectChatBottomDock } from "components/ChatWindowing/ProjectChatBotto
 import { GitOverlayLayer } from "components/Git/GitOverlayLayer";
 import { Overview } from "components/Panes/Overview/Overview";
 import { UiEditor } from "components/Panes/UiEditor/UiEditor";
+import { SectionContainerBoundary } from "components/Section/Container/SectionContainerBoundary";
 import { useCodeMirrorStyleLoader } from "components/Utils/CodeMirror/useCodeMirrorStyleLoader";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
@@ -49,7 +50,11 @@ export function MainContainerCore({
       <Overview />
       <UiEditor />
       <GridWrapper>
-        {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
+        {isAppPreviewEnabled ? (
+          <AppPreview />
+        ) : (
+          <UIPage SectionBoundary={SectionContainerBoundary} />
+        )}
       </GridWrapper>
       <ProjectChatBottomDock />
       <ViewModeTabs />

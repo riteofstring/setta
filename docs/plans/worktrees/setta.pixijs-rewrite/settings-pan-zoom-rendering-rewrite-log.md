@@ -5406,3 +5406,33 @@ Record:
     - representative successful requests included `GET /apple_jumping`, `POST /api/loadProjectConfig`, `GET /api/serverMode`, `GET /api/authRefreshStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the now-`UiPage`-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/Project/UiPage.tsx`.
+
+## 2026-03-28 184
+
+- Item: Lift the now-`UiPage`-owned `SectionContainerBoundary` seam into `frontend/src/components/Pages/MainContainerCore.tsx`.
+- Status: `done`
+- Details:
+  - Raised the top-level section boundary seam one caller higher so `MainContainerCore.tsx` now owns the default `SectionContainerBoundary` handoff above `UiPage.tsx` instead of keeping that ownership inside the project graph shell:
+    - `frontend/src/components/Pages/MainContainerCore.tsx`
+    - `frontend/src/components/Pages/Project/UiPage.tsx`
+  - Added focused coverage to pin the lifted ownership split across the page-frame shell and the generic graph surface:
+    - `frontend/src/components/Pages/MainContainerCore.test.tsx`
+    - `frontend/src/components/Pages/Project/UiPage.test.tsx`
+    - `frontend/src/forks/xyflow/core/container/ReactFlow.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `MainContainerCore.tsx` now explicitly owning the top-level section boundary choice while still routing through the same overview, UI editor, grid wrapper, project-chat dock, view-mode tabs, git overlay, and floating-box shell
+    - `UiPage.tsx` shrinking into a thinner generic graph surface shell that only owns the benchmark provider, section DnD context, context menus, minimap toggle, and caller-owned `ReactFlow` mount
+    - the existing app-preview branch staying intact while the retained-scene seam moves one caller higher above `UiPage.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Pages/MainContainerCore.test.tsx src/components/Pages/Project/UiPage.test.tsx src/forks/xyflow/core/container/ReactFlow.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Pages/MainContainerCore.tsx src/components/Pages/MainContainerCore.test.tsx src/components/Pages/Project/UiPage.tsx src/components/Pages/Project/UiPage.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - the verifier re-authenticated via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` and verified the live project route `http://127.0.0.1:3044/rare_sending`
+    - the live project shell rendered normally with the expected top nav, left project/chat sidebar, dotted canvas background, generated Python code panel, and floating chat window, with no obvious overlap or clipping in the visible viewport
+    - representative successful requests included `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/setTopLevelSectionLayout`, and `GET /api/plugins/runtime`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the now-`MainContainerCore`-owned `SectionContainerBoundary` seam into the next higher caller layer above `frontend/src/components/Pages/MainContainerCore.tsx`.

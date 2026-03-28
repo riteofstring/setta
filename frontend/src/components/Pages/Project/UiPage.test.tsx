@@ -3,15 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 import { UIPage } from "./UiPage";
 
-vi.mock("components/Section/Container/SectionContainerBoundary", () => ({
-  SectionContainerBoundary: ({ sectionId }: { sectionId: string }) => (
-    <div
-      data-testid="mock-section-container-boundary"
-      data-section-id={sectionId}
-    />
-  ),
-}));
-
 vi.mock("forks/dnd-kit/SectionDndContext", () => ({
   SectionDndContext: ({ children }: { children: ReactNode }) => (
     <div data-testid="mock-section-dnd-context">{children}</div>
@@ -63,8 +54,16 @@ vi.mock("state/definitions", () => ({
 }));
 
 describe("UIPage", () => {
-  it("owns the lifted top-level section boundary above ReactFlow", () => {
-    const markup = renderToStaticMarkup(<UIPage />);
+  it("keeps the top-level section boundary caller-owned above ReactFlow", () => {
+    const TestSectionBoundary = ({ sectionId }: { sectionId: string }) => (
+      <div
+        data-testid="mock-section-container-boundary"
+        data-section-id={sectionId}
+      />
+    );
+    const markup = renderToStaticMarkup(
+      <UIPage SectionBoundary={TestSectionBoundary} />,
+    );
 
     expect(markup).toContain('data-testid="mock-settings-benchmark-provider"');
     expect(markup).toContain('data-testid="mock-section-dnd-context"');
