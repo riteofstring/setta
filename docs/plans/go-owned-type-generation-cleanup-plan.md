@@ -239,6 +239,9 @@ That means:
 - `backend/setta/types/chat.py` no longer keeps a handwritten `ToolCall` subclass:
   - chat/toolkit callers and tests now construct the generated Go-owned `ToolCall` model directly
   - explicit `id` and `type="function"` construction now happens at the call sites instead of through a thin Python wrapper
+- `backend/setta/types/chat.py` no longer keeps a handwritten `ToolCallFunction` subclass:
+  - JSON-string argument parsing now happens in the chat-toolkit builder/accumulator layer instead of in a wrapper around the generated model
+  - chat/toolkit callers and tests now construct the generated Go-owned `ToolCallFunction` model directly
 - `backend/setta/types/chat.py` has been trimmed further by deleting duplicate field redeclarations and dead timestamp validators:
   - the generated chat models already parse ISO `lastUpdated` datetimes correctly, so the handwritten `Chat` / `ChatMetadata` validators were unnecessary
   - redundant inherited field lines such as `name`, `llmConfig`, `systemPrompt`, `tool_name`, and `completed_at` have been removed where they no longer changed behavior
@@ -346,6 +349,9 @@ That means:
   - `ListenerRouterEndpointCall`
   - `ListenerRouterEndpointResult`
   - those message variants now use the generated Go-owned websocket envelope models directly, while the handwritten listener layer keeps only the envelopes that still add typed SDK content or validation
+- `backend/setta/types/listener.py` has also dropped a private no-behavior union alias:
+  - `PythonScriptWebsocketMsgUnionWithDiscriminator = PythonScriptWebsocketMsgUnion` is gone
+  - the type adapter now points at the real union directly instead of preserving an internal rename layer
 - the Go -> Python generator now handles shared models that depend on SDK-contract owner types without special per-type wiring:
   - if a referenced owner type is part of the shared discovered surface, it is generated locally
   - if a referenced owner type is genuinely external to `go_shared_types.py`, the generator can emit the needed Python import line

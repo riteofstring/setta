@@ -1,18 +1,18 @@
 import json
 from datetime import datetime, timezone
 
-from setta.types.generated.go_shared_types import (
-    ChatFileAttachment,
-    MessageTextContent,
-    ToolCall,
-)
 from setta.types.chat import (
     AssistantChatMessage,
     Chat,
     ChatMetadata,
-    ToolCallFunction,
     ToolChatMessage,
     UserChatMessage,
+)
+from setta.types.generated.go_shared_types import (
+    ChatFileAttachment,
+    MessageTextContent,
+    ToolCall,
+    ToolCallFunction,
 )
 
 

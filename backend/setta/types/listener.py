@@ -193,8 +193,4 @@ PythonScriptWebsocketMsgUnion = Annotated[
     Discriminator(_listener_message_type),
 ]
 
-PythonScriptWebsocketMsgUnionWithDiscriminator = PythonScriptWebsocketMsgUnion
-
-PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(
-    PythonScriptWebsocketMsgUnionWithDiscriminator
-)
+PythonScriptWebsocketMsgTypeAdapter = TypeAdapter(PythonScriptWebsocketMsgUnion)

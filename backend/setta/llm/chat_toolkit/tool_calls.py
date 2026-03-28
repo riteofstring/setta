@@ -1,7 +1,6 @@
 import json
 
-from setta.types.chat import ToolCallFunction
-from setta.types.generated.go_shared_types import ToolCall
+from setta.types.generated.go_shared_types import ToolCall, ToolCallFunction
 from setta.types.id import create_new_id
 
 

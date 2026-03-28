@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal
 
 from mcp.types import EmbeddedResource, ImageContent, TextContent
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from setta.mcp.tool_metadata import (
     ToolArgumentPreviewIdType,
     ToolArgumentPreviewKind,
@@ -64,13 +64,10 @@ from setta.types.generated.go_shared_types import (
     ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
-    ToolCallDeltaEvent as GoToolCallDeltaEvent,
-)
-from setta.types.generated.go_shared_types import (
     ToolCall as GoToolCall,
 )
 from setta.types.generated.go_shared_types import (
-    ToolCallFunction as GoToolCallFunction,
+    ToolCallDeltaEvent as GoToolCallDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
     ToolChatMessage as GoToolChatMessage,
@@ -92,22 +89,6 @@ JSONValue = dict[str, Any] | list[Any] | str | int | float | bool | None
 MessageContent = (
     GoMessageTextContent | GoMessageImageURLContent | GoMessageThinkingContent
 )
-
-
-class ToolCallFunction(GoToolCallFunction):
-    arguments: dict[str, Any] = Field(default_factory=dict)
-
-    @field_validator("arguments", mode="before")
-    @classmethod
-    def parse_arguments(cls, value: Any):
-        if isinstance(value, dict):
-            return value
-        if isinstance(value, str) and value.strip():
-            try:
-                return json.loads(value)
-            except json.JSONDecodeError:
-                return {}
-        return {}
 
 
 class _OpenAIMessageMixin:

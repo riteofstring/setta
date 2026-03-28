@@ -8,7 +8,6 @@ from setta.types.chat import (
     MessageFinalizedEvent,
     MessageStartEvent,
     ToolArgumentPreviewDeltaEvent,
-    ToolCallFunction,
     ToolResultEvent,
 )
 from setta.types.generated.go_shared_types import (
@@ -17,6 +16,7 @@ from setta.types.generated.go_shared_types import (
     MessageThinkingContent,
     ToolCall,
     ToolCallDeltaEvent,
+    ToolCallFunction,
 )
 from setta.types.id import ID
 
