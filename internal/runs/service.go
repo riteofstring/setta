@@ -12,6 +12,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
+	"setta/internal/settingsstate"
 	"setta/internal/statefs"
 	"setta/internal/terminals"
 )
@@ -30,6 +31,7 @@ var (
 type ServiceOptions struct {
 	Planner           *Planner
 	ProjectState      *projectstate.Runtime
+	SettingsState     *settingsstate.Runtime
 	DeploymentRuntime *deployments.Runtime
 	Terminals         *terminals.Service
 	BackendLogs       *backendlogs.Service
@@ -60,6 +62,7 @@ type RunCodeResult struct {
 type Service struct {
 	planner       *Planner
 	projectState  *projectstate.Runtime
+	settingsState *settingsstate.Runtime
 	deployment    *deployments.Runtime
 	terminals     *terminals.Service
 	backendLogs   *backendlogs.Service
@@ -98,6 +101,7 @@ func NewService(options ServiceOptions) (*Service, error) {
 	return &Service{
 		planner:       options.Planner,
 		projectState:  options.ProjectState,
+		settingsState: options.SettingsState,
 		deployment:    options.DeploymentRuntime,
 		terminals:     options.Terminals,
 		backendLogs:   options.BackendLogs,
@@ -279,6 +283,11 @@ func (s *Service) resolveExecution(request RunCodeRequest) (runExecution, error)
 }
 
 func (s *Service) resolveTerminalSection(ctx context.Context, projectState *projectstate.Runtime, projectID string, shareSessionID string, plan Plan, explicitTerminalSectionID string) (string, error) {
+	settings, err := s.structuralMutationSettings()
+	if err != nil {
+		return "", err
+	}
+
 	if plan.TargetKind == projectstate.RunTargetKindGeneratedEntry {
 		reusableTerminalSectionID, err := s.resolveReusableGeneratedEntryTerminalSection(projectState, projectID, shareSessionID)
 		if err != nil {
@@ -288,7 +297,7 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectState *proj
 			return reusableTerminalSectionID, nil
 		}
 
-		_, terminalSectionID, err := projectState.CreateTemporaryTerminal(projectID, s.newTerminalSeed())
+		_, terminalSectionID, err := projectState.CreateTemporaryTerminalWithSettings(projectID, s.newTerminalSeed(), settings)
 		if err != nil {
 			return "", err
 		}
@@ -307,7 +316,7 @@ func (s *Service) resolveTerminalSection(ctx context.Context, projectState *proj
 		return strings.TrimSpace(explicitTerminalSectionID), nil
 	}
 
-	_, terminalSectionID, err := projectState.EnsureCodeSectionAttachedTerminalForVariant(projectID, plan.SectionID, plan.VariantID, s.newTerminalSeed())
+	_, terminalSectionID, err := projectState.EnsureCodeSectionAttachedTerminalForVariantWithSettings(projectID, plan.SectionID, plan.VariantID, s.newTerminalSeed(), settings)
 	if err != nil {
 		return "", err
 	}
@@ -332,6 +341,9 @@ func (s *Service) resolveReusableGeneratedEntryTerminalSection(projectState *pro
 		if !impl.IsTerminal() {
 			continue
 		}
+		if impl.Terminal == nil || impl.Terminal.SessionMode != projectstate.TerminalSessionModeManagedConsole {
+			continue
+		}
 
 		terminalID := terminals.BuildTerminalID(section.ID, shareSessionID)
 		if s.terminals.ReusableSession(terminalID) {
@@ -340,6 +352,13 @@ func (s *Service) resolveReusableGeneratedEntryTerminalSection(projectState *pro
 	}
 
 	return "", nil
+}
+
+func (s *Service) structuralMutationSettings() (projectstate.StructuralMutationSettings, error) {
+	if s == nil || s.settingsState == nil {
+		return projectstate.DefaultStructuralMutationSettings(), nil
+	}
+	return settingsstate.StructuralMutationSettingsForDocument(s.settingsState.Snapshot().Document)
 }
 
 func (s *Service) newTerminalSeed() projectstate.TerminalSectionSeed {

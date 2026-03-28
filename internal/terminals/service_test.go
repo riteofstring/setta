@@ -367,6 +367,25 @@ func TestFindPromptReadyLineEndRawOffsetNormalizesTerminalRedisplayNoise(t *test
 	}
 }
 
+func TestFindPromptReadyLineEndRawOffsetPrefersDirectRawMarkerSlice(t *testing.T) {
+	t.Parallel()
+
+	raw := []byte(
+		"printf 'PRE_ATTACH_RUN_OK\\n'\r\n" +
+			"SETTA_RDY\r\n" +
+			"kevins-MacBook-Pro% printf 'PRE_ATTACH_RUN_OK\\n'\r\n" +
+			"PRE_ATTACH_RUN_OK\r\n",
+	)
+
+	offset, ok := findPromptReadyLineEndRawOffset(raw, "SETTA_RDY")
+	if !ok {
+		t.Fatal("expected prompt-ready detection to find the raw marker line")
+	}
+	if got := string(raw[offset:]); got != "kevins-MacBook-Pro% printf 'PRE_ATTACH_RUN_OK\\n'\r\nPRE_ATTACH_RUN_OK\r\n" {
+		t.Fatalf("expected prompt-ready offset to drop pre-marker junk, got %q", got)
+	}
+}
+
 func TestServiceDefaultShellStartupDoesNotExposePromptReadyProbe(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)
@@ -387,15 +406,89 @@ func TestServiceDefaultShellStartupDoesNotExposePromptReadyProbe(t *testing.T) {
 	output := waitForTerminalHistory(t, service, sessionID, func(history string) bool {
 		return len(history) > 0
 	})
-	probeEchoPrefix := "printf '%s\\n' 'SETTA_RDY'"
-	if strings.Contains(output, "SETTA_RDY") {
-		t.Fatalf("expected prompt-ready marker to stay hidden from terminal history, got %q", output)
+	renderedOutput := renderVisibleTerminalHistory(output)
+	if strings.Contains(renderedOutput, "SETTA_CLEAR_CMD") {
+		t.Fatalf("expected prompt-ready bootstrap command to stay hidden from terminal history, got %q", renderedOutput)
 	}
-	if strings.Contains(output, probeEchoPrefix) {
-		t.Fatalf("expected prompt-ready probe command echo to stay hidden from terminal history, got %q", output)
-	}
-	if history := string(attachment.History); strings.Contains(history, "SETTA_RDY") {
+	if history := renderVisibleTerminalHistory(string(attachment.History)); strings.Contains(history, "SETTA_CLEAR_CMD") {
 		t.Fatalf("expected initial attachment history to stay clean, got %q", history)
+	}
+}
+
+func TestServiceRunCommandBeforeFirstAttachKeepsPromptReadyProbeOutOfHistory(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-pre-attach-run", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+	}); err != nil {
+		t.Fatalf("open default-shell terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected default-shell terminal to be created")
+	}
+
+	if err := service.RunCommand(sessionID, []byte("printf 'PRE_ATTACH_RUN_OK\\n'\n")); err != nil {
+		t.Fatalf("run command before attach: %v", err)
+	}
+
+	history := waitForHistoryContains(t, service, sessionID, "PRE_ATTACH_RUN_OK")
+	if !strings.Contains(history, "PRE_ATTACH_RUN_OK") {
+		t.Fatalf("expected pre-attach history to include run output, got %q", history)
+	}
+	renderedHistory := renderVisibleTerminalHistory(history)
+	if strings.Contains(renderedHistory, "SETTA_CLEAR_CMD") {
+		t.Fatalf("expected pre-attach history to hide prompt-ready bootstrap command, got %q", renderedHistory)
+	}
+	attachment := attachTerminalForTest(t, service, sessionID)
+	renderedAttachmentHistory := renderVisibleTerminalHistory(string(attachment.History))
+	if strings.Contains(renderedAttachmentHistory, "SETTA_CLEAR_CMD") {
+		t.Fatalf("expected attachment history to hide prompt-ready bootstrap command, got %q", renderedAttachmentHistory)
+	}
+}
+
+func TestServiceRunCommandBeforeFirstAttachPreservesRegularShellTranscript(t *testing.T) {
+	t.Parallel()
+	skipIfWindows(t)
+
+	const prompt = "SETTA_PROMPT> "
+
+	service := newTestService(t)
+	sessionID := BuildTerminalID("section-regular-shell-transcript", "")
+	if _, created, err := service.Open(OpenOptions{
+		ID:         sessionID,
+		ProjectID:  "project-alpha",
+		AllowInput: true,
+		Env:        interactivePromptEnv(prompt),
+	}); err != nil {
+		t.Fatalf("open default-shell terminal: %v", err)
+	} else if !created {
+		t.Fatal("expected default-shell terminal to be created")
+	}
+
+	commandText := "printf 'HELLO_SIMPLE\\n'\n"
+	if err := service.RunCommand(sessionID, []byte(commandText)); err != nil {
+		t.Fatalf("run command before attach: %v", err)
+	}
+
+	history := waitForTerminalHistory(t, service, sessionID, func(history string) bool {
+		renderedHistory := renderVisibleTerminalHistory(history)
+		return strings.Contains(renderedHistory, "HELLO_SIMPLE") && strings.HasSuffix(renderedHistory, prompt)
+	})
+	renderedHistory := renderVisibleTerminalHistory(history)
+	if count := strings.Count(renderedHistory, "printf 'HELLO_SIMPLE\\n'"); count != 1 {
+		t.Fatalf("expected exactly one echoed command, got %d in %q", count, renderedHistory)
+	}
+	if !strings.Contains(renderedHistory, prompt+"printf 'HELLO_SIMPLE\\n'") {
+		t.Fatalf("expected echoed command to follow the shell prompt, got %q", renderedHistory)
+	}
+	resultIndex := strings.LastIndex(renderedHistory, "HELLO_SIMPLE\n")
+	promptIndex := strings.LastIndex(renderedHistory, prompt)
+	if resultIndex < 0 || promptIndex <= resultIndex {
+		t.Fatalf("expected terminal history to show the prompt again after the command result, got %q", renderedHistory)
 	}
 }
 
@@ -622,8 +715,25 @@ func TestServiceInterruptProjectFiltersByShareSession(t *testing.T) {
 func newTestService(t *testing.T) *Service {
 	t.Helper()
 
-	service, err := New(Options{
+	return newTestServiceWithOptions(t, Options{
 		Logger: observability.NewLogger(0, io.Discard),
+	})
+}
+
+func newTestServiceWithOptions(t *testing.T, options Options) *Service {
+	t.Helper()
+
+	if options.Logger == nil {
+		options.Logger = observability.NewLogger(0, io.Discard)
+	}
+
+	service, err := New(Options{
+		Logger:            options.Logger,
+		HistoryLimitBytes: options.HistoryLimitBytes,
+		SubscriberBuffer:  options.SubscriberBuffer,
+		ReadBufferSize:    options.ReadBufferSize,
+		Shell:             options.Shell,
+		EnvLookup:         options.EnvLookup,
 	})
 	if err != nil {
 		t.Fatalf("new terminal service: %v", err)
@@ -678,6 +788,12 @@ func interactiveBashCommand(t *testing.T) []string {
 
 	bash := requireCommand(t, "bash")
 	return []string{bash, "--noprofile", "--norc", "-i"}
+}
+
+func interactivePromptEnv(prompt string) []string {
+	env := append([]string(nil), os.Environ()...)
+	env = append(env, "PS1="+prompt, "PROMPT="+prompt)
+	return env
 }
 
 func resizeProbeCommand(t *testing.T) []string {
@@ -761,6 +877,27 @@ func ensureNoOutputContains(t *testing.T, attachment *Attachment, needle string,
 
 func shellSingleQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", "'\\''") + "'"
+}
+
+func renderVisibleTerminalHistory(history string) string {
+	raw := []byte(history)
+	clearOffsets := []int{
+		bytes.LastIndex(raw, []byte("\x1b[H\x1b[2J")),
+		bytes.LastIndex(raw, []byte("\x1b[2J\x1b[H")),
+		bytes.LastIndex(raw, []byte("\x1b[3J\x1b[H\x1b[2J")),
+		bytes.LastIndex(raw, []byte("\f")),
+	}
+	start := 0
+	for _, offset := range clearOffsets {
+		if offset >= 0 && offset > start {
+			start = offset
+		}
+	}
+	if start > 0 {
+		raw = raw[start:]
+	}
+	normalized, _ := normalizeTerminalSearchBuffer(raw)
+	return string(normalized)
 }
 
 func waitForOutputContains(t *testing.T, attachment *Attachment, needle string) string {

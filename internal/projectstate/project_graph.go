@@ -130,7 +130,16 @@ type CodeFileBinding struct {
 	AutoBinding bool               `json:"autoBinding,omitempty"`
 }
 
-type TerminalSectionImpl struct{}
+type TerminalSessionMode string
+
+const (
+	TerminalSessionModeInteractive    TerminalSessionMode = ""
+	TerminalSessionModeManagedConsole TerminalSessionMode = "managed_console"
+)
+
+type TerminalSectionImpl struct {
+	SessionMode TerminalSessionMode `json:"sessionMode,omitempty"`
+}
 
 type DrawSectionImpl struct {
 	RenderedImagePath string `json:"renderedImagePath,omitempty"`

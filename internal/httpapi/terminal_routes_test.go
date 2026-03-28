@@ -27,6 +27,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/realtime"
 	"setta/internal/runs"
+	"setta/internal/settingsstate"
 	"setta/internal/terminals"
 )
 
@@ -994,12 +995,45 @@ func TestRegisterTerminalRoutesRunsGeneratedEntryCodeInTemporaryTerminal(t *test
 	if !project.HasTopLevelSection("terminal-seed-1") {
 		t.Fatal("expected generated-entry run terminal to be top-level")
 	}
+	terminalVariantID := project.SectionVariantMap["terminal-seed-1"]
+	if terminalVariantID == "" {
+		t.Fatal("expected generated-entry run terminal to have a variant mapping")
+	}
+	terminalImplID := project.SectionVariants[terminalVariantID].ImplID
+	if terminalImplID == "" {
+		t.Fatal("expected generated-entry run terminal to have an impl id")
+	}
+	var terminalPayload struct {
+		Size struct {
+			Width  float64 `json:"width"`
+			Height float64 `json:"height"`
+		} `json:"size"`
+	}
+	if err := json.Unmarshal(project.SectionImpls[terminalImplID].Payload, &terminalPayload); err != nil {
+		t.Fatalf("decode generated-entry terminal payload: %v", err)
+	}
+	if terminalPayload.Size.Width != 736 {
+		t.Fatalf("expected settings-backed generated-entry terminal width 736, got %v", terminalPayload.Size.Width)
+	}
+	if terminalPayload.Size.Height != 228 {
+		t.Fatalf("expected settings-backed generated-entry terminal height 228, got %v", terminalPayload.Size.Height)
+	}
 
 	terminalID := terminals.BuildTerminalID("terminal-seed-1", "")
+	sessionInfo, ok := terminalService.Session(terminalID)
+	if !ok {
+		t.Fatalf("expected generated-entry terminal session %q to exist", terminalID)
+	}
+	if !sessionInfo.AllowInput {
+		t.Fatalf("expected generated-entry terminal session %q to remain interactive", terminalID)
+	}
 	attachment := attachHTTPTestTerminal(t, terminalService, terminalID)
 	output := waitForHTTPTestOutputContains(t, terminalService, terminalID, attachment, "ROUTE_GENERATED_OK")
 	if !strings.Contains(output, "ROUTE_GENERATED_OK") {
 		t.Fatalf("expected generated entry output in temporary terminal, got %q", output)
+	}
+	if strings.Contains(output, "SETTA_RDY") {
+		t.Fatalf("expected generated-entry terminal output to hide prompt-ready marker, got %q", output)
 	}
 }
 
@@ -1029,11 +1063,9 @@ func TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry(t *te
 		ID:         existingTerminalSessionID,
 		ProjectID:  "project-alpha",
 		AllowInput: true,
-		Command:    interactiveHTTPTestBashCommand(t),
 	})
 
 	attachment := attachHTTPTestTerminal(t, terminalService, existingTerminalSessionID)
-	prepareHTTPInterruptShell(t, terminalService, existingTerminalSessionID, attachment)
 	waitForHTTPReusableSession(t, terminalService, existingTerminalSessionID, true)
 
 	handler, err := NewHandler(Dependencies{
@@ -1068,6 +1100,9 @@ func TestRegisterTerminalRoutesReusesIdleTopLevelTerminalForGeneratedEntry(t *te
 	output := waitForHTTPTestOutputOccurrences(t, terminalService, existingTerminalSessionID, attachment, "ROUTE_GENERATED_OK", 1)
 	if !strings.Contains(output, "ROUTE_GENERATED_OK") {
 		t.Fatalf("expected generated entry output in reused terminal, got %q", output)
+	}
+	if strings.Contains(output, "SETTA_RDY") {
+		t.Fatalf("expected reused generated-entry terminal output to stay clean, got %q", output)
 	}
 }
 
@@ -2039,6 +2074,23 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 	if err := os.WriteFile(filepath.Join(codeRoot, "setta_gen_meta.py"), []byte("META = True\n"), 0o644); err != nil {
 		t.Fatalf("write setta_gen_meta.py: %v", err)
 	}
+	settingsDocument, err := settingsstate.NewDocument()
+	if err != nil {
+		t.Fatalf("new settings document: %v", err)
+	}
+	settingsDocument["terminalSectionDefault"].(map[string]any)["size"] = map[string]any{
+		"width":  736.0,
+		"height": 228.0,
+	}
+	settingsRuntime, err := settingsstate.OpenOverlayRuntime(settingsDocument)
+	if err != nil {
+		t.Fatalf("open settings runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := settingsRuntime.Close(); err != nil {
+			t.Fatalf("close settings runtime: %v", err)
+		}
+	})
 
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,
@@ -2284,6 +2336,7 @@ func newHTTPTestRunCodeFixture(t *testing.T, terminalService *terminals.Service)
 	runService, err := runs.NewService(runs.ServiceOptions{
 		Planner:       runPlanner,
 		ProjectState:  projectRuntime,
+		SettingsState: settingsRuntime,
 		Terminals:     terminalService,
 		BackendLogs:   mustNewHTTPTestBackendLogService(t),
 		BinaryStore:   binaryStore,

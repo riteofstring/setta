@@ -187,6 +187,10 @@ func validateAttachedTerminalTarget(project Project, targetSection Section, targ
 }
 
 func (d *Document) EnsureCodeSectionAttachedTerminal(projectID string, sectionID string, seed TerminalSectionSeed) (string, error) {
+	return d.EnsureCodeSectionAttachedTerminalWithSettings(projectID, sectionID, seed, DefaultStructuralMutationSettings())
+}
+
+func (d *Document) EnsureCodeSectionAttachedTerminalWithSettings(projectID string, sectionID string, seed TerminalSectionSeed, settings StructuralMutationSettings) (string, error) {
 	if d == nil {
 		return "", fmt.Errorf("document is required")
 	}
@@ -202,10 +206,14 @@ func (d *Document) EnsureCodeSectionAttachedTerminal(projectID string, sectionID
 	if !target.Impl.IsCode() {
 		return "", ErrCodeSectionRequired
 	}
-	return d.ensureCodeSectionAttachedTerminalForVariant(project, target.Section, target.Variant, target.Impl, seed)
+	return d.ensureCodeSectionAttachedTerminalForVariant(project, target.Section, target.Variant, target.Impl, seed, settings)
 }
 
 func (d *Document) EnsureCodeSectionAttachedTerminalForVariant(projectID string, sectionID string, variantID string, seed TerminalSectionSeed) (string, error) {
+	return d.EnsureCodeSectionAttachedTerminalForVariantWithSettings(projectID, sectionID, variantID, seed, DefaultStructuralMutationSettings())
+}
+
+func (d *Document) EnsureCodeSectionAttachedTerminalForVariantWithSettings(projectID string, sectionID string, variantID string, seed TerminalSectionSeed, settings StructuralMutationSettings) (string, error) {
 	if d == nil {
 		return "", fmt.Errorf("document is required")
 	}
@@ -221,10 +229,10 @@ func (d *Document) EnsureCodeSectionAttachedTerminalForVariant(projectID string,
 	if !impl.IsCode() {
 		return "", ErrCodeSectionRequired
 	}
-	return d.ensureCodeSectionAttachedTerminalForVariant(project, section, variant, impl, seed)
+	return d.ensureCodeSectionAttachedTerminalForVariant(project, section, variant, impl, seed, settings)
 }
 
-func (d *Document) ensureCodeSectionAttachedTerminalForVariant(project Project, section Section, variant SectionVariant, impl SectionImpl, seed TerminalSectionSeed) (string, error) {
+func (d *Document) ensureCodeSectionAttachedTerminalForVariant(project Project, section Section, variant SectionVariant, impl SectionImpl, seed TerminalSectionSeed, settings StructuralMutationSettings) (string, error) {
 	existingTerminalID := strings.TrimSpace(impl.Code.AttachedTerminalSectionID)
 	if existingTerminalID != "" {
 		valid, err := d.ValidateAttachedTerminalForVariant(project.ID, section.ID, variant.ID, existingTerminalID)
@@ -261,14 +269,14 @@ func (d *Document) ensureCodeSectionAttachedTerminalForVariant(project Project, 
 		Terminal: &TerminalSectionImpl{},
 	}
 	project.SectionVariantMap[normalizedSeed.SectionID] = normalizedSeed.VariantID
-	defaults := DefaultStructuralMutationSettings()
+	normalizedSettings := normalizeStructuralMutationSettings(settings)
 	if err := project.attachCodeSectionTerminal(
 		section,
 		variant,
 		impl,
 		normalizedSeed.SectionID,
-		defaults.SectionSizingPolicy,
-		defaults.TerminalDefaultHeight,
+		normalizedSettings.SectionSizingPolicy,
+		normalizedSettings.TerminalDefaultHeight,
 	); err != nil {
 		return "", err
 	}
@@ -278,6 +286,10 @@ func (d *Document) ensureCodeSectionAttachedTerminalForVariant(project Project, 
 }
 
 func (d *Document) CreateTemporaryTerminal(projectID string, seed TerminalSectionSeed) (string, error) {
+	return d.CreateTemporaryTerminalWithSettings(projectID, seed, DefaultStructuralMutationSettings())
+}
+
+func (d *Document) CreateTemporaryTerminalWithSettings(projectID string, seed TerminalSectionSeed, settings StructuralMutationSettings) (string, error) {
 	if d == nil {
 		return "", fmt.Errorf("document is required")
 	}
@@ -295,12 +307,13 @@ func (d *Document) CreateTemporaryTerminal(projectID string, seed TerminalSectio
 	if err := ensureTerminalSeedAvailable(project, normalizedSeed); err != nil {
 		return "", err
 	}
+	normalizedSettings := normalizeStructuralMutationSettings(settings)
 
 	payload, err := buildCreatedSectionPayload(
 		normalizedSeed.ImplID,
 		"Terminal",
 		createdTerminalSectionDefaults(),
-		StructuralMutationSettings{},
+		normalizedSettings,
 		nil,
 	)
 	if err != nil {
@@ -318,10 +331,12 @@ func (d *Document) CreateTemporaryTerminal(projectID string, seed TerminalSectio
 		ImplID: normalizedSeed.ImplID,
 	}
 	project.SectionImpls[normalizedSeed.ImplID] = SectionImpl{
-		ID:       normalizedSeed.ImplID,
-		Kind:     SectionKindTerminal,
-		Payload:  payload,
-		Terminal: &TerminalSectionImpl{},
+		ID:      normalizedSeed.ImplID,
+		Kind:    SectionKindTerminal,
+		Payload: payload,
+		Terminal: &TerminalSectionImpl{
+			SessionMode: TerminalSessionModeManagedConsole,
+		},
 	}
 	project.SectionVariantMap[normalizedSeed.SectionID] = normalizedSeed.VariantID
 
@@ -329,7 +344,7 @@ func (d *Document) CreateTemporaryTerminal(projectID string, seed TerminalSectio
 		project.addTopLevelSectionViewState(normalizedSeed.SectionID, layout)
 	} else {
 		position, err := project.resolveDeterministicCreateTopLevelSectionPosition(
-			DefaultStructuralMutationSettings().SectionSizingPolicy,
+			normalizedSettings.SectionSizingPolicy,
 			"Terminal",
 			payload,
 		)
@@ -348,10 +363,14 @@ func (d *Document) CreateTemporaryTerminal(projectID string, seed TerminalSectio
 }
 
 func (r *Runtime) EnsureCodeSectionAttachedTerminal(projectID string, sectionID string, seed TerminalSectionSeed) (Snapshot, string, error) {
+	return r.EnsureCodeSectionAttachedTerminalWithSettings(projectID, sectionID, seed, DefaultStructuralMutationSettings())
+}
+
+func (r *Runtime) EnsureCodeSectionAttachedTerminalWithSettings(projectID string, sectionID string, seed TerminalSectionSeed, settings StructuralMutationSettings) (Snapshot, string, error) {
 	var terminalID string
 	snapshot, err := r.Mutate(func(document Document) (Document, error) {
 		nextDocument := document.Clone()
-		resolvedTerminalID, mutateErr := nextDocument.EnsureCodeSectionAttachedTerminal(projectID, sectionID, seed)
+		resolvedTerminalID, mutateErr := nextDocument.EnsureCodeSectionAttachedTerminalWithSettings(projectID, sectionID, seed, settings)
 		if mutateErr != nil {
 			return nextDocument, mutateErr
 		}
@@ -362,10 +381,14 @@ func (r *Runtime) EnsureCodeSectionAttachedTerminal(projectID string, sectionID 
 }
 
 func (r *Runtime) EnsureCodeSectionAttachedTerminalForVariant(projectID string, sectionID string, variantID string, seed TerminalSectionSeed) (Snapshot, string, error) {
+	return r.EnsureCodeSectionAttachedTerminalForVariantWithSettings(projectID, sectionID, variantID, seed, DefaultStructuralMutationSettings())
+}
+
+func (r *Runtime) EnsureCodeSectionAttachedTerminalForVariantWithSettings(projectID string, sectionID string, variantID string, seed TerminalSectionSeed, settings StructuralMutationSettings) (Snapshot, string, error) {
 	var terminalID string
 	snapshot, err := r.Mutate(func(document Document) (Document, error) {
 		nextDocument := document.Clone()
-		resolvedTerminalID, mutateErr := nextDocument.EnsureCodeSectionAttachedTerminalForVariant(projectID, sectionID, variantID, seed)
+		resolvedTerminalID, mutateErr := nextDocument.EnsureCodeSectionAttachedTerminalForVariantWithSettings(projectID, sectionID, variantID, seed, settings)
 		if mutateErr != nil {
 			return nextDocument, mutateErr
 		}
@@ -376,10 +399,14 @@ func (r *Runtime) EnsureCodeSectionAttachedTerminalForVariant(projectID string, 
 }
 
 func (r *Runtime) CreateTemporaryTerminal(projectID string, seed TerminalSectionSeed) (Snapshot, string, error) {
+	return r.CreateTemporaryTerminalWithSettings(projectID, seed, DefaultStructuralMutationSettings())
+}
+
+func (r *Runtime) CreateTemporaryTerminalWithSettings(projectID string, seed TerminalSectionSeed, settings StructuralMutationSettings) (Snapshot, string, error) {
 	var terminalID string
 	snapshot, err := r.Mutate(func(document Document) (Document, error) {
 		nextDocument := document.Clone()
-		resolvedTerminalID, mutateErr := nextDocument.CreateTemporaryTerminal(projectID, seed)
+		resolvedTerminalID, mutateErr := nextDocument.CreateTemporaryTerminalWithSettings(projectID, seed, settings)
 		if mutateErr != nil {
 			return nextDocument, mutateErr
 		}

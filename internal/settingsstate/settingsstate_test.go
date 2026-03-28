@@ -307,8 +307,14 @@ func TestStructuralMutationSettingsForDocumentReadsDefaultsAndOverrides(t *testi
 	if got := settings.SectionSizingPolicy.ByType["StateMachineEnd"]; got.MinWidth != 240 || got.MinHeight != 96 {
 		t.Fatalf("expected default StateMachineEnd dimensions, got %#v", got)
 	}
-	if settings.TerminalDefaultHeight != 150 {
-		t.Fatalf("expected default terminal height 150, got %v", settings.TerminalDefaultHeight)
+	if settings.TerminalDefaultHeight != 220 {
+		t.Fatalf("expected default terminal height 220, got %v", settings.TerminalDefaultHeight)
+	}
+	if got := settings.SectionDefaultsByType["Terminal"]["size"].(map[string]any)["width"]; got != 720.0 {
+		t.Fatalf("expected default terminal width 720, got %#v", got)
+	}
+	if got := settings.SectionDefaultsByType["Terminal"]["size"].(map[string]any)["height"]; got != 220.0 {
+		t.Fatalf("expected default terminal size height 220, got %#v", got)
 	}
 	if got := settings.SectionDefaultsByType["TaskBoard"]["columns"]; got != nil {
 		t.Fatalf("expected default task board columns sentinel nil, got %#v", got)

@@ -162,14 +162,21 @@ func TestProjectCreateTopLevelSectionReturnsPanHintWhenViewportTooNarrow(t *test
 	}
 }
 
-func TestProjectCreateTopLevelSectionSeedsFrontendFacingSizeDefaults(t *testing.T) {
+func TestProjectCreateTopLevelSectionUsesSettingsBackedTerminalSizeDefaults(t *testing.T) {
 	t.Parallel()
 
 	project := testCreateTopLevelSectionProject(t)
+	settings := DefaultStructuralMutationSettings()
+	settings.SectionDefaultsByType["Terminal"] = map[string]any{
+		"size": map[string]any{
+			"width":  720.0,
+			"height": 220.0,
+		},
+	}
 
 	result, err := project.CreateTopLevelSection(CreateTopLevelSectionInput{
 		ImplType: "Terminal",
-	}, DefaultStructuralMutationSettings())
+	}, settings)
 	if err != nil {
 		t.Fatalf("create terminal top level section: %v", err)
 	}
@@ -182,11 +189,11 @@ func TestProjectCreateTopLevelSectionSeedsFrontendFacingSizeDefaults(t *testing.
 	if !ok {
 		t.Fatalf("expected created terminal size payload, got %#v", payload)
 	}
-	if width, ok := size["width"].(float64); !ok || width != 250 {
-		t.Fatalf("expected terminal width 250, got %#v", size["width"])
+	if width, ok := size["width"].(float64); !ok || width != 720 {
+		t.Fatalf("expected terminal width 720, got %#v", size["width"])
 	}
-	if height, ok := size["height"].(float64); !ok || height != 150 {
-		t.Fatalf("expected terminal height 150, got %#v", size["height"])
+	if height, ok := size["height"].(float64); !ok || height != 220 {
+		t.Fatalf("expected terminal height 220, got %#v", size["height"])
 	}
 }
 

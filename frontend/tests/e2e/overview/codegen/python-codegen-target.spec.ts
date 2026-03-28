@@ -702,7 +702,7 @@ test("generated python updates for callable and param changes and reports missin
   }
 });
 
-test("generated python run creates a visible terminal and survives reload", async ({
+test("generated python run hides internal readiness markers across repeated runs and survives reload", async ({
   page,
 }) => {
   test.setTimeout(90000);
@@ -787,9 +787,63 @@ test("generated python run creates a visible terminal and survives reload", asyn
     await expect(terminalNode).toBeVisible();
     await expect
       .poll(async () => {
+        const box = await terminalNode.boundingBox();
+        if (!box) {
+          return null;
+        }
+        return {
+          width: Math.round(box.width),
+          height: Math.round(box.height),
+        };
+      })
+      .toMatchObject({ width: expect.any(Number), height: expect.any(Number) });
+    const terminalBox = await terminalNode.boundingBox();
+    if (!terminalBox) {
+      throw new Error("Expected generated-entry terminal bounds.");
+    }
+    expect(terminalBox.width).toBeGreaterThan(650);
+    expect(terminalBox.height).toBeGreaterThan(190);
+    await expect
+      .poll(async () => {
         return ((await terminalNode.textContent()) ?? "").replace(/\s+/g, " ");
       })
       .toContain("RUN_OK_MARKER");
+    await expect
+      .poll(async () => {
+        const output = (await terminalNode.textContent()) ?? "";
+        return (output.match(/setta_gen\.py/g) ?? []).length;
+      })
+      .toBe(1);
+    await expect
+      .poll(async () => {
+        const output = (await terminalNode.textContent()) ?? "";
+        return (output.match(/RUN_OK_MARKER/g) ?? []).length;
+      })
+      .toBe(1);
+
+    await Promise.all([
+      page.waitForRequest("**/runCode"),
+      page.evaluate(async (id) => {
+        const { runCodeBlock } = await import(
+          "/src/state/actions/runOrImportCode"
+        );
+        await runCodeBlock(id);
+      }, generatedSectionId),
+    ]);
+    await Promise.all([
+      page.waitForRequest("**/runCode"),
+      page.evaluate(async (id) => {
+        const { runCodeBlock } = await import(
+          "/src/state/actions/runOrImportCode"
+        );
+        await runCodeBlock(id);
+      }, generatedSectionId),
+    ]);
+    await expect
+      .poll(async () => {
+        return ((await terminalNode.textContent()) ?? "").replace(/\s+/g, " ");
+      })
+      .not.toContain("SETTA_RDY");
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForSelector(READY_SELECTOR);
@@ -806,6 +860,7 @@ test("generated python run creates a visible terminal and survives reload", asyn
         );
       })
       .toContain("RUN_OK_MARKER");
+    await expect(reloadedTerminalNode).not.toContainText("SETTA_RDY");
     await expect(page.locator(".react-flow__pane")).toBeVisible();
     await expect(
       page.getByText("Unexpected Application Error", { exact: true }),

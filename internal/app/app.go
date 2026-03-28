@@ -1362,6 +1362,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	runCodeService, err := runs.NewService(runs.ServiceOptions{
 		Planner:           runPlanner,
 		ProjectState:      projectRuntime,
+		SettingsState:     settingsStateRuntime,
 		DeploymentRuntime: deploymentRuntime,
 		Terminals:         terminalService,
 		BackendLogs:       backendLogService,

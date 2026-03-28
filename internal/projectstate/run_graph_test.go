@@ -179,11 +179,14 @@ func TestRuntimeEnsureCodeSectionAttachedTerminalCreatesConcreteSizedEmbeddedTer
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newAttachedTerminalWriteTestDocument())
+	settings := DefaultStructuralMutationSettings()
+	settings.TerminalDefaultHeight = 222
 
-	snapshot, terminalID, err := runtime.EnsureCodeSectionAttachedTerminal(
+	snapshot, terminalID, err := runtime.EnsureCodeSectionAttachedTerminalWithSettings(
 		"project-alpha",
 		"code-section",
 		newRunGraphTerminalSeed("ensured-terminal"),
+		settings,
 	)
 	if err != nil {
 		t.Fatalf("ensure attached terminal: %v", err)
@@ -215,8 +218,8 @@ func TestRuntimeEnsureCodeSectionAttachedTerminalCreatesConcreteSizedEmbeddedTer
 	if !present || isAuto {
 		t.Fatalf("expected concrete terminal height, got %#v", terminalSize)
 	}
-	if terminalHeight <= 0 {
-		t.Fatalf("expected positive terminal height, got %v", terminalHeight)
+	if terminalHeight != 222.0 {
+		t.Fatalf("expected settings-backed terminal height 222, got %v", terminalHeight)
 	}
 }
 
@@ -330,10 +333,18 @@ func TestRuntimeCreateTemporaryTerminalCreatesTopLevelTerminal(t *testing.T) {
 	t.Parallel()
 
 	runtime := openRunGraphTestRuntime(t, newRunGraphTestDocument())
+	settings := DefaultStructuralMutationSettings()
+	settings.SectionDefaultsByType["Terminal"] = map[string]any{
+		"size": map[string]any{
+			"width":  720.0,
+			"height": 220.0,
+		},
+	}
 
-	snapshot, terminalID, err := runtime.CreateTemporaryTerminal(
+	snapshot, terminalID, err := runtime.CreateTemporaryTerminalWithSettings(
 		"project-alpha",
 		newRunGraphTerminalSeed("temporary-terminal"),
+		settings,
 	)
 	if err != nil {
 		t.Fatalf("create temporary terminal: %v", err)
@@ -371,6 +382,23 @@ func TestRuntimeCreateTemporaryTerminalCreatesTopLevelTerminal(t *testing.T) {
 	}
 	if !terminalImpl.IsTerminal() {
 		t.Fatalf("expected terminal impl, got kind %q", terminalImpl.Kind)
+	}
+	if terminalImpl.Terminal == nil || terminalImpl.Terminal.SessionMode != TerminalSessionModeManagedConsole {
+		t.Fatalf("expected temporary terminal to use managed console mode, got %#v", terminalImpl.Terminal)
+	}
+	terminalPayload, err := effectiveSectionPayload(project, terminalID, terminalVariant.ID)
+	if err != nil {
+		t.Fatalf("effective temporary terminal payload: %v", err)
+	}
+	terminalSize, ok := payloadObjectField(terminalPayload, "size")
+	if !ok {
+		t.Fatalf("expected temporary terminal size payload, got %#v", terminalPayload)
+	}
+	if width, ok := terminalSize["width"].(float64); !ok || width != 720 {
+		t.Fatalf("expected temporary terminal width 720, got %#v", terminalSize["width"])
+	}
+	if height, ok := terminalSize["height"].(float64); !ok || height != 220 {
+		t.Fatalf("expected temporary terminal height 220, got %#v", terminalSize["height"])
 	}
 }
 
