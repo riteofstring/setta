@@ -4,8 +4,8 @@ import type { ManyNestedSectionsRendererProps } from "./manyNestedSectionsView";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
-import { SortableSectionContainer } from "./SortableSectionContainer";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
+import { SortableSectionContainer } from "./SortableSectionContainer";
 
 const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
   props,

@@ -1,5 +1,5 @@
-import type { ReactElement } from "react";
 import { isTempSection } from "forks/dnd-kit/dndState";
+import type { ReactElement } from "react";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 

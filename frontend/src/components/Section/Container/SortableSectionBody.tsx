@@ -1,9 +1,6 @@
-import React from "react";
 import { TempDNDSection } from "forks/dnd-kit/DummySection";
-import {
-  SectionContainer,
-  type SectionContainerCoreBodyRenderer,
-} from "./SectionContainer";
+import React from "react";
+import { SortableSectionSection } from "./SortableSectionSection";
 import {
   buildSortableSectionBodyView,
   type SortableSectionBodyProps,
@@ -17,7 +14,7 @@ function _SortableSectionBody(props: SortableSectionBodyProps) {
       return <TempDNDSection />;
     case "section":
       return (
-        <SectionContainer
+        <SortableSectionSection
           {...view.props}
           renderCoreBody={props.renderCoreBody}
           renderNestedSections={props.renderNestedSections}
