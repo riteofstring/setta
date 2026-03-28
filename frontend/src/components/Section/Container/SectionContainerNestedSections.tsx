@@ -1,27 +1,48 @@
 import React from "react";
-import {
-  MaybeManyNestedSections,
-} from "./ManyNestedSections";
-import type { ManyNestedSectionsRenderer } from "./ManyNestedSectionsBody";
+import { MaybeManyNestedSections } from "./ManyNestedSections";
+import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
+import { SortableSectionContainer } from "./SortableSectionContainer";
 import {
   buildSectionContainerNestedSectionsView,
   type SectionContainerNestedSectionsProps,
 } from "./sectionContainerNestedSectionsView";
+import type {
+  SortableSectionBodySectionBoundary,
+  SortableSectionNestedSectionsRenderer,
+} from "./sortableSectionBodyView";
 
 export type SectionContainerNestedSectionsComponentProps =
   SectionContainerNestedSectionsProps & {
-    renderNestedSections: ManyNestedSectionsRenderer;
+    SectionBoundary: SortableSectionBodySectionBoundary;
+    renderCoreBody: SectionContainerCoreBodyRenderer;
+    renderNestedSections: SortableSectionNestedSectionsRenderer;
   };
 
 function _SectionContainerNestedSections(
   props: SectionContainerNestedSectionsComponentProps,
 ) {
-  const { renderNestedSections, ...viewProps } = props;
+  const {
+    SectionBoundary,
+    renderCoreBody,
+    renderNestedSections,
+    ...viewProps
+  } = props;
   const view = buildSectionContainerNestedSectionsView(viewProps);
   const nestedSections = (
     <MaybeManyNestedSections
       {...view.props}
-      renderNestedSections={renderNestedSections}
+      renderNestedSections={({ childIds, childClassName }) =>
+        childIds.map((childId) => (
+          <SortableSectionContainer
+            sectionId={childId}
+            key={`Nested-Sec-${childId}`}
+            className={childClassName}
+            SectionBoundary={SectionBoundary}
+            renderCoreBody={renderCoreBody}
+            renderNestedSections={renderNestedSections}
+          />
+        ))
+      }
     />
   );
 

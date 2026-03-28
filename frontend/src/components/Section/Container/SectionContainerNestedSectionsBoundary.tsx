@@ -1,31 +1,13 @@
 import React from "react";
-import type { ManyNestedSectionsRenderer } from "./ManyNestedSectionsBody";
-import type { ManyNestedSectionsRendererProps } from "./manyNestedSectionsView";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody";
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
-import { SortableSectionContainer } from "./SortableSectionContainer";
 import { SortableSectionSection } from "./SortableSectionSection";
 
 const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
   props,
 ) => <SectionContainerCoreCanvasBody {...props} />;
-
-const renderSortableNestedSections: ManyNestedSectionsRenderer = ({
-  childIds,
-  childClassName,
-}: ManyNestedSectionsRendererProps) =>
-  childIds.map((childId) => (
-    <SortableSectionContainer
-      sectionId={childId}
-      key={`Nested-Sec-${childId}`}
-      className={childClassName}
-      SectionBoundary={SortableSectionSection}
-      renderCoreBody={renderSectionContainerCoreBody}
-      renderNestedSections={renderSectionContainerNestedSections}
-    />
-  ));
 
 function _SectionContainerNestedSectionsBoundary(
   props: SectionContainerNestedSectionsProps,
@@ -33,7 +15,9 @@ function _SectionContainerNestedSectionsBoundary(
   return (
     <SectionContainerNestedSections
       {...props}
-      renderNestedSections={renderSortableNestedSections}
+      SectionBoundary={SortableSectionSection}
+      renderCoreBody={renderSectionContainerCoreBody}
+      renderNestedSections={renderSectionContainerNestedSections}
     />
   );
 }
