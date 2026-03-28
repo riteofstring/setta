@@ -5,6 +5,7 @@ import type { SectionContainerCoreBodyProps } from "./sectionContainerCoreBodyVi
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import type { SortableSectionBodySectionBoundaryProps } from "./sortableSectionBodyView";
 import { SortableSectionContainer } from "./SortableSectionContainer";
+import { SortableSectionSection } from "./SortableSectionSection";
 
 const mockUseSortable = vi.fn();
 
@@ -124,7 +125,7 @@ describe("SortableSectionContainer", () => {
     });
   });
 
-  it("owns the lifted sortable section boundary while passing the standard nested-sections renderer through the sortable body seam", () => {
+  it("delegates regular sections into the injected sortable section boundary while passing the standard nested-sections renderer through the sortable body seam", () => {
     const renderCoreBody = ({
       sectionId,
       sectionTypeName,
@@ -160,6 +161,7 @@ describe("SortableSectionContainer", () => {
       <SortableSectionContainer
         sectionId="section-1"
         className="child-class-name"
+        SectionBoundary={SortableSectionSection}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />,

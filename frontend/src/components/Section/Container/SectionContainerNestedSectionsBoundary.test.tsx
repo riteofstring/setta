@@ -45,11 +45,13 @@ vi.mock("./SortableSectionContainer", () => ({
   SortableSectionContainer: ({
     sectionId,
     className,
+    SectionBoundary,
     renderCoreBody,
     renderNestedSections,
   }: {
     sectionId: string;
     className?: string;
+    SectionBoundary: ReactNode;
     renderCoreBody: (props: SectionContainerCoreBodyProps) => ReactNode;
     renderNestedSections: SortableSectionNestedSectionsRenderer;
   }) => (
@@ -57,6 +59,7 @@ vi.mock("./SortableSectionContainer", () => ({
       data-testid="mock-sortable-section"
       data-section-id={sectionId}
       data-class-name={className ?? ""}
+      data-has-section-boundary={String(Boolean(SectionBoundary))}
       data-has-render-nested-sections={String(Boolean(renderNestedSections))}
     >
       {renderCoreBody({
@@ -71,7 +74,7 @@ vi.mock("./SortableSectionContainer", () => ({
 }));
 
 describe("SectionContainerNestedSectionsBoundary", () => {
-  it("injects the default sortable nested-section renderer into the generic nested-sections boundary", () => {
+  it("owns the lifted sortable section boundary while injecting the default sortable nested-section renderer into the generic nested-sections boundary", () => {
     const markup = renderToStaticMarkup(
       <SectionContainerNestedSectionsBoundary
         sectionId="section-1"
@@ -87,6 +90,7 @@ describe("SectionContainerNestedSectionsBoundary", () => {
     expect(markup).toContain('data-testid="mock-sortable-section"');
     expect(markup).toContain('data-section-id="child-a"');
     expect(markup).toContain('data-class-name="from-boundary"');
+    expect(markup).toContain('data-has-section-boundary="true"');
     expect(markup).toContain('data-has-render-nested-sections="true"');
     expect(markup).toContain('data-testid="mock-section-container-core-body"');
   });

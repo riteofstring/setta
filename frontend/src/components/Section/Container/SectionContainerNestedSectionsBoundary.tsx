@@ -6,6 +6,7 @@ import { SectionContainerCoreCanvasBody } from "./SectionContainerCoreCanvasBody
 import { SectionContainerNestedSections } from "./SectionContainerNestedSections";
 import type { SectionContainerNestedSectionsProps } from "./sectionContainerNestedSectionsView";
 import { SortableSectionContainer } from "./SortableSectionContainer";
+import { SortableSectionSection } from "./SortableSectionSection";
 
 const renderSectionContainerCoreBody: SectionContainerCoreBodyRenderer = (
   props,
@@ -20,6 +21,7 @@ const renderSortableNestedSections: ManyNestedSectionsRenderer = ({
       sectionId={childId}
       key={`Nested-Sec-${childId}`}
       className={childClassName}
+      SectionBoundary={SortableSectionSection}
       renderCoreBody={renderSectionContainerCoreBody}
       renderNestedSections={renderSectionContainerNestedSections}
     />

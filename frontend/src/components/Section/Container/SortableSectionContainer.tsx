@@ -10,12 +10,15 @@ import React, { useEffect, useState } from "react";
 import { scheduleEdgeHandlePositionUpdate } from "state/actions/edgeHandles";
 import type { SectionContainerCoreBodyRenderer } from "./SectionContainer";
 import { SortableSectionBody } from "./SortableSectionBody";
-import { SortableSectionSection } from "./SortableSectionSection";
-import type { SortableSectionNestedSectionsRenderer } from "./sortableSectionBodyView";
+import type {
+  SortableSectionBodySectionBoundary,
+  SortableSectionNestedSectionsRenderer,
+} from "./sortableSectionBodyView";
 
 type SortableSectionContainerProps = {
   sectionId: string;
   className?: string;
+  SectionBoundary: SortableSectionBodySectionBoundary;
   renderCoreBody: SectionContainerCoreBodyRenderer;
   renderNestedSections: SortableSectionNestedSectionsRenderer;
 };
@@ -39,6 +42,7 @@ type SortableCoreProps = SortableSectionContainerProps & {
 function _SortableSectionContainer({
   sectionId,
   className,
+  SectionBoundary,
   renderCoreBody,
   renderNestedSections,
 }: SortableSectionContainerProps) {
@@ -46,6 +50,7 @@ function _SortableSectionContainer({
     <TempDNDSortableSectionContainer
       sectionId={sectionId}
       className={className}
+      SectionBoundary={SectionBoundary}
       renderCoreBody={renderCoreBody}
       renderNestedSections={renderNestedSections}
     />
@@ -54,6 +59,7 @@ function _SortableSectionContainer({
       sectionId={sectionId}
       className={className}
       forceApplyTransform={false}
+      SectionBoundary={SectionBoundary}
       renderCoreBody={renderCoreBody}
       renderNestedSections={renderNestedSections}
     />
@@ -65,6 +71,7 @@ export const SortableSectionContainer = React.memo(_SortableSectionContainer);
 function _TempDNDSortableSectionContainer({
   sectionId,
   className,
+  SectionBoundary,
   renderCoreBody,
   renderNestedSections,
 }: SortableSectionContainerProps) {
@@ -80,6 +87,7 @@ function _TempDNDSortableSectionContainer({
       sectionId={sectionId}
       className={className}
       forceApplyTransform={forceApplyTransform}
+      SectionBoundary={SectionBoundary}
       renderCoreBody={renderCoreBody}
       renderNestedSections={renderNestedSections}
     />
@@ -94,6 +102,7 @@ function _RegularSortableSectionContainer({
   sectionId,
   forceApplyTransform,
   className,
+  SectionBoundary,
   renderCoreBody,
   renderNestedSections,
 }: RegularSortableSectionContainerProps) {
@@ -121,6 +130,7 @@ function _RegularSortableSectionContainer({
       transition={transition}
       isDragging={isDragging}
       className={className}
+      SectionBoundary={SectionBoundary}
       renderCoreBody={renderCoreBody}
       renderNestedSections={renderNestedSections}
       applyTransform={
@@ -149,6 +159,7 @@ function _SortableCore({
   applyTransform,
   isDragging,
   className,
+  SectionBoundary,
   renderCoreBody,
   renderNestedSections,
 }: SortableCoreProps) {
@@ -193,7 +204,7 @@ function _SortableCore({
         sectionId={sectionId}
         applyTransform={applyTransform}
         listeners={listeners}
-        SectionBoundary={SortableSectionSection}
+        SectionBoundary={SectionBoundary}
         renderCoreBody={renderCoreBody}
         renderNestedSections={renderNestedSections}
       />
@@ -204,6 +215,7 @@ function _SortableCore({
 const SortableCore = React.memo(
   _SortableCore,
   (p, n) =>
+    p.SectionBoundary === n.SectionBoundary &&
     p.renderCoreBody === n.renderCoreBody &&
     p.renderNestedSections === n.renderNestedSections &&
     p.sectionId === n.sectionId &&

@@ -5129,3 +5129,32 @@ Record:
     - because this live settings failure remains the same independent runtime blocker seen in the previous seam-lift slice, this sortable-section boundary lift is being treated as code-complete with the live visual gate deferred rather than falsely marked fully visually verified
 - Next action:
   - Continue the first retained-scene node-renderer seam lift by moving the lifted `SortableSectionSection` boundary one caller higher into `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx` while keeping the unstable live settings canary explicit.
+
+## 2026-03-28 175
+
+- Item: Lift the `SortableSectionSection` boundary into `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`.
+- Status: `done`
+- Details:
+  - Raised the sortable nested-section seam one caller higher so `SectionContainerNestedSectionsBoundary.tsx` now owns the dedicated `SortableSectionSection` handoff above `SortableSectionContainer.tsx`:
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionContainer.tsx`
+  - Updated focused coverage to pin both sides of the lifted seam:
+    - `frontend/src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+    - `frontend/src/components/Section/Container/SortableSectionContainer.test.tsx`
+  - This refactor preserves the current non-Pixi behavior for:
+    - `SectionContainerNestedSectionsBoundary.tsx` now owning the explicit section-boundary injection while still supplying the same recursive nested-section renderer and core-body renderer to sortable children
+    - `SortableSectionContainer.tsx` shrinking into a thinner sortable wrapper that only consumes the injected section boundary while keeping the same temp-section and transform scheduling behavior
+    - regular nested sections still rendering through the same `SectionContainer` path via `SortableSectionSection`, while temp DnD sections still short-circuit through `TempDNDSection`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Section/Container/SortableSectionSection.test.tsx src/components/Section/Container/SortableSectionBody.test.tsx src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+    - result: passed
+  - Prettier: `pnpm -C frontend exec prettier --check src/components/Section/Container/SortableSectionContainer.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.tsx src/components/Section/Container/SortableSectionContainer.test.tsx src/components/Section/Container/SectionContainerNestedSectionsBoundary.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/sections/section-children-dnd-ui.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044`) in a fresh sub-agent context:
+    - `http://127.0.0.1:3044/wind_sand` served as the narrow live nested-section canary because the direct `/settings` route still throws `Unhandled Thrown Error!` on this worktree runtime
+    - after creating a fresh `ListRoot` parent and one nested `Callable` child, the nested section tree rendered and the surrounding section shell stayed visually stable with no obvious regression
+    - representative requests returned `200`, including `POST /api/loadAllProjectMetadata`, `POST /api/loadProjectConfig`, `POST /api/createTopLevelSection`, and `POST /api/createChildSections`
+- Next action:
+  - Continue the first retained-scene node-renderer seam lift by moving the lifted `SortableSectionSection` boundary one caller higher into `frontend/src/components/Section/Container/SectionContainerNestedSections.tsx` while keeping the unstable direct `/settings` canary explicit.
