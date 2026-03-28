@@ -33,14 +33,14 @@ func TestRegisterLauncherManagementRoutesReportsNotInstalled(t *testing.T) {
 		t.Fatalf("expected launcher status 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherStatusResponse
+	var payload LauncherStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode launcher status payload: %v", err)
 	}
 	if !payload.Ok || payload.Installed == nil || *payload.Installed {
 		t.Fatalf("unexpected launcher status payload %#v", payload)
 	}
-	if payload.UpdateCapability == nil || *payload.UpdateCapability != string(launcher.LauncherUpdateCapabilityUnsupported) {
+	if payload.UpdateCapability == nil || *payload.UpdateCapability != launcher.LauncherUpdateCapabilityUnsupported {
 		t.Fatalf("expected unsupported update capability, got %#v", payload.UpdateCapability)
 	}
 }
@@ -63,7 +63,7 @@ func TestRegisterLauncherManagementRoutesHonorsScopedSettaHome(t *testing.T) {
 		t.Fatalf("expected scoped launcher status 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherStatusResponse
+	var payload LauncherStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode scoped launcher status payload: %v", err)
 	}
@@ -93,7 +93,7 @@ func TestRegisterLauncherManagementRoutesUsesDefaultSettaHomeWhenScopeBlank(t *t
 		t.Fatalf("expected blank-scope launcher status 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherStatusResponse
+	var payload LauncherStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode blank-scope launcher status payload: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 		t.Fatalf("expected setup launcher 200, got %d with body %q", setupResponse.Code, setupResponse.Body.String())
 	}
 
-	var setupPayload launcherStatusResponse
+	var setupPayload LauncherStatusResponse
 	if err := json.Unmarshal(setupResponse.Body.Bytes(), &setupPayload); err != nil {
 		t.Fatalf("decode setup launcher payload: %v", err)
 	}
@@ -134,13 +134,13 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 	if setupPayload.Channel == nil || *setupPayload.Channel != "uv-tool" {
 		t.Fatalf("expected channel uv-tool, got %#v", setupPayload.Channel)
 	}
-	if setupPayload.OpenMode == nil || *setupPayload.OpenMode != string(launcher.LauncherOpenModeChromeApp) {
+	if setupPayload.OpenMode == nil || *setupPayload.OpenMode != launcher.LauncherOpenModeChromeApp {
 		t.Fatalf("expected open mode chrome-app, got %#v", setupPayload.OpenMode)
 	}
-	if setupPayload.WorkspaceBehavior == nil || *setupPayload.WorkspaceBehavior != string(launcher.LauncherWorkspaceBehaviorAlwaysPrompt) {
+	if setupPayload.WorkspaceBehavior == nil || *setupPayload.WorkspaceBehavior != launcher.LauncherWorkspaceBehaviorAlwaysPrompt {
 		t.Fatalf("expected workspace behavior always_prompt, got %#v", setupPayload.WorkspaceBehavior)
 	}
-	if setupPayload.UpdateCapability == nil || *setupPayload.UpdateCapability != string(launcher.LauncherUpdateCapabilityInApp) {
+	if setupPayload.UpdateCapability == nil || *setupPayload.UpdateCapability != launcher.LauncherUpdateCapabilityInApp {
 		t.Fatalf("expected in-app update capability, got %#v", setupPayload.UpdateCapability)
 	}
 	if len(setupPayload.ManagedArtifacts) != 0 {
@@ -158,7 +158,7 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 		t.Fatalf("expected remove launcher 200, got %d with body %q", removeResponse.Code, removeResponse.Body.String())
 	}
 
-	var removePayload launcherStatusResponse
+	var removePayload LauncherStatusResponse
 	if err := json.Unmarshal(removeResponse.Body.Bytes(), &removePayload); err != nil {
 		t.Fatalf("decode remove launcher payload: %v", err)
 	}
@@ -206,17 +206,17 @@ func TestRegisterLauncherManagementRoutesSetupPreservesExistingIdentityWhenField
 		t.Fatalf("expected omitted-field setup 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherStatusResponse
+	var payload LauncherStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode preserved setup payload: %v", err)
 	}
 	if payload.Channel == nil || *payload.Channel != "uv-tool" {
 		t.Fatalf("expected preserved channel uv-tool, got %#v", payload.Channel)
 	}
-	if payload.OpenMode == nil || *payload.OpenMode != string(launcher.LauncherOpenModeBrowser) {
+	if payload.OpenMode == nil || *payload.OpenMode != launcher.LauncherOpenModeBrowser {
 		t.Fatalf("expected preserved open mode browser, got %#v", payload.OpenMode)
 	}
-	if payload.WorkspaceBehavior == nil || *payload.WorkspaceBehavior != string(launcher.LauncherWorkspaceBehaviorAlwaysPrompt) {
+	if payload.WorkspaceBehavior == nil || *payload.WorkspaceBehavior != launcher.LauncherWorkspaceBehaviorAlwaysPrompt {
 		t.Fatalf("expected preserved workspace behavior always_prompt, got %#v", payload.WorkspaceBehavior)
 	}
 	if !reflect.DeepEqual(payload.ArtifactOptions, map[string]string{"app_name": "Setta Custom"}) {
@@ -355,7 +355,7 @@ func TestRegisterLauncherManagementRoutesSetupInstallsManagedArtifacts(t *testin
 		t.Fatalf("expected setup launcher 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherStatusResponse
+	var payload LauncherStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode managed artifact setup response: %v", err)
 	}
@@ -406,7 +406,7 @@ func TestRegisterLauncherManagementRoutesRepairRebindsMissingTarget(t *testing.T
 		t.Fatalf("expected repair launcher 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherStatusResponse
+	var payload LauncherStatusResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode repair launcher payload: %v", err)
 	}
@@ -467,7 +467,7 @@ func TestRegisterLauncherManagementRoutesUpdateReportsInstallerManagedCapability
 		t.Fatalf("expected installer-managed update response 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherUpdateResponse
+	var payload LauncherUpdateResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode installer-managed update payload: %v", err)
 	}

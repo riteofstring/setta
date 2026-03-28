@@ -392,6 +392,26 @@ That means:
     - `ViewportInput -> projectstate.Viewport`
     - `ViewportBoundsInput -> projectstate.ViewportBounds`
     - `TopLevelSectionLayoutInput -> projectstate.TopLevelSectionLayout`
+  - the launcher status / update and most launcher-home route contracts now point at exact backend owners instead of mirrored `frontendbindings` structs:
+    - `LauncherHomeErrorPayload -> httpapi.LauncherHomeErrorPayload`
+    - `LauncherRecentWorkspacesResponse -> httpapi.LauncherRecentWorkspacesResponse`
+    - `LauncherRecentWorkspaceRequestInput -> httpapi.LauncherRecentWorkspaceRequest`
+    - `PinLauncherRecentWorkspaceRequestInput -> httpapi.PinLauncherRecentWorkspaceRequest`
+    - `LauncherFilesystemRootsResponse -> httpapi.LauncherFilesystemRootsResponse`
+    - `LauncherListDirectoryRequestInput -> httpapi.LauncherListDirectoryRequest`
+    - `LauncherListDirectoryResponse -> httpapi.LauncherListDirectoryResponse`
+    - `LauncherOpenWorkspaceRequestInput -> httpapi.LauncherOpenWorkspaceRequest`
+    - `LauncherOpenWorkspaceResponse -> httpapi.LauncherOpenWorkspaceResponse`
+    - `LauncherOperationErrorPayload -> httpapi.LauncherOperationErrorPayload`
+    - `LauncherStatusResponse -> httpapi.LauncherStatusResponse`
+    - `LauncherUpdateResponse -> httpapi.LauncherUpdateResponse`
+    - `LauncherRequestBaseInput -> httpapi.LauncherRequestBase`
+    - `UpdateLauncherRequestInput -> httpapi.UpdateLauncherRequest`
+  - `internal/httpapi` now exports the launcher route request/response structs that were still trapped inside route files, so `frontendbindings` can alias the real route-contract owners instead of repeating those shapes locally
+  - the remaining launcher setup/install request surface is still intentionally separate for now, because the frontend payload uses different public enum values than the launcher runtime owner types:
+    - `SetupLauncherRequestInput`
+    - `SetupLauncherWorkspaceBehavior`
+    - `LauncherInstallSource`
 
 ### Remaining Handwritten Python Types
 Current handwritten files in `backend/setta/types/`:
@@ -425,6 +445,8 @@ That is better than handwritten Python mirrors, but it still means `frontendbind
 This has improved for the project-state/view/windowing family, the project/deployment metadata family, the project-codegen policy family, the artifact/binary family, the prompt-template / LLM-config family, the dependency wire family, the streaming/listener enum family, the follow-update / completion family, the detailed chat-message schema family, the external-agent config/settings family, and the runtime agent / engine / transcription / detached-run family.
 
 It has also improved for the `git`, `filebrowser`, terminal-runtime, and detached/transcription/state-machine route-response families that previously still carried small mirror structs in separate support files.
+
+It has now also improved for the launcher status / update and most launcher-home route families; the remaining launcher-local surface is the intentional setup/install request payload mismatch rather than another accidental mirror owner.
 
 ### 2. TypeScript pruning exists, but it is cleanup-time, not a separate generator concern
 The earlier plan was wrong to say TS pruning did not exist.

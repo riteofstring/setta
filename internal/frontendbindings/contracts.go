@@ -125,7 +125,7 @@ type LaunchResponse struct {
 	Error                *LaunchErrorPayload               `json:"error"`
 }
 
-type LauncherHomeErrorPayload launcher.HomeError
+type LauncherHomeErrorPayload httpapi.LauncherHomeErrorPayload
 
 type GetLauncherRecentWorkspacesRequestInput struct {
 	SettaHome *string `json:"setta_home,omitempty"`
@@ -133,71 +133,23 @@ type GetLauncherRecentWorkspacesRequestInput struct {
 
 type LauncherRecentWorkspacePayload launcher.RecentWorkspaceEntry
 
-type LauncherRecentWorkspacesResponse struct {
-	Ok         bool                             `json:"ok"`
-	Workspaces []LauncherRecentWorkspacePayload `json:"workspaces"`
-	Error      *LauncherHomeErrorPayload        `json:"error"`
-}
+type LauncherRecentWorkspacesResponse httpapi.LauncherRecentWorkspacesResponse
 
-type LauncherRecentWorkspaceRequestInput struct {
-	SettaHome     *string `json:"settaHome,omitempty"`
-	WorkspaceRoot string  `json:"workspaceRoot"`
-	Pinned        *bool   `json:"pinned,omitempty"`
-}
+type LauncherRecentWorkspaceRequestInput httpapi.LauncherRecentWorkspaceRequest
 
-type PinLauncherRecentWorkspaceRequestInput struct {
-	SettaHome     *string `json:"settaHome,omitempty"`
-	WorkspaceRoot string  `json:"workspaceRoot"`
-	Pinned        bool    `json:"pinned"`
-}
+type PinLauncherRecentWorkspaceRequestInput httpapi.PinLauncherRecentWorkspaceRequest
 
-type LauncherFilesystemRootsResponse struct {
-	Ok    bool     `json:"ok"`
-	Roots []string `json:"roots"`
-}
+type LauncherFilesystemRootsResponse httpapi.LauncherFilesystemRootsResponse
 
 type LauncherDirectoryEntryPayload launcher.DirectoryEntry
 
-type LauncherListDirectoryRequestInput struct {
-	Path     *string `json:"path,omitempty"`
-	Cursor   *string `json:"cursor,omitempty"`
-	PageSize *int    `json:"pageSize,omitempty"`
-}
+type LauncherListDirectoryRequestInput httpapi.LauncherListDirectoryRequest
 
-type LauncherListDirectoryResponse struct {
-	Ok          bool                            `json:"ok"`
-	CurrentPath *string                         `json:"currentPath"`
-	ParentPath  *string                         `json:"parentPath"`
-	Entries     []LauncherDirectoryEntryPayload `json:"entries"`
-	NextCursor  *string                         `json:"nextCursor"`
-	HasMore     bool                            `json:"hasMore"`
-	Truncated   bool                            `json:"truncated"`
-	Error       *LauncherHomeErrorPayload       `json:"error"`
-}
+type LauncherListDirectoryResponse httpapi.LauncherListDirectoryResponse
 
-type LauncherOpenWorkspaceRequestInput struct {
-	WorkspaceRoot      string                    `json:"workspaceRoot"`
-	SettaHome          *string                   `json:"settaHome,omitempty"`
-	Profile            *string                   `json:"profile,omitempty"`
-	SettaFilesRoot     *string                   `json:"settaFilesRoot,omitempty"`
-	SettaFilesLocation *LaunchSettaFilesLocation `json:"settaFilesLocation,omitempty"`
-	RuntimeRoot        *string                   `json:"runtimeRoot,omitempty"`
-	CreateIfMissing    *bool                     `json:"createIfMissing,omitempty"`
-}
+type LauncherOpenWorkspaceRequestInput httpapi.LauncherOpenWorkspaceRequest
 
-type LauncherOpenWorkspaceResponse struct {
-	Ok                   bool                              `json:"ok"`
-	BootstrapURLFragment *string                           `json:"bootstrapUrlFragment"`
-	WorkspaceRoot        *string                           `json:"workspaceRoot"`
-	SettaFilesLocation   *LaunchResolvedSettaFilesLocation `json:"settaFilesLocation"`
-	SettaFilesRoot       *string                           `json:"settaFilesRoot"`
-	RuntimeRoot          *string                           `json:"runtimeRoot"`
-	SettaHome            *string                           `json:"settaHome"`
-	Profile              *string                           `json:"profile"`
-	SessionID            *string                           `json:"sessionId"`
-	StartedNew           *bool                             `json:"startedNew"`
-	Error                *LauncherHomeErrorPayload         `json:"error"`
-}
+type LauncherOpenWorkspaceResponse httpapi.LauncherOpenWorkspaceResponse
 
 type LauncherOpenMode launcher.LauncherOpenMode
 
@@ -236,67 +188,17 @@ const (
 	LauncherUpdateCapabilityUnsupported      LauncherUpdateCapability = LauncherUpdateCapability(launcher.LauncherUpdateCapabilityUnsupported)
 )
 
-type LauncherOperationErrorPayload struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-}
+type LauncherOperationErrorPayload httpapi.LauncherOperationErrorPayload
 
 type GetLauncherStatusRequestInput struct {
 	SettaHome *string `json:"setta_home,omitempty"`
 }
 
-type LauncherStatusResponse struct {
-	Ok                       bool                           `json:"ok"`
-	Installed                *bool                          `json:"installed,omitempty"`
-	SettaHome                *string                        `json:"settaHome,omitempty"`
-	LauncherDir              *string                        `json:"launcherDir,omitempty"`
-	MetadataPath             *string                        `json:"metadataPath,omitempty"`
-	TargetCommand            []string                       `json:"targetCommand,omitempty"`
-	TargetValid              *bool                          `json:"targetValid,omitempty"`
-	TargetError              *string                        `json:"targetError,omitempty"`
-	Channel                  *string                        `json:"channel,omitempty"`
-	SettaVersion             *string                        `json:"settaVersion,omitempty"`
-	OpenMode                 *LauncherOpenMode              `json:"openMode,omitempty"`
-	WorkspaceBehavior        *LauncherWorkspaceBehavior     `json:"workspaceBehavior,omitempty"`
-	LastUsedWorkspace        *string                        `json:"lastUsedWorkspace,omitempty"`
-	ArtifactOptions          map[string]string              `json:"artifactOptions,omitempty"`
-	ManagedArtifacts         map[string]string              `json:"managedArtifacts,omitempty"`
-	ExistingManagedArtifacts []string                       `json:"existingManagedArtifacts,omitempty"`
-	MissingManagedArtifacts  []string                       `json:"missingManagedArtifacts,omitempty"`
-	UpdateCapability         *LauncherUpdateCapability      `json:"updateCapability,omitempty"`
-	UpdateGuidance           *string                        `json:"updateGuidance,omitempty"`
-	Error                    *LauncherOperationErrorPayload `json:"error,omitempty"`
-}
+type LauncherStatusResponse httpapi.LauncherStatusResponse
 
-type LauncherUpdateResponse struct {
-	Ok                       bool                           `json:"ok"`
-	Installed                *bool                          `json:"installed,omitempty"`
-	SettaHome                *string                        `json:"settaHome,omitempty"`
-	LauncherDir              *string                        `json:"launcherDir,omitempty"`
-	MetadataPath             *string                        `json:"metadataPath,omitempty"`
-	TargetCommand            []string                       `json:"targetCommand,omitempty"`
-	TargetValid              *bool                          `json:"targetValid,omitempty"`
-	TargetError              *string                        `json:"targetError,omitempty"`
-	Channel                  *string                        `json:"channel,omitempty"`
-	SettaVersion             *string                        `json:"settaVersion,omitempty"`
-	OpenMode                 *LauncherOpenMode              `json:"openMode,omitempty"`
-	WorkspaceBehavior        *LauncherWorkspaceBehavior     `json:"workspaceBehavior,omitempty"`
-	LastUsedWorkspace        *string                        `json:"lastUsedWorkspace,omitempty"`
-	ArtifactOptions          map[string]string              `json:"artifactOptions,omitempty"`
-	ManagedArtifacts         map[string]string              `json:"managedArtifacts,omitempty"`
-	ExistingManagedArtifacts []string                       `json:"existingManagedArtifacts,omitempty"`
-	MissingManagedArtifacts  []string                       `json:"missingManagedArtifacts,omitempty"`
-	UpdateCapability         *LauncherUpdateCapability      `json:"updateCapability,omitempty"`
-	UpdateGuidance           *string                        `json:"updateGuidance,omitempty"`
-	Error                    *LauncherOperationErrorPayload `json:"error,omitempty"`
-	PackageSpec              *string                        `json:"packageSpec,omitempty"`
-	FromVersion              *string                        `json:"fromVersion,omitempty"`
-	ToVersion                *string                        `json:"toVersion,omitempty"`
-}
+type LauncherUpdateResponse httpapi.LauncherUpdateResponse
 
-type LauncherRequestBaseInput struct {
-	SettaHome *string `json:"settaHome,omitempty"`
-}
+type LauncherRequestBaseInput httpapi.LauncherRequestBase
 
 type SetupLauncherRequestInput struct {
 	SettaHome         *string                         `json:"settaHome,omitempty"`
@@ -308,10 +210,7 @@ type SetupLauncherRequestInput struct {
 	ArtifactOptions   map[string]string               `json:"artifactOptions,omitempty"`
 }
 
-type UpdateLauncherRequestInput struct {
-	SettaHome   *string `json:"settaHome,omitempty"`
-	PackageSpec *string `json:"packageSpec,omitempty"`
-}
+type UpdateLauncherRequestInput httpapi.UpdateLauncherRequest
 
 type AppCatalogPropType appspec.PropType
 

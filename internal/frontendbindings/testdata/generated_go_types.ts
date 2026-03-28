@@ -1748,9 +1748,9 @@ export function createLauncherRecentWorkspacesResponse(options: Partial<Launcher
 
 
 export type LauncherRecentWorkspaceRequestInput = {
-  settaHome?: string | null;
+  settaHome: string | null;
   workspaceRoot: string;
-  pinned?: boolean | null;
+  pinned: boolean | null;
 };
 export function createLauncherRecentWorkspaceRequestInput(options: Partial<LauncherRecentWorkspaceRequestInput> = {}): LauncherRecentWorkspaceRequestInput {
   return options as LauncherRecentWorkspaceRequestInput;
@@ -1758,7 +1758,7 @@ export function createLauncherRecentWorkspaceRequestInput(options: Partial<Launc
 
 
 export type PinLauncherRecentWorkspaceRequestInput = {
-  settaHome?: string | null;
+  settaHome: string | null;
   workspaceRoot: string;
   pinned: boolean;
 };
@@ -1788,9 +1788,9 @@ export function createLauncherDirectoryEntryPayload(options: Partial<LauncherDir
 
 
 export type LauncherListDirectoryRequestInput = {
-  path?: string | null;
-  cursor?: string | null;
-  pageSize?: number | null;
+  path: string | null;
+  cursor: string | null;
+  pageSize: number | null;
 };
 export function createLauncherListDirectoryRequestInput(options: Partial<LauncherListDirectoryRequestInput> = {}): LauncherListDirectoryRequestInput {
   return options as LauncherListDirectoryRequestInput;
@@ -1814,12 +1814,12 @@ export function createLauncherListDirectoryResponse(options: Partial<LauncherLis
 
 export type LauncherOpenWorkspaceRequestInput = {
   workspaceRoot: string;
-  settaHome?: string | null;
-  profile?: string | null;
-  settaFilesRoot?: string | null;
-  settaFilesLocation?: LaunchSettaFilesLocation | null;
-  runtimeRoot?: string | null;
-  createIfMissing?: boolean | null;
+  settaHome: string | null;
+  profile: string | null;
+  settaFilesRoot: string | null;
+  settaFilesLocation: LaunchSettaFilesLocation | null;
+  runtimeRoot: string | null;
+  createIfMissing: boolean;
 };
 export function createLauncherOpenWorkspaceRequestInput(options: Partial<LauncherOpenWorkspaceRequestInput> = {}): LauncherOpenWorkspaceRequestInput {
   return options as LauncherOpenWorkspaceRequestInput;
@@ -1956,7 +1956,7 @@ export function createLauncherUpdateResponse(options: Partial<LauncherUpdateResp
 
 
 export type LauncherRequestBaseInput = {
-  settaHome?: string | null;
+  settaHome: string | null;
 };
 export function createLauncherRequestBaseInput(options: Partial<LauncherRequestBaseInput> = {}): LauncherRequestBaseInput {
   return options as LauncherRequestBaseInput;
@@ -1978,8 +1978,8 @@ export function createSetupLauncherRequestInput(options: Partial<SetupLauncherRe
 
 
 export type UpdateLauncherRequestInput = {
-  settaHome?: string | null;
-  packageSpec?: string | null;
+  settaHome: string | null;
+  packageSpec: string | null;
 };
 export function createUpdateLauncherRequestInput(options: Partial<UpdateLauncherRequestInput> = {}): UpdateLauncherRequestInput {
   return options as UpdateLauncherRequestInput;

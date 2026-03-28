@@ -55,7 +55,7 @@ func TestRegisterLauncherHomeRoutesListsAndMutatesRecentWorkspaces(t *testing.T)
 		t.Fatalf("expected add recent workspace 200, got %d with body %q", addResponse.Code, addResponse.Body.String())
 	}
 
-	var addPayload launcherRecentWorkspacesResponse
+	var addPayload LauncherRecentWorkspacesResponse
 	if err := json.Unmarshal(addResponse.Body.Bytes(), &addPayload); err != nil {
 		t.Fatalf("decode add recent workspace payload: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestRegisterLauncherHomeRoutesListsAndMutatesRecentWorkspaces(t *testing.T)
 		t.Fatalf("expected get recent workspaces 200, got %d with body %q", getResponse.Code, getResponse.Body.String())
 	}
 
-	var getPayload launcherRecentWorkspacesResponse
+	var getPayload LauncherRecentWorkspacesResponse
 	if err := json.Unmarshal(getResponse.Body.Bytes(), &getPayload); err != nil {
 		t.Fatalf("decode get recent workspaces payload: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestRegisterLauncherHomeRoutesListsAndMutatesRecentWorkspaces(t *testing.T)
 		t.Fatalf("expected pin recent workspace 200, got %d with body %q", pinResponse.Code, pinResponse.Body.String())
 	}
 
-	var pinPayload launcherRecentWorkspacesResponse
+	var pinPayload LauncherRecentWorkspacesResponse
 	if err := json.Unmarshal(pinResponse.Body.Bytes(), &pinPayload); err != nil {
 		t.Fatalf("decode pin recent workspace payload: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestRegisterLauncherHomeRoutesListsAndMutatesRecentWorkspaces(t *testing.T)
 		t.Fatalf("expected remove recent workspace 200, got %d with body %q", removeResponse.Code, removeResponse.Body.String())
 	}
 
-	var removePayload launcherRecentWorkspacesResponse
+	var removePayload LauncherRecentWorkspacesResponse
 	if err := json.Unmarshal(removeResponse.Body.Bytes(), &removePayload); err != nil {
 		t.Fatalf("decode remove recent workspace payload: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestRegisterLauncherHomeRoutesListsDirectoriesWithPagination(t *testing.T) 
 		t.Fatalf("expected first directory page 200, got %d with body %q", firstResponse.Code, firstResponse.Body.String())
 	}
 
-	var firstPayload launcherListDirectoryResponse
+	var firstPayload LauncherListDirectoryResponse
 	if err := json.Unmarshal(firstResponse.Body.Bytes(), &firstPayload); err != nil {
 		t.Fatalf("decode first directory page payload: %v", err)
 	}
@@ -178,7 +178,7 @@ func TestRegisterLauncherHomeRoutesListsDirectoriesWithPagination(t *testing.T) 
 		t.Fatalf("expected second directory page 200, got %d with body %q", secondResponse.Code, secondResponse.Body.String())
 	}
 
-	var secondPayload launcherListDirectoryResponse
+	var secondPayload LauncherListDirectoryResponse
 	if err := json.Unmarshal(secondResponse.Body.Bytes(), &secondPayload); err != nil {
 		t.Fatalf("decode second directory page payload: %v", err)
 	}
@@ -217,7 +217,7 @@ func TestRegisterLauncherHomeRoutesListDirectoryRejectsInvalidCursor(t *testing.
 		t.Fatalf("expected invalid cursor directory listing 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherListDirectoryResponse
+	var payload LauncherListDirectoryResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode invalid cursor directory listing payload: %v", err)
 	}
@@ -256,7 +256,7 @@ func TestRegisterLauncherHomeRoutesListDirectoryRejectsOutsideAllowedRoots(t *te
 		t.Fatalf("expected outside-root directory listing 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherListDirectoryResponse
+	var payload LauncherListDirectoryResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode outside-root directory listing payload: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestRegisterLauncherHomeRoutesListsFilesystemRoots(t *testing.T) {
 		t.Fatalf("expected filesystem roots 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherFilesystemRootsResponse
+	var payload LauncherFilesystemRootsResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode filesystem roots payload: %v", err)
 	}
@@ -353,7 +353,7 @@ func TestRegisterLauncherHomeRoutesUsesDefaultSettaHomeWhenScopeBlank(t *testing
 		t.Fatalf("expected get recent workspaces 200, got %d with body %q", getResponse.Code, getResponse.Body.String())
 	}
 
-	var payload launcherRecentWorkspacesResponse
+	var payload LauncherRecentWorkspacesResponse
 	if err := json.Unmarshal(getResponse.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode blank-scope recent workspaces payload: %v", err)
 	}
@@ -422,7 +422,7 @@ func TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment(t *
 		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherOpenWorkspaceResponse
+	var payload LauncherOpenWorkspaceResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode open workspace payload: %v", err)
 	}
@@ -479,7 +479,7 @@ func TestRegisterLauncherHomeRoutesOpenWorkspaceProfilePreservesOmittedSettaFile
 		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherOpenWorkspaceResponse
+	var payload LauncherOpenWorkspaceResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode open workspace payload: %v", err)
 	}
@@ -574,7 +574,7 @@ func TestRegisterLauncherHomeRoutesOpenWorkspaceRejectsSymlinkEscape(t *testing.
 		t.Fatalf("expected symlink-escape open workspace 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherOpenWorkspaceResponse
+	var payload LauncherOpenWorkspaceResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode symlink-escape open workspace payload: %v", err)
 	}
@@ -663,7 +663,7 @@ func TestRegisterLauncherHomeRoutesOpenWorkspaceReturnsTrustedOriginStoreInvalid
 		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload launcherOpenWorkspaceResponse
+	var payload LauncherOpenWorkspaceResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode open workspace payload: %v", err)
 	}

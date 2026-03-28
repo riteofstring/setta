@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/auth"
+	"setta/internal/config"
 	"setta/internal/frontendorigins"
 	"setta/internal/launcher"
 	"setta/internal/modes"
@@ -30,98 +31,85 @@ type LauncherHomeRouteDependencies struct {
 	OpenWorkspace    *launcher.OpenWorkspaceService
 }
 
-type launcherHomeErrorPayload struct {
+type LauncherHomeErrorPayload struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
-type launcherRecentWorkspacePayload struct {
-	WorkspaceRoot string `json:"workspaceRoot"`
-	Pinned        bool   `json:"pinned"`
-	LastUsedAt    int64  `json:"lastUsedAt"`
+type LauncherRecentWorkspacesResponse struct {
+	Ok         bool                            `json:"ok"`
+	Workspaces []launcher.RecentWorkspaceEntry `json:"workspaces"`
+	Error      *LauncherHomeErrorPayload       `json:"error"`
 }
 
-type launcherRecentWorkspacesResponse struct {
-	Ok         bool                             `json:"ok"`
-	Workspaces []launcherRecentWorkspacePayload `json:"workspaces"`
-	Error      *launcherHomeErrorPayload        `json:"error"`
-}
-
-type launcherRecentWorkspaceRequest struct {
+type LauncherRecentWorkspaceRequest struct {
 	SettaHome     *string `json:"settaHome"`
 	WorkspaceRoot string  `json:"workspaceRoot"`
 	Pinned        *bool   `json:"pinned"`
 }
 
-type pinLauncherRecentWorkspaceRequest struct {
+type PinLauncherRecentWorkspaceRequest struct {
 	SettaHome     *string `json:"settaHome"`
 	WorkspaceRoot string  `json:"workspaceRoot"`
 	Pinned        bool    `json:"pinned"`
 }
 
-type launcherFilesystemRootsResponse struct {
+type LauncherFilesystemRootsResponse struct {
 	Ok    bool     `json:"ok"`
 	Roots []string `json:"roots"`
 }
 
-type launcherDirectoryEntryPayload struct {
-	Name        string `json:"name"`
-	Path        string `json:"path"`
-	IsDirectory bool   `json:"isDirectory"`
-	IsSymlink   bool   `json:"isSymlink"`
-}
-
-type launcherListDirectoryRequest struct {
+type LauncherListDirectoryRequest struct {
 	Path     *string `json:"path"`
 	Cursor   *string `json:"cursor"`
 	PageSize *int    `json:"pageSize"`
 }
 
-type launcherListDirectoryResponse struct {
-	Ok          bool                            `json:"ok"`
-	CurrentPath *string                         `json:"currentPath"`
-	ParentPath  *string                         `json:"parentPath"`
-	Entries     []launcherDirectoryEntryPayload `json:"entries"`
-	NextCursor  *string                         `json:"nextCursor"`
-	HasMore     bool                            `json:"hasMore"`
-	Truncated   bool                            `json:"truncated"`
-	Error       *launcherHomeErrorPayload       `json:"error"`
+type LauncherListDirectoryResponse struct {
+	Ok          bool                      `json:"ok"`
+	CurrentPath *string                   `json:"currentPath"`
+	ParentPath  *string                   `json:"parentPath"`
+	Entries     []launcher.DirectoryEntry `json:"entries"`
+	NextCursor  *string                   `json:"nextCursor"`
+	HasMore     bool                      `json:"hasMore"`
+	Truncated   bool                      `json:"truncated"`
+	Error       *LauncherHomeErrorPayload `json:"error"`
 }
 
-type launcherOpenWorkspaceRequest struct {
-	WorkspaceRoot              string  `json:"workspaceRoot"`
-	SettaHome                  *string `json:"settaHome"`
-	Profile                    *string `json:"profile"`
-	SettaFilesRoot             *string `json:"settaFilesRoot"`
-	SettaFilesLocation         *string `json:"settaFilesLocation"`
-	RuntimeRoot                *string `json:"runtimeRoot"`
-	CreateIfMissing            bool    `json:"createIfMissing"`
+type LauncherOpenWorkspaceRequest struct {
+	WorkspaceRoot              string                `json:"workspaceRoot"`
+	SettaHome                  *string               `json:"settaHome"`
+	Profile                    *string               `json:"profile"`
+	SettaFilesRoot             *string               `json:"settaFilesRoot"`
+	SettaFilesLocation         *config.FilesLocation `json:"settaFilesLocation"`
+	RuntimeRoot                *string               `json:"runtimeRoot"`
+	CreateIfMissing            bool                  `json:"createIfMissing"`
 	settaFilesLocationProvided bool
 }
 
-type launcherOpenWorkspaceResponse struct {
-	Ok                   bool                      `json:"ok"`
-	BootstrapURLFragment *string                   `json:"bootstrapUrlFragment"`
-	WorkspaceRoot        *string                   `json:"workspaceRoot"`
-	SettaFilesLocation   *string                   `json:"settaFilesLocation"`
-	SettaFilesRoot       *string                   `json:"settaFilesRoot"`
-	RuntimeRoot          *string                   `json:"runtimeRoot"`
-	SettaHome            *string                   `json:"settaHome"`
-	Profile              *string                   `json:"profile"`
-	SessionID            *string                   `json:"sessionId"`
-	StartedNew           *bool                     `json:"startedNew"`
-	Error                *launcherHomeErrorPayload `json:"error"`
+type LauncherOpenWorkspaceResponse struct {
+	Ok                   bool                          `json:"ok"`
+	BootstrapURLFragment *string                       `json:"bootstrapUrlFragment"`
+	WorkspaceRoot        *string                       `json:"workspaceRoot"`
+	SettaFilesLocation   *config.ResolvedFilesLocation `json:"settaFilesLocation"`
+	SettaFilesRoot       *string                       `json:"settaFilesRoot"`
+	RuntimeRoot          *string                       `json:"runtimeRoot"`
+	SettaHome            *string                       `json:"settaHome"`
+	Profile              *string                       `json:"profile"`
+	SessionID            *string                       `json:"sessionId"`
+	StartedNew           *bool                         `json:"startedNew"`
+	Error                *LauncherHomeErrorPayload     `json:"error"`
 }
 
-func (r *launcherOpenWorkspaceRequest) UnmarshalJSON(data []byte) error {
+func (r *LauncherOpenWorkspaceRequest) UnmarshalJSON(data []byte) error {
 	type payload struct {
-		WorkspaceRoot      string  `json:"workspaceRoot"`
-		SettaHome          *string `json:"settaHome"`
-		Profile            *string `json:"profile"`
-		SettaFilesRoot     *string `json:"settaFilesRoot"`
-		SettaFilesLocation *string `json:"settaFilesLocation"`
-		RuntimeRoot        *string `json:"runtimeRoot"`
-		CreateIfMissing    bool    `json:"createIfMissing"`
+		WorkspaceRoot      string                `json:"workspaceRoot"`
+		SettaHome          *string               `json:"settaHome"`
+		Profile            *string               `json:"profile"`
+		SettaFilesRoot     *string               `json:"settaFilesRoot"`
+		SettaFilesLocation *config.FilesLocation `json:"settaFilesLocation"`
+		RuntimeRoot        *string               `json:"runtimeRoot"`
+		CreateIfMissing    bool                  `json:"createIfMissing"`
 	}
 
 	var decoded payload
@@ -184,7 +172,7 @@ func getLauncherRecentWorkspacesHandler(defaultSettaHome string, home *launcher.
 			writeJSON(w, http.StatusOK, launcherRecentWorkspacesErrorResponse(err))
 			return
 		}
-		writeJSON(w, http.StatusOK, launcherRecentWorkspacesResponse{
+		writeJSON(w, http.StatusOK, LauncherRecentWorkspacesResponse{
 			Ok:         true,
 			Workspaces: launcherRecentWorkspacePayloads(workspaces),
 			Error:      nil,
@@ -194,7 +182,7 @@ func getLauncherRecentWorkspacesHandler(defaultSettaHome string, home *launcher.
 
 func addLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launcher.HomeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[launcherRecentWorkspaceRequest](r)
+		payload, err := decodeJSONBody[LauncherRecentWorkspaceRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -209,7 +197,7 @@ func addLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launcher.H
 			writeJSON(w, http.StatusOK, launcherRecentWorkspacesErrorResponse(err))
 			return
 		}
-		writeJSON(w, http.StatusOK, launcherRecentWorkspacesResponse{
+		writeJSON(w, http.StatusOK, LauncherRecentWorkspacesResponse{
 			Ok:         true,
 			Workspaces: launcherRecentWorkspacePayloads(workspaces),
 			Error:      nil,
@@ -219,7 +207,7 @@ func addLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launcher.H
 
 func removeLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launcher.HomeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[launcherRecentWorkspaceRequest](r)
+		payload, err := decodeJSONBody[LauncherRecentWorkspaceRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -234,7 +222,7 @@ func removeLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launche
 			writeJSON(w, http.StatusOK, launcherRecentWorkspacesErrorResponse(err))
 			return
 		}
-		writeJSON(w, http.StatusOK, launcherRecentWorkspacesResponse{
+		writeJSON(w, http.StatusOK, LauncherRecentWorkspacesResponse{
 			Ok:         true,
 			Workspaces: launcherRecentWorkspacePayloads(workspaces),
 			Error:      nil,
@@ -244,7 +232,7 @@ func removeLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launche
 
 func pinLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launcher.HomeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[pinLauncherRecentWorkspaceRequest](r)
+		payload, err := decodeJSONBody[PinLauncherRecentWorkspaceRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -259,7 +247,7 @@ func pinLauncherRecentWorkspaceHandler(defaultSettaHome string, home *launcher.H
 			writeJSON(w, http.StatusOK, launcherRecentWorkspacesErrorResponse(err))
 			return
 		}
-		writeJSON(w, http.StatusOK, launcherRecentWorkspacesResponse{
+		writeJSON(w, http.StatusOK, LauncherRecentWorkspacesResponse{
 			Ok:         true,
 			Workspaces: launcherRecentWorkspacePayloads(workspaces),
 			Error:      nil,
@@ -274,7 +262,7 @@ func getLauncherFilesystemRootsHandler(home *launcher.HomeService) http.HandlerF
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		writeJSON(w, http.StatusOK, launcherFilesystemRootsResponse{
+		writeJSON(w, http.StatusOK, LauncherFilesystemRootsResponse{
 			Ok:    true,
 			Roots: roots,
 		})
@@ -283,7 +271,7 @@ func getLauncherFilesystemRootsHandler(home *launcher.HomeService) http.HandlerF
 
 func listLauncherDirectoryHandler(home *launcher.HomeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[launcherListDirectoryRequest](r)
+		payload, err := decodeJSONBody[LauncherListDirectoryRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -297,7 +285,7 @@ func listLauncherDirectoryHandler(home *launcher.HomeService) http.HandlerFunc {
 			writeJSON(w, http.StatusOK, launcherListDirectoryErrorResponse(err))
 			return
 		}
-		writeJSON(w, http.StatusOK, launcherListDirectoryResponse{
+		writeJSON(w, http.StatusOK, LauncherListDirectoryResponse{
 			Ok:          true,
 			CurrentPath: listing.CurrentPath,
 			ParentPath:  listing.ParentPath,
@@ -312,7 +300,7 @@ func listLauncherDirectoryHandler(home *launcher.HomeService) http.HandlerFunc {
 
 func openLauncherWorkspaceHandler(authService *auth.Service, openWorkspace *launcher.OpenWorkspaceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[launcherOpenWorkspaceRequest](r)
+		payload, err := decodeJSONBody[LauncherOpenWorkspaceRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -328,7 +316,7 @@ func openLauncherWorkspaceHandler(authService *auth.Service, openWorkspace *laun
 			SettaHome:                  launcherStringOrEmpty(payload.SettaHome),
 			Profile:                    launcherStringOrEmpty(payload.Profile),
 			SettaFilesRoot:             launcherStringOrEmpty(payload.SettaFilesRoot),
-			SettaFilesLocation:         payload.SettaFilesLocation,
+			SettaFilesLocation:         launcherFilesLocationStringPointer(payload.SettaFilesLocation),
 			SettaFilesLocationProvided: payload.settaFilesLocationProvided,
 			RuntimeRoot:                launcherStringOrEmpty(payload.RuntimeRoot),
 			CreateIfMissing:            payload.CreateIfMissing,
@@ -340,11 +328,11 @@ func openLauncherWorkspaceHandler(authService *auth.Service, openWorkspace *laun
 			return
 		}
 
-		writeJSON(w, http.StatusOK, launcherOpenWorkspaceResponse{
+		writeJSON(w, http.StatusOK, LauncherOpenWorkspaceResponse{
 			Ok:                   true,
 			BootstrapURLFragment: launcherStringPointer(result.BootstrapURLFragment),
 			WorkspaceRoot:        launcherStringPointer(result.WorkspaceRoot),
-			SettaFilesLocation:   launcherStringPointer(result.SettaFilesLocation),
+			SettaFilesLocation:   launcherResolvedFilesLocationPointer(result.SettaFilesLocation),
 			SettaFilesRoot:       launcherStringPointer(result.SettaFilesRoot),
 			RuntimeRoot:          launcherStringPointer(result.RuntimeRoot),
 			SettaHome:            launcherStringPointer(result.SettaHome),
@@ -356,63 +344,54 @@ func openLauncherWorkspaceHandler(authService *auth.Service, openWorkspace *laun
 	}
 }
 
-func launcherRecentWorkspacePayloads(entries []launcher.RecentWorkspaceEntry) []launcherRecentWorkspacePayload {
-	payloads := make([]launcherRecentWorkspacePayload, 0, len(entries))
+func launcherRecentWorkspacePayloads(entries []launcher.RecentWorkspaceEntry) []launcher.RecentWorkspaceEntry {
+	payloads := make([]launcher.RecentWorkspaceEntry, 0, len(entries))
 	for _, entry := range entries {
-		payloads = append(payloads, launcherRecentWorkspacePayload{
-			WorkspaceRoot: entry.WorkspaceRoot,
-			Pinned:        entry.Pinned,
-			LastUsedAt:    entry.LastUsedAt,
-		})
+		payloads = append(payloads, entry)
 	}
 	return payloads
 }
 
-func launcherDirectoryEntryPayloads(entries []launcher.DirectoryEntry) []launcherDirectoryEntryPayload {
-	payloads := make([]launcherDirectoryEntryPayload, 0, len(entries))
+func launcherDirectoryEntryPayloads(entries []launcher.DirectoryEntry) []launcher.DirectoryEntry {
+	payloads := make([]launcher.DirectoryEntry, 0, len(entries))
 	for _, entry := range entries {
-		payloads = append(payloads, launcherDirectoryEntryPayload{
-			Name:        entry.Name,
-			Path:        entry.Path,
-			IsDirectory: entry.IsDirectory,
-			IsSymlink:   entry.IsSymlink,
-		})
+		payloads = append(payloads, entry)
 	}
 	return payloads
 }
 
-func launcherRecentWorkspacesErrorResponse(err error) launcherRecentWorkspacesResponse {
+func launcherRecentWorkspacesErrorResponse(err error) LauncherRecentWorkspacesResponse {
 	code, message := launcherErrorPayload(err)
-	return launcherRecentWorkspacesResponse{
+	return LauncherRecentWorkspacesResponse{
 		Ok:         false,
-		Workspaces: []launcherRecentWorkspacePayload{},
-		Error: &launcherHomeErrorPayload{
+		Workspaces: []launcher.RecentWorkspaceEntry{},
+		Error: &LauncherHomeErrorPayload{
 			Code:    code,
 			Message: message,
 		},
 	}
 }
 
-func launcherListDirectoryErrorResponse(err error) launcherListDirectoryResponse {
+func launcherListDirectoryErrorResponse(err error) LauncherListDirectoryResponse {
 	code, message := launcherErrorPayload(err)
-	return launcherListDirectoryResponse{
+	return LauncherListDirectoryResponse{
 		Ok:          false,
 		CurrentPath: nil,
 		ParentPath:  nil,
-		Entries:     []launcherDirectoryEntryPayload{},
+		Entries:     []launcher.DirectoryEntry{},
 		NextCursor:  nil,
 		HasMore:     false,
 		Truncated:   false,
-		Error: &launcherHomeErrorPayload{
+		Error: &LauncherHomeErrorPayload{
 			Code:    code,
 			Message: message,
 		},
 	}
 }
 
-func launcherOpenWorkspaceErrorResponse(err error) launcherOpenWorkspaceResponse {
+func launcherOpenWorkspaceErrorResponse(err error) LauncherOpenWorkspaceResponse {
 	code, message := launcherErrorPayload(err)
-	return launcherOpenWorkspaceResponse{
+	return LauncherOpenWorkspaceResponse{
 		Ok:                   false,
 		BootstrapURLFragment: nil,
 		WorkspaceRoot:        nil,
@@ -423,7 +402,7 @@ func launcherOpenWorkspaceErrorResponse(err error) launcherOpenWorkspaceResponse
 		Profile:              nil,
 		SessionID:            nil,
 		StartedNew:           nil,
-		Error: &launcherHomeErrorPayload{
+		Error: &LauncherHomeErrorPayload{
 			Code:    code,
 			Message: message,
 		},
@@ -460,4 +439,21 @@ func launcherStringPointer(value string) *string {
 func launcherBoolPointer(value bool) *bool {
 	result := value
 	return &result
+}
+
+func launcherFilesLocationStringPointer(value *config.FilesLocation) *string {
+	if value == nil {
+		return nil
+	}
+	stringValue := string(*value)
+	return &stringValue
+}
+
+func launcherResolvedFilesLocationPointer(value string) *config.ResolvedFilesLocation {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	resolved := config.ResolvedFilesLocation(trimmed)
+	return &resolved
 }

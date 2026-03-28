@@ -27,61 +27,61 @@ type LauncherManagementRouteDependencies struct {
 	Manager          *launcher.ManagementService
 }
 
-type launcherManagementErrorPayload struct {
+type LauncherOperationErrorPayload struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
 }
 
-type launcherStatusResponse struct {
-	Ok                       bool                            `json:"ok"`
-	Installed                *bool                           `json:"installed,omitempty"`
-	SettaHome                *string                         `json:"settaHome,omitempty"`
-	LauncherDir              *string                         `json:"launcherDir,omitempty"`
-	MetadataPath             *string                         `json:"metadataPath,omitempty"`
-	TargetCommand            []string                        `json:"targetCommand,omitempty"`
-	TargetValid              *bool                           `json:"targetValid,omitempty"`
-	TargetError              *string                         `json:"targetError,omitempty"`
-	Channel                  *string                         `json:"channel,omitempty"`
-	SettaVersion             *string                         `json:"settaVersion,omitempty"`
-	OpenMode                 *string                         `json:"openMode,omitempty"`
-	WorkspaceBehavior        *string                         `json:"workspaceBehavior,omitempty"`
-	LastUsedWorkspace        *string                         `json:"lastUsedWorkspace,omitempty"`
-	ArtifactOptions          map[string]string               `json:"artifactOptions,omitempty"`
-	ManagedArtifacts         map[string]string               `json:"managedArtifacts,omitempty"`
-	ExistingManagedArtifacts []string                        `json:"existingManagedArtifacts,omitempty"`
-	MissingManagedArtifacts  []string                        `json:"missingManagedArtifacts,omitempty"`
-	UpdateCapability         *string                         `json:"updateCapability,omitempty"`
-	UpdateGuidance           *string                         `json:"updateGuidance,omitempty"`
-	Error                    *launcherManagementErrorPayload `json:"error,omitempty"`
+type LauncherStatusResponse struct {
+	Ok                       bool                                `json:"ok"`
+	Installed                *bool                               `json:"installed,omitempty"`
+	SettaHome                *string                             `json:"settaHome,omitempty"`
+	LauncherDir              *string                             `json:"launcherDir,omitempty"`
+	MetadataPath             *string                             `json:"metadataPath,omitempty"`
+	TargetCommand            []string                            `json:"targetCommand,omitempty"`
+	TargetValid              *bool                               `json:"targetValid,omitempty"`
+	TargetError              *string                             `json:"targetError,omitempty"`
+	Channel                  *string                             `json:"channel,omitempty"`
+	SettaVersion             *string                             `json:"settaVersion,omitempty"`
+	OpenMode                 *launcher.LauncherOpenMode          `json:"openMode,omitempty"`
+	WorkspaceBehavior        *launcher.LauncherWorkspaceBehavior `json:"workspaceBehavior,omitempty"`
+	LastUsedWorkspace        *string                             `json:"lastUsedWorkspace,omitempty"`
+	ArtifactOptions          map[string]string                   `json:"artifactOptions,omitempty"`
+	ManagedArtifacts         map[string]string                   `json:"managedArtifacts,omitempty"`
+	ExistingManagedArtifacts []string                            `json:"existingManagedArtifacts,omitempty"`
+	MissingManagedArtifacts  []string                            `json:"missingManagedArtifacts,omitempty"`
+	UpdateCapability         *launcher.LauncherUpdateCapability  `json:"updateCapability,omitempty"`
+	UpdateGuidance           *string                             `json:"updateGuidance,omitempty"`
+	Error                    *LauncherOperationErrorPayload      `json:"error,omitempty"`
 }
 
-type launcherUpdateResponse struct {
-	Ok                       bool                            `json:"ok"`
-	Installed                *bool                           `json:"installed,omitempty"`
-	SettaHome                *string                         `json:"settaHome,omitempty"`
-	LauncherDir              *string                         `json:"launcherDir,omitempty"`
-	MetadataPath             *string                         `json:"metadataPath,omitempty"`
-	TargetCommand            []string                        `json:"targetCommand,omitempty"`
-	TargetValid              *bool                           `json:"targetValid,omitempty"`
-	TargetError              *string                         `json:"targetError,omitempty"`
-	Channel                  *string                         `json:"channel,omitempty"`
-	SettaVersion             *string                         `json:"settaVersion,omitempty"`
-	OpenMode                 *string                         `json:"openMode,omitempty"`
-	WorkspaceBehavior        *string                         `json:"workspaceBehavior,omitempty"`
-	LastUsedWorkspace        *string                         `json:"lastUsedWorkspace,omitempty"`
-	ArtifactOptions          map[string]string               `json:"artifactOptions,omitempty"`
-	ManagedArtifacts         map[string]string               `json:"managedArtifacts,omitempty"`
-	ExistingManagedArtifacts []string                        `json:"existingManagedArtifacts,omitempty"`
-	MissingManagedArtifacts  []string                        `json:"missingManagedArtifacts,omitempty"`
-	UpdateCapability         *string                         `json:"updateCapability,omitempty"`
-	UpdateGuidance           *string                         `json:"updateGuidance,omitempty"`
-	Error                    *launcherManagementErrorPayload `json:"error,omitempty"`
-	PackageSpec              *string                         `json:"packageSpec,omitempty"`
-	FromVersion              *string                         `json:"fromVersion,omitempty"`
-	ToVersion                *string                         `json:"toVersion,omitempty"`
+type LauncherUpdateResponse struct {
+	Ok                       bool                                `json:"ok"`
+	Installed                *bool                               `json:"installed,omitempty"`
+	SettaHome                *string                             `json:"settaHome,omitempty"`
+	LauncherDir              *string                             `json:"launcherDir,omitempty"`
+	MetadataPath             *string                             `json:"metadataPath,omitempty"`
+	TargetCommand            []string                            `json:"targetCommand,omitempty"`
+	TargetValid              *bool                               `json:"targetValid,omitempty"`
+	TargetError              *string                             `json:"targetError,omitempty"`
+	Channel                  *string                             `json:"channel,omitempty"`
+	SettaVersion             *string                             `json:"settaVersion,omitempty"`
+	OpenMode                 *launcher.LauncherOpenMode          `json:"openMode,omitempty"`
+	WorkspaceBehavior        *launcher.LauncherWorkspaceBehavior `json:"workspaceBehavior,omitempty"`
+	LastUsedWorkspace        *string                             `json:"lastUsedWorkspace,omitempty"`
+	ArtifactOptions          map[string]string                   `json:"artifactOptions,omitempty"`
+	ManagedArtifacts         map[string]string                   `json:"managedArtifacts,omitempty"`
+	ExistingManagedArtifacts []string                            `json:"existingManagedArtifacts,omitempty"`
+	MissingManagedArtifacts  []string                            `json:"missingManagedArtifacts,omitempty"`
+	UpdateCapability         *launcher.LauncherUpdateCapability  `json:"updateCapability,omitempty"`
+	UpdateGuidance           *string                             `json:"updateGuidance,omitempty"`
+	Error                    *LauncherOperationErrorPayload      `json:"error,omitempty"`
+	PackageSpec              *string                             `json:"packageSpec,omitempty"`
+	FromVersion              *string                             `json:"fromVersion,omitempty"`
+	ToVersion                *string                             `json:"toVersion,omitempty"`
 }
 
-type launcherRequestBase struct {
+type LauncherRequestBase struct {
 	SettaHome *string `json:"settaHome"`
 }
 
@@ -95,7 +95,7 @@ type setupLauncherRequest struct {
 	ArtifactOptions   *map[string]string `json:"artifactOptions"`
 }
 
-type updateLauncherRequest struct {
+type UpdateLauncherRequest struct {
 	SettaHome   *string `json:"settaHome"`
 	PackageSpec *string `json:"packageSpec"`
 }
@@ -177,7 +177,7 @@ func setupLauncherHandler(defaultSettaHome string, manager *launcher.ManagementS
 
 func repairLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[launcherRequestBase](r)
+		payload, err := decodeJSONBody[LauncherRequestBase](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -198,7 +198,7 @@ func repairLauncherHandler(defaultSettaHome string, manager *launcher.Management
 
 func removeLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[launcherRequestBase](r)
+		payload, err := decodeJSONBody[LauncherRequestBase](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -223,7 +223,7 @@ func removeLauncherHandler(defaultSettaHome string, manager *launcher.Management
 
 func updateLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeJSONBody[updateLauncherRequest](r)
+		payload, err := decodeJSONBody[UpdateLauncherRequest](r)
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
 			return
@@ -332,8 +332,8 @@ func normalizeLauncherWorkspaceBehaviorForSetup(value *string) (*launcher.Launch
 	}
 }
 
-func launcherStatusResponseFromSnapshot(status launcher.LauncherStatusSnapshot) launcherStatusResponse {
-	response := launcherStatusResponse{
+func launcherStatusResponseFromSnapshot(status launcher.LauncherStatusSnapshot) LauncherStatusResponse {
+	response := LauncherStatusResponse{
 		Ok:                       true,
 		Installed:                boolPointer(status.Installed),
 		SettaHome:                stringPointer(status.SettaHome),
@@ -352,23 +352,23 @@ func launcherStatusResponseFromSnapshot(status launcher.LauncherStatusSnapshot) 
 		UpdateGuidance:           cloneStringPointer(status.UpdateGuidance),
 	}
 	if status.OpenMode != nil {
-		value := string(*status.OpenMode)
+		value := *status.OpenMode
 		response.OpenMode = &value
 	}
 	if status.WorkspaceBehavior != nil {
-		value := string(*status.WorkspaceBehavior)
+		value := *status.WorkspaceBehavior
 		response.WorkspaceBehavior = &value
 	}
-	updateCapability := string(status.UpdateCapability)
-	if updateCapability != "" {
+	if status.UpdateCapability != "" {
+		updateCapability := status.UpdateCapability
 		response.UpdateCapability = &updateCapability
 	}
 	return response
 }
 
-func launcherUpdateResponseFromResult(result launcher.LauncherUpdateResult) launcherUpdateResponse {
+func launcherUpdateResponseFromResult(result launcher.LauncherUpdateResult) LauncherUpdateResponse {
 	statusResponse := launcherStatusResponseFromSnapshot(result.Status)
-	response := launcherUpdateResponse{
+	response := LauncherUpdateResponse{
 		Ok:                       statusResponse.Ok,
 		Installed:                statusResponse.Installed,
 		SettaHome:                statusResponse.SettaHome,
@@ -395,19 +395,19 @@ func launcherUpdateResponseFromResult(result launcher.LauncherUpdateResult) laun
 	return response
 }
 
-func launcherStatusErrorResponse(err error) launcherStatusResponse {
+func launcherStatusErrorResponse(err error) LauncherStatusResponse {
 	code, message := launcherManagementErrorDetails(err)
-	return launcherStatusResponse{
+	return LauncherStatusResponse{
 		Ok:    false,
-		Error: &launcherManagementErrorPayload{Code: code, Message: message},
+		Error: &LauncherOperationErrorPayload{Code: code, Message: message},
 	}
 }
 
-func launcherUpdateErrorResponse(err error) launcherUpdateResponse {
+func launcherUpdateErrorResponse(err error) LauncherUpdateResponse {
 	code, message := launcherManagementErrorDetails(err)
-	return launcherUpdateResponse{
+	return LauncherUpdateResponse{
 		Ok:    false,
-		Error: &launcherManagementErrorPayload{Code: code, Message: message},
+		Error: &LauncherOperationErrorPayload{Code: code, Message: message},
 	}
 }
 
