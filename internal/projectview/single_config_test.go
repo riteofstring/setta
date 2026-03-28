@@ -293,6 +293,50 @@ func TestSingleConfigByProjectIDNormalizesEmptySlicesForFrontendContracts(t *tes
 	}
 }
 
+func TestSingleConfigByProjectIDRepairsMissingTopLevelViewModeEntries(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "terminal-section")
+	project.Sections["terminal-section"] = projectstate.Section{
+		ID:               "terminal-section",
+		Name:             "Terminal",
+		VariantIDs:       []string{"terminal-variant"},
+		DefaultVariantID: "terminal-variant",
+	}
+	project.SectionVariants["terminal-variant"] = projectstate.SectionVariant{
+		ID:     "terminal-variant",
+		ImplID: "terminal-impl",
+	}
+	project.SectionImpls["terminal-impl"] = projectstate.SectionImpl{
+		ID:       "terminal-impl",
+		Kind:     projectstate.SectionKindTerminal,
+		Terminal: &projectstate.TerminalSectionImpl{},
+	}
+	project.SectionVariantMap["terminal-section"] = "terminal-variant"
+	delete(project.TopLevelSections, "terminal-section")
+	viewMode := project.ViewModes[project.ActiveViewModeID]
+	delete(viewMode.TopLevelSections, "terminal-section")
+	delete(viewMode.VisibilityBySectionID, "terminal-section")
+	project.ViewModes[project.ActiveViewModeID] = viewMode
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	if _, ok := view.ProjectConfig.TopLevelSections["terminal-section"]; !ok {
+		t.Fatalf("expected projected top-level layout for terminal-section, got %#v", view.ProjectConfig.TopLevelSections)
+	}
+	repairedViewMode := view.ProjectConfig.ViewModes[project.ActiveViewModeID]
+	if !repairedViewMode.VisibilityBySectionID["terminal-section"] {
+		t.Fatalf("expected repaired view mode visibility for terminal-section, got %#v", repairedViewMode.VisibilityBySectionID)
+	}
+	if _, ok := repairedViewMode.TopLevelSections["terminal-section"]; !ok {
+		t.Fatalf("expected repaired view mode layout for terminal-section, got %#v", repairedViewMode.TopLevelSections)
+	}
+}
+
 func TestSingleConfigByProjectIDIncludesWindowingFields(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]

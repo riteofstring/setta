@@ -356,6 +356,16 @@ func TestRuntimeCreateTemporaryTerminalCreatesTopLevelTerminal(t *testing.T) {
 	if !project.HasTopLevelSection(terminalID) {
 		t.Fatal("expected temporary terminal to be top-level")
 	}
+	if _, ok := project.TopLevelSections[terminalID]; !ok {
+		t.Fatalf("expected temporary terminal layout in top-level sections, got %#v", project.TopLevelSections)
+	}
+	activeViewMode := project.ViewModes[project.ActiveViewModeID]
+	if !activeViewMode.VisibilityBySectionID[terminalID] {
+		t.Fatalf("expected temporary terminal visibility in active view mode, got %#v", activeViewMode.VisibilityBySectionID)
+	}
+	if _, ok := activeViewMode.TopLevelSections[terminalID]; !ok {
+		t.Fatalf("expected temporary terminal layout in active view mode, got %#v", activeViewMode.TopLevelSections)
+	}
 	if terminalVariant.ID != "temporary-terminal-variant" {
 		t.Fatalf("expected temporary variant id, got %q", terminalVariant.ID)
 	}

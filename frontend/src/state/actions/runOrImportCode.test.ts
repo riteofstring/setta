@@ -4,6 +4,7 @@ import {
   CodeLanguageEnum,
   createCodeSectionImpl,
   createCore,
+  createProjectCodegenPythonTarget,
   createProjectConfig,
   createProjectStateSingleConfig,
   createProjectStateSingleConfigWithCompletedOpIds,
@@ -61,8 +62,10 @@ const terminalImplId = "terminal-impl";
 
 function buildProjectState({
   attachedTerminalId,
+  pythonCodegenEnabled = false,
 }: {
   attachedTerminalId: string | null;
+  pythonCodegenEnabled?: boolean;
 }) {
   const sectionVariantMap: Record<string, string> = {
     [codeSectionId]: codeVariantId,
@@ -115,6 +118,9 @@ function buildProjectState({
     projectConfig: createProjectConfig({
       id: "project-1",
       sectionVariantMap,
+      codegenTargets: pythonCodegenEnabled
+        ? [createProjectCodegenPythonTarget()]
+        : [],
     }),
     sections,
     sectionVariants,
@@ -187,6 +193,44 @@ describe("runCodeBlock", () => {
     );
     expect(routeGetLatestProjectStateMock).not.toHaveBeenCalled();
     expect(processProjectStateUpdateFromBackendMock).not.toHaveBeenCalled();
+  });
+
+  it("rehydrates project state after a generated-entry run creates a top-level terminal", async () => {
+    useProjectState.setState(
+      buildProjectState({
+        attachedTerminalId: null,
+        pythonCodegenEnabled: true,
+      }),
+    );
+    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIds(
+      {
+        projectState: buildProjectState({
+          attachedTerminalId: null,
+          pythonCodegenEnabled: true,
+        }),
+      },
+    );
+    routeGetLatestProjectStateMock.mockResolvedValue({
+      status: 200,
+      data: latestProjectState,
+      hasResponse: true,
+    });
+
+    await runCodeBlock(null);
+
+    expect(routeRunCodeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectConfigId: "project-1",
+        sectionId: null,
+        terminalSectionId: null,
+      }),
+    );
+    expect(routeGetLatestProjectStateMock).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
+    });
+    expect(processProjectStateUpdateFromBackendMock).toHaveBeenCalledWith(
+      latestProjectState,
+    );
   });
 });
 

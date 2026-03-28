@@ -286,12 +286,24 @@ func (d *Document) CreateTemporaryTerminal(projectID string, seed TerminalSectio
 	if err != nil {
 		return "", err
 	}
+	project.pruneTopLevelCreationViewState()
 
 	normalizedSeed, err := seed.Normalized()
 	if err != nil {
 		return "", err
 	}
 	if err := ensureTerminalSeedAvailable(project, normalizedSeed); err != nil {
+		return "", err
+	}
+
+	payload, err := buildCreatedSectionPayload(
+		normalizedSeed.ImplID,
+		"Terminal",
+		createdTerminalSectionDefaults(),
+		StructuralMutationSettings{},
+		nil,
+	)
+	if err != nil {
 		return "", err
 	}
 
@@ -308,10 +320,28 @@ func (d *Document) CreateTemporaryTerminal(projectID string, seed TerminalSectio
 	project.SectionImpls[normalizedSeed.ImplID] = SectionImpl{
 		ID:       normalizedSeed.ImplID,
 		Kind:     SectionKindTerminal,
+		Payload:  payload,
 		Terminal: &TerminalSectionImpl{},
 	}
 	project.SectionVariantMap[normalizedSeed.SectionID] = normalizedSeed.VariantID
-	project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, normalizedSeed.SectionID)
+
+	if layout, ok := project.existingTopLevelSectionLayout(normalizedSeed.SectionID); ok {
+		project.addTopLevelSectionViewState(normalizedSeed.SectionID, layout)
+	} else {
+		position, err := project.resolveDeterministicCreateTopLevelSectionPosition(
+			DefaultStructuralMutationSettings().SectionSizingPolicy,
+			"Terminal",
+			payload,
+		)
+		if err != nil {
+			return "", err
+		}
+		project.addTopLevelSectionViewState(normalizedSeed.SectionID, TopLevelSectionLayout{
+			X:      position.X,
+			Y:      position.Y,
+			ZIndex: project.nextCreateTopLevelSectionZIndex(),
+		})
+	}
 
 	d.Projects[project.ID] = project
 	return normalizedSeed.SectionID, nil

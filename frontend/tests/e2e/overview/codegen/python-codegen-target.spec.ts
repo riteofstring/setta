@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type ConsoleMessage, type Page } from "@playwright/test";
 import {
   addKwargFromFrontend,
   cleanupIsolatedProject,
@@ -45,6 +45,15 @@ type LoadedCodegenProjectState = {
     id: string;
     sectionVariantMap: Record<string, string>;
     codegenTargets: ProjectCodegenTarget[];
+    topLevelSections: Record<
+      string,
+      {
+        x?: number;
+        y?: number;
+        w?: number | null;
+        h?: number | null;
+      }
+    >;
   };
   sectionVariants: Record<
     string,
@@ -147,9 +156,7 @@ async function loadCodegenProjectState(
   return response;
 }
 
-async function getGeneratedPythonSectionSize(
-  page: Page,
-): Promise<{
+async function getGeneratedPythonSectionSize(page: Page): Promise<{
   width: number | string | undefined;
   height: number | string | undefined;
 }> {
@@ -270,6 +277,45 @@ async function setGenCodePrefixFromFrontend(
   );
 }
 
+async function setGenCodeSuffixFromFrontend(
+  page: Page,
+  projectConfigId: string,
+  genCodeSuffix: string,
+): Promise<void> {
+  await page.evaluate(
+    async ({ targetProjectConfigId, nextSuffix }) => {
+      const { res200 } = await import("/src/utils/endpointUtils");
+      const { processProjectStateUpdateFromBackend } = await import(
+        "/src/state/actions/sectionInfos"
+      );
+      const { route_get_latest_project_state, route_set_gen_code_suffix } =
+        await import("/src/utils/generatedEndpoints");
+
+      const response = await route_set_gen_code_suffix({
+        projectConfigId: targetProjectConfigId,
+        genCodeSuffix: nextSuffix,
+        frontendOpId: null,
+      });
+      if (!res200(response)) {
+        throw new Error(
+          `Failed frontend test mutation route_set_gen_code_suffix for ${targetProjectConfigId}: ${response.status}`,
+        );
+      }
+
+      const latestProjectStateResponse = await route_get_latest_project_state({
+        projectConfigId: targetProjectConfigId,
+      });
+      if (!res200(latestProjectStateResponse)) {
+        throw new Error(
+          `Failed to hydrate latest project state for ${targetProjectConfigId}: ${latestProjectStateResponse.status}`,
+        );
+      }
+      processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
+    },
+    { targetProjectConfigId: projectConfigId, nextSuffix: genCodeSuffix },
+  );
+}
+
 async function setCallableFromUi(
   page: Page,
   sectionId: string,
@@ -280,6 +326,31 @@ async function setCallableFromUi(
   await callableSearch.click();
   await page.keyboard.type(callableName);
   await page.keyboard.press("Enter");
+}
+
+function findTopLevelTerminalSectionId(
+  state: LoadedCodegenProjectState,
+): string | null {
+  for (const sectionId of Object.keys(state.projectConfig.topLevelSections)) {
+    const variantId = state.projectConfig.sectionVariantMap[sectionId];
+    if (!variantId) {
+      continue;
+    }
+    const implId = state.sectionVariants[variantId]?.impl;
+    if (!implId) {
+      continue;
+    }
+    if (state.sectionImpls[implId]?.type === "Terminal") {
+      return sectionId;
+    }
+  }
+  return null;
+}
+
+function isIgnorableConsoleError(message: string): boolean {
+  return message.includes(
+    "Accessing element.ref was removed in React 19. ref is now a regular prop.",
+  );
 }
 
 async function getFirstParamInfoId(
@@ -627,6 +698,121 @@ test("generated python updates for callable and param changes and reports missin
       .poll(async () => (await paramContainer.getAttribute("class")) ?? "")
       .not.toMatch(/bg-red-200/);
   } finally {
+    await cleanupIsolatedProject(page, projectContext);
+  }
+});
+
+test("generated python run creates a visible terminal and survives reload", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  await ensureAppReady(page);
+  const projectContext = await openIsolatedProject(page);
+  const pageErrors: string[] = [];
+  const onPageError = (error: Error) => {
+    const message = error?.stack || error?.message || String(error);
+    if (!pageErrors.includes(message)) {
+      pageErrors.push(message);
+    }
+  };
+  page.on("pageerror", onPageError);
+  page.on("console", (message: ConsoleMessage) => {
+    const text = message.text();
+    if (message.type() === "error" && !isIgnorableConsoleError(text)) {
+      // Keep the listener installed so Playwright surfaces these in test logs,
+      // but do not fail the test on benign unload-time fetch cancellations.
+    }
+  });
+
+  try {
+    await setGenCodePrefixFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      "import math\nRUN_MARKER = 'RUN_OK_MARKER'\n",
+    );
+
+    const sectionId = await createCallableSection(
+      page,
+      projectContext.projectConfigId,
+    );
+    await setSectionNameFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      name: "root_value",
+    });
+    await setCallableFromUi(page, sectionId, "math.sqrt");
+
+    const paramInfoId = await getFirstParamInfoId(page, sectionId);
+    await setParamValueFromFrontend(page, {
+      projectConfigId: projectContext.projectConfigId,
+      sectionId,
+      paramInfoId,
+      value: "9",
+    });
+    await setGenCodeSuffixFromFrontend(
+      page,
+      projectContext.projectConfigId,
+      "state = SettaState()\nprint(RUN_MARKER, state.root_value)\n",
+    );
+
+    const initialState = await loadCodegenProjectState(page);
+    const generatedSectionId = initialState.singletonSections.GenPythonCode;
+    if (!generatedSectionId) {
+      throw new Error("Expected generated python singleton section.");
+    }
+
+    await page.evaluate(async (id) => {
+      const { runCodeBlock } = await import(
+        "/src/state/actions/runOrImportCode"
+      );
+      await runCodeBlock(id);
+    }, generatedSectionId);
+
+    await expect
+      .poll(async () =>
+        findTopLevelTerminalSectionId(await loadCodegenProjectState(page)),
+      )
+      .not.toBeNull();
+
+    const loadedState = await loadCodegenProjectState(page);
+    const createdTerminalId = findTopLevelTerminalSectionId(loadedState);
+    if (!createdTerminalId) {
+      throw new Error(
+        "Expected generated-entry run to create a top-level terminal.",
+      );
+    }
+    const terminalNode = page.locator(
+      `.react-flow__node[data-id="${createdTerminalId}"]`,
+    );
+    await expect(terminalNode).toBeVisible();
+    await expect
+      .poll(async () => {
+        return ((await terminalNode.textContent()) ?? "").replace(/\s+/g, " ");
+      })
+      .toContain("RUN_OK_MARKER");
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForSelector(READY_SELECTOR);
+
+    const reloadedTerminalNode = page.locator(
+      `.react-flow__node[data-id="${createdTerminalId}"]`,
+    );
+    await expect(reloadedTerminalNode).toBeVisible();
+    await expect
+      .poll(async () => {
+        return ((await reloadedTerminalNode.textContent()) ?? "").replace(
+          /\s+/g,
+          " ",
+        );
+      })
+      .toContain("RUN_OK_MARKER");
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await expect(
+      page.getByText("Unexpected Application Error", { exact: true }),
+    ).toHaveCount(0);
+    expect(pageErrors).toEqual([]);
+  } finally {
+    page.off("pageerror", onPageError);
     await cleanupIsolatedProject(page, projectContext);
   }
 });

@@ -246,11 +246,6 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 }
 
 func projectConfigFromProject(project projectstate.Project) ProjectConfig {
-	viewModes := make(map[string]projectstate.ViewMode, len(project.ViewModes))
-	for viewModeID, viewMode := range project.ViewModes {
-		viewModes[viewModeID] = viewMode.Clone()
-	}
-
 	topLevelSections := make(map[string]projectstate.TopLevelSectionLayout, len(project.TopLevelSections)+len(project.TopLevelSectionIDs))
 	for sectionID, layout := range project.TopLevelSections {
 		topLevelSections[sectionID] = layout.Clone()
@@ -259,6 +254,26 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 		if _, ok := topLevelSections[sectionID]; !ok {
 			topLevelSections[sectionID] = projectstate.TopLevelSectionLayout{}
 		}
+	}
+
+	viewModes := make(map[string]projectstate.ViewMode, len(project.ViewModes))
+	for viewModeID, viewMode := range project.ViewModes {
+		clonedViewMode := viewMode.Clone()
+		if clonedViewMode.VisibilityBySectionID == nil {
+			clonedViewMode.VisibilityBySectionID = map[string]bool{}
+		}
+		if clonedViewMode.TopLevelSections == nil {
+			clonedViewMode.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
+		}
+		for _, sectionID := range project.TopLevelSectionIDs {
+			if _, ok := clonedViewMode.VisibilityBySectionID[sectionID]; !ok {
+				clonedViewMode.VisibilityBySectionID[sectionID] = true
+			}
+			if _, ok := clonedViewMode.TopLevelSections[sectionID]; !ok {
+				clonedViewMode.TopLevelSections[sectionID] = topLevelSections[sectionID].Clone()
+			}
+		}
+		viewModes[viewModeID] = clonedViewMode
 	}
 
 	codegenTargets := make([]json.RawMessage, 0, len(project.CodegenTargets))

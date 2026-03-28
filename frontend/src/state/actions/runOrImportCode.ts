@@ -77,9 +77,10 @@ export async function runCodeBlock(sectionId: string | null) {
       return;
     }
   }
-  if (pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode) {
-    sectionId = null;
-  }
+  const executionSectionId =
+    pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode
+      ? null
+      : sectionId;
   const shareSession = useShareSession.getState();
   let runSnapshotMode = null;
   if (!shareSession.isDeploymentMode) {
@@ -93,19 +94,20 @@ export async function runCodeBlock(sectionId: string | null) {
     }
   }
   const terminalSectionId = await ensureAttachedTerminalForRun({
-    sectionId,
+    sectionId: executionSectionId,
     projectConfig,
   });
   const shouldRefreshProjectState =
     terminalSectionId === null &&
     shouldRefreshProjectStateAfterRun({
-      sectionId,
+      executionSectionId,
       projectConfig,
+      pythonCodegenEnabled,
     });
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
   const runResponse: RunCodeRouteResponse = await route_run_code({
     projectConfigId: projectConfig.id,
-    sectionId,
+    sectionId: executionSectionId,
     terminalSectionId,
     cliId: null,
     runSnapshotMode,
@@ -209,14 +211,19 @@ async function ensureAttachedTerminalForRun({
 }
 
 function shouldRefreshProjectStateAfterRun({
-  sectionId,
+  executionSectionId,
   projectConfig,
+  pythonCodegenEnabled,
 }: {
-  sectionId: string | null;
+  executionSectionId: string | null;
   projectConfig: ZustandProjectState["projectConfig"];
+  pythonCodegenEnabled: boolean;
 }): boolean {
+  if (pythonCodegenEnabled && executionSectionId === null) {
+    return true;
+  }
   const resolvedSectionId = resolveAttachmentSectionId(
-    sectionId,
+    executionSectionId,
     projectConfig,
   );
   if (!resolvedSectionId) {
