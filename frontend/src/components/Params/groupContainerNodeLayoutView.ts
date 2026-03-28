@@ -3,6 +3,12 @@ import type {
   DictAreaNodeLayoutParamAreaBlockPacket,
 } from "../Section/Layouts/dictAreaNodeLayoutPackets";
 import { buildDictAreaNodeLayoutPacket } from "../Section/Layouts/dictAreaNodeLayoutPackets";
+import {
+  buildLiveDictAreaBlockFramePackets,
+  type LiveDictAreaBlockFramePacket,
+  type LiveDictAreaEdgeStripFramePacket,
+  type LiveDictAreaParamAreaFramePacket,
+} from "./groupContainerBlockFramePackets";
 import type {
   LiveDictAreaScenePacket,
   LiveDictAreaSceneParamAreaPacket,
@@ -14,10 +20,14 @@ export type LiveDictAreaNodeLayoutParamAreaView =
   };
 
 export type LiveDictAreaNodeLayoutView = {
+  blockFrames: LiveDictAreaBlockFramePacket[];
+  edgeStripFrame: LiveDictAreaEdgeStripFramePacket | null;
   nodeLayoutPacket: DictAreaNodeLayoutPacket;
   paramAreas: LiveDictAreaNodeLayoutParamAreaView[];
   pinnedParamArea: LiveDictAreaNodeLayoutParamAreaView | null;
+  pinnedParamAreaFrame: LiveDictAreaParamAreaFramePacket | null;
   unpinnedParamArea: LiveDictAreaNodeLayoutParamAreaView | null;
+  unpinnedParamAreaFrame: LiveDictAreaParamAreaFramePacket | null;
 };
 
 export function buildLiveDictAreaNodeLayoutView({
@@ -49,12 +59,26 @@ export function buildLiveDictAreaNodeLayoutView({
 
     return [{ ...sceneParamArea, layoutBlock: block }];
   });
-
-  return {
+  const {
+    blockFrames,
+    edgeStripFrame,
+    pinnedParamAreaFrame,
+    unpinnedParamAreaFrame,
+  } = buildLiveDictAreaBlockFramePackets({
     nodeLayoutPacket,
     paramAreas,
-    pinnedParamArea: paramAreas.find((paramArea) => paramArea.id === "pinned") ?? null,
+  });
+
+  return {
+    blockFrames,
+    edgeStripFrame,
+    nodeLayoutPacket,
+    paramAreas,
+    pinnedParamArea:
+      paramAreas.find((paramArea) => paramArea.id === "pinned") ?? null,
+    pinnedParamAreaFrame,
     unpinnedParamArea:
       paramAreas.find((paramArea) => paramArea.id === "unpinned") ?? null,
+    unpinnedParamAreaFrame,
   };
 }

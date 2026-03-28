@@ -707,3 +707,31 @@ Record:
       - no obvious visual regressions were observed in the visible settings shell or dict/param area
 - Next action:
   - Continue the first retained-scene node renderer work by extracting deterministic block-frame mount packets from this live dict-area node-layout view before any Pixi node drawing lands.
+
+## 2026-03-26 028
+
+- Item: Extract deterministic block-frame mount packets from the live dict-area node-layout view.
+- Status: `done`
+- Details:
+  - Added a pure typed block-frame packet boundary above the retained-scene node-layout view for the live dict/param canary path:
+    - `frontend/src/components/Params/groupContainerBlockFramePackets.ts`
+    - `frontend/src/components/Params/groupContainerBlockFramePackets.test.ts`
+  - Updated the existing live node-layout view to expose the new ordered block-frame mount packets alongside the existing plain param-area lookups, while keeping the current DOM path behavior unchanged:
+    - `frontend/src/components/Params/groupContainerNodeLayoutView.ts`
+    - `frontend/src/components/Params/groupContainerNodeLayoutView.test.ts`
+  - The new helper now deterministically:
+    - emits ordered block-frame packets for the edge strip plus pinned/unpinned param areas
+    - assigns stable frame ids and fixed-vs-grow mount metadata for future retained-scene mounting
+    - preserves the existing plain `pinnedParamArea` / `unpinnedParamArea` node-layout view accessors so the live non-Pixi DOM path stays stable while the future scene renderer gains a real block-frame input
+  - Verification:
+    - Vitest: `pnpm -C frontend exec vitest run src/components/Params/groupContainerBlockFramePackets.test.ts src/components/Params/groupContainerNodeLayoutView.test.ts src/components/Params/GroupContainer.test.tsx`
+      - result: passed
+    - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-benchmark.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - `/settings` loaded authenticated at `http://127.0.0.1:3044/settings`
+      - the visible settings shell and dict/param area stayed structurally intact with no obvious clipping, overlap, or missing major content
+      - representative visible labels and controls included `Project`, `Edit`, `Run`, `OVERVIEW`, `settings`, `Filter`, `TAG`, `All`, tag rows such as `sectionSizingPolicy`, `gui`, `backend`, `languageServer`, and `shortcuts`, plus bottom tabs including `Param Defaults` and `All Settings`
+      - relevant requests returned `200`, including `api/loadSettings`, `api/backendInitStatus`, `api/authRefreshStatus`, `api/getDefaultConfigName`, `api/getFileBrowserRoot`, `api/loadAllProjectMetadata`, `api/getFolderContents`, `api/checkWorkspaceInitialized`, and `api/loadProjectConfig`
+- Next action:
+  - Continue the first retained-scene node renderer work by routing the live `GroupContainer` mount path through the new block-frame packets before any Pixi node drawing lands.
