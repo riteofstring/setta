@@ -236,6 +236,9 @@ That means:
   - the Python classes subclass Go-generated base models and only keep Python-side validators, defaults, typed unions, and OpenAI-format helpers.
 - `backend/setta/types/chat.py` no longer keeps pass-through `Foo = GoFoo` aliases for generated chat leaf content/delta/event models:
   - internal chat/toolkit callers now import `ChatFileAttachment`, `MessageTextContent`, `MessageImageURL`, `MessageImageURLContent`, `MessageThinkingContent`, `ToolReferenceContent`, `MessageTextDelta`, `MessageThinkingDelta`, `ToolCallDeltaEvent`, and `MessageStopEvent` from `go_shared_types.py` directly instead of routing them through a handwritten rename layer
+- `backend/setta/types/chat.py` no longer keeps a handwritten `ToolCall` subclass:
+  - chat/toolkit callers and tests now construct the generated Go-owned `ToolCall` model directly
+  - explicit `id` and `type="function"` construction now happens at the call sites instead of through a thin Python wrapper
 - `backend/setta/types/chat.py` has been trimmed further by deleting duplicate field redeclarations and dead timestamp validators:
   - the generated chat models already parse ISO `lastUpdated` datetimes correctly, so the handwritten `Chat` / `ChatMetadata` validators were unnecessary
   - redundant inherited field lines such as `name`, `llmConfig`, `systemPrompt`, `tool_name`, and `completed_at` have been removed where they no longer changed behavior

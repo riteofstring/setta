@@ -64,10 +64,10 @@ from setta.types.generated.go_shared_types import (
     ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
-    ToolCall as GoToolCall,
+    ToolCallDeltaEvent as GoToolCallDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
-    ToolCallDeltaEvent as GoToolCallDeltaEvent,
+    ToolCall as GoToolCall,
 )
 from setta.types.generated.go_shared_types import (
     ToolCallFunction as GoToolCallFunction,
@@ -110,12 +110,6 @@ class ToolCallFunction(GoToolCallFunction):
         return {}
 
 
-class ToolCall(GoToolCall):
-    id: str = Field(default_factory=create_new_id)
-    type: Literal["function"] = "function"
-    function: ToolCallFunction
-
-
 class _OpenAIMessageMixin:
     def to_openai_format(self) -> dict[str, Any]:
         output = self.model_dump(exclude_none=True)
@@ -139,7 +133,7 @@ class AssistantChatMessage(GoAssistantChatMessage, _OpenAIMessageMixin):
     createdAt: int = 0
     content: list[MessageContent] = Field(default_factory=list)
     attachments: list[GoChatFileAttachment] = Field(default_factory=list)
-    tool_calls: list[ToolCall] | None = None
+    tool_calls: list[GoToolCall] | None = None
 
     def to_openai_format(self) -> dict[str, Any]:
         output = _OpenAIMessageMixin.to_openai_format(self)

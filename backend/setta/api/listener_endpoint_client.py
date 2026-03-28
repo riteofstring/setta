@@ -8,10 +8,10 @@ from setta.types.chat import (
     ChatSectionState,
     LLMStreamingResponseChunk,
     SystemChatMessage,
-    ToolCall,
     ToolChatMessage,
     UserChatMessage,
 )
+from setta.types.generated.go_shared_types import ToolCall
 from setta.types.id import ID
 
 ListenerEndpointCaller = Callable[[str, object], Awaitable[object]]

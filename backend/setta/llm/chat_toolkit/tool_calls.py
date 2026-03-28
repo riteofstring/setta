@@ -1,6 +1,8 @@
 import json
 
-from setta.types.chat import ToolCall, ToolCallFunction
+from setta.types.chat import ToolCallFunction
+from setta.types.generated.go_shared_types import ToolCall
+from setta.types.id import create_new_id
 
 
 class ToolCallBuilder:
@@ -18,8 +20,8 @@ class ToolCallBuilder:
             parsed_arguments = json.loads(arguments)
         function = ToolCallFunction(name=name, arguments=parsed_arguments)
         if tool_call_id is None:
-            return ToolCall(function=function)
-        return ToolCall(id=tool_call_id, function=function)
+            return ToolCall(id=create_new_id(), type="function", function=function)
+        return ToolCall(id=tool_call_id, type="function", function=function)
 
 
 class ToolCallAccumulator:
@@ -52,6 +54,7 @@ class ToolCallAccumulator:
         if tool_call_id not in self._tool_calls:
             tool_call = ToolCall(
                 id=tool_call_id,
+                type="function",
                 function=ToolCallFunction(
                     name=tool_name or "",
                     arguments={},

@@ -1,12 +1,15 @@
 import json
 from datetime import datetime, timezone
 
-from setta.types.generated.go_shared_types import ChatFileAttachment, MessageTextContent
+from setta.types.generated.go_shared_types import (
+    ChatFileAttachment,
+    MessageTextContent,
+    ToolCall,
+)
 from setta.types.chat import (
     AssistantChatMessage,
     Chat,
     ChatMetadata,
-    ToolCall,
     ToolCallFunction,
     ToolChatMessage,
     UserChatMessage,
@@ -27,7 +30,9 @@ def test_to_openai_format_without_tool_calls() -> None:
 
 def test_to_openai_format_serializes_tool_call_arguments() -> None:
     tool_call = ToolCall(
-        function=ToolCallFunction(name="some_tool", arguments={"a": 1})
+        id="tool-call-1",
+        type="function",
+        function=ToolCallFunction(name="some_tool", arguments={"a": 1}),
     )
     message = AssistantChatMessage(
         content=[MessageTextContent(type="text", text="result")],

@@ -8,7 +8,6 @@ from setta.types.chat import (
     MessageFinalizedEvent,
     MessageStartEvent,
     ToolArgumentPreviewDeltaEvent,
-    ToolCall,
     ToolCallFunction,
     ToolResultEvent,
 )
@@ -16,6 +15,7 @@ from setta.types.generated.go_shared_types import (
     MessageStopEvent,
     MessageTextContent,
     MessageThinkingContent,
+    ToolCall,
     ToolCallDeltaEvent,
 )
 from setta.types.id import ID
@@ -230,6 +230,7 @@ def _apply_tool_call_delta(
     if existing is None:
         existing = ToolCall(
             id=chunk.tool_call_id,
+            type="function",
             function=ToolCallFunction(
                 name=chunk.tool_name or "",
                 arguments={},

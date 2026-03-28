@@ -6,12 +6,12 @@ from setta.types.generated.go_shared_types import (
     MessageImageURLContent,
     MessageTextContent,
     MessageThinkingContent,
+    ToolCall,
     ToolReferenceContent,
 )
 from setta.types.chat import (
     AssistantChatMessage,
     SystemChatMessage,
-    ToolCall,
     UserChatMessage,
 )
 
