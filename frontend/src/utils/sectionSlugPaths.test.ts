@@ -228,4 +228,47 @@ describe("sectionSlugPaths", () => {
       sectionType: SectionTypeEnum.Code,
     });
   });
+
+  it("skips incomplete descendant sections while resolving standalone parent slugs", () => {
+    const state = createSectionState({
+      sections: {
+        parent: { name: "GUI" },
+        child: { name: "Grid Color" },
+      },
+      parentSectionMap: {
+        parent: null,
+        child: "parent",
+      },
+      groupChildrenById: {
+        parent: ["child"],
+      },
+    });
+
+    delete state.projectConfig.sectionVariantMap.child;
+
+    expect(resolveStandaloneSectionSlug(state, "gui")).toEqual({
+      kind: "found",
+      sectionId: "parent",
+      sectionName: "GUI",
+      sectionType: SectionTypeEnum.Group,
+    });
+  });
+
+  it("fails closed for top-level sections without an active variant mapping", () => {
+    const state = createSectionState({
+      sections: {
+        gui: { name: "GUI" },
+      },
+      parentSectionMap: {
+        gui: null,
+      },
+    });
+
+    delete state.projectConfig.sectionVariantMap.gui;
+
+    expect(resolveStandaloneSectionSlug(state, "gui")).toEqual({
+      kind: "not_found",
+      sectionSlug: "gui",
+    });
+  });
 });

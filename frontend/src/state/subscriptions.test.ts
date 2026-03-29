@@ -1,195 +1,66 @@
-/* @vitest-environment jsdom */
-
-import { useReactFlow } from "forks/xyflow/core/store";
-import initialState from "forks/xyflow/core/store/initialState";
-import {
-  debouncedDispatchViewportUpdate,
-  processProjectStateUpdateFromBackend,
-} from "state/actions/sectionInfos";
-import {
-  usePendingOperations,
-  useProjectState,
-  useSettings,
-} from "state/definitions";
+import { useMisc } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  createProjectConfig,
-  createProjectStateSingleConfig,
-  createSettingsState,
-  createSingletonSections,
-} from "utils/generatedTypes";
-import {
-  afterEach,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
-import { subscribe } from "./subscriptions";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const routeSetViewportMock = vi.fn();
+const getNodeUpdateInformationMock = vi.fn(() => []);
+const updateNodeDimensionsMock = vi.fn(() => true);
 
-vi.mock("utils/generatedEndpoints", async () => {
+vi.mock("./actions/nodeInternals", async () => {
   const actual = await vi.importActual<
-    typeof import("utils/generatedEndpoints")
-  >("utils/generatedEndpoints");
+    typeof import("./actions/nodeInternals")
+  >("./actions/nodeInternals");
   return {
     ...actual,
-    route_set_viewport: (...args: unknown[]) => routeSetViewportMock(...args),
+    getNodeUpdateInformation: (...args: unknown[]) =>
+      getNodeUpdateInformationMock(...args),
+    updateNodeDimensions: (...args: unknown[]) =>
+      updateNodeDimensionsMock(...args),
   };
 });
 
-let subscriptionsInstalled = false;
+import { processRequestedNodeDimensionsUpdate } from "./subscriptions";
 
-function ensureSubscriptionsInstalled() {
-  if (subscriptionsInstalled) {
-    return;
-  }
-  subscribe();
-  subscriptionsInstalled = true;
-}
-
-describe("subscriptions viewport persistence", () => {
-  beforeAll(() => {
-    ensureSubscriptionsInstalled();
-  });
-
+describe("processRequestedNodeDimensionsUpdate", () => {
   beforeEach(() => {
     resetProjectStores();
-    debouncedDispatchViewportUpdate.cancel();
-    routeSetViewportMock.mockReset();
-    routeSetViewportMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
-    useSettings.setState(createSettingsState());
-    useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        viewport: null,
-        viewportInitialized: false,
-      }),
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {},
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    });
-    usePendingOperations.setState({ pending: [] });
-    useReactFlow.setState({
-      ...initialState,
-      transform: [0, 0, 1],
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-    });
+    vi.useFakeTimers();
+    vi.stubGlobal("requestAnimationFrame", ((
+      callback: FrameRequestCallback,
+    ) => {
+      return globalThis.setTimeout(() => callback(0), 16);
+    }) as typeof requestAnimationFrame);
+    getNodeUpdateInformationMock.mockReset();
+    getNodeUpdateInformationMock.mockReturnValue([]);
+    updateNodeDimensionsMock.mockReset();
+    updateNodeDimensionsMock.mockReturnValue(true);
+    useMisc.setState({ requestUpdateNodeDimensions: true });
   });
 
   afterEach(() => {
-    debouncedDispatchViewportUpdate.cancel();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
-  it("flushes the fitted viewport immediately when auto-fit completes", async () => {
-    useReactFlow.setState({
-      transform: [150, 125, 0.6],
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-    });
+  it("requeues the request when the dimension pass is still blocked", () => {
+    updateNodeDimensionsMock.mockReturnValue(false);
 
-    await vi.waitFor(() => {
-      expect(routeSetViewportMock).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        viewport: { x: 150, y: 125, zoom: 0.6 },
-        frontendOpId: expect.any(String),
-      });
-    });
+    processRequestedNodeDimensionsUpdate();
+
+    expect(updateNodeDimensionsMock).toHaveBeenCalledWith([]);
+    expect(useMisc.getState().requestUpdateNodeDimensions).toBe(false);
+
+    vi.runAllTimers();
+
+    expect(useMisc.getState().requestUpdateNodeDimensions).toBe(true);
   });
 
-  it("keeps the local viewport when a backend update arrives before the debounced write flushes", () => {
-    const localViewport = { x: 160, y: 120, zoom: 0.6 };
-    const staleBackendViewport = { x: 0, y: 0, zoom: 1 };
+  it("clears the request once the dimension pass succeeds", () => {
+    processRequestedNodeDimensionsUpdate();
 
-    useProjectState.setState({
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        viewport: staleBackendViewport,
-        viewportInitialized: true,
-      }),
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {},
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    });
-    useReactFlow.setState({
-      ...initialState,
-      transform: [0, 0, 1],
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-    });
-    debouncedDispatchViewportUpdate.cancel();
-    routeSetViewportMock.mockClear();
-    usePendingOperations.setState({ pending: [] });
+    expect(useMisc.getState().requestUpdateNodeDimensions).toBe(false);
 
-    useReactFlow.setState({
-      transform: [localViewport.x, localViewport.y, localViewport.zoom],
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-    });
+    vi.runAllTimers();
 
-    expect(useProjectState.getState().projectConfig.viewport).toEqual(
-      localViewport,
-    );
-    expect(usePendingOperations.getState().pending).toHaveLength(1);
-    expect(routeSetViewportMock).not.toHaveBeenCalled();
-
-    processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
-        projectConfig: createProjectConfig({
-          id: "project-1",
-          viewport: staleBackendViewport,
-          viewportInitialized: true,
-        }),
-        sections: {},
-        sectionImpls: {},
-        sectionVariants: {},
-        codeObjs: {},
-        codeObjImpls: {},
-        codeObjVariants: {},
-        artifactGroups: {},
-        singletonSections: createSingletonSections(),
-        parentSectionMap: {},
-        shownParamIds: {},
-        requiredDecodedImages: [],
-        genCodeBinding: null,
-      }),
-      completedOpIds: [],
-      pendingOpIds: [],
-    });
-
-    expect(useReactFlow.getState().transform).toEqual([
-      localViewport.x,
-      localViewport.y,
-      localViewport.zoom,
-    ]);
-    expect(useProjectState.getState().projectConfig.viewport).toEqual(
-      localViewport,
-    );
+    expect(useMisc.getState().requestUpdateNodeDimensions).toBe(false);
   });
 });

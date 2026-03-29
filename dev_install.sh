@@ -1,10 +1,6 @@
-#!/usr/bin/env bash
-
-if ! ./scripts/go.sh version >/dev/null 2>&1; then
-  ./scripts/install_go_toolchain.sh && ./scripts/go.sh version >/dev/null 2>&1
-fi && \
+. ./init_env.sh && \
 cd frontend && \
-pnpm install --frozen-lockfile && \
+pnpm install && \
 cd .. && \
 ./scripts/install_sidecars.sh && \
 ./cleanup.sh

@@ -495,6 +495,7 @@ export function groupSkillsByRootPath(
 
 type McpServerListEntry = {
   serverId: string;
+  source: string;
   transport: string;
   endpoint: string;
 };
@@ -535,6 +536,12 @@ type McpServersByConfigPath = {
   servers: McpServerListEntry[];
 };
 
+export const SETTA_MCP_RUNTIME_SOURCE = "setta_mcp";
+
+function buildRuntimeStatusMapKey(source: string, serverId: string): string {
+  return `${source}:${serverId}`;
+}
+
 function resolveMcpServerEndpoint(
   config: AllLLMConfigs["mcpServers"][string],
 ): string {
@@ -561,28 +568,20 @@ export function groupMcpServersByConfigPath({
   mcpServers,
   mcpConfigPath,
   settaFilesLocation,
-  runtimeServers = [],
+  externalRuntimeServers = [],
 }: {
   mcpServers: AllLLMConfigs["mcpServers"] | undefined;
   mcpConfigPath: string | null;
   settaFilesLocation: string | null;
-  runtimeServers?: Array<McpServerListEntry>;
+  externalRuntimeServers?: Array<McpServerListEntry>;
 }): McpServersByConfigPath[] {
   const groups: McpServersByConfigPath[] = [];
-  const runtimeServerByServerId = new Map(
-    runtimeServers.map((server) => [server.serverId, server]),
-  );
   if (mcpServers) {
     const serverEntries = Object.entries(mcpServers)
       .map(([serverId, config]) => {
-        const liveRuntimeServer = runtimeServerByServerId.get(serverId);
-        if (liveRuntimeServer) {
-          return {
-            ...liveRuntimeServer,
-          };
-        }
         return {
           serverId,
+          source: SETTA_MCP_RUNTIME_SOURCE,
           transport: config.transport,
           endpoint: resolveMcpServerEndpoint(config),
         };
@@ -596,14 +595,11 @@ export function groupMcpServersByConfigPath({
       });
     }
   }
-  const unmatchedRuntimeServers = runtimeServers.filter(
-    (server) => !(mcpServers && server.serverId in mcpServers),
-  );
-  if (unmatchedRuntimeServers.length > 0) {
+  if (externalRuntimeServers.length > 0) {
     groups.push({
       configPath: null,
       configLabel: "Active external runtime",
-      servers: [...unmatchedRuntimeServers].sort((a, b) =>
+      servers: [...externalRuntimeServers].sort((a, b) =>
         a.serverId.localeCompare(b.serverId),
       ),
     });
@@ -906,8 +902,8 @@ function normalizeRuntimeServerQuickInfo({
 export function toRuntimeStatusByServerId(
   runtimeStatuses: Array<{
     serverId: string;
+    source: string;
     state: unknown;
-    quickInfo?: string | null;
     lastError?: string | null;
     missingEnvVar?: string | null;
     toolCount?: number;
@@ -916,7 +912,11 @@ export function toRuntimeStatusByServerId(
   const statuses: Record<string, McpRuntimeServerStatus> = {};
   for (const runtimeStatus of runtimeStatuses) {
     const serverId = runtimeStatus.serverId.trim();
+    const source = runtimeStatus.source.trim();
     if (!serverId) {
+      continue;
+    }
+    if (!source) {
       continue;
     }
     const state = normalizeRuntimeServerState(runtimeStatus.state);
@@ -928,11 +928,11 @@ export function toRuntimeStatusByServerId(
       runtimeStatus.toolCount >= 0
         ? runtimeStatus.toolCount
         : 0;
-    statuses[serverId] = {
+    statuses[buildRuntimeStatusMapKey(source, serverId)] = {
       state,
       quickInfo: normalizeRuntimeServerQuickInfo({
         state,
-        quickInfo: runtimeStatus.quickInfo?.trim() || null,
+        quickInfo: null,
         issue,
         missingEnvVar,
         registeredToolCount,
@@ -947,12 +947,14 @@ export function toRuntimeStatusByServerId(
 
 export function resolveMcpServerStatus({
   serverId,
+  source,
   endpoint,
   runtimeStatusByServerId,
   runtimeStatusLoading,
   runtimeStatusError,
 }: {
   serverId: string;
+  source: string;
   endpoint: string;
   runtimeStatusByServerId: Record<string, McpRuntimeServerStatus> | null;
   runtimeStatusLoading: boolean;
@@ -983,7 +985,8 @@ export function resolveMcpServerStatus({
       quickInfo: "Status unknown: MCP runtime status data is not available.",
     };
   }
-  const runtimeStatus = runtimeStatusByServerId[serverId] ?? null;
+  const runtimeStatus =
+    runtimeStatusByServerId[buildRuntimeStatusMapKey(source, serverId)];
   if (!runtimeStatus) {
     return {
       color: "yellow",
