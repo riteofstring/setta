@@ -131,6 +131,37 @@ describe("getLiveDictAreaPixiAvailableCanvasHeight", () => {
       }),
     ).toBe(100);
   });
+
+  it("converts transformed DOM rect fallback heights back into logical canvas space at low viewport zoom", () => {
+    const clippingContainer = {
+      clientHeight: 0,
+      getBoundingClientRect: () => ({
+        bottom: 142.8,
+        top: 0,
+      }),
+      offsetHeight: 0,
+      offsetParent: null,
+      offsetTop: 0,
+    };
+    const sceneRoot = {
+      clientHeight: 0,
+      getBoundingClientRect: () => ({
+        bottom: 104.4,
+        top: 42.2,
+      }),
+      offsetHeight: 0,
+      offsetParent: null,
+      offsetTop: 18,
+    };
+
+    expect(
+      getLiveDictAreaPixiAvailableCanvasHeight({
+        clippingContainer,
+        sceneRoot,
+        viewportZoom: 0.25,
+      }),
+    ).toBe(402);
+  });
 });
 
 describe("getLiveDictAreaPixiClippingContainer", () => {

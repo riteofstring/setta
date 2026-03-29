@@ -321,6 +321,7 @@ function _LiveDictAreaPixiScene({
       const normalizedHeight = getLiveDictAreaPixiAvailableCanvasHeight({
         clippingContainer,
         sceneRoot,
+        viewportZoom,
       });
 
       setAvailableCanvasHeight((currentHeight) =>
@@ -341,7 +342,7 @@ function _LiveDictAreaPixiScene({
       observer.disconnect();
       window.removeEventListener("resize", updateAvailableHeight);
     };
-  }, []);
+  }, [viewportZoom]);
 
   useLayoutEffect(() => {
     if (typeof document === "undefined") {

@@ -239,9 +239,11 @@ export function getLiveDictAreaPixiUsableMaxCanvasHeight(
 export function getLiveDictAreaPixiAvailableCanvasHeight({
   clippingContainer,
   sceneRoot,
+  viewportZoom = 1,
 }: {
   clippingContainer: LiveDictAreaPixiOffsetElement;
   sceneRoot: LiveDictAreaPixiOffsetElement;
+  viewportZoom?: number;
 }) {
   const relativeOffsetTop = getLiveDictAreaPixiRelativeOffsetTop({
     ancestor: clippingContainer,
@@ -264,8 +266,11 @@ export function getLiveDictAreaPixiAvailableCanvasHeight({
     return null;
   }
 
+  const safeViewportZoom =
+    Number.isFinite(viewportZoom) && viewportZoom > 0 ? viewportZoom : 1;
+
   return getLiveDictAreaPixiMaxCanvasHeight(
-    clippingRect.bottom - sceneRootRect.top,
+    (clippingRect.bottom - sceneRootRect.top) / safeViewportZoom,
   );
 }
 
