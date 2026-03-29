@@ -113,6 +113,7 @@ function LiveDictAreaPixiParamAreaOverlayList({
             isTopLevel={true}
             listKey={domPacket.visualPacket.list.listKey}
             hasSectionStyleTheme={hasSectionStyleTheme}
+            renderMode="drag-overlay"
           />
         </div>
       </div>
@@ -176,6 +177,7 @@ function LiveDictAreaPixiUnpinnedParamAreaOverlayList({
           isTopLevel={true}
           listKey={domPacket.visualPacket.list.listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          renderMode="drag-overlay"
         />
       </div>
     </div>

@@ -6868,3 +6868,46 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/getFileBrowserRoot`, `POST /api/setViewport`, and `POST /api/toggleParamSelected`
 - Next action:
   - Continue the retained-scene drag lane by reducing the remaining DOM dependence behind `ParamDndList` now that the live param-list overlay is CDP-verifiable on a stable canary URL.
+
+## 2026-03-29 222
+
+- Item: Strip editor/input chrome from the live Pixi param-list drag overlay while keeping the real reorder path intact.
+- Status: `done`
+- Details:
+  - Added an explicit param-list render-mode boundary so the drag overlay can reuse the existing `ParamDndList` / `ParamSwitch` / `ParamContainer` reorder path without mounting full editor widgets:
+    - `frontend/src/components/Params/paramListRenderMode.ts`
+    - `frontend/src/components/Params/ParamDndList.tsx`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamContainer.tsx`
+  - The new `drag-overlay` mode makes the Pixi drag overlay rows text-only:
+    - kwarg/name rows now render `ParamTextLabel` instead of `ParamNameInput`
+    - `ParamContainer` no longer mounts `ParamInput`, `ResizeHandle`, or type-error chrome in this mode
+    - row containers advertise `data-param-render-mode="drag-overlay"` so the live canary can assert the lighter contract directly
+  - Wired the live Pixi drag overlay to opt into that lighter row mode without changing the underlying DnD/reorder implementation:
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx`
+  - Added focused regression coverage at the overlay boundary and tightened the live canary assertions:
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the canary now proves the active param-list overlay still mounts drag rows while exposing zero `input`, `textarea`, `role='combobox'`, or `.cm-editor` descendants
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx src/components/Params/groupContainerLiveDictAreaMount.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/paramListRenderMode.ts src/components/Params/ParamDndList.tsx src/components/Params/GetParamSwitch.tsx src/components/Params/ParamSwitch.tsx src/components/Params/ParamContainer.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`:
+    - result: passed
+    - the provided bootstrap token was rejected in that browser session, but the live `3044` Settings page remained usable for verification
+    - after opening `All Settings` and clicking one `[data-live-dict-area-drag-handoff='param-row']`, the active overlay reported `data-live-dict-area-drag-overlay-kind="param-list"`
+    - overlay rows exposed `data-param-render-mode="drag-overlay"`
+    - `input`, `textarea`, `[role='combobox']`, and `.cm-editor` descendants were absent inside the overlay
+    - `[data-live-dict-area-scene='pixi'] canvas` remained mounted
+    - no obvious blank/clipped/major-overlap regression was observed in the checked viewport
+    - representative `200` requests included `GET /settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`, `GET /@vite/client`, `GET /src/index.tsx`, and `GET /api/loadSettings`
+- Next action:
+  - Continue the retained-scene drag lane by replacing the remaining `ParamContainer` row shell in the Pixi drag overlay with a lighter scene-aligned row surface, now that editor/input chrome is no longer part of the overlay path.

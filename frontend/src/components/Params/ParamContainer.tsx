@@ -17,6 +17,7 @@ import {
   buildParamContainerViewModel,
   resolveParamContainerDisplayName,
 } from "./paramContainerView";
+import type { ParamListRenderMode } from "./paramListRenderMode";
 
 const NESTED_CHILD_ROWS_CLASS_NAME =
   "section-args-nested section-key-value relative grid min-w-0 gap-y-1 before:absolute before:bottom-0 before:left-0 before:h-[calc(100%_-_0.1rem)] before:w-[0.4rem] before:rounded-full before:bg-setta-200/20 before:content-[''] dark:before:bg-setta-400/20";
@@ -43,6 +44,7 @@ type ParamContainerProps = {
   dndStyle?: React.CSSProperties;
   dndClassName?: string;
   listKey: ParamListKey;
+  renderMode: ParamListRenderMode;
 };
 
 function _ParamContainer({
@@ -67,6 +69,7 @@ function _ParamContainer({
   dndStyle,
   dndClassName,
   listKey,
+  renderMode,
 }: ParamContainerProps) {
   const codeObjImpl = useProjectState((x) =>
     getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
@@ -125,6 +128,7 @@ function _ParamContainer({
           onResizeStart={onResizeStart}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          renderMode={renderMode}
         />
       </div>
     ) : null;
@@ -141,14 +145,18 @@ function _ParamContainer({
   const sharedParamFields = (
     <>
       {paramLabel}
-      <ParamInput
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        maybeErrorMessage={viewModel.errorMessage}
-      />
-      <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
-      {viewModel.hasError ? (
-        <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+      {renderMode === "full" ? (
+        <>
+          <ParamInput
+            sectionId={sectionId}
+            paramInfoId={paramInfoId}
+            maybeErrorMessage={viewModel.errorMessage}
+          />
+          <ResizeHandle showResizeHandle={true} onMouseDown={onResizeStart} />
+          {viewModel.hasError ? (
+            <ErrorSection sectionId={sectionId} paramInfoId={paramInfoId} />
+          ) : null}
+        </>
       ) : null}
     </>
   );
@@ -165,6 +173,7 @@ function _ParamContainer({
       dndAttributes={dndAttributes}
       dndListeners={dndListeners}
       dndRef={dndRef}
+      renderMode={renderMode}
     >
       {viewModel.variant === "nested" ? children : sharedParamFields}
       {nestedChildRows}
@@ -185,6 +194,7 @@ type ParamContainerArticleProps = {
   dndAttributes?: React.HTMLAttributes<HTMLElement>;
   dndListeners?: React.HTMLAttributes<HTMLElement>;
   dndRef?: React.Ref<HTMLElement>;
+  renderMode: ParamListRenderMode;
   children: React.ReactNode;
 };
 
@@ -199,6 +209,7 @@ function ParamContainerArticle({
   dndAttributes,
   dndListeners,
   dndRef,
+  renderMode,
   children,
 }: ParamContainerArticleProps) {
   return (
@@ -207,6 +218,7 @@ function ParamContainerArticle({
       className={className}
       style={style}
       data-param-row="true"
+      data-param-render-mode={renderMode}
       {...floatingBoxHandlers}
       onMouseDownCapture={onMouseDown} // has to be on capture, otherwise it doesn't get triggered when clicking above DummyCodeMirror when ParamNameInput is taller than DummyCodeMirror
       onClick={onClick}

@@ -404,8 +404,14 @@ test("all settings canary can opt into param-select mode through the canary quer
       dragOverlayKind: overlay.getAttribute(
         "data-live-dict-area-drag-overlay-kind",
       ),
+      dragOverlayRowRenderModeCount: overlay.querySelectorAll(
+        "[data-param-render-mode='drag-overlay']",
+      ).length,
       dragParamRowCount: overlay.querySelectorAll("[data-param-row='true']")
         .length,
+      interactiveControlCount: overlay.querySelectorAll(
+        "input, textarea, [role='combobox'], .cm-editor",
+      ).length,
       sceneCanvasCount: document.querySelectorAll(
         "[data-live-dict-area-scene='pixi'] canvas",
       ).length,
@@ -416,7 +422,9 @@ test("all settings canary can opt into param-select mode through the canary quer
 
   expect(result).not.toBeNull();
   expect(result?.dragOverlayKind).toBe("param-list");
+  expect(result?.dragOverlayRowRenderModeCount).toBeGreaterThan(0);
   expect(result?.dragParamRowCount).toBeGreaterThan(1);
+  expect(result?.interactiveControlCount).toBe(0);
   expect(result?.sceneCanvasCount).toBeGreaterThan(0);
 });
 
@@ -457,11 +465,17 @@ test("all settings canary can hand off from the Pixi scene into a param-list dra
         dragOverlayKind: overlay.getAttribute(
           "data-live-dict-area-drag-overlay-kind",
         ),
+        dragOverlayRowRenderModeCount: overlay.querySelectorAll(
+          "[data-param-render-mode='drag-overlay']",
+        ).length,
         dragParamRowCount: overlay.querySelectorAll("[data-param-row='true']")
           .length,
         hasBlockFrameMount:
           overlay.querySelector("[data-dict-area-block-frame-id]") !== null,
         hasHeaderMount: overlay.querySelector("header") !== null,
+        interactiveControlCount: overlay.querySelectorAll(
+          "input, textarea, [role='combobox'], .cm-editor",
+        ).length,
         mountedParamContainerCount: overlay.querySelectorAll(
           '[id^="ParamContainer-"]',
         ).length,
@@ -475,9 +489,11 @@ test("all settings canary can hand off from the Pixi scene into a param-list dra
 
     expect(result).not.toBeNull();
     expect(result?.dragOverlayKind).toBe("param-list");
+    expect(result?.dragOverlayRowRenderModeCount).toBeGreaterThan(0);
     expect(result?.dragParamRowCount).toBeGreaterThan(1);
     expect(result?.hasBlockFrameMount).toBe(false);
     expect(result?.hasHeaderMount).toBe(false);
+    expect(result?.interactiveControlCount).toBe(0);
     expect(result?.mountedParamContainerCount).toBeGreaterThan(0);
     expect(result?.sceneCanvasCount).toBeGreaterThan(0);
   });

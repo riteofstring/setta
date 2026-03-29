@@ -16,6 +16,7 @@ import {
   useParamDndChildrenForParent,
 } from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
+import type { ParamListRenderMode } from "./paramListRenderMode";
 
 type ParamDndListProps = {
   sectionId: string;
@@ -25,6 +26,7 @@ type ParamDndListProps = {
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  renderMode?: ParamListRenderMode;
 };
 
 export function ParamDndList({
@@ -35,6 +37,7 @@ export function ParamDndList({
   isTopLevel,
   listKey,
   hasSectionStyleTheme,
+  renderMode = "full",
 }: ParamDndListProps) {
   const duplicateIndex = useProjectState(
     (state) => buildParamDuplicateIndex(state, sectionId),
@@ -93,6 +96,7 @@ export function ParamDndList({
           isTopLevel={isTopLevel}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          renderMode={renderMode}
         />
       </ParamDuplicateIndexProvider>
     );
@@ -115,6 +119,7 @@ export function ParamDndList({
           isTopLevel={isTopLevel}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          renderMode={renderMode}
         />
       </ParamDndProvider>
     </ParamDuplicateIndexProvider>
@@ -130,6 +135,7 @@ function ParamDndListBody({
   isTopLevel,
   listKey,
   hasSectionStyleTheme,
+  renderMode,
 }: {
   sectionId: string;
   rootId: string;
@@ -139,6 +145,7 @@ function ParamDndListBody({
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  renderMode: ParamListRenderMode;
 }) {
   const renderParamIds = useParamDndChildrenForParent(rootId, paramIds);
 
@@ -151,6 +158,7 @@ function ParamDndListBody({
       isTopLevel={isTopLevel}
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
+      renderMode={renderMode}
     />
   );
 }

@@ -33,6 +33,7 @@ import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
+import type { ParamListRenderMode } from "./paramListRenderMode";
 
 type ParamSwitchProps = {
   sectionId: string;
@@ -42,6 +43,7 @@ type ParamSwitchProps = {
   isTopLevelWithPad?: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  renderMode: ParamListRenderMode;
 };
 
 function _ParamSwitch(props: ParamSwitchProps) {
@@ -207,23 +209,31 @@ function RealParamSwitch(props: ParamSwitchProps) {
     border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
   }
 
-  const label = isKwarg ? (
-    <ParamNameInput
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      hasChildren={hasChildren}
-      onMouseDown={onMouseDownConditional}
-      border={hasChildren ? border : ""}
-      bg={hasChildren ? bg : ""}
-    />
-  ) : (
-    <ParamTextLabel
-      sectionId={sectionId}
-      paramInfoId={paramInfoId}
-      onMouseDown={onMouseDownConditional}
-      bg={hasChildren ? bg : ""}
-    />
-  );
+  const label =
+    props.renderMode === "drag-overlay" ? (
+      <ParamTextLabel
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        onMouseDown={onMouseDownConditional}
+        bg={hasChildren ? bg : ""}
+      />
+    ) : isKwarg ? (
+      <ParamNameInput
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        hasChildren={hasChildren}
+        onMouseDown={onMouseDownConditional}
+        border={hasChildren ? border : ""}
+        bg={hasChildren ? bg : ""}
+      />
+    ) : (
+      <ParamTextLabel
+        sectionId={sectionId}
+        paramInfoId={paramInfoId}
+        onMouseDown={onMouseDownConditional}
+        bg={hasChildren ? bg : ""}
+      />
+    );
 
   const sharedProps = {
     ...props,

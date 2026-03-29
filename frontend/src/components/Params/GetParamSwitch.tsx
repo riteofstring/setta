@@ -8,6 +8,7 @@ import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ParamSwitch } from "./ParamSwitch";
+import type { ParamListRenderMode } from "./paramListRenderMode";
 import { buildVisibleParamScenePackets } from "./paramSwitchScenePackets";
 
 export function GetParamSwitch({
@@ -18,6 +19,7 @@ export function GetParamSwitch({
   isTopLevel = false,
   listKey,
   hasSectionStyleTheme,
+  renderMode = "full",
 }: {
   sectionId: string;
   paramIds: Array<string>;
@@ -26,6 +28,7 @@ export function GetParamSwitch({
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  renderMode?: ParamListRenderMode;
 }) {
   const paramsImpl = useProjectState((x) =>
     getCurrEffectiveSectionImplWithTypeGuard(
@@ -90,6 +93,7 @@ export function GetParamSwitch({
       isTopLevelWithPad={isTopLevel && idx > 0}
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
+      renderMode={renderMode}
     />
   ));
 }
