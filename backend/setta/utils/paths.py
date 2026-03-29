@@ -7,11 +7,7 @@ from typing import Literal, cast
 
 from setta.types.generated.go_shared_constants import (
     ALLOWED_SETTA_FILES_ROOT_SEGMENTS,
-)
-from setta.types.generated.go_shared_constants import (
     ALLOWED_SETTA_HOME_NAMES,
-)
-from setta.types.generated.go_shared_constants import (
     FILES_LOCATION_ENV,
     FILES_ROOT_ENV,
     PROFILE_ENV,

@@ -39,19 +39,27 @@ from setta.logging.context import logging_context
 from setta.logging.tasks import spawn_background_task
 from setta.sdk_contracts.generated import (
     ListenerDependencyCatalog,
-    ListenerDependencyEvent as SDKListenerDependencyEvent,
-    ListenerDependencyEventEntry as SDKListenerDependencyEventEntry,
     ListenerForceRefreshEvent,
     ListenerFrontendEmitRequest,
     ListenerRegisterCallbackSpec,
     ListenerRegisterRequest,
-    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
-    ListenerRealtimeEvent as SDKListenerRealtimeEvent,
     ListenerRenderedDependencyValue,
     ListenerRenderedDependencyValues,
     ListenerSnapshot,
     LocalCoreListenerRealtimeDelta,
     LocalCoreRenderRealtimeDependencyValuesRequest,
+)
+from setta.sdk_contracts.generated import (
+    ListenerDependencyEvent as SDKListenerDependencyEvent,
+)
+from setta.sdk_contracts.generated import (
+    ListenerDependencyEventEntry as SDKListenerDependencyEventEntry,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeDelta as SDKListenerRealtimeDelta,
+)
+from setta.sdk_contracts.generated import (
+    ListenerRealtimeEvent as SDKListenerRealtimeEvent,
 )
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.types.artifact import (
@@ -59,8 +67,8 @@ from setta.types.artifact import (
     BaseArtifactUnion,
 )
 from setta.types.generated.go_shared_types import (
-    CodeObjValueRepresentationMode,
     CodeObjType,
+    CodeObjValueRepresentationMode,
     ListenerDependencyMode,
     ListenerErrorMessage,
     ListenerFrontendEmitMessage,

@@ -3,8 +3,8 @@ from pathlib import Path
 
 from setta.sessions.registry import SessionMetadata, SessionRegistry
 from setta.types.generated.go_shared_constants import (
-    SESSIONS_ROOT_ENV_VAR,
     SESSION_ID_ENV_VAR,
+    SESSIONS_ROOT_ENV_VAR,
 )
 
 _cached_metadata: SessionMetadata | None = None

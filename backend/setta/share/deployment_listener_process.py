@@ -11,8 +11,8 @@ if str(_IMPORT_ROOT) not in sys.path:
 from setta.api import SettaListener
 from setta.types.generated.go_shared_constants import (
     DEPLOYMENT_LISTENER_READY_SENTINEL,
+    RUNTIME_ROOT_ENV,
 )
-from setta.types.generated.go_shared_constants import RUNTIME_ROOT_ENV
 
 _BUILDER_NAMES = ("build_listener", "build_callbacks")
 

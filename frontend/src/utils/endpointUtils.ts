@@ -1,10 +1,6 @@
 import type { ResponseDataAndStatus } from "./requestTransport";
-import { ENDPOINT_ORIGIN_POLICY } from "./serverModeBoundaryPolicy";
-import { resolveEndpointOrigin } from "./transportUrlCore";
 
 export type { ResponseDataAndStatus } from "./requestTransport";
-export { ENDPOINT_ORIGIN_POLICY, resolveEndpointOrigin };
-
 export function res200<T>(
   res: ResponseDataAndStatus<T>,
 ): res is ResponseDataAndStatus<T> & { data: T; status: number } {

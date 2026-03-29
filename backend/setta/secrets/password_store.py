@@ -3,8 +3,10 @@ import os
 from pathlib import Path
 
 from filelock import FileLock
-from setta.types.generated.go_shared_constants import PASSWORD_STORE_FILENAME
-from setta.types.generated.go_shared_constants import RUNTIME_ROOT_ENV
+from setta.types.generated.go_shared_constants import (
+    PASSWORD_STORE_FILENAME,
+    RUNTIME_ROOT_ENV,
+)
 from setta.utils.paths import get_setta_paths
 
 

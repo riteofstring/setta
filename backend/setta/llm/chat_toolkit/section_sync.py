@@ -14,11 +14,11 @@ from setta.types.generated.go_shared_types import (
     MessageStopEvent,
     MessageTextContent,
     MessageThinkingContent,
-    ToolChatMessage,
     ToolArgumentPreviewDeltaEvent,
     ToolCall,
     ToolCallDeltaEvent,
     ToolCallFunction,
+    ToolChatMessage,
     ToolResultEvent,
 )
 from setta.types.id import ID
@@ -121,7 +121,9 @@ def apply_stream_delta(
         )
 
     if isinstance(chunk, ToolResultEvent):
-        messages = _upsert_message(messages, ToolChatMessage.model_validate(chunk.result))
+        messages = _upsert_message(
+            messages, ToolChatMessage.model_validate(chunk.result)
+        )
         updated_branches = sync_active_branch_messages()
         return build_chat_section_state(
             messages=messages,

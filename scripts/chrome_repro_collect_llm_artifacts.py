@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-
 SENSITIVE_KEY_NAMES = {
     "authorization",
     "cookie",
@@ -81,7 +80,10 @@ def sanitize_value(value: Any, key: str | None = None) -> Any:
     if key is not None and is_sensitive_key(key):
         return "<redacted>"
     if isinstance(value, dict):
-        return {nested_key: sanitize_value(nested_value, nested_key) for nested_key, nested_value in value.items()}
+        return {
+            nested_key: sanitize_value(nested_value, nested_key)
+            for nested_key, nested_value in value.items()
+        }
     if isinstance(value, list):
         return [sanitize_value(item) for item in value]
     return value
@@ -108,7 +110,9 @@ def write_sanitized_copy(source: Path, destination: Path) -> None:
             shutil.copy2(source, destination)
             return
         sanitized = sanitize_value(payload)
-        destination.write_text(json.dumps(sanitized, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+        destination.write_text(
+            json.dumps(sanitized, indent=2, ensure_ascii=True) + "\n", encoding="utf-8"
+        )
         return
     if source.suffix == ".jsonl":
         sanitized_lines: list[str] = []
@@ -120,11 +124,18 @@ def write_sanitized_copy(source: Path, destination: Path) -> None:
             except json.JSONDecodeError:
                 sanitized_lines.append(raw_line)
                 continue
-            sanitized_lines.append(json.dumps(sanitize_value(payload), ensure_ascii=True))
-        destination.write_text("\n".join(sanitized_lines) + ("\n" if sanitized_lines else ""), encoding="utf-8")
+            sanitized_lines.append(
+                json.dumps(sanitize_value(payload), ensure_ascii=True)
+            )
+        destination.write_text(
+            "\n".join(sanitized_lines) + ("\n" if sanitized_lines else ""),
+            encoding="utf-8",
+        )
         return
     if source.suffix == ".toml":
-        destination.write_text(redact_toml_text(source.read_text(encoding="utf-8")), encoding="utf-8")
+        destination.write_text(
+            redact_toml_text(source.read_text(encoding="utf-8")), encoding="utf-8"
+        )
         return
     shutil.copy2(source, destination)
 
@@ -153,7 +164,10 @@ def extract_recorded_external_agent_runs(artifact_dir: Path) -> list[dict[str, s
         if not isinstance(content, dict):
             continue
         inputs = content.get("inputs")
-        if not isinstance(inputs, dict) or normalize_string(inputs.get("runType")) != "external_agent":
+        if (
+            not isinstance(inputs, dict)
+            or normalize_string(inputs.get("runType")) != "external_agent"
+        ):
             continue
         run_id = normalize_string(content.get("id"))
         if run_id == "":
@@ -212,7 +226,9 @@ def collect_session_artifacts(
         source_dir = source_root / directory_name
         if not source_dir.is_dir():
             continue
-        for source_path in sorted(path for path in source_dir.rglob("*") if path.is_file()):
+        for source_path in sorted(
+            path for path in source_dir.rglob("*") if path.is_file()
+        ):
             destination_path = destination_root / source_path.relative_to(source_root)
             write_sanitized_copy(source_path, destination_path)
             copied_files.append(str(destination_path.relative_to(llm_artifacts_dir)))
@@ -243,7 +259,9 @@ def main() -> int:
     }
 
     if not setta_files_root.is_dir():
-        manifest["issues"].append(f"setta files root does not exist: {setta_files_root}")
+        manifest["issues"].append(
+            f"setta files root does not exist: {setta_files_root}"
+        )
         (llm_artifacts_dir / "manifest.json").write_text(
             json.dumps(manifest, indent=2, ensure_ascii=True) + "\n",
             encoding="utf-8",
@@ -253,8 +271,12 @@ def main() -> int:
     recorded_runs = extract_recorded_external_agent_runs(artifact_dir)
     manifest["recordedRuns"] = recorded_runs
 
-    engine_lookup = build_engine_lookup(load_json_file(setta_files_root / "engine_configs.json"))
-    external_agent_lookup = build_engine_lookup(load_json_file(setta_files_root / "external_agents.json"))
+    engine_lookup = build_engine_lookup(
+        load_json_file(setta_files_root / "engine_configs.json")
+    )
+    external_agent_lookup = build_engine_lookup(
+        load_json_file(setta_files_root / "external_agents.json")
+    )
 
     agent_runs_source = setta_files_root / "agent_runs"
     copied_runs: list[dict[str, Any]] = []
@@ -274,7 +296,9 @@ def main() -> int:
         run_destination_path = llm_artifacts_dir / "agent_runs" / f"{run_id}.json"
         if run_source_path.is_file():
             write_sanitized_copy(run_source_path, run_destination_path)
-            copied_entry["copiedFiles"].append(str(run_destination_path.relative_to(llm_artifacts_dir)))
+            copied_entry["copiedFiles"].append(
+                str(run_destination_path.relative_to(llm_artifacts_dir))
+            )
         else:
             copied_entry["missingRunFile"] = str(run_source_path)
 
@@ -282,7 +306,9 @@ def main() -> int:
         if engine_payload:
             copied_entry["engineConfig"] = sanitize_value(engine_payload)
         external_agent_config_id = normalize_string(
-            engine_payload.get("externalAgentConfigId") if isinstance(engine_payload, dict) else None
+            engine_payload.get("externalAgentConfigId")
+            if isinstance(engine_payload, dict)
+            else None
         )
         if external_agent_config_id == "":
             copied_runs.append(copied_entry)
@@ -292,7 +318,9 @@ def main() -> int:
         if external_agent_payload:
             copied_entry["externalAgentConfig"] = sanitize_value(external_agent_payload)
         tool_type = normalize_string(
-            external_agent_payload.get("toolType") if isinstance(external_agent_payload, dict) else None
+            external_agent_payload.get("toolType")
+            if isinstance(external_agent_payload, dict)
+            else None
         )
         runtime_root_name = SESSION_ROOT_BY_TOOL_TYPE.get(tool_type)
         if runtime_root_name is None:
@@ -333,7 +361,9 @@ def main() -> int:
             llm_artifacts_dir,
             copied_entry["copiedFiles"],
         )
-        copied_entry["sessionArtifactRoot"] = str(session_destination_root.relative_to(llm_artifacts_dir))
+        copied_entry["sessionArtifactRoot"] = str(
+            session_destination_root.relative_to(llm_artifacts_dir)
+        )
         copied_runs.append(copied_entry)
 
     manifest["copiedRuns"] = copied_runs

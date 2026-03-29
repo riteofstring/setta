@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  getErrorCode,
-  getErrorDetail,
-} from "./endpointUtils";
+import { getErrorCode, getErrorDetail } from "./endpointUtils";
 describe("endpointUtils", () => {
   it("extracts detail from raw binary JSON payloads", () => {
     const binaryJson = new TextEncoder().encode(

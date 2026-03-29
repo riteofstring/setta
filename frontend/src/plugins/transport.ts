@@ -22,7 +22,7 @@ export function buildPluginAssetUrl(url: string | null): string | null {
   return url;
 }
 
-export function buildPluginListenerWebsocketUrl({
+function buildPluginListenerWebsocketUrl({
   listenerId,
   projectConfigId,
   shareSessionId,

@@ -22,7 +22,9 @@ from setta.types.generated.go_shared_types import (
 
 
 def _artifact_type(value: Any) -> str | None:
-    raw_type = value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    raw_type = (
+        value.get("type") if isinstance(value, dict) else getattr(value, "type", None)
+    )
     if isinstance(raw_type, ArtifactType):
         return raw_type.value
     if isinstance(raw_type, str):

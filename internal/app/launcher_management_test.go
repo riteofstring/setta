@@ -258,11 +258,11 @@ func TestAppIDEModeRepairsLauncherTargetOverHTTP(t *testing.T) {
 	}
 
 	var repairPayload struct {
-		Ok           bool     `json:"ok"`
-		Installed    *bool    `json:"installed"`
+		Ok            bool     `json:"ok"`
+		Installed     *bool    `json:"installed"`
 		TargetCommand []string `json:"targetCommand"`
-		TargetValid  *bool    `json:"targetValid"`
-		TargetError  *string  `json:"targetError"`
+		TargetValid   *bool    `json:"targetValid"`
+		TargetError   *string  `json:"targetError"`
 	}
 	if err := json.NewDecoder(repairResponse.Body).Decode(&repairPayload); err != nil {
 		t.Fatalf("decode repair launcher response: %v", err)

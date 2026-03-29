@@ -2,10 +2,7 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
-import {
-  SaveLoadModal,
-  SaveLoadModalModeEnum,
-} from "./SaveLoadModal";
+import { SaveLoadModal, SaveLoadModalModeEnum } from "./SaveLoadModal";
 
 vi.mock("state/actions/modal", () => ({
   closeModal: vi.fn(),

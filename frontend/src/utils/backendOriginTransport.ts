@@ -21,8 +21,6 @@ type BuildTerminalWebsocketUrlOptions = {
   shareSessionId: string | null;
 };
 
-export { ROOT_TRANSPORT_ROUTES } from "./transportRouteConstants";
-
 const FRONTEND_WEBSOCKET_ROUTE = WEBSOCKET_TRANSPORT_ROUTES.frontend;
 
 export function buildBackendOriginURL(
@@ -32,7 +30,7 @@ export function buildBackendOriginURL(
   return buildBackendOriginURLInternal(address, addressParams);
 }
 
-export function buildBackendOriginWebsocketURL(
+function buildBackendOriginWebsocketURL(
   address: string,
   addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): string {

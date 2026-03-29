@@ -13,11 +13,7 @@ import { getEmptySpacePosition } from "state/actions/sections/createSections";
 
 import { SETTA_API_PRESET_ROUTES } from "./backendTransport";
 import { SectionTypeEnum } from "./generatedTypes";
-import {
-  buildSettaApiPayload,
-  formatSettaApiBody,
-  SETTA_API_PRESETS,
-} from "./settaApiPresets";
+import { buildSettaApiPayload, formatSettaApiBody } from "./settaApiPresets";
 
 describe("settaApiPresets", () => {
   beforeEach(() => {

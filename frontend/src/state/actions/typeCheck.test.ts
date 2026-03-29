@@ -2,10 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { SettaProjectConfigDiagnostics } from "utils/generatedTypes";
 
-const {
-  useProjectState,
-  useTypeErrors,
-} = vi.hoisted(() => {
+const { useProjectState, useTypeErrors } = vi.hoisted(() => {
   function createStore<T extends Record<string, unknown>>(initial: T) {
     const listeners = new Set<(state: T) => void>();
     let state = { ...initial };

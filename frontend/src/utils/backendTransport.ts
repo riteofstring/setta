@@ -1,12 +1,9 @@
 import { buildBinaryDownloadRoute } from "./transportRouteConstants";
 import { buildBackendURL as buildBackendURLInternal } from "./transportUrlCore";
 
-export {
-  SERVER_MODE_BOUNDARY_ROUTES,
-  SETTA_API_PRESET_ROUTES,
-} from "./transportRouteConstants";
+export { SETTA_API_PRESET_ROUTES } from "./transportRouteConstants";
 
-export function buildBackendURL(
+function buildBackendURL(
   address: string,
   addressParams?: Record<string, string | number | boolean | null | undefined>,
 ): string {

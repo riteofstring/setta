@@ -235,9 +235,10 @@ describe("CodeAreaSettings", () => {
 
       const secondRender = await renderCodeAreaSettings(sectionId);
       try {
-        const remountedInput = secondRender.host.querySelector<HTMLInputElement>(
-          '[data-testid="code-area-settings-file-path-input"]',
-        );
+        const remountedInput =
+          secondRender.host.querySelector<HTMLInputElement>(
+            '[data-testid="code-area-settings-file-path-input"]',
+          );
         if (!(remountedInput instanceof HTMLInputElement)) {
           throw new Error("Expected remounted file-path input");
         }

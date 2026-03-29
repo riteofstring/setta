@@ -178,9 +178,7 @@ class ChatStreamEmitterClient:
             chunk=MessageDeltaEvent(
                 type=StreamingEventType.delta,
                 message_id=message_id,
-                content=[
-                    MessageTextDelta(type="text_delta", index=index, text=text)
-                ],
+                content=[MessageTextDelta(type="text_delta", index=index, text=text)],
             ),
         )
 

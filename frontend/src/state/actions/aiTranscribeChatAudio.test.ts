@@ -9,11 +9,9 @@ import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   appendTranscriptionAudio,
-  cancelTranscriptionSession,
   resampleMonoPcm16ToSampleRate,
   resolveProviderTranscriptionChunkSampleCount,
   startTranscriptionSession,
-  stopTranscriptionSession,
   transcribeChatAudioWithProfile,
 } from "./ai";
 import { addTemporaryNotification } from "./notifications";

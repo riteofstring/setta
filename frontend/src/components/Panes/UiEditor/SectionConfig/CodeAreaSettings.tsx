@@ -68,10 +68,7 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
         setLocalCanonicalPath(canonicalPath);
         return;
       }
-      if (
-        trimmedPath === canonicalPath &&
-        nextAccessMode === accessMode
-      ) {
+      if (trimmedPath === canonicalPath && nextAccessMode === accessMode) {
         return;
       }
 

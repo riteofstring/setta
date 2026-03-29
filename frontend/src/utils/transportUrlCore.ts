@@ -5,7 +5,7 @@ import {
   type EndpointOriginPolicy,
 } from "./serverModeBoundaryPolicy";
 
-export function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
+function resolveEndpointOrigin(address: string): EndpointOriginPolicy {
   return resolveEndpointOriginForMode(address, useServerMode.getState().mode);
 }
 

@@ -29,9 +29,7 @@ DEFAULT_ROOT_PATHS = (
     Path("backend/setta/api"),
     Path("backend/setta/llm/chat_toolkit"),
 )
-EXCLUDED_RELATIVE_DIRS = (
-    Path("backend/setta/types/generated"),
-)
+EXCLUDED_RELATIVE_DIRS = (Path("backend/setta/types/generated"),)
 SKIP_DIR_NAMES = {
     ".git",
     ".mypy_cache",
@@ -618,13 +616,11 @@ def collect_reachable_modules(
 def exported_top_level_names(module_info: ModuleInfo) -> set[str]:
     if module_info.exported_names:
         return {
-            name for name in module_info.exported_names if name in module_info.top_level_defs
+            name
+            for name in module_info.exported_names
+            if name in module_info.top_level_defs
         }
-    return {
-        name
-        for name in module_info.top_level_defs
-        if not name.startswith("_")
-    }
+    return {name for name in module_info.top_level_defs if not name.startswith("_")}
 
 
 def exported_member_names(class_info: ClassInfo) -> set[str]:
@@ -634,7 +630,7 @@ def exported_member_names(class_info: ClassInfo) -> set[str]:
         if member.kind == "method"
         and (
             member.name == "__init__"
-        or (member.name.startswith("__") and member.name.endswith("__"))
+            or (member.name.startswith("__") and member.name.endswith("__"))
             or not member.name.startswith("_")
         )
     }
@@ -676,7 +672,9 @@ def analyze_repo(
         target_dir=target_dir,
         excluded_dirs=excluded_dirs,
     )
-    root_modules = resolve_root_modules(module_infos=module_infos, root_paths=root_paths)
+    root_modules = resolve_root_modules(
+        module_infos=module_infos, root_paths=root_paths
+    )
     if not root_modules:
         raise RuntimeError("No root SDK modules were found.")
     reachable_modules = collect_reachable_modules(
@@ -716,7 +714,9 @@ def analyze_repo(
             module_info=module_info,
             module_infos=module_infos,
         )
-        tree = ast.parse(module_info.path.read_text(encoding="utf-8"), filename=str(module_info.path))
+        tree = ast.parse(
+            module_info.path.read_text(encoding="utf-8"), filename=str(module_info.path)
+        )
         usage_collector.visit(tree)
         used_top_level.update(usage_collector.used_top_level)
         used_members.update(usage_collector.used_members)
@@ -753,7 +753,9 @@ def analyze_repo(
                 if member.key not in used_members:
                     potential_unused_members.append(member)
 
-    unused_top_level.sort(key=lambda definition: (definition.module, definition.start_line))
+    unused_top_level.sort(
+        key=lambda definition: (definition.module, definition.start_line)
+    )
     potential_unused_members.sort(
         key=lambda member: (member.module, member.class_name, member.start_line)
     )
@@ -850,7 +852,9 @@ def main(argv: list[str]) -> int:
         (repo_root / relative_path).resolve()
         for relative_path in (args.root_path or list(DEFAULT_ROOT_PATHS))
     )
-    excluded_dirs = tuple((repo_root / path).resolve() for path in EXCLUDED_RELATIVE_DIRS)
+    excluded_dirs = tuple(
+        (repo_root / path).resolve() for path in EXCLUDED_RELATIVE_DIRS
+    )
     report = analyze_repo(
         repo_root=repo_root,
         target_dir=target_dir,

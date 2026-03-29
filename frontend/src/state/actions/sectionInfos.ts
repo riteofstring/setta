@@ -619,7 +619,7 @@ export function getVariantBaseAndEffectiveSectionImpl(
   return { variant, baseImpl, impl };
 }
 
-export function getCurrCodeObjVariant(
+function getCurrCodeObjVariant(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
@@ -706,7 +706,7 @@ export function getCurrEffectiveCodeObjImplIfPresent(
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
+function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,

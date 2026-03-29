@@ -3,12 +3,13 @@ from typing import Annotated, Any
 from pydantic import Discriminator, Field, Tag
 from setta.types.generated.go_shared_types import (
     AssistantChatMessage,
+    ChatRole,
+    SystemChatMessage,
+    ToolChatMessage,
+    UserChatMessage,
 )
 from setta.types.generated.go_shared_types import (
     Chat as GoChat,
-)
-from setta.types.generated.go_shared_types import (
-    ChatRole,
 )
 from setta.types.generated.go_shared_types import (
     ChatSectionBranch as GoChatSectionBranch,
@@ -29,25 +30,15 @@ from setta.types.generated.go_shared_types import (
     MessageStopEvent as GoMessageStopEvent,
 )
 from setta.types.generated.go_shared_types import (
-    SystemChatMessage,
-)
-from setta.types.generated.go_shared_types import (
     ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
     ToolCallDeltaEvent as GoToolCallDeltaEvent,
 )
 from setta.types.generated.go_shared_types import (
-    ToolChatMessage,
-)
-from setta.types.generated.go_shared_types import (
     ToolResultEvent as GoToolResultEvent,
 )
-from setta.types.generated.go_shared_types import (
-    UserChatMessage,
-)
 from setta.types.id import ID
-
 
 BaseChatMessageUnion = (
     SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
