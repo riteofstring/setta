@@ -1,39 +1,22 @@
-import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
-import {
-  useLocalStorage,
-  useProjectState,
-  useTemporaryMiscState,
-} from "state/definitions";
+import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import { GetParamSwitch } from "./GetParamSwitch";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 import {
+  type ParamEditorKind,
   PixiOverlayParamEditorKindProvider,
-  resolveParamEditorKind,
 } from "./paramEditorActivation";
+import { ParamSwitch } from "./ParamSwitch";
 
 type LiveDictAreaPixiValueRowOverlayProps = {
+  editorKind: ParamEditorKind;
   target: LiveDictAreaPixiValueRowTarget;
 };
 
 export function LiveDictAreaPixiValueRowOverlay({
+  editorKind,
   target,
 }: LiveDictAreaPixiValueRowOverlayProps) {
-  const editorKind = useProjectState((state) => {
-    const codeObjImpl = getCurrEffectiveCodeObjImpl(
-      state,
-      target.sectionId,
-      target.rowId,
-    );
-    return resolveParamEditorKind(codeObjImpl.type, {
-      hasColorChoiceMenu:
-        codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam &&
-        Array.isArray(codeObjImpl.colorChoices) &&
-        codeObjImpl.colorChoices.length > 0,
-    });
-  });
   const darkMode = useLocalStorage((state) => state.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(target.sectionId);
   const previewStyleColor = useTemporaryMiscState(
@@ -63,14 +46,14 @@ export function LiveDictAreaPixiValueRowOverlay({
         }}
       >
         <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full auto-rows-min content-start gap-y-1 pr-1.5">
-          <GetParamSwitch
+          <ParamSwitch
             sectionId={target.sectionId}
-            paramIds={[target.rowId]}
+            paramInfoId={target.rowId}
             requiredParamIdsToPaths={target.requiredParamIdsToPaths}
             onResizeStart={target.handleColumnResizeStart}
-            isTopLevel={true}
             listKey={target.listKey}
             hasSectionStyleTheme={hasSectionStyleTheme}
+            renderMode="full"
           />
         </div>
       </div>

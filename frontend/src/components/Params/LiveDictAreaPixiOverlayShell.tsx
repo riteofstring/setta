@@ -152,7 +152,12 @@ export function LiveDictAreaPixiOverlayShell({
           />
         ) : null
       ) : activeValueRowTarget ? (
-        <LiveDictAreaPixiValueRowOverlay target={activeValueRowTarget} />
+        <LiveDictAreaPixiValueRowOverlay
+          editorKind={
+            valueRowEditorKinds[activeValueRowTarget.rowId] ?? "other"
+          }
+          target={activeValueRowTarget}
+        />
       ) : valueRowTargets.length === 0 ? (
         isFallbackOverlayActive ? (
           <div

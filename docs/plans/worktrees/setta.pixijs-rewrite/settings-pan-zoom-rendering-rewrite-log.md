@@ -7139,3 +7139,35 @@ Record:
       - `perf/reports/frontend/2026-03-29_settings-param-drag-edge-handle-projector-probe.md`
 - Next action:
   - Do not continue the edge-handle projector micro-optimization lane from this signal; pick the next retained-scene/Pixi subtask from a hotspot or behavior that can show a clearer measured win than this rejected probe.
+
+## 2026-03-29 229
+
+- Item: Replace the live Pixi value-row editor handoff's generic `GetParamSwitch` recursion with a direct single-row boundary.
+- Status: `done`
+- Details:
+  - Kept the editor-overlay slice in the retained-scene lane instead of returning to another ownership hop:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+  - The active value-row handoff now mounts one explicit `ParamSwitch` row directly instead of routing through `GetParamSwitch` plus a one-row `paramIds` list:
+    - `LiveDictAreaPixiValueRowOverlay.tsx` now renders a single `ParamSwitch` in `renderMode="full"` for the selected row
+    - the overlay no longer does its own per-row editor-kind store lookup; `LiveDictAreaPixiOverlayShell.tsx` passes the already-resolved handoff editor kind into the active overlay boundary
+  - Added focused coverage for the new contract so the value-row overlay proves it mounts a single direct row with the expected overlay metadata instead of relying on the generic recursive wrapper path.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings`:
+    - result: passed
+    - the existing authenticated `3044` Settings tab stayed usable; bootstrap was not needed in the verifier session
+    - after opening `All Settings` and clicking a value-row handoff, an active editor overlay appeared while the Pixi scene remained mounted and visible underneath
+    - no obvious blanking, clipping, or major overlap regression was observed in the checked viewport
+    - representative `200` responses included `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, and `POST /api/getFolderContents`
+- Next action:
+  - Continue the focused editor-overlay lane by replacing the remaining row-level `ParamSwitch` store/render shell in the Pixi value-row handoff with a lighter scene-aligned editor row boundary, while preserving first-click editor activation.
