@@ -1,6 +1,6 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   buildFitViewOnInitState,
   getCurrEffectiveCodeObjImplWithTypeGuard,
@@ -19,6 +19,7 @@ import {
   buildLiveDictAreaPixiFixedMeasurements,
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
+import { useOptionalLiveDictAreaPixiPageRuntime } from "./LiveDictAreaPixiPageRuntime";
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import type { LiveDictAreaPixiSceneProps } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
@@ -38,10 +39,14 @@ export function LiveDictAreaPixiOverlayShell({
   liveDictAreaMountProps,
   liveDictAreaSceneBoundary,
 }: LiveDictAreaPixiOverlayShellProps) {
+  const runtimeSceneId = useId();
   const sceneSectionId = useMemo(
     () => getLiveDictAreaPixiSceneSectionId({ liveDictAreaMountProps }),
     [liveDictAreaMountProps],
   );
+  const liveDictAreaPixiPageRuntime = useOptionalLiveDictAreaPixiPageRuntime();
+  const registerScene = liveDictAreaPixiPageRuntime?.registerScene;
+  const reportContextLost = liveDictAreaPixiPageRuntime?.reportContextLost;
   const [summaryLayout, setSummaryLayout] =
     useState<LiveDictAreaPixiLayout | null>(null);
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
@@ -189,6 +194,17 @@ export function LiveDictAreaPixiOverlayShell({
   const shouldShowDomContextLossFallback = hasLostWebglContext;
 
   useEffect(() => {
+    if (!registerScene) {
+      return;
+    }
+
+    return registerScene({
+      runtimeSceneId,
+      sectionId: sceneSectionId,
+    });
+  }, [registerScene, runtimeSceneId, sceneSectionId]);
+
+  useEffect(() => {
     if (summaryLayout === null) {
       requestedInitialNodeDimensionsRef.current = false;
       requestedInitialFitViewRearmRef.current = false;
@@ -318,6 +334,10 @@ export function LiveDictAreaPixiOverlayShell({
             liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
             onSummaryLayoutChange={setSummaryLayout}
             onWebglContextLost={() => {
+              reportContextLost?.({
+                runtimeSceneId,
+                sectionId: sceneSectionId,
+              });
               setHasLostWebglContext(true);
             }}
             sectionId={sceneSectionId}

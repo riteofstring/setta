@@ -1,3 +1,4 @@
+import { LiveDictAreaPixiPageRuntimeBoundary } from "components/Params/LiveDictAreaPixiPageRuntime";
 import {
   NodesSelectionDragHandleWrapper,
   NodesSelectionWrapper,
@@ -64,16 +65,18 @@ const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
   });
 
   return (
-    <ZoomPane
-      {...flowRendererView.zoomPaneProps}
-      wrapperDimensions={wrapperDimensions}
-    >
-      <Pane {...flowRendererView.paneProps}>
-        <NodesSelectionDragHandleWrapper />
-        {children}
-        <NodesSelectionWrapper />
-      </Pane>
-    </ZoomPane>
+    <LiveDictAreaPixiPageRuntimeBoundary>
+      <ZoomPane
+        {...flowRendererView.zoomPaneProps}
+        wrapperDimensions={wrapperDimensions}
+      >
+        <Pane {...flowRendererView.paneProps}>
+          <NodesSelectionDragHandleWrapper />
+          {children}
+          <NodesSelectionWrapper />
+        </Pane>
+      </ZoomPane>
+    </LiveDictAreaPixiPageRuntimeBoundary>
   );
 };
 

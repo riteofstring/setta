@@ -13,6 +13,10 @@ import {
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
+import {
+  LiveDictAreaPixiPageRuntimeBoundary,
+  useOptionalLiveDictAreaPixiPageRuntime,
+} from "./LiveDictAreaPixiPageRuntime";
 
 vi.mock("./groupContainerLiveDictAreaMount", () => ({
   LiveDictAreaMount: () => <div data-param-row="true" />,
@@ -253,6 +257,72 @@ vi.mock("state/actions/sectionInfos", () => ({
     toggleParamSelectedRequests.push({ rowId, sectionId });
   },
 }));
+
+function buildTestLiveDictAreaMountBoundary(sectionId: string) {
+  return buildLiveDictAreaMountBoundary({
+    input: {
+      bgColor: "bg-transparent",
+      canConnect: true,
+      edgeInputParams: [],
+      getParamEditorKind: (paramId: string) =>
+        paramId === "pinned-value" ? "combobox" : "color-picker",
+      getParamDisplayName: (paramId: string) =>
+        (
+          ({
+            "pinned-group": "Pinned Group",
+            "pinned-value": "Pinned Value",
+            "unpinned-group": "Unpinned Group",
+            "unpinned-value": "Unpinned Value",
+          }) as Record<string, string>
+        )[paramId] ?? paramId,
+      handleColumnResizeStart: vi.fn(),
+      hideUnpinnedParams: false,
+      inputPorts: [{ id: "input-a", label: "Input A" }],
+      isSelectingParams: false,
+      outputPorts: [{ id: "output-a", label: "Output A" }],
+      paramFilter: "",
+      pinned: {
+        requiredParamIdsToPaths: {
+          "pinned-value": ["pinned-group", "pinned-value"],
+        },
+        topLevelParamIds: ["pinned-group"],
+      },
+      positionAndSizeLocked: false,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: null,
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 80,
+        pinnedRequiredParamIdsToPaths: {
+          "pinned-value": ["pinned-group", "pinned-value"],
+        },
+        pinnedTopLevelParamIds: ["pinned-group"],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          "unpinned-value": ["unpinned-group", "unpinned-value"],
+        },
+        topLevelParamIds: ["unpinned-group"],
+      },
+    },
+  });
+}
+
+function RuntimeProbe() {
+  const runtime = useOptionalLiveDictAreaPixiPageRuntime();
+
+  return (
+    <div
+      data-live-dict-area-pixi-runtime-count={
+        runtime?.registeredSceneCount ?? -1
+      }
+      data-live-dict-area-pixi-runtime-lost-scene={
+        runtime?.contextLostScene?.sectionId ?? ""
+      }
+    />
+  );
+}
 
 describe("LiveDictAreaPixiOverlayShell", () => {
   let container: HTMLDivElement;
@@ -535,6 +605,59 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         "[data-live-dict-area-scene-fallback='dom-context-lost'] [data-param-row='true']",
       ),
     ).not.toBeNull();
+  });
+
+  it("registers Pixi shells with the shared page runtime and reports context loss into it", () => {
+    const firstBoundary = buildTestLiveDictAreaMountBoundary("section-1");
+    const secondBoundary = buildTestLiveDictAreaMountBoundary("section-2");
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiPageRuntimeBoundary>
+          <RuntimeProbe />
+          <LiveDictAreaPixiOverlayShell
+            liveDictAreaMountProps={firstBoundary.liveDictAreaMountProps}
+            liveDictAreaSceneBoundary={firstBoundary.liveDictAreaSceneBoundary}
+          />
+          <LiveDictAreaPixiOverlayShell
+            liveDictAreaMountProps={secondBoundary.liveDictAreaMountProps}
+            liveDictAreaSceneBoundary={secondBoundary.liveDictAreaSceneBoundary}
+          />
+        </LiveDictAreaPixiPageRuntimeBoundary>,
+      );
+    });
+
+    expect(
+      container.querySelectorAll("[data-live-dict-area-scene='pixi']"),
+    ).toHaveLength(2);
+    expect(
+      container
+        .querySelector("[data-live-dict-area-pixi-runtime-count]")
+        ?.getAttribute("data-live-dict-area-pixi-runtime-count"),
+    ).toBe("2");
+
+    const contextLossTrigger = container.querySelector<HTMLButtonElement>(
+      "[data-live-dict-area-scene-trigger-context-lost='true']",
+    );
+    expect(contextLossTrigger).not.toBeNull();
+
+    act(() => {
+      contextLossTrigger?.click();
+    });
+
+    expect(
+      container.querySelectorAll("[data-live-dict-area-scene='pixi']"),
+    ).toHaveLength(1);
+    expect(
+      container
+        .querySelector("[data-live-dict-area-pixi-runtime-count]")
+        ?.getAttribute("data-live-dict-area-pixi-runtime-lost-scene"),
+    ).toBe("section-1");
+    expect(
+      container.querySelectorAll(
+        "[data-live-dict-area-scene-fallback='dom-context-lost']",
+      ),
+    ).toHaveLength(1);
   });
 
   it("re-arms fit-view when the first Pixi summary layout arrives before the viewport is initialized", () => {

@@ -3572,6 +3572,39 @@ Record:
 - Next action:
   - Continue the live Pixi canary visual pass by identifying the next real Gate 1 or Gate 2 defect on the normalized settings surface instead of resuming the old seam-lift lane.
 
+## 2026-03-31 123
+
+- Item: Start the shared page-runtime migration with page-level live Pixi scene registration on the canvas path.
+- Status: `done`
+- Details:
+  - Added the first production shared-runtime boundary for the live settings canary:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+  - Wired the live Pixi shell to the new page-level runtime so each visible shell now:
+    - registers and unregisters its scene identity with the shared runtime
+    - reports WebGL context loss into one page-owned runtime boundary
+    - keeps the existing local DOM fallback behavior unchanged for now
+  - Updated focused coverage for both the new runtime boundary and the shell integration:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - Important scope note:
+    - page-wide DOM fallback is not enforced yet
+    - an initial attempt to fan context loss out page-wide caused the same-tab live canary switch to drop every Pixi canvas once one per-card scene lost context
+    - that confirmed the current per-card `Application` ownership is still too unstable for a shared fallback policy before the shared renderer host exists
+    - this slice therefore keeps the behavior-safe part of the replan: shared registration plus shared context-loss reporting, without turning on page-wide fallback prematurely
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary keeps visible Pixi scene roots after switching from the baseline in the same tab|all settings canary falls back to the DOM mount when a live Pixi canvas loses its WebGL context"`
+    - result: passed
+    - note: an earlier full-spec run of `settings-all-settings-live-pixi-canary.spec.ts` stopped on the unrelated low-zoom same-height preview-window assertion; this iteration records the narrower canary subset that directly covers the runtime-registration slice
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared the worktree live canary `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` against the `main` settings surface `http://127.0.0.1:3087/settings`
+    - both provided bootstrap tokens were rejected in that browser session, so the check reused the live authenticated settings pages directly
+    - result: no obvious new clipping, overlap, or missing-content regression on the normalized settings shell / dict-param area; Gate 1 looked stable at a high level versus `main`
+- Next action:
+  - Continue the shared page-runtime migration by adding the first page-level Pixi scene host/scheduler above `FlowRenderer` and moving one live canary scene off per-card `new Application()` ownership onto that shared host.
+
 ## 2026-03-28 122
 
 - Item: Lift the standalone section-surface route handoff one level higher above `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
