@@ -1,9 +1,11 @@
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { describe, expect, it, vi } from "vitest";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
+  getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
@@ -154,6 +156,93 @@ describe("getLiveDictAreaPixiTextResolution", () => {
     expect(getLiveDictAreaPixiTextResolution(0.2)).toBe(1);
     expect(getLiveDictAreaPixiTextResolution(1)).toBe(1);
     expect(getLiveDictAreaPixiTextResolution(2.5)).toBe(2.5);
+  });
+});
+
+describe("getLiveDictAreaPixiPalette", () => {
+  it("reads section-style CSS variables from the mounted host before falling back to the generic light palette", () => {
+    const host = {} as Element;
+    const cssVars = new Map([
+      ["--setta-section-style-panel-bg", "#1f2937"],
+      ["--setta-section-style-bg", "#111827"],
+      ["--setta-section-style-border", "#334155"],
+      ["--setta-section-style-outline", "#38bdf8"],
+      ["--setta-section-style-text", "#f8fafc"],
+      ["--setta-section-style-muted-text", "#94a3b8"],
+    ]);
+    const getComputedStyle = vi.fn(() => ({
+      getPropertyValue: (propertyName: string) =>
+        cssVars.get(propertyName) ?? "",
+    })) as unknown as (element: Element) => CSSStyleDeclaration;
+
+    expect(
+      getLiveDictAreaPixiPalette({
+        darkMode: false,
+        getComputedStyle,
+        host,
+      }),
+    ).toEqual({
+      bodyText: "#f8fafc",
+      border: "#334155",
+      panelBackground: "#1f2937",
+      panelBackgroundAlt: "#111827",
+      portDot: "#94a3b8",
+      portSelectedDot: "#38bdf8",
+      rowBackground: "#111827",
+      rowBackgroundAlt: "#1f2937",
+      rowPlaceholderFill: "#111827",
+      titleText: "#94a3b8",
+    });
+  });
+
+  it("falls back to the generic palette when section-style CSS variables are unavailable", () => {
+    expect(
+      getLiveDictAreaPixiPalette({
+        darkMode: false,
+        getComputedStyle: vi.fn(() => ({
+          getPropertyValue: () => "   ",
+        })) as unknown as (element: Element) => CSSStyleDeclaration,
+        host: {} as Element,
+      }),
+    ).toEqual({
+      bodyText: "#0f172a",
+      border: "#cbd5e1",
+      panelBackground: "#f8fafc",
+      panelBackgroundAlt: "#f1f5f9",
+      portDot: "#64748b",
+      portSelectedDot: "#0284c7",
+      rowBackground: "#ffffff",
+      rowBackgroundAlt: "#eef2ff",
+      rowPlaceholderFill: "#f8fafc",
+      titleText: "#475569",
+    });
+  });
+
+  it("falls back to the section style metadata when inherited CSS variables are unavailable", () => {
+    const theme = deriveSectionStyleTheme("#1f2937", false);
+
+    expect(theme).not.toBeNull();
+    expect(
+      getLiveDictAreaPixiPalette({
+        darkMode: false,
+        getComputedStyle: vi.fn(() => ({
+          getPropertyValue: () => "   ",
+        })) as unknown as (element: Element) => CSSStyleDeclaration,
+        host: {} as Element,
+        sectionStyleColor: "#1f2937",
+      }),
+    ).toEqual({
+      bodyText: theme!.text,
+      border: theme!.border,
+      panelBackground: theme!.panelBg,
+      panelBackgroundAlt: theme!.bg,
+      portDot: theme!.mutedText,
+      portSelectedDot: theme!.outline,
+      rowBackground: theme!.bg,
+      rowBackgroundAlt: theme!.panelBg,
+      rowPlaceholderFill: theme!.bg,
+      titleText: theme!.mutedText,
+    });
   });
 });
 

@@ -1,3 +1,4 @@
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
   LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT,
   LIVE_DICT_AREA_PIXI_LAYOUT,
@@ -8,6 +9,45 @@ export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
 export const LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH = 200;
 export const LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT =
   LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT;
+
+export type LiveDictAreaPixiPalette = {
+  bodyText: string;
+  border: string;
+  panelBackground: string;
+  panelBackgroundAlt: string;
+  portDot: string;
+  portSelectedDot: string;
+  rowBackground: string;
+  rowBackgroundAlt: string;
+  rowPlaceholderFill: string;
+  titleText: string;
+};
+
+const LIVE_DICT_AREA_PIXI_FALLBACK_DARK_PALETTE: LiveDictAreaPixiPalette = {
+  bodyText: "#e5e7eb",
+  border: "#334155",
+  panelBackground: "#111827",
+  panelBackgroundAlt: "#0f172a",
+  portDot: "#94a3b8",
+  portSelectedDot: "#38bdf8",
+  rowBackground: "#172036",
+  rowBackgroundAlt: "#1e293b",
+  rowPlaceholderFill: "#1f2937",
+  titleText: "#94a3b8",
+};
+
+const LIVE_DICT_AREA_PIXI_FALLBACK_LIGHT_PALETTE: LiveDictAreaPixiPalette = {
+  bodyText: "#0f172a",
+  border: "#cbd5e1",
+  panelBackground: "#f8fafc",
+  panelBackgroundAlt: "#f1f5f9",
+  portDot: "#64748b",
+  portSelectedDot: "#0284c7",
+  rowBackground: "#ffffff",
+  rowBackgroundAlt: "#eef2ff",
+  rowPlaceholderFill: "#f8fafc",
+  titleText: "#475569",
+};
 
 const LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET = {
   edgeLabelFontSize: 8,
@@ -139,6 +179,67 @@ export function getLiveDictAreaPixiTextResolution(renderResolution: number) {
   return Number.isFinite(renderResolution) && renderResolution > 1
     ? renderResolution
     : 1;
+}
+
+export function getLiveDictAreaPixiPalette({
+  darkMode,
+  getComputedStyle,
+  host,
+  sectionStyleColor,
+}: {
+  darkMode: boolean;
+  getComputedStyle?: ((element: Element) => CSSStyleDeclaration) | null;
+  host?: Element | null;
+  sectionStyleColor?: string | null;
+}): LiveDictAreaPixiPalette {
+  const fallbackPalette = getLiveDictAreaPixiFallbackPalette({
+    darkMode,
+    sectionStyleColor,
+  });
+
+  if (!host || !getComputedStyle) {
+    return fallbackPalette;
+  }
+
+  const computedStyle = getComputedStyle(host);
+  const sectionPanelBackground = readLiveDictAreaPixiCssVariable({
+    computedStyle,
+    propertyName: "--setta-section-style-panel-bg",
+  });
+  const sectionBackground = readLiveDictAreaPixiCssVariable({
+    computedStyle,
+    propertyName: "--setta-section-style-bg",
+  });
+  const sectionBorder = readLiveDictAreaPixiCssVariable({
+    computedStyle,
+    propertyName: "--setta-section-style-border",
+  });
+  const sectionOutline = readLiveDictAreaPixiCssVariable({
+    computedStyle,
+    propertyName: "--setta-section-style-outline",
+  });
+  const sectionText = readLiveDictAreaPixiCssVariable({
+    computedStyle,
+    propertyName: "--setta-section-style-text",
+  });
+  const sectionMutedText = readLiveDictAreaPixiCssVariable({
+    computedStyle,
+    propertyName: "--setta-section-style-muted-text",
+  });
+
+  return {
+    bodyText: sectionText || fallbackPalette.bodyText,
+    border: sectionBorder || fallbackPalette.border,
+    panelBackground: sectionPanelBackground || fallbackPalette.panelBackground,
+    panelBackgroundAlt: sectionBackground || fallbackPalette.panelBackgroundAlt,
+    portDot: sectionMutedText || fallbackPalette.portDot,
+    portSelectedDot: sectionOutline || fallbackPalette.portSelectedDot,
+    rowBackground: sectionBackground || fallbackPalette.rowBackground,
+    rowBackgroundAlt:
+      sectionPanelBackground || fallbackPalette.rowBackgroundAlt,
+    rowPlaceholderFill: sectionBackground || fallbackPalette.rowPlaceholderFill,
+    titleText: sectionMutedText || fallbackPalette.titleText,
+  };
 }
 
 export function getLiveDictAreaPixiTextFontFamily({
@@ -315,6 +416,49 @@ export function subscribeToLiveDictAreaPixiFontLoadInvalidation({
     disposed = true;
     fontFaceSet.removeEventListener("loadingdone", handleLoadingDone);
     fontFaceSet.removeEventListener("loadingerror", handleLoadingError);
+  };
+}
+
+function readLiveDictAreaPixiCssVariable({
+  computedStyle,
+  propertyName,
+}: {
+  computedStyle: CSSStyleDeclaration;
+  propertyName: string;
+}) {
+  return computedStyle.getPropertyValue(propertyName).trim();
+}
+
+function getLiveDictAreaPixiFallbackPalette({
+  darkMode,
+  sectionStyleColor,
+}: {
+  darkMode: boolean;
+  sectionStyleColor?: string | null;
+}) {
+  const defaultPalette = darkMode
+    ? LIVE_DICT_AREA_PIXI_FALLBACK_DARK_PALETTE
+    : LIVE_DICT_AREA_PIXI_FALLBACK_LIGHT_PALETTE;
+  const sectionStyleTheme =
+    sectionStyleColor === null || sectionStyleColor === undefined
+      ? null
+      : deriveSectionStyleTheme(sectionStyleColor, darkMode);
+
+  if (!sectionStyleTheme) {
+    return defaultPalette;
+  }
+
+  return {
+    bodyText: sectionStyleTheme.text,
+    border: sectionStyleTheme.border,
+    panelBackground: sectionStyleTheme.panelBg,
+    panelBackgroundAlt: sectionStyleTheme.bg,
+    portDot: sectionStyleTheme.mutedText,
+    portSelectedDot: sectionStyleTheme.outline,
+    rowBackground: sectionStyleTheme.bg,
+    rowBackgroundAlt: sectionStyleTheme.panelBg,
+    rowPlaceholderFill: sectionStyleTheme.bg,
+    titleText: sectionStyleTheme.mutedText,
   };
 }
 

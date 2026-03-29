@@ -20,6 +20,7 @@ import {
 import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiLogicalCanvasWidth,
+  getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
@@ -27,24 +28,12 @@ import {
   getLiveDictAreaPixiTextStyleSet,
   getLiveDictAreaPixiUsableMaxCanvasHeight,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
+  type LiveDictAreaPixiPalette,
   type LiveDictAreaPixiTextStyleSet,
 } from "./liveDictAreaPixiSceneView";
 
 type LiveDictAreaPixiSceneProps = {
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
-};
-
-type LiveDictAreaPixiPalette = {
-  bodyText: ColorSource;
-  border: ColorSource;
-  panelBackground: ColorSource;
-  panelBackgroundAlt: ColorSource;
-  portDot: ColorSource;
-  portSelectedDot: ColorSource;
-  rowBackground: ColorSource;
-  rowBackgroundAlt: ColorSource;
-  rowPlaceholderFill: ColorSource;
-  titleText: ColorSource;
 };
 
 type LiveDictAreaPixiStaticSceneApplication = {
@@ -88,6 +77,9 @@ function _LiveDictAreaPixiScene({
     devicePixelRatio,
     viewportZoom,
   });
+  const sectionStyleColor = getLiveDictAreaPixiSectionStyleColor(
+    liveDictAreaSceneBoundary,
+  );
   const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
   const usableMaxCanvasHeight = getLiveDictAreaPixiUsableMaxCanvasHeight(
     availableCanvasHeight,
@@ -238,6 +230,12 @@ function _LiveDictAreaPixiScene({
         getComputedStyle: window.getComputedStyle,
         rowElement: rowTextStyleRef.current,
       });
+      const palette = getLiveDictAreaPixiPalette({
+        darkMode,
+        getComputedStyle: window.getComputedStyle,
+        host,
+        sectionStyleColor,
+      });
       let app = appRef.current;
 
       if (!app) {
@@ -283,7 +281,7 @@ function _LiveDictAreaPixiScene({
       drawLiveDictAreaPixiScene({
         app,
         layout: summaryLayout,
-        palette: getLiveDictAreaPixiPalette(darkMode),
+        palette,
         paramColumnWidth,
         textResolution,
         textFontFamily,
@@ -307,6 +305,7 @@ function _LiveDictAreaPixiScene({
     darkMode,
     fontLoadVersion,
     renderResolution,
+    sectionStyleColor,
     summaryLayout,
     textResolution,
   ]);
@@ -357,6 +356,19 @@ function _LiveDictAreaPixiScene({
 }
 
 export const LiveDictAreaPixiScene = React.memo(_LiveDictAreaPixiScene);
+
+function getLiveDictAreaPixiSectionStyleColor(
+  liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary,
+) {
+  const { canaryPacket } = liveDictAreaSceneBoundary.liveDictAreaBoundary;
+
+  return (
+    canaryPacket.pinnedParamAreaBlock?.domPacket.styleColor ??
+    canaryPacket.unpinnedParamAreaBlock?.domPacket.styleColor ??
+    canaryPacket.edgeStripBlock?.domPacket.styleColor ??
+    null
+  );
+}
 
 function drawLiveDictAreaPixiScene({
   app,
@@ -768,36 +780,4 @@ function drawRoundedPanel({
   });
 
   return graphics;
-}
-
-function getLiveDictAreaPixiPalette(
-  darkMode: boolean,
-): LiveDictAreaPixiPalette {
-  if (darkMode) {
-    return {
-      bodyText: "#e5e7eb",
-      border: "#334155",
-      panelBackground: "#111827",
-      panelBackgroundAlt: "#0f172a",
-      portDot: "#94a3b8",
-      portSelectedDot: "#38bdf8",
-      rowBackground: "#172036",
-      rowBackgroundAlt: "#1e293b",
-      rowPlaceholderFill: "#1f2937",
-      titleText: "#94a3b8",
-    };
-  }
-
-  return {
-    bodyText: "#0f172a",
-    border: "#cbd5e1",
-    panelBackground: "#f8fafc",
-    panelBackgroundAlt: "#f1f5f9",
-    portDot: "#64748b",
-    portSelectedDot: "#0284c7",
-    rowBackground: "#ffffff",
-    rowBackgroundAlt: "#eef2ff",
-    rowPlaceholderFill: "#f8fafc",
-    titleText: "#475569",
-  };
 }

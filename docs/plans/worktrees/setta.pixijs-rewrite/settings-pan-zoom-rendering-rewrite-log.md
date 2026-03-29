@@ -8826,6 +8826,46 @@ Record:
 - Next action:
   - Continue live Pixi parity tightening from this non-collapsed canary state, starting with a fresh baseline-vs-canary comparison for the remaining row/content differences now that the separator-collapse blocker is cleared.
 
+## 2026-03-29 271
+
+- Item: Theme the live Pixi scene palette from section-style tokens/metadata so the All Settings canary no longer falls back to stark generic light cards.
+- Status: `done`
+- Details:
+  - Took the next bounded parity slice directly from the fresh baseline-vs-canary comparison instead of another forwarding or probe-only cleanup:
+    - the first visible `All Settings` card on `?liveDictAreaRenderer=pixi-node-body` was still painting as a stark white/generic panel while the baseline `/settings` card used the section's darker themed chrome
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The live Pixi scene now:
+    - reads inherited section-style CSS variables from the mounted host when they are available
+    - falls back to the section's typed `styleColor` metadata when those inherited CSS vars are absent in the Pixi branch of the tree
+    - only falls back to the old generic light/dark palette when neither the inherited tokens nor the section metadata are available
+  - Verification outcome:
+    - this removes the earlier stark white/generic card regression on the checked live Pixi canary
+    - the broader visual-parity gate is still not complete; the Pixi canary remains darker/flatter and under-renders internal detail compared with the richer baseline card body
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`24 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Playwright:
+    - direct retry with the provided runtime/bootstrap values:
+      - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` because bootstrap stayed on `http://127.0.0.1:8044/__setta__/bootstrap#token=...` and returned `401`
+    - helper retry:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` by the same bootstrap `401` even after minting a fresh token
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings` and `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - compared the first visible `All Settings` card/body on both routes
+    - the old stark white/generic Pixi card regression is improved: the checked Pixi card now renders as a dark card instead of a bright white fallback panel
+    - blocker remains:
+      - the Pixi-body card is still flatter and under-rendered versus baseline, with less visible internal structure/content than `/settings`
+- Next action:
+  - Continue the live Pixi parity lane by restoring the missing internal card/body detail on the first visible `All Settings` canary instead of doing more palette-only cleanup or seam lifting.
+
 ## 2026-03-29 270
 
 - Item: Switch short live Pixi preview cards into a compact row-preview mode so visible All Settings cards stop rendering as header-only shells.
