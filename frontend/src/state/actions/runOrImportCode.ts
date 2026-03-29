@@ -8,17 +8,11 @@ import {
 } from "state/definitions";
 import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { isRunnableCodeLanguage } from "utils/codeLanguage";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
-  route_get_latest_project_state,
-  route_interrupt_terminal_processes,
+  route_kill_subprocesses,
   route_run_code,
 } from "utils/generatedEndpoints";
-import {
-  BinaryContentRef,
-  type ProjectStateSingleConfigWithCompletedOpIds,
-  SectionTypeEnum,
-} from "utils/generatedTypes";
+import { BinaryContentRef, SectionTypeEnum } from "utils/generatedTypes";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
@@ -26,12 +20,7 @@ import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
   isBaseCodeSectionType,
-  processProjectStateUpdateFromBackend,
 } from "./sectionInfos";
-
-type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
-type RunCodeRouteResponse = ResponseDataAndStatus<null>;
 
 export async function runCodeBlock(sectionId: string | null) {
   const { projectConfig, singletonSections } = useProjectState.getState();
@@ -77,10 +66,9 @@ export async function runCodeBlock(sectionId: string | null) {
       return;
     }
   }
-  const executionSectionId =
-    pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode
-      ? null
-      : sectionId;
+  if (pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode) {
+    sectionId = null;
+  }
   const shareSession = useShareSession.getState();
   let runSnapshotMode = null;
   if (!shareSession.isDeploymentMode) {
@@ -94,37 +82,18 @@ export async function runCodeBlock(sectionId: string | null) {
     }
   }
   const terminalSectionId = await ensureAttachedTerminalForRun({
-    sectionId: executionSectionId,
+    sectionId,
     projectConfig,
   });
-  const shouldRefreshProjectState =
-    terminalSectionId === null &&
-    shouldRefreshProjectStateAfterRun({
-      executionSectionId,
-      projectConfig,
-      pythonCodegenEnabled,
-    });
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
-  const runResponse: RunCodeRouteResponse = await route_run_code({
+  await route_run_code({
     projectConfigId: projectConfig.id,
-    sectionId: executionSectionId,
+    sectionId,
     terminalSectionId,
     cliId: null,
     runSnapshotMode,
     drawSnapshotsBySectionId,
   });
-  if (!shouldRefreshProjectState || !res200(runResponse)) {
-    return;
-  }
-
-  const latestProjectStateResponse: LatestProjectStateRouteResponse =
-    await route_get_latest_project_state({
-      projectConfigId: projectConfig.id,
-    });
-  if (!res200(latestProjectStateResponse)) {
-    return;
-  }
-  processProjectStateUpdateFromBackend(latestProjectStateResponse.data);
 }
 
 export async function runEntryCodeBlock() {
@@ -159,8 +128,8 @@ export async function runFromMainRunButton(): Promise<void> {
 
 export async function stopCode() {
   addTemporaryNotification("Stopping subprocesses");
-  route_interrupt_terminal_processes({
-    projectId: getCurrProjectConfigId(),
+  route_kill_subprocesses({
+    projectConfigId: getCurrProjectConfigId(),
   });
 }
 
@@ -208,30 +177,6 @@ async function ensureAttachedTerminalForRun({
     return existingTerminalId;
   }
   return null;
-}
-
-function shouldRefreshProjectStateAfterRun({
-  executionSectionId,
-  projectConfig,
-  pythonCodegenEnabled,
-}: {
-  executionSectionId: string | null;
-  projectConfig: ZustandProjectState["projectConfig"];
-  pythonCodegenEnabled: boolean;
-}): boolean {
-  if (pythonCodegenEnabled && executionSectionId === null) {
-    return true;
-  }
-  const resolvedSectionId = resolveAttachmentSectionId(
-    executionSectionId,
-    projectConfig,
-  );
-  if (!resolvedSectionId) {
-    return false;
-  }
-  const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
-  return isBaseCodeSectionType(impl.type);
 }
 
 function resolveAttachmentSectionId(
