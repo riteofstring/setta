@@ -4,9 +4,10 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ChatInput } from "./ChatInput";
+import { type ChatSlashCommandDefinition } from "./chatComposerControls";
 import {
   areSlashSuggestionsPortalStylesEqual,
-  ChatInput,
   cycleQueuedDraftSelection,
   cycleSubmittedMessageHistorySelection,
   enqueueQueuedDraft,
@@ -15,8 +16,7 @@ import {
   resolveCustomPromptSlashCommandSubmission,
   resolveEscapeComposerAction,
   resolveSlashCommandRequest,
-} from "./ChatInput";
-import { type ChatSlashCommandDefinition } from "./chatComposerControls";
+} from "./chatInputHelpers";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return {
