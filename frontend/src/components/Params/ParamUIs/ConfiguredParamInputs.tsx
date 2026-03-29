@@ -148,6 +148,7 @@ type ConfiguredColorPickerInputProps = {
   isDisabled?: boolean;
   wrapperClassName: string;
   colorPickerChoicesClasses: string;
+  shouldAutoOpenOnMount?: boolean;
 };
 
 export function ConfiguredColorPickerInput({
@@ -159,6 +160,7 @@ export function ConfiguredColorPickerInput({
   isDisabled,
   wrapperClassName,
   colorPickerChoicesClasses,
+  shouldAutoOpenOnMount,
 }: ConfiguredColorPickerInputProps) {
   const { colorChoices } = useParamCodeObjUIConfig(
     sectionId,
@@ -175,6 +177,7 @@ export function ConfiguredColorPickerInput({
       wrapperClassName={wrapperClassName}
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
+      shouldAutoOpenOnMount={shouldAutoOpenOnMount}
     />
   );
 }
@@ -189,6 +192,7 @@ type ConfiguredDropdownInputProps = {
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
+  shouldAutoOpenOnMount?: boolean;
 };
 
 export function ConfiguredDropdownInput({
@@ -201,6 +205,7 @@ export function ConfiguredDropdownInput({
   isDisabled,
   placeholder,
   small,
+  shouldAutoOpenOnMount,
 }: ConfiguredDropdownInputProps) {
   const { choices } = useParamCodeObjUIConfig(
     sectionId,
@@ -218,6 +223,7 @@ export function ConfiguredDropdownInput({
       isDisabled={isDisabled}
       placeholder={placeholder}
       small={small}
+      shouldAutoOpenOnMount={shouldAutoOpenOnMount}
     />
   );
 }
