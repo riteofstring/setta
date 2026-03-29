@@ -65,20 +65,18 @@ type DeleteExternalAgentConfigRequest struct {
 }
 
 type ExternalAgentPreflightStatus struct {
-	ConfigID    string                            `json:"configId"`
-	Name        string                            `json:"name"`
-	ToolType    externalagentconfigs.ToolType     `json:"toolType"`
-	RunMode     externalagentconfigs.RunMode      `json:"runMode"`
-	Supported   bool                              `json:"supported"`
-	Available   bool                              `json:"available"`
-	Issues      []string                          `json:"issues"`
-	NodePath    *string                           `json:"nodePath"`
-	NodeVersion *string                           `json:"nodeVersion"`
-	SDKVersion  *string                           `json:"sdkVersion"`
-	CLIVersion  *string                           `json:"cliVersion"`
-	BaseURL     *string                           `json:"baseUrl"`
-	WorkingDir  *string                           `json:"workingDir"`
-	EnvVars     externalagentconfigs.EnvVarStatus `json:"envVars"`
+	ConfigID   string                            `json:"configId"`
+	Name       string                            `json:"name"`
+	ToolType   externalagentconfigs.ToolType     `json:"toolType"`
+	RunMode    externalagentconfigs.RunMode      `json:"runMode"`
+	Supported  bool                              `json:"supported"`
+	Available  bool                              `json:"available"`
+	Issues     []string                          `json:"issues"`
+	SDKVersion *string                           `json:"sdkVersion"`
+	CLIVersion *string                           `json:"cliVersion"`
+	BaseURL    *string                           `json:"baseUrl"`
+	WorkingDir *string                           `json:"workingDir"`
+	EnvVars    externalagentconfigs.EnvVarStatus `json:"envVars"`
 }
 
 func RegisterExternalAgentConfigRoutes(router chi.Router, deps ExternalAgentConfigRouteDependencies) error {
@@ -344,25 +342,21 @@ func broadcastExternalAgentConfigsUpdated(
 
 func buildExternalAgentHealthResponse(status externalagentconfigs.Status) ExternalAgentPreflightStatus {
 	response := ExternalAgentPreflightStatus{
-		ConfigID:    status.ConfigID,
-		Name:        status.Name,
-		ToolType:    status.ToolType,
-		RunMode:     status.RunMode,
-		Supported:   status.Supported,
-		Available:   status.Available,
-		Issues:      cloneStringSlice(status.Issues),
-		BaseURL:     cloneOptionalString(status.BaseURL),
-		WorkingDir:  cloneOptionalString(status.WorkingDir),
-		NodeVersion: cloneOptionalString(status.NodeVersion),
-		SDKVersion:  cloneOptionalString(status.SDKVersion),
-		CLIVersion:  cloneOptionalString(status.CLIVersion),
+		ConfigID:   status.ConfigID,
+		Name:       status.Name,
+		ToolType:   status.ToolType,
+		RunMode:    status.RunMode,
+		Supported:  status.Supported,
+		Available:  status.Available,
+		Issues:     cloneStringSlice(status.Issues),
+		BaseURL:    cloneOptionalString(status.BaseURL),
+		WorkingDir: cloneOptionalString(status.WorkingDir),
+		SDKVersion: cloneOptionalString(status.SDKVersion),
+		CLIVersion: cloneOptionalString(status.CLIVersion),
 		EnvVars: externalagentconfigs.EnvVarStatus{
 			Present: cloneStringSlice(status.EnvVars.Present),
 			Missing: cloneStringSlice(status.EnvVars.Missing),
 		},
-	}
-	if status.ToolType == externalagentconfigs.ToolTypeOpenCode {
-		response.NodePath = cloneOptionalString(status.CommandPath)
 	}
 	return response
 }
@@ -469,13 +463,6 @@ func cloneExternalAgentSettingsManagedBlock(
 	}
 	if value.Codex != nil {
 		cloned.Codex = cloneJSONMap(value.Codex)
-	}
-	if value.OpenCode != nil {
-		cloned.OpenCode = &externalagentconfigs.OpenCodeSettingsManaged{
-			MCP:        cloneJSONMap(value.OpenCode.MCP),
-			Model:      cloneOptionalString(value.OpenCode.Model),
-			Permission: cloneJSONValue(value.OpenCode.Permission),
-		}
 	}
 	return cloned
 }

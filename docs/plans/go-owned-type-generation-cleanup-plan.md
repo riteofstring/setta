@@ -157,7 +157,6 @@ That means:
   - `ClaudeSettingsSource`
   - `ClaudeSettingsPermissions`
   - `ClaudeSettingsManaged`
-  - `OpenCodeSettingsManaged`
   - `SettingsManagedBlock`
   - `Config`
 - `internal/frontendbindings/ai_settings_support.go` now aliases that owner-backed external-agent config/settings family instead of repeating the field layouts locally.

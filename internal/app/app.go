@@ -1255,25 +1255,9 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
 			return nil, err
 		}
-		openCodeExecutor, err := externalagents.NewOpenCodeExecutor(externalagents.OpenCodeExecutorOptions{
-			Runs:               agentRunStore,
-			Runtime:            externalAgentRuntime,
-			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
-			SettaServerURL:     settaServerURL,
-			CurrentSession:     currentSession,
-			AuthCookieBaseName: authService.AuthCookieBaseName(),
-			RuntimeRoot:        cfg.Paths.RuntimeRoot,
-			ProcessEnv:         llmconfig.CurrentProcessEnv(),
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
 		externalAgentExecutor = externalagents.NewMultiExecutor(externalagents.MultiExecutorOptions{
-			Claude:   claudeExecutor,
-			Codex:    codexExecutor,
-			OpenCode: openCodeExecutor,
+			Claude: claudeExecutor,
+			Codex:  codexExecutor,
 		})
 		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
 			ProjectState:   projectRuntime,

@@ -317,7 +317,6 @@ export function createDeletePromptTemplateRequestInput(options: Partial<DeletePr
 export const ExternalAgentToolTypeEnum = {
   claude_code: "claude_code",
   codex: "codex",
-  opencode: "opencode",
 } as const;
 export type ExternalAgentToolType = ObjectValues<typeof ExternalAgentToolTypeEnum>;
 
@@ -367,21 +366,9 @@ export function createClaudeSettingsManaged(options: Partial<ClaudeSettingsManag
   return options as ClaudeSettingsManaged;
 }
 
-
-export type OpenCodeSettingsManaged = {
-  mcp?: Record<string, unknown>;
-  model?: string | null;
-  permission?: unknown;
-};
-export function createOpenCodeSettingsManaged(options: Partial<OpenCodeSettingsManaged> = {}): OpenCodeSettingsManaged {
-  return options as OpenCodeSettingsManaged;
-}
-
-
 export type ExternalAgentSettingsManagedBlock = {
   claude?: ClaudeSettingsManaged | null;
   codex?: Record<string, unknown>;
-  opencode?: OpenCodeSettingsManaged | null;
 };
 export function createExternalAgentSettingsManagedBlock(options: Partial<ExternalAgentSettingsManagedBlock> = {}): ExternalAgentSettingsManagedBlock {
   return options as ExternalAgentSettingsManagedBlock;

@@ -287,7 +287,7 @@ func (s *RunService) prepareRun(profile agentprofiles.Profile, rawInputs map[str
 			ProjectConfigID:     projectConfigID,
 			IncludeText:         externalConfig.ToolType == externalagentconfigs.ToolTypeClaudeCode,
 			IncludeTextNoImages: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
-			IncludeDownloadURLs: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex || externalConfig.ToolType == externalagentconfigs.ToolTypeOpenCode,
+			IncludeDownloadURLs: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
 		})
 		if err != nil {
 			return preparedRun{}, err
@@ -441,7 +441,7 @@ func (s *RunService) seedChatContinuity(inputs map[string]any, chatID string, pr
 		if resolveRunOutputString(latestRun, "threadId") != "" && strings.TrimSpace(stringValue(inputs["threadId"])) == "" {
 			inputs["threadId"] = resolveRunOutputString(latestRun, "threadId")
 		}
-	case externalagentconfigs.ToolTypeClaudeCode, externalagentconfigs.ToolTypeOpenCode:
+	case externalagentconfigs.ToolTypeClaudeCode:
 		if resolveRunOutputString(latestRun, "sessionId") != "" && strings.TrimSpace(stringValue(inputs["sessionId"])) == "" {
 			inputs["sessionId"] = resolveRunOutputString(latestRun, "sessionId")
 		}

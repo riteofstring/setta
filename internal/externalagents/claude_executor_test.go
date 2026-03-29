@@ -2101,6 +2101,33 @@ func (f claudeExecutorFixture) waitForQuestion(t *testing.T, runID string, toolC
 	t.Fatalf("timed out waiting for question %s", toolCallID)
 }
 
+func questionToolCallPresent(run agentruns.Run, toolCallID string) bool {
+	rawMessages, ok := run.Outputs["messages"].([]any)
+	if !ok {
+		return false
+	}
+	for _, rawMessage := range rawMessages {
+		message, ok := rawMessage.(map[string]any)
+		if !ok {
+			continue
+		}
+		rawToolCalls, ok := message["tool_calls"].([]any)
+		if !ok {
+			continue
+		}
+		for _, rawToolCall := range rawToolCalls {
+			toolCall, ok := rawToolCall.(map[string]any)
+			if !ok {
+				continue
+			}
+			if strings.TrimSpace(stringValue(toolCall["id"])) == toolCallID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func writeClaudeFixtureCommand(t *testing.T, scenario string) string {
 	t.Helper()
 

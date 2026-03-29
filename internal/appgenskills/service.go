@@ -412,22 +412,11 @@ func (s *Service) UpsertCustomSkill(skillID string, relativePath string, content
 }
 
 func (s *Service) skillRoots() ([]skillRoot, error) {
-	xdgConfigHome := filepath.Join(s.homeDir, ".config")
-	if raw, ok := s.lookupEnv("XDG_CONFIG_HOME"); ok && strings.TrimSpace(raw) != "" {
-		path, err := normalizePath(raw, "", s.lookupEnv, s.homeDir)
-		if err != nil {
-			return nil, err
-		}
-		xdgConfigHome = path
-	}
-
 	candidates := []skillRoot{
 		{ID: "workspace_agents_skills", Label: "Workspace .agents/skills", Path: filepath.Join(s.workspaceRoot, ".agents", "skills")},
 		{ID: "workspace_claude_skills", Label: "Workspace .claude/skills", Path: filepath.Join(s.workspaceRoot, ".claude", "skills")},
-		{ID: "workspace_opencode_skills", Label: "Workspace .opencode/skills", Path: filepath.Join(s.workspaceRoot, ".opencode", "skills")},
 		{ID: "user_agents_skills", Label: "User ~/.agents/skills", Path: filepath.Join(s.homeDir, ".agents", "skills")},
 		{ID: "user_claude_skills", Label: "User ~/.claude/skills", Path: filepath.Join(s.homeDir, ".claude", "skills")},
-		{ID: "user_opencode_skills", Label: "User ${XDG_CONFIG_HOME:-~/.config}/opencode/skills", Path: filepath.Join(xdgConfigHome, "opencode", "skills")},
 		{ID: "admin_codex_skills", Label: "Admin /etc/codex/skills", Path: "/etc/codex/skills"},
 	}
 

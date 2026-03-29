@@ -26,7 +26,6 @@ func defaultProfiles() []Profile {
 	engineSettaClaudeSonnet := "engine-setta-claude-sonnet"
 	engineClaudeCode := "engine-claude-code"
 	engineCodex := "engine-codex"
-	engineOpenCode := "engine-opencode"
 	return []Profile{
 		{
 			ID:             "agent-default",
@@ -50,14 +49,6 @@ func defaultProfiles() []Profile {
 			Description:    "External agent via Codex app-server",
 			SystemPrompt:   "",
 			EngineConfigID: &engineCodex,
-			ToolAllowlist:  []string{},
-		},
-		{
-			ID:             "agent-opencode",
-			Name:           "OpenCode",
-			Description:    "External agent via OpenCode SDK",
-			SystemPrompt:   "",
-			EngineConfigID: &engineOpenCode,
 			ToolAllowlist:  []string{},
 		},
 	}

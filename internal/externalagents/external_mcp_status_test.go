@@ -301,20 +301,6 @@ func TestBuildClaudeMCPStatusesPreservesMessageOnlyUnknownAndNestedErrorObject(t
 	}
 }
 
-func TestBuildOpenCodeMCPStatusesIgnoresEmptyNonMCPPayload(t *testing.T) {
-	t.Parallel()
-
-	statuses := buildOpenCodeMCPStatuses(map[string]any{
-		"type": "system_message",
-		"message": map[string]any{
-			"status": "ok",
-		},
-	}, func() time.Time { return time.Date(2026, 3, 20, 11, 15, 0, 0, time.UTC) })
-	if len(statuses) != 0 {
-		t.Fatalf("expected empty payload to stay empty, got %#v", statuses)
-	}
-}
-
 func TestBuildCodexMCPStatusesCapturesGenericServersContainer(t *testing.T) {
 	t.Parallel()
 

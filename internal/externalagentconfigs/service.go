@@ -1,7 +1,6 @@
 package externalagentconfigs
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -16,7 +15,6 @@ import (
 const (
 	serviceSettingsRootName = "external_agent_settings"
 	codexConfigFileName     = "config.toml"
-	openCodeConfigFileName  = "opencode.json"
 )
 
 var (
@@ -92,10 +90,6 @@ func (s *Service) ReconcileManagedCanonicalConfigs() error {
 		switch config.ToolType {
 		case ToolTypeCodex:
 			if err := s.writeCodexConfig(s.codexConfigPath(config.ID), config); err != nil {
-				return err
-			}
-		case ToolTypeOpenCode:
-			if err := s.writeOpenCodeConfig(s.openCodeConfigPath(config.ID), config); err != nil {
 				return err
 			}
 		}
@@ -225,8 +219,6 @@ func (s *Service) prepareForMutation(config Config) (Config, error) {
 		switch normalized.ToolType {
 		case ToolTypeClaudeCode:
 			normalized.SettingsManagedBlock = buildDefaultClaudeSettingsBlock()
-		case ToolTypeOpenCode:
-			normalized.SettingsManagedBlock = buildDefaultOpenCodeSettingsBlock()
 		}
 	}
 	return normalized, nil
@@ -308,40 +300,6 @@ func buildDefaultClaudeSettingsBlock() *SettingsManagedBlock {
 	}
 }
 
-func buildDefaultOpenCodeSettingsBlock() *SettingsManagedBlock {
-	return &SettingsManagedBlock{
-		OpenCode: &OpenCodeSettingsManaged{
-			Permission: cloneJSONValue(defaultOpenCodePermission()),
-		},
-	}
-}
-
-func defaultOpenCodePermission() map[string]any {
-	return map[string]any{
-		"*": "allow",
-		"bash": map[string]any{
-			"*":           "allow",
-			"rm *":        "ask",
-			"sudo *":      "ask",
-			"chmod *":     "ask",
-			"chown *":     "ask",
-			"git push":    "ask",
-			"git push *":  "ask",
-			"git reset":   "ask",
-			"git reset *": "ask",
-			"git clean":   "ask",
-			"git clean *": "ask",
-			"dd *":        "ask",
-			"mkfs *":      "ask",
-			"diskutil *":  "ask",
-			"shutdown":    "ask",
-			"shutdown *":  "ask",
-			"reboot":      "ask",
-			"reboot *":    "ask",
-		},
-	}
-}
-
 var defaultClaudeAllowRules = []string{
 	"mcp__setta__*",
 }
@@ -373,16 +331,6 @@ func (s *Service) syncCanonicalArtifacts(config Config) (func(), error) {
 			return nil, err
 		}
 		return func() { restoreFileSnapshot(path, snapshot) }, nil
-	case config.ToolType == ToolTypeOpenCode && config.SettingsMode != SettingsModeExplicitPath:
-		path := s.openCodeConfigPath(config.ID)
-		snapshot, err := snapshotFile(path)
-		if err != nil {
-			return nil, err
-		}
-		if err := s.writeOpenCodeConfig(path, config); err != nil {
-			return nil, err
-		}
-		return func() { restoreFileSnapshot(path, snapshot) }, nil
 	case config.ToolType == ToolTypeClaudeCode:
 		path := ResolveClaudeSettingsPath(config, s.workspaceRoot)
 		if path == "" {
@@ -405,22 +353,14 @@ func (s *Service) reconcileCanonicalArtifacts(configID string, config Config) {
 	if config.ToolType != ToolTypeCodex || config.SettingsMode == SettingsModeExplicitPath {
 		_ = os.RemoveAll(filepath.Dir(s.codexConfigPath(configID)))
 	}
-	if config.ToolType != ToolTypeOpenCode || config.SettingsMode == SettingsModeExplicitPath {
-		_ = os.RemoveAll(filepath.Dir(s.openCodeConfigPath(configID)))
-	}
 }
 
 func (s *Service) removeAllCanonicalArtifacts(configID string) {
 	_ = os.RemoveAll(filepath.Dir(s.codexConfigPath(configID)))
-	_ = os.RemoveAll(filepath.Dir(s.openCodeConfigPath(configID)))
 }
 
 func (s *Service) codexConfigPath(configID string) string {
 	return filepath.Join(s.settaFilesRoot, serviceSettingsRootName, "codex", configID, codexConfigFileName)
-}
-
-func (s *Service) openCodeConfigPath(configID string) string {
-	return filepath.Join(s.settaFilesRoot, serviceSettingsRootName, "opencode", configID, openCodeConfigFileName)
 }
 
 func (s *Service) writeCodexConfig(path string, config Config) error {
@@ -479,54 +419,6 @@ func (s *Service) writeCodexConfig(path string, config Config) error {
 	}
 	if err := statefs.AtomicWriteFile(path, content, defaultFileMode); err != nil {
 		return fmt.Errorf("write codex canonical config: %w", err)
-	}
-	return nil
-}
-
-func (s *Service) writeOpenCodeConfig(path string, config Config) error {
-	payload := map[string]any{}
-	if model := derefOptionalString(config.DefaultModel); model != "" {
-		payload["model"] = model
-	}
-	if config.SettingsManagedBlock != nil && config.SettingsManagedBlock.OpenCode != nil {
-		if config.SettingsManagedBlock.OpenCode.Model != nil {
-			if model := strings.TrimSpace(*config.SettingsManagedBlock.OpenCode.Model); model != "" {
-				payload["model"] = model
-			}
-		}
-		if config.SettingsManagedBlock.OpenCode.Permission != nil {
-			payload["permission"] = cloneJSONValue(config.SettingsManagedBlock.OpenCode.Permission)
-		}
-		if len(config.SettingsManagedBlock.OpenCode.MCP) > 0 {
-			payload["mcp"] = cloneJSONMap(config.SettingsManagedBlock.OpenCode.MCP)
-		}
-	}
-	mcpEntries, _ := payload["mcp"].(map[string]any)
-	if mcpEntries == nil {
-		mcpEntries = map[string]any{}
-	}
-	serverEntry, _ := mcpEntries["setta"].(map[string]any)
-	if serverEntry == nil {
-		serverEntry = map[string]any{}
-	}
-	serverEntry["type"] = "remote"
-	if strings.TrimSpace(s.settaServerURL) != "" {
-		serverEntry["url"] = s.settaServerURL
-	}
-	serverEntry["enabled"] = true
-	mcpEntries["setta"] = serverEntry
-	payload["mcp"] = mcpEntries
-	ForceOpenCodeOpenAITextVerbosity(payload, "gpt-5.2-chat-latest", "medium")
-	content, err := json.MarshalIndent(payload, "", "  ")
-	if err != nil {
-		return fmt.Errorf("encode opencode canonical config: %w", err)
-	}
-	content = append(content, '\n')
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return fmt.Errorf("create opencode canonical config dir: %w", err)
-	}
-	if err := statefs.AtomicWriteFile(path, content, defaultFileMode); err != nil {
-		return fmt.Errorf("write opencode canonical config: %w", err)
 	}
 	return nil
 }

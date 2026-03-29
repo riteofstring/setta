@@ -35,8 +35,6 @@ type ClaudeSettingsPermissions externalagentconfigs.ClaudeSettingsPermissions
 
 type ClaudeSettingsManaged externalagentconfigs.ClaudeSettingsManaged
 
-type OpenCodeSettingsManaged externalagentconfigs.OpenCodeSettingsManaged
-
 type ExternalAgentSettingsManagedBlock externalagentconfigs.SettingsManagedBlock
 
 type ExternalAgentConfig externalagentconfigs.Config

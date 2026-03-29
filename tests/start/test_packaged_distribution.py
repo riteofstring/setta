@@ -71,10 +71,6 @@ def _write_minimal_distribution_project(
         "print('claude sidecar')\n",
         encoding="utf-8",
     )
-    (sidecars_root / "opencode_sdk_runner.mjs").write_text(
-        "console.log('opencode sidecar');\n",
-        encoding="utf-8",
-    )
     (sidecars_root / "package.json").write_text(
         '{"name":"setta-sidecars"}\n',
         encoding="utf-8",
@@ -245,7 +241,6 @@ def test_wheel_build_with_packaged_go_binaries_includes_only_packaged_boundary(
         "setta/__main__.py",
         "setta/entrypoint.py",
         "setta/agentic/external_adapters/sidecars/claude_sdk_runner.py",
-        "setta/agentic/external_adapters/sidecars/opencode_sdk_runner.mjs",
         "setta/agentic/external_adapters/sidecars/package.json",
         "setta/agentic/external_adapters/sidecars/node_modules/marker.txt",
         "setta/static/frontend/index.html",

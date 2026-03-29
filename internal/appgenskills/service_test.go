@@ -24,8 +24,7 @@ func TestServiceListDiscoversWorkspaceUserAndEnvRoots(t *testing.T) {
 	workspaceRoot := filepath.Join(root, "workspace")
 	homeDir := filepath.Join(root, "home")
 	agentsHome := filepath.Join(root, "agents-home")
-	xdgConfigHome := filepath.Join(root, "xdg-config")
-	for _, path := range []string{workspaceRoot, homeDir, agentsHome, xdgConfigHome} {
+	for _, path := range []string{workspaceRoot, homeDir, agentsHome} {
 		if err := os.MkdirAll(path, 0o755); err != nil {
 			t.Fatalf("mkdir %s: %v", path, err)
 		}
@@ -34,13 +33,11 @@ func TestServiceListDiscoversWorkspaceUserAndEnvRoots(t *testing.T) {
 	writeSkillDoc(t, filepath.Join(workspaceRoot, ".agents", "skills", "ui-layout", "SKILL.md"), "# UI Layout\n\nCreate dense dashboard layouts.\n")
 	writeSkillDoc(t, filepath.Join(workspaceRoot, ".claude", "skills", "prompt-review", "SKILL.md"), "# Prompt Review\n\nAudit prompts.\n")
 	writeSkillDoc(t, filepath.Join(agentsHome, "skills", "release-checklist", "SKILL.md"), "# Release Checklist\n\nShip safely.\n")
-	writeSkillDoc(t, filepath.Join(xdgConfigHome, "opencode", "skills", "plan-generator", "SKILL.md"), "# Plan Generator\n\nGenerate plans.\n")
 	writeSkillDoc(t, filepath.Join(root, "codex-home", "skills", "qa-review", "SKILL.md"), "# QA Review\n\nRun focused checks.\n")
 
 	service := newTestService(t, workspaceRoot, homeDir, testEnv{
-		"AGENTS_HOME":     agentsHome,
-		"CODEX_HOME":      filepath.Join(root, "codex-home"),
-		"XDG_CONFIG_HOME": xdgConfigHome,
+		"AGENTS_HOME": agentsHome,
+		"CODEX_HOME":  filepath.Join(root, "codex-home"),
 	})
 
 	// Listing should surface the discoverable roots the frontend skills browser uses.
@@ -65,9 +62,6 @@ func TestServiceListDiscoversWorkspaceUserAndEnvRoots(t *testing.T) {
 	}
 	if rowByID["agents_home_skills::release-checklist"].RootPath != filepath.Join(agentsHome, "skills") {
 		t.Fatalf("expected AGENTS_HOME skills path, got %#v", rowByID["agents_home_skills::release-checklist"])
-	}
-	if rowByID["user_opencode_skills::plan-generator"].RootPath != filepath.Join(xdgConfigHome, "opencode", "skills") {
-		t.Fatalf("expected XDG opencode root path, got %#v", rowByID["user_opencode_skills::plan-generator"])
 	}
 	if rowByID["codex_home_skills::qa-review"].IsEditable {
 		t.Fatalf("expected CODEX_HOME skill to be non-editable, got %#v", rowByID["codex_home_skills::qa-review"])

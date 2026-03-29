@@ -30,7 +30,6 @@ type ToolType string
 const (
 	ToolTypeClaudeCode ToolType = "claude_code"
 	ToolTypeCodex      ToolType = "codex"
-	ToolTypeOpenCode   ToolType = "opencode"
 )
 
 type RunMode string
@@ -60,9 +59,8 @@ const (
 )
 
 type SettingsManagedBlock struct {
-	Claude   *ClaudeSettingsManaged   `json:"claude,omitempty"`
-	Codex    map[string]any           `json:"codex,omitempty"`
-	OpenCode *OpenCodeSettingsManaged `json:"opencode,omitempty"`
+	Claude *ClaudeSettingsManaged `json:"claude,omitempty"`
+	Codex  map[string]any         `json:"codex,omitempty"`
 }
 
 type Config struct {
@@ -226,7 +224,7 @@ func normalizeConfig(config Config, index int) (Config, error) {
 		return Config{}, fmt.Errorf("external agent config %d name is required", index)
 	}
 	switch normalized.ToolType {
-	case ToolTypeClaudeCode, ToolTypeCodex, ToolTypeOpenCode:
+	case ToolTypeClaudeCode, ToolTypeCodex:
 	default:
 		return Config{}, fmt.Errorf("external agent config %q toolType is invalid", normalized.ID)
 	}
@@ -313,13 +311,6 @@ func cloneSettingsManagedBlock(value *SettingsManagedBlock) *SettingsManagedBloc
 	}
 	if value.Codex != nil {
 		cloned.Codex = cloneJSONMap(value.Codex)
-	}
-	if value.OpenCode != nil {
-		cloned.OpenCode = &OpenCodeSettingsManaged{
-			MCP:        cloneJSONMap(value.OpenCode.MCP),
-			Model:      cloneStringPtr(value.OpenCode.Model),
-			Permission: cloneJSONValue(value.OpenCode.Permission),
-		}
 	}
 	return cloned
 }

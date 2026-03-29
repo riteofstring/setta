@@ -3,7 +3,6 @@ package externalagentconfigs
 import (
 	"errors"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -18,7 +17,6 @@ func TestStoreRoundTripAndGet(t *testing.T) {
 
 	commandPath := "/usr/local/bin/codex"
 	workingDir := "/tmp/work"
-	model := "anthropic/claude-sonnet-4-5-20250929"
 	if err := store.Write([]Config{
 		{
 			ID:                 "config-codex",
@@ -33,10 +31,11 @@ func TestStoreRoundTripAndGet(t *testing.T) {
 				ClaudeSettingsSourceLocal,
 			},
 			SettingsManagedBlock: &SettingsManagedBlock{
-				OpenCode: &OpenCodeSettingsManaged{
-					Model: &model,
-					Permission: map[string]any{
-						"*": "ask",
+				Codex: map[string]any{
+					"mcp_servers": map[string]any{
+						"setta": map[string]any{
+							"url": "http://127.0.0.1:8000/mcp",
+						},
 					},
 				},
 			},
@@ -63,11 +62,8 @@ func TestStoreRoundTripAndGet(t *testing.T) {
 	if config.CommandPath == nil || *config.CommandPath != commandPath {
 		t.Fatalf("unexpected command path %#v", config.CommandPath)
 	}
-	if config.SettingsManagedBlock == nil || config.SettingsManagedBlock.OpenCode == nil {
-		t.Fatalf("expected openCode settings block, got %#v", config.SettingsManagedBlock)
-	}
-	if config.SettingsManagedBlock.OpenCode.Model == nil || *config.SettingsManagedBlock.OpenCode.Model != model {
-		t.Fatalf("unexpected openCode model %#v", config.SettingsManagedBlock.OpenCode)
+	if config.SettingsManagedBlock == nil || config.SettingsManagedBlock.Codex == nil {
+		t.Fatalf("expected codex settings block, got %#v", config.SettingsManagedBlock)
 	}
 	if len(config.SettingsSources) != 2 {
 		t.Fatalf("expected normalized settings sources, got %#v", config.SettingsSources)
@@ -140,36 +136,6 @@ func TestStoreRejectsPluginToolType(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), `toolType is invalid`) {
 		t.Fatalf("expected invalid toolType error, got %v", err)
-	}
-}
-
-func TestSystemCheckerRequiresOpenCodeCLIForSDKModeWithoutBaseURL(t *testing.T) {
-	workspaceRoot := t.TempDir()
-	binDir := t.TempDir()
-	nodePath := filepath.Join(binDir, "node")
-	if err := os.WriteFile(nodePath, []byte("#!/bin/sh\necho v20.0.0\n"), 0o755); err != nil {
-		t.Fatalf("write fake node: %v", err)
-	}
-	t.Setenv("PATH", binDir)
-
-	checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: workspaceRoot})
-	if err != nil {
-		t.Fatalf("new checker: %v", err)
-	}
-	status, err := checker.Check(Config{
-		ID:       "opencode",
-		Name:     "OpenCode",
-		ToolType: ToolTypeOpenCode,
-		RunMode:  RunModeSDK,
-	})
-	if err != nil {
-		t.Fatalf("check opencode config: %v", err)
-	}
-	if status.Available {
-		t.Fatalf("expected opencode sdk config to be unavailable, got %#v", status)
-	}
-	if !containsIssue(status.Issues, "opencode CLI not found") {
-		t.Fatalf("expected missing opencode issue, got %#v", status.Issues)
 	}
 }
 

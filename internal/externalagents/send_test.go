@@ -557,18 +557,6 @@ func TestSendServiceAppliesAdapterSpecificApprovalOverrides(t *testing.T) {
 			permissionMode: ChatPermissionModeYolo,
 			wantApproval:   "bypassPermissions",
 		},
-		{
-			name:           "opencode minimal maps to ask",
-			toolType:       externalagentconfigs.ToolTypeOpenCode,
-			permissionMode: ChatPermissionModeMinimal,
-			wantApproval:   "ask",
-		},
-		{
-			name:           "opencode yolo maps to allow",
-			toolType:       externalagentconfigs.ToolTypeOpenCode,
-			permissionMode: ChatPermissionModeYolo,
-			wantApproval:   "allow",
-		},
 	}
 
 	for _, testCase := range testCases {
@@ -704,53 +692,6 @@ func TestSendServiceBuildsClaudeAttachmentTextPayload(t *testing.T) {
 	}
 	if _, ok := inputs["attachmentUrls"]; ok {
 		t.Fatalf("expected claude payload to omit attachmentUrls, got %#v", inputs["attachmentUrls"])
-	}
-}
-
-func TestSendServiceBuildsOpenCodeAttachmentURLPayload(t *testing.T) {
-	t.Parallel()
-
-	fixture := newSendServiceFixture(t, sendFixtureOptions{
-		externalToolType: externalagentconfigs.ToolTypeOpenCode,
-		externalRunMode:  externalagentconfigs.RunModeSDK,
-	})
-	writeAttachmentFile(t, fixture.root, "artifacts/notes.txt", "Hello from attachment.")
-
-	_, err := fixture.service.StartChat(context.Background(), StartChatRequest{
-		Message: map[string]any{
-			"id":   "user-1",
-			"role": "user",
-			"content": []any{
-				map[string]any{"type": "text", "text": "Use the attachment."},
-			},
-			"attachments": []any{
-				map[string]any{"id": "artifacts/notes.txt", "name": "notes.txt", "mimeType": "text/plain", "size": 22},
-			},
-		},
-		EngineConfigID:  fixture.engineID,
-		Thinking:        false,
-		ProjectConfigID: "project-alpha",
-		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
-		SearchEnabled:   false,
-	})
-	if err != nil {
-		t.Fatalf("start opencode external chat with attachments: %v", err)
-	}
-
-	inputs := fixture.executor.last.Inputs
-	if _, ok := inputs["attachmentText"]; ok {
-		t.Fatalf("expected opencode payload to omit attachmentText, got %#v", inputs["attachmentText"])
-	}
-	if _, ok := inputs["attachmentTextNoImages"]; ok {
-		t.Fatalf("expected opencode payload to omit attachmentTextNoImages, got %#v", inputs["attachmentTextNoImages"])
-	}
-	attachmentURLs, _ := inputs["attachmentUrls"].(map[string]string)
-	if len(attachmentURLs) != 1 {
-		t.Fatalf("expected opencode payload URL for attachment, got %#v", inputs["attachmentUrls"])
-	}
-	if !containsText(attachmentURLs["artifacts/notes.txt"], "/api/attachments/") {
-		t.Fatalf("expected opencode attachment URL to use attachment download route, got %#v", attachmentURLs)
 	}
 }
 
@@ -1068,83 +1009,6 @@ func TestSendServiceIncludesCodexSettaMCPGuidanceAndLastKnownToolCount(t *testin
 	}
 	if !containsText(systemPrompt, "Last known Setta MCP runtime status: connected with 4 tools.") {
 		t.Fatalf("expected codex system prompt to include last known tool count, got %q", systemPrompt)
-	}
-}
-
-func TestSendServiceSeedsOpenCodeSessionIDFromLatestExternalRun(t *testing.T) {
-	t.Parallel()
-
-	fixture := newSendServiceFixture(t, sendFixtureOptions{
-		externalToolType: externalagentconfigs.ToolTypeOpenCode,
-		externalRunMode:  externalagentconfigs.RunModeSDK,
-	})
-	chatID := "chat-opencode-session"
-	fixture.seedExternalRun(t, chatID, agentruns.RunStatusCompleted, []map[string]any{
-		{
-			"id":   "source-user",
-			"role": "user",
-			"content": []any{
-				map[string]any{"type": "text", "text": "Resume this OpenCode chat"},
-			},
-		},
-	}, []map[string]any{
-		{
-			"id":   "source-user",
-			"role": "user",
-			"content": []any{
-				map[string]any{"type": "text", "text": "Resume this OpenCode chat"},
-			},
-		},
-		{
-			"id":   "source-assistant",
-			"role": "assistant",
-			"content": []any{
-				map[string]any{"type": "text", "text": "Prior OpenCode reply"},
-			},
-		},
-	})
-
-	runs, err := fixture.runs.ListByMetadata(agentruns.RunFilter{
-		RunType:         stringPtr(RunTypeExternalAgent),
-		ChatID:          stringPtr(chatID),
-		ProjectConfigID: stringPtr("project-alpha"),
-	})
-	if err != nil {
-		t.Fatalf("list prior external runs: %v", err)
-	}
-	latestRun, ok := selectLatestRun(runs)
-	if !ok {
-		t.Fatal("expected prior external run")
-	}
-	latestRun.Outputs = ensureAnyMap(latestRun.Outputs)
-	latestRun.Outputs["sessionId"] = "session-opencode-prior"
-	if err := fixture.runs.Save(latestRun); err != nil {
-		t.Fatalf("save prior session id: %v", err)
-	}
-
-	_, err = fixture.service.StartChat(context.Background(), StartChatRequest{
-		ChatID: stringPtr(chatID),
-		Message: map[string]any{
-			"id":   "new-message",
-			"role": "user",
-			"content": []any{
-				map[string]any{"type": "text", "text": "Continue on the same session"},
-			},
-		},
-		EngineConfigID:  fixture.engineID,
-		ProjectConfigID: "project-alpha",
-		AllowUnscoped:   true,
-		PermissionMode:  ChatPermissionModeMinimal,
-		SearchEnabled:   true,
-	})
-	if err != nil {
-		t.Fatalf("start opencode chat with prior session: %v", err)
-	}
-	if fixture.executor.last == nil {
-		t.Fatal("expected executor request")
-	}
-	if got := fixture.executor.last.Inputs["sessionId"]; got != "session-opencode-prior" {
-		t.Fatalf("expected prior session id to seed executor inputs, got %#v", got)
 	}
 }
 
@@ -1485,16 +1349,6 @@ func TestSendServicePreservesExplicitResumeIDsOverLatestExternalRun(t *testing.T
 			inputKey:      "threadId",
 			priorValue:    "thread-codex-prior",
 			explicitValue: "thread-codex-explicit",
-		},
-		{
-			name: "opencode session id",
-			options: sendFixtureOptions{
-				externalToolType: externalagentconfigs.ToolTypeOpenCode,
-				externalRunMode:  externalagentconfigs.RunModeSDK,
-			},
-			inputKey:      "sessionId",
-			priorValue:    "session-opencode-prior",
-			explicitValue: "session-opencode-explicit",
 		},
 		{
 			name: "claude session id",

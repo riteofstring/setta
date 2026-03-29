@@ -371,7 +371,6 @@ func TestApplyCompletionGuardToStateAcceptsReportToolAliasesAndSameTurnResults(t
 			toolName string
 		}{
 			{name: "mcp prefix direct payload", toolName: "mcp__setta__report_completion_status"},
-			{name: "opencode single underscore alias", toolName: "setta_report_completion_status"},
 		} {
 			testCase := testCase
 			t.Run(testCase.name, func(t *testing.T) {

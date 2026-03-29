@@ -49,14 +49,12 @@ func TestRegisterExternalAgentConfigRoutesListsConfigs(t *testing.T) {
 	t.Parallel()
 
 	store, service := newExternalAgentConfigRouteTestService(t)
-	baseURL := "http://localhost:18181"
 	if err := store.Write([]externalagentconfigs.Config{
 		{
 			ID:                 "config-1",
-			Name:               "OpenCode Server",
-			ToolType:           externalagentconfigs.ToolTypeOpenCode,
-			RunMode:            externalagentconfigs.RunModeServer,
-			BaseURL:            &baseURL,
+			Name:               "Codex",
+			ToolType:           externalagentconfigs.ToolTypeCodex,
+			RunMode:            externalagentconfigs.RunModeAppServer,
 			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
 		},
 	}); err != nil {
@@ -79,8 +77,8 @@ func TestRegisterExternalAgentConfigRoutesListsConfigs(t *testing.T) {
 	if len(configs) != 1 {
 		t.Fatalf("expected one config, got %#v", configs)
 	}
-	if configs[0].ToolType != externalagentconfigs.ToolTypeOpenCode {
-		t.Fatalf("expected opencode config, got %#v", configs[0])
+	if configs[0].ToolType != externalagentconfigs.ToolTypeCodex {
+		t.Fatalf("expected codex config, got %#v", configs[0])
 	}
 }
 
@@ -110,14 +108,12 @@ func TestRegisterExternalAgentConfigRoutesGetsConfig(t *testing.T) {
 	t.Parallel()
 
 	store, service := newExternalAgentConfigRouteTestService(t)
-	baseURL := "http://localhost:18181"
 	if err := store.Write([]externalagentconfigs.Config{
 		{
 			ID:                 "config-1",
-			Name:               "OpenCode Server",
-			ToolType:           externalagentconfigs.ToolTypeOpenCode,
-			RunMode:            externalagentconfigs.RunModeServer,
-			BaseURL:            &baseURL,
+			Name:               "Codex",
+			ToolType:           externalagentconfigs.ToolTypeCodex,
+			RunMode:            externalagentconfigs.RunModeAppServer,
 			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
 		},
 	}); err != nil {
@@ -136,7 +132,7 @@ func TestRegisterExternalAgentConfigRoutesGetsConfig(t *testing.T) {
 	if err := json.Unmarshal(response.Body.Bytes(), &configPayload); err != nil {
 		t.Fatalf("decode config: %v", err)
 	}
-	if configPayload.ID != "config-1" || configPayload.Name != "OpenCode Server" {
+	if configPayload.ID != "config-1" || configPayload.Name != "Codex" {
 		t.Fatalf("unexpected config %#v", configPayload)
 	}
 }
@@ -145,14 +141,12 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	t.Parallel()
 
 	store, service := newExternalAgentConfigRouteTestService(t)
-	baseURL := "http://localhost:18181"
 	if err := store.Write([]externalagentconfigs.Config{
 		{
 			ID:                 "config-1",
-			Name:               "OpenCode Server",
-			ToolType:           externalagentconfigs.ToolTypeOpenCode,
-			RunMode:            externalagentconfigs.RunModeServer,
-			BaseURL:            &baseURL,
+			Name:               "Claude",
+			ToolType:           externalagentconfigs.ToolTypeClaudeCode,
+			RunMode:            externalagentconfigs.RunModeSDK,
 			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
 		},
 		{
@@ -165,28 +159,23 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("write configs: %v", err)
 	}
-	nodePath := "/usr/local/bin/node"
-	nodeVersion := "v18.0.0"
 	sdkVersion := "1.1.36"
 	cliVersion := "codex 0.25.1"
 	workingDir := "/workspace"
 	checker := &externalAgentConfigRouteStubChecker{
 		statusByConfigID: map[string]externalagentconfigs.Status{
 			"config-1": {
-				ConfigID:    "config-1",
-				Name:        "OpenCode Server",
-				ToolType:    externalagentconfigs.ToolTypeOpenCode,
-				RunMode:     externalagentconfigs.RunModeServer,
-				Supported:   true,
-				Available:   false,
-				Issues:      []string{"Server mode requires baseUrl."},
-				BaseURL:     &baseURL,
-				WorkingDir:  &workingDir,
-				CommandPath: &nodePath,
-				NodeVersion: &nodeVersion,
-				SDKVersion:  &sdkVersion,
+				ConfigID:   "config-1",
+				Name:       "Claude",
+				ToolType:   externalagentconfigs.ToolTypeClaudeCode,
+				RunMode:    externalagentconfigs.RunModeSDK,
+				Supported:  true,
+				Available:  false,
+				Issues:     []string{"Missing env vars: ANTHROPIC_API_KEY"},
+				WorkingDir: &workingDir,
+				SDKVersion: &sdkVersion,
 				EnvVars: externalagentconfigs.EnvVarStatus{
-					Present: []string{"OPENAI_API_KEY"},
+					Present: []string{},
 					Missing: []string{"ANTHROPIC_API_KEY"},
 				},
 			},
@@ -223,17 +212,8 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if payload[0].ConfigID != "config-1" || payload[1].ConfigID != "config-2" {
 		t.Fatalf("expected config order to match store order, got %#v", payload)
 	}
-	if payload[0].NodePath == nil || *payload[0].NodePath != nodePath {
-		t.Fatalf("expected opencode nodePath mapping, got %#v", payload[0])
-	}
-	if payload[0].NodeVersion == nil || *payload[0].NodeVersion != nodeVersion {
-		t.Fatalf("expected opencode nodeVersion mapping, got %#v", payload[0])
-	}
 	if payload[0].SDKVersion == nil || *payload[0].SDKVersion != sdkVersion {
-		t.Fatalf("expected opencode sdkVersion mapping, got %#v", payload[0])
-	}
-	if payload[1].NodePath != nil {
-		t.Fatalf("expected non-opencode nodePath to remain nil, got %#v", payload[1])
+		t.Fatalf("expected claude sdkVersion mapping, got %#v", payload[0])
 	}
 	if payload[1].CLIVersion == nil || *payload[1].CLIVersion != cliVersion {
 		t.Fatalf("expected codex cliVersion mapping, got %#v", payload[1])
@@ -241,7 +221,7 @@ func TestRegisterExternalAgentConfigRoutesReturnsHealth(t *testing.T) {
 	if payload[1].Issues == nil {
 		t.Fatalf("expected empty issues to serialize as [], got %#v", payload[1])
 	}
-	if got := payload[0].EnvVars; len(got.Present) != 1 || got.Present[0] != "OPENAI_API_KEY" || len(got.Missing) != 1 || got.Missing[0] != "ANTHROPIC_API_KEY" {
+	if got := payload[0].EnvVars; len(got.Present) != 0 || len(got.Missing) != 1 || got.Missing[0] != "ANTHROPIC_API_KEY" {
 		t.Fatalf("expected envVars mapping from checker status, got %#v", got)
 	}
 	if payload[1].EnvVars.Present == nil || payload[1].EnvVars.Missing == nil {
@@ -312,14 +292,12 @@ func TestRegisterExternalAgentConfigRoutesAllowDeploymentReadsWhenLLMAccessEnabl
 	t.Parallel()
 
 	store, service := newExternalAgentConfigRouteTestService(t)
-	baseURL := "http://localhost:18181"
 	if err := store.Write([]externalagentconfigs.Config{
 		{
 			ID:                 "config-1",
-			Name:               "OpenCode Server",
-			ToolType:           externalagentconfigs.ToolTypeOpenCode,
-			RunMode:            externalagentconfigs.RunModeServer,
-			BaseURL:            &baseURL,
+			Name:               "Codex",
+			ToolType:           externalagentconfigs.ToolTypeCodex,
+			RunMode:            externalagentconfigs.RunModeAppServer,
 			WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
 		},
 	}); err != nil {
@@ -330,9 +308,9 @@ func TestRegisterExternalAgentConfigRoutesAllowDeploymentReadsWhenLLMAccessEnabl
 		statusByConfigID: map[string]externalagentconfigs.Status{
 			"config-1": {
 				ConfigID:  "config-1",
-				Name:      "OpenCode Server",
-				ToolType:  externalagentconfigs.ToolTypeOpenCode,
-				RunMode:   externalagentconfigs.RunModeServer,
+				Name:      "Codex",
+				ToolType:  externalagentconfigs.ToolTypeCodex,
+				RunMode:   externalagentconfigs.RunModeAppServer,
 				Supported: true,
 				Available: true,
 				Issues:    []string{},
@@ -556,9 +534,9 @@ func TestRegisterExternalAgentConfigRoutesDeletesConfig(t *testing.T) {
 	store, service := newExternalAgentConfigRouteTestService(t)
 	created, err := service.Create(externalagentconfigs.Config{
 		ID:                 "config-1",
-		Name:               "OpenCode",
-		ToolType:           externalagentconfigs.ToolTypeOpenCode,
-		RunMode:            externalagentconfigs.RunModeSDK,
+		Name:               "Codex",
+		ToolType:           externalagentconfigs.ToolTypeCodex,
+		RunMode:            externalagentconfigs.RunModeAppServer,
 		WorkingDirStrategy: externalagentconfigs.WorkingDirStrategyProjectRoot,
 	})
 	if err != nil {

@@ -446,7 +446,7 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 			ProjectConfigID:     projectConfigID,
 			IncludeText:         externalConfig.ToolType == externalagentconfigs.ToolTypeClaudeCode,
 			IncludeTextNoImages: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
-			IncludeDownloadURLs: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex || externalConfig.ToolType == externalagentconfigs.ToolTypeOpenCode,
+			IncludeDownloadURLs: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
 		})
 		if err != nil {
 			return StartChatResult{}, err
@@ -516,12 +516,6 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 				}
 			}
 		case externalagentconfigs.ToolTypeClaudeCode:
-			if !hasNonBlankStringInput(inputs, "sessionId") {
-				if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
-					inputs["sessionId"] = sessionID
-				}
-			}
-		case externalagentconfigs.ToolTypeOpenCode:
 			if !hasNonBlankStringInput(inputs, "sessionId") {
 				if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
 					inputs["sessionId"] = sessionID
@@ -830,14 +824,6 @@ func resolveExternalApprovalPolicyOverride(permissionMode ChatPermissionMode, to
 		}
 		if permissionMode == ChatPermissionModeYolo {
 			return stringPtr("bypassPermissions")
-		}
-		return nil
-	case externalagentconfigs.ToolTypeOpenCode:
-		if permissionMode == ChatPermissionModeMinimal {
-			return stringPtr("ask")
-		}
-		if permissionMode == ChatPermissionModeYolo {
-			return stringPtr("allow")
 		}
 		return nil
 	default:

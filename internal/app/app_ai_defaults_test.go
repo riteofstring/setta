@@ -64,7 +64,6 @@ func TestAppSeedsProjectAIDefaultsWhenConfigFilesAreMissing(t *testing.T) {
 		"engine-setta-claude-sonnet",
 		"engine-claude-code",
 		"engine-codex",
-		"engine-opencode",
 	}) {
 		t.Fatalf("unexpected seeded engine configs %#v", got)
 	}
@@ -74,7 +73,6 @@ func TestAppSeedsProjectAIDefaultsWhenConfigFilesAreMissing(t *testing.T) {
 	if got := externalConfigIDs(externalConfigs); !reflect.DeepEqual(got, []string{
 		"external-claude-code",
 		"external-codex",
-		"external-opencode",
 	}) {
 		t.Fatalf("unexpected seeded external agent configs %#v", got)
 	}
@@ -85,7 +83,6 @@ func TestAppSeedsProjectAIDefaultsWhenConfigFilesAreMissing(t *testing.T) {
 		"agent-default",
 		"agent-claude-code",
 		"agent-codex",
-		"agent-opencode",
 	}) {
 		t.Fatalf("unexpected seeded agent profiles %#v", got)
 	}

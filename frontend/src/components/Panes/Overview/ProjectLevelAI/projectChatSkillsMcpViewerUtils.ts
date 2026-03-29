@@ -96,11 +96,6 @@ const CLAUDE_APPLICABLE_ROOT_IDS = [
   "user_claude_skills",
 ];
 
-const OPENCODE_APPLICABLE_ROOT_IDS = [
-  "workspace_opencode_skills",
-  "user_opencode_skills",
-];
-
 type SkillStatusContext = {
   skills: AppGenSkillEntry[];
   engineType: EngineConfig["engineType"] | null;
@@ -132,9 +127,6 @@ function getApplicableRootIds({
   if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
     return CLAUDE_APPLICABLE_ROOT_IDS;
   }
-  if (externalAgentToolType === ExternalAgentToolTypeEnum.opencode) {
-    return OPENCODE_APPLICABLE_ROOT_IDS;
-  }
   return [];
 }
 
@@ -154,9 +146,6 @@ function getEngineLabel({
     }
     if (externalAgentToolType === ExternalAgentToolTypeEnum.claude_code) {
       return "Claude";
-    }
-    if (externalAgentToolType === ExternalAgentToolTypeEnum.opencode) {
-      return "OpenCode";
     }
     return "external agent";
   }
@@ -282,15 +271,11 @@ function collectActiveSkillNames({
     return { activeByName, hasStructuredMetadata };
   }
   if (
-    externalAgentToolType !== ExternalAgentToolTypeEnum.codex &&
-    externalAgentToolType !== ExternalAgentToolTypeEnum.opencode
+    externalAgentToolType !== ExternalAgentToolTypeEnum.codex
   ) {
     return { activeByName, hasStructuredMetadata };
   }
-  const activitySource =
-    externalAgentToolType === ExternalAgentToolTypeEnum.codex
-      ? "codex_skill_tool"
-      : "opencode_skill_tool";
+  const activitySource = "codex_skill_tool";
   for (const message of messages) {
     if (message.role === "assistant" && Array.isArray(message.tool_calls)) {
       hasStructuredMetadata = true;
@@ -419,8 +404,7 @@ export function buildSkillStatusBySkillId({
   });
   const requiresStructuredMetadata =
     engineType === EngineTypeEnum.external_agent &&
-    (externalAgentToolType === ExternalAgentToolTypeEnum.codex ||
-      externalAgentToolType === ExternalAgentToolTypeEnum.opencode);
+    externalAgentToolType === ExternalAgentToolTypeEnum.codex;
   const { activeByName: activeSkillNames, hasStructuredMetadata } =
     collectActiveSkillNames({
       engineType,

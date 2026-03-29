@@ -22,9 +22,8 @@ SENSITIVE_KEY_NAMES = {
 }
 SESSION_ROOT_BY_TOOL_TYPE = {
     "codex": "codex",
-    "opencode": "opencode",
 }
-SAFE_TOP_LEVEL_SESSION_FILES = ("config.toml", "opencode.json")
+SAFE_TOP_LEVEL_SESSION_FILES = ("config.toml",)
 SAFE_SESSION_SUBDIRS = ("log",)
 SAFE_SESSION_GLOB_PATTERNS = ("sessions/**/*.jsonl",)
 OMITTED_SESSION_PATH_HINTS = (

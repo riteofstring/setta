@@ -297,63 +297,6 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     );
   });
 
-  it("keeps cross-ecosystem duplicates active only for the applicable opencode root", () => {
-    const statuses = buildSkillStatusBySkillId({
-      skills: [
-        {
-          skillId: "workspace_opencode_skills::triage",
-          name: "triage",
-          rootLabel: "Workspace .opencode/skills",
-          rootPath: "/workspace/.opencode/skills",
-          relativePath: "triage",
-          isEditable: false,
-          editabilityReason: null,
-          description: "OpenCode triage instructions.",
-        },
-        {
-          skillId: "workspace_claude_skills::triage",
-          name: "triage",
-          rootLabel: "Workspace .claude/skills",
-          rootPath: "/workspace/.claude/skills",
-          relativePath: "triage",
-          isEditable: false,
-          editabilityReason: null,
-          description: "Claude triage instructions.",
-        },
-      ],
-      engineType: "external_agent",
-      externalAgentToolType: "opencode",
-      messages: [
-        {
-          id: "assistant-1",
-          role: "assistant",
-          content: [],
-          attachments: [],
-          tool_calls: [
-            {
-              id: "tool-call-1",
-              type: "function",
-              function: {
-                name: "skill/triage",
-                arguments: {},
-              },
-            },
-          ],
-        },
-      ],
-    });
-
-    expect(statuses["workspace_opencode_skills::triage"]?.activityState).toBe(
-      "active",
-    );
-    expect(statuses["workspace_opencode_skills::triage"]?.activitySource).toBe(
-      "opencode_skill_tool",
-    );
-    expect(statuses["workspace_claude_skills::triage"]?.activityState).toBe(
-      "inactive",
-    );
-  });
-
   it("keeps missing MCP config path nullable instead of using a sentinel string", () => {
     const groups = groupMcpServersByConfigPath({
       mcpServers: {
@@ -718,10 +661,10 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         engineType: "setta_llm",
       }),
       createEngineConfig({
-        id: "engine-opencode",
-        name: "OpenCode",
+        id: "engine-codex",
+        name: "Codex",
         engineType: "external_agent",
-        externalAgentConfigId: "external-opencode",
+        externalAgentConfigId: "external-codex",
       }),
     ];
     const allLLMConfigs = createAllLLMConfigs({
@@ -736,9 +679,9 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     });
     const externalAgentHealth = [
       createExternalAgentPreflightStatus({
-        configId: "external-opencode",
-        name: "OpenCode Agent",
-        toolType: "opencode",
+        configId: "external-codex",
+        name: "Codex Agent",
+        toolType: "codex",
         runMode: "app_server",
         available: false,
         supported: true,

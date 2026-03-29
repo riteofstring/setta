@@ -42,7 +42,7 @@ func buildProjectAISettingEntries(providers ProjectAISettingProviders) []Runtime
 		buildProjectAISettingEntry(
 			"core.project_ai_settings.external_agents",
 			"External Agents",
-			[]string{"external agents", "agent adapters", "codex", "claude code", "opencode"},
+			[]string{"external agents", "agent adapters", "codex", "claude code"},
 			"Configured external-agent backends available to Project AI.",
 			"project-ai-settings-external-agents",
 			providers.ExternalAgents,

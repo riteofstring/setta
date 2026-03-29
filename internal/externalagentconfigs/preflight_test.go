@@ -76,11 +76,7 @@ func TestSystemCheckerMarksClaudeSDKAvailableWhenCLIAndSDKPresent(t *testing.T) 
 
 func TestSystemCheckerClassifiesNonClaudeToolRunModeSupportAndAvailability(t *testing.T) {
 	workspaceRoot := t.TempDir()
-	nodePath := writeExecutableFixture(t, "node")
-	t.Setenv("PATH", filepath.Dir(nodePath))
-
-	validBaseURL := "http://localhost:18181"
-	invalidBaseURL := "not-a-url"
+	t.Setenv("PATH", t.TempDir())
 	codexPath := writeExecutableFixture(t, "codex")
 
 	testCases := []struct {
@@ -122,38 +118,6 @@ func TestSystemCheckerClassifiesNonClaudeToolRunModeSupportAndAvailability(t *te
 				"Server mode requires baseUrl.",
 			},
 		},
-		{
-			name: "opencode server stays supported but blocks on invalid base url",
-			config: Config{
-				ID:                 "opencode-server",
-				Name:               "OpenCode Server",
-				ToolType:           ToolTypeOpenCode,
-				RunMode:            RunModeServer,
-				BaseURL:            &invalidBaseURL,
-				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-			},
-			wantSupported:   true,
-			wantAvailable:   false,
-			wantCommandPath: &nodePath,
-			wantIssues: []string{
-				"Server mode baseUrl must be a valid absolute URL.",
-			},
-		},
-		{
-			name: "opencode server stays available with valid base url",
-			config: Config{
-				ID:                 "opencode-server-valid",
-				Name:               "OpenCode Server",
-				ToolType:           ToolTypeOpenCode,
-				RunMode:            RunModeServer,
-				BaseURL:            &validBaseURL,
-				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-			},
-			wantSupported:   true,
-			wantAvailable:   true,
-			wantBaseURL:     &validBaseURL,
-			wantCommandPath: &nodePath,
-		},
 	}
 
 	for _, testCase := range testCases {
@@ -192,109 +156,6 @@ func TestSystemCheckerClassifiesNonClaudeToolRunModeSupportAndAvailability(t *te
 			if testCase.wantCommandPath != nil && strings.HasSuffix(*testCase.wantCommandPath, "codex") {
 				if status.CLIVersion == nil || *status.CLIVersion != "codex 0.25.1" {
 					t.Fatalf("expected codex cli version, got %#v", status.CLIVersion)
-				}
-			}
-			for _, issueFragment := range testCase.wantIssues {
-				if !containsIssue(status.Issues, issueFragment) {
-					t.Fatalf("expected issue %q, got %#v", issueFragment, status.Issues)
-				}
-			}
-		})
-	}
-}
-
-func TestSystemCheckerUsesNodeForNodeBackedModesAndReportsMissingNode(t *testing.T) {
-	workspaceRoot := t.TempDir()
-	resolvedNodePath := writeExecutableFixture(t, "node")
-	nodeDir := filepath.Dir(resolvedNodePath)
-	emptyBinDir := t.TempDir()
-	validBaseURL := "http://localhost:18181"
-
-	testCases := []struct {
-		name            string
-		pathEnv         string
-		config          Config
-		wantAvailable   bool
-		wantCommandPath *string
-		wantIssues      []string
-	}{
-		{
-			name:    "sdk mode resolves node path when node is present",
-			pathEnv: nodeDir,
-			config: Config{
-				ID:                 "opencode-sdk",
-				Name:               "OpenCode SDK",
-				ToolType:           ToolTypeOpenCode,
-				RunMode:            RunModeSDK,
-				BaseURL:            &validBaseURL,
-				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-			},
-			wantAvailable:   true,
-			wantCommandPath: &resolvedNodePath,
-		},
-		{
-			name:    "server mode resolves node path when node is present",
-			pathEnv: nodeDir,
-			config: Config{
-				ID:                 "opencode-server",
-				Name:               "OpenCode Server",
-				ToolType:           ToolTypeOpenCode,
-				RunMode:            RunModeServer,
-				BaseURL:            &validBaseURL,
-				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-			},
-			wantAvailable:   true,
-			wantCommandPath: &resolvedNodePath,
-		},
-		{
-			name:    "server mode fails closed when node is missing",
-			pathEnv: emptyBinDir,
-			config: Config{
-				ID:                 "opencode-server-missing-node",
-				Name:               "OpenCode Server",
-				ToolType:           ToolTypeOpenCode,
-				RunMode:            RunModeServer,
-				BaseURL:            &validBaseURL,
-				WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-			},
-			wantAvailable: false,
-			wantIssues: []string{
-				"Command not found (node)",
-			},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Setenv("PATH", testCase.pathEnv)
-
-			checker, err := NewSystemChecker(SystemCheckerOptions{WorkspaceRoot: workspaceRoot})
-			if err != nil {
-				t.Fatalf("new checker: %v", err)
-			}
-
-			// Node-backed SDK/server modes should expose the resolved node path
-			// directly and block availability when that prerequisite is missing.
-			status, err := checker.Check(testCase.config)
-			if err != nil {
-				t.Fatalf("check config: %v", err)
-			}
-			if !status.Supported {
-				t.Fatalf("expected node-backed mode to stay supported, got %#v", status)
-			}
-			if status.Available != testCase.wantAvailable {
-				t.Fatalf("expected available=%t, got %#v", testCase.wantAvailable, status)
-			}
-			if testCase.wantCommandPath == nil {
-				if status.CommandPath != nil {
-					t.Fatalf("expected no command path, got %#v", status.CommandPath)
-				}
-			} else if status.CommandPath == nil || *status.CommandPath != *testCase.wantCommandPath {
-				t.Fatalf("expected command path %q, got %#v", *testCase.wantCommandPath, status.CommandPath)
-			}
-			if testCase.wantCommandPath != nil {
-				if status.NodeVersion == nil || *status.NodeVersion != "v18.0.0" {
-					t.Fatalf("expected node version v18.0.0, got %#v", status.NodeVersion)
 				}
 			}
 			for _, issueFragment := range testCase.wantIssues {
@@ -725,25 +586,6 @@ func TestSystemCheckerInvalidatesCacheWhenWhitelistedEnvStatusChanges(t *testing
 	}
 }
 
-func TestReadOpenCodeSDKVersionFromSidecarRootReadsPackageJSONVersion(t *testing.T) {
-	sidecarRoot := t.TempDir()
-	packageJSONPath := filepath.Join(sidecarRoot, "node_modules", "@opencode-ai", "sdk", "package.json")
-	if err := os.MkdirAll(filepath.Dir(packageJSONPath), 0o755); err != nil {
-		t.Fatalf("mkdir sdk package path: %v", err)
-	}
-	if err := os.WriteFile(packageJSONPath, []byte(`{"version":"1.1.36"}`), 0o644); err != nil {
-		t.Fatalf("write sdk package json: %v", err)
-	}
-
-	version, issue := readOpenCodeSDKVersionFromSidecarRoot(sidecarRoot)
-	if issue != "" {
-		t.Fatalf("expected sdk version without issue, got %q", issue)
-	}
-	if version == nil || *version != "1.1.36" {
-		t.Fatalf("expected sdk version 1.1.36, got %#v", version)
-	}
-}
-
 func TestRunCLITimeoutReturnsIssue(t *testing.T) {
 	if os.PathSeparator == '\\' {
 		t.Skip("shell script fixtures are not supported on Windows")
@@ -894,8 +736,6 @@ func defaultFixtureVersion(name string) string {
 		return "v18.0.0"
 	case "codex":
 		return "codex 0.25.1"
-	case "opencode":
-		return "opencode 1.0.0"
 	case "claude":
 		return "claude-cli 1.2.3"
 	default:

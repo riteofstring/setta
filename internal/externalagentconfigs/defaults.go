@@ -59,17 +59,5 @@ func defaultConfigs() []Config {
 			EnvVarWhitelist:         []string{"OPENAI_API_KEY"},
 			WorkingDirStrategy:      WorkingDirStrategyProjectRoot,
 		},
-		{
-			ID:                      "external-opencode",
-			Name:                    "OpenCode (SDK)",
-			Description:             "OpenCode via SDK sidecar",
-			ToolType:                ToolTypeOpenCode,
-			RunMode:                 RunModeSDK,
-			SettingsMode:            SettingsModeManagedLocal,
-			SettingsAllowSettaEdits: true,
-			SettingsManagedBlock:    buildDefaultOpenCodeSettingsBlock(),
-			EnvVarWhitelist:         []string{"ANTHROPIC_API_KEY", "OPENAI_API_KEY"},
-			WorkingDirStrategy:      WorkingDirStrategyProjectRoot,
-		},
 	}
 }

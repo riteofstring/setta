@@ -27,12 +27,6 @@ func testWorkingDirResolvers(workspaceRoot string) []workingDirResolver {
 				return (&ClaudeExecutor{workspaceRoot: workspaceRoot}).resolveWorkingDir(config)
 			},
 		},
-		{
-			name: "opencode",
-			resolve: func(config externalagentconfigs.Config) (string, func() error, error) {
-				return (&OpenCodeExecutor{workspaceRoot: workspaceRoot}).resolveWorkingDir(config)
-			},
-		},
 	}
 }
 

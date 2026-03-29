@@ -122,73 +122,6 @@ func TestServiceCreateAppliesCodexOpenAIAuthDefaultsWhenOpenAIAPIKeyIsWhiteliste
 	}
 }
 
-func TestServiceCreateWritesOpenCodeCanonicalConfig(t *testing.T) {
-	t.Parallel()
-
-	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
-
-	created, err := service.Create(Config{
-		ID:                 "opencode-config",
-		Name:               "OpenCode",
-		ToolType:           ToolTypeOpenCode,
-		RunMode:            RunModeSDK,
-		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-	})
-	if err != nil {
-		t.Fatalf("create config: %v", err)
-	}
-	if created.SettingsManagedBlock == nil || created.SettingsManagedBlock.OpenCode == nil {
-		t.Fatalf("expected default opencode settings block, got %#v", created.SettingsManagedBlock)
-	}
-
-	configPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "opencode", created.ID, openCodeConfigFileName)
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("read opencode config: %v", err)
-	}
-	payload := map[string]any{}
-	if err := json.Unmarshal(content, &payload); err != nil {
-		t.Fatalf("decode opencode config: %v", err)
-	}
-	if !reflect.DeepEqual(payload["permission"], defaultOpenCodePermission()) {
-		t.Fatalf("expected default permission payload, got %#v", payload["permission"])
-	}
-	mcpEntries, ok := payload["mcp"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected opencode mcp payload, got %#v", payload["mcp"])
-	}
-	settaServer, ok := mcpEntries["setta"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected setta mcp entry, got %#v", mcpEntries)
-	}
-	if settaServer["url"] != "http://127.0.0.1:8000/mcp" || settaServer["type"] != "remote" || settaServer["enabled"] != true {
-		t.Fatalf("expected setta opencode mcp entry, got %#v", settaServer)
-	}
-	provider, ok := payload["provider"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected opencode provider payload, got %#v", payload["provider"])
-	}
-	openAI, ok := provider["openai"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected opencode openai provider payload, got %#v", provider["openai"])
-	}
-	models, ok := openAI["models"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected opencode models payload, got %#v", openAI["models"])
-	}
-	modelEntry, ok := models["gpt-5.2-chat-latest"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected gpt-5.2-chat-latest model entry, got %#v", models)
-	}
-	options, ok := modelEntry["options"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected model options payload, got %#v", modelEntry["options"])
-	}
-	if got := options["textVerbosity"]; got != "medium" {
-		t.Fatalf("expected textVerbosity override, got %#v", options)
-	}
-}
-
 func TestServiceCreatePreservesExistingCodexMCPServersWhenAddingSetta(t *testing.T) {
 	t.Parallel()
 
@@ -276,54 +209,6 @@ url = "http://127.0.0.1:8000/mcp"
 	}
 }
 
-func TestServiceCreatePreservesExistingOpenCodeMCPServersWhenAddingSetta(t *testing.T) {
-	t.Parallel()
-
-	_, service, settaFilesRoot, _ := newExternalAgentConfigServiceTestFixture(t)
-
-	created, err := service.Create(Config{
-		ID:                 "opencode-config",
-		Name:               "OpenCode",
-		ToolType:           ToolTypeOpenCode,
-		RunMode:            RunModeSDK,
-		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
-		SettingsManagedBlock: &SettingsManagedBlock{
-			OpenCode: &OpenCodeSettingsManaged{
-				MCP: map[string]any{
-					"filesystem": map[string]any{
-						"type":    "stdio",
-						"command": "npx @modelcontextprotocol/server-filesystem .",
-					},
-				},
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("create config: %v", err)
-	}
-
-	configPath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "opencode", created.ID, openCodeConfigFileName)
-	content, err := os.ReadFile(configPath)
-	if err != nil {
-		t.Fatalf("read opencode config: %v", err)
-	}
-	payload := map[string]any{}
-	if err := json.Unmarshal(content, &payload); err != nil {
-		t.Fatalf("decode opencode config: %v", err)
-	}
-	mcpEntries, ok := payload["mcp"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected mcp map, got %#v", payload["mcp"])
-	}
-	if _, ok := mcpEntries["filesystem"].(map[string]any); !ok {
-		t.Fatalf("expected existing filesystem mcp entry to survive, got %#v", mcpEntries)
-	}
-	settaServer, ok := mcpEntries["setta"].(map[string]any)
-	if !ok || settaServer["url"] != "http://127.0.0.1:8000/mcp" || settaServer["type"] != "remote" || settaServer["enabled"] != true {
-		t.Fatalf("expected normalized setta mcp entry, got %#v", mcpEntries)
-	}
-}
-
 func TestServiceCreateInitializesClaudeSharedSettingsForManagedModes(t *testing.T) {
 	t.Parallel()
 
@@ -406,25 +291,25 @@ func TestServiceUpdateCleansPreviousCanonicalArtifactsWhenToolTypeChanges(t *tes
 
 	updated, err := service.Update(Config{
 		ID:                 created.ID,
-		Name:               "OpenCode",
-		ToolType:           ToolTypeOpenCode,
+		Name:               "Claude",
+		ToolType:           ToolTypeClaudeCode,
 		RunMode:            RunModeSDK,
 		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
 	})
 	if err != nil {
 		t.Fatalf("update config: %v", err)
 	}
-	if updated.ToolType != ToolTypeOpenCode {
-		t.Fatalf("expected opencode config after update, got %#v", updated)
+	if updated.ToolType != ToolTypeClaudeCode {
+		t.Fatalf("expected claude config after update, got %#v", updated)
 	}
 
 	codexDir := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID)
 	if _, err := os.Stat(codexDir); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected old codex artifacts removed, stat err=%v", err)
 	}
-	openCodePath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "opencode", created.ID, openCodeConfigFileName)
-	if _, err := os.Stat(openCodePath); err != nil {
-		t.Fatalf("expected new opencode config: %v", err)
+	claudePath := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID)
+	if _, err := os.Stat(claudePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("expected no new codex artifacts after switching away, stat err=%v", err)
 	}
 }
 
@@ -435,9 +320,9 @@ func TestServiceDeleteRemovesCanonicalArtifacts(t *testing.T) {
 
 	created, err := service.Create(Config{
 		ID:                 "delete-config",
-		Name:               "OpenCode",
-		ToolType:           ToolTypeOpenCode,
-		RunMode:            RunModeSDK,
+		Name:               "Codex",
+		ToolType:           ToolTypeCodex,
+		RunMode:            RunModeAppServer,
 		WorkingDirStrategy: WorkingDirStrategyProjectRoot,
 	})
 	if err != nil {
@@ -454,7 +339,7 @@ func TestServiceDeleteRemovesCanonicalArtifacts(t *testing.T) {
 	if len(configs) != 0 {
 		t.Fatalf("expected deleted config to be removed from store, got %#v", configs)
 	}
-	configDir := filepath.Join(settaFilesRoot, serviceSettingsRootName, "opencode", created.ID)
+	configDir := filepath.Join(settaFilesRoot, serviceSettingsRootName, "codex", created.ID)
 	if _, err := os.Stat(configDir); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("expected canonical config dir removed, stat err=%v", err)
 	}

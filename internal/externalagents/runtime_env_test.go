@@ -53,13 +53,6 @@ func TestBuildRuntimeEnvUsesWorkspaceDotEnvFallbackForWhitelistedVars(t *testing
 				processEnv:    processEnv,
 			}).buildRuntimeEnv(config),
 		},
-		{
-			name: "opencode",
-			env: (&OpenCodeExecutor{
-				workspaceRoot: workspaceRoot,
-				processEnv:    processEnv,
-			}).buildRuntimeEnv(config),
-		},
 	}
 
 	for _, test := range tests {
@@ -84,27 +77,5 @@ func TestBuildRuntimeEnvUsesWorkspaceDotEnvFallbackForWhitelistedVars(t *testing
 		if _, ok := test.env["MISSING_KEY"]; ok {
 			t.Fatalf("%s: expected missing key to stay excluded, got %#v", test.name, test.env)
 		}
-	}
-}
-
-func TestOpenCodeBuildRuntimeEnvDoesNotSynthesizeLegacyDebugCompanionVar(t *testing.T) {
-	t.Parallel()
-
-	env := (&OpenCodeExecutor{
-		workspaceRoot: t.TempDir(),
-		processEnv: map[string]string{
-			"PATH":                 "/usr/bin",
-			"HOME":                 "/tmp/home",
-			"SETTA_OPENCODE_DEBUG": "1",
-		},
-	}).buildRuntimeEnv(externalagentconfigs.Config{
-		EnvVarWhitelist: []string{"SETTA_OPENCODE_DEBUG"},
-	})
-
-	if got := env["SETTA_OPENCODE_DEBUG"]; got != "1" {
-		t.Fatalf("expected explicit debug env passthrough, got %#v", env)
-	}
-	if _, ok := env["SETTA_OPENCODE_DEBUG_RAW"]; ok {
-		t.Fatalf("expected no synthesized debug companion env, got %#v", env)
 	}
 }

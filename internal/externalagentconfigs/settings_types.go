@@ -19,9 +19,3 @@ type ClaudeSettingsManaged struct {
 	DefaultMode *string                    `json:"defaultMode,omitempty"`
 	MCP         map[string]any             `json:"mcp,omitempty"`
 }
-
-type OpenCodeSettingsManaged struct {
-	MCP        map[string]any `json:"mcp,omitempty"`
-	Model      *string        `json:"model,omitempty"`
-	Permission any            `json:"permission,omitempty"`
-}

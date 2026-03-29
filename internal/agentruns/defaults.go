@@ -27,7 +27,6 @@ func defaultEngineConfigs() []EngineConfig {
 	settaLLMID := "claude-sonnet"
 	claudeCodeID := "external-claude-code"
 	codexID := "external-codex"
-	openCodeID := "external-opencode"
 	return []EngineConfig{
 		{
 			ID:               "engine-setta-claude-sonnet",
@@ -49,12 +48,6 @@ func defaultEngineConfigs() []EngineConfig {
 			Name:                  "Codex (app-server)",
 			EngineType:            EngineTypeExternalAgent,
 			ExternalAgentConfigID: &codexID,
-		},
-		{
-			ID:                    "engine-opencode",
-			Name:                  "OpenCode (SDK)",
-			EngineType:            EngineTypeExternalAgent,
-			ExternalAgentConfigID: &openCodeID,
 		},
 	}
 }
