@@ -377,6 +377,44 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
   });
 }
 
+export type ProjectWorkspaceChromeLayoutSnapshot = {
+  hiddenProjectChatWindowClosed: boolean | null;
+  overviewTab: string;
+  overviewTrueWidth: number;
+  overviewVis: boolean;
+  overviewWidth: number;
+  uiEditorTrueWidth: number;
+  uiEditorVis: boolean;
+  uiEditorWidth: number;
+};
+
+export async function readProjectWorkspaceChromeLayout(
+  page: Page,
+): Promise<ProjectWorkspaceChromeLayoutSnapshot> {
+  return page.evaluate(async (hiddenProjectChatWindowId: string) => {
+    const { useLocalStorage, useProjectState } = await import(
+      "/src/state/definitions.ts"
+    );
+
+    const localStorageState = useLocalStorage.getState();
+    const hiddenProjectChatWindow =
+      useProjectState.getState().projectChatWindowing.instancesById[
+        hiddenProjectChatWindowId
+      ];
+
+    return {
+      hiddenProjectChatWindowClosed: hiddenProjectChatWindow?.isClosed ?? null,
+      overviewTab: localStorageState.overviewTab,
+      overviewTrueWidth: localStorageState.overviewTrueWidth,
+      overviewVis: localStorageState.overviewVis,
+      overviewWidth: localStorageState.overviewWidth,
+      uiEditorTrueWidth: localStorageState.uiEditorTrueWidth,
+      uiEditorVis: localStorageState.uiEditorVis,
+      uiEditorWidth: localStorageState.uiEditorWidth,
+    };
+  }, HIDDEN_PROJECT_CHAT_WINDOW_ID);
+}
+
 export async function clearCurrentProjectViewportForRefit(
   page: Page,
 ): Promise<void> {

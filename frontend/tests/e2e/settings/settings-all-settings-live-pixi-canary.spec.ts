@@ -18,6 +18,7 @@ import {
   ensureAppReady,
   getCurrentProjectConfigId,
   postBackend,
+  readProjectWorkspaceChromeLayout,
   resetProjectWorkspaceChromeToDefaultLayout,
 } from "../helpers";
 
@@ -31,6 +32,7 @@ const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
 const LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM =
   "liveDictAreaInteractionMode";
 const LIVE_PIXI_MODE = "pixi-node-body";
+const SETTA_AUTH_COOKIE_NAME_PREFIX = "setta_auth";
 const NOTIFICATIONS_STORE_MODULE_URL = "/src/state/definitions.ts";
 // Use the exact browser module URL that the app resolves for the singleton
 // Zustand store. Importing the directory URL creates a second detached store.
@@ -134,6 +136,19 @@ async function bootstrapRuntimeIfNeeded(
   await page.waitForSelector(".setta-titlebar-offset", { state: "attached" });
 }
 
+async function hasSettaAuthCookieForRuntime(
+  page: Page,
+  runtime: AllSettingsRuntime,
+): Promise<boolean> {
+  const cookies = await page.context().cookies([runtime.baseUrl]);
+  return cookies.some((cookie) => {
+    return (
+      cookie.name.startsWith(SETTA_AUTH_COOKIE_NAME_PREFIX) &&
+      cookie.value.length > 0
+    );
+  });
+}
+
 async function openAllSettingsPage(
   page: Page,
   runtime: AllSettingsRuntime,
@@ -145,10 +160,13 @@ async function openAllSettingsPage(
 ) {
   if (runtime.requireAppReady) {
     await ensureAppReady(page);
-  } else {
+  } else if (!(await hasSettaAuthCookieForRuntime(page, runtime))) {
     await bootstrapRuntimeIfNeeded(page, runtime);
   }
-  await setLiveDictAreaRendererMode(page, options?.rendererMode ?? null);
+  const rendererMode = options?.rendererMode ?? null;
+  if (rendererMode !== null || page.url().startsWith(runtime.baseUrl)) {
+    await setLiveDictAreaRendererMode(page, rendererMode);
+  }
 
   const url = buildSettingsUrl(runtime);
   if (options?.interactionMode) {
@@ -1084,6 +1102,47 @@ test("all settings can open the read-only main reference surface when explicit r
   expect(
     mainNodes.every((node) => node.sectionId.length > 0 && node.width > 0),
   ).toBe(true);
+});
+
+test("all settings baseline and the read-only main reference share the same normalized workspace chrome state when explicit runtime envs are provided", async ({
+  browser,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "requires SETTA_MAIN_REFERENCE_URL and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL",
+  );
+
+  const baselinePage = await browser.newPage();
+  const mainReferencePage = await browser.newPage();
+
+  try {
+    await openAllSettingsBaseline(baselinePage);
+    await openAllSettingsMainReference(mainReferencePage);
+
+    // Pin the exact normalization shape that future live CDP parity checks rely
+    // on, without treating Playwright as a cross-runtime geometry oracle.
+    await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
+    await resetProjectWorkspaceChromeToDefaultLayout(mainReferencePage);
+
+    const baselineLayout = await readProjectWorkspaceChromeLayout(baselinePage);
+    const mainReferenceLayout =
+      await readProjectWorkspaceChromeLayout(mainReferencePage);
+
+    expect(baselineLayout).toEqual(mainReferenceLayout);
+    expect(baselineLayout).toEqual({
+      hiddenProjectChatWindowClosed: true,
+      overviewTab: "Overview",
+      overviewTrueWidth: 335,
+      overviewVis: true,
+      overviewWidth: 335,
+      uiEditorTrueWidth: 40,
+      uiEditorVis: false,
+      uiEditorWidth: 500,
+    });
+  } finally {
+    await baselinePage.close();
+    await mainReferencePage.close();
+  }
 });
 
 test("all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear", async ({

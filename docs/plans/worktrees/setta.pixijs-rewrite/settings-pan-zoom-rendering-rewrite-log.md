@@ -11340,3 +11340,40 @@ Record:
     - result: passed; CDP attached on `9265`, worktree `/settings` loaded `All Settings`, and read-only `main` `/settings` loaded `All Settings`
 - Next action:
   - Resume normalized read-only `main`-oracle `All Settings` parity verification using the explicit runtime inputs instead of the stale hardcoded reference port assumption.
+
+## 2026-03-30 345
+
+- Item: Pin the symmetric workspace-chrome normalization state for the explicit read-only `main` runtime canary path.
+- Status: `done`
+- Details:
+  - Continued directly from item `344` and kept the slice narrowly on `main`-oracle parity support instead of reopening renderer work.
+  - Added a reusable cross-runtime e2e helper that reads back the normalization state the parity lane depends on:
+    - `frontend/tests/e2e/helpers.ts`
+  - Added a focused canary guard that opens baseline worktree `All Settings` plus the explicit read-only `main` reference, applies the shared normalization, and asserts both pages converge on the same chrome state:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Hardened the explicit `main` runtime open path in the same canary harness so repeated checks in one Playwright context do not try to re-consume the one-time bootstrap token:
+    - the helper now reuses an existing `setta_auth*` cookie for the reference runtime when present
+    - null renderer-mode clears no longer touch `sessionStorage` before the target frontend origin is active
+  - This slice stays intentionally on the parity harness boundary:
+    - no production frontend/backend renderer code changed
+    - no Pixi layout, fit-view, or drawing logic changed
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=...' ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings can open the read-only main reference surface when explicit runtime envs are provided|all settings baseline and the read-only main reference share the same normalized workspace chrome state when explicit runtime envs are provided'`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime (`http://127.0.0.1:3043/settings`) plus read-only `main` (`http://127.0.0.1:3087/settings`)
+    - result: passed; both pages loaded `All Settings`, and both read back the same normalized state:
+      - `hiddenProjectChatWindowClosed=true`
+      - `overviewTab=Overview`
+      - `overviewTrueWidth=335`
+      - `overviewVis=true`
+      - `overviewWidth=335`
+      - `uiEditorTrueWidth=40`
+      - `uiEditorVis=false`
+      - `uiEditorWidth=500`
+- Next action:
+  - Resume normalized read-only `main`-oracle `All Settings` parity verification now that the canary harness itself pins and reuses the shared normalization state across worktree baseline and explicit `main` reference pages.
