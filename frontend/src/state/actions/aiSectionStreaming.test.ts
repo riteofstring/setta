@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import {
   getCurrEffectiveSectionImplOfType,
   processProjectStateUpdateFromBackend,
+  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { resetProjectStores } from "state/utils";
 import {
@@ -470,7 +471,7 @@ describe("section chat streaming updates", () => {
     ]);
   });
 
-  it("keeps streaming content when backend updates arrive mid-stream", () => {
+  it("replaces section messages with backend state when backend updates arrive mid-stream", () => {
     const userMessage = {
       id: "user-1",
       role: ChatRoleEnum.user,
@@ -481,6 +482,8 @@ describe("section chat streaming updates", () => {
       const impl = state.sectionImpls[implId];
       if (impl && impl.type === SectionTypeEnum.Chat) {
         impl.messages = [userMessage];
+        impl.inputText = "Draft preserved locally";
+        impl.toolCallArguments = { local: "{}" };
         impl.waitingForResponse = true;
       }
     });
@@ -527,12 +530,11 @@ describe("section chat streaming updates", () => {
     ).toBe(true);
 
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
-    const backendImpl = backendState.sectionImpls[implId];
-    if (backendImpl && backendImpl.type === SectionTypeEnum.Chat) {
-      backendImpl.messages = [userMessage];
-      backendImpl.waitingForResponse = true;
-      backendImpl.toolCallArguments = {};
-    }
+    setCurrEffectiveSectionImplValue<"ChatSection">(backendState, sectionId, {
+      messages: [userMessage],
+      waitingForResponse: true,
+      toolCallArguments: {},
+    });
 
     processProjectStateUpdateFromBackend({
       projectState: backendState,
@@ -545,17 +547,10 @@ describe("section chat streaming updates", () => {
       sectionId,
       SectionTypeEnum.Chat,
     );
-    expect(
-      impl.messages.some((message) => {
-        if (message.role !== ChatRoleEnum.assistant) {
-          return false;
-        }
-        return message.content?.some(
-          (content) =>
-            content.type === "text" && content.text.includes("Streaming"),
-        );
-      }),
-    ).toBe(true);
+    expect(impl.messages).toEqual([userMessage]);
+    expect(impl.inputText).toBe("Draft preserved locally");
+    expect(impl.toolCallArguments).toEqual({ local: "{}" });
+    expect(impl.waitingForResponse).toBe(true);
   });
 
   it.each(MANAGED_CHAT_STREAM_CONTRACT_CASES)(

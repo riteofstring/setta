@@ -492,6 +492,9 @@ func applyToolCallDelta(messages []map[string]any, messageID string, toolCallID 
 		if _, ok := function["arguments"]; !ok {
 			function["arguments"] = map[string]any{}
 		}
+		if _, ok := nextToolCall["type"]; !ok {
+			nextToolCall["type"] = "function"
+		}
 		nextToolCall["function"] = function
 		toolCalls[entryIndex] = nextToolCall
 		message["tool_calls"] = toolCalls
@@ -499,7 +502,8 @@ func applyToolCallDelta(messages []map[string]any, messageID string, toolCallID 
 		return updated
 	}
 	toolCalls = append(toolCalls, map[string]any{
-		"id": trimmedToolCallID,
+		"id":   trimmedToolCallID,
+		"type": "function",
 		"function": map[string]any{
 			"name":      name,
 			"arguments": map[string]any{},

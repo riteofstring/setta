@@ -5,10 +5,6 @@ import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { unstable_batchedUpdates } from "react-dom";
 import {
-  getMessageCompletenessScore,
-  mergeChatMessages,
-} from "state/actions/chatMergeUtils";
-import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
@@ -47,7 +43,6 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
-  BaseChatMessageUnion,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
@@ -179,81 +174,41 @@ function mergeStreamingChatSections(
       currentVariant,
     ) as ChatSectionImpl;
 
-    const incomingMessages = Array.isArray(incomingChat.messages)
-      ? incomingChat.messages
-      : [];
-    const currentMessages = Array.isArray(currentChat.messages)
-      ? currentChat.messages
-      : [];
     const incomingToolArgs = incomingChat.toolCallArguments ?? {};
     const currentToolArgs = currentChat.toolCallArguments ?? {};
     const incomingInputText = incomingChat.inputText ?? "";
     const currentInputText = currentChat.inputText ?? "";
     const shouldPreserveStreaming = isSectionStreamActive(sectionId);
-    const shouldMergeFast =
-      shouldPreserveStreaming ||
-      currentMessages.length > incomingMessages.length ||
-      Object.keys(currentToolArgs).length >
-        Object.keys(incomingToolArgs).length ||
-      currentInputText.length > incomingInputText.length;
-    const shouldMerge = shouldMergeFast
-      ? true
-      : hasMoreCompleteChatMessages(currentMessages, incomingMessages);
-    if (!shouldMerge) {
-      continue;
-    }
-
-    const mergedMessages = mergeChatMessages(incomingMessages, currentMessages);
-    const mergedToolArgs = {
-      ...incomingToolArgs,
-      ...currentToolArgs,
-    };
-    const mergedInputText =
+    const nextInputText =
       currentInputText.length > incomingInputText.length
         ? currentInputText
         : incomingInputText;
-    const mergedWaitingForResponse = shouldPreserveStreaming
+    const nextWaitingForResponse = shouldPreserveStreaming
       ? incomingChat.waitingForResponse || currentChat.waitingForResponse
       : incomingChat.waitingForResponse;
+    const nextToolCallArguments = shouldPreserveStreaming
+      ? {
+          ...incomingToolArgs,
+          ...currentToolArgs,
+        }
+      : incomingToolArgs;
+    if (
+      nextInputText === incomingInputText &&
+      nextWaitingForResponse === incomingChat.waitingForResponse &&
+      _.isEqual(nextToolCallArguments, incomingToolArgs)
+    ) {
+      continue;
+    }
+
     setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
-      messages: mergedMessages,
-      toolCallArguments: mergedToolArgs,
-      inputText: mergedInputText,
-      waitingForResponse: mergedWaitingForResponse,
+      toolCallArguments: nextToolCallArguments,
+      inputText: nextInputText,
+      waitingForResponse: nextWaitingForResponse,
     });
     mergedSectionIds.push(sectionId);
   }
 
   return mergedSectionIds;
-}
-
-function hasMoreCompleteChatMessages(
-  currentMessages: Array<BaseChatMessageUnion>,
-  incomingMessages: Array<BaseChatMessageUnion>,
-): boolean {
-  if (currentMessages.length === 0) {
-    return false;
-  }
-  if (incomingMessages.length === 0) {
-    return currentMessages.length > 0;
-  }
-  const incomingById = new Map<string, BaseChatMessageUnion>();
-  for (const message of incomingMessages) {
-    incomingById.set(message.id, message);
-  }
-  for (const message of currentMessages) {
-    const incoming = incomingById.get(message.id);
-    if (!incoming) {
-      return true;
-    }
-    if (
-      getMessageCompletenessScore(message) >
-      getMessageCompletenessScore(incoming)
-    ) {
-      return true;
-    }
-  }
-  return false;
 }
 
 export function isBaseCodeSectionType(sectionType: SectionType): boolean {

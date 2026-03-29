@@ -222,7 +222,11 @@ def _is_response_placeholder_message_id(message_id: str) -> bool:
 
 
 def _assistant_message_empty(message: AssistantChatMessage) -> bool:
-    return len(message.content) == 0 and not (message.tool_calls or [])
+    return (
+        len(message.content) == 0
+        and not (message.tool_calls or [])
+        and not (message.attachments or [])
+    )
 
 
 def _should_ignore_response_placeholder_message(

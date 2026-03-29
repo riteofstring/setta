@@ -154,10 +154,67 @@ func decodeManagedChatStreamContractChunk(t *testing.T, rawChunk json.RawMessage
 			Type:    chunkType,
 			Message: message,
 		}
+	case realtime.StreamingEventTypeMessageStop:
+		return realtime.MessageStopEvent{
+			Type:      chunkType,
+			MessageID: stringValue(payload["message_id"]),
+		}
+	case realtime.StreamingEventTypeToolCallDelta:
+		return realtime.ToolCallDeltaEvent{
+			Type:           chunkType,
+			MessageID:      stringValue(payload["message_id"]),
+			ToolCallID:     stringValue(payload["tool_call_id"]),
+			ToolName:       optionalStringValue(payload["tool_name"]),
+			ArgumentsDelta: stringValue(payload["arguments_delta"]),
+		}
+	case realtime.StreamingEventTypeToolArgumentPreview:
+		targetIDsByType := map[string][]string{}
+		if rawTargetIDs, ok := payload["target_ids_by_type"].(map[string]any); ok {
+			for rawType, rawIDs := range rawTargetIDs {
+				idList, ok := rawIDs.([]any)
+				if !ok {
+					continue
+				}
+				values := make([]string, 0, len(idList))
+				for _, rawID := range idList {
+					value := stringValue(rawID)
+					if value == "" {
+						continue
+					}
+					values = append(values, value)
+				}
+				targetIDsByType[rawType] = values
+			}
+		}
+		return realtime.ToolArgumentPreviewDeltaEvent{
+			Type:            chunkType,
+			MessageID:       stringValue(payload["message_id"]),
+			ToolCallID:      stringValue(payload["tool_call_id"]),
+			ToolName:        stringValue(payload["tool_name"]),
+			ArgumentsDelta:  stringValue(payload["arguments_delta"]),
+			TargetIDsByType: targetIDsByType,
+		}
+	case realtime.StreamingEventTypeToolResult:
+		result, err := normalizeMessage(payload["result"])
+		if err != nil {
+			t.Fatalf("normalize tool result payload: %v", err)
+		}
+		return realtime.ToolResultEvent{
+			Type:   chunkType,
+			Result: result,
+		}
 	default:
 		t.Fatalf("unsupported contract chunk type %q", chunkType)
 		return nil
 	}
+}
+
+func optionalStringValue(value any) *string {
+	if value == nil {
+		return nil
+	}
+	str := stringValue(value)
+	return &str
 }
 
 func mustMarshalManagedChatStreamState(t *testing.T, messages []map[string]any) string {

@@ -2089,19 +2089,15 @@ function mergeChatSectionState(
   const mergedMessages = reconcileHydratedChatMessages({
     backendMessages: incoming.messages ?? [],
     localMessages: currentState.messages ?? [],
-    // Preserve local-only activity rows so thought/tool sequencing is not
-    // flattened by a hydration refresh while the local stream is still active.
-    preserveLocalOnlyMessages: preserveWaitingForResponse,
   });
   const nextWaitingForResponse = preserveWaitingForResponse
     ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
     : Boolean(incoming.waitingForResponse);
-  const nextToolCallArguments = preserveWaitingForResponse
-    ? {
-        ...(currentState.toolCallArguments ?? {}),
-        ...(incoming.toolCallArguments ?? {}),
-      }
-    : { ...(incoming.toolCallArguments ?? {}) };
+  const nextToolCallArguments = resolveHydratedToolCallArguments({
+    backendToolCallArguments: incoming.toolCallArguments ?? {},
+    localToolCallArguments: currentState.toolCallArguments ?? {},
+    preserveLocalOverlay: preserveWaitingForResponse,
+  });
   return {
     messages: mergedMessages,
     inputText: currentState.inputText ?? "",
@@ -2109,6 +2105,24 @@ function mergeChatSectionState(
     toolCallArguments: nextToolCallArguments,
     activeBranchId: currentState.activeBranchId ?? null,
     branches: { ...(currentState.branches ?? {}) },
+  };
+}
+
+function resolveHydratedToolCallArguments({
+  backendToolCallArguments,
+  localToolCallArguments,
+  preserveLocalOverlay,
+}: {
+  backendToolCallArguments: Record<string, string>;
+  localToolCallArguments: Record<string, string>;
+  preserveLocalOverlay: boolean;
+}): Record<string, string> {
+  if (!preserveLocalOverlay) {
+    return { ...backendToolCallArguments };
+  }
+  return {
+    ...backendToolCallArguments,
+    ...localToolCallArguments,
   };
 }
 
@@ -2341,13 +2355,17 @@ function applyLLMChatHydrationSuccess({
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
     const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const nextToolCallArguments = resolveHydratedToolCallArguments({
+      backendToolCallArguments: {},
+      localToolCallArguments: existingDetails?.toolCallArguments ?? {},
+      preserveLocalOverlay: preserveWaitingForResponse,
+    });
     nextWaitingForResponse = preserveWaitingForResponse
       ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
       : Boolean(waitingForResponse);
     const nextMessages = reconcileHydratedChatMessages({
       backendMessages: messages,
       localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: preserveWaitingForResponse,
     });
     const nextAppGenerationDetails = buildChatAppGenerationDetails(
       nextMessages,
@@ -2361,6 +2379,7 @@ function applyLLMChatHydrationSuccess({
           ...(existingDetails ?? {}),
           messages: nextMessages,
           waitingForResponse: nextWaitingForResponse,
+          toolCallArguments: nextToolCallArguments,
           llmConfig: llmConfig,
           contextUsage: contextUsage ?? null,
         },
@@ -2413,13 +2432,17 @@ function applyExternalChatHydrationSuccess({
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
     const preserveWaitingForResponse = isChatStreamActive(chatId);
+    const nextToolCallArguments = resolveHydratedToolCallArguments({
+      backendToolCallArguments: toolCallArguments,
+      localToolCallArguments: existingDetails?.toolCallArguments ?? {},
+      preserveLocalOverlay: preserveWaitingForResponse,
+    });
     nextWaitingForResponse = preserveWaitingForResponse
       ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
       : Boolean(waitingForResponse);
     const nextMessages = reconcileHydratedChatMessages({
       backendMessages: messages,
       localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: preserveWaitingForResponse,
     });
     const nextAppGenerationDetails = buildChatAppGenerationDetails(
       nextMessages,
@@ -2433,7 +2456,7 @@ function applyExternalChatHydrationSuccess({
           ...(existingDetails ?? {}),
           messages: nextMessages,
           waitingForResponse: nextWaitingForResponse,
-          toolCallArguments,
+          toolCallArguments: nextToolCallArguments,
           llmConfig: null,
           contextUsage: contextUsage ?? null,
         },

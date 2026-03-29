@@ -9,7 +9,9 @@ func shouldIgnoreResponsePlaceholderMessage(message map[string]any) bool {
 	if err != nil || !isResponsePlaceholderID(id) {
 		return false
 	}
-	return messageContentEmpty(message) && messageToolCallsEmpty(message)
+	return messageContentEmpty(message) &&
+		messageToolCallsEmpty(message) &&
+		messageAttachmentsEmpty(message)
 }
 
 func resolveFinalizedAssistantMessageUpdate(messages []map[string]any, message map[string]any) (map[string]any, string) {
