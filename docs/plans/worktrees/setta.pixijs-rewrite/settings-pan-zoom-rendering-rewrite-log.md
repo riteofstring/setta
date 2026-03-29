@@ -11730,3 +11730,40 @@ Record:
       - `chatWindowing` remained populated, though still sparser than the surrounding cards
 - Next action:
   - Resume the normalized live-Pixi parity comparison against the worktree baseline and then `main` to identify the next renderer/chrome drift now that the top-row blank-card blocker is closed.
+
+## 2026-03-31 355
+
+- Item: Lock the normalized `All Settings` baseline-vs-`main` visible canvas slice so future live-Pixi parity passes do not chase stale cross-runtime false positives.
+- Status: `done`
+- Details:
+  - Continued directly from item `354`, but the next stricter CDP pass showed the checked normalized baseline/main canvas slice already converged in normal use.
+  - Took one bounded parity-support slice instead of fabricating a renderer edit:
+    - `frontend/tests/e2e/helpers.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Added a new explicit read-only `main` canary that:
+    - resets workspace chrome on both runtimes
+    - normalizes the active `All Settings` top-level layout to the canonical `createSettingsState()` order on a `3 x 600px` grid
+    - clears the current viewport for refit on both pages
+    - compares the first visible canvas section slice between the worktree baseline and read-only `main`
+  - Hardened `clearCurrentProjectViewportForRefit(...)` for cross-runtime use:
+    - uses the modern exported helper when present
+    - falls back to the older low-level store reset (`projectConfig.viewport = null`, active view-mode viewport clear, `fitViewOnInit` re-arm, node-dimension refresh) when the read-only `main` runtime does not expose the newer helper
+  - Tightened the canvas-slice oracle to compare semantic section names plus geometry instead of opaque runtime-specific node ids.
+  - This slice stays intentionally on the parity-support boundary:
+    - no production frontend/backend renderer code changed
+    - no live Pixi drawing, zoom, or interaction logic changed
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN="<fresh worktree token>" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="<fresh main bootstrap url>" pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and the read-only main reference share the same visible overview section slice when explicit runtime envs are provided|all settings baseline and the read-only main reference share the same visible canvas section slice when explicit runtime envs are provided"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the worktree baseline `http://127.0.0.1:3043/settings` plus read-only `main` `http://127.0.0.1:3087/settings`
+    - result: passed
+      - after the same fit-view/layout normalization on both pages, the visible canvas slice matched in normal use
+      - both pages showed the same dotted canvas background, the same small lower-left section card, the same right-side `schemaVer` inspector panel, and the same `spreadsheetSectionDefault` drawer peeking at the lower right
+      - remaining differences such as `Autosaved!` on `main` were outside the checked canvas slice
+- Next action:
+  - Resume the real normalized live-Pixi-vs-`main` renderer investigation on `All Settings`; with the resting baseline-vs-`main` canvas slice now locked down, target the next actual Pixi-only drift instead of more oracle-state cleanup.

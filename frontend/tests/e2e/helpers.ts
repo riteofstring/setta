@@ -515,10 +515,45 @@ export async function clearCurrentProjectViewportForRefit(
   page: Page,
 ): Promise<void> {
   await page.evaluate(async () => {
-    const { clearCurrentProjectViewportForRefit } = await import(
-      "/src/state/actions/sectionInfos.ts"
+    const sectionInfos = await import("/src/state/actions/sectionInfos.ts");
+    if (
+      typeof sectionInfos.clearCurrentProjectViewportForRefit === "function"
+    ) {
+      sectionInfos.clearCurrentProjectViewportForRefit();
+      return;
+    }
+
+    const { useMisc, useProjectState } = await import(
+      "/src/state/definitions.ts"
     );
-    clearCurrentProjectViewportForRefit();
+    const { useReactFlow } = await import(
+      "/src/forks/xyflow/core/store/index.ts"
+    );
+    const projectState = useProjectState.getState();
+    if (!projectState.projectConfig.id) {
+      return;
+    }
+
+    useProjectState.setState((state) => {
+      state.projectConfig.viewport = null;
+      state.projectConfig.viewportInitialized = false;
+      const activeViewModeId = state.projectConfig.activeViewModeId;
+      if (activeViewModeId && state.projectConfig.viewModes[activeViewModeId]) {
+        state.projectConfig.viewModes[activeViewModeId].viewport = null;
+        state.projectConfig.viewModes[activeViewModeId].viewportInitialized =
+          false;
+      }
+    });
+
+    const buildFitViewOnInitState =
+      sectionInfos.buildFitViewOnInitState ??
+      ((currentProjectState: typeof projectState) => ({
+        fitViewOnInit: true,
+        fitViewOnInitDone: false,
+        fitViewOnInitOptions: undefined,
+      }));
+    useReactFlow.setState(buildFitViewOnInitState(projectState));
+    useMisc.setState({ requestUpdateNodeDimensions: true });
   });
 }
 

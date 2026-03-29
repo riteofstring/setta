@@ -91,6 +91,7 @@ type VisibleBlockBounds = {
 type VisibleSectionNodeBounds = {
   height: number;
   sectionId: string;
+  sectionName: string;
   width: number;
   x: number;
   y: number;
@@ -610,15 +611,20 @@ async function readVisibleBlockBounds(
 async function readVisibleSectionNodeBounds(
   page: Page,
 ): Promise<VisibleSectionNodeBounds[]> {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const sections = useProjectState.getState().sections;
+
     return Array.from(
       document.querySelectorAll<HTMLElement>(".react-flow__node[data-id]"),
     )
       .map((element) => {
+        const sectionId = element.getAttribute("data-id") ?? "";
         const rect = element.getBoundingClientRect();
         return {
           height: rect.height,
-          sectionId: element.getAttribute("data-id") ?? "",
+          sectionId,
+          sectionName: sections[sectionId]?.name ?? "",
           width: rect.width,
           x: rect.x,
           y: rect.y,
@@ -627,6 +633,7 @@ async function readVisibleSectionNodeBounds(
       .filter((node) => {
         return (
           node.sectionId.length > 0 &&
+          node.sectionName.length > 0 &&
           node.width > 0 &&
           node.height > 0 &&
           node.x < window.innerWidth &&
@@ -1465,6 +1472,82 @@ test("all settings baseline and the read-only main reference share the same visi
     ).slice(0, 6);
 
     expect(mainReferenceVisibleLabels).toEqual(baselineVisibleLabels);
+  } finally {
+    await baselinePage.close();
+    await mainReferencePage.close();
+  }
+});
+
+test("all settings baseline and the read-only main reference share the same visible canvas section slice when explicit runtime envs are provided", async ({
+  browser,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "requires SETTA_MAIN_REFERENCE_URL and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL",
+  );
+
+  const baselinePage = await browser.newPage();
+  const mainReferencePage = await browser.newPage();
+
+  try {
+    await openAllSettingsBaseline(baselinePage);
+    await openAllSettingsMainReference(mainReferencePage);
+
+    // Keep the graph-surface comparison on the canonical All Settings layout
+    // instead of whichever persisted viewport/layout residue the live sessions
+    // happened to carry into this run.
+    await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
+    await resetProjectWorkspaceChromeToDefaultLayout(mainReferencePage);
+    await normalizeAllSettingsOverviewLayout(baselinePage);
+    await normalizeAllSettingsOverviewLayout(mainReferencePage);
+    await clearCurrentProjectViewportForRefit(baselinePage);
+    await clearCurrentProjectViewportForRefit(mainReferencePage);
+    await expectZoomOutButtonDisabled(baselinePage, true);
+    await expectZoomOutButtonDisabled(mainReferencePage, true);
+
+    const baselineViewport = await readViewportTransform(baselinePage);
+    await expectViewportTransformNear(mainReferencePage, baselineViewport);
+
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(baselinePage)).length;
+      })
+      .toBeGreaterThanOrEqual(6);
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(mainReferencePage)).length;
+      })
+      .toBeGreaterThanOrEqual(6);
+
+    const baselineNodes = (
+      await readVisibleSectionNodeBounds(baselinePage)
+    ).slice(0, 6);
+    const mainReferenceNodes = (
+      await readVisibleSectionNodeBounds(mainReferencePage)
+    ).slice(0, 6);
+
+    expect(mainReferenceNodes.map((node) => node.sectionName)).toEqual(
+      baselineNodes.map((node) => node.sectionName),
+    );
+    expect(
+      mainReferenceNodes.every((node) => node.width > 0 && node.height > 0),
+    ).toBe(true);
+    expect(
+      baselineNodes.reduce((maxDelta, baselineNode, index) => {
+        const mainNode = mainReferenceNodes[index];
+        if (!mainNode) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        return Math.max(
+          maxDelta,
+          Math.abs(mainNode.x - baselineNode.x),
+          Math.abs(mainNode.y - baselineNode.y),
+          Math.abs(mainNode.width - baselineNode.width),
+          Math.abs(mainNode.height - baselineNode.height),
+        );
+      }, 0),
+    ).toBeLessThanOrEqual(2);
   } finally {
     await baselinePage.close();
     await mainReferencePage.close();
