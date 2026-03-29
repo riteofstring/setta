@@ -20,6 +20,7 @@ import {
   useLocalStorage,
   useProjectState,
   useShareSession,
+  type ZustandProjectState,
 } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { PAGE_LOAD_TYPES, pathRelativeToProject } from "utils/constants";
@@ -72,10 +73,55 @@ export function mergeProjectConfigOrder(
   return mergedIds;
 }
 
+type ProjectConfigHoverPreviewState = Pick<
+  ZustandProjectState,
+  "projectConfig" | "sections" | "sectionVariants"
+>;
+
+export function buildProjectConfigHoverPreviewMap(
+  currentState: ProjectConfigHoverPreviewState,
+  candidateConfig: ProjectConfig,
+): Record<string, string> | null {
+  const currentSectionIds = Object.keys(
+    currentState.projectConfig.sectionVariantMap,
+  );
+  const candidateSectionIds = Object.keys(candidateConfig.sectionVariantMap);
+  if (candidateSectionIds.length !== currentSectionIds.length) {
+    return null;
+  }
+
+  const currentSectionIdSet = new Set(currentSectionIds);
+  for (const sectionId of candidateSectionIds) {
+    if (!currentSectionIdSet.has(sectionId)) {
+      return null;
+    }
+  }
+
+  const previewMap: Record<string, string> = {};
+  for (const sectionId of currentSectionIds) {
+    const section = currentState.sections[sectionId];
+    if (!section) {
+      return null;
+    }
+    const candidateVariantId = candidateConfig.sectionVariantMap[sectionId];
+    if (!candidateVariantId) {
+      return null;
+    }
+    if (!section.variants.includes(candidateVariantId)) {
+      return null;
+    }
+    if (!currentState.sectionVariants[candidateVariantId]) {
+      return null;
+    }
+    previewMap[sectionId] = candidateVariantId;
+  }
+
+  return previewMap;
+}
+
 export function ProjectConfigs() {
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditStructure } = useShareCapabilities();
-  const currProjectConfigName = useProjectState((x) => x.projectConfig.name);
   const currProjectConfigId = useProjectState((x) => x.projectConfig.id);
   const allProjectMetadata = useAllProjectMetadata(
     (x) => x.projectMetadata,
@@ -253,7 +299,6 @@ export function ProjectConfigs() {
                     key={config.id}
                     config={config}
                     currProjectConfigId={currProjectConfigId}
-                    currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
                     sortableEnabled={sortableEnabled}
                     deletable={orderedProjectConfigs.length > 1}
@@ -266,7 +311,6 @@ export function ProjectConfigs() {
                     key={config.id}
                     config={config}
                     currProjectConfigId={currProjectConfigId}
-                    currProjectConfigName={currProjectConfigName}
                     isDeploymentMode={isDeploymentMode}
                     sortableEnabled={sortableEnabled}
                     onStartReordering={onStartReordering}
@@ -285,7 +329,6 @@ export function ProjectConfigs() {
 type ProjectConfigRowProps = {
   config: ProjectConfig;
   currProjectConfigId: string;
-  currProjectConfigName: string;
   isDeploymentMode: boolean;
   sortableEnabled: boolean;
   onStartReordering: () => void;
@@ -305,7 +348,6 @@ function ProjectConfigRow({
 function ProjectConfigRowStatic({
   config,
   currProjectConfigId,
-  currProjectConfigName,
   isDeploymentMode,
   canShowHoverPreview,
 }: ProjectConfigRowProps) {
@@ -342,7 +384,7 @@ function ProjectConfigRowStatic({
       data-project-config-id={config.id}
       className={rowClasses}
       onMouseEnter={() =>
-        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
+        onMouseEnter(config, currProjectConfigId, canShowHoverPreview())
       }
       onClick={onOpenConfig}
     >
@@ -360,7 +402,6 @@ function ProjectConfigRowStatic({
 function ProjectConfigRowSortable({
   config,
   currProjectConfigId,
-  currProjectConfigName,
   isDeploymentMode,
   onStartReordering,
   canShowHoverPreview,
@@ -409,7 +450,7 @@ function ProjectConfigRowSortable({
       className={rowClasses}
       style={sortable.style}
       onMouseEnter={() =>
-        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
+        onMouseEnter(config, currProjectConfigId, canShowHoverPreview())
       }
       onClick={onOpenConfig}
     >
@@ -432,7 +473,6 @@ function ProjectConfigRowSortable({
 type ProjectConfigEditingRowProps = {
   config: ProjectConfig;
   currProjectConfigId: string;
-  currProjectConfigName: string;
   isDeploymentMode: boolean;
   sortableEnabled: boolean;
   deletable: boolean;
@@ -454,7 +494,6 @@ function ProjectConfigEditingRow({
 function ProjectConfigEditingRowStatic({
   config,
   currProjectConfigId,
-  currProjectConfigName,
   isDeploymentMode,
   deletable,
   canEditProjectConfigs,
@@ -516,7 +555,7 @@ function ProjectConfigEditingRowStatic({
       onClick={onOpenConfig}
       onKeyDown={onRowKeyDown}
       onMouseEnter={() =>
-        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
+        onMouseEnter(config, currProjectConfigId, canShowHoverPreview())
       }
       role="button"
       tabIndex={0}
@@ -547,7 +586,6 @@ function ProjectConfigEditingRowStatic({
 function ProjectConfigEditingRowSortable({
   config,
   currProjectConfigId,
-  currProjectConfigName,
   isDeploymentMode,
   deletable,
   canEditProjectConfigs,
@@ -618,7 +656,7 @@ function ProjectConfigEditingRowSortable({
       onClick={onOpenConfig}
       onKeyDown={onRowKeyDown}
       onMouseEnter={() =>
-        onMouseEnter(config, currProjectConfigName, canShowHoverPreview())
+        onMouseEnter(config, currProjectConfigId, canShowHoverPreview())
       }
       role="button"
       tabIndex={0}
@@ -653,22 +691,25 @@ function ProjectConfigEditingRowSortable({
 
 function onMouseEnter(
   mousedOverProjectConfig: ProjectConfig,
-  currProjectConfigName: string,
+  currProjectConfigId: string,
   previewEnabled: boolean,
 ) {
   if (!previewEnabled) {
     return;
   }
 
-  if (mousedOverProjectConfig.name !== currProjectConfigName) {
-    useProjectState.setState((x) => {
-      x.previewSectionVariantMap = _.cloneDeep(
-        mousedOverProjectConfig.sectionVariantMap,
-      );
-    });
-  } else {
+  if (mousedOverProjectConfig.id === currProjectConfigId) {
     clearPreviewIds();
+    return;
   }
+
+  const previewMap = buildProjectConfigHoverPreviewMap(
+    useProjectState.getState(),
+    mousedOverProjectConfig,
+  );
+  useProjectState.setState((x) => {
+    x.previewSectionVariantMap = previewMap ? _.cloneDeep(previewMap) : {};
+  });
 }
 
 function onMouseLeave() {
