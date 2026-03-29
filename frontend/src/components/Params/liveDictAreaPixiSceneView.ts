@@ -11,6 +11,7 @@ export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
 export const LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH = 200;
 export const LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT =
   LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT;
+export const LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS = 2048 * 2048;
 export const LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM =
   "liveDictAreaPixiOverview";
 
@@ -187,9 +188,13 @@ export function getLiveDictAreaPixiAvailableCanvasHeight({
 }
 
 export function getLiveDictAreaPixiRenderResolution({
+  canvasHeight,
+  canvasWidth,
   devicePixelRatio,
   viewportZoom,
 }: {
+  canvasHeight: number;
+  canvasWidth: number;
   devicePixelRatio: number;
   viewportZoom: number;
 }) {
@@ -199,8 +204,33 @@ export function getLiveDictAreaPixiRenderResolution({
       : 1;
   const safeViewportZoom =
     Number.isFinite(viewportZoom) && viewportZoom > 0 ? viewportZoom : 1;
+  const requestedResolution = safeDevicePixelRatio * safeViewportZoom;
+  const safeCanvasWidth =
+    Number.isFinite(canvasWidth) && canvasWidth > 0
+      ? Math.floor(canvasWidth)
+      : 0;
+  const safeCanvasHeight =
+    Number.isFinite(canvasHeight) && canvasHeight > 0
+      ? Math.floor(canvasHeight)
+      : 0;
 
-  return safeDevicePixelRatio * safeViewportZoom;
+  if (safeCanvasWidth === 0 || safeCanvasHeight === 0) {
+    return requestedResolution;
+  }
+
+  const maxResolutionFromBackingPixels = Math.sqrt(
+    LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS /
+      (safeCanvasWidth * safeCanvasHeight),
+  );
+
+  if (
+    !Number.isFinite(maxResolutionFromBackingPixels) ||
+    maxResolutionFromBackingPixels <= 0
+  ) {
+    return requestedResolution;
+  }
+
+  return Math.min(requestedResolution, maxResolutionFromBackingPixels);
 }
 
 export function getLiveDictAreaPixiTextResolution(renderResolution: number) {

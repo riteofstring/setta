@@ -83,14 +83,9 @@ function _LiveDictAreaPixiScene({
   );
   const [fontLoadVersion, setFontLoadVersion] = useState(0);
   const logicalCanvasWidth = getLiveDictAreaPixiLogicalCanvasWidth(hostWidth);
-  const renderResolution = getLiveDictAreaPixiRenderResolution({
-    devicePixelRatio,
-    viewportZoom,
-  });
   const sectionStyleColor = getLiveDictAreaPixiSectionStyleColor(
     liveDictAreaSceneBoundary,
   );
-  const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
   const overviewPresentationEnabled =
     readLiveDictAreaPixiOverviewEnabledFromWindow();
   const presentationMode = getLiveDictAreaPixiPresentationMode(viewportZoom, {
@@ -108,6 +103,13 @@ function _LiveDictAreaPixiScene({
       }),
     [liveDictAreaSceneBoundary, logicalCanvasWidth, usableMaxCanvasHeight],
   );
+  const renderResolution = getLiveDictAreaPixiRenderResolution({
+    canvasHeight: summaryLayout.canvasHeight,
+    canvasWidth: summaryLayout.canvasWidth,
+    devicePixelRatio,
+    viewportZoom,
+  });
+  const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
 
   useLayoutEffect(() => {
     onSummaryLayoutChange?.(

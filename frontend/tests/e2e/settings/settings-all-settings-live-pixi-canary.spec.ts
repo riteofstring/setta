@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS,
   LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
   LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
 } from "../../../src/components/Params/liveDictAreaPixiSceneView";
@@ -471,7 +472,9 @@ test("all settings canary rerenders the Pixi scene canvas when the viewport zoom
   await expect(sceneCanvas).toBeVisible();
   const readCanvasMetrics = () =>
     sceneCanvas.evaluate((canvas) => ({
+      cssHeight: canvas.clientHeight,
       cssWidth: canvas.clientWidth,
+      pixelHeight: canvas.height,
       pixelWidth: canvas.width,
     }));
   await page.waitForTimeout(1500);
@@ -479,7 +482,9 @@ test("all settings canary rerenders the Pixi scene canvas when the viewport zoom
   const resetCanvasMetrics = await readCanvasMetrics();
 
   const initialCanvasWidth = resetCanvasMetrics.pixelWidth;
+  expect(resetCanvasMetrics.cssHeight).toBeGreaterThan(0);
   expect(resetCanvasMetrics.cssWidth).toBeGreaterThan(0);
+  expect(resetCanvasMetrics.pixelHeight).toBeGreaterThan(0);
   expect(resetCanvasMetrics.pixelWidth).toBeGreaterThan(0);
 
   const zoomInButton = page.getByRole("button", { name: "zoom in" });
@@ -493,12 +498,19 @@ test("all settings canary rerenders the Pixi scene canvas when the viewport zoom
     .toBeGreaterThan(initialCanvasWidth);
 
   const zoomedCanvasMetrics = await sceneCanvas.evaluate((canvas) => ({
+    cssHeight: canvas.clientHeight,
     cssWidth: canvas.clientWidth,
+    pixelHeight: canvas.height,
     pixelWidth: canvas.width,
   }));
 
+  expect(zoomedCanvasMetrics.cssHeight).toBeGreaterThan(0);
   expect(zoomedCanvasMetrics.cssWidth).toBeGreaterThan(0);
+  expect(zoomedCanvasMetrics.pixelHeight).toBeGreaterThan(0);
   expect(zoomedCanvasMetrics.pixelWidth).toBeGreaterThan(initialCanvasWidth);
+  expect(
+    zoomedCanvasMetrics.pixelWidth * zoomedCanvasMetrics.pixelHeight,
+  ).toBeLessThanOrEqual(LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS);
 });
 
 test("all settings canary keeps low-zoom live Pixi cards in detail mode by default", async ({

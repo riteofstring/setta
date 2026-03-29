@@ -9617,3 +9617,34 @@ Record:
       - this reads as a real snap-after-redraw / repaint regression on the live Pixi path, not just an automation mismatch
 - Next action:
   - Pivot to the live Pixi zoom-time repaint blocker itself: investigate why `pixi-node-body` section thumbnails can turn into persistent blank white rectangles after zoom, and do not spend another iteration on zoomed parity automation until that visible failure is resolved.
+
+## 2026-03-29 292
+
+- Item: Cap live Pixi scene backing resolution so zoom-time redraws stop blanking visible `All Settings` thumbnails.
+- Status: `done`
+- Details:
+  - Re-scoped the live Pixi zoom repaint blocker to the scene backing-store path and landed a bounded cap on per-scene backing pixels:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The live Pixi scene now computes render resolution from the actual summary canvas dimensions and clamps it to a fixed per-scene backing budget (`2048 * 2048`) before resizing the Pixi renderer.
+  - This keeps ordinary zoom redraw growth intact for smaller scenes while preventing large visible cards from requesting oversized backing stores during zoom-time repaint.
+  - Tightened automated coverage around the fix:
+    - unit coverage now checks that oversized scenes cap their render resolution instead of scaling without bound
+    - the live canary now asserts that the zoomed canvas backing area stays within the same capped pixel budget
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+    - Playwright targeted live-Pixi canary:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary rerenders the Pixi scene canvas when the viewport zoom changes|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+      - result: passed (`2 passed`)
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+      - bootstrapped `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - checked `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+      - after `All Settings` and three visible `zoom in` clicks, the previously reproducible blank white rectangle failure did not reproduce
+      - console output was limited to pre-existing React/accessibility warnings; no new Pixi render failure was reported in this pass
+      - compared against the live baseline `/settings` shell and saw no new blank canary panels
+- Next action:
+  - Return to the remaining live Pixi visual-parity gate: re-check `main`-oracle zoom parity when a read-only `main` session is available, now that the canary’s zoom-time blank-rectangle repaint failure is no longer reproducing.

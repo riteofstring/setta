@@ -17,6 +17,7 @@ import {
   getLiveDictAreaPixiUsableMaxCanvasHeight,
   LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY,
   LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH,
+  LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS,
   LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
   LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
   resolveLiveDictAreaPixiOverviewEnabled,
@@ -179,27 +180,50 @@ describe("getLiveDictAreaPixiRenderResolution", () => {
   it("scales the Pixi render resolution with viewport zoom and device pixel ratio", () => {
     expect(
       getLiveDictAreaPixiRenderResolution({
+        canvasHeight: 240,
+        canvasWidth: 320,
         devicePixelRatio: 2,
         viewportZoom: 1,
       }),
     ).toBe(2);
     expect(
       getLiveDictAreaPixiRenderResolution({
+        canvasHeight: 240,
+        canvasWidth: 320,
         devicePixelRatio: 2,
         viewportZoom: 1.5,
       }),
     ).toBe(3);
     expect(
       getLiveDictAreaPixiRenderResolution({
+        canvasHeight: 240,
+        canvasWidth: 320,
         devicePixelRatio: 2,
         viewportZoom: 0.1,
       }),
     ).toBe(0.2);
   });
 
+  it("caps oversized live scenes to a bounded backing-pixel budget during zoomed redraws", () => {
+    const cappedResolution = getLiveDictAreaPixiRenderResolution({
+      canvasHeight: 900,
+      canvasWidth: 1200,
+      devicePixelRatio: 2,
+      viewportZoom: 2,
+    });
+
+    expect(cappedResolution).toBeLessThan(4);
+    expect(cappedResolution).toBeCloseTo(
+      Math.sqrt(LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS / (1200 * 900)),
+      6,
+    );
+  });
+
   it("falls back to sane defaults for invalid metrics", () => {
     expect(
       getLiveDictAreaPixiRenderResolution({
+        canvasHeight: 0,
+        canvasWidth: 0,
         devicePixelRatio: Number.NaN,
         viewportZoom: 0,
       }),
