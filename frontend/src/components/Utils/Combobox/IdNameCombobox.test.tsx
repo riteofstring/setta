@@ -7,11 +7,13 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { IdNameCombobox } from "./IdNameCombobox";
 
 function ComboboxHarness({
+  autoOpenOnMount = false,
   clearInputAfterSelection = false,
   initialSelectedId = null,
   isDisabled = false,
   selectedItemCanBeNull = false,
 }: {
+  autoOpenOnMount?: boolean;
   clearInputAfterSelection?: boolean;
   initialSelectedId?: string | null;
   isDisabled?: boolean;
@@ -39,6 +41,7 @@ function ComboboxHarness({
         onSelectedItemChange={setSelectedId}
         placeholder="Pick one"
         selectedItemCanBeNull={selectedItemCanBeNull}
+        shouldAutoOpenOnMount={autoOpenOnMount}
         value={selectedId}
       />
       <output data-testid="selected-id">{selectedId ?? "null"}</output>
@@ -147,5 +150,15 @@ describe("IdNameCombobox", () => {
     expect(host.querySelector('[data-testid="selected-id"]')?.textContent).toBe(
       "null",
     );
+  });
+
+  it("can auto-open and focus the combobox input on mount", async () => {
+    await act(async () => {
+      root.render(<ComboboxHarness autoOpenOnMount={true} />);
+    });
+
+    const input = getInput();
+    expect(document.activeElement).toBe(input);
+    expect(getMenu().className).toContain("flex");
   });
 });

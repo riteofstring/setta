@@ -36,6 +36,24 @@ vi.mock("./LiveDictAreaPixiValueRowOverlay", () => ({
   ),
 }));
 
+vi.mock(import("state/definitions"), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useProjectState: (selector: (state: object) => unknown) => selector({}),
+  };
+});
+
+vi.mock("state/actions/sectionInfos", () => ({
+  getCurrEffectiveCodeObjImpl: (
+    _state: object,
+    _sectionId: string,
+    rowId: string,
+  ) => ({
+    type: rowId === "pinned-value" ? "DropdownParam" : "TextParam",
+  }),
+}));
+
 describe("LiveDictAreaPixiOverlayShell", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -126,6 +144,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container.querySelector("[data-live-dict-area-editor-overlay='active']"),
     ).toBeNull();
+    expect(
+      container.querySelector(
+        "[data-live-dict-area-editor-handoff-editor-kind='combobox']",
+      ),
+    ).not.toBeNull();
 
     const activatedRowId =
       handoffButtons[0]?.getAttribute(

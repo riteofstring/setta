@@ -9,7 +9,7 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { GetParamSwitch } from "./GetParamSwitch";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 import {
-  AutoActivateCodeMirrorOnMountProvider,
+  PixiOverlayParamEditorKindProvider,
   resolveParamEditorKind,
 } from "./paramEditorActivation";
 
@@ -39,7 +39,7 @@ export function LiveDictAreaPixiValueRowOverlay({
   );
 
   return (
-    <AutoActivateCodeMirrorOnMountProvider value={editorKind === "codemirror"}>
+    <PixiOverlayParamEditorKindProvider value={editorKind}>
       <div
         className="pointer-events-auto absolute z-20"
         data-live-dict-area-editor-overlay="active"
@@ -65,6 +65,6 @@ export function LiveDictAreaPixiValueRowOverlay({
           />
         </div>
       </div>
-    </AutoActivateCodeMirrorOnMountProvider>
+    </PixiOverlayParamEditorKindProvider>
   );
 }

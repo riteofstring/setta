@@ -17,7 +17,12 @@ describe("resolveParamEditorKind", () => {
 
   it("leaves non-CodeMirror param types on the default editor path", () => {
     expect(resolveParamEditorKind(CodeObjTypeEnum.PasswordParam)).toBe("other");
-    expect(resolveParamEditorKind(CodeObjTypeEnum.DropdownParam)).toBe("other");
     expect(resolveParamEditorKind(CodeObjTypeEnum.SwitchParam)).toBe("other");
+  });
+
+  it("classifies combobox-backed param types from the code object type", () => {
+    expect(resolveParamEditorKind(CodeObjTypeEnum.DropdownParam)).toBe(
+      "combobox",
+    );
   });
 });

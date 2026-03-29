@@ -214,3 +214,68 @@ test("all settings canary can immediately activate a CodeMirror-backed value row
   expect(codemirrorActivationResult?.hasCodeMirrorEditor).toBe(true);
   expect(codemirrorActivationResult?.activeElementInsideCodeMirror).toBe(true);
 });
+
+test("all settings canary can immediately open a combobox-backed value row on first Pixi handoff click", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.addInitScript(
+    ({ mode, storageKey }) => {
+      window.sessionStorage.setItem(storageKey, mode);
+    },
+    {
+      mode: LIVE_PIXI_MODE,
+      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
+    },
+  );
+
+  const url = new URL(SETTINGS_URL);
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  const handoffButton = page
+    .locator(
+      "[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-editor-kind='combobox']",
+    )
+    .first();
+  await expect(handoffButton).toBeVisible();
+  await handoffButton.click();
+
+  const activationMetrics = await page.waitForFunction(() => {
+    const overlay = document.querySelector<HTMLElement>(
+      "[data-live-dict-area-editor-overlay='active']",
+    );
+    if (!overlay) {
+      return null;
+    }
+
+    const visibleMenu = Array.from(
+      document.body.querySelectorAll<HTMLDivElement>("div.nowheel.nodrag"),
+    ).find((menu) => getComputedStyle(menu).display !== "none");
+    const comboboxInput = overlay.querySelector<HTMLInputElement>("input");
+
+    return {
+      activeElementInsideComboboxInput:
+        comboboxInput !== null && document.activeElement === comboboxInput,
+      editorKind: overlay.getAttribute(
+        "data-live-dict-area-editor-overlay-editor-kind",
+      ),
+      openMenuItemCount: visibleMenu?.querySelectorAll("dd").length ?? 0,
+    };
+  });
+
+  const comboboxActivationResult = await activationMetrics.jsonValue();
+
+  expect(comboboxActivationResult).not.toBeNull();
+  expect(comboboxActivationResult?.editorKind).toBe("combobox");
+  expect(comboboxActivationResult?.activeElementInsideComboboxInput).toBe(true);
+  expect(comboboxActivationResult?.openMenuItemCount).toBeGreaterThan(0);
+});

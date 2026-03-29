@@ -6586,3 +6586,51 @@ Record:
     - representative requests returned `200`, including `POST /api/loadSettings`, `POST /api/loadProjectConfig`, and `GET /api/backendInitStatus`
 - Next action:
   - Continue the live retained-scene slice by adding the first non-text targeted control handoff on the Pixi canary, starting with a popup-style combobox-backed value row instead of widening the whole-shell overlay again.
+
+## 2026-03-29 215
+
+- Item: Land the first popup-style combobox handoff on the live `pixi-node-body` value-row canary.
+- Status: `done`
+- Details:
+  - Kept the retained-scene canary on the existing row-scoped overlay path and tightened only the first popup-style control handoff instead of reintroducing a wider DOM surface:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamUIs/ConfiguredParamInputs.tsx`
+    - `frontend/src/components/Params/ParamUIs/DropdownInput.tsx`
+  - Extended the source-of-truth overlay editor-kind boundary so dropdown-backed params are classified explicitly and can opt into bounded combobox activation on the Pixi canary:
+    - `frontend/src/components/Params/paramEditorActivation.tsx`
+    - `frontend/src/components/Params/paramEditorActivation.test.ts`
+  - The Pixi row activators now expose their resolved editor kind up front, which keeps the canary non-heuristic and lets tests target combobox-backed rows directly without brute-force clicking through unrelated scene rows:
+    - `data-live-dict-area-editor-handoff-editor-kind`
+  - The shared combobox path now supports a one-time mount-time open/focus handoff so the first Pixi click can immediately land in the real Downshift/portal combobox instead of requiring a second click:
+    - `frontend/src/components/Utils/Combobox/IdNameCombobox.tsx`
+    - `frontend/src/components/Utils/Combobox/useIdNameCombobox.ts`
+    - `frontend/src/components/Utils/Combobox/idNameComboboxView.ts`
+    - `frontend/src/components/Utils/Combobox/IdNameCombobox.test.tsx`
+  - Added focused structural coverage for the new handoff metadata on the Pixi shell path:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+  - Extended the live canary E2E to prove the new contract on the real Settings path:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the test now targets a combobox-backed Pixi handoff directly, then asserts the active overlay kind is `combobox`, focus lands in the combobox input, and the visible portal menu opens with option rows
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramEditorActivation.test.ts src/components/Utils/Combobox/IdNameCombobox.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/paramEditorActivation.tsx src/components/Params/paramEditorActivation.test.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ConfiguredParamInputs.tsx src/components/Params/ParamUIs/DropdownInput.tsx src/components/Utils/Combobox/idNameComboboxView.ts src/components/Utils/Combobox/useIdNameCombobox.ts src/components/Utils/Combobox/IdNameCombobox.tsx src/components/Utils/Combobox/IdNameCombobox.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - verified the combobox handoff selector: `[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-editor-kind='combobox']`
+    - after one click, the active overlay reported `data-live-dict-area-editor-overlay-editor-kind='combobox'`
+    - focus landed in `input[role='combobox']`
+    - the visible portal menu opened with option rows including `CODE` and `TEXT`
+    - no obvious blank/clipped regression was observed in the checked viewport
+    - representative requests returned `200`, including `GET /api/serverMode`, `POST /api/loadSettings`, `GET /api/authRefreshStatus`, and `POST /api/loadProjectConfig`
+    - note: the provided bootstrap token was rejected in that browser session, but the already-live worktree settings tab remained authenticated and usable for verification
+- Next action:
+  - Continue the live retained-scene slice by landing the next popup-style control handoff on the Pixi canary, starting with another targeted non-text editor path such as the color-picker row before moving on to drag/reorder work.

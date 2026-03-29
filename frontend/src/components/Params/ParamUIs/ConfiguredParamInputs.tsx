@@ -189,6 +189,7 @@ type ConfiguredDropdownInputProps = {
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
+  shouldAutoOpenOnMount?: boolean;
 };
 
 export function ConfiguredDropdownInput({
@@ -201,6 +202,7 @@ export function ConfiguredDropdownInput({
   isDisabled,
   placeholder,
   small,
+  shouldAutoOpenOnMount,
 }: ConfiguredDropdownInputProps) {
   const { choices } = useParamCodeObjUIConfig(
     sectionId,
@@ -218,6 +220,7 @@ export function ConfiguredDropdownInput({
       isDisabled={isDisabled}
       placeholder={placeholder}
       small={small}
+      shouldAutoOpenOnMount={shouldAutoOpenOnMount}
     />
   );
 }

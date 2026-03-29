@@ -38,7 +38,10 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
-import { useShouldAutoActivateCodeMirrorOnMount } from "../paramEditorActivation";
+import {
+  useShouldAutoActivateCodeMirrorOnMount,
+  useShouldAutoOpenComboboxOnMount,
+} from "../paramEditorActivation";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -248,6 +251,7 @@ export function ParamUI({
     });
   const shouldAutoActivateCodeMirrorOnMount =
     useShouldAutoActivateCodeMirrorOnMount();
+  const shouldAutoOpenComboboxOnMount = useShouldAutoOpenComboboxOnMount();
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
 
@@ -387,6 +391,7 @@ export function ParamUI({
           value={value}
           onChange={onChange}
           isDisabled={isDisabled}
+          shouldAutoOpenComboboxOnMount={shouldAutoOpenComboboxOnMount}
         />
       );
     case CodeObjTypeEnum.PasswordParam:
@@ -690,6 +695,14 @@ function DropdownParamConfigured({
   value,
   onChange,
   isDisabled,
+  shouldAutoOpenComboboxOnMount,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  onChange: ParamValueChange;
+  isDisabled: boolean;
+  shouldAutoOpenComboboxOnMount: boolean;
 }) {
   return (
     <ConfiguredDropdownInput
@@ -699,6 +712,7 @@ function DropdownParamConfigured({
       onChange={onChange}
       outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
       isDisabled={isDisabled}
+      shouldAutoOpenOnMount={shouldAutoOpenComboboxOnMount}
     />
   );
 }

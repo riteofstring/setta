@@ -25,6 +25,7 @@ export type IdNameComboboxProps<T> = {
   variant?: IdNameComboboxVariant;
   selectedItemCanBeNull?: boolean;
   clearInputAfterSelection?: boolean;
+  shouldAutoOpenOnMount?: boolean;
 };
 
 type BuildIdNameComboboxViewArgs<T> = Pick<

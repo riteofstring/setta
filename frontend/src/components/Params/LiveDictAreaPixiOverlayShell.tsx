@@ -1,4 +1,7 @@
+import _ from "lodash";
 import { useMemo, useState } from "react";
+import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
+import { useProjectState } from "state/definitions";
 import {
   LiveDictAreaMount,
   type LiveDictAreaMountProps,
@@ -8,6 +11,7 @@ import { buildLiveDictAreaPixiFixedMeasurements } from "./liveDictAreaPixiLayout
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
+import { resolveParamEditorKind } from "./paramEditorActivation";
 
 type LiveDictAreaPixiOverlayShellProps = {
   liveDictAreaMountProps: LiveDictAreaMountProps;
@@ -28,6 +32,17 @@ export function LiveDictAreaPixiOverlayShell({
       }),
     [liveDictAreaMountProps, liveDictAreaSceneBoundary],
   );
+  const valueRowEditorKinds = useProjectState((state) => {
+    return Object.fromEntries(
+      valueRowTargets.map((target) => [
+        target.rowId,
+        resolveParamEditorKind(
+          getCurrEffectiveCodeObjImpl(state, target.sectionId, target.rowId)
+            .type,
+        ),
+      ]),
+    );
+  }, _.isEqual);
   const activeValueRowTarget =
     activeValueRowId === null
       ? null
@@ -49,6 +64,9 @@ export function LiveDictAreaPixiOverlayShell({
             aria-label={`Activate editor overlay for ${target.label}`}
             className="absolute z-[5] cursor-text appearance-none border-0 bg-transparent p-0"
             data-live-dict-area-editor-handoff="value-row"
+            data-live-dict-area-editor-handoff-editor-kind={
+              valueRowEditorKinds[target.rowId] ?? "other"
+            }
             data-live-dict-area-editor-handoff-row-id={target.rowId}
             onClick={() => {
               setActiveValueRowId(target.rowId);

@@ -4,6 +4,24 @@ import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { GroupContainerShell } from "./groupContainerShell";
 
+vi.mock(import("state/definitions"), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useProjectState: (selector: (state: object) => unknown) => selector({}),
+  };
+});
+
+vi.mock("state/actions/sectionInfos", () => ({
+  getCurrEffectiveCodeObjImpl: (
+    _state: object,
+    _sectionId: string,
+    rowId: string,
+  ) => ({
+    type: rowId === "pinned-value" ? "DropdownParam" : "TextParam",
+  }),
+}));
+
 describe("GroupContainerShell", () => {
   it("can swap the live dict-area shell over to the Pixi canary scene mount", () => {
     const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
@@ -72,6 +90,9 @@ describe("GroupContainerShell", () => {
     );
     expect(markup).toContain('data-live-dict-area-scene="pixi"');
     expect(markup).toContain('data-live-dict-area-editor-handoff="value-row"');
+    expect(markup).toContain(
+      'data-live-dict-area-editor-handoff-editor-kind="combobox"',
+    );
     expect(markup).toContain('data-live-dict-area-fixed-measurement="edges"');
     expect(markup).toContain('data-live-dict-area-fixed-measurement="pinned"');
     expect(markup).not.toContain(

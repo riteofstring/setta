@@ -1,7 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 
-export type ParamEditorKind = "codemirror" | "other";
+export type ParamEditorKind = "codemirror" | "combobox" | "other";
 
 const PARAM_CODEMIRROR_TYPES = new Set<CodeObjTypeEnum>([
   CodeObjTypeEnum.CodeParam,
@@ -9,28 +9,43 @@ const PARAM_CODEMIRROR_TYPES = new Set<CodeObjTypeEnum>([
   CodeObjTypeEnum.TextAreaParam,
 ]);
 
-const AutoActivateCodeMirrorOnMountContext = createContext(false);
+const PARAM_COMBOBOX_TYPES = new Set<CodeObjTypeEnum>([
+  CodeObjTypeEnum.DropdownParam,
+]);
+
+const PixiOverlayParamEditorKindContext =
+  createContext<ParamEditorKind>("other");
 
 export function resolveParamEditorKind(
   codeObjType: CodeObjTypeEnum,
 ): ParamEditorKind {
-  return PARAM_CODEMIRROR_TYPES.has(codeObjType) ? "codemirror" : "other";
+  if (PARAM_CODEMIRROR_TYPES.has(codeObjType)) {
+    return "codemirror";
+  }
+  if (PARAM_COMBOBOX_TYPES.has(codeObjType)) {
+    return "combobox";
+  }
+  return "other";
 }
 
-export function AutoActivateCodeMirrorOnMountProvider({
+export function PixiOverlayParamEditorKindProvider({
   children,
   value,
 }: {
   children: ReactNode;
-  value: boolean;
+  value: ParamEditorKind;
 }) {
   return (
-    <AutoActivateCodeMirrorOnMountContext.Provider value={value}>
+    <PixiOverlayParamEditorKindContext.Provider value={value}>
       {children}
-    </AutoActivateCodeMirrorOnMountContext.Provider>
+    </PixiOverlayParamEditorKindContext.Provider>
   );
 }
 
 export function useShouldAutoActivateCodeMirrorOnMount(): boolean {
-  return useContext(AutoActivateCodeMirrorOnMountContext);
+  return useContext(PixiOverlayParamEditorKindContext) === "codemirror";
+}
+
+export function useShouldAutoOpenComboboxOnMount(): boolean {
+  return useContext(PixiOverlayParamEditorKindContext) === "combobox";
 }

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { ComboboxInput, ComboboxItems, ComboboxList } from "./ComboboxParts";
 import {
   buildIdNameComboboxView,
@@ -27,8 +27,10 @@ export function IdNameCombobox<T>({
   variant = "pill",
   selectedItemCanBeNull = false,
   clearInputAfterSelection = false,
+  shouldAutoOpenOnMount = false,
 }: IdNameComboboxProps<T>) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const hasAutoOpenedRef = useRef(false);
   const view = buildIdNameComboboxView({
     allItems,
     clearInputAfterSelection,
@@ -49,7 +51,21 @@ export function IdNameCombobox<T>({
     getItemProps,
     itemToString,
     onKeyDown,
+    openMenu,
   } = useIdNameCombobox(view.hookOptions);
+
+  useLayoutEffect(() => {
+    if (
+      !shouldAutoOpenOnMount ||
+      hasAutoOpenedRef.current ||
+      isDisabled === true
+    ) {
+      return;
+    }
+    hasAutoOpenedRef.current = true;
+    inputRef.current?.focus();
+    openMenu();
+  }, [isDisabled, openMenu, shouldAutoOpenOnMount]);
 
   return (
     <div className={view.rootClassName}>
