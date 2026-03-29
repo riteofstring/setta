@@ -105,7 +105,6 @@ import {
   CreateAgentProfileRequestInput,
   CreateExternalAgentConfigRequestInput,
   createMessageTextContent,
-  createMessageThinkingContent,
   CreatePromptTemplateRequestInput,
   CreateTranscriptionProfileRequestInput,
   DeleteAgentProfileRequestInput,
@@ -121,18 +120,13 @@ import {
   ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
   MessageFinalizedEvent,
-  MessageImageUrlContent,
   MessageStartEvent,
-  MessageTextContent,
-  MessageThinkingContent,
   PromptTemplate,
-  SectionTypeEnum,
   SettaNotificationTypeEnum,
   StartTranscriptionSessionResponse,
   StopLLMChatResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
-  ToolCall,
   ToolCallDeltaEvent,
   ToolChatMessage,
   ToolResultEvent,
@@ -154,16 +148,14 @@ import {
   applyHydratedChatDetailsToSectionState,
   persistChatSectionState,
 } from "./chatSectionAuthority";
-import { mergeChatMessages } from "./chatMergeUtils";
 import {
   applyChatSectionStreamDelta,
   resolveSectionIdForChatId,
-  type ChatSectionStreamChunk,
 } from "./chatSectionStreaming";
 import {
-  applyMessageDeltaToChatMessages as reduceChatMessageDeltaToMessages,
   applyToolCallDelta,
   createToolCallPlaceholder,
+  applyMessageDeltaToChatMessages as reduceChatMessageDeltaToMessages,
   resolveFinalizedAssistantMessageUpdate,
   shouldIgnoreResponsePlaceholderChunk,
   updateMessageById,
@@ -3497,19 +3489,24 @@ function mergeChatDetails(
   pendingDetails: ChatDetails,
   preserveWaitingForResponse: boolean,
 ): ChatDetails {
+  const existingMessageIds = new Set(
+    existingDetails.messages.map((message) => message.id),
+  );
+  const promotedPendingMessages = pendingDetails.messages.filter(
+    (message) => !existingMessageIds.has(message.id),
+  );
   const nextWaitingForResponse = preserveWaitingForResponse
     ? pendingDetails.waitingForResponse || existingDetails.waitingForResponse
     : pendingDetails.waitingForResponse;
   return {
     ...existingDetails,
-    ...pendingDetails,
-    messages: mergeChatMessages(
-      existingDetails.messages,
-      pendingDetails.messages,
-    ),
+    messages:
+      promotedPendingMessages.length === 0
+        ? [...existingDetails.messages]
+        : [...promotedPendingMessages, ...existingDetails.messages],
     toolCallArguments: {
-      ...existingDetails.toolCallArguments,
       ...pendingDetails.toolCallArguments,
+      ...existingDetails.toolCallArguments,
     },
     waitingForResponse: nextWaitingForResponse,
   };
