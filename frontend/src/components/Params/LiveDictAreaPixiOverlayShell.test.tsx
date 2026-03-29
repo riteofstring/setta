@@ -39,6 +39,9 @@ const activeValueRowBaseStateRequests = vi.hoisted(
   () => [] as Array<{ rowId: string; sectionId: string }>,
 );
 const activeValueRowCoreRequests = vi.hoisted(() => [] as string[]);
+const toggleParamSelectedRequests = vi.hoisted(
+  () => [] as Array<{ rowId: string; sectionId: string }>,
+);
 
 vi.mock("./LiveDictAreaPixiScene", async () => {
   const React = await import("react");
@@ -162,6 +165,9 @@ vi.mock("state/actions/sectionInfos", () => ({
   getCurrEffectiveSectionImplWithTypeGuard: () => ({
     selectedParams: ["pinned-value"],
   }),
+  toggleParamSelected: (sectionId: string, rowId: string) => {
+    toggleParamSelectedRequests.push({ rowId, sectionId });
+  },
 }));
 
 describe("LiveDictAreaPixiOverlayShell", () => {
@@ -179,6 +185,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     typeErrorState.errors = {};
     activeValueRowBaseStateRequests.length = 0;
     activeValueRowCoreRequests.length = 0;
+    toggleParamSelectedRequests.length = 0;
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -191,6 +198,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     container.remove();
     activeValueRowBaseStateRequests.length = 0;
     activeValueRowCoreRequests.length = 0;
+    toggleParamSelectedRequests.length = 0;
   });
 
   it("mounts a value-row editor overlay on demand over the Pixi scene canary", () => {
@@ -523,5 +531,73 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         "[data-live-dict-area-drag-overlay-kind='param-list']",
       ),
     ).not.toBeNull();
+  });
+
+  it("mounts selectable edge-row handoff buttons when param selection mode is active", () => {
+    liveMiscState.isSelectingParams = true;
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [{ id: "input-a", label: "Input A" }],
+        getParamEditorKind: () => "other",
+        getParamDisplayName: (paramId: string) => paramId,
+        getParamValuePresentationKind: () => "text",
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [{ id: "input-a", label: "Input A" }],
+        isSelectingParams: true,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-edge-overlay",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {},
+          pinnedTopLevelParamIds: [],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+      },
+    });
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiOverlayShell
+          liveDictAreaMountProps={
+            liveDictAreaMountBoundary.liveDictAreaMountProps
+          }
+          liveDictAreaSceneBoundary={
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary
+          }
+        />,
+      );
+    });
+
+    const button = container.querySelector<HTMLButtonElement>(
+      "[data-live-dict-area-edge-handoff='input-port'][data-live-dict-area-edge-handoff-port-id='input-a']",
+    );
+
+    expect(button).not.toBeNull();
+
+    act(() => {
+      button?.click();
+    });
+
+    expect(toggleParamSelectedRequests).toEqual([
+      {
+        rowId: "input-a",
+        sectionId: "section-edge-overlay",
+      },
+    ]);
   });
 });

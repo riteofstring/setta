@@ -8,6 +8,8 @@ import {
 } from "../helpers";
 
 type CreateSectionResponse = { sectionId?: string };
+const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
+const LIVE_PIXI_MODE = "pixi-node-body";
 
 function getModKey(): "Control" | "Meta" {
   return process.platform === "darwin" ? "Meta" : "Control";
@@ -62,6 +64,20 @@ async function addSingleKwargAndReturnId(
     throw new Error(`Unable to parse param id from "${id}".`);
   }
   return paramId;
+}
+
+async function enableLiveDictAreaPixiRenderer(page: Page): Promise<void> {
+  await page.evaluate(
+    ({ mode, storageKey }) => {
+      window.sessionStorage.setItem(storageKey, mode);
+    },
+    {
+      mode: LIVE_PIXI_MODE,
+      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
+    },
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector(".react-flow__pane");
 }
 
 test.describe.serial("edge input args", () => {
@@ -242,6 +258,59 @@ test.describe.serial("edge input args", () => {
       await expect(sectionNode.getByText("Pinned Params")).toHaveCount(0);
       await expect(
         sectionNode.locator(`#ParamContainer-${sectionId}-${paramId}`),
+      ).toBeVisible();
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
+
+  test("live Pixi canary can select an edge arg and pin it back into a value-row handoff", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const projectConfigId = projectContext.projectConfigId;
+      const sectionId = await createDictSection(page, projectConfigId);
+      const paramId = await addSingleKwargAndReturnId(
+        page,
+        projectConfigId,
+        sectionId,
+      );
+
+      await postBackend(page, "/setSectionEdgeInputs", {
+        projectConfigId,
+        sectionId,
+        edgeInputParams: [paramId],
+      });
+
+      await enableLiveDictAreaPixiRenderer(page);
+      await page.waitForSelector("[data-live-dict-area-scene='pixi']");
+
+      const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+      const modKey = getModKey();
+      await page.keyboard.down(modKey);
+      await page.keyboard.down("Shift");
+
+      const edgeHandoff = page.locator(
+        `[data-live-dict-area-edge-handoff='input-port'][data-live-dict-area-edge-handoff-port-id='${paramId}']`,
+      );
+      await expect(edgeHandoff).toBeVisible();
+      await edgeHandoff.click();
+
+      await page.keyboard.up("Shift");
+      await page.keyboard.up(modKey);
+
+      const pinButton = sectionNode.getByLabel("Pin selected args");
+      await expect(pinButton).toBeEnabled();
+      await pinButton.click();
+
+      await expect(edgeHandoff).toHaveCount(0);
+      await expect(
+        page.locator(
+          `[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-row-id='${paramId}']`,
+        ),
       ).toBeVisible();
     } finally {
       await cleanupIsolatedProject(page, projectContext);

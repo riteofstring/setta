@@ -10100,3 +10100,33 @@ Record:
       - no read-only `main` reference page was available in the browser during this verification pass
 - Next action:
   - Return to the next real retained-scene visual or performance frontier beyond row cadence; do not reopen this slice unless a new canary mismatch appears.
+
+## 2026-03-30 307
+
+- Item: Restore live Pixi edge-input selection handoff on the canary path so edge-strip args can be selected and pinned back into scene-owned value-row chrome.
+- Status: `done`
+- Details:
+  - Chose a real scene-owned interaction parity slice instead of continuing the completed seam/helper-lift lane from item `306`.
+  - Added a retained-scene overlay target builder for selectable edge-strip input rows and mounted those transparent handoff buttons only while param-selection mode is active:
+    - `frontend/src/components/Params/liveDictAreaPixiEdgeRowTargets.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+  - The live Pixi overlay shell now maps selectable edge-strip input ports back into `toggleParamSelected(sectionId, portId)`, matching the DOM path's edge-arg selection behavior and allowing `Pin selected args` to restore the value-row handoff state after selection.
+  - Added focused coverage for the new edge-row targets plus the overlay-shell click-through behavior, and extended Playwright coverage so the canary proves the full select-then-pin flow:
+    - `frontend/src/components/Params/liveDictAreaPixiEdgeRowTargets.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiEdgeRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`6 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts --grep "live Pixi canary can select an edge arg and pin it back into a value-row handoff"`
+      - result: passed (`1 passed`)
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can hand off from the Pixi scene into a param-list drag overlay while param select is active"`
+      - result: passed (`1 passed`)
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+      - attached cleanly to debug port `9265`
+      - bootstrap/auth succeeded via `http://127.0.0.1:8043/__setta__/bootstrap#token=...`
+      - opened `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`, navigated to `All Settings`, and confirmed the visible settings shell / live dict-area viewport still rendered normally with no obvious overlap, clipping, or missing content after the new edge-row handoff targets were added
+- Next action:
+  - Move to the next scene-owned interaction or visual parity gap beyond edge selection, with selected-state painting for the retained edge strip as the most direct next frontier.

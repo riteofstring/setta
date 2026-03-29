@@ -1,6 +1,9 @@
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
-import { getCurrEffectiveCodeObjImplWithTypeGuard } from "state/actions/sectionInfos";
+import {
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  toggleParamSelected,
+} from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useTypeErrors } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import {
@@ -16,6 +19,7 @@ import {
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
+import { buildLiveDictAreaPixiEdgeRowTargets } from "./liveDictAreaPixiEdgeRowTargets";
 import { markLiveDictAreaPixiValueRowHandoffStart } from "./liveDictAreaPixiValueRowPerf";
 import {
   buildLiveDictAreaPixiValueRowTargets,
@@ -57,6 +61,17 @@ export function LiveDictAreaPixiOverlayShell({
       summaryLayout === null
         ? []
         : buildLiveDictAreaPixiDragRowTargets({
+            layout: summaryLayout,
+            liveDictAreaMountProps,
+            liveDictAreaSceneBoundary,
+          }),
+    [liveDictAreaMountProps, liveDictAreaSceneBoundary, summaryLayout],
+  );
+  const edgeRowTargets = useMemo(
+    () =>
+      summaryLayout === null
+        ? []
+        : buildLiveDictAreaPixiEdgeRowTargets({
             layout: summaryLayout,
             liveDictAreaMountProps,
             liveDictAreaSceneBoundary,
@@ -129,8 +144,36 @@ export function LiveDictAreaPixiOverlayShell({
         sectionId={sceneSectionId}
       />
       {isSelectingParams
-        ? dragRowTargets.map((target) =>
-            target.rowId === activeDragRowId ? null : (
+        ? [
+            ...edgeRowTargets.map((target) => (
+              <button
+                key={`${target.blockId}-${target.portId}`}
+                aria-label={`Select edge input ${target.label}`}
+                className="absolute z-[6] cursor-pointer appearance-none border-0 bg-transparent p-0"
+                data-live-dict-area-edge-handoff="input-port"
+                data-live-dict-area-edge-handoff-block-id={target.blockId}
+                data-live-dict-area-edge-handoff-port-id={target.portId}
+                data-live-dict-area-edge-handoff-section-id={target.sectionId}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  toggleParamSelected(target.sectionId, target.portId);
+                }}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }}
+                style={{
+                  height: target.height,
+                  left: target.x,
+                  top: target.y,
+                  width: target.width,
+                }}
+                type="button"
+              />
+            )),
+            ...dragRowTargets.map((target) =>
+              target.rowId === activeDragRowId ? null : (
               <button
                 key={target.rowId}
                 aria-label={`Activate drag overlay for ${target.label}`}
@@ -149,8 +192,9 @@ export function LiveDictAreaPixiOverlayShell({
                 }}
                 type="button"
               />
+              ),
             ),
-          )
+          ]
         : valueRowTargets.map((target) =>
             target.rowId === activeValueRowId ? null : (
               <button
