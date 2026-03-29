@@ -593,6 +593,14 @@ type openAIResponseStreamState struct {
 	bufferedText     strings.Builder
 }
 
+type openAIResponseEventContext struct {
+	prepared           preparedExecution
+	assistantMessage   map[string]any
+	accumulator        *toolCallAccumulator
+	previewAccumulator *toolPreviewAccumulator
+	streamState        *openAIResponseStreamState
+}
+
 func (e *Executor) processOpenAIResponseEvent(
 	ctx context.Context,
 	event responses.ResponseStreamEventUnion,
@@ -602,273 +610,491 @@ func (e *Executor) processOpenAIResponseEvent(
 	previewAccumulator *toolPreviewAccumulator,
 	streamState *openAIResponseStreamState,
 ) (map[string]any, error) {
-	switch typed := event.AsAny().(type) {
+	eventContext := openAIResponseEventContext{
+		prepared:           prepared,
+		assistantMessage:   assistantMessage,
+		accumulator:        accumulator,
+		previewAccumulator: previewAccumulator,
+		streamState:        streamState,
+	}
+	rawEvent := event.AsAny()
+	if handled, err := e.processOpenAIResponseOutputItemEvent(ctx, rawEvent, eventContext); handled {
+		return nil, err
+	}
+	if handled, err := e.processOpenAIResponseContentPartEvent(ctx, rawEvent, eventContext); handled {
+		return nil, err
+	}
+	if handled, err := e.processOpenAIResponseReasoningEvent(ctx, rawEvent, eventContext); handled {
+		return nil, err
+	}
+	if handled, err := e.processOpenAIResponseTextEvent(ctx, rawEvent, eventContext); handled {
+		return nil, err
+	}
+	if handled, err := e.processOpenAIResponseToolCallEvent(ctx, rawEvent, eventContext); handled {
+		return nil, err
+	}
+	if usage, handled, err := e.processOpenAIResponseTerminalEvent(ctx, rawEvent, eventContext); handled {
+		return usage, err
+	}
+	return nil, nil
+}
+
+func (e *Executor) processOpenAIResponseOutputItemEvent(
+	ctx context.Context,
+	event any,
+	eventContext openAIResponseEventContext,
+) (bool, error) {
+	switch typed := event.(type) {
 	case responses.ResponseOutputItemAddedEvent:
-		switch item := typed.Item.AsAny().(type) {
-		case responses.ResponseFunctionToolCall:
-			previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
-			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.ID, item.Name, item.Arguments)
-			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
-			if err := e.emitOpenAIResponseToolArgumentUpdate(
-				ctx,
-				prepared,
-				assistantMessage,
-				previewAccumulator,
-				state,
-				argumentsDelta,
-			); err != nil {
-				return nil, err
-			}
-		default:
-			if err := e.applyOpenAIResponseOutputItemFallback(
-				ctx,
-				prepared,
-				assistantMessage,
-				typed.Item,
-				int(typed.OutputIndex),
-				streamState,
-				accumulator,
-			); err != nil {
-				return nil, err
-			}
-		}
+		return true, e.applyOpenAIResponseOutputItemAdded(ctx, typed, eventContext)
 	case responses.ResponseOutputItemDoneEvent:
-		switch item := typed.Item.AsAny().(type) {
-		case responses.ResponseFunctionToolCall:
-			previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
-			state := accumulator.applyResolved(int(typed.OutputIndex), item.CallID, item.ID, item.Name, item.Arguments)
-			argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, item.Arguments)
-			if err := e.emitOpenAIResponseToolArgumentUpdate(
-				ctx,
-				prepared,
-				assistantMessage,
-				previewAccumulator,
-				state,
-				argumentsDelta,
-			); err != nil {
-				return nil, err
-			}
-		default:
-			if err := e.applyOpenAIResponseOutputItemFallback(
-				ctx,
-				prepared,
-				assistantMessage,
-				typed.Item,
-				int(typed.OutputIndex),
-				streamState,
-				accumulator,
-			); err != nil {
-				return nil, err
-			}
-		}
+		return true, e.applyOpenAIResponseOutputItemDone(ctx, typed, eventContext)
+	default:
+		return false, nil
+	}
+}
+
+func (e *Executor) applyOpenAIResponseOutputItemAdded(
+	ctx context.Context,
+	event responses.ResponseOutputItemAddedEvent,
+	eventContext openAIResponseEventContext,
+) error {
+	switch item := event.Item.AsAny().(type) {
+	case responses.ResponseFunctionToolCall:
+		return e.applyResolvedOpenAIResponseToolCall(
+			ctx,
+			eventContext,
+			int(event.OutputIndex),
+			item.CallID,
+			item.ID,
+			item.Name,
+			item.Arguments,
+		)
+	default:
+		return e.applyOpenAIResponseOutputItemFallback(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			event.Item,
+			int(event.OutputIndex),
+			eventContext.streamState,
+			eventContext.accumulator,
+		)
+	}
+}
+
+func (e *Executor) applyOpenAIResponseOutputItemDone(
+	ctx context.Context,
+	event responses.ResponseOutputItemDoneEvent,
+	eventContext openAIResponseEventContext,
+) error {
+	switch item := event.Item.AsAny().(type) {
+	case responses.ResponseFunctionToolCall:
+		return e.applyResolvedOpenAIResponseToolCall(
+			ctx,
+			eventContext,
+			int(event.OutputIndex),
+			item.CallID,
+			item.ID,
+			item.Name,
+			item.Arguments,
+		)
+	default:
+		return e.applyOpenAIResponseOutputItemFallback(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			event.Item,
+			int(event.OutputIndex),
+			eventContext.streamState,
+			eventContext.accumulator,
+		)
+	}
+}
+
+func (e *Executor) processOpenAIResponseContentPartEvent(
+	ctx context.Context,
+	event any,
+	eventContext openAIResponseEventContext,
+) (bool, error) {
+	switch typed := event.(type) {
 	case responses.ResponseContentPartAddedEvent:
-		if err := e.applyOpenAIResponseContentPartAdded(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Part); err != nil {
-			return nil, err
-		}
+		return true, e.applyOpenAIResponseContentPartAdded(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			eventContext.streamState,
+			typed.ItemID,
+			typed.Part,
+		)
 	case responses.ResponseContentPartDoneEvent:
-		if err := e.applyOpenAIResponseContentPartDone(ctx, prepared, assistantMessage, streamState, typed.ItemID, typed.Part); err != nil {
-			return nil, err
-		}
+		return true, e.applyOpenAIResponseContentPartDone(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			eventContext.streamState,
+			typed.ItemID,
+			typed.Part,
+		)
+	default:
+		return false, nil
+	}
+}
+
+func (e *Executor) processOpenAIResponseReasoningEvent(
+	ctx context.Context,
+	event any,
+	eventContext openAIResponseEventContext,
+) (bool, error) {
+	switch typed := event.(type) {
 	case responses.ResponseReasoningSummaryPartAddedEvent:
-		if err := e.applyOpenAIResponseSummaryPartUpdate(
+		return true, e.applyOpenAIResponseSummaryPartUpdate(
 			ctx,
-			prepared,
-			assistantMessage,
-			streamState,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			eventContext.streamState,
 			int(typed.SummaryIndex),
 			typed.Part.Text,
-		); err != nil {
-			return nil, err
-		}
+		)
 	case responses.ResponseReasoningSummaryPartDoneEvent:
-		if err := e.applyOpenAIResponseSummaryPartUpdate(
+		return true, e.applyOpenAIResponseSummaryPartUpdate(
 			ctx,
-			prepared,
-			assistantMessage,
-			streamState,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			eventContext.streamState,
 			int(typed.SummaryIndex),
 			typed.Part.Text,
-		); err != nil {
-			return nil, err
-		}
+		)
 	case responses.ResponseReasoningSummaryTextDeltaEvent:
-		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-		streamState.reasoningSeen = true
-		streamState.reasoningEmitted = true
-		previousSummary := streamState.summary
-		streamState.summary = appendOpenAIResponseSummaryPartText(streamState, int(typed.SummaryIndex), typed.Delta)
-		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, streamState.summary)
-		if strings.TrimSpace(previousSummary) != strings.TrimSpace(streamState.summary) {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary), nil); err != nil {
-				return nil, err
-			}
-		}
-		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
-			return nil, err
-		}
+		return true, e.applyOpenAIResponseSummaryTextUpdate(
+			ctx,
+			eventContext,
+			int(typed.SummaryIndex),
+			typed.Delta,
+			true,
+		)
 	case responses.ResponseReasoningSummaryTextDoneEvent:
-		if strings.TrimSpace(typed.Text) == "" {
-			return nil, nil
-		}
-		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-		streamState.reasoningSeen = true
-		streamState.reasoningEmitted = true
-		previousSummary := streamState.summary
-		streamState.summary = setOpenAIResponseSummaryPartText(streamState, int(typed.SummaryIndex), typed.Text)
-		setAssistantThinkingSummaryAtIndex(assistantMessage, 0, streamState.summary)
-		if strings.TrimSpace(previousSummary) != strings.TrimSpace(streamState.summary) {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, "", optionalStringPointer(streamState.summary), nil); err != nil {
-				return nil, err
-			}
-		}
-		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
-			return nil, err
-		}
+		return true, e.applyOpenAIResponseSummaryTextUpdate(
+			ctx,
+			eventContext,
+			int(typed.SummaryIndex),
+			typed.Text,
+			false,
+		)
 	case responses.ResponseReasoningTextDeltaEvent:
-		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-		streamState.reasoningSeen = true
-		streamState.reasoningEmitted = true
-		appendAssistantThinkingAtIndex(assistantMessage, 0, typed.Delta)
-		if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, typed.Delta, nil, nil); err != nil {
-			return nil, err
-		}
-		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
-			return nil, err
-		}
+		return true, e.applyOpenAIResponseReasoningTextDelta(ctx, eventContext, typed.Delta)
 	case responses.ResponseReasoningTextDoneEvent:
-		if strings.TrimSpace(typed.Text) == "" {
-			return nil, nil
+		return true, e.applyOpenAIResponseReasoningTextDone(ctx, eventContext, typed.Text)
+	default:
+		return false, nil
+	}
+}
+
+func (e *Executor) applyOpenAIResponseSummaryTextUpdate(
+	ctx context.Context,
+	eventContext openAIResponseEventContext,
+	summaryIndex int,
+	text string,
+	appendText bool,
+) error {
+	if !appendText && strings.TrimSpace(text) == "" {
+		return nil
+	}
+	prepareAssistantForOpenAIResponseReasoning(eventContext.assistantMessage)
+	eventContext.streamState.reasoningSeen = true
+	eventContext.streamState.reasoningEmitted = true
+	previousSummary := eventContext.streamState.summary
+	if appendText {
+		eventContext.streamState.summary = appendOpenAIResponseSummaryPartText(
+			eventContext.streamState,
+			summaryIndex,
+			text,
+		)
+	} else {
+		eventContext.streamState.summary = setOpenAIResponseSummaryPartText(
+			eventContext.streamState,
+			summaryIndex,
+			text,
+		)
+	}
+	setAssistantThinkingSummaryAtIndex(eventContext.assistantMessage, 0, eventContext.streamState.summary)
+	if strings.TrimSpace(previousSummary) != strings.TrimSpace(eventContext.streamState.summary) {
+		if err := e.emitOpenAIResponseThinkingDelta(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			0,
+			"",
+			optionalStringPointer(eventContext.streamState.summary),
+			nil,
+		); err != nil {
+			return err
 		}
-		prepareAssistantForOpenAIResponseReasoning(assistantMessage)
-		streamState.reasoningSeen = true
-		streamState.reasoningEmitted = true
-		thinkingDelta := authoritativeResponseReplacementSuffix(currentAssistantThinkingTextAtIndex(assistantMessage, 0), typed.Text)
-		setAssistantThinkingTextAtIndex(assistantMessage, 0, typed.Text)
-		if thinkingDelta != "" {
-			if err := e.emitOpenAIResponseThinkingDelta(ctx, prepared, assistantMessage, 0, thinkingDelta, nil, nil); err != nil {
-				return nil, err
-			}
+	}
+	return e.flushBufferedOpenAIResponseText(
+		ctx,
+		eventContext.prepared,
+		eventContext.assistantMessage,
+		eventContext.streamState,
+		false,
+	)
+}
+
+func (e *Executor) applyOpenAIResponseReasoningTextDelta(
+	ctx context.Context,
+	eventContext openAIResponseEventContext,
+	delta string,
+) error {
+	prepareAssistantForOpenAIResponseReasoning(eventContext.assistantMessage)
+	eventContext.streamState.reasoningSeen = true
+	eventContext.streamState.reasoningEmitted = true
+	appendAssistantThinkingAtIndex(eventContext.assistantMessage, 0, delta)
+	if err := e.emitOpenAIResponseThinkingDelta(
+		ctx,
+		eventContext.prepared,
+		eventContext.assistantMessage,
+		0,
+		delta,
+		nil,
+		nil,
+	); err != nil {
+		return err
+	}
+	return e.flushBufferedOpenAIResponseText(
+		ctx,
+		eventContext.prepared,
+		eventContext.assistantMessage,
+		eventContext.streamState,
+		false,
+	)
+}
+
+func (e *Executor) applyOpenAIResponseReasoningTextDone(
+	ctx context.Context,
+	eventContext openAIResponseEventContext,
+	text string,
+) error {
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	prepareAssistantForOpenAIResponseReasoning(eventContext.assistantMessage)
+	eventContext.streamState.reasoningSeen = true
+	eventContext.streamState.reasoningEmitted = true
+	thinkingDelta := authoritativeResponseReplacementSuffix(
+		currentAssistantThinkingTextAtIndex(eventContext.assistantMessage, 0),
+		text,
+	)
+	setAssistantThinkingTextAtIndex(eventContext.assistantMessage, 0, text)
+	if thinkingDelta != "" {
+		if err := e.emitOpenAIResponseThinkingDelta(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			0,
+			thinkingDelta,
+			nil,
+			nil,
+		); err != nil {
+			return err
 		}
-		if err := e.flushBufferedOpenAIResponseText(ctx, prepared, assistantMessage, streamState, false); err != nil {
-			return nil, err
-		}
+	}
+	return e.flushBufferedOpenAIResponseText(
+		ctx,
+		eventContext.prepared,
+		eventContext.assistantMessage,
+		eventContext.streamState,
+		false,
+	)
+}
+
+func (e *Executor) processOpenAIResponseTextEvent(
+	ctx context.Context,
+	event any,
+	eventContext openAIResponseEventContext,
+) (bool, error) {
+	switch typed := event.(type) {
 	case responses.ResponseTextDeltaEvent:
-		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, "output_text", typed.Delta); err != nil {
-			return nil, err
-		}
+		return true, e.applyOpenAIResponseTextDelta(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			eventContext.streamState,
+			typed.ItemID,
+			"output_text",
+			typed.Delta,
+		)
 	case responses.ResponseTextDoneEvent:
-		setAssistantProviderMessageID(assistantMessage, typed.ItemID)
-		setAssistantProviderMessageContentType(assistantMessage, "output_text")
-		if strings.TrimSpace(typed.Text) != "" {
-			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
-			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Text)
-			setAssistantTextAtIndex(assistantMessage, textIndex, typed.Text)
-			if textDelta != "" {
-				if err := e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta); err != nil {
-					return nil, err
-				}
-			}
-		}
+		return true, e.applyOpenAIResponseCompletedTextEvent(
+			ctx,
+			eventContext,
+			typed.ItemID,
+			"output_text",
+			typed.Text,
+		)
 	case responses.ResponseRefusalDeltaEvent:
-		if err := e.applyOpenAIResponseTextDelta(ctx, prepared, assistantMessage, streamState, typed.ItemID, "refusal", typed.Delta); err != nil {
-			return nil, err
-		}
+		return true, e.applyOpenAIResponseTextDelta(
+			ctx,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			eventContext.streamState,
+			typed.ItemID,
+			"refusal",
+			typed.Delta,
+		)
 	case responses.ResponseRefusalDoneEvent:
-		setAssistantProviderMessageID(assistantMessage, typed.ItemID)
-		setAssistantProviderMessageContentType(assistantMessage, "refusal")
-		if strings.TrimSpace(typed.Refusal) != "" {
-			textIndex := openAIResponseTextIndex(assistantMessage, streamState)
-			textDelta := authoritativeResponseReplacementSuffix(currentAssistantTextAtIndex(assistantMessage, textIndex), typed.Refusal)
-			setAssistantTextAtIndex(assistantMessage, textIndex, typed.Refusal)
-			if textDelta != "" {
-				if err := e.emitOpenAIResponseTextDelta(ctx, prepared, assistantMessage, textIndex, textDelta); err != nil {
-					return nil, err
-				}
-			}
-		}
+		return true, e.applyOpenAIResponseCompletedTextEvent(
+			ctx,
+			eventContext,
+			typed.ItemID,
+			"refusal",
+			typed.Refusal,
+		)
+	default:
+		return false, nil
+	}
+}
+
+func (e *Executor) applyOpenAIResponseCompletedTextEvent(
+	ctx context.Context,
+	eventContext openAIResponseEventContext,
+	itemID string,
+	contentType string,
+	text string,
+) error {
+	setAssistantProviderMessageID(eventContext.assistantMessage, itemID)
+	setAssistantProviderMessageContentType(eventContext.assistantMessage, contentType)
+	if strings.TrimSpace(text) == "" {
+		return nil
+	}
+	textIndex := openAIResponseTextIndex(eventContext.assistantMessage, eventContext.streamState)
+	textDelta := authoritativeResponseReplacementSuffix(
+		currentAssistantTextAtIndex(eventContext.assistantMessage, textIndex),
+		text,
+	)
+	setAssistantTextAtIndex(eventContext.assistantMessage, textIndex, text)
+	if textDelta == "" {
+		return nil
+	}
+	return e.emitOpenAIResponseTextDelta(
+		ctx,
+		eventContext.prepared,
+		eventContext.assistantMessage,
+		textIndex,
+		textDelta,
+	)
+}
+
+func (e *Executor) processOpenAIResponseToolCallEvent(
+	ctx context.Context,
+	event any,
+	eventContext openAIResponseEventContext,
+) (bool, error) {
+	switch typed := event.(type) {
 	case responses.ResponseFunctionCallArgumentsDeltaEvent:
 		argumentsDelta := typed.Delta
-		state := accumulator.apply(int(typed.OutputIndex), "", typed.ItemID, "", argumentsDelta)
-		if err := e.emitOpenAIResponseToolArgumentUpdate(
+		state := eventContext.accumulator.apply(int(typed.OutputIndex), "", typed.ItemID, "", argumentsDelta)
+		return true, e.emitOpenAIResponseToolArgumentUpdate(
 			ctx,
-			prepared,
-			assistantMessage,
-			previewAccumulator,
+			eventContext.prepared,
+			eventContext.assistantMessage,
+			eventContext.previewAccumulator,
 			state,
 			argumentsDelta,
-		); err != nil {
-			return nil, err
-		}
+		)
 	case responses.ResponseFunctionCallArgumentsDoneEvent:
-		previousArguments := accumulator.currentArguments(int(typed.OutputIndex))
-		state := accumulator.applyResolved(int(typed.OutputIndex), "", typed.ItemID, typed.Name, typed.Arguments)
-		argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, typed.Arguments)
-		if err := e.emitOpenAIResponseToolArgumentUpdate(
+		return true, e.applyResolvedOpenAIResponseToolCall(
 			ctx,
-			prepared,
-			assistantMessage,
-			previewAccumulator,
-			state,
-			argumentsDelta,
-		); err != nil {
-			return nil, err
-		}
+			eventContext,
+			int(typed.OutputIndex),
+			"",
+			typed.ItemID,
+			typed.Name,
+			typed.Arguments,
+		)
+	default:
+		return false, nil
+	}
+}
+
+func (e *Executor) applyResolvedOpenAIResponseToolCall(
+	ctx context.Context,
+	eventContext openAIResponseEventContext,
+	outputIndex int,
+	callID string,
+	itemID string,
+	name string,
+	arguments string,
+) error {
+	previousArguments := eventContext.accumulator.currentArguments(outputIndex)
+	state := eventContext.accumulator.applyResolved(outputIndex, callID, itemID, name, arguments)
+	argumentsDelta := authoritativeResponseReplacementSuffix(previousArguments, arguments)
+	return e.emitOpenAIResponseToolArgumentUpdate(
+		ctx,
+		eventContext.prepared,
+		eventContext.assistantMessage,
+		eventContext.previewAccumulator,
+		state,
+		argumentsDelta,
+	)
+}
+
+func (e *Executor) processOpenAIResponseTerminalEvent(
+	ctx context.Context,
+	event any,
+	eventContext openAIResponseEventContext,
+) (map[string]any, bool, error) {
+	switch typed := event.(type) {
 	case responses.ResponseCompletedEvent:
-		if err := e.applyOpenAICompletedResponseFallback(
-			ctx,
-			prepared,
-			assistantMessage,
-			typed.Response,
-			streamState,
-			accumulator,
-			previewAccumulator,
-		); err != nil {
-			return nil, err
-		}
-		return buildResponseUsagePayload(typed.Response.Usage), nil
+		usage, err := e.applyOpenAIResponseTerminalFallback(ctx, eventContext, typed.Response)
+		return usage, true, err
 	case responses.ResponseErrorEvent:
 		detail := strings.TrimSpace(typed.Message)
 		if detail == "" {
 			detail = "OpenAI request failed."
 		}
-		return nil, fmt.Errorf("managed llm provider request failed: %s", detail)
+		return nil, true, fmt.Errorf("managed llm provider request failed: %s", detail)
 	case responses.ResponseFailedEvent:
-		if err := e.applyOpenAICompletedResponseFallback(
-			ctx,
-			prepared,
-			assistantMessage,
-			typed.Response,
-			streamState,
-			accumulator,
-			previewAccumulator,
-		); err != nil {
-			return nil, err
+		usage, err := e.applyOpenAIResponseTerminalFallback(ctx, eventContext, typed.Response)
+		if err != nil {
+			return nil, true, err
 		}
-		usage := buildResponseUsagePayload(typed.Response.Usage)
-		if strings.TrimSpace(typed.Response.Error.Message) == "" {
-			return usage, fmt.Errorf("managed llm provider request failed: response failed")
+		detail := strings.TrimSpace(typed.Response.Error.Message)
+		if detail == "" {
+			return usage, true, fmt.Errorf("managed llm provider request failed: response failed")
 		}
-		return usage, fmt.Errorf("managed llm provider request failed: %s", strings.TrimSpace(typed.Response.Error.Message))
+		return usage, true, fmt.Errorf("managed llm provider request failed: %s", detail)
 	case responses.ResponseIncompleteEvent:
-		if err := e.applyOpenAICompletedResponseFallback(
-			ctx,
-			prepared,
-			assistantMessage,
-			typed.Response,
-			streamState,
-			accumulator,
-			previewAccumulator,
-		); err != nil {
-			return nil, err
+		usage, err := e.applyOpenAIResponseTerminalFallback(ctx, eventContext, typed.Response)
+		if err != nil {
+			return nil, true, err
 		}
-		usage := buildResponseUsagePayload(typed.Response.Usage)
 		reason := strings.TrimSpace(typed.Response.IncompleteDetails.Reason)
 		if reason == "" {
-			return usage, fmt.Errorf("managed llm provider request failed: response incomplete")
+			return usage, true, fmt.Errorf("managed llm provider request failed: response incomplete")
 		}
-		return usage, fmt.Errorf("managed llm provider request failed: response incomplete (%s)", reason)
+		return usage, true, fmt.Errorf("managed llm provider request failed: response incomplete (%s)", reason)
+	default:
+		return nil, false, nil
 	}
-	return nil, nil
+}
+
+func (e *Executor) applyOpenAIResponseTerminalFallback(
+	ctx context.Context,
+	eventContext openAIResponseEventContext,
+	response responses.Response,
+) (map[string]any, error) {
+	if err := e.applyOpenAICompletedResponseFallback(
+		ctx,
+		eventContext.prepared,
+		eventContext.assistantMessage,
+		response,
+		eventContext.streamState,
+		eventContext.accumulator,
+		eventContext.previewAccumulator,
+	); err != nil {
+		return nil, err
+	}
+	return buildResponseUsagePayload(response.Usage), nil
 }
 
 func (e *Executor) applyOpenAIResponseReasoningSignature(
