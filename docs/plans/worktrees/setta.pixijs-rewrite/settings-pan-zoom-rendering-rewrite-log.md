@@ -10232,3 +10232,24 @@ Record:
     - no `main` reference row was available for the same filtered context during this check
 - Next action:
   - Move to the next retained-scene interaction or visual parity gap beyond value-row hover / focus / press; prefer a live canary state that can be checked directly against `main` when the next row/control is exposed.
+
+## 2026-03-30 311
+
+- Item: Re-scope the next live Pixi `All Settings` parity slice after rejecting a false quoted-value blocker.
+- Status: `done`
+- Details:
+  - Checked the obvious next candidate blocker in a fresh-context Chrome DevTools MCP sub-agent before touching renderer code again:
+    - the quoted values reported on first pass (`defaultZoomLevel "1.0"`, `Grid Color "Red"`, `Pan On Scroll Mode ""free""`) came from the transparent value-row handoff button `aria-label` strings, not from the Pixi-painted canvas text
+    - follow-up verification confirmed those rows have empty overlay button `textContent` / `innerText` while the visible canvas-rendered value/control text remains unquoted
+  - Re-checked the directly inspectable `All Settings` baseline-vs-canary rows on `http://127.0.0.1:3044/settings` and `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - no new small, directly visible row/control parity blocker stood out after item `310`
+    - the current `All Settings` interaction/control lane would now need a broader `main`-oracle parity or perf frontier rather than another trustworthy one-iteration micro-fix in the same shape
+  - Kept production code unchanged in this slice to avoid manufacturing a renderer tweak from accessibility metadata that is not a visual failure.
+- Verification:
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+    - `http://127.0.0.1:3000/settings` was still unreachable, so no read-only `main` oracle was available in this pass
+    - compared baseline `/settings` against `/settings?liveDictAreaRenderer=pixi-node-body` on the worktree runtime
+    - confirmed the quoted-value candidate is not visually painted and therefore is not a valid visual blocker for this rewrite lane
+    - confirmed there is no other small, directly inspectable `All Settings` row/control mismatch worth taking as the next bounded slice
+- Next action:
+  - Treat the current direct-inspection `All Settings` interaction/control lane as complete and move the next iteration to a broader retained-scene frontier: either `main`-oracle parity when the reference session is available or a measured perf hotspot on the now-stabilized canary.
