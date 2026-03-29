@@ -33,6 +33,10 @@ const PROJECT_CHAT_WINDOW_CHROME_SELECTORS = [
   '[data-testid="project-chat-maximized-window"]',
   '[data-testid="project-chat-window-title"]',
 ] as const;
+const PROJECT_CHAT_MANAGER_MENU_SELECTOR =
+  '[data-testid="project-chat-bottom-dock-menu-content"]';
+const PROJECT_CHAT_MANAGER_MENU_ITEM_SELECTOR =
+  '[data-testid="project-chat-bottom-dock-menu-item"]';
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
 type AllowedApiError = {
   path: string;
@@ -401,6 +405,7 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
       ),
     );
   }, PROJECT_CHAT_WINDOW_CHROME_SELECTORS);
+  await closeProjectChatManagerMenuIfVisible(page);
 }
 
 export type ProjectWorkspaceChromeLayoutSnapshot = {
@@ -417,6 +422,8 @@ export type ProjectWorkspaceChromeLayoutSnapshot = {
 export type VisibleProjectChatChromeSnapshot = {
   bottomDockWindowCount: number;
   floatingWindowCount: number;
+  managerMenuItemCount: number;
+  managerMenuVisible: boolean;
   maximizedWindowCount: number;
   windowTitles: string[];
 };
@@ -451,40 +458,57 @@ export async function readProjectWorkspaceChromeLayout(
 export async function readVisibleProjectChatChrome(
   page: Page,
 ): Promise<VisibleProjectChatChromeSnapshot> {
-  return page.evaluate((selectors: readonly string[]) => {
-    const isVisible = (element: Element) => {
-      if (!(element instanceof HTMLElement)) {
-        return false;
-      }
-      const style = window.getComputedStyle(element);
-      if (
-        style.display === "none" ||
-        style.visibility === "hidden" ||
-        Number.parseFloat(style.opacity || "1") === 0
-      ) {
-        return false;
-      }
-      const rect = element.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0;
-    };
-    const countVisible = (selector: string) => {
-      return Array.from(document.querySelectorAll(selector)).filter(isVisible)
-        .length;
-    };
-    const windowTitles = Array.from(
-      document.querySelectorAll(selectors[3] ?? ""),
-    )
-      .filter(isVisible)
-      .map((element) => element.textContent?.trim() ?? "")
-      .filter((title) => title.length > 0);
+  return page.evaluate(
+    ({
+      managerMenuItemSelector,
+      managerMenuSelector,
+      selectors,
+    }: {
+      managerMenuItemSelector: string;
+      managerMenuSelector: string;
+      selectors: readonly string[];
+    }) => {
+      const isVisible = (element: Element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+        const style = window.getComputedStyle(element);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          Number.parseFloat(style.opacity || "1") === 0
+        ) {
+          return false;
+        }
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      };
+      const countVisible = (selector: string) => {
+        return Array.from(document.querySelectorAll(selector)).filter(isVisible)
+          .length;
+      };
+      const windowTitles = Array.from(
+        document.querySelectorAll(selectors[3] ?? ""),
+      )
+        .filter(isVisible)
+        .map((element) => element.textContent?.trim() ?? "")
+        .filter((title) => title.length > 0);
 
-    return {
-      bottomDockWindowCount: countVisible(selectors[1] ?? ""),
-      floatingWindowCount: countVisible(selectors[0] ?? ""),
-      maximizedWindowCount: countVisible(selectors[2] ?? ""),
-      windowTitles,
-    };
-  }, PROJECT_CHAT_WINDOW_CHROME_SELECTORS);
+      return {
+        bottomDockWindowCount: countVisible(selectors[1] ?? ""),
+        floatingWindowCount: countVisible(selectors[0] ?? ""),
+        managerMenuItemCount: countVisible(managerMenuItemSelector),
+        managerMenuVisible: countVisible(managerMenuSelector) > 0,
+        maximizedWindowCount: countVisible(selectors[2] ?? ""),
+        windowTitles,
+      };
+    },
+    {
+      managerMenuItemSelector: PROJECT_CHAT_MANAGER_MENU_ITEM_SELECTOR,
+      managerMenuSelector: PROJECT_CHAT_MANAGER_MENU_SELECTOR,
+      selectors: PROJECT_CHAT_WINDOW_CHROME_SELECTORS,
+    },
+  );
 }
 
 export async function clearCurrentProjectViewportForRefit(
@@ -631,6 +655,47 @@ async function clickDom(target: Locator): Promise<void> {
   await target.evaluate((element: HTMLElement) => {
     element.click();
   });
+}
+
+async function closeProjectChatManagerMenuIfVisible(page: Page): Promise<void> {
+  const managerMenu = page.getByTestId("project-chat-bottom-dock-menu-content");
+  if (
+    !(await managerMenu
+      .first()
+      .isVisible()
+      .catch(() => false))
+  ) {
+    return;
+  }
+
+  const managerTrigger = page.getByTestId(
+    "project-chat-bottom-dock-menu-trigger",
+  );
+  if (
+    await managerTrigger
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    await managerTrigger.first().click();
+  }
+  if (
+    await managerMenu
+      .first()
+      .isVisible()
+      .catch(() => false)
+  ) {
+    await page.keyboard.press("Escape");
+  }
+
+  await expect
+    .poll(async () => {
+      return await managerMenu
+        .first()
+        .isVisible()
+        .catch(() => false);
+    })
+    .toBe(false);
 }
 
 export async function openIsolatedProject(

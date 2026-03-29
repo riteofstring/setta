@@ -11494,3 +11494,36 @@ Record:
       - no floating, bottom-dock, or maximized project chat chrome remained visible on either surface
 - Next action:
   - Resume normalized read-only `main`-oracle live Pixi parity verification on `All Settings` now that stray painted chat chrome is no longer contaminating the reference surface; the next slice should identify the first real live-Pixi-vs-`main` renderer drift rather than another workspace-chrome alignment issue.
+
+## 2026-03-30 349
+
+- Item: Make the normalization guard close an already-open project chat manager dropdown before `main`-oracle parity checks.
+- Status: `done`
+- Details:
+  - Continued directly from item `348` on the explicit `main`-oracle normalization blocker instead of reopening renderer tuning.
+  - Hardened the shared Playwright canary helper so normalized workspace resets treat the project chat manager dropdown as visible chat chrome:
+    - `frontend/tests/e2e/helpers.ts`
+      - `resetProjectWorkspaceChromeToDefaultLayout(...)` now explicitly closes an open `project-chat-bottom-dock-menu-content` after the underlying windowing state reset
+      - `readVisibleProjectChatChrome(...)` now reports manager-menu visibility and visible row count alongside the existing floating/docked/maximized chat chrome counts
+  - Hardened the focused canary spec so the normalization guard is exercised against the actual failure shape instead of only the easier closed-menu case:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - the local stale-chat reset test now opens the manager dropdown first and proves the reset closes it
+      - the explicit `main` normalization test now opens the manager dropdown on both baseline and read-only `main` before normalization, then requires zero visible manager-menu chrome on both sides afterward
+  - This slice stays intentionally on the parity-support boundary:
+    - no production frontend/backend renderer code changed
+    - no live Pixi drawing, zoom, or interaction logic changed
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=...' ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|all settings baseline and the read-only main reference share the same normalized workspace chrome state when explicit runtime envs are provided'`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the live worktree surface `http://127.0.0.1:3044/settings` and read-only `main` surface `http://127.0.0.1:3087/settings`
+    - `All Settings` was opened on both pages
+    - result: passed
+      - neither surface ended with visible `project-chat-bottom-dock-menu-content`, `project-chat-bottom-dock-window-panel`, `project-chat-floating-window`, `project-chat-maximized-window`, or `project-chat-window-title`
+      - the fresh worktree bootstrap URL was rejected in that verifier tab, but the direct settings surfaces were already reachable and were used for the normalized visual check
+- Next action:
+  - Resume normalized read-only `main`-oracle live Pixi parity verification on `All Settings`; the next slice should identify the first real live-Pixi-vs-`main` renderer drift rather than another project-chat manager/menu artifact.

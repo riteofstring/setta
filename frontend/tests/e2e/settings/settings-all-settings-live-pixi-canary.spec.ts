@@ -274,9 +274,28 @@ test("settings workspace chrome reset hides stale project chat chrome without mu
 
   const projectChatWindowTitle = page.getByTestId("project-chat-window-title");
   await expect(projectChatWindowTitle).toContainText("Chat Window 1");
+  const managerTrigger = page.getByTestId(
+    "project-chat-bottom-dock-menu-trigger",
+  );
+  await expect(managerTrigger).toBeVisible();
+  await managerTrigger.click();
+  await expect(
+    page.getByTestId("project-chat-bottom-dock-menu-content"),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("project-chat-bottom-dock-menu-item"),
+  ).toContainText("Chat Window 1");
 
   await resetProjectWorkspaceChromeToDefaultLayout(page);
   await expect(projectChatWindowTitle).toHaveCount(0);
+  expect(await readVisibleProjectChatChrome(page)).toEqual({
+    bottomDockWindowCount: 0,
+    floatingWindowCount: 0,
+    managerMenuItemCount: 0,
+    managerMenuVisible: false,
+    maximizedWindowCount: 0,
+    windowTitles: [],
+  });
 });
 
 async function readViewportTransform(page: Page): Promise<ViewportTransform> {
@@ -1127,6 +1146,25 @@ test("all settings baseline and the read-only main reference share the same norm
     await openAllSettingsBaseline(baselinePage);
     await openAllSettingsMainReference(mainReferencePage);
 
+    await expect(
+      baselinePage.getByTestId("project-chat-bottom-dock-menu-trigger"),
+    ).toBeVisible();
+    await baselinePage
+      .getByTestId("project-chat-bottom-dock-menu-trigger")
+      .click();
+    await expect(
+      baselinePage.getByTestId("project-chat-bottom-dock-menu-content"),
+    ).toBeVisible();
+    await expect(
+      mainReferencePage.getByTestId("project-chat-bottom-dock-menu-trigger"),
+    ).toBeVisible();
+    await mainReferencePage
+      .getByTestId("project-chat-bottom-dock-menu-trigger")
+      .click();
+    await expect(
+      mainReferencePage.getByTestId("project-chat-bottom-dock-menu-content"),
+    ).toBeVisible();
+
     // Pin the exact normalization shape that future live CDP parity checks rely
     // on, without treating Playwright as a cross-runtime geometry oracle.
     await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
@@ -1154,6 +1192,8 @@ test("all settings baseline and the read-only main reference share the same norm
     expect(baselineChatChrome).toEqual({
       bottomDockWindowCount: 0,
       floatingWindowCount: 0,
+      managerMenuItemCount: 0,
+      managerMenuVisible: false,
       maximizedWindowCount: 0,
       windowTitles: [],
     });
