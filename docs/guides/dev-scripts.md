@@ -76,6 +76,7 @@ Use these first for day-to-day work.
 - `./audit_supply_chain.sh`
   - Runs `pip-audit`, `govulncheck`, a Go module release-age check, and `pnpm audit` for both `frontend/` and the sidecar package.
   - Uses `supply_chain_policy.env` when present; defaults to a 7-day minimum release age otherwise.
+  - This is the full visibility pass, not an instruction to upgrade everything it reports.
 - `./configure_supply_chain.sh`
   - Updates the dependency release-age policy.
   - `--local-only` (default) updates `supply_chain_policy.env` plus the repo-local pnpm configs under `frontend/` and the sidecar package.
@@ -173,6 +174,13 @@ Useful when you need to debug a specific subsystem.
 
 - **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
 - **Supply-chain policy**: `supply_chain_policy.env` is the repo-local minimum release age policy used by `init_env.sh`, `update_dependencies.sh`, and `audit_supply_chain.sh`. Current `uv` only supports an absolute `--exclude-newer` cutoff and persists that cutoff into `uv.lock`, so the repo uses `--exclude-newer` only during explicit lock refreshes and enforces the rolling age policy during installs/audits with `scripts/check_uv_lock_release_age.py`. Go does not expose a native install-time minimum-age setting, so Go age enforcement is audit-only.
+- **Audit remediation policy**:
+  - Start with `./audit_supply_chain.sh`, then triage by severity instead of upgrading every reported package.
+  - Default policy is to fix critical/high findings only unless the developer explicitly asks for broader cleanup.
+  - Prefer minimal official-upstream upgrades. Use narrow `pnpm.overrides` for Node transitives when needed, but do not adopt obscure forks or republished packages just to make the audit green.
+  - Python severity should be confirmed from OSV/GHSA metadata because `pip-audit` table output does not include severity.
+  - Go remediation should focus on code-reachable `govulncheck` findings.
+  - Recheck the 7-day minimum release age before keeping any dependency upgrade.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
 - **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).

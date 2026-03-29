@@ -39,6 +39,19 @@
 - `./scripts/run_backend_tests.sh` is a legacy-named Python/package pytest runner, not the Go backend test runner.
 - `./gcf.sh` is the standard generate/cleanup/format wrapper; see Generation & Cleanup for when to use it.
 
+## Dependency Audits
+
+- Start with `./audit_supply_chain.sh` for full repo visibility, but do not assume every reported item should be fixed in the same pass.
+- The default remediation target is critical/high findings only unless the developer explicitly asks for broader cleanup. Do not churn versions just to clear low/moderate advisories.
+- Keep dependency fixes minimal and exact. Prefer the smallest official upstream version bump that clears the severe finding, then refresh lockfiles intentionally and rerun focused tests in the touched area.
+- Python: `pip-audit` CLI output does not include severity in the table. Confirm severity from OSV/GHSA metadata before deciding whether a Python finding should be fixed in a severe-only pass.
+- Go: prioritize code-reachable `govulncheck` findings. Do not bump unrelated modules just because verbose output lists non-reachable advisories.
+- Frontend/Node: prefer official upstream releases and narrow `pnpm.overrides` for transitive fixes when the upstream dependency range already allows a safe version. Avoid broad toolchain churn unless it is required to clear the severe finding.
+- Do not switch to obscure forks, republished packages, or unofficial mirrors just to silence an audit finding. If the official package has no fixed mainstream release, leave the finding in place, explain the blocker, and present replacement/migration as a separate decision.
+- Every accepted dependency upgrade must also satisfy the repo minimum release-age policy. Re-run the repo Python and Go age checks after refreshes, and verify npm publish times for any changed frontend direct dependency or override target before keeping it.
+- Normal install scripts must remain frozen. Refresh lockfiles only through `./update_dependencies.sh` or an intentionally scoped lockfile update as part of the dependency-fix change.
+- If `./audit_supply_chain.sh` still fails only because of intentionally unaddressed lower-severity findings, say that explicitly instead of widening the remediation scope without approval.
+
 ## Coding Style & Naming Conventions
 
 - Python follows Ruff defaults (see `ruff.toml`); use 4-space indents, snake_case for functions/modules, and PascalCase for classes.
