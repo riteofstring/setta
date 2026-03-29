@@ -12648,3 +12648,59 @@ Record:
     - read-only `main` was not a usable Settings oracle on this pass, so slice-level gross-drift comparison remains deferred
 - Next action:
   - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.
+
+## 2026-03-31 376
+
+- Item: Move `genPythonMetadataSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing prompt/browser/text-block/code-param/section-sizing/button shared canaries.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `375`, but did not assume the next section from the old fallback ordering.
+  - Used a fresh live-runtime inspection before editing and targeted the actual visible remaining fallback in the checked worktree viewport:
+    - `genPythonMetadataSectionDefault`
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+  - Locked the ownership move in the existing focused runtime tests instead of opening another harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all seven shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `genPythonMetadataSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `genPythonMetadataSectionDefault` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Chrome DevTools MCP outcome after the change:
+    - fresh sub-agent verified the live worktree canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified the page-runtime host now reports `7` managed scenes and `23` remaining `dom-context-lost` scenes
+    - verified `managedSceneNames` includes `genPythonMetadataSectionDefault`
+    - verified `domContextLostSceneNames` no longer includes `genPythonMetadataSectionDefault`
+    - verified the visible `genPythonMetadataSectionDefault` scene reports:
+      - `renderBackend=shared-page-runtime`
+      - no visible `dom-context-lost` fallback wrapper
+    - main-reference oracle caveat:
+      - the provided read-only `main` bootstrap token was rejected during this pass
+      - opening `http://127.0.0.1:3087/settings?liveDictAreaRenderer=pixi-node-body` directly did not expose the live scene roots or page-runtime host data
+      - treat the slice-level `main` oracle comparison as deferred again for this pass
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`19 passed`)
+  - Playwright:
+    - refreshed the current worktree bootstrap token via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - ran the targeted live canary subset directly against the current worktree runtime:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps codeParamCodeObjDefault on the shared page runtime without dom-context-lost|all settings canary keeps sectionSizingPolicy on the shared page runtime without dom-context-lost|all settings canary keeps buttonParamCodeObjDefault on the shared page runtime without dom-context-lost|all settings canary keeps genPythonMetadataSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `genPythonMetadataSectionDefault` is managed by the shared page runtime, uses `shared-page-runtime`, and has no visible `dom-context-lost` fallback wrapper
+    - read-only `main` was not a usable live Settings oracle on this pass, so slice-level gross-drift comparison remains deferred
+- Next action:
+  - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.
