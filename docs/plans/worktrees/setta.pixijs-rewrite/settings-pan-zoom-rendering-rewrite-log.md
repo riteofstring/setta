@@ -11114,3 +11114,28 @@ Record:
         - no obvious new left-edge inset artifact or visual breakage was observed on the first visible unpinned card area versus baseline
 - Next action:
   - Continue the normalized `All Settings` live Pixi parity investigation from the next actual visible drift; this row-surface inset lane is closed.
+
+## 2026-03-30 338
+
+- Item: Rule out the compact-preview row-height hypothesis for the remaining live Pixi `All Settings` parity drift.
+- Status: `done`
+- Details:
+  - Took one bounded blocker-resolution slice directly from item `337` instead of reopening the closed seam-lift lane or guessing at another row-internal tweak.
+  - Added a temporary seeded Playwright probe on the shared compact `unpinned` block anchors in `All Settings` to measure the next visible drift against the baseline DOM surface.
+  - The seeded probe consistently reported roughly `+3px` live-Pixi height drift on the first shared compact blocks, so this iteration tried the obvious compact-preview layout/min-height hypothesis in `frontend/src/components/Params/liveDictAreaPixiLayout.ts`.
+  - Fresh live CDP on the real worktree runtime showed that hypothesis was wrong:
+    - `codeParamCodeObjDefault` measured about `194px` tall on `/settings` versus `224px` on `?liveDictAreaRenderer=pixi-node-body`
+    - `buttonParamCodeObjDefault` measured about `314px` tall on `/settings` versus `344px` on `?liveDictAreaRenderer=pixi-node-body`
+    - the visible row controls inside those cards stayed at `18px` on both pages
+  - Reverted the speculative frontend/test edits in the same iteration after the live CDP comparison showed the card-shell drift got worse rather than better.
+  - Outcome: the remaining parity miss is not a compact row-control height issue. The real frontier is the outer card shell / mounted-body sizing path that determines compact card height before the retained-scene row controls render.
+- Verification:
+  - Playwright diagnostic:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps compact settings cards aligned with baseline when both renderers share the same viewport transform"`
+    - result: failed repeatedly at `max delta = 3` on seeded compact `unpinned` block anchors; the temporary probe was reverted with the rejected hypothesis because it was not yet a trustworthy live-surface proxy
+  - Chrome DevTools MCP visual check:
+    - done on the live worktree runtime at `http://127.0.0.1:3043/`
+    - normalized baseline `/settings` versus live Pixi `?liveDictAreaRenderer=pixi-node-body`
+    - result: current compact-card drift is still at the outer card shell, with the speculative compact-preview tweak worsening the real live delta to about `+30px` on representative cards while row controls themselves stayed aligned
+- Next action:
+  - Investigate the compact card shell / mounted-body sizing path on the live `All Settings` canary; do not reopen compact row-height constants until that outer-height source is understood.
