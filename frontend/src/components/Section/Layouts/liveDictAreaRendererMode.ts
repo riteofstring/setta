@@ -11,7 +11,7 @@ export type LiveDictAreaRendererMode =
 
 export type LiveDictAreaRendererViewportSyncPlan = {
   resolvedMode: LiveDictAreaRendererMode;
-  shouldClearViewportForRefit: boolean;
+  shouldRequestViewportRefit: boolean;
 };
 
 export function readRequestedLiveDictAreaRendererMode(
@@ -61,14 +61,14 @@ export function getLiveDictAreaRendererViewportSyncPlan({
     persistedMode,
     search,
   });
-  const shouldClearViewportForRefit =
+  const shouldRequestViewportRefit =
     previousViewportMode === null || previousViewportMode === undefined
       ? resolvedMode !== "dom"
       : previousViewportMode !== resolvedMode;
 
   return {
     resolvedMode,
-    shouldClearViewportForRefit,
+    shouldRequestViewportRefit,
   };
 }
 

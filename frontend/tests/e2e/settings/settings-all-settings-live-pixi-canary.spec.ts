@@ -3097,27 +3097,27 @@ test("all settings session-storage and explicit-query live Pixi canaries share t
 
     await expect
       .poll(async () => {
-        return (await readVisibleSectionNodeBounds(sessionStorageCanaryPage))
+        return (await readVisibleSceneReadableRows(sessionStorageCanaryPage))
           .length;
       })
       .toBeGreaterThanOrEqual(6);
     await expect
       .poll(async () => {
-        return (await readVisibleSectionNodeBounds(explicitQueryCanaryPage))
+        return (await readVisibleSceneReadableRows(explicitQueryCanaryPage))
           .length;
       })
       .toBeGreaterThanOrEqual(6);
 
-    const sessionStorageCanaryNodes = (
-      await readVisibleSectionNodeBounds(sessionStorageCanaryPage)
+    const sessionStorageCanaryScenes = (
+      await readVisibleSceneReadableRows(sessionStorageCanaryPage)
     ).slice(0, 6);
-    const explicitQueryCanaryNodes = (
-      await readVisibleSectionNodeBounds(explicitQueryCanaryPage)
+    const explicitQueryCanaryScenes = (
+      await readVisibleSceneReadableRows(explicitQueryCanaryPage)
     ).slice(0, 6);
 
-    expect(sessionStorageCanaryNodes.map((node) => node.sectionName)).toEqual(
-      explicitQueryCanaryNodes.map((node) => node.sectionName),
-    );
+    expect(
+      sessionStorageCanaryScenes.map((scene) => scene.sectionName),
+    ).toEqual(explicitQueryCanaryScenes.map((scene) => scene.sectionName));
   } finally {
     await sessionStorageCanaryPage.close();
     await explicitQueryCanaryPage.close();
@@ -3188,7 +3188,7 @@ test("all settings baseline and live Pixi canary share the fit-view zoom-floor s
   }
 });
 
-test("all settings canary completes the first fit-view pass on initial live Pixi load", async ({
+test("all settings canary reaches the initial fit-view scene slice on first live Pixi load", async ({
   page,
 }) => {
   await openAllSettingsLivePixiCanary(page);
@@ -3196,14 +3196,14 @@ test("all settings canary completes the first fit-view pass on initial live Pixi
 
   await expect
     .poll(async () => {
-      return (await readFitViewInitState(page)).fitViewOnInitDone;
+      return (await readVisibleSceneReadableRows(page)).length;
     })
-    .toBe(true);
+    .toBeGreaterThan(0);
 
   await expectZoomOutButtonDisabled(page, true);
 });
 
-test("all settings explicit renderer query-param canary clears a stale saved viewport on first load", async ({
+test("all settings explicit renderer query-param canary refits away from a stale saved viewport on first load", async ({
   page,
 }) => {
   await openAllSettingsBaseline(page);
@@ -3225,7 +3225,7 @@ test("all settings explicit renderer query-param canary clears a stale saved vie
     await expectZoomOutButtonDisabled(page, true);
     await expect
       .poll(async () => {
-        return (await readVisibleSectionNodeBounds(page)).length;
+        return (await readVisibleSceneReadableRows(page)).length;
       })
       .toBeGreaterThan(0);
 
@@ -3235,6 +3235,54 @@ test("all settings explicit renderer query-param canary clears a stale saved vie
       y: 500000,
       zoom: 0.1,
     });
+  } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialViewport,
+    });
+  }
+});
+
+test("all settings live Pixi canary keeps the saved backend viewport intact while refitting the frontend view on first load", async ({
+  page,
+}) => {
+  await openAllSettingsBaseline(page);
+
+  const projectConfigId = await getCurrentProjectConfigId(page);
+  const initialProjectConfig = await loadProjectConfig(page);
+  const initialViewport = initialProjectConfig.projectConfig.viewport ?? null;
+  const seededViewport = {
+    x: 500000,
+    y: 500000,
+    zoom: 0.1,
+  };
+
+  try {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: seededViewport,
+    });
+
+    await openAllSettingsLivePixiCanary(page);
+    await waitForVisibleSceneMetrics(page);
+    await expectZoomOutButtonDisabled(page, true);
+    await expect
+      .poll(async () => {
+        return (await readVisibleSceneReadableRows(page)).length;
+      })
+      .toBeGreaterThan(0);
+
+    const canaryViewport = await readViewportTransform(page);
+    expect(canaryViewport).not.toEqual(seededViewport);
+
+    // Wait longer than the debounced viewport persistence window so this guard
+    // catches delayed backend writes as well as immediate ones.
+    await page.waitForTimeout(1500);
+
+    const reloadedProjectConfig = await loadProjectConfig(page);
+    expect(reloadedProjectConfig.projectConfig.viewport).toEqual(
+      seededViewport,
+    );
   } finally {
     await postBackend(page, "/setViewport", {
       projectConfigId,

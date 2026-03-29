@@ -988,6 +988,22 @@ export async function stopLatestProjectChat(
 }
 
 export async function getCurrentProjectConfigId(page: Page): Promise<string> {
+  const loadedProjectConfig = await page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const projectConfig = useProjectState.getState().projectConfig;
+    return {
+      id:
+        typeof projectConfig.id === "string" &&
+        projectConfig.id.length > 0 &&
+        projectConfig.id !== "null"
+          ? projectConfig.id
+          : null,
+    };
+  });
+  if (loadedProjectConfig.id) {
+    return loadedProjectConfig.id;
+  }
+
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",
@@ -1021,6 +1037,23 @@ export async function readActiveBackendOrigin(page: Page): Promise<string> {
 }
 
 async function getCurrentProjectConfigName(page: Page): Promise<string> {
+  const loadedProjectConfig = await page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const projectConfig = useProjectState.getState().projectConfig;
+    return {
+      id:
+        typeof projectConfig.id === "string" &&
+        projectConfig.id.length > 0 &&
+        projectConfig.id !== "null"
+          ? projectConfig.id
+          : null,
+      name:
+        typeof projectConfig.name === "string" && projectConfig.name.length > 0
+          ? projectConfig.name
+          : null,
+    };
+  });
+
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,
     "/loadAllProjectMetadata",
@@ -1029,11 +1062,32 @@ async function getCurrentProjectConfigName(page: Page): Promise<string> {
   if (!metadata) {
     throw new Error("Missing project metadata response.");
   }
+  if (loadedProjectConfig.id) {
+    const loadedMatch = metadata.projectMetadata.find(
+      (entry) => entry.id === loadedProjectConfig.id,
+    );
+    if (loadedMatch?.name) {
+      return loadedMatch.name;
+    }
+  }
+  if (loadedProjectConfig.name) {
+    const loadedNameMatch = metadata.projectMetadata.find(
+      (entry) => entry.name === loadedProjectConfig.name,
+    );
+    if (loadedNameMatch?.name) {
+      return loadedNameMatch.name;
+    }
+  }
 
   const currentPath = new URL(page.url()).pathname;
   const projectName = currentPath.split("/").filter(Boolean)[0];
   if (projectName) {
-    return projectName;
+    const match = metadata.projectMetadata.find(
+      (entry) => entry.name === projectName,
+    );
+    if (match?.name) {
+      return match.name;
+    }
   }
 
   if (metadata.defaultProjectConfigId) {

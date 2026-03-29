@@ -13,6 +13,7 @@ import {
   getSectionIsHorizontalOrientation,
   getTopLevelSectionIdsForDisplay,
   processProjectStateUpdateFromBackend,
+  requestCurrentProjectViewportRefitWithoutSaving,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { resetStreamingTracker } from "state/aiStreamingTracker";
@@ -1385,6 +1386,214 @@ describe("processProjectStateUpdateFromBackend", () => {
     } finally {
       routeSetViewportSpy.mockRestore();
     }
+  });
+
+  it("requests a frontend-only viewport refit without persisting the saved viewport", () => {
+    const sectionVisible = "section-visible";
+    const sectionHidden = "section-hidden";
+    const viewModeId = "view-1";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const savedViewport = { x: 10, y: -20, zoom: 1.5 };
+    const viewMode: ViewModeConfig = {
+      id: viewModeId,
+      name: "Visible View",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: true,
+      visibilityBySectionId: {
+        [sectionVisible]: true,
+        [sectionHidden]: false,
+      },
+      viewport: savedViewport,
+      viewportInitialized: true,
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+    };
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+      viewModes: { [viewModeId]: viewMode },
+      activeViewModeId: viewModeId,
+      viewport: savedViewport,
+      viewportInitialized: true,
+    });
+
+    useProjectState.setState({
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useMisc.setState({
+      requestUpdateNodeDimensions: false,
+      suppressViewportPersistenceUntilFitViewSettles: false,
+    });
+    useReactFlow.setState({
+      transform: [10, -20, 1.5],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+
+    const routeSetViewportSpy = vi
+      .spyOn(endpoints, "route_set_viewport")
+      .mockResolvedValue({
+        data: null,
+        status: 200,
+        hasResponse: true,
+      });
+
+    try {
+      requestCurrentProjectViewportRefitWithoutSaving();
+
+      const currentProjectConfig = useProjectState.getState().projectConfig;
+      expect(currentProjectConfig.viewport).toBeNull();
+      expect(currentProjectConfig.viewportInitialized).toBe(false);
+      const currentViewMode =
+        currentProjectConfig.viewModes[currentProjectConfig.activeViewModeId!];
+      expect(currentViewMode?.viewport).toBeNull();
+      expect(currentViewMode?.viewportInitialized).toBe(false);
+
+      const reactFlowState = useReactFlow.getState();
+      expect(reactFlowState.fitViewOnInit).toBe(true);
+      expect(reactFlowState.fitViewOnInitDone).toBe(false);
+      expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
+        { id: sectionVisible },
+      ]);
+      expect(useMisc.getState().requestUpdateNodeDimensions).toBe(true);
+      expect(
+        useMisc.getState().suppressViewportPersistenceUntilFitViewSettles,
+      ).toBe(true);
+
+      expect(routeSetViewportSpy).not.toHaveBeenCalled();
+    } finally {
+      routeSetViewportSpy.mockRestore();
+    }
+  });
+
+  it("keeps backend-driven project updates on the fit-view path while a frontend-only refit is still settling", () => {
+    const sectionVisible = "section-visible";
+    const sectionHidden = "section-hidden";
+    const viewModeId = "view-1";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const savedViewport = { x: 10, y: -20, zoom: 1.5 };
+    const viewMode: ViewModeConfig = {
+      id: viewModeId,
+      name: "Visible View",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: true,
+      visibilityBySectionId: {
+        [sectionVisible]: true,
+        [sectionHidden]: false,
+      },
+      viewport: savedViewport,
+      viewportInitialized: true,
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+    };
+    const currentProjectConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+      viewModes: {
+        [viewModeId]: {
+          ...viewMode,
+          viewport: null,
+          viewportInitialized: false,
+        },
+      },
+      activeViewModeId: viewModeId,
+      viewport: null,
+      viewportInitialized: false,
+    });
+    const incomingProjectConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+      viewModes: { [viewModeId]: viewMode },
+      activeViewModeId: viewModeId,
+      viewport: savedViewport,
+      viewportInitialized: true,
+    });
+
+    useProjectState.setState({
+      projectConfig: currentProjectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+    useMisc.setState({
+      requestUpdateNodeDimensions: false,
+      suppressViewportPersistenceUntilFitViewSettles: true,
+    });
+    useReactFlow.setState({
+      transform: [10, -20, 1.5],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+
+    const update: ProjectStateSingleConfigWithCompletedOpIds = {
+      projectState: {
+        projectConfig: incomingProjectConfig,
+        sections: {},
+        sectionImpls: {},
+        sectionVariants: {},
+        codeObjs: {},
+        codeObjImpls: {},
+        codeObjVariants: {},
+        artifactGroups: {},
+        singletonSections: createSingletonSections(),
+        parentSectionMap: {},
+        shownParamIds: {},
+        requiredDecodedImages: [],
+        genCodeBinding: null,
+      },
+      completedOpIds: [],
+      pendingOpIds: [],
+    };
+
+    processProjectStateUpdateFromBackend(update);
+
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.fitViewOnInit).toBe(true);
+    expect(reactFlowState.fitViewOnInitDone).toBe(false);
+    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
+      { id: sectionVisible },
+    ]);
   });
 
   it("fits view when active view mode changes with no viewport", () => {

@@ -74,6 +74,16 @@ export function subscribe() {
       // used by forked xterm to make text appear correctly
       window.reactFlowZoom = newState.transform[2];
 
+      if (useMisc.getState().suppressViewportPersistenceUntilFitViewSettles) {
+        debouncedDispatchViewportUpdate.cancel();
+        if (!newState.fitViewOnInit) {
+          useMisc.setState({
+            suppressViewportPersistenceUntilFitViewSettles: false,
+          });
+        }
+        return;
+      }
+
       debouncedDispatchViewportUpdate();
     },
     { equalityFn: _.isEqual },

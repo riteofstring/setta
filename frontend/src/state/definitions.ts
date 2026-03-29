@@ -855,6 +855,7 @@ export const useMisc = withProjectState(
         numDisplayedCodeAreas: 0,
         numInitializedCodeAreas: 0,
         requestUpdateNodeDimensions: false,
+        suppressViewportPersistenceUntilFitViewSettles: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
         projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,

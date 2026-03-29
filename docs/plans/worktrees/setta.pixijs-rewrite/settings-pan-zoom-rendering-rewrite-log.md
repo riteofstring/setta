@@ -13529,3 +13529,54 @@ Record:
       - worktree first slice: `browserSectionDefault` → `textBlockSectionDefault` → `promptSectionDefault`
 - Next action:
   - Determine whether that remaining top-of-surface order/framing drift already exists on the worktree DOM baseline or is specific to the Pixi path, then fix that earliest production boundary instead of revisiting session/query viewport syncing.
+
+## 2026-04-01 391
+
+- Item: Split the live Pixi first-load refit from backend viewport persistence and fix the `/settings` canary helper so the new regression targets the loaded config instead of the workspace default.
+- Status: `done`
+- Details:
+  - Took one bounded slice on the viewport-refit lane after item `390` exposed the remaining default-open drift:
+    - renamed the renderer sync decision to `shouldRequestViewportRefit` so `UIPage` can ask for a frontend-only refit instead of treating the path as a backend viewport clear
+    - added `requestCurrentProjectViewportRefitWithoutSaving()` in `frontend/src/state/actions/sectionInfos.ts`
+      - cancels pending viewport persistence
+      - clears the frontend store viewport locally
+      - arms fit-view
+      - suppresses debounced viewport persistence until the first fit-view settle finishes
+    - while that suppression is active, incoming project-state viewport application stays on the fit-view path, and live Pixi `dispatchViewportUpdate()` only updates local project state instead of posting `/api/setViewport`
+  - Locked the production boundary with focused tests:
+    - `frontend/src/state/actions/sectionInfos.test.ts` now covers the frontend-only refit request and the “ignore backend viewport while fit-view is settling” path
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` gained a regression that seeds a saved viewport, opens the live Pixi canary, and asserts the frontend refits away from the seeded transform without overwriting the backend-saved viewport
+  - The first pass at that new regression failed, but the failure turned out to be a harness bug rather than a remaining product write:
+    - a Playwright trace with `--trace on` showed the only `/api/setViewport` requests were the test seed and the test `finally` cleanup
+    - the real mismatch was in `frontend/tests/e2e/helpers.ts`
+      - `getCurrentProjectConfigId()` was falling back to the workspace default project id on `/settings`
+      - `loadProjectConfig()` was reloading the `/settings` route name instead of the loaded project config
+    - fixed the helper to resolve the active project id from `useProjectState`, then map that id back to the canonical project name through metadata before calling `/loadProjectConfig`
+    - after that helper fix, the new backend-preservation regression passed and the four-test live Pixi viewport subset stayed green
+  - This closes the “is live Pixi secretly clearing the backend viewport on first load?” blocker:
+    - current evidence says the earlier failing regression was a helper mismatch, not a hidden backend write
+    - the remaining frontier is still the worktree-versus-`main` top-of-surface ordering/framing drift called out in item `390`
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/UiPage.test.tsx src/components/Pages/Project/UiPage.tsx src/components/Section/Layouts/liveDictAreaRendererMode.test.ts src/components/Section/Layouts/liveDictAreaRendererMode.ts src/state/actions/sectionInfos.test.ts src/state/actions/sectionInfos.ts src/state/definitions.ts src/state/subscriptions.ts tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/liveDictAreaRendererMode.test.ts src/components/Pages/Project/UiPage.test.tsx src/state/actions/sectionInfos.test.ts`
+    - result: passed (`34 passed`)
+  - Playwright:
+    - trace/debug run:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line --trace on tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings live Pixi canary keeps the saved backend viewport intact while refitting the frontend view on first load"`
+      - result: failed before the helper fix, and the saved trace showed no unexpected `/api/setViewport` request between the seed and the assertion
+    - post-fix single-regression run:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings live Pixi canary keeps the saved backend viewport intact while refitting the frontend view on first load"`
+      - result: passed (`1 passed`)
+    - post-fix focused subset:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings explicit renderer query-param canary refits away from a stale saved viewport on first load|all settings live Pixi canary keeps the saved backend viewport intact while refitting the frontend view on first load|all settings session-storage and explicit-query live Pixi canaries share the same default visible canvas section slice before frontend viewport clear|all settings canary reaches the initial fit-view scene slice on first live Pixi load"`
+      - result: passed (`4 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent opened the current worktree bootstrap, navigated to `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`, activated `All Settings`, and inspected the top of the live Pixi surface
+    - result: passed for this slice
+      - visible top rows/sections were populated at the top of the surface (`OVERVIEW`, `browserSectionDefault`, `textBlockSectionDefault`, `promptSectionDefault`, `codeParamCodeObjDefault`, `sectionSizingPolicy`, `codeCallableCodeObjDefault`)
+      - no obvious blank/offscreen stale viewport and no gross visual drift on this worktree canary path
+- Next action:
+  - Return to the remaining Gate 1/Gate 2 blocker from item `390`: determine why the worktree default-open top slice still differs from `main` (`browserSectionDefault` / `textBlockSectionDefault` first on worktree versus `textAreaParamCodeObjDefault` / `dropzoneParamCodeObjDefault` first on `main`) now that the viewport-persistence regression is correctly targeted.

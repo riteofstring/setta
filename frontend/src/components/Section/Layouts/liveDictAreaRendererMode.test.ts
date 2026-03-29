@@ -70,7 +70,7 @@ describe("resolveLiveDictAreaRendererMode", () => {
 });
 
 describe("getLiveDictAreaRendererViewportSyncPlan", () => {
-  it("clears the viewport on the first Pixi load when the canary only comes from persisted session state", () => {
+  it("requests a viewport refit on the first Pixi load when the canary only comes from persisted session state", () => {
     expect(
       getLiveDictAreaRendererViewportSyncPlan({
         persistedMode: "pixi-node-body",
@@ -79,11 +79,11 @@ describe("getLiveDictAreaRendererViewportSyncPlan", () => {
       }),
     ).toEqual({
       resolvedMode: "pixi-node-body",
-      shouldClearViewportForRefit: true,
+      shouldRequestViewportRefit: true,
     });
   });
 
-  it("does not clear the viewport again when the current viewport already matches the resolved Pixi mode", () => {
+  it("does not request another viewport refit when the current viewport already matches the resolved Pixi mode", () => {
     expect(
       getLiveDictAreaRendererViewportSyncPlan({
         persistedMode: "pixi-node-body",
@@ -92,11 +92,11 @@ describe("getLiveDictAreaRendererViewportSyncPlan", () => {
       }),
     ).toEqual({
       resolvedMode: "pixi-node-body",
-      shouldClearViewportForRefit: false,
+      shouldRequestViewportRefit: false,
     });
   });
 
-  it("clears the viewport when the explicit query switches back to the DOM renderer", () => {
+  it("requests a viewport refit when the explicit query switches back to the DOM renderer", () => {
     expect(
       getLiveDictAreaRendererViewportSyncPlan({
         persistedMode: "pixi-node-body",
@@ -105,7 +105,7 @@ describe("getLiveDictAreaRendererViewportSyncPlan", () => {
       }),
     ).toEqual({
       resolvedMode: "dom",
-      shouldClearViewportForRefit: true,
+      shouldRequestViewportRefit: true,
     });
   });
 });

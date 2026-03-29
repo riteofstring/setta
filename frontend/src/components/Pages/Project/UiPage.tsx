@@ -10,7 +10,7 @@ import {
   recordProjectChatPointerDownLocation,
   recordProjectChatPointerUpLocation,
 } from "state/actions/projectChatWindowingPointerTracking";
-import { clearCurrentProjectViewportForRefit } from "state/actions/sectionInfos";
+import { requestCurrentProjectViewportRefitWithoutSaving } from "state/actions/sectionInfos";
 import { useLocalStorage } from "state/definitions";
 import { syncLiveDictAreaInteractionModeFromSearch } from "../../Section/Layouts/liveDictAreaInteractionMode";
 import { syncLiveDictAreaRendererModeFromSearch } from "../../Section/Layouts/liveDictAreaRendererMode";
@@ -48,13 +48,13 @@ function useSyncLiveDictAreaRendererMode() {
   useEffect(() => {
     const search =
       typeof globalThis.location === "object" ? globalThis.location.search : "";
-    const { shouldClearViewportForRefit } =
+    const { shouldRequestViewportRefit } =
       syncLiveDictAreaRendererModeFromSearch(search);
 
     // Any live renderer-mode switch can reopen the route under a different
-    // body-height system than the viewport saved for the previous renderer.
-    if (shouldClearViewportForRefit) {
-      clearCurrentProjectViewportForRefit();
+    // body-height system than the viewport fitted for the previous renderer.
+    if (shouldRequestViewportRefit) {
+      requestCurrentProjectViewportRefitWithoutSaving();
     }
   }, []);
 }

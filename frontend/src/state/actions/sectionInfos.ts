@@ -67,6 +67,7 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { readLiveDictAreaRendererModeFromWindow } from "../../components/Section/Layouts/liveDictAreaRendererMode";
 import { applyActiveSectionChange } from "./activeSectionController";
 import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
 import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
@@ -1111,16 +1112,26 @@ function applyViewportFromProjectState(
 ): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
   const currentConfig = useProjectState.getState().projectConfig;
+  const shouldSuppressViewportPersistenceUntilFitViewSettles =
+    useMisc.getState().suppressViewportPersistenceUntilFitViewSettles;
   const viewModeChanged =
     currentConfig.activeViewModeId !==
     projectState.projectConfig.activeViewModeId;
   const viewportChanged =
     !_.isEqual(currentConfig.viewport, viewport) ||
     currentConfig.viewportInitialized !== viewportInitialized;
-  if (!viewportChanged && !viewModeChanged) {
+  if (
+    !viewportChanged &&
+    !viewModeChanged &&
+    !shouldSuppressViewportPersistenceUntilFitViewSettles
+  ) {
     return false;
   }
-  if (!viewport || !viewportInitialized) {
+  if (
+    !viewport ||
+    !viewportInitialized ||
+    shouldSuppressViewportPersistenceUntilFitViewSettles
+  ) {
     useReactFlow.setState(buildFitViewOnInitState(projectState));
     return true;
   }
@@ -2026,12 +2037,24 @@ function applyViewportToActiveViewMode(
   activeViewMode.viewportInitialized = viewport !== null;
 }
 
+function applyViewportLocally(viewport: Viewport | null) {
+  useProjectState.setState((state) => {
+    state.projectConfig.viewport = viewport;
+    state.projectConfig.viewportInitialized = viewport !== null;
+    applyViewportToActiveViewMode(state.projectConfig, viewport);
+  });
+}
+
 function dispatchViewportUpdate(viewport: Viewport | null) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
   if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
+    return;
+  }
+  if (readLiveDictAreaRendererModeFromWindow() === "pixi-node-body") {
+    applyViewportLocally(viewport);
     return;
   }
   dispatchOptimisticProjectStateUpdate({
@@ -2057,7 +2080,29 @@ export function clearCurrentProjectViewportForRefit() {
 
   dispatchViewportUpdate(null);
   useReactFlow.setState(buildFitViewOnInitState(projectState));
-  useMisc.setState({ requestUpdateNodeDimensions: true });
+  useMisc.setState({
+    requestUpdateNodeDimensions: true,
+    suppressViewportPersistenceUntilFitViewSettles: false,
+  });
+}
+
+export function requestCurrentProjectViewportRefitWithoutSaving() {
+  const projectState = useProjectState.getState();
+  if (projectState.projectConfig.id === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+
+  debouncedDispatchViewportUpdate.cancel();
+  useProjectState.setState((state) => {
+    state.projectConfig.viewport = null;
+    state.projectConfig.viewportInitialized = false;
+    applyViewportToActiveViewMode(state.projectConfig, null);
+  });
+  useMisc.setState({
+    requestUpdateNodeDimensions: true,
+    suppressViewportPersistenceUntilFitViewSettles: true,
+  });
+  useReactFlow.setState(buildFitViewOnInitState(projectState));
 }
 
 export const debouncedDispatchViewportUpdate = _.debounce(

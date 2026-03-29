@@ -10,11 +10,11 @@ import { UIPage } from "./UiPage";
 
 const hoisted = vi.hoisted(() => ({
   attachKeyEventListenersMock: vi.fn(() => () => {}),
-  clearCurrentProjectViewportForRefitMock: vi.fn(),
+  requestCurrentProjectViewportRefitWithoutSavingMock: vi.fn(),
   syncLiveDictAreaInteractionModeFromSearchMock: vi.fn(),
   syncLiveDictAreaRendererModeFromSearchMock: vi.fn(() => ({
     resolvedMode: "dom",
-    shouldClearViewportForRefit: false,
+    shouldRequestViewportRefit: false,
   })),
 }));
 
@@ -73,8 +73,8 @@ vi.mock("state/actions/keyActivations", () => ({
 }));
 
 vi.mock("state/actions/sectionInfos", () => ({
-  clearCurrentProjectViewportForRefit:
-    hoisted.clearCurrentProjectViewportForRefitMock,
+  requestCurrentProjectViewportRefitWithoutSaving:
+    hoisted.requestCurrentProjectViewportRefitWithoutSavingMock,
 }));
 
 vi.mock("../../Section/Layouts/liveDictAreaInteractionMode", () => ({
@@ -93,12 +93,12 @@ describe("UIPage", () => {
 
   beforeEach(() => {
     hoisted.attachKeyEventListenersMock.mockClear();
-    hoisted.clearCurrentProjectViewportForRefitMock.mockClear();
+    hoisted.requestCurrentProjectViewportRefitWithoutSavingMock.mockClear();
     hoisted.syncLiveDictAreaInteractionModeFromSearchMock.mockClear();
     hoisted.syncLiveDictAreaRendererModeFromSearchMock.mockReset();
     hoisted.syncLiveDictAreaRendererModeFromSearchMock.mockReturnValue({
       resolvedMode: "dom",
-      shouldClearViewportForRefit: false,
+      shouldRequestViewportRefit: false,
     });
     host = document.createElement("div");
     document.body.appendChild(host);
@@ -138,10 +138,10 @@ describe("UIPage", () => {
     expect(markup).toContain('data-testid="mock-responsive-minimap"');
   });
 
-  it("clears the saved viewport when the renderer sync requests a viewport refit", async () => {
+  it("requests a frontend-only viewport refit when the renderer sync requires one", async () => {
     hoisted.syncLiveDictAreaRendererModeFromSearchMock.mockReturnValue({
       resolvedMode: "pixi-node-body",
-      shouldClearViewportForRefit: true,
+      shouldRequestViewportRefit: true,
     });
     window.history.replaceState(
       {},
@@ -166,7 +166,7 @@ describe("UIPage", () => {
       hoisted.syncLiveDictAreaInteractionModeFromSearchMock,
     ).toHaveBeenCalledWith("?liveDictAreaRenderer=pixi-node-body");
     expect(
-      hoisted.clearCurrentProjectViewportForRefitMock,
+      hoisted.requestCurrentProjectViewportRefitWithoutSavingMock,
     ).toHaveBeenCalledTimes(1);
   });
 });
