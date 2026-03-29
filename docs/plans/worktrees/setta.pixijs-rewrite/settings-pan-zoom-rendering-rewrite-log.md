@@ -10816,3 +10816,31 @@ Record:
     - result: passed; the canary-only `Connected to server` line is gone and no replacement mismatch stood out in that same slice
 - Next action:
   - Resume the next bounded live Pixi `main`-oracle parity slice now that the top-of-page notification drift no longer pollutes the `All Settings` comparison surface.
+
+## 2026-03-30 329
+
+- Item: Pin the initial zoom-floor parity signal with an automated guard after a false CDP snapshot read on the live canary controls.
+- Status: `done`
+- Details:
+  - Took a bounded parity-harness slice directly from the next post-`328` verification step:
+    - an initial fresh-context CDP snapshot read suggested the live `pixi-node-body` canary left `zoom out` enabled while the baseline disabled it
+    - direct DOM/state reads in both headed Chrome and Playwright showed that was a verifier false positive, not a real viewport regression
+  - Added a focused Playwright guard to keep future parity work anchored to the actual first-load state instead of accessibility-snapshot interpretation:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The new guard opens baseline and live Pixi `All Settings` in separate pages and pins that both independently:
+    - complete the initial fit-view pass
+    - disable `zoom out`
+    - settle at the same initial zoom floor
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary independently settle at the same initial zoom floor|all settings canary completes the first fit-view pass on initial live Pixi load|all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check in fresh sub-agent contexts on the current worktree runtime:
+    - evaluated the actual DOM/button state plus React Flow store state on `http://127.0.0.1:3043/settings` and `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - both routes reported one `zoom out` button with `disabled: true`, `transform[2] = 0.1`, and `fitViewOnInitDone = true`
+    - outcome: the earlier canary-only `zoom out enabled` report was a snapshot-interpretation false positive, not a renderer/control regression
+- Next action:
+  - Resume the next bounded live Pixi `main`-oracle parity slice once the read-only reference runtime is available, using DOM/state reads instead of snapshot text when a control-state question matters.

@@ -940,6 +940,37 @@ test("all settings canary completes the first fit-view pass on initial live Pixi
   await expectZoomOutButtonDisabled(page, true);
 });
 
+test("all settings baseline and live Pixi canary independently settle at the same initial zoom floor", async ({
+  browser,
+}) => {
+  const baselinePage = await browser.newPage();
+  const canaryPage = await browser.newPage();
+
+  try {
+    // Keep the routes isolated so this guard pins their true first-load state
+    // instead of inheriting a same-tab viewport carry-over.
+    await openAllSettingsBaseline(baselinePage);
+    await expectZoomOutButtonDisabled(baselinePage, true);
+    const baselineViewport = await readViewportTransform(baselinePage);
+    const baselineFitViewInitState = await readFitViewInitState(baselinePage);
+
+    await openAllSettingsLivePixiCanary(canaryPage);
+    await waitForVisibleSceneMetrics(canaryPage);
+    await expectZoomOutButtonDisabled(canaryPage, true);
+    const canaryViewport = await readViewportTransform(canaryPage);
+    const canaryFitViewInitState = await readFitViewInitState(canaryPage);
+
+    expect(baselineFitViewInitState.fitViewOnInitDone).toBe(true);
+    expect(canaryFitViewInitState.fitViewOnInitDone).toBe(true);
+    expect(baselineViewport.zoom).toBeGreaterThan(0);
+    expect(canaryViewport.zoom).toBeGreaterThan(0);
+    expect(canaryViewport.zoom).toBeCloseTo(baselineViewport.zoom, 4);
+  } finally {
+    await baselinePage.close();
+    await canaryPage.close();
+  }
+});
+
 test("all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction", async ({
   page,
 }) => {
