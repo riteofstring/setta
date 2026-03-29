@@ -9582,3 +9582,38 @@ Record:
     - no reproducible zoom-time text blur, width jump, snap-after-redraw, or spacing/chrome drift was observed in that pass
 - Next action:
   - Revisit the remaining `main`-oracle zoom-parity blocker only when a read-only `main` session is available or a trustworthy automated zoomed-parity path exists; do not treat the rejected disposable parity routes as valid evidence.
+
+## 2026-03-29 291
+
+- Item: Probe a trustworthy automated zoomed-parity path for the live Pixi canary and re-check the live zoom blocker.
+- Status: `blocked`
+- Details:
+  - Re-checked `main` reference availability before attempting another zoomed parity guard:
+    - `curl -I http://127.0.0.1:3000/`
+    - `curl -I http://127.0.0.1:8000/`
+    - result: both connections were refused, so no local read-only `main` stack was reachable from this iteration
+  - Tried the remaining obvious Playwright path for a trustworthy zoomed baseline-vs-Pixi parity guard in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, but kept no test changes after both probes failed:
+    - probe 1:
+      - attempted to capture a real zoomed shared viewport before persisting it
+      - targeted run:
+        - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline after a real shared live Pixi zoom-in interaction" --reporter=line`
+      - result:
+        - rejected
+        - the Playwright-visible `zoom in` path never produced a stored zoom value greater than `1`, so this still did not provide a trustworthy non-default shared viewport
+    - probe 2:
+      - attempted to start both renderers from the same persisted initial viewport, then compare them after matching real `zoom in` interactions
+      - targeted run:
+        - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline after matching zoom-in interactions from the same shared viewport" --reporter=line`
+      - result:
+        - rejected
+        - on the baseline route, the checked visible `unpinned` DOM block bodies did not grow after `zoom in`, so the baseline Playwright geometry remained an untrustworthy oracle for this zoomed comparison
+  - Reverted the exploratory spec edits after those failed probes:
+    - no production or test changes are kept from this iteration
+  - Fresh-context Chrome DevTools MCP verification in a sub-agent context re-scoped the real blocker on the current live canary:
+    - `main` reference session was still unavailable (`http://127.0.0.1:3000/settings` refused the connection)
+    - baseline `http://127.0.0.1:3044/settings` did not show reproducible zoom-time blur or obvious chrome/spacing drift at browser zoom `100%`
+    - canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` did show a reproducible zoom-time repaint failure:
+      - after visible `zoom in` interactions, several section thumbnails turned into blank white rectangles and stayed blank across repeated zooms
+      - this reads as a real snap-after-redraw / repaint regression on the live Pixi path, not just an automation mismatch
+- Next action:
+  - Pivot to the live Pixi zoom-time repaint blocker itself: investigate why `pixi-node-body` section thumbnails can turn into persistent blank white rectangles after zoom, and do not spend another iteration on zoomed parity automation until that visible failure is resolved.
