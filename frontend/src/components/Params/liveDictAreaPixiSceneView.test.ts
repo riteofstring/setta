@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
+  getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiParamColumnWidth,
@@ -8,8 +9,10 @@ import {
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
+  getLiveDictAreaPixiUsableMaxCanvasHeight,
   LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY,
   LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH,
+  LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
 } from "./liveDictAreaPixiSceneView";
 
@@ -30,6 +33,87 @@ describe("getLiveDictAreaPixiMaxCanvasHeight", () => {
   it("skips clamping when the mounted container height is unavailable", () => {
     expect(getLiveDictAreaPixiMaxCanvasHeight(0)).toBeNull();
     expect(getLiveDictAreaPixiMaxCanvasHeight(Number.NaN)).toBeNull();
+  });
+});
+
+describe("getLiveDictAreaPixiUsableMaxCanvasHeight", () => {
+  it("drops pathological sub-row height clamps before building the live Pixi layout", () => {
+    expect(getLiveDictAreaPixiUsableMaxCanvasHeight(4)).toBeNull();
+    expect(
+      getLiveDictAreaPixiUsableMaxCanvasHeight(
+        LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT - 1,
+      ),
+    ).toBeNull();
+  });
+
+  it("keeps finite mounted heights once the card can show at least one useful row", () => {
+    expect(
+      getLiveDictAreaPixiUsableMaxCanvasHeight(
+        LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT + 7.8,
+      ),
+    ).toBe(LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT + 7);
+  });
+});
+
+describe("getLiveDictAreaPixiAvailableCanvasHeight", () => {
+  it("measures the remaining canvas height in unscaled layout space when offset metrics are available", () => {
+    const clippingContainer = {
+      clientHeight: 98,
+      getBoundingClientRect: () => ({
+        bottom: 9.8,
+        top: 0,
+      }),
+      offsetHeight: 98,
+      offsetParent: null,
+      offsetTop: 0,
+    };
+    const sceneRoot = {
+      clientHeight: 0,
+      getBoundingClientRect: () => ({
+        bottom: 9.8,
+        top: 5.5,
+      }),
+      offsetHeight: 0,
+      offsetParent: clippingContainer,
+      offsetTop: 35,
+    };
+
+    expect(
+      getLiveDictAreaPixiAvailableCanvasHeight({
+        clippingContainer,
+        sceneRoot,
+      }),
+    ).toBe(63);
+  });
+
+  it("falls back to transformed DOM rects when the offset-parent chain is unavailable", () => {
+    const clippingContainer = {
+      clientHeight: 0,
+      getBoundingClientRect: () => ({
+        bottom: 142.8,
+        top: 0,
+      }),
+      offsetHeight: 0,
+      offsetParent: null,
+      offsetTop: 0,
+    };
+    const sceneRoot = {
+      clientHeight: 0,
+      getBoundingClientRect: () => ({
+        bottom: 104.4,
+        top: 42.2,
+      }),
+      offsetHeight: 0,
+      offsetParent: null,
+      offsetTop: 18,
+    };
+
+    expect(
+      getLiveDictAreaPixiAvailableCanvasHeight({
+        clippingContainer,
+        sceneRoot,
+      }),
+    ).toBe(100);
   });
 });
 

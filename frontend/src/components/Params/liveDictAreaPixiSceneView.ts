@@ -3,6 +3,8 @@ import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
   "ui-sans-serif, system-ui, sans-serif";
 export const LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH = 200;
+export const LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT =
+  LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight;
 
 const LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET = {
   edgeLabelFontSize: 8,
@@ -31,6 +33,19 @@ type LiveDictAreaPixiFontFaceSet = Pick<
   "addEventListener" | "ready" | "removeEventListener" | "status"
 >;
 
+type LiveDictAreaPixiRectLike = {
+  bottom: number;
+  top: number;
+};
+
+type LiveDictAreaPixiOffsetElement = {
+  clientHeight: number;
+  getBoundingClientRect?: (() => LiveDictAreaPixiRectLike) | null;
+  offsetHeight: number;
+  offsetParent: LiveDictAreaPixiOffsetElement | null;
+  offsetTop: number;
+};
+
 type LiveDictAreaPixiTextStyleSource = {
   edgeLabelElement?: Element | null;
   edgeRowElement?: Element | null;
@@ -51,6 +66,53 @@ export function getLiveDictAreaPixiMaxCanvasHeight(containerHeight: number) {
   }
 
   return Math.floor(containerHeight);
+}
+
+export function getLiveDictAreaPixiUsableMaxCanvasHeight(
+  maxCanvasHeight: number | null | undefined,
+) {
+  if (
+    typeof maxCanvasHeight !== "number" ||
+    !Number.isFinite(maxCanvasHeight) ||
+    maxCanvasHeight < LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT
+  ) {
+    return null;
+  }
+
+  return Math.floor(maxCanvasHeight);
+}
+
+export function getLiveDictAreaPixiAvailableCanvasHeight({
+  clippingContainer,
+  sceneRoot,
+}: {
+  clippingContainer: LiveDictAreaPixiOffsetElement;
+  sceneRoot: LiveDictAreaPixiOffsetElement;
+}) {
+  const relativeOffsetTop = getLiveDictAreaPixiRelativeOffsetTop({
+    ancestor: clippingContainer,
+    element: sceneRoot,
+  });
+  const containerHeight =
+    clippingContainer.clientHeight > 0
+      ? clippingContainer.clientHeight
+      : clippingContainer.offsetHeight;
+
+  if (relativeOffsetTop !== null && containerHeight > 0) {
+    return getLiveDictAreaPixiMaxCanvasHeight(
+      containerHeight - relativeOffsetTop,
+    );
+  }
+
+  const clippingRect = clippingContainer.getBoundingClientRect?.();
+  const sceneRootRect = sceneRoot.getBoundingClientRect?.();
+  if (!clippingRect || !sceneRootRect) {
+    return null;
+  }
+
+  return getLiveDictAreaPixiMaxCanvasHeight(
+    clippingRect.bottom - sceneRootRect.top,
+  );
 }
 
 export function getLiveDictAreaPixiRenderResolution({
@@ -251,4 +313,22 @@ export function subscribeToLiveDictAreaPixiFontLoadInvalidation({
     fontFaceSet.removeEventListener("loadingdone", handleLoadingDone);
     fontFaceSet.removeEventListener("loadingerror", handleLoadingError);
   };
+}
+
+function getLiveDictAreaPixiRelativeOffsetTop({
+  ancestor,
+  element,
+}: {
+  ancestor: LiveDictAreaPixiOffsetElement;
+  element: LiveDictAreaPixiOffsetElement;
+}) {
+  let current: LiveDictAreaPixiOffsetElement | null = element;
+  let totalOffsetTop = 0;
+
+  while (current && current !== ancestor) {
+    totalOffsetTop += current.offsetTop;
+    current = current.offsetParent;
+  }
+
+  return current === ancestor ? totalOffsetTop : null;
 }

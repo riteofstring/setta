@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT } from "../../../src/components/Params/liveDictAreaPixiSceneView";
 import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_OVERLAY_MEASURE_NAME,
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_PRESENTATION_TAIL_MEASURE_NAME,
@@ -192,6 +193,9 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   expect(result?.rowCount).toBeGreaterThan(0);
   expect(result?.valuePreviewCount).toBeGreaterThan(0);
   expect(result?.availableHeight).toBeGreaterThan(0);
+  expect(result?.canvasCssHeight).toBeGreaterThanOrEqual(
+    LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
+  );
   expect(result?.canvasCssHeight).toBeLessThanOrEqual(
     (result?.sceneRootCssHeight ?? 0) + 1,
   );

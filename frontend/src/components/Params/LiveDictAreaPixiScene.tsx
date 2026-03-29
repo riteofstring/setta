@@ -18,13 +18,14 @@ import {
   type LiveDictAreaPixiRowLayout,
 } from "./liveDictAreaPixiLayout";
 import {
+  getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiLogicalCanvasWidth,
-  getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
+  getLiveDictAreaPixiUsableMaxCanvasHeight,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
   type LiveDictAreaPixiTextStyleSet,
 } from "./liveDictAreaPixiSceneView";
@@ -88,14 +89,17 @@ function _LiveDictAreaPixiScene({
     viewportZoom,
   });
   const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
+  const usableMaxCanvasHeight = getLiveDictAreaPixiUsableMaxCanvasHeight(
+    availableCanvasHeight,
+  );
   const summaryLayout = useMemo(
     () =>
       buildLiveDictAreaPixiLayout({
         liveDictAreaSceneBoundary,
-        maxCanvasHeight: availableCanvasHeight,
+        maxCanvasHeight: usableMaxCanvasHeight,
         width: logicalCanvasWidth,
       }),
-    [availableCanvasHeight, liveDictAreaSceneBoundary, logicalCanvasWidth],
+    [liveDictAreaSceneBoundary, logicalCanvasWidth, usableMaxCanvasHeight],
   );
 
   useLayoutEffect(() => {
@@ -146,11 +150,10 @@ function _LiveDictAreaPixiScene({
     }
 
     const updateAvailableHeight = () => {
-      const clippingRect = clippingContainer.getBoundingClientRect();
-      const sceneRootRect = sceneRoot.getBoundingClientRect();
-      const normalizedHeight = getLiveDictAreaPixiMaxCanvasHeight(
-        clippingRect.bottom - sceneRootRect.top,
-      );
+      const normalizedHeight = getLiveDictAreaPixiAvailableCanvasHeight({
+        clippingContainer,
+        sceneRoot,
+      });
 
       setAvailableCanvasHeight((currentHeight) =>
         currentHeight === normalizedHeight ? currentHeight : normalizedHeight,

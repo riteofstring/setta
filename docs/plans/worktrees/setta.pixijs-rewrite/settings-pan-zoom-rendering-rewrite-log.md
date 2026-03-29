@@ -8753,3 +8753,40 @@ Record:
     - no safe code fix was verified this iteration, so nothing was committed
 - Next action:
   - Debug why the restarted live canary mounts Pixi canvases but never exposes populated row/value body content, starting from the live boundary/data path on the running worktree instead of doing more probe-only or text-resolution-only tweaks.
+
+## 2026-03-29 269
+
+- Item: Ignore pathological tiny live Pixi height clamps so the visible All Settings canary cannot collapse to a separator-only canvas.
+- Status: `done`
+- Details:
+  - Took the next bounded live-canary blocker directly from the fresh CDP diagnosis instead of another parity-token tweak:
+    - the checked `All Settings` cards were still collapsing to effectively separator-height Pixi canvases while the only repeated `Default Zoom Level` text came from the hidden DOM style probes
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Added a `LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT` guard so the scene still records raw measured available height for diagnostics but refuses to apply sub-row-height clamps when building the live Pixi layout.
+  - This keeps the pathological `4px`-style collapse from turning visible cards into separator-only canvases while leaving normal mounted card-body clamps in place.
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`21 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - Playwright:
+      - direct current-worktree retry with the provided bootstrap token:
+        - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+        - result: blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401`
+      - helper retry:
+        - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+        - result: blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401` even after the helper minted a fresh token
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+      - opened `All Settings`
+      - verified the previously collapsed visible Pixi card was no longer stuck at a `4px` separator
+      - supporting measurement from the checked visible card:
+        - canvas `60×32px`
+      - screenshot confirmed the checked card now rendered actual scene body area instead of only the separator strip
+- Next action:
+  - Continue live Pixi parity tightening from this non-collapsed canary state, starting with a fresh baseline-vs-canary comparison for the remaining row/content differences now that the separator-collapse blocker is cleared.
