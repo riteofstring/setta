@@ -423,6 +423,8 @@ test("settings workspace chrome reset hides stale project chat chrome without mu
   await resetProjectWorkspaceChromeToDefaultLayout(page);
   await expect(projectChatWindowTitle).toHaveCount(0);
   expect(await readVisibleProjectChatChrome(page)).toEqual({
+    bottomDockPillCount: 0,
+    bottomDockPillTitles: [],
     bottomDockWindowCount: 0,
     floatingWindowCount: 0,
     managerMenuItemCount: 0,
@@ -468,14 +470,23 @@ test("settings graph comparison chrome hide collapses non-target panes and stale
           "project-chat-window-1": createProjectChatWindowInstance({
             instanceId: "project-chat-window-1",
             isClosed: false,
+            isMinimized: true,
           }),
         },
       }),
     });
   });
-  await expect(page.getByTestId("project-chat-window-title")).toContainText(
-    "Chat Window 1",
-  );
+  await expect(
+    page.locator(
+      '[data-testid="project-chat-bottom-dock-pill"][data-chat-window-instance-id="project-chat-window-1"]',
+    ),
+  ).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      return (await readVisibleProjectChatChrome(page)).bottomDockPillCount;
+    })
+    .toBeGreaterThan(0);
 
   await hideProjectWorkspaceChromeForGraphComparison(page);
 
@@ -511,6 +522,8 @@ test("settings graph comparison chrome hide collapses non-target panes and stale
     })
     .toBe(true);
   expect(await readVisibleProjectChatChrome(page)).toEqual({
+    bottomDockPillCount: 0,
+    bottomDockPillTitles: [],
     bottomDockWindowCount: 0,
     floatingWindowCount: 0,
     managerMenuItemCount: 0,
@@ -2999,6 +3012,8 @@ test("all settings baseline and the read-only main reference share the same norm
     });
     expect(baselineChatChrome).toEqual(mainReferenceChatChrome);
     expect(baselineChatChrome).toEqual({
+      bottomDockPillCount: 0,
+      bottomDockPillTitles: [],
       bottomDockWindowCount: 0,
       floatingWindowCount: 0,
       managerMenuItemCount: 0,

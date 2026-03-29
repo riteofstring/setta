@@ -9,31 +9,36 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 ## Current status
 
 - Latest terminal loop status: `SUBTASK_DONE`
-- Current gate focus: Gate 2 next actual renderer-drift check on the normalized `/settings` compare surface now that the centered `browserSectionDefault` parity lane is trusted again.
-- This iteration stayed on the direct compare-surface blocker and changed no production or test files.
+- Current gate focus: Gate 2 next actual renderer-drift check on the normalized `/settings` compare surface; the minimized project-chat pill blocker on that support path is now covered again.
+- This iteration stayed on the compare-surface support blocker and changed only E2E helper/spec coverage, not production renderer code.
 - Result:
-  - a fresh-context CDP retry succeeded when it stayed strictly on `/settings` for both apps and used freshly refreshed bootstrap/session values
-  - the worktree no longer drifted back to shell state during `loadProjectState(JSON.parse(snapshot))`; that earlier failure was not reproduced on the strict `/settings` route
-  - the paired canary/main compare surface was trustworthy again after replay and normalization, and the checked `browserSectionDefault` surface did not show post-replay drift versus `main`
+  - a fresh CDP inspection found the compare surface could still be contaminated by a worktree-only bottom-right `Chat Window 1` minimized pill
+  - `frontend/tests/e2e/helpers.ts` now treats minimized bottom-dock chat pills as visible compare-surface chrome when resetting/hiding workspace chrome
+  - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` now seeds the exact minimized-pill stale state and verifies that the graph-comparison helper clears it
+  - the focused Playwright slice passed after refreshing the worktree bootstrap token from `setta status`
+  - a fresh-context CDP smoke check on the live worktree `/settings` UI saw no stray bottom-right chat pill or floating chat window after normal load
 
 ## Recent evidence
 
-- Fresh runtime values used for the successful retry:
-  - worktree: `frontend 3043`, `backend 8043`, bootstrap session `401dc9`
-  - main reference: `frontend 3087`, `backend 8087`, bootstrap session `d6b4a9`
-- Fresh-context CDP visual check via sub-agent:
+- Focused Playwright verification:
+  - command:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh token from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|settings graph comparison chrome hide collapses non-target panes and stale project chat chrome after overview navigation'`
+  - result:
+    - passed (`2 passed`, about `23.6s`)
+- Focused formatting verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+- Fresh-context CDP smoke visual check via sub-agent:
   - result: done
-  - route-state trace:
-    - main bootstrap `/__setta__/bootstrap` -> main `/settings` with project `settings`, `46` sections
-    - worktree bootstrap `/__setta__/bootstrap` -> worktree `/settings` with project `settings`, `46` sections
-    - replayed main JSON snapshot into the worktree successfully, with the worktree converging to the same `/settings` project id/name/view state as `main`
-    - clicked `browserSectionDefault`, normalized to `1600x1000`, and kept both tabs synchronized on `/settings`
-  - net result: `CDP visual check: done (state-matched compare surface normalized; no post-replay drift on the checked browserSectionDefault surface)`
+  - visible chat chrome state:
+    - no stray bottom-right chat pill
+    - no floating chat window
+    - only the app's fixed bottom-right controls remained visible
 
 ## Immediate next frontier
 
-- Treat the centered `browserSectionDefault` compare-surface lane as closed.
-- Return to the product lane and identify the next real Gate 2 renderer defect outside this closed parity setup path, using the now-trusted normalized `/settings` CDP flow only as the oracle.
+- Treat the minimized-pill compare-surface blocker as closed again.
+- Return to the product lane and identify the next real Gate 2 renderer defect on the normalized replayed `All Settings` surface, rather than spending another iteration on chat chrome or persisted local view-mode residue.
 
 ## Durable completed work
 
@@ -42,7 +47,7 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 ## History pointers
 
-- Active history window: items `380` through `411`
-- Latest item: `2026-04-01 411`
+- Active history window: items `380` through `413`
+- Latest item: `2026-04-01 413`
 - Prior product slice: `2026-04-01 403`
 - Older detail before item `380`: use the history index to find the relevant archive file

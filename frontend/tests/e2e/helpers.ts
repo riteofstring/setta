@@ -33,6 +33,8 @@ const PROJECT_CHAT_WINDOW_CHROME_SELECTORS = [
   '[data-testid="project-chat-maximized-window"]',
   '[data-testid="project-chat-window-title"]',
 ] as const;
+const PROJECT_CHAT_WINDOW_PILL_SELECTOR =
+  '[data-testid="project-chat-bottom-dock-pill"]';
 const PROJECT_CHAT_MANAGER_MENU_SELECTOR =
   '[data-testid="project-chat-bottom-dock-menu-content"]';
 const PROJECT_CHAT_MANAGER_MENU_ITEM_SELECTOR =
@@ -382,29 +384,35 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
       window.requestAnimationFrame(() => resolve());
     });
   }, HIDDEN_PROJECT_CHAT_WINDOW_ID);
-  await page.waitForFunction((selectors: readonly string[]) => {
-    const isVisible = (element: Element) => {
-      if (!(element instanceof HTMLElement)) {
-        return false;
-      }
-      const style = window.getComputedStyle(element);
-      if (
-        style.display === "none" ||
-        style.visibility === "hidden" ||
-        Number.parseFloat(style.opacity || "1") === 0
-      ) {
-        return false;
-      }
-      const rect = element.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0;
-    };
+  await page.waitForFunction(
+    (selectors: readonly string[]) => {
+      const isVisible = (element: Element) => {
+        if (!(element instanceof HTMLElement)) {
+          return false;
+        }
+        const style = window.getComputedStyle(element);
+        if (
+          style.display === "none" ||
+          style.visibility === "hidden" ||
+          Number.parseFloat(style.opacity || "1") === 0
+        ) {
+          return false;
+        }
+        const rect = element.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0;
+      };
 
-    return selectors.every((selector) =>
-      Array.from(document.querySelectorAll(selector)).every(
-        (element) => !isVisible(element),
-      ),
-    );
-  }, PROJECT_CHAT_WINDOW_CHROME_SELECTORS);
+      return selectors.every((selector) =>
+        Array.from(document.querySelectorAll(selector)).every(
+          (element) => !isVisible(element),
+        ),
+      );
+    },
+    [
+      ...PROJECT_CHAT_WINDOW_CHROME_SELECTORS,
+      PROJECT_CHAT_WINDOW_PILL_SELECTOR,
+    ],
+  );
   await closeProjectChatManagerMenuIfVisible(page);
 }
 
@@ -453,33 +461,39 @@ export async function hideProjectWorkspaceChromeForGraphComparison(
       window.requestAnimationFrame(() => resolve());
     });
   }, HIDDEN_PROJECT_CHAT_WINDOW_ID);
-  await page.waitForFunction((selectors: readonly string[]) => {
-    const isHidden = (selector: string) => {
-      return Array.from(document.querySelectorAll(selector)).every(
-        (element) => {
-          if (!(element instanceof HTMLElement)) {
-            return true;
-          }
-          const style = window.getComputedStyle(element);
-          if (
-            style.display === "none" ||
-            style.visibility === "hidden" ||
-            Number.parseFloat(style.opacity || "1") === 0
-          ) {
-            return true;
-          }
-          const rect = element.getBoundingClientRect();
-          return rect.width === 0 || rect.height === 0;
-        },
-      );
-    };
+  await page.waitForFunction(
+    (selectors: readonly string[]) => {
+      const isHidden = (selector: string) => {
+        return Array.from(document.querySelectorAll(selector)).every(
+          (element) => {
+            if (!(element instanceof HTMLElement)) {
+              return true;
+            }
+            const style = window.getComputedStyle(element);
+            if (
+              style.display === "none" ||
+              style.visibility === "hidden" ||
+              Number.parseFloat(style.opacity || "1") === 0
+            ) {
+              return true;
+            }
+            const rect = element.getBoundingClientRect();
+            return rect.width === 0 || rect.height === 0;
+          },
+        );
+      };
 
-    return (
-      isHidden("#OverviewPane") &&
-      isHidden("#UiEditorPane") &&
-      selectors.every((selector) => isHidden(selector))
-    );
-  }, PROJECT_CHAT_WINDOW_CHROME_SELECTORS);
+      return (
+        isHidden("#OverviewPane") &&
+        isHidden("#UiEditorPane") &&
+        selectors.every((selector) => isHidden(selector))
+      );
+    },
+    [
+      ...PROJECT_CHAT_WINDOW_CHROME_SELECTORS,
+      PROJECT_CHAT_WINDOW_PILL_SELECTOR,
+    ],
+  );
   await closeProjectChatManagerMenuIfVisible(page);
 }
 
@@ -495,6 +509,8 @@ export type ProjectWorkspaceChromeLayoutSnapshot = {
 };
 
 export type VisibleProjectChatChromeSnapshot = {
+  bottomDockPillCount: number;
+  bottomDockPillTitles: string[];
   bottomDockWindowCount: number;
   floatingWindowCount: number;
   managerMenuItemCount: number;
@@ -535,10 +551,12 @@ export async function readVisibleProjectChatChrome(
 ): Promise<VisibleProjectChatChromeSnapshot> {
   return page.evaluate(
     ({
+      pillSelector,
       managerMenuItemSelector,
       managerMenuSelector,
       selectors,
     }: {
+      pillSelector: string;
       managerMenuItemSelector: string;
       managerMenuSelector: string;
       selectors: readonly string[];
@@ -568,8 +586,16 @@ export async function readVisibleProjectChatChrome(
         .filter(isVisible)
         .map((element) => element.textContent?.trim() ?? "")
         .filter((title) => title.length > 0);
+      const bottomDockPillTitles = Array.from(
+        document.querySelectorAll(pillSelector),
+      )
+        .filter(isVisible)
+        .map((element) => element.textContent?.trim() ?? "")
+        .filter((title) => title.length > 0);
 
       return {
+        bottomDockPillCount: countVisible(pillSelector),
+        bottomDockPillTitles,
         bottomDockWindowCount: countVisible(selectors[1] ?? ""),
         floatingWindowCount: countVisible(selectors[0] ?? ""),
         managerMenuItemCount: countVisible(managerMenuItemSelector),
@@ -579,6 +605,7 @@ export async function readVisibleProjectChatChrome(
       };
     },
     {
+      pillSelector: PROJECT_CHAT_WINDOW_PILL_SELECTOR,
       managerMenuItemSelector: PROJECT_CHAT_MANAGER_MENU_ITEM_SELECTOR,
       managerMenuSelector: PROJECT_CHAT_MANAGER_MENU_SELECTOR,
       selectors: PROJECT_CHAT_WINDOW_CHROME_SELECTORS,

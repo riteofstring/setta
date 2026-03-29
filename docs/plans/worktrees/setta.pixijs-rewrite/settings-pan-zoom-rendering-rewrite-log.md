@@ -13809,6 +13809,55 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 413
+
+- Item: Make graph-comparison chrome reset wait for minimized project-chat pills too.
+- Status: `done`
+- Details:
+  - Canonical appended entry for this iteration.
+  - Stayed on the compare-surface support lane because a fresh CDP inspection reported a worktree-only bottom-right `Chat Window 1` minimized pill contaminating the normalized `/settings` surface again.
+  - In `frontend/tests/e2e/helpers.ts`, the workspace-chrome reset/hide helpers now treat `[data-testid="project-chat-bottom-dock-pill"]` as visible project chat chrome and wait for those pills to disappear before reporting success.
+  - `readVisibleProjectChatChrome()` now reports `bottomDockPillCount` and `bottomDockPillTitles` so the settings canary assertions can fail on pill-only drift instead of window-only drift.
+  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, the focused graph-comparison helper regression now seeds a minimized `project-chat-window-1` pill after overview navigation and asserts that the helper removes it.
+  - No production renderer files changed in this iteration.
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh token from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|settings graph comparison chrome hide collapses non-target panes and stale project chat chrome after overview navigation'`
+    - result: passed (`2 passed`, about `23.6s`)
+    - note: the first attempt failed in global setup because the loop-start `SETTA_BOOTSTRAP_TOKEN` was stale/missing for Playwright; rerunning with a fresh token from `setta status --connect-info --latest --json --workspace .` fixed auth bootstrap
+  - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Fresh-context CDP smoke visual check via sub-agent on worktree `/settings`
+    - result: done
+    - no stray bottom-right chat pill or floating chat window was visible after normal load; only the app's fixed bottom-right controls remained
+- Next action:
+  - Return to the product lane and identify the next actual Gate 2 renderer drift on the normalized replayed `All Settings` compare surface instead of spending another pass on chat chrome detection.
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-01 412
+
+- Item: Make graph-comparison chrome reset wait for minimized project-chat pills too.
+- Status: `done`
+- Details:
+  - Stayed on the compare-surface support lane because a fresh CDP inspection reported a worktree-only bottom-right `Chat Window 1` minimized pill contaminating the normalized `/settings` surface again.
+  - In `frontend/tests/e2e/helpers.ts`, the workspace-chrome reset/hide helpers now treat `[data-testid="project-chat-bottom-dock-pill"]` as visible project chat chrome and wait for those pills to disappear before reporting success.
+  - `readVisibleProjectChatChrome()` now reports `bottomDockPillCount` and `bottomDockPillTitles` so the settings canary assertions can fail on pill-only drift instead of window-only drift.
+  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, the focused graph-comparison helper regression now seeds a minimized `project-chat-window-1` pill after overview navigation and asserts that the helper removes it.
+  - No production renderer files changed in this iteration.
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh token from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|settings graph comparison chrome hide collapses non-target panes and stale project chat chrome after overview navigation'`
+    - result: passed (`2 passed`, about `23.6s`)
+    - note: the first attempt failed in global setup because the loop-start `SETTA_BOOTSTRAP_TOKEN` was stale/missing for Playwright; rerunning with a fresh token from `setta status --connect-info --latest --json --workspace .` fixed auth bootstrap
+  - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Fresh-context CDP smoke visual check via sub-agent on worktree `/settings`
+    - result: done
+    - no stray bottom-right chat pill or floating chat window was visible after normal load; only the app's fixed bottom-right controls remained
+- Next action:
+  - Return to the product lane and identify the next actual Gate 2 renderer drift on the normalized replayed `All Settings` compare surface instead of spending another pass on chat chrome detection.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 412
 
 - Item: Re-establish the paired fresh-context `/settings` CDP compare surface for `browserSectionDefault`.
