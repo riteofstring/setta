@@ -11018,3 +11018,33 @@ Record:
     - no obvious visual breakage was observed, but the live worktree zoom-in control remained inert in this CDP check
 - Next action:
   - Investigate why the headed worktree canary still shows an inert live `zoom in` interaction after fit-view settles even though the isolated Playwright canary now passes end-to-end; the next real frontier is that runtime divergence, not another harness rewrite.
+
+## 2026-03-30 335
+
+- Item: Resolve the headed live Pixi zoom-in runtime divergence report after one bounded worktree lifecycle recovery.
+- Status: `done`
+- Details:
+  - Continued directly from item `334` and kept the slice strictly on the reported headed-runtime blocker instead of starting another renderer or harness lane.
+  - The initial fresh-context CDP probe could not run because the advertised worktree DevTools port (`9265`) was not listening.
+  - Per the non-main worktree recovery rule, performed the one bounded local restart:
+    - `./aireset.sh`
+  - Refreshed runtime values after recovery:
+    - frontend: `http://127.0.0.1:3044/`
+    - backend: `http://127.0.0.1:8044`
+    - Chrome DevTools: `9266`
+    - session id: `8fd534`
+  - Re-ran the headed CDP check in a fresh sub-agent context against the recovered worktree runtime and verified the earlier `zoom in` report was a verifier artifact, not a product/runtime bug:
+    - after forcing `fit view` to settle, the live Pixi canary viewport was `translate(632.4px, -10.2px) scale(0.1)`
+    - at that point `zoom out` was disabled and `zoom in` was enabled
+    - a real headed `zoom in` click changed the viewport to `translate(614.88px, -103.64px) scale(0.12)`
+    - a second headed `zoom in` click changed it again to `translate(593.856px, -215.768px) scale(0.144)`
+    - `zoom out` became enabled after the first zoom-in click as expected
+  - No production frontend/backend code changed in this iteration because the reported divergence did not reproduce on the recovered live runtime.
+- Verification:
+  - Playwright focused:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+    - result: passed (`1` passed)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the recovered worktree runtime (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`):
+    - result: passed; the attached React Flow transform increased from `0.1` to `0.12` and then `0.144` after real headed `zoom in` clicks, so the earlier inert-control report was a verification artifact
+- Next action:
+  - Return to the normalized live Pixi `main`-oracle parity investigation and identify the next smallest real visual blocker on `All Settings`; the zoom-in runtime-divergence lane is complete.
