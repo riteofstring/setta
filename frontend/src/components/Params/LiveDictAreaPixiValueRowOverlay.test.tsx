@@ -37,6 +37,12 @@ vi.mock("./LiveDictAreaPixiValueOverlaySceneRow", () => ({
   },
 }));
 
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (
+    selector: (state: { transform: [number, number, number] }) => unknown,
+  ) => selector({ transform: [0, 0, 0.1] }),
+}));
+
 describe("LiveDictAreaPixiValueRowOverlay", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -111,6 +117,7 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
     expect(overlay?.style.contain).toBe("layout paint");
     expect(overlay?.style.right).toBe("");
     expect(overlay?.style.width).toBe("280px");
+    expect(overlay?.style.transform).toBe("");
     expect(overlay?.firstElementChild?.className).toBe("min-h-0 w-full pr-1.5");
     expect(sceneRowCalls).toHaveLength(1);
     expect(sceneRowCalls[0]?.target).toMatchObject({
@@ -125,5 +132,51 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
         "[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='pinned-value']",
       ),
     ).not.toBeNull();
+  });
+
+  it("counter-scales live Pixi CodeMirror overlays when the viewport is zoomed out", () => {
+    const target: LiveDictAreaPixiValueRowTarget = {
+      blockId: "pinned",
+      editorKind: "codemirror",
+      handleColumnResizeStart: vi.fn(),
+      height: 44,
+      label: "Pinned Value",
+      listKey: "pinned",
+      requiredParamIdsToPaths: {
+        "pinned-value": ["pinned-group", "pinned-value"],
+      },
+      rowId: "pinned-value",
+      sectionId: "section-1",
+      styleColor: null,
+      width: 280,
+      x: 16,
+      y: 24,
+    };
+    const rowState: LiveDictAreaPixiValueOverlayRowState = {
+      coreNameEditable: false,
+      description: "Pinned value description",
+      errorMessage: "",
+      isFocusedSearchResult: false,
+      isSearchResult: false,
+      isSelected: false,
+      paramName: "Pinned Value",
+    };
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiValueRowOverlay
+          editorKind="codemirror"
+          hasSectionStyleTheme={true}
+          rowState={rowState}
+          target={target}
+        />,
+      );
+    });
+
+    const overlay = container.querySelector<HTMLElement>(
+      "[data-live-dict-area-editor-overlay='active']",
+    );
+    expect(overlay?.style.transform).toBe("scale(10)");
+    expect(overlay?.style.transformOrigin).toBe("top left");
   });
 });

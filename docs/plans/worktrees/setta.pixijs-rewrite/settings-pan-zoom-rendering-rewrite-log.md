@@ -7910,3 +7910,43 @@ Record:
     - the required visual gate failed because the inline CodeMirror editor rendered as a tiny, clipped stack instead of a sane readable overlay row
 - Next action:
   - Investigate and fix the reproducible clipped/tiny live Pixi `defaultZoomLevel` CodeMirror overlay canary before treating these new presented-tail timings as an accepted progress point.
+
+## 2026-03-29 249
+
+- Item: Neutralize the zoomed-out React Flow viewport scale for the live Pixi `defaultZoomLevel` CodeMirror overlay canary.
+- Status: `done`
+- Details:
+  - Fixed the active live Pixi CodeMirror overlay on the exact blocked canary instead of continuing another timing-only or overlay-shell micro-optimization:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowOverlayView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowOverlayView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Added a small pure overlay-style helper so the live Pixi value-row overlay can explicitly counter-scale CodeMirror overlays only when the React Flow viewport is zoomed out:
+    - keeps the existing flow-space behavior for non-CodeMirror overlays
+    - keeps the existing behavior unchanged at normal or zoomed-in scales
+    - fixes the blocked `0.1` zoom live canary by preventing the active CodeMirror overlay from inheriting the tiny viewport scale
+  - Tightened the live canary regression coverage around the real failure mode:
+    - unit coverage now proves the zoomed-out CodeMirror overlay receives the counter-scale transform
+    - the Playwright canary now checks overlay-shell geometry instead of only asserting that a CodeMirror node mounted somewhere in the overlay
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueRowOverlayView.test.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+      - result: passed (`5 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiValueRowOverlayView.ts src/components/Params/liveDictAreaPixiValueRowOverlayView.test.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - Playwright:
+      - direct run and helper run both hit the existing bootstrap/global-setup auth flake before product assertions:
+        - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN=<current bootstrap token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+        - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+      - result: blocked by `Playwright global setup failed` after bootstrap `401`
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+      - visual gate passed on the previously failing `defaultZoomLevel` CodeMirror handoff
+      - the live React Flow zoom remained `0.1`
+      - active overlay root geometry was about `308 x 20`
+      - the inline `.cm-editor` geometry was about `29 x 16`
+      - the overlay no longer rendered as a collapsed/tiny clipped stack in the checked viewport
+      - representative successful requests included `POST /api/getFolderContents` and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Return to the presented-tail timing lane on the same live Pixi `defaultZoomLevel` canary now that the visual blocker is cleared, and re-measure the post-ready presentation tail against this fixed overlay path.

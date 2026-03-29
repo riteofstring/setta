@@ -1,6 +1,8 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import { useLayoutEffect } from "react";
 import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueOverlaySceneRow } from "./LiveDictAreaPixiValueOverlaySceneRow";
+import { buildLiveDictAreaPixiValueRowOverlayStyle } from "./liveDictAreaPixiValueRowOverlayView";
 import { markLiveDictAreaPixiValueRowOverlayMounted } from "./liveDictAreaPixiValueRowPerf";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 import {
@@ -21,6 +23,8 @@ export function LiveDictAreaPixiValueRowOverlay({
   rowState,
   target,
 }: LiveDictAreaPixiValueRowOverlayProps) {
+  const viewportZoom = useReactFlow((state) => state.transform[2]);
+
   useLayoutEffect(() => {
     markLiveDictAreaPixiValueRowOverlayMounted({
       editorKind,
@@ -36,13 +40,11 @@ export function LiveDictAreaPixiValueRowOverlay({
         data-live-dict-area-editor-overlay-editor-kind={editorKind}
         data-live-dict-area-editor-overlay-kind="value-row"
         data-live-dict-area-editor-overlay-row-id={target.rowId}
-        style={{
-          contain: "layout paint",
-          left: target.x,
-          minHeight: target.height,
-          top: target.y,
-          width: target.width,
-        }}
+        style={buildLiveDictAreaPixiValueRowOverlayStyle({
+          editorKind,
+          target,
+          viewportZoom,
+        })}
       >
         <div className="min-h-0 w-full pr-1.5">
           <LiveDictAreaPixiValueOverlaySceneRow
