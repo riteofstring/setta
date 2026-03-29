@@ -9,38 +9,14 @@ authors = [
     {name = "Kevin Musgrave"},
     {name = "Jeff Musgrave"}
 ]
-description = "Python without the donkeywork."
+description = "Go-powered Setta runtime with Python SDK and packaging support."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.12,<3.14"
 dependencies = [
-    "claude-agent-sdk==0.1.21",
-    "click==8.2.1",
-    "requests==2.32.4",
-    "PyYAML==6.0.2",
-    "toml==0.10.2",
-    "websockets==15.0.1",
-    "fastapi==0.115.12",
-    "uvicorn==0.34.3",
-    "docstring_parser==0.16",
-    "Jinja2==3.1.4",
-    "pywinpty==2.0.15; platform_system == 'Windows'",
-    "ptyprocess==0.7.0; platform_system != 'Windows'",
-    "psutil==7.0.0",
+    "claude-agent-sdk==0.1.52",
     "basedpyright==1.25.0",  # later versions were slower, so stick with this version
-    "docstring-to-markdown==0.17",
-    "watchdog==6.0.0",
-    "python-dotenv==1.1.0",
-    "mcp==1.25.0",
-    "litellm==1.80.15",
     "ruff==0.12.12",
-    "pydantic==2.11.5",
-    "jsonschema==4.25.1",
-    "packaging==25.0",
-    "lsprotocol==2023.0.1",
-    "watchfiles==0.24.0",
-    "bm25s==0.2.14",
-    "rectangle-packer==2.0.5"
 ]
 
 [project.urls]
@@ -48,25 +24,54 @@ Homepage = "https://setta.dev"
 GitHub = "https://github.com/settadev/setta"
 
 [project.scripts]
-setta = "setta.start:cli"
+setta = "setta.entrypoint:main"
 
 [project.optional-dependencies]
+source = [
+    # Python SDK/source-only modules that still have live callers.
+    "requests==2.32.4",
+    "websockets==15.0.1",
+    "psutil==7.0.0",
+    "mcp==1.25.0",
+    "pydantic==2.11.5",
+    "watchfiles==0.24.0",
+]
 dev = [
+    # Repo-only test, release, and auxiliary script tooling.
     "build==1.0.3",
     "pip-audit==2.9.0",
+    "pyyaml==6.0.2",
     "pytest==8.3.3",
     "pytest-asyncio==0.23.8",
-    "pytest-xdist==3.6.1",
-]
-gemini = [
-    "google-cloud-aiplatform==1.128.0",
+    "python-dotenv==1.1.0",
+    "twine==6.1.0",
+    "watchdog==6.0.0",
 ]
 
 [tool.hatch.version]
 path = "backend/setta/__init__.py"
 
 [tool.hatch.build.targets.wheel]
-packages = ["backend/setta"]
+only-include = [
+    "backend/setta/__init__.py",
+    "backend/setta/__main__.py",
+    "backend/setta/entrypoint.py",
+]
+sources = ["backend"]
+exclude = [
+    "backend/setta/**/__pycache__/**",
+]
+
+[tool.hatch.build.targets.wheel.force-include]
+"backend/setta/static/frontend" = "setta/static/frontend"
+"backend/setta/agentic/external_adapters/sidecars" = "setta/agentic/external_adapters/sidecars"
+"backend/setta/vendor/node" = "setta/vendor/node"
+"backend/setta/plugins/schemas" = "setta/plugins/schemas"
+"backend/setta/launcher_artifacts/assets" = "setta/launcher_artifacts/assets"
+"backend/setta/go_bin" = "setta/go_bin"
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -82,4 +87,5 @@ artifacts = [
     "backend/setta/vendor/node/**",
     "backend/setta/plugins/schemas/**",
     "backend/setta/launcher_artifacts/assets/**",
+    "backend/setta/go_bin/**",
 ]
