@@ -495,17 +495,19 @@ function drawLiveDictAreaParamArea({
     y: block.y,
   });
 
-  graphics.addChild(
-    drawSceneTitle({
-      palette,
-      textResolution,
-      text: block.title.toUpperCase(),
-      textFontFamily,
-      textStyleSet,
-      x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
-      y: block.y + 9,
-    }),
-  );
+  if (block.headerHeight > 0) {
+    graphics.addChild(
+      drawSceneTitle({
+        palette,
+        textResolution,
+        text: block.title.toUpperCase(),
+        textFontFamily,
+        textStyleSet,
+        x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
+        y: block.y + 9,
+      }),
+    );
+  }
 
   for (const row of block.rows) {
     graphics.addChild(

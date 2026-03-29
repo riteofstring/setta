@@ -144,13 +144,41 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   await openAllSettingsLivePixiCanary(page);
 
   const metrics = await page.waitForFunction(() => {
-    const sceneRoot = document.querySelector<HTMLElement>(
-      "[data-live-dict-area-render-mode='pixi-node-body']",
-    );
-    if (!sceneRoot) {
+    const visibleSceneRoots = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-render-mode='pixi-node-body']",
+      ),
+    ).filter((sceneRoot) => {
+      const rect = sceneRoot.getBoundingClientRect();
+
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.top < window.innerHeight
+      );
+    });
+    const visibleSceneRoot = visibleSceneRoots.find((sceneRoot) => {
+      const sceneHost = sceneRoot.querySelector<HTMLElement>(
+        "[data-live-dict-area-scene='pixi']",
+      );
+      const sceneCanvas = sceneHost?.querySelector("canvas");
+      if (!sceneHost || !sceneCanvas) {
+        return false;
+      }
+
+      const rowCount = Number.parseInt(
+        sceneHost.getAttribute("data-live-dict-area-scene-row-count") ?? "0",
+        10,
+      );
+
+      return rowCount > 0;
+    });
+    if (!visibleSceneRoot) {
       return null;
     }
-    const sceneHost = sceneRoot.querySelector<HTMLElement>(
+
+    const sceneHost = visibleSceneRoot.querySelector<HTMLElement>(
       "[data-live-dict-area-scene='pixi']",
     );
     const sceneCanvas = sceneHost?.querySelector("canvas");
@@ -165,10 +193,10 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
         10,
       ),
       canvasCssHeight: sceneCanvas.getBoundingClientRect().height,
-      localParamContainerCount: sceneRoot.querySelectorAll(
+      localParamContainerCount: visibleSceneRoot.querySelectorAll(
         '[id^="ParamContainer-"]',
       ).length,
-      sceneRootCssHeight: sceneRoot.getBoundingClientRect().height,
+      sceneRootCssHeight: visibleSceneRoot.getBoundingClientRect().height,
       valuePreviewCount: Number.parseInt(
         sceneHost.getAttribute(
           "data-live-dict-area-scene-value-preview-count",
@@ -183,12 +211,14 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
         sceneHost.getAttribute("data-live-dict-area-scene-block-count") ?? "0",
         10,
       ),
+      visibleSceneRootCount: visibleSceneRoots.length,
     };
   });
 
   const result = await metrics.jsonValue();
 
   expect(result).not.toBeNull();
+  expect(result?.visibleSceneRootCount).toBeGreaterThan(0);
   expect(result?.sceneBlockCount).toBeGreaterThan(0);
   expect(result?.rowCount).toBeGreaterThan(0);
   expect(result?.valuePreviewCount).toBeGreaterThan(0);

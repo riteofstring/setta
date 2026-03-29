@@ -8825,3 +8825,45 @@ Record:
       - screenshot confirmed the checked card now rendered actual scene body area instead of only the separator strip
 - Next action:
   - Continue live Pixi parity tightening from this non-collapsed canary state, starting with a fresh baseline-vs-canary comparison for the remaining row/content differences now that the separator-collapse blocker is cleared.
+
+## 2026-03-29 270
+
+- Item: Switch short live Pixi preview cards into a compact row-preview mode so visible All Settings cards stop rendering as header-only shells.
+- Status: `done`
+- Details:
+  - Took the next bounded canary fix directly from the fresh baseline-vs-canary comparison:
+    - baseline `/settings` still showed populated visible card bodies for rows such as `advancedSearchShortcut`, `defaultZoomLevel`, `Auto Refetch Callable Params On LSP Mismatch`, `maxHeight`, and `reportSelfClsParameterName`
+    - the live `?liveDictAreaRenderer=pixi-node-body` canary was still leaving those same visible cards as header-only/empty shells because short mounted card bodies could spend all available height on the internal Pixi param-area header and padding, leaving zero visible rows
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The live Pixi param-area layout now:
+    - switches short clamped preview cards into a compact headerless mode instead of trying to fit the full param-area header plus padding into the mounted preview height
+    - uses a compact single-row minimum usable height guard so pathological near-zero clamps are ignored before they can produce another header-only visible card
+    - skips drawing the internal Pixi param-area title when compact preview mode is active
+  - Tightened the canary Playwright assertion so it now looks for a visible populated Pixi scene host instead of any scene host in the document, which matches the real user-facing failure mode better.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`26 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - direct retry with the current loop bootstrap token:
+      - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` because `/__setta__/bootstrap#token=...` still returned `401`
+    - helper retry:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked by the same bootstrap `401` after the helper minted a fresh token and restarted its disposable backend/frontend pair
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - visible `All Settings` cards that previously rendered as header-only shells now showed body rows/value previews instead
+    - no obviously header-only visible card remained in the checked viewport
+    - remaining drift is smaller and visual, not structural: previews still look somewhat compressed/low-contrast versus the baseline DOM cards
+- Next action:
+  - Continue the live Pixi visual-parity lane from this non-empty canary state by tightening row/value readability and contrast against the baseline/main oracle, not by doing more seam lifting.

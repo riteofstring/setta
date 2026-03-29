@@ -21,6 +21,28 @@ export const LIVE_DICT_AREA_PIXI_LAYOUT = {
   titleInsetX: 12,
 } as const;
 
+const LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT = {
+  areaPaddingBottom: 2,
+  areaPaddingTop: 2,
+  rowTopOffset: 2,
+} as const;
+
+export const LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT =
+  LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight - 4;
+
+export const LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT =
+  LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingTop +
+  LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.rowTopOffset +
+  LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT +
+  LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingBottom;
+
+const LIVE_DICT_AREA_PIXI_REGULAR_SINGLE_ROW_MIN_HEIGHT =
+  LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
+  LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop +
+  LIVE_DICT_AREA_PIXI_LAYOUT.rowTopOffset +
+  LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT +
+  LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom;
+
 export type LiveDictAreaPixiRowLayout = ParamSceneRowPacket & {
   blockHeight: number;
   labelText: string;
@@ -265,31 +287,44 @@ function buildLiveDictAreaPixiParamAreaLayout({
   y: number;
 }): LiveDictAreaPixiParamAreaLayout | null {
   const width = canvasWidth - LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX * 2;
-  const rowsStartY =
-    y +
-    LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
-    LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop;
+  const normalizedMaxHeight =
+    typeof maxHeight === "number" && Number.isFinite(maxHeight) && maxHeight > 0
+      ? Math.floor(maxHeight)
+      : null;
+  const usesCompactPreview =
+    normalizedMaxHeight !== null &&
+    normalizedMaxHeight < LIVE_DICT_AREA_PIXI_REGULAR_SINGLE_ROW_MIN_HEIGHT;
+  const headerHeight = usesCompactPreview
+    ? 0
+    : LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight;
+  const areaPaddingTop = usesCompactPreview
+    ? LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingTop
+    : LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop;
+  const areaPaddingBottom = usesCompactPreview
+    ? LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingBottom
+    : LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom;
+  const rowTopOffset = usesCompactPreview
+    ? LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.rowTopOffset
+    : LIVE_DICT_AREA_PIXI_LAYOUT.rowTopOffset;
+  const rowsStartY = y + headerHeight + areaPaddingTop;
   const rows = block.rows.map((row, rowIndex) =>
     buildLiveDictAreaPixiRowLayout({
       row,
       rowIndex,
+      rowTopOffset,
       width,
       y: rowsStartY,
     }),
   );
   const contentHeight =
-    LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
-    LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop +
+    headerHeight +
+    areaPaddingTop +
     rows.length * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
-    LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom;
+    areaPaddingBottom;
   const unclampedHeight =
     block.shouldApplyMinHeight && block.minHeight !== null
       ? Math.max(contentHeight, block.minHeight)
       : contentHeight;
-  const normalizedMaxHeight =
-    typeof maxHeight === "number" && Number.isFinite(maxHeight) && maxHeight > 0
-      ? Math.floor(maxHeight)
-      : null;
   const height =
     normalizedMaxHeight === null
       ? unclampedHeight
@@ -297,15 +332,14 @@ function buildLiveDictAreaPixiParamAreaLayout({
   if (height <= 0) {
     return null;
   }
-  const visibleRowsBottomY =
-    y + height - LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom;
+  const visibleRowsBottomY = y + height - areaPaddingBottom;
   const visibleRows = rows.filter(
     (row) => row.y + row.blockHeight <= visibleRowsBottomY,
   );
 
   return {
     blockId: block.blockId,
-    headerHeight: LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight,
+    headerHeight,
     height,
     kind: block.kind,
     mountKind: block.mount.mountKind,
@@ -321,11 +355,13 @@ function buildLiveDictAreaPixiParamAreaLayout({
 function buildLiveDictAreaPixiRowLayout({
   row,
   rowIndex,
+  rowTopOffset,
   width,
   y,
 }: {
   row: ParamSceneRowPacket;
   rowIndex: number;
+  rowTopOffset: number;
   width: number;
   y: number;
 }): LiveDictAreaPixiRowLayout {
@@ -335,15 +371,12 @@ function buildLiveDictAreaPixiRowLayout({
 
   return {
     ...row,
-    blockHeight: LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight - 4,
+    blockHeight: LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
     labelText: row.label ?? "Placeholder",
     labelX: x + LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2,
     valueText: row.kind === "value" ? row.valuePreview : null,
     width,
     x,
-    y:
-      y +
-      rowIndex * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
-      LIVE_DICT_AREA_PIXI_LAYOUT.rowTopOffset,
+    y: y + rowIndex * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight + rowTopOffset,
   };
 }

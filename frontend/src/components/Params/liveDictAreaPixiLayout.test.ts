@@ -262,4 +262,65 @@ describe("buildLiveDictAreaPixiLayout", () => {
     expect(constrainedLayout.totalRowCount).toBe(3);
     expect(constrainedLayout.valuePreviewCount).toBe(0);
   });
+
+  it("switches short mounted preview cards into a compact param-area mode so they still show a visible row", () => {
+    const liveDictAreaBoundary = buildLiveDictAreaBoundary({
+      bgColor: "bg-surface",
+      canConnect: true,
+      edgeInputParams: [],
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      getParamDisplayName: (paramId: string) =>
+        (
+          ({
+            "unpinned-group": "Unpinned Group",
+            "unpinned-value": "Unpinned Value",
+          }) as Record<string, string>
+        )[paramId] ?? paramId,
+      getParamValuePreview: (paramId: string) =>
+        paramId === "unpinned-value" ? "42" : null,
+      inputPorts: [],
+      isSelectingParams: false,
+      outputPorts: [],
+      pinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [],
+      },
+      positionAndSizeLocked: false,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: null,
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 0,
+        pinnedRequiredParamIdsToPaths: {},
+        pinnedTopLevelParamIds: [],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          "unpinned-group": ["unpinned-group"],
+          "unpinned-value": ["unpinned-group", "unpinned-value"],
+        },
+        topLevelParamIds: ["unpinned-group"],
+      },
+    });
+    const liveDictAreaSceneBoundary = buildLiveDictAreaSceneBoundary({
+      liveDictAreaBoundary,
+    });
+    const fullLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      width: 320,
+    });
+    const constrainedLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      maxCanvasHeight: (fullLayout.paramAreas[0]?.y ?? 0) + 29,
+      width: 320,
+    });
+
+    expect(constrainedLayout.paramAreas[0]?.height).toBe(29);
+    expect(constrainedLayout.paramAreas[0]?.headerHeight).toBe(0);
+    expect(constrainedLayout.paramAreas[0]?.rows.map((row) => row.id)).toEqual([
+      "unpinned-group",
+    ]);
+    expect(constrainedLayout.totalRowCount).toBe(1);
+  });
 });
