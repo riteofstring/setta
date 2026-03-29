@@ -47,7 +47,7 @@ export type ChatSubmitOptions = {
 
 export type ChatSubmitDispatchResult = "submitted" | "retry_later" | "failed";
 
-type ChatSubmitResult = boolean | ChatSubmitDispatchResult;
+export type ChatSubmitResult = boolean | ChatSubmitDispatchResult;
 
 export type SlashCommandExecutionOutcome =
   | "submitted"

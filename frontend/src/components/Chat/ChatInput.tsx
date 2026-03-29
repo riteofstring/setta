@@ -41,6 +41,7 @@ import {
   type ChatExecutionControls,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
+  type ChatSubmitResult,
   type ChatSubmitDispatchResult,
   type ChatSubmitOptions,
   type QueuedChatDraft,
@@ -163,6 +164,7 @@ type ProviderDictationTranscriptionResult =
 export type {
   ChatSlashCommand,
   ChatSlashCommandResult,
+  ChatSubmitResult,
   ChatSubmitDispatchResult,
   ChatSubmitOptions,
 } from "./chatInputHelpers";
@@ -208,47 +210,6 @@ type ChatInputProps = {
   runtimeActivityDetails?: ChatRuntimeActivityDetails;
 };
 
-type ResolvedChatInputProps = {
-  contextUsageIsEstimated: boolean;
-  contextUsedTokens: number | null;
-  contextWindowTokens: number | null;
-  dictationEnabledByProvider: boolean;
-  dictationMode: "auto" | "browser" | "provider";
-  disabled: boolean;
-  executionControls?: ChatExecutionControls;
-  executionControlVisibility: ChatExecutionControlVisibility;
-  hasRetainedImageAttachmentForImageMode: boolean;
-  onChange?: (value: string) => void;
-  onProviderDictationTranscribe?: (
-    audioBlob: Blob,
-  ) => Promise<ProviderDictationTranscriptionResult>;
-  onSlashCommand?: (
-    command: ChatSlashCommand,
-  ) => Promise<ChatSlashCommandResult | void> | ChatSlashCommandResult | void;
-  onStop?: () => Promise<void> | void;
-  onSubmit: (
-    message: string,
-    attachments: ChatFileAttachment[],
-    options?: ChatSubmitOptions,
-  ) => Promise<ChatSubmitResult> | ChatSubmitResult;
-  onUnknownSlashCommand?: (
-    message: string,
-    attachments: ChatFileAttachment[],
-  ) => Promise<ChatSlashCommandResult> | ChatSlashCommandResult;
-  placeholderText: string | undefined;
-  providerDictationLikelySupported: boolean;
-  recognizedSlashCommands?: ChatSlashCommandDefinition[];
-  runtimeActivityCounts: ChatRuntimeActivityCounts;
-  runtimeActivityDetails: ChatRuntimeActivityDetails;
-  slashCommands: ChatSlashCommandDefinition[];
-  slashSuggestionsPlacement: "auto" | "above" | "below";
-  submitDisabled: boolean;
-  submittedMessageHistory: string[];
-  submitReadinessKey: string | null;
-  value?: string;
-  waitingForResponse: boolean;
-};
-
 type EscClearedComposerDraft = {
   message: string;
   attachments: ChatFileAttachment[];
@@ -264,29 +225,6 @@ type SubmitRemotelyHandler = (args: {
 
 type NormalizedSlashCommandResult = Exclude<ChatSlashCommandResult, boolean>;
 type FloatingBoxHandlers = ReturnType<typeof getFloatingBoxHandlers>;
-
-function resolveChatInputProps(props: ChatInputProps): ResolvedChatInputProps {
-  return {
-    contextUsageIsEstimated: false,
-    contextUsedTokens: null,
-    contextWindowTokens: null,
-    dictationEnabledByProvider: true,
-    dictationMode: "auto",
-    disabled: false,
-    executionControlVisibility: DEFAULT_EXECUTION_CONTROL_VISIBILITY,
-    hasRetainedImageAttachmentForImageMode: false,
-    placeholderText: props.placeholderText,
-    providerDictationLikelySupported: true,
-    runtimeActivityCounts: DEFAULT_RUNTIME_ACTIVITY_COUNTS,
-    runtimeActivityDetails: DEFAULT_RUNTIME_ACTIVITY_DETAILS,
-    slashCommands: CHAT_SLASH_COMMANDS,
-    slashSuggestionsPlacement: "auto",
-    submitDisabled: false,
-    submittedMessageHistory: DEFAULT_SUBMITTED_MESSAGE_HISTORY,
-    submitReadinessKey: null,
-    ...props,
-  };
-}
 
 function focusComposerTextareaAtEnd(
   textareaRef: MutableRefObject<HTMLTextAreaElement | null>,
@@ -2882,36 +2820,35 @@ function ChatComposerFieldSection(props: {
   );
 }
 
-export const ChatInput = memo(function ChatInput(rawProps: ChatInputProps) {
-  const {
-    placeholderText,
-    waitingForResponse,
-    disabled,
-    submitDisabled,
-    hasRetainedImageAttachmentForImageMode,
-    value,
-    onChange,
-    onSubmit,
-    submitReadinessKey,
-    onUnknownSlashCommand,
-    onStop,
-    executionControls,
-    executionControlVisibility,
-    slashCommands,
-    recognizedSlashCommands,
-    onSlashCommand,
-    slashSuggestionsPlacement,
-    dictationMode,
-    onProviderDictationTranscribe,
-    dictationEnabledByProvider,
-    providerDictationLikelySupported,
-    contextWindowTokens,
-    contextUsedTokens,
-    contextUsageIsEstimated,
-    submittedMessageHistory,
-    runtimeActivityCounts,
-    runtimeActivityDetails,
-  } = resolveChatInputProps(rawProps);
+export const ChatInput = memo(function ChatInput({
+  placeholderText,
+  waitingForResponse,
+  disabled = false,
+  submitDisabled = false,
+  hasRetainedImageAttachmentForImageMode = false,
+  value,
+  onChange,
+  onSubmit,
+  submitReadinessKey = null,
+  onUnknownSlashCommand,
+  onStop,
+  executionControls,
+  executionControlVisibility = DEFAULT_EXECUTION_CONTROL_VISIBILITY,
+  slashCommands = CHAT_SLASH_COMMANDS,
+  recognizedSlashCommands,
+  onSlashCommand,
+  slashSuggestionsPlacement = "auto",
+  dictationMode = "auto",
+  onProviderDictationTranscribe,
+  dictationEnabledByProvider = true,
+  providerDictationLikelySupported = true,
+  contextWindowTokens = null,
+  contextUsedTokens = null,
+  contextUsageIsEstimated = false,
+  submittedMessageHistory = DEFAULT_SUBMITTED_MESSAGE_HISTORY,
+  runtimeActivityCounts = DEFAULT_RUNTIME_ACTIVITY_COUNTS,
+  runtimeActivityDetails = DEFAULT_RUNTIME_ACTIVITY_DETAILS,
+}: ChatInputProps) {
   const [internalValue, setInternalValue] = useState("");
   const [slashFeedback, setSlashFeedback] = useState<string | null>(null);
   const [activeSlashIndex, setActiveSlashIndex] = useState(0);

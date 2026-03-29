@@ -34,6 +34,7 @@ import {
   useImages,
   useProjectState,
   useServerMode,
+  type ZustandProjectState,
 } from "state/definitions";
 import { decodeExistingRawImages } from "state/hooks/artifacts";
 import { useLocalPendingValue } from "state/hooks/utils";
@@ -108,6 +109,20 @@ type AppComponentProps = {
   onAction?: (action: Action) => void;
 };
 
+type AppConfigState = ZustandProjectState;
+type TabChildElement = React.ReactElement<AppComponentProps>;
+type NumberishStyleKey =
+  | "padding"
+  | "borderRadius"
+  | "fontSize"
+  | "lineHeight"
+  | "maxWidth"
+  | "width"
+  | "height";
+type ConfigLanguageValue =
+  (typeof ConfigLanguageEnum)[keyof typeof ConfigLanguageEnum];
+type CodeObjTypeValue = (typeof CodeObjTypeEnum)[keyof typeof CodeObjTypeEnum];
+
 const ALIGN_CLASS: Record<string, string> = {
   start: "items-start",
   center: "items-center",
@@ -179,7 +194,7 @@ function resolveGapValue(
 
 function assignNumberishStyle(
   style: React.CSSProperties,
-  key: keyof React.CSSProperties,
+  key: NumberishStyleKey,
   value: number | string | null,
 ): void {
   if (value === null) {
@@ -201,7 +216,7 @@ function buildCardStyle(
 }
 
 function buildTypographyStyle(args: {
-  fontFamily?: string;
+  fontFamily?: string | undefined;
   fontSize: unknown;
   lineHeight: unknown;
 }): React.CSSProperties | undefined {
@@ -241,14 +256,14 @@ function resolveMotionSettings(args: {
 }
 
 type ResolvedTabDefinition = {
-  child: React.ReactElement;
+  child: TabChildElement;
   hasContent: boolean;
   key: string;
   title: string;
 };
 
 function resolveTabKey(
-  child: React.ReactElement,
+  child: TabChildElement,
   index: number,
   tabElement: RawElementProps | null,
 ): string {
@@ -272,7 +287,7 @@ function resolveTabTitle(
 }
 
 function resolveTabDefinition(
-  child: React.ReactElement,
+  child: TabChildElement,
   index: number,
 ): ResolvedTabDefinition {
   const tabElement = child.props?.element ?? null;
@@ -454,7 +469,7 @@ function resolveCodeObjVariantIdForParam(args: {
     if (!controlParamId || controlParamId !== paramId) {
       return null;
     }
-    return sectionImpl.codeObjVariantMap[paramId] ?? null;
+    return sectionImpl.codeObjVariantMap?.[paramId] ?? null;
   }
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
     return null;
@@ -463,7 +478,7 @@ function resolveCodeObjVariantIdForParam(args: {
 }
 
 function resolveParamBindingState(args: {
-  configState: NonNullable<ReturnType<typeof useAppConfigs>>;
+  configState: AppConfigState;
   paramId: string;
   sectionId: string;
 }): ResolvedParamBindingState {
@@ -521,7 +536,7 @@ function resolveParamBindingState(args: {
 }
 
 function hasValidParamCodeObjBinding(
-  configState: NonNullable<ReturnType<typeof useAppConfigs>>,
+  configState: AppConfigState,
   codeObjVariantId: string,
   paramId: string,
 ): boolean {
@@ -552,7 +567,7 @@ function resolveActionButtonClassName(isDisabled: boolean): string {
 function handleActionButtonClick(args: {
   actionName: string;
   isDisabled: boolean;
-  onAction?: (action: Action) => void;
+  onAction: ((action: Action) => void) | undefined;
   resolvedConfigId: string | null;
   sectionId: string | null;
 }): void {
@@ -569,7 +584,7 @@ function handleActionButtonClick(args: {
 function resolveParamInputStatusMessage(args: {
   canRenderParam: boolean;
   codeObjImpl: BaseChildlessCodeObjImplUnion | null;
-  configState: ReturnType<typeof useAppConfigs> | null;
+  configState: AppConfigState | null;
   resolvedConfigId: string | null;
   sectionId: string | null;
   sectionImpl: BaseSectionImplUnion | null;
@@ -623,7 +638,7 @@ type ResolvedParamInputBindingResult = ResolvedParamBindingState & {
 };
 
 function resolveParamInputBindingResult(args: {
-  configState: ReturnType<typeof useAppConfigs> | null;
+  configState: AppConfigState | null;
   paramId: string | null;
   resolvedConfigId: string | null;
   sectionId: string | null;
@@ -744,7 +759,7 @@ function ParamInputBlockContent(props: {
             paramInfoId={paramId}
             codeObjImpl={codeObjImpl}
             sectionImpl={sectionImpl}
-            baseValue={codeObjImpl.value}
+            baseValue={codeObjImpl.value ?? null}
             canEditParams={effectiveCanEditParams}
           />
         </div>
@@ -952,7 +967,10 @@ function Tabs({ element, children }: AppComponentProps) {
   const defaultKey = resolveNullableStringProp(props.defaultKey);
   const className = resolveStringProp(props.className);
   const tabs = React.useMemo(() => {
-    return React.Children.toArray(children).filter(React.isValidElement);
+    return React.Children.toArray(children).filter(
+      (child): child is TabChildElement =>
+        React.isValidElement<AppComponentProps>(child),
+    );
   }, [children]);
   const resolvedTabs = React.useMemo(() => {
     return tabs
@@ -1026,7 +1044,7 @@ function Heading({ element }: AppComponentProps) {
   const { clampedLevel, headingSizeKey, sizeClass } =
     resolveHeadingPresentation(level);
   const headingSize = headingSizes?.[headingSizeKey];
-  const HeadingTag = `h${clampedLevel}` as keyof JSX.IntrinsicElements;
+  const HeadingTag = `h${clampedLevel}` as "h1" | "h2" | "h3" | "h4";
   const style = buildTypographyStyle({
     fontFamily: headingFont ?? undefined,
     fontSize: headingSize,
@@ -1086,7 +1104,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
     scope.configId,
   );
   const configState = useAppConfigs((state) =>
-    resolvedConfigId ? state.configs[resolvedConfigId] : null,
+    resolvedConfigId ? (state.configs[resolvedConfigId] ?? null) : null,
   );
   const serverMode = useServerMode((x) => x.mode);
   const modeResolved = useServerMode((x) => x.modeResolved);
@@ -1113,6 +1131,9 @@ function ParamInputBlock({ element }: AppComponentProps) {
     });
   if (statusMessage) {
     return renderAppBindingMessage(statusMessage);
+  }
+  if (!codeObjImpl || !paramId || !resolvedConfigId || !sectionId || !sectionImpl) {
+    return renderAppBindingMessage("Missing param binding.");
   }
 
   const codeParamBlocked =
@@ -1321,16 +1342,16 @@ const APP_PARAM_TEXT_INPUT_ACTIVE_CLASS = "cursor-text select-text";
 
 type AppParamRenderContext = {
   codeObjImpl: BaseChildlessCodeObjImplUnion;
-  configLanguage: ConfigLanguageEnum;
+  configLanguage: ConfigLanguageValue;
   defaultVal: string | number | boolean | null;
   isDisabled: boolean;
   isPasswordRevealPending: boolean;
   onChange: AppParamUIProps["onChange"];
-  onDropzoneStateless?: AppParamUIProps["onDropzoneStateless"];
+  onDropzoneStateless: AppParamUIProps["onDropzoneStateless"] | undefined;
   onEscape: () => void;
-  onRevealPassword?: () => void;
+  onRevealPassword: AppParamUIProps["onRevealPassword"] | undefined;
   paramInfoId: string;
-  passwordPlaceholder?: string;
+  passwordPlaceholder: string | undefined;
   sectionId: string;
   showPasswordReveal: boolean;
   stringValue: string;
@@ -1347,7 +1368,7 @@ function expectDateParamImpl(
       `Expected DateParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
     );
   }
-  return codeObjImpl;
+  return codeObjImpl as DateParamCodeObjImpl;
 }
 
 function expectTimeParamImpl(
@@ -1358,16 +1379,18 @@ function expectTimeParamImpl(
       `Expected TimeParam impl, got ${codeObjImpl.type ?? "unknown"}.`,
     );
   }
-  return codeObjImpl;
+  return codeObjImpl as TimeParamCodeObjImpl;
 }
 
 function resolveParamConfigLanguage(
   sectionImpl: BaseSectionImplUnion,
-): ConfigLanguageEnum {
+): ConfigLanguageValue {
   if (!isBaseSectionWithParamsImpl(sectionImpl)) {
     return ConfigLanguageEnum.python;
   }
-  return sectionImpl.configLanguage ?? ConfigLanguageEnum.python;
+  return sectionImpl.configLanguage === ConfigLanguageEnum.json
+    ? ConfigLanguageEnum.json
+    : ConfigLanguageEnum.python;
 }
 
 function resolveParamRenderContext(
@@ -1391,7 +1414,9 @@ function resolveParamRenderContext(
   const defaultVal = "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
   const isPasswordParam = codeObjImpl.type === CodeObjTypeEnum.PasswordParam;
   const passwordHasSecret =
-    isPasswordParam && "hasSecret" in codeObjImpl
+    isPasswordParam &&
+    "hasSecret" in codeObjImpl &&
+    typeof codeObjImpl.hasSecret === "boolean"
       ? codeObjImpl.hasSecret
       : false;
   const stringValue = _.toString(value ?? "");
@@ -1577,10 +1602,15 @@ function renderRotaryParam(context: AppParamRenderContext) {
 }
 
 function renderSwitchParam(context: AppParamRenderContext) {
+  const defaultVal =
+    typeof context.defaultVal === "boolean" ||
+    typeof context.defaultVal === "string"
+      ? context.defaultVal
+      : undefined;
   return (
     <SwitchInput
       value={context.value ?? false}
-      defaultVal={context.defaultVal ?? undefined}
+      defaultVal={defaultVal}
       onChange={(next) => context.onChange(next)}
       onEscape={context.onEscape}
       isDisabled={context.isDisabled}
@@ -1711,7 +1741,7 @@ function renderDropzoneParam(context: AppParamRenderContext) {
 }
 
 const APP_PARAM_RENDERERS: Partial<
-  Record<CodeObjTypeEnum, (context: AppParamRenderContext) => React.ReactNode>
+  Record<CodeObjTypeValue, (context: AppParamRenderContext) => React.ReactNode>
 > = {
   [CodeObjTypeEnum.CodeParam]: renderCodeMirrorParam,
   [CodeObjTypeEnum.TextAreaParam]: renderCodeMirrorParam,
