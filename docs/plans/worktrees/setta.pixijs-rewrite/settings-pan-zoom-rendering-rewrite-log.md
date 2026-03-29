@@ -11377,3 +11377,46 @@ Record:
       - `uiEditorWidth=500`
 - Next action:
   - Resume normalized read-only `main`-oracle `All Settings` parity verification now that the canary harness itself pins and reuses the shared normalization state across worktree baseline and explicit `main` reference pages.
+
+## 2026-03-30 346
+
+- Item: Resolve the reopened quoted-value live Pixi parity report on the recovered `All Settings` runtime.
+- Status: `done`
+- Details:
+  - Continued directly from item `345` on the normalized `main`-oracle parity lane instead of reopening the closed row-layout or seam-lift lanes.
+  - The first recovered parity probe suggested the live Pixi canary might be visibly painting extra quotes around primitive values such as `defaultZoomLevel` and `Grid Color`, but that report was treated as untrusted until it was checked against actual pixels.
+  - Per the non-main recovery rule, performed the one bounded local lifecycle recovery after the inherited DevTools port was down:
+    - `./aireset.sh`
+  - Refreshed runtime values after recovery:
+    - worktree frontend: `http://127.0.0.1:3044/`
+    - worktree backend: `http://127.0.0.1:8044`
+    - Chrome DevTools: `9266`
+    - worktree session id: `466a7e`
+  - Re-ran the comparison in fresh-context Chrome DevTools MCP verifiers on the recovered runtime:
+    - normalized baseline DOM `http://127.0.0.1:3044/settings`
+    - normalized live Pixi `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - read-only `main` reference `http://127.0.0.1:3087/settings`
+  - The follow-up screenshot-based CDP check confirmed the quoted-value report was another accessibility-handoff artifact, not a painted renderer defect:
+    - baseline DOM showed plain painted `defaultZoomLevel` / `Grid Color` values with no quote glyphs
+    - live Pixi exposed quoted text only in invisible value-row handoff buttons such as `aria-label="defaultZoomLevel \"1.0\""` and `aria-label="Grid Color \"Red\""`
+    - the matching screenshot crop for the live Pixi row region showed only the scene/canvas area, not painted quotes
+  - This closes the reopened quoted-value lane again on the recovered runtime:
+    - no production frontend/backend code changed in this iteration
+    - the worktree baseline/live resting comparison remains visually clean after normalization
+  - The remaining `main` difference from the recovered verifier did not look like renderer drift:
+    - the read-only `main` session was showing a different workspace/project surface and a different visible settings catalog than the current worktree
+    - treat that as reference-state divergence until a later iteration proves the `main` surface is aligned to the same `All Settings` state
+- Verification:
+  - Worktree lifecycle recovery:
+    - `./aireset.sh`
+    - result: passed; runtime restarted on `3044` / `8044` with DevTools port `9266`
+  - Runtime refresh:
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .`
+    - result: passed
+    - `pnpm -C frontend cdp-port`
+    - result: passed (`9266`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the recovered runtime
+    - result: passed; normalized baseline/live `All Settings` surfaces did not paint quoted primitive values, and the reopened quote report reduced to invisible handoff-button `aria-label` text rather than a renderer bug
+- Next action:
+  - Align or re-bootstrap the read-only `main` reference onto the same `All Settings` workspace/project surface before treating any remaining `main`-vs-worktree difference as renderer parity drift; do not reopen the quoted-value lane without new pixel evidence.
