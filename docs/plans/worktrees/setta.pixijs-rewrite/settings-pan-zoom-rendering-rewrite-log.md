@@ -9164,3 +9164,37 @@ Record:
     - confirmed those cards still rendered body content and did not show obvious spacing/chrome drift in the checked region
 - Next action:
   - Continue the live Pixi parity lane from this fixed first-visible-card baseline by comparing against `main` and tightening any remaining non-header chrome/text drift that is still visible at normalized `100%` zoom.
+
+## 2026-03-29 278
+
+- Item: Render live Pixi color-picker value rows as structured control chrome instead of flattened text in the `gui` canary card.
+- Status: `done`
+- Details:
+  - Took the next bounded parity fix directly from the live `All Settings` canary instead of another forwarding change:
+    - fresh CDP comparison again found no separate read-only `main` settings tab in Chrome
+    - the clearest remaining same-surface parity defect versus baseline `/settings` was in the top-center `gui` card, where `Grid Color` / `Grid Color Dark Mode` still rendered as flattened value text on the Pixi path instead of a colored button/control surface
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The kept fix now:
+    - treats color-picker value rows as a distinct preview style in the Pixi scene when the value preview is a real color
+    - derives a readable foreground color from the preview fill so dark and light palette chips stay legible
+    - draws a rounded control-style value surface with inline label text plus a chevron indicator instead of right-aligned flat text for those rows
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`33 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.tsx`
+    - result: passed
+  - Playwright:
+    - `source activate.sh && SETTA_BOOTSTRAP_TOKEN=<fresh current-worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes|open a popup color-picker row" --reporter=line`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared current-worktree baseline `/settings` against `/settings?liveDictAreaRenderer=pixi-node-body` with browser zoom already normalized to `100%`
+    - `All Settings` stayed visible and the checked `gui` card rows (`Grid Color`, `Grid Color Dark Mode`) rendered as colored button-style controls instead of flattened text on the Pixi canary
+    - no obvious new regression was observed in that checked region
+    - no separate read-only `main` reference settings tab was available in the browser session for this iteration
+- Next action:
+  - Continue the live Pixi parity lane from this color-control baseline by tightening the next visible editable-control chrome drift on `All Settings`, preferably against `main` when a reference settings tab is available.

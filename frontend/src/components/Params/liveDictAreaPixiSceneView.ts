@@ -4,6 +4,7 @@ import {
   LIVE_DICT_AREA_PIXI_LAYOUT,
   LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
 } from "./liveDictAreaPixiLayout";
+import type { ParamEditorKind } from "./paramEditorActivation";
 
 export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
   "ui-sans-serif, system-ui, sans-serif";
@@ -73,6 +74,11 @@ export type LiveDictAreaPixiTextStyleSet = {
   rowFontWeight: string;
   titleFontSize: number;
   titleFontWeight: string;
+};
+
+export type LiveDictAreaPixiColorControlStyle = {
+  backgroundFill: string;
+  textFill: string;
 };
 
 type LiveDictAreaPixiFontFaceSet = Pick<
@@ -428,6 +434,28 @@ export function getLiveDictAreaPixiTextStyleSet({
   };
 }
 
+export function getLiveDictAreaPixiColorControlStyle({
+  editorKind,
+  valueText,
+}: {
+  editorKind?: ParamEditorKind;
+  valueText: string | null;
+}): LiveDictAreaPixiColorControlStyle | null {
+  if (editorKind !== "color-picker" || !valueText) {
+    return null;
+  }
+
+  const backgroundFill = getLiveDictAreaPixiUsableComputedColor(valueText);
+  if (!backgroundFill || !parseLiveDictAreaPixiRgbColor(backgroundFill)) {
+    return null;
+  }
+
+  return {
+    backgroundFill,
+    textFill: getLiveDictAreaPixiColorControlTextFill(backgroundFill),
+  };
+}
+
 export function subscribeToLiveDictAreaPixiFontLoadInvalidation({
   fontFaceSet,
   onInvalidate,
@@ -603,6 +631,17 @@ function getLiveDictAreaPixiUsableComputedColor(rawValue: string | undefined) {
   }
 
   return rawValue.trim();
+}
+
+function getLiveDictAreaPixiColorControlTextFill(backgroundColor: string) {
+  const backgroundRgbColor = parseLiveDictAreaPixiRgbColor(backgroundColor);
+  if (!backgroundRgbColor) {
+    return "#0f172a";
+  }
+
+  return getLiveDictAreaPixiRelativeLuminance(backgroundRgbColor) < 0.35
+    ? "#f8fafc"
+    : "#0f172a";
 }
 
 function parseLiveDictAreaPixiRgbColor(

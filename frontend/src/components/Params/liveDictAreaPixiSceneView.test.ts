@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiAvailableCanvasHeight,
+  getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiPalette,
@@ -174,6 +175,44 @@ describe("getLiveDictAreaPixiPresentationMode", () => {
   it("falls back to detailed mode for invalid zoom values", () => {
     expect(getLiveDictAreaPixiPresentationMode(Number.NaN)).toBe("detail");
     expect(getLiveDictAreaPixiPresentationMode(0)).toBe("detail");
+  });
+});
+
+describe("getLiveDictAreaPixiColorControlStyle", () => {
+  it("turns color-picker rows with real color values into structured control chrome", () => {
+    expect(
+      getLiveDictAreaPixiColorControlStyle({
+        editorKind: "color-picker",
+        valueText: "#2563eb",
+      }),
+    ).toEqual({
+      backgroundFill: "#2563eb",
+      textFill: "#f8fafc",
+    });
+  });
+
+  it("uses dark text for light color-picker fills and ignores non-color controls", () => {
+    expect(
+      getLiveDictAreaPixiColorControlStyle({
+        editorKind: "color-picker",
+        valueText: "#f8fafc",
+      }),
+    ).toEqual({
+      backgroundFill: "#f8fafc",
+      textFill: "#0f172a",
+    });
+    expect(
+      getLiveDictAreaPixiColorControlStyle({
+        editorKind: "combobox",
+        valueText: "#2563eb",
+      }),
+    ).toBeNull();
+    expect(
+      getLiveDictAreaPixiColorControlStyle({
+        editorKind: "color-picker",
+        valueText: "not-a-color",
+      }),
+    ).toBeNull();
   });
 });
 

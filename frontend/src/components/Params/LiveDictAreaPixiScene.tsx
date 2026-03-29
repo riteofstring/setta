@@ -20,6 +20,7 @@ import {
 } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiAvailableCanvasHeight,
+  getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
@@ -735,6 +736,10 @@ function drawParamRow({
     paramColumnWidth +
     LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX +
     2;
+  const colorControlStyle = getLiveDictAreaPixiColorControlStyle({
+    editorKind: row.editorKind,
+    valueText: row.valueText,
+  });
   const label = buildFittedRowText({
     maxWidth: valueColumnX - row.labelX - 12,
     textResolution,
@@ -753,7 +758,18 @@ function drawParamRow({
     graphics.addChild(label);
   }
 
-  if (row.valueText) {
+  if (colorControlStyle) {
+    drawColorPickerValueControl({
+      controlStyle: colorControlStyle,
+      graphics,
+      row,
+      rowRightEdgeX,
+      textResolution,
+      textFontFamily,
+      textStyleSet,
+      valueColumnX,
+    });
+  } else if (row.valueText) {
     const valueLabel = buildFittedRowText({
       maxWidth: rowRightEdgeX - valueColumnX,
       textResolution,
@@ -774,6 +790,79 @@ function drawParamRow({
   }
 
   return graphics;
+}
+
+function drawColorPickerValueControl({
+  controlStyle,
+  graphics,
+  row,
+  rowRightEdgeX,
+  textResolution,
+  textFontFamily,
+  textStyleSet,
+  valueColumnX,
+}: {
+  controlStyle: {
+    backgroundFill: string;
+    textFill: string;
+  };
+  graphics: Graphics;
+  row: LiveDictAreaPixiRowLayout;
+  rowRightEdgeX: number;
+  textResolution: number;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
+  valueColumnX: number;
+}) {
+  const controlWidth = rowRightEdgeX - valueColumnX;
+  if (controlWidth <= 18 || !row.valueText) {
+    return;
+  }
+
+  const controlX = valueColumnX;
+  const controlY = row.y + 2;
+  const controlHeight = Math.max(row.blockHeight - 4, 0);
+  const chevron = new Text({
+    resolution: textResolution,
+    style: {
+      fill: controlStyle.textFill,
+      fontFamily: textFontFamily,
+      fontSize: textStyleSet.edgeRowFontSize,
+      fontWeight: textStyleSet.rowFontWeight,
+    },
+    text: "\u25be",
+  });
+  const chevronInsetX = 8;
+  const label = buildFittedRowText({
+    maxWidth:
+      controlWidth - chevron.width - chevronInsetX * 2 - chevronInsetX / 2,
+    textResolution,
+    style: {
+      fill: controlStyle.textFill,
+      fontFamily: textFontFamily,
+      fontSize: textStyleSet.edgeRowFontSize,
+      fontWeight: textStyleSet.rowFontWeight,
+    },
+    text: row.valueText,
+  });
+
+  graphics.roundRect(controlX, controlY, controlWidth, controlHeight, 8);
+  graphics.fill(controlStyle.backgroundFill);
+  graphics.stroke({
+    alpha: 0.65,
+    color: controlStyle.textFill,
+    width: 1,
+  });
+
+  if (label) {
+    label.x = controlX + chevronInsetX;
+    label.y = row.y + 4;
+    graphics.addChild(label);
+  }
+
+  chevron.x = controlX + controlWidth - chevron.width - chevronInsetX;
+  chevron.y = row.y + 4;
+  graphics.addChild(chevron);
 }
 
 function buildFittedRowText({
