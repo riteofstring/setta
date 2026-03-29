@@ -219,6 +219,7 @@ describe("chat history sync to section state", () => {
             tool_calls: null,
           },
         ],
+        toolCallArguments: { "tool-1": `{"task":"Hello"}` },
         waitingForResponse: true,
         llmConfig,
         appGenerationByMessageId: {},
@@ -247,11 +248,18 @@ describe("chat history sync to section state", () => {
         );
       }),
     ).toBe(true);
+    expect(impl.toolCallArguments).toEqual({ "tool-1": `{"task":"Hello"}` });
     expect(impl.waitingForResponse).toBe(true);
     const persistedCall = route_set_chat_section_state.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );
     expect(persistedCall).toBeDefined();
+    if (!persistedCall) {
+      throw new Error("Expected setChatSectionState call for LLM hydrate.");
+    }
+    expect(persistedCall[0].state.toolCallArguments).toEqual({
+      "tool-1": `{"task":"Hello"}`,
+    });
   });
 
   it("replaces local thought text with backend-authoritative hydrate during active LLM streams", async () => {
@@ -311,12 +319,12 @@ describe("chat history sync to section state", () => {
           id: "msg-thinking",
           role: ChatRoleEnum.assistant,
           content: [
-              createMessageThinkingContent({
-                thinking:
-                  "Reviewing grouped activity rows before final answer output.",
-                summary: "",
-                signature: "",
-              }),
+            createMessageThinkingContent({
+              thinking:
+                "Reviewing grouped activity rows before final answer output.",
+              summary: "",
+              signature: "",
+            }),
           ],
           attachments: [],
           tool_calls: null,
@@ -620,9 +628,9 @@ describe("chat history sync to section state", () => {
       SectionTypeEnum.Chat,
     );
     expect(impl.toolCallArguments).toEqual({});
-    expect(useAIStore.getState().chatDetails[chatId]?.toolCallArguments).toEqual(
-      {},
-    );
+    expect(
+      useAIStore.getState().chatDetails[chatId]?.toolCallArguments,
+    ).toEqual({});
     const persistedCall = route_set_chat_section_state.mock.calls.find(
       (call) => call[0]?.sectionId === sectionId,
     );

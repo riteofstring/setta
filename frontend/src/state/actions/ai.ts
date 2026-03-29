@@ -2250,18 +2250,23 @@ function applyLLMChatHydrationSuccess({
   projectConfigId: string;
   payload: GetLLMChatResponse;
 }): void {
+  const managedHydrationPayload = payload as GetLLMChatResponse & {
+    toolCallArguments?: Record<string, string>;
+    appGenerationByMessageId?: Record<string, string>;
+  };
   const {
     messages,
     waitingForResponse,
     llmConfig,
     contextUsage,
     appGenerationByMessageId,
-  } = payload;
+  } = managedHydrationPayload;
+  const toolCallArguments = managedHydrationPayload.toolCallArguments ?? {};
   const nextWaitingForResponse = applyHydratedChatDetailsToStore({
     chatId,
     messages,
     waitingForResponse,
-    backendToolCallArguments: {},
+    backendToolCallArguments: toolCallArguments,
     llmConfig,
     contextUsage: contextUsage ?? null,
     serializedAppGenerationByMessageId: appGenerationByMessageId,
@@ -2271,7 +2276,7 @@ function applyLLMChatHydrationSuccess({
       sectionId,
       messages,
       waitingForResponse,
-      toolCallArguments: {},
+      toolCallArguments,
     });
     persistChatSectionState({
       projectConfigId,

@@ -141,6 +141,61 @@
       }
     },
     {
+      "name": "placeholder_message_finalized_with_tool_call_is_preserved",
+      "initialState": {
+        "messages": [],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      },
+      "chunks": [
+        {
+          "type": "message_finalized",
+          "message": {
+            "id": "resp_placeholder_tool_call_1",
+            "role": "assistant",
+            "content": [],
+            "attachments": [],
+            "tool_calls": [
+              {
+                "id": "tool-call-placeholder-1",
+                "type": "function",
+                "function": {
+                  "name": "Task",
+                  "arguments": {
+                    "task": "Do work"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "expectedState": {
+        "messages": [
+          {
+            "id": "resp_placeholder_tool_call_1",
+            "role": "assistant",
+            "content": [],
+            "attachments": [],
+            "tool_calls": [
+              {
+                "id": "tool-call-placeholder-1",
+                "type": "function",
+                "function": {
+                  "name": "Task",
+                  "arguments": {
+                    "task": "Do work"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      }
+    },
+    {
       "name": "placeholder_thinking_delta_is_replaced_by_real_finalized_message",
       "initialState": {
         "messages": [],
@@ -280,9 +335,7 @@
           "preview_kind": "",
           "preview_value_delta": "",
           "target_ids_by_type": {
-            "section": [
-              "section-1"
-            ]
+            "section": ["section-1"]
           }
         }
       ],
@@ -539,6 +592,95 @@
         "toolCallArguments": {
           "tool-call-stop-1": "{\"task\":\"Interrupt\"}"
         }
+      }
+    },
+    {
+      "name": "message_stop_then_finalized_clears_tool_call_arguments_after_interruption",
+      "initialState": {
+        "messages": [],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      },
+      "chunks": [
+        {
+          "type": "message_start",
+          "message": {
+            "id": "assistant-stop-finalize-1",
+            "role": "assistant",
+            "content": [],
+            "attachments": [],
+            "tool_calls": null
+          }
+        },
+        {
+          "type": "tool_argument_preview_delta",
+          "message_id": "assistant-stop-finalize-1",
+          "tool_call_id": "tool-call-stop-finalize-1",
+          "tool_name": "Task",
+          "arguments_delta": "{\"task\":\"Interrupt\"}",
+          "preview_kind": "",
+          "preview_value_delta": "",
+          "target_ids_by_type": {}
+        },
+        {
+          "type": "message_stop",
+          "message_id": "assistant-stop-finalize-1"
+        },
+        {
+          "type": "message_finalized",
+          "message": {
+            "id": "assistant-stop-finalize-1",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Interrupted"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": [
+              {
+                "id": "tool-call-stop-finalize-1",
+                "type": "function",
+                "function": {
+                  "name": "Task",
+                  "arguments": {
+                    "task": "Interrupt"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "expectedState": {
+        "messages": [
+          {
+            "id": "assistant-stop-finalize-1",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Interrupted"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": [
+              {
+                "id": "tool-call-stop-finalize-1",
+                "type": "function",
+                "function": {
+                  "name": "Task",
+                  "arguments": {
+                    "task": "Interrupt"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
       }
     },
     {

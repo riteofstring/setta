@@ -114,6 +114,7 @@ describe("chat hydration waitingForResponse", () => {
       hasResponse: true,
       data: {
         messages: [],
+        toolCallArguments: {},
         waitingForResponse: false,
         llmConfig: null,
         appGenerationByMessageId: {},
@@ -144,6 +145,7 @@ describe("chat hydration waitingForResponse", () => {
       hasResponse: true,
       data: {
         messages: [],
+        toolCallArguments: {},
         waitingForResponse: false,
         llmConfig: null,
         appGenerationByMessageId: {},
@@ -154,6 +156,46 @@ describe("chat hydration waitingForResponse", () => {
 
     const details = useAIStore.getState().chatDetails[chatId];
     expect(details.waitingForResponse).toBe(true);
+  });
+
+  it("hydrates backend tool call arguments while preserving the active-stream overlay", async () => {
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          toolCallArguments: {
+            local: `{"task":"Local overlay"}`,
+          },
+        },
+      },
+    });
+    markChatStreamActive(chatId, null);
+
+    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
+      .route_get_llm_chat as unknown as vi.Mock;
+    route_get_llm_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        toolCallArguments: {
+          remote: `{"task":"Backend authoritative"}`,
+        },
+        waitingForResponse: false,
+        llmConfig: null,
+        appGenerationByMessageId: {},
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
+    expect(details.toolCallArguments).toEqual({
+      remote: `{"task":"Backend authoritative"}`,
+      local: `{"task":"Local overlay"}`,
+    });
   });
 
   it("keeps backend message order and backend-authored content during an active stream hydrate", async () => {

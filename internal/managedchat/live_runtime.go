@@ -240,7 +240,10 @@ func stringSliceMapsEqual(left map[string][]string, right map[string][]string) b
 func applyStreamChunk(state ChatState, chunk any) (*ChatState, error) {
 	next := state.Clone()
 	if next == nil {
-		next = &ChatState{Messages: []map[string]any{}}
+		next = &ChatState{
+			Messages:          []map[string]any{},
+			ToolCallArguments: map[string]string{},
+		}
 	}
 
 	switch typed := dereferenceStreamChunk(chunk).(type) {
@@ -252,7 +255,17 @@ func applyStreamChunk(state ChatState, chunk any) (*ChatState, error) {
 		next.Messages = applyMessageDelta(next.Messages, typed)
 		return next, nil
 	case realtime.ToolCallDeltaEvent:
-		next.Messages = applyToolCallDelta(next.Messages, typed.MessageID, typed.ToolCallID, typed.ToolName)
+		next.Messages = applyToolCallDelta(
+			next.Messages,
+			typed.MessageID,
+			typed.ToolCallID,
+			typed.ToolName,
+		)
+		next.ToolCallArguments = appendToolCallArgumentsDelta(
+			next.ToolCallArguments,
+			typed.ToolCallID,
+			typed.ArgumentsDelta,
+		)
 		return next, nil
 	case realtime.ToolArgumentPreviewDeltaEvent:
 		return applyToolArgumentPreviewChunk(next, typed), nil
@@ -284,6 +297,11 @@ func applyMessageStartChunk(next *ChatState, chunk realtime.MessageStartEvent) (
 func applyToolArgumentPreviewChunk(next *ChatState, chunk realtime.ToolArgumentPreviewDeltaEvent) *ChatState {
 	toolName := stringPtr(strings.TrimSpace(chunk.ToolName))
 	next.Messages = applyToolCallDelta(next.Messages, chunk.MessageID, chunk.ToolCallID, toolName)
+	next.ToolCallArguments = appendToolCallArgumentsDelta(
+		next.ToolCallArguments,
+		chunk.ToolCallID,
+		chunk.ArgumentsDelta,
+	)
 	return next
 }
 
@@ -309,6 +327,7 @@ func applyMessageFinalizedChunk(next *ChatState, chunk realtime.MessageFinalized
 		message, targetID = resolveFinalizedAssistantMessageUpdate(next.Messages, message)
 	}
 	next.Messages = upsertChatMessageByID(next.Messages, message, targetID)
+	next.ToolCallArguments = map[string]string{}
 	next.WaitingForResponse = false
 	return next, nil
 }
@@ -512,6 +531,20 @@ func applyToolCallDelta(messages []map[string]any, messageID string, toolCallID 
 	message["tool_calls"] = toolCalls
 	updated[index] = message
 	return updated
+}
+
+func appendToolCallArgumentsDelta(
+	toolCallArguments map[string]string,
+	toolCallID string,
+	argumentsDelta string,
+) map[string]string {
+	trimmedToolCallID := strings.TrimSpace(toolCallID)
+	if trimmedToolCallID == "" {
+		return cloneStringMap(toolCallArguments)
+	}
+	next := cloneStringMap(toolCallArguments)
+	next[trimmedToolCallID] = next[trimmedToolCallID] + argumentsDelta
+	return next
 }
 
 func dereferenceStreamChunk(chunk any) any {

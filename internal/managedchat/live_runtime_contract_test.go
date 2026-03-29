@@ -38,6 +38,7 @@ func TestApplyStreamChunkContractCases(t *testing.T) {
 
 			state := ChatState{
 				Messages:           cloneMessageSlice(fixtureCase.InitialState.Messages),
+				ToolCallArguments:  cloneStringMap(fixtureCase.InitialState.ToolCallArguments),
 				WaitingForResponse: fixtureCase.InitialState.WaitingForResponse,
 			}
 			nextState := &state
@@ -62,6 +63,13 @@ func TestApplyStreamChunkContractCases(t *testing.T) {
 					"unexpected messages\nexpected: %s\nactual:   %s",
 					mustMarshalManagedChatStreamState(t, fixtureCase.ExpectedState.Messages),
 					mustMarshalManagedChatStreamState(t, nextState.Messages),
+				)
+			}
+			if !reflect.DeepEqual(nextState.ToolCallArguments, fixtureCase.ExpectedState.ToolCallArguments) {
+				t.Fatalf(
+					"unexpected toolCallArguments\nexpected: %#v\nactual:   %#v",
+					fixtureCase.ExpectedState.ToolCallArguments,
+					nextState.ToolCallArguments,
 				)
 			}
 		})

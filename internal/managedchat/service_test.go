@@ -138,6 +138,9 @@ func TestServiceGetChatReturnsLatestRunAndResolvedLLMConfig(t *testing.T) {
 				userMessage("user-new", "Newer message"),
 				assistantMessage("assistant-new", "Done"),
 			},
+			toolCallArguments: map[string]string{
+				"tool-call-1": `{"task":"Do work"}`,
+			},
 			usage: map[string]any{
 				"promptTokens":     42,
 				"completionTokens": 7,
@@ -160,6 +163,9 @@ func TestServiceGetChatReturnsLatestRunAndResolvedLLMConfig(t *testing.T) {
 	}
 	if hydrated.Messages[1]["id"] != "assistant-new" {
 		t.Fatalf("expected assistant output message, got %#v", hydrated.Messages[1])
+	}
+	if got := hydrated.ToolCallArguments["tool-call-1"]; got != `{"task":"Do work"}` {
+		t.Fatalf("expected hydrated toolCallArguments, got %#v", hydrated.ToolCallArguments)
 	}
 	if hydrated.WaitingForResponse {
 		t.Fatal("expected completed chat hydration")
@@ -350,6 +356,9 @@ func TestServiceGetChatUsesLiveOverlayWhenRunning(t *testing.T) {
 				userMessage("user-live", "Hello"),
 				assistantMessage("assistant-live", "Streaming reply"),
 			},
+			ToolCallArguments: map[string]string{
+				"tool-live": `{"task":"Streaming reply"}`,
+			},
 			WaitingForResponse: true,
 		},
 	}
@@ -377,6 +386,9 @@ func TestServiceGetChatUsesLiveOverlayWhenRunning(t *testing.T) {
 	}
 	if len(hydrated.Messages) != 2 || hydrated.Messages[1]["id"] != "assistant-live" {
 		t.Fatalf("expected live overlay messages, got %#v", hydrated.Messages)
+	}
+	if got := hydrated.ToolCallArguments["tool-live"]; got != `{"task":"Streaming reply"}` {
+		t.Fatalf("expected live overlay toolCallArguments, got %#v", hydrated.ToolCallArguments)
 	}
 	if !hydrated.WaitingForResponse {
 		t.Fatal("expected live overlay waiting state")
@@ -697,6 +709,9 @@ func TestServiceStopChatFallsBackToLiveStateWhenPersistedOutputsLag(t *testing.T
 				userMessage("user-1", "Hello"),
 				assistantMessage("assistant-live", "Partial reply"),
 			},
+			ToolCallArguments: map[string]string{
+				"tool-call-live": `{"task":"Partial reply"}`,
+			},
 		},
 	}
 	fixture := newManagedChatFixture(t, live)
@@ -746,6 +761,9 @@ func TestServiceStopChatFallsBackToLiveStateWhenPersistedOutputsLag(t *testing.T
 	}
 	if hydrated.Messages[1]["id"] != "assistant-live" {
 		t.Fatalf("expected persisted live assistant output, got %#v", hydrated.Messages[1])
+	}
+	if got := hydrated.ToolCallArguments["tool-call-live"]; got != `{"task":"Partial reply"}` {
+		t.Fatalf("expected persisted live toolCallArguments, got %#v", hydrated.ToolCallArguments)
 	}
 }
 
@@ -1548,14 +1566,15 @@ func newManagedChatFixture(t *testing.T, live LiveChatStateProvider, starters ..
 }
 
 type managedChatRunOptions struct {
-	chatID          string
-	projectConfigID string
-	engineConfigID  string
-	startedAt       time.Time
-	status          agentruns.RunStatus
-	inputMessages   []map[string]any
-	outputMessages  []map[string]any
-	usage           map[string]any
+	chatID            string
+	projectConfigID   string
+	engineConfigID    string
+	startedAt         time.Time
+	status            agentruns.RunStatus
+	inputMessages     []map[string]any
+	outputMessages    []map[string]any
+	toolCallArguments map[string]string
+	usage             map[string]any
 }
 
 func newManagedChatRun(t *testing.T, options managedChatRunOptions) agentruns.Run {
@@ -1580,10 +1599,13 @@ func newManagedChatRun(t *testing.T, options managedChatRunOptions) agentruns.Ru
 		finishedAt := options.startedAt.Add(5 * time.Second)
 		run.FinishedAt = &finishedAt
 	}
-	if options.outputMessages != nil || options.usage != nil {
+	if options.outputMessages != nil || options.toolCallArguments != nil || options.usage != nil {
 		outputs := map[string]any{}
 		if options.outputMessages != nil {
 			outputs["messages"] = messageList(options.outputMessages)
+		}
+		if options.toolCallArguments != nil {
+			outputs["toolCallArguments"] = cloneStringMap(options.toolCallArguments)
 		}
 		if options.usage != nil {
 			outputs["usage"] = cloneAnyMap(options.usage)

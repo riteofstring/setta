@@ -6497,6 +6497,9 @@ func TestRegisterAIRoutesGetsManagedChat(t *testing.T) {
 	if payload.ContextUsage == nil || payload.ContextUsage.ContextUsedTokens == nil || *payload.ContextUsage.ContextUsedTokens != 21 {
 		t.Fatalf("expected managed context usage payload, got %#v", payload.ContextUsage)
 	}
+	if got := payload.ToolCallArguments["tool-call-managed"]; got != `{"task":"Managed reply"}` {
+		t.Fatalf("expected managed toolCallArguments payload, got %#v", payload.ToolCallArguments)
+	}
 	if payload.AppGenerationByMessageID["user-managed"] != agentruns.ChatAppGenerationMessageModePlainChat {
 		t.Fatalf("expected managed plain-chat provenance, got %#v", payload.AppGenerationByMessageID)
 	}
@@ -7088,6 +7091,9 @@ func (f aiRouteFixture) seedManagedHydrationRun(t *testing.T) {
 				"attachments": []any{},
 				"tool_calls":  nil,
 			},
+		},
+		"toolCallArguments": map[string]any{
+			"tool-call-managed": `{"task":"Managed reply"}`,
 		},
 		"usage": map[string]any{
 			"promptTokens":     21,

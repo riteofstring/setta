@@ -126,8 +126,9 @@ type Service struct {
 }
 
 type ChatState struct {
-	Messages           []map[string]any `json:"messages"`
-	WaitingForResponse bool             `json:"waitingForResponse"`
+	Messages           []map[string]any  `json:"messages"`
+	ToolCallArguments  map[string]string `json:"toolCallArguments"`
+	WaitingForResponse bool              `json:"waitingForResponse"`
 }
 
 type ChatContextUsage struct {
@@ -138,6 +139,7 @@ type ChatContextUsage struct {
 
 type HydratedChat struct {
 	Messages                 []map[string]any  `json:"messages"`
+	ToolCallArguments        map[string]string `json:"toolCallArguments"`
 	WaitingForResponse       bool              `json:"waitingForResponse"`
 	LLMConfig                *llmconfig.Config `json:"llmConfig"`
 	ContextUsage             *ChatContextUsage `json:"contextUsage"`
@@ -296,6 +298,7 @@ func (s *Service) GetChat(chatID string, projectConfigID *string) (HydratedChat,
 	}
 	return HydratedChat{
 		Messages:                 cloneMessageSlice(state.Messages),
+		ToolCallArguments:        cloneStringMap(state.ToolCallArguments),
 		WaitingForResponse:       state.WaitingForResponse,
 		LLMConfig:                resolvedLLMConfig,
 		ContextUsage:             resolveContextUsage(latestRun),
@@ -464,6 +467,7 @@ func (s *Service) resolveLLMConfig(run agentruns.Run) (*llmconfig.Config, error)
 func (s ChatState) Clone() *ChatState {
 	return &ChatState{
 		Messages:           cloneMessageSlice(s.Messages),
+		ToolCallArguments:  cloneStringMap(s.ToolCallArguments),
 		WaitingForResponse: s.WaitingForResponse,
 	}
 }
@@ -516,10 +520,15 @@ func buildChatStateFromRun(run agentruns.Run) (*ChatState, error) {
 	if err != nil {
 		return nil, err
 	}
+	toolCallArguments, err := parseOutputToolCallArguments(run)
+	if err != nil {
+		return nil, err
+	}
 	merged := mergeMessages(inputMessages, outputMessages, hasOutputs)
 	filtered := filterResponsePlaceholderMessages(merged)
 	return &ChatState{
 		Messages:           filtered,
+		ToolCallArguments:  toolCallArguments,
 		WaitingForResponse: run.Status == agentruns.RunStatusRunning,
 	}, nil
 }
@@ -573,6 +582,7 @@ func (s *Service) persistLiveChatStateToRun(run agentruns.Run, liveState *ChatSt
 		outputs = map[string]any{}
 	}
 	outputs["messages"] = messageSliceToJSONList(liveState.Messages)
+	outputs["toolCallArguments"] = cloneStringMap(liveState.ToolCallArguments)
 	persisted.Outputs = outputs
 	if err := s.runs.Save(persisted); err != nil {
 		return agentruns.Run{}, err
@@ -627,6 +637,39 @@ func parseOutputMessages(run agentruns.Run) ([]map[string]any, bool, error) {
 		return nil, false, err
 	}
 	return parsed, true, nil
+}
+
+func parseOutputToolCallArguments(run agentruns.Run) (map[string]string, error) {
+	if run.Outputs == nil {
+		return map[string]string{}, nil
+	}
+	rawArguments, ok := run.Outputs["toolCallArguments"]
+	if !ok || rawArguments == nil {
+		return map[string]string{}, nil
+	}
+	return parseToolCallArgumentsMap(rawArguments)
+}
+
+func parseToolCallArgumentsMap(raw any) (map[string]string, error) {
+	switch value := raw.(type) {
+	case map[string]string:
+		return cloneStringMap(value), nil
+	case map[string]any:
+		parsed := make(map[string]string, len(value))
+		for key, entry := range value {
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
+			stringValue, ok := entry.(string)
+			if !ok {
+				return nil, fmt.Errorf("toolCallArguments[%q] must be a string", key)
+			}
+			parsed[key] = stringValue
+		}
+		return parsed, nil
+	default:
+		return nil, fmt.Errorf("toolCallArguments must be an object")
+	}
 }
 
 func parseMessageList(raw any) ([]map[string]any, error) {
@@ -1183,6 +1226,17 @@ func cloneMessageSlice(input []map[string]any) []map[string]any {
 	cloned := make([]map[string]any, 0, len(input))
 	for _, entry := range input {
 		cloned = append(cloned, cloneAnyMap(entry))
+	}
+	return cloned
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if input == nil {
+		return map[string]string{}
+	}
+	cloned := make(map[string]string, len(input))
+	for key, value := range input {
+		cloned[key] = value
 	}
 	return cloned
 }
