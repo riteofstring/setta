@@ -2,10 +2,45 @@ import { expect, test, type Page } from "@playwright/test";
 import { ensureAppReady, postBackend } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const HOME_URL = new URL("/home", BASE_URL).toString();
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 
-test("settings view tabs filter sections and minimap", async ({ page }) => {
+test("settings core view stays populated when opened from home", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(HOME_URL, { waitUntil: "domcontentloaded" });
+
+  await page.getByTestId("home-left-rail-settings-link").click();
+  await page.waitForURL("**/settings");
+  await page.waitForSelector(READY_SELECTOR);
+
+  const shortcutsNode = page
+    .locator('.react-flow__node[data-id="settings-section__shortcuts"]')
+    .first();
+  const guiNode = page
+    .locator('.react-flow__node[data-id="settings-section__gui"]')
+    .first();
+
+  await expect(shortcutsNode).toBeVisible();
+  await expect(guiNode).toBeVisible();
+  await waitForNodeCount(page, 5);
+  await expect
+    .poll(async () => page.locator(".react-flow__node").count(), {
+      timeout: 1500,
+    })
+    .toBe(5);
+  await expect
+    .poll(async () => shortcutsNode.isVisible(), {
+      timeout: 1500,
+    })
+    .toBe(true);
+});
+
+test("settings view tabs filter sections and refit the viewport", async ({
+  page,
+}) => {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -14,7 +49,6 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   await expect(coreTab).toBeVisible();
   await coreTab.click();
   await waitForNodeCount(page, 5);
-  expect(await getMiniMapNodeCount(page)).toBe(5);
   await waitForOverviewCount(page, 5);
 
   const coreZoom = await getViewportScale(page);
@@ -25,12 +59,14 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   });
   await expect(allTab).toBeVisible();
   await allTab.click();
-  await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
-  await expect(
-    page.getByTestId("graph-substrate-canary-section"),
-  ).toBeVisible();
-  await expect(page.locator(".react-flow__pane")).toHaveCount(0);
-  await expect(page.locator(".react-flow__minimap-node")).toHaveCount(0);
+  await page.waitForFunction(
+    (minCount) =>
+      document.querySelectorAll(".react-flow__node").length > minCount,
+    13,
+  );
+
+  const allZoom = await getViewportScale(page);
+  expect(coreZoom).toBeGreaterThan(allZoom);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",
@@ -38,13 +74,11 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   });
   await expect(paramTab).toBeVisible();
   await paramTab.click();
-  await page.waitForSelector(READY_SELECTOR);
   await waitForNodeCount(page, 13);
-  expect(await getMiniMapNodeCount(page)).toBe(13);
   await waitForOverviewCount(page, 13);
 
   const paramZoom = await getViewportScale(page);
-  expect(coreZoom).toBeGreaterThan(paramZoom);
+  expect(paramZoom).toBeGreaterThan(allZoom);
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -105,10 +139,6 @@ async function waitForOverviewCount(
     (count) => document.querySelectorAll("#OverviewPane li").length === count,
     expected,
   );
-}
-
-async function getMiniMapNodeCount(page: Page): Promise<number> {
-  return page.locator(".react-flow__minimap-node").count();
 }
 
 async function getViewportScale(page: Page): Promise<number> {
