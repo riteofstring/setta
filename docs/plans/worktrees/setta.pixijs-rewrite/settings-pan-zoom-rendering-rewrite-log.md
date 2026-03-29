@@ -12545,3 +12545,52 @@ Record:
     - read-only `main` reference comparison was not trustworthy on this pass because the reference session did not reach the full Settings surface
 - Next action:
   - Keep taking named visible `dom-context-lost` sections off the local-app path in fallback-list order, starting with `sectionSizingPolicy`, while keeping the `main` oracle gap explicit until the read-only Settings surface becomes reachable again.
+
+## 2026-03-31 374
+
+- Item: Move `sectionSizingPolicy` onto the shared page-level live Pixi runtime host without regressing the existing prompt/browser/text-block/code-param shared canaries.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `373` and kept the slice bounded to the next named visible fallback instead of widening the runtime contract.
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+  - Locked the ownership move in the existing focused runtime tests instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all five shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `sectionSizingPolicy` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `sectionSizingPolicy` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Chrome DevTools MCP outcome after the change:
+    - fresh sub-agent verified the live worktree canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - selecting `sectionSizingPolicy` from the overview produced one visible scene wrapper with:
+      - `data-live-dict-area-scene-render-backend="shared-page-runtime"`
+      - no visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper for that section
+    - read-only `main` reached the full Settings surface again, so it was usable as a gross-drift oracle for the checked slice
+    - main-reference oracle caveat:
+      - after selecting `sectionSizingPolicy` on `main`, the exact scene container did not materialize in the same verification window
+      - treat this pass as trustworthy for Gate-1 gross surface comparison only, not for exact slice-level runtime assertions against `main`
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`17 passed`)
+  - Playwright:
+    - refreshed the current worktree bootstrap token via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - ran the targeted live canary subset directly against the current worktree runtime:
+      - `PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps codeParamCodeObjDefault on the shared page runtime without dom-context-lost|all settings canary keeps sectionSizingPolicy on the shared page runtime without dom-context-lost"`
+      - result: passed (`6 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `sectionSizingPolicy` is managed by the shared page runtime and has no visible `dom-context-lost` fallback wrapper
+    - verified `main` is reachable again for a gross Settings-surface comparison, but the exact `sectionSizingPolicy` scene slice was not trustworthy enough for a stronger oracle claim in this pass
+- Next action:
+  - Keep taking named visible `dom-context-lost` sections off the local-app path in fallback-list order, starting with the next remaining visible named scene after `sectionSizingPolicy`, while keeping the `main` slice-level oracle caveat explicit until that exact scene path is trustworthy again.
