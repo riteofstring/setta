@@ -31,9 +31,8 @@ import { buildLiveDictAreaPixiFixedMeasurements } from "./liveDictAreaPixiLayout
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
 import {
-  buildLiveDictAreaPixiValueOverlayRowStateLookup,
+  buildLiveDictAreaPixiValueOverlayRowState,
   type LiveDictAreaPixiValueOverlayRowBaseState,
-  type LiveDictAreaPixiValueOverlayRowStateLookup,
 } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
@@ -69,11 +68,16 @@ export function LiveDictAreaPixiOverlayShell({
       }),
     [liveDictAreaMountProps, liveDictAreaSceneBoundary],
   );
-  const valueRowIds = useMemo(
-    () => valueRowTargets.map((target) => target.rowId),
-    [valueRowTargets],
-  );
-  const valueRowSectionId = valueRowTargets[0]?.sectionId ?? null;
+  const activeValueRowTarget =
+    activeValueRowId === null
+      ? null
+      : valueRowTargets.find((target) => target.rowId === activeValueRowId) ??
+        null;
+  const activeDragRowTarget =
+    activeDragRowId === null
+      ? null
+      : dragRowTargets.find((target) => target.rowId === activeDragRowId) ??
+        null;
   const valueRowEditorKinds = useProjectState((state) => {
     if (isSelectingParams) {
       return {};
@@ -97,41 +101,33 @@ export function LiveDictAreaPixiOverlayShell({
       ]),
     );
   }, _.isEqual);
-  const valueRowBaseStateById = useProjectState((state) => {
-    if (isSelectingParams || valueRowSectionId === null) {
-      return {};
+  const activeValueRowBaseState = useProjectState((state) => {
+    if (isSelectingParams || activeValueRowTarget === null) {
+      return null;
     }
 
     const paramsImpl = getCurrEffectiveSectionImplWithTypeGuard(
       state,
-      valueRowSectionId,
+      activeValueRowTarget.sectionId,
       isBaseSectionWithParamsImpl,
     );
     const selectedParamIdSet = new Set(paramsImpl.selectedParams);
-
-    return Object.fromEntries(
-      valueRowTargets.map((target) => {
-        const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
-          state,
-          target.sectionId,
-          target.rowId,
-          isBaseParamCodeObjImpl,
-        );
-        const codeObjCore = getCodeObjCore(state, target.rowId);
-
-        return [
-          target.rowId,
-          {
-            coreNameEditable: codeObjImpl.coreNameEditable,
-            description: codeObjImpl.description,
-            displayName: codeObjCore.displayName,
-            isSelected: selectedParamIdSet.has(target.rowId),
-            name: codeObjCore.name,
-            showParamDisplayNames: state.projectConfig.showParamDisplayNames,
-          } satisfies LiveDictAreaPixiValueOverlayRowBaseState,
-        ];
-      }),
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+      state,
+      activeValueRowTarget.sectionId,
+      activeValueRowTarget.rowId,
+      isBaseParamCodeObjImpl,
     );
+    const codeObjCore = getCodeObjCore(state, activeValueRowTarget.rowId);
+
+    return {
+      coreNameEditable: codeObjImpl.coreNameEditable,
+      description: codeObjImpl.description,
+      displayName: codeObjCore.displayName,
+      isSelected: selectedParamIdSet.has(activeValueRowTarget.rowId),
+      name: codeObjCore.name,
+      showParamDisplayNames: state.projectConfig.showParamDisplayNames,
+    } satisfies LiveDictAreaPixiValueOverlayRowBaseState;
   }, _.isEqual);
   const valueRowSearchState = useProjectSearch(
     (state) => ({
@@ -140,45 +136,45 @@ export function LiveDictAreaPixiOverlayShell({
     }),
     _.isEqual,
   );
-  const valueRowParamErrorsById = useTypeErrors(
+  const activeValueRowParamErrors = useTypeErrors(
     (state) =>
-      valueRowSectionId === null
-        ? {}
-        : state.errors[valueRowSectionId]?.params ?? {},
+      activeValueRowTarget === null
+        ? []
+        : state.errors[activeValueRowTarget.sectionId]?.params?.[
+            activeValueRowTarget.rowId
+          ] ?? [],
     _.isEqual,
   );
-  const valueRowStateLookup = useMemo(() => {
-    if (isSelectingParams || valueRowSectionId === null) {
-      return {};
+  const activeValueRowState = useMemo(() => {
+    if (isSelectingParams || activeValueRowTarget === null) {
+      return null;
+    }
+    if (activeValueRowBaseState === null) {
+      throw new Error(
+        `Missing active Pixi value-overlay base state for ${activeValueRowTarget.rowId}.`,
+      );
     }
 
-    return buildLiveDictAreaPixiValueOverlayRowStateLookup({
+    return buildLiveDictAreaPixiValueOverlayRowState({
       focusedSearchResult: valueRowSearchState.focused,
-      paramErrorsById: valueRowParamErrorsById,
-      rowBaseStateById: valueRowBaseStateById,
-      rowIds: valueRowIds,
+      paramErrors: activeValueRowParamErrors,
+      rowBaseState: activeValueRowBaseState,
+      rowId: activeValueRowTarget.rowId,
       searchLookup: valueRowSearchState.lookup,
-      sectionId: valueRowSectionId,
+      sectionId: activeValueRowTarget.sectionId,
     });
   }, [
     isSelectingParams,
-    valueRowBaseStateById,
-    valueRowIds,
-    valueRowParamErrorsById,
+    activeValueRowBaseState,
+    activeValueRowParamErrors,
+    activeValueRowTarget,
     valueRowSearchState.focused,
     valueRowSearchState.lookup,
-    valueRowSectionId,
   ]);
-  const activeValueRowTarget =
-    activeValueRowId === null
-      ? null
-      : valueRowTargets.find((target) => target.rowId === activeValueRowId) ??
-        null;
-  const activeDragRowTarget =
-    activeDragRowId === null
-      ? null
-      : dragRowTargets.find((target) => target.rowId === activeDragRowId) ??
-        null;
+  const activeValueRowEditorKind =
+    activeValueRowTarget === null
+      ? "other"
+      : valueRowEditorKinds[activeValueRowTarget.rowId] ?? "other";
   const activeValueRowStyleColorPreview = useTemporaryMiscState((state) => {
     if (activeValueRowTarget === null) {
       return undefined;
@@ -278,14 +274,9 @@ export function LiveDictAreaPixiOverlayShell({
         ) : null
       ) : activeValueRowTarget ? (
         <LiveDictAreaPixiValueRowOverlay
-          editorKind={
-            valueRowEditorKinds[activeValueRowTarget.rowId] ?? "other"
-          }
+          editorKind={activeValueRowEditorKind}
           hasSectionStyleTheme={activeValueRowHasSectionStyleTheme}
-          rowState={getActiveValueRowState({
-            rowId: activeValueRowTarget.rowId,
-            rowStateLookup: valueRowStateLookup,
-          })}
+          rowState={getActiveValueRowState(activeValueRowState)}
           target={activeValueRowTarget}
         />
       ) : valueRowTargets.length === 0 ? (
@@ -313,17 +304,11 @@ export function LiveDictAreaPixiOverlayShell({
   );
 }
 
-function getActiveValueRowState({
-  rowId,
-  rowStateLookup,
-}: {
-  rowId: string;
-  rowStateLookup: LiveDictAreaPixiValueOverlayRowStateLookup;
-}) {
-  const rowState = rowStateLookup[rowId];
-
+function getActiveValueRowState(
+  rowState: ReturnType<typeof buildLiveDictAreaPixiValueOverlayRowState> | null,
+) {
   if (!rowState) {
-    throw new Error(`Missing active Pixi value-overlay state for ${rowId}.`);
+    throw new Error("Missing active Pixi value-overlay state.");
   }
 
   return rowState;

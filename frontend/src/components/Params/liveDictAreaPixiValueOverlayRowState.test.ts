@@ -1,43 +1,31 @@
 import { createProjectSearchLookupKey } from "state/hooks/search";
 import { describe, expect, it } from "vitest";
-import { buildLiveDictAreaPixiValueOverlayRowStateLookup } from "./liveDictAreaPixiValueOverlayRowState";
+import { buildLiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 
-describe("buildLiveDictAreaPixiValueOverlayRowStateLookup", () => {
-  it("resolves display/search/error state for visible Pixi value rows", () => {
-    const lookup = buildLiveDictAreaPixiValueOverlayRowStateLookup({
+describe("buildLiveDictAreaPixiValueOverlayRowState", () => {
+  it("resolves display/search/error state for one active Pixi value row", () => {
+    const rowState = buildLiveDictAreaPixiValueOverlayRowState({
       focusedSearchResult: {
         paramInfoId: "gridColor",
         sectionId: "settings",
       },
-      paramErrorsById: {
-        gridColor: ["Color is invalid"],
+      paramErrors: ["Color is invalid"],
+      rowBaseState: {
+        coreNameEditable: false,
+        description: "Grid color description",
+        displayName: "Grid Color",
+        isSelected: true,
+        name: "gridColor",
+        showParamDisplayNames: true,
       },
-      rowBaseStateById: {
-        gridColor: {
-          coreNameEditable: false,
-          description: "Grid color description",
-          displayName: "Grid Color",
-          isSelected: true,
-          name: "gridColor",
-          showParamDisplayNames: true,
-        },
-        kwargs: {
-          coreNameEditable: true,
-          description: "Kwarg description",
-          displayName: "Kwargs Display",
-          isSelected: false,
-          name: "kwargs",
-          showParamDisplayNames: true,
-        },
-      },
-      rowIds: ["gridColor", "kwargs"],
+      rowId: "gridColor",
       searchLookup: new Set([
         createProjectSearchLookupKey("settings", "gridColor"),
       ]),
       sectionId: "settings",
     });
 
-    expect(lookup.gridColor).toEqual({
+    expect(rowState).toEqual({
       coreNameEditable: false,
       description: "Grid color description",
       errorMessage: "Color is invalid",
@@ -45,15 +33,6 @@ describe("buildLiveDictAreaPixiValueOverlayRowStateLookup", () => {
       isSearchResult: true,
       isSelected: true,
       paramName: "Grid Color",
-    });
-    expect(lookup.kwargs).toEqual({
-      coreNameEditable: true,
-      description: "Kwarg description",
-      errorMessage: "",
-      isFocusedSearchResult: false,
-      isSearchResult: false,
-      isSelected: false,
-      paramName: "kwargs",
     });
   });
 });

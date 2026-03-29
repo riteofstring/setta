@@ -33,6 +33,10 @@ const temporaryMiscState = vi.hoisted(() => ({}) as Record<string, unknown>);
 const typeErrorState = vi.hoisted(() => ({
   errors: {} as Record<string, { params?: Record<string, string[]> }>,
 }));
+const activeValueRowBaseStateRequests = vi.hoisted(
+  () => [] as Array<{ rowId: string; sectionId: string }>,
+);
+const activeValueRowCoreRequests = vi.hoisted(() => [] as string[]);
 
 vi.mock("./LiveDictAreaPixiScene", () => ({
   LiveDictAreaPixiScene: () => <div data-live-dict-area-scene="pixi" />,
@@ -94,13 +98,16 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
 });
 
 vi.mock("state/actions/sectionInfos", () => ({
-  getCodeObjCore: (_state: object, rowId: string) => ({
-    displayName:
-      rowId === "pinned-value"
-        ? "Pinned Value Display"
-        : "Unpinned Value Display",
-    name: rowId,
-  }),
+  getCodeObjCore: (_state: object, rowId: string) => {
+    activeValueRowCoreRequests.push(rowId);
+    return {
+      displayName:
+        rowId === "pinned-value"
+          ? "Pinned Value Display"
+          : "Unpinned Value Display",
+      name: rowId,
+    };
+  },
   getCurrEffectiveCodeObjImpl: (
     _state: object,
     _sectionId: string,
@@ -120,15 +127,18 @@ vi.mock("state/actions/sectionInfos", () => ({
   }),
   getCurrEffectiveCodeObjImplWithTypeGuard: (
     _state: object,
-    _sectionId: string,
+    sectionId: string,
     rowId: string,
-  ) => ({
-    coreNameEditable: rowId === "unpinned-value",
-    description:
-      rowId === "pinned-value"
-        ? "Pinned value description"
-        : "Unpinned value description",
-  }),
+  ) => {
+    activeValueRowBaseStateRequests.push({ rowId, sectionId });
+    return {
+      coreNameEditable: rowId === "unpinned-value",
+      description:
+        rowId === "pinned-value"
+          ? "Pinned value description"
+          : "Unpinned value description",
+    };
+  },
   getCurrEffectiveSectionImplWithTypeGuard: () => ({
     selectedParams: ["pinned-value"],
   }),
@@ -147,6 +157,8 @@ describe("LiveDictAreaPixiOverlayShell", () => {
       delete temporaryMiscState[key];
     }
     typeErrorState.errors = {};
+    activeValueRowBaseStateRequests.length = 0;
+    activeValueRowCoreRequests.length = 0;
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -157,6 +169,8 @@ describe("LiveDictAreaPixiOverlayShell", () => {
       root.unmount();
     });
     container.remove();
+    activeValueRowBaseStateRequests.length = 0;
+    activeValueRowCoreRequests.length = 0;
   });
 
   it("mounts a value-row editor overlay on demand over the Pixi scene canary", () => {
@@ -242,6 +256,8 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         "[data-live-dict-area-editor-handoff-editor-kind='color-picker']",
       ),
     ).not.toBeNull();
+    expect(activeValueRowBaseStateRequests).toEqual([]);
+    expect(activeValueRowCoreRequests).toEqual([]);
 
     const activatedRowId =
       handoffButtons[0]?.getAttribute(
@@ -265,6 +281,18 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         `[data-live-dict-area-editor-overlay-row-id='${activatedRowId}']`,
       ),
     ).not.toBeNull();
+    expect(activeValueRowBaseStateRequests.length).toBeGreaterThan(0);
+    expect(activeValueRowBaseStateRequests).toSatisfy((requests) =>
+      requests.every(
+        (request) =>
+          request.rowId === (activatedRowId ?? "") &&
+          request.sectionId === "section-1",
+      ),
+    );
+    expect(activeValueRowCoreRequests.length).toBeGreaterThan(0);
+    expect(activeValueRowCoreRequests).toSatisfy((requests) =>
+      requests.every((rowId) => rowId === (activatedRowId ?? "")),
+    );
   });
 
   it("mounts a param-list drag overlay when param selection mode is active", () => {

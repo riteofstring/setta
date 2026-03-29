@@ -7308,3 +7308,37 @@ Record:
     - relevant successful requests included `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `POST /api/setTopLevelSectionLayout`, and `POST /api/setActiveViewMode`
 - Next action:
   - Re-check the remaining Pixi editor-overlay/input lane and stop it if the next candidate is only another low-payoff ownership hop; otherwise pick the next slice that removes real remaining editor/input shell work or a measured hotspot from the live canary.
+
+## 2026-03-29 234
+
+- Item: Narrow the live Pixi value-row overlay state path from an all-rows lookup to the single active row.
+- Status: `done`
+- Details:
+  - Kept the live Pixi editor-overlay lane on a real store/render reduction step instead of another ownership hop:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiValueOverlayRowState.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiValueOverlayRowState.test.ts`
+  - The active Pixi value-row overlay no longer builds value-row state for every visible handoff target before an editor is opened:
+    - `LiveDictAreaPixiOverlayShell.tsx` now resolves base state, type errors, and derived overlay row state only for `activeValueRowTarget`
+    - `liveDictAreaPixiValueOverlayRowState.ts` now derives one active row payload instead of constructing an all-rows lookup table
+    - the handoff buttons still expose editor-kind metadata for the scene canary, but the expensive overlay row state path is deferred until a row is actually activated
+  - Added focused proof of the new boundary:
+    - `LiveDictAreaPixiOverlayShell.test.tsx` now verifies no active-row base/core lookups happen before activation and that post-click requests stay pinned to the activated row only
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueOverlayRowState.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiValueOverlayRowState.ts src/components/Params/liveDictAreaPixiValueOverlayRowState.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - after opening `All Settings` and activating a value-row editor overlay, the editor overlay appeared and the Pixi canvas stayed mounted and visible underneath
+    - no obvious blanking, clipping, or major overlap regression was observed in the checked viewport
+    - representative successful requests included `POST /api/setProjectChatWindowingState` and `POST /api/getFolderContents`
+- Next action:
+  - Re-check whether the remaining active Pixi value-row `ParamInput`/`ParamUI` shell is a real editor/input reduction target; if not, stop this overlay-cleanup lane and pivot to a measured retained-scene hotspot instead of continuing ownership churn.
