@@ -546,51 +546,76 @@ async function readVisibleSceneReadableRows(page: Page): Promise<
     left: number;
     readableRowCount: number;
     sectionId: string;
+    sectionName: string;
     top: number;
+    valuePreviewCount: number;
   }>
 > {
   return page.evaluate(() => {
-    return Array.from(
-      document.querySelectorAll<HTMLElement>(
-        "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-id]",
-      ),
-    )
-      .map((sceneRoot) => {
-        const rect = sceneRoot.getBoundingClientRect();
+    return import("/src/state/definitions.ts").then(({ useProjectState }) => {
+      const sections = useProjectState.getState().sections;
 
-        return {
-          left: rect.left,
-          readableRowCount: Number.parseInt(
-            sceneRoot.getAttribute(
-              "data-live-dict-area-scene-readable-row-count",
-            ) ?? "0",
-            10,
-          ),
-          sectionId:
+      return Array.from(
+        document.querySelectorAll<HTMLElement>(
+          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-id]",
+        ),
+      )
+        .map((sceneRoot) => {
+          const rect = sceneRoot.getBoundingClientRect();
+          const sectionId =
             sceneRoot.getAttribute("data-live-dict-area-scene-section-id") ??
-            "",
-          top: rect.top,
-          visible:
-            rect.width > 0 &&
-            rect.height > 0 &&
-            rect.bottom > 0 &&
-            rect.top < window.innerHeight,
-        };
-      })
-      .filter((sceneRoot) => sceneRoot.visible)
-      .sort((leftScene, rightScene) => {
-        if (Math.abs(leftScene.top - rightScene.top) > 2) {
-          return leftScene.top - rightScene.top;
-        }
+            "";
 
-        return leftScene.left - rightScene.left;
-      })
-      .map(({ left, readableRowCount, sectionId, top }) => ({
-        left,
-        readableRowCount,
-        sectionId,
-        top,
-      }));
+          return {
+            left: rect.left,
+            readableRowCount: Number.parseInt(
+              sceneRoot.getAttribute(
+                "data-live-dict-area-scene-readable-row-count",
+              ) ?? "0",
+              10,
+            ),
+            sectionId,
+            sectionName: sections[sectionId]?.name ?? "",
+            top: rect.top,
+            valuePreviewCount: Number.parseInt(
+              sceneRoot.getAttribute(
+                "data-live-dict-area-scene-value-preview-count",
+              ) ?? "0",
+              10,
+            ),
+            visible:
+              rect.width > 0 &&
+              rect.height > 0 &&
+              rect.bottom > 0 &&
+              rect.top < window.innerHeight,
+          };
+        })
+        .filter((sceneRoot) => sceneRoot.visible)
+        .sort((leftScene, rightScene) => {
+          if (Math.abs(leftScene.top - rightScene.top) > 2) {
+            return leftScene.top - rightScene.top;
+          }
+
+          return leftScene.left - rightScene.left;
+        })
+        .map(
+          ({
+            left,
+            readableRowCount,
+            sectionId,
+            sectionName,
+            top,
+            valuePreviewCount,
+          }) => ({
+            left,
+            readableRowCount,
+            sectionId,
+            sectionName,
+            top,
+            valuePreviewCount,
+          }),
+        );
+    });
   });
 }
 
@@ -643,6 +668,139 @@ async function readVisibleScenePaletteSamples(
         top,
       }));
   });
+}
+
+async function readVisibleSceneWindowOptimality(
+  page: Page,
+  sectionNames: string[],
+): Promise<
+  Array<{
+    optimalReadableRowCount: number;
+    optimalValuePreviewCount: number;
+    readableRowCount: number;
+    sectionName: string;
+    valuePreviewCount: number;
+  }>
+> {
+  return page.evaluate(async (targetSectionNames) => {
+    const { useProjectState, useMisc, useSettings } = await import(
+      "/src/state/definitions.ts"
+    );
+    const { getCurrEffectiveSectionImpl } = await import(
+      "/src/state/actions/sectionInfos.ts"
+    );
+    const { buildLiveDictAreaSectionBoundary } = await import(
+      "/src/components/Params/groupContainerLiveDictAreaSectionBoundary.ts"
+    );
+    const { buildLiveDictAreaBoundary } = await import(
+      "/src/components/Params/groupContainerLiveDictAreaBoundary.ts"
+    );
+
+    const state = useProjectState.getState();
+    const targetSectionNameSet = new Set(targetSectionNames);
+    const visibleTargetScenes = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-id]",
+      ),
+    )
+      .map((sceneRoot) => {
+        const rect = sceneRoot.getBoundingClientRect();
+        const sectionId =
+          sceneRoot.getAttribute("data-live-dict-area-scene-section-id") ?? "";
+        const sectionName = state.sections[sectionId]?.name ?? "";
+
+        return {
+          readableRowCount: Number.parseInt(
+            sceneRoot.getAttribute(
+              "data-live-dict-area-scene-readable-row-count",
+            ) ?? "0",
+            10,
+          ),
+          rowCount: Number.parseInt(
+            sceneRoot.getAttribute("data-live-dict-area-scene-row-count") ??
+              "0",
+            10,
+          ),
+          sectionId,
+          sectionName,
+          valuePreviewCount: Number.parseInt(
+            sceneRoot.getAttribute(
+              "data-live-dict-area-scene-value-preview-count",
+            ) ?? "0",
+            10,
+          ),
+          visible:
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.bottom > 0 &&
+            rect.top < window.innerHeight,
+        };
+      })
+      .filter(
+        (scene) =>
+          scene.visible &&
+          scene.rowCount > 0 &&
+          targetSectionNameSet.has(scene.sectionName),
+      );
+
+    return visibleTargetScenes.map((scene) => {
+      const sectionImpl = getCurrEffectiveSectionImpl(state, scene.sectionId);
+      const liveDictAreaBoundary = buildLiveDictAreaBoundary(
+        buildLiveDictAreaSectionBoundary({
+          bgColor: "bg-surface",
+          canEditLayout: true,
+          canEditStructure: true,
+          handleColumnResizeStart: () => undefined,
+          isSelectingParams: useMisc.getState().isSelectingParams,
+          sectionId: scene.sectionId,
+          sectionTypeName: sectionImpl.type,
+          state,
+          unpinnedParamsAreaMinHeight:
+            useSettings.getState().sectionSizingPolicy.globals
+              .unpinnedParamsAreaMinHeight,
+        }),
+      );
+      const rows = liveDictAreaBoundary.scenePacket.paramAreas.flatMap(
+        (paramArea) => paramArea.rows,
+      );
+      let optimalReadableRowCount = scene.readableRowCount;
+      let optimalValuePreviewCount = scene.valuePreviewCount;
+
+      for (
+        let previewStartIndex = 0;
+        previewStartIndex <= rows.length - scene.rowCount;
+        previewStartIndex += 1
+      ) {
+        const candidateRows = rows.slice(
+          previewStartIndex,
+          previewStartIndex + scene.rowCount,
+        );
+        const candidateReadableRowCount = candidateRows.filter(
+          (row) => row.kind !== "group",
+        ).length;
+        const candidateValuePreviewCount = candidateRows.filter(
+          (row) => row.kind === "value" && row.valuePreview !== null,
+        ).length;
+
+        if (
+          candidateReadableRowCount > optimalReadableRowCount ||
+          (candidateReadableRowCount === optimalReadableRowCount &&
+            candidateValuePreviewCount > optimalValuePreviewCount)
+        ) {
+          optimalReadableRowCount = candidateReadableRowCount;
+          optimalValuePreviewCount = candidateValuePreviewCount;
+        }
+      }
+
+      return {
+        optimalReadableRowCount,
+        optimalValuePreviewCount,
+        readableRowCount: scene.readableRowCount,
+        sectionName: scene.sectionName,
+        valuePreviewCount: scene.valuePreviewCount,
+      };
+    });
+  }, sectionNames);
 }
 
 async function waitForVisibleSceneMetrics(page: Page): Promise<{
@@ -1214,6 +1372,41 @@ test("all settings canary keeps the first visible low-zoom Pixi cards from colla
       return (
         visibleScenes.length >= 6 &&
         visibleScenes.slice(0, 6).every((scene) => scene.readableRowCount > 0)
+      );
+    })
+    .toBe(true);
+});
+
+test("all settings canary prefers populated same-height value-preview windows in deeper low-zoom Pixi cards", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await normalizeAllSettingsOverviewLayout(page);
+  await clearCurrentProjectViewportForRefit(page);
+  await waitForVisibleSceneMetrics(page);
+  await expectZoomOutButtonDisabled(page, true);
+
+  const promptOverviewItem = page
+    .locator("#OverviewPane li")
+    .filter({ hasText: "promptSectionDefault" });
+  await expect(promptOverviewItem).toBeVisible();
+  await promptOverviewItem.click();
+
+  await expect
+    .poll(async () => {
+      const diagnostics = await readVisibleSceneWindowOptimality(page, [
+        "pluginSectionDefault",
+        "promptSectionDefault",
+      ]);
+
+      return (
+        diagnostics.length === 2 &&
+        diagnostics.every(
+          (scene) =>
+            scene.readableRowCount === scene.optimalReadableRowCount &&
+            scene.valuePreviewCount === scene.optimalValuePreviewCount,
+        )
       );
     })
     .toBe(true);

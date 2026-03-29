@@ -551,6 +551,82 @@ describe("buildLiveDictAreaPixiLayout", () => {
     expect(constrainedLayout.paramAreas[0]?.rows[2]?.valueText).toBe("verbose");
   });
 
+  it("breaks readable-row preview ties by preferring the same-height slice with more value previews", () => {
+    const liveDictAreaBoundary = buildLiveDictAreaBoundary({
+      bgColor: "bg-surface",
+      canConnect: true,
+      edgeInputParams: [],
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      getParamDisplayName: (paramId: string) =>
+        (
+          ({
+            "empty-value": "Empty Value",
+            "outer-group": "Outer Group",
+            "preview-a": "Preview A",
+            "preview-b": "Preview B",
+            "preview-c": "Preview C",
+          }) as Record<string, string>
+        )[paramId] ?? paramId,
+      getParamValuePreview: (paramId: string) =>
+        (
+          ({
+            "preview-a": '"one"',
+            "preview-b": '"two"',
+            "preview-c": '"three"',
+          }) as Record<string, string>
+        )[paramId] ?? null,
+      inputPorts: [],
+      isSelectingParams: false,
+      outputPorts: [],
+      pinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [],
+      },
+      positionAndSizeLocked: false,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: null,
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 0,
+        pinnedRequiredParamIdsToPaths: {},
+        pinnedTopLevelParamIds: [],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          "empty-value": ["empty-value"],
+          "preview-a": ["outer-group", "preview-a"],
+          "preview-b": ["outer-group", "preview-b"],
+          "preview-c": ["outer-group", "preview-c"],
+        },
+        topLevelParamIds: ["empty-value", "outer-group"],
+      },
+    });
+    const liveDictAreaSceneBoundary = buildLiveDictAreaSceneBoundary({
+      liveDictAreaBoundary,
+    });
+    const constrainedLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      maxCanvasHeight:
+        LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop +
+        4 * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
+        LIVE_DICT_AREA_PIXI_LAYOUT.rowTopOffset +
+        LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT +
+        LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom -
+        1,
+      width: 320,
+    });
+
+    expect(constrainedLayout.paramAreas[0]?.rows.map((row) => row.id)).toEqual([
+      "outer-group",
+      "preview-a",
+      "preview-b",
+      "preview-c",
+    ]);
+    expect(constrainedLayout.readableRowCount).toBe(3);
+    expect(constrainedLayout.valuePreviewCount).toBe(3);
+  });
+
   it("reserves a readable compact preview after a constrained edge strip so short cards do not render as empty shells", () => {
     const liveDictAreaBoundary = buildLiveDictAreaBoundary({
       bgColor: "bg-surface",

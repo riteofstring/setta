@@ -414,8 +414,11 @@ function resolveVisibleParamAreaRows({
   const previewRowCount = visibleRows.length;
   const currentReadableRowCount =
     countLiveDictAreaPixiReadableRows(visibleRows);
+  const currentValuePreviewRowCount =
+    countLiveDictAreaPixiValuePreviewRows(visibleRows);
   let bestPreviewRows = visibleRows;
   let bestPreviewReadableRowCount = currentReadableRowCount;
+  let bestPreviewValuePreviewRowCount = currentValuePreviewRowCount;
 
   for (
     let previewStartIndex = 1;
@@ -428,15 +431,26 @@ function resolveVisibleParamAreaRows({
     );
     const candidateReadableRowCount =
       countLiveDictAreaPixiReadableRows(candidatePreviewRows);
-    if (candidateReadableRowCount <= bestPreviewReadableRowCount) {
+    const candidateValuePreviewRowCount =
+      countLiveDictAreaPixiValuePreviewRows(candidatePreviewRows);
+    if (
+      candidateReadableRowCount < bestPreviewReadableRowCount ||
+      (candidateReadableRowCount === bestPreviewReadableRowCount &&
+        candidateValuePreviewRowCount <= bestPreviewValuePreviewRowCount)
+    ) {
       continue;
     }
 
     bestPreviewRows = candidatePreviewRows;
     bestPreviewReadableRowCount = candidateReadableRowCount;
+    bestPreviewValuePreviewRowCount = candidateValuePreviewRowCount;
   }
 
-  if (bestPreviewReadableRowCount <= currentReadableRowCount) {
+  if (
+    bestPreviewReadableRowCount < currentReadableRowCount ||
+    (bestPreviewReadableRowCount === currentReadableRowCount &&
+      bestPreviewValuePreviewRowCount <= currentValuePreviewRowCount)
+  ) {
     return visibleRows;
   }
 
@@ -453,6 +467,16 @@ function countLiveDictAreaPixiReadableRows(rows: LiveDictAreaPixiRowLayout[]) {
   return rows.reduce(
     (readableRowCount, row) =>
       readableRowCount + (row.kind === "group" ? 0 : 1),
+    0,
+  );
+}
+
+function countLiveDictAreaPixiValuePreviewRows(
+  rows: LiveDictAreaPixiRowLayout[],
+) {
+  return rows.reduce(
+    (valuePreviewRowCount, row) =>
+      valuePreviewRowCount + (row.valueText === null ? 0 : 1),
     0,
   );
 }

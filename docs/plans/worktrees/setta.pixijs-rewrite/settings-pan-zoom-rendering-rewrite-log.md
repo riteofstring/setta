@@ -12020,3 +12020,41 @@ Record:
       - residual live-Pixi drift remains in that same area as sparser / under-populated bodies compared with baseline and `main`, so this slice closes the row-fill regression but not the broader parity lane
 - Next action:
   - Investigate the residual live-Pixi sparse / under-populated body drift in the same deeper center-right `All Settings` stack now that the incorrect bright row-fill fallback is closed.
+
+## 2026-03-31 363
+
+- Item: Prefer the populated same-height preview window for deeper live Pixi `All Settings` cards when readable-row density ties.
+- Status: `done`
+- Details:
+  - Continued the active deeper center-right live-Pixi sparsity lane from item `362` instead of reopening viewport, route-entry, or palette work.
+  - Confirmed the concrete renderer-layout defect on the production scene path before editing:
+    - for deeper cards including `pluginSectionDefault` and `promptSectionDefault`, the mounted live Pixi layout was keeping the top same-height preview window even when a later window preserved the same readable-row count but exposed more non-null value previews
+    - this left the live Pixi bodies visibly sparser than baseline and `main` in ordinary use despite matching card geometry and zoom state
+  - Fixed the production scorer in `frontend/src/components/Params/liveDictAreaPixiLayout.ts`:
+    - constrained preview-window selection still prefers higher readable-row count first
+    - when readable-row count ties, it now prefers the window with more populated value previews instead of staying pinned to the default top slice
+    - the top slice still wins whenever later windows are not strictly better
+  - Added focused regression coverage for the same failure shape:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+      - added a unit test that forces a readable-row tie and requires the layout to choose the later same-height window with more populated value previews
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - expanded visible-scene diagnostics with section names and value-preview counts
+      - added a deeper low-zoom canary that resets workspace chrome, normalizes the `All Settings` layout, navigates to `promptSectionDefault` through the overview pane, and asserts that `pluginSectionDefault` / `promptSectionDefault` are already rendering the optimal same-height preview window for their current visible row count
+      - this keeps the guard on the real bug condition instead of hard-coding one transient viewport slice
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed (`10 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews|all settings canary prefers populated same-height value-preview windows in deeper low-zoom Pixi cards"`
+    - result: passed (`2 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on worktree live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` against worktree baseline `http://127.0.0.1:3043/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - result: passed
+      - `pluginSectionDefault` and `promptSectionDefault` no longer looked sparser than baseline or `main`
+      - the live Pixi cards showed the same dense ARGS/control-row content in ordinary use for the checked deeper slice
+- Next action:
+  - Re-run the normalized deeper-stack live-Pixi-vs-`main` parity comparison and identify the next renderer-only drift now that the prompt/plugin same-height preview-window sparsity is closed.
