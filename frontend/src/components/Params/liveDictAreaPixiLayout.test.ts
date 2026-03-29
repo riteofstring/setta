@@ -260,9 +260,76 @@ describe("buildLiveDictAreaPixiLayout", () => {
     expect(constrainedLayout.paramAreas[1]?.height).toBe(64);
     expect(constrainedLayout.paramAreas[1]?.rows.map((row) => row.id)).toEqual([
       "unpinned-group",
+      "unpinned-value",
     ]);
-    expect(constrainedLayout.totalRowCount).toBe(3);
-    expect(constrainedLayout.valuePreviewCount).toBe(0);
+    expect(constrainedLayout.totalRowCount).toBe(4);
+    expect(constrainedLayout.valuePreviewCount).toBe(1);
+  });
+
+  it("drops the synthetic unpinned detail header strip without shrinking the preserved body height", () => {
+    const liveDictAreaBoundary = buildLiveDictAreaBoundary({
+      bgColor: "bg-surface",
+      canConnect: true,
+      edgeInputParams: [],
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      getParamDisplayName: (paramId: string) =>
+        (
+          ({
+            "unpinned-group": "Unpinned Group",
+            "unpinned-value": "Unpinned Value",
+          }) as Record<string, string>
+        )[paramId] ?? paramId,
+      getParamValuePreview: (paramId: string) =>
+        paramId === "unpinned-value" ? "42" : null,
+      inputPorts: [],
+      isSelectingParams: false,
+      outputPorts: [],
+      pinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [],
+      },
+      positionAndSizeLocked: false,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: null,
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 0,
+        pinnedRequiredParamIdsToPaths: {},
+        pinnedTopLevelParamIds: [],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          "unpinned-group": ["unpinned-group"],
+          "unpinned-value": ["unpinned-group", "unpinned-value"],
+        },
+        topLevelParamIds: ["unpinned-group"],
+      },
+    });
+    const liveDictAreaSceneBoundary = buildLiveDictAreaSceneBoundary({
+      liveDictAreaBoundary,
+    });
+    const result = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      width: 320,
+    });
+
+    expect(result.paramAreas[0]).toMatchObject({
+      headerHeight: 0,
+      height:
+        LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
+        LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop +
+        2 * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
+        LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom,
+    });
+    expect(result.paramAreas[0]?.rows.map((row) => row.id)).toEqual([
+      "unpinned-group",
+      "unpinned-value",
+    ]);
+    expect(result.paramAreas[0]?.rows[0]?.y).toBe(
+      LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop +
+        LIVE_DICT_AREA_PIXI_LAYOUT.rowTopOffset,
+    );
   });
 
   it("switches short mounted preview cards into a compact param-area mode so they still show a visible row", () => {

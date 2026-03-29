@@ -6,6 +6,8 @@ import "testUtils/reactRefreshPreamble";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
+import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
+import type { LiveDictAreaPixiLayout } from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
 
 vi.hoisted(() => {
@@ -38,9 +40,34 @@ const activeValueRowBaseStateRequests = vi.hoisted(
 );
 const activeValueRowCoreRequests = vi.hoisted(() => [] as string[]);
 
-vi.mock("./LiveDictAreaPixiScene", () => ({
-  LiveDictAreaPixiScene: () => <div data-live-dict-area-scene="pixi" />,
-}));
+vi.mock("./LiveDictAreaPixiScene", async () => {
+  const React = await import("react");
+  const { buildLiveDictAreaPixiLayout } = await import(
+    "./liveDictAreaPixiLayout"
+  );
+
+  return {
+    LiveDictAreaPixiScene: ({
+      liveDictAreaSceneBoundary,
+      onSummaryLayoutChange,
+    }: {
+      liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
+      onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
+    }) => {
+      React.useLayoutEffect(() => {
+        onSummaryLayoutChange?.(
+          buildLiveDictAreaPixiLayout({
+            liveDictAreaSceneBoundary,
+            maxCanvasHeight: 600,
+            width: 320,
+          }),
+        );
+      }, [liveDictAreaSceneBoundary, onSummaryLayoutChange]);
+
+      return <div data-live-dict-area-scene="pixi" />;
+    },
+  };
+});
 
 vi.mock("./LiveDictAreaPixiParamAreaOverlay", () => ({
   LiveDictAreaPixiParamAreaOverlay: ({

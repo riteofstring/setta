@@ -9,7 +9,10 @@ import {
 } from "./groupContainerLiveDictAreaMount";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import { buildLiveDictAreaPixiDragRowTargets } from "./liveDictAreaPixiDragRowTargets";
-import { buildLiveDictAreaPixiFixedMeasurements } from "./liveDictAreaPixiLayout";
+import {
+  buildLiveDictAreaPixiFixedMeasurements,
+  type LiveDictAreaPixiLayout,
+} from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
@@ -25,25 +28,33 @@ export function LiveDictAreaPixiOverlayShell({
   liveDictAreaMountProps,
   liveDictAreaSceneBoundary,
 }: LiveDictAreaPixiOverlayShellProps) {
+  const [summaryLayout, setSummaryLayout] =
+    useState<LiveDictAreaPixiLayout | null>(null);
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
   const [activeDragRowId, setActiveDragRowId] = useState<string | null>(null);
   const [isFallbackOverlayActive, setIsFallbackOverlayActive] = useState(false);
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const valueRowTargets = useMemo(
     () =>
-      buildLiveDictAreaPixiValueRowTargets({
-        liveDictAreaMountProps,
-        liveDictAreaSceneBoundary,
-      }),
-    [liveDictAreaMountProps, liveDictAreaSceneBoundary],
+      summaryLayout === null
+        ? []
+        : buildLiveDictAreaPixiValueRowTargets({
+            layout: summaryLayout,
+            liveDictAreaMountProps,
+            liveDictAreaSceneBoundary,
+          }),
+    [liveDictAreaMountProps, liveDictAreaSceneBoundary, summaryLayout],
   );
   const dragRowTargets = useMemo(
     () =>
-      buildLiveDictAreaPixiDragRowTargets({
-        liveDictAreaMountProps,
-        liveDictAreaSceneBoundary,
-      }),
-    [liveDictAreaMountProps, liveDictAreaSceneBoundary],
+      summaryLayout === null
+        ? []
+        : buildLiveDictAreaPixiDragRowTargets({
+            layout: summaryLayout,
+            liveDictAreaMountProps,
+            liveDictAreaSceneBoundary,
+          }),
+    [liveDictAreaMountProps, liveDictAreaSceneBoundary, summaryLayout],
   );
   const activeValueRowTarget =
     activeValueRowId === null
@@ -107,6 +118,7 @@ export function LiveDictAreaPixiOverlayShell({
       />
       <LiveDictAreaPixiScene
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
+        onSummaryLayoutChange={setSummaryLayout}
       />
       {isSelectingParams
         ? dragRowTargets.map((target) =>

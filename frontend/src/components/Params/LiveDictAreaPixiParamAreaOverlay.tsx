@@ -52,9 +52,16 @@ export function LiveDictAreaPixiParamAreaOverlay({
   );
 }
 
-const LIVE_DICT_AREA_PIXI_PARAM_LIST_TOP_PADDING =
-  LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
-  LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop;
+function getLiveDictAreaPixiParamListTopPadding({
+  kind,
+}: {
+  kind: LiveDictAreaParamAreaSurfaceBlock["kind"];
+}) {
+  return kind === "unpinned-param-area"
+    ? LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop
+    : LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
+        LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop;
+}
 
 function LiveDictAreaPixiParamAreaOverlayList({
   block,
@@ -101,7 +108,9 @@ function LiveDictAreaPixiParamAreaOverlayList({
           className="section-args-nested section-key-value section-min-rows grid min-h-full w-full flex-1 grid-cols-subgrid content-start gap-y-1 pr-1.5"
           style={{
             paddingBottom: LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom,
-            paddingTop: LIVE_DICT_AREA_PIXI_PARAM_LIST_TOP_PADDING,
+            paddingTop: getLiveDictAreaPixiParamListTopPadding({
+              kind: block.kind,
+            }),
           }}
         >
           <ParamDndList
@@ -178,7 +187,9 @@ function LiveDictAreaPixiUnpinnedParamAreaOverlayList({
             ? domPacket.visualPacket.container.minHeight ?? undefined
             : undefined,
           paddingBottom: LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom,
-          paddingTop: LIVE_DICT_AREA_PIXI_PARAM_LIST_TOP_PADDING,
+          paddingTop: getLiveDictAreaPixiParamListTopPadding({
+            kind: block.kind,
+          }),
         }}
       >
         <ParamDndList

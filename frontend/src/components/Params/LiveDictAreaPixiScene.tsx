@@ -37,6 +37,7 @@ import {
 
 type LiveDictAreaPixiSceneProps = {
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
+  onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
 };
 
 type LiveDictAreaPixiStaticSceneApplication = {
@@ -58,6 +59,7 @@ export function configureLiveDictAreaPixiStaticScene(
 
 function _LiveDictAreaPixiScene({
   liveDictAreaSceneBoundary,
+  onSummaryLayoutChange,
 }: LiveDictAreaPixiSceneProps) {
   const darkMode = useLocalStorage((state) => state.darkMode);
   const viewportZoom = useReactFlow((state) => state.transform[2]);
@@ -97,6 +99,12 @@ function _LiveDictAreaPixiScene({
       }),
     [liveDictAreaSceneBoundary, logicalCanvasWidth, usableMaxCanvasHeight],
   );
+
+  useLayoutEffect(() => {
+    onSummaryLayoutChange?.(
+      hostWidth > 0 && availableCanvasHeight !== null ? summaryLayout : null,
+    );
+  }, [availableCanvasHeight, hostWidth, onSummaryLayoutChange, summaryLayout]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;

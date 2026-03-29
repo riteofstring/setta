@@ -9084,3 +9084,83 @@ Record:
     - first visible tiny Pixi cards now showed clearer body structure/previews and the slice was judged visually acceptable
 - Next action:
   - Continue the live Pixi parity lane from this overview-capable baseline by comparing the named canary state against `main` and tightening any remaining card chrome/detail drift that is still visible at normalized `100%` browser zoom.
+
+## 2026-03-29 276
+
+- Item: Probe removal of the synthetic unpinned `PARAMS` strip on the first visible `All Settings` Pixi cards at normalized `100%` zoom.
+- Status: `blocked`
+- Details:
+  - Took the next bounded parity slice directly from item `275` instead of reopening seam lifting:
+    - a fresh CDP comparison against baseline `/settings` initially pointed to a concrete chrome drift on the first visible canary cards (`shortcuts`, `gui`, `sectionSizingPolicy`, `languageServer`): the Pixi path showed an extra full-width `PARAMS` strip before the row content
+    - the experimental change made unpinned Pixi param areas stop reserving/drawing that synthetic header strip
+  - Experimental updates were applied only to:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+  - Temporary automated verification on that experimental diff looked healthy:
+    - focused Vitest passed for `liveDictAreaPixiLayout.test.ts` and `LiveDictAreaPixiScene.test.ts`
+    - a fresh-token rerun of `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` passed (`9 passed`)
+  - The hard gate remained the live CDP canary, and the trustworthy post-change visual check failed:
+    - on a fresh authenticated tab using the same `sessionStorage.setta.liveDictAreaRendererMode = "pixi-node-body"` activation path as Playwright, the first visible canary cards were not visually sane
+    - `shortcuts`, `gui`, and `sectionSizingPolicy` rendered as blank/broken panes while baseline `/settings` showed populated row content
+    - the synthetic `PARAMS` strip was no longer the main issue; the real blocker is that some first-visible unpinned cards lose their body presentation entirely at `100%` zoom on the live Pixi path
+  - Because the required CDP visual gate failed, the experimental header-strip change was reverted and is not being committed from this iteration.
+- Verification results:
+  - Vitest on the reverted experiment:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed while the experimental diff was applied
+  - Prettier on the reverted experiment:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed
+  - Playwright on the reverted experiment:
+    - `SETTA_BOOTSTRAP_TOKEN=<fresh token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --reporter=line`
+    - result: passed (`9 passed`)
+  - Chrome DevTools MCP visual check in fresh sub-agent contexts:
+    - the initial pre-change inspection identified the extra `PARAMS` strip as the next concrete drift
+    - the post-change inspection, using a fresh authenticated tab and the sessionStorage renderer activation path, showed the first visible canary cards as blank/broken panes and therefore failed the hard gate
+- Next action:
+  - Investigate why first-visible unpinned `All Settings` Pixi cards (`shortcuts`, `gui`, `sectionSizingPolicy`) lose their body rendering at normalized `100%` zoom on the live canary before attempting any further header-strip or chrome parity cleanup.
+
+## 2026-03-29 277
+
+- Item: Remove the synthetic unpinned `PARAMS` strip without reintroducing stale Pixi overlay hit targets or blank first-visible `All Settings` card bodies.
+- Status: `done`
+- Details:
+  - Returned directly to the blocker from item `276` instead of continuing seam work:
+    - kept the unpinned Pixi param-area chrome change, but preserved the same reserved body height so the first visible `All Settings` cards no longer lost row content when the synthetic header strip disappeared
+    - corrected the unpinned drag-overlay list padding so the DOM drag rows stay aligned to the headerless Pixi body rows
+    - moved Pixi editor/drag handoff targets onto the mounted constrained scene layout reported by `LiveDictAreaPixiScene`, which removes stale unconstrained hit targets before the browser knows the real visible rows
+    - updated the overlay-shell test harness so the mocked scene publishes a measured summary layout instead of weakening the production browser-side guard
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiDragRowTargets.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiDragRowTargets.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - Outcome:
+    - the checked live Pixi canary no longer shows the visible synthetic `PARAMS` strip on the first visible `All Settings` cards at normalized `100%` zoom
+    - those first visible cards kept populated bodies instead of blank panes
+    - the previously failing combobox handoff and param-list reorder canary interactions now pass again on the live browser path
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/liveDictAreaPixiDragRowTargets.test.ts src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed (`22 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<fresh current-worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 pnpm -C frontend exec playwright test frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "combobox-backed|reorder top-level rows"`
+    - result: passed (`2 passed`)
+    - `SETTA_BOOTSTRAP_TOKEN=<fresh current-worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 pnpm -C frontend exec playwright test frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed (`9 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared default `/settings` against the `pixi-node-body` canary on the current worktree
+    - confirmed the first visible checked cards no longer showed a synthetic `PARAMS` strip
+    - confirmed those cards still rendered body content and did not show obvious spacing/chrome drift in the checked region
+- Next action:
+  - Continue the live Pixi parity lane from this fixed first-visible-card baseline by comparing against `main` and tightening any remaining non-header chrome/text drift that is still visible at normalized `100%` zoom.

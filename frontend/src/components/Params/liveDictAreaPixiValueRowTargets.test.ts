@@ -1,6 +1,7 @@
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
+import { buildLiveDictAreaPixiLayout } from "./liveDictAreaPixiLayout";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
 
 describe("buildLiveDictAreaPixiValueRowTargets", () => {
@@ -85,5 +86,71 @@ describe("buildLiveDictAreaPixiValueRowTargets", () => {
     expect(targets[0]?.width).toBe(296);
     expect(targets[1]?.width).toBe(296);
     expect(targets[0]?.y).toBeLessThan(targets[1]?.y ?? 0);
+  });
+
+  it("can reuse the mounted constrained scene layout so hidden value rows do not keep stale targets", () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "color-picker",
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "Pinned Group",
+              "pinned-value": "Pinned Value",
+              "unpinned-group": "Unpinned Group",
+              "unpinned-value": "Unpinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [{ id: "input-a", label: "Input A" }],
+        isSelectingParams: false,
+        outputPorts: [{ id: "output-a", label: "Output A" }],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-1",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+    const constrainedLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary:
+        liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+      maxCanvasHeight: 120,
+      width: 320,
+    });
+
+    const targets = buildLiveDictAreaPixiValueRowTargets({
+      layout: constrainedLayout,
+      liveDictAreaMountProps: liveDictAreaMountBoundary.liveDictAreaMountProps,
+      liveDictAreaSceneBoundary:
+        liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+    });
+
+    expect(targets.map((target) => target.rowId)).toEqual(["pinned-value"]);
   });
 });

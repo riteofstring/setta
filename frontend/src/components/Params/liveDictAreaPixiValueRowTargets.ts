@@ -5,6 +5,7 @@ import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaScen
 import {
   buildLiveDictAreaPixiLayout,
   LIVE_DICT_AREA_PIXI_LAYOUT,
+  type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
 import type { ParamEditorKind } from "./paramEditorActivation";
 
@@ -32,16 +33,20 @@ export type LiveDictAreaPixiValueRowTarget = {
 };
 
 export function buildLiveDictAreaPixiValueRowTargets({
+  layout,
   liveDictAreaMountProps,
   liveDictAreaSceneBoundary,
 }: {
+  layout?: LiveDictAreaPixiLayout | null;
   liveDictAreaMountProps: LiveDictAreaMountProps;
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
 }): LiveDictAreaPixiValueRowTarget[] {
-  const layout = buildLiveDictAreaPixiLayout({
-    liveDictAreaSceneBoundary,
-    width: LIVE_DICT_AREA_PIXI_LAYOUT.canvasMinWidth,
-  });
+  const resolvedLayout =
+    layout ??
+    buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      width: LIVE_DICT_AREA_PIXI_LAYOUT.canvasMinWidth,
+    });
   const paramAreaBlocks = new Map<
     LiveDictAreaPixiValueRowSurfaceBlock["props"]["domPacket"]["blockId"],
     LiveDictAreaPixiValueRowSurfaceBlock
@@ -53,7 +58,7 @@ export function buildLiveDictAreaPixiValueRowTargets({
     ),
   );
 
-  return layout.paramAreas.flatMap((paramArea) => {
+  return resolvedLayout.paramAreas.flatMap((paramArea) => {
     const surfaceBlock = paramAreaBlocks.get(paramArea.blockId);
     if (!surfaceBlock) {
       return [];

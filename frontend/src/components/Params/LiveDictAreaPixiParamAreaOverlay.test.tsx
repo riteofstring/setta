@@ -287,6 +287,68 @@ describe("LiveDictAreaPixiParamAreaOverlay", () => {
     expect(markup).not.toContain("CodeMirror-");
   });
 
+  it("keeps the unpinned drag overlay aligned to the headerless Pixi row body", () => {
+    const sectionId = "section-live-overlay-unpinned-padding";
+    seedOverlayState({
+      sectionId,
+      pinnedParamIds: [],
+      unpinnedParamIds: ["unpinned-param"],
+    });
+    const boundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamDisplayName: (paramId: string) =>
+          ({ "unpinned-param": "Unpinned Param" })[paramId] ?? paramId,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: true,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+        positionAndSizeLocked: false,
+        sectionId,
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {},
+          pinnedTopLevelParamIds: [],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-param": ["unpinned-param"],
+          },
+          topLevelParamIds: ["unpinned-param"],
+        },
+      },
+    });
+    const target = buildLiveDictAreaPixiDragRowTargets({
+      liveDictAreaMountProps: boundary.liveDictAreaMountProps,
+      liveDictAreaSceneBoundary: boundary.liveDictAreaSceneBoundary,
+    }).find((rowTarget) => rowTarget.blockId === "unpinned");
+
+    expect(target).toBeDefined();
+
+    const markup = renderToStaticMarkup(
+      <ParamDndContext>
+        <LiveDictAreaPixiParamAreaOverlay
+          liveDictAreaMountProps={boundary.liveDictAreaMountProps}
+          target={target!}
+        />
+      </ParamDndContext>,
+    );
+
+    expect(markup).toContain("padding-top:6px");
+    expect(markup).not.toContain("padding-top:34px");
+  });
+
   it("renders nested drag-overlay rows from the scene row packets with depth markers", () => {
     const sectionId = "section-live-overlay-nested";
     seedOverlayState({
