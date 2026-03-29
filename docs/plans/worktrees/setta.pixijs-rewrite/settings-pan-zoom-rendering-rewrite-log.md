@@ -12821,3 +12821,60 @@ Record:
     - read-only `main` was still not a trustworthy live Settings oracle for this exact scene path on this pass because the runtime markers were absent there
 - Next action:
   - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.
+
+## 2026-03-31 379
+
+- Item: Move `backend` onto the shared page-level live Pixi runtime host without regressing the existing shared-runtime canaries.
+- Status: `done`
+- Details:
+  - Did not assume the next section from prior log order.
+  - Re-ran a fresh live-runtime inspection against the normalized `All Settings` worktree canary before editing and used that result to keep this slice bounded to one real visible blocker:
+    - the first visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper on screen was `backend`
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+      - `iFrameSectionDefault`
+      - `backend`
+  - Locked the ownership move in the existing focused runtime coverage instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all ten shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `backend` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `backend` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Verification notes:
+    - the first targeted Playwright rerun failed in global setup because the worktree bootstrap token had expired and returned bootstrap `401`
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - reran the same targeted Playwright subset with the refreshed token and it passed
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` after selecting `backend` from the overview that:
+      - the runtime host includes `backend` in `managedSceneNames`
+      - the runtime host excludes `backend` from `domContextLostSceneNames`
+      - the visible `backend` scene reports `renderBackend=shared-page-runtime`
+      - there is no visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper around the checked `backend` scene
+    - this bounded slice did not revisit the read-only `main` oracle because the earliest failing gate remained the local visible fallback on the worktree canary
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`22 passed`)
+  - Playwright:
+    - failed attempt with stale token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<stale worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps backend on the shared page runtime without dom-context-lost"`
+      - result: failed during global setup with bootstrap `401`
+    - passing rerun with refreshed token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps backend on the shared page runtime without dom-context-lost"`
+      - result: passed (`2 passed`)
+- Next action:
+  - Re-run the named visible-fallback inspection on the updated live canary and, if the ordering is unchanged after this move, take `chartSectionDefault` off the `dom-context-lost` path next instead of assuming older fallback ordering.
