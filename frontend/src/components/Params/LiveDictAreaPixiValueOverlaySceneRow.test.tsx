@@ -89,6 +89,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
   it("mounts a direct full editor row surface without the generic ParamContainer shell", () => {
     const target: LiveDictAreaPixiValueRowTarget = {
       blockId: "unpinned",
+      editorKind: "other",
       handleColumnResizeStart: vi.fn(),
       height: 22,
       label: "Grid Color",
@@ -132,7 +133,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
     expect(resizeHandleCalls).toEqual([{ showResizeHandle: true }]);
     expect(
       container.querySelector(
-        "[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='gridColor']",
+        "article[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='gridColor']",
       ),
     ).not.toBeNull();
     expect(
@@ -147,6 +148,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
   it("keeps kwarg rows on the real ParamNameInput path", () => {
     const target: LiveDictAreaPixiValueRowTarget = {
       blockId: "pinned",
+      editorKind: "other",
       handleColumnResizeStart: vi.fn(),
       height: 22,
       label: "kwargs",

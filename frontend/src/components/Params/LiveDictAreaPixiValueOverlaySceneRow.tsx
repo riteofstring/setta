@@ -61,63 +61,60 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
   const noopMouseHandler = () => {};
 
   return (
-    <div
+    <article
+      id={`ParamContainer-${target.sectionId}-${target.rowId}`}
+      className={className}
+      style={style}
       data-live-dict-area-editor-overlay-row="true"
       data-live-dict-area-editor-overlay-row-id={target.rowId}
       data-live-dict-area-scene-row-depth={0}
       data-live-dict-area-scene-row-kind="value"
+      data-param-row="true"
+      data-param-render-mode="full"
+      {...floatingBoxHandlers}
+      onMouseDownCapture={noopMouseHandler}
+      onClick={noopMouseHandler}
+      tabIndex={-1}
+      role={undefined}
     >
-      <article
-        id={`ParamContainer-${target.sectionId}-${target.rowId}`}
-        className={className}
-        style={style}
-        data-param-row="true"
-        data-param-render-mode="full"
-        {...floatingBoxHandlers}
-        onMouseDownCapture={noopMouseHandler}
-        onClick={noopMouseHandler}
-        tabIndex={-1}
-        role={undefined}
+      <div
+        className="section-key overflow-hidden"
+        style={{ width: PARAM_CONTAINER_COLUMN_WIDTH }}
       >
-        <div
-          className="section-key overflow-hidden"
-          style={{ width: PARAM_CONTAINER_COLUMN_WIDTH }}
-        >
-          {rowState.coreNameEditable ? (
-            <ParamNameInput
-              bg={bg}
-              border={border}
-              hasChildren={false}
-              onMouseDown={noopMouseHandler}
-              paramInfoId={target.rowId}
-              sectionId={target.sectionId}
-            />
-          ) : (
-            <p
-              className="cursor-text truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200"
-              title={rowState.description}
-            >
-              {rowState.paramName}
-            </p>
-          )}
-        </div>
-        <ParamInput
+        {rowState.coreNameEditable ? (
+          <ParamNameInput
+            bg={bg}
+            border={border}
+            hasChildren={false}
+            onMouseDown={noopMouseHandler}
+            paramInfoId={target.rowId}
+            sectionId={target.sectionId}
+          />
+        ) : (
+          <p
+            className="cursor-text truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200"
+            title={rowState.description}
+          >
+            {rowState.paramName}
+          </p>
+        )}
+      </div>
+      <ParamInput
+        sectionId={target.sectionId}
+        paramInfoId={target.rowId}
+        maybeErrorMessage={viewModel.errorMessage}
+      />
+      <ResizeHandle
+        showResizeHandle={true}
+        onMouseDown={target.handleColumnResizeStart}
+      />
+      {viewModel.hasError ? (
+        <ValueOverlayErrorSection
           sectionId={target.sectionId}
           paramInfoId={target.rowId}
-          maybeErrorMessage={viewModel.errorMessage}
         />
-        <ResizeHandle
-          showResizeHandle={true}
-          onMouseDown={target.handleColumnResizeStart}
-        />
-        {viewModel.hasError ? (
-          <ValueOverlayErrorSection
-            sectionId={target.sectionId}
-            paramInfoId={target.rowId}
-          />
-        ) : null}
-      </article>
-    </div>
+      ) : null}
+    </article>
   );
 }
 

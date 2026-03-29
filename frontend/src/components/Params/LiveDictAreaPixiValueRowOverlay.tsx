@@ -28,13 +28,14 @@ export function LiveDictAreaPixiValueRowOverlay({
         data-live-dict-area-editor-overlay-kind="value-row"
         data-live-dict-area-editor-overlay-row-id={target.rowId}
         style={{
+          contain: "layout paint",
           left: target.x,
           minHeight: target.height,
           right: 0,
           top: target.y,
         }}
       >
-        <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full auto-rows-min content-start gap-y-1 pr-1.5">
+        <div className="min-h-0 w-full pr-1.5">
           <LiveDictAreaPixiValueOverlaySceneRow
             hasSectionStyleTheme={hasSectionStyleTheme}
             rowState={rowState}

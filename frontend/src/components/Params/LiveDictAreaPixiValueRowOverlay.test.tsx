@@ -59,6 +59,7 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
   it("mounts overlay metadata and delegates row rendering to the direct scene-row boundary", () => {
     const target: LiveDictAreaPixiValueRowTarget = {
       blockId: "pinned",
+      editorKind: "combobox",
       handleColumnResizeStart: vi.fn(),
       height: 44,
       label: "Pinned Value",
@@ -106,6 +107,8 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
     expect(
       overlay?.getAttribute("data-live-dict-area-editor-overlay-row-id"),
     ).toBe("pinned-value");
+    expect(overlay?.style.contain).toBe("layout paint");
+    expect(overlay?.firstElementChild?.className).toBe("min-h-0 w-full pr-1.5");
     expect(sceneRowCalls).toHaveLength(1);
     expect(sceneRowCalls[0]?.target).toMatchObject({
       listKey: "pinned",

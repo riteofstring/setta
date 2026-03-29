@@ -7738,3 +7738,41 @@ Record:
     - representative visible requests returned `200`, including `POST /api/setViewport` and `POST /api/getFolderContents`
 - Next action:
   - Keep moving down the remaining presentation/layout floor on the same live Pixi CodeMirror handoff path, starting with the next bounded lever that reduces overlay reveal/layout cost without reopening this accepted initialization-rerender slice.
+
+## 2026-03-29 245
+
+- Item: Flatten the active live Pixi CodeMirror value-row overlay shell and re-measure the handoff.
+- Status: `done`
+- Details:
+  - Chose a real overlay-layout lever from item `244` instead of reopening the accepted initialization-rerender slice or returning to a forwarding-only seam lift.
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+  - The active Pixi value-row overlay now mounts through a lighter, more contained DOM shell:
+    - removed the extra single-row grid wrapper from `LiveDictAreaPixiValueRowOverlay`
+    - added `contain: layout paint` on the active overlay root
+    - flattened `LiveDictAreaPixiValueOverlaySceneRow` so the `article` itself is the overlay row root instead of sitting under an extra wrapper div
+  - Recorded the before/after probe in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-overlay-shell-flattening-probe.md`
+  - Perf result on the live Pixi `defaultZoomLevel` handoff:
+    - fresh baseline in this iteration: `INP 57 ms` (`input 5 ms`, `processing 14 ms`, `presentation 38 ms`)
+    - post-change follow-up: `INP 56 ms` (`input 4 ms`, `processing 14 ms`, `presentation 37 ms`)
+    - the win is small, but it moved in the right direction while keeping the checked viewport visually sane
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`5 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+      - result: passed
+  - Playwright:
+    - attempted helper and direct live-canary runs for `tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "value-row DOM editor overlay|CodeMirror-backed value row"`
+      - result: blocked by Playwright global setup timing out on bootstrap `401`; this did not reach a product assertion failure
+  - Chrome DevTools MCP visual/perf checks in fresh sub-agent contexts on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - baseline visual/perf check: passed with `INP 57 ms`
+    - post-change visual/perf check: passed with `INP 56 ms`
+    - the `defaultZoomLevel` handoff still opened the inline CodeMirror overlay cleanly, and the checked overlay looked visually sane with no blanking, clipping, or major overlap
+- Next action:
+  - Keep moving down the remaining presentation/layout floor on the same live Pixi CodeMirror handoff path, starting with the next bounded lever that removes overlay/layout work beyond this now-flattened active row shell.
