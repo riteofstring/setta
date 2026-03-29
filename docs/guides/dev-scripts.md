@@ -54,6 +54,12 @@ Use these first for day-to-day work.
   - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files (default complexity `10`, `max-depth` `4`, `max-params` `5`).
   - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files (default max complexity `12`).
   - Supports `--all`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
+- `./check_types.sh`
+  - Runs full-repo type checks across Go, Python, and frontend TypeScript.
+  - Go: compile-only `go test -run '^$' -count=1 ./...` through the pinned repo Go toolchain.
+  - Python: `ty check` across all tracked repo Python files after env activation.
+  - Frontend: `pnpm -C frontend typecheck` (`tsc --noEmit`).
+  - Supports `--go`, `--python`, and `--frontend` to limit the run to selected language groups.
 - `./report_quality_hotspots.sh`
   - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
   - Defaults to the top `20` hotspots per language section and mirrors the same test/generated-file exclusions as `./check_quality.sh`.
@@ -149,6 +155,8 @@ These are the underlying tasks used by the wrappers above.
   - Resolves + wipes the active Setta state root, then starts dev server.
 - `pnpm test`
   - Vitest (watchable).
+- `pnpm -C frontend typecheck`
+  - Runs the frontend TypeScript compiler in no-emit mode.
 - `pnpm generate`
   - Regenerates templates/types from `frontend/generation/`.
 - `pnpm -C frontend generate-go-frontend-bindings`

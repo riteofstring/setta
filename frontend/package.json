@@ -92,6 +92,7 @@
     "aireset": "cd .. && ./aireset.sh",
     "build": "vite build --base=/static/",
     "test": "vitest",
+    "typecheck": "tsc --noEmit",
     "serve": "vite preview",
     "l": "eslint src --ext .js,.jsx,.ts,.tsx --fix",
     "f": "prettier src --write",
