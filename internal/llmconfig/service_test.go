@@ -211,6 +211,60 @@ func TestServiceSaveConfigMergesProcessEnvKeysIntoSnapshot(t *testing.T) {
 	}
 }
 
+func TestServiceSaveConfigMergesWorkspaceDotEnvKeysIntoSnapshot(t *testing.T) {
+	t.Parallel()
+
+	root := t.TempDir()
+	if err := os.WriteFile(
+		ManagedAPIKeysPath(root),
+		[]byte("ANTHROPIC_API_KEY=workspace-secret\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("seed workspace .env: %v", err)
+	}
+
+	runtime, err := NewRuntime(AllConfigs{
+		Configs:    map[string]Config{},
+		MCPServers: map[string]ServerConfig{},
+	})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		ConfigPath:         Path(root),
+		ManagedAPIKeysPath: ManagedAPIKeysPath(root),
+		Runtime:            runtime,
+		ProcessEnv: func() map[string]string {
+			return map[string]string{}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	_, snapshot, err := service.SaveConfig(AllConfigs{
+		Configs: map[string]Config{
+			"anthropic-main": {
+				ID:        "anthropic-main",
+				Model:     "claude-sonnet",
+				Provider:  "anthropic",
+				APIKeyEnv: "ANTHROPIC_API_KEY",
+			},
+		},
+		MCPServers: map[string]ServerConfig{},
+	})
+	if err != nil {
+		t.Fatalf("save config: %v", err)
+	}
+
+	if got := snapshot.APIKeys["ANTHROPIC_API_KEY"]; got != "workspace-secret" {
+		t.Fatalf("expected effective snapshot to include workspace .env key, got %#v", snapshot)
+	}
+	if got := runtime.APIKeys()["ANTHROPIC_API_KEY"]; got != "workspace-secret" {
+		t.Fatalf("expected runtime to include workspace .env key, got %#v", runtime.APIKeys())
+	}
+}
+
 func TestServiceManagedAPIKeysSnapshotUsesConfiguredLockRoot(t *testing.T) {
 	t.Parallel()
 

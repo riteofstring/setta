@@ -185,6 +185,44 @@ func TestRegisterLLMRoutesGetsAndSetsManagedAPIKeys(t *testing.T) {
 	}
 }
 
+func TestRegisterLLMRoutesGetsManagedAPIKeysFromWorkspaceDotEnvFallback(t *testing.T) {
+	t.Parallel()
+
+	state := newLLMRouteTestState(t, llmconfig.AllConfigs{
+		Configs: map[string]llmconfig.Config{
+			"anthropic-main": {
+				ID:        "anthropic-main",
+				Model:     "claude-sonnet",
+				Provider:  "anthropic",
+				APIKeyEnv: "ANTHROPIC_API_KEY",
+			},
+		},
+		MCPServers: map[string]llmconfig.ServerConfig{},
+	}, map[string]string{})
+	if err := os.WriteFile(state.envPath, []byte("ANTHROPIC_API_KEY=workspace-secret\n"), 0o644); err != nil {
+		t.Fatalf("seed workspace .env: %v", err)
+	}
+	handler := newLLMRouteTestHandler(t, config.ModeIDE, state.service)
+
+	request := httptest.NewRequest(http.MethodGet, "/api"+RouteLLMAPIKeys, nil)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+	var payload llmconfig.ManagedAPIKeysSnapshot
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode managed api key response: %v", err)
+	}
+	if got := payload.APIKeys["ANTHROPIC_API_KEY"]; got != "workspace-secret" {
+		t.Fatalf("expected workspace .env fallback in snapshot, got %#v", payload)
+	}
+	if payload.Revision != 0 {
+		t.Fatalf("expected unmanaged workspace .env fallback to keep revision 0, got %#v", payload)
+	}
+}
+
 func TestRegisterLLMRoutesSetManagedAPIKeysUsesWriteSnapshotWithoutStoreReread(t *testing.T) {
 	t.Parallel()
 

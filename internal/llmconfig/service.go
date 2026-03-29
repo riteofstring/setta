@@ -3,6 +3,7 @@ package llmconfig
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"setta/internal/statefs"
 )
@@ -13,6 +14,7 @@ type ServiceOptions struct {
 	ConfigPath             string
 	ManagedAPIKeysPath     string
 	ManagedAPIKeysLockRoot string
+	WorkspaceEnvPath       string
 	Runtime                *Runtime
 	ProcessEnv             func() map[string]string
 }
@@ -21,6 +23,7 @@ type Service struct {
 	configPath             string
 	managedAPIKeysPath     string
 	managedAPIKeysLockRoot string
+	workspaceEnvPath       string
 	runtime                *Runtime
 	processEnv             func() map[string]string
 }
@@ -37,6 +40,14 @@ func NewService(opts ServiceOptions) (*Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("resolve managed api keys path: %w", err)
 	}
+	workspaceEnvPath := opts.WorkspaceEnvPath
+	if workspaceEnvPath == "" {
+		workspaceEnvPath = managedAPIKeysPath
+	}
+	resolvedWorkspaceEnvPath, err := statefs.NormalizePath(workspaceEnvPath, "")
+	if err != nil {
+		return nil, fmt.Errorf("resolve workspace env path: %w", err)
+	}
 	processEnv := opts.ProcessEnv
 	if processEnv == nil {
 		processEnv = CurrentProcessEnv
@@ -45,6 +56,7 @@ func NewService(opts ServiceOptions) (*Service, error) {
 		configPath:             configPath,
 		managedAPIKeysPath:     managedAPIKeysPath,
 		managedAPIKeysLockRoot: opts.ManagedAPIKeysLockRoot,
+		workspaceEnvPath:       resolvedWorkspaceEnvPath,
 		runtime:                opts.Runtime,
 		processEnv:             processEnv,
 	}, nil
@@ -94,6 +106,10 @@ func (s *Service) SaveManagedAPIKeys(payload map[string]string, expectedRevision
 	}
 
 	configs := s.runtime.Configs()
+	workspaceEnv, workspaceEnvErr := s.readWorkspaceEnv()
+	if workspaceEnvErr != nil {
+		workspaceEnv = map[string]string{}
+	}
 	attempt := WriteManagedAPIKeysWithExpectedRevisionInLockRoot(
 		s.managedAPIKeysPath,
 		payload,
@@ -102,13 +118,13 @@ func (s *Service) SaveManagedAPIKeys(payload map[string]string, expectedRevision
 		s.managedAPIKeysLockRoot,
 	)
 	if attempt.Status == ManagedAPIKeysWriteStatusSuccess {
-		s.runtime.UpdateAPIKeys(ResolveRuntimeAPIKeys(configs, attempt.APIKeys, s.processEnv()))
+		s.runtime.UpdateAPIKeys(resolveRuntimeAPIKeysWithWorkspace(configs, attempt.APIKeys, workspaceEnv, s.processEnv()))
 		return BuildManagedAPIKeysSnapshot(
 			ManagedAPIKeysReadResult{
 				APIKeys:  attempt.APIKeys,
 				Revision: attempt.Revision,
 			},
-			ResolveEffectiveAPIKeys(configs, attempt.APIKeys, s.processEnv()),
+			resolveEffectiveAPIKeysWithWorkspace(configs, attempt.APIKeys, workspaceEnv, s.processEnv()),
 		), attempt.Status
 	}
 
@@ -120,20 +136,64 @@ func (s *Service) SaveManagedAPIKeys(payload map[string]string, expectedRevision
 			ErrorCode: attempt.ErrorCode,
 			Error:     attempt.Error,
 		},
-		ResolveEffectiveAPIKeys(configs, attempt.APIKeys, s.processEnv()),
+		resolveEffectiveAPIKeysWithWorkspace(configs, attempt.APIKeys, workspaceEnv, s.processEnv()),
 	), attempt.Status
 }
 
 func (s *Service) applyConfigAndSyncManagedAPIKeys(configs AllConfigs) ManagedAPIKeysSnapshot {
 	s.runtime.UpdateConfig(configs)
 	readResult := ReadManagedAPIKeysWithStatusInLockRoot(s.managedAPIKeysPath, s.managedAPIKeysLockRoot)
-	s.runtime.UpdateAPIKeys(ResolveRuntimeAPIKeys(configs, readResult.APIKeys, s.processEnv()))
+	workspaceEnv, err := s.readWorkspaceEnv()
+	if err != nil {
+		workspaceEnv = map[string]string{}
+	}
+	s.runtime.UpdateAPIKeys(resolveRuntimeAPIKeysWithWorkspace(configs, readResult.APIKeys, workspaceEnv, s.processEnv()))
 	return s.buildManagedAPIKeysSnapshot(configs, readResult)
 }
 
 func (s *Service) buildManagedAPIKeysSnapshot(configs AllConfigs, readResult ManagedAPIKeysReadResult) ManagedAPIKeysSnapshot {
+	workspaceEnv, err := s.readWorkspaceEnv()
+	if err != nil {
+		if readResult.ErrorCode != "" {
+			return BuildManagedAPIKeysSnapshot(readResult, map[string]string{})
+		}
+		return BuildManagedAPIKeysSnapshot(managedAPIKeysUnavailableResult(err), map[string]string{})
+	}
 	return BuildManagedAPIKeysSnapshot(
 		readResult,
-		ResolveEffectiveAPIKeys(configs, readResult.APIKeys, s.processEnv()),
+		resolveEffectiveAPIKeysWithWorkspace(configs, readResult.APIKeys, workspaceEnv, s.processEnv()),
 	)
+}
+
+func (s *Service) readWorkspaceEnv() (map[string]string, error) {
+	if s == nil || s.workspaceEnvPath == "" {
+		return map[string]string{}, nil
+	}
+	return ReadEnvFile(s.workspaceEnvPath)
+}
+
+func resolveRuntimeAPIKeysWithWorkspace(configs AllConfigs, managedEnv map[string]string, workspaceEnv map[string]string, processEnv map[string]string) map[string]string {
+	merged := ResolveRuntimeAPIKeys(configs, workspaceEnv, processEnv)
+	for key, value := range FilterEnvVarsForConfig(managedEnv, configs) {
+		merged[key] = value
+	}
+	return merged
+}
+
+func resolveEffectiveAPIKeysWithWorkspace(configs AllConfigs, managedEnv map[string]string, workspaceEnv map[string]string, processEnv map[string]string) map[string]string {
+	merged := map[string]string{}
+	for key, value := range FilterEnvVarsForConfig(processEnv, configs) {
+		merged[key] = value
+	}
+	for key, value := range FilterEnvVarsForConfig(workspaceEnv, configs) {
+		merged[key] = value
+	}
+	for key, value := range cloneStringMap(managedEnv) {
+		trimmedKey := strings.TrimSpace(key)
+		if trimmedKey == "" {
+			continue
+		}
+		merged[trimmedKey] = value
+	}
+	return merged
 }
