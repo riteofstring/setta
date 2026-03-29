@@ -4,7 +4,6 @@ import {
   LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
   LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
 } from "../../../src/components/Params/liveDictAreaPixiSceneView";
-import { LIVE_DICT_AREA_RENDERER_QUERY_PARAM } from "../../../src/components/Section/Layouts/liveDictAreaRendererMode";
 import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_OVERLAY_MEASURE_NAME,
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_PRESENTATION_TAIL_MEASURE_NAME,
@@ -14,6 +13,7 @@ import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_READY_MEASURE_NAME,
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_START_MARK_NAME,
 } from "../../../src/components/Params/liveDictAreaPixiValueRowPerf";
+import { LIVE_DICT_AREA_RENDERER_QUERY_PARAM } from "../../../src/components/Section/Layouts/liveDictAreaRendererMode";
 import {
   clearCurrentProjectViewportForRefit,
   ensureAppReady,
@@ -1585,6 +1585,76 @@ test("all settings baseline and live Pixi canary share the same visible canvas s
   try {
     await openAllSettingsBaseline(baselinePage);
     await openAllSettingsLivePixiCanary(canaryPage);
+
+    await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
+    await resetProjectWorkspaceChromeToDefaultLayout(canaryPage);
+    await normalizeAllSettingsOverviewLayout(baselinePage);
+    await normalizeAllSettingsOverviewLayout(canaryPage);
+    await clearCurrentProjectViewportForRefit(baselinePage);
+    await clearCurrentProjectViewportForRefit(canaryPage);
+    await waitForVisibleSceneMetrics(canaryPage);
+    await expectZoomOutButtonDisabled(baselinePage, true);
+    await expectZoomOutButtonDisabled(canaryPage, true);
+
+    const baselineViewport = await readViewportTransform(baselinePage);
+    await expectViewportTransformNear(canaryPage, baselineViewport);
+
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(baselinePage)).length;
+      })
+      .toBeGreaterThanOrEqual(6);
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(canaryPage)).length;
+      })
+      .toBeGreaterThanOrEqual(6);
+
+    const baselineNodes = (
+      await readVisibleSectionNodeBounds(baselinePage)
+    ).slice(0, 6);
+    const canaryNodes = (await readVisibleSectionNodeBounds(canaryPage)).slice(
+      0,
+      6,
+    );
+
+    expect(canaryNodes.map((node) => node.sectionName)).toEqual(
+      baselineNodes.map((node) => node.sectionName),
+    );
+    expect(canaryNodes.every((node) => node.width > 0 && node.height > 0)).toBe(
+      true,
+    );
+    expect(
+      canaryNodes.reduce((maxDelta, canaryNode, index) => {
+        const baselineNode = baselineNodes[index];
+        if (!baselineNode) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        return Math.max(
+          maxDelta,
+          Math.abs(canaryNode.x - baselineNode.x),
+          Math.abs(canaryNode.y - baselineNode.y),
+          Math.abs(canaryNode.width - baselineNode.width),
+          Math.abs(canaryNode.height - baselineNode.height),
+        );
+      }, 0),
+    ).toBeLessThanOrEqual(2);
+  } finally {
+    await baselinePage.close();
+    await canaryPage.close();
+  }
+});
+
+test("all settings baseline and explicit-query live Pixi canary share the same visible canvas section slice after frontend viewport clear", async ({
+  browser,
+}) => {
+  const baselinePage = await browser.newPage();
+  const canaryPage = await browser.newPage();
+
+  try {
+    await openAllSettingsBaseline(baselinePage);
+    await openAllSettingsLivePixiQueryParamCanary(canaryPage);
 
     await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
     await resetProjectWorkspaceChromeToDefaultLayout(canaryPage);

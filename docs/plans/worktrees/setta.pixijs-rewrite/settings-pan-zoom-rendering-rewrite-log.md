@@ -11897,3 +11897,33 @@ Record:
       - a visible rightward X-offset versus the baseline canvas layout still remains
 - Next action:
   - Investigate the remaining baseline-vs-explicit-query rightward X-offset on `All Settings`; target the fit-view width / visible-canvas source of truth now that the viewport-clear bookkeeping is aligned locally and on the backend.
+
+## 2026-03-31 359
+
+- Item: Lock the normalized explicit-query live-Pixi route-entry parity slice in automation and close the stale X-offset micro-lane.
+- Status: `done`
+- Details:
+  - Re-checked the reported rightward X-offset on the normalized `All Settings` route-entry canary before making more renderer changes:
+    - fresh Chrome DevTools MCP comparison of worktree baseline `http://127.0.0.1:3043/settings` and explicit-query live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - after resetting workspace chrome, opening `All Settings`, and clearing the frontend viewport for refit, the drift did not reproduce
+    - both tabs settled on the same `react-flow__viewport` transform matrix and the same visible top-row section geometry (`shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, `languageServer`)
+  - Because the normalized CDP canary no longer showed a production drift, took one bounded parity-support slice instead of inventing another renderer edit:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - added a focused explicit-query route-entry canary that normalizes the workspace on both tabs, clears the frontend viewport for refit, and requires the baseline DOM and `?liveDictAreaRenderer=pixi-node-body` route to expose the same first visible canvas section slice
+  - This entry intentionally closes the previous route-entry X-offset lane:
+    - no production renderer or viewport code changed in this iteration
+    - the lane now has both a normalized CDP check and a dedicated Playwright regression guard
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and explicit-query live Pixi canary share the same visible canvas section slice after frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on worktree baseline `http://127.0.0.1:3043/settings` and explicit-query live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - result: passed
+      - after the same normalization on both tabs, the residual rightward X-offset did not reproduce
+      - both tabs showed the same viewport transform and visible section-card geometry in the checked `All Settings` slice
+- Next action:
+  - Move back to the next real live-Pixi renderer/parity frontier on `All Settings`; do not reopen the explicit-query route-entry lane unless this new canary or a fresh CDP pass regresses.
