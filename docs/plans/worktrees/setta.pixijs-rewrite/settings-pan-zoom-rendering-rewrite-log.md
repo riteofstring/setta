@@ -13241,3 +13241,55 @@ Record:
     - verified on the live worktree canary that `globalVariablesSectionDefault` is visible, managed by the shared page runtime, and does not show a visible `dom-context-lost` fallback wrapper
 - Next action:
   - Re-run the normalized visible-scene inspection on the updated live canary and identify the next concrete on-screen fallback/backend blocker before making another shared-runtime allowlist move, because the remaining visible failures now include both `local-app` scenes and `dom-context-lost` wrappers in the live canary viewport.
+
+## 2026-04-01 385
+
+- Item: Replace the repeated shared-runtime section-name allowlist lane with renderable-scene routing so `groupSectionDefault` leaves the visible `dom-context-lost` path.
+- Status: `done`
+- Details:
+  - Stopped the repeated one-section-at-a-time allowlist pattern after items `382`-`384`.
+  - Fresh normalized CDP inspection before editing showed the earliest visible Gate 1 blocker was no longer just another name gap:
+    - `groupSectionDefault`
+    - section id `84b720f3-1a6f-4fce-ab77-6248183cbba4`
+    - visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper
+    - runtime host still reported `data-live-dict-area-pixi-runtime-dom-context-lost-count="14"`
+  - Replaced the hardcoded shared-runtime section-name gating with a renderable-scene rule in the live Pixi path:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+      - any live Pixi scene now uses `shared-page-runtime` whenever the page runtime boundary is present and the shell has not already fallen back to DOM after context loss
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+      - the page runtime host now manages every registered renderable Pixi scene instead of trimming to `LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES`
+      - preserved per-scene section styling in the shared host by reading `getLiveDictAreaPixiSectionStyleColor(...)` when scene-boundary data is available
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - exported the section-style color helper for the shared host path
+  - Added focused regression coverage for the new routing boundary instead of extending the old name list:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added a non-canary `groupSectionDefault` unit assertion for `shared-page-runtime`
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - host coverage now asserts the managed-scene set includes renderable scenes outside the historical canary list
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added a live canary assertion that `groupSectionDefault` stays on `shared-page-runtime` without `dom-context-lost`
+  - Chrome DevTools MCP visual check after the change confirmed the blocker moved:
+    - `groupSectionDefault` is visible on the live canary and now reports `data-live-dict-area-scene-render-backend="shared-page-runtime"`
+    - no ancestor, sibling, or nearby `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper remained around that scene
+    - page-wide `document.querySelectorAll('[data-live-dict-area-scene-fallback="dom-context-lost"]').length` returned `0`
+    - the nearest runtime host now reports:
+      - `data-live-dict-area-pixi-runtime-managed-scene-count="46"`
+      - `data-live-dict-area-pixi-runtime-dom-context-lost-count="0"`
+      - managed-scene names include `groupSectionDefault`
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiScene.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`28 passed`)
+  - Playwright:
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - targeted run:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps groupSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on a fresh DevTools page for `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` that `groupSectionDefault` is visible, managed by the shared page runtime, and no `dom-context-lost` fallback wrappers remain on the page
+- Next action:
+  - Re-run a fresh normalized live-canary inspection now that page-wide `dom-context-lost` is cleared and the old allowlist lane is complete, then target the next real Gate 1 blocker if any visible `local-app` scenes or interaction/parity drifts remain.

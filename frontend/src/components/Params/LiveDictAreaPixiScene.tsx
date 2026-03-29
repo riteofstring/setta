@@ -579,7 +579,7 @@ function _LiveDictAreaPixiScene({
 
 export const LiveDictAreaPixiScene = React.memo(_LiveDictAreaPixiScene);
 
-function getLiveDictAreaPixiSectionStyleColor(
+export function getLiveDictAreaPixiSectionStyleColor(
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary,
 ) {
   const { canaryPacket } = liveDictAreaSceneBoundary.liveDictAreaBoundary;

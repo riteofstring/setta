@@ -16,6 +16,7 @@ import type { LiveDictAreaPixiLayout } from "./liveDictAreaPixiLayout";
 import {
   configureLiveDictAreaPixiStaticScene,
   drawLiveDictAreaPixiScene,
+  getLiveDictAreaPixiSectionStyleColor,
 } from "./LiveDictAreaPixiScene";
 import {
   getLiveDictAreaPixiCompactRowPrimitive,
@@ -32,6 +33,8 @@ import {
 } from "./liveDictAreaPixiSceneView";
 import { buildParamContainerLayout } from "./paramContainerView";
 
+// Retain the historical regression list for focused tests and log continuity.
+// Shared-runtime routing no longer depends on section-name allowlists.
 export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAME =
   "promptSectionDefault";
 export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES = [
@@ -198,18 +201,6 @@ export function useOptionalLiveDictAreaPixiPageRuntime() {
   return useContext(LiveDictAreaPixiPageRuntimeContext);
 }
 
-export function isLiveDictAreaPixiSharedRuntimeCanarySectionName(
-  sectionName: string | null,
-) {
-  if (sectionName === null) {
-    return false;
-  }
-
-  return LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES.includes(
-    sectionName,
-  );
-}
-
 export function LiveDictAreaPixiPageRuntimeHost() {
   const runtime = useOptionalLiveDictAreaPixiPageRuntime();
   const darkMode = useLocalStorage((state) => state.darkMode);
@@ -233,8 +224,8 @@ export function LiveDictAreaPixiPageRuntimeHost() {
   const managedScenes = useMemo(
     () =>
       runtime
-        ? getLiveDictAreaPixiSharedRuntimeManagedScenes(
-            runtime.registeredScenes,
+        ? runtime.registeredScenes.filter(
+            isLiveDictAreaPixiSharedRuntimeManagedScene,
           )
         : [],
     [runtime],
@@ -425,7 +416,9 @@ export function LiveDictAreaPixiPageRuntimeHost() {
           darkMode,
           getComputedStyle: window.getComputedStyle,
           host: managedScene.styleSourceElement,
-          sectionStyleColor: null,
+          sectionStyleColor: managedScene.sceneBoundary
+            ? getLiveDictAreaPixiSectionStyleColor(managedScene.sceneBoundary)
+            : null,
         });
         const paramColumnWidth = getLiveDictAreaPixiParamColumnWidth({
           getComputedStyle: window.getComputedStyle,
@@ -670,28 +663,18 @@ function getRegisteredSceneSortKey(scene: LiveDictAreaPixiRegisteredScene) {
   return scene.sectionId ?? scene.runtimeSceneId;
 }
 
-function getLiveDictAreaPixiSharedRuntimeManagedScenes(
-  scenes: LiveDictAreaPixiRegisteredScene[],
-) {
-  return LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES.flatMap(
-    (sectionName) => {
-      const managedScene = scenes.find(
-        (
-          scene,
-        ): scene is LiveDictAreaPixiRegisteredScene & {
-          bounds: LiveDictAreaPixiRegisteredSceneBounds;
-          layout: LiveDictAreaPixiLayout;
-          styleSourceElement: HTMLElement;
-        } =>
-          scene.renderMode === "pixi" &&
-          scene.sectionName === sectionName &&
-          scene.bounds !== null &&
-          scene.layout !== null &&
-          scene.styleSourceElement !== null,
-      );
-
-      return managedScene ? [managedScene] : [];
-    },
+function isLiveDictAreaPixiSharedRuntimeManagedScene(
+  scene: LiveDictAreaPixiRegisteredScene,
+): scene is LiveDictAreaPixiRegisteredScene & {
+  bounds: LiveDictAreaPixiRegisteredSceneBounds;
+  layout: LiveDictAreaPixiLayout;
+  styleSourceElement: HTMLElement;
+} {
+  return (
+    scene.renderMode === "pixi" &&
+    scene.bounds !== null &&
+    scene.layout !== null &&
+    scene.styleSourceElement !== null
   );
 }
 

@@ -27,7 +27,6 @@ import {
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
 import {
-  isLiveDictAreaPixiSharedRuntimeCanarySectionName,
   type LiveDictAreaPixiRegisteredSceneBounds,
   type LiveDictAreaPixiRegisteredSceneSummary,
   useOptionalLiveDictAreaPixiPageRuntime,
@@ -216,9 +215,7 @@ export function LiveDictAreaPixiOverlayShell({
     activeValueRowErrorMessage.length === 0;
   const shouldShowDomContextLossFallback = hasLostWebglContext;
   const shouldUseSharedPageRuntimeScene =
-    liveDictAreaPixiPageRuntime !== null &&
-    isLiveDictAreaPixiSharedRuntimeCanarySectionName(sceneSectionName) &&
-    !shouldShowDomContextLossFallback;
+    liveDictAreaPixiPageRuntime !== null && !shouldShowDomContextLossFallback;
   const registeredSceneSummary =
     useMemo<LiveDictAreaPixiRegisteredSceneSummary | null>(
       () =>

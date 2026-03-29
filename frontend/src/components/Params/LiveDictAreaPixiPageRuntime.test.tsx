@@ -405,7 +405,7 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
     ).toBe("4:8:10:6");
   });
 
-  it("tracks every prioritized shared-runtime managed scene without dropping the first canary", () => {
+  it("tracks every renderable shared-runtime scene instead of trimming to the historical canary names", () => {
     const styleSourceElement = document.createElement("div");
     const emptyLayout = {
       blocks: [],
@@ -603,26 +603,42 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
     const host = container.querySelector(
       "[data-live-dict-area-pixi-page-runtime-host='true']",
     );
+    const managedSceneIds = (
+      host?.getAttribute(
+        "data-live-dict-area-pixi-runtime-managed-scene-ids",
+      ) ?? ""
+    )
+      .split(",")
+      .filter((sceneId) => sceneId.length > 0);
+    const managedSceneNames = (
+      host?.getAttribute(
+        "data-live-dict-area-pixi-runtime-managed-scene-names",
+      ) ?? ""
+    )
+      .split(",")
+      .filter((sceneName) => sceneName.length > 0);
+
     expect(
       host?.getAttribute(
         "data-live-dict-area-pixi-runtime-managed-scene-count",
       ),
-    ).toBe("15");
-    expect(
-      host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-ids"),
-    ).toBe(
-      "scene-prompt,scene-browser,scene-text-block,scene-code-param,scene-section-sizing-policy,scene-button-param,scene-gen-python-metadata,scene-draw,scene-iframe,scene-backend,scene-state-machine-gate,scene-code-section,scene-chat-section,scene-gen-python-code-section,scene-global-variables-section",
+    ).toBe("16");
+    expect(managedSceneIds).toHaveLength(16);
+    expect(managedSceneIds).toContain("scene-other");
+    expect(managedSceneNames).toHaveLength(16);
+    expect(managedSceneNames).toEqual(
+      expect.arrayContaining([
+        ...LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES,
+        "otherSectionDefault",
+      ]),
     );
     expect(
-      host?.getAttribute(
-        "data-live-dict-area-pixi-runtime-managed-scene-names",
+      managedSceneNames.includes(
+        host?.getAttribute(
+          "data-live-dict-area-pixi-runtime-managed-scene-name",
+        ) ?? "",
       ),
-    ).toBe(
-      "promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault,sectionSizingPolicy,buttonParamCodeObjDefault,genPythonMetadataSectionDefault,drawSectionDefault,iFrameSectionDefault,backend,stateMachineGateSectionDefault,codeSectionDefault,chatSectionDefault,genPythonCodeSectionDefault,globalVariablesSectionDefault",
-    );
-    expect(
-      host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-name"),
-    ).toBe("promptSectionDefault");
+    ).toBe(true);
   });
 
   it("keeps one shared context-loss policy once any registered scene reports loss", () => {
