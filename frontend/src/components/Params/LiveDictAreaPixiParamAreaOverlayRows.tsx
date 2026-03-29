@@ -1,7 +1,8 @@
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import _ from "lodash";
-import { useMemo, type MouseEventHandler } from "react";
+import { useMemo } from "react";
 import { useProjectSearch, useTypeErrors } from "state/definitions";
+import { LiveDictAreaPixiDragOverlayPlaceholderRow } from "./LiveDictAreaPixiDragOverlayPlaceholderRow";
 import {
   DEFAULT_LIVE_DICT_AREA_PIXI_DRAG_OVERLAY_ROW_STATE,
   buildLiveDictAreaPixiDragOverlayRowStateLookup,
@@ -12,16 +13,13 @@ import {
   type LiveDictAreaPixiDragOverlaySceneRowPacket,
 } from "./LiveDictAreaPixiDragOverlaySceneRow";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
-import { ParamSwitch } from "./ParamSwitch";
 import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
 
 type LiveDictAreaPixiParamAreaOverlayRowsProps = {
   hasSectionStyleTheme: boolean;
   isSelectingParams: boolean;
   listKey: ParamListKey;
-  onResizeStart: MouseEventHandler;
   paramIds: string[];
-  requiredParamIdsToPaths: Record<string, string[]>;
   sceneRows: ParamSceneRowPacket[];
   sectionId: string;
   selectedParamIds: string[];
@@ -36,9 +34,7 @@ export function LiveDictAreaPixiParamAreaOverlayRows({
   hasSectionStyleTheme,
   isSelectingParams,
   listKey,
-  onResizeStart,
   paramIds,
-  requiredParamIdsToPaths,
   sceneRows,
   sectionId,
   selectedParamIds,
@@ -88,9 +84,7 @@ export function LiveDictAreaPixiParamAreaOverlayRows({
       hasSectionStyleTheme={hasSectionStyleTheme}
       isSelectingParams={isSelectingParams}
       listKey={listKey}
-      onResizeStart={onResizeStart}
       paramInfoId={paramInfoId}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
       rowStateLookup={rowStateLookup}
       sceneRowLookup={sceneRowLookup}
       sectionId={sectionId}
@@ -103,9 +97,7 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
   hasSectionStyleTheme,
   isSelectingParams,
   listKey,
-  onResizeStart,
   paramInfoId,
-  requiredParamIdsToPaths,
   rowStateLookup,
   sceneRowLookup,
   sectionId,
@@ -114,9 +106,7 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
   hasSectionStyleTheme: boolean;
   isSelectingParams: boolean;
   listKey: ParamListKey;
-  onResizeStart: MouseEventHandler;
   paramInfoId: string;
-  requiredParamIdsToPaths: Record<string, string[]>;
   rowStateLookup: LiveDictAreaPixiDragOverlayRowStateLookup;
   sceneRowLookup: LiveDictAreaPixiDragOverlaySceneRowLookup;
   sectionId: string;
@@ -131,15 +121,12 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
   if (isTempParam(paramInfoId)) {
     return (
       <>
-        <ParamSwitch
-          sectionId={sectionId}
-          paramInfoId={paramInfoId}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          isTopLevelWithPad={false}
-          listKey={listKey}
+        <LiveDictAreaPixiDragOverlayPlaceholderRow
+          depth={depth}
           hasSectionStyleTheme={hasSectionStyleTheme}
-          renderMode="drag-overlay"
+          listKey={listKey}
+          paramInfoId={paramInfoId}
+          sectionId={sectionId}
         />
         {childParamIds.map((childParamId) => (
           <LiveDictAreaPixiParamAreaOverlayRowBranch
@@ -148,9 +135,7 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
             hasSectionStyleTheme={hasSectionStyleTheme}
             isSelectingParams={isSelectingParams}
             listKey={listKey}
-            onResizeStart={onResizeStart}
             paramInfoId={childParamId}
-            requiredParamIdsToPaths={requiredParamIdsToPaths}
             rowStateLookup={rowStateLookup}
             sceneRowLookup={sceneRowLookup}
             sectionId={sectionId}
@@ -192,9 +177,7 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
           hasSectionStyleTheme={hasSectionStyleTheme}
           isSelectingParams={isSelectingParams}
           listKey={listKey}
-          onResizeStart={onResizeStart}
           paramInfoId={childParamId}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
           rowStateLookup={rowStateLookup}
           sceneRowLookup={sceneRowLookup}
           sectionId={sectionId}

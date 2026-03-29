@@ -1,5 +1,12 @@
+import { updateParamChildren } from "forks/dnd-kit/paramDndChildren";
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
+import {
+  getParamDndItemId,
+  getTempParamDndId,
+  setParamDndState,
+} from "forks/dnd-kit/paramDndState";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { ParamTreeView } from "state/actions/params/paramTree";
 import {
   useProjectSearch,
   useProjectState,
@@ -24,6 +31,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { buildLiveDictAreaPixiDragRowTargets } from "./liveDictAreaPixiDragRowTargets";
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
+import { LiveDictAreaPixiParamAreaOverlayRows } from "./LiveDictAreaPixiParamAreaOverlayRows";
+import { ParamDndProvider } from "./ParamDndContext";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -366,6 +375,65 @@ describe("LiveDictAreaPixiParamAreaOverlay", () => {
     expect(markup).toContain('data-live-dict-area-scene-row-depth="0"');
     expect(markup).toContain('data-live-dict-area-scene-row-depth="1"');
     expect(markup).not.toContain("ParamContainer-section-live-overlay-nested");
+  });
+
+  it("renders temp drag placeholders through the Pixi overlay row boundary", () => {
+    const sectionId = "section-live-overlay-temp-placeholder";
+    const rootId = "root-param";
+    const activeDndId = getParamDndItemId("pinned-param", "pinned");
+    const tempParamId = getTempParamDndId(activeDndId);
+    const tree: ParamTreeView = {
+      rootId,
+      parentById: {
+        [rootId]: null,
+        [tempParamId]: rootId,
+      },
+      flat: [],
+      visibleChildrenByParent: {
+        [rootId]: [tempParamId],
+      },
+    };
+
+    updateParamChildren({
+      [rootId]: [tempParamId],
+    });
+    setParamDndState({
+      activeId: "pinned-param",
+      listKey: "pinned",
+      placeholderHeight: 28,
+      placeholderWidth: 320,
+      sectionId,
+    });
+
+    const markup = renderToStaticMarkup(
+      <ParamDndContext>
+        <ParamDndProvider
+          enabled={true}
+          listKey="pinned"
+          sectionId={sectionId}
+          tree={tree}
+        >
+          <LiveDictAreaPixiParamAreaOverlayRows
+            hasSectionStyleTheme={false}
+            isSelectingParams={true}
+            listKey="pinned"
+            paramIds={[tempParamId]}
+            sceneRows={[]}
+            sectionId={sectionId}
+            selectedParamIds={[]}
+          />
+        </ParamDndProvider>
+      </ParamDndContext>,
+    );
+
+    expect(markup).toContain(
+      `data-live-dict-area-drag-overlay-row-id="${tempParamId}"`,
+    );
+    expect(markup).toContain(
+      'data-live-dict-area-scene-row-kind="placeholder"',
+    );
+    expect(markup).toContain("bg-blue-500/40");
+    expect(markup).not.toContain("section-args-nested-key-value");
   });
 
   it("preserves selected row chrome in the drag overlay", () => {

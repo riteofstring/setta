@@ -117,11 +117,14 @@ function LiveDictAreaPixiParamAreaOverlayList({
             renderMode="drag-overlay"
             renderParamListBody={(props) => (
               <LiveDictAreaPixiParamAreaOverlayRows
-                {...props}
+                hasSectionStyleTheme={props.hasSectionStyleTheme}
                 isSelectingParams={
                   domPacket.visualPacket.list.isSelectingParams
                 }
+                listKey={props.listKey}
+                paramIds={props.paramIds}
                 sceneRows={domPacket.visualPacket.list.rows}
+                sectionId={props.sectionId}
                 selectedParamIds={domPacket.visualPacket.list.selectedParamIds}
               />
             )}
@@ -191,9 +194,12 @@ function LiveDictAreaPixiUnpinnedParamAreaOverlayList({
           renderMode="drag-overlay"
           renderParamListBody={(props) => (
             <LiveDictAreaPixiParamAreaOverlayRows
-              {...props}
+              hasSectionStyleTheme={props.hasSectionStyleTheme}
               isSelectingParams={domPacket.visualPacket.list.isSelectingParams}
+              listKey={props.listKey}
+              paramIds={props.paramIds}
               sceneRows={domPacket.visualPacket.list.rows}
+              sectionId={props.sectionId}
               selectedParamIds={domPacket.visualPacket.list.selectedParamIds}
             />
           )}

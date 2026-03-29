@@ -7061,3 +7061,35 @@ Record:
     - representative `200` responses included `POST /api/getFolderContents`, `POST /api/getFileBrowserRoot`, and `POST /api/setProjectChatWindowingState`
 - Next action:
   - Continue the retained-scene drag lane by moving the remaining temp-placeholder fallback and any residual overlay-only store coupling behind a similarly explicit scene-row boundary, or stop this lane if the next candidate is only a no-payoff ownership hop.
+
+## 2026-03-29 227
+
+- Item: Replace the live Pixi drag-overlay temp-placeholder fallback with an explicit overlay row boundary.
+- Status: `done`
+- Details:
+  - Added a dedicated Pixi drag-overlay placeholder row surface so temp DnD placeholders no longer mount through the generic `ParamSwitch` path:
+    - `frontend/src/components/Params/LiveDictAreaPixiDragOverlayPlaceholderRow.tsx`
+  - Updated the overlay row walker to use that new placeholder surface and drop the now-unused generic resize/path props from the overlay-only boundary:
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlayRows.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx`
+  - Added focused regression coverage for the temp placeholder branch so the overlay proves temp rows render as `kind="placeholder"` through the Pixi row contract instead of the old `ParamSwitch` shell:
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiDragOverlayPlaceholderRow.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlayRows.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`:
+    - result: passed
+    - opened `All Settings` and clicked a `param-row` handoff (`Core Name Editable`)
+    - the active overlay reported `data-live-dict-area-drag-overlay="active"` with `kind="param-list"`
+    - the Pixi scene canvas stayed mounted and visible
+    - no obvious blanking, clipping, or major-overlap regression was observed in the checked viewport
+    - representative `200` responses included `POST /api/getFolderContents`, `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Re-check the retained-scene drag lane before continuing; if the next candidate is only another low-payoff overlay ownership hop, stop this lane instead of repeating the same refactor shape.
