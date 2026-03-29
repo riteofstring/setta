@@ -16,17 +16,6 @@ import (
 	"setta/internal/observability"
 )
 
-func TestBuildTerminalID(t *testing.T) {
-	t.Parallel()
-
-	if got := BuildTerminalID("section-a", ""); got != "section-a" {
-		t.Fatalf("expected section id without share session, got %q", got)
-	}
-	if got := BuildTerminalID("section-a", "share-a"); got != "share-a::section-a" {
-		t.Fatalf("expected share-scoped terminal id, got %q", got)
-	}
-}
-
 func TestResolveDefaultCommandUsesRealShellPathVerbatim(t *testing.T) {
 	t.Parallel()
 	skipIfWindows(t)

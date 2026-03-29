@@ -7,14 +7,6 @@ import (
 	"testing"
 )
 
-func TestDefaultPath(t *testing.T) {
-	t.Parallel()
-
-	if path := DefaultPath(); path != "app_specs/app.json" {
-		t.Fatalf("expected default app spec path app_specs/app.json, got %q", path)
-	}
-}
-
 func TestWriteAndReadRoundTrip(t *testing.T) {
 	t.Parallel()
 

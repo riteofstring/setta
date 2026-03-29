@@ -7567,9 +7567,6 @@ func TestAppWritesAndAppliesPluginLockRoutes(t *testing.T) {
 	}
 }
 
-func TestAppRefreshesPluginBackendRuntimeAfterLifecycleMutations(t *testing.T) {
-}
-
 func TestAppServesProgrammaticPluginRestartRouteInIDE(t *testing.T) {
 	// The real IDE app should wire plugin restart into the live backend-runtime refresh path.
 	cfg := testConfig(t)
