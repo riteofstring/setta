@@ -322,6 +322,15 @@ function _LiveDictAreaPixiScene({
         host,
         sectionStyleColor,
       });
+      const sceneRoot = sceneRootRef.current;
+      if (sceneRoot) {
+        sceneRoot.dataset.liveDictAreaScenePanelBackground =
+          palette.panelBackground;
+        sceneRoot.dataset.liveDictAreaSceneRowBackground =
+          palette.rowBackground;
+        sceneRoot.dataset.liveDictAreaSceneRowBackgroundAlt =
+          palette.rowBackgroundAlt;
+      }
       let app = appRef.current;
 
       if (!app) {

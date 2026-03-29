@@ -840,6 +840,40 @@ describe("getLiveDictAreaPixiPalette", () => {
     });
   });
 
+  it("reuses the themed panel background for row chrome when the section body background variable is unavailable", () => {
+    const host = {} as Element;
+    const cssVars = new Map([
+      ["--setta-section-style-panel-bg", "#1f2937"],
+      ["--setta-section-style-border", "#334155"],
+      ["--setta-section-style-outline", "#38bdf8"],
+      ["--setta-section-style-text", "#f8fafc"],
+      ["--setta-section-style-muted-text", "#94a3b8"],
+    ]);
+    const getComputedStyle = vi.fn(() => ({
+      getPropertyValue: (propertyName: string) =>
+        cssVars.get(propertyName) ?? "",
+    })) as unknown as (element: Element) => CSSStyleDeclaration;
+
+    expect(
+      getLiveDictAreaPixiPalette({
+        darkMode: false,
+        getComputedStyle,
+        host,
+      }),
+    ).toEqual({
+      bodyText: "#f8fafc",
+      border: "#334155",
+      panelBackground: "#1f2937",
+      panelBackgroundAlt: "#1f2937",
+      portDot: "#94a3b8",
+      portSelectedDot: "#38bdf8",
+      rowBackground: "#1f2937",
+      rowBackgroundAlt: "#1f2937",
+      rowPlaceholderFill: "#1f2937",
+      titleText: "#94a3b8",
+    });
+  });
+
   it("falls back to the generic palette when section-style CSS variables are unavailable", () => {
     expect(
       getLiveDictAreaPixiPalette({

@@ -521,6 +521,10 @@ export function getLiveDictAreaPixiPalette({
     computedStyle,
     propertyName: "--setta-section-style-muted-text",
   });
+  const resolvedSectionBodyBackground =
+    sectionBackground || sectionPanelBackground;
+  const resolvedSectionPanelBackground =
+    sectionPanelBackground || resolvedSectionBodyBackground;
   const computedChrome = getLiveDictAreaPixiComputedChrome({
     getComputedStyle,
     host,
@@ -548,20 +552,23 @@ export function getLiveDictAreaPixiPalette({
       computedChrome?.borderColor ||
       computedFallbackPalette.border,
     panelBackground:
-      sectionPanelBackground ||
+      resolvedSectionPanelBackground ||
       computedChrome?.backgroundColor ||
       computedFallbackPalette.panelBackground,
     panelBackgroundAlt:
-      sectionBackground ||
+      resolvedSectionBodyBackground ||
       computedChrome?.backgroundColor ||
       computedFallbackPalette.panelBackgroundAlt,
     portDot: sectionMutedText || computedFallbackPalette.portDot,
     portSelectedDot: sectionOutline || computedFallbackPalette.portSelectedDot,
-    rowBackground: sectionBackground || computedFallbackPalette.rowBackground,
+    rowBackground:
+      resolvedSectionBodyBackground || computedFallbackPalette.rowBackground,
     rowBackgroundAlt:
-      sectionPanelBackground || computedFallbackPalette.rowBackgroundAlt,
+      resolvedSectionPanelBackground ||
+      computedFallbackPalette.rowBackgroundAlt,
     rowPlaceholderFill:
-      sectionBackground || computedFallbackPalette.rowPlaceholderFill,
+      resolvedSectionBodyBackground ||
+      computedFallbackPalette.rowPlaceholderFill,
     titleText: sectionMutedText || computedFallbackPalette.titleText,
   };
 }

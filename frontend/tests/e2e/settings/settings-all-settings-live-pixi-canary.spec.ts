@@ -98,8 +98,78 @@ type VisibleSectionNodeBounds = {
   y: number;
 };
 
+type VisibleScenePaletteSample = {
+  left: number;
+  panelBackground: string;
+  rowBackground: string;
+  sectionId: string;
+  top: number;
+};
+
 function getBlockKey(block: Pick<VisibleBlockBounds, "blockId" | "sectionId">) {
   return `${block.sectionId}:${block.blockId}`;
+}
+
+function parseRgbColor(
+  rawColor: string,
+): { b: number; g: number; r: number } | null {
+  const normalizedColor = rawColor.trim().toLowerCase();
+  if (normalizedColor.startsWith("#")) {
+    const hexValue = normalizedColor.slice(1);
+    if (hexValue.length !== 6) {
+      return null;
+    }
+
+    const r = Number.parseInt(hexValue.slice(0, 2), 16);
+    const g = Number.parseInt(hexValue.slice(2, 4), 16);
+    const b = Number.parseInt(hexValue.slice(4, 6), 16);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+      return null;
+    }
+
+    return { b, g, r };
+  }
+
+  const channelMatches = normalizedColor.match(/\d+(?:\.\d+)?/g);
+  if (!channelMatches || channelMatches.length < 3) {
+    return null;
+  }
+
+  const [rawR, rawG, rawB] = channelMatches;
+  const r = Number.parseFloat(rawR);
+  const g = Number.parseFloat(rawG);
+  const b = Number.parseFloat(rawB);
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
+    return null;
+  }
+
+  return {
+    b: Math.max(0, Math.min(255, Math.round(b))),
+    g: Math.max(0, Math.min(255, Math.round(g))),
+    r: Math.max(0, Math.min(255, Math.round(r))),
+  };
+}
+
+function getColorLuminance(rawColor: string): number | null {
+  const rgbColor = parseRgbColor(rawColor);
+  if (!rgbColor) {
+    return null;
+  }
+
+  const linearize = (channel: number) => {
+    const normalizedChannel = channel / 255;
+    if (normalizedChannel <= 0.04045) {
+      return normalizedChannel / 12.92;
+    }
+
+    return Math.pow((normalizedChannel + 0.055) / 1.055, 2.4);
+  };
+
+  return (
+    0.2126 * linearize(rgbColor.r) +
+    0.7152 * linearize(rgbColor.g) +
+    0.0722 * linearize(rgbColor.b)
+  );
 }
 
 async function setLiveDictAreaRendererMode(
@@ -518,6 +588,57 @@ async function readVisibleSceneReadableRows(page: Page): Promise<
       .map(({ left, readableRowCount, sectionId, top }) => ({
         left,
         readableRowCount,
+        sectionId,
+        top,
+      }));
+  });
+}
+
+async function readVisibleScenePaletteSamples(
+  page: Page,
+): Promise<VisibleScenePaletteSample[]> {
+  return page.evaluate(() => {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-id]",
+      ),
+    )
+      .map((sceneRoot) => {
+        const rect = sceneRoot.getBoundingClientRect();
+        const panelBackground =
+          sceneRoot.dataset.liveDictAreaScenePanelBackground ?? "";
+        const rowBackground =
+          sceneRoot.dataset.liveDictAreaSceneRowBackground ?? "";
+
+        return {
+          left: rect.left,
+          panelBackground,
+          rowBackground,
+          sectionId:
+            sceneRoot.getAttribute("data-live-dict-area-scene-section-id") ??
+            "",
+          top: rect.top,
+          visible:
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.bottom > 0 &&
+            rect.top < window.innerHeight &&
+            panelBackground.length > 0 &&
+            rowBackground.length > 0,
+        };
+      })
+      .filter((sceneRoot) => sceneRoot.visible)
+      .sort((leftScene, rightScene) => {
+        if (Math.abs(leftScene.top - rightScene.top) > 2) {
+          return leftScene.top - rightScene.top;
+        }
+
+        return leftScene.left - rightScene.left;
+      })
+      .map(({ left, panelBackground, rowBackground, sectionId, top }) => ({
+        left,
+        panelBackground,
+        rowBackground,
         sectionId,
         top,
       }));
@@ -1093,6 +1214,41 @@ test("all settings canary keeps the first visible low-zoom Pixi cards from colla
       return (
         visibleScenes.length >= 6 &&
         visibleScenes.slice(0, 6).every((scene) => scene.readableRowCount > 0)
+      );
+    })
+    .toBe(true);
+});
+
+test("all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await waitForVisibleSceneMetrics(page);
+  await zoomViewportOutToMin(page);
+
+  await expect
+    .poll(async () => {
+      const visibleScenes = await readVisibleScenePaletteSamples(page);
+      const darkPanelScenes = visibleScenes
+        .slice(0, 12)
+        .map((scene) => ({
+          panelLuminance: getColorLuminance(scene.panelBackground),
+          rowLuminance: getColorLuminance(scene.rowBackground),
+          sectionId: scene.sectionId,
+        }))
+        .filter(
+          (scene) =>
+            scene.panelLuminance !== null && scene.panelLuminance < 0.35,
+        );
+
+      return (
+        darkPanelScenes.length >= 3 &&
+        darkPanelScenes.every(
+          (scene) =>
+            scene.rowLuminance !== null &&
+            scene.rowLuminance < 0.55 &&
+            scene.rowLuminance - scene.panelLuminance < 0.25,
+        )
       );
     })
     .toBe(true);

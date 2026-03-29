@@ -11981,3 +11981,42 @@ Record:
     - result: passed; no mismatch was visible in the normalized first visible baseline-vs-live `All Settings` canvas slice
 - Next action:
   - Move to the next real live-Pixi parity frontier beyond the already-clean first visible slice, preferably by widening the normalized `All Settings` comparison to the next visible canvas region or another concrete interaction/zoom canary instead of reopening first-row compact-preview tuning.
+
+## 2026-03-31 362
+
+- Item: Keep live Pixi dark-card row chrome from falling back to bright generic fills when section body vars are missing.
+- Status: `done`
+- Details:
+  - Used a fresh-context Chrome DevTools MCP comparison on normalized `All Settings` beyond the already-clean first visible slice:
+    - worktree baseline `http://127.0.0.1:3043/settings`
+    - worktree live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - read-only `main` `http://127.0.0.1:3087/settings`
+  - The concrete live-Pixi-only drift for this slice was:
+    - several deeper center-right dark cards kept dark outer panel chrome while their inner Pixi row bodies fell back to bright/white generic fills that baseline and `main` did not show
+  - Fixed the palette fallback on the production scene path:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+      - when the mounted host exposes `--setta-section-style-panel-bg` but not `--setta-section-style-bg`, the scene now reuses the themed panel background for body/row/placeholder chrome instead of falling back to the generic light row palette
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - published the resolved panel/row palette fills on the scene root as diagnostic data attributes for the live canary
+  - Added focused regression coverage for the same failure shape:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - added a unit test that pins the partial-section-variable case (`panel-bg` present, `bg` missing) and requires dark row chrome instead of light fallback fills
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added a low-zoom canary that reads the visible scene palette diagnostics and rejects the dark-panel plus bright-row mismatch
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`60 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews|all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards"`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on normalized worktree baseline/live plus read-only `main`
+    - result: passed for this bounded slice
+      - the earlier dark-card plus bright/white row-body mismatch no longer reproduced in the checked deeper center-right stack
+      - residual live-Pixi drift remains in that same area as sparser / under-populated bodies compared with baseline and `main`, so this slice closes the row-fill regression but not the broader parity lane
+- Next action:
+  - Investigate the residual live-Pixi sparse / under-populated body drift in the same deeper center-right `All Settings` stack now that the incorrect bright row-fill fallback is closed.
