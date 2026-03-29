@@ -264,4 +264,94 @@ describe("LiveDictAreaPixiParamAreaOverlay", () => {
     expect(markup).not.toContain("-ParamInput");
     expect(markup).not.toContain("CodeMirror-");
   });
+
+  it("renders nested drag-overlay rows from the scene row packets with depth markers", () => {
+    const sectionId = "section-live-overlay-nested";
+    seedOverlayState({
+      sectionId,
+      pinnedParamIds: ["pinned-group", "pinned-value"],
+      unpinnedParamIds: [],
+    });
+    useProjectState.setState((state) => {
+      state.codeObjImpls["pinned-group-impl"] = {
+        type: CodeObjTypeEnum.NestedParam,
+        id: "pinned-group-impl",
+        name: "pinned-group",
+        description: "",
+        isPreset: false,
+        children: ["pinned-value"],
+        coreNameType: ParamNameTypeEnum.TEXT,
+        coreNameEditable: true,
+        passingStyle: ParameterPassingStyleEnum.DEFAULT,
+        typeAnnotation: "",
+      };
+    });
+    const boundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "Pinned Group",
+              "pinned-value": "Pinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: true,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId,
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: null,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+      },
+    });
+    const target = buildLiveDictAreaPixiDragRowTargets({
+      liveDictAreaMountProps: boundary.liveDictAreaMountProps,
+      liveDictAreaSceneBoundary: boundary.liveDictAreaSceneBoundary,
+    }).find((rowTarget) => rowTarget.blockId === "pinned");
+
+    expect(target).toBeDefined();
+
+    const markup = renderToStaticMarkup(
+      <ParamDndContext>
+        <LiveDictAreaPixiParamAreaOverlay
+          liveDictAreaMountProps={boundary.liveDictAreaMountProps}
+          target={target!}
+        />
+      </ParamDndContext>,
+    );
+
+    expect(markup).toContain(
+      'data-live-dict-area-drag-overlay-row-id="pinned-group"',
+    );
+    expect(markup).toContain(
+      'data-live-dict-area-drag-overlay-row-id="pinned-value"',
+    );
+    expect(markup).toContain('data-live-dict-area-scene-row-depth="0"');
+    expect(markup).toContain('data-live-dict-area-scene-row-depth="1"');
+    expect(markup).not.toContain("ParamContainer-section-live-overlay-nested");
+  });
 });

@@ -1,4 +1,3 @@
-import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import type {
   CSSProperties,
   HTMLAttributes,
@@ -6,9 +5,7 @@ import type {
   ReactNode,
   Ref,
 } from "react";
-import { GetParamSwitch } from "./GetParamSwitch";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
-import { useParamDndChildrenForParent } from "./ParamDndContext";
 import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
 
 type LiveDictAreaPixiDragOverlayParamRowProps = {
@@ -21,15 +18,10 @@ type LiveDictAreaPixiDragOverlayParamRowProps = {
   dndStyle?: CSSProperties;
   hasSectionStyleTheme: boolean;
   label: ReactNode;
-  listKey: ParamListKey;
   onClick: MouseEventHandler<HTMLElement>;
   onMouseDown: MouseEventHandler<HTMLElement>;
-  onResizeStart: MouseEventHandler;
-  paramChildren: string[];
   paramInfoId: string;
-  requiredParamIdsToPaths: Record<string, string[]>;
   scenePacket: ParamSceneRowPacket;
-  sectionId: string;
 };
 
 export function LiveDictAreaPixiDragOverlayParamRow({
@@ -42,20 +34,11 @@ export function LiveDictAreaPixiDragOverlayParamRow({
   dndStyle,
   hasSectionStyleTheme,
   label,
-  listKey,
   onClick,
   onMouseDown,
-  onResizeStart,
-  paramChildren,
   paramInfoId,
-  requiredParamIdsToPaths,
   scenePacket,
-  sectionId,
 }: LiveDictAreaPixiDragOverlayParamRowProps) {
-  const renderChildren = useParamDndChildrenForParent(
-    paramInfoId,
-    paramChildren,
-  );
   const hoverClassName = hasSectionStyleTheme
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
@@ -89,18 +72,6 @@ export function LiveDictAreaPixiDragOverlayParamRow({
       >
         <div className="min-w-0 flex-1">{label}</div>
       </article>
-      {renderChildren.length > 0 ? (
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={renderChildren}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          isTopLevel={false}
-          listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-          renderMode="drag-overlay"
-        />
-      ) : null}
     </>
   );
 }

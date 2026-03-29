@@ -10,6 +10,7 @@ import type {
 import { getPinnedParamsBgClassName } from "./groupContainerView";
 import type { LiveDictAreaPixiDragRowTarget } from "./liveDictAreaPixiDragRowTargets";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
+import { LiveDictAreaPixiParamAreaOverlayRows } from "./LiveDictAreaPixiParamAreaOverlayRows";
 import { ParamDndList } from "./ParamDndList";
 
 type LiveDictAreaPixiParamAreaOverlayProps = {
@@ -114,6 +115,12 @@ function LiveDictAreaPixiParamAreaOverlayList({
             listKey={domPacket.visualPacket.list.listKey}
             hasSectionStyleTheme={hasSectionStyleTheme}
             renderMode="drag-overlay"
+            renderParamListBody={(props) => (
+              <LiveDictAreaPixiParamAreaOverlayRows
+                {...props}
+                sceneRows={domPacket.visualPacket.list.rows}
+              />
+            )}
           />
         </div>
       </div>
@@ -178,6 +185,12 @@ function LiveDictAreaPixiUnpinnedParamAreaOverlayList({
           listKey={domPacket.visualPacket.list.listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
           renderMode="drag-overlay"
+          renderParamListBody={(props) => (
+            <LiveDictAreaPixiParamAreaOverlayRows
+              {...props}
+              sceneRows={domPacket.visualPacket.list.rows}
+            />
+          )}
         />
       </div>
     </div>

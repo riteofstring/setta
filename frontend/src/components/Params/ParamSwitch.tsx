@@ -293,10 +293,8 @@ function SortablePixiDragOverlayParamSwitchRow({
   hasSectionStyleTheme,
   onClick,
   onMouseDown,
-  onResizeStart,
   sectionId,
   paramInfoId,
-  requiredParamIdsToPaths,
   listKey,
   paramChildren,
   label,
@@ -308,12 +306,10 @@ function SortablePixiDragOverlayParamSwitchRow({
   label: React.ReactNode;
   onClick: React.MouseEventHandler;
   onMouseDown: React.MouseEventHandler;
-  onResizeStart: React.MouseEventHandler;
   paramChildren: string[];
   scenePacket: ParamSceneRowPacket;
   sectionId: string;
   paramInfoId: string;
-  requiredParamIdsToPaths: Record<string, string[]>;
   listKey: ParamListKey;
 }) {
   const dndContext = useParamDndContext();
@@ -356,12 +352,7 @@ function SortablePixiDragOverlayParamSwitchRow({
       hasSectionStyleTheme={hasSectionStyleTheme}
       onClick={onClick}
       onMouseDown={onMouseDown}
-      onResizeStart={onResizeStart}
-      sectionId={sectionId}
       paramInfoId={paramInfoId}
-      requiredParamIdsToPaths={requiredParamIdsToPaths}
-      listKey={listKey}
-      paramChildren={paramChildren}
       label={label}
       scenePacket={scenePacket}
       dndAttributes={restAttributes}
