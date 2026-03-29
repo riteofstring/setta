@@ -119,12 +119,9 @@ import {
   DeletePromptTemplateRequestInput,
   DeleteTranscriptionProfileRequestInput,
   EngineConfig,
-  ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
-  GetLLMChatResponse,
   LLMStreamingResponse,
-  ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
@@ -135,7 +132,6 @@ import {
   SectionTypeEnum,
   SettaNotificationTypeEnum,
   StartTranscriptionSessionResponse,
-  StopLLMChatResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -179,6 +175,13 @@ const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
 const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
+type ManagedAPIKeysSnapshotPayload = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt?: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -768,7 +771,7 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
 }
 
 export function receiveLLMApiKeysSnapshotUpdate(
-  payload: ManagedAPIKeysSnapshot,
+  payload: ManagedAPIKeysSnapshotPayload,
 ) {
   const isCorrupt =
     payload.corrupt === true ||
@@ -1935,7 +1938,13 @@ function reconcileStoppedLLMChatOutcome({
 }: {
   chatId: string;
   localSnapshot: StopChatResponseSnapshot;
-  stopOutcome: StopLLMChatResponse | null | undefined;
+  stopOutcome:
+    | {
+        alreadyStopped: boolean;
+        stoppedMessageId: string | null;
+      }
+    | null
+    | undefined;
 }): void {
   if (!stopOutcome) {
     return;
@@ -2273,7 +2282,11 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<ChatHydrationProbeResult<GetLLMChatResponse>> {
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>
+  >
+> {
   const response = await route_get_llm_chat({ chatId, projectConfigId });
   if (!res200(response)) {
     return {
@@ -2292,7 +2305,13 @@ async function probeLLMChatHydration(
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
-): Promise<ChatHydrationProbeResult<ExternalAgentChatResponse>> {
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<
+      Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+    >
+  >
+> {
   const response = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -2320,7 +2339,7 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: GetLLMChatResponse;
+  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
 }): void {
   const {
     messages,
@@ -2392,7 +2411,9 @@ function applyExternalChatHydrationSuccess({
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
-  payload: ExternalAgentChatResponse;
+  payload: NonNullable<
+    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+  >;
 }): void {
   const {
     messages,
@@ -2634,7 +2655,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data;
+      const returnedChatId = res.data.chatId;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2813,7 +2834,7 @@ export async function submitEditedMessage({
       }
       return null;
     }
-    const returnedChatId = res.data;
+    const returnedChatId = res.data.chatId;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {
