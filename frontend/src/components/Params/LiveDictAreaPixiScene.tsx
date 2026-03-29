@@ -66,6 +66,9 @@ function _LiveDictAreaPixiScene({
   const darkMode = useLocalStorage((state) => state.darkMode);
   const viewportZoom = useReactFlow((state) => state.transform[2]);
   const hostRef = useRef<HTMLDivElement | null>(null);
+  const edgeLabelTextStyleRef = useRef<HTMLParagraphElement | null>(null);
+  const edgeRowTextStyleRef = useRef<HTMLSpanElement | null>(null);
+  const rowTextStyleRef = useRef<HTMLParagraphElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const [hostWidth, setHostWidth] = useState(0);
   const [devicePixelRatio, setDevicePixelRatio] = useState(() =>
@@ -171,7 +174,12 @@ function _LiveDictAreaPixiScene({
         getComputedStyle: window.getComputedStyle,
         host,
       });
-      const textStyleSet = getLiveDictAreaPixiTextStyleSet();
+      const textStyleSet = getLiveDictAreaPixiTextStyleSet({
+        edgeLabelElement: edgeLabelTextStyleRef.current,
+        edgeRowElement: edgeRowTextStyleRef.current,
+        getComputedStyle: window.getComputedStyle,
+        rowElement: rowTextStyleRef.current,
+      });
       let app = appRef.current;
 
       if (!app) {
@@ -251,10 +259,28 @@ function _LiveDictAreaPixiScene({
 
   return (
     <div
+      className="relative"
       data-live-dict-area-scene="pixi"
       data-live-dict-area-scene-block-count={summaryLayout.blocks.length}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
     >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-0 top-0 h-0 overflow-hidden opacity-0"
+      >
+        <p
+          className="text-[0.5rem] font-bold uppercase"
+          ref={edgeLabelTextStyleRef}
+        >
+          Inputs
+        </p>
+        <span className="text-[0.65rem]" ref={edgeRowTextStyleRef}>
+          Viewport
+        </span>
+        <p className="font-sans text-xs font-semibold" ref={rowTextStyleRef}>
+          Default Zoom Level
+        </p>
+      </div>
       <div
         className="section-w-full"
         ref={hostRef}

@@ -8222,6 +8222,42 @@ Record:
 
 ## 2026-03-29 257
 
+- Item: Remove the stale live Pixi row-kind badge packet and pin the DOM-sized text token contract for the canary.
+- Status: `blocked`
+- Details:
+  - Took the next bounded parity-fix path available without a `main` reference session:
+    - remove the stale live Pixi `Group` / `Placeholder` badge packet from the row layout because that chrome does not exist on the DOM dict-area surface
+    - keep the existing DOM-sized live Pixi text token helper explicit in focused tests so the canary keeps using the intended `8px` section labels, `10.4px` edge-row text, and `12px` row labels
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - Verification before the blocker:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`13 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+    - Playwright:
+      - helper runtime retry:
+        - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes|CodeMirror-backed value row"`
+      - direct retry with the provided bootstrap token:
+        - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<iteration token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes|CodeMirror-backed value row"`
+      - result: both blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401` before product assertions
+  - Blocking CDP visual gate:
+    - fresh-context Chrome DevTools MCP verification compared `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` against `http://127.0.0.1:3044/settings` in the existing authenticated worktree session, then repeated the comparison after resetting both tabs to `100%` zoom
+    - positive:
+      - no invented `Group` / `Placeholder` badge text was visible in the Pixi scene
+      - section shell/header chrome looked roughly aligned with the DOM baseline
+    - blocker:
+      - the normalized Pixi canary still rendered the section bodies as effectively empty in the checked `All Settings` viewport, while the DOM tab showed the expected populated settings rows
+      - because the live Pixi row labels/body content were still visually missing, row-label typography could not be meaningfully judged and the visual parity gate failed
+- Next action:
+  - Investigate and fix why the live Pixi `pixi-node-body` canary is still not visibly drawing its settings rows/body content at the normalized `100%` canary state before doing more typography-parity work.
+
+## 2026-03-29 257
+
 - Item: Route the live Pixi canary text font family through the mounted DOM surface instead of a hardcoded Pixi font stack.
 - Status: `done`
 - Details:
@@ -8256,3 +8292,80 @@ Record:
     - blocker: none
 - Next action:
   - Continue the live Pixi visual-stability lane from this shared-font-source baseline by comparing against `main` when a reference settings tab is available, or by landing the next bounded text/chrome token-parity fix on the same canary if the reference surface is still unavailable.
+
+## 2026-03-29 258
+
+- Item: Resolve the live Pixi canary text token sizes/weights from mounted DOM samples and close the stale row-kind parity blocker.
+- Status: `done`
+- Details:
+  - Took the next bounded text/chrome parity fix on the same live Pixi visual-stability lane instead of returning to more forwarding cleanup or another perf-only probe.
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+  - The live Pixi scene now:
+    - removes the stale row-kind badge packet from the Pixi row layout so the scene no longer carries unused `Group` / `Placeholder` chrome metadata
+    - mounts hidden DOM sample elements that mirror the live dict-area text classes for section labels, edge rows, and row labels
+    - resolves the Pixi text sizes and weights from those mounted DOM samples at draw time, while keeping the existing fallback token values for missing style sources
+    - keeps the earlier shared font-family, zoom/DPR redraw, and font-load redraw behavior intact while tightening the remaining row-text token contract
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`14 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - `All Settings` was open in headed Chrome and the live Pixi viewport was visibly populated with settings rows/body content at normalized `100%` zoom
+    - normalized zoom state was confirmed as `visualViewport.scale = 1` and document zoom `1`
+    - no stale `Group` or `Placeholder` badge text was visible as extra chrome in the checked viewport
+    - representative authenticated requests returned `200`, including `GET /api/getFileBrowserRoot` and `GET /api/getFolderContents`
+- Next action:
+  - Continue the live Pixi visual-stability lane from this DOM-sampled text-token baseline by comparing the named canary state against `main` when a reference settings tab is available, or by landing the next bounded text/chrome parity fix on the same canary.
+
+## 2026-03-29 258
+
+- Item: Route the live Pixi canary text sizes and weights through DOM style anchors instead of hardcoded scene constants.
+- Status: `done`
+- Details:
+  - The current browser session still did not expose a separate `main` reference settings tab, so this iteration took the allowed next bounded text/chrome token-parity fix on the same live visual-stability lane instead of inventing a new direction.
+  - Updated the live `pixi-node-body` canary so the scene text-style set no longer depends only on baked-in constants:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The live Pixi scene now mounts hidden DOM style anchors that use the same canary classes as the DOM path for:
+    - section / edge labels
+    - edge rows
+    - param rows
+  - `getLiveDictAreaPixiTextStyleSet` now resolves `font-size` and `font-weight` from those mounted DOM samples via `getComputedStyle`, with the prior scene constants retained only as fallbacks when the browser surface is unavailable.
+  - This keeps the scene text path aligned with the same runtime token source as the DOM canary while preserving the earlier zoom/DPR/font-load redraw work.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`12 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+  - Playwright:
+    - attempted full live canary spec:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: failed on the existing drag-overlay inspection case outside this slice (`[data-live-dict-area-drag-handoff='param-row']` hidden)
+    - scoped relevant canary coverage for this text-style slice:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes|immediately activate a CodeMirror-backed value row"`
+      - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - the provided bootstrap token was rejected at `/__setta__/bootstrap`, but the settings canary loaded directly and `All Settings` was visible/selected
+    - the live Pixi dict-area scene was visible and not obviously blank or clipped in the checked viewport
+    - no obvious new text/chrome regression was visible on the checked canary surface
+    - the hidden DOM style anchors under `[data-live-dict-area-scene='pixi']` resolved the intended live metrics:
+      - `Inputs`: `8px`, `700`
+      - `Viewport`: `10.4px`, `400`
+      - `Default Zoom Level`: `12px`, `600`
+    - no separate `main` reference settings tab was available, so this remained a single-surface visual check
+- Next action:
+  - Continue the live Pixi visual-stability lane by either running the side-by-side `main` comparison when a reference settings tab is available, or landing the next bounded token-parity fix on the canary chrome/colors instead of returning to forwarding seam lifts.

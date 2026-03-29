@@ -3,6 +3,17 @@ import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
   "ui-sans-serif, system-ui, sans-serif";
 
+const LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET = {
+  edgeLabelFontSize: 8,
+  edgeLabelFontWeight: "700",
+  edgeRowFontSize: 10.4,
+  edgeRowFontWeight: "400",
+  rowFontSize: 12,
+  rowFontWeight: "600",
+  titleFontSize: 8,
+  titleFontWeight: "700",
+} as const;
+
 export type LiveDictAreaPixiTextStyleSet = {
   edgeLabelFontSize: number;
   edgeLabelFontWeight: string;
@@ -18,6 +29,13 @@ type LiveDictAreaPixiFontFaceSet = Pick<
   FontFaceSet,
   "addEventListener" | "ready" | "removeEventListener" | "status"
 >;
+
+type LiveDictAreaPixiTextStyleSource = {
+  edgeLabelElement?: Element | null;
+  edgeRowElement?: Element | null;
+  getComputedStyle?: ((element: Element) => CSSStyleDeclaration) | null;
+  rowElement?: Element | null;
+};
 
 export function getLiveDictAreaPixiLogicalCanvasWidth(hostWidth: number) {
   const safeHostWidth =
@@ -70,16 +88,93 @@ export function getLiveDictAreaPixiTextFontFamily({
   return LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY;
 }
 
-export function getLiveDictAreaPixiTextStyleSet(): LiveDictAreaPixiTextStyleSet {
+function getLiveDictAreaPixiResolvedFontSize({
+  element,
+  fallbackValue,
+  getComputedStyle,
+}: {
+  element?: Element | null;
+  fallbackValue: number;
+  getComputedStyle?: ((element: Element) => CSSStyleDeclaration) | null;
+}) {
+  if (!element || !getComputedStyle) {
+    return fallbackValue;
+  }
+
+  const nextFontSize = Number.parseFloat(getComputedStyle(element).fontSize);
+
+  return Number.isFinite(nextFontSize) && nextFontSize > 0
+    ? nextFontSize
+    : fallbackValue;
+}
+
+function getLiveDictAreaPixiResolvedFontWeight({
+  element,
+  fallbackValue,
+  getComputedStyle,
+}: {
+  element?: Element | null;
+  fallbackValue: string;
+  getComputedStyle?: ((element: Element) => CSSStyleDeclaration) | null;
+}) {
+  if (!element || !getComputedStyle) {
+    return fallbackValue;
+  }
+
+  const nextFontWeight = getComputedStyle(element).fontWeight.trim();
+
+  return nextFontWeight || fallbackValue;
+}
+
+export function getLiveDictAreaPixiTextStyleSet({
+  edgeLabelElement,
+  edgeRowElement,
+  getComputedStyle,
+  rowElement,
+}: LiveDictAreaPixiTextStyleSource = {}): LiveDictAreaPixiTextStyleSet {
+  const edgeLabelFontSize = getLiveDictAreaPixiResolvedFontSize({
+    element: edgeLabelElement,
+    fallbackValue:
+      LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET.edgeLabelFontSize,
+    getComputedStyle,
+  });
+  const edgeLabelFontWeight = getLiveDictAreaPixiResolvedFontWeight({
+    element: edgeLabelElement,
+    fallbackValue:
+      LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET.edgeLabelFontWeight,
+    getComputedStyle,
+  });
+  const edgeRowFontSize = getLiveDictAreaPixiResolvedFontSize({
+    element: edgeRowElement,
+    fallbackValue: LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET.edgeRowFontSize,
+    getComputedStyle,
+  });
+  const edgeRowFontWeight = getLiveDictAreaPixiResolvedFontWeight({
+    element: edgeRowElement,
+    fallbackValue:
+      LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET.edgeRowFontWeight,
+    getComputedStyle,
+  });
+  const rowFontSize = getLiveDictAreaPixiResolvedFontSize({
+    element: rowElement,
+    fallbackValue: LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET.rowFontSize,
+    getComputedStyle,
+  });
+  const rowFontWeight = getLiveDictAreaPixiResolvedFontWeight({
+    element: rowElement,
+    fallbackValue: LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET.rowFontWeight,
+    getComputedStyle,
+  });
+
   return {
-    edgeLabelFontSize: 8,
-    edgeLabelFontWeight: "700",
-    edgeRowFontSize: 10.4,
-    edgeRowFontWeight: "400",
-    rowFontSize: 12,
-    rowFontWeight: "600",
-    titleFontSize: 8,
-    titleFontWeight: "700",
+    edgeLabelFontSize,
+    edgeLabelFontWeight,
+    edgeRowFontSize,
+    edgeRowFontWeight,
+    rowFontSize,
+    rowFontWeight,
+    titleFontSize: edgeLabelFontSize,
+    titleFontWeight: edgeLabelFontWeight,
   };
 }
 

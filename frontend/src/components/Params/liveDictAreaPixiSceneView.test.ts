@@ -3,8 +3,8 @@ import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiRenderResolution,
-  getLiveDictAreaPixiTextStyleSet,
   getLiveDictAreaPixiTextFontFamily,
+  getLiveDictAreaPixiTextStyleSet,
   LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
 } from "./liveDictAreaPixiSceneView";
@@ -98,8 +98,56 @@ describe("getLiveDictAreaPixiTextFontFamily", () => {
 });
 
 describe("getLiveDictAreaPixiTextStyleSet", () => {
-  it("matches the current dict-area DOM text sizes for the live Pixi canary", () => {
-    expect(getLiveDictAreaPixiTextStyleSet()).toEqual({
+  it("reads the live Pixi canary text sizes and weights from matching DOM samples", () => {
+    const edgeLabelElement = {} as Element;
+    const edgeRowElement = {} as Element;
+    const rowElement = {} as Element;
+    const getComputedStyle = vi.fn((element: Element) => {
+      if (element === edgeLabelElement) {
+        return {
+          fontSize: "8px",
+          fontWeight: "700",
+        } as CSSStyleDeclaration;
+      }
+
+      if (element === edgeRowElement) {
+        return {
+          fontSize: "10.4px",
+          fontWeight: "400",
+        } as CSSStyleDeclaration;
+      }
+
+      return {
+        fontSize: "12px",
+        fontWeight: "600",
+      } as CSSStyleDeclaration;
+    });
+
+    expect(
+      getLiveDictAreaPixiTextStyleSet({
+        edgeLabelElement,
+        edgeRowElement,
+        getComputedStyle,
+        rowElement,
+      }),
+    ).toEqual({
+      edgeLabelFontSize: 8,
+      edgeLabelFontWeight: "700",
+      edgeRowFontSize: 10.4,
+      edgeRowFontWeight: "400",
+      rowFontSize: 12,
+      rowFontWeight: "600",
+      titleFontSize: 8,
+      titleFontWeight: "700",
+    });
+  });
+
+  it("falls back to the current scene text styles when DOM samples are missing", () => {
+    expect(
+      getLiveDictAreaPixiTextStyleSet({
+        getComputedStyle: vi.fn(() => ({ fontSize: "", fontWeight: "   " })),
+      }),
+    ).toEqual({
       edgeLabelFontSize: 8,
       edgeLabelFontWeight: "700",
       edgeRowFontSize: 10.4,
