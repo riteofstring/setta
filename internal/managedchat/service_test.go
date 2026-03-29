@@ -1281,6 +1281,86 @@ func TestServiceStartChatBranchEditMissingMessageReturnsNotFound(t *testing.T) {
 	}
 }
 
+func TestNormalizeStartChatRequestRejectsContinueFromWithBranchEdits(t *testing.T) {
+	t.Parallel()
+
+	_, err := normalizeStartChatRequest(StartChatRequest{
+		Message:             userMessage("user-1", "Edit this branch"),
+		ProjectConfigID:     "project-alpha",
+		AllowUnscoped:       true,
+		ContinueFromChatID:  stringPtr("chat-seed"),
+		BranchParentChatID:  stringPtr("chat-parent"),
+		BranchFromMessageID: stringPtr("msg-1"),
+		PermissionMode:      ChatPermissionModeMinimal,
+	})
+	if !errors.Is(err, ErrContinueFromChatWithBranchEdits) {
+		t.Fatalf("expected ErrContinueFromChatWithBranchEdits, got %v", err)
+	}
+}
+
+func TestServiceBuildStartChatInputsAddsBranchMetadata(t *testing.T) {
+	t.Parallel()
+
+	service := &Service{
+		timeNow: func() time.Time {
+			return time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC)
+		},
+	}
+	normalizedRequest := normalizedStartChatRequest{
+		Message:               userMessage("edited", "Edited prompt"),
+		Thinking:              true,
+		ProjectConfigID:       "project-alpha",
+		SectionID:             stringPtr("section-1"),
+		FrontendAffinityToken: stringPtr("frontend-token"),
+		AllowUnscoped:         false,
+		BranchParentChatID:    stringPtr("chat-parent"),
+		BranchFromMessageID:   stringPtr("msg-1"),
+		IsBranchRequest:       true,
+		PermissionMode:        ChatPermissionModeYolo,
+		SearchEnabled:         true,
+	}
+	parentRun := agentruns.NewRun(nil, map[string]any{
+		"branchRootChatId": "root-chat",
+	}, time.Date(2026, 3, 9, 11, 0, 0, 0, time.UTC))
+	inputs := service.buildStartChatInputs(
+		normalizedRequest,
+		"engine-managed",
+		startChatConversation{
+			ChatID:        "chat-branch",
+			PriorMessages: []map[string]any{userMessage("msg-1", "Original prompt")},
+			ParentRun:     &parentRun,
+		},
+		map[string]string{"msg-1": AppGenerationModeJSONRender},
+	)
+
+	if got := inputs["chatId"]; got != "chat-branch" {
+		t.Fatalf("expected chat id, got %#v", got)
+	}
+	if got := inputs["branchParentChatId"]; got != "chat-parent" {
+		t.Fatalf("expected branch parent chat id, got %#v", got)
+	}
+	if got := inputs["branchFromMessageId"]; got != "msg-1" {
+		t.Fatalf("expected branch source message id, got %#v", got)
+	}
+	if got := inputs["branchRootChatId"]; got != "root-chat" {
+		t.Fatalf("expected branch root chat id, got %#v", got)
+	}
+	if got := inputs["frontendAffinityToken"]; got != "frontend-token" {
+		t.Fatalf("expected frontend affinity token, got %#v", got)
+	}
+	if got := inputs["sectionId"]; got != "section-1" {
+		t.Fatalf("expected section id, got %#v", got)
+	}
+	branchCreatedAt, ok := inputs["branchCreatedAt"].(int64)
+	if !ok {
+		t.Fatalf("expected int64 branchCreatedAt, got %#v", inputs["branchCreatedAt"])
+	}
+	expectedCreatedAt := time.Date(2026, 3, 9, 12, 0, 0, 0, time.UTC).UnixMilli()
+	if branchCreatedAt != expectedCreatedAt {
+		t.Fatalf("expected branchCreatedAt %d, got %d", expectedCreatedAt, branchCreatedAt)
+	}
+}
+
 func TestBuildBranchMessagesReplacesTargetAndTruncatesDescendants(t *testing.T) {
 	t.Parallel()
 
