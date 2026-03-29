@@ -13045,3 +13045,69 @@ Record:
     - verified on the live worktree canary that `codeSectionDefault` is visible, managed by the shared page runtime, and no longer uses the visible `local-app` fallback path
 - Next action:
   - Re-run the fresh visible-scene inspection on the updated live canary and take the next real on-screen fallback off the per-card path only after confirming the new ordering, because the visible blocker is no longer limited to the named `dom-context-lost` list.
+
+## 2026-04-01 382
+
+- Item: Move `chatSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing shared-runtime canaries.
+- Status: `done`
+- Details:
+  - Did not continue the allowlist lane blindly after item `381`.
+  - Ran a fresh normalized live-canary CDP inspection before editing and used that result to keep this slice bounded to one real visible blocker:
+    - current managed scene names stopped at `codeSectionDefault`
+    - the earliest real visible scene still off the shared page runtime was:
+      - `chatSectionDefault`
+      - section id `d7d6a8b9-3ba7-434a-9cec-578aa92a3e3b`
+      - render backend `local-app`
+    - the runtime still reported visible context loss metadata:
+      - `data-live-dict-area-pixi-runtime-context-lost=true`
+      - `data-live-dict-area-pixi-runtime-dom-context-lost-count=18`
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+      - `iFrameSectionDefault`
+      - `backend`
+      - `stateMachineGateSectionDefault`
+      - `codeSectionDefault`
+      - `chatSectionDefault`
+  - Locked the ownership move in the existing focused runtime coverage instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all thirteen shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `chatSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `chatSectionDefault` stays on `shared-page-runtime` without a visible fallback wrapper
+  - Verification notes:
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - the targeted Playwright subset passed with the refreshed token
+    - the post-edit CDP sub-agent found the bootstrap token had already been rejected on `/__setta__/bootstrap`, so it verified against the already-running authenticated `/settings?liveDictAreaRenderer=pixi-node-body` session instead of treating the slice as blocked
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that:
+      - `chatSectionDefault` is visible after scrolling it into view on the `All Settings` graph surface
+      - the page-runtime host includes `chatSectionDefault` in `data-live-dict-area-pixi-runtime-managed-scene-names`
+      - the page-runtime host excludes `chatSectionDefault` from `data-live-dict-area-pixi-runtime-dom-context-lost-scene-names`
+      - the visible `chatSectionDefault` scene reports `data-live-dict-area-scene-render-backend="shared-page-runtime"`
+      - there is no visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper containing the checked scene
+    - no obvious next visible fallback scene stood out in the current viewport after this move
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`25 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps chatSectionDefault on the shared page runtime without fallback"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `chatSectionDefault` is visible, managed by the shared page runtime, and does not show a visible `dom-context-lost` fallback wrapper
+- Next action:
+  - Re-run the normalized visible-scene inspection on the updated live canary and identify the next concrete on-screen fallback/backend blocker before making another shared-runtime allowlist move, because the next visible failure was not obvious in the current viewport after `chatSectionDefault`.
