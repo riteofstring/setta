@@ -2,9 +2,11 @@ import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { describe, expect, it } from "vitest";
 import {
   buildTextInputCodeMirrorCoreView,
+  getInitialTextInputCodeMirrorActivationEvent,
   planTextInputCodeMirrorMouseDown,
   shouldActivateTextInputCodeMirrorFromFocus,
   shouldAutoActivateTextInputCodeMirrorOnMount,
+  shouldRenderTextInputCodeMirrorDummy,
 } from "./textInputCodeMirrorView";
 
 describe("planTextInputCodeMirrorMouseDown", () => {
@@ -99,6 +101,61 @@ describe("shouldAutoActivateTextInputCodeMirrorOnMount", () => {
         hasActivationEvent: false,
         hasAutoActivatedOnMount: false,
         isDisabled: true,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("getInitialTextInputCodeMirrorActivationEvent", () => {
+  it("starts auto-activated Pixi handoff mounts on the real editor immediately", () => {
+    expect(
+      getInitialTextInputCodeMirrorActivationEvent({
+        isDisabled: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe("tab");
+  });
+
+  it("keeps the initial activation empty when the mount should not auto-activate", () => {
+    expect(
+      getInitialTextInputCodeMirrorActivationEvent({
+        isDisabled: true,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBeNull();
+    expect(
+      getInitialTextInputCodeMirrorActivationEvent({
+        isDisabled: false,
+        shouldAutoActivateOnMount: false,
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("shouldRenderTextInputCodeMirrorDummy", () => {
+  it("skips the dummy shell once an auto-activated mount already has the real editor activation event", () => {
+    expect(
+      shouldRenderTextInputCodeMirrorDummy({
+        hasActivationEvent: true,
+        isRealEditorInitialized: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the dummy shell for non-auto mounts until the real editor is initialized", () => {
+    expect(
+      shouldRenderTextInputCodeMirrorDummy({
+        hasActivationEvent: true,
+        isRealEditorInitialized: false,
+        shouldAutoActivateOnMount: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRenderTextInputCodeMirrorDummy({
+        hasActivationEvent: false,
+        isRealEditorInitialized: true,
         shouldAutoActivateOnMount: true,
       }),
     ).toBe(false);

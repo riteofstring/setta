@@ -18,11 +18,18 @@ import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
 import {
   buildTextInputCodeMirrorCoreView,
+  getInitialTextInputCodeMirrorActivationEvent,
   planTextInputCodeMirrorMouseDown,
   shouldActivateTextInputCodeMirrorFromFocus,
   shouldAutoActivateTextInputCodeMirrorOnMount,
+  shouldRenderTextInputCodeMirrorDummy,
 } from "./textInputCodeMirrorView";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
+
+type TextInputCodeMirrorActivationEvent =
+  | MouseEvent<HTMLElement>
+  | "tab"
+  | null;
 
 export function TextInputCodeMirror({
   sectionId,
@@ -49,10 +56,20 @@ export function TextInputCodeMirror({
   shouldAutoActivateOnMount = false,
   completionsFn,
 }) {
-  const [activationEvent, setActivationEvent] = useState(null);
+  const initialActivationEvent = getInitialTextInputCodeMirrorActivationEvent({
+    isDisabled,
+    shouldAutoActivateOnMount,
+  });
+  const [activationEvent, setActivationEvent] =
+    useState<TextInputCodeMirrorActivationEvent>(initialActivationEvent);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
-  const didAutoActivateOnMountRef = useRef(false);
+  const didAutoActivateOnMountRef = useRef(initialActivationEvent === "tab");
   const theme = useCodeMirrorStyle(color);
+  const shouldRenderDummy = shouldRenderTextInputCodeMirrorDummy({
+    hasActivationEvent: activationEvent !== null,
+    isRealEditorInitialized: realIsInitialized,
+    shouldAutoActivateOnMount,
+  });
 
   useEffect(() => {
     if (
@@ -112,7 +129,7 @@ export function TextInputCodeMirror({
 
   return (
     <>
-      {!realIsInitialized && (
+      {shouldRenderDummy && (
         <DummyCodeMirror
           divId={dummyDivId}
           code={value}

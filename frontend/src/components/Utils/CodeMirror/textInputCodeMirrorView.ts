@@ -21,6 +21,8 @@ export type TextInputCodeMirrorCoreView = {
   resolvedTooltipParentDivId: string | null;
 };
 
+export type TextInputCodeMirrorInitialActivationEvent = "tab" | null;
+
 export function planTextInputCodeMirrorMouseDown({
   button,
   isDisabled,
@@ -63,6 +65,39 @@ export function shouldAutoActivateTextInputCodeMirrorOnMount({
     !hasActivationEvent &&
     !hasAutoActivatedOnMount
   );
+}
+
+export function getInitialTextInputCodeMirrorActivationEvent({
+  isDisabled,
+  shouldAutoActivateOnMount,
+}: {
+  isDisabled: boolean;
+  shouldAutoActivateOnMount: boolean;
+}): TextInputCodeMirrorInitialActivationEvent {
+  return shouldAutoActivateTextInputCodeMirrorOnMount({
+    hasActivationEvent: false,
+    hasAutoActivatedOnMount: false,
+    isDisabled,
+    shouldAutoActivateOnMount,
+  })
+    ? "tab"
+    : null;
+}
+
+export function shouldRenderTextInputCodeMirrorDummy({
+  hasActivationEvent,
+  isRealEditorInitialized,
+  shouldAutoActivateOnMount,
+}: {
+  hasActivationEvent: boolean;
+  isRealEditorInitialized: boolean;
+  shouldAutoActivateOnMount: boolean;
+}): boolean {
+  if (isRealEditorInitialized) {
+    return false;
+  }
+
+  return !(shouldAutoActivateOnMount && hasActivationEvent);
 }
 
 export function buildTextInputCodeMirrorCoreView({
