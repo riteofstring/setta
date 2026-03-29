@@ -180,6 +180,42 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   expect(result?.localParamContainerCount).toBe(0);
 });
 
+test("all settings canary rerenders the Pixi scene canvas when the viewport zoom changes", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  const resetZoomButton = page.getByRole("button", { name: "reset zoom" });
+  await expect(resetZoomButton).toBeVisible();
+  await resetZoomButton.click();
+
+  const sceneCanvas = page
+    .locator("[data-live-dict-area-scene='pixi'] canvas")
+    .first();
+  await expect(sceneCanvas).toBeVisible();
+  const initialCanvasWidth = await sceneCanvas.evaluate(
+    (canvas) => canvas.width,
+  );
+
+  const zoomInButton = page.getByRole("button", { name: "zoom in" });
+  await expect(zoomInButton).toBeVisible();
+  await zoomInButton.click();
+
+  await expect
+    .poll(() => sceneCanvas.evaluate((canvas) => canvas.width), {
+      message: "expected the Pixi scene canvas to redraw at a new zoom",
+    })
+    .toBeGreaterThan(initialCanvasWidth);
+
+  const zoomedCanvasMetrics = await sceneCanvas.evaluate((canvas) => ({
+    cssWidth: canvas.clientWidth,
+    pixelWidth: canvas.width,
+  }));
+
+  expect(zoomedCanvasMetrics.cssWidth).toBeGreaterThan(0);
+  expect(zoomedCanvasMetrics.pixelWidth).toBeGreaterThan(initialCanvasWidth);
+});
+
 test("all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay", async ({
   page,
 }) => {

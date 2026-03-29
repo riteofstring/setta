@@ -1,16 +1,26 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import { Application, Graphics, Text, type ColorSource } from "pixi.js";
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocalStorage } from "state/definitions";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import {
   buildLiveDictAreaPixiLayout,
-  LIVE_DICT_AREA_PIXI_LAYOUT,
   type LiveDictAreaPixiEdgePortLayout,
   type LiveDictAreaPixiEdgeStripLayout,
   type LiveDictAreaPixiLayout,
   type LiveDictAreaPixiParamAreaLayout,
   type LiveDictAreaPixiRowLayout,
 } from "./liveDictAreaPixiLayout";
+import {
+  getLiveDictAreaPixiLogicalCanvasWidth,
+  getLiveDictAreaPixiRenderResolution,
+} from "./liveDictAreaPixiSceneView";
 
 type LiveDictAreaPixiSceneProps = {
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
@@ -51,15 +61,25 @@ function _LiveDictAreaPixiScene({
   liveDictAreaSceneBoundary,
 }: LiveDictAreaPixiSceneProps) {
   const darkMode = useLocalStorage((state) => state.darkMode);
+  const viewportZoom = useReactFlow((state) => state.transform[2]);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const appRef = useRef<Application | null>(null);
+  const [hostWidth, setHostWidth] = useState(0);
+  const [devicePixelRatio, setDevicePixelRatio] = useState(() =>
+    typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
+  );
+  const logicalCanvasWidth = getLiveDictAreaPixiLogicalCanvasWidth(hostWidth);
+  const renderResolution = getLiveDictAreaPixiRenderResolution({
+    devicePixelRatio,
+    viewportZoom,
+  });
   const summaryLayout = useMemo(
     () =>
       buildLiveDictAreaPixiLayout({
         liveDictAreaSceneBoundary,
-        width: LIVE_DICT_AREA_PIXI_LAYOUT.canvasMinWidth,
+        width: logicalCanvasWidth,
       }),
-    [liveDictAreaSceneBoundary],
+    [liveDictAreaSceneBoundary, logicalCanvasWidth],
   );
 
   useLayoutEffect(() => {
@@ -67,23 +87,68 @@ function _LiveDictAreaPixiScene({
     if (!host) {
       return;
     }
+    const updateWidth = (nextWidth: number) => {
+      setHostWidth((currentWidth) =>
+        currentWidth === nextWidth ? currentWidth : nextWidth,
+      );
+    };
+
+    updateWidth(host.clientWidth || host.offsetWidth || 0);
+
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      updateWidth(
+        Math.floor(
+          entry?.borderBoxSize?.[0]?.inlineSize ??
+            entry?.contentRect.width ??
+            host.clientWidth ??
+            host.offsetWidth ??
+            0,
+        ),
+      );
+    });
+    observer.observe(host);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const updateDevicePixelRatio = () => {
+      setDevicePixelRatio(window.devicePixelRatio || 1);
+    };
+
+    updateDevicePixelRatio();
+    window.addEventListener("resize", updateDevicePixelRatio);
+    window.visualViewport?.addEventListener("resize", updateDevicePixelRatio);
+
+    return () => {
+      window.removeEventListener("resize", updateDevicePixelRatio);
+      window.visualViewport?.removeEventListener(
+        "resize",
+        updateDevicePixelRatio,
+      );
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    if (
+      !host ||
+      summaryLayout.canvasWidth <= 0 ||
+      summaryLayout.canvasHeight <= 0
+    ) {
+      return;
+    }
     let cancelled = false;
     let frameId = 0;
-    let lastObservedWidth = 0;
 
     const renderSceneForHost = async () => {
-      const nextWidth = Math.max(
-        Math.floor(host.getBoundingClientRect().width),
-        LIVE_DICT_AREA_PIXI_LAYOUT.canvasMinWidth,
-      );
-      const layout = buildLiveDictAreaPixiLayout({
-        liveDictAreaSceneBoundary,
-        width: nextWidth,
-      });
-      if (layout.canvasWidth <= 0 || layout.canvasHeight <= 0) {
-        return;
-      }
-
       let app = appRef.current;
 
       if (!app) {
@@ -93,10 +158,10 @@ function _LiveDictAreaPixiScene({
           autoDensity: true,
           autoStart: false,
           backgroundAlpha: 0,
-          height: layout.canvasHeight,
+          height: summaryLayout.canvasHeight,
           preference: "webgl",
-          resolution: window.devicePixelRatio || 1,
-          width: layout.canvasWidth,
+          resolution: renderResolution,
+          width: summaryLayout.canvasWidth,
         });
 
         if (cancelled) {
@@ -108,61 +173,45 @@ function _LiveDictAreaPixiScene({
         configureLiveDictAreaPixiStaticScene(app);
         appRef.current = app;
       } else {
-        app.renderer.resize(layout.canvasWidth, layout.canvasHeight);
+        app.renderer.resize(
+          summaryLayout.canvasWidth,
+          summaryLayout.canvasHeight,
+          renderResolution,
+        );
       }
 
       if (host.firstChild !== app.canvas) {
         host.replaceChildren(app.canvas);
       }
-      const nextCanvasHeight = `${layout.canvasHeight}px`;
+      const nextCanvasHeight = `${summaryLayout.canvasHeight}px`;
       if (host.style.height !== nextCanvasHeight) {
         host.style.height = nextCanvasHeight;
       }
       configureLiveDictAreaPixiStaticScene(app);
-      app.canvas.style.height = `${layout.canvasHeight}px`;
+      app.canvas.style.height = `${summaryLayout.canvasHeight}px`;
       app.canvas.style.width = "100%";
 
       drawLiveDictAreaPixiScene({
         app,
-        layout,
+        layout: summaryLayout,
         palette: getLiveDictAreaPixiPalette(darkMode),
+        renderResolution,
       });
 
       app.render();
     };
 
-    const scheduleRender = () => {
-      if (frameId) {
-        cancelAnimationFrame(frameId);
-      }
-      frameId = requestAnimationFrame(() => {
-        void renderSceneForHost();
-      });
-    };
-
-    scheduleRender();
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      const nextObservedWidth = Math.floor(
-        entry?.borderBoxSize?.[0]?.inlineSize ?? entry?.contentRect.width ?? 0,
-      );
-      if (nextObservedWidth <= 0 || nextObservedWidth === lastObservedWidth) {
-        return;
-      }
-      lastObservedWidth = nextObservedWidth;
-      scheduleRender();
+    frameId = requestAnimationFrame(() => {
+      void renderSceneForHost();
     });
-    observer.observe(host);
 
     return () => {
       cancelled = true;
       if (frameId) {
         cancelAnimationFrame(frameId);
       }
-      observer.disconnect();
     };
-  }, [darkMode, liveDictAreaSceneBoundary]);
+  }, [darkMode, renderResolution, summaryLayout]);
 
   useEffect(() => {
     return () => {
@@ -196,10 +245,12 @@ function drawLiveDictAreaPixiScene({
   app,
   layout,
   palette,
+  renderResolution,
 }: {
   app: Application;
   layout: LiveDictAreaPixiLayout;
   palette: LiveDictAreaPixiPalette;
+  renderResolution: number;
 }) {
   for (const child of app.stage.removeChildren()) {
     child.destroy();
@@ -211,6 +262,7 @@ function drawLiveDictAreaPixiScene({
         drawLiveDictAreaEdgeStrip({
           block,
           palette,
+          renderResolution,
         }),
       );
       continue;
@@ -220,6 +272,7 @@ function drawLiveDictAreaPixiScene({
       drawLiveDictAreaParamArea({
         block,
         palette,
+        renderResolution,
       }),
     );
   }
@@ -228,9 +281,11 @@ function drawLiveDictAreaPixiScene({
 function drawLiveDictAreaEdgeStrip({
   block,
   palette,
+  renderResolution,
 }: {
   block: LiveDictAreaPixiEdgeStripLayout;
   palette: LiveDictAreaPixiPalette;
+  renderResolution: number;
 }) {
   const graphics = drawRoundedPanel({
     fill: palette.panelBackground,
@@ -244,6 +299,7 @@ function drawLiveDictAreaEdgeStrip({
   graphics.addChild(
     drawSceneTitle({
       palette,
+      renderResolution,
       text: block.title.toUpperCase(),
       x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
       y: block.y + 9,
@@ -255,6 +311,7 @@ function drawLiveDictAreaEdgeStrip({
       drawEdgePort({
         palette,
         port,
+        renderResolution,
       }),
     );
   }
@@ -264,6 +321,7 @@ function drawLiveDictAreaEdgeStrip({
       drawEdgePort({
         palette,
         port,
+        renderResolution,
       }),
     );
   }
@@ -274,9 +332,11 @@ function drawLiveDictAreaEdgeStrip({
 function drawLiveDictAreaParamArea({
   block,
   palette,
+  renderResolution,
 }: {
   block: LiveDictAreaPixiParamAreaLayout;
   palette: LiveDictAreaPixiPalette;
+  renderResolution: number;
 }) {
   const panelFill =
     block.kind === "pinned-param-area"
@@ -294,6 +354,7 @@ function drawLiveDictAreaParamArea({
   graphics.addChild(
     drawSceneTitle({
       palette,
+      renderResolution,
       text: block.title.toUpperCase(),
       x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
       y: block.y + 9,
@@ -304,6 +365,7 @@ function drawLiveDictAreaParamArea({
     graphics.addChild(
       drawParamRow({
         palette,
+        renderResolution,
         row,
       }),
     );
@@ -314,9 +376,11 @@ function drawLiveDictAreaParamArea({
 
 function drawParamRow({
   palette,
+  renderResolution,
   row,
 }: {
   palette: LiveDictAreaPixiPalette;
+  renderResolution: number;
   row: LiveDictAreaPixiRowLayout;
 }) {
   const fill =
@@ -337,6 +401,7 @@ function drawParamRow({
   graphics.fill(fill);
 
   const label = new Text({
+    resolution: renderResolution,
     style: {
       fill: palette.bodyText,
       fontFamily: "Inter, sans-serif",
@@ -352,6 +417,7 @@ function drawParamRow({
 
   if (row.kindTag) {
     const tag = new Text({
+      resolution: renderResolution,
       style: {
         fill: palette.groupTagText,
         fontFamily: "Inter, sans-serif",
@@ -372,9 +438,11 @@ function drawParamRow({
 function drawEdgePort({
   palette,
   port,
+  renderResolution,
 }: {
   palette: LiveDictAreaPixiPalette;
   port: LiveDictAreaPixiEdgePortLayout;
+  renderResolution: number;
 }) {
   const graphics = new Graphics();
   const dotX = port.align === "left" ? port.x + 4 : port.x - 4;
@@ -383,6 +451,7 @@ function drawEdgePort({
   graphics.fill(port.isSelected ? palette.portSelectedDot : palette.portDot);
 
   const label = new Text({
+    resolution: renderResolution,
     style: {
       fill: palette.bodyText,
       fontFamily: "Inter, sans-serif",
@@ -401,16 +470,19 @@ function drawEdgePort({
 
 function drawSceneTitle({
   palette,
+  renderResolution,
   text,
   x,
   y,
 }: {
   palette: LiveDictAreaPixiPalette;
+  renderResolution: number;
   text: string;
   x: number;
   y: number;
 }) {
   const title = new Text({
+    resolution: renderResolution,
     style: {
       fill: palette.titleText,
       fontFamily: "Inter, sans-serif",

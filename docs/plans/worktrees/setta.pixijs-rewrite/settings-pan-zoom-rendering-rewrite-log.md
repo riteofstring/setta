@@ -8146,3 +8146,38 @@ Record:
     - result: passed
 - Next action:
   - Pivot to a different measured live Pixi `defaultZoomLevel` handoff lever instead of continuing the same connected-state reduction pattern, because this apples-to-apples rerun shows the current split was structurally cleaner but not measurably faster on the checked canary.
+
+## 2026-03-29 255
+
+- Item: Invalidate and redraw the live Pixi dict-area scene on viewport zoom and DPR changes.
+- Status: `done`
+- Details:
+  - Pivoted away from the repeated CodeMirror connected-state/value-only reduction lane after item `254` explicitly showed no measurable handoff win on the checked canary.
+  - Tightened the live Pixi scene itself to match the current visual-stability frontier from the plan instead of doing another perf-only probe:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The scene now:
+    - keeps layout width in logical flow space from the host element instead of reading transformed `getBoundingClientRect()` width during redraw
+    - subscribes to React Flow viewport zoom plus browser DPR changes and re-renders the same Pixi scene on those changes
+    - resizes the Pixi renderer with a zoom-aware resolution and passes that same resolution into Pixi `Text` nodes so the scene redraw follows the current zoom instead of relying on later incidental rerenders
+  - Added focused automated coverage for the new contract:
+    - pure unit coverage for logical canvas width vs zoom-aware render resolution
+    - live canary Playwright coverage proving a visible Pixi scene canvas increases its backing pixel width after a zoom change
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: passed
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - opened `All Settings`, reset zoom on a visible Pixi scene canvas, then zoomed in once
+    - the same visible scene canvas grew on screen from about `550 x 262` to `660 x 314`
+    - the checked viewport stayed readable with no obvious blur, blockiness, or snap-after-redraw on that visible scene
+- Next action:
+  - Continue the live Pixi visual-stability lane from this zoom/DPR redraw baseline, starting with the next bounded invalidation/parity fix on the same canary such as font-load redraw or a tighter side-by-side `main` comparison at the named canary state.
