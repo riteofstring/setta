@@ -53,22 +53,22 @@ function resolveSectionName(
 function getSectionEffectiveImplForSlugPath(
   state: SectionSlugProjectState,
   sectionId: string,
-): BaseSectionImplUnion | null {
+): BaseSectionImplUnion {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];
   if (variantId === undefined) {
-    return null;
+    throw new Error(`Missing section variant for section ${sectionId}.`);
   }
   const variant = state.sectionVariants[variantId];
   if (!variant) {
-    return null;
+    throw new Error(`Missing section variant ${variantId}.`);
   }
   const baseImpl = state.sectionImpls[variant.impl];
   if (!baseImpl) {
-    return null;
+    throw new Error(`Missing section impl ${variant.impl}.`);
   }
   const core = state.sections[sectionId];
   if (!core) {
-    return null;
+    throw new Error(`Missing section core ${sectionId}.`);
   }
   return {
     ...baseImpl,
@@ -82,10 +82,10 @@ function getSectionChildrenForSlugPath(
   parentId: string,
 ): Array<string> {
   const impl = getSectionEffectiveImplForSlugPath(state, parentId);
-  if (!impl || !isBaseParentSectionImpl(impl)) {
-    return [];
+  if (!isBaseParentSectionImpl(impl)) {
+    throw new Error(`Section ${parentId} is not a parent section.`);
   }
-  return impl.children;
+  return Array.isArray(impl.children) ? impl.children : [];
 }
 
 export function resolveSectionFullPathName(
@@ -97,31 +97,19 @@ export function resolveSectionFullPathName(
     return "";
   }
   if (!(sectionId in state.parentSectionMap)) {
-    if (!getSectionEffectiveImplForSlugPath(state, sectionId)) {
-      return "";
-    }
     return resolveSectionName(state, sectionId, nameOverrides);
   }
   let parentId = state.parentSectionMap[sectionId];
   if (!parentId) {
-    if (!getSectionEffectiveImplForSlugPath(state, sectionId)) {
-      return "";
-    }
     return resolveSectionName(state, sectionId, nameOverrides);
   }
   let childId = sectionId;
   let output = "";
   while (parentId) {
     const childImpl = getSectionEffectiveImplForSlugPath(state, childId);
-    if (!childImpl) {
-      return "";
-    }
     if (childImpl.type === SectionTypeEnum.ListRoot) {
       const siblings = getSectionChildrenForSlugPath(state, parentId);
       const idx = siblings.indexOf(childId);
-      if (idx < 0) {
-        return "";
-      }
       output = `[${idx}]${output}`;
     } else {
       const childName = resolveSectionName(state, childId, nameOverrides);
@@ -140,9 +128,6 @@ export function getSectionSlugIndex(
   const slugToIds: Record<string, Array<string>> = {};
   for (const id of Object.keys(state.sections)) {
     const fullPathName = resolveSectionFullPathName(state, id, null);
-    if (!fullPathName) {
-      continue;
-    }
     const slug = sanitizeNameForSlug(fullPathName);
     if (!slugToIds[slug]) {
       slugToIds[slug] = [];
@@ -219,18 +204,11 @@ export function resolveStandaloneSectionSlug(
       sectionSlug,
     };
   }
-  const sectionImpl = getSectionEffectiveImplForSlugPath(state, sectionId);
-  if (!sectionImpl) {
-    return {
-      kind: "not_found",
-      sectionSlug,
-    };
-  }
 
   return {
     kind: "found",
     sectionId,
     sectionName: section.name,
-    sectionType: sectionImpl.type,
+    sectionType: getSectionEffectiveImplForSlugPath(state, sectionId).type,
   };
 }

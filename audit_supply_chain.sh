@@ -5,10 +5,10 @@ usage() {
   cat <<'EOF'
 Usage: ./audit_supply_chain.sh [--days N]
 
-Runs dependency security audits for Python and pnpm-managed packages.
+Runs dependency security audits for Python, Go, and pnpm-managed packages.
 
 Options:
-  --days N   Override the minimum release age used for Python and pnpm age checks.
+  --days N   Override the minimum release age used for Python and Go age checks.
   -h, --help Show this help text.
 EOF
 }
@@ -69,11 +69,11 @@ run_step() {
   echo "${label}"
   if "$@"; then
     return 0
+  else
+    local status=$?
+    echo "FAILED (${status}): ${label}" >&2
+    failure_count=$((failure_count + 1))
   fi
-
-  local status=$?
-  echo "FAILED (${status}): ${label}" >&2
-  failure_count=$((failure_count + 1))
   return 0
 }
 
@@ -99,7 +99,8 @@ repo_dev_uv_run() {
   uv run \
     --frozen \
     --python "${SETTA_PYTHON_VERSION:-3.13}" \
-    --all-extras \
+    --extra source \
+    --extra dev \
     "$@"
 }
 
@@ -111,6 +112,20 @@ python_vulnerability_audit() {
   (
     cd "${repo_root}"
     repo_dev_uv_run pip-audit
+  )
+}
+
+go_vulnerability_audit() {
+  (
+    cd "${repo_root}"
+    ./scripts/go.sh run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...
+  )
+}
+
+go_release_age_audit() {
+  (
+    cd "${repo_root}"
+    repo_dev_python ./scripts/check_go_module_release_age.py --days "${days}" --repo-root "${repo_root}"
   )
 }
 
@@ -145,6 +160,8 @@ sidecar_pnpm_audit() {
 run_step "Python lockfile drift check (uv lock --check)..." python_lockfile_check
 run_step "Python release-age audit (${days} days)..." python_release_age_audit
 run_step "Python vulnerability audit (uv + pip-audit)..." python_vulnerability_audit
+run_step "Go vulnerability audit (govulncheck)..." go_vulnerability_audit
+run_step "Go module release-age audit (${days} days)..." go_release_age_audit
 run_step "Frontend pnpm release-age audit (${days} days)..." frontend_release_age_audit
 run_step "Sidecar pnpm release-age audit (${days} days)..." sidecar_release_age_audit
 run_step "Frontend pnpm audit..." frontend_pnpm_audit
