@@ -1,192 +1,164 @@
 # LLM Chat Stability Refactor Plan
 
 ## Goal
-Stabilize the managed LLM chat feature by reducing architectural drift, centralizing state authority, and breaking up the highest-risk backend and frontend owners into smaller units.
+Finish the chat-stability refactor by removing the remaining frontend state-authority drift, expanding reducer-contract coverage, and completing the frontend ownership cleanup that is still blocking a truly backend-authoritative managed-chat path.
 
-## Scope
+## Guiding Philosophy
+- Go is the canonical owner of managed-chat correctness-sensitive logic.
+- Canonical chat semantics should live in the backend runtime:
+  - stream lifecycle interpretation
+  - message reconciliation and finalization
+  - placeholder handling
+  - tool-call argument accumulation/reset
+  - `waitingForResponse` transitions
+  - hydration authority and replacement rules
+- Frontend TypeScript should own rendering, drafts, interaction state, and narrow in-flight UI overlays, not independent managed-chat semantics.
+- Python toolkit code should stay as SDK/tooling ergonomics and transport glue, not a competing owner of authoritative chat-state behavior.
+- If reducer logic must remain duplicated across Go, TS, and Python for language/runtime reasons, treat that duplication as a constrained exception and keep it locked to the same shared contract corpus.
+
+## Status Update
+- Largely completed:
+  - shared managed-chat stream contract fixtures now exist and run in Go, TypeScript, and Python
+  - placeholder-id handling and finalized-assistant reconciliation were extracted into explicit reducer helpers across Go, TS, and Python
+  - `internal/managedchat` startup and stop flow were split out of the main service owner
+  - `internal/managedllm` OpenAI Responses event handling was broken into smaller event-family handlers
+  - some helper extraction landed for `ai.ts`, `ProjectChatCore.tsx`, `ChatArea.tsx`, `ChatMessages.tsx`, and `ChatInput.tsx`
+- Still incomplete:
+  - managed-chat hydration and section projection are still using frontend merge heuristics instead of a fully backend-authoritative replacement path
+  - the shared fixture corpus covers only the first reducer slice, not the full supported stream lifecycle
+  - a few reducer semantics still differ at the edges
+  - the main frontend owners are still too large and still mix rendering, orchestration, polling, and side effects
+
+## Refocused Scope
 - In scope:
-  - managed LLM chat backend flow under `internal/managedchat`, `internal/managedllm`, and related HTTP routes
-  - frontend managed chat state, hydration, streaming, and shared chat UI under `frontend/src/state/actions` and `frontend/src/components/Chat`
-  - Python chat toolkit state-sync code under `backend/setta/llm/chat_toolkit` where it duplicates managed chat semantics
-  - tests and regression guardrails for chat streaming and hydration behavior
-- Out of scope:
+  - managed-chat hydration/state replacement under `frontend/src/state/actions/ai.ts`, `frontend/src/state/actions/chatMergeUtils.ts`, and `frontend/src/state/actions/sectionInfos.ts`
+  - remaining reducer semantic alignment across `internal/managedchat`, `frontend/src/state/actions`, and `backend/setta/llm/chat_toolkit`
+  - frontend decomposition for `ChatMessages.tsx`, `ChatInput.tsx`, `ProjectChatCore.tsx`, and `ChatArea.tsx`
+  - regression tests and complexity guardrails for the remaining hotspots
+- Out of scope unless directly required by the above:
+  - another broad backend cleanup pass over `managedchat.Service` or `managedllm.Executor`
   - new chat features
-  - external-agent protocol redesign
-  - conversation tree / detached chat product changes except where shared chat infrastructure must be cleaned up
+  - protocol redesign
+  - compatibility shims to preserve the old heuristic merge behavior
 
-## Current State (Observed)
-- Chat-state transition logic is duplicated across three implementations:
-  - Go live runtime reducer in `internal/managedchat/live_runtime.go`
-  - frontend reducer and hydration merge logic in `frontend/src/state/actions/ai.ts`
-  - Python toolkit section sync in `backend/setta/llm/chat_toolkit/section_sync.py`
-- Those implementations do not fully agree on behavior.
-  - The frontend ignores placeholder response IDs and remaps finalized assistant messages onto earlier streaming messages.
-  - The Go and Python reducers mostly upsert by incoming message id.
-  - This means live state, hydrated state, and persisted section state can legitimately diverge.
-- There is no single authoritative managed-chat state.
-  - live stream chunks mutate frontend state
-  - hydration re-merges backend state with frontend state
-  - section chat persistence writes frontend-derived state back into project state
-  - merge logic uses heuristics such as "pick more complete message" instead of a clearly authoritative source
-- The main backend owners are too complex for reliable local reasoning.
-  - `(*Service).StartChat` in `internal/managedchat/service.go` has `gocyclo` 63
-  - `(*Executor).processOpenAIResponseEvent` in `internal/managedllm/executor.go` has `gocyclo` 60
-  - `applyStreamChunk` in `internal/managedchat/live_runtime.go` has `gocyclo` 26
-- The main frontend owners are also oversized and overloaded.
-  - `frontend/src/state/actions/ai.ts`: 4577 lines
-  - `frontend/src/components/Chat/ChatMessages.tsx`: 8077 lines
-  - `frontend/src/components/Chat/ChatInput.tsx`: 3209 lines
-  - `frontend/src/components/Section/Layouts/ChatArea.tsx`: 2033 lines
-  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx`: 2394 lines
-- `ChatMessages.tsx` and `ChatInput.tsx` are not just renderers.
-  - they also own side effects, fetches, streaming placeholder behavior, queued-draft behavior, interaction coordination, and presentation-specific state derivation
+## Remaining Problems
+- The frontend still treats backend chat state as something to reconcile with local state instead of something to replace with explicit, narrow local overlays.
+  - `chatMergeUtils.ts` still preserves local-only assistant content and uses "pick more complete" behavior.
+  - `sectionInfos.ts` still merges incoming project state with local chat state heuristically.
+  - `ai.ts` still hydrates chat details and section state through merge helpers instead of a clearly authoritative path.
+- The shared contract suite is not yet broad enough to lock the intended semantics.
+  - missing or incomplete coverage includes `message_stop`, `tool_call_delta`, `tool_argument_preview_delta`, `tool_result`, cancellation/stop transitions, hydration while a stream is active, and placeholder edge cases involving attachments/tool-call state
+  - the Go contract harness does not yet decode all supported chunk types handled by the reducer
+- Reducer semantics still differ at the edges.
+  - placeholder assistant ignore rules are not identical across Go, TS, and Python
+  - hydration and section sync still preserve frontend-derived activity rows in cases where backend state should win
+- The biggest frontend owners are still oversized.
+  - `frontend/src/state/actions/ai.ts` is still over 4k lines
+  - `frontend/src/components/Chat/ChatMessages.tsx` is still over 6.7k lines
+  - `frontend/src/components/Chat/ChatInput.tsx` is still over 2.7k lines
+  - `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatCore.tsx` is still carrying hydration retry/polling/orchestration responsibilities
 
 ## Decision
-Treat managed LLM chat correctness as a state-machine problem first, not a UI bug-fix problem.
+Treat the remaining work as a state-authority cleanup, not as another broad extraction pass.
 
 Key decisions:
-- Define one canonical managed-chat stream contract and make every implementation obey it.
-- Make one layer clearly authoritative for managed-chat message state.
-- Remove semantic drift before broad cleanup so future refactors do not bake in different interpretations of the same stream.
-- Split backend and frontend by responsibility boundaries, not by file size alone.
-- Do not preserve legacy paths, compatibility shims, migrations, or dual-write behavior unless a concrete supported workflow still requires them.
-- Prefer replacing duplicate or obsolete chat code outright once the canonical path is ready.
+- Managed-chat message state is authoritative from the backend Go runtime and backend hydration payloads.
+- Go should own the canonical implementation of managed-chat semantics wherever the architecture allows it.
+- Frontend state may preserve only narrow ephemeral UI state while a stream is active.
+- Section chat state is a projection of authoritative chat state plus local draft/UI fields, not a parallel semantic owner of managed-chat messages.
+- Python and frontend reducers should not grow new correctness-sensitive behavior that is better owned in Go.
+- Any reducer duplicated across languages must be held to the same shared contract corpus and should be collapsed back toward Go ownership when practical.
+- Do not spend another large refactor slice on backend startup/executor cleanup unless a concrete remaining bug requires it.
+- Remove heuristic merge behavior rather than wrapping it in more abstractions.
 
-## Implementation Plan
-1. Freeze the intended supported behavior with contract coverage
-- Build a managed-chat stream fixture corpus that covers:
-  - assistant message start/delta/finalize
-  - tool-call argument streaming and preview deltas
-  - message stop vs message finalized
+## Remaining Work Plan
+1. Finish backend-authoritative hydration and section replacement
+- Remove managed-chat-specific uses of heuristic message reconciliation where backend state should replace frontend state.
+- Replace generic "pick more complete" merging with explicit rules:
+  - if the backend reports a completed/non-waiting chat, backend messages and tool-call state win
+  - if a stream is still active locally, preserve only explicitly tracked ephemeral overlays, not arbitrary local-only message rows
+  - preserve local drafts and view state separately from authoritative chat messages
+- Stop persisting frontend-merged managed-chat activity rows back into section state.
+- Document the authoritative replacement rules next to the hydration entrypoints.
+
+2. Expand the shared stream-contract corpus
+- Add fixtures for:
+  - `message_stop`
+  - `tool_call_delta`
+  - `tool_argument_preview_delta`
+  - `tool_result`
   - cancellation/interruption
-  - placeholder response ids
-  - finalized assistant remapping onto an earlier streaming message
+  - `waitingForResponse` transitions across stop/finalize/hydrate
   - hydration while a stream is active
-- Run the same fixture expectations against:
-  - Go live reducer
-  - frontend reducer
-  - Python toolkit reducer
-- Add focused tests for known resurfacing bug classes before changing behavior.
-- Use the fixture corpus to capture intended supported semantics, not accidental legacy quirks that only exist because implementations drifted.
+  - placeholder messages that carry attachments or tool-call state
+- Update the Go fixture harness to decode every chunk family that the reducers claim to support.
+- Keep the same fixture expectations in Go, TS, and Python until any remaining duplicate reducers can be removed.
 
-2. Establish a canonical chat-state authority
-- Decide and document that managed LLM chat state is authoritative from the backend runtime, not from frontend merge heuristics.
-- Expose enough authoritative metadata to remove guesswork:
-  - finalized-message target identity
-  - provider message ids when relevant
-  - explicit stream lifecycle markers instead of inferred completion
-- Delete obsolete duplicate state-sync paths instead of keeping compatibility bridges between old and new ownership.
-- Keep local-only frontend state for drafts and ephemeral UI only.
+3. Remove the remaining reducer drift
+- Align placeholder ignore rules across Go, TS, and Python.
+- Align tool-call argument accumulation and reset behavior across stream, finalize, stop, cancel, and hydrate paths.
+- Align `waitingForResponse` transitions across reducers and hydration entrypoints.
+- Delete reducer branches that only exist to preserve legacy frontend drift.
+- Prefer deleting duplicated frontend/Python semantics entirely when the canonical Go-owned path can replace them cleanly.
 
-3. Normalize reducer semantics across Go, TS, and Python
-- Align placeholder-id handling across all managed-chat reducers.
-- Align finalized-assistant reconciliation rules across all reducers.
-- Align tool-call argument accumulation and reset behavior across all reducers.
-- Align `waitingForResponse` transitions so message stop, finalize, cancel, and hydration use the same rules.
-- If any reducer remains duplicated for language reasons, keep it contract-tested from the same fixture corpus.
-- Remove reducer behaviors that only exist to preserve legacy drift between layers.
-
-4. Decompose backend managed-chat startup flow
-- Split `internal/managedchat/service.go` into smaller units with clear ownership:
-  - request normalization and validation
-  - chat lineage and branch resolution
-  - prior-message loading
-  - app-generation policy enforcement
-  - prompt assembly
-  - run input construction and dispatch
-- Target smaller helpers that can be tested without invoking the full service path.
-- Reduce `StartChat` complexity below the current hotspot level before further feature work lands here.
-- Delete superseded helpers and old assembly paths as ownership moves; do not keep parallel startup paths for safety.
-
-5. Decompose backend managed-LLM execution flow
-- Split shared executor responsibilities from provider-specific event adapters.
-- Move OpenAI Responses event handling out of the central executor switch into focused handlers by event family.
-- Separate:
-  - provider stream consumption
-  - assistant-message mutation
-  - tool preview / AI-follow side effects
-  - chunk emission to live runtime
-  - finalization and error handling
-- Keep the tool loop and provider adapters understandable without reading the entire file.
-- Avoid compatibility wrappers that preserve the current monolithic executor shape under a new facade.
-
-6. Clean up frontend state ownership
-- Split `frontend/src/state/actions/ai.ts` into modules with narrower purposes:
-  - hydration
-  - stream receive/reducer
-  - pending chat details
-  - stop/cancel flows
-  - section-state sync
+4. Finish frontend state ownership cleanup
+- Split `ai.ts` further by managed-chat responsibility:
+  - hydration and authoritative replacement
+  - live stream receive/reducer
+  - section projection sync
+  - stop/cancel reconciliation
   - app-generation side effects
-- Replace heuristic merge behavior where possible with explicit authoritative replacement rules.
-- Minimize cases where the same chat thread is represented by:
-  - pending details
-  - chat details
-  - section state
-  - hydrated run state
-  at the same time.
-- Remove old state paths when a new owner takes over instead of keeping both alive behind fallback logic.
+- Remove managed-chat-specific uses of `mergeChatMessages` and similar heuristic helpers once the authoritative path lands.
+- Keep local-only state limited to drafts, pending composer state, and clearly UI-only metadata.
+- Make frontend modules consume backend-authored semantics rather than reinterpret them.
 
-7. Split frontend chat UI into pure renderers plus hooks/selectors
-- Break `ChatMessages.tsx` into smaller modules:
-  - message list shell
-  - activity timeline derivation
-  - assistant activity section
-  - tool/result presentation
-  - attachments
-  - search/highlighting
-  - edit/copy/branch action surfaces
-- Move networked behavior such as attachment URL loading into hooks.
-- Break `ChatInput.tsx` into:
-  - composer core
-  - slash-command handling
-  - queued drafts
-  - dictation
-  - attachment manager integration
-- Prefer pure props-based components where possible so rendering bugs are not coupled to state orchestration bugs.
-- Do not preserve deprecated props or intermediate wrapper components longer than needed for the refactor.
+5. Finish frontend UI decomposition
+- `ChatMessages.tsx`
+  - move remaining attachment preview loading and other networked behavior into hooks
+  - continue splitting activity derivation, measurement, structured-output presentation, and animation concerns
+- `ChatInput.tsx`
+  - split dictation, slash-suggestion positioning, queued drafts, and attachment-manager integration into focused hooks/modules
+- `ProjectChatCore.tsx`
+  - extract hydration retry/cache lifecycle and workspace-root polling into focused hooks or modules
+- `ChatArea.tsx`
+  - keep it as wiring/layout only
+- Prefer extractions that remove real behavioral ownership, not wrapper-only churn.
 
-8. Add guardrails for complexity and regression
-- Add focused unit tests for reducers and helpers instead of relying mainly on large scenario tests.
-- Keep integration tests for end-to-end chat flows, but stop using them as the only line of defense.
-- Add lightweight complexity guardrails for the worst files/functions.
-- When a bug fix touches managed chat, require the fix to land with the reducer/contract test that would have caught it earlier.
+6. Add the missing guardrails
+- Add focused tests for authoritative hydration replacement vs live-stream overlays.
+- Add targeted tests for section-state projection so managed chat does not silently regain a second semantic owner.
+- Add lightweight complexity guardrails for the worst remaining files/functions.
+- Require new managed-chat fixes to land with reducer/authority tests that would have caught the bug.
 
-## Suggested First Slice
-Start with the smallest refactor that reduces bug resurfacing risk without changing product behavior:
-- add the shared stream fixture corpus
-- align placeholder-id and finalized-message reconciliation semantics across Go, TS, and Python
-- remove the known semantic drift before splitting larger files
+## Suggested Next Slice
+The next slice should be the authority cleanup, not more UI surgery:
+- remove managed-chat-specific heuristic hydration merges
+- replace them with explicit backend-authoritative replacement rules
+- expand the fixture corpus to cover the stop/tool/hydration cases that this change depends on
 
-This slice should be done before broader UI decomposition or provider-executor cleanup.
-Once the canonical semantics are in place, remove the superseded implementations immediately rather than carrying migration layers.
+Once that slice is done, continue with file decomposition only where ownership is still too broad.
 
 ## Risks and Mitigations
-- Risk: refactor churn in an active feature area causes short-term regressions.
-  - Mitigation: stage work behind contract fixtures and behavior-preserving slices.
-- Risk: backend/frontend/Python drift continues during refactor.
-  - Mitigation: shared fixture corpus becomes the gate before any feature changes.
-- Risk: broad extraction creates file churn without reducing complexity.
-  - Mitigation: split by ownership boundary and acceptance criteria, not arbitrary size.
-- Risk: shared chat UI is also used by non-managed chat surfaces.
-  - Mitigation: extract shared presentation pieces first and keep managed-chat state semantics isolated.
+- Risk: finishing the authority cleanup changes visible hydration behavior.
+  - Mitigation: lock the intended behavior with shared fixtures and focused hydration tests before deleting the merge heuristics.
+- Risk: more extraction churn lands without reducing semantic ambiguity.
+  - Mitigation: tie each extraction to one ownership boundary that becomes clearly single-purpose afterward.
+- Risk: section state continues to reintroduce drift after hydration is cleaned up.
+  - Mitigation: add projection-specific tests and treat section state as a projection, not a semantic source.
 
 ## Acceptance Criteria
-- Managed-chat stream semantics are defined once and tested consistently across Go, TS, and Python implementations.
-- Placeholder response handling and finalized assistant reconciliation no longer differ by layer.
-- Managed chat has one clearly documented authoritative state path.
-- `StartChat`, live stream reduction, and provider event handling are split into smaller testable units.
-- Frontend chat state logic is no longer concentrated in a single 4.5k-line action file.
-- `ChatMessages.tsx` and `ChatInput.tsx` are decomposed so most subcomponents are pure renderers or focused hooks.
-- No backward-compatibility shims, migration-only code paths, or legacy duplicate reducers remain without a current supported reason.
-- New managed-chat bug fixes land with reducer/contract coverage that prevents the same class of bug from resurfacing.
+- Managed-chat hydration and section sync no longer rely on "pick more complete" or generic local-overlay heuristics for authoritative message state.
+- Backend Go payloads are the clear source of truth for managed-chat messages outside explicitly tracked ephemeral UI state.
+- Correctness-sensitive managed-chat behavior is owned primarily in Go rather than reimplemented independently in frontend/Python layers.
+- Shared stream fixtures cover the supported stream lifecycle consistently across Go, TS, and Python reducers.
+- Placeholder handling, finalized reconciliation, tool-call argument behavior, and `waitingForResponse` transitions no longer differ by layer.
+- The remaining frontend owners have narrower responsibilities and materially smaller behavioral surface area.
+- Complexity/regression guardrails exist for the remaining hotspots.
 
 ## Execution Order
-1. Add shared stream-contract fixtures and regression cases.
-2. Align reducer semantics across Go, TS, and Python.
-3. Establish and document backend-authoritative managed-chat state.
-4. Split `managedchat.Service` startup flow.
-5. Split `managedllm.Executor` provider-event handling.
-6. Split frontend `ai.ts` state ownership.
-7. Split frontend chat UI files.
-8. Tighten guardrails and keep future fixes inside the new structure.
+1. Replace heuristic managed-chat hydration/section merges with backend-authoritative rules.
+2. Expand the shared fixture corpus and decoder coverage to lock those rules in.
+3. Remove the remaining reducer drift across Go, TS, and Python.
+4. Split the remaining managed-chat state ownership inside `ai.ts`.
+5. Continue decomposing `ChatMessages.tsx`, `ChatInput.tsx`, `ProjectChatCore.tsx`, and `ChatArea.tsx` by responsibility.
+6. Add lasting guardrails so future chat fixes stay inside the authoritative structure.
