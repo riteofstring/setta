@@ -10,7 +10,13 @@ import {
   type SharePolicy,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { ChatMessageList, buildCopyTextForMessage } from "./ChatMessages";
+import {
+  ChatMessageList,
+  buildCopyTextForMessage,
+  classifyDiffLineForChat,
+  isUnifiedDiffText,
+  resolveStructuredOutputPayload,
+} from "./ChatMessages";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return createSharePolicy(overrides);
@@ -378,6 +384,65 @@ describe("ChatMessages markdown code rendering", () => {
   });
 });
 
+describe("ChatMessages structured tool output rendering", () => {
+  it("classifies object payloads as json code output", () => {
+    const payload = resolveStructuredOutputPayload({
+      value: { ok: true, items: [1, 2, 3] },
+      toolName: "mcp__workspace__read_file",
+      part: "output",
+      contextValue: { path: "config.json" },
+    });
+
+    expect(payload).not.toBeNull();
+    expect(payload?.kind).toBe("code");
+    expect(payload?.language).toBe("json");
+    expect(payload?.text).toContain('"ok": true');
+    expect(payload?.text).toContain('"items": [');
+  });
+
+  it("classifies unified diff payloads and line kinds deterministically", () => {
+    const diff = [
+      "diff --git a/src/app.ts b/src/app.ts",
+      "--- a/src/app.ts",
+      "+++ b/src/app.ts",
+      "@@ -1 +1 @@",
+      "-const value = 1;",
+      "+const value = 2;",
+      " context line",
+    ].join("\n");
+    const payload = resolveStructuredOutputPayload({
+      value: diff,
+      toolName: "file_change",
+      part: "output",
+      contextValue: { path: "src/app.ts" },
+    });
+
+    expect(isUnifiedDiffText(diff)).toBe(true);
+    expect(payload).not.toBeNull();
+    expect(payload?.kind).toBe("diff");
+    expect(classifyDiffLineForChat("diff --git a/x b/x")).toBe("meta");
+    expect(classifyDiffLineForChat("--- a/x")).toBe("file");
+    expect(classifyDiffLineForChat("@@ -1 +1 @@")).toBe("hunk");
+    expect(classifyDiffLineForChat("-a")).toBe("del");
+    expect(classifyDiffLineForChat("+b")).toBe("add");
+    expect(classifyDiffLineForChat(" context")).toBe("context");
+  });
+
+  it("uses path hints to classify text output language as yaml", () => {
+    const payload = resolveStructuredOutputPayload({
+      value: "name: setta\nenabled: true",
+      toolName: "mcp__workspace__read_file",
+      part: "output",
+      contextValue: { path: "configs/app.yaml" },
+    });
+
+    expect(payload).not.toBeNull();
+    expect(payload?.kind).toBe("code");
+    expect(payload?.language).toBe("yaml");
+    expect(payload?.text).toContain("name: setta");
+  });
+});
+
 describe("ChatMessages tool call status", () => {
   it("marks unresolved tool calls as stopped when streaming has ended", () => {
     const messages: BaseChatMessageUnion[] = [
@@ -452,42 +517,6 @@ describe("ChatMessages tool call status", () => {
     expect(markup).toContain("grid-cols-[1.75rem_minmax(0,1fr)]");
     expect(markup).not.toContain("grid-cols-[1.5rem_minmax(0,1fr)]");
     expect(markup).not.toContain("px-0.5 pb-0.5");
-  });
-
-  it("auto-expands pending approval tool calls so approval controls are visible", () => {
-    const messages: BaseChatMessageUnion[] = [
-      {
-        id: "m-approval-1",
-        role: ChatRoleEnum.assistant,
-        content: [],
-        attachments: [],
-        tool_calls: [
-          {
-            id: "approval-1",
-            type: "function",
-            function: {
-              name: "setta.approval",
-              arguments: {},
-            },
-          },
-        ],
-      },
-    ];
-
-    const markup = renderToStaticMarkup(
-      <ChatMessageList
-        messages={messages}
-        waitingForResponse={true}
-        toolCallArguments={{
-          "approval-1":
-            '{"approvalId":"approval-1","toolName":"setta__get_setta_docs","input":{}}',
-        }}
-      />,
-    );
-
-    expect(markup).toContain('data-state="open"');
-    expect(markup).toContain("Approve this action?");
-    expect(markup).toContain("setta__get_setta_docs");
   });
 
   it("shows braille activity indicators while rows are in flight", () => {

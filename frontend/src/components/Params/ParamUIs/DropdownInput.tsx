@@ -144,6 +144,7 @@ export function DropdownInput({
   isDisabled,
   placeholder,
   small = true,
+  shouldAutoOpenOnMount = false,
 }: {
   choices: Array<string>;
   value: string | null;
@@ -159,6 +160,7 @@ export function DropdownInput({
   isDisabled?: boolean;
   placeholder?: string;
   small?: boolean;
+  shouldAutoOpenOnMount?: boolean;
 }) {
   const allItems = [
     {
@@ -183,6 +185,7 @@ export function DropdownInput({
       groupHeaderThemeClassName={comboboxGroupHeaderThemeClassName}
       itemThemeClassName={comboboxItemThemeClassName}
       itemHighlightedThemeClassName={comboboxItemHighlightedThemeClassName}
+      shouldAutoOpenOnMount={shouldAutoOpenOnMount}
     />
   );
 }
