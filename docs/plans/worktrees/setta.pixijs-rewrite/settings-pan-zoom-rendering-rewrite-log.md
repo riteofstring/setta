@@ -13580,3 +13580,98 @@ Record:
       - no obvious blank/offscreen stale viewport and no gross visual drift on this worktree canary path
 - Next action:
   - Return to the remaining Gate 1/Gate 2 blocker from item `390`: determine why the worktree default-open top slice still differs from `main` (`browserSectionDefault` / `textBlockSectionDefault` first on worktree versus `textAreaParamCodeObjDefault` / `dropzoneParamCodeObjDefault` first on `main`) now that the viewport-persistence regression is correctly targeted.
+
+## 2026-04-01 392
+
+- Item: Test the hypothesis that the remaining `All Settings` default-open drift comes from the new `chatWindowing` settings section contaminating the visible settings surface.
+- Status: `blocked`
+- Details:
+  - Investigated the live default-open drift after item `391` by checking the persisted settings-project layout and the current live CDP state.
+  - Evidence collected before the attempted fix:
+    - the worktree `setta_files_dev/setta-settings-project.json` included a `chatWindowing` section while the read-only `main` repo's on-disk `setta-settings-project.json` did not
+    - this suggested a bounded candidate fix: keep the `chatWindowing` settings slice in the backing settings project, but hide it from generated settings view-mode visibility/layouts so it would stop shifting the visible `All Settings` surface
+  - Implemented that candidate locally, added focused backend assertions around the hidden-section behavior, and adapted the Playwright normalization helper to normalize only visible settings sections.
+  - Verification showed the hypothesis was wrong for the live oracle:
+    - backend unit test for the candidate behavior passed locally, but live parity moved farther from `main`
+    - after one allowed worktree lifecycle refresh (`BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`), a fresh CDP comparison reported:
+      - worktree top visible `All Settings` slice: `codeSectionDefault`, `promptSectionDefault`, `browserSectionDefault`, `socialSectionDefault`, `chartSectionDefault`, `switchParamCodeObjDefault`, `shortcuts`
+      - read-only `main` top visible `All Settings` slice: `textAreaParamCodeObjDefault`, `dropzoneParamCodeObjDefault`, `promptSectionDefault`, `textParamCodeObjDefault`, `spreadsheetSectionDefault`, `browserSectionDefault`, `drawSectionDefault`
+      - `chatWindowing` was still visibly present in the upper `main` surface while absent from the worktree, so the worktree was farther from `main`, not closer
+    - the normalized Playwright baseline-vs-`main` comparison also failed under the candidate patch
+  - Reverted the candidate code and test changes in the repo after verification so this worktree does not keep a parity-regressing patch staged.
+  - No commit was made for this iteration.
+- Next action:
+  - Inspect the live `All Settings` fit-view / visible-order inputs on both worktree and `main` without assuming `chatWindowing` should be hidden; the next slice should trace why the live oracle still lands on different upper-surface sections even after workspace chrome reset and why the current `main` live surface can visibly include `chatWindowing` despite the older on-disk snapshot.
+
+## 2026-04-01 393
+
+- Item: Align the live Pixi versus `main` oracle on the same frontend-only refit state so the default-open saved-viewport residue stops masquerading as renderer drift.
+- Status: `blocked`
+- Details:
+  - Traced the current live-order inputs before changing the harness:
+    - the worktree and `main` live `setta_files_dev/setta-settings-project.json` both include the `chatWindowing` top-level section in `All Settings`
+    - the older `main` `setta_files/setta-settings-project.json` snapshot is not the live oracle actually used by the running `main` reference session
+    - the default-open mismatch was instead explained by viewport state:
+      - worktree live `All Settings` view mode currently had `viewport=null` / `viewportInitialized=false`
+      - read-only `main` live `All Settings` view mode currently had an initialized saved viewport at `zoom: 0.1`
+    - that matches the current product contract in the canary path:
+      - live Pixi first load does a frontend-only refit
+      - `main` DOM reference can still open on a previously saved `All Settings` viewport
+  - Added a direct support guard in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - new test compares the worktree live Pixi canary against the read-only `main` reference only after both pages:
+        - reset workspace chrome
+        - normalize the canonical `All Settings` layout
+        - clear the current project viewport for frontend refit
+      - this locks the trustworthy oracle state already implied by the existing baseline-vs-`main` and baseline-vs-canary guards, but without relying on transitive reasoning during future handoff/debug passes
+  - Verification completed before the blocker:
+    - Playwright:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<refreshed main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear"`
+      - result: passed (`1 passed`)
+  - Verification blocker:
+    - required Chrome DevTools MCP spot-check could not be completed
+    - first fresh-context CDP sub-agent reported the chrome-devtools-mcp session was not reachable
+    - per loop rules, attempted the one allowed worktree self-recovery:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed runtime values afterward via:
+        - `setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+        - `pnpm -C frontend cdp-port`
+    - a second fresh-context CDP sub-agent still did not complete a usable verification pass after the restart, so this slice is not being committed in this iteration
+- Next action:
+  - Retry the same live CDP spot-check once the chrome-devtools bridge is reachable again; if it passes, commit this oracle-alignment guard and then take the next real renderer/parity defect using the same-state live Pixi versus `main` comparison instead of the misleading default-open saved-viewport drift.
+
+## 2026-04-01 394
+
+- Item: Complete the blocked live-Pixi-versus-`main` frontend-refit oracle guard once Chrome DevTools MCP is reachable again.
+- Status: `done`
+- Details:
+  - Resumed item `393` instead of starting another harness or seam-lift slice.
+  - Took the one allowed worktree lifecycle recovery first because the prior blocker was still CDP reachability:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime values via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+      - `pnpm -C frontend cdp-port`
+      - `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port`
+  - The first post-restart CDP read still reported a mismatched top slice, but that check had not reproduced the exact same-state normalization from the new Playwright guard, so it was treated as untrusted setup noise rather than a new renderer defect.
+  - Re-ran the new Playwright guard with freshly decoded bootstrap URLs from `setta status --connect-info`; it stayed green after the restart.
+  - Then ran a fresh-context Chrome DevTools MCP spot-check that explicitly mirrored the guard’s normalization path on both worktree and `main`:
+    - opened `/settings`
+    - clicked `All Settings`
+    - normalized `All Settings` top-level layout with `buildNormalizedAllSettingsTopLevelSections(...)`
+    - cleared the current project viewport for frontend refit
+    - waited for the refit state to settle before reading visible `.react-flow__node` bounds
+  - Result:
+    - worktree top 6 visible sections after normalization/refit: `chatSectionDefault`, `codeSectionDefault`, `dictSectionDefault`, `drawSectionDefault`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`
+    - `main` top 6 visible sections after normalization/refit: `chatSectionDefault`, `codeSectionDefault`, `dictSectionDefault`, `drawSectionDefault`, `genPythonCodeSectionDefault`, `genPythonMetadataSectionDefault`
+    - the lists matched exactly, so the oracle-alignment guard from item `393` is now trusted and commit-ready
+- Verification:
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token from setta status> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent ran the same-state normalization/refit path on both worktree live Pixi and read-only `main`
+    - result: passed for this guard
+      - both pages converged to the same top 6 visible sections after normalization/refit
+- Next action:
+  - Use the now-trusted same-state live Pixi versus `main` comparison to take the next real Gate 1 or Gate 2 production renderer defect instead of revisiting oracle-alignment support work.

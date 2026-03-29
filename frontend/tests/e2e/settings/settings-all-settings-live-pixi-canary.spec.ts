@@ -2932,6 +2932,84 @@ test("all settings baseline and the read-only main reference share the same visi
   }
 });
 
+test("all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear", async ({
+  browser,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "requires SETTA_MAIN_REFERENCE_URL and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL",
+  );
+
+  const canaryPage = await browser.newPage();
+  const mainReferencePage = await browser.newPage();
+
+  try {
+    await openAllSettingsLivePixiCanary(canaryPage);
+    await openAllSettingsMainReference(mainReferencePage);
+
+    // The live Pixi canary intentionally does a frontend-only first-load refit,
+    // so compare it against the main oracle only after both routes are on the
+    // same canonical layout and fit-view state.
+    await resetProjectWorkspaceChromeToDefaultLayout(canaryPage);
+    await resetProjectWorkspaceChromeToDefaultLayout(mainReferencePage);
+    await normalizeAllSettingsOverviewLayout(canaryPage);
+    await normalizeAllSettingsOverviewLayout(mainReferencePage);
+    await clearCurrentProjectViewportForRefit(canaryPage);
+    await clearCurrentProjectViewportForRefit(mainReferencePage);
+    await waitForVisibleSceneMetrics(canaryPage);
+    await expectZoomOutButtonDisabled(canaryPage, true);
+    await expectZoomOutButtonDisabled(mainReferencePage, true);
+
+    const canaryViewport = await readViewportTransform(canaryPage);
+    await expectViewportTransformNear(mainReferencePage, canaryViewport);
+
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(canaryPage)).length;
+      })
+      .toBeGreaterThanOrEqual(6);
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(mainReferencePage)).length;
+      })
+      .toBeGreaterThanOrEqual(6);
+
+    const canaryNodes = (await readVisibleSectionNodeBounds(canaryPage)).slice(
+      0,
+      6,
+    );
+    const mainReferenceNodes = (
+      await readVisibleSectionNodeBounds(mainReferencePage)
+    ).slice(0, 6);
+
+    expect(mainReferenceNodes.map((node) => node.sectionName)).toEqual(
+      canaryNodes.map((node) => node.sectionName),
+    );
+    expect(
+      mainReferenceNodes.every((node) => node.width > 0 && node.height > 0),
+    ).toBe(true);
+    expect(
+      mainReferenceNodes.reduce((maxDelta, mainNode, index) => {
+        const canaryNode = canaryNodes[index];
+        if (!canaryNode) {
+          return Number.POSITIVE_INFINITY;
+        }
+
+        return Math.max(
+          maxDelta,
+          Math.abs(mainNode.x - canaryNode.x),
+          Math.abs(mainNode.y - canaryNode.y),
+          Math.abs(mainNode.width - canaryNode.width),
+          Math.abs(mainNode.height - canaryNode.height),
+        );
+      }, 0),
+    ).toBeLessThanOrEqual(2);
+  } finally {
+    await canaryPage.close();
+    await mainReferencePage.close();
+  }
+});
+
 test("all settings baseline and live Pixi canary share the same visible canvas section slice after frontend viewport clear", async ({
   browser,
 }) => {
