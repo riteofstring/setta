@@ -39,6 +39,9 @@ stop_dev_processes() {
   pids="$(
     ps -ax -o pid= -o command= | awk -v root="${WORKTREE_ROOT}" '
       index($0, root "/frontend") && (index($0, "concurrently") || index($0, "vite") || index($0, "backendStart.sh") || index($0, "esbuild")) { print $1; next }
+      index($0, root "/scripts/go.sh") && (index($0, "./cmd/setta") || index($0, "./cmd/setta-server")) { print $1; next }
+      index($0, root "/scripts/run_setta_server.sh") { print $1; next }
+      index($0, root "/.tools/dev-bin/setta-server") { print $1; next }
       index($0, root "/.venv/bin/setta") { print $1 }
     '
   )"

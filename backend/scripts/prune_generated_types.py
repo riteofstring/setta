@@ -2,9 +2,8 @@
 """Remove unused names from backend/setta/types/generated.
 
 The script scans every Python file in the repository, finds which names from
-the generated backend types are referenced, and deletes the unused ones. It is
-intended to be run *after* the python->typescript conversion scripts so that
-the conversion step can still rely on the full set of generated types.
+the Go-generated Python shared types are referenced, and deletes the unused
+ones. Run it after generation has refreshed the full generated surface.
 """
 
 import argparse

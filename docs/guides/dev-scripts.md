@@ -40,7 +40,7 @@ Use these first for day-to-day work.
   - Logs to `tests.log` at the repo root.
   - Live-provider integration tests (real OpenAI/Anthropic managed chat checks) are opt-in; use `--all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1`) to enable.
 - `./gcf.sh`
-  - Runs `pnpm gcf` (generate + cleanup + format) with env activation.
+  - Runs `pnpm gcf` (generate + cleanup + Go/Python/frontend formatting) with env activation.
   - Logs to `gcf.log` at the repo root.
 - `./gcft.sh`
   - Runs `pnpm gcft` (gcf + tests), with env activation.
@@ -132,7 +132,7 @@ These are the underlying tasks used by the wrappers above.
 - `pnpm -C frontend generate-go-python-types`
   - Regenerates the Go-owned Python SDK/shared types, then runs the generated-type prune pass.
 - `pnpm gcf`
-  - Generate + cleanup + format (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
+  - Generate + cleanup + Go/Python/frontend formatting (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
 - `pnpm gcft`
   - `pnpm gcf` + `./t.sh`.
   - To enable opt-in live-provider integration tests, prefer `./gcft.sh --all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1` when running this directly).
