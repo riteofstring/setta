@@ -58,6 +58,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import type { ChatMessageBranchInfo } from "state/actions/aiBranches";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useAIStore } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -86,6 +87,12 @@ import {
   resolveCodeLanguageFromPath,
 } from "utils/codeLanguage";
 import {
+  type ConversationSearchTextRange,
+  findConversationSearchTextRanges,
+} from "utils/conversationSearch";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
+import {
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -98,19 +105,10 @@ import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
 import {
-  getConversationSearchRehypePlugins,
-  renderConversationSearchHighlightedText,
-} from "./chatSearchHighlight";
-import {
   type AnimatedStreamingCharacter,
   reconcileAnimatedStreamingCharacters,
   splitStreamingMarkdownText,
 } from "./streamingMarkdown";
-import {
-  type AttachmentUrlEntry,
-  isAttachmentUrlStale,
-  useChatMessageAttachmentUrls,
-} from "./useChatMessageAttachmentUrls";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 type AssistantChatMessage = Extract<
@@ -202,6 +200,7 @@ type ToolCallContext = {
 
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
+const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const CHAT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = CHAT_BUBBLE_MAX_WIDTH_CLASS;
 const CHAT_MARKDOWN_BASE_CLASS =
@@ -283,6 +282,15 @@ const ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES = new Set<string>([
 ]);
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
 
+type AttachmentUrlEntry = {
+  url: string;
+  expiresAt: number;
+};
+type AttachmentUrlResponseEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
 type AttachmentTextPreview = {
   text: string;
   truncated: boolean;
@@ -331,6 +339,154 @@ type MarkdownContentProps = {
   isStreaming: boolean;
   highlightTerms?: Array<string>;
 };
+
+type HastNode = {
+  type: string;
+  value?: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: Array<HastNode>;
+};
+
+const CHAT_SEARCH_HIGHLIGHT_CLASS_NAME =
+  "rounded-sm bg-amber-200/80 px-[0.06rem] text-inherit dark:bg-amber-500/20";
+const CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS = new Set([
+  "code",
+  "pre",
+  "script",
+  "style",
+]);
+
+function buildConversationSearchHighlightNodes(
+  value: string,
+  ranges: Array<ConversationSearchTextRange>,
+): Array<HastNode> {
+  if (ranges.length === 0) {
+    return [{ type: "text", value }];
+  }
+  const nodes: Array<HastNode> = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      nodes.push({
+        type: "text",
+        value: value.slice(cursor, range.start),
+      });
+    }
+    nodes.push({
+      type: "element",
+      tagName: "mark",
+      properties: {
+        className: [CHAT_SEARCH_HIGHLIGHT_CLASS_NAME],
+        "data-chat-search-highlight": "true",
+      },
+      children: [
+        {
+          type: "text",
+          value: value.slice(range.start, range.end),
+        },
+      ],
+    });
+    cursor = range.end;
+  }
+  if (cursor < value.length) {
+    nodes.push({
+      type: "text",
+      value: value.slice(cursor),
+    });
+  }
+  return nodes;
+}
+
+function highlightConversationSearchTextNodes(
+  node: HastNode,
+  normalizedSearchTerms: Array<string>,
+): void {
+  const children = node.children;
+  if (!children || children.length === 0) {
+    return;
+  }
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (!child) {
+      continue;
+    }
+    if (child.type === "text" && typeof child.value === "string") {
+      const ranges = findConversationSearchTextRanges(
+        child.value,
+        normalizedSearchTerms,
+      );
+      if (ranges.length === 0) {
+        continue;
+      }
+      const replacementNodes = buildConversationSearchHighlightNodes(
+        child.value,
+        ranges,
+      );
+      children.splice(index, 1, ...replacementNodes);
+      index += replacementNodes.length - 1;
+      continue;
+    }
+    if (
+      child.type === "element" &&
+      typeof child.tagName === "string" &&
+      CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS.has(child.tagName)
+    ) {
+      continue;
+    }
+    highlightConversationSearchTextNodes(child, normalizedSearchTerms);
+  }
+}
+
+function buildConversationSearchHighlightPlugin(
+  normalizedSearchTerms: Array<string>,
+) {
+  return () => {
+    return (tree: HastNode) => {
+      highlightConversationSearchTextNodes(tree, normalizedSearchTerms);
+    };
+  };
+}
+
+function getConversationSearchRehypePlugins(
+  normalizedSearchTerms: Array<string>,
+): Array<() => (tree: HastNode) => void> | undefined {
+  if (normalizedSearchTerms.length === 0) {
+    return undefined;
+  }
+  return [buildConversationSearchHighlightPlugin(normalizedSearchTerms)];
+}
+
+function renderConversationSearchHighlightedText(
+  text: string,
+  normalizedSearchTerms: Array<string>,
+): ReactNode {
+  const ranges = findConversationSearchTextRanges(text, normalizedSearchTerms);
+  if (ranges.length === 0) {
+    return text;
+  }
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      nodes.push(text.slice(cursor, range.start));
+    }
+    nodes.push(
+      <mark
+        key={`${range.start}-${range.end}`}
+        className={CHAT_SEARCH_HIGHLIGHT_CLASS_NAME}
+        data-chat-search-highlight="true"
+      >
+        {text.slice(range.start, range.end)}
+      </mark>,
+    );
+    cursor = range.end;
+  }
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+  return nodes;
+}
 
 const CHAT_MARKDOWN_COMPONENTS: Components = {
   code: (props) => <CodeBlock {...props} wrapLines />,
@@ -1565,10 +1721,15 @@ function resolveDisplayArgsForToolCallEntry({
   toolCallArguments: Record<string, string>;
 }): unknown {
   const argsFromResult = toolResult?.arguments;
+  const argsFromAssistant = toolCall.function?.arguments;
+  const pendingArgs = toolCallArguments?.[toolCall.id];
   if (argsFromResult && Object.keys(argsFromResult).length > 0) {
     return argsFromResult;
   }
-  return resolveToolCallArguments(toolCall, toolCallArguments);
+  if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+    return argsFromAssistant;
+  }
+  return pendingArgs;
 }
 
 function resolveCompactionEntryLabel({
@@ -2828,6 +2989,28 @@ function ChatImage({
 const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
+
+function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
+  return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
+}
+
+function collectAttachments(
+  messages: Array<BaseChatMessageUnion>,
+): ChatFileAttachment[] {
+  const map = new Map<string, ChatFileAttachment>();
+  for (const message of messages) {
+    const attachments =
+      "attachments" in message && Array.isArray(message.attachments)
+        ? message.attachments
+        : [];
+    for (const attachment of attachments) {
+      if (!map.has(attachment.id)) {
+        map.set(attachment.id, attachment);
+      }
+    }
+  }
+  return Array.from(map.values());
+}
 
 function getAttachmentSizeLabel(attachment: ChatFileAttachment): string | null {
   if (attachment.size === null || attachment.size === undefined) {
@@ -5617,74 +5800,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
       toolResult,
       toolCallArguments,
     });
-    const normalizedToolName = normalizeToolName(toolCall.function?.name);
-
-    if (normalizedToolName === APPROVAL_TOOL_NAME) {
-      const approvalPayload = parseApprovalPayload(argsToDisplay);
-      if (approvalPayload) {
-        const approvalToolName = normalizeToolName(approvalPayload.toolName);
-        if (approvalToolName === QUESTION_TOOL_NAME) {
-          const questionPayload = parseAskUserQuestionPayload(
-            approvalPayload.input,
-          );
-          if (questionPayload) {
-            const resolvedAnswers = resolveQuestionAnswers(
-              questionPayload,
-              toolResult,
-            );
-            return (
-              <div
-                key={entry.key}
-                className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-              >
-                <QuestionCard
-                  toolCallId={toolCall.id}
-                  payload={questionPayload}
-                  resolvedAnswers={resolvedAnswers}
-                />
-              </div>
-            );
-          }
-        }
-        return (
-          <div
-            key={entry.key}
-            className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-          >
-            <ApprovalCard
-              toolCallId={toolCall.id}
-              toolName={approvalPayload.toolName ?? null}
-              toolType={approvalPayload.toolType ?? null}
-              input={approvalPayload.input}
-              toolResult={toolResult}
-              isStreaming={toolEntry.isStreaming}
-            />
-          </div>
-        );
-      }
-    }
-
-    if (normalizedToolName === QUESTION_TOOL_NAME) {
-      const questionPayload = parseAskUserQuestionPayload(argsToDisplay);
-      if (questionPayload) {
-        const resolvedAnswers = resolveQuestionAnswers(
-          questionPayload,
-          toolResult,
-        );
-        return (
-          <div
-            key={entry.key}
-            className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-          >
-            <QuestionCard
-              toolCallId={toolCall.id}
-              payload={questionPayload}
-              resolvedAnswers={resolvedAnswers}
-            />
-          </div>
-        );
-      }
-    }
 
     if (entry.kind === "action") {
       return (
@@ -5836,34 +5951,6 @@ function resolveToolCallSectionState(
     return "running";
   }
   return "complete";
-}
-
-function hasPendingInteractiveToolCall(
-  toolCalls: ToolCall[] | null | undefined,
-  toolResultsById: Record<string, ToolChatMessage>,
-): boolean {
-  if (!toolCalls || toolCalls.length === 0) {
-    return false;
-  }
-  return toolCalls.some((toolCall) => {
-    const normalizedName = normalizeToolName(toolCall.function?.name);
-    if (
-      normalizedName !== APPROVAL_TOOL_NAME &&
-      normalizedName !== QUESTION_TOOL_NAME
-    ) {
-      return false;
-    }
-    return !toolResultsById[toolCall.id];
-  });
-}
-
-function hasPendingInteractiveToolCallsInMessages(
-  messages: AssistantChatMessage[],
-  toolResultsById: Record<string, ToolChatMessage>,
-): boolean {
-  return messages.some((message) =>
-    hasPendingInteractiveToolCall(message.tool_calls ?? null, toolResultsById),
-  );
 }
 
 type ToolSectionTimingAnchors = {
@@ -6076,7 +6163,6 @@ const ToolCallSection = memo(function ToolCallSection({
   toolCount,
   latestToolLabel,
   sectionState,
-  defaultExpanded,
   startedAtMs,
   completedAtMs,
   runKey,
@@ -6085,7 +6171,6 @@ const ToolCallSection = memo(function ToolCallSection({
   toolCount: number;
   latestToolLabel: string;
   sectionState: ToolCallSectionState;
-  defaultExpanded?: boolean;
   startedAtMs: number | null;
   completedAtMs: number | null;
   runKey: string;
@@ -6100,12 +6185,7 @@ const ToolCallSection = memo(function ToolCallSection({
   );
   const title = "Tool calls";
   return (
-    <Accordion.Root
-      type="single"
-      collapsible
-      className="w-full"
-      defaultValue={defaultExpanded ? "tool-call-details" : undefined}
-    >
+    <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item
         value="tool-call-details"
         className={TOOL_SECTION_CARD_CLASS}
@@ -6248,15 +6328,6 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
   });
 
   const sectionState = resolveToolCallSectionState(toolCallStates);
-  const defaultExpanded = entries.some(({ toolCall }) => {
-    if (toolResultsById[toolCall.id]) {
-      return false;
-    }
-    return Boolean(
-      toolCallContext.approvalPayloadById[toolCall.id] ||
-        toolCallContext.questionPayloadById[toolCall.id],
-    );
-  });
   const latestToolLabel =
     toolLabels.length > 0 ? toolLabels[toolLabels.length - 1] : "Tool activity";
   const { startedAtMs, completedAtMs } = resolveToolSectionTimingAnchors(
@@ -6270,7 +6341,6 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
       toolCount={entries.length}
       latestToolLabel={latestToolLabel}
       sectionState={sectionState}
-      defaultExpanded={defaultExpanded}
       startedAtMs={startedAtMs}
       completedAtMs={completedAtMs}
       runKey={runKey}
@@ -6991,10 +7061,6 @@ const ChatMessage = memo(function ChatMessage({
       toolResultsById,
       toolCallArguments,
     });
-    const autoExpandPendingInteraction = hasPendingInteractiveToolCall(
-      message.tool_calls ?? null,
-      toolResultsById,
-    );
     const hasThinkingActivity = activityTimelineEntries.some(
       (entry) => entry.kind === "thinking",
     );
@@ -7018,9 +7084,7 @@ const ChatMessage = memo(function ChatMessage({
                   suppressActivityThoughtScroll ||
                   (isStreaming && hasMeaningfulDisplayItems)
                 }
-                defaultOpen={
-                  activityAccordionOpenByDefault || autoExpandPendingInteraction
-                }
+                defaultOpen={activityAccordionOpenByDefault}
                 defaultChildrenOpen={activityChildrenOpenByDefault}
                 conversationSearchTerms={conversationSearchTerms}
               >
@@ -7256,11 +7320,91 @@ function ChatMessages({
   const [editingBubbleWidthPx, setEditingBubbleWidthPx] = useState<
     number | null
   >(null);
-  const { attachmentUrlMap, requestAttachmentUrls } =
-    useChatMessageAttachmentUrls(messages);
+  const [attachmentUrlMap, setAttachmentUrlMap] = useState<
+    Record<string, AttachmentUrlEntry>
+  >({});
+  const attachmentUrlRequests = useRef<Set<string>>(new Set());
+  const allAttachments = useMemo(
+    () => collectAttachments(messages),
+    [messages],
+  );
   const toolResultsById = useMemo(
     () => buildToolResultMap(allMessages),
     [allMessages],
+  );
+  const requestAttachmentUrls = useCallback(
+    async (
+      targets: ChatFileAttachment[],
+      options: { force?: boolean } = {},
+    ) => {
+      if (targets.length === 0) {
+        return {};
+      }
+      const now = Date.now();
+      const pending = targets.filter((attachment) => {
+        const entry = attachmentUrlMap[attachment.id];
+        if (!options.force && entry && !isAttachmentUrlStale(entry, now)) {
+          return false;
+        }
+        if (
+          attachmentUrlRequests.current.has(attachment.id) &&
+          !options.force
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (pending.length === 0) {
+        return {};
+      }
+      for (const attachment of pending) {
+        attachmentUrlRequests.current.add(attachment.id);
+      }
+      const projectConfigId = getCurrProjectConfigId();
+      let entries: AttachmentUrlResponseEntry[] = [];
+      try {
+        const res = await route_get_attachment_download_urls({
+          artifactIds: pending.map((attachment) => attachment.id),
+          projectConfigId,
+        });
+        if (!res200(res)) {
+          const detail = getErrorDetail(res.data);
+          console.warn(
+            "Failed to load attachment URLs",
+            detail ?? pending.map((attachment) => attachment.id),
+          );
+          return {};
+        }
+        entries = res.data;
+      } catch (error) {
+        console.warn("Failed to load attachment URLs", error);
+        return {};
+      } finally {
+        for (const attachment of pending) {
+          attachmentUrlRequests.current.delete(attachment.id);
+        }
+      }
+      const nextEntries: Record<string, AttachmentUrlEntry> = {};
+      for (const entry of entries) {
+        if (
+          typeof entry.expiresAt !== "number" ||
+          !Number.isFinite(entry.expiresAt)
+        ) {
+          console.error("Attachment URL missing expiresAt", entry);
+          continue;
+        }
+        const expiresAt = entry.expiresAt * 1000;
+        nextEntries[entry.artifactId] = {
+          url: entry.url,
+          expiresAt,
+        };
+      }
+      if (Object.keys(nextEntries).length > 0) {
+        setAttachmentUrlMap((prev) => ({ ...prev, ...nextEntries }));
+      }
+      return nextEntries;
+    },
+    [attachmentUrlMap],
   );
 
   useEffect(() => {
@@ -7269,6 +7413,13 @@ function ChatMessages({
       setEditingBubbleWidthPx(null);
     }
   }, [waitingForResponse]);
+
+  useEffect(() => {
+    if (allAttachments.length === 0) {
+      return;
+    }
+    void requestAttachmentUrls(allAttachments);
+  }, [allAttachments, requestAttachmentUrls]);
   const output: ReactNode[] = [];
   const lastMessage = messages[messages.length - 1];
   let streamingMessageId: string | null = null;
@@ -7346,11 +7497,6 @@ function ChatMessages({
         toolResultsById,
         toolCallArguments,
       });
-      const autoExpandPendingInteraction =
-        hasPendingInteractiveToolCallsInMessages(
-          activityMessageContexts.map((context) => context.message),
-          toolResultsById,
-        );
       const activitySectionTiming = resolveActivitySectionTiming({
         timelineEntries,
         toolResultsById,
@@ -7415,10 +7561,7 @@ function ChatMessages({
                   suppressThoughtScrollAnimation={
                     suppressActivityThoughtScrollAnimation
                   }
-                  defaultOpen={
-                    activityAccordionOpenByDefault ||
-                    autoExpandPendingInteraction
-                  }
+                  defaultOpen={activityAccordionOpenByDefault}
                   defaultChildrenOpen={activityChildrenOpenByDefault}
                   conversationSearchTerms={conversationSearchTerms}
                 >

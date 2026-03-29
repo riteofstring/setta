@@ -14,14 +14,4 @@ cd "${ROOT_DIR}"
 cd "${FRONTEND_DIR}"
 pnpm generate
 pnpm full-cleanup
-
-GOROOT="$("${ROOT_DIR}/scripts/go.sh" env GOROOT)"
-GO_FILES=()
-while IFS= read -r go_file; do
-  GO_FILES+=("${ROOT_DIR}/${go_file}")
-done < <(cd "${ROOT_DIR}" && rg --files cmd internal -g '*.go')
-if (( ${#GO_FILES[@]} > 0 )); then
-  "${GOROOT}/bin/gofmt" -w "${GO_FILES[@]}"
-fi
-
 pnpm f
