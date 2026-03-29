@@ -20,6 +20,7 @@ import {
 import {
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiRenderResolution,
+  subscribeToLiveDictAreaPixiFontLoadInvalidation,
 } from "./liveDictAreaPixiSceneView";
 
 type LiveDictAreaPixiSceneProps = {
@@ -68,6 +69,7 @@ function _LiveDictAreaPixiScene({
   const [devicePixelRatio, setDevicePixelRatio] = useState(() =>
     typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
   );
+  const [fontLoadVersion, setFontLoadVersion] = useState(0);
   const logicalCanvasWidth = getLiveDictAreaPixiLogicalCanvasWidth(hostWidth);
   const renderResolution = getLiveDictAreaPixiRenderResolution({
     devicePixelRatio,
@@ -112,6 +114,19 @@ function _LiveDictAreaPixiScene({
     return () => {
       observer.disconnect();
     };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (typeof document === "undefined") {
+      return;
+    }
+
+    return subscribeToLiveDictAreaPixiFontLoadInvalidation({
+      fontFaceSet: document.fonts,
+      onInvalidate: () => {
+        setFontLoadVersion((currentVersion) => currentVersion + 1);
+      },
+    });
   }, []);
 
   useEffect(() => {
@@ -211,7 +226,7 @@ function _LiveDictAreaPixiScene({
         cancelAnimationFrame(frameId);
       }
     };
-  }, [darkMode, renderResolution, summaryLayout]);
+  }, [darkMode, fontLoadVersion, renderResolution, summaryLayout]);
 
   useEffect(() => {
     return () => {

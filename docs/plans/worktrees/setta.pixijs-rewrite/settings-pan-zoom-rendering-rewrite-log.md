@@ -8181,3 +8181,41 @@ Record:
     - the checked viewport stayed readable with no obvious blur, blockiness, or snap-after-redraw on that visible scene
 - Next action:
   - Continue the live Pixi visual-stability lane from this zoom/DPR redraw baseline, starting with the next bounded invalidation/parity fix on the same canary such as font-load redraw or a tighter side-by-side `main` comparison at the named canary state.
+
+## 2026-03-29 256
+
+- Item: Invalidate and redraw the live Pixi dict-area scene on font-load completion for the `pixi-node-body` canary.
+- Status: `done`
+- Details:
+  - Took the explicit next visual-stability step from item `255` instead of returning to more seam lifting or another perf-only probe:
+    - subscribe the live Pixi scene to browser font-load completion/error
+    - redraw the same scene when fonts settle instead of relying on a later incidental rerender
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The scene now:
+    - registers a font-load invalidation subscription before the Pixi draw effect
+    - bumps a local redraw version when `document.fonts` finishes or errors after an in-flight load
+    - re-renders the same live Pixi scene on that font-settle signal so text/chrome do not stay stuck on pre-font metrics
+  - Tightened the existing live Pixi zoom canary so it no longer samples a stale backing width immediately after `reset zoom`:
+    - the fresh isolated Playwright workspace showed the previous spec was reading the old `0.1`-zoom canvas width before the reset redraw settled
+    - the spec now waits for that delayed reset redraw before comparing the post-zoom-in backing width
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`7 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes|CodeMirror-backed value row"`
+      - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - bootstrapped auth successfully and verified the live Pixi canary rendered normally in the checked viewport
+    - the Pixi scene was present and the visible settings shell plus checked dict/param area did not show obvious clipping, overlap, or missing content
+    - a side-by-side `main` comparison was not possible in that browser session because no separate main/reference Setta tab was open
+    - notable console noise remained from existing React 19 `element.ref` deprecation errors plus some `Uncaught in promise` messages, but the relevant settings/API requests still succeeded and did not block the canary render
+- Next action:
+  - Continue the live Pixi visual-stability lane from this font-load redraw baseline by running the tighter side-by-side `main` comparison at the named canary state, or land the next bounded parity fix if the main reference tab is still unavailable.

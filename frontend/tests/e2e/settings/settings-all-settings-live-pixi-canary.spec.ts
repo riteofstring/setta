@@ -193,9 +193,18 @@ test("all settings canary rerenders the Pixi scene canvas when the viewport zoom
     .locator("[data-live-dict-area-scene='pixi'] canvas")
     .first();
   await expect(sceneCanvas).toBeVisible();
-  const initialCanvasWidth = await sceneCanvas.evaluate(
-    (canvas) => canvas.width,
-  );
+  const readCanvasMetrics = () =>
+    sceneCanvas.evaluate((canvas) => ({
+      cssWidth: canvas.clientWidth,
+      pixelWidth: canvas.width,
+    }));
+  await page.waitForTimeout(1500);
+
+  const resetCanvasMetrics = await readCanvasMetrics();
+
+  const initialCanvasWidth = resetCanvasMetrics.pixelWidth;
+  expect(resetCanvasMetrics.cssWidth).toBeGreaterThan(0);
+  expect(resetCanvasMetrics.pixelWidth).toBeGreaterThan(0);
 
   const zoomInButton = page.getByRole("button", { name: "zoom in" });
   await expect(zoomInButton).toBeVisible();
