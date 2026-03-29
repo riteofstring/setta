@@ -13809,6 +13809,30 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 415
+
+- Item: Lock the replayed-main overview slice so raw-CDP left-panel drift does not masquerade as a renderer bug.
+- Status: `done`
+- Details:
+  - Stayed on one narrow blocker-support slice because the fresh CDP sub-agent could not trust the `main` reference normalization path: the read-only `main` tab rejected the branch-only helper-module import path used for the exact overview normalization flow there.
+  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, added `all settings live Pixi canary and the read-only main reference share the same visible overview section slice after replayed main snapshot`.
+  - The new regression replays the read-only `main` project snapshot into the live Pixi canary, resets both sides to the default workspace chrome layout, runs the existing All Settings overview normalization helper on both pages, and asserts the visible overview label slice matches.
+  - Result:
+    - the focused Playwright compare passed, so the reported left-panel settings index mismatch was a false blocker caused by unnormalized `main` visible-list state in raw CDP, not a confirmed renderer drift
+    - this closes the overview-list lane for sequencing; the next frontier should return to the actual focused `browserSectionDefault` renderer surface
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token from setta status> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible overview section slice after replayed main snapshot'`
+    - result: passed (`1 passed`, about `21.7s`)
+  - Fresh-context CDP check via sub-agent:
+    - result: deferred blocker evidence only
+    - the sub-agent could read the raw visible DOM slice, but the `main` reference page rejected the helper-module import path needed for exact normalization; it therefore reported the unnormalized visible-label mismatch rather than a trustworthy renderer compare
+- Next action:
+  - Return to the product lane and inspect the next real Gate 2 renderer drift on the focused `browserSectionDefault` compare surface, using a normalization path that does not depend on importing branch-only helper modules into the read-only `main` page.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 414
 
 - Item: Lower the shared Pixi page-runtime host so minimized section chrome stays visible on the focused compare surface.

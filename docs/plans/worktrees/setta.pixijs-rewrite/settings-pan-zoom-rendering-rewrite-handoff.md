@@ -9,40 +9,35 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 ## Current status
 
 - Latest terminal loop status: `SUBTASK_DONE`
-- Current gate focus: Gate 2 next actual renderer-drift check on the normalized `/settings` compare surface after closing the minimized `GENERATED PYTHON CODE` section mismatch; the next obvious drift seen in CDP was minor left-panel settings index ordering versus `main`.
-- This iteration returned to the product lane and changed production renderer code plus focused compare coverage.
+- Current gate focus: Gate 2 next actual renderer-drift check on the normalized `/settings` compare surface after closing the false left-panel overview-index blocker; the next frontier is the next real renderer drift inside the focused `browserSectionDefault` surface, not the outer overview list.
+- This iteration stayed on a narrow blocker-support slice because the fresh CDP read could not trust the `main` reference normalization path.
 - Result:
-  - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx` lowers the shared Pixi page-runtime host from `z-[4]` to `z-0` so the pane-level runtime canvas no longer covers DOM minimized-section chrome
-  - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx` now locks that host stacking contract
-  - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` now includes a focused compare that asserts `genPythonCodeSectionDefault` stays present with matching viewport geometry on the normalized `browserSectionDefault` surface
-  - the focused Vitest, Prettier, and Playwright slices passed
-  - after one allowed lifecycle self-recovery (`BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`) plus fresh bootstrap URLs from `setta status`, a fresh-context CDP compare confirmed the minimized `GENERATED PYTHON CODE` section chrome is visible and matches `main` at Gate 1/2
+  - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` now includes a focused replayed-main regression, `all settings live Pixi canary and the read-only main reference share the same visible overview section slice after replayed main snapshot`
+  - the new guard proves the worktree/main visible overview list matches once both sides are normalized against the same replayed project snapshot, so the reported left-panel settings index mismatch was not a confirmed product drift
+  - the focused Prettier and Playwright slices passed
+  - a fresh-context CDP sub-agent could only read the raw visible DOM slice because the `main` reference tab rejected the branch-only helper-module import path needed for the exact normalization flow there
 
 ## Recent evidence
 
-- Focused unit verification:
-  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
-    - result: passed
 - Focused formatting verification:
-  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
     - result: passed
 - Focused Playwright verification:
   - command:
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token from setta status> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary keeps the minimized generated python code section visible on the focused browser compare surface'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token from setta status> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible overview section slice after replayed main snapshot'`
   - result:
-    - passed (`1 passed`, about `55.4s` after the lifecycle restart; it also passed earlier in about `23.5s` before the restart)
+    - passed (`1 passed`, about `21.7s`)
 - Fresh-context CDP visual check via sub-agent:
-  - result: done
+  - result: blocked for exact normalization
   - compare result:
-    - both fresh bootstrap URLs resolved to the live frontends (`3043` worktree, `3087` main)
-    - the normalized `All Settings` / `browserSectionDefault` compare surface was present on both tabs
-    - the minimized `GENERATED PYTHON CODE` section chrome was visible and matched `main` at Gate 1/2
-    - only minor left-panel settings index ordering drift remained outside the environment-label differences
+    - both tabs were reachable, but the `main` reference page rejected the helper-module import path the sub-agent used for the exact normalization flow
+    - the sub-agent could only read the raw visible overview DOM slice, which differed because the `main` tab was still in a stale visible-list state while the worktree tab was normalized
+    - the new Playwright replayed-main overview guard closes that mismatch as a compare artifact rather than a confirmed renderer defect
 
 ## Immediate next frontier
 
-- Treat the minimized `GENERATED PYTHON CODE` section drift as closed.
-- Use the normalized replayed `All Settings` compare flow to inspect and fix the next real Gate 2 renderer drift, starting with the remaining left-panel settings index ordering mismatch versus `main`.
+- Treat the left-panel settings index mismatch as closed for sequencing purposes; it was an untrusted raw-CDP-state artifact once the replayed-main overview guard passed.
+- Return to the product lane and inspect the next real Gate 2 renderer drift on the focused `browserSectionDefault` surface, using a normalization path that does not require importing branch-only helper modules into the read-only `main` page.
 
 ## Durable completed work
 
@@ -51,7 +46,7 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 ## History pointers
 
-- Active history window: items `380` through `414`
-- Latest item: `2026-04-01 414`
+- Active history window: items `380` through `415`
+- Latest item: `2026-04-01 415`
 - Prior product slice: `2026-04-01 403`
 - Older detail before item `380`: use the history index to find the relevant archive file

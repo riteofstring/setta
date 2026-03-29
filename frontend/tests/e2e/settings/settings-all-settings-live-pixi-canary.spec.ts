@@ -3123,6 +3123,62 @@ test("all settings baseline and the read-only main reference share the same visi
   }
 });
 
+test("all settings live Pixi canary and the read-only main reference share the same visible overview section slice after replayed main snapshot", async ({
+  browser,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "requires SETTA_MAIN_REFERENCE_URL and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL",
+  );
+
+  const canaryPage = await browser.newPage();
+  const mainReferencePage = await browser.newPage();
+
+  try {
+    await openAllSettingsMainReference(mainReferencePage);
+    await openAllSettingsLivePixiCanary(canaryPage);
+
+    // Keep the visible overview list pinned to the read-only main snapshot so
+    // compare sessions do not mistake stale worktree seed state for renderer
+    // drift in the left settings index.
+    const mainReferenceProjectStateSnapshot =
+      await captureCurrentFrontendProjectStateSnapshot(mainReferencePage);
+    await replayFrontendProjectStateSnapshot(
+      canaryPage,
+      mainReferenceProjectStateSnapshot,
+    );
+
+    await resetProjectWorkspaceChromeToDefaultLayout(canaryPage);
+    await resetProjectWorkspaceChromeToDefaultLayout(mainReferencePage);
+    await normalizeAllSettingsOverviewLayout(canaryPage);
+    await normalizeAllSettingsOverviewLayout(mainReferencePage);
+
+    await expect
+      .poll(async () => {
+        return (await readVisibleOverviewSectionLabels(canaryPage)).length;
+      })
+      .toBeGreaterThanOrEqual(4);
+    await expect
+      .poll(async () => {
+        return (await readVisibleOverviewSectionLabels(mainReferencePage))
+          .length;
+      })
+      .toBeGreaterThanOrEqual(4);
+
+    const canaryVisibleLabels = (
+      await readVisibleOverviewSectionLabels(canaryPage)
+    ).slice(0, 6);
+    const mainReferenceVisibleLabels = (
+      await readVisibleOverviewSectionLabels(mainReferencePage)
+    ).slice(0, 6);
+
+    expect(canaryVisibleLabels).toEqual(mainReferenceVisibleLabels);
+  } finally {
+    await canaryPage.close();
+    await mainReferencePage.close();
+  }
+});
+
 test("all settings baseline and the read-only main reference share the same visible canvas section slice when explicit runtime envs are provided", async ({
   browser,
 }) => {
