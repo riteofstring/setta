@@ -189,6 +189,9 @@ class UsageCollector(ast.NodeVisitor):
                 self._imported_modules[local_name] = full_module
                 continue
 
+            # Treat direct imports as usage even when the current module only
+            # re-exports the imported symbol via __all__.
+            self._mark_used(module_name, alias.name)
             self._imported_names[local_name] = (module_name, alias.name)
 
     def visit_Name(self, node: ast.Name) -> None:
@@ -264,6 +267,98 @@ def apply_removals(removals: dict[Path, list[Definition]], *, dry_run: bool) -> 
         print(f"[prune-generated] Updated {path} ({len(defs)} definitions removed)")
 
 
+def cleanup_unused_imports(paths: Iterable[Path], *, dry_run: bool) -> int:
+    updated_files = 0
+    for path in sorted(set(paths)):
+        source = path.read_text(encoding="utf-8")
+        try:
+            tree = ast.parse(source, filename=str(path))
+        except SyntaxError as exc:
+            raise RuntimeError(f"Failed to parse {path}: {exc}") from exc
+
+        ref_collector = _LocalReferenceCollector()
+        ref_collector.visit(tree)
+        used_names = ref_collector.names
+        lines = source.splitlines(keepends=True)
+        replacements: list[tuple[int, int, str]] = []
+
+        for node in tree.body:
+            replacement = render_cleaned_import(node, used_names)
+            if replacement is None:
+                continue
+            replacements.append(
+                (
+                    max(node.lineno - 1, 0),
+                    min(node.end_lineno or node.lineno, len(lines)),
+                    replacement,
+                )
+            )
+
+        if not replacements:
+            continue
+
+        updated_files += 1
+        if dry_run:
+            print(f"[dry-run] {path}: would clean unused imports")
+            continue
+
+        for start_idx, end_idx, replacement in reversed(replacements):
+            replacement_lines = [] if replacement == "" else [replacement]
+            lines[start_idx:end_idx] = replacement_lines
+
+        new_content = "".join(lines).rstrip() + "\n"
+        path.write_text(new_content, encoding="utf-8")
+        print(f"[prune-generated] Cleaned unused imports in {path}")
+
+    return updated_files
+
+
+def render_cleaned_import(node: ast.stmt, used_names: set[str]) -> str | None:
+    if isinstance(node, ast.Import):
+        kept_names = []
+        for alias in node.names:
+            local_name = alias.asname or alias.name
+            if local_name in used_names:
+                kept_names.append(alias)
+        if len(kept_names) == len(node.names):
+            return None
+        if not kept_names:
+            return ""
+        parts = []
+        for alias in kept_names:
+            if alias.asname:
+                parts.append(f"{alias.name} as {alias.asname}")
+            else:
+                parts.append(alias.name)
+        return f"import {', '.join(parts)}\n"
+
+    if isinstance(node, ast.ImportFrom):
+        if node.level:
+            return None
+        kept_names = []
+        for alias in node.names:
+            if alias.name == "*":
+                kept_names.append(alias)
+                continue
+            local_name = alias.asname or alias.name
+            if local_name in used_names:
+                kept_names.append(alias)
+        if len(kept_names) == len(node.names):
+            return None
+        if not kept_names:
+            return ""
+        rendered_names = []
+        for alias in kept_names:
+            if alias.asname:
+                rendered_names.append(f"{alias.name} as {alias.asname}")
+            else:
+                rendered_names.append(alias.name)
+        module = node.module or ""
+        return f"from {module} import {', '.join(rendered_names)}\n"
+
+    return None
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Prune unused names from backend/setta/types/generated."
@@ -330,9 +425,27 @@ def main(argv: list[str]) -> int:
         ]
 
         if not unused_definitions:
+            cleaned_import_files = cleanup_unused_imports(
+                files_touched if total_removed > 0 else target_dir.glob("*.py"),
+                dry_run=args.dry_run,
+            )
             if total_removed == 0:
-                print("No unused generated names were found.")
+                if cleaned_import_files > 0:
+                    print(
+                        f"[prune-generated] Cleaned unused imports in "
+                        f"{cleaned_import_files} file"
+                        f"{'' if cleaned_import_files == 1 else 's'}."
+                    )
+                if cleaned_import_files == 0:
+                    print("No unused generated names were found.")
+                return 0
             else:
+                if cleaned_import_files > 0:
+                    print(
+                        f"[prune-generated] Also cleaned unused imports in "
+                        f"{cleaned_import_files} file"
+                        f"{'' if cleaned_import_files == 1 else 's'}."
+                    )
                 print(
                     f"[prune-generated] Success after {iteration - 1} iteration"
                     f"{'' if iteration == 2 else 's'}."

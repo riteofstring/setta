@@ -1,12 +1,6 @@
 import CodeMirror from "@uiw/react-codemirror";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type MouseEvent,
-} from "react";
+import { useCallback, useState } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { setTextFieldWaitingForLSP } from "state/actions/lsp";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
@@ -16,21 +10,7 @@ import { route_text_field_completion } from "utils/generatedEndpoints";
 import { DummyCodeMirror } from "./DummyCodeMirror";
 import { getExtensions } from "./getExtensions";
 import { getOnCreateEditor, wrappedCompletionsFn } from "./getOnCreateEditor";
-import {
-  buildTextInputCodeMirrorCoreView,
-  getInitialTextInputCodeMirrorActivationEvent,
-  planTextInputCodeMirrorMouseDown,
-  shouldActivateTextInputCodeMirrorFromFocus,
-  shouldAutoActivateTextInputCodeMirrorOnMount,
-  shouldRenderTextInputCodeMirrorDummy,
-  shouldTrackTextInputCodeMirrorInitializationInState,
-} from "./textInputCodeMirrorView";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
-
-type TextInputCodeMirrorActivationEvent =
-  | MouseEvent<HTMLElement>
-  | "tab"
-  | null;
 
 export function TextInputCodeMirror({
   sectionId,
@@ -54,44 +34,11 @@ export function TextInputCodeMirror({
   autocomplete = true,
   isKeyName = false,
   isDisabled = false,
-  shouldAutoActivateOnMount = false,
   completionsFn,
-  onAutoActivatedEditorReady,
 }) {
-  const initialActivationEvent = getInitialTextInputCodeMirrorActivationEvent({
-    isDisabled,
-    shouldAutoActivateOnMount,
-  });
-  const [activationEvent, setActivationEvent] =
-    useState<TextInputCodeMirrorActivationEvent>(initialActivationEvent);
+  const [activationEvent, setActivationEvent] = useState(null);
   const [realIsInitialized, setRealIsInitialized] = useState(false);
-  const didAutoActivateOnMountRef = useRef(initialActivationEvent === "tab");
   const theme = useCodeMirrorStyle(color);
-  const shouldTrackInitializationInState =
-    shouldTrackTextInputCodeMirrorInitializationInState({
-      shouldAutoActivateOnMount,
-    });
-  const shouldRenderDummy = shouldRenderTextInputCodeMirrorDummy({
-    hasActivationEvent: activationEvent !== null,
-    isRealEditorInitialized: realIsInitialized,
-    shouldAutoActivateOnMount,
-  });
-
-  useEffect(() => {
-    if (
-      !shouldAutoActivateTextInputCodeMirrorOnMount({
-        hasActivationEvent: activationEvent !== null,
-        hasAutoActivatedOnMount: didAutoActivateOnMountRef.current,
-        isDisabled,
-        shouldAutoActivateOnMount,
-      })
-    ) {
-      return;
-    }
-
-    didAutoActivateOnMountRef.current = true;
-    setActivationEvent("tab");
-  }, [activationEvent, isDisabled, shouldAutoActivateOnMount]);
 
   function localOnBlur() {
     // hack to prevent codemirror from
@@ -106,16 +53,13 @@ export function TextInputCodeMirror({
 
   // Has to be onMouseDownCapture to avoid section outline flashing
   // when section is locked.
-  function localOnMouseDownCapture(event: MouseEvent<HTMLElement>) {
-    const mouseDownPlan = planTextInputCodeMirrorMouseDown({
-      button: event.button,
-      isDisabled,
-    });
-
-    if (mouseDownPlan.shouldActivate) {
-      setActivationEvent(event);
+  function localOnMouseDownCapture(event) {
+    if (isDisabled) {
+      onMouseDown?.(event);
+      return;
     }
-    if (mouseDownPlan.shouldApplyActiveSectionChange) {
+    if (event.button === 0) {
+      setActivationEvent(event);
       applyActiveSectionChange({ interaction: "input-focus", sectionId });
     }
     onMouseDown?.(event);
@@ -123,19 +67,17 @@ export function TextInputCodeMirror({
 
   // focused via tab key
   function onFocus() {
-    if (
-      shouldActivateTextInputCodeMirrorFromFocus({
-        hasActivationEvent: activationEvent !== null,
-        isDisabled,
-      })
-    ) {
+    if (isDisabled) {
+      return;
+    }
+    if (!activationEvent) {
       setActivationEvent("tab");
     }
   }
 
   return (
     <>
-      {shouldRenderDummy && (
+      {!realIsInitialized && (
         <DummyCodeMirror
           divId={dummyDivId}
           code={value}
@@ -166,20 +108,25 @@ export function TextInputCodeMirror({
           initialEvent={activationEvent}
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
-          shouldTrackInitializationInState={shouldTrackInitializationInState}
           theme={theme}
           language={language}
           autocomplete={autocomplete}
           isKeyName={isKeyName}
           tooltipParentDivId={tooltipParentDivId}
           completionsFn={completionsFn}
-          onAutoActivatedEditorReady={
-            shouldAutoActivateOnMount ? onAutoActivatedEditorReady : undefined
-          }
         />
       )}
     </>
   );
+}
+
+export function resolveTooltipParentDivId(
+  tooltipParentDivId: string | null | undefined,
+): string | null {
+  if (tooltipParentDivId === undefined) {
+    return null;
+  }
+  return tooltipParentDivId;
 }
 
 function CoreCodeMirror({
@@ -198,39 +145,27 @@ function CoreCodeMirror({
   initialEvent,
   realIsInitialized,
   setRealIsInitialized,
-  shouldTrackInitializationInState,
   theme,
   language,
   autocomplete,
   isKeyName,
   completionsFn,
   tooltipParentDivId,
-  onAutoActivatedEditorReady,
 }) {
+  const divId = `CodeMirror-${sectionId}-${paramInfoId}${isKeyName ? "-keyName" : ""}`;
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
-  const didImperativelyRevealEditorRef = useRef(false);
-  const coreView = buildTextInputCodeMirrorCoreView({
-    sectionId,
-    paramInfoId,
-    isKeyName,
-    isDeploymentMode,
-    autocomplete,
-    language,
-    tooltipParentDivId,
-  });
-  const tooltipParent = useCodeMirrorTooltipParent(
-    coreView.resolvedTooltipParentDivId,
-  );
+  const canUseLsp = !isDeploymentMode;
+  const shouldAutocomplete = canUseLsp && autocomplete && language === "python";
+  const resolvedTooltipParentDivId =
+    resolveTooltipParentDivId(tooltipParentDivId);
+  const tooltipParent = useCodeMirrorTooltipParent(resolvedTooltipParentDivId);
 
   const resolvedCompletionsFn = useCallback(
-    coreView.shouldAutocomplete
+    shouldAutocomplete
       ? completionsFn ?? getTextFieldCompletionsFn(sectionId, paramInfoId)
       : () => null,
-    [sectionId, paramInfoId, coreView.shouldAutocomplete, completionsFn],
+    [sectionId, paramInfoId, shouldAutocomplete, completionsFn],
   );
-  const shouldHideEditor = shouldTrackInitializationInState
-    ? !realIsInitialized
-    : !didImperativelyRevealEditorRef.current;
 
   const extensions = getExtensions({
     parent: tooltipParent,
@@ -246,24 +181,16 @@ function CoreCodeMirror({
 
   const onCreateEditor = getOnCreateEditor({
     initialEvent,
-    onEditorReady: () => {
-      if (shouldTrackInitializationInState) {
-        setRealIsInitialized(true);
-      } else {
-        didImperativelyRevealEditorRef.current = true;
-        document.getElementById(coreView.divId)?.classList.remove("opacity-0");
-      }
-      onAutoActivatedEditorReady?.();
-    },
-    divId: coreView.divId,
+    setRealIsInitialized,
+    divId,
     value,
     defaultVal,
   });
 
   return (
     <CodeMirror
-      id={coreView.divId}
-      className={`${className} ${shouldHideEditor ? "opacity-0" : ""}`.trim()}
+      id={divId}
+      className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
       value={value}
       placeholder={defaultVal}
       basicSetup={{

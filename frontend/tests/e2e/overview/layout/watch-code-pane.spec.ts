@@ -1,5 +1,18 @@
 import { expect, test } from "@playwright/test";
-import { ensureAppReady, seedLocalStorage } from "../../helpers";
+import fs from "node:fs/promises";
+import path from "node:path";
+import {
+  cleanupIsolatedProject,
+  ensureAppReady,
+  loadProjectConfig,
+  openIsolatedProject,
+  postBackend,
+  seedLocalStorage,
+} from "../../helpers";
+
+type FileBrowserRootResponse = {
+  rootPath?: string;
+};
 
 test("watch code settings open from controls portal with all options", async ({
   page,
@@ -134,4 +147,135 @@ test("watch code controls stay hidden in deployment mode", async ({ page }) => {
   await expect(page.getByTestId("rf__watch-code-settings-portal")).toHaveCount(
     0,
   );
+});
+
+test("watch code file updates appear live and reload without crashing", async ({
+  page,
+}) => {
+  await seedLocalStorage(page, { overviewTab: "Overview", overviewVis: true });
+  await ensureAppReady(page);
+
+  let projectContext: Awaited<ReturnType<typeof openIsolatedProject>> | null =
+    null;
+  let absoluteFilePath = "";
+
+  try {
+    projectContext = await openIsolatedProject(page);
+
+    const root = await postBackend<FileBrowserRootResponse>(
+      page,
+      "/getFileBrowserRoot",
+      null,
+    );
+    const rootPath = root?.rootPath;
+    if (!rootPath) {
+      throw new Error("Missing file browser root path.");
+    }
+
+    const relativeFilePath = "pw_watch_code_live.py";
+    const moduleName = "pw_watch_code_live";
+    const callableName = "pw_watch_code_live_sync";
+    absoluteFilePath = path.join(rootPath, relativeFilePath);
+    await fs.writeFile(absoluteFilePath, "", "utf-8");
+
+    const watchCodeSettingsButton = page.getByTestId("rf__watch-code-settings");
+    await watchCodeSettingsButton.click();
+
+    const portal = page.getByTestId("rf__watch-code-settings-portal");
+    await expect(portal).toBeVisible();
+
+    await portal.getByRole("button", { name: "Add File" }).click();
+    const fileInput = portal.getByPlaceholder("relative/path/to/file.py");
+    await fileInput.fill(relativeFilePath);
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/setWatchCodeInputs") &&
+          response.request().method() === "POST" &&
+          response.ok(),
+      ),
+      fileInput.press("Enter"),
+    ]);
+    await expect
+      .poll(async () => {
+        const projectState = (await loadProjectConfig(page)) as {
+          projectConfig?: { watchCodeFiles?: string[] };
+        };
+        return projectState.projectConfig?.watchCodeFiles ?? [];
+      })
+      .toContain(relativeFilePath);
+
+    const toggleButton = portal.getByRole("button", {
+      name: /Enable Watch Code|Disable Watch Code/,
+    });
+    await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          response.url().includes("/api/setWatchCodeEnabled") &&
+          response.request().method() === "POST" &&
+          response.ok(),
+      ),
+      toggleButton.click(),
+    ]);
+    await expect(toggleButton).toHaveAttribute("aria-pressed", "true");
+    await expect
+      .poll(async () => {
+        const projectState = (await loadProjectConfig(page)) as {
+          projectConfig?: { watchCodeEnabled?: boolean };
+        };
+        return projectState.projectConfig?.watchCodeEnabled ?? false;
+      })
+      .toBe(true);
+
+    await fs.writeFile(
+      absoluteFilePath,
+      `def ${callableName}(value: int):\n    return value\n`,
+      "utf-8",
+    );
+
+    await expect
+      .poll(
+        async () => {
+          const projectState = await loadProjectConfig(page);
+          return Object.values(projectState.sections).filter(
+            (section) => section.name === "Callable",
+          ).length;
+        },
+        {
+          timeout: 15000,
+          message:
+            "Expected Watch Code to create exactly one callable section.",
+        },
+      )
+      .toBe(1);
+
+    const projectState = await loadProjectConfig(page);
+    const callableSectionEntry = Object.entries(projectState.sections).find(
+      ([, section]) => section.name === "Callable",
+    );
+    if (!callableSectionEntry) {
+      throw new Error("Missing Watch Code callable section in project state.");
+    }
+    const [callableSectionId] = callableSectionEntry;
+    const callableNode = page.locator(
+      `.react-flow__node[data-id="${callableSectionId}"]`,
+    );
+
+    await expect(callableNode).toBeVisible();
+    await expect(callableNode).toContainText(callableName);
+    await expect(
+      page.getByText(`from ${moduleName} import ${callableName}`),
+    ).toBeVisible();
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.locator(".react-flow__pane")).toBeVisible();
+    await expect(page.getByText("Unhandled Thrown Error!")).toHaveCount(0);
+    await expect(callableNode).toBeVisible();
+    await expect(callableNode).toContainText(callableName);
+  } finally {
+    if (absoluteFilePath) {
+      await fs.rm(absoluteFilePath, { force: true });
+    }
+    await cleanupIsolatedProject(page, projectContext);
+  }
 });

@@ -2,6 +2,7 @@ import {
   buildPluginPaneOverviewTabName,
   parsePluginPaneOverviewTabName,
   REQUIRED_UI_EDITOR_TABS,
+  UIEditorTabNamePrettified,
   UIEditorTabNameEnum,
 } from "utils/constants";
 import { SectionTypeEnum } from "utils/generatedTypes";
@@ -58,5 +59,10 @@ describe("required ui editor tabs compatibility", () => {
       UIEditorTabNameEnum.SectionVariantsConfig,
     ]);
     expect(REQUIRED_UI_EDITOR_TABS[SectionTypeEnum.IFrame]).toEqual([]);
+  });
+
+  it("uses the variants label for the section variants tab", () => {
+    expect(UIEditorTabNamePrettified[UIEditorTabNameEnum.SectionVariantsConfig])
+      .toBe("Variants");
   });
 });
