@@ -133,6 +133,22 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
           },
         ],
         externalServers: [],
+        resolvedServers: [
+          {
+            serverId: "setta",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 8,
+            quickInfo: "Connected: 8 tools",
+          },
+        ],
       },
     });
     window.__SETTA_CHROME_REPRO_ACTIVE__ = false;
@@ -207,6 +223,22 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
             toolCount: 8,
           },
         ],
+        resolvedServers: [
+          {
+            serverId: "setta",
+            transport: "streamable_http",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 8,
+            quickInfo: "Connected: 8 tools",
+          },
+        ],
       },
     });
 
@@ -269,6 +301,22 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
             toolCount: 79,
           },
         ],
+        resolvedServers: [
+          {
+            serverId: "setta",
+            transport: "streamable_http",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 79,
+            quickInfo: "Connected: 79 tools",
+          },
+        ],
       },
     });
 
@@ -296,6 +344,88 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
     expect(host.textContent).toContain("streamable_http");
     expect(serverStatus?.textContent).toContain("Connected: 79 tools");
     expect(serverDot).not.toBeNull();
+  });
+
+  it("uses configured transport and setta tool count when claude runtime status is partial", async () => {
+    routeMocks.getMcpRuntimeStatus.mockResolvedValue({
+      status: 200,
+      data: {
+        llmConfigPath: "/tmp/setta_files/llm_config.json",
+        activeSettaFilesLocation: "custom",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 79,
+          },
+        ],
+        externalServers: [
+          {
+            serverId: "setta",
+            source: "external_runtime",
+            transport: "",
+            endpoint: "",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 0,
+          },
+        ],
+        resolvedServers: [
+          {
+            serverId: "setta",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 79,
+            quickInfo: "Connected: 79 tools",
+          },
+        ],
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <ProjectChatSkillsMcpViewer
+          projectConfigId="project-alpha"
+          chatId="chat-alpha"
+          engineConfigId="engine-claude-code"
+          engineType={EngineTypeEnum.external_agent}
+          externalAgentToolType={ExternalAgentToolTypeEnum.claude_code}
+          viewMode="mcp"
+        />,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const serverStatus = host.querySelector(
+      '[data-testid="skills-mcp-server-status"]',
+    );
+    expect(host.textContent).toContain("sse");
+    expect(host.textContent).toContain("http://127.0.0.1:8019/mcp");
+    expect(serverStatus?.textContent).toContain("Connected: 79 tools");
   });
 
   it("publishes MCP runtime status app-state snapshots during repro capture", async () => {
@@ -332,6 +462,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
             activeSettaFilesLocation: "custom",
             servers: expect.any(Array),
             externalServers: expect.any(Array),
+            resolvedServers: expect.any(Array),
           }),
         }),
       }),

@@ -41,6 +41,7 @@ type MCPRuntimeStatusResponse struct {
 	ActiveSettaFilesLocation string                     `json:"activeSettaFilesLocation"`
 	Servers                  []mcpx.ServerRuntimeStatus `json:"servers"`
 	ExternalServers          []mcpx.ServerRuntimeStatus `json:"externalServers"`
+	ResolvedServers          []MCPResolvedRuntimeServer `json:"resolvedServers"`
 }
 
 func RegisterMCPRoutes(router chi.Router, deps MCPRouteDependencies) error {
@@ -86,6 +87,7 @@ func mcpRuntimeStatusHandler(deps MCPRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Failed to read external MCP runtime status.")
 			return
 		}
+		resolvedServers := resolveMCPRuntimeDisplayServers(servers, externalServers)
 		if deps.Logger != nil {
 			deps.Logger.Debug(
 				"resolved MCP runtime status",
@@ -95,6 +97,7 @@ func mcpRuntimeStatusHandler(deps MCPRouteDependencies) http.HandlerFunc {
 				slog.String("engine_config_id", normalizeOptionalString(payload.EngineConfigID)),
 				slog.Int("setta_server_count", len(servers)),
 				slog.Int("external_server_count", len(externalServers)),
+				slog.Int("resolved_server_count", len(resolvedServers)),
 			)
 		}
 
@@ -103,6 +106,7 @@ func mcpRuntimeStatusHandler(deps MCPRouteDependencies) http.HandlerFunc {
 			ActiveSettaFilesLocation: deps.ActiveSettaFilesLocation,
 			Servers:                  servers,
 			ExternalServers:          externalServers,
+			ResolvedServers:          resolvedServers,
 		})
 	}
 }

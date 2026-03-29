@@ -241,6 +241,15 @@ func TestMCPRuntimeStatusRouteReturnsExternalStatuses(t *testing.T) {
 	if payload.ExternalServers[0].ServerID != "setta" || payload.ExternalServers[0].State != mcpx.RuntimeStateConnected {
 		t.Fatalf("unexpected external server status %#v", payload.ExternalServers[0])
 	}
+	if len(payload.ResolvedServers) != 1 {
+		t.Fatalf("expected one resolved server status, got %#v", payload.ResolvedServers)
+	}
+	if payload.ResolvedServers[0].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected resolved transport streamable_http, got %#v", payload.ResolvedServers[0])
+	}
+	if payload.ResolvedServers[0].ToolCount != 4 {
+		t.Fatalf("expected resolved tool count 4, got %#v", payload.ResolvedServers[0])
+	}
 	if len(provider.calls) != 1 {
 		t.Fatalf("expected one external status provider call, got %#v", provider.calls)
 	}
@@ -330,6 +339,12 @@ func TestMCPRuntimeStatusRouteReturnsLatestExternalStatusesWithoutChatID(t *test
 	if payload.ExternalServers[0].Transport != mcpx.TransportStreamableHTTP {
 		t.Fatalf("expected streamable_http transport, got %#v", payload.ExternalServers[0])
 	}
+	if len(payload.ResolvedServers) != 1 {
+		t.Fatalf("expected one resolved server status, got %#v", payload.ResolvedServers)
+	}
+	if payload.ResolvedServers[0].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected resolved transport streamable_http, got %#v", payload.ResolvedServers[0])
+	}
 	if len(provider.calls) != 1 {
 		t.Fatalf("expected one external status provider call, got %#v", provider.calls)
 	}
@@ -378,8 +393,113 @@ func TestMCPRuntimeStatusRouteSkipsDisabledExternalProvider(t *testing.T) {
 	if len(payload.ExternalServers) != 0 {
 		t.Fatalf("expected disabled provider to return no external servers, got %#v", payload.ExternalServers)
 	}
+	if len(payload.ResolvedServers) != 0 {
+		t.Fatalf("expected disabled provider to return no resolved servers, got %#v", payload.ResolvedServers)
+	}
 	if len(provider.calls) != 0 {
 		t.Fatalf("expected disabled provider to skip runtime call, got %#v", provider.calls)
+	}
+}
+
+func TestMCPRuntimeStatusRouteResolvedServersKeepSettaMetadataWhenExternalStatusIsPartial(t *testing.T) {
+	t.Parallel()
+
+	runStore, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	runtime, err := externalagents.NewRuntime(externalagents.RuntimeOptions{
+		Runs: runStore,
+		TimeNow: func() time.Time {
+			return time.Date(2026, 3, 9, 11, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         externalagents.RunTypeExternalAgent,
+		"chatId":          "chat-external",
+		"projectConfigId": "project-alpha",
+		"engineConfigId":  "engine-claude-code",
+		"messages":        []any{},
+	}, time.Date(2026, 3, 9, 11, 0, 0, 0, time.UTC))
+	if err := runStore.Save(run); err != nil {
+		t.Fatalf("save external run: %v", err)
+	}
+	if err := runtime.ActivateRun(run.ID, stubExternalRuntimeController{}); err != nil {
+		t.Fatalf("activate external run: %v", err)
+	}
+	if err := runtime.UpsertMCPStatuses(run.ID, []mcpx.ServerRuntimeStatus{
+		{
+			ServerID:  "setta",
+			Source:    "external_runtime",
+			Transport: "",
+			Endpoint:  "",
+			State:     mcpx.RuntimeStateConnected,
+			ToolCount: 0,
+		},
+	}); err != nil {
+		t.Fatalf("upsert external runtime status: %v", err)
+	}
+	provider := &testExternalMCPStatusProvider{runtime: runtime}
+
+	handler, err := NewHandler(Dependencies{
+		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Info:   stubInfoService{mode: "ide", info: RuntimeInfo{Mode: "ide"}},
+		Register: func(r chi.Router) {
+			if err := RegisterMCPRoutes(r, MCPRouteDependencies{
+				ModePolicy:    modes.NewPolicy(config.ModeIDE),
+				LLMConfigPath: "/tmp/workspace/setta_files/llm_config.json",
+				Client: stubMCPStatusProvider{statuses: []mcpx.ServerRuntimeStatus{
+					{
+						ServerID:  "setta",
+						Source:    "setta_mcp",
+						Transport: mcpx.TransportSSE,
+						Endpoint:  "http://127.0.0.1:8000/mcp",
+						State:     mcpx.RuntimeStateConnected,
+						ToolCount: 79,
+					},
+				}},
+				ExternalStatusProvider: provider,
+			}); err != nil {
+				panic(err)
+			}
+		},
+	})
+	if err != nil {
+		t.Fatalf("new handler: %v", err)
+	}
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/mcpServerRuntimeStatus", bytes.NewBufferString(`{"chatId":"chat-external","engineConfigId":"engine-claude-code"}`))
+	request.Header.Set("Content-Type", "application/json")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload MCPRuntimeStatusResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode payload: %v", err)
+	}
+	if len(payload.ResolvedServers) != 1 {
+		t.Fatalf("expected one resolved server status, got %#v", payload.ResolvedServers)
+	}
+	if payload.ResolvedServers[0].ServerID != "setta" {
+		t.Fatalf("unexpected resolved server %#v", payload.ResolvedServers[0])
+	}
+	if payload.ResolvedServers[0].Transport != mcpx.TransportSSE {
+		t.Fatalf("expected resolved transport sse, got %#v", payload.ResolvedServers[0])
+	}
+	if payload.ResolvedServers[0].Endpoint != "http://127.0.0.1:8000/mcp" {
+		t.Fatalf("expected resolved endpoint from setta runtime, got %#v", payload.ResolvedServers[0])
+	}
+	if payload.ResolvedServers[0].ToolCount != 79 {
+		t.Fatalf("expected resolved tool count 79 from setta runtime, got %#v", payload.ResolvedServers[0])
+	}
+	if payload.ResolvedServers[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("expected resolved state connected, got %#v", payload.ResolvedServers[0])
 	}
 }
 

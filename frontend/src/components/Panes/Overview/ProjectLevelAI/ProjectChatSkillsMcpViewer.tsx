@@ -709,10 +709,9 @@ export function ProjectChatSkillsMcpViewer({
   >(null);
   const [mcpRuntimeStatusByServerId, setMcpRuntimeStatusByServerId] =
     useState<Record<string, McpRuntimeServerStatus> | null>(null);
-  const [externalRuntimeServers, setExternalRuntimeServers] = useState<
+  const [runtimeServers, setRuntimeServers] = useState<
     Array<{
       serverId: string;
-      source: string;
       transport: string;
       endpoint: string;
     }>
@@ -920,18 +919,16 @@ export function ProjectChatSkillsMcpViewer({
           detail ?? "Failed to load MCP runtime status.",
         );
         setMcpRuntimeStatusByServerId(null);
-        setExternalRuntimeServers([]);
+        setRuntimeServers([]);
         setMcpConfigPath(null);
         setSettaFilesLocation(null);
         setMcpRuntimeStatusLoading(false);
         return;
       }
-      const settaStatuses = res.data.servers;
-      const externalStatuses = res.data.externalServers;
-      const runtimeStatusesByServerId = toRuntimeStatusByServerId([
-        ...settaStatuses,
-        ...externalStatuses,
-      ]);
+      const resolvedStatuses = res.data.resolvedServers;
+      const runtimeStatusesByServerId = toRuntimeStatusByServerId(
+        resolvedStatuses,
+      );
       postChromeReproEvent("mcp-runtime-status", {
         projectConfigId,
         chatId: chatId ?? null,
@@ -940,10 +937,9 @@ export function ProjectChatSkillsMcpViewer({
         derivedRuntimeStatusByServerId: runtimeStatusesByServerId,
       });
       setMcpRuntimeStatusByServerId(runtimeStatusesByServerId);
-      setExternalRuntimeServers(
-        externalStatuses.map((status) => ({
+      setRuntimeServers(
+        resolvedStatuses.map((status) => ({
           serverId: status.serverId,
-          source: status.source,
           transport: status.transport,
           endpoint: status.endpoint,
         })),
@@ -1012,11 +1008,11 @@ export function ProjectChatSkillsMcpViewer({
       mcpServers: allLLMConfigs?.mcpServers,
       mcpConfigPath,
       settaFilesLocation,
-      externalRuntimeServers,
+      runtimeServers,
     });
   }, [
     allLLMConfigs?.mcpServers,
-    externalRuntimeServers,
+    runtimeServers,
     mcpConfigPath,
     settaFilesLocation,
   ]);
@@ -1813,7 +1809,6 @@ export function ProjectChatSkillsMcpViewer({
                       const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
                       const status = resolveMcpServerStatus({
                         serverId: server.serverId,
-                        source: server.source,
                         endpoint: server.endpoint,
                         runtimeStatusByServerId: mcpRuntimeStatusByServerId,
                         runtimeStatusLoading: mcpRuntimeStatusLoading,
