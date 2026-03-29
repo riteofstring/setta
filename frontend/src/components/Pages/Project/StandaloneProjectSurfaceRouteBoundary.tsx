@@ -2,6 +2,7 @@ import { type ManagedChatSurfaceAuthorityState } from "components/Chat/sharePoli
 import { ProjectChatWindowSurface } from "components/ChatWindowing/ProjectChatWindowSurface";
 import { UnifiedChatSurface } from "components/ChatWindowing/UnifiedChatSurface";
 import { buildStandalonePageProjectChatSurfaceId } from "components/ChatWindowing/projectChatSurfaceIds";
+import { LoadingSpinner } from "components/Pages/LoadingSpinner";
 import type { SectionContainerAreaDictProps } from "components/Section/Container/sectionContainerAreaView";
 import { FloatingBox } from "components/Utils/FloatingBox";
 import { SectionDndContext } from "forks/dnd-kit/SectionDndContext";
@@ -63,6 +64,32 @@ function StandaloneSurfaceShell({ children }: { children: ReactNode }) {
       </section>
     </SectionDndContext>
   );
+}
+
+function canRenderStandaloneSectionSurface({
+  managedChatAuthorityState,
+  target,
+}: {
+  managedChatAuthorityState: ManagedChatSurfaceAuthorityState;
+  target: StandaloneSurfaceTarget;
+}): boolean {
+  if (target.kind !== "section") {
+    return true;
+  }
+
+  const variantId =
+    managedChatAuthorityState.projectConfig.sectionVariantMap[target.sectionId];
+  if (variantId === undefined) {
+    return false;
+  }
+  if (!managedChatAuthorityState.sections[target.sectionId]) {
+    return false;
+  }
+  const variant = managedChatAuthorityState.sectionVariants[variantId];
+  if (!variant) {
+    return false;
+  }
+  return managedChatAuthorityState.sectionImpls[variant.impl] !== undefined;
 }
 
 export function StandaloneManagedChatBlockedSurface() {
@@ -236,6 +263,19 @@ function _StandaloneProjectSurfaceRouteBoundary({
           canUseManagedChat={canUseManagedChat}
           managedChatAuthorityState={managedChatAuthorityState}
         />
+      </StandaloneSurfaceShell>
+    );
+  }
+
+  if (
+    !canRenderStandaloneSectionSurface({
+      managedChatAuthorityState,
+      target,
+    })
+  ) {
+    return (
+      <StandaloneSurfaceShell>
+        <LoadingSpinner />
       </StandaloneSurfaceShell>
     );
   }

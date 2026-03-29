@@ -135,6 +135,29 @@ const managedChatAuthorityState = {
   sectionImpls: {},
 };
 
+const renderableManagedChatAuthorityState = {
+  projectConfig: {
+    sectionVariantMap: {
+      "section-1": "variant-1",
+    },
+  },
+  sections: {
+    "section-1": {
+      id: "section-1",
+    },
+  },
+  sectionVariants: {
+    "variant-1": {
+      impl: "impl-1",
+    },
+  },
+  sectionImpls: {
+    "impl-1": {
+      id: "impl-1",
+    },
+  },
+};
+
 const renderDictArea = () => null;
 const renderCoreBody = () => null;
 const renderNestedSections = () => null;
@@ -152,7 +175,7 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
           sectionType: SectionTypeEnum.Group,
         }}
         standaloneWindowSpace={null}
-        managedChatAuthorityState={managedChatAuthorityState}
+        managedChatAuthorityState={renderableManagedChatAuthorityState}
         canUseManagedChat
         projectChatThreadTitle={null}
         standaloneProjectChatId={null}
@@ -185,6 +208,42 @@ describe("StandaloneProjectSurfaceRouteBoundary", () => {
       mockStandaloneProjectSurfaceRouteSectionBoundary.mock.calls[0]?.[0]
         ?.renderNestedSections,
     ).toBe(renderNestedSections);
+  });
+
+  it("keeps standalone section routes on the loading shell until the section is renderable", () => {
+    mockStandaloneProjectSurfaceRouteSectionBoundary.mockClear();
+    const markup = renderToStaticMarkup(
+      <StandaloneProjectSurfaceRouteBoundary
+        projectConfigId="project-config-1"
+        target={{
+          kind: "section",
+          sectionId: "section-1",
+          sectionName: "Language Server",
+          sectionType: SectionTypeEnum.Group,
+        }}
+        standaloneWindowSpace={null}
+        managedChatAuthorityState={managedChatAuthorityState}
+        canUseManagedChat
+        projectChatThreadTitle={null}
+        standaloneProjectChatId={null}
+        standaloneProjectChatThreadRouteInvalid={false}
+        standaloneProjectChatThreadMissing={false}
+        renderDictArea={renderDictArea}
+        renderCoreBody={renderCoreBody}
+        renderNestedSections={renderNestedSections}
+        setStandaloneProjectChatId={() => undefined}
+        onProjectChatBlockedErrorCodeChange={() => undefined}
+      />,
+    );
+
+    expect(markup).toContain('data-testid="standalone-project-surface-page"');
+    expect(markup).toContain("gg-spinner");
+    expect(markup).not.toContain(
+      'data-testid="mock-standalone-project-surface-route-section-boundary"',
+    );
+    expect(
+      mockStandaloneProjectSurfaceRouteSectionBoundary,
+    ).not.toHaveBeenCalled();
   });
 
   it("routes standalone chat targets through the lifted project chat frame", () => {

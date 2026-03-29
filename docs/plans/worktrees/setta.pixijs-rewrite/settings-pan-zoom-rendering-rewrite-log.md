@@ -10750,3 +10750,37 @@ Record:
     - on both pages, the same low-level import/action sequence completed successfully and read back the same normalized chrome state: `overviewTab=Overview`, `uiEditorVis=false`, `uiEditorWidth=500`, `uiEditorTrueWidth=40`, `overviewWidth=335`, `overviewTrueWidth=335`
 - Next action:
   - Resume the next bounded live Pixi parity slice against the read-only `main` oracle now that both surfaces can be normalized symmetrically before comparison.
+
+## 2026-03-30 327
+
+- Item: Harden the standalone section route so the live section canary waits for renderable section metadata instead of mounting into a transient missing-variant state.
+- Status: `done`
+- Details:
+  - Took a bounded runtime-hardening slice that was orthogonal to the closed seam-lift lane but directly useful for live verification:
+    - recent standalone section checks had shown the route could briefly reach the lower section surface while the current project metadata was still incomplete, which is the same failure shape that previously surfaced `getCurrSectionVariantId(...)` / `buildLiveDictAreaSectionState(...)` stack traces during direct standalone-route loads
+  - Updated the standalone route boundary to keep section routes on the existing loading shell until the current managed-chat/project metadata contains:
+    - the section core
+    - the active section variant id
+    - the section impl for that variant
+    - files:
+      - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`
+      - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+  - Added focused coverage for both sides of the boundary:
+    - a healthy renderable standalone section target still mounts the section surface normally
+    - a not-yet-renderable standalone section target now stays on the loading shell instead of mounting the lower section route surface early
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageBoundary.test.tsx`
+    - result: passed (`10` passed)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2` passed)
+  - Chrome DevTools MCP visual check on the current worktree runtime (`http://127.0.0.1:3043`) in a fresh sub-agent context after bootstrapping with the supplied session:
+    - `http://127.0.0.1:3043/settings/chat` rendered a healthy settings/chat surface with the thread rail, top toolbar, empty-state actions, and composer visible
+    - `http://127.0.0.1:3043/settings/section/gui` rendered a healthy standalone section surface with the args list and `gui` settings controls visible; it did not fail closed or hit the earlier route-level error state
+    - representative backend/API requests on the checked routes returned `200`
+    - remaining console noise on the standalone section surface was limited to preexisting React 19 `element.ref` deprecation errors plus existing accessibility warnings about missing form `id` / `name` and invalid `aria-labelledby` targets
+  - Resulting verification decision:
+    - the live standalone section route is once again a trustworthy section-surface canary for render/fail-closed checks on this worktree runtime
+- Next action:
+  - Return to the active live Pixi parity sequence against the read-only `main` oracle now that the standalone section canary is stable again for supporting route-level checks.
