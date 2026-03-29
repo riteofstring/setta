@@ -2,7 +2,11 @@
 
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { useProjectState, useSettings } from "state/definitions";
+import {
+  useProjectState,
+  useSettings,
+  useToolArgumentPreview,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
@@ -40,18 +44,22 @@ function syncStoreInitialState(store: {
 
 function seedLiveDictAreaSectionStoreBoundaryState({
   sectionId,
+  displayNamesById = {},
   edgeInputParamIds = [],
   edgeOutputPorts = [],
+  paramValues = {},
   pinnedParamIds = [],
+  previewParamValues = {},
   unpinnedParamIds = [],
-  displayNamesById = {},
 }: {
   sectionId: string;
+  displayNamesById?: Record<string, string>;
   edgeInputParamIds?: string[];
   edgeOutputPorts?: Array<{ accessor: string; id: string }>;
+  paramValues?: Record<string, string>;
   pinnedParamIds?: string[];
+  previewParamValues?: Record<string, string>;
   unpinnedParamIds?: string[];
-  displayNamesById?: Record<string, string>;
 }) {
   const variantId = `${sectionId}-variant`;
   const implId = `${sectionId}-impl`;
@@ -153,9 +161,19 @@ function seedLiveDictAreaSectionStoreBoundaryState({
       coreNameEditable: true,
       passingStyle: ParameterPassingStyleEnum.DEFAULT,
       defaultVal: "",
-      value: "",
+      value: paramValues[paramId] ?? "",
     };
   }
+
+  const previewParamEntriesById =
+    Object.keys(previewParamValues).length === 0
+      ? null
+      : Object.fromEntries(
+          Object.entries(previewParamValues).map(([paramId, value]) => [
+            paramId,
+            { toolCallId: "tool-call-1", value },
+          ]),
+        );
 
   useProjectState.setState((state) => {
     state.projectConfig = projectConfig;
@@ -185,6 +203,22 @@ function seedLiveDictAreaSectionStoreBoundaryState({
     };
   });
   syncStoreInitialState(useProjectState);
+
+  useToolArgumentPreview.setState((state) => {
+    state.byProjectConfigId =
+      previewParamEntriesById === null
+        ? {}
+        : {
+            [projectConfig.id]: {
+              previewCallableNameBySectionId: {},
+              previewCodeBySectionId: {},
+              previewParamValueBySectionAndParamId: {
+                [sectionId]: previewParamEntriesById,
+              },
+            },
+          };
+  });
+  syncStoreInitialState(useToolArgumentPreview);
 }
 
 function StoreBoundaryHarness({
@@ -326,5 +360,62 @@ describe("useLiveDictAreaSectionStoreBoundary", () => {
     });
 
     expect(onBoundaryChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("recomputes the boundary when tool preview values change", async () => {
+    const sectionId = "section-live-dict-area-section-store-preview";
+    const handleColumnResizeStart = vi.fn();
+    const onBoundaryChange = vi.fn();
+    const projectConfigId = `project-${sectionId}`;
+
+    seedLiveDictAreaSectionStoreBoundaryState({
+      sectionId,
+      paramValues: {
+        "preview-param": "base value",
+      },
+      previewParamValues: {
+        "preview-param": "preview value",
+      },
+      unpinnedParamIds: ["preview-param"],
+    });
+
+    await act(async () => {
+      root.render(
+        <StoreBoundaryHarness
+          bgColor="bg-transparent"
+          handleColumnResizeStart={handleColumnResizeStart}
+          onBoundaryChange={onBoundaryChange}
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    const boundary = onBoundaryChange.mock.lastCall?.[0];
+    expect(boundary.getParamValuePreview("preview-param")).toBe(
+      "preview value",
+    );
+
+    await act(async () => {
+      useToolArgumentPreview.setState((state) => {
+        const previewProjectState = state.byProjectConfigId[projectConfigId];
+        if (!previewProjectState) {
+          throw new Error("Expected preview project state");
+        }
+
+        previewProjectState.previewParamValueBySectionAndParamId[sectionId] = {
+          "preview-param": {
+            toolCallId: "tool-call-2",
+            value: "updated preview value",
+          },
+        };
+      });
+    });
+
+    const updatedBoundary = onBoundaryChange.mock.lastCall?.[0];
+    expect(updatedBoundary.getParamValuePreview("preview-param")).toBe(
+      "updated preview value",
+    );
+    expect(onBoundaryChange).toHaveBeenCalledTimes(2);
   });
 });

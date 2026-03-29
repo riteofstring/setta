@@ -8433,3 +8433,71 @@ Record:
     - the overlay showed visible rows in the viewport and did not mount editor controls inside the checked overlay
 - Next action:
   - Restore the read-only `main` reference session and run the blocked side-by-side `100%` canary comparison before doing more live Pixi token-parity tweaks.
+
+## 2026-03-29 261
+
+- Item: Retry the blocked side-by-side `main` canary comparison for the live Pixi settings viewport.
+- Status: `blocked`
+- Details:
+  - Followed the explicit next action from item `260` instead of starting another token-parity tweak:
+    - verify whether the read-only `main` visual oracle is available locally
+    - run the side-by-side `100%` canary comparison only if that reference surface exists
+  - Local runtime check from this worktree confirmed the current non-main stack is still up:
+    - `http://127.0.0.1:3044/settings` returned `200`
+    - `http://127.0.0.1:8044/` returned `401`, which matches the authenticated backend gate
+  - The expected local `main` reference stack was still unavailable in this iteration:
+    - `http://127.0.0.1:3000/` was not reachable (`curl: (7) Failed to connect`)
+    - no usable `http://127.0.0.1:8000/` backend check could run because the frontend reference stack was already down
+  - Fresh-context Chrome DevTools MCP verification also confirmed the reference oracle was unavailable in the current headed browser session:
+    - open Setta pages were only `http://127.0.0.1:3044/settings?liveDictAreaInteractionMode=param-select` and `http://127.0.0.1:3044/settings`
+    - no `http://127.0.0.1:3000/settings` tab or other obvious read-only `main` settings tab was present
+  - Because the required `main` visual oracle was unavailable, the side-by-side parity gate could not run and no code change was started in this iteration.
+- Next action:
+  - Retry this iteration only after the read-only `main` reference session is actually reachable in Chrome, then run the blocked side-by-side `100%` canary comparison before any further live Pixi parity tweaks.
+
+## 2026-03-29 262
+
+- Item: Restore live Pixi row value-preview packets without reaching across stores through project state.
+- Status: `done`
+- Details:
+  - Continued the live Pixi scene-packet lane instead of another forwarding hop or another blind token tweak:
+    - the in-progress value-preview packet slice had introduced a runtime `TypeError` by reading `byProjectConfigId` from project state even though preview values live in the separate `useToolArgumentPreview` store
+  - Finished the bounded fix for that slice:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.test.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionInput.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts`
+    - `frontend/src/components/Params/groupContainerNodeScenePacket.ts`
+    - `frontend/src/components/Params/groupContainerScenePackets.ts`
+    - `frontend/src/components/Params/groupContainerScenePackets.test.ts`
+    - `frontend/src/components/Params/paramSwitchScenePackets.ts`
+    - `frontend/src/components/Params/paramSwitchScenePackets.test.ts`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+  - The repaired preview path now:
+    - keeps `buildLiveDictAreaSectionState` pure by accepting preview entries explicitly instead of dereferencing the preview store through project state
+    - makes `useLiveDictAreaSectionStoreBoundary` subscribe to `useToolArgumentPreview` and recompute the section boundary when tool preview values change
+    - preserves normalized row-body preview shaping for multiline text and password masking while threading those values into the scene packet / Pixi layout path
+  - This removed the live `TypeError` overlay seen in the earlier CDP check and restored nonzero scene preview counts on the `pixi-node-body` canary.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx src/components/Params/groupContainerLiveDictAreaSectionBoundary.test.ts src/components/Params/groupContainerScenePackets.test.ts src/components/Params/groupContainerSceneBlockView.test.ts src/components/Params/paramSwitchScenePackets.test.ts src/components/Params/liveDictAreaPixiLayout.test.ts`
+      - result: passed (`18 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/groupContainerLiveDictAreaSectionInput.ts src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts src/components/Params/groupContainerLiveDictAreaSectionState.ts src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.ts src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx src/components/Params/groupContainerNodeScenePacket.ts src/components/Params/groupContainerScenePackets.ts src/components/Params/groupContainerScenePackets.test.ts src/components/Params/groupContainerSceneBlockView.test.ts src/components/Params/paramSwitchScenePackets.ts src/components/Params/paramSwitchScenePackets.test.ts`
+      - result: passed
+  - Playwright:
+    - helper retry:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host"`
+    - direct retry with the provided bootstrap token:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<iteration token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host"`
+      - result: both blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401` before product assertions
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - no `TypeError` overlay was visible on the checked page
+    - `All Settings` was visible and the live Pixi scene host markers were present with nonzero `data-live-dict-area-scene-value-preview-count` values
+    - blocker:
+      - the checked viewport still looked mostly blank inside the live Pixi section bodies even though the scene host reported populated preview counts
+      - no separate `main` reference tab was available, so this remained a single-surface check rather than a side-by-side oracle comparison
+- Next action:
+  - Investigate why the live Pixi section-body viewport still renders mostly blank despite nonzero scene preview counts, starting with scene row placement/clipping in the `pixi-node-body` canary before returning to `main` token-parity checks.

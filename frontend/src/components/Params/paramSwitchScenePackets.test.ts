@@ -25,6 +25,8 @@ describe("buildVisibleParamScenePackets", () => {
               "beta-leaf": "Beta Setting",
             }) as Record<string, string>
           )[paramId] ?? paramId,
+        getParamValuePreview: (paramId: string) =>
+          paramId === "beta-leaf" ? "preview-beta" : null,
       }),
     ).toEqual([
       {
@@ -39,6 +41,7 @@ describe("buildVisibleParamScenePackets", () => {
         id: "beta-leaf",
         kind: "value",
         label: "Beta Setting",
+        valuePreview: "preview-beta",
       },
     ]);
   });
@@ -57,6 +60,7 @@ describe("buildVisibleParamScenePackets", () => {
         },
         paramFilter: "missing",
         getParamDisplayName: () => "Alpha Setting",
+        getParamValuePreview: () => null,
       }),
     ).toEqual([
       {
@@ -86,6 +90,8 @@ describe("buildVisibleParamScenePackets", () => {
               "child-leaf": "Child Leaf",
             }) as Record<string, string>
           )[paramId] ?? paramId,
+        getParamValuePreview: (paramId: string) =>
+          paramId === "child-leaf" ? "preview-child" : null,
       }),
     ).toEqual([
       {
@@ -106,6 +112,7 @@ describe("buildVisibleParamScenePackets", () => {
         id: "child-leaf",
         kind: "value",
         label: "Child Leaf",
+        valuePreview: "preview-child",
       },
     ]);
   });

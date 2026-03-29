@@ -1,6 +1,11 @@
 import _ from "lodash";
 import { useMemo } from "react";
-import { useMisc, useProjectState, useSettings } from "state/definitions";
+import {
+  useMisc,
+  useProjectState,
+  useSettings,
+  useToolArgumentPreview,
+} from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import type { SectionTypeEnum } from "utils/generatedTypes";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
@@ -22,11 +27,23 @@ export function useLiveDictAreaSectionStoreBoundary({
 }: LiveDictAreaSectionStoreBoundaryInput): LiveDictAreaRenderBoundaryInput {
   const { canEditLayout, canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
+  const projectConfigId = useProjectState((state) => state.projectConfig.id);
+  const previewParamEntriesById = useToolArgumentPreview(
+    (state) =>
+      state.byProjectConfigId?.[projectConfigId]
+        ?.previewParamValueBySectionAndParamId?.[sectionId] ?? null,
+    _.isEqual,
+  );
   const unpinnedParamsAreaMinHeight = useSettings(
     (state) => state.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
   );
   const sectionState = useProjectState(
-    (state) => buildLiveDictAreaSectionState({ sectionId, state }),
+    (state) =>
+      buildLiveDictAreaSectionState({
+        previewParamEntriesById,
+        sectionId,
+        state,
+      }),
     _.isEqual,
   );
 

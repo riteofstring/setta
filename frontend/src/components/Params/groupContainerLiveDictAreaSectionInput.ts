@@ -1,4 +1,4 @@
-import type { SectionTypeEnum } from "utils/generatedTypes";
+import { CodeObjTypeEnum, type SectionTypeEnum } from "utils/generatedTypes";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
 import type { ParamEditorKind } from "./paramEditorActivation";
 
@@ -31,6 +31,7 @@ export type LiveDictAreaSectionInput = {
   unpinnedParamsAreaMinHeight: number;
   unpinnedRequiredParamIdsToPaths: Record<string, string[]>;
   unpinnedTopLevelParamIds: string[];
+  valuePreviewsById: Record<string, string>;
 };
 
 export function buildLiveDictAreaSectionDisplayNames({
@@ -71,6 +72,51 @@ export function buildLiveDictAreaSectionEditorKinds({
   }
 
   return editorKindsById;
+}
+
+export function resolveLiveDictAreaValuePreview({
+  codeObjType,
+  value,
+}: {
+  codeObjType: CodeObjTypeEnum;
+  value: string;
+}): string | null {
+  const normalizedValue = value.replace(/\s+/g, " ").trim();
+
+  if (normalizedValue.length === 0) {
+    return null;
+  }
+
+  if (codeObjType === CodeObjTypeEnum.PasswordParam) {
+    return "\u2022\u2022\u2022\u2022\u2022\u2022";
+  }
+
+  return normalizedValue;
+}
+
+export function buildLiveDictAreaSectionValuePreviews({
+  getParamValuePreview,
+  requiredParamIdsToPaths,
+  topLevelParamIds,
+}: {
+  getParamValuePreview: (paramId: string) => string | null;
+  requiredParamIdsToPaths: Record<string, string[]>;
+  topLevelParamIds: string[];
+}): Record<string, string> {
+  const paramIds = collectLiveDictAreaParamIds({
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+  });
+  const valuePreviewsById: Record<string, string> = {};
+
+  for (const paramId of paramIds) {
+    const valuePreview = getParamValuePreview(paramId);
+    if (valuePreview !== null) {
+      valuePreviewsById[paramId] = valuePreview;
+    }
+  }
+
+  return valuePreviewsById;
 }
 
 function collectLiveDictAreaParamIds({
@@ -114,6 +160,7 @@ export function buildLiveDictAreaSectionInput({
   unpinnedParamsAreaMinHeight,
   unpinnedRequiredParamIdsToPaths,
   unpinnedTopLevelParamIds,
+  valuePreviewsById,
 }: LiveDictAreaSectionInput): LiveDictAreaRenderBoundaryInput {
   return {
     bgColor,
@@ -130,6 +177,8 @@ export function buildLiveDictAreaSectionInput({
     },
     getParamDisplayName: (paramId: string) =>
       displayNamesById[paramId] ?? paramId,
+    getParamValuePreview: (paramId: string) =>
+      valuePreviewsById[paramId] ?? null,
     handleColumnResizeStart,
     hideUnpinnedParams,
     inputPorts: edgeInputPorts,

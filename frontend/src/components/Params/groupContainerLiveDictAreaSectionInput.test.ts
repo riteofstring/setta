@@ -1,8 +1,10 @@
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { CodeObjTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildLiveDictAreaSectionDisplayNames,
   buildLiveDictAreaSectionInput,
+  buildLiveDictAreaSectionValuePreviews,
+  resolveLiveDictAreaValuePreview,
 } from "./groupContainerLiveDictAreaSectionInput";
 
 describe("groupContainerLiveDictAreaSectionInput", () => {
@@ -62,6 +64,9 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
         "unpinned-param": ["unpinned-param"],
       },
       unpinnedTopLevelParamIds: ["unpinned-param"],
+      valuePreviewsById: {
+        "pinned-param": "42",
+      },
     });
 
     expect(result.canConnect).toBe(false);
@@ -74,6 +79,8 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
     ]);
     expect(result.getParamDisplayName("edge-param")).toBe("Edge Param");
     expect(result.getParamDisplayName("missing-param")).toBe("missing-param");
+    expect(result.getParamValuePreview("pinned-param")).toBe("42");
+    expect(result.getParamValuePreview("missing-param")).toBeNull();
     expect(result.pinned).toEqual({
       requiredParamIdsToPaths: {
         "pinned-param": ["pinned-param"],
@@ -93,5 +100,56 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
       },
       topLevelParamIds: ["unpinned-param"],
     });
+  });
+
+  it("collects only non-empty live value previews for row-body scene packets", () => {
+    expect(
+      buildLiveDictAreaSectionValuePreviews({
+        getParamValuePreview: (paramId: string) =>
+          (
+            ({
+              alpha: resolveLiveDictAreaValuePreview({
+                codeObjType: CodeObjTypeEnum.TextParam,
+                value: "  hello world  ",
+              }),
+              beta: null,
+              gamma: resolveLiveDictAreaValuePreview({
+                codeObjType: CodeObjTypeEnum.TextParam,
+                value: "line 1\nline 2",
+              }),
+            }) as Record<string, string | null>
+          )[paramId] ?? null,
+        requiredParamIdsToPaths: {
+          alpha: ["alpha"],
+          beta: ["beta"],
+          gamma: ["group", "gamma"],
+        },
+        topLevelParamIds: ["group", "alpha"],
+      }),
+    ).toEqual({
+      alpha: "hello world",
+      gamma: "line 1 line 2",
+    });
+  });
+
+  it("masks password params while preserving non-empty text previews", () => {
+    expect(
+      resolveLiveDictAreaValuePreview({
+        codeObjType: CodeObjTypeEnum.PasswordParam,
+        value: "super-secret",
+      }),
+    ).toBe("\u2022\u2022\u2022\u2022\u2022\u2022");
+    expect(
+      resolveLiveDictAreaValuePreview({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        value: "  1.0  ",
+      }),
+    ).toBe("1.0");
+    expect(
+      resolveLiveDictAreaValuePreview({
+        codeObjType: CodeObjTypeEnum.TextParam,
+        value: "   ",
+      }),
+    ).toBeNull();
   });
 });

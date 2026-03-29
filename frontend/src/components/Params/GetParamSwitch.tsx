@@ -73,6 +73,7 @@ export function GetParamSwitch({
       paramFilter: paramsImpl.paramFilter,
       getParamDisplayName: (paramId: string) =>
         getParamDisplayName(state, sectionId, paramId),
+      getParamValuePreview: () => null,
     });
   }, [
     codeObjImpls,

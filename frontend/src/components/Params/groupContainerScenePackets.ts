@@ -31,6 +31,7 @@ export type LiveDictAreaScenePacket = {
 type BuildParamAreaScenePacketArgs = {
   getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePreview?: (paramId: string) => string | null;
   grow: boolean;
   id: ParamListKey;
   listKey: ParamListKey;
@@ -50,6 +51,7 @@ export function buildLiveDictAreaScenePacket({
   hideUnpinnedParams,
   paramFilter,
   getParamDisplayName,
+  getParamValuePreview,
   pinned,
   unpinned,
 }: {
@@ -58,6 +60,7 @@ export function buildLiveDictAreaScenePacket({
   hideUnpinnedParams: boolean;
   paramFilter: string;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePreview?: (paramId: string) => string | null;
   pinned: {
     requiredParamIdsToPaths: Record<string, string[]>;
     topLevelParamIds: string[];
@@ -77,6 +80,7 @@ export function buildLiveDictAreaScenePacket({
     edgeInputParams,
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePreview,
     hideUnpinnedParams,
     paramFilter,
     requiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
@@ -93,6 +97,7 @@ export function buildLiveDictAreaScenePacket({
     edgeInputParams,
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePreview,
     hideUnpinnedParams,
     paramFilter,
     pinnedRequiredParamIdsToPaths: unpinned.pinnedRequiredParamIdsToPaths,
@@ -113,6 +118,7 @@ export function buildPinnedParamsAreaScenePacket({
   edgeInputParams,
   getParamEditorKind,
   getParamDisplayName,
+  getParamValuePreview,
   hideUnpinnedParams,
   paramFilter,
   requiredParamIdsToPaths,
@@ -121,6 +127,7 @@ export function buildPinnedParamsAreaScenePacket({
   edgeInputParams: string[];
   getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePreview?: (paramId: string) => string | null;
   hideUnpinnedParams: boolean;
   paramFilter: string;
   requiredParamIdsToPaths: Record<string, string[]>;
@@ -140,6 +147,7 @@ export function buildPinnedParamsAreaScenePacket({
   return buildParamAreaScenePacket({
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePreview,
     grow: false,
     id: "pinned",
     listKey: "pinned",
@@ -160,6 +168,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   edgeInputParams,
   getParamEditorKind,
   getParamDisplayName,
+  getParamValuePreview,
   hideUnpinnedParams,
   paramFilter,
   pinnedRequiredParamIdsToPaths,
@@ -173,6 +182,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   edgeInputParams: string[];
   getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePreview?: (paramId: string) => string | null;
   hideUnpinnedParams: boolean;
   paramFilter: string;
   pinnedRequiredParamIdsToPaths: Record<string, string[]>;
@@ -200,6 +210,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   return buildParamAreaScenePacket({
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePreview,
     grow: true,
     id: "unpinned",
     listKey: "unpinned",
@@ -217,6 +228,7 @@ export function buildUnpinnedParamsAreaScenePacket({
 function buildParamAreaScenePacket({
   getParamEditorKind,
   getParamDisplayName,
+  getParamValuePreview,
   grow,
   id,
   listKey,
@@ -238,6 +250,7 @@ function buildParamAreaScenePacket({
     requiredParamIdsToPaths,
     paramFilter,
     getParamDisplayName,
+    getParamValuePreview,
   });
 
   return {

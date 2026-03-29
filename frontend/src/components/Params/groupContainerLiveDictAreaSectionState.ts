@@ -5,12 +5,20 @@ import {
   getParamDisplayName,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
-import type { ZustandProjectState } from "state/definitions";
+import type {
+  ToolArgumentPreviewEntry,
+  ZustandProjectState,
+} from "state/definitions";
 import { C } from "utils/c";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import {
+  isBaseChildlessCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import {
   buildLiveDictAreaSectionDisplayNames,
   buildLiveDictAreaSectionEditorKinds,
+  buildLiveDictAreaSectionValuePreviews,
+  resolveLiveDictAreaValuePreview,
   type LiveDictAreaSectionInput,
 } from "./groupContainerLiveDictAreaSectionInput";
 import { resolveParamEditorKindFromCodeObjImpl } from "./paramEditorActivation";
@@ -31,14 +39,17 @@ export type LiveDictAreaSectionState = Pick<
   | "styleColor"
   | "unpinnedRequiredParamIdsToPaths"
   | "unpinnedTopLevelParamIds"
+  | "valuePreviewsById"
 >;
 
 type BuildLiveDictAreaSectionStateInput = {
+  previewParamEntriesById?: Record<string, ToolArgumentPreviewEntry> | null;
   sectionId: string;
   state: ZustandProjectState;
 };
 
 export function buildLiveDictAreaSectionState({
+  previewParamEntriesById = null,
   sectionId,
   state,
 }: BuildLiveDictAreaSectionStateInput): LiveDictAreaSectionState {
@@ -70,6 +81,26 @@ export function buildLiveDictAreaSectionState({
         resolveParamEditorKindFromCodeObjImpl(
           getCurrEffectiveCodeObjImpl(state, sectionId, paramId),
         ),
+      requiredParamIdsToPaths,
+      topLevelParamIds,
+    }),
+    valuePreviewsById: buildLiveDictAreaSectionValuePreviews({
+      getParamValuePreview: (paramId: string) => {
+        const codeObjImpl = getCurrEffectiveCodeObjImpl(
+          state,
+          sectionId,
+          paramId,
+          true,
+        );
+        if (!isBaseChildlessCodeObjImpl(codeObjImpl)) {
+          return null;
+        }
+
+        return resolveLiveDictAreaValuePreview({
+          codeObjType: codeObjImpl.type,
+          value: previewParamEntriesById?.[paramId]?.value ?? codeObjImpl.value,
+        });
+      },
       requiredParamIdsToPaths,
       topLevelParamIds,
     }),

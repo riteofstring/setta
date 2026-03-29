@@ -24,6 +24,7 @@ type ParamSceneValueRowPacket = {
   id: string;
   kind: "value";
   label: string;
+  valuePreview: string | null;
 };
 
 export type ParamSceneRowPacket =
@@ -37,6 +38,7 @@ type BuildVisibleParamScenePacketsArgs = {
   requiredParamIdsToPaths: Record<string, string[]>;
   paramFilter: string;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePreview?: (paramId: string) => string | null;
 };
 
 export function buildVisibleParamScenePackets({
@@ -45,6 +47,7 @@ export function buildVisibleParamScenePackets({
   requiredParamIdsToPaths,
   paramFilter,
   getParamDisplayName,
+  getParamValuePreview,
 }: BuildVisibleParamScenePacketsArgs): ParamSceneRowPacket[] {
   const visibleParamIds = resolveVisibleParamIds({
     paramIds,
@@ -77,6 +80,13 @@ export function buildVisibleParamScenePackets({
       ...(kind === "value" && getParamEditorKind
         ? {
             editorKind: getParamEditorKind(paramId),
+          }
+        : {}),
+      ...(kind === "value"
+        ? {
+            valuePreview: getParamValuePreview
+              ? getParamValuePreview(paramId)
+              : null,
           }
         : {}),
       id: paramId,

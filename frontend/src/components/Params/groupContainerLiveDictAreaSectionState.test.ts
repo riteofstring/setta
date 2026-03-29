@@ -1,4 +1,8 @@
-import { useProjectState, type ZustandProjectState } from "state/definitions";
+import {
+  useProjectState,
+  type ToolArgumentPreviewEntry,
+  type ZustandProjectState,
+} from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   CodeObjTypeEnum,
@@ -31,8 +35,10 @@ function seedLiveDictAreaSectionState({
   edgeOutputPorts = [],
   hiddenUnpinned = false,
   paramFilter = "",
+  paramValues = {},
   pinnedParamIds = [],
   positionAndSizeLocked = false,
+  previewParamValues = {},
   selectedParamIds = [],
   styleColor = null,
   unpinnedParamIds = [],
@@ -42,12 +48,17 @@ function seedLiveDictAreaSectionState({
   edgeOutputPorts?: Array<{ accessor: string; id: string }>;
   hiddenUnpinned?: boolean;
   paramFilter?: string;
+  paramValues?: Record<string, string>;
   pinnedParamIds?: string[];
   positionAndSizeLocked?: boolean;
+  previewParamValues?: Record<string, string>;
   selectedParamIds?: string[];
   styleColor?: string | null;
   unpinnedParamIds?: string[];
-}): ZustandProjectState {
+}): {
+  previewParamEntriesById: Record<string, ToolArgumentPreviewEntry> | null;
+  state: ZustandProjectState;
+} {
   const variantId = `${sectionId}-variant`;
   const implId = `${sectionId}-impl`;
   const projectConfig = createProjectConfig({
@@ -154,9 +165,19 @@ function seedLiveDictAreaSectionState({
       coreNameEditable: true,
       passingStyle: ParameterPassingStyleEnum.DEFAULT,
       defaultVal: "",
-      value: "",
+      value: paramValues[paramId] ?? "",
     };
   }
+
+  const previewParamEntriesById =
+    Object.keys(previewParamValues).length === 0
+      ? null
+      : Object.fromEntries(
+          Object.entries(previewParamValues).map(([paramId, value]) => [
+            paramId,
+            { toolCallId: "tool-call-1", value },
+          ]),
+        );
 
   useProjectState.setState((state) => {
     state.projectConfig = projectConfig;
@@ -192,7 +213,10 @@ function seedLiveDictAreaSectionState({
   });
   syncStoreInitialState(useProjectState);
 
-  return useProjectState.getState();
+  return {
+    previewParamEntriesById,
+    state: useProjectState.getState(),
+  };
 }
 
 describe("groupContainerLiveDictAreaSectionState", () => {
@@ -201,7 +225,7 @@ describe("groupContainerLiveDictAreaSectionState", () => {
   });
 
   it("builds the store-backed section state with existing label fallbacks and display-name coverage", () => {
-    const state = seedLiveDictAreaSectionState({
+    const { previewParamEntriesById, state } = seedLiveDictAreaSectionState({
       sectionId: "section-live-dict-area-state",
       edgeInputParamIds: ["edge-direct", "edge-unnamed"],
       edgeOutputPorts: [
@@ -210,14 +234,22 @@ describe("groupContainerLiveDictAreaSectionState", () => {
       ],
       hiddenUnpinned: true,
       paramFilter: "edge",
+      paramValues: {
+        "edge-unnamed": "raw edge value",
+        "unpinned-param": "line 1\nline 2",
+      },
       pinnedParamIds: ["edge-unnamed", "group-parent"],
       positionAndSizeLocked: true,
+      previewParamValues: {
+        "edge-unnamed": "preview edge value",
+      },
       selectedParamIds: ["edge-direct"],
       styleColor: "cyan",
       unpinnedParamIds: ["unpinned-param"],
     });
 
     const result = buildLiveDictAreaSectionState({
+      previewParamEntriesById,
       sectionId: "section-live-dict-area-state",
       state,
     });
@@ -232,6 +264,10 @@ describe("groupContainerLiveDictAreaSectionState", () => {
         "edge-unnamed": "codemirror",
         "group-parent": "codemirror",
         "unpinned-param": "codemirror",
+      },
+      valuePreviewsById: {
+        "edge-unnamed": "preview edge value",
+        "unpinned-param": "line 1 line 2",
       },
       edgeInputParams: ["edge-direct", "edge-unnamed"],
       edgeInputPorts: [
@@ -260,7 +296,7 @@ describe("groupContainerLiveDictAreaSectionState", () => {
   });
 
   it("normalizes nullish optional section fields to the existing defaults", () => {
-    const state = seedLiveDictAreaSectionState({
+    const { previewParamEntriesById, state } = seedLiveDictAreaSectionState({
       sectionId: "section-live-dict-area-state-defaults",
       edgeOutputPorts: [],
       pinnedParamIds: [],
@@ -286,11 +322,32 @@ describe("groupContainerLiveDictAreaSectionState", () => {
     });
 
     const result = buildLiveDictAreaSectionState({
+      previewParamEntriesById,
       sectionId: "section-live-dict-area-state-defaults",
-      state: useProjectState.getState(),
+      state,
     });
 
     expect(result.selectedParamIds).toEqual([]);
     expect(result.styleColor).toBeNull();
+  });
+
+  it("falls back to stored code object values when preview param state is absent", () => {
+    const { state } = seedLiveDictAreaSectionState({
+      sectionId: "section-live-dict-area-state-preview-fallback",
+      paramValues: {
+        "preview-missing": "line 1\nline 2",
+      },
+      unpinnedParamIds: ["preview-missing"],
+    });
+
+    const result = buildLiveDictAreaSectionState({
+      previewParamEntriesById: null,
+      sectionId: "section-live-dict-area-state-preview-fallback",
+      state,
+    });
+
+    expect(result.valuePreviewsById).toEqual({
+      "preview-missing": "line 1 line 2",
+    });
   });
 });

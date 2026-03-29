@@ -33,6 +33,14 @@ describe("buildLiveDictAreaScenePacket", () => {
               "beta-leaf": "Beta Value",
             }) as Record<string, string>
           )[paramId] ?? paramId,
+        getParamValuePreview: (paramId: string) =>
+          (
+            ({
+              "pinned-leaf": "pinned-preview",
+              "alpha-leaf": "alpha-preview",
+              "beta-leaf": "beta-preview",
+            }) as Record<string, string>
+          )[paramId] ?? null,
         pinned: {
           requiredParamIdsToPaths: {
             "pinned-leaf": ["pinned-group", "pinned-leaf"],
@@ -79,6 +87,7 @@ describe("buildLiveDictAreaScenePacket", () => {
               id: "pinned-leaf",
               kind: "value",
               label: "Pinned Value",
+              valuePreview: "pinned-preview",
             },
           ],
           shouldApplyMinHeight: false,
@@ -110,6 +119,7 @@ describe("buildLiveDictAreaScenePacket", () => {
               id: "alpha-leaf",
               kind: "value",
               label: "Alpha Value",
+              valuePreview: "alpha-preview",
             },
             {
               depth: 0,
@@ -123,6 +133,7 @@ describe("buildLiveDictAreaScenePacket", () => {
               id: "beta-leaf",
               kind: "value",
               label: "Beta Value",
+              valuePreview: "beta-preview",
             },
           ],
           shouldApplyMinHeight: true,
@@ -142,6 +153,7 @@ describe("buildLiveDictAreaScenePacket", () => {
         hideUnpinnedParams: true,
         paramFilter: "",
         getParamDisplayName: () => "ignored",
+        getParamValuePreview: () => null,
         pinned: {
           requiredParamIdsToPaths: {
             "edge-param": ["edge-param"],
@@ -180,6 +192,8 @@ describe("buildLiveDictAreaScenePacket", () => {
               "beta-leaf": "Beta Value",
             }) as Record<string, string>
           )[paramId] ?? paramId,
+        getParamValuePreview: (paramId: string) =>
+          paramId === "beta-leaf" ? "beta-preview" : null,
         pinned: {
           requiredParamIdsToPaths: {},
           topLevelParamIds: [],
@@ -222,6 +236,7 @@ describe("buildLiveDictAreaScenePacket", () => {
             id: "beta-leaf",
             kind: "value",
             label: "Beta Value",
+            valuePreview: "beta-preview",
           },
         ],
         shouldApplyMinHeight: false,

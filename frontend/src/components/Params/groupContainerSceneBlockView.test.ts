@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildLiveDictAreaNodeLayoutView } from "./groupContainerNodeLayoutView";
-import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
 import { buildLiveDictAreaSceneBlockView } from "./groupContainerSceneBlockView";
+import { buildLiveDictAreaScenePacket } from "./groupContainerScenePackets";
 
 describe("buildLiveDictAreaSceneBlockView", () => {
   it("normalizes ordered dict-area block frames into explicit scene block kinds", () => {
@@ -21,6 +21,7 @@ describe("buildLiveDictAreaSceneBlockView", () => {
               "alpha-leaf": "Alpha Value",
             }) as Record<string, string>
           )[paramId] ?? paramId,
+        getParamValuePreview: () => null,
         pinned: {
           requiredParamIdsToPaths: {
             "pinned-leaf": ["pinned-group", "pinned-leaf"],
@@ -112,6 +113,7 @@ describe("buildLiveDictAreaSceneBlockView", () => {
           ({
             "pinned-value": "Pinned Value",
           })[paramId] ?? paramId,
+        getParamValuePreview: () => null,
         pinned: {
           requiredParamIdsToPaths: {
             "pinned-value": ["pinned-value"],
