@@ -10403,3 +10403,32 @@ Record:
       - note: on the freshly recovered session, `projectConfig.viewportInitialized` was still `false` after a single zoom click, so this live check validated the same-tab refit/control transition rather than reproducing the earlier stale non-null store shape from the pre-restart session
 - Next action:
   - Use `clearCurrentProjectViewportForRefit()` instead of raw backend `setViewport(null)` in the next live `main`-oracle viewport-parity slice, then resume the next bounded parity blocker on the stabilized canary path.
+
+## 2026-03-30 317
+
+- Item: Switch the seeded `All Settings` fit-view guard to the same-tab frontend viewport-clear path before the next live `main`-oracle viewport-parity slice.
+- Status: `done`
+- Details:
+  - Took the bounded blocker-resolution slice directly from item `316` instead of starting another renderer-side micro-fix while the parity workflow still depended on the stale backend-only viewport clear path.
+  - Added a reusable Playwright helper that invokes the real frontend action in page context:
+    - `frontend/tests/e2e/helpers.ts`
+  - Updated the seeded `All Settings` fit-view guard so it now exercises the same-tab optimistic refit path instead of posting `/api/setViewport` and reopening the page:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Kept the slice intentionally narrow:
+    - no production renderer code changed
+    - the test still restores the original viewport through the backend at cleanup time
+    - the important behavioral change is that the baseline fit-view re-arm now happens through `clearCurrentProjectViewportForRefit()` in the already-open tab before comparing baseline and live Pixi canary zoom-floor state
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP live check in a fresh sub-agent context on the current worktree runtime (`http://127.0.0.1:3043/` / `http://127.0.0.1:8043`):
+    - bootstrap/auth worked on the live tab
+    - `/settings` stayed on the same URL with no navigation after invoking `clearCurrentProjectViewportForRefit()` in page context
+    - `zoom out` started disabled at fit-view, became enabled after one zoom-in click, then returned to disabled after the same-tab frontend clear
+    - no visible regression was observed during the live check
+- Next action:
+  - Take the next bounded live `main`-oracle viewport-parity slice on the stabilized canary workflow, using the same-tab frontend viewport clear before comparing `main`, baseline, and live Pixi canary state.

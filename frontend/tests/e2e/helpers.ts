@@ -324,6 +324,17 @@ export async function clearProjectChatWindows(page: Page): Promise<void> {
   });
 }
 
+export async function clearCurrentProjectViewportForRefit(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { clearCurrentProjectViewportForRefit } = await import(
+      "/src/state/actions/sectionInfos.ts"
+    );
+    clearCurrentProjectViewportForRefit();
+  });
+}
+
 export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   const accordionTrigger = page.getByTestId(
     "project-ai-settings-accordion-llm-api-keys",
@@ -342,7 +353,9 @@ export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   );
   await clickDom(
     page
-      .locator('[data-testid="project-chat-settings-open-project-settings"]:visible')
+      .locator(
+        '[data-testid="project-chat-settings-open-project-settings"]:visible',
+      )
       .first(),
   );
 }

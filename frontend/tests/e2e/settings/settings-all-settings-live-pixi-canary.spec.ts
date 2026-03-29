@@ -14,6 +14,7 @@ import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_START_MARK_NAME,
 } from "../../../src/components/Params/liveDictAreaPixiValueRowPerf";
 import {
+  clearCurrentProjectViewportForRefit,
   ensureAppReady,
   getCurrentProjectConfigId,
   postBackend,
@@ -723,7 +724,7 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
   }
 });
 
-test("all settings baseline and live Pixi canary share the fit-view zoom-floor state after clearing the stored viewport", async ({
+test("all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear", async ({
   page,
 }) => {
   await openAllSettingsBaseline(page);
@@ -733,14 +734,8 @@ test("all settings baseline and live Pixi canary share the fit-view zoom-floor s
   const projectConfigId = await getCurrentProjectConfigId(page);
 
   try {
-    await postBackend(page, "/setViewport", {
-      projectConfigId,
-      viewport: null,
-    });
-
-    await openAllSettingsBaseline(page);
+    await clearCurrentProjectViewportForRefit(page);
     await expectZoomOutButtonDisabled(page, true);
-
     const fitViewViewport = await readViewportTransform(page);
     expect(fitViewViewport.zoom).toBeGreaterThan(0);
 
