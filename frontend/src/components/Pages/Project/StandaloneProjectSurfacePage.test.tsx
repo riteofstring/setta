@@ -19,8 +19,6 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePage } from "./StandaloneProjectSurfacePage";
 
-const renderDictArea = () => null;
-
 type MockSectionCore = {
   name: string;
   sharedModifier?: Record<string, unknown>;
@@ -217,8 +215,14 @@ function MockUnifiedChatSurface({
   );
 }
 
-vi.mock("components/Section/Container/StandaloneSectionSurfaceBoundary", () => ({
-  StandaloneSectionSurfaceBoundary: ({
+vi.mock("components/Section/Container/ManyNestedSections", () => ({
+  MaybeManyNestedSections: () => (
+    <div data-testid="mock-many-nested-sections" />
+  ),
+}));
+
+vi.mock("components/Section/Container/SectionWindowSurface", () => ({
+  SectionWindowSurface: ({
     onProjectChatBlockedErrorCodeChange,
   }: {
     onProjectChatBlockedErrorCodeChange?:
@@ -233,7 +237,7 @@ vi.mock("components/Section/Container/StandaloneSectionSurfaceBoundary", () => (
       onProjectChatBlockedErrorCodeChange,
       hoisted.state.projectChatBlockedErrorCode,
     ]);
-    return <div data-testid="mock-standalone-section-surface-boundary" />;
+    return <div data-testid="mock-section-window-surface" />;
   },
 }));
 
@@ -447,15 +451,11 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
           <LocationProbe />
@@ -521,9 +521,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -548,9 +546,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -576,9 +572,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -606,9 +600,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -641,15 +633,11 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
           <NavigateButton to="/demo/chat/chat-alpha" />
@@ -688,9 +676,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
           <NavigateButton to="/demo-b/chat/shared-thread" />
@@ -733,15 +719,11 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -808,9 +790,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/windowspace/:windowSpaceSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -865,9 +845,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/section/:sectionSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -943,9 +921,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/windowspace/:windowSpaceSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1066,9 +1042,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/windowspace/:windowSpaceSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1169,9 +1143,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/windowspace/:windowSpaceSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1197,9 +1169,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1226,9 +1196,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
           <NavigateButton to="/demo-b/chat/shared-thread" />
@@ -1276,9 +1244,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1303,9 +1269,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1329,9 +1293,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/chat/:chatId"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1396,9 +1358,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/windowspace/:windowSpaceSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1424,9 +1384,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/windowspace/:windowSpaceSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
@@ -1450,9 +1408,7 @@ describe("StandaloneProjectSurfacePage", () => {
           <Routes>
             <Route
               path="/:projectConfigName/windowspace/:windowSpaceSlug"
-              element={
-                <StandaloneProjectSurfacePage renderDictArea={renderDictArea} />
-              }
+              element={<StandaloneProjectSurfacePage />}
             />
           </Routes>
         </MemoryRouter>,
