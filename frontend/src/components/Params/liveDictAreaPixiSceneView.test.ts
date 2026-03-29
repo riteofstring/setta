@@ -5,6 +5,7 @@ import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
+  getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiPalette,
@@ -236,6 +237,58 @@ describe("getLiveDictAreaPixiTextResolution", () => {
     expect(getLiveDictAreaPixiTextResolution(0.2)).toBe(1);
     expect(getLiveDictAreaPixiTextResolution(1)).toBe(1);
     expect(getLiveDictAreaPixiTextResolution(2.5)).toBe(2.5);
+  });
+});
+
+describe("getLiveDictAreaPixiCompactRowPrimitive", () => {
+  it("falls back to the DOM compact-row defaults when no measured row exists yet", () => {
+    expect(getLiveDictAreaPixiCompactRowPrimitive({})).toEqual({
+      cornerRadiusPx: 2,
+      horizontalPaddingPx: 2,
+      surfaceKind: "transparent",
+    });
+  });
+
+  it("reads the compact row radius, horizontal padding, and transparent default surface from the measured DOM row", () => {
+    const rowElement = {} as Element;
+    const getComputedStyle = vi.fn(() => ({
+      backgroundColor: "rgba(0, 0, 0, 0)",
+      borderTopLeftRadius: "2px",
+      paddingLeft: "2px",
+      paddingRight: "2px",
+    })) as unknown as typeof window.getComputedStyle;
+
+    expect(
+      getLiveDictAreaPixiCompactRowPrimitive({
+        getComputedStyle,
+        rowElement,
+      }),
+    ).toEqual({
+      cornerRadiusPx: 2,
+      horizontalPaddingPx: 2,
+      surfaceKind: "transparent",
+    });
+  });
+
+  it("marks the primitive as filled when the DOM row shell has a real background color", () => {
+    const rowElement = {} as Element;
+    const getComputedStyle = vi.fn(() => ({
+      backgroundColor: "rgb(15, 23, 42)",
+      borderTopLeftRadius: "3px",
+      paddingLeft: "4px",
+      paddingRight: "6px",
+    })) as unknown as typeof window.getComputedStyle;
+
+    expect(
+      getLiveDictAreaPixiCompactRowPrimitive({
+        getComputedStyle,
+        rowElement,
+      }),
+    ).toEqual({
+      cornerRadiusPx: 3,
+      horizontalPaddingPx: 4,
+      surfaceKind: "filled",
+    });
   });
 });
 

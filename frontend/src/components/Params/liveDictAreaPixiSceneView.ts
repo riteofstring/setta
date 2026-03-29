@@ -4,6 +4,10 @@ import {
   LIVE_DICT_AREA_PIXI_LAYOUT,
   LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
 } from "./liveDictAreaPixiLayout";
+import {
+  PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
+  PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX,
+} from "./paramContainerView";
 import type { ParamEditorKind } from "./paramEditorActivation";
 
 export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
@@ -85,6 +89,12 @@ export type LiveDictAreaPixiColorControlStyle = {
   textFill: string;
 };
 
+export type LiveDictAreaPixiCompactRowPrimitive = {
+  cornerRadiusPx: number;
+  horizontalPaddingPx: number;
+  surfaceKind: "filled" | "transparent";
+};
+
 type LiveDictAreaPixiFontFaceSet = Pick<
   FontFaceSet,
   "addEventListener" | "ready" | "removeEventListener" | "status"
@@ -112,6 +122,11 @@ type LiveDictAreaPixiOffsetElement = {
 type LiveDictAreaPixiTextStyleSource = {
   edgeLabelElement?: Element | null;
   edgeRowElement?: Element | null;
+  getComputedStyle?: ((element: Element) => CSSStyleDeclaration) | null;
+  rowElement?: Element | null;
+};
+
+type LiveDictAreaPixiCompactRowPrimitiveSource = {
   getComputedStyle?: ((element: Element) => CSSStyleDeclaration) | null;
   rowElement?: Element | null;
 };
@@ -237,6 +252,41 @@ export function getLiveDictAreaPixiTextResolution(renderResolution: number) {
   return Number.isFinite(renderResolution) && renderResolution > 1
     ? renderResolution
     : 1;
+}
+
+export function getLiveDictAreaPixiCompactRowPrimitive({
+  getComputedStyle,
+  rowElement,
+}: LiveDictAreaPixiCompactRowPrimitiveSource): LiveDictAreaPixiCompactRowPrimitive {
+  if (!rowElement || !getComputedStyle) {
+    return getLiveDictAreaPixiFallbackCompactRowPrimitive();
+  }
+
+  const computedStyle = getComputedStyle(rowElement);
+  const cornerRadiusPx = getLiveDictAreaPixiResolvedLengthPx({
+    fallbackValue: PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX,
+    value: computedStyle.borderTopLeftRadius,
+  });
+  const horizontalPaddingPx = Math.min(
+    getLiveDictAreaPixiResolvedLengthPx({
+      fallbackValue: PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
+      value: computedStyle.paddingLeft,
+    }),
+    getLiveDictAreaPixiResolvedLengthPx({
+      fallbackValue: PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
+      value: computedStyle.paddingRight,
+    }),
+  );
+
+  return {
+    cornerRadiusPx,
+    horizontalPaddingPx,
+    surfaceKind: getLiveDictAreaPixiUsableComputedColor(
+      computedStyle.backgroundColor,
+    )
+      ? "filled"
+      : "transparent",
+  };
 }
 
 export function resolveLiveDictAreaPixiOverviewEnabled({
@@ -605,6 +655,28 @@ function getLiveDictAreaPixiFallbackPalette({
     rowPlaceholderFill: sectionStyleTheme.bg,
     titleText: sectionStyleTheme.mutedText,
   };
+}
+
+function getLiveDictAreaPixiFallbackCompactRowPrimitive(): LiveDictAreaPixiCompactRowPrimitive {
+  return {
+    cornerRadiusPx: PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX,
+    horizontalPaddingPx: PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
+    surfaceKind: "transparent",
+  };
+}
+
+function getLiveDictAreaPixiResolvedLengthPx({
+  fallbackValue,
+  value,
+}: {
+  fallbackValue: number;
+  value: string | null | undefined;
+}) {
+  const parsedValue = Number.parseFloat(value ?? "");
+
+  return Number.isFinite(parsedValue) && parsedValue > 0
+    ? parsedValue
+    : fallbackValue;
 }
 
 function getLiveDictAreaPixiComputedChrome({

@@ -1,6 +1,8 @@
 import type { CSSProperties } from "react";
 
 export const PARAM_CONTAINER_COLUMN_WIDTH = "var(--param-column-width, 200px)";
+export const PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX = 2;
+export const PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX = 2;
 
 const PARAM_CONTAINER_ERROR_WRAPPER_CLASS =
   "!border-red-300 dark:!border-red-900 [&_.tooltip-footer]:!text-red-500 dark:[&_.tooltip-footer]:!text-red-800 dark:[&_.tooltip-footer]:!border-red-950 !bg-red-50/90 dark:!bg-[#120000]/90 [&_.tooltip-copy]:!text-red-400 dark:[&_.tooltip-copy]:!text-red-300 [&>.tooltip-copy]:hover:!bg-transparent";

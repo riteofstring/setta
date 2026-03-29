@@ -22,6 +22,7 @@ import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
+  getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
@@ -33,10 +34,12 @@ import {
   getLiveDictAreaPixiUsableMaxCanvasHeight,
   readLiveDictAreaPixiOverviewEnabledFromWindow,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
+  type LiveDictAreaPixiCompactRowPrimitive,
   type LiveDictAreaPixiPalette,
   type LiveDictAreaPixiPresentationMode,
   type LiveDictAreaPixiTextStyleSet,
 } from "./liveDictAreaPixiSceneView";
+import { buildParamContainerLayout } from "./paramContainerView";
 
 type LiveDictAreaPixiSceneProps = {
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
@@ -72,6 +75,7 @@ function _LiveDictAreaPixiScene({
   const hostRef = useRef<HTMLDivElement | null>(null);
   const edgeLabelTextStyleRef = useRef<HTMLParagraphElement | null>(null);
   const edgeRowTextStyleRef = useRef<HTMLSpanElement | null>(null);
+  const compactRowPrimitiveRef = useRef<HTMLElement | null>(null);
   const rowTextStyleRef = useRef<HTMLParagraphElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const [hostWidth, setHostWidth] = useState(0);
@@ -82,6 +86,10 @@ function _LiveDictAreaPixiScene({
     typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
   );
   const [fontLoadVersion, setFontLoadVersion] = useState(0);
+  const [compactRowPrimitive, setCompactRowPrimitive] =
+    useState<LiveDictAreaPixiCompactRowPrimitive>(() =>
+      getLiveDictAreaPixiCompactRowPrimitive({}),
+    );
   const logicalCanvasWidth = getLiveDictAreaPixiLogicalCanvasWidth(hostWidth);
   const sectionStyleColor = getLiveDictAreaPixiSectionStyleColor(
     liveDictAreaSceneBoundary,
@@ -110,6 +118,13 @@ function _LiveDictAreaPixiScene({
     viewportZoom,
   });
   const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
+  const compactRowPrimitiveLayout = buildParamContainerLayout({
+    bg: "",
+    border: "",
+    isTopLevelWithPad: false,
+    paramHoverClassName: "",
+    variant: "leaf",
+  });
 
   useLayoutEffect(() => {
     onSummaryLayoutChange?.(
@@ -221,6 +236,26 @@ function _LiveDictAreaPixiScene({
       );
     };
   }, []);
+
+  useLayoutEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextPrimitive = getLiveDictAreaPixiCompactRowPrimitive({
+      getComputedStyle: window.getComputedStyle,
+      rowElement: compactRowPrimitiveRef.current,
+    });
+
+    setCompactRowPrimitive((currentPrimitive) =>
+      currentPrimitive.cornerRadiusPx === nextPrimitive.cornerRadiusPx &&
+      currentPrimitive.horizontalPaddingPx ===
+        nextPrimitive.horizontalPaddingPx &&
+      currentPrimitive.surfaceKind === nextPrimitive.surfaceKind
+        ? currentPrimitive
+        : nextPrimitive,
+    );
+  }, [darkMode]);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -350,6 +385,15 @@ function _LiveDictAreaPixiScene({
         availableCanvasHeight === null ? "" : availableCanvasHeight
       }
       data-live-dict-area-scene-block-count={summaryLayout.blocks.length}
+      data-live-dict-area-scene-compact-row-horizontal-padding={
+        compactRowPrimitive.horizontalPaddingPx
+      }
+      data-live-dict-area-scene-compact-row-radius={
+        compactRowPrimitive.cornerRadiusPx
+      }
+      data-live-dict-area-scene-compact-row-surface={
+        compactRowPrimitive.surfaceKind
+      }
       data-live-dict-area-scene-presentation-mode={presentationMode}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
       data-live-dict-area-scene-section-id={sectionId ?? undefined}
@@ -367,6 +411,13 @@ function _LiveDictAreaPixiScene({
           ref={edgeLabelTextStyleRef}
         />
         <span className="text-[0.65rem]" ref={edgeRowTextStyleRef} />
+        <article
+          className={compactRowPrimitiveLayout.className}
+          ref={compactRowPrimitiveRef}
+          style={compactRowPrimitiveLayout.style}
+        >
+          <p className="font-sans text-xs font-semibold">Row</p>
+        </article>
         <p className="font-sans text-xs font-semibold" ref={rowTextStyleRef} />
       </div>
       <div

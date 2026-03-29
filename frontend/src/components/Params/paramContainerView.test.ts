@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   PARAM_CONTAINER_COLUMN_WIDTH,
+  PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
+  PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX,
   buildParamContainerLayout,
   buildParamContainerViewModel,
   resolveParamContainerDisplayName,
@@ -115,6 +117,8 @@ describe("buildParamContainerLayout", () => {
     });
 
     expect(layout.className).toContain("section-key-value");
+    expect(layout.className).toContain("rounded-sm");
+    expect(layout.className).toContain("px-[2px]");
     expect(layout.className).toContain("hover:bg-test");
     expect(layout.className).toContain("dragging");
     expect(layout.style).toMatchObject({
@@ -122,6 +126,8 @@ describe("buildParamContainerLayout", () => {
       gridTemplateAreas: '"key center-gutter value"',
       zIndex: 10,
     });
+    expect(PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX).toBe(2);
+    expect(PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX).toBe(2);
   });
 
   it("adds the top-level padding override only for nested param rows", () => {

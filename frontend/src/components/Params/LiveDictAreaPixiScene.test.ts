@@ -244,6 +244,23 @@ describe("LiveDictAreaPixiScene", () => {
         ?.getAttribute("data-live-dict-area-scene-section-id"),
     ).toBe("section-1");
     expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-compact-row-surface"),
+    ).toBe("transparent");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-compact-row-radius"),
+    ).toBe("2");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute(
+          "data-live-dict-area-scene-compact-row-horizontal-padding",
+        ),
+    ).toBe("2");
+    expect(
       container.querySelectorAll(
         "[data-live-dict-area-scene-block-anchor='true'][data-live-dict-area-scene-section-id='section-1']",
       ).length,

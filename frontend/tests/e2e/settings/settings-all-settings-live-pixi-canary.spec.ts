@@ -384,6 +384,19 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
         10,
       ),
       canvasCssHeight: sceneCanvas.getBoundingClientRect().height,
+      compactRowHorizontalPadding: Number.parseFloat(
+        sceneHost.getAttribute(
+          "data-live-dict-area-scene-compact-row-horizontal-padding",
+        ) ?? "0",
+      ),
+      compactRowRadius: Number.parseFloat(
+        sceneHost.getAttribute(
+          "data-live-dict-area-scene-compact-row-radius",
+        ) ?? "0",
+      ),
+      compactRowSurface: sceneHost.getAttribute(
+        "data-live-dict-area-scene-compact-row-surface",
+      ),
       presentationMode:
         sceneHost.getAttribute("data-live-dict-area-scene-presentation-mode") ??
         "detail",
@@ -446,6 +459,9 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   expect(result?.canvasCssHeight).toBeLessThanOrEqual(
     (result?.sceneRootCssHeight ?? 0) + 1,
   );
+  expect(result?.compactRowSurface).toBe("transparent");
+  expect(result?.compactRowRadius).toBe(2);
+  expect(result?.compactRowHorizontalPadding).toBe(2);
   expect(result?.localParamContainerCount).toBe(0);
   expect(visibleHandoffAriaLabels.length).toBeGreaterThan(0);
   expect(

@@ -9710,3 +9710,39 @@ Record:
   - Because the required CDP visual gate failed, the probe was reverted in full and no code or test changes were kept from this iteration.
 - Next action:
   - Explicitly map the real compact row primitive on the first visible `All Settings` cards before making another renderer change; do not assume that removing row fills or unpinned shell chrome is the right parity model.
+
+## 2026-03-29 295
+
+- Item: Make the live Pixi canary's default compact row primitive explicit and testable before another row-chrome renderer change.
+- Status: `done`
+- Details:
+  - Landed a bounded blocker-resolution slice that records the resting compact row contract from the DOM path instead of probing another visual tweak:
+    - `frontend/src/components/Params/paramContainerView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/paramContainerView.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Formalized the DOM compact-row baseline with explicit constants for:
+    - `rounded-sm` row radius (`2px`)
+    - `px-[2px]` horizontal row padding
+  - Added `getLiveDictAreaPixiCompactRowPrimitive(...)` so the live Pixi canary can read that compact-row primitive from a measured DOM row shell, with a safe fallback to the explicit DOM constants when styles are unresolved.
+  - Exposed the mapped primitive on the live Pixi scene host via:
+    - `data-live-dict-area-scene-compact-row-surface`
+    - `data-live-dict-area-scene-compact-row-radius`
+    - `data-live-dict-area-scene-compact-row-horizontal-padding`
+  - Kept renderer output unchanged in this slice; the goal here was to resolve the repeated blocker by making the real compact-row primitive explicit before the next row-chrome draw change.
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/paramContainerView.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host"`
+      - result: passed
+    - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`)
+      - `All Settings` remained visible
+      - the live Pixi scene host exposed `surface="transparent"`, `radius="2"`, and `horizontal-padding="2"`
+      - no obvious new clipping, overlap, or missing content was observed in the visible viewport
+- Next action:
+  - Use this explicit compact-row primitive as the source of truth for the next bounded live Pixi row-chrome change, instead of continuing speculative fill-removal probes.
