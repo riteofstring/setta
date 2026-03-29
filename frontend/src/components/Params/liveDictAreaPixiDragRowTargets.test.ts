@@ -78,5 +78,6 @@ describe("buildLiveDictAreaPixiDragRowTargets", () => {
     expect(targets[0]?.blockY).toBeLessThan(targets[2]?.blockY ?? 0);
     expect(targets[0]?.y).toBeLessThan(targets[1]?.y ?? 0);
     expect(targets[0]?.blockHeight).toBeGreaterThan(targets[0]?.height ?? 0);
+    expect(targets.every((target) => target.width > 0)).toBe(true);
   });
 });

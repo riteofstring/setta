@@ -20,6 +20,7 @@ export type LiveDictAreaPixiDragRowTarget = {
   height: number;
   label: string;
   rowId: string;
+  width: number;
   x: number;
   y: number;
 };
@@ -74,6 +75,7 @@ export function buildLiveDictAreaPixiDragRowTargets({
           height: row.blockHeight,
           label: row.labelText,
           rowId: row.id,
+          width: Math.max(row.width - row.x, 0),
           x: row.x,
           y: row.y,
         },

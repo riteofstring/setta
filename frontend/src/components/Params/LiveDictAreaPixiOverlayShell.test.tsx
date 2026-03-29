@@ -434,6 +434,9 @@ describe("LiveDictAreaPixiOverlayShell", () => {
       ),
     );
     expect(handoffButtons).toHaveLength(4);
+    expect(handoffButtons.every((button) => button.style.width !== "")).toBe(
+      true,
+    );
     expect(
       container.querySelector(
         "[data-live-dict-area-editor-handoff='value-row']",

@@ -8399,3 +8399,37 @@ Record:
     - representative authenticated requests returned `200`, including `GET /api/getFileBrowserRoot` and `GET /api/getFolderContents`
 - Next action:
   - Continue the live Pixi visual-stability lane from the cleaned row-layout surface by running the named side-by-side `main` comparison when a reference settings tab is available, or by landing the next bounded token-parity fix on canary chrome/colors.
+
+## 2026-03-29 260
+
+- Item: Restore visible Pixi param-select drag-handoff targets so the live canary drag-overlay path works in headed browser verification.
+- Status: `done`
+- Details:
+  - Pivoted away from another blind token-parity tweak after confirming the repeated `main` reference blocker was still real:
+    - `http://127.0.0.1:3000/` and `http://127.0.0.1:8000/` were not reachable in this iteration, so no read-only `main` settings oracle was available locally
+  - Took the next bounded live-canary blocker in the same slice instead:
+    - the param-select drag-handoff buttons were mounted but hidden in headed Playwright because the drag-target packet never carried a `width`
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiDragRowTargets.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiDragRowTargets.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - The live Pixi drag-target contract now:
+    - includes a concrete row `width` derived from the Pixi row layout packet
+    - gives the param-select handoff buttons a real hit surface instead of collapsing them to zero-width mounts
+    - locks that contract in focused tests so the headed drag-overlay path cannot silently regress back to mounted-but-hidden buttons
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiDragRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx`
+      - result: passed (`8 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiDragRowTargets.ts src/components/Params/liveDictAreaPixiDragRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "opt into param-select mode through the canary query param|hand off from the Pixi scene into a param-list drag overlay while param select is active|reorder top-level rows through the Pixi param-list drag overlay"`
+      - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaInteractionMode=param-select`) in a fresh sub-agent context
+    - `All Settings` was visible and usable in headed Chrome
+    - clicking `Dropdown Param` activated the Pixi param-list drag overlay
+    - the overlay showed visible rows in the viewport and did not mount editor controls inside the checked overlay
+- Next action:
+  - Restore the read-only `main` reference session and run the blocked side-by-side `100%` canary comparison before doing more live Pixi token-parity tweaks.
