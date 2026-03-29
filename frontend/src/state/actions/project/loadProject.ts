@@ -12,7 +12,6 @@ import {
   runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
-  useMisc,
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
@@ -22,7 +21,7 @@ import {
   pathRelativeToProject,
   PROJECT_CONFIG_PREVIEW_IMG_COLORS,
 } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_create_project_config,
   route_get_latest_lsp_diagnostics,
@@ -30,8 +29,11 @@ import {
   route_load_project_config,
 } from "utils/generatedEndpoints";
 import {
+  type AllProjectMetadata,
+  type CreateProjectConfigResponse,
   type ProjectStateSingleConfig,
   type ProjectStateSingleConfigInput,
+  type SettaLspDiagnosticsPayload,
 } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
@@ -41,21 +43,30 @@ import {
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects,
   reconcileProjectChatWindowingEphemeralState,
 } from "../projectChatWindowingEphemeral";
-import {
-  buildFitViewOnInitState,
-  createNodesMapFromProjectConfigChildren,
-} from "../sectionInfos";
+import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
+type LoadProjectConfigRouteResponse =
+  ResponseDataAndStatus<ProjectStateSingleConfig>;
+type LatestLspDiagnosticsRouteResponse =
+  ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
+type LoadAllProjectMetadataRouteResponse =
+  ResponseDataAndStatus<AllProjectMetadata>;
+type CreateProjectConfigRouteResponse =
+  ResponseDataAndStatus<CreateProjectConfigResponse>;
+
 export async function loadProjectConfig({ projectConfigName }) {
-  const res = await route_load_project_config({ projectConfigName });
+  const res: LoadProjectConfigRouteResponse = await route_load_project_config({
+    projectConfigName,
+  });
   if (res200(res)) {
     const loadedProjectState = validateLoadedProjectState(res.data);
     const loaded = await loadProjectState(loadedProjectState);
     if (loaded) {
-      const diagnosticsRes = await route_get_latest_lsp_diagnostics({
-        projectConfigId: loadedProjectState.projectConfig.id,
-      });
+      const diagnosticsRes: LatestLspDiagnosticsRouteResponse =
+        await route_get_latest_lsp_diagnostics({
+          projectConfigId: loadedProjectState.projectConfig.id,
+        });
       if (res200(diagnosticsRes)) {
         processLspDiagnostics(diagnosticsRes.data);
       }
@@ -86,23 +97,23 @@ export async function loadProjectState(
   projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
 ) {
   const normalizedProjectState = validateLoadedProjectState(projectState);
-  const nextProjectState = {
-    ...sanitizeProjectStateActiveIds(normalizedProjectState),
-    previewSectionVariantMap: {},
-  };
-  const { viewport, viewportInitialized } = nextProjectState.projectConfig;
+  const { viewport, viewportInitialized } =
+    normalizedProjectState.projectConfig;
   cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
-    useReactFlow.setState(buildFitViewOnInitState(nextProjectState));
+    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
   } else {
     const { x, y, zoom } = viewport;
     useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
-      fitViewOnInitOptions: undefined,
       transform: [x, y, zoom],
     });
   }
+  const nextProjectState = {
+    ...sanitizeProjectStateActiveIds(normalizedProjectState),
+    previewSectionVariantMap: {},
+  };
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects(
     nextProjectState.projectConfig.id,
   );
@@ -137,9 +148,6 @@ export async function loadProjectState(
       });
     },
   );
-  if (!viewport || !viewportInitialized) {
-    useMisc.setState({ requestUpdateNodeDimensions: true });
-  }
   applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
   return true;
 }
@@ -151,7 +159,8 @@ export function useCreateAndGoToProjectConfig() {
     if (!previewImgColor) {
       throw new Error();
     }
-    const res = await route_create_project_config({ previewImgColor });
+    const res: CreateProjectConfigRouteResponse =
+      await route_create_project_config({ previewImgColor });
     if (res200(res)) {
       useLocalStorage.setState({
         overviewTab: OverviewTabNameEnum.ProjectAIChat,
@@ -182,7 +191,8 @@ export async function loadAllProjectMetadata(): Promise<boolean> {
   if (mode !== "ide") {
     return false;
   }
-  const res = await route_load_all_project_metadata();
+  const res: LoadAllProjectMetadataRouteResponse =
+    await route_load_all_project_metadata();
   if (res200(res)) {
     useAllProjectMetadata.setState(res.data);
     return true;

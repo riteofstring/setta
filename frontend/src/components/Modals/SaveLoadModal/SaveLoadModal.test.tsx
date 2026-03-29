@@ -3,7 +3,6 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createProjectConfig } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import {
-  SAVE_LOAD_DEFAULT_VIEW_MODE,
   SaveLoadModal,
   SaveLoadModalModeEnum,
 } from "./SaveLoadModal";
@@ -13,10 +12,6 @@ vi.mock("state/actions/modal", () => ({
 }));
 
 describe("SaveLoadModal", () => {
-  it("defaults to list view mode to avoid eager thumbnail rendering", () => {
-    expect(SAVE_LOAD_DEFAULT_VIEW_MODE).toBe("list");
-  });
-
   it("renders list rows by default when files are available", () => {
     const firstConfig = createProjectConfig({
       id: "config-b",
