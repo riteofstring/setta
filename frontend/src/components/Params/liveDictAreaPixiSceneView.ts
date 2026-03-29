@@ -275,7 +275,8 @@ export function getLiveDictAreaPixiRenderResolution({
       : 1;
   const safeViewportZoom =
     Number.isFinite(viewportZoom) && viewportZoom > 0 ? viewportZoom : 1;
-  const requestedResolution = safeDevicePixelRatio * safeViewportZoom;
+  const requestedResolution =
+    safeDevicePixelRatio * Math.max(1, safeViewportZoom);
   const safeCanvasWidth =
     Number.isFinite(canvasWidth) && canvasWidth > 0
       ? Math.floor(canvasWidth)

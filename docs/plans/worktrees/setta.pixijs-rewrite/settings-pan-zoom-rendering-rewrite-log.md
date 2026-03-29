@@ -10580,3 +10580,31 @@ Record:
     - the page stayed visibly rendered with no obvious blanking or clipping during that live check
 - Next action:
   - Investigate why the live initial `/settings` load can still present the default pre-fit state before a manual reset even though the reset path now converges; trace the first post-load node-measurement trigger instead of reopening workspace-chrome normalization.
+
+## 2026-03-30 322
+
+- Item: Floor the live Pixi scene backing resolution at the device-pixel scale during zoom-out so the canary canvas no longer drops below its CSS size.
+- Status: `done`
+- Details:
+  - Took a bounded live-renderer stabilization slice directly from the post-seam-lift frontier in the rewrite plan; did not continue the completed forwarding lane.
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - `getLiveDictAreaPixiRenderResolution(...)` now requests `devicePixelRatio * max(1, viewportZoom)` before the existing backing-pixel cap, so zoom-out redraws keep at least a `1x` device-pixel floor instead of shrinking the Pixi backing below the CSS box.
+  - Tightened the focused unit coverage to assert that a `devicePixelRatio: 2` scene still resolves to `2` when `viewportZoom` falls to `0.1`, while the existing zoom-in and max-backing-pixel assertions remain intact.
+  - Investigated adding matching Playwright low-zoom canary coverage but did not land speculative e2e edits:
+    - headless probes showed the imported React Flow store stayed detached in the Playwright runtime (`d3Zoom: false`, `d3Selection: false`, `domNode: false`, `width: 0`, `transform: [0,0,1]`)
+    - in that detached state, both the visible zoom controls and a persisted `/setViewport` reopen path stayed pinned at `1x`, so the attempted low-zoom e2e assertions were reverted instead of committing false or permanently failing coverage
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`59 passed`)
+  - Playwright investigation only:
+    - attempted targeted canary runs against `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: blocked for this slice because the headless runtime never attached the live viewport store, so no trustworthy automated low-zoom signal was available to land
+  - Chrome DevTools MCP live check in a fresh sub-agent context on the current worktree runtime (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` after bootstrapping through `http://127.0.0.1:8044/__setta__/bootstrap#token=...`):
+    - earlier pre-fix failure signature on this canary path had been `clientWidth/clientHeight = 550x290` with backing `530x280` after zoom-out
+    - post-fix observed the first visible Pixi canvas at `clientWidth/clientHeight = 550x282`, backing `1100x564` before interaction, after `reset zoom`, and after 4 `zoom out` clicks
+    - the live canary no longer reproduced the “backing smaller than CSS” blur/blockiness signature on that checked path
+- Next action:
+  - Investigate why the headless Playwright canary runtime still attaches to a detached React Flow store while the live Chrome/CDP canary path is responsive; once that harness gap is resolved, add a real automated low-zoom backing-floor regression instead of reopening seam-lift work.

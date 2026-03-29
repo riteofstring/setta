@@ -183,7 +183,7 @@ describe("getLiveDictAreaPixiClippingContainer", () => {
 });
 
 describe("getLiveDictAreaPixiRenderResolution", () => {
-  it("scales the Pixi render resolution with viewport zoom and device pixel ratio", () => {
+  it("keeps the Pixi render resolution at the device-pixel floor while still scaling up on zoom-in", () => {
     expect(
       getLiveDictAreaPixiRenderResolution({
         canvasHeight: 240,
@@ -207,7 +207,7 @@ describe("getLiveDictAreaPixiRenderResolution", () => {
         devicePixelRatio: 2,
         viewportZoom: 0.1,
       }),
-    ).toBe(0.2);
+    ).toBe(2);
   });
 
   it("caps oversized live scenes to a bounded backing-pixel budget during zoomed redraws", () => {
