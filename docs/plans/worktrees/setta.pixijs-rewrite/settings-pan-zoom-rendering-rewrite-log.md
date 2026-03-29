@@ -11527,3 +11527,31 @@ Record:
       - the fresh worktree bootstrap URL was rejected in that verifier tab, but the direct settings surfaces were already reachable and were used for the normalized visual check
 - Next action:
   - Resume normalized read-only `main`-oracle live Pixi parity verification on `All Settings`; the next slice should identify the first real live-Pixi-vs-`main` renderer drift rather than another project-chat manager/menu artifact.
+
+## 2026-03-30 350
+
+- Item: Repair stale named settings view-mode visibility so `All Settings` no longer reuses the Core-only surface.
+- Status: `done`
+- Details:
+  - Took the next real production slice directly from the normalized `main`-oracle parity findings instead of extending the completed harness lane.
+  - Fresh CDP comparison showed the first concrete remaining drift was shared by the worktree baseline DOM and live Pixi surfaces:
+    - worktree `All Settings` only showed the five Core entries (`backend`, `languageServer`, `gui`, `shortcuts`, `sectionSizingPolicy`)
+    - read-only `main` showed the expanded `All Settings` list and canvas surface
+  - Tightened `backend/setta/project_state/settings_project.py` so `ensure_settings_view_modes(...)` now treats a named settings view mode as stale when:
+    - its `visibilityBySectionId` no longer matches the expected definition for that named mode
+    - its `topLevelSections` no longer cover the full settings section set
+  - Kept the existing viewport-preservation behavior intact while repairing the stale named-mode visibility case.
+  - Added a focused backend regression in `tests/project_state/test_settings_project_view_modes.py` that proves a Core-shaped `All Settings` visibility map forces a reset back to the full settings section set.
+- Verification:
+  - Backend pytest:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_settings_project_view_modes.py`
+    - result: passed (`10 passed`)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the live worktree baseline `http://127.0.0.1:3043/settings`, live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`, and read-only `main` `http://127.0.0.1:3087/settings`
+    - result: the worktree baseline expanded from the stale five-item Core-only rail to the full `All Settings` rail (`46` visible labels in the checked viewport), and live Pixi matched that repaired baseline surface
+    - read-only `main` showed the same expanded `All Settings` set, but with a different visible scroll slice in the overview list, so the stale named-view-mode blocker is closed while a separate normalized scroll/viewport alignment frontier remains
+- Next action:
+  - Continue normalized read-only `main`-oracle parity verification on `All Settings`, focusing next on the remaining overview-list scroll/viewport alignment rather than reopening the stale named-view-mode lane.

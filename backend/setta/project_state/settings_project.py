@@ -548,7 +548,27 @@ def ensure_settings_view_modes(project_state: ProjectStateSingleConfig) -> bool:
         view_mode.name: view_mode
         for view_mode in project_state.projectConfig.viewModes.values()
     }
+    section_name_to_id = {
+        section.name: section_id
+        for section_id, section in project_state.sections.items()
+    }
+    section_names = list(SettingsState.model_fields.keys())
+    missing_sections = [
+        name for name in section_names if name not in section_name_to_id
+    ]
+    expected_visibility_by_name: dict[str, dict[ID, bool]] = {}
+    if not missing_sections:
+        for name, visible_section_names in [
+            *SETTINGS_VIEW_MODE_GROUPS,
+            ("All Settings", section_names),
+        ]:
+            expected_visibility_by_name[name] = _build_settings_view_mode_visibility(
+                section_name_to_id,
+                visible_section_names,
+            )
     needs_reset = not project_state.projectConfig.topLevelSections
+    if missing_sections:
+        needs_reset = True
     section_ids = set(project_state.sections.keys())
     if not needs_reset and not required_names.issubset(view_modes_by_name.keys()):
         needs_reset = True
@@ -568,8 +588,11 @@ def ensure_settings_view_modes(project_state: ProjectStateSingleConfig) -> bool:
             if not visibility or not any(visibility.values()):
                 needs_reset = True
                 break
+            if visibility != expected_visibility_by_name[name]:
+                needs_reset = True
+                break
             layout_ids = set(view_mode.topLevelSections.keys())
-            if not layout_ids:
+            if layout_ids != section_ids:
                 needs_reset = True
                 break
             visible_ids = {
@@ -583,14 +606,6 @@ def ensure_settings_view_modes(project_state: ProjectStateSingleConfig) -> bool:
     if not needs_reset:
         return False
 
-    section_name_to_id = {
-        section.name: section_id
-        for section_id, section in project_state.sections.items()
-    }
-    section_names = list(SettingsState.model_fields.keys())
-    missing_sections = [
-        name for name in section_names if name not in section_name_to_id
-    ]
     if missing_sections:
         raise KeyError(
             "Missing settings sections for view mode reset: "

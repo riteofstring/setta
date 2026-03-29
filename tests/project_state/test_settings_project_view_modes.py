@@ -183,6 +183,38 @@ def test_settings_view_modes_reset_when_view_layout_missing_visible_sections():
     assert missing_id in refreshed_view_modes["Param Defaults"].topLevelSections
 
 
+def test_settings_view_modes_reset_when_named_visibility_definition_is_stale():
+    project_state = create_settings_project_state(Path("/tmp/settings.json"))
+    view_modes = {
+        view_mode.name: view_mode
+        for view_mode in project_state.projectConfig.viewModes.values()
+    }
+    all_settings_view = view_modes["All Settings"]
+    core_view = view_modes["Core"]
+
+    all_settings_view.visibilityBySectionId = core_view.visibilityBySectionId.copy()
+
+    did_reset = ensure_settings_view_modes(project_state)
+
+    assert did_reset is True
+    refreshed_view_modes = {
+        view_mode.name: view_mode
+        for view_mode in project_state.projectConfig.viewModes.values()
+    }
+    refreshed_all_settings = refreshed_view_modes["All Settings"]
+    visible_section_ids = {
+        section_id
+        for section_id, is_visible in refreshed_all_settings.visibilityBySectionId.items()
+        if is_visible
+    }
+
+    assert len(visible_section_ids) == len(project_state.sections)
+    assert any(
+        project_state.sections[section_id].name == "buttonParamCodeObjDefault"
+        for section_id in visible_section_ids
+    )
+
+
 def test_settings_view_modes_reset_preserves_matching_viewport_state():
     project_state = create_settings_project_state(Path("/tmp/settings.json"))
     view_modes = {
