@@ -25,6 +25,10 @@ import {
   type ChatContextTelemetry,
 } from "components/Chat/contextTelemetry";
 import {
+  resolveEffectiveThinking,
+  supportsThinkingExecutionControl,
+} from "components/Chat/engineUtils";
+import {
   Dispatch,
   SetStateAction,
   memo,
@@ -83,14 +87,13 @@ import {
   matchesConversationSearchText,
   tokenizeConversationSearchQuery,
 } from "utils/conversationSearch";
-import {
-  route_get_file_browser_root,
-} from "utils/generatedEndpoints";
+import { route_get_file_browser_root } from "utils/generatedEndpoints";
 import {
   AgentRun,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
+  EngineConfig,
   EngineTypeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
@@ -1280,6 +1283,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision,
   thinking,
   engineConfigId,
+  engineConfig,
   engineType,
   hasLLMConfig,
   externalEngineAvailable,
@@ -1311,6 +1315,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   hydrationMetadataRevision: string;
   thinking: boolean;
   engineConfigId: string | null;
+  engineConfig: EngineConfig | null;
   engineType: EngineTypeEnum | null;
   hasLLMConfig: boolean;
   externalEngineAvailable: boolean;
@@ -1342,31 +1347,39 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     contextUsage,
     activeAppGeneration,
     appGenerationByMessageId,
+    usingPendingDraftDetails,
   } = useAIStore((state) => {
+    const pendingDetails =
+      state.pendingChatDetailsBySurfaceId[surfaceId] ?? null;
     const appGenerationDetails =
-      chatId === null
+      chatId === null || (typeof chatId !== "string" && pendingDetails !== null)
         ? state.pendingChatAppGenerationDetailsBySurfaceId[surfaceId] ??
           DEFAULT_CHAT_APP_GENERATION_DETAILS
         : typeof chatId === "string"
           ? state.chatAppGenerationDetailsByChatId[chatId] ??
             DEFAULT_CHAT_APP_GENERATION_DETAILS
           : DEFAULT_CHAT_APP_GENERATION_DETAILS;
-    if (chatId === null) {
+    const shouldUsePendingDraftDetails =
+      chatId === null ||
+      (typeof chatId !== "string" && pendingDetails !== null);
+    if (shouldUsePendingDraftDetails) {
       return {
-        ...(state.pendingChatDetailsBySurfaceId[surfaceId] ??
-          getDefaultChatDetails()),
+        ...(pendingDetails ?? getDefaultChatDetails()),
         ...appGenerationDetails,
+        usingPendingDraftDetails: pendingDetails !== null,
       };
     }
     if (typeof chatId !== "string") {
       return {
         ...getDefaultChatDetails(),
         ...appGenerationDetails,
+        usingPendingDraftDetails: false,
       };
     }
     return {
       ...(state.chatDetails[chatId] ?? getDefaultChatDetails()),
       ...appGenerationDetails,
+      usingPendingDraftDetails: false,
     };
   }, shallow);
   const branchIndex = useChatBranchIndex(typeof chatId === "string");
@@ -1399,7 +1412,10 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       searchEnabled: true,
     }));
   const showEmptyState =
-    typeof chatId === "undefined" || (chatId === null && messages.length === 0);
+    (typeof chatId === "undefined" && !usingPendingDraftDetails) ||
+    ((chatId === null || usingPendingDraftDetails) &&
+      messages.length === 0 &&
+      !waitingForResponse);
   const normalizedConversationSearchTerms = useMemo(
     () => tokenizeConversationSearchQuery(conversationFilterText),
     [conversationFilterText],
@@ -1445,12 +1461,17 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     workspaceRootIdentity,
   );
   const isExternalEngine = engineType === EngineTypeEnum.external_agent;
+  const showThinkingExecutionControl =
+    supportsThinkingExecutionControl(engineConfig);
+  const effectiveThinking = resolveEffectiveThinking({
+    engineConfig,
+    requestedThinking: thinking,
+  });
   const hydrationRunType = hydrationAuthority.hydrationRunType;
   const {
     contextWindowTokens,
     contextUsedTokens,
     contextUsageIsEstimated,
-    contextUsageUnavailable,
   } = useMemo(
     () => resolveProjectChatContextTelemetry(contextUsage),
     [contextUsage],
@@ -1767,14 +1788,14 @@ export const ProjectChatCore = memo(function ProjectChatCore({
   ]);
 
   const handleNewChatStart = useCallback(() => {
+    if (chatId === null) {
+      return;
+    }
     if (onStartNewChat) {
       onStartNewChat();
       return;
     }
     onDraftThreadStart?.();
-    if (chatId === null) {
-      return;
-    }
     initializePendingChatDetails(surfaceId);
     setChatId(null);
   }, [chatId, onDraftThreadStart, onStartNewChat, setChatId, surfaceId]);
@@ -1973,7 +1994,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           chatId ?? null,
           message,
           attachments,
-          thinking,
+          effectiveThinking,
           engineConfigId,
           isExternalEngine,
           {
@@ -1998,7 +2019,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     },
     [
       chatId,
-      thinking,
       engineConfigId,
       handleNewChatSettled,
       handleNewChatStart,
@@ -2010,6 +2030,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       activeAppGeneration,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
@@ -2040,7 +2061,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId,
         message: text,
         attachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -2069,9 +2090,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       executionSettings.permissionMode,
       executionSettings.searchEnabled,
+      effectiveThinking,
     ],
   );
 
@@ -2119,7 +2140,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
         messageId: sourceUserMessage.id,
         message: sourceText,
         attachments: sourceAttachments,
-        thinking,
+        thinking: effectiveThinking,
         engineConfigId,
         isExternalEngine,
         agentProfileId: null,
@@ -2151,8 +2172,8 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       requiresNewThreadContinuation,
       setChatId,
       surfaceId,
-      thinking,
       waitingForResponse,
+      effectiveThinking,
     ],
   );
 
@@ -2227,12 +2248,9 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       ),
     [appGenerationByMessageId, messages],
   );
-  const showThinkingExecutionControl =
-    engineType === EngineTypeEnum.setta_llm ||
-    engineType === EngineTypeEnum.external_agent;
   const executionControls = useMemo(
     () => ({
-      thinkingEnabled: thinking,
+      thinkingEnabled: effectiveThinking,
       onThinkingEnabledChange: showThinkingExecutionControl
         ? onThinkingChange
         : undefined,
@@ -2242,7 +2260,7 @@ export const ProjectChatCore = memo(function ProjectChatCore({
       onSearchEnabledChange: executionControlHandlers.onSearchEnabledChange,
     }),
     [
-      thinking,
+      effectiveThinking,
       onThinkingChange,
       showThinkingExecutionControl,
       executionSettings.permissionMode,
@@ -2359,9 +2377,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={
-            showEmptyState ? false : contextUsageUnavailable
-          }
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
           runtimeActivityDetails={runtimeActivityDetails}
