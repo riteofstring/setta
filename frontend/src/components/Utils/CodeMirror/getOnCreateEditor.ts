@@ -14,7 +14,7 @@ function fixPlaceholderCursor(divId, value, defaultVal) {
 
 export function getOnCreateEditor({
   initialEvent,
-  onEditorReady,
+  setRealIsInitialized,
   divId,
   value,
   defaultVal,
@@ -32,7 +32,7 @@ export function getOnCreateEditor({
     }
 
     fixPlaceholderCursor(divId, value, defaultVal);
-    onEditorReady();
+    setRealIsInitialized(true);
   };
 }
 

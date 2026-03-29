@@ -1837,6 +1837,13 @@ export function ProjectChatSkillsMcpViewer({
                           >
                             {serverEndpointDisplay}
                           </div>
+                          <div
+                            className="truncate text-[10px] text-setta-500 dark:text-setta-400"
+                            title={status.quickInfo}
+                            data-testid="skills-mcp-server-status"
+                          >
+                            {status.quickInfo}
+                          </div>
                         </div>
                       );
                     })}
