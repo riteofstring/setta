@@ -9006,3 +9006,41 @@ Record:
     - baseline and canary both showed visible settings row content in the checked viewport, so this runtime failure is no longer the active blocker
 - Next action:
   - Continue the live Pixi visual-parity lane from this non-blank canary state by tightening row readability and card-body parity against the baseline/main oracle, while the Playwright bootstrap `401` remains a separate verification blocker.
+
+## 2026-03-29 274
+
+- Item: Fix shared session-root discovery so current-worktree verification can find live dev sessions under `setta_files_dev`.
+- Status: `done`
+- Details:
+  - Took the next bounded blocker-resolution slice instead of another speculative Pixi parity tweak:
+    - repeated live-canary Playwright/bootstrap `401` failures were not caused by dead UI state alone
+    - the shared `resolve_sessions_root(workspace)` helper was defaulting to `setta_files/runtime/sessions`
+    - this worktree's live Ralph/`ai.sh` dev lifecycle was actually writing session metadata under `setta_files_dev/runtime/sessions`
+    - that mismatch made caller-side commands such as `setta status --connect-info --latest --json --workspace .` miss the real live session unless the caller manually exported files/runtime overrides
+  - Updated:
+    - `backend/setta/sessions/utils.py`
+    - `tests/utils/test_setta_paths.py`
+    - `tests/start/test_start_status.py`
+  - The shared session lookup now:
+    - still honors explicit files/runtime/profile overrides first
+    - otherwise scans the local workspace runtime session roots for a real workspace-matching session before falling back to the default resolved root
+    - allows dev-worktree callers with no extra env overrides to find the live `setta_files_dev` session metadata that Ralph/`ai.sh` actually created
+  - Added focused coverage for:
+    - the raw helper preferring a matching `setta_files_dev/runtime/sessions` root when the default local root is empty
+    - `setta status --connect-info --json --workspace ...` finding a live session stored under `setta_files_dev/runtime/sessions`
+- Verification:
+  - Pytest:
+    - `source activate.sh && pytest tests/utils/test_setta_paths.py::test_resolve_sessions_root_uses_setta_files_root_env tests/utils/test_setta_paths.py::test_resolve_sessions_root_prefers_matching_local_dev_runtime_sessions tests/start/test_start_status.py::test_status_connect_info_json_finds_matching_local_dev_runtime_session`
+    - result: passed (`3 passed`)
+  - Status CLI:
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .`
+    - result: passed
+    - resolved the live worktree session at `127.0.0.1:8044` with runtime root `/Users/jeff/Documents/_projects/setta.pixijs-rewrite/setta_files_dev/runtime` and setta files root `/Users/jeff/Documents/_projects/setta.pixijs-rewrite/setta_files_dev`
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<fresh token minted from setta_files_dev/runtime/sessions/a6c438> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes" --reporter=line`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - `/settings` loaded authenticated and `All Settings` was visible
+    - `/settings?liveDictAreaRenderer=pixi-node-body` also loaded authenticated, `All Settings` was visible, and no new obvious viewport regression was observed during the sanity check
+- Next action:
+  - Return to the live Pixi visual-parity lane with session/bootstrap verification unblocked, starting from the remaining row/body readability and `main` parity drift on the first visible `All Settings` cards.

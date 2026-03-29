@@ -301,6 +301,71 @@ def test_status_ignores_stale_sessions_for_workspace(status_env) -> None:
         stale_process.wait()
 
 
+def test_status_connect_info_json_finds_matching_local_dev_runtime_session(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    setta_home = tmp_path / ".setta"
+    setta_home.mkdir(parents=True, exist_ok=True)
+    dev_setta_files_root = workspace / "setta_files_dev"
+    dev_runtime_root = dev_setta_files_root / "runtime"
+    dev_sessions_root = dev_runtime_root / "sessions"
+    dev_sessions_root.mkdir(parents=True, exist_ok=True)
+    runner = CliRunner()
+
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "setta.server:app",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(0.05)
+
+    try:
+        with temporary_setta_paths(workspace_root=workspace, setta_home=setta_home):
+            registry = SessionRegistry(sessions_root=dev_sessions_root)
+            registry.create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=process.pid,
+                runtime_root=str(dev_runtime_root.resolve(strict=False)),
+                setta_files_root=str(dev_setta_files_root.resolve(strict=False)),
+                setta_home=str(setta_home.resolve(strict=False)),
+            )
+
+            # Ralph/bootstrap flows run the dev server under `setta_files_dev`;
+            # `status --workspace` should still discover that live session
+            # without requiring the caller to export SETTA_FILES_ROOT first.
+            result = runner.invoke(
+                status,
+                [
+                    "--connect-info",
+                    "--json",
+                    "--workspace",
+                    str(workspace),
+                    "--latest",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        payload = _decode_connect_info(result.output)
+        assert payload["session"]["port"] == 61234
+        assert payload["runtimeRoot"] == str(dev_runtime_root.resolve(strict=False))
+        assert payload["settaFilesRoot"] == str(
+            dev_setta_files_root.resolve(strict=False)
+        )
+    finally:
+        if process.poll() is None:
+            process.terminate()
+        process.wait()
+
+
 def test_status_rejects_missing_session(status_env) -> None:
     status_env.create_session(port=61234)
     runner = CliRunner()

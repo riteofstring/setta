@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from setta.database.db_objs import DBE
+from setta.sessions import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.paths import (
     build_files_root_from_base,
@@ -553,6 +554,30 @@ def test_resolve_sessions_root_uses_setta_files_root_env(
         base_root, workspace.resolve(strict=False)
     )
     assert sessions_root == expected_root.resolve(strict=False) / "runtime" / "sessions"
+
+
+def test_resolve_sessions_root_prefers_matching_local_dev_runtime_sessions(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "setta_files" / "runtime" / "sessions").mkdir(parents=True)
+    dev_sessions_root = workspace / "setta_files_dev" / "runtime" / "sessions"
+    registry = SessionRegistry(sessions_root=dev_sessions_root)
+    registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=1,
+        pid_create_time=0.0,
+    )
+
+    # When the caller did not pin a files/runtime root, resolve the local dev
+    # session root that actually contains the workspace session instead of the
+    # empty default local runtime root.
+    sessions_root = resolve_sessions_root(workspace)
+
+    assert sessions_root == dev_sessions_root.resolve(strict=False)
 
 
 def test_explicit_setta_files_root_overrides_local_root(tmp_path: Path) -> None:
