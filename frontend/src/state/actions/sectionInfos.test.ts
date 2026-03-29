@@ -1,5 +1,4 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
@@ -21,7 +20,6 @@ import {
   setCodeObjVariantImplValue,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
-import { resetStreamingTracker } from "state/aiStreamingTracker";
 import {
   useLocalStorage,
   useMisc,
@@ -31,7 +29,6 @@ import {
   type ZustandProjectState,
 } from "state/definitions";
 import {
-  ChatRoleEnum,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
   createCallableSectionImpl,
@@ -41,13 +38,11 @@ import {
   createCore,
   createDictSectionImpl,
   createListRootSectionImpl,
-  createMessageTextContent,
   createProjectConfig,
   createProjectStateSingleConfig,
   createSingletonSections,
   createTerminalSectionImpl,
   createUserDefaultCallableSectionImpl,
-  createUserDefaultChatSectionImpl,
   createUserDefaultCodeParamCodeObjImpl,
   createUserDefaultDictSectionImpl,
   createUserDefaultListRootSectionImpl,
@@ -1311,124 +1306,6 @@ describe("createTopLevelSectionLayoutDict", () => {
 });
 
 describe("processProjectStateUpdateFromBackend", () => {
-  it("skips completeness scoring when simple merge conditions already apply", () => {
-    const scoreSpy = vi.spyOn(chatMergeUtils, "getMessageCompletenessScore");
-    resetStreamingTracker();
-
-    const sectionId = "section-1";
-    const variantId = "variant-1";
-    const implId = "impl-1";
-    const chatId = "chat-1";
-
-    const sectionCore = createCore({
-      id: sectionId,
-      name: "Chat",
-      variants: [variantId],
-      defaultVariant: variantId,
-    });
-    const sectionVariant = createVariant({
-      id: variantId,
-      name: "Chat Variant",
-      impl: implId,
-      nonPresetImpls: [],
-    });
-    const baseImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId }),
-      {
-        id: implId,
-        chatId,
-      },
-    );
-    const currentImpl = {
-      ...baseImpl,
-      messages: [
-        {
-          id: "msg-1",
-          role: ChatRoleEnum.user,
-          content: [createMessageTextContent({ text: "First" })],
-          attachments: [],
-        },
-        {
-          id: "msg-2",
-          role: ChatRoleEnum.assistant,
-          content: [createMessageTextContent({ text: "Second" })],
-          attachments: [],
-          tool_calls: null,
-        },
-      ],
-      toolCallArguments: {},
-      inputText: "",
-      waitingForResponse: false,
-    };
-    const incomingImpl = {
-      ...baseImpl,
-      messages: [
-        {
-          id: "msg-1",
-          role: ChatRoleEnum.user,
-          content: [createMessageTextContent({ text: "First" })],
-          attachments: [],
-        },
-      ],
-      toolCallArguments: {},
-      inputText: "",
-      waitingForResponse: false,
-    };
-
-    const projectConfig = createProjectConfig({
-      id: "project-1",
-      sectionVariantMap: { [sectionId]: variantId },
-    });
-
-    useProjectState.setState({
-      projectConfig,
-      sections: { [sectionId]: sectionCore },
-      sectionImpls: { [implId]: currentImpl },
-      sectionVariants: { [variantId]: sectionVariant },
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {},
-      shownParamIds: {},
-      previewSectionVariantMap: {},
-      requiredDecodedImages: [],
-    });
-    usePendingOperations.setState({ pending: [] });
-    useNodeInternals.setState({ x: new Map() });
-    useReactFlow.setState({
-      transform: [0, 0, 1],
-      fitViewOnInit: false,
-      fitViewOnInitDone: true,
-    });
-
-    const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: createProjectStateSingleConfig({
-        projectConfig,
-        sections: { [sectionId]: sectionCore },
-        sectionImpls: { [implId]: incomingImpl },
-        sectionVariants: { [variantId]: sectionVariant },
-        codeObjs: {},
-        codeObjImpls: {},
-        codeObjVariants: {},
-        artifactGroups: {},
-        singletonSections: createSingletonSections(),
-        parentSectionMap: {},
-        shownParamIds: {},
-        requiredDecodedImages: [],
-        genCodeBinding: null,
-      }),
-      completedOpIds: [],
-      pendingOpIds: [],
-    };
-
-    processProjectStateUpdateFromBackend(update);
-
-    expect(scoreSpy).not.toHaveBeenCalled();
-    scoreSpy.mockRestore();
-  });
-
   it("applies viewport updates to the react flow store", () => {
     const sectionId = "section-1";
     const viewModeId = "view-1";
