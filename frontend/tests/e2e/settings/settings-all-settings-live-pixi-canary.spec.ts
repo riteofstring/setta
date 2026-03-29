@@ -1,5 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  SETTINGS_ALL_SETTINGS_NORMALIZATION_GRID_COLUMNS,
+  SETTINGS_ALL_SETTINGS_NORMALIZATION_MIN_CELL_SIZE_PX,
+} from "../../../src/components/Pages/Project/settingsAllSettingsNormalization";
+import {
   LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS,
   LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
   LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
@@ -41,8 +45,6 @@ const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
 const LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM =
   "liveDictAreaInteractionMode";
 const LIVE_PIXI_MODE = "pixi-node-body";
-const SETTINGS_LAYOUT_GRID_COLUMNS = 3;
-const SETTINGS_LAYOUT_GRID_SPACING = 600;
 const SETTA_AUTH_COOKIE_NAME_PREFIX = "setta_auth";
 const NOTIFICATIONS_STORE_MODULE_URL = "/src/state/definitions.ts";
 // Use the exact browser module URL that the app resolves for the singleton
@@ -1046,6 +1048,55 @@ async function readVisibleSectionNodeBounds(
   });
 }
 
+async function readSectionNodeViewportState(
+  page: Page,
+  sectionName: string,
+): Promise<{
+  found: boolean;
+  fullyVisible: boolean;
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}> {
+  return page.evaluate(async (targetSectionName) => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const sections = useProjectState.getState().sections;
+    const matchingElement = Array.from(
+      document.querySelectorAll<HTMLElement>(".react-flow__node[data-id]"),
+    ).find((element) => {
+      const sectionId = element.getAttribute("data-id") ?? "";
+      return sections[sectionId]?.name === targetSectionName;
+    });
+
+    if (!matchingElement) {
+      return {
+        found: false,
+        fullyVisible: false,
+        height: 0,
+        width: 0,
+        x: 0,
+        y: 0,
+      };
+    }
+
+    const rect = matchingElement.getBoundingClientRect();
+
+    return {
+      found: true,
+      fullyVisible:
+        rect.left >= 0 &&
+        rect.top >= 0 &&
+        rect.right <= window.innerWidth &&
+        rect.bottom <= window.innerHeight,
+      height: rect.height,
+      width: rect.width,
+      x: rect.x,
+      y: rect.y,
+    };
+  }, sectionName);
+}
+
 async function readVisibleOverviewSectionLabels(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const scrollContainer = document.querySelector<HTMLElement>(
@@ -1083,13 +1134,16 @@ async function normalizeAllSettingsOverviewLayout(page: Page): Promise<void> {
   await page.evaluate(
     async ({
       gridColumns,
-      gridSpacing,
+      minimumCellSizePx,
     }: {
       gridColumns: number;
-      gridSpacing: number;
+      minimumCellSizePx: number;
     }) => {
+      const { buildNormalizedAllSettingsTopLevelSections } = await import(
+        "/src/components/Pages/Project/settingsAllSettingsNormalization.ts"
+      );
       const { useProjectState } = await import("/src/state/definitions.ts");
-      const { createSettingsState, createTopLevelSectionLayout } = await import(
+      const { createSettingsState } = await import(
         "/src/utils/generatedTypes.ts"
       );
 
@@ -1110,23 +1164,30 @@ async function normalizeAllSettingsOverviewLayout(page: Page): Promise<void> {
         ]),
       );
       const orderedSectionNames = Object.keys(createSettingsState());
-      const nextLayout = Object.fromEntries(
-        orderedSectionNames.map((sectionName, index) => {
-          const sectionId = sectionIdByName[sectionName];
-          if (!sectionId) {
-            throw new Error(
-              `Missing settings section for All Settings normalization: ${sectionName}`,
-            );
-          }
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+      const measuredSectionSizesById = Object.fromEntries(
+        Array.from(
+          document.querySelectorAll<HTMLElement>(".react-flow__node[data-id]"),
+        ).map((element) => {
+          const sectionId = element.getAttribute("data-id") ?? "";
           return [
             sectionId,
-            createTopLevelSectionLayout({
-              x: (index % gridColumns) * gridSpacing,
-              y: Math.floor(index / gridColumns) * gridSpacing,
-            }),
+            {
+              height: element.offsetHeight,
+              width: element.offsetWidth,
+            },
           ];
         }),
       );
+      const nextLayout = buildNormalizedAllSettingsTopLevelSections({
+        gridColumns,
+        measuredSectionSizesById,
+        minimumCellSizePx,
+        orderedSectionNames,
+        sectionIdByName,
+      });
 
       useProjectState.setState((currentState) => {
         currentState.projectConfig.topLevelSections = nextLayout;
@@ -1139,8 +1200,8 @@ async function normalizeAllSettingsOverviewLayout(page: Page): Promise<void> {
       });
     },
     {
-      gridColumns: SETTINGS_LAYOUT_GRID_COLUMNS,
-      gridSpacing: SETTINGS_LAYOUT_GRID_SPACING,
+      gridColumns: SETTINGS_ALL_SETTINGS_NORMALIZATION_GRID_COLUMNS,
+      minimumCellSizePx: SETTINGS_ALL_SETTINGS_NORMALIZATION_MIN_CELL_SIZE_PX,
     },
   );
 }
@@ -3001,6 +3062,30 @@ test("all settings baseline and explicit-query live Pixi canary share the same v
     await baselinePage.close();
     await canaryPage.close();
   }
+});
+
+test("all settings live Pixi canary keeps spreadsheetSectionDefault fully in frame after normalized viewport clear", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await normalizeAllSettingsOverviewLayout(page);
+  await clearCurrentProjectViewportForRefit(page);
+  await waitForVisibleSceneMetrics(page);
+  await expectZoomOutButtonDisabled(page, true);
+
+  await expect
+    .poll(async () => {
+      return await readSectionNodeViewportState(
+        page,
+        "spreadsheetSectionDefault",
+      );
+    })
+    .toMatchObject({
+      found: true,
+      fullyVisible: true,
+    });
 });
 
 test("all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear", async ({

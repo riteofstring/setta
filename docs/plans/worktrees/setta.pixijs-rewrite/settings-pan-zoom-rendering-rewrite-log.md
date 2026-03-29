@@ -13293,3 +13293,47 @@ Record:
     - verified on a fresh DevTools page for `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` that `groupSectionDefault` is visible, managed by the shared page runtime, and no `dom-context-lost` fallback wrappers remain on the page
 - Next action:
   - Re-run a fresh normalized live-canary inspection now that page-wide `dom-context-lost` is cleared and the old allowlist lane is complete, then target the next real Gate 1 blocker if any visible `local-app` scenes or interaction/parity drifts remain.
+
+## 2026-04-01 386
+
+- Item: Make the canonical `All Settings` normalization layout pack from measured node sizes so the live canary no longer clips `spreadsheetSectionDefault` on the right edge during normalized parity checks.
+- Status: `done`
+- Details:
+  - Did not continue the old shared-runtime section lane after item `385`.
+  - Fresh normalized CDP comparison after item `385` showed the first remaining blocker was no longer renderer ownership:
+    - no visible `data-live-dict-area-scene-render-backend="local-app"` scenes remained
+    - the normalized `All Settings` canary still left `spreadsheetSectionDefault` partially off-canvas on the right edge, showing only a clipped sliver plus edge controls
+    - because that made the normalized graph surface untrustworthy for the next Gate 1 / Gate 2 comparison, this iteration stayed on one bounded support fix instead of guessing at a renderer defect
+  - Replaced the fixed `600x600` normalization grid step with a measured-node packing helper:
+    - `frontend/src/components/Pages/Project/settingsAllSettingsNormalization.ts`
+      - adds a pure helper that builds the canonical `All Settings` top-level section layout from the ordered settings section list plus the currently measured node widths/heights
+      - preserves the existing three-column normalization shape while widening columns and rows to the largest measured section in each bucket instead of assuming every section fits inside the old fixed stride
+      - fails loudly when a section mapping or measured node size is missing so the normalization path does not silently fall back to guesswork
+    - `frontend/src/components/Pages/Project/settingsAllSettingsNormalization.test.ts`
+      - pins the measured-width/height packing behavior plus the loud failure path
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - `normalizeAllSettingsOverviewLayout(...)` now measures the current `.react-flow__node[data-id]` sizes in-page and delegates the canonical layout build to the new helper
+      - adds a focused live-canary guard that `spreadsheetSectionDefault` stays fully in frame after normalized viewport clear
+  - This slice intentionally changed the normalization/parity support path only:
+    - no renderer/runtime ownership code changed
+    - the goal was to restore a trustworthy normalized comparison surface now that the old `local-app` / `dom-context-lost` blockers are cleared
+  - Chrome DevTools MCP visual check:
+    - verified on a fresh normalized `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` page that `spreadsheetSectionDefault` is fully in frame and the previous clipped right-edge sliver is gone
+    - compared the same normalized area against the read-only `main` reference and the framing now matches
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/settingsAllSettingsNormalization.ts src/components/Pages/Project/settingsAllSettingsNormalization.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/settingsAllSettingsNormalization.test.ts`
+    - result: passed (`3 passed`)
+  - Playwright:
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - targeted run:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the same visible canvas section slice after frontend viewport clear|all settings live Pixi canary keeps spreadsheetSectionDefault fully in frame after normalized viewport clear"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the normalized live worktree canary, and cross-checked against the normalized `main` reference, that `spreadsheetSectionDefault` is fully in frame and the previous right-edge clipped sliver is gone
+- Next action:
+  - Re-run the normalized live-canary versus `main` comparison now that the surface framing support is trustworthy again, then take the next real Gate 1 or Gate 2 renderer/interactions defect instead of doing more normalization-only work.
