@@ -24,4 +24,24 @@ describe("viewModeOrdering", () => {
 
     expect(sorted.map((mode) => mode.id)).toEqual(["a", "c", "b"]);
   });
+
+  it("treats missing sortIndex as zero", () => {
+    const sorted = sortViewModes([
+      createViewModeConfig({
+        id: "b",
+        name: "Beta",
+        sortIndex: 1,
+      }),
+      createViewModeConfig({
+        id: "a",
+        name: "Alpha",
+      }),
+      createViewModeConfig({
+        id: "c",
+        name: "Gamma",
+      }),
+    ]);
+
+    expect(sorted.map((mode) => mode.id)).toEqual(["a", "c", "b"]);
+  });
 });
