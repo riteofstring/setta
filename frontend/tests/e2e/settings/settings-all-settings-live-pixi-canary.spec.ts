@@ -357,7 +357,7 @@ test("all settings canary can immediately open a popup color-picker row on first
   expect(colorPickerActivationResult?.visiblePaletteLabels).toContain("Red");
 });
 
-test("all settings canary can hand off from the Pixi scene into a param-area drag overlay while param select is active", async ({
+test("all settings canary can hand off from the Pixi scene into a param-list drag overlay while param select is active", async ({
   page,
 }) => {
   await openAllSettingsLivePixiCanary(page);
@@ -379,20 +379,26 @@ test("all settings canary can hand off from the Pixi scene into a param-area dra
     await dragHandoffButton.click();
 
     await page.waitForSelector(
-      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-row-id='${activatedRowId}']`,
+      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${activatedBlockId}']`,
     );
 
-    const dragOverlayMetrics = await page.waitForFunction((rowId) => {
+    const dragOverlayMetrics = await page.waitForFunction((blockId) => {
       const overlay = document.querySelector<HTMLElement>(
-        `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-row-id='${rowId}']`,
+        `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${blockId}']`,
       );
       if (!overlay) {
         return null;
       }
 
       return {
+        dragOverlayKind: overlay.getAttribute(
+          "data-live-dict-area-drag-overlay-kind",
+        ),
         dragParamRowCount: overlay.querySelectorAll("[data-param-row='true']")
           .length,
+        hasBlockFrameMount:
+          overlay.querySelector("[data-dict-area-block-frame-id]") !== null,
+        hasHeaderMount: overlay.querySelector("header") !== null,
         mountedParamContainerCount: overlay.querySelectorAll(
           '[id^="ParamContainer-"]',
         ).length,
@@ -400,18 +406,21 @@ test("all settings canary can hand off from the Pixi scene into a param-area dra
           "[data-live-dict-area-scene='pixi'] canvas",
         ).length,
       };
-    }, activatedRowId);
+    }, activatedBlockId);
 
     const result = await dragOverlayMetrics.jsonValue();
 
     expect(result).not.toBeNull();
+    expect(result?.dragOverlayKind).toBe("param-list");
     expect(result?.dragParamRowCount).toBeGreaterThan(1);
+    expect(result?.hasBlockFrameMount).toBe(false);
+    expect(result?.hasHeaderMount).toBe(false);
     expect(result?.mountedParamContainerCount).toBeGreaterThan(0);
     expect(result?.sceneCanvasCount).toBeGreaterThan(0);
   });
 });
 
-test("all settings canary can reorder top-level rows through the Pixi param-area drag overlay", async ({
+test("all settings canary can reorder top-level rows through the Pixi param-list drag overlay", async ({
   page,
 }) => {
   await openAllSettingsLivePixiCanary(page);

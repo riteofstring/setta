@@ -6784,3 +6784,51 @@ Record:
       - `POST /__setta__/bootstrap/consume` returned `401` in that browser session, so the verifier fell back to the already-loaded authenticated app session
 - Next action:
   - Continue the live retained-scene slice by narrowing the current drag-overlay handoff toward a more scene-owned reorder path, starting with the next bounded drag interaction improvement that reduces reliance on the full param-area DOM mount.
+
+## 2026-03-29 220
+
+- Item: Narrow the live Pixi param-row drag overlay from a full param-area mount to a list-only DnD surface.
+- Status: `done`
+- Details:
+  - Replaced the `LiveDictAreaParamAreaMount` handoff inside `LiveDictAreaPixiParamAreaOverlay` with minimal pinned/unpinned wrappers that mount only the existing `ParamDndList` from the typed live surface blocks:
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx`
+  - The active drag overlay now advertises `data-live-dict-area-drag-overlay-kind="param-list"` and no longer carries the full param-area shell chrome into the retained-scene handoff path.
+  - Kept the drag-overlay slice source-of-truth-driven:
+    - the overlay still resolves the same pinned/unpinned live surface block by `blockId`
+    - the row list still comes from the existing live `visualPacket.list` contract
+    - the actual reorder path still runs through the real `ParamDndList` / DnD surface rather than a custom drag-only list
+  - Tightened the targeted regression coverage to match the narrower overlay contract:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - renamed the drag-handoff assertions from `param-area` to `param-list`
+    - made the browser-level handoff assertion resolve the active overlay by block instead of the clicked row so it follows the actual block-scoped overlay mount behavior
+  - Live-gate recovery note:
+    - the stale pre-restart worktree bootstrap token on `3044/8044` was rejected during Playwright global setup
+    - used the one allowed non-main worktree self-recovery via `./aireset.sh`
+    - the restarted worktree came up on frontend `3046` / backend `8046`
+    - the first post-restart Playwright run consumed the new one-time bootstrap token, so the follow-up handoff contract check reused the saved auth state from `frontend/tests/e2e/.storageState.json` in a direct Playwright script instead of forcing a second lifecycle reset
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Playwright:
+    - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8046 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3046 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts -g 'param-list drag overlay|reorder top-level rows through the Pixi param-list drag overlay'`
+      - result: partially passed before the bootstrap token was consumed
+      - the reorder case passed on the restarted worktree
+      - the first handoff case exposed the old row-scoped selector assumption, which is why the test was tightened to follow the block-scoped overlay mount
+    - one-off saved-auth Playwright DOM check on `http://127.0.0.1:3046/settings?liveDictAreaRenderer=pixi-node-body`
+      - result: passed
+      - observed `activatedBlockId: "unpinned"`
+      - observed `dragOverlayKind: "param-list"`
+      - observed `dragParamRowCount: 12`
+      - observed `hasBlockFrameMount: false`
+      - observed `hasHeaderMount: false`
+      - observed `mountedParamContainerCount: 12`
+      - observed `sceneCanvasCount: 46`
+  - Chrome DevTools MCP visual check in fresh sub-agent contexts on the restarted live worktree app:
+    - result: deferred
+    - both fresh CDP-only verifiers reached the live `All Settings` surface on `3046`
+    - the current modifier-held param-select interaction was not reliably triggerable through DevTools-only inputs, so no stable `data-live-dict-area-drag-handoff` / `data-live-dict-area-drag-overlay` surface could be inspected there
+    - because the overlay never materialized in a trustworthy CDP-only session, the required visual gate remains deferred for this modifier-gated canary path even though Playwright automation verified the DOM contract
+- Next action:
+  - Continue the retained-scene drag lane by reducing the remaining DOM dependence behind `ParamDndList`, or expose a stable CDP-triggerable param-select canary so the deferred visual gate can be closed without relying on held-modifier state.

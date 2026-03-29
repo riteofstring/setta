@@ -36,6 +36,7 @@ vi.mock("./LiveDictAreaPixiParamAreaOverlay", () => ({
     <div
       data-live-dict-area-drag-overlay="active"
       data-live-dict-area-drag-overlay-block-id={target.blockId}
+      data-live-dict-area-drag-overlay-kind="param-list"
       data-live-dict-area-drag-overlay-row-id={target.rowId}
     />
   ),
@@ -205,7 +206,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     ).not.toBeNull();
   });
 
-  it("mounts a param-area drag overlay when param selection mode is active", () => {
+  it("mounts a param-list drag overlay when param selection mode is active", () => {
     liveMiscState.isSelectingParams = true;
     const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
       input: {
@@ -306,6 +307,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container.querySelector(
         `[data-live-dict-area-drag-overlay-block-id='${activatedBlockId}']`,
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        "[data-live-dict-area-drag-overlay-kind='param-list']",
       ),
     ).not.toBeNull();
   });
