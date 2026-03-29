@@ -11231,3 +11231,33 @@ Record:
     - result: passed for this blocker-resolution slice; CDP attached successfully, the normalized `All Settings` surface was present on both baseline and live Pixi tabs, and the earlier missing-surface report did not reproduce
 - Next action:
   - Continue the real live Pixi visual-stability investigation on normalized surfaces, with `main`-oracle comparison re-enabled once the read-only reference runtime is reachable; prioritize true zoom-time instability or `main`-visible drift rather than the closed missing-surface false alarm.
+
+## 2026-03-31 342
+
+- Item: Rule out a remaining worktree-only live Pixi zoom-time blocker on normalized `All Settings` surfaces before making another renderer change.
+- Status: `done`
+- Details:
+  - Continued directly from item `341` and kept the slice on the named next frontier instead of reopening another closed row-layout or seam-lift lane.
+  - Used a fresh-context Chrome DevTools MCP sub-agent against the current worktree runtime:
+    - frontend: `http://127.0.0.1:3043/`
+    - backend: `http://127.0.0.1:8043`
+    - Chrome DevTools: `9265`
+  - Re-checked read-only `main` availability before treating any local comparison as authoritative:
+    - `http://127.0.0.1:3000/settings`
+    - result: unavailable locally during this iteration
+  - With `main` still unavailable, normalized and compared only the worktree baseline DOM surface and the worktree live Pixi canary surface:
+    - `http://127.0.0.1:3043/settings`
+    - `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+  - The fresh CDP pass did not find a new worktree-only blocker worth taking as the next renderer slice:
+    - no obvious resting baseline-vs-live mismatch stood out after normalization
+    - one visible app-level `zoom in` interaction on each surface did not show a reproducible width jump, blur/blockiness, or snap-after-redraw difference in that runtime
+  - This closes the current worktree-only baseline-vs-live parity probe lane for now:
+    - there is no newly reproduced local canary defect to fix in this iteration
+    - the remaining visual frontier is still `main`-oracle parity once the read-only reference runtime is available again
+  - No production frontend/backend code changed in this iteration.
+- Verification:
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime
+    - result: passed; CDP attached successfully, normalized baseline/live `All Settings` surfaces were both healthy, and a one-step `zoom in` check did not reveal a new local live-Pixi-only visual blocker
+- Next action:
+  - Resume normalized `main`-oracle `All Settings` parity verification once the read-only reference runtime is reachable again; do not invent another worktree-only renderer edit unless a reproducible local mismatch reappears.
