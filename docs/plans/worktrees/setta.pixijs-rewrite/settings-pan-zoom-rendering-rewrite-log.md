@@ -13809,6 +13809,32 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 416
+
+- Item: Close the stale focused `browserSectionDefault` compare suspicion in the durable handoff and retarget the next frontier to the remaining low-zoom preview drift.
+- Status: `done`
+- Details:
+  - No production or test files changed in this iteration; this was a bounded sequencing correction because the latest handoff still pointed back at the focused `browserSectionDefault` lane even though history items `412` and `414` had already closed that lane with trustworthy same-state compare evidence.
+  - A fresh raw CDP sub-agent did reach both runtimes, but its compare was only partially trustworthy:
+    - worktree: visible `browserSectionDefault` card plus adjacent `callableSectionDefault`
+    - `main`: filtered tag row plus blank canvas area
+    - because that pass did not prove replayed-main project state plus the same in-page normalization/focus flow on both tabs, it is not accepted as new renderer-drift evidence.
+  - Re-ran the existing replayed-main normalization probe via `/tmp/setta_all_settings_compare_current.mjs` with fresh bootstrap URLs:
+    - result: passed
+    - normalized top visible nodes still matched between worktree and `main` (`shortcuts`, `gui`, `backend`, `chatWindowing`, `sectionSizingPolicy`, `languageServer`)
+    - the canary still exposed the expected visible Pixi scene summaries on its own surface.
+  - Attempted one stricter fresh-context CDP retry that was explicitly supposed to drive the same in-page `/src/...` normalization flow rather than raw DOM state, but it did not complete before shutdown, so no new trustworthy contradiction to items `412` and `414` was established.
+  - Conclusion:
+    - do not reopen the focused `browserSectionDefault` compare lane on raw-CDP mismatch alone
+    - return to the actual remaining Gate 2 product frontier from items `400` and `402`, the low-zoom tiny-card/right-column preview sparsity/compression drift versus `main`.
+- Verification:
+  - `source activate.sh >/dev/null 2>&1 && MAIN_BOOTSTRAP_URL=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//' | node -e '<decode main bootstrap url>') && node -e '<rewrite /tmp/setta_all_settings_compare_current.mjs with fresh main bootstrap url>' && TSX_TSCONFIG_PATH='/Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/tsconfig.json' node --import /Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs /tmp/setta_all_settings_compare_run.mjs`
+    - result: passed
+- Next action:
+  - Use the trusted same-state canary/main compare path to pick one concrete low-zoom tiny-card mismatch and land a production renderer fix there instead of reopening `browserSectionDefault` support work.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 415
 
 - Item: Lock the replayed-main overview slice so raw-CDP left-panel drift does not masquerade as a renderer bug.
@@ -14348,5 +14374,31 @@ LOOP_TERMINAL_MARKER: none
   - the next blocker is restoring a trustworthy centered worktree/main CDP compare surface, not another blind shared-runtime placement tweak
 - Next action:
   - Re-establish a trustworthy centered `browserSectionDefault` worktree/main CDP compare on top of this screen-space runtime path, then inspect any remaining Gate 2 drift from that exact state
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-01 416
+
+- Item: Close the stale focused `browserSectionDefault` compare suspicion in the durable handoff and retarget the next frontier to the remaining low-zoom preview drift.
+- Status: `done`
+- Details:
+  - No production or test files changed in this iteration; this was a bounded sequencing correction because the latest handoff still pointed back at the focused `browserSectionDefault` lane even though history items `412` and `414` had already closed that lane with trustworthy same-state compare evidence.
+  - A fresh raw CDP sub-agent did reach both runtimes, but its compare was only partially trustworthy:
+    - worktree: visible `browserSectionDefault` card plus adjacent `callableSectionDefault`
+    - `main`: filtered tag row plus blank canvas area
+    - because that pass did not prove replayed-main project state plus the same in-page normalization/focus flow on both tabs, it is not accepted as new renderer-drift evidence.
+  - Re-ran the existing replayed-main normalization probe via `/tmp/setta_all_settings_compare_current.mjs` with fresh bootstrap URLs:
+    - result: passed
+    - normalized top visible nodes still matched between worktree and `main` (`shortcuts`, `gui`, `backend`, `chatWindowing`, `sectionSizingPolicy`, `languageServer`)
+    - the canary still exposed the expected visible Pixi scene summaries on its own surface.
+  - Attempted one stricter fresh-context CDP retry that was explicitly supposed to drive the same in-page `/src/...` normalization flow rather than raw DOM state, but it did not complete before shutdown, so no new trustworthy contradiction to items `412` and `414` was established.
+  - Conclusion:
+    - do not reopen the focused `browserSectionDefault` compare lane on raw-CDP mismatch alone
+    - return to the actual remaining Gate 2 product frontier from items `400` and `402`, the low-zoom tiny-card/right-column preview sparsity/compression drift versus `main`.
+- Verification:
+  - `source activate.sh >/dev/null 2>&1 && MAIN_BOOTSTRAP_URL=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//' | node -e '<decode main bootstrap url>') && node -e '<rewrite /tmp/setta_all_settings_compare_current.mjs with fresh main bootstrap url>' && TSX_TSCONFIG_PATH='/Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/tsconfig.json' node --import /Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs /tmp/setta_all_settings_compare_run.mjs`
+    - result: passed
+- Next action:
+  - Use the trusted same-state canary/main compare path to pick one concrete low-zoom tiny-card mismatch and land a production renderer fix there instead of reopening `browserSectionDefault` support work.
 
 LOOP_TERMINAL_MARKER: none
