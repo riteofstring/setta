@@ -311,6 +311,68 @@ test("all settings canary rerenders the Pixi scene canvas when the viewport zoom
   expect(zoomedCanvasMetrics.pixelWidth).toBeGreaterThan(initialCanvasWidth);
 });
 
+test("all settings canary exposes stable section anchors on visible Pixi scene roots", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  const visibleSceneAnchors = await page.waitForFunction(() => {
+    const sceneRoots = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-id]",
+      ),
+    ).filter((sceneRoot) => {
+      const rect = sceneRoot.getBoundingClientRect();
+
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.top < window.innerHeight
+      );
+    });
+
+    const visibleAnchors = sceneRoots
+      .map((sceneRoot) => {
+        const sectionId =
+          sceneRoot.getAttribute("data-live-dict-area-scene-section-id") ?? "";
+        const blockCount = Number.parseInt(
+          sceneRoot.getAttribute("data-live-dict-area-scene-block-count") ??
+            "0",
+          10,
+        );
+
+        return {
+          blockAnchorCount: sceneRoot.querySelectorAll(
+            `[data-live-dict-area-scene-block-anchor='true'][data-live-dict-area-scene-section-id='${sectionId}']`,
+          ).length,
+          blockCount,
+          nestedUnderMatchingSection:
+            sectionId.length > 0 &&
+            sceneRoot.closest(`[data-section-id='${sectionId}']`) !== null,
+          sectionId,
+        };
+      })
+      .slice(0, 6);
+
+    return visibleAnchors.length === 0 ? null : visibleAnchors;
+  });
+
+  const result = await visibleSceneAnchors.jsonValue();
+
+  expect(result).not.toBeNull();
+  expect(result?.length).toBeGreaterThan(0);
+  expect(
+    result?.every(
+      (anchor) =>
+        anchor.sectionId.length > 0 &&
+        anchor.nestedUnderMatchingSection &&
+        anchor.blockCount > 0 &&
+        anchor.blockAnchorCount === anchor.blockCount,
+    ),
+  ).toBe(true);
+});
+
 test("all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay", async ({
   page,
 }) => {

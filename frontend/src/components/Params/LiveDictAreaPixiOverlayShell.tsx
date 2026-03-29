@@ -31,6 +31,10 @@ export function LiveDictAreaPixiOverlayShell({
   liveDictAreaMountProps,
   liveDictAreaSceneBoundary,
 }: LiveDictAreaPixiOverlayShellProps) {
+  const sceneSectionId = useMemo(
+    () => getLiveDictAreaPixiSceneSectionId({ liveDictAreaMountProps }),
+    [liveDictAreaMountProps],
+  );
   const [summaryLayout, setSummaryLayout] =
     useState<LiveDictAreaPixiLayout | null>(null);
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
@@ -122,6 +126,7 @@ export function LiveDictAreaPixiOverlayShell({
       <LiveDictAreaPixiScene
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
         onSummaryLayoutChange={setSummaryLayout}
+        sectionId={sceneSectionId}
       />
       {isSelectingParams
         ? dragRowTargets.map((target) =>
@@ -213,6 +218,36 @@ export function LiveDictAreaPixiOverlayShell({
       ) : null}
     </>
   );
+}
+
+function getLiveDictAreaPixiSceneSectionId({
+  liveDictAreaMountProps,
+}: {
+  liveDictAreaMountProps: LiveDictAreaMountProps;
+}) {
+  const sectionIds = [
+    ...new Set(
+      liveDictAreaMountProps.liveDictAreaSurface.blocks.map(
+        (block) => block.props.sectionId,
+      ),
+    ),
+  ];
+
+  if (sectionIds.length === 0) {
+    return null;
+  }
+
+  const sectionId = sectionIds[0];
+  if (sectionId === undefined) {
+    throw new Error("Expected a live dict-area section id for the Pixi scene.");
+  }
+  if (sectionIds.length !== 1) {
+    throw new Error(
+      `Expected a single live dict-area section id for the Pixi scene, received ${sectionIds.join(", ")}.`,
+    );
+  }
+
+  return sectionId;
 }
 
 function LiveDictAreaPixiFixedMeasurementMarkers({

@@ -50,9 +50,11 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
     LiveDictAreaPixiScene: ({
       liveDictAreaSceneBoundary,
       onSummaryLayoutChange,
+      sectionId,
     }: {
       liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
       onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
+      sectionId?: string | null;
     }) => {
       React.useLayoutEffect(() => {
         onSummaryLayoutChange?.(
@@ -64,7 +66,12 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
         );
       }, [liveDictAreaSceneBoundary, onSummaryLayoutChange]);
 
-      return <div data-live-dict-area-scene="pixi" />;
+      return (
+        <div
+          data-live-dict-area-scene="pixi"
+          data-live-dict-area-scene-section-id={sectionId ?? undefined}
+        />
+      );
     },
   };
 });
@@ -252,6 +259,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container.querySelector("[data-live-dict-area-scene='pixi']"),
     ).not.toBeNull();
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-section-id"),
+    ).toBe("section-1");
     const handoffButtons = Array.from(
       container.querySelectorAll<HTMLButtonElement>(
         "[data-live-dict-area-editor-handoff='value-row']",

@@ -223,6 +223,7 @@ describe("LiveDictAreaPixiScene", () => {
         React.createElement(LiveDictAreaPixiScene, {
           liveDictAreaSceneBoundary:
             liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+          sectionId: "section-1",
         }),
       );
       await Promise.resolve();
@@ -234,6 +235,16 @@ describe("LiveDictAreaPixiScene", () => {
     expect(
       container.querySelector("[data-live-dict-area-scene='pixi'] canvas"),
     ).not.toBeNull();
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-section-id"),
+    ).toBe("section-1");
+    expect(
+      container.querySelectorAll(
+        "[data-live-dict-area-scene-block-anchor='true'][data-live-dict-area-scene-section-id='section-1']",
+      ).length,
+    ).toBeGreaterThan(0);
   });
 
   it("switches the mounted scene host into overview presentation mode when the flow viewport is heavily zoomed out", async () => {

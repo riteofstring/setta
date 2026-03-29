@@ -40,6 +40,7 @@ import {
 type LiveDictAreaPixiSceneProps = {
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
   onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
+  sectionId?: string | null;
 };
 
 type LiveDictAreaPixiStaticSceneApplication = {
@@ -62,6 +63,7 @@ export function configureLiveDictAreaPixiStaticScene(
 function _LiveDictAreaPixiScene({
   liveDictAreaSceneBoundary,
   onSummaryLayoutChange,
+  sectionId = null,
 }: LiveDictAreaPixiSceneProps) {
   const darkMode = useLocalStorage((state) => state.darkMode);
   const viewportZoom = useReactFlow((state) => state.transform[2]);
@@ -343,6 +345,7 @@ function _LiveDictAreaPixiScene({
       data-live-dict-area-scene-block-count={summaryLayout.blocks.length}
       data-live-dict-area-scene-presentation-mode={presentationMode}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
+      data-live-dict-area-scene-section-id={sectionId ?? undefined}
       data-live-dict-area-scene-value-preview-count={
         summaryLayout.valuePreviewCount
       }
@@ -364,6 +367,26 @@ function _LiveDictAreaPixiScene({
         ref={hostRef}
         style={{ height: `${summaryLayout.canvasHeight}px` }}
       />
+      {sectionId === null
+        ? null
+        : summaryLayout.blocks.map((block) => (
+            <div
+              key={`${sectionId}-${block.blockId}`}
+              aria-hidden="true"
+              className="pointer-events-none absolute opacity-0"
+              data-live-dict-area-scene-block-anchor="true"
+              data-live-dict-area-scene-block-id={block.blockId}
+              data-live-dict-area-scene-block-kind={block.kind}
+              data-live-dict-area-scene-block-title={block.title}
+              data-live-dict-area-scene-section-id={sectionId}
+              style={{
+                height: block.height,
+                left: block.x,
+                top: block.y,
+                width: block.width,
+              }}
+            />
+          ))}
     </div>
   );
 }

@@ -9330,3 +9330,63 @@ Record:
     - no major new visual regression was observed
 - Next action:
   - Continue the live Pixi parity lane from this darker shell-matched baseline by tightening the remaining top-row spacing/chrome drift on the first visible `All Settings` overview cards.
+
+## 2026-03-29 283
+
+- Item: Add a trustworthy automated parity guard for the first visible `All Settings` live Pixi cards in the initial fit-view state.
+- Status: `blocked`
+- Details:
+  - Took the next bounded verification slice from item `282` instead of another renderer tweak:
+    - tried to lock the first visible live-card parity with a new targeted Playwright guard in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - first compared baseline vs canary section/title/shell geometry directly; that repeatedly failed on a `607b4e3e-5000-4d31-9146-3671b2a63216` height delta even after retargeting from reset-zoom to the initial fit-view state
+    - then re-diagnosed the same area in a fresh Chrome DevTools MCP sub-agent context before weakening the assertion
+  - The fresh CDP result did not support landing that geometry guard:
+    - no obvious visible spacing drift was seen on the checked first-row `backend` / `gui` / `languageServer` cards
+    - the CDP check reported exact box parity for the checked `backendArgs` / `guiArgs` anchors and only a tiny non-visible `languageServerArgs` height difference in that viewport
+  - Follow-up Playwright attempts to swap the failing section/shell proxy for those visible card-button anchors were not trustworthy either:
+    - the accessible/button anchors exposed by Playwright and the CDP snapshot did not map cleanly enough to reproduce the same checked boxes
+    - exploratory spec edits were reverted, and no production or test changes are being kept from this iteration
+- Verification:
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<fresh current-worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes|all settings canary keeps the first visible live card geometry aligned with baseline in the initial fit-view state" --reporter=line`
+      - result: blocked on unstable geometry proxies; the two existing canary tests passed, but the new parity-guard attempts did not produce a trustworthy locator/box match
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - no obvious visible spacing drift was observed on the checked first visible cards
+    - the current blocker is the lack of a trustworthy Playwright-visible anchor for the same visual boxes, not a confirmed new live canary regression
+- Next action:
+  - Resolve the automation-anchor mismatch before attempting another first-visible-card parity guard; do not land a section/shell geometry test that disagrees with the fresh CDP visual oracle.
+
+## 2026-03-29 284
+
+- Item: Expose stable section-scoped live Pixi scene anchors so Playwright can target the same `All Settings` card bodies CDP is checking.
+- Status: `done`
+- Details:
+  - Took the next bounded slice directly from item `283`'s blocker instead of retrying another geometry assertion against mismatched shell proxies.
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The live Pixi overlay shell now derives a single source-of-truth `sectionId` from the mounted live dict-area surface blocks and forwards it into the scene host.
+  - The Pixi scene root now exposes:
+    - `data-live-dict-area-scene-section-id` on the scene root itself
+    - a non-interactive absolute probe layer for each Pixi layout block via `data-live-dict-area-scene-block-anchor='true'`, keyed by the same `sectionId` and the layout `blockId`
+  - These anchors are sourced from the Pixi layout model instead of section-shell heuristics, so the next parity guard can target exact canary card/body boxes by section id without guessing through wrapper chrome.
+  - Added focused component coverage for the new section-id plumbing and a targeted Playwright canary check that the visible scene roots expose section ids, remain nested under the matching `[data-section-id]` containers, and publish block-anchor counts that match the rendered Pixi layout block count.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`6 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<current worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary exposes stable section anchors on visible Pixi scene roots" --reporter=line`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - after the app settled, no new overlays, probe artifacts, or visible drift were observed on the checked initial fit-view `All Settings` cards
+- Next action:
+  - Use the new section-scoped scene anchors to retry the first-visible-card automated parity guard against the matching baseline section bodies, not the broader section/shell proxies that disagreed with CDP in item `283`.
