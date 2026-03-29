@@ -142,7 +142,14 @@ def run_checked(command: list[str], *, cwd: Path) -> None:
 def configure_global(repo_root: Path, *, days: int) -> None:
     minutes = days_to_minutes(days)
     run_checked(
-        ["npm", "config", "set", "minimum-release-age", str(minutes), "--location=user"],
+        [
+            "npm",
+            "config",
+            "set",
+            "minimum-release-age",
+            str(minutes),
+            "--location=user",
+        ],
         cwd=repo_root,
     )
     run_checked(

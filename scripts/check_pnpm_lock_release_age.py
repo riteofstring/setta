@@ -92,7 +92,9 @@ def parse_published_at(raw_time: str) -> datetime:
 def fetch_package_times(package_name: str, registry_url: str) -> dict[str, str]:
     encoded_name = urllib.parse.quote(package_name, safe="")
     metadata_url = f"{registry_url.rstrip('/')}/{encoded_name}"
-    request = urllib.request.Request(metadata_url, headers={"Accept": "application/json"})
+    request = urllib.request.Request(
+        metadata_url, headers={"Accept": "application/json"}
+    )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = json.load(response)
@@ -120,7 +122,9 @@ def load_time_maps(
     max_workers = min(MAX_WORKERS, max(1, len(package_names)))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         futures = {
-            executor.submit(fetch_package_times, package_name, registry_url): package_name
+            executor.submit(
+                fetch_package_times, package_name, registry_url
+            ): package_name
             for package_name in package_names
         }
         for future in as_completed(futures):
