@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getLiveDictAreaPixiManagedSceneLocalBounds,
   LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES,
   LiveDictAreaPixiPageRuntimeBoundary,
   LiveDictAreaPixiPageRuntimeHost,
@@ -273,6 +274,43 @@ function ContextLossButton({
     />
   );
 }
+
+describe("getLiveDictAreaPixiManagedSceneLocalBounds", () => {
+  it("prefers the registered logical scene size when the visible screen rect is clipped at low zoom", () => {
+    const host = document.createElement("div");
+    host.getBoundingClientRect = vi.fn(() => ({
+      bottom: 400,
+      height: 300,
+      left: 100,
+      right: 500,
+      top: 80,
+      width: 400,
+      x: 100,
+      y: 80,
+      toJSON: () => "",
+    })) as typeof host.getBoundingClientRect;
+
+    expect(
+      getLiveDictAreaPixiManagedSceneLocalBounds({
+        host,
+        sceneBounds: {
+          height: 35,
+          left: 140,
+          logicalHeight: 140,
+          logicalWidth: 260,
+          top: 100,
+          width: 55,
+        },
+        viewportZoom: 0.25,
+      }),
+    ).toEqual({
+      height: 140,
+      left: 160,
+      top: 80,
+      width: 260,
+    });
+  });
+});
 
 describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
   let container: HTMLDivElement;

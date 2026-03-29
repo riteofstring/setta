@@ -59,6 +59,8 @@ export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES = [
 export type LiveDictAreaPixiRegisteredSceneBounds = {
   height: number;
   left: number;
+  logicalHeight?: number;
+  logicalWidth?: number;
   top: number;
   width: number;
 };
@@ -638,6 +640,8 @@ function areRegisteredSceneBoundsEqual(
   return (
     a.height === b.height &&
     a.left === b.left &&
+    a.logicalHeight === b.logicalHeight &&
+    a.logicalWidth === b.logicalWidth &&
     a.top === b.top &&
     a.width === b.width
   );
@@ -688,7 +692,7 @@ function destroyLiveDictAreaPixiPageRuntimeHostApplication(
   app.destroy({ removeView: true }, true);
 }
 
-function getLiveDictAreaPixiManagedSceneLocalBounds({
+export function getLiveDictAreaPixiManagedSceneLocalBounds({
   host,
   sceneBounds,
   viewportZoom,
@@ -704,8 +708,18 @@ function getLiveDictAreaPixiManagedSceneLocalBounds({
   const hostBounds = host.getBoundingClientRect();
   const left = (sceneBounds.left - hostBounds.left) / viewportZoom;
   const top = (sceneBounds.top - hostBounds.top) / viewportZoom;
-  const width = sceneBounds.width / viewportZoom;
-  const height = sceneBounds.height / viewportZoom;
+  const width =
+    typeof sceneBounds.logicalWidth === "number" &&
+    Number.isFinite(sceneBounds.logicalWidth) &&
+    sceneBounds.logicalWidth > 0
+      ? sceneBounds.logicalWidth
+      : sceneBounds.width / viewportZoom;
+  const height =
+    typeof sceneBounds.logicalHeight === "number" &&
+    Number.isFinite(sceneBounds.logicalHeight) &&
+    sceneBounds.logicalHeight > 0
+      ? sceneBounds.logicalHeight
+      : sceneBounds.height / viewportZoom;
 
   if (
     !Number.isFinite(left) ||

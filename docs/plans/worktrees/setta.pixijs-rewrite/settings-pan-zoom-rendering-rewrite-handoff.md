@@ -10,38 +10,41 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 - Latest terminal loop status: `SUBTASK_DONE`
 - Current gate focus: Gate 2 tiny-card low-zoom preview fidelity on the normalized live Pixi versus `main` `All Settings` canary.
-- The iteration returned to the product lane and fixed the transformed-height fallback bug in the live Pixi canvas measurement path.
-- When the offset-parent chain is unavailable, the fallback `getBoundingClientRect()` height now converts transformed screen-space back into logical canvas height by dividing through the current React Flow zoom.
+- This iteration targeted the shared page-runtime sizing path after CDP evidence suggested the nested `browserSectionDefault` preview was still narrower/shorter than `main` and cropped on the right.
+- Shared-runtime scene registration now preserves logical width and height from client/offset metrics, and the managed-scene local-bounds math now prefers those logical dimensions over the clipped transformed `getBoundingClientRect()` size.
 - Result:
-  - the formerly header-only `browserSectionDefault` tiny right-column previews are populated again
-  - a fresh-context CDP visual check on the live worktree `All Settings` page confirmed visible internal preview rows/value bars instead of mostly blank dark rectangles
+  - the shared runtime no longer derives nested scene size purely from clipped screen-space width/height
+  - the normalized canary/main Playwright section-slice parity still passes after updating the guard to compare the shared settled visible slice instead of assuming the historical six-section count
 - Remaining drift:
-  - the tiny previews are still more compressed and sparse than `main`
-  - there is still extra dark empty canvas around some thumbnails at this zoom
+  - the fresh-context CDP compare this iteration could not isolate the nested `browserSectionDefault` preview on either live surface, so the targeted visual improvement was not directly confirmed
+  - Gate 2 tiny-card crop/compression drift remains open until a trusted live compare can surface that nested preview itself
 
 ## Recent evidence
 
-- Transformed-height fallback fix landed in:
-  - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
-  - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
-- Focused regression coverage now exists for the low-zoom transformed-rect fallback:
-  - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+- Shared-runtime logical-bounds fix landed in:
+  - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+  - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+- Focused regression coverage now exists for the clipped-screen-rect shared-runtime bounds case:
+  - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+- The same-state main-reference Playwright compare was updated in:
+  - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - note: a `browserSectionDefault`-specific baseline block-bounds guard was attempted and removed in the same iteration after proving invalid, because that preview is nested and does not map to stable top-level baseline block anchors
 - Verification completed this iteration:
-  - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
     - result: passed
-  - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
     - result: passed
-  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings canary prefers populated same-height value-preview windows in deeper low-zoom Pixi cards|all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
-    - result: passed
+  - `source activate.sh && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace . | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' <<< "$WORKTREE_B64") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url>' <<< "$MAIN_B64") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN="$WORKTREE_BOOTSTRAP_TOKEN" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$MAIN_BOOTSTRAP_URL" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`1 passed`, about `42s`)
   - fresh-context CDP visual check via sub-agent on live worktree `All Settings`
-    - result: passed
-    - `browserSectionDefault` and neighboring tiny cards are no longer mostly blank
+    - result: inconclusive for the target preview
+    - paired direct `/settings` surfaces looked visually identical, but the sub-agent could not surface `browserSectionDefault` itself on either live side; the debug browser rejected the bootstrap-token path, so this was not a targeted nested-preview compare
 
 ## Immediate next frontier
 
-- Stay on the product lane; the blank-card blocker is resolved.
-- Use the trusted same-state `main` compare flow to tighten tiny-card fidelity now that the scene height is correct.
-- Target the remaining Gate 2 drift in the low-zoom previews: sparse/compressed row structure and extra dark empty canvas around some tiles.
+- Stay on the product lane and use a compare setup that can actually surface the nested `browserSectionDefault` preview on both canary and `main`.
+- Do not retry the removed top-level block-anchor guard; it is the wrong harness for this preview.
+- Once the nested preview is isolated, decide whether the remaining Gate 2 crop/compression drift is still a shared-runtime bounds problem or another nested-preview sizing path.
 
 ## Durable completed work
 
@@ -50,7 +53,7 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 ## History pointers
 
-- Active history window: items `380` through `402`
-- Latest item: `2026-04-01 402`
-- Prior support slice: `2026-04-01 401`
+- Active history window: items `380` through `403`
+- Latest item: `2026-04-01 403`
+- Prior product slice: `2026-04-01 402`
 - Older detail before item `380`: use the history index to find the relevant archive file

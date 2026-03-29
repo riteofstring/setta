@@ -266,9 +266,10 @@ export function LiveDictAreaPixiOverlayShell({
       setRegisteredSceneBounds(null);
       return;
     }
+    const viewportZoom = viewportTransform[2];
 
     const updateBounds = () => {
-      const nextBounds = readRegisteredSceneBounds(sceneShell);
+      const nextBounds = readRegisteredSceneBounds(sceneShell, viewportZoom);
       setRegisteredSceneBounds((currentBounds) =>
         areRegisteredSceneBoundsEqual(currentBounds, nextBounds)
           ? currentBounds
@@ -635,6 +636,7 @@ export function LiveDictAreaPixiOverlayShell({
 
 function readRegisteredSceneBounds(
   sceneShell: HTMLDivElement,
+  viewportZoom: number,
 ): LiveDictAreaPixiRegisteredSceneBounds | null {
   const rect = sceneShell.getBoundingClientRect();
   if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) {
@@ -644,9 +646,30 @@ function readRegisteredSceneBounds(
     return null;
   }
 
+  const safeViewportZoom =
+    Number.isFinite(viewportZoom) && viewportZoom > 0 ? viewportZoom : 1;
+  const logicalWidth =
+    sceneShell.clientWidth > 0
+      ? sceneShell.clientWidth
+      : sceneShell.offsetWidth > 0
+        ? sceneShell.offsetWidth
+        : rect.width / safeViewportZoom;
+  const logicalHeight =
+    sceneShell.clientHeight > 0
+      ? sceneShell.clientHeight
+      : sceneShell.offsetHeight > 0
+        ? sceneShell.offsetHeight
+        : rect.height / safeViewportZoom;
+
+  if (logicalWidth <= 0 || logicalHeight <= 0) {
+    return null;
+  }
+
   return {
     height: Math.round(rect.height),
     left: Math.round(rect.left),
+    logicalHeight: Math.round(logicalHeight),
+    logicalWidth: Math.round(logicalWidth),
     top: Math.round(rect.top),
     width: Math.round(rect.width),
   };
@@ -666,6 +689,8 @@ function areRegisteredSceneBoundsEqual(
   return (
     currentBounds.height === nextBounds.height &&
     currentBounds.left === nextBounds.left &&
+    currentBounds.logicalHeight === nextBounds.logicalHeight &&
+    currentBounds.logicalWidth === nextBounds.logicalWidth &&
     currentBounds.top === nextBounds.top &&
     currentBounds.width === nextBounds.width
   );

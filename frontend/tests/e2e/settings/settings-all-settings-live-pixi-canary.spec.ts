@@ -29,8 +29,8 @@ import {
   postBackend,
   readActiveBackendOrigin,
   readProjectWorkspaceChromeLayout,
-  replayFrontendProjectStateSnapshot,
   readVisibleProjectChatChrome,
+  replayFrontendProjectStateSnapshot,
   resetProjectWorkspaceChromeToDefaultLayout,
 } from "../helpers";
 
@@ -2973,27 +2973,43 @@ test("all settings live Pixi canary and the read-only main reference share the s
     await expectZoomOutButtonDisabled(canaryPage, true);
     await expectZoomOutButtonDisabled(mainReferencePage, true);
 
+    const canaryOverviewItem = canaryPage
+      .locator("#OverviewPane li")
+      .filter({ hasText: "browserSectionDefault" });
+    const mainReferenceOverviewItem = mainReferencePage
+      .locator("#OverviewPane li")
+      .filter({ hasText: "browserSectionDefault" });
+    await expect(canaryOverviewItem).toBeVisible();
+    await expect(mainReferenceOverviewItem).toBeVisible();
+    await canaryOverviewItem.click();
+    await mainReferenceOverviewItem.click();
+
     const canaryViewport = await readViewportTransform(canaryPage);
     await expectViewportTransformNear(mainReferencePage, canaryViewport);
 
+    // Corrected shared-runtime sizing can change how many normalized top-level
+    // sections fit into the visible slice. Compare the exact shared slice that
+    // both surfaces settle on instead of hard-coding the historical count.
     await expect
       .poll(async () => {
-        return (await readVisibleSectionNodeBounds(canaryPage)).length;
-      })
-      .toBeGreaterThanOrEqual(6);
-    await expect
-      .poll(async () => {
-        return (await readVisibleSectionNodeBounds(mainReferencePage)).length;
-      })
-      .toBeGreaterThanOrEqual(6);
+        const canaryVisibleCount = (
+          await readVisibleSectionNodeBounds(canaryPage)
+        ).length;
+        const mainVisibleCount = (
+          await readVisibleSectionNodeBounds(mainReferencePage)
+        ).length;
 
-    const canaryNodes = (await readVisibleSectionNodeBounds(canaryPage)).slice(
-      0,
-      6,
-    );
-    const mainReferenceNodes = (
-      await readVisibleSectionNodeBounds(mainReferencePage)
-    ).slice(0, 6);
+        return (
+          canaryVisibleCount >= 5 &&
+          mainVisibleCount >= 5 &&
+          canaryVisibleCount === mainVisibleCount
+        );
+      })
+      .toBe(true);
+
+    const canaryNodes = await readVisibleSectionNodeBounds(canaryPage);
+    const mainReferenceNodes =
+      await readVisibleSectionNodeBounds(mainReferencePage);
 
     expect(mainReferenceNodes.map((node) => node.sectionName)).toEqual(
       canaryNodes.map((node) => node.sectionName),

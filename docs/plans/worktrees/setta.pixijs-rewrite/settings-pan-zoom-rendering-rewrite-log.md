@@ -13878,6 +13878,38 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 403
+
+- Item: Preserve logical shared-runtime scene size when nested low-zoom previews register clipped screen rects.
+- Status: `done`
+- Details:
+  - In `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`, `readRegisteredSceneBounds` now records `logicalWidth` and `logicalHeight` from client/offset metrics alongside the transformed screen-space rect so clipped nested previews keep their logical scene size.
+  - In `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`, `getLiveDictAreaPixiManagedSceneLocalBounds` now prefers those logical dimensions instead of always deriving width/height from `sceneBounds.width / zoom` and `sceneBounds.height / zoom`.
+  - Added focused unit coverage for the clipped-screen-rect shared-runtime case in:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+  - Updated the same-state `main` compare guard in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the normalized canary/main section-slice check now compares the shared visible slice that both surfaces actually settle on instead of hard-coding the historical six-section count, because corrected shared-runtime sizing can legitimately change that visible count
+  - Removed an attempted `browserSectionDefault`-specific baseline block-bounds guard in the same iteration after proving it was the wrong harness:
+    - that preview is nested inside another visible card and does not map to stable top-level baseline block anchors
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - result: passed
+  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `source activate.sh && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' <<< "$WORKTREE_B64") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url>' <<< "$MAIN_B64") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN="$WORKTREE_BOOTSTRAP_TOKEN" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$MAIN_BOOTSTRAP_URL" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`1 passed`, about `42s`)
+  - Fresh-context CDP visual check via sub-agent:
+    - result: done but inconclusive for the target preview
+    - paired direct `/settings` surfaces looked visually identical, but the sub-agent could not isolate `browserSectionDefault` itself on either live surface, so no direct visual improvement was confirmed for the nested preview
+- Conclusion:
+  - the shared page runtime no longer sizes managed scenes purely from clipped transformed rect width/height
+  - Gate 2 remains open because the live CDP compare did not isolate the nested `browserSectionDefault` preview itself
+- Next action:
+  - Use a trusted focused compare for the nested `browserSectionDefault` preview rather than top-level block anchors, then determine whether any remaining crop/compression drift is still a bounds bug or another nested-preview sizing path
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 399
 
 - Item: Clamp low-zoom tiny-card row/value glyph widths to the actual live Pixi card space.
