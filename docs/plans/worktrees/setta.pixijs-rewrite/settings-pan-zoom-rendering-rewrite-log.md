@@ -13675,3 +13675,37 @@ Record:
       - both pages converged to the same top 6 visible sections after normalization/refit
 - Next action:
   - Use the now-trusted same-state live Pixi versus `main` comparison to take the next real Gate 1 or Gate 2 production renderer defect instead of revisiting oracle-alignment support work.
+
+## 2026-04-01 395
+
+- Item: Close the misleading `Chat Window 1` microstate suspicion after the same-state live Pixi versus `main` comparison.
+- Status: `done`
+- Details:
+  - Started from the fresh-context CDP comparison required by item `394`.
+  - The first fresh sub-agent in this iteration still could not reach CDP, so per loop rules the worktree lifecycle was self-recovered once with:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime values via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+      - `pnpm -C frontend cdp-port`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+      - `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port`
+  - After the restart, a fresh CDP sub-agent could compare the normalized worktree live Pixi canary against read-only `main`.
+  - Result:
+    - the sub-agent did not find a clearer graph-surface mismatch after the same-state normalization/refit path from item `394`
+    - the only residual visible difference it called out was a collapsed `Chat Window 1` control on the worktree
+  - Verified that this was not a worktree-only production defect before touching code:
+    - ran a direct headless Playwright repro against both runtimes that:
+      - bootstrapped `/settings`
+      - opened `All Settings`
+      - applied the same workspace-chrome reset helper shape used by the canary tests
+      - inspected visible chat controls after the reset
+    - observed on both the worktree and `main`:
+      - `menuTriggerVisible: true`
+      - no visible chat pills
+      - no visible menu items
+    - this means the residual control comes from shared workspace-chrome behavior, not a new worktree-only live-Pixi renderer drift
+  - Conclusion:
+    - the current same-state Gate 1 / Gate 2 oracle lane no longer exposes a bounded production renderer defect
+    - do not spend the next iteration on chat/window microstate hygiene unless a future CDP pass shows it actually diverging between worktree and `main`
+- Next action:
+  - Stop this oracle lane and replan the next real production frontier explicitly, likely the first Gate 3 `100%` parity defect or the next measured performance hotspot on the normalized live Pixi canary.
