@@ -74,6 +74,28 @@ func TestRuntimeSetCodeFileBindingUpdatesEffectivePayloadAndBinding(t *testing.T
 		if impl.Code.Binding.AccessMode != accessMode {
 			t.Fatalf("expected impl binding access mode %s, got %q", accessMode, impl.Code.Binding.AccessMode)
 		}
+
+		serializedImplPayload, err := SectionImplPayload(impl)
+		if err != nil {
+			t.Fatalf("serialize section impl payload for %s: %v", accessMode, err)
+		}
+		serializedImplObject, err := rawObjectFromProjectPayload(serializedImplPayload)
+		if err != nil {
+			t.Fatalf("decode serialized section impl payload for %s: %v", accessMode, err)
+		}
+		serializedBinding, ok := payloadObjectField(serializedImplObject, "codeFileBinding")
+		if !ok {
+			t.Fatalf("expected serialized impl payload binding for %s, got %#v", accessMode, serializedImplObject["codeFileBinding"])
+		}
+		if serializedBinding["canonical_path"] != "pkg/"+string(accessMode)+".py" {
+			t.Fatalf("expected serialized impl canonical_path pkg/%s.py, got %#v", accessMode, serializedBinding["canonical_path"])
+		}
+		if serializedBinding["access_mode"] != string(accessMode) {
+			t.Fatalf("expected serialized impl access_mode %s, got %#v", accessMode, serializedBinding["access_mode"])
+		}
+		if serializedBinding["autoBinding"] != false {
+			t.Fatalf("expected serialized impl autoBinding=false for %s, got %#v", accessMode, serializedBinding["autoBinding"])
+		}
 	}
 }
 

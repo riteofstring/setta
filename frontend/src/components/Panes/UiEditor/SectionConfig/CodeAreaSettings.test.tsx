@@ -149,14 +149,17 @@ describe("CodeAreaSettings", () => {
         input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
       });
 
-      expect(mockedRouteSetCodeFileBinding).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        sectionId,
-        binding: {
-          canonical_path: "pkg/updated.py",
-          access_mode: CodeFileAccessModeEnum.read_write,
-        },
-      });
+      expect(mockedRouteSetCodeFileBinding).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectConfigId: "project-1",
+          sectionId,
+          frontendOpId: expect.any(String),
+          binding: {
+            canonical_path: "pkg/updated.py",
+            access_mode: CodeFileAccessModeEnum.read_write,
+          },
+        }),
+      );
     } finally {
       await act(async () => {
         root.unmount();
@@ -181,19 +184,73 @@ describe("CodeAreaSettings", () => {
         select.dispatchEvent(new Event("change", { bubbles: true }));
       });
 
-      expect(mockedRouteSetCodeFileBinding).toHaveBeenCalledWith({
-        projectConfigId: "project-1",
-        sectionId,
-        binding: {
-          canonical_path: "pkg/original.py",
-          access_mode: CodeFileAccessModeEnum.read_only,
-        },
-      });
+      expect(mockedRouteSetCodeFileBinding).toHaveBeenCalledWith(
+        expect.objectContaining({
+          projectConfigId: "project-1",
+          sectionId,
+          frontendOpId: expect.any(String),
+          binding: {
+            canonical_path: "pkg/original.py",
+            access_mode: CodeFileAccessModeEnum.read_only,
+          },
+        }),
+      );
     } finally {
       await act(async () => {
         root.unmount();
       });
       host.remove();
+    }
+  });
+
+  it("keeps the edited binding path across remounts while the backend ack is pending", async () => {
+    const firstRender = await renderCodeAreaSettings(sectionId);
+
+    try {
+      const input = firstRender.host.querySelector<HTMLInputElement>(
+        '[data-testid="code-area-settings-file-path-input"]',
+      );
+      if (!(input instanceof HTMLInputElement)) {
+        throw new Error("Expected file-path input");
+      }
+
+      await act(async () => {
+        const setValue = Object.getOwnPropertyDescriptor(
+          HTMLInputElement.prototype,
+          "value",
+        )?.set;
+        if (!setValue) {
+          throw new Error("Expected HTMLInputElement value setter");
+        }
+        setValue.call(input, "pkg/updated.py");
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new FocusEvent("blur", { bubbles: true }));
+        input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+      });
+
+      await act(async () => {
+        firstRender.root.unmount();
+      });
+      firstRender.host.remove();
+
+      const secondRender = await renderCodeAreaSettings(sectionId);
+      try {
+        const remountedInput = secondRender.host.querySelector<HTMLInputElement>(
+          '[data-testid="code-area-settings-file-path-input"]',
+        );
+        if (!(remountedInput instanceof HTMLInputElement)) {
+          throw new Error("Expected remounted file-path input");
+        }
+
+        expect(remountedInput.value).toBe("pkg/updated.py");
+      } finally {
+        await act(async () => {
+          secondRender.root.unmount();
+        });
+        secondRender.host.remove();
+      }
+    } finally {
+      document.body.innerHTML = "";
     }
   });
 });

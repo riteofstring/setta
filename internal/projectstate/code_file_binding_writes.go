@@ -70,8 +70,10 @@ func (p *Project) SetCodeFileBinding(sectionID string, binding CodeFileBinding) 
 		return err
 	}
 
-	updatedImpl := impl.Clone()
-	updatedImpl.Code.Binding = cloneCodeFileBinding(&normalizedBinding)
+	updatedImpl, err := setCodeSectionBinding(impl, &normalizedBinding)
+	if err != nil {
+		return err
+	}
 	p.SectionImpls[variant.ImplID] = updatedImpl
 	return nil
 }
