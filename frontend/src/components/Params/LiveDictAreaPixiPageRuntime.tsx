@@ -40,6 +40,7 @@ export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES = [
   "textBlockSectionDefault",
   "codeParamCodeObjDefault",
   "sectionSizingPolicy",
+  "buttonParamCodeObjDefault",
 ] as const;
 
 export type LiveDictAreaPixiRegisteredSceneBounds = {

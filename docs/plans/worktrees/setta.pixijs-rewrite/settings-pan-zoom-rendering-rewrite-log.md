@@ -12594,3 +12594,57 @@ Record:
     - verified `main` is reachable again for a gross Settings-surface comparison, but the exact `sectionSizingPolicy` scene slice was not trustworthy enough for a stronger oracle claim in this pass
 - Next action:
   - Keep taking named visible `dom-context-lost` sections off the local-app path in fallback-list order, starting with the next remaining visible named scene after `sectionSizingPolicy`, while keeping the `main` slice-level oracle caveat explicit until that exact scene path is trustworthy again.
+
+## 2026-03-31 375
+
+- Item: Move `buttonParamCodeObjDefault` onto the shared page-level live Pixi runtime host without regressing the existing prompt/browser/text-block/code-param/section-sizing shared canaries.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `374`, but did not assume the next section from prior log text.
+  - Used a fresh live-runtime inspection to identify the current concrete blocker:
+    - `buttonParamCodeObjDefault` was the first remaining visible named scene still falling back to `dom-context-lost` in the checked worktree viewport.
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+  - Locked the ownership move in the existing focused runtime tests instead of opening another harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all six shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `buttonParamCodeObjDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `buttonParamCodeObjDefault` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Chrome DevTools MCP outcome after the change:
+    - the worktree bootstrap token was rejected in the CDP browser session, so verification continued on the already-authenticated live canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified the page-runtime host now reports:
+      - `managedSceneNames=promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault,sectionSizingPolicy,buttonParamCodeObjDefault`
+      - `domContextLostSceneNames=textParamCodeObjDefault,chatWindowing,stateMachineGateSectionDefault,globalVariablesSectionDefault,dropdownParamCodeObjDefault,backend,gui,colorPickerParamCodeObjDefault,timeParamCodeObjDefault,stateMachineEndSectionDefault,imageSectionDefault,iFrameSectionDefault,chartSectionDefault,switchParamCodeObjDefault,rotaryParamCodeObjDefault,nestedParamCodeObjDefault,groupSectionDefault,spreadsheetSectionDefault,socialSectionDefault,metaControlSectionDefault,callableSectionDefault,dropzoneParamCodeObjDefault,dateParamCodeObjDefault,terminalSectionDefault,dictSectionDefault`
+    - verified the visible `buttonParamCodeObjDefault` scene reports:
+      - `renderBackend=shared-page-runtime`
+      - no ancestor or nearby `dom-context-lost` fallback wrapper
+    - main-reference oracle caveat:
+      - the provided read-only `main` bootstrap was rejected again during this pass
+      - `http://127.0.0.1:3087/` did not expose a usable Settings canary for a trustworthy slice-level comparison
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`18 passed`)
+  - Playwright:
+    - refreshed the current worktree bootstrap token via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - ran the targeted live canary subset directly against the current worktree runtime:
+      - `PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps codeParamCodeObjDefault on the shared page runtime without dom-context-lost|all settings canary keeps sectionSizingPolicy on the shared page runtime without dom-context-lost|all settings canary keeps buttonParamCodeObjDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`7 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `buttonParamCodeObjDefault` is managed by the shared page runtime, uses `shared-page-runtime`, and has no visible `dom-context-lost` fallback wrapper
+    - read-only `main` was not a usable Settings oracle on this pass, so slice-level gross-drift comparison remains deferred
+- Next action:
+  - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.
