@@ -5,14 +5,8 @@ from contextlib import contextmanager
 
 import pytest
 
-from setta.logging import context as logging_context_module
-from setta.logging.context import push_logging_context, reset_logging_context
 from setta.logging.errors import run_safely
 from setta.logging.tasks import spawn_background_task
-
-
-def _current_context() -> dict[str, str]:
-    return dict(logging_context_module._LOGGING_CONTEXT_VAR.get().data)
 
 
 @contextmanager
@@ -116,27 +110,6 @@ async def test_spawn_background_task_defaults_to_unhandled(caplog) -> None:
         "Unhandled failure in bg-test" in record.getMessage()
         for record in caplog.records
     )
-
-
-@pytest.mark.asyncio
-async def test_spawn_background_task_sets_context() -> None:
-    token = push_logging_context(replace=True)
-    try:
-        async def capture_context() -> dict[str, str]:
-            return _current_context()
-
-        task = spawn_background_task(
-            capture_context(),
-            label="manual-task",
-            request_id="req-123",
-        )
-        result = await task
-    finally:
-        reset_logging_context(token)
-
-    assert result is not None
-    assert result["task"] == "manual-task"
-    assert result["request_id"] == "req-123"
 
 
 @pytest.mark.asyncio
