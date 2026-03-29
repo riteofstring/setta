@@ -184,6 +184,9 @@ summary = {
     "sessionFile": str(session_file),
     "recordingFile": str(recording_file),
     "launcherFile": str(launcher_file),
+    "llmArtifactsDir": str(artifact_dir / "llm_engine_artifacts"),
+    "llmArtifactsManifest": str(artifact_dir / "llm_engine_artifacts" / "manifest.json"),
+    "llmArtifactsLog": str(artifact_dir / "logs" / "llm-artifacts.log"),
     "eventsFile": session_payload.get("eventsFile", str(artifact_dir / "events.ndjson")),
     "consoleEventsFile": session_payload.get(
         "consoleEventsFile", str(artifact_dir / "console.ndjson")

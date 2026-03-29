@@ -228,6 +228,34 @@ url = "http://127.0.0.1:9900/mcp"
 	}
 }
 
+func TestNormalizeSettaCodexMCPServerEntryUsesStreamableHTTP(t *testing.T) {
+	t.Parallel()
+
+	normalized := NormalizeSettaCodexMCPServerEntry(map[string]any{
+		"transport": "stdio",
+		"command":   "node",
+		"args":      []string{"server.js"},
+		"env":       map[string]string{"DEBUG": "1"},
+		"cwd":       "/tmp/worktree",
+		"http_headers": map[string]string{
+			"Cookie": "session=value",
+		},
+		"enabled_tools": []string{"runTool"},
+	}, "http://127.0.0.1:8019/mcp")
+
+	expected := map[string]any{
+		"transport": "streamable_http",
+		"url":       "http://127.0.0.1:8019/mcp",
+		"http_headers": map[string]string{
+			"Cookie": "session=value",
+		},
+		"enabled_tools": []string{"runTool"},
+	}
+	if !reflect.DeepEqual(normalized, expected) {
+		t.Fatalf("expected normalized setta entry %#v, got %#v", expected, normalized)
+	}
+}
+
 func writeCodexBootstrapTestConfig(t *testing.T, root string, payload string) string {
 	t.Helper()
 

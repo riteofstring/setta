@@ -23,6 +23,7 @@ import (
 	"setta/internal/buildinfo"
 	"setta/internal/externalagentconfigs"
 	"setta/internal/mcpx"
+	"setta/internal/tools"
 )
 
 const (
@@ -100,6 +101,7 @@ type CodexExecutorOptions struct {
 	Runtime            *Runtime
 	WorkspaceRoot      string
 	SettaFilesRoot     string
+	SettaToolRegistry  *tools.Registry
 	CurrentSession     *auth.CurrentSession
 	AuthCookieBaseName string
 	RuntimeRoot        string
@@ -112,6 +114,7 @@ type CodexExecutor struct {
 	runtime            *Runtime
 	workspaceRoot      string
 	settaFilesRoot     string
+	settaToolRegistry  *tools.Registry
 	currentSession     *auth.CurrentSession
 	authCookieBaseName string
 	runtimeRoot        string
@@ -145,6 +148,7 @@ func NewCodexExecutor(options CodexExecutorOptions) (*CodexExecutor, error) {
 		runtime:            options.Runtime,
 		workspaceRoot:      workspaceRoot,
 		settaFilesRoot:     settaFilesRoot,
+		settaToolRegistry:  options.SettaToolRegistry,
 		currentSession:     cloneCurrentSession(options.CurrentSession),
 		authCookieBaseName: auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
 		runtimeRoot:        strings.TrimSpace(options.RuntimeRoot),
@@ -687,7 +691,7 @@ func (e *CodexExecutor) prepareCodexHome(
 		}
 		payload = loaded
 	}
-	if err := applyCodexRuntimeConfig(payload, config, workingDir, inputs, profile, completionGuardEnabled, settaHeaders); err != nil {
+	if err := applyCodexRuntimeConfig(payload, config, workingDir, inputs, profile, completionGuardEnabled, e.settaToolRegistry, settaHeaders); err != nil {
 		return "", err
 	}
 
@@ -1314,6 +1318,7 @@ func applyCodexRuntimeConfig(
 	inputs map[string]any,
 	profile *agentprofiles.Profile,
 	completionGuardEnabled bool,
+	settaToolRegistry *tools.Registry,
 	settaHeaders map[string]string,
 ) error {
 	if payload == nil {
@@ -1384,14 +1389,14 @@ func applyCodexRuntimeConfig(
 	projectEntry["trust_level"] = "trusted"
 	projects[workingDir] = projectEntry
 	payload["projects"] = projects
-	allowlist, err := buildCodexToolAllowlist(profile, completionGuardEnabled)
+	enabledTools, err := buildCodexEnabledTools(profile, completionGuardEnabled, settaToolRegistry)
 	if err != nil {
 		return err
 	}
-	if allowlist != nil && !allowlist.allowAll {
+	if len(enabledTools) > 0 {
 		mcpServers := ensureAnyMapFromValue(payload["mcp_servers"])
 		serverEntry := ensureAnyMapFromValue(mcpServers[mcpx.DefaultServerID])
-		serverEntry["enabled_tools"] = append([]string(nil), allowlist.toolNames...)
+		serverEntry["enabled_tools"] = append([]string(nil), enabledTools...)
 		mcpServers[mcpx.DefaultServerID] = serverEntry
 		payload["mcp_servers"] = mcpServers
 	}
@@ -1453,6 +1458,36 @@ func buildCodexToolAllowlist(profile *agentprofiles.Profile, completionGuardEnab
 	return &codexToolAllowlist{
 		toolNames: resolved,
 	}, nil
+}
+
+func buildCodexEnabledTools(
+	profile *agentprofiles.Profile,
+	completionGuardEnabled bool,
+	settaToolRegistry *tools.Registry,
+) ([]string, error) {
+	allowlist, err := buildCodexToolAllowlist(profile, completionGuardEnabled)
+	if err != nil {
+		return nil, err
+	}
+	if allowlist != nil && !allowlist.allowAll {
+		return append([]string(nil), allowlist.toolNames...), nil
+	}
+	return listCodexRegisteredToolNames(settaToolRegistry), nil
+}
+
+func listCodexRegisteredToolNames(settaToolRegistry *tools.Registry) []string {
+	if settaToolRegistry == nil {
+		return nil
+	}
+	registered := settaToolRegistry.List()
+	if len(registered) == 0 {
+		return nil
+	}
+	names := make([]string, 0, len(registered))
+	for _, tool := range registered {
+		names = append(names, tool.Name)
+	}
+	return names
 }
 
 func (e *CodexExecutor) buildCodexMCPHeaders(request StartRequest) (map[string]string, error) {

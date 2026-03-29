@@ -70,6 +70,7 @@ import (
 	"setta/internal/sshx"
 	"setta/internal/statemachineruns"
 	"setta/internal/terminals"
+	"setta/internal/tools"
 	"setta/internal/transcriptionprofiles"
 	"setta/internal/transcriptionsessions"
 	"setta/internal/uisettings"
@@ -237,9 +238,11 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		pluginRuntimeRefresh   *pluginBackendRuntimeRefresher
 		pluginRouteService     httpapi.PluginRouteService
 		pythonPackages         *pythonenv.Runtime
+		mcpToolRegistry        *tools.Registry
 	)
 	currentSession := authServiceCurrentSessionOrNil(authService)
 	settaServerURL := resolveSettaServerURL(cfg, currentSession)
+	mcpToolRegistry = tools.NewRegistry()
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
 			RuntimeRoot: cfg.Paths.RuntimeRoot,
@@ -1216,6 +1219,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			Runtime:            externalAgentRuntime,
 			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+			SettaToolRegistry:  mcpToolRegistry,
 			CurrentSession:     currentSession,
 			AuthCookieBaseName: authService.AuthCookieBaseName(),
 			RuntimeRoot:        cfg.Paths.RuntimeRoot,
@@ -1492,6 +1496,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	if modePolicy.IsIDE() {
 		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
 			Logger:                         logger,
+			Registry:                       mcpToolRegistry,
 			WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
 			ProjectState:                   projectRuntime,
 			CodegenTargetValidator:         codegenValidator,

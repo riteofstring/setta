@@ -61,8 +61,8 @@ func TestServiceCreateAppliesCodexDefaultsAndWritesCanonicalConfig(t *testing.T)
 	if !ok {
 		t.Fatalf("expected setta mcp server entry, got %#v", mcpServers)
 	}
-	if settaServer["transport"] != "sse" {
-		t.Fatalf("expected setta server transport sse, got %#v", settaServer)
+	if settaServer["transport"] != "streamable_http" {
+		t.Fatalf("expected setta server transport streamable_http, got %#v", settaServer)
 	}
 	if settaServer["url"] != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected setta server url, got %#v", settaServer)
@@ -232,7 +232,7 @@ func TestServiceCreatePreservesExistingCodexMCPServersWhenAddingSetta(t *testing
 		t.Fatalf("expected existing filesystem mcp server to survive, got %#v", mcpServers)
 	}
 	settaServer, ok := mcpServers["setta"].(map[string]any)
-	if !ok || settaServer["transport"] != "sse" || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
+	if !ok || settaServer["transport"] != "streamable_http" || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected normalized setta mcp server, got %#v", mcpServers)
 	}
 }
@@ -271,7 +271,7 @@ url = "http://127.0.0.1:8000/mcp"
 		t.Fatalf("expected mcp_servers map, got %#v", payload["mcp_servers"])
 	}
 	settaServer, ok := mcpServers["setta"].(map[string]any)
-	if !ok || settaServer["transport"] != "sse" || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
+	if !ok || settaServer["transport"] != "streamable_http" || settaServer["url"] != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected reconciled setta server entry, got %#v", mcpServers["setta"])
 	}
 }

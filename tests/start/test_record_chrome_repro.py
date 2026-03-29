@@ -73,6 +73,7 @@ def build_record_chrome_sandbox(tmp_path: Path) -> tuple[Path, Path, Path, Path]
         Path("scripts/latest-chrome-recording.sh"),
         Path("scripts/record-chrome-repro.sh"),
         Path("scripts/chrome_repro_collector.py"),
+        Path("scripts/chrome_repro_collect_llm_artifacts.py"),
         Path("scripts/lib/setta_cli_command.sh"),
     ]:
         src = root / relative_path
@@ -321,6 +322,202 @@ def test_chrome_repro_collector_splits_transport_details_into_sidecar(
     )
 
 
+def test_chrome_repro_collect_llm_artifacts_copies_redacted_external_agent_session(
+    tmp_path: Path,
+) -> None:
+    root = repo_root()
+    artifact_dir = tmp_path / "recording"
+    setta_files_root = tmp_path / "setta_files"
+    run_id = "run-123"
+    chat_id = "chat-456"
+    engine_config_id = "engine-789"
+    external_agent_config_id = "external-codex"
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    setta_files_root.mkdir(parents=True, exist_ok=True)
+
+    transport_detail_payload = {
+        "sequenceNumber": 11,
+        "event": {
+            "type": "websocket-message",
+            "detailJson": {
+                "messageType": "AgentRunUpdated",
+                "content": {
+                    "id": run_id,
+                    "inputs": {
+                        "runType": "external_agent",
+                        "chatId": chat_id,
+                        "engineConfigId": engine_config_id,
+                    },
+                    "outputs": {
+                        "threadId": "thread-101",
+                    },
+                },
+            },
+        },
+    }
+    (artifact_dir / "transport_details.ndjson").write_text(
+        json.dumps(transport_detail_payload) + "\n",
+        encoding="utf-8",
+    )
+    (setta_files_root / "engine_configs.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": engine_config_id,
+                    "name": "Codex",
+                    "externalAgentConfigId": external_agent_config_id,
+                    "api_token": "engine-secret",
+                }
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    (setta_files_root / "external_agents.json").write_text(
+        json.dumps(
+            [
+                {
+                    "id": external_agent_config_id,
+                    "name": "External Codex",
+                    "toolType": "codex",
+                    "cookie": "cookie-secret",
+                }
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    agent_runs_dir = setta_files_root / "agent_runs"
+    agent_runs_dir.mkdir(parents=True, exist_ok=True)
+    (agent_runs_dir / f"{run_id}.json").write_text(
+        json.dumps(
+            {
+                "id": run_id,
+                "outputs": {
+                    "threadId": "thread-101",
+                    "access_token": "run-secret",
+                },
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    session_root = (
+        setta_files_root
+        / "external_agent_settings"
+        / "codex"
+        / external_agent_config_id
+        / "sessions"
+        / chat_id
+    )
+    (session_root / "log").mkdir(parents=True, exist_ok=True)
+    (session_root / "sessions" / "2026" / "03" / "31").mkdir(
+        parents=True, exist_ok=True
+    )
+    (session_root / "shell_snapshots").mkdir(parents=True, exist_ok=True)
+    (session_root / "tmp").mkdir(parents=True, exist_ok=True)
+    (session_root / "memories").mkdir(parents=True, exist_ok=True)
+    (session_root / "config.toml").write_text(
+        'model = "gpt-5.4"\n'
+        'cookie = "session-cookie"\n'
+        'authorization = "Bearer session-token"\n',
+        encoding="utf-8",
+    )
+    (session_root / "log" / "codex.log").write_text("runtime ready\n", encoding="utf-8")
+    (session_root / "sessions" / "2026" / "03" / "31" / "rollout.jsonl").write_text(
+        json.dumps({"type": "response", "refresh_token": "rollout-secret"}) + "\n",
+        encoding="utf-8",
+    )
+    (session_root / "auth.json").write_text(
+        json.dumps({"access_token": "auth-secret"}) + "\n",
+        encoding="utf-8",
+    )
+    (session_root / "logs_main.sqlite").write_text("sqlite", encoding="utf-8")
+    (session_root / "state_main.sqlite-wal").write_text("sqlite", encoding="utf-8")
+    (session_root / "shell_snapshots" / "snapshot.txt").write_text(
+        "shell snapshot",
+        encoding="utf-8",
+    )
+    (session_root / "tmp" / "tmp.txt").write_text("tmp", encoding="utf-8")
+    (session_root / "memories" / "memory.txt").write_text("memory", encoding="utf-8")
+
+    process = subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts" / "chrome_repro_collect_llm_artifacts.py"),
+            "--artifact-dir",
+            str(artifact_dir),
+            "--setta-files-root",
+            str(setta_files_root),
+        ],
+        cwd=root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert process.returncode == 0, process.stdout + process.stderr
+
+    llm_artifacts_dir = artifact_dir / "llm_engine_artifacts"
+    manifest = json.loads(
+        (llm_artifacts_dir / "manifest.json").read_text(encoding="utf-8")
+    )
+    copied_run = manifest["copiedRuns"][0]
+    copied_config_path = (
+        llm_artifacts_dir
+        / "external_agent_settings"
+        / "codex"
+        / external_agent_config_id
+        / "sessions"
+        / chat_id
+        / "config.toml"
+    )
+    copied_rollout_path = (
+        llm_artifacts_dir
+        / "external_agent_settings"
+        / "codex"
+        / external_agent_config_id
+        / "sessions"
+        / chat_id
+        / "sessions"
+        / "2026"
+        / "03"
+        / "31"
+        / "rollout.jsonl"
+    )
+    copied_run_payload = json.loads(
+        (llm_artifacts_dir / "agent_runs" / f"{run_id}.json").read_text(encoding="utf-8")
+    )
+
+    assert manifest["format"] == "setta.chrome-repro-llm-artifacts/v1"
+    assert manifest["copiedRunCount"] == 1
+    assert copied_run["runId"] == run_id
+    assert copied_run["chatId"] == chat_id
+    assert copied_run["engineConfig"]["api_token"] == "<redacted>"
+    assert copied_run["externalAgentConfig"]["cookie"] == "<redacted>"
+    assert copied_run_payload["outputs"]["access_token"] == "<redacted>"
+    assert "cookie = '<redacted>'" in copied_config_path.read_text(encoding="utf-8")
+    assert "authorization = '<redacted>'" in copied_config_path.read_text(
+        encoding="utf-8"
+    )
+    assert "<redacted>" in copied_rollout_path.read_text(encoding="utf-8")
+    assert not (
+        llm_artifacts_dir
+        / "external_agent_settings"
+        / "codex"
+        / external_agent_config_id
+        / "sessions"
+        / chat_id
+        / "auth.json"
+    ).exists()
+    assert not list(llm_artifacts_dir.rglob("*.sqlite"))
+    assert not list(llm_artifacts_dir.rglob("*.sqlite-wal"))
+    assert not list(llm_artifacts_dir.rglob("shell_snapshots/*"))
+    assert not list(llm_artifacts_dir.rglob("tmp/*"))
+    assert not list(llm_artifacts_dir.rglob("memories/*"))
+
+
 def test_record_chrome_repro_wrapper_launches_browser_and_writes_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -435,6 +632,7 @@ PY
     assert (artifact_dir / "transport.ndjson").exists()
     assert (artifact_dir / "transport_details.ndjson").exists()
     assert (artifact_dir / "app_state.ndjson").exists()
+    assert (artifact_dir / "llm_engine_artifacts" / "manifest.json").exists()
     assert (artifact_dir / "extension" / "pageRuntime.js").exists()
 
 
@@ -597,6 +795,10 @@ PY
     latest_link = recording_root / "latest"
     assert latest_payload["recordingRoot"] == str(recording_root)
     assert latest_payload["artifactDir"].startswith(str(recording_root / "recording-"))
+    assert latest_payload["llmArtifactsDir"].endswith("/llm_engine_artifacts")
+    assert latest_payload["llmArtifactsManifest"].endswith(
+        "/llm_engine_artifacts/manifest.json"
+    )
     assert latest_link.is_symlink()
     assert latest_link.resolve() == Path(latest_payload["artifactDir"]).resolve()
 
@@ -619,6 +821,10 @@ PY
     assert helper_payload["launcherFile"] == latest_payload["launcherFile"]
     assert helper_payload["chromeLog"].endswith("/logs/chrome.log")
     assert helper_payload["transportDetailsFile"].endswith("/transport_details.ndjson")
+    assert helper_payload["llmArtifactsDir"].endswith("/llm_engine_artifacts")
+    assert helper_payload["llmArtifactsManifest"].endswith(
+        "/llm_engine_artifacts/manifest.json"
+    )
 
 
 def test_record_chrome_repro_wrapper_forces_backend_debug_log_level(
@@ -764,3 +970,7 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
     assert payload["eventCount"] == 7
     assert payload["bootstrapUrl"] == "http://127.0.0.1:1234/__setta__/bootstrap"
     assert payload["transportDetailsFile"].endswith("/transport_details.ndjson")
+    assert payload["llmArtifactsDir"].endswith("/llm_engine_artifacts")
+    assert payload["llmArtifactsManifest"].endswith(
+        "/llm_engine_artifacts/manifest.json"
+    )

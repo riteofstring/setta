@@ -405,6 +405,55 @@ func TestAppIDEMCPServerAuthenticatedSSEHandshakeEmitsEndpointEvent(t *testing.T
 	}
 }
 
+func TestAppIDEMCPServerSupportsAuthenticatedStreamableHTTPToolListing(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated streamable-http mcp client: %v", err)
+	}
+	defer session.Close()
+
+	toolsResult, err := session.ListTools(context.Background(), nil)
+	if err != nil {
+		t.Fatalf("list tools over streamable-http: %v", err)
+	}
+	if len(toolsResult.Tools) == 0 {
+		t.Fatal("expected streamable-http tool listing to return Setta tools")
+	}
+
+	foundListMCPTools := false
+	for _, tool := range toolsResult.Tools {
+		if tool.Name == "list_mcp_tools" {
+			foundListMCPTools = true
+			break
+		}
+	}
+	if !foundListMCPTools {
+		t.Fatalf("expected list_mcp_tools in streamable-http tool listing, got %#v", toolsResult.Tools)
+	}
+}
+
 func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

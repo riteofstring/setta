@@ -68,12 +68,52 @@ payload = {
     "sessionFile": str(artifact_dir / "session.json"),
     "recordingFile": str(artifact_dir / "recording.json"),
     "launcherFile": str(artifact_dir / "launcher.json"),
+    "llmArtifactsDir": str(artifact_dir / "llm_engine_artifacts"),
+    "llmArtifactsManifest": str(artifact_dir / "llm_engine_artifacts" / "manifest.json"),
 }
 latest_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 
   rm -f "${latest_link}"
   ln -s "${artifact_dir}" "${latest_link}"
+}
+
+resolve_active_setta_files_root() {
+  if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
+    printf '%s\n' "${SETTA_FILES_ROOT}"
+    return 0
+  fi
+
+  if [[ -f "${ROOT_DIR}/activate.sh" ]]; then
+    # shellcheck disable=SC1090
+    source "${ROOT_DIR}/activate.sh"
+  fi
+  if ! setta_cli_command_init "${ROOT_DIR}"; then
+    return 1
+  fi
+
+  local paths_payload=""
+  paths_payload="$("${SETTA_CLI_CMD[@]}" paths --json --workspace "${SETTA_WORKSPACE_ROOT}" 2>/dev/null || true)"
+  if [[ "${paths_payload}" != __SETTA_JSON_B64__* ]]; then
+    return 1
+  fi
+
+  local b64_payload="${paths_payload#__SETTA_JSON_B64__}"
+  SETTA_PATHS_B64="${b64_payload}" "${PYTHON_BIN}" - <<'PY'
+import base64
+import json
+import os
+import sys
+
+payload = os.environ.get("SETTA_PATHS_B64", "")
+if not payload:
+    sys.exit(1)
+data = json.loads(base64.b64decode(payload).decode("utf-8"))
+root = data.get("settaFilesRoot", "")
+if not isinstance(root, str) or root.strip() == "":
+    sys.exit(1)
+print(root.strip())
+PY
 }
 
 resolve_default_recording_root() {
@@ -504,6 +544,18 @@ cleanup() {
   fi
 
   if [[ "${exit_code}" -eq 0 ]]; then
+    local resolved_setta_files_root=""
+    resolved_setta_files_root="$(resolve_active_setta_files_root || true)"
+    if [[ -n "${resolved_setta_files_root}" ]]; then
+      if ! "${PYTHON_BIN}" "${ROOT_DIR}/scripts/chrome_repro_collect_llm_artifacts.py" \
+        --artifact-dir "${artifact_dir}" \
+        --setta-files-root "${resolved_setta_files_root}" \
+        >"${log_dir}/llm-artifacts.log" 2>&1; then
+        log "Failed to collect LLM engine artifacts for ${artifact_dir}. See ${log_dir}/llm-artifacts.log."
+      fi
+    else
+      log "Could not resolve the active setta_files root for LLM artifact bundling."
+    fi
     if ! write_latest_recording_pointer "${recording_root}" "${artifact_dir}"; then
       log "Failed to update latest Chrome repro pointer under ${recording_root}."
     fi

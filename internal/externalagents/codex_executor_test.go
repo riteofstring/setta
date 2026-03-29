@@ -20,6 +20,7 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
+	"setta/internal/tools"
 )
 
 func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
@@ -553,7 +554,7 @@ func TestCodexExecutorWritesSessionScopedRuntimeConfig(t *testing.T) {
 		t.Fatalf("expected inherited filesystem mcp server, got %#v", mcpServers)
 	}
 	settaServer, ok := mapValue(mcpServers["setta"])
-	if !ok || stringValue(settaServer["transport"]) != "sse" || stringValue(settaServer["url"]) != "http://127.0.0.1:8000/mcp" {
+	if !ok || stringValue(settaServer["transport"]) != "streamable_http" || stringValue(settaServer["url"]) != "http://127.0.0.1:8000/mcp" {
 		t.Fatalf("expected runtime setta mcp url, got %#v", mcpServers["setta"])
 	}
 	headers, ok := mapValue(settaServer["http_headers"])
@@ -715,6 +716,34 @@ func TestBuildCodexToolAllowlistReturnsNilForEmptyAllowlist(t *testing.T) {
 	}
 }
 
+func TestBuildCodexEnabledToolsUsesRegistryWhenProfileDoesNotScopeTools(t *testing.T) {
+	t.Parallel()
+
+	registry := newCodexTestToolRegistry(t, "create_top_level_section", "getProjectState", "set_agentic_context")
+	got, err := buildCodexEnabledTools(nil, true, registry)
+	if err != nil {
+		t.Fatalf("build codex enabled tools: %v", err)
+	}
+	if !equalStringSlices(got, []string{"create_top_level_section", "getProjectState", "set_agentic_context"}) {
+		t.Fatalf("expected registry-backed enabled tools, got %#v", got)
+	}
+}
+
+func TestBuildCodexEnabledToolsUsesRegistryForAllowAllProfile(t *testing.T) {
+	t.Parallel()
+
+	registry := newCodexTestToolRegistry(t, "create_top_level_section", "getProjectState", "set_agentic_context")
+	got, err := buildCodexEnabledTools(&agentprofiles.Profile{
+		ToolAllowlist: []string{"setta"},
+	}, false, registry)
+	if err != nil {
+		t.Fatalf("build codex enabled tools: %v", err)
+	}
+	if !equalStringSlices(got, []string{"create_top_level_section", "getProjectState", "set_agentic_context"}) {
+		t.Fatalf("expected allow-all profile to resolve registry-backed enabled tools, got %#v", got)
+	}
+}
+
 func TestBuildCodexToolAllowlistRejectsBlankAndForeignServerEntries(t *testing.T) {
 	t.Parallel()
 
@@ -819,6 +848,99 @@ func TestBuildCodexToolAllowlistNormalizesScopedAndAllowAllEntries(t *testing.T)
 	}
 }
 
+func TestCodexExecutorWritesEnabledToolsForUnsetProfileFromRegistry(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "complete")
+
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "List your tools"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+
+	runtimeConfig := readCodexRuntimeConfig(t, fixture.root, fixture.configID, result.ChatID)
+	mcpServers, ok := mapValue(runtimeConfig["mcp_servers"])
+	if !ok {
+		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
+	}
+	settaServer, ok := mapValue(mcpServers["setta"])
+	if !ok {
+		t.Fatalf("expected runtime setta server entry, got %#v", mcpServers["setta"])
+	}
+	if got := stringSliceValue(settaServer["enabled_tools"]); !equalStringSlices(got, fixture.settaToolNames) {
+		t.Fatalf("expected runtime enabled_tools %#v for unset profile, got %#v", fixture.settaToolNames, settaServer["enabled_tools"])
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorWritesEnabledToolsForAllowAllProfileFromRegistry(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "complete")
+	profileID := "profile-codex"
+	if err := fixture.profiles.Write([]agentprofiles.Profile{{
+		ID:            profileID,
+		Name:          "Codex",
+		ToolAllowlist: []string{"setta"},
+	}}); err != nil {
+		t.Fatalf("write codex profile: %v", err)
+	}
+
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "List your tools"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		AgentProfileID:  &profileID,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status, got %#v", persisted)
+	}
+
+	runtimeConfig := readCodexRuntimeConfig(t, fixture.root, fixture.configID, result.ChatID)
+	mcpServers, ok := mapValue(runtimeConfig["mcp_servers"])
+	if !ok {
+		t.Fatalf("expected runtime mcp_servers map, got %#v", runtimeConfig["mcp_servers"])
+	}
+	settaServer, ok := mapValue(mcpServers["setta"])
+	if !ok {
+		t.Fatalf("expected runtime setta server entry, got %#v", mcpServers["setta"])
+	}
+	if got := stringSliceValue(settaServer["enabled_tools"]); !equalStringSlices(got, fixture.settaToolNames) {
+		t.Fatalf("expected runtime enabled_tools %#v for allow-all profile, got %#v", fixture.settaToolNames, settaServer["enabled_tools"])
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestCodexExecutorPassesSessionScopedCODEXHOMEToProcessEnv(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "env_handoff")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
@@ -912,7 +1034,7 @@ func TestApplyCodexRuntimeConfigPrependsSystemPromptAheadOfExistingDeveloperInst
 	}
 	applyCodexRuntimeConfig(payload, externalagentconfigs.Config{}, "/tmp/workspace", map[string]any{
 		"systemPrompt": "Runtime system prompt",
-	}, nil, false, nil)
+	}, nil, false, nil, nil)
 
 	if got := stringValue(payload["developer_instructions"]); got != "Runtime system prompt\n\nBase developer instructions" {
 		t.Fatalf("expected system prompt to prepend existing developer instructions, got %q", got)
@@ -1751,13 +1873,14 @@ func TestApplyCodexStreamEventReusesSyntheticToolMessageForAssistantDelta(t *tes
 }
 
 type codexExecutorFixture struct {
-	root     string
-	configID string
-	send     *SendService
-	runtime  *Runtime
-	runs     *agentruns.RunStore
-	profiles *agentprofiles.Store
-	engineID string
+	root           string
+	configID       string
+	send           *SendService
+	runtime        *Runtime
+	runs           *agentruns.RunStore
+	profiles       *agentprofiles.Store
+	engineID       string
+	settaToolNames []string
 }
 
 func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture {
@@ -1828,11 +1951,18 @@ func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture
 	if err != nil {
 		t.Fatalf("new runtime: %v", err)
 	}
+	settaToolRegistry := newCodexTestToolRegistry(
+		t,
+		"create_top_level_section",
+		"getProjectState",
+		"set_agentic_context",
+	)
 	codexExecutor, err := NewCodexExecutor(CodexExecutorOptions{
 		Runs:               runs,
 		Runtime:            runtime,
 		WorkspaceRoot:      root,
 		SettaFilesRoot:     root,
+		SettaToolRegistry:  settaToolRegistry,
 		CurrentSession:     &auth.CurrentSession{Metadata: auth.SessionMetadata{ID: "session-1"}, Secret: []byte("fixture-secret")},
 		AuthCookieBaseName: auth.DefaultAuthCookieName,
 		ProcessEnv:         llmconfig.CurrentProcessEnv(),
@@ -1880,7 +2010,55 @@ func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture
 		runs:     runs,
 		profiles: profiles,
 		engineID: engineID,
+		settaToolNames: []string{
+			"create_top_level_section",
+			"getProjectState",
+			"set_agentic_context",
+		},
 	}
+}
+
+func newCodexTestToolRegistry(t *testing.T, names ...string) *tools.Registry {
+	t.Helper()
+
+	registry := tools.NewRegistry()
+	for _, name := range names {
+		if _, err := registry.Register(tools.Spec{
+			Name: name,
+			Metadata: tools.Metadata{
+				Kind: tools.KindDiscoverable,
+			},
+			Handler: func(context.Context, map[string]any) (any, error) {
+				return nil, nil
+			},
+		}); err != nil {
+			t.Fatalf("register codex test tool %q: %v", name, err)
+		}
+	}
+	return registry
+}
+
+func readCodexRuntimeConfig(t *testing.T, root string, configID string, chatID string) map[string]any {
+	t.Helper()
+
+	configPath := filepath.Join(
+		root,
+		codexSettingsRootName,
+		"codex",
+		configID,
+		"sessions",
+		chatID,
+		codexConfigFileName,
+	)
+	content, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatalf("read runtime codex config: %v", err)
+	}
+	runtimeConfig := map[string]any{}
+	if err := toml.Unmarshal(content, &runtimeConfig); err != nil {
+		t.Fatalf("decode runtime codex config: %v", err)
+	}
+	return runtimeConfig
 }
 
 func (f codexExecutorFixture) waitForTerminalRun(t *testing.T, runID string) agentruns.Run {

@@ -39,6 +39,7 @@ Use the helper instead of guessing under `/tmp`:
 - `./scripts/latest-chrome-recording.sh` prints the newest bundle path
 - `./scripts/latest-chrome-recording.sh --json` prints the newest bundle plus key log and metadata paths
 - `./scripts/latest-chrome-recording.sh --field backendLog` prints a specific resolved path
+- `./scripts/latest-chrome-recording.sh --field llmArtifactsManifest` prints the bundled LLM artifact manifest path
 
 The recorder also writes a stable pointer under the recording root:
 
@@ -55,6 +56,8 @@ The recorder also writes a stable pointer under the recording root:
 - `app_state.ndjson`: app-published debug snapshots such as diagnostics state
 - `session.json`: recording summary metadata
 - `launcher.json`: launcher/bootstrap metadata
+- `llm_engine_artifacts/`: redacted generated external-agent artifacts copied from the active `setta_files` root when a recording includes external-agent runs
+- `llm_engine_artifacts/manifest.json`: copied run summary, copied file list, and any collection issues
 - `extension/`: the generated unpacked extension used for that session
 - `logs/`: dev-instance, collector, and browser logs
 
@@ -65,6 +68,14 @@ The recorder captures more than raw clicks and inputs:
 - full websocket/request payload details in the transport sidecar when previews are truncated
 - app-published frontend debug snapshots when Setta emits them during state updates
 - backend debug summaries in `logs/backend.log` for LSP diagnostics and watch-code refresh flows
+- generated external-agent session artifacts such as run metadata, session config, session logs, and rollout JSONL when those runs were part of the recording
+
+LLM artifact bundling rules:
+
+- Bundled artifacts are copied into `llm_engine_artifacts/` after the recording finishes.
+- Sensitive keys such as cookies, authorization headers, and tokens are redacted in copied JSON, JSONL, and TOML payloads.
+- Unsafe or high-noise session files are intentionally omitted, including `auth.json`, sqlite state/log files, `shell_snapshots/`, `tmp/`, and `memories/`.
+- The default source-checkout dev flow uses an explicit `SETTA_FILES_ROOT`, so bundling works automatically there.
 
 ## Handoff To Codex
 

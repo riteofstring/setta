@@ -156,7 +156,7 @@ Useful when you need to debug a specific subsystem.
 - `frontend/scripts/gcf.sh`
   - Implements `pnpm gcf` + logging.
 - `scripts/latest-chrome-recording.sh`
-  - Resolves the newest Chrome repro recording bundle and its key logs/metadata.
+  - Resolves the newest Chrome repro recording bundle, its key logs/metadata, and bundled LLM artifact paths.
 
 ## Notes
 

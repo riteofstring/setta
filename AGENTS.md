@@ -82,6 +82,7 @@
 - For Chrome repro recorder workflows, read `docs/guides/chrome-repro-recording.md`.
 - A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`.
 - When the user says `see the latest Chrome recording`, resolve it with `./scripts/latest-chrome-recording.sh --json` instead of guessing paths under `/tmp`.
+- Chrome recordings can include redacted `llm_engine_artifacts/` copied from the active `setta_files` root; check that manifest when debugging external-agent runs.
 - Never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself; if CDP access is needed, the developer starts it.
 - Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
 - Add Go tests beside the backend owner when changing runtime behavior; add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.

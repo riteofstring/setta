@@ -337,7 +337,7 @@ func NormalizeSettaCodexMCPServerEntry(entry map[string]any, settaServerURL stri
 	} {
 		delete(normalized, key)
 	}
-	normalized["transport"] = "sse"
+	normalized["transport"] = "streamable_http"
 	if trimmedURL := strings.TrimSpace(settaServerURL); trimmedURL != "" {
 		normalized["url"] = trimmedURL
 	}
