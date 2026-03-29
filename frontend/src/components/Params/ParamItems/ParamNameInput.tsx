@@ -13,9 +13,8 @@ import { createPortal } from "react-dom";
 import type { ParamDuplicateIndex } from "state/actions/params/paramDuplicateIndex";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCodeObjCore,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
-  getCurrEffectiveSectionImplWithTypeGuard,
+  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
 import { useNameValidationErrors, useProjectState } from "state/definitions";
@@ -84,35 +83,26 @@ export function ParamNameInput({
   hasChildren,
   onMouseDown,
 }: ParamNameInputProps) {
-  const {
-    configLanguage,
-    isDictSection,
-    displayName,
-    name,
-    isKwarg,
-    pythonCodegenEnabled,
-    showParamDisplayNames,
-    topLevelParamId,
-    // variantIsFrozen,
-  } = useProjectState((x) => {
-    // const { isFrozen, configLanguage } = getSectionVariant(sectionId, x);
-    const impl = getCurrEffectiveSectionImplWithTypeGuard(
+  const paramNameState = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
       x,
       sectionId,
       paramInfoId,
       isBaseParamCodeObjImpl,
     );
-    const codeObjCore = getCodeObjCore(x, paramInfoId);
+    const codeObjCore = x.codeObjs[paramInfoId];
+    if (!impl || !codeObjImpl || !codeObjCore) {
+      return null;
+    }
     const pythonCodegenEnabled = x.projectConfig.codegenTargets.some(
       (target) => target.language === ProjectCodegenLanguageEnum.python,
     );
     return {
-      // variantIsFrozen: isFrozen,
       configLanguage: impl.configLanguage,
       isDictSection: isBaseDictSectionImpl(impl),
       topLevelParamId: isBaseDictSectionImpl(impl)
@@ -125,6 +115,15 @@ export function ParamNameInput({
       showParamDisplayNames: x.projectConfig.showParamDisplayNames,
     };
   }, _.isEqual);
+  const hasParamNameState = paramNameState !== null;
+  const configLanguage = paramNameState?.configLanguage;
+  const isDictSection = paramNameState?.isDictSection ?? false;
+  const displayName = paramNameState?.displayName ?? "";
+  const name = paramNameState?.name ?? "";
+  const isKwarg = paramNameState?.isKwarg ?? false;
+  const pythonCodegenEnabled = paramNameState?.pythonCodegenEnabled ?? false;
+  const showParamDisplayNames = paramNameState?.showParamDisplayNames ?? false;
+  const topLevelParamId = paramNameState?.topLevelParamId ?? null;
 
   const hasDisplayName = displayName.trim().length > 0;
   const useDisplayName = showParamDisplayNames && hasDisplayName && !isKwarg;
@@ -251,7 +250,7 @@ export function ParamNameInput({
 
   function onChange(v: string) {
     setInputValue(v);
-    if (!canEditStructure) {
+    if (!hasParamNameState || !canEditStructure) {
       return;
     }
     if (showParamDisplayNames && !isKwarg) {
@@ -274,6 +273,10 @@ export function ParamNameInput({
   }
 
   function onBlur() {
+    if (!hasParamNameState) {
+      setInputValue(value);
+      return;
+    }
     if (useDisplayName) {
       return;
     }
@@ -310,7 +313,11 @@ export function ParamNameInput({
 
   // const isSelectingParams = useMisc((x) => x.isSelectingParams);
   // const isDisabled = isSelectingParams || variantIsFrozen;
-  const isDisabled = !canEditStructure;
+  const isDisabled = !hasParamNameState || !canEditStructure;
+
+  if (!hasParamNameState) {
+    return null;
+  }
 
   return (
     <div className="contents">
