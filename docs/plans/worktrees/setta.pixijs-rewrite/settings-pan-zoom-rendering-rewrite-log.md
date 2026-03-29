@@ -13808,3 +13808,38 @@ LOOP_TERMINAL_MARKER: replan_required
   - Use this restored trusted same-state canary path to identify the next real live Pixi renderer/parity defect instead of spending another iteration on oracle-only support work.
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-01 399
+
+- Item: Clamp low-zoom tiny-card row/value glyph widths to the actual live Pixi card space.
+- Status: `done`
+- Details:
+  - Narrowed the iteration back to the production renderer lane and dropped the uncommitted fit-view rearm attempt before landing this slice.
+  - In `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`, `getLiveDictAreaPixiDetailRowChrome` now clamps `valueColumnX` inside narrow cards and reserves minimum in-card width for the value preview instead of letting the preview column fall off the card.
+  - In `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`, low-zoom row glyph sizing now clamps both heights and widths to the actual tiny-card space via `getLiveDictAreaPixiLowZoomParamRowGlyphMetrics` and `getLiveDictAreaPixiLowZoomGlyphWidth`; the scene no longer forces `28px`-`36px` bars into `55px` cards with much smaller available slots.
+  - Added focused unit coverage for the narrow-card value-column clamp and the low-zoom glyph metric/width clamps in:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+  - Verification:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+    - `TSX_TSCONFIG_PATH='/Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/tsconfig.json' node --import /Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs /tmp/setta_all_settings_compare.mjs`
+      - result: completed, but the updated `/tmp/setta-canary-all-settings.png` still shows the tiny right-column cards as mostly blank/dark versus `/tmp/setta-main-all-settings.png`
+  - One bounded recovery attempt was required because CDP was unavailable in the current worktree session:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime afterward with:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+      - `pnpm -C frontend cdp-port`
+    - result: worktree restarted on `frontend 3043`, `backend 8043`, `cdp 9265`
+  - A fresh-image review sub-agent confirmed the remaining drift:
+    - the main reference still shows brighter internal structure and accents inside the tiny right-column cards
+    - the canary cards remain flatter and more uniformly dark, especially around `browserSectionDefault`
+  - Note:
+    - true `chrome-devtools-mcp` was not exposed in this Codex tool layer even after the recovery, so this iteration did not complete a real DevTools MCP visual check
+    - the normalized screenshot/compare-script path was still trustworthy enough to keep the remaining Gate 2 renderer defect explicit
+- Next action:
+  - Stay on the live Pixi renderer and target the low-zoom glyph appearance itself, especially `drawLowZoomParamRowGlyphs` and related palette/alpha/layout choices, until the normalized `55px` right-column cards show comparable internal structure to `main`.
+
+LOOP_TERMINAL_MARKER: none

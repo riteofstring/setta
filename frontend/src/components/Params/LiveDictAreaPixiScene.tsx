@@ -96,6 +96,62 @@ export function configureLiveDictAreaPixiStaticScene(
   app.canvas.style.pointerEvents = "none";
 }
 
+export function getLiveDictAreaPixiLowZoomParamRowGlyphMetrics(
+  rowBlockHeight: number,
+) {
+  const safeRowHeight =
+    Number.isFinite(rowBlockHeight) && rowBlockHeight > 0 ? rowBlockHeight : 1;
+
+  if (safeRowHeight < 8) {
+    const bandHeight = Math.max(1, Math.floor(safeRowHeight * 0.85));
+    const primaryBarHeight = Math.max(1, Math.floor(safeRowHeight * 0.55));
+    const secondaryBarHeight = Math.max(1, Math.floor(safeRowHeight * 0.45));
+
+    return {
+      bandHeight,
+      insetY: Math.max(0, Math.floor((safeRowHeight - bandHeight) / 2)),
+      primaryBarHeight,
+      secondaryBarHeight,
+    };
+  }
+
+  return {
+    bandHeight: Math.max(8, Math.floor(safeRowHeight * 0.56)),
+    insetY: Math.max(2, Math.floor(safeRowHeight * 0.12)),
+    primaryBarHeight: Math.max(10, Math.floor(safeRowHeight * 0.5)),
+    secondaryBarHeight: Math.max(8, Math.floor(safeRowHeight * 0.38)),
+  };
+}
+
+export function getLiveDictAreaPixiLowZoomGlyphWidth({
+  maximumWidth,
+  minimumWidth,
+  preferredWidth,
+}: {
+  maximumWidth: number;
+  minimumWidth: number;
+  preferredWidth: number;
+}) {
+  if (!Number.isFinite(maximumWidth) || maximumWidth <= 0) {
+    return 0;
+  }
+
+  const safeMaximumWidth = Math.floor(maximumWidth);
+  const safeMinimumWidth = Math.max(
+    1,
+    Number.isFinite(minimumWidth) ? Math.floor(minimumWidth) : 1,
+  );
+  const safePreferredWidth = Math.max(
+    1,
+    Number.isFinite(preferredWidth) ? Math.floor(preferredWidth) : 1,
+  );
+
+  return Math.max(
+    1,
+    Math.min(safeMaximumWidth, Math.max(safeMinimumWidth, safePreferredWidth)),
+  );
+}
+
 function destroyLiveDictAreaPixiSceneApplication(app: Application): void {
   // Each card owns its renderer view, but the Pixi pools are page-global.
   // Avoid the boolean renderer destroy flag here so one scene fallback does
@@ -1174,90 +1230,115 @@ function drawLowZoomParamRowGlyphs({
     rowKind: row.kind,
     valueSwatch: row.valueSwatch ?? null,
   });
-  const insetY = Math.max(2, Math.floor(row.blockHeight * 0.12));
-  const primaryBarHeight = Math.max(10, Math.floor(row.blockHeight * 0.5));
-  const secondaryBarHeight = Math.max(8, Math.floor(row.blockHeight * 0.38));
-  const bandHeight = Math.max(8, Math.floor(row.blockHeight * 0.56));
-  const bandWidth =
-    row.kind === "group"
-      ? Math.max(
-          32,
-          Math.min(
-            rowChrome.rowRightEdgeX - rowChrome.labelX,
-            Math.floor(row.width * 0.68),
-          ),
-        )
-      : Math.max(36, rowChrome.rowRightEdgeX - rowChrome.labelX);
-  const labelWidth = Math.max(
-    34,
-    Math.min(
-      rowChrome.valueColumnX - rowChrome.labelX - rowChrome.contentInsetPx * 2,
-      Math.floor(row.width * (row.kind === "group" ? 0.56 : 0.48)),
-    ),
+  const { bandHeight, insetY, primaryBarHeight, secondaryBarHeight } =
+    getLiveDictAreaPixiLowZoomParamRowGlyphMetrics(row.blockHeight);
+  const labelAvailableWidth = Math.max(
+    0,
+    rowChrome.valueColumnX - rowChrome.labelX - rowChrome.contentInsetPx * 2,
   );
+  const bandAvailableWidth = Math.max(
+    0,
+    rowChrome.rowRightEdgeX - rowChrome.labelX,
+  );
+  const bandWidth = getLiveDictAreaPixiLowZoomGlyphWidth({
+    maximumWidth: bandAvailableWidth,
+    minimumWidth: row.kind === "group" ? 32 : 36,
+    preferredWidth:
+      row.kind === "group" ? Math.floor(row.width * 0.68) : bandAvailableWidth,
+  });
+  const labelWidth = getLiveDictAreaPixiLowZoomGlyphWidth({
+    maximumWidth: labelAvailableWidth,
+    minimumWidth: 34,
+    preferredWidth: Math.floor(
+      row.width * (row.kind === "group" ? 0.56 : 0.48),
+    ),
+  });
   const labelX = rowChrome.labelX;
   const labelY = row.y + insetY;
   const secondaryY = row.y + row.blockHeight - insetY - secondaryBarHeight;
   const bandY =
     row.y + Math.max(2, Math.floor((row.blockHeight - bandHeight) / 2));
 
-  glyphs.roundRect(labelX, bandY, bandWidth, bandHeight, 999);
-  glyphs.fill({
-    alpha: row.kind === "group" ? 0.24 : 0.18,
-    color: lowZoomGlyphPalette.bandFill,
-  });
+  if (bandWidth > 0) {
+    glyphs.roundRect(labelX, bandY, bandWidth, bandHeight, 999);
+    glyphs.fill({
+      alpha: row.kind === "group" ? 0.24 : 0.18,
+      color: lowZoomGlyphPalette.bandFill,
+    });
+  }
 
-  glyphs.roundRect(labelX, labelY, labelWidth, primaryBarHeight, 999);
-  glyphs.fill({
-    alpha: 0.92,
-    color: lowZoomGlyphPalette.primaryFill,
-  });
+  if (labelWidth > 0) {
+    glyphs.roundRect(labelX, labelY, labelWidth, primaryBarHeight, 999);
+    glyphs.fill({
+      alpha: 0.92,
+      color: lowZoomGlyphPalette.primaryFill,
+    });
+  }
 
   if (row.kind === "group") {
-    const secondaryWidth = Math.max(28, Math.floor(labelWidth * 0.76));
+    const secondaryWidth = getLiveDictAreaPixiLowZoomGlyphWidth({
+      maximumWidth: Math.max(
+        0,
+        rowChrome.rowRightEdgeX - (labelX + rowChrome.contentInsetPx),
+      ),
+      minimumWidth: 28,
+      preferredWidth: Math.floor(labelWidth * 0.76),
+    });
+    if (secondaryWidth > 0) {
+      glyphs.roundRect(
+        labelX + rowChrome.contentInsetPx,
+        secondaryY,
+        secondaryWidth,
+        secondaryBarHeight,
+        999,
+      );
+      glyphs.fill({
+        alpha: 0.68,
+        color: lowZoomGlyphPalette.primaryFill,
+      });
+    }
+    return glyphs;
+  }
+
+  const valueWidth = getLiveDictAreaPixiLowZoomGlyphWidth({
+    maximumWidth: Math.max(0, rowChrome.rowRightEdgeX - rowChrome.valueColumnX),
+    minimumWidth: 28,
+    preferredWidth: Math.floor(row.width * 0.24),
+  });
+  const valueX = rowChrome.rowRightEdgeX - valueWidth;
+
+  if (valueWidth > 0) {
+    glyphs.roundRect(valueX, labelY, valueWidth, primaryBarHeight, 999);
+    glyphs.fill({
+      alpha: row.valueSwatch ? 0.88 : 0.76,
+      color: lowZoomGlyphPalette.valueFill,
+    });
+  }
+
+  const secondaryWidth = getLiveDictAreaPixiLowZoomGlyphWidth({
+    maximumWidth: row.valueText
+      ? Math.max(0, rowChrome.rowRightEdgeX - rowChrome.valueColumnX)
+      : Math.max(0, labelWidth - rowChrome.contentInsetPx),
+    minimumWidth: row.valueText ? 20 : 26,
+    preferredWidth: Math.floor(
+      (row.valueText ? valueWidth : labelWidth) * (row.valueText ? 0.8 : 0.42),
+    ),
+  });
+  if (secondaryWidth > 0) {
     glyphs.roundRect(
-      labelX + rowChrome.contentInsetPx,
+      row.valueText
+        ? rowChrome.valueColumnX
+        : labelX + rowChrome.contentInsetPx,
       secondaryY,
       secondaryWidth,
       secondaryBarHeight,
       999,
     );
     glyphs.fill({
-      alpha: 0.68,
+      alpha: 0.6,
       color: lowZoomGlyphPalette.primaryFill,
     });
-    return glyphs;
   }
-
-  const valueWidth = Math.max(
-    28,
-    Math.min(
-      rowChrome.rowRightEdgeX - rowChrome.valueColumnX,
-      Math.floor(row.width * 0.24),
-    ),
-  );
-  const valueX = rowChrome.rowRightEdgeX - valueWidth;
-
-  glyphs.roundRect(valueX, labelY, valueWidth, primaryBarHeight, 999);
-  glyphs.fill({
-    alpha: row.valueSwatch ? 0.88 : 0.76,
-    color: lowZoomGlyphPalette.valueFill,
-  });
-
-  const secondaryWidth = row.valueText
-    ? Math.max(20, Math.floor(valueWidth * 0.8))
-    : Math.max(26, Math.floor(labelWidth * 0.42));
-  glyphs.roundRect(
-    row.valueText ? rowChrome.valueColumnX : labelX + rowChrome.contentInsetPx,
-    secondaryY,
-    secondaryWidth,
-    secondaryBarHeight,
-    999,
-  );
-  glyphs.fill({
-    alpha: 0.6,
-    color: lowZoomGlyphPalette.primaryFill,
-  });
 
   return glyphs;
 }

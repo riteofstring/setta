@@ -421,6 +421,28 @@ describe("getLiveDictAreaPixiDetailRowChrome", () => {
       valueColumnX: 199,
     });
   });
+
+  it("clamps the value column inside narrow low-zoom cards instead of pushing the row previews off-panel", () => {
+    const chrome = getLiveDictAreaPixiDetailRowChrome({
+      compactRowPrimitive: {
+        cornerRadiusPx: 2,
+        horizontalPaddingPx: 2,
+        surfaceKind: "transparent",
+      },
+      forceReadableSurface: true,
+      palette,
+      paramColumnWidth: 200,
+      rowKind: "value",
+      rowContentX: 12,
+      rowSurfaceX: 0,
+      rowWidth: 55,
+    });
+
+    expect(chrome.labelX).toBe(14);
+    expect(chrome.rowRightEdgeX).toBe(47);
+    expect(chrome.valueColumnX).toBeLessThanOrEqual(chrome.rowRightEdgeX);
+    expect(chrome.valueColumnX).toBe(35);
+  });
 });
 
 describe("getLiveDictAreaPixiDetailRowInteractionChrome", () => {

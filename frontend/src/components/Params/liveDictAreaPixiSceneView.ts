@@ -384,6 +384,24 @@ export function getLiveDictAreaPixiDetailRowChrome({
     0,
     Math.floor(compactRowPrimitive.cornerRadiusPx),
   );
+  const labelX = rowContentX + contentInsetPx;
+  const rowRightEdgeX =
+    rowWidth -
+    (LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX + contentInsetPx);
+  const availableValueWidth = Math.max(0, rowRightEdgeX - labelX);
+  const minimumValuePreviewWidth = Math.min(
+    24,
+    Math.max(12, Math.floor(availableValueWidth * 0.35)),
+  );
+  const effectiveParamColumnWidth = Math.min(
+    paramColumnWidth,
+    Math.max(
+      0,
+      availableValueWidth -
+        PARAM_CONTAINER_CENTER_GUTTER_PX -
+        minimumValuePreviewWidth,
+    ),
+  );
   const fill =
     rowKind === "placeholder"
       ? palette.rowPlaceholderFill
@@ -401,22 +419,18 @@ export function getLiveDictAreaPixiDetailRowChrome({
     contentInsetPx,
     cornerRadiusPx,
     fill,
-    labelX: rowContentX + contentInsetPx,
+    labelX,
     rowBackgroundWidth: Math.max(
       0,
       rowWidth -
         rowSurfaceX -
         LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX,
     ),
-    rowRightEdgeX:
-      rowWidth -
-      (LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX +
-        contentInsetPx),
-    valueColumnX:
-      rowContentX +
-      contentInsetPx +
-      paramColumnWidth +
-      PARAM_CONTAINER_CENTER_GUTTER_PX,
+    rowRightEdgeX,
+    valueColumnX: Math.min(
+      rowRightEdgeX,
+      labelX + effectiveParamColumnWidth + PARAM_CONTAINER_CENTER_GUTTER_PX,
+    ),
   };
 }
 

@@ -8,6 +8,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import {
   configureLiveDictAreaPixiStaticScene,
+  getLiveDictAreaPixiLowZoomGlyphWidth,
+  getLiveDictAreaPixiLowZoomParamRowGlyphMetrics,
   LiveDictAreaPixiScene,
 } from "./LiveDictAreaPixiScene";
 import { LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM } from "./liveDictAreaPixiSceneView";
@@ -667,6 +669,40 @@ describe("LiveDictAreaPixiScene", () => {
         .querySelector("[data-live-dict-area-scene='pixi']")
         ?.getAttribute("data-live-dict-area-scene-presentation-mode"),
     ).toBe("overview");
+  });
+
+  it("clamps low-zoom row glyph metrics to tiny row heights instead of forcing 8px-10px bars", () => {
+    expect(getLiveDictAreaPixiLowZoomParamRowGlyphMetrics(2.9)).toEqual({
+      bandHeight: 2,
+      insetY: 0,
+      primaryBarHeight: 1,
+      secondaryBarHeight: 1,
+    });
+
+    expect(getLiveDictAreaPixiLowZoomParamRowGlyphMetrics(20)).toEqual({
+      bandHeight: 11,
+      insetY: 2,
+      primaryBarHeight: 10,
+      secondaryBarHeight: 8,
+    });
+  });
+
+  it("caps low-zoom glyph widths to the actual available card width instead of overflowing tiny cards", () => {
+    expect(
+      getLiveDictAreaPixiLowZoomGlyphWidth({
+        maximumWidth: 12.8,
+        minimumWidth: 28,
+        preferredWidth: 13,
+      }),
+    ).toBe(12);
+
+    expect(
+      getLiveDictAreaPixiLowZoomGlyphWidth({
+        maximumWidth: 48,
+        minimumWidth: 28,
+        preferredWidth: 13,
+      }),
+    ).toBe(28);
   });
 
   it("prevents default WebGL context loss handling and reports the loss to the owner", async () => {
