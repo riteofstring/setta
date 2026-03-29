@@ -418,6 +418,13 @@ export function LiveDictAreaPixiOverlayShell({
           <div
             className="absolute inset-0 z-20 overflow-y-auto"
             data-live-dict-area-scene-fallback="dom-context-lost"
+            data-live-dict-area-scene-fallback-runtime-scene-id={runtimeSceneId}
+            data-live-dict-area-scene-fallback-section-id={
+              sceneSectionId ?? undefined
+            }
+            data-live-dict-area-scene-fallback-section-name={
+              sceneSectionName ?? undefined
+            }
           >
             <LiveDictAreaMount {...liveDictAreaMountProps} />
           </div>

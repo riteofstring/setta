@@ -474,6 +474,9 @@ export function LiveDictAreaPixiPageRuntimeHost() {
   const pixiSceneCount = runtime.registeredScenes.filter(
     (scene) => scene.renderMode === "pixi",
   ).length;
+  const domContextLostScenes = runtime.registeredScenes.filter(
+    (scene) => scene.renderMode === "dom-context-lost",
+  );
   const domContextLostSceneCount =
     runtime.registeredSceneCount - pixiSceneCount;
   const compactRowPrimitiveLayout = buildParamContainerLayout({
@@ -496,6 +499,14 @@ export function LiveDictAreaPixiPageRuntimeHost() {
       data-live-dict-area-pixi-runtime-dom-context-lost-count={
         domContextLostSceneCount
       }
+      data-live-dict-area-pixi-runtime-dom-context-lost-scene-names={domContextLostScenes
+        .map((scene) => scene.sectionName ?? "")
+        .filter((sectionName) => sectionName.length > 0)
+        .join(",")}
+      data-live-dict-area-pixi-runtime-dom-context-lost-scenes={domContextLostScenes
+        .map((scene) => scene.sectionId ?? "")
+        .filter((sectionId) => sectionId.length > 0)
+        .join(",")}
       data-live-dict-area-pixi-runtime-lost-scene={
         runtime.contextLostScene?.sectionId ?? ""
       }

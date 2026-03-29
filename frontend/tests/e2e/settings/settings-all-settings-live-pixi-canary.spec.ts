@@ -108,7 +108,10 @@ type VisibleScenePaletteSample = {
 
 type LiveDictAreaPageRuntimeSnapshot = {
   count: number;
+  contextLost: boolean;
   domContextLostCount: number;
+  domContextLostSectionNames: string[];
+  domContextLostSections: string[];
   hostPresent: boolean;
   managedSceneName: string;
   pixiCount: number;
@@ -692,7 +695,10 @@ async function readLiveDictAreaPageRuntimeSnapshot(
     if (!host) {
       return {
         count: 0,
+        contextLost: false,
         domContextLostCount: 0,
+        domContextLostSectionNames: [],
+        domContextLostSections: [],
         hostPresent: false,
         managedSceneName: "",
         pixiCount: 0,
@@ -715,9 +721,26 @@ async function readLiveDictAreaPageRuntimeSnapshot(
 
     return {
       count: parseCount("data-live-dict-area-pixi-runtime-count"),
+      contextLost:
+        host.getAttribute("data-live-dict-area-pixi-runtime-context-lost") ===
+        "true",
       domContextLostCount: parseCount(
         "data-live-dict-area-pixi-runtime-dom-context-lost-count",
       ),
+      domContextLostSectionNames: (
+        host.getAttribute(
+          "data-live-dict-area-pixi-runtime-dom-context-lost-scene-names",
+        ) ?? ""
+      )
+        .split(",")
+        .filter((sectionName) => sectionName.length > 0),
+      domContextLostSections: (
+        host.getAttribute(
+          "data-live-dict-area-pixi-runtime-dom-context-lost-scenes",
+        ) ?? ""
+      )
+        .split(",")
+        .filter((sectionId) => sectionId.length > 0),
       hostPresent: true,
       managedSceneName:
         host.getAttribute(
@@ -1567,9 +1590,9 @@ test("all settings canary keeps promptSectionDefault on the shared page runtime 
   await expect
     .poll(async () => {
       const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return runtime.managedSceneName;
+      return `${runtime.contextLost}:${runtime.managedSceneName}:${runtime.domContextLostSectionNames.includes("promptSectionDefault")}`;
     })
-    .toBe("promptSectionDefault");
+    .toBe("true:promptSectionDefault:false");
 
   await expect
     .poll(async () => {

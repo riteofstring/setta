@@ -12313,3 +12313,75 @@ Record:
     - remaining blocker recorded from the same check: shared-runtime visibility improved, but recovered context-loss state still accumulates in the runtime DOM
 - Next action:
   - Keep the shared page-runtime lane and target the remaining blocker directly: reduce or remove the recovered context-loss churn that still appears while `promptSectionDefault` is page-runtime-managed, then broaden shared-host ownership only after that runtime state stays clean.
+
+## 2026-03-31 370
+
+- Item: Expose exact section identity for active shared-runtime `dom-context-lost` fallbacks so the next renderer slice can target a named scene instead of an anonymous fallback count.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `369`, but stopped short of another blind ownership expansion because the live CDP canary still showed many active `dom-context-lost` shells without surfacing which sections they belonged to.
+  - Added production diagnostics for the active fallback set instead of guessing:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+      - the shared runtime host now exposes the current `dom-context-lost` section ids and section names through:
+        - `data-live-dict-area-pixi-runtime-dom-context-lost-scenes`
+        - `data-live-dict-area-pixi-runtime-dom-context-lost-scene-names`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+      - each visible `dom-context-lost` fallback wrapper now exposes:
+        - `data-live-dict-area-scene-fallback-runtime-scene-id`
+        - `data-live-dict-area-scene-fallback-section-id`
+        - `data-live-dict-area-scene-fallback-section-name`
+  - Locked the new diagnostics surface in tests:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the live canary now asserts that `promptSectionDefault` stays on the shared page runtime while the active `dom-context-lost` section-name list does not falsely include `promptSectionDefault`
+  - CDP outcome after the change:
+    - `promptSectionDefault` remained visible on `shared-page-runtime` with no visible `dom-context-lost` wrapper
+    - the host now surfaced the previously anonymous fallback set as named sections, including:
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `globalVariablesSectionDefault`
+      - `dropdownParamCodeObjDefault`
+      - `colorPickerParamCodeObjDefault`
+      - `timeParamCodeObjDefault`
+      - `stateMachineEndSectionDefault`
+      - `chartSectionDefault`
+      - `switchParamCodeObjDefault`
+      - `groupSectionDefault`
+      - `socialSectionDefault`
+      - `metaControlSectionDefault`
+      - `callableSectionDefault`
+      - `dropzoneParamCodeObjDefault`
+      - `dateParamCodeObjDefault`
+      - `terminalSectionDefault`
+      - `dictSectionDefault`
+      - `shortcuts`
+      - `languageServer`
+      - `passwordParamCodeObjDefault`
+      - `taskBoardSectionDefault`
+      - `genPythonMetadataSectionDefault`
+      - `chatSectionDefault`
+      - `stateMachineStartSectionDefault`
+      - `drawSectionDefault`
+      - `genPythonCodeSectionDefault`
+      - `listRootSectionDefault`
+    - a visible fallback wrapper now explicitly identified itself as `browserSectionDefault`, which gives the next renderer slice a concrete named target instead of another blind fallback-count probe
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`12 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the live worktree canary at `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified the shared runtime host now exposes named `dom-context-lost` section diagnostics
+    - verified a visible fallback wrapper now exposes `browserSectionDefault` through section-id/name attrs
+    - verified `promptSectionDefault` still renders on `shared-page-runtime` with no visible fallback overlay
+- Next action:
+  - Use the new named fallback diagnostics to pick the first concrete visible `dom-context-lost` section, starting with `browserSectionDefault`, and move that scene off the per-card local-app path so the active fallback count drops for real instead of staying an anonymous runtime number.

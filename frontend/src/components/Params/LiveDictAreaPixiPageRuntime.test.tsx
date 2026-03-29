@@ -143,6 +143,20 @@ function RuntimeProbe() {
       data-live-dict-area-pixi-runtime-count={
         runtime?.registeredSceneCount ?? -1
       }
+      data-live-dict-area-pixi-runtime-dom-context-lost-scene-names={
+        runtime?.registeredScenes
+          .filter((scene) => scene.renderMode === "dom-context-lost")
+          .map((scene) => scene.sectionName ?? "")
+          .filter((sectionName) => sectionName.length > 0)
+          .join(",") ?? ""
+      }
+      data-live-dict-area-pixi-runtime-dom-context-lost-scenes={
+        runtime?.registeredScenes
+          .filter((scene) => scene.renderMode === "dom-context-lost")
+          .map((scene) => scene.sectionId ?? "")
+          .filter((sectionId) => sectionId.length > 0)
+          .join(",") ?? ""
+      }
       data-live-dict-area-pixi-runtime-lost-scene={
         runtime?.contextLostScene?.sectionId ?? ""
       }
@@ -319,9 +333,29 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
         "data-live-dict-area-pixi-runtime-dom-context-lost-count",
       ),
     ).toBe("1");
+    expect(
+      host?.getAttribute(
+        "data-live-dict-area-pixi-runtime-dom-context-lost-scenes",
+      ),
+    ).toBe("section-2");
+    expect(
+      host?.getAttribute(
+        "data-live-dict-area-pixi-runtime-dom-context-lost-scene-names",
+      ),
+    ).toBe("section-2");
     expect(probe?.getAttribute("data-live-dict-area-pixi-runtime-count")).toBe(
       "2",
     );
+    expect(
+      probe?.getAttribute(
+        "data-live-dict-area-pixi-runtime-dom-context-lost-scenes",
+      ),
+    ).toBe("section-2");
+    expect(
+      probe?.getAttribute(
+        "data-live-dict-area-pixi-runtime-dom-context-lost-scene-names",
+      ),
+    ).toBe("section-2");
     expect(probe?.getAttribute("data-live-dict-area-pixi-runtime-scenes")).toBe(
       "section-1,section-2",
     );

@@ -684,6 +684,20 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         "[data-live-dict-area-scene-fallback='dom-context-lost']",
       ),
     ).toHaveLength(1);
+    expect(
+      container
+        .querySelector(
+          "[data-live-dict-area-scene-fallback='dom-context-lost']",
+        )
+        ?.getAttribute("data-live-dict-area-scene-fallback-section-id"),
+    ).toBe("section-1");
+    expect(
+      container
+        .querySelector(
+          "[data-live-dict-area-scene-fallback='dom-context-lost']",
+        )
+        ?.getAttribute("data-live-dict-area-scene-fallback-section-name"),
+    ).toBe("section-1");
   });
 
   it("switches the promptSectionDefault canary scene over to the shared page-runtime backend", () => {
