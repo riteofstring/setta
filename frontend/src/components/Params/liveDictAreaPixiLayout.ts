@@ -12,7 +12,7 @@ export const LIVE_DICT_AREA_PIXI_LAYOUT = {
   edgeMinHeight: 40,
   edgePortRowHeight: 20,
   panelRadius: 12,
-  rowHeight: 22,
+  rowHeight: 24,
   rowIndent: 12,
   rowInsetX: 10,
   rowTopOffset: 4,
@@ -30,8 +30,8 @@ const LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT = {
 } as const;
 const LIVE_DICT_AREA_PIXI_COMPACT_READABLE_PREVIEW_ROW_COUNT = 2;
 
-export const LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT =
-  LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight - 4;
+// Match the DOM row rhythm without inflating the compact row chrome itself.
+export const LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT = 18;
 
 export const LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT =
   getLiveDictAreaPixiCompactPreviewMinHeight(1);

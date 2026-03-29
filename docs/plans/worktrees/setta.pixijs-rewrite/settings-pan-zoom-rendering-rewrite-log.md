@@ -10075,3 +10075,28 @@ Record:
       - page listing, bootstrap navigation, and root-page state reads all succeeded
 - Next action:
   - Retry the pending live Pixi row-cadence baseline-vs-canary visual gate now that the worktree restart path and CDP attach path are working again.
+
+## 2026-03-30 306
+
+- Item: Complete the pending live Pixi row-cadence slice after CDP attach health was restored.
+- Status: `done`
+- Details:
+  - Kept the bounded renderer-internal cadence fix from items `302`-`304` and closed its pending verification/commit gate without adding another renderer probe:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiDragOverlayParamRow.tsx`
+  - The retained Pixi layout contract now matches the DOM row rhythm at `24px` cadence while holding the compact row block chrome at `18px`, and the drag overlay follows the same shared compact row block-height constant instead of deriving from row pitch.
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`14 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary can immediately open a combobox-backed value row on first Pixi handoff click|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+      - result: passed (`3 passed`)
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+      - bootstrap/auth succeeded via `http://127.0.0.1:8043/__setta__/bootstrap#token=...`
+      - compared baseline `http://127.0.0.1:3043/settings` against canary `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` at browser zoom `100%`
+      - the first visible unpinned `All Settings` cards, including `shortcuts`, `gui`, and `sectionSizingPolicy` / `By Type`, matched in order, spacing, and visible content without the earlier row-cadence drift, clipping, or misalignment
+      - no read-only `main` reference page was available in the browser during this verification pass
+- Next action:
+  - Return to the next real retained-scene visual or performance frontier beyond row cadence; do not reopen this slice unless a new canary mismatch appears.

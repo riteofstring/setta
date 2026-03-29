@@ -5,7 +5,10 @@ import type {
   ReactNode,
   Ref,
 } from "react";
-import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
+import {
+  LIVE_DICT_AREA_PIXI_LAYOUT,
+  LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
+} from "./liveDictAreaPixiLayout";
 import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
 
 type LiveDictAreaPixiDragOverlayParamRowProps = {
@@ -52,7 +55,7 @@ export function LiveDictAreaPixiDragOverlayParamRow({
         className={`relative col-span-full flex min-w-0 items-center rounded-sm px-2 py-[2px] transition-colors ${hoverClassName} ${bg} ${border} ${dndClassName ?? ""}`}
         style={{
           gridColumn: "1 / -1",
-          minHeight: LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight - 4,
+          minHeight: LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
           paddingLeft: rowIndent,
           ...(dndStyle ?? {}),
         }}

@@ -7,6 +7,7 @@ import {
   buildLiveDictAreaPixiLayout,
   LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT,
   LIVE_DICT_AREA_PIXI_LAYOUT,
+  LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
 } from "./liveDictAreaPixiLayout";
 
 describe("buildLiveDictAreaPixiLayout", () => {
@@ -94,6 +95,13 @@ describe("buildLiveDictAreaPixiLayout", () => {
     expect(result.paramAreas[0]?.rows[1]).toMatchObject({
       valueText: "42",
     });
+    expect(result.paramAreas[0]?.rows[0]?.blockHeight).toBe(
+      LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
+    );
+    expect(
+      (result.paramAreas[0]?.rows[1]?.y ?? 0) -
+        (result.paramAreas[0]?.rows[0]?.y ?? 0),
+    ).toBe(LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight);
     expect(result.paramAreas[1]?.height).toBeGreaterThanOrEqual(96);
   });
 
