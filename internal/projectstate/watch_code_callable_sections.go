@@ -11,8 +11,6 @@ import (
 	"setta/internal/watchcode"
 )
 
-const watchCodeCallableSectionName = "Callable"
-
 func (p *Project) applyWatchCodeScanPlan(
 	ctx context.Context,
 	plan watchcode.ScanPlan,
@@ -730,61 +728,16 @@ func (p *Project) createWatchCodeCallableSection() (string, error) {
 		return "", ErrProjectNotFound
 	}
 
-	sectionID, err := newCallableStateID()
-	if err != nil {
-		return "", err
-	}
-	variantID, err := newCallableStateID()
-	if err != nil {
-		return "", err
-	}
-	implID, err := newCallableStateID()
-	if err != nil {
-		return "", err
-	}
-	payload, err := buildCreatedSectionPayload(
-		implID,
-		"Callable",
-		createdCallableSectionDefaults(),
-		StructuralMutationSettings{},
-		nil,
+	result, err := p.CreateTopLevelSection(
+		CreateTopLevelSectionInput{
+			ImplType: "Callable",
+		},
+		DefaultStructuralMutationSettings(),
 	)
 	if err != nil {
 		return "", err
 	}
-
-	p.Sections[sectionID] = Section{
-		ID:               sectionID,
-		Name:             watchCodeCallableSectionName,
-		VariantIDs:       []string{variantID},
-		DefaultVariantID: variantID,
-		UnsharedKeys:     []string{"callable", "codeObjVariantMap"},
-	}
-	p.SectionVariants[variantID] = SectionVariant{
-		ID:     variantID,
-		ImplID: implID,
-	}
-	p.SectionImpls[implID] = SectionImpl{
-		ID:      implID,
-		Kind:    SectionKind("callable"),
-		Payload: payload,
-	}
-	p.SectionVariantMap[sectionID] = variantID
-	if !containsString(p.TopLevelSectionIDs, sectionID) {
-		p.TopLevelSectionIDs = append(p.TopLevelSectionIDs, sectionID)
-	}
-	if p.TopLevelSections == nil {
-		p.TopLevelSections = map[string]TopLevelSectionLayout{}
-	}
-	p.TopLevelSections[sectionID] = TopLevelSectionLayout{}
-	for viewModeID, viewMode := range p.ViewModes {
-		if viewMode.VisibilityBySectionID == nil {
-			viewMode.VisibilityBySectionID = map[string]bool{}
-		}
-		viewMode.VisibilityBySectionID[sectionID] = true
-		p.ViewModes[viewModeID] = viewMode
-	}
-	return sectionID, nil
+	return result.SectionID, nil
 }
 
 func (p *Project) resolveWatchCodeReferenceName(callable watchcode.CallableInfo, excludeIdentity string) string {

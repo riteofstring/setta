@@ -341,6 +341,170 @@ func TestRuntimeApplyWatchCodeFileUpdateReconcilesGeneratedPythonSectionsWhenCon
 	}
 }
 
+func TestProjectApplyWatchCodeFileUpdatePlacesCreatedCallableSectionWithoutOverlap(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourceRelativePath := "watch_code_test.py"
+	sourcePath := filepath.Join(workspaceRoot, sourceRelativePath)
+
+	project := Project{
+		ID:                "project-alpha",
+		Name:              "Alpha",
+		WatchCodeEnabled:  true,
+		WatchCodeFiles:    []string{sourceRelativePath},
+		WatchCodeRegistry: map[string]WatchCodeRegistryEntry{},
+		ActiveViewModeID:  "focus",
+		CodegenTargets: []ProjectCodegenTarget{
+			{
+				Language: string(CodeLanguagePython),
+				Payload:  json.RawMessage(`{"language":"python"}`),
+			},
+		},
+		Sections: map[string]Section{
+			GeneratedPythonCodeSectionID: {
+				ID:               GeneratedPythonCodeSectionID,
+				Name:             "Generated Python",
+				VariantIDs:       []string{GeneratedPythonCodeVariantID},
+				DefaultVariantID: GeneratedPythonCodeVariantID,
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			GeneratedPythonCodeVariantID: {
+				ID:     GeneratedPythonCodeVariantID,
+				Name:   "Generated Python",
+				ImplID: GeneratedPythonCodeImplID,
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			GeneratedPythonCodeImplID: {
+				ID:   GeneratedPythonCodeImplID,
+				Kind: SectionKindGenerated,
+				Payload: mustMarshalProjectObject(map[string]any{
+					"id":   GeneratedPythonCodeImplID,
+					"type": "GenPythonCode",
+					"size": map[string]any{
+						"width":  500.0,
+						"height": 150.0,
+					},
+				}),
+				Generated: &GeneratedSectionImpl{Kind: GeneratedSectionKindPythonCode},
+			},
+		},
+		SectionVariantMap: map[string]string{
+			GeneratedPythonCodeSectionID: GeneratedPythonCodeVariantID,
+		},
+		TopLevelSectionIDs: []string{GeneratedPythonCodeSectionID},
+		TopLevelSections: map[string]TopLevelSectionLayout{
+			GeneratedPythonCodeSectionID: {X: 0, Y: 0},
+		},
+		ViewModes: map[string]ViewMode{
+			"focus": {
+				ID:        "focus",
+				Name:      "Focus",
+				SortIndex: 0,
+				VisibilityBySectionID: map[string]bool{
+					GeneratedPythonCodeSectionID: true,
+				},
+				TopLevelSections: map[string]TopLevelSectionLayout{
+					GeneratedPythonCodeSectionID: {X: 0, Y: 0},
+				},
+			},
+		},
+	}
+
+	didUpdate, err := project.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		sourcePath,
+		"def watched(value):\n    return value\n",
+		false,
+		"",
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code file update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected watch code update to create a callable section")
+	}
+
+	entry, ok := project.WatchCodeRegistry["watch_code_test.watched:function"]
+	if !ok {
+		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	if len(entry.SectionIDs) != 1 {
+		t.Fatalf("expected one created callable section, got %#v", entry)
+	}
+	sectionID := entry.SectionIDs[0]
+	section, ok := project.Sections[sectionID]
+	if !ok {
+		t.Fatalf("expected created section, got %#v", project.Sections)
+	}
+	if strings.TrimSpace(section.Name) == "" {
+		t.Fatalf("expected created callable section name, got %#v", section)
+	}
+	if section.Name == "Callable" {
+		t.Fatalf("expected created callable section to use standard random naming, got %#v", section)
+	}
+	if formatError := sectionNameFormatError(section.Name); formatError != "" {
+		t.Fatalf("expected created callable section name to remain valid, got %q with error %q", section.Name, formatError)
+	}
+
+	layout, ok := project.TopLevelSections[sectionID]
+	if !ok {
+		t.Fatalf("expected created section layout, got %#v", project.TopLevelSections)
+	}
+	if layout.X == 0 && layout.Y == 0 {
+		t.Fatalf("expected created callable section to avoid origin overlap, got %#v", layout)
+	}
+
+	activeViewMode := project.ViewModes["focus"]
+	if !activeViewMode.VisibilityBySectionID[sectionID] {
+		t.Fatalf("expected created callable section to be visible in active view mode, got %#v", activeViewMode.VisibilityBySectionID)
+	}
+	viewModeLayout, ok := activeViewMode.TopLevelSections[sectionID]
+	if !ok {
+		t.Fatalf("expected active view mode layout for created callable section, got %#v", activeViewMode.TopLevelSections)
+	}
+	if viewModeLayout.X != layout.X || viewModeLayout.Y != layout.Y {
+		t.Fatalf("expected project and view-mode layouts to match, got %#v vs %#v", layout, viewModeLayout)
+	}
+
+	payload, err := currentCallablePayloadForWatchCodeTest(project, sectionID)
+	if err != nil {
+		t.Fatalf("current callable payload: %v", err)
+	}
+	size, ok := payloadObjectField(payload, "size")
+	if !ok {
+		t.Fatalf("expected created callable size payload, got %#v", payload)
+	}
+	width, ok := size["width"].(float64)
+	if !ok {
+		t.Fatalf("expected callable width float64, got %#v", size["width"])
+	}
+	height, ok := size["height"].(float64)
+	if !ok {
+		t.Fatalf("expected callable height float64, got %#v", size["height"])
+	}
+
+	createdRect := createTopLevelSectionLayoutRect{
+		X: layout.X,
+		Y: layout.Y,
+		W: width,
+		H: height,
+	}
+	generatedRect := createTopLevelSectionLayoutRect{
+		X: 0,
+		Y: 0,
+		W: 500,
+		H: 150,
+	}
+	if createTopLevelSectionRectsIntersect(createdRect, generatedRect) {
+		t.Fatalf("expected created callable section not to overlap generated python section, got created=%#v existing=%#v", createdRect, generatedRect)
+	}
+}
+
 func mustWatchCodeApplyCallable(t *testing.T, code string, relativePath string) watchcode.CallableInfo {
 	t.Helper()
 
