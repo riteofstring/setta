@@ -11048,3 +11048,28 @@ Record:
     - result: passed; the attached React Flow transform increased from `0.1` to `0.12` and then `0.144` after real headed `zoom in` clicks, so the earlier inert-control report was a verification artifact
 - Next action:
   - Return to the normalized live Pixi `main`-oracle parity investigation and identify the next smallest real visual blocker on `All Settings`; the zoom-in runtime-divergence lane is complete.
+
+## 2026-03-30 336
+
+- Item: Rule out the suspected quoted-value parity drift on the first visible `All Settings` live Pixi card before changing the renderer.
+- Status: `done`
+- Details:
+  - Continued directly from item `335` and kept the slice narrowly focused on one suspected visual blocker instead of resuming seam lifting or speculative renderer edits.
+  - The first fresh-context CDP pass initially suggested that live Pixi was painting quoted scalar values on the first visible `All Settings` card, with rows such as `aspectRatio`, `columnWidth`, `Config Language`, and `edgeInputParams` appearing to include extra quote marks versus the baseline DOM surface.
+  - A second fresh-context CDP check re-ran the same comparison against separate baseline DOM and live Pixi `/settings` pages on the current worktree runtime and verified that the quote drift was not actually visible on screen.
+  - The apparent quote difference came from accessibility/snapshot serialization, not from painted canvas text or overlay DOM.
+  - Rows checked explicitly in the follow-up pass:
+    - `aspectRatio false`
+    - `columnWidth null`
+    - `Config Language python`
+    - `edgeInputParams []`
+    - `edgeOutputPorts []`
+    - nearby `paramFilter ""` and `value 0`
+  - No production frontend/backend code changed in this iteration because the suspected blocker was a verifier artifact, not a real rendered parity defect.
+  - `main` remained unavailable locally on `http://127.0.0.1:3000`, so this verification compared the worktree baseline DOM and live Pixi surfaces within the current runtime only.
+- Verification:
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime `http://127.0.0.1:3043/settings`
+    - result: passed; the previously suspected quoted-value mismatch was not visibly painted and should not drive renderer changes
+- Next action:
+  - Return to the actual visible `All Settings` parity drift, with row cadence / renderer-internal spacing still the next real blocker to measure against the baseline DOM surface instead of accessibility snapshot text.
