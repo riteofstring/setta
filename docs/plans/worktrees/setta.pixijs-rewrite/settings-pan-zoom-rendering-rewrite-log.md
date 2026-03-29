@@ -10161,3 +10161,39 @@ Record:
       - the `/settings` canary did not expose a directly selectable edge-row state, so the new selected-row paint itself was not directly visible in this live CDP page and stayed covered by the focused Vitest + Playwright checks above
 - Next action:
   - Move to the next retained-scene interaction parity gap beyond selected edge rows, starting with the next edge-strip state that can be exposed on a trustworthy live canary before changing renderer code again.
+
+## 2026-03-30 309
+
+- Item: Make the live Pixi edge-row hover / focus / press affordances directly visible on the canary path.
+- Status: `done`
+- Details:
+  - Took the repeated visual blocker directly after item `308` instead of moving on to another scene-owned state while the new edge-row affordances were still too subtle to pass the live gate.
+  - Extended the retained edge-row interaction contract so the Pixi scene now receives hover / focus / press ids from the transparent edge-row handoff buttons and publishes the active ids on the scene host for canary diagnostics:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+  - Strengthened the actual scene-owned chrome after two fresh-context CDP retries could see the state attrs but could not honestly call the visual delta obvious:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+  - The final scene draw path now makes the interaction states legible instead of purely stateful:
+    - hover / focus rows draw the raised edge-row stroke plus the hover fill
+    - pressed rows keep the stronger selected fill and explicit row outline so the held-down state stays visible before selection commits
+  - Added focused coverage for the scene-host diagnostics and the stronger edge-row chrome:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`59 passed`)
+    - Playwright:
+      - `cd frontend && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm exec playwright test tests/e2e/params/edge-input-args-selection.spec.ts --grep "live Pixi canary can select an edge arg and pin it back into a value-row handoff|live Pixi canary exposes hover, focus, and press edge-row state on the scene host"`
+      - result: passed (`2 passed`)
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+      - bootstrap/auth succeeded via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+      - used a fresh minimal dict-section setup on the live Pixi renderer path rather than the cluttered shared settings tab
+      - hover was directly visible on the edge input row
+      - press was directly visible on the edge input row
+      - caveat: the row was easiest to inspect after opening the section in a floating window, and the dark-theme press tint is still subtle even though the row outline now makes it visually legible
+- Next action:
+  - Move to the next retained-scene interaction or visual parity gap beyond edge-row hover / focus / press; do not reopen this slice unless the live canary loses direct visibility again.

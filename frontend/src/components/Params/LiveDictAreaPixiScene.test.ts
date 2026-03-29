@@ -269,6 +269,11 @@ describe("LiveDictAreaPixiScene", () => {
     expect(
       container
         .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-edge-hovered-port-id"),
+    ).toBeNull();
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
         ?.getAttribute("data-live-dict-area-scene-compact-row-surface"),
     ).toBe("transparent");
     expect(
@@ -288,6 +293,71 @@ describe("LiveDictAreaPixiScene", () => {
         "[data-live-dict-area-scene-block-anchor='true'][data-live-dict-area-scene-section-id='section-1']",
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("publishes the current edge-row interaction state on the scene host for canary diagnostics", async () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [{ id: "edge-input", label: "Edge Input" }],
+        getParamDisplayName: (paramId: string) => paramId,
+        getParamEditorKind: () => "other",
+        getParamValuePresentationKind: () => "text",
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [{ id: "edge-input", label: "Edge Input" }],
+        isSelectingParams: true,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-edge-state",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {},
+          pinnedTopLevelParamIds: [],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(LiveDictAreaPixiScene, {
+          edgeRowInteractionState: {
+            focusedPortId: "edge-input",
+            hoveredPortId: "edge-input",
+            pressedPortId: "edge-input",
+          },
+          liveDictAreaSceneBoundary:
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const scene = container.querySelector("[data-live-dict-area-scene='pixi']");
+
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-edge-focused-port-id"),
+    ).toBe("edge-input");
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-edge-hovered-port-id"),
+    ).toBe("edge-input");
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-edge-pressed-port-id"),
+    ).toBe("edge-input");
   });
 
   it("keeps the mounted scene host in detail presentation mode by default when the flow viewport is heavily zoomed out", async () => {

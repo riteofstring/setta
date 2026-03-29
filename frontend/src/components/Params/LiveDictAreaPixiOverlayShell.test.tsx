@@ -51,10 +51,16 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
 
   return {
     LiveDictAreaPixiScene: ({
+      edgeRowInteractionState,
       liveDictAreaSceneBoundary,
       onSummaryLayoutChange,
       sectionId,
     }: {
+      edgeRowInteractionState?: {
+        focusedPortId: string | null;
+        hoveredPortId: string | null;
+        pressedPortId: string | null;
+      };
       liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
       onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
       sectionId?: string | null;
@@ -72,6 +78,15 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
       return (
         <div
           data-live-dict-area-scene="pixi"
+          data-live-dict-area-scene-edge-focused-port-id={
+            edgeRowInteractionState?.focusedPortId ?? undefined
+          }
+          data-live-dict-area-scene-edge-hovered-port-id={
+            edgeRowInteractionState?.hoveredPortId ?? undefined
+          }
+          data-live-dict-area-scene-edge-pressed-port-id={
+            edgeRowInteractionState?.pressedPortId ?? undefined
+          }
           data-live-dict-area-scene-section-id={sectionId ?? undefined}
         />
       );
@@ -602,5 +617,102 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         sectionId: "section-edge-overlay",
       },
     ]);
+  });
+
+  it("propagates edge-row hover, focus, and press state into the Pixi scene while param selection is active", () => {
+    liveMiscState.isSelectingParams = true;
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [{ id: "input-a", label: "Input A" }],
+        getParamEditorKind: () => "other",
+        getParamDisplayName: (paramId: string) => paramId,
+        getParamValuePresentationKind: () => "text",
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [{ id: "input-a", label: "Input A" }],
+        isSelectingParams: true,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-edge-state",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {},
+          pinnedTopLevelParamIds: [],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+      },
+    });
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiOverlayShell
+          liveDictAreaMountProps={
+            liveDictAreaMountBoundary.liveDictAreaMountProps
+          }
+          liveDictAreaSceneBoundary={
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary
+          }
+        />,
+      );
+    });
+
+    const button = container.querySelector<HTMLButtonElement>(
+      "[data-live-dict-area-edge-handoff='input-port'][data-live-dict-area-edge-handoff-port-id='input-a']",
+    );
+    const scene = container.querySelector<HTMLElement>(
+      "[data-live-dict-area-scene='pixi']",
+    );
+
+    expect(button).not.toBeNull();
+    expect(scene).not.toBeNull();
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-edge-hovered-port-id"),
+    ).toBe("input-a");
+
+    act(() => {
+      button?.focus();
+    });
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-edge-focused-port-id"),
+    ).toBe("input-a");
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-edge-pressed-port-id"),
+    ).toBe("input-a");
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      button?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      button?.blur();
+    });
+    expect(
+      scene?.hasAttribute("data-live-dict-area-scene-edge-pressed-port-id"),
+    ).toBe(false);
+    expect(
+      scene?.hasAttribute("data-live-dict-area-scene-edge-hovered-port-id"),
+    ).toBe(false);
+    expect(
+      scene?.hasAttribute("data-live-dict-area-scene-edge-focused-port-id"),
+    ).toBe(false);
   });
 });

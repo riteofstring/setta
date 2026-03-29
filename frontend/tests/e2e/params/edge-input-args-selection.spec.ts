@@ -324,4 +324,68 @@ test.describe.serial("edge input args", () => {
       await cleanupIsolatedProject(page, projectContext);
     }
   });
+
+  test("live Pixi canary exposes hover, focus, and press edge-row state on the scene host", async ({
+    page,
+  }) => {
+    await ensureAppReady(page);
+    const projectContext = await openIsolatedProject(page);
+
+    try {
+      const projectConfigId = projectContext.projectConfigId;
+      const sectionId = await createDictSection(page, projectConfigId);
+      const paramId = await addSingleKwargAndReturnId(
+        page,
+        projectConfigId,
+        sectionId,
+      );
+
+      await postBackend(page, "/setSectionEdgeInputs", {
+        projectConfigId,
+        sectionId,
+        edgeInputParams: [paramId],
+      });
+
+      await enableLiveDictAreaPixiRenderer(page);
+      await page.waitForSelector("[data-live-dict-area-scene='pixi']");
+
+      const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+      const scene = sectionNode.locator("[data-live-dict-area-scene='pixi']");
+      const edgeHandoff = sectionNode.locator(
+        `[data-live-dict-area-edge-handoff='input-port'][data-live-dict-area-edge-handoff-port-id='${paramId}']`,
+      );
+      const modKey = getModKey();
+      await page.keyboard.down(modKey);
+      await page.keyboard.down("Shift");
+
+      await expect(edgeHandoff).toBeVisible();
+      await edgeHandoff.hover();
+      await expect(scene).toHaveAttribute(
+        "data-live-dict-area-scene-edge-hovered-port-id",
+        paramId,
+      );
+
+      await edgeHandoff.focus();
+      await expect(scene).toHaveAttribute(
+        "data-live-dict-area-scene-edge-focused-port-id",
+        paramId,
+      );
+
+      await edgeHandoff.dispatchEvent("mousedown");
+      await expect(scene).toHaveAttribute(
+        "data-live-dict-area-scene-edge-pressed-port-id",
+        paramId,
+      );
+      await edgeHandoff.dispatchEvent("mouseup");
+      await expect(scene).not.toHaveAttribute(
+        "data-live-dict-area-scene-edge-pressed-port-id",
+        paramId,
+      );
+
+      await page.keyboard.up("Shift");
+      await page.keyboard.up(modKey);
+    } finally {
+      await cleanupIsolatedProject(page, projectContext);
+    }
+  });
 });

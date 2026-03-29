@@ -43,13 +43,19 @@ import {
   readLiveDictAreaPixiOverviewEnabledFromWindow,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
   type LiveDictAreaPixiCompactRowPrimitive,
+  type LiveDictAreaPixiEdgePortInteractionState,
   type LiveDictAreaPixiPalette,
   type LiveDictAreaPixiPresentationMode,
   type LiveDictAreaPixiTextStyleSet,
 } from "./liveDictAreaPixiSceneView";
 import { buildParamContainerLayout } from "./paramContainerView";
 
-type LiveDictAreaPixiSceneProps = {
+export type LiveDictAreaPixiSceneProps = {
+  edgeRowInteractionState?: {
+    focusedPortId: string | null;
+    hoveredPortId: string | null;
+    pressedPortId: string | null;
+  };
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
   onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
   sectionId?: string | null;
@@ -73,6 +79,11 @@ export function configureLiveDictAreaPixiStaticScene(
 }
 
 function _LiveDictAreaPixiScene({
+  edgeRowInteractionState = {
+    focusedPortId: null,
+    hoveredPortId: null,
+    pressedPortId: null,
+  },
   liveDictAreaSceneBoundary,
   onSummaryLayoutChange,
   sectionId = null,
@@ -344,6 +355,7 @@ function _LiveDictAreaPixiScene({
       drawLiveDictAreaPixiScene({
         app,
         compactRowPrimitive,
+        edgeRowInteractionState,
         layout: summaryLayout,
         palette,
         paramColumnWidth,
@@ -404,6 +416,15 @@ function _LiveDictAreaPixiScene({
       }
       data-live-dict-area-scene-compact-row-surface={
         compactRowPrimitive.surfaceKind
+      }
+      data-live-dict-area-scene-edge-focused-port-id={
+        edgeRowInteractionState.focusedPortId ?? undefined
+      }
+      data-live-dict-area-scene-edge-hovered-port-id={
+        edgeRowInteractionState.hoveredPortId ?? undefined
+      }
+      data-live-dict-area-scene-edge-pressed-port-id={
+        edgeRowInteractionState.pressedPortId ?? undefined
       }
       data-live-dict-area-scene-presentation-mode={presentationMode}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
@@ -478,6 +499,7 @@ function getLiveDictAreaPixiSectionStyleColor(
 function drawLiveDictAreaPixiScene({
   app,
   compactRowPrimitive,
+  edgeRowInteractionState,
   layout,
   palette,
   paramColumnWidth,
@@ -488,6 +510,11 @@ function drawLiveDictAreaPixiScene({
 }: {
   app: Application;
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
+  edgeRowInteractionState: {
+    focusedPortId: string | null;
+    hoveredPortId: string | null;
+    pressedPortId: string | null;
+  };
   layout: LiveDictAreaPixiLayout;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
@@ -505,6 +532,7 @@ function drawLiveDictAreaPixiScene({
       app.stage.addChild(
         drawLiveDictAreaEdgeStrip({
           block,
+          edgeRowInteractionState,
           palette,
           textResolution,
           textFontFamily,
@@ -531,12 +559,18 @@ function drawLiveDictAreaPixiScene({
 
 function drawLiveDictAreaEdgeStrip({
   block,
+  edgeRowInteractionState,
   palette,
   textResolution,
   textFontFamily,
   textStyleSet,
 }: {
   block: LiveDictAreaPixiEdgeStripLayout;
+  edgeRowInteractionState: {
+    focusedPortId: string | null;
+    hoveredPortId: string | null;
+    pressedPortId: string | null;
+  };
   palette: LiveDictAreaPixiPalette;
   textResolution: number;
   textFontFamily: string;
@@ -567,6 +601,18 @@ function drawLiveDictAreaEdgeStrip({
     graphics.addChild(
       drawEdgePort({
         block,
+        edgePortInteractionState:
+          port.side === "in"
+            ? {
+                isFocused: edgeRowInteractionState.focusedPortId === port.id,
+                isHovered: edgeRowInteractionState.hoveredPortId === port.id,
+                isPressed: edgeRowInteractionState.pressedPortId === port.id,
+              }
+            : {
+                isFocused: false,
+                isHovered: false,
+                isPressed: false,
+              },
         palette,
         port,
         textResolution,
@@ -580,6 +626,11 @@ function drawLiveDictAreaEdgeStrip({
     graphics.addChild(
       drawEdgePort({
         block,
+        edgePortInteractionState: {
+          isFocused: false,
+          isHovered: false,
+          isPressed: false,
+        },
         palette,
         port,
         textResolution,
@@ -1170,6 +1221,7 @@ function buildFittedRowText({
 
 function drawEdgePort({
   block,
+  edgePortInteractionState,
   palette,
   port,
   textResolution,
@@ -1177,6 +1229,7 @@ function drawEdgePort({
   textStyleSet,
 }: {
   block: LiveDictAreaPixiEdgeStripLayout;
+  edgePortInteractionState: LiveDictAreaPixiEdgePortInteractionState;
   palette: LiveDictAreaPixiPalette;
   port: LiveDictAreaPixiEdgePortLayout;
   textResolution: number;
@@ -1185,12 +1238,13 @@ function drawEdgePort({
 }) {
   const graphics = new Graphics();
   const portChrome = getLiveDictAreaPixiEdgePortChrome({
+    ...edgePortInteractionState,
     isSelected: port.isSelected,
     palette,
     textStyleSet,
   });
 
-  if (portChrome.rowFill) {
+  if (portChrome.rowFill || portChrome.rowStroke) {
     const frame = getLiveDictAreaPixiEdgeRowFrame({
       block,
       port,
@@ -1202,7 +1256,16 @@ function drawEdgePort({
       frame.height,
       LIVE_DICT_AREA_PIXI_EDGE_ROW_FRAME_RADIUS_PX,
     );
-    graphics.fill(portChrome.rowFill);
+    if (portChrome.rowFill) {
+      graphics.fill(portChrome.rowFill);
+    }
+    if (portChrome.rowStroke) {
+      graphics.stroke({
+        alpha: 1,
+        color: portChrome.rowStroke,
+        width: 1.5,
+      });
+    }
   }
 
   const dotX = port.align === "left" ? port.x + 4 : port.x - 4;

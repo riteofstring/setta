@@ -25,6 +25,7 @@ import {
   buildLiveDictAreaPixiValueRowTargets,
   getLiveDictAreaPixiValueRowHandoffAriaLabel,
 } from "./liveDictAreaPixiValueRowTargets";
+import type { LiveDictAreaPixiSceneProps } from "./LiveDictAreaPixiScene";
 
 type LiveDictAreaPixiOverlayShellProps = {
   liveDictAreaMountProps: LiveDictAreaMountProps;
@@ -43,6 +44,15 @@ export function LiveDictAreaPixiOverlayShell({
     useState<LiveDictAreaPixiLayout | null>(null);
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
   const [activeDragRowId, setActiveDragRowId] = useState<string | null>(null);
+  const [focusedEdgePortId, setFocusedEdgePortId] = useState<string | null>(
+    null,
+  );
+  const [hoveredEdgePortId, setHoveredEdgePortId] = useState<string | null>(
+    null,
+  );
+  const [pressedEdgePortId, setPressedEdgePortId] = useState<string | null>(
+    null,
+  );
   const [isFallbackOverlayActive, setIsFallbackOverlayActive] = useState(false);
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const valueRowTargets = useMemo(
@@ -88,6 +98,21 @@ export function LiveDictAreaPixiOverlayShell({
       ? null
       : dragRowTargets.find((target) => target.rowId === activeDragRowId) ??
         null;
+  const edgeRowInteractionState = useMemo<
+    NonNullable<LiveDictAreaPixiSceneProps["edgeRowInteractionState"]>
+  >(
+    () => ({
+      focusedPortId: isSelectingParams ? focusedEdgePortId : null,
+      hoveredPortId: isSelectingParams ? hoveredEdgePortId : null,
+      pressedPortId: isSelectingParams ? pressedEdgePortId : null,
+    }),
+    [
+      focusedEdgePortId,
+      hoveredEdgePortId,
+      isSelectingParams,
+      pressedEdgePortId,
+    ],
+  );
   const activeValueRowCoreEditState = useProjectState((state) => {
     if (
       isSelectingParams ||
@@ -131,7 +156,23 @@ export function LiveDictAreaPixiOverlayShell({
     }
 
     setActiveDragRowId(null);
+    setFocusedEdgePortId(null);
+    setHoveredEdgePortId(null);
+    setPressedEdgePortId(null);
   }, [isSelectingParams]);
+
+  useEffect(() => {
+    const validPortIds = new Set(edgeRowTargets.map((target) => target.portId));
+    setFocusedEdgePortId((currentPortId) =>
+      currentPortId && !validPortIds.has(currentPortId) ? null : currentPortId,
+    );
+    setHoveredEdgePortId((currentPortId) =>
+      currentPortId && !validPortIds.has(currentPortId) ? null : currentPortId,
+    );
+    setPressedEdgePortId((currentPortId) =>
+      currentPortId && !validPortIds.has(currentPortId) ? null : currentPortId,
+    );
+  }, [edgeRowTargets]);
 
   return (
     <>
@@ -139,6 +180,7 @@ export function LiveDictAreaPixiOverlayShell({
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
       />
       <LiveDictAreaPixiScene
+        edgeRowInteractionState={edgeRowInteractionState}
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
         onSummaryLayoutChange={setSummaryLayout}
         sectionId={sceneSectionId}
@@ -160,11 +202,37 @@ export function LiveDictAreaPixiOverlayShell({
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
+                  setPressedEdgePortId(null);
                   toggleParamSelected(target.sectionId, target.portId);
+                }}
+                onFocus={() => {
+                  setFocusedEdgePortId(target.portId);
                 }}
                 onMouseDown={(event) => {
                   event.preventDefault();
                   event.stopPropagation();
+                  setPressedEdgePortId(target.portId);
+                }}
+                onMouseEnter={() => {
+                  setHoveredEdgePortId(target.portId);
+                }}
+                onMouseLeave={() => {
+                  setHoveredEdgePortId((currentPortId) =>
+                    currentPortId === target.portId ? null : currentPortId,
+                  );
+                  setPressedEdgePortId((currentPortId) =>
+                    currentPortId === target.portId ? null : currentPortId,
+                  );
+                }}
+                onMouseUp={() => {
+                  setPressedEdgePortId((currentPortId) =>
+                    currentPortId === target.portId ? null : currentPortId,
+                  );
+                }}
+                onBlur={() => {
+                  setFocusedEdgePortId((currentPortId) =>
+                    currentPortId === target.portId ? null : currentPortId,
+                  );
                 }}
                 style={{
                   height: target.height,

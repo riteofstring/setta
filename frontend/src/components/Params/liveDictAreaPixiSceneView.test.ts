@@ -393,6 +393,9 @@ describe("getLiveDictAreaPixiEdgePortChrome", () => {
   it("keeps unselected edge rows transparent and on the default edge chrome", () => {
     expect(
       getLiveDictAreaPixiEdgePortChrome({
+        isFocused: false,
+        isHovered: false,
+        isPressed: false,
         isSelected: false,
         palette: {
           bodyText: "#0f172a",
@@ -413,12 +416,16 @@ describe("getLiveDictAreaPixiEdgePortChrome", () => {
       labelFill: "#0f172a",
       labelFontWeight: "400",
       rowFill: null,
+      rowStroke: null,
     });
   });
 
   it("uses the selected row fill with a readable text color for active edge rows", () => {
     expect(
       getLiveDictAreaPixiEdgePortChrome({
+        isFocused: false,
+        isHovered: false,
+        isPressed: false,
         isSelected: true,
         palette: {
           bodyText: "#0f172a",
@@ -439,6 +446,97 @@ describe("getLiveDictAreaPixiEdgePortChrome", () => {
       labelFill: "#f8fafc",
       labelFontWeight: "400",
       rowFill: "#1d4ed8",
+      rowStroke: null,
+    });
+  });
+
+  it("uses hover and focus chrome before selection so edge-strip rows expose a scene-owned affordance", () => {
+    expect(
+      getLiveDictAreaPixiEdgePortChrome({
+        isFocused: true,
+        isHovered: true,
+        isPressed: false,
+        isSelected: false,
+        palette: {
+          bodyText: "#0f172a",
+          border: "#cbd5e1",
+          panelBackground: "#f8fafc",
+          panelBackgroundAlt: "#f1f5f9",
+          portDot: "#64748b",
+          portSelectedDot: "#0284c7",
+          rowBackground: "#ffffff",
+          rowBackgroundAlt: "#eef2ff",
+          rowPlaceholderFill: "#f8fafc",
+          titleText: "#475569",
+        },
+        textStyleSet,
+      }),
+    ).toEqual({
+      dotFill: "#0284c7",
+      labelFill: "#0f172a",
+      labelFontWeight: "400",
+      rowFill: "#cbd5e1",
+      rowStroke: "#0284c7",
+    });
+  });
+
+  it("uses the pressed fill while keeping a readable label for an unselected interactive edge row", () => {
+    expect(
+      getLiveDictAreaPixiEdgePortChrome({
+        isFocused: false,
+        isHovered: false,
+        isPressed: true,
+        isSelected: false,
+        palette: {
+          bodyText: "#0f172a",
+          border: "#cbd5e1",
+          panelBackground: "#f8fafc",
+          panelBackgroundAlt: "#f1f5f9",
+          portDot: "#64748b",
+          portSelectedDot: "#1d4ed8",
+          rowBackground: "#ffffff",
+          rowBackgroundAlt: "#eef2ff",
+          rowPlaceholderFill: "#f8fafc",
+          titleText: "#475569",
+        },
+        textStyleSet,
+      }),
+    ).toEqual({
+      dotFill: "#1d4ed8",
+      labelFill: "#f8fafc",
+      labelFontWeight: "400",
+      rowFill: "#1d4ed8",
+      rowStroke: "#1d4ed8",
+    });
+  });
+
+  it("falls back to the border fill for a pressed selected row so the active click state differs from the resting selection", () => {
+    expect(
+      getLiveDictAreaPixiEdgePortChrome({
+        isFocused: false,
+        isHovered: false,
+        isPressed: true,
+        isSelected: true,
+        palette: {
+          bodyText: "#0f172a",
+          border: "#cbd5e1",
+          panelBackground: "#f8fafc",
+          panelBackgroundAlt: "#f1f5f9",
+          portDot: "#64748b",
+          portSelectedDot: "#1d4ed8",
+          rowBackground: "#ffffff",
+          rowBackgroundAlt: "#eef2ff",
+          rowPlaceholderFill: "#f8fafc",
+          titleText: "#475569",
+        },
+        textStyleSet,
+      }),
+    ).toEqual({
+      dotFill: "#1d4ed8",
+      labelFill: "#0f172a",
+      labelFontWeight: "400",
+      rowFill: "#cbd5e1",
+      rowStroke: "#1d4ed8",
     });
   });
 });

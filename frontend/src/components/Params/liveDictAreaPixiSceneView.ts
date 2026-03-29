@@ -128,6 +128,13 @@ export type LiveDictAreaPixiEdgePortChrome = {
   labelFill: string;
   labelFontWeight: string;
   rowFill: string | null;
+  rowStroke: string | null;
+};
+
+export type LiveDictAreaPixiEdgePortInteractionState = {
+  isFocused: boolean;
+  isHovered: boolean;
+  isPressed: boolean;
 };
 
 type LiveDictAreaPixiFontFaceSet = Pick<
@@ -697,34 +704,56 @@ export function getLiveDictAreaPixiSwitchControlStyle({
 }
 
 export function getLiveDictAreaPixiEdgePortChrome({
+  isFocused,
+  isHovered,
+  isPressed,
   isSelected,
   palette,
   textStyleSet,
 }: {
+  isFocused: boolean;
+  isHovered: boolean;
+  isPressed: boolean;
   isSelected: boolean;
   palette: LiveDictAreaPixiPalette;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }): LiveDictAreaPixiEdgePortChrome {
-  if (!isSelected) {
+  const isRaised = isSelected || isHovered || isFocused || isPressed;
+  const rowFill = isPressed
+    ? isSelected
+      ? palette.border
+      : palette.portSelectedDot
+    : isSelected
+      ? palette.portSelectedDot
+      : isHovered || isFocused
+        ? palette.border
+        : null;
+
+  if (!isRaised) {
     return {
       dotFill: palette.portDot,
       labelFill: palette.bodyText,
       labelFontWeight: textStyleSet.edgeRowFontWeight,
       rowFill: null,
+      rowStroke: null,
     };
   }
 
-  const rowFill = palette.portSelectedDot;
+  const rowStroke =
+    isHovered || isFocused || isPressed ? palette.portSelectedDot : null;
 
   return {
     dotFill: palette.portSelectedDot,
     labelFill:
-      getLiveDictAreaPixiComputedReadableTextColor({
-        backgroundColor: rowFill,
-        textColor: palette.bodyText,
-      }) ?? getLiveDictAreaPixiColorControlTextFill(rowFill),
+      rowFill === null
+        ? palette.bodyText
+        : (getLiveDictAreaPixiComputedReadableTextColor({
+            backgroundColor: rowFill,
+            textColor: palette.bodyText,
+          }) ?? getLiveDictAreaPixiColorControlTextFill(rowFill)),
     labelFontWeight: textStyleSet.edgeRowFontWeight,
     rowFill,
+    rowStroke,
   };
 }
 
