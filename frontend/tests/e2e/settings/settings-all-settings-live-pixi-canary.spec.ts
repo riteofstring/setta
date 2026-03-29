@@ -21,6 +21,7 @@ import {
   postBackend,
   readActiveBackendOrigin,
   readProjectWorkspaceChromeLayout,
+  readVisibleProjectChatChrome,
   resetProjectWorkspaceChromeToDefaultLayout,
 } from "../helpers";
 
@@ -1134,6 +1135,9 @@ test("all settings baseline and the read-only main reference share the same norm
     const baselineLayout = await readProjectWorkspaceChromeLayout(baselinePage);
     const mainReferenceLayout =
       await readProjectWorkspaceChromeLayout(mainReferencePage);
+    const baselineChatChrome = await readVisibleProjectChatChrome(baselinePage);
+    const mainReferenceChatChrome =
+      await readVisibleProjectChatChrome(mainReferencePage);
 
     expect(baselineLayout).toEqual(mainReferenceLayout);
     expect(baselineLayout).toEqual({
@@ -1145,6 +1149,13 @@ test("all settings baseline and the read-only main reference share the same norm
       uiEditorTrueWidth: 40,
       uiEditorVis: false,
       uiEditorWidth: 500,
+    });
+    expect(baselineChatChrome).toEqual(mainReferenceChatChrome);
+    expect(baselineChatChrome).toEqual({
+      bottomDockWindowCount: 0,
+      floatingWindowCount: 0,
+      maximizedWindowCount: 0,
+      windowTitles: [],
     });
   } finally {
     await baselinePage.close();

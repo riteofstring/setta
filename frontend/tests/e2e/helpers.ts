@@ -27,6 +27,12 @@ const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
 const HIDDEN_PROJECT_CHAT_WINDOW_ID = "project-chat-window-1";
+const PROJECT_CHAT_WINDOW_CHROME_SELECTORS = [
+  '[data-testid="project-chat-floating-window"]',
+  '[data-testid="project-chat-bottom-dock-window-panel"]',
+  '[data-testid="project-chat-maximized-window"]',
+  '[data-testid="project-chat-window-title"]',
+] as const;
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
 type AllowedApiError = {
   path: string;
@@ -329,52 +335,72 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
   page: Page,
 ): Promise<void> {
   await page.evaluate(async (hiddenProjectChatWindowId: string) => {
-    const { setPaneWidthWithLayout } = await import(
+    const paneLayoutModule = await import(
       "/src/components/Panes/paneLayout.ts"
     );
-    const { useLocalStorage, useProjectState } = await import(
-      "/src/state/definitions.ts"
+    const definitionsModule = await import("/src/state/definitions.ts");
+    const constantsModule = await import("/src/utils/constants.ts");
+    const projectChatWindowingModule = await import(
+      "/src/state/actions/projectChatWindowing.ts"
     );
-    const {
-      CLOSED_PANE_WIDTH,
-      INITIAL_OVERVIEW_WIDTH,
-      INITIAL_UI_EDITOR_WIDTH,
-      OverviewTabNameEnum,
-      PaneNameEnum,
-    } = await import("/src/utils/constants.ts");
-    const { createProjectChatWindowInstance, createProjectChatWindowingState } =
-      await import("/src/utils/generatedTypes.ts");
+    const generatedTypesModule = await import("/src/utils/generatedTypes.ts");
 
-    // Use the lowest-level stable modules so this normalization works on both
-    // the current worktree and the read-only main reference runtime.
-    useProjectState.setState({
-      projectChatWindowing: createProjectChatWindowingState({
+    projectChatWindowingModule.replaceProjectChatWindowingState(
+      generatedTypesModule.createProjectChatWindowingState({
         order: [hiddenProjectChatWindowId],
         nextInstanceNumber: 2,
         instancesById: {
-          [hiddenProjectChatWindowId]: createProjectChatWindowInstance({
-            instanceId: hiddenProjectChatWindowId,
-            isClosed: true,
-          }),
+          [hiddenProjectChatWindowId]:
+            generatedTypesModule.createProjectChatWindowInstance({
+              instanceId: hiddenProjectChatWindowId,
+              isClosed: true,
+            }),
         },
       }),
-    });
-    useLocalStorage.setState({
-      overviewTab: OverviewTabNameEnum.Overview,
+    );
+    definitionsModule.useLocalStorage.setState({
+      overviewTab: constantsModule.OverviewTabNameEnum.Overview,
       uiEditorVis: false,
-      uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
-      uiEditorTrueWidth: CLOSED_PANE_WIDTH,
+      uiEditorWidth: constantsModule.INITIAL_UI_EDITOR_WIDTH,
+      uiEditorTrueWidth: constantsModule.CLOSED_PANE_WIDTH,
     });
-    setPaneWidthWithLayout(PaneNameEnum.overview, INITIAL_OVERVIEW_WIDTH);
+    paneLayoutModule.setPaneWidthWithLayout(
+      constantsModule.PaneNameEnum.overview,
+      constantsModule.INITIAL_OVERVIEW_WIDTH,
+    );
+    if (
+      typeof projectChatWindowingModule.flushPendingProjectChatWindowingWrites ===
+      "function"
+    ) {
+      await projectChatWindowingModule.flushPendingProjectChatWindowingWrites();
+    }
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
   }, HIDDEN_PROJECT_CHAT_WINDOW_ID);
-  await page.waitForFunction(() => {
-    return [
-      '[data-testid="project-chat-floating-window"]',
-      '[data-testid="project-chat-bottom-dock-window-panel"]',
-      '[data-testid="project-chat-maximized-window"]',
-      '[data-testid="project-chat-window-title"]',
-    ].every((selector) => document.querySelector(selector) === null);
-  });
+  await page.waitForFunction((selectors: readonly string[]) => {
+    const isVisible = (element: Element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        Number.parseFloat(style.opacity || "1") === 0
+      ) {
+        return false;
+      }
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+
+    return selectors.every((selector) =>
+      Array.from(document.querySelectorAll(selector)).every(
+        (element) => !isVisible(element),
+      ),
+    );
+  }, PROJECT_CHAT_WINDOW_CHROME_SELECTORS);
 }
 
 export type ProjectWorkspaceChromeLayoutSnapshot = {
@@ -386,6 +412,13 @@ export type ProjectWorkspaceChromeLayoutSnapshot = {
   uiEditorTrueWidth: number;
   uiEditorVis: boolean;
   uiEditorWidth: number;
+};
+
+export type VisibleProjectChatChromeSnapshot = {
+  bottomDockWindowCount: number;
+  floatingWindowCount: number;
+  maximizedWindowCount: number;
+  windowTitles: string[];
 };
 
 export async function readProjectWorkspaceChromeLayout(
@@ -413,6 +446,45 @@ export async function readProjectWorkspaceChromeLayout(
       uiEditorWidth: localStorageState.uiEditorWidth,
     };
   }, HIDDEN_PROJECT_CHAT_WINDOW_ID);
+}
+
+export async function readVisibleProjectChatChrome(
+  page: Page,
+): Promise<VisibleProjectChatChromeSnapshot> {
+  return page.evaluate((selectors: readonly string[]) => {
+    const isVisible = (element: Element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        Number.parseFloat(style.opacity || "1") === 0
+      ) {
+        return false;
+      }
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0;
+    };
+    const countVisible = (selector: string) => {
+      return Array.from(document.querySelectorAll(selector)).filter(isVisible)
+        .length;
+    };
+    const windowTitles = Array.from(
+      document.querySelectorAll(selectors[3] ?? ""),
+    )
+      .filter(isVisible)
+      .map((element) => element.textContent?.trim() ?? "")
+      .filter((title) => title.length > 0);
+
+    return {
+      bottomDockWindowCount: countVisible(selectors[1] ?? ""),
+      floatingWindowCount: countVisible(selectors[0] ?? ""),
+      maximizedWindowCount: countVisible(selectors[2] ?? ""),
+      windowTitles,
+    };
+  }, PROJECT_CHAT_WINDOW_CHROME_SELECTORS);
 }
 
 export async function clearCurrentProjectViewportForRefit(
