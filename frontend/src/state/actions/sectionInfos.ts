@@ -63,6 +63,7 @@ import {
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { applyActiveSectionChange } from "./activeSectionController";
+import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
 import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
 import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
@@ -193,10 +194,11 @@ function mergeStreamingChatSections(
         : incomingChat.waitingForResponse;
     const nextToolCallArguments =
       isManagedSection && shouldPreserveStreaming
-        ? {
-            ...incomingToolArgs,
-            ...currentToolArgs,
-          }
+        ? resolveHydratedToolCallArguments({
+            backendToolCallArguments: incomingToolArgs,
+            localToolCallArguments: currentToolArgs,
+            preserveLocalOverlay: true,
+          })
         : incomingToolArgs;
     if (
       nextInputText === incomingInputText &&

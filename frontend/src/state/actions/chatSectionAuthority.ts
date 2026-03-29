@@ -11,25 +11,8 @@ import {
   ChatSectionState,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
 import { reconcileHydratedChatMessages } from "./chatMergeUtils";
-
-export function resolveHydratedToolCallArguments({
-  backendToolCallArguments,
-  localToolCallArguments,
-  preserveLocalOverlay,
-}: {
-  backendToolCallArguments: Record<string, string>;
-  localToolCallArguments: Record<string, string>;
-  preserveLocalOverlay: boolean;
-}): Record<string, string> {
-  if (!preserveLocalOverlay) {
-    return { ...backendToolCallArguments };
-  }
-  return {
-    ...backendToolCallArguments,
-    ...localToolCallArguments,
-  };
-}
 
 function mergeHydratedChatSectionState(
   currentState: ChatSectionState,

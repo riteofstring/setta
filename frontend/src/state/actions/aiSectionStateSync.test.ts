@@ -446,6 +446,89 @@ describe("chat history sync to section state", () => {
     });
   });
 
+  it("keeps local-only section tool call overlays but lets backend win for overlapping ids during active-stream hydrate", async () => {
+    const route_get_external_agent_chat = (
+      await import("utils/generatedEndpoints")
+    ).route_get_external_agent_chat as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
+    route_get_external_agent_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [
+          {
+            id: "msg-remote-tool-args",
+            role: ChatRoleEnum.assistant,
+            content: [{ type: "text", text: "From backend" }],
+            attachments: [],
+            tool_calls: null,
+          },
+        ],
+        waitingForResponse: false,
+        toolCallArguments: {
+          shared: `{"task":"Backend canonical"}`,
+          remoteOnly: `{"task":"Backend only"}`,
+        },
+        appGenerationByMessageId: {},
+      },
+    });
+    route_set_chat_section_state.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (!impl || impl.type !== SectionTypeEnum.Chat) {
+        return;
+      }
+      impl.messages = [
+        {
+          id: "msg-local-tool-args",
+          role: ChatRoleEnum.user,
+          content: [createMessageTextContent({ text: "Local message" })],
+          attachments: [],
+        },
+      ];
+      impl.waitingForResponse = true;
+      impl.toolCallArguments = {
+        shared: `{"task":"Local stale overlay"}`,
+        localOnly: `{"task":"Still local only"}`,
+      };
+    });
+    markChatStreamActive(chatId, sectionId);
+
+    await getExternalAgentChat(chatId, projectConfigId, sectionId);
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.toolCallArguments).toEqual({
+      shared: `{"task":"Backend canonical"}`,
+      remoteOnly: `{"task":"Backend only"}`,
+      localOnly: `{"task":"Still local only"}`,
+    });
+    const persistedCall = route_set_chat_section_state.mock.calls.find(
+      (call) => call[0]?.sectionId === sectionId,
+    );
+    expect(persistedCall).toBeDefined();
+    if (!persistedCall) {
+      throw new Error(
+        "Expected setChatSectionState call for overlapped hydrate.",
+      );
+    }
+    expect(persistedCall[0].state.toolCallArguments).toEqual({
+      shared: `{"task":"Backend canonical"}`,
+      remoteOnly: `{"task":"Backend only"}`,
+      localOnly: `{"task":"Still local only"}`,
+    });
+  });
+
   it("syncs the active section branch to hydrated backend messages without rewriting inactive branches", async () => {
     const route_get_external_agent_chat = (
       await import("utils/generatedEndpoints")

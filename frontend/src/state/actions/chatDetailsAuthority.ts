@@ -5,8 +5,8 @@ import {
   deserializeChatAppGenerationByMessageId,
 } from "state/utils/chatAppGeneration";
 import { BaseChatMessageUnion } from "utils/generatedTypes";
+import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
 import { reconcileHydratedChatMessages } from "./chatMergeUtils";
-import { resolveHydratedToolCallArguments } from "./chatSectionAuthority";
 
 function getDefaultHydratedChatDetails(): ChatDetails {
   return {

@@ -4,6 +4,7 @@ import {
   processProjectStateUpdateFromBackend,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
+import { markChatStreamActive } from "state/aiStreamingTracker";
 import { resetProjectStores } from "state/utils";
 import {
   ChatRoleEnum,
@@ -554,6 +555,47 @@ describe("section chat streaming updates", () => {
     expect(impl.toolCallArguments).toEqual({
       local: "{}",
       remote: "{}",
+    });
+    expect(impl.waitingForResponse).toBe(true);
+  });
+
+  it("lets backend tool call arguments win for overlapping ids during mid-stream backend projection updates", () => {
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (impl && impl.type === SectionTypeEnum.Chat) {
+        impl.toolCallArguments = {
+          shared: `{"task":"Local stale overlay"}`,
+          localOnly: `{"task":"Still local only"}`,
+        };
+        impl.waitingForResponse = true;
+      }
+    });
+    markChatStreamActive(chatId, sectionId);
+
+    const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
+    setCurrEffectiveSectionImplValue<"ChatSection">(backendState, sectionId, {
+      toolCallArguments: {
+        shared: `{"task":"Backend canonical"}`,
+        remoteOnly: `{"task":"Backend only"}`,
+      },
+      waitingForResponse: false,
+    });
+
+    processProjectStateUpdateFromBackend({
+      projectState: backendState,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.toolCallArguments).toEqual({
+      shared: `{"task":"Backend canonical"}`,
+      remoteOnly: `{"task":"Backend only"}`,
+      localOnly: `{"task":"Still local only"}`,
     });
     expect(impl.waitingForResponse).toBe(true);
   });

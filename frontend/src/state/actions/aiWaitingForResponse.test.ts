@@ -198,6 +198,49 @@ describe("chat hydration waitingForResponse", () => {
     });
   });
 
+  it("keeps local-only tool call arguments but lets backend win for overlapping ids during active-stream hydrate", async () => {
+    useAIStore.setState({
+      chatDetails: {
+        [chatId]: {
+          ...getDefaultChatDetails(),
+          waitingForResponse: true,
+          toolCallArguments: {
+            shared: `{"task":"Local stale overlay"}`,
+            localOnly: `{"task":"Still local only"}`,
+          },
+        },
+      },
+    });
+    markChatStreamActive(chatId, null);
+
+    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
+      .route_get_llm_chat as unknown as vi.Mock;
+    route_get_llm_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [],
+        toolCallArguments: {
+          shared: `{"task":"Backend canonical"}`,
+          remoteOnly: `{"task":"Backend only"}`,
+        },
+        waitingForResponse: false,
+        llmConfig: null,
+        appGenerationByMessageId: {},
+      },
+    });
+
+    await getLLMChat(chatId);
+
+    const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
+    expect(details.toolCallArguments).toEqual({
+      shared: `{"task":"Backend canonical"}`,
+      remoteOnly: `{"task":"Backend only"}`,
+      localOnly: `{"task":"Still local only"}`,
+    });
+  });
+
   it("keeps backend message order and backend-authored content during an active stream hydrate", async () => {
     useAIStore.setState({
       chatDetails: {
