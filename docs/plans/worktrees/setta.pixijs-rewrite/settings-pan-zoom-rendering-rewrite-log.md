@@ -9553,3 +9553,32 @@ Record:
       - no obvious new visual artifacts were observed
 - Next action:
   - Move to the next real live Pixi visual blocker from the plan: re-check zoom-time text stability and `main`-oracle parity from this always-`detail` baseline instead of reopening low-zoom overview work.
+
+## 2026-03-29 290
+
+- Item: Re-check the always-detail live Pixi zoom path and lock a narrow zoom-continuity canary guard.
+- Status: `done`
+- Details:
+  - Re-checked the live zoom path in a fresh Chrome DevTools MCP sub-agent session on the current `3044/8044` worktree runtime:
+    - compared `/settings` against `/settings?liveDictAreaRenderer=pixi-node-body`
+    - exercised the visible `zoom in` control three times on both routes at normal macOS browser zoom
+    - no reproducible zoom-time text instability, width jump, snap-after-redraw, or obvious spacing/chrome drift showed up in that live pass
+    - no read-only `main` oracle tab/session was open during the check, so this slice only records the live canary/baseline result, not a direct `main` comparison
+  - Tried the two obvious automation paths for a deeper zoomed baseline-vs-Pixi parity guard and rejected both as untrustworthy for this slice:
+    - a seeded disposable `/setViewport` round-trip did not restore a non-default `zoom` on `/settings` reload
+    - a direct React Flow store transform produced large baseline-vs-Pixi deltas that did not match the live CDP zoom result
+  - Landed the narrower automated guard that stays on the trustworthy live Pixi zoom path instead of encoding either suspect parity route:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The new Playwright canary now verifies that, after a real `zoom in` interaction on the live Pixi renderer:
+    - the scene canvas redraws at a larger backing width
+    - at least one previously visible unpinned live card anchor remains visible
+    - the shared visible anchor grows with the zoomed scene instead of disappearing or shrinking during redraw
+- Verification:
+  - Playwright targeted zoom-continuity canary:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+    - `/settings` baseline and `/settings?liveDictAreaRenderer=pixi-node-body` canary both stayed visually stable through repeated `zoom in` interactions at 100% browser zoom
+    - no reproducible zoom-time text blur, width jump, snap-after-redraw, or spacing/chrome drift was observed in that pass
+- Next action:
+  - Revisit the remaining `main`-oracle zoom-parity blocker only when a read-only `main` session is available or a trustworthy automated zoomed-parity path exists; do not treat the rejected disposable parity routes as valid evidence.

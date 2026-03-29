@@ -682,6 +682,94 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
   }
 });
 
+test("all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  const zoomInButton = page.getByRole("button", { name: "zoom in" });
+  const sceneCanvas = page
+    .locator("[data-live-dict-area-scene='pixi'] canvas")
+    .first();
+  await expect(zoomInButton).toBeVisible();
+  await expect(sceneCanvas).toBeVisible();
+
+  await expect
+    .poll(async () => {
+      return (await readVisibleBlockBounds(page, "pixi", "unpinned")).length;
+    })
+    .toBeGreaterThanOrEqual(2);
+
+  const initialCanvasWidth = await sceneCanvas.evaluate(
+    (canvas) => canvas.width,
+  );
+  const initialBlocks = (await readVisibleBlockBounds(page, "pixi", "unpinned"))
+    .slice(0, 4)
+    .map((block) => ({
+      ...block,
+      key: getBlockKey(block),
+    }));
+  expect(initialBlocks.length).toBeGreaterThanOrEqual(2);
+
+  await zoomInButton.click();
+
+  await expect
+    .poll(() => sceneCanvas.evaluate((canvas) => canvas.width), {
+      message: "expected the Pixi scene canvas to redraw after zooming in",
+    })
+    .toBeGreaterThan(initialCanvasWidth);
+
+  await expect
+    .poll(async () => {
+      const visibleCanaryBlocks = await readVisibleBlockBounds(
+        page,
+        "pixi",
+        "unpinned",
+      );
+      const visibleCanaryKeys = new Set(
+        visibleCanaryBlocks.map((block) => getBlockKey(block)),
+      );
+
+      return initialBlocks.some((block) => visibleCanaryKeys.has(block.key));
+    })
+    .toBe(true);
+
+  // Keep at least one of the previously visible cards on-screen and make sure
+  // its anchor grows with the zoomed scene instead of disappearing or
+  // shrinking during the redraw.
+  await expect
+    .poll(async () => {
+      const canaryBlocks = await readVisibleBlockBounds(
+        page,
+        "pixi",
+        "unpinned",
+      );
+      const canaryBlocksByKey = new Map(
+        canaryBlocks.map((block) => [getBlockKey(block), block]),
+      );
+      const sharedBlocks = initialBlocks.filter((block) =>
+        canaryBlocksByKey.has(block.key),
+      );
+
+      if (sharedBlocks.length === 0) {
+        return false;
+      }
+
+      return sharedBlocks.every((initialBlock) => {
+        const zoomedBlock = canaryBlocksByKey.get(initialBlock.key);
+        if (!zoomedBlock) {
+          return false;
+        }
+
+        return (
+          zoomedBlock.width > initialBlock.width &&
+          zoomedBlock.height > initialBlock.height
+        );
+      });
+    })
+    .toBe(true);
+});
+
 test("all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay", async ({
   page,
 }) => {
