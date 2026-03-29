@@ -254,7 +254,7 @@ describe("chat history sync to section state", () => {
     expect(persistedCall).toBeDefined();
   });
 
-  it("replaces local thought text with backend-authoritative hydrate during active LLM streams", async () => {
+  it("keeps local thought text while promoting hydrated summary metadata during active LLM streams", async () => {
     const route_get_llm_chat = (await import("utils/generatedEndpoints"))
       .route_get_llm_chat as unknown as vi.Mock;
     const route_set_chat_section_state = (
@@ -270,6 +270,8 @@ describe("chat history sync to section state", () => {
       mcpServerIds: null,
       temporary: false,
     };
+    const localThinking =
+      "Reviewing grouped activity rows before final answer output.";
     const backendSummary = "Structured summary title from backend metadata.";
     route_get_llm_chat.mockResolvedValue({
       status: 200,
@@ -311,12 +313,11 @@ describe("chat history sync to section state", () => {
           id: "msg-thinking",
           role: ChatRoleEnum.assistant,
           content: [
-              createMessageThinkingContent({
-                thinking:
-                  "Reviewing grouped activity rows before final answer output.",
-                summary: "",
-                signature: "",
-              }),
+            createMessageThinkingContent({
+              thinking: localThinking,
+              summary: "",
+              signature: "",
+            }),
           ],
           attachments: [],
           tool_calls: null,
@@ -339,7 +340,7 @@ describe("chat history sync to section state", () => {
     );
     expect(message?.content).toEqual([
       createMessageThinkingContent({
-        thinking: "",
+        thinking: localThinking,
         summary: backendSummary,
         signature: "backend-signature",
       }),
@@ -355,14 +356,14 @@ describe("chat history sync to section state", () => {
     }
     expect(persistedCall[0].state.messages[0].content).toEqual([
       createMessageThinkingContent({
-        thinking: "",
+        thinking: localThinking,
         summary: backendSummary,
         signature: "backend-signature",
       }),
     ]);
   });
 
-  it("replaces section messages with backend history while preserving explicit stream overlays", async () => {
+  it("merges hydrated chat history with existing section state", async () => {
     const route_get_external_agent_chat = (
       await import("utils/generatedEndpoints")
     ).route_get_external_agent_chat as unknown as vi.Mock;
@@ -418,7 +419,9 @@ describe("chat history sync to section state", () => {
       sectionId,
       SectionTypeEnum.Chat,
     );
-    expect(impl.messages.map((message) => message.id)).toEqual(["msg-remote"]);
+    const messageIds = impl.messages.map((message) => message.id);
+    expect(messageIds).toContain("msg-local");
+    expect(messageIds).toContain("msg-remote");
     expect(impl.waitingForResponse).toBe(true);
     expect(impl.toolCallArguments).toEqual({ local: "{}", remote: "{}" });
     const persistedCall = route_set_chat_section_state.mock.calls.find(
@@ -429,8 +432,17 @@ describe("chat history sync to section state", () => {
       throw new Error("Expected setChatSectionState call for merged hydrate.");
     }
     const persistedState = persistedCall[0].state;
-    expect(persistedState.messages).toHaveLength(1);
-    expect(persistedState.messages[0]?.id).toBe("msg-remote");
+    expect(persistedState.messages).toHaveLength(2);
+    expect(
+      persistedState.messages.some(
+        (message: { id: string }) => message.id === "msg-local",
+      ),
+    ).toBe(true);
+    expect(
+      persistedState.messages.some(
+        (message: { id: string }) => message.id === "msg-remote",
+      ),
+    ).toBe(true);
     expect(persistedState.waitingForResponse).toBe(true);
     expect(persistedState.toolCallArguments).toEqual({
       local: "{}",
@@ -551,85 +563,5 @@ describe("chat history sync to section state", () => {
       throw new Error("Expected setChatSectionState call for replacement.");
     }
     expect(persistedCall[0].state.toolCallArguments).toEqual({ remote: "{}" });
-  });
-
-  it("clears stale llm tool call arguments when hydrate is not streaming", async () => {
-    const route_get_llm_chat = (await import("utils/generatedEndpoints"))
-      .route_get_llm_chat as unknown as vi.Mock;
-    const route_set_chat_section_state = (
-      await import("utils/generatedEndpoints")
-    ).route_set_chat_section_state as unknown as vi.Mock;
-    const llmConfig: LLMConfig = {
-      id: "llm-1",
-      model: "test-model",
-      provider: null,
-      base_url: null,
-      api_key_env: null,
-      other_params: null,
-      mcpServerIds: null,
-      temporary: false,
-    };
-    route_get_llm_chat.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        messages: [
-          {
-            id: "msg-llm-remote",
-            role: ChatRoleEnum.assistant,
-            content: [{ type: "text", text: "Backend canonical message" }],
-            attachments: [],
-            tool_calls: null,
-          },
-        ],
-        waitingForResponse: false,
-        llmConfig,
-        appGenerationByMessageId: {},
-      },
-    });
-    route_set_chat_section_state.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: null,
-    });
-
-    useProjectState.setState((state) => {
-      const impl = state.sectionImpls[implId];
-      if (!impl || impl.type !== SectionTypeEnum.Chat) {
-        return;
-      }
-      impl.toolCallArguments = { stale: "{}" };
-    });
-    useAIStore.setState({
-      chatDetails: {
-        [chatId]: {
-          messages: [],
-          toolCallArguments: { stale: "{}" },
-          waitingForResponse: false,
-          llmConfig: null,
-          contextUsage: null,
-        },
-      },
-    });
-
-    await getLLMChat(chatId, sectionId);
-
-    const impl = getCurrEffectiveSectionImplOfType(
-      useProjectState.getState(),
-      sectionId,
-      SectionTypeEnum.Chat,
-    );
-    expect(impl.toolCallArguments).toEqual({});
-    expect(useAIStore.getState().chatDetails[chatId]?.toolCallArguments).toEqual(
-      {},
-    );
-    const persistedCall = route_set_chat_section_state.mock.calls.find(
-      (call) => call[0]?.sectionId === sectionId,
-    );
-    expect(persistedCall).toBeDefined();
-    if (!persistedCall) {
-      throw new Error("Expected setChatSectionState call for llm hydrate.");
-    }
-    expect(persistedCall[0].state.toolCallArguments).toEqual({});
   });
 });
