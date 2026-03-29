@@ -30,7 +30,7 @@ Setta uses two auth paths depending on runtime mode:
 
 ## Refresh behavior
 - If an API response is served with a valid cookie that expires within
-  `C.AUTH_COOKIE_REFRESH_WINDOW_SECONDS`, the backend sets a new cookie.
+  the configured refresh window, the backend sets a new cookie.
 - The window is exposed via `GET /api/authRefreshStatus`.
 - The frontend pings that endpoint periodically while connected to keep
   sessions fresh.
