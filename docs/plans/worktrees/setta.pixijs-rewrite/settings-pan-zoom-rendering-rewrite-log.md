@@ -12878,3 +12878,98 @@ Record:
       - result: passed (`2 passed`)
 - Next action:
   - Re-run the named visible-fallback inspection on the updated live canary and, if the ordering is unchanged after this move, take `chartSectionDefault` off the `dom-context-lost` path next instead of assuming older fallback ordering.
+
+## 2026-03-31 380
+
+- Item: Move `stateMachineGateSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing shared-runtime canaries.
+- Status: `done`
+- Details:
+  - Did not continue the allowlist lane blindly after the previous slices.
+  - Re-ran a fresh normalized worktree canary inspection before editing because the first CDP probe in this iteration landed on the wrong surface state and incorrectly reported zero managed scenes.
+  - A second fresh-context CDP inspection on `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` after selecting `All Settings` showed the real live-runtime state:
+    - `runtimeCount=46`
+    - managed scenes:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+      - `iFrameSectionDefault`
+      - `backend`
+    - remaining `dom-context-lost` scenes included:
+      - `textParamCodeObjDefault`
+      - `chatWindowing`
+      - `stateMachineGateSectionDefault`
+      - `dropdownParamCodeObjDefault`
+      - `gui`
+      - `imageSectionDefault`
+      - `rotaryParamCodeObjDefault`
+      - `nestedParamCodeObjDefault`
+      - `metaControlSectionDefault`
+      - `callableSectionDefault`
+      - `dictSectionDefault`
+      - `shortcuts`
+      - `languageServer`
+      - `sliderParamCodeObjDefault`
+      - `passwordParamCodeObjDefault`
+      - `textAreaParamCodeObjDefault`
+      - `codeSectionDefault`
+      - `stateMachineStartSectionDefault`
+      - `listRootSectionDefault`
+    - first visible `dom-context-lost` fallback on screen:
+      - `stateMachineGateSectionDefault`
+      - section id `43145723-aeef-4460-a705-b0ba628bf2e5`
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+      - `iFrameSectionDefault`
+      - `backend`
+      - `stateMachineGateSectionDefault`
+  - Locked the ownership move in the existing focused runtime coverage instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all eleven shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `stateMachineGateSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `stateMachineGateSectionDefault` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Verification notes:
+    - the first targeted Playwright rerun failed in global setup because the bootstrap token had expired and `/__setta__/bootstrap` returned `401`
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - reran the same targeted Playwright subset with the refreshed token and it passed
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that:
+      - the page-runtime host includes `stateMachineGateSectionDefault` in `data-live-dict-area-pixi-runtime-managed-scene-names`
+      - the page-runtime host excludes `stateMachineGateSectionDefault` from `data-live-dict-area-pixi-runtime-dom-context-lost-scene-names`
+      - the visible `stateMachineGateSectionDefault` scene reports `data-live-dict-area-scene-render-backend=\"shared-page-runtime\"`
+      - there is no visible `data-live-dict-area-scene-fallback=\"dom-context-lost\"` wrapper around the checked scene
+    - no unexpected visual blocker was observed for this slice
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`23 passed`)
+  - Playwright:
+    - failed attempt with stale token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<stale worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps stateMachineGateSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: failed during global setup with bootstrap `401`
+    - passing rerun with refreshed token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps stateMachineGateSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `stateMachineGateSectionDefault` is visible, managed by the shared page runtime, and does not show a visible `dom-context-lost` fallback wrapper
+- Next action:
+  - Re-run the named visible-fallback inspection on the updated live canary and move the next real visible `dom-context-lost` scene only after that fresh ordering is confirmed, instead of assuming the post-`stateMachineGateSectionDefault` order.

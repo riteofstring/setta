@@ -536,6 +536,17 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
             bounds={{ height: 100, left: 3008, top: 24, width: 220 }}
             layout={emptyLayout}
             renderMode="pixi"
+            runtimeSceneId="scene-state-machine-gate"
+            sectionId="section-state-machine-gate"
+            sectionName={
+              LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES[10]
+            }
+            styleSourceElement={styleSourceElement}
+          />
+          <SceneRegistration
+            bounds={{ height: 100, left: 3260, top: 24, width: 220 }}
+            layout={emptyLayout}
+            renderMode="pixi"
             runtimeSceneId="scene-other"
             sectionId="section-other"
             sectionName="otherSectionDefault"
@@ -552,18 +563,18 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
       host?.getAttribute(
         "data-live-dict-area-pixi-runtime-managed-scene-count",
       ),
-    ).toBe("10");
+    ).toBe("11");
     expect(
       host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-ids"),
     ).toBe(
-      "scene-prompt,scene-browser,scene-text-block,scene-code-param,scene-section-sizing-policy,scene-button-param,scene-gen-python-metadata,scene-draw,scene-iframe,scene-backend",
+      "scene-prompt,scene-browser,scene-text-block,scene-code-param,scene-section-sizing-policy,scene-button-param,scene-gen-python-metadata,scene-draw,scene-iframe,scene-backend,scene-state-machine-gate",
     );
     expect(
       host?.getAttribute(
         "data-live-dict-area-pixi-runtime-managed-scene-names",
       ),
     ).toBe(
-      "promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault,sectionSizingPolicy,buttonParamCodeObjDefault,genPythonMetadataSectionDefault,drawSectionDefault,iFrameSectionDefault,backend",
+      "promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault,sectionSizingPolicy,buttonParamCodeObjDefault,genPythonMetadataSectionDefault,drawSectionDefault,iFrameSectionDefault,backend,stateMachineGateSectionDefault",
     );
     expect(
       host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-name"),

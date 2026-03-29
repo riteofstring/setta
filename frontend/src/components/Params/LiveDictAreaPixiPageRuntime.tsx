@@ -45,6 +45,7 @@ export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES = [
   "drawSectionDefault",
   "iFrameSectionDefault",
   "backend",
+  "stateMachineGateSectionDefault",
 ] as const;
 
 export type LiveDictAreaPixiRegisteredSceneBounds = {
