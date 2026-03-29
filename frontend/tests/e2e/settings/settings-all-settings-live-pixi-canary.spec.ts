@@ -142,6 +142,19 @@ async function readViewportTransform(page: Page): Promise<ViewportTransform> {
   });
 }
 
+async function expectZoomOutButtonDisabled(
+  page: Page,
+  expectedDisabled: boolean,
+): Promise<void> {
+  const zoomOutButton = page.getByRole("button", { name: "zoom out" });
+
+  await expect
+    .poll(async () => {
+      return zoomOutButton.isDisabled();
+    })
+    .toBe(expectedDisabled);
+}
+
 async function zoomViewportOutToMin(page: Page): Promise<void> {
   await page.waitForSelector(READY_SELECTOR);
   await page.waitForSelector("[data-live-dict-area-scene='pixi']");
@@ -706,6 +719,40 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
     await postBackend(page, "/setViewport", {
       projectConfigId,
       viewport: null,
+    });
+  }
+});
+
+test("all settings baseline and live Pixi canary share the fit-view zoom-floor state after clearing the stored viewport", async ({
+  page,
+}) => {
+  await openAllSettingsBaseline(page);
+
+  const initialViewport = await readViewportTransform(page);
+  expect(initialViewport.zoom).toBeGreaterThan(0);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+
+  try {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+
+    await openAllSettingsBaseline(page);
+    await expectZoomOutButtonDisabled(page, true);
+
+    const fitViewViewport = await readViewportTransform(page);
+    expect(fitViewViewport.zoom).toBeGreaterThan(0);
+
+    await openAllSettingsLivePixiCanary(page);
+    await expect
+      .poll(async () => readViewportTransform(page))
+      .toEqual(fitViewViewport);
+    await expectZoomOutButtonDisabled(page, true);
+  } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialViewport,
     });
   }
 });

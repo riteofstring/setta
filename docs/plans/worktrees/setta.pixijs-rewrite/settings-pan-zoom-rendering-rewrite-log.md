@@ -10337,3 +10337,39 @@ Record:
     - result: passed; the visible `gui` card no longer looked clipped or offset relative to `main`
 - Next action:
   - Move to the next bounded `main`-oracle parity or retained-scene frontier beyond the now-closed visible `gui` card clip/shift lane; do not reopen this wrapper-containment slice unless the card drift returns.
+
+## 2026-03-30 315
+
+- Item: Add a deterministic seeded-workspace guard for the `All Settings` fit-view zoom-floor state before taking another `main`-oracle viewport-parity slice.
+- Status: `done`
+- Details:
+  - Investigated the next small `main`-oracle mismatch after item `314` with fresh-context Chrome DevTools MCP:
+    - `main` showed `zoom out` disabled on `/settings`
+    - the current worktree runtime showed `zoom out` enabled on both baseline and `?liveDictAreaRenderer=pixi-node-body`
+  - Follow-up checks showed that mismatch is session-wide on the live worktree runtime, not specific to the live Pixi canary:
+    - baseline and canary shared the same non-min zoom state on the running worktree session
+    - this made the raw live `main` comparison an unreliable next micro-fix target without first pinning a deterministic fit-view baseline in automated coverage
+  - Added a narrow Playwright guard in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The new guard:
+    - clears the stored viewport through `/api/setViewport`
+    - reopens baseline `All Settings`
+    - captures the resulting fit-view transform
+    - asserts the live Pixi canary reopens with the same transform and the same `zoom out` disabled state in the seeded E2E workspace
+  - Important remaining blocker:
+    - a fresh-context Chrome DevTools MCP check on the current live worktree runtime still showed `zoom out` enabled on both baseline and canary even after posting `viewport: null`
+    - so this slice improves deterministic automated coverage, but it does not yet explain or fix why the live worktree runtime keeps a non-floor viewport state
+- Verification:
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after clearing the stored viewport"`
+    - result: passed (`1 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the live worktree runtime:
+    - authenticated fetch to `/api/setViewport` with `viewport: null` succeeded (`200`)
+    - baseline `/settings` still showed `zoom out` enabled
+    - canary `/settings?liveDictAreaRenderer=pixi-node-body` still showed `zoom out` enabled
+    - visible baseline and canary pages looked structurally normal; no new clipping or blanking regression was introduced by this test-only slice
+- Next action:
+  - Investigate why the live worktree `/settings` runtime keeps a non-floor viewport after `setViewport(null)` while the seeded Playwright workspace reopens at the fit-view zoom floor, and do not take another raw `main`-oracle viewport-parity slice until that bootstrap difference is understood.
