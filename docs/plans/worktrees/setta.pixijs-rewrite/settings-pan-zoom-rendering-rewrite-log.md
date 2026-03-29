@@ -7868,3 +7868,45 @@ Record:
     - visual check passed with no obvious blanking, clipping, or major overlap around the activated inline editor
 - Next action:
   - Use these explicit handoff marks as the default measurement boundary for the next live Pixi `defaultZoomLevel` performance slice instead of relying on another broad trace window with bootstrap/navigation noise.
+
+## 2026-03-29 248
+
+- Item: Extend the live Pixi CodeMirror handoff marks through the post-ready presentation tail.
+- Status: `blocked`
+- Details:
+  - Took the explicit next step from item `247` instead of returning to another overlay-layout micro-optimization:
+    - use the new deterministic handoff marks as the default measurement boundary
+    - extend them so the post-ready presentation tail is measurable directly
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowPerf.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowPerf.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Added a new measurement boundary for the real production handoff path:
+    - `setta.liveDictAreaPixi.valueRowHandoff.presented`
+    - `setta.liveDictAreaPixi.valueRowHandoff.presentedLatency`
+    - `setta.liveDictAreaPixi.valueRowHandoff.presentationTailLatency`
+  - The presented marker now lands after the ready path and two `requestAnimationFrame` hops so the next slice can measure the immediate post-ready presentation tail directly instead of inferring it from a broad trace window.
+  - Recorded the measurement snapshot in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-value-row-presented-tail-marks.md`
+  - Verification before the blocker:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueRowPerf.test.ts`
+      - result: passed (`3 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiValueRowPerf.ts src/components/Params/liveDictAreaPixiValueRowPerf.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - Playwright:
+      - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN=<current bootstrap token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+      - result: passed (`1 passed`)
+  - CDP blocker:
+    - two fresh-context Chrome DevTools MCP checks reproduced a visual failure on the live canary at `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - the `defaultZoomLevel` CodeMirror overlay did mount and the new timing entries were readable
+    - representative timings from the failing check:
+      - overlay latency: about `5.9 ms` to `6.1 ms`
+      - ready latency: about `18.1 ms`
+      - presented latency: about `83.2 ms`
+      - presentation tail latency: about `65.1 ms`
+    - representative successful requests included `GET /settings?liveDictAreaRenderer=pixi-node-body` `200`, `POST /api/loadSettings` `200`, and `POST /api/loadProjectConfig` `200`
+    - the required visual gate failed because the inline CodeMirror editor rendered as a tiny, clipped stack instead of a sane readable overlay row
+- Next action:
+  - Investigate and fix the reproducible clipped/tiny live Pixi `defaultZoomLevel` CodeMirror overlay canary before treating these new presented-tail timings as an accepted progress point.
