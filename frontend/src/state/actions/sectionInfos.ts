@@ -1121,11 +1121,7 @@ function applyViewportFromProjectState(
     return false;
   }
   if (!viewport || !viewportInitialized) {
-    useReactFlow.setState({
-      fitViewOnInit: true,
-      fitViewOnInitDone: false,
-      fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
-    });
+    useReactFlow.setState(buildFitViewOnInitState(projectState));
     return true;
   }
   useReactFlow.setState({
@@ -1135,6 +1131,14 @@ function applyViewportFromProjectState(
     transform: [viewport.x, viewport.y, viewport.zoom],
   });
   return false;
+}
+
+function buildFitViewOnInitState(projectState: ProjectStateSingleConfig) {
+  return {
+    fitViewOnInit: true,
+    fitViewOnInitDone: false,
+    fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
+  };
 }
 
 function getFitViewOptionsForVisibleSections(
@@ -2022,6 +2026,17 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
         frontendOpId,
       }),
   });
+}
+
+export function clearCurrentProjectViewportForRefit() {
+  const projectState = useProjectState.getState();
+  if (projectState.projectConfig.id === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+
+  dispatchViewportUpdate(null);
+  useReactFlow.setState(buildFitViewOnInitState(projectState));
+  useMisc.setState({ requestUpdateNodeDimensions: true });
 }
 
 export const debouncedDispatchViewportUpdate = _.debounce(

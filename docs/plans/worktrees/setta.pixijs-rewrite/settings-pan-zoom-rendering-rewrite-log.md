@@ -10373,3 +10373,33 @@ Record:
     - visible baseline and canary pages looked structurally normal; no new clipping or blanking regression was introduced by this test-only slice
 - Next action:
   - Investigate why the live worktree `/settings` runtime keeps a non-floor viewport after `setViewport(null)` while the seeded Playwright workspace reopens at the fit-view zoom floor, and do not take another raw `main`-oracle viewport-parity slice until that bootstrap difference is understood.
+
+## 2026-03-30 316
+
+- Item: Add a frontend-side viewport-clear action so live viewport parity checks can re-arm fit-view in the current tab without relying on a raw backend `setViewport(null)` POST.
+- Status: `done`
+- Details:
+  - Investigated the item `315` blocker with fresh-context CDP on the live worktree runtime:
+    - a direct authenticated `/api/setViewport` `viewport:null` POST left the already-open `/settings` tab on stale client viewport state until reload
+    - reloading the tab rehydrated the backend `viewport:null` state and returned the page to the fit-view floor
+  - Added a real frontend-side action on the optimistic state path:
+    - `frontend/src/state/actions/sectionInfos.ts`
+  - The new `clearCurrentProjectViewportForRefit()` helper:
+    - clears the current project viewport through the existing optimistic route
+    - reuses the fit-view init state builder used by backend-driven viewport clears
+    - triggers `requestUpdateNodeDimensions` so the current tab actually runs the node-measurement + `fitView(...)` path instead of stalling at `fitViewOnInit=true`
+  - Added focused unit coverage:
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+      - result: passed (`23 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - Chrome DevTools MCP live check after worktree lifecycle recovery (`./aireset.sh` failed cleanly, `./ai.sh` fallback restored the `8044/3044/9266` runtime):
+      - opened the recovered worktree `/settings` tab, selected `All Settings`, clicked `zoom in`, then invoked `clearCurrentProjectViewportForRefit()` in page context with no reload
+      - same-tab state returned `zoom out` to the disabled fit-view state without reloading the page
+      - note: on the freshly recovered session, `projectConfig.viewportInitialized` was still `false` after a single zoom click, so this live check validated the same-tab refit/control transition rather than reproducing the earlier stale non-null store shape from the pre-restart session
+- Next action:
+  - Use `clearCurrentProjectViewportForRefit()` instead of raw backend `setViewport(null)` in the next live `main`-oracle viewport-parity slice, then resume the next bounded parity blocker on the stabilized canary path.

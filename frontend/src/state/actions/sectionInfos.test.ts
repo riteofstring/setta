@@ -1,6 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
+  clearCurrentProjectViewportForRefit,
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
   getAttachedTerminalParentIdForTerminalSection,
@@ -23,6 +24,7 @@ import {
   useProjectState,
   type ZustandProjectState,
 } from "state/definitions";
+import * as endpoints from "utils/generatedEndpoints";
 import {
   ChatRoleEnum,
   createChatSectionImpl,
@@ -1286,6 +1288,99 @@ describe("processProjectStateUpdateFromBackend", () => {
     expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
       { id: sectionVisible },
     ]);
+  });
+
+  it("clears the current viewport through the optimistic path and re-arms fit view", () => {
+    const sectionVisible = "section-visible";
+    const sectionHidden = "section-hidden";
+    const viewModeId = "view-1";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const viewMode: ViewModeConfig = {
+      id: viewModeId,
+      name: "Visible View",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: true,
+      visibilityBySectionId: {
+        [sectionVisible]: true,
+        [sectionHidden]: false,
+      },
+      viewport: { x: 10, y: -20, zoom: 1.5 },
+      viewportInitialized: true,
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+    };
+    const projectConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+      viewModes: { [viewModeId]: viewMode },
+      activeViewModeId: viewModeId,
+      viewport: { x: 10, y: -20, zoom: 1.5 },
+      viewportInitialized: true,
+    });
+
+    useProjectState.setState({
+      projectConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useMisc.setState({ requestUpdateNodeDimensions: false });
+    useReactFlow.setState({
+      transform: [10, -20, 1.5],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
+
+    const routeSetViewportSpy = vi
+      .spyOn(endpoints, "route_set_viewport")
+      .mockResolvedValue({
+        data: null,
+        status: 200,
+        hasResponse: true,
+      });
+
+    try {
+      clearCurrentProjectViewportForRefit();
+
+      const currentProjectConfig = useProjectState.getState().projectConfig;
+      expect(currentProjectConfig.viewport).toBeNull();
+      expect(currentProjectConfig.viewportInitialized).toBe(false);
+
+      const reactFlowState = useReactFlow.getState();
+      expect(reactFlowState.fitViewOnInit).toBe(true);
+      expect(reactFlowState.fitViewOnInitDone).toBe(false);
+      expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
+        { id: sectionVisible },
+      ]);
+      expect(useMisc.getState().requestUpdateNodeDimensions).toBe(true);
+
+      expect(routeSetViewportSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          frontendOpId: expect.any(String),
+          projectConfigId: "project-1",
+          viewport: null,
+        }),
+      );
+    } finally {
+      routeSetViewportSpy.mockRestore();
+    }
   });
 
   it("fits view when active view mode changes with no viewport", () => {
