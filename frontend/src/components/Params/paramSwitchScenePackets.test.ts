@@ -10,6 +10,8 @@ describe("buildVisibleParamScenePackets", () => {
       buildVisibleParamScenePackets({
         getParamEditorKind: (paramId: string) =>
           paramId === "beta-leaf" ? "combobox" : "other",
+        getParamValuePresentationKind: (paramId: string) =>
+          paramId === "beta-leaf" ? "combobox" : "text",
         paramIds: ["alpha-group", "alpha-leaf", "beta-group", "beta-leaf"],
         requiredParamIdsToPaths: {
           "alpha-leaf": ["alpha-group", "alpha-leaf"],
@@ -41,6 +43,7 @@ describe("buildVisibleParamScenePackets", () => {
         id: "beta-leaf",
         kind: "value",
         label: "Beta Setting",
+        valuePresentationKind: "combobox",
         valuePreview: "preview-beta",
       },
     ]);
@@ -54,6 +57,7 @@ describe("buildVisibleParamScenePackets", () => {
     expect(
       buildVisibleParamScenePackets({
         getParamEditorKind: () => "other",
+        getParamValuePresentationKind: () => "text",
         paramIds: ["alpha-group", "alpha-leaf", tempParamId],
         requiredParamIdsToPaths: {
           "alpha-leaf": ["alpha-group", "alpha-leaf"],
@@ -77,6 +81,7 @@ describe("buildVisibleParamScenePackets", () => {
       buildVisibleParamScenePackets({
         getParamEditorKind: (paramId: string) =>
           paramId === "child-leaf" ? "codemirror" : "other",
+        getParamValuePresentationKind: () => "text",
         paramIds: ["parent", "child-group", "child-leaf"],
         requiredParamIdsToPaths: {
           "child-leaf": ["parent", "child-group", "child-leaf"],
@@ -112,6 +117,7 @@ describe("buildVisibleParamScenePackets", () => {
         id: "child-leaf",
         kind: "value",
         label: "Child Leaf",
+        valuePresentationKind: "text",
         valuePreview: "preview-child",
       },
     ]);

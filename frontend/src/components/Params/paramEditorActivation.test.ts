@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   resolveParamEditorKind,
   resolveParamEditorKindFromCodeObjImpl,
+  resolveParamValuePresentationKind,
+  resolveParamValuePresentationKindFromCodeObjImpl,
 } from "./paramEditorActivation";
 
 describe("resolveParamEditorKind", () => {
@@ -58,5 +60,46 @@ describe("resolveParamEditorKind", () => {
         type: CodeObjTypeEnum.ColorPickerParam,
       }),
     ).toBe("other");
+  });
+});
+
+describe("resolveParamValuePresentationKind", () => {
+  it("maps switch, combobox, and color-picker param types onto concrete value primitives", () => {
+    expect(resolveParamValuePresentationKind(CodeObjTypeEnum.SwitchParam)).toBe(
+      "switch",
+    );
+    expect(
+      resolveParamValuePresentationKind(CodeObjTypeEnum.DropdownParam),
+    ).toBe("combobox");
+    expect(
+      resolveParamValuePresentationKind(CodeObjTypeEnum.ColorPickerParam),
+    ).toBe("text");
+    expect(
+      resolveParamValuePresentationKind(CodeObjTypeEnum.ColorPickerParam, {
+        hasColorChoiceMenu: true,
+      }),
+    ).toBe("color-picker");
+  });
+
+  it("falls back to plain text for ordinary value rows and derives from the source-of-truth impl", () => {
+    expect(resolveParamValuePresentationKind(CodeObjTypeEnum.TextParam)).toBe(
+      "text",
+    );
+    expect(
+      resolveParamValuePresentationKindFromCodeObjImpl({
+        type: CodeObjTypeEnum.SwitchParam,
+      }),
+    ).toBe("switch");
+    expect(
+      resolveParamValuePresentationKindFromCodeObjImpl({
+        type: CodeObjTypeEnum.DropdownParam,
+      }),
+    ).toBe("combobox");
+    expect(
+      resolveParamValuePresentationKindFromCodeObjImpl({
+        colorChoices: [{ color: "#ff0000" }],
+        type: CodeObjTypeEnum.ColorPickerParam,
+      }),
+    ).toBe("color-picker");
   });
 });

@@ -22,6 +22,7 @@ import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
+  getLiveDictAreaPixiComboboxControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiDetailRowChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
@@ -29,6 +30,7 @@ import {
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiPresentationMode,
   getLiveDictAreaPixiRenderResolution,
+  getLiveDictAreaPixiSwitchControlStyle,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
@@ -830,6 +832,17 @@ function drawParamRow({
     editorKind: row.editorKind,
     valueText: row.valueText,
   });
+  const switchControlStyle = getLiveDictAreaPixiSwitchControlStyle({
+    palette,
+    valuePresentationKind: row.valuePresentationKind,
+    valueText: row.valueText,
+  });
+  const comboboxControlStyle =
+    row.valuePresentationKind === "combobox"
+      ? getLiveDictAreaPixiComboboxControlStyle({
+          palette,
+        })
+      : null;
   const label = buildFittedRowText({
     maxWidth: valueColumnX - rowChrome.labelX - rowChrome.contentInsetPx,
     textResolution,
@@ -859,6 +872,24 @@ function drawParamRow({
       textStyleSet,
       valueColumnX,
     });
+  } else if (switchControlStyle) {
+    drawSwitchValueControl({
+      controlStyle: switchControlStyle,
+      graphics,
+      row,
+      valueColumnX,
+    });
+  } else if (comboboxControlStyle) {
+    drawComboboxValueControl({
+      controlStyle: comboboxControlStyle,
+      graphics,
+      row,
+      rowRightEdgeX,
+      textResolution,
+      textFontFamily,
+      textStyleSet,
+      valueColumnX,
+    });
   } else if (row.valueText) {
     const valueLabel = buildFittedRowText({
       maxWidth: rowRightEdgeX - valueColumnX,
@@ -873,7 +904,7 @@ function drawParamRow({
     });
 
     if (valueLabel) {
-      valueLabel.x = rowRightEdgeX - valueLabel.width;
+      valueLabel.x = valueColumnX;
       valueLabel.y = row.y + 4;
       graphics.addChild(valueLabel);
     }
@@ -953,6 +984,117 @@ function drawColorPickerValueControl({
   chevron.x = controlX + controlWidth - chevron.width - chevronInsetX;
   chevron.y = row.y + 4;
   graphics.addChild(chevron);
+}
+
+function drawComboboxValueControl({
+  controlStyle,
+  graphics,
+  row,
+  rowRightEdgeX,
+  textResolution,
+  textFontFamily,
+  textStyleSet,
+  valueColumnX,
+}: {
+  controlStyle: {
+    backgroundFill: string;
+    borderFill: string;
+    textFill: string;
+  };
+  graphics: Graphics;
+  row: LiveDictAreaPixiRowLayout;
+  rowRightEdgeX: number;
+  textResolution: number;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
+  valueColumnX: number;
+}) {
+  const controlWidth = rowRightEdgeX - valueColumnX;
+  if (controlWidth <= 18 || !row.valueText) {
+    return;
+  }
+
+  const controlX = valueColumnX;
+  const controlY = row.y + 2;
+  const controlHeight = Math.max(row.blockHeight - 4, 0);
+  const chevron = new Text({
+    resolution: textResolution,
+    style: {
+      fill: controlStyle.textFill,
+      fontFamily: textFontFamily,
+      fontSize: textStyleSet.edgeRowFontSize,
+      fontWeight: textStyleSet.rowFontWeight,
+    },
+    text: "\u25be",
+  });
+  const chevronInsetX = 8;
+  const label = buildFittedRowText({
+    maxWidth:
+      controlWidth - chevron.width - chevronInsetX * 2 - chevronInsetX / 2,
+    textResolution,
+    style: {
+      fill: controlStyle.textFill,
+      fontFamily: textFontFamily,
+      fontSize: textStyleSet.edgeRowFontSize,
+      fontWeight: textStyleSet.rowFontWeight,
+    },
+    text: row.valueText,
+  });
+
+  graphics.roundRect(controlX, controlY, controlWidth, controlHeight, 8);
+  graphics.fill(controlStyle.backgroundFill);
+  graphics.stroke({
+    alpha: 1,
+    color: controlStyle.borderFill,
+    width: 1,
+  });
+
+  if (label) {
+    label.x = controlX + chevronInsetX;
+    label.y = row.y + 4;
+    graphics.addChild(label);
+  }
+
+  chevron.x = controlX + controlWidth - chevron.width - chevronInsetX;
+  chevron.y = row.y + 4;
+  graphics.addChild(chevron);
+}
+
+function drawSwitchValueControl({
+  controlStyle,
+  graphics,
+  row,
+  valueColumnX,
+}: {
+  controlStyle: {
+    isChecked: boolean;
+    thumbFill: string;
+    trackCheckedFill: string;
+    trackUncheckedFill: string;
+  };
+  graphics: Graphics;
+  row: LiveDictAreaPixiRowLayout;
+  valueColumnX: number;
+}) {
+  const trackWidth = 28;
+  const trackHeight = 10;
+  const thumbDiameter = 10;
+  const trackX = valueColumnX;
+  const trackY = row.y + Math.max((row.blockHeight - trackHeight) / 2, 0);
+  const thumbX =
+    trackX +
+    (controlStyle.isChecked ? trackWidth - thumbDiameter : 0) +
+    thumbDiameter / 2;
+  const thumbY = trackY + trackHeight / 2;
+
+  graphics.roundRect(trackX, trackY, trackWidth, trackHeight, trackHeight / 2);
+  graphics.fill(
+    controlStyle.isChecked
+      ? controlStyle.trackCheckedFill
+      : controlStyle.trackUncheckedFill,
+  );
+  graphics.circle(thumbX, thumbY, thumbDiameter / 2);
+  graphics.fill(controlStyle.thumbFill);
 }
 
 function buildFittedRowText({

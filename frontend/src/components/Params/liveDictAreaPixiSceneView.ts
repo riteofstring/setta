@@ -10,7 +10,10 @@ import {
   PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
   PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX,
 } from "./paramContainerView";
-import type { ParamEditorKind } from "./paramEditorActivation";
+import type {
+  ParamEditorKind,
+  ParamValuePresentationKind,
+} from "./paramEditorActivation";
 
 export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
   "ui-sans-serif, system-ui, sans-serif";
@@ -89,6 +92,19 @@ export type LiveDictAreaPixiTextStyleSet = {
 export type LiveDictAreaPixiColorControlStyle = {
   backgroundFill: string;
   textFill: string;
+};
+
+export type LiveDictAreaPixiComboboxControlStyle = {
+  backgroundFill: string;
+  borderFill: string;
+  textFill: string;
+};
+
+export type LiveDictAreaPixiSwitchControlStyle = {
+  isChecked: boolean;
+  thumbFill: string;
+  trackCheckedFill: string;
+  trackUncheckedFill: string;
 };
 
 export type LiveDictAreaPixiCompactRowPrimitive = {
@@ -634,6 +650,39 @@ export function getLiveDictAreaPixiColorControlStyle({
   return {
     backgroundFill,
     textFill: getLiveDictAreaPixiColorControlTextFill(backgroundFill),
+  };
+}
+
+export function getLiveDictAreaPixiComboboxControlStyle({
+  palette,
+}: {
+  palette: LiveDictAreaPixiPalette;
+}): LiveDictAreaPixiComboboxControlStyle {
+  return {
+    backgroundFill: palette.panelBackground,
+    borderFill: palette.border,
+    textFill: palette.bodyText,
+  };
+}
+
+export function getLiveDictAreaPixiSwitchControlStyle({
+  palette,
+  valuePresentationKind,
+  valueText,
+}: {
+  palette: LiveDictAreaPixiPalette;
+  valuePresentationKind?: ParamValuePresentationKind;
+  valueText: string | null;
+}): LiveDictAreaPixiSwitchControlStyle | null {
+  if (valuePresentationKind !== "switch") {
+    return null;
+  }
+
+  return {
+    isChecked: (valueText ?? "").trim().toLowerCase() === "true",
+    thumbFill: palette.panelBackground,
+    trackCheckedFill: palette.portSelectedDot,
+    trackUncheckedFill: palette.border,
   };
 }
 

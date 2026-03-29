@@ -5,6 +5,7 @@ import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
+  getLiveDictAreaPixiComboboxControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiDetailRowChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
@@ -13,6 +14,7 @@ import {
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiPresentationMode,
   getLiveDictAreaPixiRenderResolution,
+  getLiveDictAreaPixiSwitchControlStyle,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
@@ -476,6 +478,65 @@ describe("getLiveDictAreaPixiColorControlStyle", () => {
         valueText: "not-a-color",
       }),
     ).toBeNull();
+  });
+});
+
+describe("live Pixi value control styles", () => {
+  const palette = {
+    bodyText: "#e5e7eb",
+    border: "#334155",
+    panelBackground: "#111827",
+    panelBackgroundAlt: "#0f172a",
+    portDot: "#94a3b8",
+    portSelectedDot: "#38bdf8",
+    rowBackground: "#172036",
+    rowBackgroundAlt: "#1e293b",
+    rowPlaceholderFill: "#1f2937",
+    titleText: "#94a3b8",
+  } as const;
+
+  it("maps combobox rows onto neutral control chrome", () => {
+    expect(
+      getLiveDictAreaPixiComboboxControlStyle({
+        palette,
+      }),
+    ).toEqual({
+      backgroundFill: palette.panelBackground,
+      borderFill: palette.border,
+      textFill: palette.bodyText,
+    });
+  });
+
+  it("only exposes switch control chrome for switch-presented rows", () => {
+    expect(
+      getLiveDictAreaPixiSwitchControlStyle({
+        palette,
+        valuePresentationKind: "text",
+        valueText: "true",
+      }),
+    ).toBeNull();
+    expect(
+      getLiveDictAreaPixiSwitchControlStyle({
+        palette,
+        valuePresentationKind: "switch",
+        valueText: " TRUE ",
+      }),
+    ).toEqual({
+      isChecked: true,
+      thumbFill: palette.panelBackground,
+      trackCheckedFill: palette.portSelectedDot,
+      trackUncheckedFill: palette.border,
+    });
+    expect(
+      getLiveDictAreaPixiSwitchControlStyle({
+        palette,
+        valuePresentationKind: "switch",
+        valueText: "false",
+      }),
+    ).toMatchObject({
+      isChecked: false,
+      trackUncheckedFill: palette.border,
+    });
   });
 });
 

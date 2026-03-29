@@ -173,6 +173,26 @@ describe("LiveDictAreaPixiScene", () => {
   });
 
   it("renders the live Pixi dict-area scene without throwing an unhandled draw error", async () => {
+    const getParamValuePresentationKind = (
+      paramId: string,
+    ): "combobox" | "switch" | "text" => {
+      if (paramId === "pinned-value") {
+        return "combobox";
+      }
+      if (paramId === "unpinned-value") {
+        return "switch";
+      }
+      return "text";
+    };
+    const getParamValuePreview = (paramId: string): string | null => {
+      if (paramId === "pinned-value") {
+        return "Choice A";
+      }
+      if (paramId === "unpinned-value") {
+        return "true";
+      }
+      return null;
+    };
     const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
       input: {
         bgColor: "bg-transparent",
@@ -187,7 +207,10 @@ describe("LiveDictAreaPixiScene", () => {
               "unpinned-value": "Unpinned Value",
             }) as Record<string, string>
           )[paramId] ?? paramId,
-        getParamEditorKind: () => "text",
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "other",
+        getParamValuePresentationKind,
+        getParamValuePreview,
         handleColumnResizeStart: vi.fn(),
         hideUnpinnedParams: false,
         inputPorts: [{ id: "input-a", label: "Input A" }],
@@ -281,7 +304,8 @@ describe("LiveDictAreaPixiScene", () => {
               "unpinned-value": "Unpinned Value",
             }) as Record<string, string>
           )[paramId] ?? paramId,
-        getParamEditorKind: () => "text",
+        getParamEditorKind: () => "other",
+        getParamValuePresentationKind: () => "text",
         handleColumnResizeStart: vi.fn(),
         hideUnpinnedParams: false,
         inputPorts: [],
@@ -348,7 +372,8 @@ describe("LiveDictAreaPixiScene", () => {
               "unpinned-value": "Unpinned Value",
             }) as Record<string, string>
           )[paramId] ?? paramId,
-        getParamEditorKind: () => "text",
+        getParamEditorKind: () => "other",
+        getParamValuePresentationKind: () => "text",
         handleColumnResizeStart: vi.fn(),
         hideUnpinnedParams: false,
         inputPorts: [],

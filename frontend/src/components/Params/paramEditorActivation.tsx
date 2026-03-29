@@ -7,6 +7,12 @@ export type ParamEditorKind =
   | "color-picker"
   | "other";
 
+export type ParamValuePresentationKind =
+  | "color-picker"
+  | "combobox"
+  | "switch"
+  | "text";
+
 const PARAM_CODEMIRROR_TYPES = new Set<CodeObjTypeEnum>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.TextParam,
@@ -52,6 +58,33 @@ export function resolveParamEditorKindFromCodeObjImpl(
   codeObjImpl: ParamEditorKindCodeObjImpl,
 ): ParamEditorKind {
   return resolveParamEditorKind(codeObjImpl.type, {
+    hasColorChoiceMenu:
+      codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam &&
+      Array.isArray(codeObjImpl.colorChoices) &&
+      codeObjImpl.colorChoices.length > 0,
+  });
+}
+
+export function resolveParamValuePresentationKind(
+  codeObjType: CodeObjTypeEnum,
+  options: ResolveParamEditorKindOptions = {},
+): ParamValuePresentationKind {
+  if (codeObjType === CodeObjTypeEnum.SwitchParam) {
+    return "switch";
+  }
+
+  const editorKind = resolveParamEditorKind(codeObjType, options);
+  if (editorKind === "combobox" || editorKind === "color-picker") {
+    return editorKind;
+  }
+
+  return "text";
+}
+
+export function resolveParamValuePresentationKindFromCodeObjImpl(
+  codeObjImpl: ParamEditorKindCodeObjImpl,
+): ParamValuePresentationKind {
+  return resolveParamValuePresentationKind(codeObjImpl.type, {
     hasColorChoiceMenu:
       codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam &&
       Array.isArray(codeObjImpl.colorChoices) &&

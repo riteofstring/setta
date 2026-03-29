@@ -17,11 +17,15 @@ import {
 import {
   buildLiveDictAreaSectionDisplayNames,
   buildLiveDictAreaSectionEditorKinds,
+  buildLiveDictAreaSectionValuePresentationKinds,
   buildLiveDictAreaSectionValuePreviews,
   resolveLiveDictAreaValuePreview,
   type LiveDictAreaSectionInput,
 } from "./groupContainerLiveDictAreaSectionInput";
-import { resolveParamEditorKindFromCodeObjImpl } from "./paramEditorActivation";
+import {
+  resolveParamEditorKindFromCodeObjImpl,
+  resolveParamValuePresentationKindFromCodeObjImpl,
+} from "./paramEditorActivation";
 
 export type LiveDictAreaSectionState = Pick<
   LiveDictAreaSectionInput,
@@ -39,6 +43,7 @@ export type LiveDictAreaSectionState = Pick<
   | "styleColor"
   | "unpinnedRequiredParamIdsToPaths"
   | "unpinnedTopLevelParamIds"
+  | "valuePresentationKindsById"
   | "valuePreviewsById"
 >;
 
@@ -79,6 +84,14 @@ export function buildLiveDictAreaSectionState({
     editorKindsById: buildLiveDictAreaSectionEditorKinds({
       getParamEditorKind: (paramId: string) =>
         resolveParamEditorKindFromCodeObjImpl(
+          getCurrEffectiveCodeObjImpl(state, sectionId, paramId),
+        ),
+      requiredParamIdsToPaths,
+      topLevelParamIds,
+    }),
+    valuePresentationKindsById: buildLiveDictAreaSectionValuePresentationKinds({
+      getParamValuePresentationKind: (paramId: string) =>
+        resolveParamValuePresentationKindFromCodeObjImpl(
           getCurrEffectiveCodeObjImpl(state, sectionId, paramId),
         ),
       requiredParamIdsToPaths,

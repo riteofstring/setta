@@ -1,5 +1,8 @@
 import { isTempParam } from "forks/dnd-kit/paramDndState";
-import type { ParamEditorKind } from "./paramEditorActivation";
+import type {
+  ParamEditorKind,
+  ParamValuePresentationKind,
+} from "./paramEditorActivation";
 import { resolveVisibleParamIds } from "./paramSwitchView";
 
 export type ParamSceneRowPacketKind = "group" | "placeholder" | "value";
@@ -24,6 +27,7 @@ type ParamSceneValueRowPacket = {
   id: string;
   kind: "value";
   label: string;
+  valuePresentationKind?: ParamValuePresentationKind;
   valuePreview: string | null;
 };
 
@@ -34,6 +38,9 @@ export type ParamSceneRowPacket =
 
 type BuildVisibleParamScenePacketsArgs = {
   getParamEditorKind?: (paramId: string) => ParamEditorKind;
+  getParamValuePresentationKind?: (
+    paramId: string,
+  ) => ParamValuePresentationKind;
   paramIds: string[];
   requiredParamIdsToPaths: Record<string, string[]>;
   paramFilter: string;
@@ -43,6 +50,7 @@ type BuildVisibleParamScenePacketsArgs = {
 
 export function buildVisibleParamScenePackets({
   getParamEditorKind,
+  getParamValuePresentationKind,
   paramIds,
   requiredParamIdsToPaths,
   paramFilter,
@@ -80,6 +88,11 @@ export function buildVisibleParamScenePackets({
       ...(kind === "value" && getParamEditorKind
         ? {
             editorKind: getParamEditorKind(paramId),
+          }
+        : {}),
+      ...(kind === "value" && getParamValuePresentationKind
+        ? {
+            valuePresentationKind: getParamValuePresentationKind(paramId),
           }
         : {}),
       ...(kind === "value"

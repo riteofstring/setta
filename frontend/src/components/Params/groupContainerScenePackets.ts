@@ -3,7 +3,10 @@ import {
   buildPinnedParamsAreaView,
   buildUnpinnedParamsAreaView,
 } from "./groupContainerView";
-import type { ParamEditorKind } from "./paramEditorActivation";
+import type {
+  ParamEditorKind,
+  ParamValuePresentationKind,
+} from "./paramEditorActivation";
 import {
   buildVisibleParamScenePackets,
   type ParamSceneRowPacket,
@@ -31,6 +34,9 @@ export type LiveDictAreaScenePacket = {
 type BuildParamAreaScenePacketArgs = {
   getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePresentationKind?: (
+    paramId: string,
+  ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
   grow: boolean;
   id: ParamListKey;
@@ -51,6 +57,7 @@ export function buildLiveDictAreaScenePacket({
   hideUnpinnedParams,
   paramFilter,
   getParamDisplayName,
+  getParamValuePresentationKind,
   getParamValuePreview,
   pinned,
   unpinned,
@@ -60,6 +67,9 @@ export function buildLiveDictAreaScenePacket({
   hideUnpinnedParams: boolean;
   paramFilter: string;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePresentationKind?: (
+    paramId: string,
+  ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
   pinned: {
     requiredParamIdsToPaths: Record<string, string[]>;
@@ -80,6 +90,7 @@ export function buildLiveDictAreaScenePacket({
     edgeInputParams,
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePresentationKind,
     getParamValuePreview,
     hideUnpinnedParams,
     paramFilter,
@@ -97,6 +108,7 @@ export function buildLiveDictAreaScenePacket({
     edgeInputParams,
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePresentationKind,
     getParamValuePreview,
     hideUnpinnedParams,
     paramFilter,
@@ -118,6 +130,7 @@ export function buildPinnedParamsAreaScenePacket({
   edgeInputParams,
   getParamEditorKind,
   getParamDisplayName,
+  getParamValuePresentationKind,
   getParamValuePreview,
   hideUnpinnedParams,
   paramFilter,
@@ -127,6 +140,9 @@ export function buildPinnedParamsAreaScenePacket({
   edgeInputParams: string[];
   getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePresentationKind?: (
+    paramId: string,
+  ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -147,6 +163,7 @@ export function buildPinnedParamsAreaScenePacket({
   return buildParamAreaScenePacket({
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePresentationKind,
     getParamValuePreview,
     grow: false,
     id: "pinned",
@@ -168,6 +185,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   edgeInputParams,
   getParamEditorKind,
   getParamDisplayName,
+  getParamValuePresentationKind,
   getParamValuePreview,
   hideUnpinnedParams,
   paramFilter,
@@ -182,6 +200,9 @@ export function buildUnpinnedParamsAreaScenePacket({
   edgeInputParams: string[];
   getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
+  getParamValuePresentationKind?: (
+    paramId: string,
+  ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -210,6 +231,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   return buildParamAreaScenePacket({
     getParamEditorKind,
     getParamDisplayName,
+    getParamValuePresentationKind,
     getParamValuePreview,
     grow: true,
     id: "unpinned",
@@ -228,6 +250,7 @@ export function buildUnpinnedParamsAreaScenePacket({
 function buildParamAreaScenePacket({
   getParamEditorKind,
   getParamDisplayName,
+  getParamValuePresentationKind,
   getParamValuePreview,
   grow,
   id,
@@ -243,6 +266,7 @@ function buildParamAreaScenePacket({
 }: BuildParamAreaScenePacketArgs): LiveDictAreaSceneParamAreaPacket {
   const rows = buildVisibleParamScenePackets({
     getParamEditorKind,
+    getParamValuePresentationKind,
     paramIds: buildParamSceneInputIds({
       topLevelParamIds,
       requiredParamIdsToPaths,

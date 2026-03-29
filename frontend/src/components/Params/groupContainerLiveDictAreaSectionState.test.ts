@@ -265,6 +265,11 @@ describe("groupContainerLiveDictAreaSectionState", () => {
         "group-parent": "codemirror",
         "unpinned-param": "codemirror",
       },
+      valuePresentationKindsById: {
+        "edge-unnamed": "text",
+        "group-parent": "text",
+        "unpinned-param": "text",
+      },
       valuePreviewsById: {
         "edge-unnamed": "preview edge value",
         "unpinned-param": "line 1 line 2",
@@ -348,6 +353,35 @@ describe("groupContainerLiveDictAreaSectionState", () => {
 
     expect(result.valuePreviewsById).toEqual({
       "preview-missing": "line 1 line 2",
+    });
+  });
+
+  it("derives concrete value presentation kinds from the effective code object impl type", () => {
+    const { state } = seedLiveDictAreaSectionState({
+      sectionId: "section-live-dict-area-state-value-kinds",
+      paramValues: {
+        "dropdown-param": "Choice A",
+        "switch-param": "true",
+      },
+      unpinnedParamIds: ["dropdown-param", "switch-param"],
+    });
+
+    useProjectState.setState((projectState) => {
+      projectState.codeObjImpls["dropdown-param-impl"].type =
+        CodeObjTypeEnum.DropdownParam;
+      projectState.codeObjImpls["switch-param-impl"].type =
+        CodeObjTypeEnum.SwitchParam;
+    });
+
+    const result = buildLiveDictAreaSectionState({
+      previewParamEntriesById: null,
+      sectionId: "section-live-dict-area-state-value-kinds",
+      state: useProjectState.getState(),
+    });
+
+    expect(result.valuePresentationKindsById).toEqual({
+      "dropdown-param": "combobox",
+      "switch-param": "switch",
     });
   });
 });

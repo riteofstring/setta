@@ -9782,3 +9782,43 @@ Record:
     - remaining mismatch on cards like `gui` / `backend` is the value/control rendering path, not row-body chrome
 - Next action:
   - Move to the next real visual blocker: make the live Pixi value/control presentation match the DOM baseline on the first visible unpinned `All Settings` cards instead of flattening controls into right-aligned text.
+
+## 2026-03-30 297
+
+- Item: Make the live Pixi value/control presentation match the DOM baseline on the first visible unpinned `All Settings` cards.
+- Status: `done`
+- Details:
+  - Landed the bounded value/control parity slice on the live Pixi canary:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/paramEditorActivation.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionInput.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.ts`
+    - `frontend/src/components/Params/groupContainerScenePackets.ts`
+    - `frontend/src/components/Params/groupContainerNodeScenePacket.ts`
+    - `frontend/src/components/Params/paramSwitchScenePackets.ts`
+    - focused tests under `frontend/src/components/Params/*.test.ts`
+  - Added a source-of-truth `valuePresentationKind` path derived from the effective code object impl instead of guessing from labels or row text:
+    - `switch` rows stay explicit
+    - dropdown-backed rows map to `combobox`
+    - color-choice rows map to `color-picker`
+    - ordinary values stay `text`
+  - Updated the Pixi row renderer so the checked first visible unpinned cards now use value primitives closer to the DOM baseline:
+    - combobox-backed rows draw compact neutral control chrome instead of flat right-aligned text
+    - switch-backed rows draw switch tracks/thumbs instead of placeholder bars
+    - plain text values now sit on the value column instead of hugging the far right edge
+  - Kept the change bounded to the live retained-scene row presentation path; no extra seam-lift forwarding work was added.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramEditorActivation.test.ts src/components/Params/paramSwitchScenePackets.test.ts src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app at `http://127.0.0.1:3044/` after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - compared baseline `/settings` vs the live Pixi canary on `All Settings`
+    - `Config Language` read like a compact combobox control
+    - `Hide Params`, `Hide Unpinned Params`, `Is Frozen`, and `Is Minimized` read like switches
+    - plain text values no longer hugged the far right edge on the checked first visible unpinned cards
+- Next action:
+  - Return to the next measured retained-scene hotspot or remaining visible mismatch outside the now-cleared first visible unpinned card value/control path; do not resume pure forwarding seam lifts.

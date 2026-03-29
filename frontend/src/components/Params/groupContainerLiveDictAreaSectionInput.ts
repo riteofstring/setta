@@ -1,6 +1,9 @@
 import { CodeObjTypeEnum, type SectionTypeEnum } from "utils/generatedTypes";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
-import type { ParamEditorKind } from "./paramEditorActivation";
+import type {
+  ParamEditorKind,
+  ParamValuePresentationKind,
+} from "./paramEditorActivation";
 
 export type LiveDictAreaSectionDisplayNamesInput = {
   getParamDisplayName: (paramId: string) => string;
@@ -31,6 +34,7 @@ export type LiveDictAreaSectionInput = {
   unpinnedParamsAreaMinHeight: number;
   unpinnedRequiredParamIdsToPaths: Record<string, string[]>;
   unpinnedTopLevelParamIds: string[];
+  valuePresentationKindsById: Record<string, ParamValuePresentationKind>;
   valuePreviewsById: Record<string, string>;
 };
 
@@ -72,6 +76,34 @@ export function buildLiveDictAreaSectionEditorKinds({
   }
 
   return editorKindsById;
+}
+
+export function buildLiveDictAreaSectionValuePresentationKinds({
+  getParamValuePresentationKind,
+  requiredParamIdsToPaths,
+  topLevelParamIds,
+}: {
+  getParamValuePresentationKind: (
+    paramId: string,
+  ) => ParamValuePresentationKind;
+  requiredParamIdsToPaths: Record<string, string[]>;
+  topLevelParamIds: string[];
+}): Record<string, ParamValuePresentationKind> {
+  const paramIds = collectLiveDictAreaParamIds({
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+  });
+  const valuePresentationKindsById: Record<
+    string,
+    ParamValuePresentationKind
+  > = {};
+
+  for (const paramId of paramIds) {
+    valuePresentationKindsById[paramId] =
+      getParamValuePresentationKind(paramId);
+  }
+
+  return valuePresentationKindsById;
 }
 
 export function resolveLiveDictAreaValuePreview({
@@ -160,6 +192,7 @@ export function buildLiveDictAreaSectionInput({
   unpinnedParamsAreaMinHeight,
   unpinnedRequiredParamIdsToPaths,
   unpinnedTopLevelParamIds,
+  valuePresentationKindsById,
   valuePreviewsById,
 }: LiveDictAreaSectionInput): LiveDictAreaRenderBoundaryInput {
   return {
@@ -177,6 +210,15 @@ export function buildLiveDictAreaSectionInput({
     },
     getParamDisplayName: (paramId: string) =>
       displayNamesById[paramId] ?? paramId,
+    getParamValuePresentationKind: (paramId: string) => {
+      const valuePresentationKind = valuePresentationKindsById[paramId];
+      if (!valuePresentationKind) {
+        throw new Error(
+          `Missing live dict-area value presentation kind for ${paramId} in ${sectionId}.`,
+        );
+      }
+      return valuePresentationKind;
+    },
     getParamValuePreview: (paramId: string) =>
       valuePreviewsById[paramId] ?? null,
     handleColumnResizeStart,

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   buildLiveDictAreaSectionDisplayNames,
   buildLiveDictAreaSectionInput,
+  buildLiveDictAreaSectionValuePresentationKinds,
   buildLiveDictAreaSectionValuePreviews,
   resolveLiveDictAreaValuePreview,
 } from "./groupContainerLiveDictAreaSectionInput";
@@ -43,6 +44,11 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
         "edge-param": "Edge Param",
         "pinned-param": "Pinned Param",
       },
+      editorKindsById: {
+        "edge-param": "other",
+        "pinned-param": "combobox",
+        "unpinned-param": "other",
+      },
       edgeInputParams: ["edge-param"],
       edgeInputPorts: [{ id: "edge-param", label: "Edge Param" }],
       edgeOutputPorts: [{ id: "output-port", label: "Output Port" }],
@@ -64,6 +70,11 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
         "unpinned-param": ["unpinned-param"],
       },
       unpinnedTopLevelParamIds: ["unpinned-param"],
+      valuePresentationKindsById: {
+        "edge-param": "text",
+        "pinned-param": "combobox",
+        "unpinned-param": "switch",
+      },
       valuePreviewsById: {
         "pinned-param": "42",
       },
@@ -77,8 +88,12 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
     expect(result.outputPorts).toEqual([
       { id: "output-port", label: "Output Port" },
     ]);
+    expect(result.getParamEditorKind("pinned-param")).toBe("combobox");
     expect(result.getParamDisplayName("edge-param")).toBe("Edge Param");
     expect(result.getParamDisplayName("missing-param")).toBe("missing-param");
+    expect(result.getParamValuePresentationKind("pinned-param")).toBe(
+      "combobox",
+    );
     expect(result.getParamValuePreview("pinned-param")).toBe("42");
     expect(result.getParamValuePreview("missing-param")).toBeNull();
     expect(result.pinned).toEqual({
@@ -100,6 +115,40 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
       },
       topLevelParamIds: ["unpinned-param"],
     });
+  });
+
+  it("collects value presentation kinds for every visible live dict-area param exactly once", () => {
+    const getParamValuePresentationKind = vi.fn(
+      (paramId: string): "combobox" | "switch" | "text" => {
+        if (paramId === "switch-leaf") {
+          return "switch";
+        }
+        if (paramId === "dropdown-leaf") {
+          return "combobox";
+        }
+        return "text";
+      },
+    );
+
+    expect(
+      buildLiveDictAreaSectionValuePresentationKinds({
+        getParamValuePresentationKind,
+        requiredParamIdsToPaths: {
+          "dropdown-leaf": ["group", "dropdown-leaf"],
+          "switch-leaf": ["group", "switch-leaf"],
+        },
+        topLevelParamIds: ["group"],
+      }),
+    ).toEqual({
+      "dropdown-leaf": "combobox",
+      group: "text",
+      "switch-leaf": "switch",
+    });
+    expect(
+      new Set(
+        getParamValuePresentationKind.mock.calls.map(([paramId]) => paramId),
+      ),
+    ).toEqual(new Set(["group", "dropdown-leaf", "switch-leaf"]));
   });
 
   it("collects only non-empty live value previews for row-body scene packets", () => {
