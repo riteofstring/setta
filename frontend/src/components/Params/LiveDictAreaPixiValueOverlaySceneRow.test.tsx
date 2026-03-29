@@ -118,6 +118,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       root.render(
         <LiveDictAreaPixiValueOverlaySceneRow
           hasSectionStyleTheme={false}
+          overlaySurface="full-row"
           rowState={rowState}
           target={target}
         />,
@@ -185,6 +186,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       root.render(
         <LiveDictAreaPixiValueOverlaySceneRow
           hasSectionStyleTheme={true}
+          overlaySurface="full-row"
           rowState={rowState}
           target={target}
         />,
@@ -218,21 +220,11 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       x: 0,
       y: 0,
     };
-    const rowState: LiveDictAreaPixiValueOverlayRowState = {
-      coreNameEditable: false,
-      description: "Live Pixi CodeMirror canary row",
-      errorMessage: "",
-      isFocusedSearchResult: false,
-      isSearchResult: false,
-      isSelected: false,
-      paramName: "Default Zoom Level",
-    };
-
     act(() => {
       root.render(
         <LiveDictAreaPixiValueOverlaySceneRow
-          hasSectionStyleTheme={false}
-          rowState={rowState}
+          errorMessage=""
+          overlaySurface="value-only"
           target={target}
         />,
       );

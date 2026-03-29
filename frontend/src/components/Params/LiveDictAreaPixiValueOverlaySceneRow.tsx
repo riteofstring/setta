@@ -14,18 +14,27 @@ import {
   buildParamContainerViewModel,
 } from "./paramContainerView";
 
-type LiveDictAreaPixiValueOverlaySceneRowProps = {
+type LiveDictAreaPixiValueOnlyOverlaySceneRowProps = {
+  errorMessage: string;
+  overlaySurface: "value-only";
+  target: LiveDictAreaPixiValueRowTarget;
+};
+
+type LiveDictAreaPixiValueFullOverlaySceneRowProps = {
   hasSectionStyleTheme: boolean;
+  overlaySurface: "full-row";
   rowState: LiveDictAreaPixiValueOverlayRowState;
   target: LiveDictAreaPixiValueRowTarget;
 };
 
+type LiveDictAreaPixiValueOverlaySceneRowProps =
+  | LiveDictAreaPixiValueOnlyOverlaySceneRowProps
+  | LiveDictAreaPixiValueFullOverlaySceneRowProps;
+
 export function LiveDictAreaPixiValueOverlaySceneRow({
-  hasSectionStyleTheme,
-  rowState,
   target,
+  ...props
 }: LiveDictAreaPixiValueOverlaySceneRowProps) {
-  const hasError = rowState.errorMessage.length > 0;
   const onAutoActivatedCodeMirrorReady =
     target.editorKind === "codemirror"
       ? () => {
@@ -36,13 +45,7 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
         }
       : undefined;
   const noopMouseHandler = () => {};
-  if (
-    shouldRenderMinimalCodeMirrorOverlayRow({
-      coreNameEditable: rowState.coreNameEditable,
-      editorKind: target.editorKind,
-      hasError,
-    })
-  ) {
+  if (props.overlaySurface === "value-only") {
     const { className, style } = buildParamContainerLayout({
       bg: "",
       border: "",
@@ -71,13 +74,14 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
         <ParamInput
           sectionId={target.sectionId}
           paramInfoId={target.rowId}
-          maybeErrorMessage={rowState.errorMessage}
+          maybeErrorMessage={props.errorMessage}
           onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
         />
       </article>
     );
   }
 
+  const { hasSectionStyleTheme, rowState } = props;
   const viewModel = buildParamContainerViewModel({
     hasChildRows: false,
     hasSectionStyleTheme,
@@ -171,18 +175,6 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
       ) : null}
     </article>
   );
-}
-
-function shouldRenderMinimalCodeMirrorOverlayRow({
-  coreNameEditable,
-  editorKind,
-  hasError,
-}: {
-  coreNameEditable: boolean;
-  editorKind: LiveDictAreaPixiValueRowTarget["editorKind"];
-  hasError: boolean;
-}) {
-  return editorKind === "codemirror" && !coreNameEditable && !hasError;
 }
 
 function ValueOverlayErrorSection({

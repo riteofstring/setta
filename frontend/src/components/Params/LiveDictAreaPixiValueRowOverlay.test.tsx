@@ -4,34 +4,31 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 
 const sceneRowCalls = vi.hoisted(
   () =>
     [] as Array<{
-      hasSectionStyleTheme: boolean;
-      rowState: LiveDictAreaPixiValueOverlayRowState;
+      errorMessage?: string;
+      hasSectionStyleTheme?: boolean;
+      overlaySurface: "full-row" | "value-only";
       target: LiveDictAreaPixiValueRowTarget;
     }>,
 );
 
 vi.mock("./LiveDictAreaPixiValueOverlaySceneRow", () => ({
-  LiveDictAreaPixiValueOverlaySceneRow: ({
-    hasSectionStyleTheme,
-    rowState,
-    target,
-  }: {
-    hasSectionStyleTheme: boolean;
-    rowState: LiveDictAreaPixiValueOverlayRowState;
+  LiveDictAreaPixiValueOverlaySceneRow: (props: {
+    errorMessage?: string;
+    hasSectionStyleTheme?: boolean;
+    overlaySurface: "full-row" | "value-only";
     target: LiveDictAreaPixiValueRowTarget;
   }) => {
-    sceneRowCalls.push({ hasSectionStyleTheme, rowState, target });
+    sceneRowCalls.push(props);
     return (
       <div
         data-live-dict-area-editor-overlay-row="true"
-        data-live-dict-area-editor-overlay-row-id={target.rowId}
+        data-live-dict-area-editor-overlay-row-id={props.target.rowId}
       />
     );
   },
@@ -41,6 +38,47 @@ vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: (
     selector: (state: { transform: [number, number, number] }) => unknown,
   ) => selector({ transform: [0, 0, 0.1] }),
+}));
+
+vi.mock(import("state/definitions"), async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useLocalStorage: (selector: (state: { darkMode: boolean }) => unknown) =>
+      selector({ darkMode: false }),
+    useProjectSearch: (
+      selector: (state: {
+        focused: { paramInfoId: string; sectionId: string } | null;
+        lookup: Set<string>;
+      }) => unknown,
+    ) => selector({ focused: null, lookup: new Set<string>() }),
+    useProjectState: (selector: (state: object) => unknown) =>
+      selector({
+        projectConfig: {
+          showParamDisplayNames: true,
+        },
+      }),
+    useTemporaryMiscState: (
+      selector: (state: Record<string, unknown>) => unknown,
+    ) => selector({}),
+    useTypeErrors: (
+      selector: (state: { errors: Record<string, unknown> }) => unknown,
+    ) => selector({ errors: {} }),
+  };
+});
+
+vi.mock("state/actions/sectionInfos", () => ({
+  getCodeObjCore: () => ({
+    displayName: "Pinned Value Display",
+    name: "pinned-value",
+  }),
+  getCurrEffectiveCodeObjImplWithTypeGuard: () => ({
+    coreNameEditable: false,
+    description: "Pinned value description",
+  }),
+  getCurrEffectiveSectionImplWithTypeGuard: () => ({
+    selectedParams: [],
+  }),
 }));
 
 describe("LiveDictAreaPixiValueRowOverlay", () => {
@@ -62,7 +100,7 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
     sceneRowCalls.length = 0;
   });
 
-  it("mounts overlay metadata and delegates row rendering to the direct scene-row boundary", () => {
+  it("mounts overlay metadata and delegates the connected full-row path to the direct scene-row boundary", () => {
     const target: LiveDictAreaPixiValueRowTarget = {
       blockId: "pinned",
       editorKind: "combobox",
@@ -80,22 +118,12 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       x: 16,
       y: 24,
     };
-    const rowState: LiveDictAreaPixiValueOverlayRowState = {
-      coreNameEditable: false,
-      description: "Pinned value description",
-      errorMessage: "",
-      isFocusedSearchResult: false,
-      isSearchResult: false,
-      isSelected: false,
-      paramName: "Pinned Value",
-    };
 
     act(() => {
       root.render(
         <LiveDictAreaPixiValueRowOverlay
           editorKind="combobox"
-          hasSectionStyleTheme={true}
-          rowState={rowState}
+          overlaySurface="full-row"
           target={target}
         />,
       );
@@ -125,8 +153,8 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       rowId: "pinned-value",
       sectionId: "section-1",
     });
-    expect(sceneRowCalls[0]?.hasSectionStyleTheme).toBe(true);
-    expect(sceneRowCalls[0]?.rowState.paramName).toBe("Pinned Value");
+    expect(sceneRowCalls[0]?.overlaySurface).toBe("full-row");
+    expect(sceneRowCalls[0]?.hasSectionStyleTheme).toBe(false);
     expect(
       container.querySelector(
         "[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='pinned-value']",
@@ -166,8 +194,8 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       root.render(
         <LiveDictAreaPixiValueRowOverlay
           editorKind="codemirror"
-          hasSectionStyleTheme={true}
-          rowState={rowState}
+          errorMessage=""
+          overlaySurface="value-only"
           target={target}
         />,
       );

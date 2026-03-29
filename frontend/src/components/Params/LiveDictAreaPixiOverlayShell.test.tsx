@@ -59,15 +59,18 @@ vi.mock("./LiveDictAreaPixiParamAreaOverlay", () => ({
 
 vi.mock("./LiveDictAreaPixiValueRowOverlay", () => ({
   LiveDictAreaPixiValueRowOverlay: ({
-    rowState,
+    errorMessage,
+    overlaySurface,
     target,
   }: {
-    rowState: { paramName: string };
+    errorMessage: string;
+    overlaySurface: "full-row" | "value-only";
     target: { rowId: string };
   }) => (
     <div
       data-live-dict-area-editor-overlay="active"
-      data-live-dict-area-editor-overlay-param-name={rowState.paramName}
+      data-live-dict-area-editor-overlay-error-message={errorMessage}
+      data-live-dict-area-editor-overlay-surface={overlaySurface}
       data-live-dict-area-editor-overlay-row-id={target.rowId}
     />
   ),
@@ -261,25 +264,101 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container
         .querySelector("[data-live-dict-area-editor-overlay='active']")
-        ?.getAttribute("data-live-dict-area-editor-overlay-param-name"),
-    ).toBe("Pinned Value Display");
+        ?.getAttribute("data-live-dict-area-editor-overlay-surface"),
+    ).toBe("full-row");
     expect(
       container.querySelector(
         `[data-live-dict-area-editor-overlay-row-id='${activatedRowId}']`,
       ),
     ).not.toBeNull();
+    expect(activeValueRowBaseStateRequests).toEqual([]);
+    expect(activeValueRowCoreRequests).toEqual([]);
+  });
+
+  it("keeps the normal CodeMirror handoff on the value-only overlay path without full row state lookups", () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "codemirror" : "color-picker",
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "Pinned Group",
+              "pinned-value": "Pinned Value",
+              "unpinned-group": "Unpinned Group",
+              "unpinned-value": "Unpinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [{ id: "input-a", label: "Input A" }],
+        isSelectingParams: false,
+        outputPorts: [{ id: "output-a", label: "Output A" }],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-1",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiOverlayShell
+          liveDictAreaMountProps={
+            liveDictAreaMountBoundary.liveDictAreaMountProps
+          }
+          liveDictAreaSceneBoundary={
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary
+          }
+        />,
+      );
+    });
+
+    const handoffButton = container.querySelector<HTMLButtonElement>(
+      "[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-editor-kind='codemirror']",
+    );
+    expect(handoffButton).not.toBeNull();
+
+    act(() => {
+      handoffButton?.click();
+    });
+
+    expect(
+      container
+        .querySelector("[data-live-dict-area-editor-overlay='active']")
+        ?.getAttribute("data-live-dict-area-editor-overlay-surface"),
+    ).toBe("value-only");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-editor-overlay='active']")
+        ?.getAttribute("data-live-dict-area-editor-overlay-error-message"),
+    ).toBe("");
     expect(activeValueRowBaseStateRequests.length).toBeGreaterThan(0);
-    expect(activeValueRowBaseStateRequests).toSatisfy((requests) =>
-      requests.every(
-        (request) =>
-          request.rowId === (activatedRowId ?? "") &&
-          request.sectionId === "section-1",
-      ),
-    );
-    expect(activeValueRowCoreRequests.length).toBeGreaterThan(0);
-    expect(activeValueRowCoreRequests).toSatisfy((requests) =>
-      requests.every((rowId) => rowId === (activatedRowId ?? "")),
-    );
+    expect(activeValueRowCoreRequests).toEqual([]);
   });
 
   it("mounts a param-list drag overlay when param selection mode is active", () => {

@@ -8052,3 +8052,51 @@ Record:
       - this did not invalidate the slice because item `251` already recorded a passing targeted Playwright product run for the same canary and the required fresh headed CDP gate now passes on the active runtime
 - Next action:
   - Resume the live Pixi `defaultZoomLevel` handoff latency lane from this landed value-only baseline instead of reopening the transient headed-Chrome activation mismatch.
+
+## 2026-03-29 253
+
+- Item: Split the live Pixi CodeMirror happy-path overlay away from the full-row connected state path.
+- Status: `done`
+- Details:
+  - Took a real work-reduction step on the current `defaultZoomLevel` handoff lane instead of another trace-only pass:
+    - the normal CodeMirror value-only overlay no longer pays for the full-row search/theme/display-name state pipeline
+    - the heavier connected state path now stays behind a dedicated full-row-only boundary for errored and special rows
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-value-only-connected-state-split.md`
+  - The shell-side CodeMirror gate is now limited to:
+    - `coreNameEditable`
+    - the current joined error message
+  - The direct value-only scene row now accepts its own explicit `value-only` contract instead of being routed through the generic full-row row-state object.
+  - The connected full-row overlay state now lives behind a separate `ConnectedLiveDictAreaPixiValueFullOverlayRow` boundary, so the happy-path CodeMirror canary no longer mounts those extra search/theme/display-name selectors before the editor becomes active.
+  - Targeted tests now pin both sides of the split:
+    - the normal CodeMirror handoff stays on the `value-only` surface without full row core lookups from the shell path
+    - the full-row overlay path still delegates through the connected boundary when needed
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+      - result: passed (`8 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+      - result: passed
+  - Playwright:
+    - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN=<current bootstrap token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - visual gate passed for the active `defaultZoomLevel` row
+    - `[data-live-dict-area-editor-overlay='active']` appeared and remained readable with no clipping found by the headed bounds check
+    - overlay geometry was about `308 x 20`
+    - `.cm-editor` geometry was about `29 x 16`
+    - representative measures from the headed check:
+      - overlay latency: `13.5 ms`
+      - ready latency: `30.5 ms`
+      - presented latency: `40.5 ms`
+      - presentation tail latency: `10.0 ms`
+    - representative successful requests included `GET /settings?liveDictAreaRenderer=pixi-node-body`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Re-run an apples-to-apples headless timing probe on this connected-state-split baseline so the next latency slice can compare the reduced selector work against the earlier value-only overlay numbers before making another overlay-path change.

@@ -1,24 +1,8 @@
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
-import {
-  getCodeObjCore,
-  getCurrEffectiveCodeObjImplWithTypeGuard,
-  getCurrEffectiveSectionImplWithTypeGuard,
-} from "state/actions/sectionInfos";
-import {
-  useLocalStorage,
-  useMisc,
-  useProjectSearch,
-  useProjectState,
-  useTemporaryMiscState,
-  useTypeErrors,
-} from "state/definitions";
-import { getSectionStylePreviewColorKey } from "utils/constants";
-import {
-  isBaseParamCodeObjImpl,
-  isBaseSectionWithParamsImpl,
-} from "utils/generatedTypes";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { getCurrEffectiveCodeObjImplWithTypeGuard } from "state/actions/sectionInfos";
+import { useMisc, useProjectState, useTypeErrors } from "state/definitions";
+import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import {
   LiveDictAreaMount,
   type LiveDictAreaMountProps,
@@ -28,10 +12,6 @@ import { buildLiveDictAreaPixiDragRowTargets } from "./liveDictAreaPixiDragRowTa
 import { buildLiveDictAreaPixiFixedMeasurements } from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
-import {
-  buildLiveDictAreaPixiValueOverlayRowState,
-  type LiveDictAreaPixiValueOverlayRowBaseState,
-} from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import { markLiveDictAreaPixiValueRowHandoffStart } from "./liveDictAreaPixiValueRowPerf";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
@@ -48,7 +28,6 @@ export function LiveDictAreaPixiOverlayShell({
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
   const [activeDragRowId, setActiveDragRowId] = useState<string | null>(null);
   const [isFallbackOverlayActive, setIsFallbackOverlayActive] = useState(false);
-  const darkMode = useLocalStorage((state) => state.darkMode);
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const valueRowTargets = useMemo(
     () =>
@@ -76,101 +55,40 @@ export function LiveDictAreaPixiOverlayShell({
       ? null
       : dragRowTargets.find((target) => target.rowId === activeDragRowId) ??
         null;
-  const activeValueRowBaseState = useProjectState((state) => {
-    if (isSelectingParams || activeValueRowTarget === null) {
+  const activeValueRowCoreEditState = useProjectState((state) => {
+    if (
+      isSelectingParams ||
+      activeValueRowTarget === null ||
+      activeValueRowTarget.editorKind !== "codemirror"
+    ) {
       return null;
     }
 
-    const paramsImpl = getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      activeValueRowTarget.sectionId,
-      isBaseSectionWithParamsImpl,
-    );
-    const selectedParamIdSet = new Set(paramsImpl.selectedParams);
     const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
       state,
       activeValueRowTarget.sectionId,
       activeValueRowTarget.rowId,
       isBaseParamCodeObjImpl,
     );
-    const codeObjCore = getCodeObjCore(state, activeValueRowTarget.rowId);
 
     return {
       coreNameEditable: codeObjImpl.coreNameEditable,
-      description: codeObjImpl.description,
-      displayName: codeObjCore.displayName,
-      isSelected: selectedParamIdSet.has(activeValueRowTarget.rowId),
-      name: codeObjCore.name,
-      showParamDisplayNames: state.projectConfig.showParamDisplayNames,
-    } satisfies LiveDictAreaPixiValueOverlayRowBaseState;
+    };
   }, _.isEqual);
-  const valueRowSearchState = useProjectSearch(
-    (state) => ({
-      focused: state.focused,
-      lookup: state.lookup,
-    }),
-    _.isEqual,
-  );
-  const activeValueRowParamErrors = useTypeErrors(
+  const activeValueRowErrorMessage = useTypeErrors(
     (state) =>
       activeValueRowTarget === null
-        ? []
+        ? ""
         : state.errors[activeValueRowTarget.sectionId]?.params?.[
             activeValueRowTarget.rowId
-          ] ?? [],
-    _.isEqual,
+          ]?.join("\n") ?? "",
+    Object.is,
   );
-  const activeValueRowState = useMemo(() => {
-    if (isSelectingParams || activeValueRowTarget === null) {
-      return null;
-    }
-    if (activeValueRowBaseState === null) {
-      throw new Error(
-        `Missing active Pixi value-overlay base state for ${activeValueRowTarget.rowId}.`,
-      );
-    }
-
-    return buildLiveDictAreaPixiValueOverlayRowState({
-      focusedSearchResult: valueRowSearchState.focused,
-      paramErrors: activeValueRowParamErrors,
-      rowBaseState: activeValueRowBaseState,
-      rowId: activeValueRowTarget.rowId,
-      searchLookup: valueRowSearchState.lookup,
-      sectionId: activeValueRowTarget.sectionId,
-    });
-  }, [
-    isSelectingParams,
-    activeValueRowBaseState,
-    activeValueRowParamErrors,
-    activeValueRowTarget,
-    valueRowSearchState.focused,
-    valueRowSearchState.lookup,
-  ]);
   const activeValueRowEditorKind = activeValueRowTarget?.editorKind ?? "other";
-  const activeValueRowStyleColorPreview = useTemporaryMiscState((state) => {
-    if (activeValueRowTarget === null) {
-      return undefined;
-    }
-    const previewKey = getSectionStylePreviewColorKey(
-      activeValueRowTarget.sectionId,
-    );
-    return state[previewKey] as string | null | undefined;
-  });
-  const activeValueRowHasSectionStyleTheme = useMemo(() => {
-    if (activeValueRowTarget === null) {
-      return false;
-    }
-
-    const resolvedStyleColor =
-      activeValueRowStyleColorPreview === undefined
-        ? activeValueRowTarget.styleColor
-        : activeValueRowStyleColorPreview;
-    return Boolean(
-      resolvedStyleColor
-        ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-        : null,
-    );
-  }, [activeValueRowStyleColorPreview, activeValueRowTarget, darkMode]);
+  const shouldUseValueOnlyCodeMirrorOverlay =
+    activeValueRowTarget?.editorKind === "codemirror" &&
+    activeValueRowCoreEditState?.coreNameEditable === false &&
+    activeValueRowErrorMessage.length === 0;
 
   useEffect(() => {
     if (isSelectingParams) {
@@ -251,8 +169,10 @@ export function LiveDictAreaPixiOverlayShell({
       ) : activeValueRowTarget ? (
         <LiveDictAreaPixiValueRowOverlay
           editorKind={activeValueRowEditorKind}
-          hasSectionStyleTheme={activeValueRowHasSectionStyleTheme}
-          rowState={getActiveValueRowState(activeValueRowState)}
+          errorMessage={activeValueRowErrorMessage}
+          overlaySurface={
+            shouldUseValueOnlyCodeMirrorOverlay ? "value-only" : "full-row"
+          }
           target={activeValueRowTarget}
         />
       ) : valueRowTargets.length === 0 ? (
@@ -278,16 +198,6 @@ export function LiveDictAreaPixiOverlayShell({
       ) : null}
     </>
   );
-}
-
-function getActiveValueRowState(
-  rowState: ReturnType<typeof buildLiveDictAreaPixiValueOverlayRowState> | null,
-) {
-  if (!rowState) {
-    throw new Error("Missing active Pixi value-overlay state.");
-  }
-
-  return rowState;
 }
 
 function LiveDictAreaPixiFixedMeasurementMarkers({
