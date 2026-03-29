@@ -3052,14 +3052,34 @@ function isResponsePlaceholderId(
   return messageId.startsWith("rs_") || messageId.startsWith("resp_");
 }
 
+function assistantMessageEmpty(
+  message: AssistantChatMessage,
+): boolean {
+  return (
+    message.content.length === 0 &&
+    (message.tool_calls?.length ?? 0) === 0 &&
+    (message.attachments?.length ?? 0) === 0
+  );
+}
+
+function shouldIgnoreResponsePlaceholderMessage(
+  message: BaseChatMessageUnion,
+): boolean {
+  return (
+    message.role === ChatRoleEnum.assistant &&
+    isResponsePlaceholderId(message.id) &&
+    assistantMessageEmpty(message)
+  );
+}
+
 function shouldIgnoreResponsePlaceholderChunk(
   chunk: LLMStreamingResponse["chunk"],
 ): boolean {
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_START) {
-    return isResponsePlaceholderId(chunk.message.id);
+    return shouldIgnoreResponsePlaceholderMessage(chunk.message);
   }
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
-    return isResponsePlaceholderId(chunk.message.id);
+    return shouldIgnoreResponsePlaceholderMessage(chunk.message);
   }
   return false;
 }
@@ -4409,10 +4429,10 @@ function mergeFinalizedAssistantMessage(
   const mergedContent = hasFinalizedContent
     ? message.content
     : existingAssistant.content;
-  const finalizedToolCalls = message.tool_calls ?? [];
-  const existingToolCalls = existingAssistant.tool_calls ?? [];
-  const mergedToolCalls =
-    finalizedToolCalls.length > 0 ? finalizedToolCalls : existingToolCalls;
+  const mergedToolCalls = mergeFinalizedAssistantToolCalls(
+    message.tool_calls,
+    existingAssistant.tool_calls,
+  );
   const finalizedAttachments = message.attachments ?? [];
   const existingAttachments = existingAssistant.attachments ?? [];
   const mergedAttachments =
@@ -4432,6 +4452,22 @@ function mergeFinalizedAssistantMessage(
     tool_calls: mergedToolCalls,
     attachments: mergedAttachments,
   };
+}
+
+function mergeFinalizedAssistantToolCalls(
+  finalizedToolCalls: AssistantChatMessage["tool_calls"],
+  existingToolCalls: AssistantChatMessage["tool_calls"],
+): AssistantChatMessage["tool_calls"] {
+  if (finalizedToolCalls && finalizedToolCalls.length > 0) {
+    return finalizedToolCalls;
+  }
+  if (existingToolCalls && existingToolCalls.length > 0) {
+    return existingToolCalls;
+  }
+  if (finalizedToolCalls === null || existingToolCalls === null) {
+    return null;
+  }
+  return finalizedToolCalls ?? existingToolCalls;
 }
 
 function applyMessageDeltaToChatMessages(

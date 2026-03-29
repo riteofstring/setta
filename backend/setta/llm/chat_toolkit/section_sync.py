@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from pydantic import TypeAdapter
 from setta.types.chat import (
     BaseChatMessageUnion,
@@ -72,6 +74,16 @@ def apply_stream_delta(
         message = _coerce_chat_message(chunk.message)
         if isinstance(message, AssistantChatMessage):
             message = message.model_copy(deep=True)
+        if _should_ignore_response_placeholder_message(message):
+            updated_branches = sync_active_branch_messages()
+            return build_chat_section_state(
+                messages=messages,
+                input_text=input_text,
+                waiting_for_response=waiting_for_response,
+                tool_call_arguments=tool_call_arguments,
+                active_branch_id=active_branch_id,
+                branches=updated_branches,
+            )
         messages = _upsert_message(messages, message)
         waiting_for_response = True
         updated_branches = sync_active_branch_messages()
@@ -147,7 +159,22 @@ def apply_stream_delta(
         )
 
     if isinstance(chunk, MessageFinalizedEvent):
-        messages = _upsert_message(messages, _coerce_chat_message(chunk.message))
+        message = _coerce_chat_message(chunk.message)
+        if _should_ignore_response_placeholder_message(message):
+            updated_branches = sync_active_branch_messages()
+            return build_chat_section_state(
+                messages=messages,
+                input_text=input_text,
+                waiting_for_response=waiting_for_response,
+                tool_call_arguments=tool_call_arguments,
+                active_branch_id=active_branch_id,
+                branches=updated_branches,
+            )
+        if isinstance(message, AssistantChatMessage):
+            message, target_id = _resolve_finalized_assistant_message(messages, message)
+            messages = _upsert_message(messages, message, target_id=target_id)
+        else:
+            messages = _upsert_message(messages, message)
         waiting_for_response = False
         tool_call_arguments = {}
         updated_branches = sync_active_branch_messages()
@@ -174,9 +201,12 @@ def apply_stream_delta(
 def _upsert_message(
     messages: list[BaseChatMessageUnion],
     message: BaseChatMessageUnion,
+    *,
+    target_id: str | None = None,
 ) -> list[BaseChatMessageUnion]:
+    target_message_id = target_id or message.id
     for index, entry in enumerate(messages):
-        if entry.id == message.id:
+        if entry.id == target_message_id:
             updated = list(messages)
             updated[index] = message
             return updated
@@ -185,6 +215,65 @@ def _upsert_message(
 
 def _coerce_chat_message(value: object) -> BaseChatMessageUnion:
     return _CHAT_MESSAGE_TYPE_ADAPTER.validate_python(value)
+
+
+def _is_response_placeholder_message_id(message_id: str) -> bool:
+    return message_id.startswith("rs_") or message_id.startswith("resp_")
+
+
+def _assistant_message_empty(message: AssistantChatMessage) -> bool:
+    return len(message.content) == 0 and not (message.tool_calls or [])
+
+
+def _should_ignore_response_placeholder_message(
+    message: BaseChatMessageUnion,
+) -> bool:
+    return isinstance(message, AssistantChatMessage) and _is_response_placeholder_message_id(
+        message.id
+    ) and _assistant_message_empty(message)
+
+
+def _resolve_finalized_assistant_message(
+    messages: list[BaseChatMessageUnion],
+    message: AssistantChatMessage,
+) -> tuple[AssistantChatMessage, str]:
+    existing_assistant = _find_assistant_message_for_finalized_update(messages, message)
+    if existing_assistant is None:
+        return message.model_copy(deep=True), message.id
+    return (
+        _merge_finalized_assistant_message(message, existing_assistant),
+        existing_assistant.id,
+    )
+
+
+def _find_assistant_message_for_finalized_update(
+    messages: list[BaseChatMessageUnion],
+    message: AssistantChatMessage,
+) -> AssistantChatMessage | None:
+    for entry in messages:
+        if entry.id == message.id and isinstance(entry, AssistantChatMessage):
+            return entry
+    for entry in reversed(messages):
+        if not isinstance(entry, AssistantChatMessage):
+            continue
+        if not _is_response_placeholder_message_id(entry.id):
+            continue
+        return entry
+    return None
+
+
+def _merge_finalized_assistant_message(
+    message: AssistantChatMessage,
+    existing_assistant: AssistantChatMessage,
+) -> AssistantChatMessage:
+    merged = message.model_copy(deep=True)
+    if len(merged.content) == 0 and len(existing_assistant.content) > 0:
+        merged.content = deepcopy(existing_assistant.content)
+    if not (merged.tool_calls or []) and existing_assistant.tool_calls:
+        merged.tool_calls = deepcopy(existing_assistant.tool_calls)
+    if not (merged.attachments or []) and existing_assistant.attachments:
+        merged.attachments = deepcopy(existing_assistant.attachments)
+    return merged
 
 
 def _ensure_assistant_message(

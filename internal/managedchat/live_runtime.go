@@ -366,81 +366,74 @@ func applyStreamChunk(state ChatState, chunk any) (*ChatState, error) {
 		next = &ChatState{Messages: []map[string]any{}}
 	}
 
-	switch typed := chunk.(type) {
-	case realtime.MessageStartEvent:
-		message, err := normalizeMessage(typed.Message)
-		if err != nil {
-			return nil, err
-		}
-		next.Messages = upsertChatMessage(next.Messages, message)
-		next.WaitingForResponse = true
+	switch typed := dereferenceStreamChunk(chunk).(type) {
+	case nil:
 		return next, nil
-	case *realtime.MessageStartEvent:
-		if typed == nil {
-			return next, nil
-		}
-		return applyStreamChunk(*next, *typed)
+	case realtime.MessageStartEvent:
+		return applyMessageStartChunk(next, typed)
 	case realtime.MessageDeltaEvent:
 		next.Messages = applyMessageDelta(next.Messages, typed)
 		return next, nil
-	case *realtime.MessageDeltaEvent:
-		if typed == nil {
-			return next, nil
-		}
-		return applyStreamChunk(*next, *typed)
 	case realtime.ToolCallDeltaEvent:
 		next.Messages = applyToolCallDelta(next.Messages, typed.MessageID, typed.ToolCallID, typed.ToolName)
 		return next, nil
-	case *realtime.ToolCallDeltaEvent:
-		if typed == nil {
-			return next, nil
-		}
-		return applyStreamChunk(*next, *typed)
 	case realtime.ToolArgumentPreviewDeltaEvent:
-		toolName := stringPtr(strings.TrimSpace(typed.ToolName))
-		next.Messages = applyToolCallDelta(next.Messages, typed.MessageID, typed.ToolCallID, toolName)
-		return next, nil
-	case *realtime.ToolArgumentPreviewDeltaEvent:
-		if typed == nil {
-			return next, nil
-		}
-		return applyStreamChunk(*next, *typed)
+		return applyToolArgumentPreviewChunk(next, typed), nil
 	case realtime.ToolResultEvent:
-		message, err := normalizeMessage(typed.Result)
-		if err != nil {
-			return nil, err
-		}
-		next.Messages = upsertChatMessage(next.Messages, message)
-		return next, nil
-	case *realtime.ToolResultEvent:
-		if typed == nil {
-			return next, nil
-		}
-		return applyStreamChunk(*next, *typed)
+		return applyToolResultChunk(next, typed)
 	case realtime.MessageStopEvent:
 		next.WaitingForResponse = false
 		return next, nil
-	case *realtime.MessageStopEvent:
-		if typed == nil {
-			return next, nil
-		}
-		return applyStreamChunk(*next, *typed)
 	case realtime.MessageFinalizedEvent:
-		message, err := normalizeMessage(typed.Message)
-		if err != nil {
-			return nil, err
-		}
-		next.Messages = upsertChatMessage(next.Messages, message)
-		next.WaitingForResponse = false
-		return next, nil
-	case *realtime.MessageFinalizedEvent:
-		if typed == nil {
-			return next, nil
-		}
-		return applyStreamChunk(*next, *typed)
+		return applyMessageFinalizedChunk(next, typed)
 	default:
 		return next, nil
 	}
+}
+
+func applyMessageStartChunk(next *ChatState, chunk realtime.MessageStartEvent) (*ChatState, error) {
+	message, err := normalizeMessage(chunk.Message)
+	if err != nil {
+		return nil, err
+	}
+	if shouldIgnoreResponsePlaceholderMessage(message) {
+		return next, nil
+	}
+	next.Messages = upsertChatMessage(next.Messages, message)
+	next.WaitingForResponse = true
+	return next, nil
+}
+
+func applyToolArgumentPreviewChunk(next *ChatState, chunk realtime.ToolArgumentPreviewDeltaEvent) *ChatState {
+	toolName := stringPtr(strings.TrimSpace(chunk.ToolName))
+	next.Messages = applyToolCallDelta(next.Messages, chunk.MessageID, chunk.ToolCallID, toolName)
+	return next
+}
+
+func applyToolResultChunk(next *ChatState, chunk realtime.ToolResultEvent) (*ChatState, error) {
+	message, err := normalizeMessage(chunk.Result)
+	if err != nil {
+		return nil, err
+	}
+	next.Messages = upsertChatMessage(next.Messages, message)
+	return next, nil
+}
+
+func applyMessageFinalizedChunk(next *ChatState, chunk realtime.MessageFinalizedEvent) (*ChatState, error) {
+	message, err := normalizeMessage(chunk.Message)
+	if err != nil {
+		return nil, err
+	}
+	if shouldIgnoreResponsePlaceholderMessage(message) {
+		return next, nil
+	}
+	targetID := ""
+	if role, roleErr := messageRole(message); roleErr == nil && role == "assistant" {
+		message, targetID = resolveFinalizedAssistantMessageUpdate(next.Messages, message)
+	}
+	next.Messages = upsertChatMessageByID(next.Messages, message, targetID)
+	next.WaitingForResponse = false
+	return next, nil
 }
 
 func upsertChatMessage(messages []map[string]any, message map[string]any) []map[string]any {
@@ -640,36 +633,65 @@ func applyToolCallDelta(messages []map[string]any, messageID string, toolCallID 
 	return updated
 }
 
-func cloneStreamChunk(chunk any) any {
+func dereferenceStreamChunk(chunk any) any {
 	switch typed := chunk.(type) {
+	case *realtime.MessageStartEvent:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	case *realtime.MessageDeltaEvent:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	case *realtime.ToolCallDeltaEvent:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	case *realtime.ToolArgumentPreviewDeltaEvent:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	case *realtime.ToolResultEvent:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	case *realtime.MessageStopEvent:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	case *realtime.MessageFinalizedEvent:
+		if typed == nil {
+			return nil
+		}
+		return *typed
+	default:
+		return chunk
+	}
+}
+
+func cloneStreamChunk(chunk any) any {
+	switch typed := dereferenceStreamChunk(chunk).(type) {
+	case nil:
+		return nil
 	case realtime.MessageStartEvent:
 		return realtime.MessageStartEvent{
 			Type:    typed.Type,
 			Message: cloneAnyMap(typed.Message),
 		}
-	case *realtime.MessageStartEvent:
-		if typed == nil {
-			return nil
-		}
-		return cloneStreamChunk(*typed)
 	case realtime.MessageDeltaEvent:
 		return realtime.MessageDeltaEvent{
 			Type:      typed.Type,
 			MessageID: typed.MessageID,
 			Content:   cloneContentList(typed.Content),
 		}
-	case *realtime.MessageDeltaEvent:
-		if typed == nil {
-			return nil
-		}
-		return cloneStreamChunk(*typed)
 	case realtime.ToolCallDeltaEvent:
 		return typed
-	case *realtime.ToolCallDeltaEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
 	case realtime.ToolArgumentPreviewDeltaEvent:
 		return realtime.ToolArgumentPreviewDeltaEvent{
 			Type:              typed.Type,
@@ -681,38 +703,18 @@ func cloneStreamChunk(chunk any) any {
 			TargetIDsByType:   cloneStringSliceMap(typed.TargetIDsByType),
 			PreviewValueDelta: typed.PreviewValueDelta,
 		}
-	case *realtime.ToolArgumentPreviewDeltaEvent:
-		if typed == nil {
-			return nil
-		}
-		return cloneStreamChunk(*typed)
 	case realtime.ToolResultEvent:
 		return realtime.ToolResultEvent{
 			Type:   typed.Type,
 			Result: cloneAnyMap(typed.Result),
 		}
-	case *realtime.ToolResultEvent:
-		if typed == nil {
-			return nil
-		}
-		return cloneStreamChunk(*typed)
 	case realtime.MessageStopEvent:
 		return typed
-	case *realtime.MessageStopEvent:
-		if typed == nil {
-			return nil
-		}
-		return *typed
 	case realtime.MessageFinalizedEvent:
 		return realtime.MessageFinalizedEvent{
 			Type:    typed.Type,
 			Message: cloneAnyMap(typed.Message),
 		}
-	case *realtime.MessageFinalizedEvent:
-		if typed == nil {
-			return nil
-		}
-		return cloneStreamChunk(*typed)
 	default:
 		return chunk
 	}
