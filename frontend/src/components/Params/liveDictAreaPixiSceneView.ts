@@ -524,10 +524,18 @@ export function getLiveDictAreaPixiLowZoomGlyphPalette({
   rowKind: "group" | "placeholder" | "value";
   valueSwatch?: string | null;
 }): LiveDictAreaPixiLowZoomGlyphPalette {
+  if (rowKind === "value") {
+    return {
+      bandFill: palette.bodyText,
+      primaryFill: palette.bodyText,
+      valueFill: valueSwatch ?? palette.portSelectedDot,
+    };
+  }
+
   return {
     bandFill: palette.bodyText,
     primaryFill: palette.bodyText,
-    valueFill: valueSwatch ?? palette.bodyText,
+    valueFill: palette.bodyText,
   };
 }
 

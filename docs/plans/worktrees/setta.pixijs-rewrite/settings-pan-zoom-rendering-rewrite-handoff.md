@@ -6,36 +6,42 @@ History: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-
 
 ## Current status
 
-- Latest terminal loop status: `SUBTASK_DONE`
+- Latest terminal loop status: `BLOCKED`
 - Current gate focus: Gate 2 tiny-card low-zoom preview parity on the normalized live Pixi versus `main` `All Settings` canary.
-- Reason the loop stopped: the current iteration landed the tiny-card row/value width and height clamps, but the normalized screenshot comparison still shows the right-column `55px` previews underfilled and too dark versus `main`.
+- Reason the loop stopped: the current iteration landed a low-zoom tiny-card contrast pass and the trusted same-state Playwright canary passed, but the required live Chrome DevTools MCP visual check could not run even after one bounded worktree restart.
 
 ## Active blocker
 
-- The live Pixi canary still renders the tiny right-column previews, including `browserSectionDefault` and neighboring `55px` cards, as near-empty dark thumbnails after the trusted same-state normalization path.
-- One bounded lifecycle recovery restored the worktree app and CDP port on `frontend 3043`, `backend 8043`, and `cdp 9265`, but true `chrome-devtools-mcp` is not exposed in this Codex tool layer, so this iteration could only use the normalized screenshot compare path plus a fresh-image review sub-agent for the visual verdict.
+- The production code slice is in place, but the repo-required live CDP visual gate is still unavailable in this Codex tool layer.
+- One bounded lifecycle recovery restarted the worktree cleanly on `frontend 3043`, `backend 8043`, and `cdp 9265` with a fresh bootstrap session (`6fd8c1`), but both fresh-context CDP sub-agents still failed before they could inspect the `browserSectionDefault` tiny right-column previews live.
 
 ## Recent evidence
 
-- `frontend/src/components/Params/liveDictAreaPixiSceneView.ts` now clamps `valueColumnX` inside narrow low-zoom cards and reserves in-card space for the value preview instead of pushing the preview off-panel.
-- `frontend/src/components/Params/LiveDictAreaPixiScene.tsx` now clamps low-zoom glyph heights for tiny rows and clamps low-zoom glyph widths to the actual available width instead of forcing `28px`-`36px` bars into `55px` cards with ~`12px` preview slots.
-- Added focused unit coverage for both the narrow-card value-column clamp and the low-zoom glyph metric/width clamps:
+- `frontend/src/components/Params/liveDictAreaPixiSceneView.ts` now gives low-zoom value rows the brighter `portSelectedDot` accent as their default value glyph fill, while explicit swatches still override that accent.
+- `frontend/src/components/Params/LiveDictAreaPixiScene.tsx` now uses `getLiveDictAreaPixiLowZoomGlyphAlphaProfile` to boost band/primary/secondary/value glyph opacity inside `<=64px` tiny cards so the forced readable row background does not crush the foreground structure.
+- Added focused unit coverage for the tiny-card alpha profile and updated the low-zoom value-glyph palette expectation:
   - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
   - result: passed
 - Formatting verification stayed clean:
   - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
   - result: passed
-- The trusted normalized comparison still fails visually after those clamps:
-  - `TSX_TSCONFIG_PATH='/Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/tsconfig.json' node --import /Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs /tmp/setta_all_settings_compare.mjs`
-  - updated screenshots: `/tmp/setta-main-all-settings.png`, `/tmp/setta-canary-all-settings.png`
-  - fresh-image review still finds the canary tiny right-column cards flatter, darker, and mostly blank compared with `main`
+- The canonical same-state renderer canary passed after the production tweak:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear"`
+  - result: passed (`1 passed`, about `2.0m`)
+- Required live CDP verification did not run:
+  - first fresh-context CDP sub-agent: could not access Chrome DevTools MCP
+  - one bounded recovery attempt: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - refreshed runtime values afterward via:
+    - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - `pnpm -C frontend cdp-port`
+  - second fresh-context CDP sub-agent after the restart: still could not access Chrome DevTools MCP
 
 ## Immediate next frontier
 
-- Stay on production renderer code and inspect `drawLowZoomParamRowGlyphs` plus the low-zoom palette/alpha/layout choices for why normalized `55px` cards still collapse into dark slabs even after the width clamps.
-- Keep targeting the earliest failing Gate 2 defect on that trusted canary path; do not spend the next iteration on oracle/harness work unless the normalized compare path itself breaks again.
+- Start the next iteration with a fresh worktree lifecycle and retry the required live CDP visual check on the worktree `All Settings` surface.
+- If CDP access comes back, verify whether the `browserSectionDefault` and neighboring `55px` right-column previews now read as populated; only continue renderer tuning if that live check still shows Gate 2 drift.
 
 ## History pointers
 
-- Latest item: `2026-04-01 399`
-- Prior blocker item: `2026-04-01 397`
+- Latest item: `2026-04-01 400`
+- Prior code slice: `2026-04-01 399`

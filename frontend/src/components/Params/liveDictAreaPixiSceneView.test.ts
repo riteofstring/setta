@@ -782,7 +782,7 @@ describe("getLiveDictAreaPixiLowZoomGlyphPalette", () => {
     ).toEqual({
       bandFill: palette.bodyText,
       primaryFill: palette.bodyText,
-      valueFill: palette.bodyText,
+      valueFill: palette.portSelectedDot,
     });
   });
 

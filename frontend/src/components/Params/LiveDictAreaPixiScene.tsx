@@ -152,6 +152,33 @@ export function getLiveDictAreaPixiLowZoomGlyphWidth({
   );
 }
 
+export function getLiveDictAreaPixiLowZoomGlyphAlphaProfile({
+  hasValueSwatch,
+  rowKind,
+  rowWidth,
+}: {
+  hasValueSwatch: boolean;
+  rowKind: "group" | "placeholder" | "value";
+  rowWidth: number;
+}) {
+  const isTinyCard = Number.isFinite(rowWidth) && rowWidth <= 64;
+
+  return {
+    bandAlpha:
+      rowKind === "group"
+        ? isTinyCard
+          ? 0.32
+          : 0.24
+        : isTinyCard
+          ? 0.28
+          : 0.18,
+    primaryAlpha: isTinyCard ? 1 : 0.92,
+    secondaryAlpha:
+      rowKind === "group" ? (isTinyCard ? 0.8 : 0.68) : isTinyCard ? 0.72 : 0.6,
+    valueAlpha: hasValueSwatch ? 0.92 : isTinyCard ? 0.88 : 0.76,
+  };
+}
+
 function destroyLiveDictAreaPixiSceneApplication(app: Application): void {
   // Each card owns its renderer view, but the Pixi pools are page-global.
   // Avoid the boolean renderer destroy flag here so one scene fallback does
@@ -1230,6 +1257,11 @@ function drawLowZoomParamRowGlyphs({
     rowKind: row.kind,
     valueSwatch: row.valueSwatch ?? null,
   });
+  const glyphAlphaProfile = getLiveDictAreaPixiLowZoomGlyphAlphaProfile({
+    hasValueSwatch: row.valueSwatch !== null,
+    rowKind: row.kind,
+    rowWidth: row.width,
+  });
   const { bandHeight, insetY, primaryBarHeight, secondaryBarHeight } =
     getLiveDictAreaPixiLowZoomParamRowGlyphMetrics(row.blockHeight);
   const labelAvailableWidth = Math.max(
@@ -1262,7 +1294,7 @@ function drawLowZoomParamRowGlyphs({
   if (bandWidth > 0) {
     glyphs.roundRect(labelX, bandY, bandWidth, bandHeight, 999);
     glyphs.fill({
-      alpha: row.kind === "group" ? 0.24 : 0.18,
+      alpha: glyphAlphaProfile.bandAlpha,
       color: lowZoomGlyphPalette.bandFill,
     });
   }
@@ -1270,7 +1302,7 @@ function drawLowZoomParamRowGlyphs({
   if (labelWidth > 0) {
     glyphs.roundRect(labelX, labelY, labelWidth, primaryBarHeight, 999);
     glyphs.fill({
-      alpha: 0.92,
+      alpha: glyphAlphaProfile.primaryAlpha,
       color: lowZoomGlyphPalette.primaryFill,
     });
   }
@@ -1293,7 +1325,7 @@ function drawLowZoomParamRowGlyphs({
         999,
       );
       glyphs.fill({
-        alpha: 0.68,
+        alpha: glyphAlphaProfile.secondaryAlpha,
         color: lowZoomGlyphPalette.primaryFill,
       });
     }
@@ -1310,7 +1342,7 @@ function drawLowZoomParamRowGlyphs({
   if (valueWidth > 0) {
     glyphs.roundRect(valueX, labelY, valueWidth, primaryBarHeight, 999);
     glyphs.fill({
-      alpha: row.valueSwatch ? 0.88 : 0.76,
+      alpha: glyphAlphaProfile.valueAlpha,
       color: lowZoomGlyphPalette.valueFill,
     });
   }
@@ -1335,7 +1367,7 @@ function drawLowZoomParamRowGlyphs({
       999,
     );
     glyphs.fill({
-      alpha: 0.6,
+      alpha: glyphAlphaProfile.secondaryAlpha,
       color: lowZoomGlyphPalette.primaryFill,
     });
   }

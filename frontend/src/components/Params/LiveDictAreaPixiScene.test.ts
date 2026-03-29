@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import {
   configureLiveDictAreaPixiStaticScene,
+  getLiveDictAreaPixiLowZoomGlyphAlphaProfile,
   getLiveDictAreaPixiLowZoomGlyphWidth,
   getLiveDictAreaPixiLowZoomParamRowGlyphMetrics,
   LiveDictAreaPixiScene,
@@ -703,6 +704,34 @@ describe("LiveDictAreaPixiScene", () => {
         preferredWidth: 13,
       }),
     ).toBe(28);
+  });
+
+  it("boosts low-zoom glyph contrast inside tiny cards without over-brightening wider rows", () => {
+    expect(
+      getLiveDictAreaPixiLowZoomGlyphAlphaProfile({
+        hasValueSwatch: false,
+        rowKind: "value",
+        rowWidth: 55,
+      }),
+    ).toEqual({
+      bandAlpha: 0.28,
+      primaryAlpha: 1,
+      secondaryAlpha: 0.72,
+      valueAlpha: 0.88,
+    });
+
+    expect(
+      getLiveDictAreaPixiLowZoomGlyphAlphaProfile({
+        hasValueSwatch: false,
+        rowKind: "group",
+        rowWidth: 120,
+      }),
+    ).toEqual({
+      bandAlpha: 0.24,
+      primaryAlpha: 0.92,
+      secondaryAlpha: 0.68,
+      valueAlpha: 0.76,
+    });
   });
 
   it("prevents default WebGL context loss handling and reports the loss to the owner", async () => {
