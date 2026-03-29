@@ -6,6 +6,7 @@ import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
+import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -39,6 +40,7 @@ import {
   ChartDataMapping,
   createProjectChatWindowingState,
   createProjectConfig,
+  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
@@ -53,7 +55,6 @@ import {
   SettaBackendLogEvent,
   SettaLspDiagnostic,
   SettaNotification,
-  SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
   TranscriptionProfile,
@@ -686,12 +687,6 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
-const useArtifacts = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
-  ),
-);
-
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -764,7 +759,9 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
+export const useSettings = createWithEqualityFn<SettingsState>(() =>
+  createSettingsState(),
+);
 
 type ZustandTypeErrors = {
   userRequested: boolean;
@@ -847,6 +844,8 @@ export const useMisc = withProjectState(
     subscribeWithSelector(
       withResetFn(() => ({
         isPanScrolling: false,
+        lastMouseDownLocation: null,
+        lastMouseUpLocation: null,
         mouseDownDrawArea: false,
         mouseDownDraggingSection: false,
         lastPaneClickLocation: { x: 0, y: 0 },
@@ -855,7 +854,6 @@ export const useMisc = withProjectState(
         numDisplayedCodeAreas: 0,
         numInitializedCodeAreas: 0,
         requestUpdateNodeDimensions: false,
-        suppressViewportPersistenceUntilFitViewSettles: false,
         updateAllDrawAreas: 0,
         updateDrawArea: {}, // sectionId to number that increments every time we want to update
         projectChatTrackedGitPaneGraphWindowInstanceId: null as string | null,
