@@ -7093,3 +7093,49 @@ Record:
     - representative `200` responses included `POST /api/getFolderContents`, `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, and `POST /api/getFileBrowserRoot`
 - Next action:
   - Re-check the retained-scene drag lane before continuing; if the next candidate is only another low-payoff overlay ownership hop, stop this lane instead of repeating the same refactor shape.
+
+## 2026-03-29 228
+
+- Item: Probe and reject a batched edge-handle projector optimization for the live Pixi param-row drag canary.
+- Status: `done`
+- Details:
+  - Chose a real measured-hotspot probe instead of another overlay ownership hop:
+    - temporary production candidate batched the edge-handle screen-to-flow projector so recompute batches reused one viewport-host rect read
+    - the candidate touched only:
+      - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts`
+      - `frontend/src/state/actions/edgeHandles.ts`
+    - the candidate also had a focused unit test during the probe, but the code and test were reverted together after the measurements failed the keep gate
+  - Baseline verification before the revert decision:
+    - fresh-context CDP trace on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`
+    - artifact: `perf/artifacts/settings-param-drag-trace.json`
+    - summary:
+      - `FunctionCall` dominant
+      - `getBoundingClientRect` top sampled function
+      - `UpdateLayoutTree`: `61`
+      - no explicit `getHandleCenter` hotspot by name
+  - Runtime blocker + bounded recovery:
+    - the first targeted Playwright attempt failed in global setup because the helper-minted bootstrap token returned `401`
+    - per the loop policy, ran one bounded self-recovery with `./aireset.sh`
+    - the recovered worktree runtime moved to:
+      - frontend `http://127.0.0.1:3046`
+      - backend `http://127.0.0.1:8046`
+      - debug port `9268`
+    - `pnpm -C frontend cdp-port` still reported `9267`, so the live runtime values for this iteration were taken from the successful `./aireset.sh` output plus the passing verification commands
+  - Post-change verification on the recovered runtime:
+    - targeted Playwright:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3046 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8046 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can opt into param-select mode through the canary query param for drag-overlay inspection"`
+      - result: passed
+    - fresh-context CDP trace + visual check on the same `3046` canary:
+      - artifact: `perf/artifacts/settings-param-drag-trace-after-pixi.json`
+      - visual result: stable; `All Settings` stayed visible and no obvious regression was observed
+      - perf result:
+        - `FunctionCall` remained dominant
+        - `getBoundingClientRect` was still present in the CPU profile
+        - `UpdateLayoutTree` worsened from `61` to `103`
+        - no explicit `getHandleCenter` hotspot by name
+  - Decision:
+    - rejected the probe and reverted the production/test changes in the same iteration
+    - recorded the before/after result in:
+      - `perf/reports/frontend/2026-03-29_settings-param-drag-edge-handle-projector-probe.md`
+- Next action:
+  - Do not continue the edge-handle projector micro-optimization lane from this signal; pick the next retained-scene/Pixi subtask from a hotspot or behavior that can show a clearer measured win than this rejected probe.
