@@ -205,7 +205,8 @@ func (m *PythonGeneratedDiagnosticsMapper) shouldIgnoreDiagnostic(
 	diagnostic PythonGeneratedDiagnostic,
 	position pythonGeneratedDiagnosticPosition,
 ) bool {
-	if diagnosticCodeString(diagnostic.Code) != "reportImplicitRelativeImport" {
+	code := diagnosticCodeString(diagnostic.Code)
+	if code != "reportImplicitRelativeImport" && code != "reportMissingImports" {
 		return false
 	}
 	modulePath, ok := m.implicitRelativeImportModulePath(position)

@@ -352,6 +352,38 @@ func TestPythonGeneratedDiagnosticsMapperFiltersImplicitRelativeImportForWatchCo
 	}
 }
 
+func TestPythonGeneratedDiagnosticsMapperFiltersMissingImportForWatchCodeModule(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		GenCodePrefix:       "from watch_code_test import cool_fn\n",
+		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
+		WatchCodeCallable:   "cool_fn",
+		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
+	}))
+
+	start := strings.Index(mapper.renderer.Code, "watch_code_test")
+	if start < 0 {
+		t.Fatalf("expected watch code import in generated code:\n%s", mapper.renderer.Code)
+	}
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		start,
+		start+len("watch_code_test"),
+		`Import "watch_code_test" could not be resolved`,
+		"reportMissingImports",
+	)
+
+	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if len(errors.Errors) != 0 {
+		t.Fatalf("expected no mapped errors for ignored missing import, got %#v", errors.Errors)
+	}
+	if len(unmapped) != 0 {
+		t.Fatalf("expected watch code missing import to be filtered, got %#v", unmapped)
+	}
+}
+
 func TestPythonGeneratedDiagnosticsMapperKeepsImplicitRelativeImportForNonWatchCodeModule(t *testing.T) {
 	t.Parallel()
 

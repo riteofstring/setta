@@ -988,18 +988,35 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 		t.Fatalf("new python materializer: %v", err)
 	}
 
-	session, err := lsp.NewCurrentProcessPythonSession(lsp.CurrentProcessPythonSessionOptions{
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
 		WorkspaceRoot: workspaceRoot,
+		LookupEnv:     os.LookupEnv,
+		Environ:       os.Environ,
+		Settings: func() map[string]any {
+			return lsp.CurrentProcessPythonSettings(map[string]any{
+				"languageServer": map[string]any{
+					"basedpyright": map[string]any{
+						"analysis": map[string]any{
+							"diagnosticSeverityOverrides": map[string]any{
+								"reportUnknownVariableType":       "none",
+								"reportUnknownMemberType":         "none",
+								"reportUnannotatedClassAttribute": "none",
+								"reportSelfClsParameterName":      "none",
+							},
+						},
+					},
+				},
+			}, []string{settaFilesRoot})
+		},
 	})
 	if err != nil {
-		t.Fatalf("new current-process python session: %v", err)
+		t.Fatalf("new lsp router: %v", err)
 	}
-	lspService := lsp.NewService(session)
-	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
 	synchronizer, err := lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
 		SettaFilesRoot: settaFilesRoot,
 		RuntimeRoot:    workspaceRoot,
-		Service:        lspService,
+		Service:        lspRouter,
 		Diagnostics:    diagnostics,
 	})
 	if err != nil {
@@ -1008,7 +1025,8 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 
 	signatures, err := lspsignature.NewService(lspsignature.ServiceOptions{
 		SettaFilesRoot: settaFilesRoot,
-		LSPService:     lspService,
+		RuntimeRoot:    workspaceRoot,
+		LSPService:     lspRouter,
 	})
 	if err != nil {
 		t.Fatalf("new lsp signature service: %v", err)
@@ -1031,6 +1049,11 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 		t.Fatalf("open overlay runtime: %v", err)
 	}
 
+	t.Cleanup(func() {
+		if err := lspRouter.Close(context.Background()); err != nil {
+			t.Fatalf("close lsp router: %v", err)
+		}
+	})
 	t.Cleanup(func() {
 		if err := synchronizer.Close(context.Background()); err != nil {
 			t.Fatalf("close project synchronizer: %v", err)

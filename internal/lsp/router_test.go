@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -292,28 +293,184 @@ func TestResolveLanguageServerSettingsWrapsNestedKey(t *testing.T) {
 	}
 }
 
+func TestRouterCurrentProcessPythonSettingsReadNestedLanguageServerBranch(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settings := func() map[string]any {
+		return CurrentProcessPythonSettings(map[string]any{
+			"languageServer": map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"diagnosticSeverityOverrides": map[string]any{
+							"reportUnknownVariableType": "none",
+						},
+					},
+				},
+			},
+		}, nil)
+	}
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	expected := map[string]any{
+		"basedpyright": map[string]any{
+			"analysis": map[string]any{
+				"diagnosticSeverityOverrides": map[string]any{
+					"reportUnknownVariableType": "none",
+				},
+			},
+		},
+	}
+	if !settingsMapsEqual(service.session.options.Settings, expected) {
+		t.Fatalf("expected nested language-server settings %#v, got %#v", expected, service.session.options.Settings)
+	}
+}
+
+func TestRouterCurrentProcessPythonDiagnosticsUseNestedBasedPyrightSettingsForWatchCodeGeneratedImports(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	sourcePath := filepath.Join(settaFilesRoot, "watch_code_test.py")
+	generatedPath := filepath.Join(settaFilesRoot, "code", "sections", "telling_loud", "setta_gen.py")
+	sourceContent := "def cool_fn(a, b, c):\n    pass\n"
+	generatedContent := "from watch_code_test import cool_fn\n\n\nclass SettaState:\n    def __init__(state):\n        state.having_dancing = cool_fn()\n\nstate = SettaState()\n"
+
+	if err := os.MkdirAll(filepath.Dir(generatedPath), 0o755); err != nil {
+		t.Fatalf("mkdir generated path: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(sourcePath, []byte(sourceContent), 0o644); err != nil {
+		t.Fatalf("seed watch code source: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(generatedPath, []byte(generatedContent), 0o644); err != nil {
+		t.Fatalf("seed generated code source: %v", err)
+	}
+
+	settings := func() map[string]any {
+		return CurrentProcessPythonSettings(map[string]any{
+			"languageServer": map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"diagnosticSeverityOverrides": map[string]any{
+							"reportUnknownVariableType":       "none",
+							"reportUnknownMemberType":         "none",
+							"reportUnannotatedClassAttribute": "none",
+							"reportSelfClsParameterName":      "none",
+						},
+					},
+				},
+			},
+		}, []string{settaFilesRoot})
+	}
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := service.UpsertDocument(ctx, SyncedDocument{
+		Path:       sourcePath,
+		LanguageID: "python",
+		Content:    sourceContent,
+	}); err != nil {
+		t.Fatalf("upsert watch code source: %v", err)
+	}
+
+	diagnosticsCh := make(chan PublishDiagnosticsParams, 4)
+	if err := service.UpsertDocument(ctx, SyncedDocument{
+		Path:       generatedPath,
+		LanguageID: "python",
+		Content:    generatedContent,
+		Callback: func(params PublishDiagnosticsParams) {
+			diagnosticsCh <- params
+		},
+	}); err != nil {
+		t.Fatalf("upsert generated code source: %v", err)
+	}
+
+	diagnostics := waitForDiagnostics(t, diagnosticsCh)
+	if diagnosticsContainRule(diagnostics.Diagnostics, "reportMissingImports") {
+		t.Fatalf("did not expect unresolved watch-code import diagnostics, got %#v", diagnostics.Diagnostics)
+	}
+	if diagnosticsContainRule(diagnostics.Diagnostics, "reportUnknownVariableType") {
+		t.Fatalf("did not expect unknown-variable diagnostics after nested settings applied, got %#v", diagnostics.Diagnostics)
+	}
+	if diagnosticsContainRule(diagnostics.Diagnostics, "reportSelfClsParameterName") {
+		t.Fatalf("did not expect self-parameter diagnostics after nested settings applied, got %#v", diagnostics.Diagnostics)
+	}
+	if diagnosticsContainRule(diagnostics.Diagnostics, "reportUnknownMemberType") {
+		t.Fatalf("did not expect unknown-member diagnostics after nested settings applied, got %#v", diagnostics.Diagnostics)
+	}
+	if diagnosticsContainRule(diagnostics.Diagnostics, "reportUnannotatedClassAttribute") {
+		t.Fatalf("did not expect unannotated-attribute diagnostics after nested settings applied, got %#v", diagnostics.Diagnostics)
+	}
+	if !diagnosticsContainRule(diagnostics.Diagnostics, "reportCallIssue") {
+		t.Fatalf("expected generated call diagnostics for missing watch-code params, got %#v", diagnostics.Diagnostics)
+	}
+	if !diagnosticsContainMessage(diagnostics.Diagnostics, "Arguments missing for parameters \"a\", \"b\", \"c\"") {
+		t.Fatalf("expected missing-arg diagnostics for a/b/c, got %#v", diagnostics.Diagnostics)
+	}
+}
+
 func settingsMapsEqual(left map[string]any, right map[string]any) bool {
-	if len(left) != len(right) {
-		return false
-	}
-	for key, leftValue := range left {
-		rightValue, ok := right[key]
-		if !ok {
-			return false
-		}
-		leftMap, leftIsMap := leftValue.(map[string]any)
-		rightMap, rightIsMap := rightValue.(map[string]any)
-		if leftIsMap || rightIsMap {
-			if !leftIsMap || !rightIsMap || !settingsMapsEqual(leftMap, rightMap) {
-				return false
-			}
-			continue
-		}
-		if leftValue != rightValue {
-			return false
+	return reflect.DeepEqual(left, right)
+}
+
+func diagnosticsContainRule(diagnostics []Diagnostic, rule string) bool {
+	for _, diagnostic := range diagnostics {
+		if diagnostic.Code == rule {
+			return true
 		}
 	}
-	return true
+	return false
+}
+
+func diagnosticsContainMessage(diagnostics []Diagnostic, fragment string) bool {
+	for _, diagnostic := range diagnostics {
+		if strings.Contains(diagnostic.Message, fragment) {
+			return true
+		}
+	}
+	return false
 }
 
 func resolveRouterTestPythonBinary(t *testing.T) string {

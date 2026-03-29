@@ -438,11 +438,12 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			LookupEnv:     os.LookupEnv,
 			Environ:       os.Environ,
 			Settings: func() map[string]any {
-				if settingsStateRuntime == nil {
-					return nil
+				var document map[string]any
+				if settingsStateRuntime != nil {
+					cloned := settingsStateRuntime.Snapshot().Document.Clone()
+					document = map[string]any(cloned)
 				}
-				document := settingsStateRuntime.Snapshot().Document.Clone()
-				return map[string]any(document)
+				return lsp.CurrentProcessPythonSettings(document, []string{cfg.Paths.SettaFilesRoot})
 			},
 		})
 		if err != nil {
