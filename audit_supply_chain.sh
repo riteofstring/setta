@@ -54,9 +54,9 @@ if ! [[ "${days}" =~ ^[0-9]+$ ]]; then
 fi
 
 if command -v python3 >/dev/null 2>&1; then
-  python_bin="python3"
+  bootstrap_python_bin="python3"
 elif command -v python >/dev/null 2>&1; then
-  python_bin="python"
+  bootstrap_python_bin="python"
 else
   echo "Python is required to run the release-age checks." >&2
   exit 1
@@ -91,19 +91,27 @@ python_lockfile_check() {
 python_release_age_audit() {
   (
     cd "${repo_root}"
-    "${python_bin}" ./scripts/check_uv_lock_release_age.py --days "${days}" --lockfile ./uv.lock
+    "${bootstrap_python_bin}" ./scripts/check_uv_lock_release_age.py --days "${days}" --lockfile ./uv.lock
   )
+}
+
+repo_dev_uv_run() {
+  uv run \
+    --frozen \
+    --python "${SETTA_PYTHON_VERSION:-3.13}" \
+    --extra source \
+    --extra dev \
+    "$@"
+}
+
+repo_dev_python() {
+  repo_dev_uv_run python "$@"
 }
 
 python_vulnerability_audit() {
   (
     cd "${repo_root}"
-    uv run \
-      --frozen \
-      --python "${SETTA_PYTHON_VERSION:-3.13}" \
-      --extra source \
-      --extra dev \
-      pip-audit
+    repo_dev_uv_run pip-audit
   )
 }
 
@@ -117,21 +125,21 @@ go_vulnerability_audit() {
 go_release_age_audit() {
   (
     cd "${repo_root}"
-    "${python_bin}" ./scripts/check_go_module_release_age.py --days "${days}" --repo-root "${repo_root}"
+    repo_dev_python ./scripts/check_go_module_release_age.py --days "${days}" --repo-root "${repo_root}"
   )
 }
 
 frontend_release_age_audit() {
   (
     cd "${repo_root}"
-    "${python_bin}" ./scripts/check_pnpm_lock_release_age.py --days "${days}" --lockfile ./frontend/pnpm-lock.yaml
+    repo_dev_python ./scripts/check_pnpm_lock_release_age.py --days "${days}" --lockfile ./frontend/pnpm-lock.yaml
   )
 }
 
 sidecar_release_age_audit() {
   (
     cd "${repo_root}"
-    "${python_bin}" ./scripts/check_pnpm_lock_release_age.py --days "${days}" --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml
+    repo_dev_python ./scripts/check_pnpm_lock_release_age.py --days "${days}" --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml
   )
 }
 

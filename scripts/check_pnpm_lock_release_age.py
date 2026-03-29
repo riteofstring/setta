@@ -9,6 +9,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import yaml
+
 DEFAULT_REGISTRY_URL = "https://registry.npmjs.org"
 MAX_WORKERS = 8
 
@@ -37,31 +39,27 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def iter_package_keys(lockfile_text: str) -> list[str]:
+def load_package_keys(lockfile_text: str, *, lockfile: Path) -> list[str]:
+    data = yaml.safe_load(lockfile_text) or {}
+    if not isinstance(data, dict):
+        raise SystemExit(
+            f"pnpm release-age policy failed: expected a top-level mapping in {lockfile}."
+        )
+
+    packages = data.get("packages")
+    if packages is None:
+        return []
+    if not isinstance(packages, dict):
+        raise SystemExit(
+            f"pnpm release-age policy failed: expected 'packages' to be a mapping in {lockfile}."
+        )
+
     package_keys: list[str] = []
-    in_packages = False
-
-    for raw_line in lockfile_text.splitlines():
-        if raw_line == "packages:":
-            in_packages = True
-            continue
-
-        if not in_packages:
-            continue
-
-        if raw_line and not raw_line.startswith(" "):
-            break
-
-        if not raw_line.startswith("  ") or raw_line.startswith("    "):
-            continue
-
-        stripped = raw_line.strip()
-        if not stripped.endswith(":"):
-            continue
-
-        key = stripped[:-1].strip()
-        if len(key) >= 2 and key[0] == key[-1] and key[0] in {"'", '"'}:
-            key = key[1:-1]
+    for key in packages:
+        if not isinstance(key, str):
+            raise SystemExit(
+                f"pnpm release-age policy failed: found a non-string package key in {lockfile}."
+            )
         package_keys.append(key)
 
     return package_keys
@@ -142,7 +140,7 @@ def main() -> int:
     resolved_packages: set[tuple[str, str]] = set()
     unsupported_keys: list[str] = []
 
-    for raw_key in iter_package_keys(lockfile_text):
+    for raw_key in load_package_keys(lockfile_text, lockfile=args.lockfile):
         parsed = parse_registry_package(raw_key)
         if parsed is None:
             unsupported_keys.append(raw_key)
