@@ -7013,3 +7013,51 @@ Record:
     - representative `200` responses included `POST /api/getFolderContents`, `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, and `POST /api/getFileBrowserRoot`
 - Next action:
   - Continue the retained-scene drag lane by reducing the remaining row-level store subscriptions in the Pixi drag overlay into a packeted row-state boundary, while preserving the real reorder and selection behavior.
+
+## 2026-03-29 226
+
+- Item: Hoist non-temp live Pixi drag-overlay row state into an overlay-level packeted lookup.
+- Status: `done`
+- Details:
+  - Replaced the remaining per-row selection/search/error store reads on visible Pixi drag-overlay rows with one overlay-level row-state lookup plus packeted selection inputs from the existing visual packet:
+    - `frontend/src/components/Params/LiveDictAreaPixiDragOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlayRows.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiDragOverlayRowState.ts`
+    - `frontend/src/components/Params/groupContainerNodeVisualPacket.ts`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaVisualPacket.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.ts`
+  - The visible non-temp overlay rows now take:
+    - `selectedParamIds`
+    - `isSelectingParams`
+    - one overlay-level lookup for focused-search/search-hit/type-error flags
+  - This keeps the real `ParamDndList` reorder path intact while removing row-by-row subscriptions for the scene-row overlay path.
+  - Temp placeholder rows still fall back through the existing `ParamSwitch` path intentionally; this slice only deepens the real visible row boundary.
+  - Added focused regression coverage for the new row-state lookup and updated packet-shape expectations:
+    - `frontend/src/components/Params/liveDictAreaPixiDragOverlayRowState.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx`
+    - `frontend/src/components/Params/groupContainerPinnedParamAreaVisualPacket.test.ts`
+    - `frontend/src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.test.ts`
+    - `frontend/src/components/Params/groupContainerNodeVisualPacket.test.ts`
+  - Perf note:
+    - pre-edit CDP baseline on the live `3044` canary captured a short trace that showed a 1.2s forced-reflow cluster centered on `getHandleCenter` in `src/state/actions/edgeHandles.ts`
+    - post-edit CDP trace on the same active-overlay canary did not reproduce a dominant `getHandleCenter`/forced-reflow hotspot; the short sample was mostly `RunTask` / V8 profiler overhead with only small `StyleAndLayout` activity
+    - treat this as a no-new-regression structural cleanup, not a proven user-visible perf win yet; the trace window is still noisy and the current hotspot evidence remains outside this overlay-row-state slice
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiDragOverlayRowState.test.ts src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx src/components/Params/groupContainerPinnedParamAreaVisualPacket.test.ts src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.test.ts src/components/Params/groupContainerNodeVisualPacket.test.ts`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiDragOverlaySceneRow.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlayRows.tsx src/components/Params/groupContainerNodeVisualPacket.ts src/components/Params/groupContainerPinnedParamAreaVisualPacket.ts src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.ts src/components/Params/liveDictAreaPixiDragOverlayRowState.ts src/components/Params/liveDictAreaPixiDragOverlayRowState.test.ts src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx src/components/Params/groupContainerPinnedParamAreaVisualPacket.test.ts src/components/Params/groupContainerUnpinnedParamAreaVisualPacket.test.ts src/components/Params/groupContainerNodeVisualPacket.test.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`:
+    - result: passed
+    - the live DOM still exposed `data-live-dict-area-render-mode="pixi-node-body"` and `data-live-dict-area-scene-row-count="12"`
+    - 46 Pixi canvases remained mounted
+    - the row-marker stack stayed visible with no obvious blank, clipped, or major-overlap regression
+    - representative `200` responses included `POST /api/getFolderContents`, `POST /api/getFileBrowserRoot`, and `POST /api/setProjectChatWindowingState`
+- Next action:
+  - Continue the retained-scene drag lane by moving the remaining temp-placeholder fallback and any residual overlay-only store coupling behind a similarly explicit scene-row boundary, or stop this lane if the next candidate is only a no-payoff ownership hop.

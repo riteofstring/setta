@@ -7,21 +7,10 @@ import {
   getParamDndItemId,
   type ParamListKey,
 } from "forks/dnd-kit/paramDndState";
-import _ from "lodash";
 import { useCallback, type MouseEvent } from "react";
-import {
-  getCurrEffectiveSectionImplWithTypeGuard,
-  toggleParamSelected,
-} from "state/actions/sectionInfos";
-import {
-  useMisc,
-  useProjectSearch,
-  useProjectState,
-  useTypeErrors,
-} from "state/definitions";
-import { createProjectSearchLookupKey } from "state/hooks/search";
-import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { toggleParamSelected } from "state/actions/sectionInfos";
 import { LiveDictAreaPixiDragOverlayParamRow } from "./LiveDictAreaPixiDragOverlayParamRow";
+import type { LiveDictAreaPixiDragOverlayRowState } from "./liveDictAreaPixiDragOverlayRowState";
 import { useParamDndContext } from "./ParamDndContext";
 import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
 
@@ -31,44 +20,22 @@ export type LiveDictAreaPixiDragOverlaySceneRowPacket = ParamSceneRowPacket & {
 
 type LiveDictAreaPixiDragOverlaySceneRowProps = {
   hasSectionStyleTheme: boolean;
+  isSelectingParams: boolean;
   listKey: ParamListKey;
+  rowState: LiveDictAreaPixiDragOverlayRowState;
   scenePacket: LiveDictAreaPixiDragOverlaySceneRowPacket;
   sectionId: string;
 };
 
 export function LiveDictAreaPixiDragOverlaySceneRow({
   hasSectionStyleTheme,
+  isSelectingParams,
   listKey,
+  rowState,
   scenePacket,
   sectionId,
 }: LiveDictAreaPixiDragOverlaySceneRowProps) {
   const paramInfoId = scenePacket.id;
-  const typeErrors = useTypeErrors(
-    (state) => state.errors[sectionId]?.params?.[paramInfoId],
-  );
-  const typeErrorMessage = typeErrors?.join("\n") ?? "";
-  const hasError = typeErrorMessage.length > 0;
-  const { isFocusedSearchResult, isSearchResult } = useProjectSearch(
-    (state) => {
-      return {
-        isFocusedSearchResult:
-          state.focused?.sectionId === sectionId &&
-          state.focused?.paramInfoId === paramInfoId,
-        isSearchResult: state.lookup.has(
-          createProjectSearchLookupKey(sectionId, paramInfoId),
-        ),
-      };
-    },
-    _.isEqual,
-  );
-  const paramIsSelected = useProjectState((state) =>
-    getCurrEffectiveSectionImplWithTypeGuard(
-      state,
-      sectionId,
-      isBaseSectionWithParamsImpl,
-    ).selectedParams.includes(paramInfoId),
-  );
-  const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const handleParamMouseDown = useCallback(
     (event: MouseEvent<HTMLElement>) => {
       if (!isSelectingParams) {
@@ -93,16 +60,16 @@ export function LiveDictAreaPixiDragOverlaySceneRow({
   const selectedBgClassName = hasSectionStyleTheme
     ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
     : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
-  const bg = paramIsSelected
+  const bg = rowState.isSelected
     ? `transition-colors rounded-sm ${selectedBgClassName}`
     : "transition-colors rounded-sm";
 
   let border = "";
-  if (hasError) {
+  if (rowState.hasError) {
     border = "bg-red-200 dark:bg-red-800/30";
-  } else if (isFocusedSearchResult) {
+  } else if (rowState.isFocusedSearchResult) {
     border = "outline outline-4 outline-green-500 dark:outline-green-500/80";
-  } else if (isSearchResult) {
+  } else if (rowState.isSearchResult) {
     border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
   }
 

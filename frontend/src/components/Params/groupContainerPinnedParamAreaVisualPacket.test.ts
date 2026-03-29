@@ -5,6 +5,7 @@ describe("buildLiveDictAreaPinnedParamAreaVisualPacket", () => {
   it("lifts the pinned param-area renderer packet into a deterministic scene-owned visual payload", () => {
     expect(
       buildLiveDictAreaPinnedParamAreaVisualPacket({
+        isSelectingParams: true,
         rendererPacket: {
           blockId: "pinned",
           grow: false,
@@ -31,6 +32,7 @@ describe("buildLiveDictAreaPinnedParamAreaVisualPacket", () => {
           title: "Pinned Params",
           topLevelParamIds: ["group"],
         },
+        selectedParamIds: ["child"],
       }),
     ).toEqual({
       blockId: "pinned",
@@ -40,6 +42,7 @@ describe("buildLiveDictAreaPinnedParamAreaVisualPacket", () => {
       },
       kind: "pinned-param-area",
       list: {
+        isSelectingParams: true,
         listKey: "pinned",
         requiredParamIdsToPaths: {
           child: ["group", "child"],
@@ -49,6 +52,7 @@ describe("buildLiveDictAreaPinnedParamAreaVisualPacket", () => {
           { depth: 0, id: "group", kind: "group", label: "Group" },
           { depth: 1, id: "child", kind: "value", label: "Child" },
         ],
+        selectedParamIds: ["child"],
         topLevelParamIds: ["group"],
       },
       maxNestedDepth: 3,

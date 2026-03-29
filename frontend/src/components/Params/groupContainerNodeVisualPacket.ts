@@ -7,14 +7,14 @@ import {
   buildLiveDictAreaPinnedParamAreaVisualPacket,
   type LiveDictAreaPinnedParamAreaVisualPacket,
 } from "./groupContainerPinnedParamAreaVisualPacket";
-import {
-  buildLiveDictAreaUnpinnedParamAreaVisualPacket,
-  type LiveDictAreaUnpinnedParamAreaVisualPacket,
-} from "./groupContainerUnpinnedParamAreaVisualPacket";
 import type {
   LiveDictAreaSceneRendererPacket,
   LiveDictAreaSceneRendererPackets,
 } from "./groupContainerSceneRendererPackets";
+import {
+  buildLiveDictAreaUnpinnedParamAreaVisualPacket,
+  type LiveDictAreaUnpinnedParamAreaVisualPacket,
+} from "./groupContainerUnpinnedParamAreaVisualPacket";
 
 export type LiveDictAreaSceneVisualPacket =
   | LiveDictAreaEdgeStripVisualPacket
@@ -60,12 +60,16 @@ export function buildLiveDictAreaNodeVisualPacket({
     : null;
   const pinnedParamAreaBlock = rendererPackets.pinnedParamAreaBlock
     ? buildLiveDictAreaPinnedParamAreaVisualPacket({
+        isSelectingParams: edgeStrip.isSelectingParams,
         rendererPacket: rendererPackets.pinnedParamAreaBlock,
+        selectedParamIds: edgeStrip.selectedParamIds,
       })
     : null;
   const unpinnedParamAreaBlock = rendererPackets.unpinnedParamAreaBlock
     ? buildLiveDictAreaUnpinnedParamAreaVisualPacket({
+        isSelectingParams: edgeStrip.isSelectingParams,
         rendererPacket: rendererPackets.unpinnedParamAreaBlock,
+        selectedParamIds: edgeStrip.selectedParamIds,
       })
     : null;
 

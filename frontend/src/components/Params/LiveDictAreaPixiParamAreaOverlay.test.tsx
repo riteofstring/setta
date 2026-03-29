@@ -1,6 +1,12 @@
 import { ParamDndContext } from "forks/dnd-kit/ParamDndContext";
 import { renderToStaticMarkup } from "react-dom/server";
-import { useProjectState, useSettings } from "state/definitions";
+import {
+  useProjectSearch,
+  useProjectState,
+  useSettings,
+  useTypeErrors,
+} from "state/definitions";
+import { createProjectSearchLookupKey } from "state/hooks/search";
 import { resetProjectStores } from "state/utils";
 import {
   CodeObjTypeEnum,
@@ -33,10 +39,12 @@ function syncStoreInitialState(store: {
 function seedOverlayState({
   sectionId,
   pinnedParamIds = [],
+  selectedParamIds = [],
   unpinnedParamIds = [],
 }: {
   sectionId: string;
   pinnedParamIds?: string[];
+  selectedParamIds?: string[];
   unpinnedParamIds?: string[];
 }) {
   const variantId = `${sectionId}-variant`;
@@ -93,7 +101,7 @@ function seedOverlayState({
     columnWidth: null,
     configLanguage: ConfigLanguageEnum.python,
     pinnedParams: [],
-    selectedParams: [],
+    selectedParams: selectedParamIds,
     ignoreTypeErrors: { callable: false, params: {} },
     edgeInputParams: [],
     edgeOutputPorts: [],
@@ -358,5 +366,107 @@ describe("LiveDictAreaPixiParamAreaOverlay", () => {
     expect(markup).toContain('data-live-dict-area-scene-row-depth="0"');
     expect(markup).toContain('data-live-dict-area-scene-row-depth="1"');
     expect(markup).not.toContain("ParamContainer-section-live-overlay-nested");
+  });
+
+  it("preserves selected row chrome in the drag overlay", () => {
+    const sectionId = "section-live-overlay-state";
+    seedOverlayState({
+      sectionId,
+      pinnedParamIds: ["selected-param", "error-param", "focused-param"],
+      selectedParamIds: ["selected-param"],
+      unpinnedParamIds: [],
+    });
+    useProjectSearch.setState({
+      focused: {
+        sectionId,
+        paramInfoId: "focused-param",
+        name: "Focused Param",
+      },
+      lookup: new Set([
+        createProjectSearchLookupKey(sectionId, "focused-param"),
+      ]),
+    });
+    useTypeErrors.setState({
+      errors: {
+        [sectionId]: {
+          callable: [],
+          params: {
+            "error-param": ["Bad type"],
+          },
+        },
+      },
+      userRequested: false,
+    });
+    const boundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "error-param": "Error Param",
+              "focused-param": "Focused Param",
+              "selected-param": "Selected Param",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: true,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "error-param": ["error-param"],
+            "focused-param": ["focused-param"],
+            "selected-param": ["selected-param"],
+          },
+          topLevelParamIds: ["selected-param", "error-param", "focused-param"],
+        },
+        positionAndSizeLocked: false,
+        sectionId,
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: ["selected-param"],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: null,
+          pinnedRequiredParamIdsToPaths: {
+            "error-param": ["error-param"],
+            "focused-param": ["focused-param"],
+            "selected-param": ["selected-param"],
+          },
+          pinnedTopLevelParamIds: [
+            "selected-param",
+            "error-param",
+            "focused-param",
+          ],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+      },
+    });
+    const target = buildLiveDictAreaPixiDragRowTargets({
+      liveDictAreaMountProps: boundary.liveDictAreaMountProps,
+      liveDictAreaSceneBoundary: boundary.liveDictAreaSceneBoundary,
+    }).find((rowTarget) => rowTarget.blockId === "pinned");
+
+    expect(target).toBeDefined();
+
+    const markup = renderToStaticMarkup(
+      <ParamDndContext>
+        <LiveDictAreaPixiParamAreaOverlay
+          liveDictAreaMountProps={boundary.liveDictAreaMountProps}
+          target={target!}
+        />
+      </ParamDndContext>,
+    );
+
+    expect(markup).toContain("Selected Param");
+    expect(markup).toContain("!bg-blue-700");
+    expect(markup).toContain("Error Param");
+    expect(markup).toContain("Focused Param");
   });
 });

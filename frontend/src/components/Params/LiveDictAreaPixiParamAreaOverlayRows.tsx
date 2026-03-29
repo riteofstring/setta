@@ -1,5 +1,12 @@
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
+import _ from "lodash";
 import { useMemo, type MouseEventHandler } from "react";
+import { useProjectSearch, useTypeErrors } from "state/definitions";
+import {
+  DEFAULT_LIVE_DICT_AREA_PIXI_DRAG_OVERLAY_ROW_STATE,
+  buildLiveDictAreaPixiDragOverlayRowStateLookup,
+  type LiveDictAreaPixiDragOverlayRowStateLookup,
+} from "./liveDictAreaPixiDragOverlayRowState";
 import {
   LiveDictAreaPixiDragOverlaySceneRow,
   type LiveDictAreaPixiDragOverlaySceneRowPacket,
@@ -10,12 +17,14 @@ import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
 
 type LiveDictAreaPixiParamAreaOverlayRowsProps = {
   hasSectionStyleTheme: boolean;
+  isSelectingParams: boolean;
   listKey: ParamListKey;
   onResizeStart: MouseEventHandler;
   paramIds: string[];
   requiredParamIdsToPaths: Record<string, string[]>;
   sceneRows: ParamSceneRowPacket[];
   sectionId: string;
+  selectedParamIds: string[];
 };
 
 type LiveDictAreaPixiDragOverlaySceneRowLookup = {
@@ -25,12 +34,14 @@ type LiveDictAreaPixiDragOverlaySceneRowLookup = {
 
 export function LiveDictAreaPixiParamAreaOverlayRows({
   hasSectionStyleTheme,
+  isSelectingParams,
   listKey,
   onResizeStart,
   paramIds,
   requiredParamIdsToPaths,
   sceneRows,
   sectionId,
+  selectedParamIds,
 }: LiveDictAreaPixiParamAreaOverlayRowsProps) {
   const sceneRowLookup = useMemo(
     () =>
@@ -39,16 +50,48 @@ export function LiveDictAreaPixiParamAreaOverlayRows({
       }),
     [sceneRows],
   );
+  const searchState = useProjectSearch(
+    (state) => ({
+      focused: state.focused,
+      lookup: state.lookup,
+    }),
+    _.isEqual,
+  );
+  const paramErrorsById = useTypeErrors(
+    (state) => state.errors[sectionId]?.params ?? {},
+    _.isEqual,
+  );
+  const rowStateLookup = useMemo(
+    () =>
+      buildLiveDictAreaPixiDragOverlayRowStateLookup({
+        focusedSearchResult: searchState.focused,
+        paramErrorsById,
+        sceneRows,
+        searchLookup: searchState.lookup,
+        sectionId,
+        selectedParamIds,
+      }),
+    [
+      paramErrorsById,
+      sceneRows,
+      searchState.focused,
+      searchState.lookup,
+      sectionId,
+      selectedParamIds,
+    ],
+  );
 
   return paramIds.map((paramInfoId) => (
     <LiveDictAreaPixiParamAreaOverlayRowBranch
       key={paramInfoId}
       depth={0}
       hasSectionStyleTheme={hasSectionStyleTheme}
+      isSelectingParams={isSelectingParams}
       listKey={listKey}
       onResizeStart={onResizeStart}
       paramInfoId={paramInfoId}
       requiredParamIdsToPaths={requiredParamIdsToPaths}
+      rowStateLookup={rowStateLookup}
       sceneRowLookup={sceneRowLookup}
       sectionId={sectionId}
     />
@@ -58,19 +101,23 @@ export function LiveDictAreaPixiParamAreaOverlayRows({
 function LiveDictAreaPixiParamAreaOverlayRowBranch({
   depth,
   hasSectionStyleTheme,
+  isSelectingParams,
   listKey,
   onResizeStart,
   paramInfoId,
   requiredParamIdsToPaths,
+  rowStateLookup,
   sceneRowLookup,
   sectionId,
 }: {
   depth: number;
   hasSectionStyleTheme: boolean;
+  isSelectingParams: boolean;
   listKey: ParamListKey;
   onResizeStart: MouseEventHandler;
   paramInfoId: string;
   requiredParamIdsToPaths: Record<string, string[]>;
+  rowStateLookup: LiveDictAreaPixiDragOverlayRowStateLookup;
   sceneRowLookup: LiveDictAreaPixiDragOverlaySceneRowLookup;
   sectionId: string;
 }) {
@@ -99,10 +146,12 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
             key={childParamId}
             depth={depth + 1}
             hasSectionStyleTheme={hasSectionStyleTheme}
+            isSelectingParams={isSelectingParams}
             listKey={listKey}
             onResizeStart={onResizeStart}
             paramInfoId={childParamId}
             requiredParamIdsToPaths={requiredParamIdsToPaths}
+            rowStateLookup={rowStateLookup}
             sceneRowLookup={sceneRowLookup}
             sectionId={sectionId}
           />
@@ -127,7 +176,12 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
     <>
       <LiveDictAreaPixiDragOverlaySceneRow
         hasSectionStyleTheme={hasSectionStyleTheme}
+        isSelectingParams={isSelectingParams}
         listKey={listKey}
+        rowState={
+          rowStateLookup[paramInfoId] ??
+          DEFAULT_LIVE_DICT_AREA_PIXI_DRAG_OVERLAY_ROW_STATE
+        }
         scenePacket={scenePacket}
         sectionId={sectionId}
       />
@@ -136,10 +190,12 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
           key={childParamId}
           depth={depth + 1}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          isSelectingParams={isSelectingParams}
           listKey={listKey}
           onResizeStart={onResizeStart}
           paramInfoId={childParamId}
           requiredParamIdsToPaths={requiredParamIdsToPaths}
+          rowStateLookup={rowStateLookup}
           sceneRowLookup={sceneRowLookup}
           sectionId={sectionId}
         />

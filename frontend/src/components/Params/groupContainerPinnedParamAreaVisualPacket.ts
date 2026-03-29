@@ -9,10 +9,12 @@ export type LiveDictAreaPinnedParamAreaVisualPacket = {
   };
   kind: "pinned-param-area";
   list: {
+    isSelectingParams: boolean;
     listKey: "pinned";
     requiredParamIdsToPaths: Record<string, string[]>;
     rowCount: number;
     rows: LiveDictAreaPinnedParamAreaRendererPacket["rows"];
+    selectedParamIds: string[];
     topLevelParamIds: string[];
   };
   maxNestedDepth: number;
@@ -21,9 +23,13 @@ export type LiveDictAreaPinnedParamAreaVisualPacket = {
 };
 
 export function buildLiveDictAreaPinnedParamAreaVisualPacket({
+  isSelectingParams,
   rendererPacket,
+  selectedParamIds,
 }: {
+  isSelectingParams: boolean;
   rendererPacket: LiveDictAreaPinnedParamAreaRendererPacket;
+  selectedParamIds: string[];
 }): LiveDictAreaPinnedParamAreaVisualPacket {
   return {
     blockId: rendererPacket.blockId,
@@ -33,10 +39,12 @@ export function buildLiveDictAreaPinnedParamAreaVisualPacket({
     },
     kind: "pinned-param-area",
     list: {
+      isSelectingParams,
       listKey: rendererPacket.listKey,
       requiredParamIdsToPaths: rendererPacket.requiredParamIdsToPaths,
       rowCount: rendererPacket.rowCount,
       rows: rendererPacket.rows,
+      selectedParamIds,
       topLevelParamIds: rendererPacket.topLevelParamIds,
     },
     maxNestedDepth: rendererPacket.maxNestedDepth,

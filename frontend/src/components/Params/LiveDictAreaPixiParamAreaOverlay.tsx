@@ -118,7 +118,11 @@ function LiveDictAreaPixiParamAreaOverlayList({
             renderParamListBody={(props) => (
               <LiveDictAreaPixiParamAreaOverlayRows
                 {...props}
+                isSelectingParams={
+                  domPacket.visualPacket.list.isSelectingParams
+                }
                 sceneRows={domPacket.visualPacket.list.rows}
+                selectedParamIds={domPacket.visualPacket.list.selectedParamIds}
               />
             )}
           />
@@ -188,7 +192,9 @@ function LiveDictAreaPixiUnpinnedParamAreaOverlayList({
           renderParamListBody={(props) => (
             <LiveDictAreaPixiParamAreaOverlayRows
               {...props}
+              isSelectingParams={domPacket.visualPacket.list.isSelectingParams}
               sceneRows={domPacket.visualPacket.list.rows}
+              selectedParamIds={domPacket.visualPacket.list.selectedParamIds}
             />
           )}
         />

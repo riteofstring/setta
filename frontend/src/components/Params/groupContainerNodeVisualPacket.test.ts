@@ -82,7 +82,9 @@ describe("buildLiveDictAreaNodeVisualPacket", () => {
       blockId: "pinned",
       header: { icon: "pin", title: "Pinned Params" },
       list: {
+        isSelectingParams: true,
         listKey: "pinned",
+        selectedParamIds: ["input-a"],
         topLevelParamIds: ["pinned-group"],
       },
     });
@@ -93,7 +95,9 @@ describe("buildLiveDictAreaNodeVisualPacket", () => {
         shouldApplyMinHeight: true,
       },
       list: {
+        isSelectingParams: true,
         listKey: "unpinned",
+        selectedParamIds: ["input-a"],
         topLevelParamIds: ["unpinned-group"],
       },
     });

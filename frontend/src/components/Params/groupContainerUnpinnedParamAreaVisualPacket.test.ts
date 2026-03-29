@@ -5,6 +5,7 @@ describe("buildLiveDictAreaUnpinnedParamAreaVisualPacket", () => {
   it("lifts the unpinned param-area renderer packet into a deterministic scene-owned visual payload", () => {
     expect(
       buildLiveDictAreaUnpinnedParamAreaVisualPacket({
+        isSelectingParams: false,
         rendererPacket: {
           blockId: "unpinned",
           grow: true,
@@ -31,6 +32,7 @@ describe("buildLiveDictAreaUnpinnedParamAreaVisualPacket", () => {
           title: "Params",
           topLevelParamIds: ["group"],
         },
+        selectedParamIds: ["group"],
       }),
     ).toEqual({
       blockId: "unpinned",
@@ -40,6 +42,7 @@ describe("buildLiveDictAreaUnpinnedParamAreaVisualPacket", () => {
       },
       kind: "unpinned-param-area",
       list: {
+        isSelectingParams: false,
         listKey: "unpinned",
         requiredParamIdsToPaths: {
           child: ["group", "child"],
@@ -49,6 +52,7 @@ describe("buildLiveDictAreaUnpinnedParamAreaVisualPacket", () => {
           { depth: 0, id: "group", kind: "group", label: "Group" },
           { depth: 1, id: "child", kind: "value", label: "Child" },
         ],
+        selectedParamIds: ["group"],
         topLevelParamIds: ["group"],
       },
       maxNestedDepth: 4,
