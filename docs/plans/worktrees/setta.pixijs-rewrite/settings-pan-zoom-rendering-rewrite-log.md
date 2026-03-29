@@ -8100,3 +8100,49 @@ Record:
     - representative successful requests included `GET /settings?liveDictAreaRenderer=pixi-node-body`, `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, and `POST /api/getFileBrowserRoot`
 - Next action:
   - Re-run an apples-to-apples headless timing probe on this connected-state-split baseline so the next latency slice can compare the reduced selector work against the earlier value-only overlay numbers before making another overlay-path change.
+
+## 2026-03-29 254
+
+- Item: Re-run the live Pixi `defaultZoomLevel` headless timing probe on the connected-state-split baseline.
+- Status: `done`
+- Details:
+  - Took the explicit next step from item `253` instead of continuing another similar connected-state cleanup or overlay-shell micro-optimization:
+    - no production code changed in this slice
+    - this iteration only re-measured the landed connected-state-split baseline on the exact live Pixi canary path
+  - Recorded the new apples-to-apples timing snapshot in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-value-only-connected-state-split-headless-rerun.md`
+  - Direct headless probe on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` returned:
+    - overlay latency: `3.8 ms`
+    - ready latency: `18.3 ms`
+    - presented latency: `27.5 ms`
+    - presentation tail latency: `9.2 ms`
+    - overlay surface: `value-only`
+    - overlay geometry: about `308 x 20`
+    - `.cm-editor` geometry: about `29 x 16`
+    - rendered value: `1.0`
+  - Comparison to the earlier value-only overlay probe from item `251` / `252`:
+    - overlay latency stayed effectively flat (`3.7 ms` -> `3.8 ms`)
+    - ready latency stayed effectively flat (`18.2 ms` -> `18.3 ms`)
+    - presented latency stayed flat at `27.5 ms`
+    - presentation tail stayed effectively flat (`9.3 ms` -> `9.2 ms`)
+  - The required fresh-context headed Chrome DevTools gate still passed on the same canary:
+    - clicking the visible `defaultZoomLevel` handoff produced `[data-live-dict-area-editor-overlay='active']`
+    - overlay geometry was about `308 x 20`
+    - text remained readable as `1.0`
+    - `clientWidth/clientHeight` matched `scrollWidth/scrollHeight`, so the verifier did not find clipping or the earlier tiny-stack issue
+    - representative successful requests included `POST /api/loadSettings` `200`, `GET /api/backendInitStatus` `200`, `POST /api/loadProjectConfig` `200`, `POST /api/setViewport` `200`, and `POST /api/getFileBrowserRoot` `200`
+    - notable negative: the provided bootstrap URL rejected the token in the verifier session before the direct settings check, but the canary page itself still loaded and verified correctly
+- Verification:
+  - Direct timing probe:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<token> pnpm -C frontend exec node -e '...'`
+      - result: passed
+  - Playwright:
+    - direct run with the provided token:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+    - helper rerun with a freshly minted token:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+    - result: both blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401` before product assertions
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - result: passed
+- Next action:
+  - Pivot to a different measured live Pixi `defaultZoomLevel` handoff lever instead of continuing the same connected-state reduction pattern, because this apples-to-apples rerun shows the current split was structurally cleaner but not measurably faster on the checked canary.
