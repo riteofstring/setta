@@ -4,6 +4,7 @@ import {
   LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
   LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
 } from "../../../src/components/Params/liveDictAreaPixiSceneView";
+import { LIVE_DICT_AREA_RENDERER_QUERY_PARAM } from "../../../src/components/Section/Layouts/liveDictAreaRendererMode";
 import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_OVERLAY_MEASURE_NAME,
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_PRESENTATION_TAIL_MEASURE_NAME,
@@ -219,6 +220,27 @@ async function openAllSettingsLivePixiCanary(
       rendererMode: LIVE_PIXI_MODE,
     },
   );
+}
+
+async function openAllSettingsLivePixiQueryParamCanary(page: Page) {
+  await ensureAppReady(page);
+  await setLiveDictAreaRendererMode(page, null);
+
+  const url = buildSettingsUrl({
+    baseUrl: BASE_URL,
+    requireAppReady: true,
+  });
+  url.searchParams.set(LIVE_DICT_AREA_RENDERER_QUERY_PARAM, LIVE_PIXI_MODE);
+
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
 }
 
 async function openAllSettingsBaseline(page: Page): Promise<void> {
@@ -1677,6 +1699,46 @@ test("all settings canary completes the first fit-view pass on initial live Pixi
     .toBe(true);
 
   await expectZoomOutButtonDisabled(page, true);
+});
+
+test("all settings explicit renderer query-param canary clears a stale saved viewport on first load", async ({
+  page,
+}) => {
+  await openAllSettingsBaseline(page);
+  const initialViewport = await readViewportTransform(page);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+
+  try {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: {
+        x: 500000,
+        y: 500000,
+        zoom: 0.1,
+      },
+    });
+
+    await openAllSettingsLivePixiQueryParamCanary(page);
+    await waitForVisibleSceneMetrics(page);
+    await expectZoomOutButtonDisabled(page, true);
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(page)).length;
+      })
+      .toBeGreaterThan(0);
+
+    const canaryViewport = await readViewportTransform(page);
+    expect(canaryViewport).not.toEqual({
+      x: 500000,
+      y: 500000,
+      zoom: 0.1,
+    });
+  } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialViewport,
+    });
+  }
 });
 
 test("all settings baseline and live Pixi canary independently settle at the same initial zoom floor", async ({

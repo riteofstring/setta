@@ -10,9 +10,13 @@ import {
   recordProjectChatPointerDownLocation,
   recordProjectChatPointerUpLocation,
 } from "state/actions/projectChatWindowingPointerTracking";
+import { clearCurrentProjectViewportForRefit } from "state/actions/sectionInfos";
 import { useLocalStorage } from "state/definitions";
 import { syncLiveDictAreaInteractionModeFromSearch } from "../../Section/Layouts/liveDictAreaInteractionMode";
-import { syncLiveDictAreaRendererModeFromSearch } from "../../Section/Layouts/liveDictAreaRendererMode";
+import {
+  readRequestedLiveDictAreaRendererMode,
+  syncLiveDictAreaRendererModeFromSearch,
+} from "../../Section/Layouts/liveDictAreaRendererMode";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SettingsAllSettingsBenchmarkProvider } from "./settingsAllSettingsBenchmark";
@@ -45,9 +49,15 @@ export function UIPage({ SectionBoundary }: UIPageProps) {
 
 function useSyncLiveDictAreaRendererMode() {
   useEffect(() => {
-    syncLiveDictAreaRendererModeFromSearch(
-      typeof globalThis.location === "object" ? globalThis.location.search : "",
-    );
+    const search =
+      typeof globalThis.location === "object" ? globalThis.location.search : "";
+    syncLiveDictAreaRendererModeFromSearch(search);
+
+    // An explicit renderer query param can reopen the route under a different
+    // body-height system than the viewport saved for the DOM renderer.
+    if (readRequestedLiveDictAreaRendererMode(search) !== null) {
+      clearCurrentProjectViewportForRefit();
+    }
   }, []);
 }
 

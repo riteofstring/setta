@@ -1,8 +1,25 @@
 import { describe, expect, it } from "vitest";
 import {
   LIVE_DICT_AREA_RENDERER_QUERY_PARAM,
+  readRequestedLiveDictAreaRendererMode,
   resolveLiveDictAreaRendererMode,
 } from "./liveDictAreaRendererMode";
+
+describe("readRequestedLiveDictAreaRendererMode", () => {
+  it("returns only explicit valid renderer query-param requests", () => {
+    expect(readRequestedLiveDictAreaRendererMode("")).toBeNull();
+    expect(
+      readRequestedLiveDictAreaRendererMode(
+        `?${LIVE_DICT_AREA_RENDERER_QUERY_PARAM}=pixi-node-body`,
+      ),
+    ).toBe("pixi-node-body");
+    expect(
+      readRequestedLiveDictAreaRendererMode(
+        `?${LIVE_DICT_AREA_RENDERER_QUERY_PARAM}=unknown-mode`,
+      ),
+    ).toBeNull();
+  });
+});
 
 describe("resolveLiveDictAreaRendererMode", () => {
   it("defaults to the live DOM renderer when the query param is absent", () => {

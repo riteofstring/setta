@@ -7,6 +7,20 @@ export const LIVE_DICT_AREA_RENDERER_MODES = ["dom", "pixi-node-body"] as const;
 export type LiveDictAreaRendererMode =
   (typeof LIVE_DICT_AREA_RENDERER_MODES)[number];
 
+export function readRequestedLiveDictAreaRendererMode(
+  search: string | null | undefined,
+): LiveDictAreaRendererMode | null {
+  const requestedMode = new URLSearchParams(search ?? "").get(
+    LIVE_DICT_AREA_RENDERER_QUERY_PARAM,
+  );
+
+  if (!isLiveDictAreaRendererMode(requestedMode)) {
+    return null;
+  }
+
+  return requestedMode;
+}
+
 export function resolveLiveDictAreaRendererMode({
   persistedMode,
   search,
@@ -14,9 +28,7 @@ export function resolveLiveDictAreaRendererMode({
   persistedMode?: string | null;
   search: string | null | undefined;
 }): LiveDictAreaRendererMode {
-  const requestedMode = new URLSearchParams(search ?? "").get(
-    LIVE_DICT_AREA_RENDERER_QUERY_PARAM,
-  );
+  const requestedMode = readRequestedLiveDictAreaRendererMode(search);
 
   if (isLiveDictAreaRendererMode(requestedMode)) {
     return requestedMode;
@@ -48,9 +60,7 @@ export function readLiveDictAreaRendererModeFromWindow(): LiveDictAreaRendererMo
 export function syncLiveDictAreaRendererModeFromSearch(
   search: string | null | undefined,
 ): void {
-  const requestedMode = new URLSearchParams(search ?? "").get(
-    LIVE_DICT_AREA_RENDERER_QUERY_PARAM,
-  );
+  const requestedMode = readRequestedLiveDictAreaRendererMode(search);
 
   if (!isLiveDictAreaRendererMode(requestedMode)) {
     return;

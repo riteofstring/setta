@@ -3520,6 +3520,34 @@ Record:
 
 ## 2026-03-31 122
 
+- Item: Re-evaluate the next Ralph frontier after the long standalone/route seam-lift run and pivot to the live Pixi canary.
+- Status: `blocked`
+- Details:
+  - Re-read the current rewrite plan plus recent log tail before choosing the next slice.
+  - The current plan now makes the stop condition explicit:
+    - the recent route/bootstrap seam-lift loop is not the right next lever
+    - pure forwarding hops above the current dict/section boundaries count as churn, not progress
+    - the real blocker is the live Pixi canary failing early visual gates, so the next valid slice must start from a verified `liveDictAreaRenderer=pixi-node-body` surface rather than another ownership hop
+  - The next candidate seam above `StandaloneSectionSurfaceBoundary` was checked and rejected for this iteration because the remaining higher callers are route-state/load wrappers rather than implementation-selecting boundaries.
+  - Attempted the required CDP-only visual pivot, but Chrome DevTools MCP remained unavailable in fresh verifier sub-agents.
+  - Per the loop exception for local lifecycle availability, ran the one bounded self-recovery:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - Refreshed runtime values after recovery:
+    - frontend: `http://127.0.0.1:3043/`
+    - backend: `http://127.0.0.1:8043`
+    - backend session: `297e8c`
+    - CDP port: `9265`
+  - Runtime sanity checks succeeded after recovery:
+    - `curl -I 'http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body'` returned `200`
+    - `setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.` reported the refreshed `8043` session
+  - Blocking issue:
+    - fresh-context CDP sub-agents still reported that `chrome-devtools-mcp` was unavailable and could not open or inspect the worktree canary page after the restart
+    - without the required Chrome DevTools visual gate, this iteration could not safely choose or verify a production Pixi text/layout fix
+- Next action:
+  - Restore fresh-session Chrome DevTools MCP access for this worktree, then retry the normalized live Pixi canary comparison on `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` against `main` before selecting the next production renderer fix.
+
+## 2026-03-31 122
+
 - Item: Fix the live Pixi canary's browser-zoom lower-shell drift by measuring against the real clipping container.
 - Status: `done`
 - Details:
@@ -11799,3 +11827,38 @@ Record:
         - residual live Pixi drift remains inside that slice as visible density / scroll-state mismatch versus the normalized baseline / `main`, so this lane improved the viewport-fit boundary but did not close the remaining renderer parity work
 - Next action:
   - Investigate the residual live Pixi density / scroll-state drift inside the now-aligned normalized `All Settings` slice; do not reopen workspace normalization or visible-slice ordering unless the new canary regresses.
+
+## 2026-03-31 357
+
+- Item: Clear stale saved viewport state on the explicit `liveDictAreaRenderer` canary route entry.
+- Status: `done`
+- Details:
+  - Took one bounded route-entry slice instead of continuing another pure seam lift:
+    - the durable loop canary uses the explicit `?liveDictAreaRenderer=pixi-node-body` route
+    - the live app was still capable of restoring a stale saved viewport before the canary body layout had any chance to refit
+  - Updated the project UI route hook so an explicit renderer query-param does two bounded things on mount:
+    - persists the requested renderer override exactly as before
+    - clears the current project viewport for refit so the explicit renderer route does not trust a viewport saved under a different body-height system
+  - Tightened unit coverage around the explicit request parsing and the route-level refit handoff:
+    - `frontend/src/components/Section/Layouts/liveDictAreaRendererMode.ts`
+    - `frontend/src/components/Section/Layouts/liveDictAreaRendererMode.test.ts`
+    - `frontend/src/components/Pages/Project/UiPage.tsx`
+    - `frontend/src/components/Pages/Project/UiPage.test.tsx`
+  - Added a focused Playwright canary for the real route-entry path:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - seeds a deliberately stale saved viewport, opens `?liveDictAreaRenderer=pixi-node-body`, and requires the canary to repopulate a visible canvas slice instead of inheriting that stale viewport
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/liveDictAreaRendererMode.test.ts src/components/Pages/Project/UiPage.test.tsx`
+    - result: passed (`6 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings explicit renderer query-param canary clears a stale saved viewport on first load"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent first checked the raw live worktree baseline and explicit-query canary tabs
+    - result: partial pass for this bounded slice
+      - in the unnormalized live workspace session, the explicit-query canary still landed off-slice because the oversized pane state in that session left fit-view settled at a bad X offset
+      - after the required workspace-chrome normalization on the worktree tabs (reset to default layout plus frontend viewport clear), the explicit-query canary repopulated visible section cards, which confirms the new route hook is clearing the saved viewport as intended
+      - normalized baseline-vs-canary X-offset drift still remains in the live worktree session, so the next frontier is the fit-view width/source-of-truth mismatch rather than another renderer-mode sync change
+- Next action:
+  - Investigate why normalized baseline and explicit-query live Pixi tabs still settle different fit-view X offsets on the live worktree session; target the width / visible-canvas source of truth in the fit-view path instead of more query-param or session-storage work.
