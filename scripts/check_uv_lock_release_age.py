@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 
 import argparse
+import tomllib
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-import tomllib
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Fail when uv.lock contains Python packages newer than the minimum age."
     )
-    parser.add_argument("--days", type=int, required=True, help="Minimum package age in whole days.")
+    parser.add_argument(
+        "--days", type=int, required=True, help="Minimum package age in whole days."
+    )
     parser.add_argument(
         "--lockfile",
         type=Path,
@@ -63,7 +65,9 @@ def main() -> int:
             f"Python release-age policy failed: {len(failures)} package(s) are newer than {args.days} day(s)."
         )
         for name, version, newest_upload in sorted(failures):
-            print(f"- {name}=={version} newest artifact uploaded at {newest_upload.isoformat()}")
+            print(
+                f"- {name}=={version} newest artifact uploaded at {newest_upload.isoformat()}"
+            )
         return 1
 
     print(

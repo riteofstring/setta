@@ -248,7 +248,7 @@ export async function appendTranscriptionAudio(
   return res.data;
 }
 
-export async function stopTranscriptionSession(
+async function stopTranscriptionSession(
   sessionId: string,
   options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
@@ -262,9 +262,7 @@ export async function stopTranscriptionSession(
   return res.data;
 }
 
-export async function cancelTranscriptionSession(
-  sessionId: string,
-): Promise<boolean> {
+async function cancelTranscriptionSession(sessionId: string): Promise<boolean> {
   if (!sessionId) {
     return true;
   }

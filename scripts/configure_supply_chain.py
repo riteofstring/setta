@@ -2,7 +2,6 @@
 
 import argparse
 import subprocess
-import sys
 from pathlib import Path
 
 DEFAULT_MIN_RELEASE_AGE_DAYS = 7
@@ -103,8 +102,7 @@ def upsert_npmrc(path: Path, *, days: int) -> None:
 def write_local_policy(repo_root: Path, *, days: int) -> None:
     policy_file = repo_root / LOCAL_POLICY_FILE
     policy_file.write_text(
-        "# Repo-local dependency install policy.\n"
-        f"SETTA_MIN_RELEASE_AGE_DAYS={days}\n",
+        f"# Repo-local dependency install policy.\nSETTA_MIN_RELEASE_AGE_DAYS={days}\n",
         encoding="utf-8",
     )
 
@@ -117,7 +115,9 @@ def configure_local(repo_root: Path, *, days: int) -> None:
     print(f"Configured repo-local minimum release age: {days} day(s).")
     print(f"- Updated {(repo_root / LOCAL_POLICY_FILE).relative_to(repo_root)}")
     for project_dir in LOCAL_PNPM_PROJECTS:
-        print(f"- Updated {(repo_root / project_dir / '.npmrc').relative_to(repo_root)}")
+        print(
+            f"- Updated {(repo_root / project_dir / '.npmrc').relative_to(repo_root)}"
+        )
     print(
         "Go has no native install-time release-age setting; use ./audit_supply_chain.sh for Go module age checks."
     )
@@ -131,8 +131,14 @@ def run_checked(command: list[str], *, cwd: Path) -> None:
 
 
 def configure_global(repo_root: Path, *, days: int) -> None:
-    run_checked(["npm", "config", "set", "min-release-age", str(days), "--location=user"], cwd=repo_root)
-    run_checked(["pnpm", "config", "set", "min-release-age", str(days), "--global"], cwd=repo_root)
+    run_checked(
+        ["npm", "config", "set", "min-release-age", str(days), "--location=user"],
+        cwd=repo_root,
+    )
+    run_checked(
+        ["pnpm", "config", "set", "min-release-age", str(days), "--global"],
+        cwd=repo_root,
+    )
 
     print(f"Configured global npm/pnpm minimum release age: {days} day(s).")
     print(

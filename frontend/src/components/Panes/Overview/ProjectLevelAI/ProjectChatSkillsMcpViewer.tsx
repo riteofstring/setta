@@ -926,9 +926,8 @@ export function ProjectChatSkillsMcpViewer({
         return;
       }
       const resolvedStatuses = res.data.resolvedServers;
-      const runtimeStatusesByServerId = toRuntimeStatusByServerId(
-        resolvedStatuses,
-      );
+      const runtimeStatusesByServerId =
+        toRuntimeStatusByServerId(resolvedStatuses);
       postChromeReproEvent("mcp-runtime-status", {
         projectConfigId,
         chatId: chatId ?? null,

@@ -87,7 +87,11 @@ def main() -> int:
         path = module.get("Path")
         version = module.get("Version")
         published = module.get("Time")
-        if not isinstance(path, str) or not isinstance(version, str) or not isinstance(published, str):
+        if (
+            not isinstance(path, str)
+            or not isinstance(version, str)
+            or not isinstance(published, str)
+        ):
             continue
 
         published_at = parse_published_at(published)

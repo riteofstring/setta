@@ -17,7 +17,9 @@ def main() -> int:
     if args.days < 0:
         raise SystemExit("days must be a non-negative integer")
 
-    cutoff_timestamp = (datetime.now(UTC) - timedelta(days=args.days)).replace(microsecond=0)
+    cutoff_timestamp = (datetime.now(UTC) - timedelta(days=args.days)).replace(
+        microsecond=0
+    )
     print(cutoff_timestamp.isoformat().replace("+00:00", "Z"))
     return 0
 
