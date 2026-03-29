@@ -5,14 +5,14 @@ let sequenceNumber = 0;
 
 const actionBadgeConfig = {
   color: "#b91c1c",
-  text: "REC"
+  text: "REC",
 };
 
 void chrome.action.setBadgeBackgroundColor({
-  color: actionBadgeConfig.color
+  color: actionBadgeConfig.color,
 });
 void chrome.action.setBadgeText({
-  text: actionBadgeConfig.text
+  text: actionBadgeConfig.text,
 });
 
 function isHttpUrl(value) {
@@ -25,10 +25,10 @@ async function postEvent(payload) {
     {
       method: "POST",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload)
-    }
+      body: JSON.stringify(payload),
+    },
   );
   if (!response.ok) {
     throw new Error(`Collector rejected event with status ${response.status}`);
@@ -62,7 +62,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     tabId,
     tabUrl,
     frameId: sender.frameId ?? null,
-    event: message.event ?? null
+    event: message.event ?? null,
   };
 
   void postEvent(payload)
@@ -72,7 +72,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     .catch((error) => {
       sendResponse({
         ok: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       });
     });
   return true;

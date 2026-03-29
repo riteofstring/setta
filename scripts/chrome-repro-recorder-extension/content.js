@@ -1,3 +1,6 @@
+const PAGE_RUNTIME_SOURCE = "setta.chrome-repro-recorder/page-runtime";
+const APP_STATE_SOURCE = "setta.chrome-repro-recorder/app-state";
+
 function nowTimestampMs() {
   return Date.now();
 }
@@ -38,7 +41,7 @@ function buildCssPath(element) {
     const parent = current.parentElement;
     if (parent) {
       const sameTagSiblings = Array.from(parent.children).filter(
-        (child) => child.tagName === current.tagName
+        (child) => child.tagName === current.tagName,
       );
       if (sameTagSiblings.length > 1) {
         selector += `:nth-of-type(${sameTagSiblings.indexOf(current) + 1})`;
@@ -100,7 +103,7 @@ function getTargetDescriptor(element) {
     name: element.getAttribute("name"),
     labels,
     text: textContent,
-    cssPath: buildCssPath(element)
+    cssPath: buildCssPath(element),
   };
 }
 
@@ -128,6 +131,74 @@ function sendEvent(payload) {
   }
 }
 
+function injectPageRuntime() {
+  const target = document.head || document.documentElement;
+  if (
+    !target ||
+    target.querySelector('script[data-setta-chrome-repro-runtime="true"]')
+  ) {
+    return;
+  }
+  const script = document.createElement("script");
+  script.src = chrome.runtime.getURL("pageRuntime.js");
+  script.async = false;
+  script.dataset.settaChromeReproRuntime = "true";
+  script.addEventListener("load", () => {
+    script.remove();
+  });
+  script.addEventListener("error", () => {
+    script.remove();
+  });
+  target.appendChild(script);
+}
+
+window.addEventListener(
+  "message",
+  (event) => {
+    if (
+      event.source !== window ||
+      !event.data ||
+      typeof event.data !== "object"
+    ) {
+      return;
+    }
+
+    if (event.data.source === PAGE_RUNTIME_SOURCE && event.data.event) {
+      sendEvent(event.data.event);
+      return;
+    }
+
+    if (event.data.source === APP_STATE_SOURCE) {
+      sendEvent({
+        type: "app-state",
+        timestampMs:
+          typeof event.data.timestampMs === "number"
+            ? event.data.timestampMs
+            : nowTimestampMs(),
+        kind: typeof event.data.kind === "string" ? event.data.kind : null,
+        payload: event.data.payload ?? null,
+        url: window.location.href,
+        title: document.title,
+      });
+    }
+  },
+  true,
+);
+
+if (document.documentElement) {
+  injectPageRuntime();
+} else {
+  document.addEventListener(
+    "readystatechange",
+    () => {
+      if (document.documentElement) {
+        injectPageRuntime();
+      }
+    },
+    { once: true },
+  );
+}
+
 function recordNavigation(kind) {
   sendEvent({
     type: "navigation",
@@ -136,9 +207,9 @@ function recordNavigation(kind) {
     title: document.title,
     viewport: {
       width: window.innerWidth,
-      height: window.innerHeight
+      height: window.innerHeight,
     },
-    timestampMs: nowTimestampMs()
+    timestampMs: nowTimestampMs(),
   });
 }
 
@@ -159,7 +230,7 @@ function recordPointerLikeEvent(type, event) {
     ctrlKey: event.ctrlKey,
     metaKey: event.metaKey,
     shiftKey: event.shiftKey,
-    target: getTargetDescriptor(element)
+    target: getTargetDescriptor(element),
   });
 }
 
@@ -168,7 +239,7 @@ document.addEventListener(
   (event) => {
     recordPointerLikeEvent("click", event);
   },
-  true
+  true,
 );
 
 document.addEventListener(
@@ -176,7 +247,7 @@ document.addEventListener(
   (event) => {
     recordPointerLikeEvent("dblclick", event);
   },
-  true
+  true,
 );
 
 document.addEventListener(
@@ -194,10 +265,10 @@ document.addEventListener(
       timestampMs: nowTimestampMs(),
       inputType: "inputType" in event ? event.inputType ?? null : null,
       value: getElementValue(element),
-      target: getTargetDescriptor(element)
+      target: getTargetDescriptor(element),
     });
   },
-  true
+  true,
 );
 
 document.addEventListener(
@@ -214,10 +285,10 @@ document.addEventListener(
       type: "change",
       timestampMs: nowTimestampMs(),
       value: getElementValue(element),
-      target: getTargetDescriptor(element)
+      target: getTargetDescriptor(element),
     });
   },
-  true
+  true,
 );
 
 document.addEventListener(
@@ -236,10 +307,10 @@ document.addEventListener(
       ctrlKey: event.ctrlKey,
       metaKey: event.metaKey,
       shiftKey: event.shiftKey,
-      target: element ? getTargetDescriptor(element) : null
+      target: element ? getTargetDescriptor(element) : null,
     });
   },
-  true
+  true,
 );
 
 document.addEventListener(
@@ -255,10 +326,10 @@ document.addEventListener(
     sendEvent({
       type: "submit",
       timestampMs: nowTimestampMs(),
-      target: getTargetDescriptor(element)
+      target: getTargetDescriptor(element),
     });
   },
-  true
+  true,
 );
 
 window.addEventListener("hashchange", () => {
@@ -277,6 +348,6 @@ if (document.readyState === "complete") {
     () => {
       recordNavigation("load");
     },
-    { once: true }
+    { once: true },
   );
 }

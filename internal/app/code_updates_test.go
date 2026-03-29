@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"setta/internal/boundcode"
+	"setta/internal/codegen"
 	"setta/internal/lsp"
 	"setta/internal/lspsignature"
 	"setta/internal/projectstate"
@@ -390,6 +391,89 @@ func TestCodeUpdateServiceSetCodeReconcilesGeneratedPythonSectionForBoundWatchCo
 	generatedCode := generatedSectionCode(t, updatedProject)
 	if !strings.Contains(generatedCode, "from watch_code_test import cool_fn") {
 		t.Fatalf("expected generated python import for cool_fn, got %q", generatedCode)
+	}
+}
+
+func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsForBoundWatchCodeCallable(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	harness := openBoundWatchCodeDiagnosticsHarness(t)
+	recordedStates := []string{
+		"def cool_fn",
+		"def cool_fn()",
+		"def cool_fn(,)",
+		"def cool_fn()",
+		"def cool_fn(a)",
+		"def cool_fn(a,)",
+		"def cool_fn(a,b)",
+		"def cool_fn(a,b,)",
+		"def cool_fn(a,b,c)",
+		"def cool_fn(a,b,c):",
+		"def cool_fn(a,b,c): p",
+		"def cool_fn(a,b,c): pa",
+		"def cool_fn(a,b,c): pas",
+		"def cool_fn(a,b,c): pass\n",
+	}
+
+	finalSnapshot := harness.applyRecordedStates(t, ctx, recordedStates)
+	finalProject := finalSnapshot.Document.Projects["project-alpha"]
+	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok {
+		t.Fatalf("expected cool_fn watch code entry after recorded typing, got %#v", finalProject.WatchCodeRegistry)
+	}
+	sectionID := entry.SectionIDs[0]
+
+	waitForAppCondition(t, 10*time.Second, func() bool {
+		payload := harness.diagnostics.Snapshot("project-alpha")
+		sectionErrors, ok := payload.GenCode.Errors[sectionID]
+		if ok && len(sectionErrors.Params) > 0 {
+			return true
+		}
+		return generatedDiagnosticsContain(payload, "watch_code_test")
+	})
+
+	payload := harness.diagnostics.Snapshot("project-alpha")
+	paramMessages := watchCodeEntryParamMessagesByName(t, finalProject, entry, payload)
+	for _, paramName := range []string{"a", "b", "c"} {
+		if len(paramMessages[paramName]) == 0 {
+			t.Fatalf("expected generated missing-arg diagnostics for %q, got payload %#v", paramName, payload.GenCode.Errors)
+		}
+	}
+}
+
+func TestCodeUpdateServiceSetCodeDoesNotLeaveGeneratedImportErrorForBoundWatchCodeModule(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	harness := openBoundWatchCodeDiagnosticsHarness(t)
+	recordedStates := []string{
+		"def cool_fn",
+		"def cool_fn()",
+		"def cool_fn(,)",
+		"def cool_fn()",
+		"def cool_fn(a)",
+		"def cool_fn(a,)",
+		"def cool_fn(a,b)",
+		"def cool_fn(a,b,)",
+		"def cool_fn(a,b,c)",
+		"def cool_fn(a,b,c):",
+		"def cool_fn(a,b,c): pass\n",
+	}
+
+	harness.applyRecordedStates(t, ctx, recordedStates)
+	waitForAppCondition(t, 10*time.Second, func() bool {
+		payload := harness.diagnostics.Snapshot("project-alpha")
+		return generatedDiagnosticsContain(payload, "watch_code_test") || len(payload.UnmappedGenCode) > 0 || len(payload.GenCode.Errors) > 0
+	})
+
+	payload := harness.diagnostics.Snapshot("project-alpha")
+	if generatedDiagnosticsContain(payload, "watch_code_test") {
+		t.Fatalf("did not expect generated python diagnostics to keep unresolved watch_code_test import, got %#v", payload)
 	}
 }
 
@@ -879,6 +963,137 @@ func watchCodeBoundProject(t *testing.T, bindingPath string, initialCode string)
 	return project
 }
 
+type boundWatchCodeDiagnosticsHarness struct {
+	projectRuntime  *projectstate.Runtime
+	service         *codeUpdateService
+	materializer    *codegen.PythonMaterializer
+	synchronizer    *lsp.ProjectSynchronizer
+	diagnostics     *projectstate.LSPDiagnosticsRegistry
+	workspaceRoot   string
+	settaFilesRoot  string
+	latestProjectID string
+}
+
+func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosticsHarness {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+
+	materializer, err := codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new python materializer: %v", err)
+	}
+
+	session, err := lsp.NewCurrentProcessPythonSession(lsp.CurrentProcessPythonSessionOptions{
+		WorkspaceRoot: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new current-process python session: %v", err)
+	}
+	lspService := lsp.NewService(session)
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	synchronizer, err := lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    workspaceRoot,
+		Service:        lspService,
+		Diagnostics:    diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	signatures, err := lspsignature.NewService(lspsignature.ServiceOptions{
+		SettaFilesRoot: settaFilesRoot,
+		LSPService:     lspService,
+	})
+	if err != nil {
+		t.Fatalf("new lsp signature service: %v", err)
+	}
+
+	project := watchCodeRootBoundProject(t, "watch_code_test.py")
+	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(
+		projectstate.Document{
+			SchemaVersion:    projectstate.CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]projectstate.Project{
+				project.ID: project,
+			},
+		},
+		projectstate.RuntimeOptions{
+			PythonCodegenSectionReconciler: materializer,
+		},
+	)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close project synchronizer: %v", err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState:       projectRuntime,
+		LSPSync:            synchronizer,
+		CallableSignatures: signatures,
+		WorkspaceRoot:      workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	harness := &boundWatchCodeDiagnosticsHarness{
+		projectRuntime:  projectRuntime,
+		service:         service,
+		materializer:    materializer,
+		synchronizer:    synchronizer,
+		diagnostics:     diagnostics,
+		workspaceRoot:   workspaceRoot,
+		settaFilesRoot:  settaFilesRoot,
+		latestProjectID: "project-alpha",
+	}
+	harness.materializeSnapshot(t, context.Background())
+	return harness
+}
+
+func (h *boundWatchCodeDiagnosticsHarness) applyRecordedStates(
+	t *testing.T,
+	ctx context.Context,
+	states []string,
+) projectstate.Snapshot {
+	t.Helper()
+
+	for _, state := range states {
+		if err := h.service.SetCode(ctx, "project-alpha", "section-main", state); err != nil {
+			t.Fatalf("set recorded watch-code state %q: %v", state, err)
+		}
+		h.materializeSnapshot(t, ctx)
+	}
+	return h.projectRuntime.Snapshot()
+}
+
+func (h *boundWatchCodeDiagnosticsHarness) materializeSnapshot(t *testing.T, ctx context.Context) {
+	t.Helper()
+
+	snapshot := h.projectRuntime.Snapshot()
+	if err := h.materializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+		t.Fatalf("materialize python generated document: %v", err)
+	}
+	if err := h.synchronizer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+		t.Fatalf("materialize lsp document set: %v", err)
+	}
+}
+
 func testCodeUpdateGeneratedPythonSectionReconciler() projectstate.PythonCodegenSectionReconciler {
 	return projectstate.PythonCodegenSectionReconcilerFunc(func(_ context.Context, project *projectstate.Project) error {
 		if project == nil {
@@ -978,6 +1193,83 @@ func generatedSectionCode(t *testing.T, project projectstate.Project) string {
 func containsStringValue(values []string, target string) bool {
 	for _, value := range values {
 		if value == target {
+			return true
+		}
+	}
+	return false
+}
+
+func watchCodeEntryParamMessagesByName(
+	t *testing.T,
+	project projectstate.Project,
+	entry projectstate.WatchCodeRegistryEntry,
+	payload projectstate.LSPDiagnosticsPayload,
+) map[string][]string {
+	t.Helper()
+
+	if len(entry.SectionIDs) != 1 {
+		t.Fatalf("expected one watch code section for %#v", entry)
+	}
+	sectionID := entry.SectionIDs[0]
+	sectionErrors := payload.GenCode.Errors[sectionID]
+	callableID := ""
+	for codeObjID, codeObj := range project.CodeObjs {
+		if strings.TrimSpace(codeObj.Name) != strings.TrimSpace(entry.CallableName) {
+			continue
+		}
+		if _, _, _, _, err := project.ResolveSectionCodeObject(sectionID, codeObjID); err == nil {
+			callableID = codeObjID
+			break
+		}
+	}
+	if callableID == "" {
+		t.Fatalf("expected callable %q in section %q", entry.CallableName, sectionID)
+	}
+
+	callablePayload, _, _, _, err := project.ResolveSectionCodeObject(sectionID, callableID)
+	if err != nil {
+		t.Fatalf("resolve callable payload for %q: %v", entry.CallableName, err)
+	}
+	rawChildren, ok := callablePayload["children"].([]any)
+	if !ok {
+		t.Fatalf("expected callable children array for %q, got %#v", entry.CallableName, callablePayload["children"])
+	}
+
+	output := make(map[string][]string, len(rawChildren))
+	for _, rawChildID := range rawChildren {
+		childID, ok := rawChildID.(string)
+		if !ok {
+			t.Fatalf("expected callable child id string, got %#v", rawChildID)
+		}
+		codeObj, ok := project.CodeObjs[childID]
+		if !ok {
+			t.Fatalf("expected param code object %q for callable %q", childID, entry.CallableName)
+		}
+		output[codeObj.Name] = append([]string(nil), sectionErrors.Params[childID]...)
+	}
+	return output
+}
+
+func generatedDiagnosticsContain(payload projectstate.LSPDiagnosticsPayload, fragment string) bool {
+	if strings.TrimSpace(fragment) == "" {
+		return false
+	}
+	for _, sectionErrors := range payload.GenCode.Errors {
+		for _, message := range sectionErrors.Callable {
+			if strings.Contains(message, fragment) {
+				return true
+			}
+		}
+		for _, paramMessages := range sectionErrors.Params {
+			for _, message := range paramMessages {
+				if strings.Contains(message, fragment) {
+					return true
+				}
+			}
+		}
+	}
+	for _, diagnostic := range payload.UnmappedGenCode {
+		if strings.Contains(diagnostic.Message, fragment) {
 			return true
 		}
 	}

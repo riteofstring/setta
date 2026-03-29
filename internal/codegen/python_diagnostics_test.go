@@ -320,6 +320,67 @@ func TestPythonGeneratedDiagnosticsMapperWrapsMultilineCodeParamExpressions(t *t
 	}
 }
 
+func TestPythonGeneratedDiagnosticsMapperFiltersImplicitRelativeImportForWatchCodeModule(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		GenCodePrefix:       "from watch_code_test import cool_fn\n",
+		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
+		WatchCodeCallable:   "cool_fn",
+		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
+	}))
+
+	start := strings.Index(mapper.renderer.Code, "watch_code_test")
+	if start < 0 {
+		t.Fatalf("expected watch code import in generated code:\n%s", mapper.renderer.Code)
+	}
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		start,
+		start+len("watch_code_test"),
+		`Import from "watch_code_test" is implicitly relative and will not work if this file is imported as a module`,
+		"reportImplicitRelativeImport",
+	)
+
+	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if len(errors.Errors) != 0 {
+		t.Fatalf("expected no mapped errors for ignored implicit-relative import, got %#v", errors.Errors)
+	}
+	if len(unmapped) != 0 {
+		t.Fatalf("expected watch code implicit-relative import to be filtered, got %#v", unmapped)
+	}
+}
+
+func TestPythonGeneratedDiagnosticsMapperKeepsImplicitRelativeImportForNonWatchCodeModule(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		GenCodePrefix: "from external_module import cool_fn\n",
+	}))
+
+	start := strings.Index(mapper.renderer.Code, "external_module")
+	if start < 0 {
+		t.Fatalf("expected external import in generated code:\n%s", mapper.renderer.Code)
+	}
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		start,
+		start+len("external_module"),
+		`Import from "external_module" is implicitly relative and will not work if this file is imported as a module`,
+		"reportImplicitRelativeImport",
+	)
+
+	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if len(errors.Errors) != 0 {
+		t.Fatalf("expected no mapped section errors for implicit-relative import, got %#v", errors.Errors)
+	}
+	if len(unmapped) != 1 {
+		t.Fatalf("expected non-watch-code implicit-relative import to survive, got %#v", unmapped)
+	}
+}
+
 type pythonGeneratedDiagnosticsProjectOptions struct {
 	CallableName        string
 	ParamName           string
@@ -327,6 +388,10 @@ type pythonGeneratedDiagnosticsProjectOptions struct {
 	PassingStyle        string
 	IgnoreParamError    bool
 	IgnoreCallableError bool
+	GenCodePrefix       string
+	WatchCodeIdentity   string
+	WatchCodeCallable   string
+	WatchCodeSourcePath string
 }
 
 func mustPythonGeneratedDiagnosticsMapper(t *testing.T, project projectstate.Project) *PythonGeneratedDiagnosticsMapper {
@@ -371,12 +436,37 @@ func pythonGeneratedDiagnosticsProject(
 		ignoreTypeErrors = `{"callable":true,"params":{}}`
 	}
 
+	target := projectstate.ProjectCodegenTarget{Language: string(projectstate.CodeLanguagePython)}
+	if options.GenCodePrefix != "" {
+		encodedTarget, err := projectstate.EncodePythonCodegenTarget(projectstate.PythonCodegenTarget{
+			GenCodePrefix: options.GenCodePrefix,
+		})
+		if err != nil {
+			t.Fatalf("encode python codegen target: %v", err)
+		}
+		target.Payload = encodedTarget
+	}
+
+	watchCodeRegistry := map[string]projectstate.WatchCodeRegistryEntry{}
+	if options.WatchCodeIdentity != "" {
+		callableName := options.WatchCodeCallable
+		if callableName == "" {
+			callableName = "cool_fn"
+		}
+		watchCodeRegistry[options.WatchCodeIdentity] = projectstate.WatchCodeRegistryEntry{
+			CallableName: callableName,
+			Kind:         projectstate.WatchCodeCallableKindFunction,
+			SourcePath:   options.WatchCodeSourcePath,
+		}
+	}
+
 	return projectstate.Project{
 		ID:   "project-alpha",
 		Name: "Alpha",
 		CodegenTargets: []projectstate.ProjectCodegenTarget{
-			{Language: string(projectstate.CodeLanguagePython)},
+			target,
 		},
+		WatchCodeRegistry:  watchCodeRegistry,
 		TopLevelSectionIDs: []string{"section-1"},
 		SectionVariantMap: map[string]string{
 			"section-1": "section-variant-1",

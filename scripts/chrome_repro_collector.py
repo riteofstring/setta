@@ -4,6 +4,7 @@ import argparse
 import json
 import signal
 import threading
+from collections import Counter
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from http import HTTPStatus
@@ -19,6 +20,7 @@ def utc_now_iso() -> str:
 class RecorderState:
     artifact_dir: Path
     events: list[dict] = field(default_factory=list)
+    event_counts_by_type: Counter[str] = field(default_factory=Counter)
     lock: threading.Lock = field(default_factory=threading.Lock)
     started_at: str = field(default_factory=utc_now_iso)
 
@@ -27,13 +29,27 @@ class RecorderState:
         self.events_file = self.artifact_dir / "events.ndjson"
         self.recording_file = self.artifact_dir / "recording.json"
         self.session_file = self.artifact_dir / "session.json"
+        self.console_file = self.artifact_dir / "console.ndjson"
+        self.transport_file = self.artifact_dir / "transport.ndjson"
+        self.app_state_file = self.artifact_dir / "app_state.ndjson"
         self.events_file.write_text("", encoding="utf-8")
+        self.console_file.write_text("", encoding="utf-8")
+        self.transport_file.write_text("", encoding="utf-8")
+        self.app_state_file.write_text("", encoding="utf-8")
 
     def append_event(self, payload: dict) -> None:
         with self.lock:
             self.events.append(payload)
-            with self.events_file.open("a", encoding="utf-8") as handle:
-                handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
+            event_type = event_type_from_payload(payload)
+            if event_type is not None:
+                self.event_counts_by_type[event_type] += 1
+            append_ndjson_line(self.events_file, payload)
+            if is_console_event(event_type):
+                append_ndjson_line(self.console_file, payload)
+            if is_transport_event(event_type):
+                append_ndjson_line(self.transport_file, payload)
+            if event_type == "app-state":
+                append_ndjson_line(self.app_state_file, payload)
 
     def write_session_files(self, stop_reason: str) -> None:
         with self.lock:
@@ -44,6 +60,10 @@ class RecorderState:
                 "artifactDir": str(self.artifact_dir),
                 "eventCount": len(self.events),
                 "eventsFile": str(self.events_file),
+                "consoleEventsFile": str(self.console_file),
+                "transportEventsFile": str(self.transport_file),
+                "appStateEventsFile": str(self.app_state_file),
+                "eventCountsByType": dict(sorted(self.event_counts_by_type.items())),
                 "stopReason": stop_reason,
                 "events": self.events,
             }
@@ -54,6 +74,10 @@ class RecorderState:
                 "artifactDir": str(self.artifact_dir),
                 "eventCount": len(self.events),
                 "eventsFile": str(self.events_file),
+                "consoleEventsFile": str(self.console_file),
+                "transportEventsFile": str(self.transport_file),
+                "appStateEventsFile": str(self.app_state_file),
+                "eventCountsByType": payload["eventCountsByType"],
                 "recordingFile": str(self.recording_file),
                 "stopReason": stop_reason,
             }
@@ -65,6 +89,32 @@ class RecorderState:
                 json.dumps(session_payload, indent=2, ensure_ascii=True) + "\n",
                 encoding="utf-8",
             )
+
+
+def append_ndjson_line(path: Path, payload: dict) -> None:
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def event_type_from_payload(payload: dict) -> str | None:
+    event = payload.get("event")
+    if not isinstance(event, dict):
+        return None
+    event_type = event.get("type")
+    if not isinstance(event_type, str):
+        return None
+    normalized = event_type.strip()
+    return normalized or None
+
+
+def is_console_event(event_type: str | None) -> bool:
+    return event_type in {"console", "page-error", "unhandledrejection"}
+
+
+def is_transport_event(event_type: str | None) -> bool:
+    if event_type is None:
+        return False
+    return event_type.startswith("network-") or event_type.startswith("websocket-")
 
 
 def build_handler(state: RecorderState):

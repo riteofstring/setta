@@ -26,6 +26,7 @@ type PythonGeneratedDiagnosticsMapper struct {
 	graph                 *PythonDependencyGraph
 	renderer              *PythonCodeRenderer
 	ignoredTypeErrorsByID map[string]pythonTypeErrorIgnoreState
+	watchCodeModulePaths  map[string]struct{}
 }
 
 type PythonGeneratedCodeDiagnosticsResult struct {
@@ -100,6 +101,7 @@ func NewPythonGeneratedDiagnosticsMapper(
 		graph:                 graph,
 		renderer:              renderer,
 		ignoredTypeErrorsByID: collectIgnoredTypeErrorsBySection(project, exported),
+		watchCodeModulePaths:  collectWatchCodeModulePaths(project),
 	}, true, nil
 }
 
@@ -133,6 +135,9 @@ func (m *PythonGeneratedDiagnosticsMapper) AnalyzeCodeDiagnostics(
 
 	for index, diagnostic := range diagnostics {
 		position := positions[index]
+		if m.shouldIgnoreDiagnostic(diagnostic, position) {
+			continue
+		}
 		if isCallMismatchDiagnostic(diagnostic) {
 			if sectionID, ok := m.callableMismatchSectionID(position, rangeIndex); ok {
 				callableMismatchSections[sectionID] = struct{}{}
@@ -194,6 +199,41 @@ func (m *PythonGeneratedDiagnosticsMapper) processDiagnostic(
 	default:
 		return nil
 	}
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) shouldIgnoreDiagnostic(
+	diagnostic PythonGeneratedDiagnostic,
+	position pythonGeneratedDiagnosticPosition,
+) bool {
+	if diagnosticCodeString(diagnostic.Code) != "reportImplicitRelativeImport" {
+		return false
+	}
+	modulePath, ok := m.implicitRelativeImportModulePath(position)
+	if !ok {
+		return false
+	}
+	_, ok = m.watchCodeModulePaths[modulePath]
+	return ok
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) implicitRelativeImportModulePath(
+	position pythonGeneratedDiagnosticPosition,
+) (string, bool) {
+	if m == nil || m.renderer == nil {
+		return "", false
+	}
+	if position.Start < 0 || position.End < position.Start || position.End > len(m.renderer.Code) {
+		return "", false
+	}
+
+	snippet := strings.TrimSpace(m.renderer.Code[position.Start:position.End])
+	snippet = strings.Trim(snippet, `"'`)
+	if isPythonModulePath(snippet) {
+		return snippet, true
+	}
+
+	line := diagnosticLineText(m.renderer.Code, position)
+	return parseImportModulePath(line)
 }
 
 func (m *PythonGeneratedDiagnosticsMapper) processReportArgumentType(position pythonGeneratedDiagnosticPosition) []generatedDiagnosticResult {
@@ -515,6 +555,106 @@ func isUndefinedSymbolDiagnostic(diagnostic PythonGeneratedDiagnostic) bool {
 		}
 	}
 	return false
+}
+
+func collectWatchCodeModulePaths(project projectstate.Project) map[string]struct{} {
+	if len(project.WatchCodeRegistry) == 0 {
+		return map[string]struct{}{}
+	}
+
+	output := make(map[string]struct{}, len(project.WatchCodeRegistry))
+	for identity := range project.WatchCodeRegistry {
+		modulePath := watchCodeModulePathFromIdentity(identity)
+		if modulePath == "" {
+			continue
+		}
+		output[modulePath] = struct{}{}
+	}
+	return output
+}
+
+func watchCodeModulePathFromIdentity(identity string) string {
+	trimmedIdentity := strings.TrimSpace(identity)
+	if trimmedIdentity == "" {
+		return ""
+	}
+	canonicalName := strings.TrimSpace(strings.SplitN(trimmedIdentity, ":", 2)[0])
+	lastDot := strings.LastIndex(canonicalName, ".")
+	if lastDot <= 0 {
+		return ""
+	}
+	return canonicalName[:lastDot]
+}
+
+func diagnosticLineText(code string, position pythonGeneratedDiagnosticPosition) string {
+	if position.Start < 0 || position.End < position.Start || position.End > len(code) {
+		return ""
+	}
+
+	lineStart := 0
+	if position.Start > 0 {
+		lineStart = strings.LastIndex(code[:position.Start], "\n") + 1
+	}
+	lineEnd := len(code)
+	if relativeEnd := strings.Index(code[position.End:], "\n"); relativeEnd >= 0 {
+		lineEnd = position.End + relativeEnd
+	}
+	return code[lineStart:lineEnd]
+}
+
+func parseImportModulePath(line string) (string, bool) {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return "", false
+	}
+	if commentIndex := strings.Index(trimmed, "#"); commentIndex >= 0 {
+		trimmed = strings.TrimSpace(trimmed[:commentIndex])
+	}
+	if !strings.HasPrefix(trimmed, "from ") {
+		return "", false
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "from "))
+	importIndex := strings.Index(rest, " import ")
+	if importIndex < 0 {
+		return "", false
+	}
+	modulePath := strings.TrimSpace(rest[:importIndex])
+	if !isPythonModulePath(modulePath) {
+		return "", false
+	}
+	return modulePath, true
+}
+
+func isPythonModulePath(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" || strings.HasPrefix(trimmed, ".") {
+		return false
+	}
+	for _, part := range strings.Split(trimmed, ".") {
+		if !isPythonIdentifier(part) {
+			return false
+		}
+	}
+	return true
+}
+
+func isPythonIdentifier(value string) bool {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return false
+	}
+	for index, r := range trimmed {
+		if index == 0 {
+			if r != '_' && (r < 'A' || (r > 'Z' && r < 'a') || r > 'z') {
+				return false
+			}
+			continue
+		}
+		if r != '_' && (r < '0' || (r > '9' && r < 'A') || (r > 'Z' && r < 'a') || r > 'z') {
+			return false
+		}
+	}
+	return true
 }
 
 func diagnosticCodeString(code any) string {

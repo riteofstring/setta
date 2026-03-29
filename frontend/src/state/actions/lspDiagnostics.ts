@@ -2,6 +2,7 @@ import {
   useLspDiagnostics,
   useProjectState,
   useShareSession,
+  useTypeErrors,
 } from "state/definitions";
 import { res200 } from "utils/endpointUtils";
 import {
@@ -13,6 +14,7 @@ import {
   SettaLspDiagnosticsPayload,
   type SettaLspDiagnostic,
 } from "utils/generatedTypes";
+import { postChromeReproEvent } from "./chromeRepro";
 import {
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
@@ -175,12 +177,24 @@ export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
     prevState.unmappedGenCode,
     payload.unmappedGenCode,
   );
-  if (!merged.changed && !mergedUnmapped.changed) {
-    return;
+
+  if (merged.changed || mergedUnmapped.changed) {
+    useLspDiagnostics.setState({
+      codeSections: merged.codeSections,
+      unmappedGenCode: mergedUnmapped.unmappedGenCode,
+    });
   }
-  useLspDiagnostics.setState({
-    codeSections: merged.codeSections,
-    unmappedGenCode: mergedUnmapped.unmappedGenCode,
+
+  const lspState = useLspDiagnostics.getState();
+  postChromeReproEvent("lsp-diagnostics", {
+    projectConfigId: payload.projectConfigId,
+    stateChanged: merged.changed || mergedUnmapped.changed,
+    incoming: payload,
+    applied: {
+      codeSections: lspState.codeSections,
+      unmappedGenCode: lspState.unmappedGenCode,
+      typeErrors: useTypeErrors.getState().errors,
+    },
   });
 }
 

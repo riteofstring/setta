@@ -163,6 +163,90 @@ def test_chrome_repro_collector_writes_recording_json_on_shutdown(tmp_path: Path
     assert len(events_lines) == 2
 
 
+def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -> None:
+    root = repo_root()
+    artifact_dir = tmp_path / "collector-artifacts"
+    port = pick_free_port()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            str(root / "scripts" / "chrome_repro_collector.py"),
+            "--artifact-dir",
+            str(artifact_dir),
+            "--port",
+            str(port),
+        ],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        wait_for_http_ok(f"http://127.0.0.1:{port}/health")
+        payloads = [
+            {"sequenceNumber": 1, "event": {"type": "console", "level": "error"}},
+            {
+                "sequenceNumber": 2,
+                "event": {"type": "network-response", "status": 500},
+            },
+            {
+                "sequenceNumber": 3,
+                "event": {"type": "websocket-message", "direction": "recv"},
+            },
+            {
+                "sequenceNumber": 4,
+                "event": {"type": "app-state", "kind": "lsp-diagnostics"},
+            },
+            {"sequenceNumber": 5, "event": {"type": "click"}},
+        ]
+        for payload in payloads:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{port}/event",
+                method="POST",
+                data=json.dumps(payload).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(request, timeout=2) as response:
+                assert response.status == 200
+    finally:
+        process.send_signal(signal.SIGTERM)
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    session_payload = json.loads(
+        (artifact_dir / "session.json").read_text(encoding="utf-8")
+    )
+    console_lines = (artifact_dir / "console.ndjson").read_text(
+        encoding="utf-8"
+    ).splitlines()
+    transport_lines = (artifact_dir / "transport.ndjson").read_text(
+        encoding="utf-8"
+    ).splitlines()
+    app_state_lines = (artifact_dir / "app_state.ndjson").read_text(
+        encoding="utf-8"
+    ).splitlines()
+
+    assert session_payload["eventCountsByType"] == {
+        "app-state": 1,
+        "click": 1,
+        "console": 1,
+        "network-response": 1,
+        "websocket-message": 1,
+    }
+    assert session_payload["consoleEventsFile"].endswith("console.ndjson")
+    assert session_payload["transportEventsFile"].endswith("transport.ndjson")
+    assert session_payload["appStateEventsFile"].endswith("app_state.ndjson")
+    assert [json.loads(line)["event"]["type"] for line in console_lines] == ["console"]
+    assert [json.loads(line)["event"]["type"] for line in transport_lines] == [
+        "network-response",
+        "websocket-message",
+    ]
+    assert [json.loads(line)["event"]["type"] for line in app_state_lines] == [
+        "app-state"
+    ]
+
+
 def test_record_chrome_repro_wrapper_launches_browser_and_writes_artifacts(
     tmp_path: Path,
 ) -> None:
@@ -259,6 +343,9 @@ PY
     recording_payload = json.loads(
         (artifact_dir / "recording.json").read_text(encoding="utf-8")
     )
+    session_payload = json.loads(
+        (artifact_dir / "session.json").read_text(encoding="utf-8")
+    )
     extension_config = (artifact_dir / "extension" / "config.js").read_text(
         encoding="utf-8"
     )
@@ -267,8 +354,13 @@ PY
     assert launcher_payload["bootstrapUrl"].startswith(bootstrap_base_url)
     assert recording_payload["format"] == "setta.chrome-repro-recorder/v1"
     assert recording_payload["eventCount"] == 0
+    assert session_payload["eventCountsByType"] == {}
     assert "collectorBaseUrl" in extension_config
     assert (artifact_dir / "logs" / "chrome.log").exists()
+    assert (artifact_dir / "console.ndjson").exists()
+    assert (artifact_dir / "transport.ndjson").exists()
+    assert (artifact_dir / "app_state.ndjson").exists()
+    assert (artifact_dir / "extension" / "pageRuntime.js").exists()
 
 
 def test_record_chrome_repro_wrapper_reset_flag_runs_reset_first(
