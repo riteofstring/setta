@@ -11167,3 +11167,67 @@ Record:
     - result: passed for this settled slice; the earlier compact-card outer-shell drift was not visible, and the final baseline/live captures were byte-identical in the checked view
 - Next action:
   - Return to the next real live Pixi visual-stability blocker on `All Settings`, with `main`-oracle comparison re-enabled once the read-only reference runtime is reachable again.
+
+## 2026-03-30 340
+
+- Item: Retry the next live Pixi `All Settings` visual-blocker slice after the allowed worktree lifecycle recovery.
+- Status: `blocked`
+- Details:
+  - Continued directly from item `339` and did not reopen the closed seam-lift lane.
+  - The intended subtask for this iteration was to use a fresh CDP pass on the recovered runtime to identify the next smallest real visual mismatch on the live Pixi `All Settings` canary before making another renderer change.
+  - Chrome DevTools MCP was not attachable from fresh sub-agent contexts on the current runtime, so the required visual gate could not run.
+  - Per the non-main worktree recovery rule, attempted the one bounded local lifecycle recovery:
+    - `./aireset.sh`
+  - Refreshed runtime values after recovery:
+    - frontend: `http://127.0.0.1:3043/`
+    - backend: `http://127.0.0.1:8043`
+    - Chrome DevTools: `9265`
+    - session id: `45b3c3`
+  - After that recovery, a second fresh-context CDP verifier still could not attach cleanly enough to inspect:
+    - `http://127.0.0.1:3043/settings`
+    - `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+  - Read-only `main` at `http://127.0.0.1:3000/settings` was also not reachable locally during this iteration.
+  - No renderer or test code changed in this iteration because the repo policy requires a trustworthy CDP visual gate for this UI lane, and continuing blind would be churn.
+- Verification:
+  - Worktree lifecycle recovery:
+    - `./aireset.sh`
+    - result: passed; runtime restarted on `3043` / `8043` with DevTools port `9265`
+  - Runtime refresh:
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .`
+    - result: passed
+    - `pnpm -C frontend cdp-port`
+    - result: passed (`9265`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent before recovery: failed to attach
+    - fresh sub-agent after recovery: failed to attach
+    - result: blocked
+- Next action:
+  - Retry the next live Pixi visual-blocker slice on a fresh Ralph iteration after the outer-loop worktree bootstrap; do not continue renderer edits until Chrome DevTools MCP can attach again.
+
+## 2026-03-31 341
+
+- Item: Resolve the fresh-runtime visual-blocker retry and rule out the apparent missing-surface canary regression after proper workspace normalization.
+- Status: `done`
+- Details:
+  - Continued directly from item `340` after the fresh Ralph bootstrap and kept the slice on blocker resolution rather than starting another renderer edit.
+  - Chrome DevTools MCP was attachable again from fresh-context sub-agents on the current worktree runtime without another lifecycle restart:
+    - frontend: `http://127.0.0.1:3043/`
+    - backend: `http://127.0.0.1:8043`
+    - Chrome DevTools: `9265`
+  - A first quick CDP pass suggested the live `?liveDictAreaRenderer=pixi-node-body` page was missing most of the `All Settings` surface and only showing stale chrome such as `Chat Window 1`, but that report was not taken as authoritative because the verification surface had not been normalized yet.
+  - Re-ran the comparison in a second fresh-context CDP sub-agent with explicit normalization on both the baseline DOM page and the live Pixi page:
+    - mirrored the `resetProjectWorkspaceChromeToDefaultLayout(...)` state reset in-page on both tabs
+    - explicitly reopened the `All Settings` tab on both tabs before comparing
+  - After that normalization, the earlier missing-surface claim did not reproduce:
+    - both baseline `/settings` and live Pixi `?liveDictAreaRenderer=pixi-node-body` showed the `All Settings` surface
+    - no obvious resting visual mismatch was found in that normalized baseline-vs-live comparison
+    - representative live settings content remained visible, including `Auto Refetch Callable Params On LSP Mismatch`, `reportSelfClsParameterName`, `advancedSearchShortcut`, `defaultZoomLevel`, and `Create chat window`
+  - The normalized pass confirms the prior missing-surface report was a verification artifact caused by uncontrolled workspace chrome / surface setup, not a product regression in the live Pixi renderer.
+  - Read-only `main` remained unavailable locally on `http://127.0.0.1:3000`, so this slice could only compare the worktree baseline DOM surface against the worktree live Pixi surface.
+  - No production frontend/backend code changed in this iteration.
+- Verification:
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime
+    - result: passed for this blocker-resolution slice; CDP attached successfully, the normalized `All Settings` surface was present on both baseline and live Pixi tabs, and the earlier missing-surface report did not reproduce
+- Next action:
+  - Continue the real live Pixi visual-stability investigation on normalized surfaces, with `main`-oracle comparison re-enabled once the read-only reference runtime is reachable; prioritize true zoom-time instability or `main`-visible drift rather than the closed missing-surface false alarm.
