@@ -12,7 +12,7 @@ const CHAT_TIMESTAMP_TOOLTIP_FORMATTER = new Intl.DateTimeFormat(undefined, {
   timeStyle: "long",
 });
 
-export function formatElapsedDuration(totalSeconds: number): string {
+function formatElapsedDuration(totalSeconds: number): string {
   const normalized = Math.max(0, Math.floor(totalSeconds));
   const minutes = Math.floor(normalized / 60);
   const seconds = normalized % 60;

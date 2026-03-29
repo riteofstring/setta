@@ -131,9 +131,7 @@ describe("chatMergeUtils", () => {
         {
           id: "assistant-complete",
           role: ChatRoleEnum.assistant,
-          content: [
-            createMessageTextContent({ text: "Backend canonical" }),
-          ],
+          content: [createMessageTextContent({ text: "Backend canonical" })],
           attachments: [],
           tool_calls: null,
         },
@@ -143,9 +141,7 @@ describe("chatMergeUtils", () => {
           id: "assistant-complete",
           role: ChatRoleEnum.assistant,
           createdAt: 1234,
-          content: [
-            createMessageTextContent({ text: "Local stale" }),
-          ],
+          content: [createMessageTextContent({ text: "Local stale" })],
           attachments: [],
           tool_calls: null,
         },

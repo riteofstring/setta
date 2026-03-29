@@ -82,7 +82,7 @@ export type QueuedChatDraft = {
   lastAutoReplayVersion: number | null;
 };
 
-export type QueuedDraftReplaySnapshot =
+type QueuedDraftReplaySnapshot =
   | {
       kind: "plain_message";
     }

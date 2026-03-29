@@ -369,9 +369,11 @@ func ensureAssistantMessage(messages []map[string]any, targetMessageID string) [
 	}
 	updated := cloneMessageSlice(messages)
 	updated = append(updated, map[string]any{
-		"id":      trimmedMessageID,
-		"role":    "assistant",
-		"content": []any{},
+		"id":          trimmedMessageID,
+		"role":        "assistant",
+		"content":     []any{},
+		"attachments": []any{},
+		"tool_calls":  nil,
 	})
 	return updated
 }

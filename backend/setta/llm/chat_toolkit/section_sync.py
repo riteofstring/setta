@@ -232,9 +232,11 @@ def _assistant_message_empty(message: AssistantChatMessage) -> bool:
 def _should_ignore_response_placeholder_message(
     message: BaseChatMessageUnion,
 ) -> bool:
-    return isinstance(message, AssistantChatMessage) and _is_response_placeholder_message_id(
-        message.id
-    ) and _assistant_message_empty(message)
+    return (
+        isinstance(message, AssistantChatMessage)
+        and _is_response_placeholder_message_id(message.id)
+        and _assistant_message_empty(message)
+    )
 
 
 def _resolve_finalized_assistant_message(

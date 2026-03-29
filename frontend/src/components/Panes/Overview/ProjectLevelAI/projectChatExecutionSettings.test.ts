@@ -1,5 +1,5 @@
-import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
+import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
   createAgentRun,
   createAssistantChatMessage,

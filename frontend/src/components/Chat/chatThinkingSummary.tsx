@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export type ThinkingSummaryItem = {
+type ThinkingSummaryItem = {
   thinking: string;
   summary?: string | null;
 };

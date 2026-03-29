@@ -22,7 +22,7 @@ export function isAttachmentUrlStale(
   return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
 }
 
-export function collectChatMessageAttachments(
+function collectChatMessageAttachments(
   messages: Array<BaseChatMessageUnion>,
 ): ChatFileAttachment[] {
   const attachmentsById = new Map<string, ChatFileAttachment>();

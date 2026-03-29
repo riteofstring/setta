@@ -249,6 +249,45 @@
       }
     },
     {
+      "name": "message_delta_without_start_keeps_waiting_state",
+      "initialState": {
+        "messages": [],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      },
+      "chunks": [
+        {
+          "type": "delta",
+          "message_id": "assistant-delta-only-1",
+          "content": [
+            {
+              "type": "text_delta",
+              "index": 0,
+              "text": "Streaming without start"
+            }
+          ]
+        }
+      ],
+      "expectedState": {
+        "messages": [
+          {
+            "id": "assistant-delta-only-1",
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Streaming without start"
+              }
+            ],
+            "attachments": [],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      }
+    },
+    {
       "name": "message_stop_clears_waiting_without_dropping_streamed_message",
       "initialState": {
         "messages": [],

@@ -81,7 +81,7 @@ export function updateMessageById(
   return { messages: nextMessages, changed: true };
 }
 
-export function upsertMessage(
+function upsertMessage(
   messages: Array<BaseChatMessageUnion>,
   message: BaseChatMessageUnion,
   targetId: string | null = null,
@@ -97,7 +97,7 @@ export function upsertMessage(
   return nextMessages;
 }
 
-export function applyToolCallDelta(
+function applyToolCallDelta(
   details: ChatDetails,
   chunk: {
     message_id: string;
@@ -145,6 +145,29 @@ export function applyToolCallDelta(
     ...details,
     toolCallArguments,
     ...(changed ? { messages } : {}),
+  };
+}
+
+export function applyStreamDeltaToChatDetails(
+  details: ChatDetails,
+  chunk: ChatSectionStreamChunk,
+): ChatDetails {
+  const nextState = applyStreamDeltaToChatSectionState(
+    {
+      messages: details.messages,
+      inputText: "",
+      waitingForResponse: details.waitingForResponse,
+      toolCallArguments: details.toolCallArguments,
+      activeBranchId: null,
+      branches: {},
+    },
+    chunk,
+  );
+  return {
+    ...details,
+    messages: nextState.messages,
+    waitingForResponse: nextState.waitingForResponse,
+    toolCallArguments: nextState.toolCallArguments,
   };
 }
 
@@ -312,9 +335,7 @@ function isResponsePlaceholderId(
   return messageId.startsWith("rs_") || messageId.startsWith("resp_");
 }
 
-function assistantMessageEmpty(
-  message: AssistantChatMessage,
-): boolean {
+function assistantMessageEmpty(message: AssistantChatMessage): boolean {
   return (
     message.content.length === 0 &&
     (message.tool_calls?.length ?? 0) === 0 &&
@@ -486,7 +507,7 @@ function ensureThinkingContentBlock(
   return block as MessageThinkingContent;
 }
 
-export function applyMessageDeltaToChatMessages(
+function applyMessageDeltaToChatMessages(
   messages: Array<BaseChatMessageUnion>,
   chunk: MessageDeltaEvent,
 ): Array<BaseChatMessageUnion> {
@@ -609,6 +630,7 @@ function ensureAssistantMessage(
     id: messageId,
     role: ChatRoleEnum.assistant,
     content: [],
+    attachments: [],
     tool_calls: null,
     createdAt: Date.now(),
   };

@@ -7,8 +7,6 @@ import {
   type ChatSectionStreamChunk,
 } from "./chatStreamState";
 
-export type { ChatSectionStreamChunk } from "./chatStreamState";
-
 export function applyChatSectionStreamDelta(
   sectionId: string,
   chunk: ChatSectionStreamChunk,

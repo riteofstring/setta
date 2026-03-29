@@ -309,7 +309,7 @@ export function resolveProjectChatComposerSlashCommandSets({
   };
 }
 
-export type ProjectChatHydrationRetryStatus =
+type ProjectChatHydrationRetryStatus =
   | "in_flight"
   | "succeeded"
   | "failed"

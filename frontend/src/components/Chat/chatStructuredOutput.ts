@@ -5,7 +5,7 @@ import {
 } from "utils/codeLanguage";
 import { CodeLanguageEnum } from "utils/generatedTypes";
 
-export type StructuredOutputKind = "plain" | "code" | "diff";
+type StructuredOutputKind = "plain" | "code" | "diff";
 export type StructuredOutputPayload = {
   text: string;
   kind: StructuredOutputKind;

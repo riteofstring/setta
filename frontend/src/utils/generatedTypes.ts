@@ -5884,7 +5884,7 @@ export const ChatRoleEnum = {
   assistant: "assistant",
   tool: "tool",
 } as const;
-export type ChatRole = ObjectValues<typeof ChatRoleEnum>;
+type ChatRole = ObjectValues<typeof ChatRoleEnum>;
 
 const ChatSendActionEnum = {
   send: "send",
