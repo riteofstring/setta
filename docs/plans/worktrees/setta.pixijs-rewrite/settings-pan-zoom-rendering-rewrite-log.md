@@ -7616,3 +7616,45 @@ Record:
     - post-change: overlay still opened cleanly, the scene stayed mounted, no obvious blanking/clipping appeared, and the short trace improved to `INP 48 ms`
 - Next action:
   - Keep moving down the remaining shared event/layout floor from the live Pixi canary, with the next bounded probe or fix aimed at the generic layout/reflow path surfaced by DevTools instead of restoring more data to `useMisc`.
+
+## 2026-03-29 242
+
+- Item: Probe and reject a CodeMirror mount prop-stability micro-optimization on the live Pixi generic value-row canary.
+- Status: `done`
+- Details:
+  - Chose a trace-backed micro-probe from item `241` instead of reopening a completed seam lane.
+  - Experimental files under test:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/useCodeMirrorTooltipParent.ts`
+  - The experimental patch attempted to reduce first-click CodeMirror handoff churn by:
+    - memoizing the core view / extension builder path
+    - making the tooltip-parent lookup synchronous
+    - keeping the real CodeMirror root class path stable while the initialization shell flipped visibility
+  - Added temporary focused regression coverage for the experiment and ran the narrow live Pixi canary path, then measured the result in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-mount-prop-stability-probe.md`
+  - Perf result:
+    - the live canary stayed visually sane and the handoff still worked
+    - the follow-up trace came back mixed to slightly worse than the latest accepted baseline:
+      - probe: `INP 56 ms` (`input 6 ms`, `processing 16 ms`, `presentation 34 ms`)
+      - latest accepted baseline from item `241`: `INP 48 ms`, presentation `30.6 ms`
+    - hot samples still pointed at the CodeMirror activation path:
+      - `@uiw/react-codemirror`
+      - `dispatch`
+      - `requestMeasure`
+      - `applyTransaction`
+  - Decision:
+    - rejected this micro-optimization as a keep candidate
+    - reverted the experimental code so the branch only keeps the report/log evidence instead of extra hot-path complexity
+- Verification:
+  - Vitest on the experimental patch:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/TextInputCodeMirror.render.test.tsx`
+      - result: passed
+  - Playwright on the experimental patch:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "value-row DOM editor overlay|CodeMirror-backed value row"`
+      - result: passed
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - `All Settings` stayed visually sane after opening the `defaultZoomLevel` handoff
+    - the follow-up trace measured `INP 56 ms` (`input 6 ms`, `processing 16 ms`, `presentation 34 ms`)
+- Next action:
+  - Leave this prop-stability idea rejected and move the next iteration to a different measured CodeMirror or handoff-layer lever, not this memoization/class-path tweak.
