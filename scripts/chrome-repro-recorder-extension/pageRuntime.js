@@ -196,6 +196,63 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
     return {};
   }
 
+  function isInspectableTextContentType(contentType) {
+    if (typeof contentType !== "string") {
+      return false;
+    }
+    const normalized = contentType.toLowerCase();
+    return (
+      normalized.includes("json") ||
+      normalized.startsWith("text/") ||
+      normalized.includes("javascript") ||
+      normalized.includes("xml")
+    );
+  }
+
+  function bodyPreviewAndDetailsFromText(text) {
+    if (typeof text !== "string" || text.length === 0) {
+      return {};
+    }
+    const parsed = tryParseJsonText(text);
+    if (parsed !== null) {
+      return {
+        body: toSerializable(parsed),
+        detailBodyText: captureDetailText(text),
+        detailBodyJson: toSerializable(parsed),
+      };
+    }
+    return {
+      body: truncateString(text),
+      detailBodyText: captureDetailText(text),
+    };
+  }
+
+  async function readFetchResponseBodyDetails(response) {
+    const contentType = response.headers.get("content-type");
+    if (!isInspectableTextContentType(contentType)) {
+      return {};
+    }
+    try {
+      const bodyText = await response.clone().text();
+      return bodyPreviewAndDetailsFromText(bodyText);
+    } catch {
+      return {};
+    }
+  }
+
+  function readXMLHttpRequestResponseBodyDetails(request) {
+    const responseType =
+      typeof request.responseType === "string" ? request.responseType : "";
+    if (responseType !== "" && responseType !== "text") {
+      return {};
+    }
+    const contentType = request.getResponseHeader("content-type");
+    if (!isInspectableTextContentType(contentType)) {
+      return {};
+    }
+    return bodyPreviewAndDetailsFromText(request.responseText);
+  }
+
   function previewMessageData(value) {
     if (typeof value === "string") {
       const parsed = tryParseJsonText(value);
@@ -310,6 +367,7 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
       });
       try {
         const response = await originalFetch(input, init);
+        const responseBodyDetails = await readFetchResponseBodyDetails(response);
         postRuntimeEvent("network-response", {
           requestId,
           transport: "fetch",
@@ -319,6 +377,7 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
           ok: response.ok,
           durationMs: Math.round(performance.now() - startedAt),
           contentType: response.headers.get("content-type"),
+          ...responseBodyDetails,
         });
         return response;
       } catch (error) {
@@ -382,6 +441,7 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
             ok: this.status >= 200 && this.status < 300,
             durationMs: Math.round(performance.now() - metadata.startedAt),
             contentType: this.getResponseHeader("content-type"),
+            ...readXMLHttpRequestResponseBodyDetails(this),
           });
         },
         { once: true },

@@ -3,6 +3,7 @@ package externalagents
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 	"sort"
 	"strings"
@@ -61,27 +62,50 @@ func (r *Runtime) ExternalRuntimeStatuses(chatID *string, engineConfigID *string
 	}
 	trimmedChatID := strings.TrimSpace(derefOptionalString(chatID))
 	trimmedEngineID := strings.TrimSpace(derefOptionalString(engineConfigID))
-	if trimmedChatID == "" || trimmedEngineID == "" {
+	if trimmedEngineID == "" {
+		r.logExternalMCPStatusLookup(trimmedChatID, trimmedEngineID, "", "missing_engine_config_id", []mcpx.ServerRuntimeStatus{}, 0)
 		return []mcpx.ServerRuntimeStatus{}, nil
 	}
-	runs, err := r.runs.ListByMetadata(agentruns.RunFilter{
-		RunType: stringPtr(RunTypeExternalAgent),
-		ChatID:  &trimmedChatID,
-	})
+	runs, err := r.runs.ListByMetadata(buildExternalRuntimeRunFilter(trimmedChatID))
 	if err != nil {
 		return nil, err
 	}
-	latestRun, ok := selectLatestRun(runs)
+	latestRun, ok := selectLatestExternalRuntimeRunForEngine(runs, trimmedEngineID)
 	if !ok {
-		return []mcpx.ServerRuntimeStatus{}, nil
-	}
-	if resolveRunInputString(latestRun, "engineConfigId") != trimmedEngineID {
+		r.logExternalMCPStatusLookup(trimmedChatID, trimmedEngineID, "", "no_matching_run", []mcpx.ServerRuntimeStatus{}, len(runs))
 		return []mcpx.ServerRuntimeStatus{}, nil
 	}
 	if statuses := r.MCPStatusesForRun(latestRun.ID); len(statuses) > 0 {
+		r.logExternalMCPStatusLookup(trimmedChatID, trimmedEngineID, latestRun.ID, "live_runtime", statuses, len(runs))
 		return statuses, nil
 	}
-	return loadExternalMCPStatusSnapshot(latestRun.Outputs), nil
+	statuses := loadExternalMCPStatusSnapshot(latestRun.Outputs)
+	r.logExternalMCPStatusLookup(trimmedChatID, trimmedEngineID, latestRun.ID, "persisted_snapshot", statuses, len(runs))
+	return statuses, nil
+}
+
+func buildExternalRuntimeRunFilter(chatID string) agentruns.RunFilter {
+	filter := agentruns.RunFilter{
+		RunType: stringPtr(RunTypeExternalAgent),
+	}
+	if chatID != "" {
+		filter.ChatID = &chatID
+	}
+	return filter
+}
+
+func selectLatestExternalRuntimeRunForEngine(runs []agentruns.Run, engineConfigID string) (agentruns.Run, bool) {
+	if len(runs) == 0 || strings.TrimSpace(engineConfigID) == "" {
+		return agentruns.Run{}, false
+	}
+	matchingRuns := make([]agentruns.Run, 0, len(runs))
+	for _, run := range runs {
+		if resolveRunInputString(run, "engineConfigId") != engineConfigID {
+			continue
+		}
+		matchingRuns = append(matchingRuns, run)
+	}
+	return selectLatestRun(matchingRuns)
 }
 
 func (r *Runtime) MCPStatusesForRun(runID string) []mcpx.ServerRuntimeStatus {
@@ -286,6 +310,42 @@ func buildUnknownOpenCodeMCPStatuses(configPath string) []mcpx.ServerRuntimeStat
 	return statuses
 }
 
+func buildUnknownCodexMCPStatuses(configPath string) []mcpx.ServerRuntimeStatus {
+	trimmedPath := strings.TrimSpace(configPath)
+	if trimmedPath == "" {
+		return []mcpx.ServerRuntimeStatus{}
+	}
+	payload, err := loadCodexConfigPayload(trimmedPath)
+	if err != nil {
+		return []mcpx.ServerRuntimeStatus{}
+	}
+	rawServers := ensureAnyMapFromValue(payload["mcp_servers"])
+	if len(rawServers) == 0 {
+		return []mcpx.ServerRuntimeStatus{}
+	}
+	serverIDs := make([]string, 0, len(rawServers))
+	for serverID := range rawServers {
+		if strings.TrimSpace(serverID) == "" {
+			continue
+		}
+		serverIDs = append(serverIDs, serverID)
+	}
+	sort.Strings(serverIDs)
+	statuses := make([]mcpx.ServerRuntimeStatus, 0, len(serverIDs))
+	for _, serverID := range serverIDs {
+		entry := ensureAnyMapFromValue(rawServers[serverID])
+		statuses = append(statuses, mcpx.ServerRuntimeStatus{
+			ServerID:  serverID,
+			Source:    externalMCPStatusSource,
+			Transport: resolveExternalTransport(entry),
+			Endpoint:  resolveExternalEndpoint(entry),
+			State:     mcpx.RuntimeStateUnknown,
+			ToolCount: resolveExternalToolCount(entry),
+		})
+	}
+	return statuses
+}
+
 func buildExternalMCPStatusesFromPayload(payload any, allowGenericServerContainers bool, timeNow func() time.Time) []mcpx.ServerRuntimeStatus {
 	rows := extractExternalStatusPayloads(payload, allowGenericServerContainers)
 	if len(rows) == 0 {
@@ -398,7 +458,56 @@ func resolveExternalToolCount(server map[string]any) int {
 	if tools, ok := server["tools"].([]any); ok {
 		return len(tools)
 	}
+	for _, key := range []string{"enabled_tools", "enabledTools"} {
+		switch value := server[key].(type) {
+		case []any:
+			return len(value)
+		case []string:
+			return len(value)
+		}
+	}
 	return 0
+}
+
+func (r *Runtime) logExternalMCPStatusLookup(chatID string, engineConfigID string, runID string, source string, statuses []mcpx.ServerRuntimeStatus, candidateRunCount int) {
+	if r == nil || r.logger == nil {
+		return
+	}
+	r.logger.Debug(
+		"resolved external MCP runtime status",
+		slog.String("trace_event", "external_mcp_runtime_status_resolved"),
+		slog.String("chat_id", chatID),
+		slog.String("engine_config_id", engineConfigID),
+		slog.String("selected_run_id", runID),
+		slog.String("status_source", source),
+		slog.Int("candidate_run_count", candidateRunCount),
+		slog.Any("status_summary", summarizeMCPStatuses(statuses)),
+	)
+}
+
+func summarizeMCPStatuses(statuses []mcpx.ServerRuntimeStatus) []map[string]any {
+	if len(statuses) == 0 {
+		return []map[string]any{}
+	}
+	summary := make([]map[string]any, 0, len(statuses))
+	for _, status := range statuses {
+		entry := map[string]any{
+			"serverId":  status.ServerID,
+			"source":    status.Source,
+			"transport": status.Transport,
+			"state":     status.State,
+			"toolCount": status.ToolCount,
+			"endpoint":  status.Endpoint,
+		}
+		if status.LastError != nil && strings.TrimSpace(*status.LastError) != "" {
+			entry["lastError"] = strings.TrimSpace(*status.LastError)
+		}
+		if status.MissingEnvVar != nil && strings.TrimSpace(*status.MissingEnvVar) != "" {
+			entry["missingEnvVar"] = strings.TrimSpace(*status.MissingEnvVar)
+		}
+		summary = append(summary, entry)
+	}
+	return summary
 }
 
 func resolveExternalLastError(server map[string]any) *string {

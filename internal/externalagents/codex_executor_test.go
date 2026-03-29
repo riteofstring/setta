@@ -71,6 +71,50 @@ func TestCodexExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	}
 }
 
+func TestCodexExecutorPersistsConfigDerivedMCPStatusSnapshotWhenProbeReturnsEmpty(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "complete")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello from Codex"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
+	if !ok || len(rawSnapshot) != 1 {
+		t.Fatalf("expected config-derived MCP snapshot, got %#v", persisted.Outputs)
+	}
+	statuses, err := fixture.runtime.ExternalRuntimeStatuses(stringPtr(result.ChatID), stringPtr(fixture.engineID))
+	if err != nil {
+		t.Fatalf("read external runtime statuses: %v", err)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("expected one external runtime status, got %#v", statuses)
+	}
+	if statuses[0].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected streamable_http transport, got %#v", statuses[0])
+	}
+	if statuses[0].State != mcpx.RuntimeStateUnknown {
+		t.Fatalf("expected unknown runtime state for config-derived snapshot, got %#v", statuses[0])
+	}
+	if statuses[0].ToolCount != len(fixture.settaToolNames) {
+		t.Fatalf("expected config-derived tool count %d, got %#v", len(fixture.settaToolNames), statuses[0])
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestCodexExecutorResumesExplicitThreadIDAndPersistsIt(t *testing.T) {
 	// These tests launch nested subprocess fixtures, so keep them serial.
 	fixture := newCodexExecutorFixture(t, "complete")
@@ -451,8 +495,101 @@ func TestCodexExecutorIgnoresSlowMCPStatusProbeAndCompletesRun(t *testing.T) {
 	if persisted.Status != agentruns.RunStatusCompleted {
 		t.Fatalf("expected completed status, got %#v", persisted)
 	}
-	if _, ok := persisted.Outputs[externalMCPStatusSnapshotKey]; ok {
-		t.Fatalf("expected slow MCP status probe to be skipped, got %#v", persisted.Outputs[externalMCPStatusSnapshotKey])
+	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
+	if !ok || len(rawSnapshot) != 1 {
+		t.Fatalf("expected config-derived MCP snapshot during slow probe, got %#v", persisted.Outputs)
+	}
+	statuses, err := fixture.runtime.ExternalRuntimeStatuses(stringPtr(result.ChatID), stringPtr(fixture.engineID))
+	if err != nil {
+		t.Fatalf("read external runtime statuses after slow probe: %v", err)
+	}
+	if len(statuses) != 1 || statuses[0].Transport != mcpx.TransportStreamableHTTP {
+		t.Fatalf("expected config-derived streamable_http status after slow probe, got %#v", statuses)
+	}
+	if statuses[0].ToolCount != len(fixture.settaToolNames) {
+		t.Fatalf("expected config-derived tool count %d after slow probe, got %#v", len(fixture.settaToolNames), statuses)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorRefreshesMCPStatusAtCompletionWhenRuntimeStatusAppearsLate(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "late_status")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start late-status codex run: %v", err)
+	}
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
+	if !ok || len(rawSnapshot) != 1 {
+		t.Fatalf("expected MCP snapshot, got %#v", persisted.Outputs)
+	}
+	statuses, err := fixture.runtime.ExternalRuntimeStatuses(stringPtr(result.ChatID), stringPtr(fixture.engineID))
+	if err != nil {
+		t.Fatalf("read external runtime statuses after completion refresh: %v", err)
+	}
+	if len(statuses) != 1 {
+		t.Fatalf("expected one external runtime status, got %#v", statuses)
+	}
+	if statuses[0].State != mcpx.RuntimeStateConnected {
+		t.Fatalf("expected connected runtime state after completion refresh, got %#v", statuses[0])
+	}
+	if statuses[0].ToolCount != 4 {
+		t.Fatalf("expected refreshed tool count 4, got %#v", statuses[0])
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorPersistsDelayedMCPStatusAfterRunCompletion(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "delayed_status")
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start delayed-status codex run: %v", err)
+	}
+
+	startedAt := time.Now()
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if elapsed := time.Since(startedAt); elapsed >= 1500*time.Millisecond {
+		t.Fatalf("expected delayed MCP status probe to stay off the terminal run path, run took %s", elapsed)
+	}
+	rawSnapshot, ok := persisted.Outputs[externalMCPStatusSnapshotKey].([]any)
+	if !ok || len(rawSnapshot) != 1 {
+		t.Fatalf("expected initial MCP snapshot, got %#v", persisted.Outputs)
+	}
+
+	connectedStatus := fixture.waitForPersistedExternalMCPStatusState(
+		t,
+		result.Run.ID,
+		mcpx.RuntimeStateConnected,
+	)
+	if connectedStatus.ToolCount != 4 {
+		t.Fatalf("expected delayed connected tool count 4, got %#v", connectedStatus)
 	}
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
@@ -2144,6 +2281,25 @@ func (f codexExecutorFixture) waitForLiveStateCleanup(t *testing.T, runID string
 	t.Fatalf("timed out waiting for live state cleanup on %s", runID)
 }
 
+func (f codexExecutorFixture) waitForPersistedExternalMCPStatusState(t *testing.T, runID string, expectedState mcpx.RuntimeState) mcpx.ServerRuntimeStatus {
+	t.Helper()
+
+	deadline := time.Now().Add(executorFixtureCleanupTimeout)
+	for time.Now().Before(deadline) {
+		run, err := f.runs.Load(runID)
+		if err != nil {
+			t.Fatalf("load run while waiting for MCP status snapshot: %v", err)
+		}
+		statuses := loadExternalMCPStatusSnapshot(run.Outputs)
+		if len(statuses) == 1 && statuses[0].State == expectedState {
+			return statuses[0]
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for run %s MCP snapshot state %q", runID, expectedState)
+	return mcpx.ServerRuntimeStatus{}
+}
+
 func (f codexExecutorFixture) waitForApproval(t *testing.T, runID string, approvalID string) {
 	t.Helper()
 
@@ -2188,6 +2344,7 @@ func runCodexFixtureProcess(scenario string) error {
 	reader.Buffer(make([]byte, 0, 16*1024), codexStdoutBufferSize)
 	writer := bufio.NewWriter(os.Stdout)
 	defer writer.Flush()
+	mcpStatusListCount := 0
 
 	emit := func(payload map[string]any) error {
 		content, err := json.Marshal(payload)
@@ -2287,6 +2444,14 @@ func runCodexFixtureProcess(scenario string) error {
 				if err := emitAssistantTurn(writer, "assistant-slow-status", "Hello from Codex"); err != nil {
 					return err
 				}
+			case "delayed_status":
+				if err := emitAssistantTurn(writer, "assistant-delayed-status", "Hello from Codex"); err != nil {
+					return err
+				}
+			case "late_status":
+				if err := emitAssistantTurn(writer, "assistant-late-status", "Hello from Codex"); err != nil {
+					return err
+				}
 			default:
 				if err := emitAssistantTurn(writer, "assistant-1", "Hello from Codex"); err != nil {
 					return err
@@ -2294,6 +2459,7 @@ func runCodexFixtureProcess(scenario string) error {
 				return nil
 			}
 		case "mcpServerStatus/list":
+			mcpStatusListCount++
 			if scenario == "rich" {
 				if err := emit(map[string]any{
 					"id": payload["id"],
@@ -2315,6 +2481,45 @@ func runCodexFixtureProcess(scenario string) error {
 					return err
 				}
 				return nil
+			}
+			if scenario == "late_status" && mcpStatusListCount > 1 {
+				if err := emit(map[string]any{
+					"id": payload["id"],
+					"result": map[string]any{
+						"servers": []any{
+							map[string]any{
+								"id":        "setta",
+								"connected": true,
+								"transport": "streamable_http",
+								"endpoint":  "http://127.0.0.1:8000/mcp",
+								"toolCount": 4,
+							},
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				continue
+			}
+			if scenario == "delayed_status" {
+				time.Sleep(2 * time.Second)
+				if err := emit(map[string]any{
+					"id": payload["id"],
+					"result": map[string]any{
+						"servers": []any{
+							map[string]any{
+								"id":        "setta",
+								"connected": true,
+								"transport": "streamable_http",
+								"endpoint":  "http://127.0.0.1:8000/mcp",
+								"toolCount": 4,
+							},
+						},
+					},
+				}); err != nil {
+					return err
+				}
+				continue
 			}
 			if scenario == "slow_status" {
 				time.Sleep(4 * time.Second)

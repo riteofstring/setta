@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,19 +28,20 @@ import (
 )
 
 const (
-	codexConfigFileName       = "config.toml"
-	codexAppServerArg         = "app-server"
-	codexSettingsRootName     = "external_agent_settings"
-	codexStdoutBufferSize     = 1024 * 1024
-	codexRequestTimeout       = 15 * time.Second
-	codexShutdownTimeout      = 5 * time.Second
-	codexLoginTimeout         = 20 * time.Second
-	codexMCPStatusTimeout     = 1 * time.Second
-	codexMaxStderrLines       = 200
-	codexApprovalToolName     = "setta.approval"
-	codexTurnCompletedMethod  = "turn/completed"
-	codexTurnFailedMethod     = "turn/failed"
-	codexResponseItemEnvelope = "response_item"
+	codexConfigFileName        = "config.toml"
+	codexAppServerArg          = "app-server"
+	codexSettingsRootName      = "external_agent_settings"
+	codexStdoutBufferSize      = 1024 * 1024
+	codexRequestTimeout        = 15 * time.Second
+	codexShutdownTimeout       = 5 * time.Second
+	codexLoginTimeout          = 20 * time.Second
+	codexMCPStatusTimeout      = 1 * time.Second
+	codexMCPStatusProbeTimeout = 5 * time.Second
+	codexMaxStderrLines        = 200
+	codexApprovalToolName      = "setta.approval"
+	codexTurnCompletedMethod   = "turn/completed"
+	codexTurnFailedMethod      = "turn/failed"
+	codexResponseItemEnvelope  = "response_item"
 )
 
 var (
@@ -106,6 +108,7 @@ type CodexExecutorOptions struct {
 	AuthCookieBaseName string
 	RuntimeRoot        string
 	ProcessEnv         map[string]string
+	Logger             *slog.Logger
 	TimeNow            func() time.Time
 }
 
@@ -119,6 +122,7 @@ type CodexExecutor struct {
 	authCookieBaseName string
 	runtimeRoot        string
 	processEnv         map[string]string
+	logger             *slog.Logger
 	timeNow            func() time.Time
 }
 
@@ -153,6 +157,7 @@ func NewCodexExecutor(options CodexExecutorOptions) (*CodexExecutor, error) {
 		authCookieBaseName: auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
 		runtimeRoot:        strings.TrimSpace(options.RuntimeRoot),
 		processEnv:         cloneStringAnyMapToStringMap(options.ProcessEnv),
+		logger:             options.Logger,
 		timeNow:            timeNow,
 	}, nil
 }
@@ -287,7 +292,14 @@ func (e *CodexExecutor) Start(ctx context.Context, request StartRequest) (StartR
 		cancelled:    make(chan struct{}),
 	}
 	startupFailed = false
-	go e.runLoop(request, session, controller, cleanupPaths, threadID)
+	go e.runLoop(
+		request,
+		session,
+		controller,
+		cleanupPaths,
+		threadID,
+		filepath.Join(codexHome, codexConfigFileName),
+	)
 	return StartResponse{Controller: controller}, nil
 }
 
@@ -297,8 +309,11 @@ func (e *CodexExecutor) runLoop(
 	controller *codexRunController,
 	cleanupPaths []string,
 	threadID string,
+	runtimeConfigPath string,
 ) {
+	var backgroundTasks sync.WaitGroup
 	defer func() {
+		backgroundTasks.Wait()
 		_ = controller.Cancel()
 		for _, cleanupPath := range cleanupPaths {
 			if strings.TrimSpace(cleanupPath) == "" {
@@ -322,7 +337,8 @@ func (e *CodexExecutor) runLoop(
 		_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 		return
 	}
-	e.captureMCPStatuses(session, request.Run.ID)
+	e.seedConfigMCPStatuses(request.Run.ID, runtimeConfigPath)
+	e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, &backgroundTasks)
 
 	for {
 		payload, ok := <-session.events
@@ -332,7 +348,7 @@ func (e *CodexExecutor) runLoop(
 			}
 			return
 		}
-		finished, err := e.handleEvent(request, session, payload, &state, eventState)
+		finished, err := e.handleEvent(request, session, payload, &state, eventState, &backgroundTasks)
 		if err != nil {
 			_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
 			return
@@ -349,6 +365,7 @@ func (e *CodexExecutor) handleEvent(
 	payload map[string]any,
 	state *ChatState,
 	eventState *codexEventState,
+	backgroundTasks *sync.WaitGroup,
 ) (bool, error) {
 	if currentLiveState, err := e.runtime.GetLiveChatState(request.Run.ID); err == nil && currentLiveState != nil {
 		*state = *currentLiveState.Clone()
@@ -407,6 +424,9 @@ func (e *CodexExecutor) handleEvent(
 	switch method {
 	case codexTurnCompletedMethod:
 		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
+		if e.shouldRefreshMCPStatuses(request.Run.ID) {
+			e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, backgroundTasks)
+		}
 		usagePayload := e.readThreadTokenUsage(session, session.threadID())
 		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusCompleted, nil, *state, session.threadID(), usagePayload); err != nil {
 			return false, err
@@ -422,6 +442,9 @@ func (e *CodexExecutor) handleEvent(
 			}
 		}
 		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
+		if e.shouldRefreshMCPStatuses(request.Run.ID) {
+			e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, backgroundTasks)
+		}
 		usagePayload := e.readThreadTokenUsage(session, session.threadID())
 		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusFailed, errorPayload, *state, session.threadID(), usagePayload); err != nil {
 			return false, err
@@ -590,16 +613,107 @@ func (e *CodexExecutor) loadCurrentChatState(run agentruns.Run) (ChatState, erro
 	return *cloned, nil
 }
 
-func (e *CodexExecutor) captureMCPStatuses(session *codexSession, runID string) {
-	statusCtx, cancel := context.WithTimeout(context.Background(), codexMCPStatusTimeout)
+func (e *CodexExecutor) seedConfigMCPStatuses(runID string, configPath string) {
+	statuses := buildUnknownCodexMCPStatuses(configPath)
+	if len(statuses) == 0 {
+		e.logMCPStatusSummary("codex_mcp_status_seed_skipped", runID, "config_seed", []mcpx.ServerRuntimeStatus{}, nil)
+		return
+	}
+	if err := e.runtime.UpsertMCPStatuses(runID, statuses); err != nil && !errors.Is(err, ErrRunNotActive) {
+		e.logMCPStatusSummary("codex_mcp_status_seed_failed", runID, "config_seed", statuses, err)
+		return
+	}
+	e.logMCPStatusSummary("codex_mcp_status_seeded", runID, "config_seed", statuses, nil)
+}
+
+func (e *CodexExecutor) scheduleMCPStatusCapture(session *codexSession, runID string, timeout time.Duration, waitGroup *sync.WaitGroup) {
+	if e == nil || session == nil {
+		return
+	}
+	if waitGroup != nil {
+		waitGroup.Add(1)
+	}
+	go func() {
+		if waitGroup != nil {
+			defer waitGroup.Done()
+		}
+		e.captureMCPStatuses(session, runID, timeout)
+	}()
+}
+
+func (e *CodexExecutor) captureMCPStatuses(session *codexSession, runID string, timeout time.Duration) {
+	statusCtx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	statusPayload, err := session.sendRequest(statusCtx, "mcpServerStatus/list", map[string]any{})
 	if err != nil {
+		e.logMCPStatusSummary("codex_mcp_status_probe_failed", runID, "runtime_probe", []mcpx.ServerRuntimeStatus{}, err)
 		return
 	}
-	if err := e.runtime.UpsertMCPStatuses(runID, buildCodexMCPStatuses(statusPayload, e.timeNow)); err != nil && !errors.Is(err, ErrRunNotActive) {
+	statuses := buildCodexMCPStatuses(statusPayload, e.timeNow)
+	if len(statuses) == 0 {
+		e.logMCPStatusSummary("codex_mcp_status_probe_empty", runID, "runtime_probe", statuses, nil)
 		return
 	}
+	if err := e.persistMCPStatuses(runID, statuses); err != nil && !errors.Is(err, ErrRunNotActive) {
+		e.logMCPStatusSummary("codex_mcp_status_probe_upsert_failed", runID, "runtime_probe", statuses, err)
+		return
+	}
+	e.logMCPStatusSummary("codex_mcp_status_probe_applied", runID, "runtime_probe", statuses, nil)
+}
+
+func (e *CodexExecutor) persistMCPStatuses(runID string, statuses []mcpx.ServerRuntimeStatus) error {
+	if e == nil || len(statuses) == 0 {
+		return nil
+	}
+	if err := e.runtime.UpsertMCPStatuses(runID, statuses); err != nil && !errors.Is(err, ErrRunNotActive) {
+		return err
+	}
+	run, err := e.runs.Load(runID)
+	if err != nil {
+		return err
+	}
+	if run.Status != agentruns.RunStatusCompleted && run.Status != agentruns.RunStatusFailed && run.Status != agentruns.RunStatusCancelled {
+		return nil
+	}
+	encoded, err := encodeExternalMCPStatusSnapshot(statuses)
+	if err != nil {
+		return err
+	}
+	run.Outputs = ensureAnyMap(run.Outputs)
+	run.Outputs[externalMCPStatusSnapshotKey] = encoded
+	return e.runs.Save(run)
+}
+
+func (e *CodexExecutor) shouldRefreshMCPStatuses(runID string) bool {
+	if e == nil {
+		return false
+	}
+	statuses := e.runtime.MCPStatusesForRun(runID)
+	if len(statuses) == 0 {
+		return true
+	}
+	for _, status := range statuses {
+		if status.State == mcpx.RuntimeStateUnknown {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *CodexExecutor) logMCPStatusSummary(traceEvent string, runID string, source string, statuses []mcpx.ServerRuntimeStatus, err error) {
+	if e == nil || e.logger == nil {
+		return
+	}
+	attrs := []any{
+		slog.String("trace_event", traceEvent),
+		slog.String("run_id", strings.TrimSpace(runID)),
+		slog.String("status_source", source),
+		slog.Any("status_summary", summarizeMCPStatuses(statuses)),
+	}
+	if err != nil {
+		attrs = append(attrs, slog.String("error", err.Error()))
+	}
+	e.logger.Debug("codex MCP status update", attrs...)
 }
 
 func (e *CodexExecutor) readThreadTokenUsage(session *codexSession, threadID string) map[string]any {

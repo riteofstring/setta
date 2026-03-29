@@ -322,6 +322,74 @@ def test_chrome_repro_collector_splits_transport_details_into_sidecar(
     )
 
 
+def test_chrome_repro_collector_splits_network_response_body_details_into_sidecar(
+    tmp_path: Path,
+) -> None:
+    root = repo_root()
+    artifact_dir = tmp_path / "collector-artifacts"
+    port = pick_free_port()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            str(root / "scripts" / "chrome_repro_collector.py"),
+            "--artifact-dir",
+            str(artifact_dir),
+            "--port",
+            str(port),
+        ],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        wait_for_http_ok(f"http://127.0.0.1:{port}/health")
+        payload = {
+            "sequenceNumber": 8,
+            "event": {
+                "type": "network-response",
+                "requestId": "fetch-1",
+                "transport": "fetch",
+                "method": "POST",
+                "url": "http://127.0.0.1:8019/api/mcpServerRuntimeStatus",
+                "status": 200,
+                "body": {"externalServers": [{"serverId": "setta"}]},
+                "detailBodyText": '{"externalServers":[{"serverId":"setta","state":"unknown"}]}',
+                "detailBodyJson": {
+                    "externalServers": [{"serverId": "setta", "state": "unknown"}]
+                },
+            },
+        }
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{port}/event",
+            method="POST",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert response.status == 200
+    finally:
+        process.send_signal(signal.SIGTERM)
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    transport_payload = json.loads(
+        (artifact_dir / "transport.ndjson").read_text(encoding="utf-8").splitlines()[0]
+    )
+    transport_detail_payload = json.loads(
+        (artifact_dir / "transport_details.ndjson")
+        .read_text(encoding="utf-8")
+        .splitlines()[0]
+    )
+
+    assert "detailBodyText" not in transport_payload["event"]
+    assert "detailBodyJson" not in transport_payload["event"]
+    assert transport_payload["event"]["body"] == {"externalServers": [{"serverId": "setta"}]}
+    assert transport_detail_payload["event"]["requestId"] == "fetch-1"
+    assert transport_detail_payload["event"]["detailBodyJson"]["externalServers"][0]["state"] == "unknown"
+
+
 def test_chrome_repro_collect_llm_artifacts_copies_redacted_external_agent_session(
     tmp_path: Path,
 ) -> None:

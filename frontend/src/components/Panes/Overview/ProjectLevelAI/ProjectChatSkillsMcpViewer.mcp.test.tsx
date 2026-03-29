@@ -11,6 +11,12 @@ import {
 } from "utils/generatedTypes";
 import { ProjectChatSkillsMcpViewer } from "./ProjectChatSkillsMcpViewer";
 
+declare global {
+  interface Window {
+    __SETTA_CHROME_REPRO_ACTIVE__?: boolean;
+  }
+}
+
 const routeMocks = vi.hoisted(() => ({
   getMcpRuntimeStatus: vi.fn(),
 }));
@@ -129,6 +135,7 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
         externalServers: [],
       },
     });
+    window.__SETTA_CHROME_REPRO_ACTIVE__ = false;
   });
 
   afterEach(async () => {
@@ -160,5 +167,175 @@ describe("ProjectChatSkillsMcpViewer MCP rendering", () => {
       '[data-testid="skills-mcp-server-status"]',
     );
     expect(serverStatus?.textContent).toContain("Connected: 8 tools");
+  });
+
+  it("shows live external runtime transport when chat context is absent", async () => {
+    routeMocks.getMcpRuntimeStatus.mockResolvedValue({
+      status: 200,
+      data: {
+        llmConfigPath: "/tmp/setta_files/llm_config.json",
+        activeSettaFilesLocation: "custom",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 8,
+          },
+        ],
+        externalServers: [
+          {
+            serverId: "setta",
+            source: "external_runtime",
+            transport: "streamable_http",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 8,
+          },
+        ],
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <ProjectChatSkillsMcpViewer
+          projectConfigId="project-alpha"
+          chatId={null}
+          engineConfigId="engine-codex"
+          engineType={EngineTypeEnum.external_agent}
+          externalAgentToolType={ExternalAgentToolTypeEnum.codex}
+          viewMode="mcp"
+        />,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(host.textContent).toContain("streamable_http");
+    expect(host.textContent).not.toContain("sse · http://127.0.0.1:8019/mcp");
+  });
+
+  it("keeps the row connected when external runtime status is still unknown", async () => {
+    routeMocks.getMcpRuntimeStatus.mockResolvedValue({
+      status: 200,
+      data: {
+        llmConfigPath: "/tmp/setta_files/llm_config.json",
+        activeSettaFilesLocation: "custom",
+        servers: [
+          {
+            serverId: "setta",
+            source: "setta_mcp",
+            transport: "sse",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "connected",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 79,
+          },
+        ],
+        externalServers: [
+          {
+            serverId: "setta",
+            source: "external_runtime",
+            transport: "streamable_http",
+            endpoint: "http://127.0.0.1:8019/mcp",
+            state: "unknown",
+            lastAttemptAt: null,
+            lastConnectedAt: null,
+            lastFailureAt: null,
+            consecutiveFailures: 0,
+            lastError: null,
+            missingEnvVar: null,
+            toolCount: 79,
+          },
+        ],
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        <ProjectChatSkillsMcpViewer
+          projectConfigId="project-alpha"
+          chatId="chat-alpha"
+          engineConfigId="engine-codex"
+          engineType={EngineTypeEnum.external_agent}
+          externalAgentToolType={ExternalAgentToolTypeEnum.codex}
+          viewMode="mcp"
+        />,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const serverStatus = host.querySelector(
+      '[data-testid="skills-mcp-server-status"]',
+    );
+    const serverDot = host.querySelector('[aria-label="Connected: 79 tools"]');
+    expect(host.textContent).toContain("streamable_http");
+    expect(serverStatus?.textContent).toContain("Connected: 79 tools");
+    expect(serverDot).not.toBeNull();
+  });
+
+  it("publishes MCP runtime status app-state snapshots during repro capture", async () => {
+    window.__SETTA_CHROME_REPRO_ACTIVE__ = true;
+    const postSpy = vi.spyOn(window, "postMessage");
+
+    await act(async () => {
+      root.render(
+        <ProjectChatSkillsMcpViewer
+          projectConfigId="project-alpha"
+          chatId="chat-alpha"
+          engineConfigId="engine-codex"
+          engineType={EngineTypeEnum.external_agent}
+          externalAgentToolType={ExternalAgentToolTypeEnum.codex}
+          viewMode="mcp"
+        />,
+      );
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(postSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: "app-state",
+        kind: "mcp-runtime-status",
+        payload: expect.objectContaining({
+          projectConfigId: "project-alpha",
+          chatId: "chat-alpha",
+          engineConfigId: "engine-codex",
+          response: expect.objectContaining({
+            llmConfigPath: "/tmp/setta_files/llm_config.json",
+            activeSettaFilesLocation: "custom",
+            servers: expect.any(Array),
+            externalServers: expect.any(Array),
+          }),
+        }),
+      }),
+      "*",
+    );
   });
 });

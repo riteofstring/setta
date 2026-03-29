@@ -17,6 +17,7 @@ import {
   groupMcpServersByConfigPath,
   groupSkillsByRootPath,
   reconcileCustomSlashCommands,
+  EXTERNAL_MCP_RUNTIME_SOURCE,
   resolveAgentNativeSlashCommandsByEngineId,
   resolveMcpServerStatus,
   resolveVisibleAgentNativeSlashCommandsByEngineId,
@@ -414,6 +415,38 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(groups[1]?.servers[0]?.serverId).toBe("codex-remote");
   });
 
+  it("prefers live external runtime transport for configured servers", () => {
+    const groups = groupMcpServersByConfigPath({
+      mcpServers: {
+        setta: {
+          transport: "sse",
+          url: "http://127.0.0.1:8019/mcp",
+        },
+      },
+      mcpConfigPath: "/tmp/workspace/setta_files/llm_config.json",
+      settaFilesLocation: "local",
+      externalRuntimeServers: [
+        {
+          serverId: "setta",
+          source: "external_runtime",
+          transport: "streamable_http",
+          endpoint: "http://127.0.0.1:8019/mcp",
+        },
+      ],
+    });
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.configLabel).toBe("Active local setta_files");
+    expect(groups[0]?.servers).toEqual([
+      {
+        serverId: "setta",
+        source: "external_runtime",
+        transport: "streamable_http",
+        endpoint: "http://127.0.0.1:8019/mcp",
+      },
+    ]);
+  });
+
   it("marks runtime connected servers as available", () => {
     const status = resolveMcpServerStatus({
       serverId: "figma-desktop",
@@ -611,6 +644,39 @@ describe("projectChatSkillsMcpViewerUtils", () => {
     expect(settaSourceStatus.color).toBe("green");
     expect(externalSourceStatus.color).toBe("red");
     expect(externalSourceStatus.quickInfo).toContain("auth failed");
+  });
+
+  it("falls back to the setta runtime status when external runtime is unknown", () => {
+    const runtimeStatuses = toRuntimeStatusByServerId([
+      {
+        serverId: "setta",
+        source: SETTA_MCP_RUNTIME_SOURCE,
+        state: "connected",
+        lastError: null,
+        missingEnvVar: null,
+        toolCount: 79,
+      },
+      {
+        serverId: "setta",
+        source: EXTERNAL_MCP_RUNTIME_SOURCE,
+        state: "unknown",
+        lastError: null,
+        missingEnvVar: null,
+        toolCount: 79,
+      },
+    ]);
+
+    const status = resolveMcpServerStatus({
+      serverId: "setta",
+      source: EXTERNAL_MCP_RUNTIME_SOURCE,
+      endpoint: "http://127.0.0.1:8019/mcp",
+      runtimeStatusByServerId: runtimeStatuses,
+      runtimeStatusLoading: false,
+      runtimeStatusError: null,
+    });
+
+    expect(status.color).toBe("green");
+    expect(status.quickInfo).toBe("Connected: 79 tools");
   });
 
   it("builds slash commands by engine using setta/external availability", () => {

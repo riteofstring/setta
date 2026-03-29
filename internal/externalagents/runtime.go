@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 	"sync"
 	"time"
@@ -32,11 +33,13 @@ type RunController interface {
 type RuntimeOptions struct {
 	Runs    *agentruns.RunStore
 	Follow  *FollowService
+	Logger  *slog.Logger
 	TimeNow func() time.Time
 }
 
 type Runtime struct {
 	runs    *agentruns.RunStore
+	logger  *slog.Logger
 	timeNow func() time.Time
 
 	mu          sync.RWMutex
@@ -83,6 +86,7 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	}
 	return &Runtime{
 		runs:        options.Runs,
+		logger:      options.Logger,
 		timeNow:     timeNow,
 		activeRuns:  map[string]runState{},
 		approvals:   map[string]ApprovalState{},

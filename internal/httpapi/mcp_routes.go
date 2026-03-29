@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"setta/internal/mcpx"
@@ -12,6 +14,7 @@ import (
 const RouteMCPServerRuntimeStatus = "/mcpServerRuntimeStatus"
 
 type MCPRouteDependencies struct {
+	Logger                   *slog.Logger
 	ModePolicy               modes.Policy
 	LLMConfigPath            string
 	ActiveSettaFilesLocation string
@@ -70,8 +73,29 @@ func mcpRuntimeStatusHandler(deps MCPRouteDependencies) http.HandlerFunc {
 
 		externalServers, err := externalRuntimeStatuses(payload, deps.ExternalStatusProvider)
 		if err != nil {
+			if deps.Logger != nil {
+				deps.Logger.Debug(
+					"failed to resolve MCP runtime status",
+					slog.String("trace_event", "mcp_runtime_status_failed"),
+					slog.String("request_id", requestIDFromContext(r.Context())),
+					slog.String("chat_id", normalizeOptionalString(payload.ChatID)),
+					slog.String("engine_config_id", normalizeOptionalString(payload.EngineConfigID)),
+					slog.String("error", err.Error()),
+				)
+			}
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Failed to read external MCP runtime status.")
 			return
+		}
+		if deps.Logger != nil {
+			deps.Logger.Debug(
+				"resolved MCP runtime status",
+				slog.String("trace_event", "mcp_runtime_status_resolved"),
+				slog.String("request_id", requestIDFromContext(r.Context())),
+				slog.String("chat_id", normalizeOptionalString(payload.ChatID)),
+				slog.String("engine_config_id", normalizeOptionalString(payload.EngineConfigID)),
+				slog.Int("setta_server_count", len(servers)),
+				slog.Int("external_server_count", len(externalServers)),
+			)
 		}
 
 		writeJSON(w, http.StatusOK, MCPRuntimeStatusResponse{
@@ -88,4 +112,11 @@ func externalRuntimeStatuses(request MCPRuntimeStatusRequest, provider ExternalM
 		return []mcpx.ServerRuntimeStatus{}, nil
 	}
 	return provider.ExternalRuntimeStatuses(request.ChatID, request.EngineConfigID)
+}
+
+func normalizeOptionalString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(*value)
 }

@@ -1201,6 +1201,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalAgentRuntime, err = externalagents.NewRuntime(externalagents.RuntimeOptions{
 			Runs:   agentRunStore,
 			Follow: externalAgentFollow,
+			Logger: logger,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1224,6 +1225,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			AuthCookieBaseName: authService.AuthCookieBaseName(),
 			RuntimeRoot:        cfg.Paths.RuntimeRoot,
 			ProcessEnv:         llmconfig.CurrentProcessEnv(),
+			Logger:             logger,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1881,6 +1883,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				panic(err)
 			}
 			if err := httpapi.RegisterMCPRoutes(r, httpapi.MCPRouteDependencies{
+				Logger:                   logger,
 				ModePolicy:               modePolicy,
 				LLMConfigPath:            mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot),
 				ActiveSettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
