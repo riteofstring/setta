@@ -13709,3 +13709,102 @@ Record:
     - do not spend the next iteration on chat/window microstate hygiene unless a future CDP pass shows it actually diverging between worktree and `main`
 - Next action:
   - Stop this oracle lane and replan the next real production frontier explicitly, likely the first Gate 3 `100%` parity defect or the next measured performance hotspot on the normalized live Pixi canary.
+
+## 2026-04-01 396
+
+- Item: Test whether raising the low-zoom detail glyph cutoff fixes the first Gate 3 top-slice raw-value leak.
+- Status: `blocked`
+- Details:
+  - Tested a bounded production candidate locally:
+    - raised `LIVE_DICT_AREA_PIXI_FORCE_VISIBLE_ROW_FILL_SCREEN_HEIGHT_THRESHOLD` from the shared `4.5` overview cutoff to `6`
+    - updated the focused unit expectation in `liveDictAreaPixiSceneView.test.ts`
+  - Local verification before the oracle check stayed green:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`69 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards"`
+      - result: passed (`1 passed`)
+  - The trusted same-state CDP oracle check contradicted the hypothesis:
+    - fresh-context sub-agent normalized both the worktree live Pixi canary and read-only `main` to the same `All Settings` state
+    - both pages reached the intended canary assumptions:
+      - workspace chrome reset
+      - normalized top-level `All Settings` layout
+      - frontend viewport cleared for refit
+      - zoom-out disabled
+      - `devicePixelRatio=1`
+      - `visualViewport.scale=1`
+      - `nodeCount=46`
+    - after that normalization, the worktree top slice stayed compact while the read-only `main` reference still showed the verbose raw-value dump (`activeBranchId`, `inputText`, `messages`, `code`, `renderedText`, and similar fields)
+    - because `main` remains the renderer oracle, the higher low-zoom cutoff moved the worktree away from the current reference instead of toward it
+  - Reverted the local threshold/test patch after verification so this worktree does not keep an oracle-diverging change staged.
+  - No commit was made for this iteration.
+- Next action:
+  - Return to the trusted normalized same-state Gate 3 comparison and inspect the actual oracle difference directly before another production change; the next slice should determine why the current read-only `main` top slice exposes the raw-value dump and whether the real fix belongs in the renderer, the canary state path, or the reference-route selection rather than in another low-zoom glyph threshold tweak.
+
+## 2026-04-01 397
+
+- Item: Determine whether the post-`aireset` Gate 3 `All Settings` visible-slice mismatch is a trustworthy renderer defect or an oracle/data-state mismatch.
+- Status: `blocked`
+- Details:
+  - Started from item `396` and used the one allowed local lifecycle recovery because the first fresh CDP sub-agent could not reach chrome-devtools-mcp:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime values afterward via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+      - `pnpm -C frontend cdp-port`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+      - `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port`
+  - Fresh-context Chrome DevTools MCP comparison after that restart still found a visible mismatch after the same-state normalization/refit flow:
+    - worktree active view mode was confirmed to be `All Settings`, so this was not a missed-tab-click failure
+    - worktree top visible slice stayed on the more compact reset-runtime state, while the read-only `main` reference still exposed the wider `textAreaParamCodeObjDefault` / `dropzoneParamCodeObjDefault` / `promptSectionDefault` slice
+    - the sub-agent also confirmed the viewport/zoom matched, so this was not simple zoom drift
+  - Additional evidence showed the compared runtimes no longer shared the same underlying settings-project content after the required recovery:
+    - worktree live settings project after `aireset`: `/Users/jeff/Documents/_projects/setta.pixijs-rewrite/setta_files_dev/setta-settings-project.json` (`661443` bytes)
+    - read-only `main` live settings project: `/Users/jeff/Documents/_projects/setta/setta_files_dev/setta-settings-project.json` (`1343389` bytes)
+    - the worktree reset therefore re-seeded a much smaller default live settings project while the `main` oracle kept a materially larger persisted one
+  - Read the source-of-truth settings-project builder in `backend/setta/project_state/settings_project.py`:
+    - the canonical `All Settings` layout is rebuilt from the current `SettingsState` field order and current measured section sizes
+    - after a forced `aireset`, the worktree is no longer on the same live data state as `main`, so the current Gate 3 top-slice mismatch cannot be treated as a trustworthy renderer-only defect
+  - A narrow Playwright rerun of the same-state live-Pixi-versus-`main` visible-slice test did not give a trustworthy recovery path either:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear"`
+    - result: blocked in Playwright global setup because the fresh worktree bootstrap URL returned `401` before the redirect completed
+  - Conclusion:
+    - the remaining next step is oracle/data-state normalization after lifecycle resets, not a trustworthy production renderer fix
+    - because the last completed iterations were already support/oracle-heavy, do not spend a third consecutive iteration on harness/oracle hygiene; stop for replan instead
+- Next action:
+  - Replan the Gate 3 lane around a stable shared data-state strategy for `main` versus worktree after lifecycle recovery, then return to the next real renderer/parity defect only once the oracle is trustworthy again.
+
+LOOP_TERMINAL_MARKER: replan_required
+
+## 2026-04-01 398
+
+- Item: Land a deterministic shared-state replay path for the live Pixi versus `main` `All Settings` canary after lifecycle resets.
+- Status: `done`
+- Details:
+  - Added reusable e2e helpers so the canary can capture the currently rendered frontend project-state snapshot from one runtime and replay it into another runtime via `loadProjectState`:
+    - `frontend/tests/e2e/helpers.ts`
+  - Updated the live Pixi versus `main` visible-slice canary to stop assuming the worktree and `main` share the same persisted settings-project file after `aireset`:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the test now captures the rendered `main` frontend project-state snapshot after opening `All Settings`
+    - it replays that exact snapshot into the worktree Pixi page before the normalized visible-slice comparison
+    - this isolates renderer drift from backend seed-state drift
+  - Needed one bounded lifecycle recovery because the first fresh-context CDP sub-agent hit an expired worktree bootstrap token:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - refreshed runtime values via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+      - `pnpm -C frontend cdp-port`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+      - `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port`
+  - Verification:
+    - Playwright before recovery:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear"`
+      - result: passed
+    - Playwright after recovery with refreshed worktree and `main` bootstrap URLs:
+      - same command shape with refreshed tokens
+      - result: passed
+    - Chrome DevTools MCP visual check via fresh-context sub-agent after replaying the `main` snapshot into the restarted worktree page and then applying the same chrome reset, `All Settings` normalization, and viewport clear on both runtimes:
+      - result: passed
+      - worktree and `main` matched on the normalized top visible slice with only subpixel drift
+      - no clear Gate 1 mismatch remained once the shared-state replay path was used
+- Next action:
+  - Use this restored trusted same-state canary path to identify the next real live Pixi renderer/parity defect instead of spending another iteration on oracle-only support work.
+
+LOOP_TERMINAL_MARKER: none

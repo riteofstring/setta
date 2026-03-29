@@ -21,6 +21,7 @@ import {
 import { LIVE_DICT_AREA_RENDERER_QUERY_PARAM } from "../../../src/components/Section/Layouts/liveDictAreaRendererMode";
 import { createSettingsState } from "../../../src/utils/generatedTypes";
 import {
+  captureCurrentFrontendProjectStateSnapshot,
   clearCurrentProjectViewportForRefit,
   ensureAppReady,
   getCurrentProjectConfigId,
@@ -28,6 +29,7 @@ import {
   postBackend,
   readActiveBackendOrigin,
   readProjectWorkspaceChromeLayout,
+  replayFrontendProjectStateSnapshot,
   readVisibleProjectChatChrome,
   resetProjectWorkspaceChromeToDefaultLayout,
 } from "../helpers";
@@ -2944,8 +2946,19 @@ test("all settings live Pixi canary and the read-only main reference share the s
   const mainReferencePage = await browser.newPage();
 
   try {
-    await openAllSettingsLivePixiCanary(canaryPage);
     await openAllSettingsMainReference(mainReferencePage);
+    await openAllSettingsLivePixiCanary(canaryPage);
+
+    // After lifecycle resets the worktree can reseed a smaller default
+    // settings project than the long-lived read-only main reference. Replay
+    // the rendered main project snapshot into the worktree canary so this
+    // parity check isolates renderer drift instead of backend seed drift.
+    const mainReferenceProjectStateSnapshot =
+      await captureCurrentFrontendProjectStateSnapshot(mainReferencePage);
+    await replayFrontendProjectStateSnapshot(
+      canaryPage,
+      mainReferenceProjectStateSnapshot,
+    );
 
     // The live Pixi canary intentionally does a frontend-only first-load refit,
     // so compare it against the main oracle only after both routes are on the

@@ -1117,6 +1117,30 @@ export async function loadProjectConfig(
   return response;
 }
 
+export async function captureCurrentFrontendProjectStateSnapshot(
+  page: Page,
+): Promise<string> {
+  return page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    return JSON.stringify(useProjectState.getState());
+  });
+}
+
+export async function replayFrontendProjectStateSnapshot(
+  page: Page,
+  serializedProjectState: string,
+): Promise<void> {
+  await page.evaluate(async (rawProjectState: string) => {
+    const { loadProjectState } = await import(
+      "/src/state/actions/project/loadProject.ts"
+    );
+    await loadProjectState(JSON.parse(rawProjectState));
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  }, serializedProjectState);
+}
+
 export async function createCallableSection(
   page: Page,
   projectConfigId: string,
