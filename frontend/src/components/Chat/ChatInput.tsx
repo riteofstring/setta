@@ -674,6 +674,7 @@ export const ChatInput = memo(function ChatInput({
   const inputValue = isControlled ? value : internalValue;
   const slashCommandRecognitionSet = recognizedSlashCommands ?? slashCommands;
   const inputValueRef = useRef(inputValue);
+  const attachmentsRef = useRef<ChatFileAttachment[]>([]);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const providerRecorderRef = useRef<MediaRecorder | null>(null);
@@ -686,6 +687,8 @@ export const ChatInput = memo(function ChatInput({
   const escClearedComposerDraftRef = useRef<EscClearedComposerDraft | null>(
     null,
   );
+  const optimisticSubmitTokenRef = useRef(0);
+  const activeOptimisticSubmitTokenRef = useRef<number | null>(null);
   const componentMountedRef = useRef(true);
   const queuedReplayInputsSignatureRef = useRef<string | null>(null);
   const isDisabled = disabled;
@@ -731,8 +734,13 @@ export const ChatInput = memo(function ChatInput({
   } = useChatAttachmentManager({ disabled: isDisabled });
   const isSubmitDisabled = submitDisabled || isDisabled || isUploading;
 
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
   const setInputValue = useCallback(
     (nextValue: string) => {
+      inputValueRef.current = nextValue;
       if (isControlled) {
         onChange?.(nextValue);
         return;
@@ -761,6 +769,110 @@ export const ChatInput = memo(function ChatInput({
     submittedHistoryDraftBeforeSelectionRef.current = null;
     setInputValue("");
   }, [setInputValue]);
+
+  const clearComposerForOptimisticSubmit = useCallback((): number => {
+    optimisticSubmitTokenRef.current += 1;
+    const submitToken = optimisticSubmitTokenRef.current;
+    activeOptimisticSubmitTokenRef.current = submitToken;
+    escClearedComposerDraftRef.current = null;
+    clearInput();
+    attachmentsRef.current = [];
+    clearAttachments();
+    return submitToken;
+  }, [clearAttachments, clearInput]);
+
+  const finalizeOptimisticSubmit = useCallback((submitToken: number) => {
+    if (activeOptimisticSubmitTokenRef.current === submitToken) {
+      activeOptimisticSubmitTokenRef.current = null;
+    }
+  }, []);
+
+  const restoreOptimisticallyClearedDraft = useCallback(
+    ({
+      draft,
+      submitToken,
+    }: {
+      draft: EscClearedComposerDraft;
+      submitToken: number;
+    }): boolean => {
+      if (activeOptimisticSubmitTokenRef.current !== submitToken) {
+        return false;
+      }
+      if (
+        inputValueRef.current.trim().length > 0 ||
+        attachmentsRef.current.length > 0
+      ) {
+        return false;
+      }
+      activeOptimisticSubmitTokenRef.current = null;
+      setSelectedSubmittedMessageIndex(null);
+      submittedHistoryDraftBeforeSelectionRef.current = null;
+      const restoredAttachments = cloneAttachments(draft.attachments);
+      setInputValue(draft.message);
+      attachmentsRef.current = restoredAttachments;
+      replaceAttachments(restoredAttachments);
+      requestAnimationFrame(() => {
+        const node = textareaRef.current;
+        if (!node) {
+          return;
+        }
+        const end = draft.message.length;
+        node.focus();
+        node.setSelectionRange(end, end);
+      });
+      return true;
+    },
+    [replaceAttachments, setInputValue],
+  );
+
+  const submitRemotely = useCallback(
+    async ({
+      draftToRestore,
+      message,
+      submittedAttachments,
+      options,
+      fallbackFailureResult,
+    }: {
+      draftToRestore?: EscClearedComposerDraft;
+      message: string;
+      submittedAttachments: ChatFileAttachment[];
+      options?: ChatSubmitOptions;
+      fallbackFailureResult: Exclude<ChatSubmitDispatchResult, "submitted">;
+    }): Promise<ChatSubmitDispatchResult> => {
+      const submissionDraft: EscClearedComposerDraft = draftToRestore ?? {
+        message,
+        attachments: cloneAttachments(submittedAttachments),
+      };
+      const submitToken = clearComposerForOptimisticSubmit();
+      try {
+        const submitOutcome = resolveChatSubmitDispatchResult(
+          await onSubmit(message, submittedAttachments, options),
+          fallbackFailureResult,
+        );
+        if (submitOutcome === "submitted") {
+          finalizeOptimisticSubmit(submitToken);
+          return "submitted";
+        }
+        restoreOptimisticallyClearedDraft({
+          draft: submissionDraft,
+          submitToken,
+        });
+        return submitOutcome;
+      } catch (error) {
+        restoreOptimisticallyClearedDraft({
+          draft: submissionDraft,
+          submitToken,
+        });
+        throw error;
+      }
+    },
+    [
+      clearComposerForOptimisticSubmit,
+      finalizeOptimisticSubmit,
+      onSubmit,
+      restoreOptimisticallyClearedDraft,
+    ],
+  );
 
   const submittedMessageHistoryEntries = useMemo(() => {
     const seen = new Set<string>();
@@ -1030,41 +1142,35 @@ export const ChatInput = memo(function ChatInput({
           setSlashFeedback(imageAttachmentError);
           return "failed";
         }
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(
-            submission.message,
-            submission.attachments,
-            resolveSlashCommandSubmitOptions(parsed),
-          ),
-          "retry_later",
-        );
+        const submitted = await submitRemotely({
+          draftToRestore: {
+            message,
+            attachments: cloneAttachments(submittedAttachments),
+          },
+          message: submission.message,
+          submittedAttachments: submission.attachments,
+          options: resolveSlashCommandSubmitOptions(parsed),
+          fallbackFailureResult: "retry_later",
+        });
         if (submitted !== "submitted") {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
           return submitted;
         }
         setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
         return "submitted";
       }
       if (parsed.action === "native_prompt") {
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(
-            message,
-            submittedAttachments,
-            resolveSlashCommandSubmitOptions(parsed),
-          ),
-          "retry_later",
-        );
+        const submitted = await submitRemotely({
+          message,
+          submittedAttachments,
+          options: resolveSlashCommandSubmitOptions(parsed),
+          fallbackFailureResult: "retry_later",
+        });
         if (submitted !== "submitted") {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
           return submitted;
         }
         setSlashFeedback(`Submitted ${parsed.command}`);
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
         return "submitted";
       }
       if (!onSlashCommand) {
@@ -1105,14 +1211,20 @@ export const ChatInput = memo(function ChatInput({
           setSlashFeedback(imageAttachmentError);
           return "failed";
         }
-        const submitted = resolveChatSubmitDispatchResult(
-          await onSubmit(submission.message, submission.attachments, {
+        const submitted = await submitRemotely({
+          draftToRestore: {
+            message,
+            attachments: cloneAttachments(submittedAttachments),
+          },
+          message: submission.message,
+          submittedAttachments: submission.attachments,
+          options: {
             appGeneration: {
               mode: slashResult.appGenerationMode,
             },
-          }),
-          "retry_later",
-        );
+          },
+          fallbackFailureResult: "retry_later",
+        });
         if (submitted !== "submitted") {
           setSlashFeedback(`Failed to submit ${parsed.command}.`);
           return submitted;
@@ -1120,9 +1232,6 @@ export const ChatInput = memo(function ChatInput({
         setSlashFeedback(
           slashResult.feedback ?? `Submitted ${parsed.command}.`,
         );
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
         return "submitted";
       }
       setSlashFeedback(slashResult?.feedback ?? `Ran ${parsed.command}`);
@@ -1244,24 +1353,22 @@ export const ChatInput = memo(function ChatInput({
       if (trimmedInput.length === 0 && submittedAttachments.length === 0) {
         return "failed";
       }
-      const result = await onSubmit(submittedValue, submittedAttachments);
-      const submitOutcome = resolveChatSubmitDispatchResult(result, "failed");
+      const submitOutcome = await submitRemotely({
+        message: submittedValue,
+        submittedAttachments,
+        fallbackFailureResult: "failed",
+      });
       if (submitOutcome === "submitted") {
-        escClearedComposerDraftRef.current = null;
-        clearInput();
-        clearAttachments();
         return "submitted";
       }
       return submitOutcome;
     },
     [
-      clearAttachments,
-      clearInput,
       enqueueDraft,
       isSubmitDisabled,
       onStop,
-      onSubmit,
       runSlashCommand,
+      submitRemotely,
       waitingForResponse,
     ],
   );
