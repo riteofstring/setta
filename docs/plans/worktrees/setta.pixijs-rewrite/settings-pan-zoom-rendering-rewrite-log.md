@@ -8754,6 +8754,41 @@ Record:
 - Next action:
   - Debug why the restarted live canary mounts Pixi canvases but never exposes populated row/value body content, starting from the live boundary/data path on the running worktree instead of doing more probe-only or text-resolution-only tweaks.
 
+## 2026-03-29 270
+
+- Item: Remove the live Pixi scene's internal text-style sample labels from the canary DOM so headed CDP checks stop reading placeholder body text.
+- Status: `done`
+- Details:
+  - Took the next bounded verification-unblocking slice directly from the fresh headed CDP comparison instead of another forwarding hop:
+    - the canary card DOM was still exposing the internal style-sample strings `Inputs`, `Viewport`, and `Default Zoom Level`
+    - those labels came from the hidden text-style probe nodes inside `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`, not from the actual rendered Pixi card body
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+  - The live Pixi scene now:
+    - keeps the hidden font/style probe elements and their refs intact for computed-style reads
+    - removes the placeholder sample text content from those hidden probes so fresh headed CDP checks no longer confuse them with live card/body content
+    - leaves the current Pixi draw path unchanged while making the canary DOM/a11y surface a cleaner match for real card verification
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`21 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Playwright:
+    - earlier in this iteration, before the final DOM-only follow-up, the narrowed live-Pixi host/zoom slice passed on the current runtime:
+      - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: passed (`2 passed`)
+    - post-change retry:
+      - same command
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` after the current bootstrap token expired with `401`
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings` and `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - both pages loaded authenticated
+    - the first canary card no longer exposed the placeholder strings `INPUTS`, `Viewport`, or `Default Zoom Level` in the DOM/body text or outer HTML
+    - the checked settings workspace remained reachable with no auth wall or new visual regression introduced by this cleanup
+- Next action:
+  - Resume the real live Pixi parity lane on the now-cleaner canary surface, focusing on the remaining actual card/body drift instead of hidden DOM sample text.
+
 ## 2026-03-29 269
 
 - Item: Ignore pathological tiny live Pixi height clamps so the visible All Settings canary cannot collapse to a separator-only canvas.

@@ -343,15 +343,9 @@ function _LiveDictAreaPixiScene({
         <p
           className="text-[0.5rem] font-bold uppercase"
           ref={edgeLabelTextStyleRef}
-        >
-          Inputs
-        </p>
-        <span className="text-[0.65rem]" ref={edgeRowTextStyleRef}>
-          Viewport
-        </span>
-        <p className="font-sans text-xs font-semibold" ref={rowTextStyleRef}>
-          Default Zoom Level
-        </p>
+        />
+        <span className="text-[0.65rem]" ref={edgeRowTextStyleRef} />
+        <p className="font-sans text-xs font-semibold" ref={rowTextStyleRef} />
       </div>
       <div
         className="section-w-full"
