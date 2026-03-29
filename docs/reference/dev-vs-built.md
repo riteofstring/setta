@@ -28,7 +28,8 @@ This repo has two different runtime shapes: dev (split frontend/backend) and bui
 - Auth bootstrap still happens on the backend, but redirects to `/` (same origin).
 
 ## Scripts and When to Use Them
-- `dev_install.sh`: install deps for local dev (Python + pnpm), then clean build artifacts.
+- `dev_install.sh`: install deps for local dev with frozen lockfiles, then clean build artifacts.
+- `update_dependencies.sh`: explicitly refresh the Python and pnpm lockfiles, then sync/install against the refreshed lock state.
 - `build.sh`: build the frontend bundle and package the backend (`python -m build`).
 - `verify_install.sh`: packaging smoke test (builds, installs the sdist into the venv with `uv pip`, then cleans).
   - Use this when you want to validate the distribution packaging, not for normal dev.

@@ -24,6 +24,12 @@ Resets state + starts:
 ./aireset.sh
 ```
 
+If you changed dependency manifests and need to refresh lockfiles on purpose:
+
+```bash
+./update_dependencies.sh
+```
+
 Reset/start with explicit profile:
 
 ```bash
