@@ -425,7 +425,16 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		codegenValidator = pluginMutationService
 		pluginRouteService = pluginMutationService
 		lspDiagnostics = projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{
+			Logger: logger,
 			OnChange: func(payload projectstate.LSPDiagnosticsPayload) {
+				logger.Debug(
+					"broadcast lsp diagnostics",
+					slog.String("trace_event", "broadcast_lsp_diagnostics"),
+					slog.String("project_id", strings.TrimSpace(payload.ProjectID)),
+					slog.Int("code_section_count", len(payload.CodeSections)),
+					slog.Int("generated_error_sections", len(payload.GenCode.Errors)),
+					slog.Int("unmapped_generated_diagnostic_count", len(payload.UnmappedGenCode)),
+				)
 				_, _ = websocketHub.BroadcastJSON(
 					context.Background(),
 					realtime.NewLSPDiagnosticsMessage(payload),
@@ -454,6 +463,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			Service:        lspRouter,
 			Diagnostics:    lspDiagnostics,
+			Logger:         logger,
 		})
 		if err != nil {
 			return nil, err
@@ -750,6 +760,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
 				WatchCodeWarnings:  watchCodeWarnings,
 				WebsocketHub:       websocketHub,
+				Logger:             logger,
 			})
 			if err != nil {
 				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())

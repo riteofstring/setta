@@ -191,6 +191,9 @@ summary = {
     "transportEventsFile": session_payload.get(
         "transportEventsFile", str(artifact_dir / "transport.ndjson")
     ),
+    "transportDetailsFile": session_payload.get(
+        "transportDetailsFile", str(artifact_dir / "transport_details.ndjson")
+    ),
     "appStateEventsFile": session_payload.get(
         "appStateEventsFile", str(artifact_dir / "app_state.ndjson")
     ),

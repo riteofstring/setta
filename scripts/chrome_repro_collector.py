@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import copy
 import json
 import signal
 import threading
@@ -31,25 +32,30 @@ class RecorderState:
         self.session_file = self.artifact_dir / "session.json"
         self.console_file = self.artifact_dir / "console.ndjson"
         self.transport_file = self.artifact_dir / "transport.ndjson"
+        self.transport_details_file = self.artifact_dir / "transport_details.ndjson"
         self.app_state_file = self.artifact_dir / "app_state.ndjson"
         self.events_file.write_text("", encoding="utf-8")
         self.console_file.write_text("", encoding="utf-8")
         self.transport_file.write_text("", encoding="utf-8")
+        self.transport_details_file.write_text("", encoding="utf-8")
         self.app_state_file.write_text("", encoding="utf-8")
 
     def append_event(self, payload: dict) -> None:
         with self.lock:
-            self.events.append(payload)
-            event_type = event_type_from_payload(payload)
+            normalized_payload, transport_detail = split_transport_details(payload)
+            self.events.append(normalized_payload)
+            event_type = event_type_from_payload(normalized_payload)
             if event_type is not None:
                 self.event_counts_by_type[event_type] += 1
-            append_ndjson_line(self.events_file, payload)
+            append_ndjson_line(self.events_file, normalized_payload)
             if is_console_event(event_type):
-                append_ndjson_line(self.console_file, payload)
+                append_ndjson_line(self.console_file, normalized_payload)
             if is_transport_event(event_type):
-                append_ndjson_line(self.transport_file, payload)
+                append_ndjson_line(self.transport_file, normalized_payload)
+                if transport_detail is not None:
+                    append_ndjson_line(self.transport_details_file, transport_detail)
             if event_type == "app-state":
-                append_ndjson_line(self.app_state_file, payload)
+                append_ndjson_line(self.app_state_file, normalized_payload)
 
     def write_session_files(self, stop_reason: str) -> None:
         with self.lock:
@@ -62,6 +68,7 @@ class RecorderState:
                 "eventsFile": str(self.events_file),
                 "consoleEventsFile": str(self.console_file),
                 "transportEventsFile": str(self.transport_file),
+                "transportDetailsFile": str(self.transport_details_file),
                 "appStateEventsFile": str(self.app_state_file),
                 "eventCountsByType": dict(sorted(self.event_counts_by_type.items())),
                 "stopReason": stop_reason,
@@ -76,6 +83,7 @@ class RecorderState:
                 "eventsFile": str(self.events_file),
                 "consoleEventsFile": str(self.console_file),
                 "transportEventsFile": str(self.transport_file),
+                "transportDetailsFile": str(self.transport_details_file),
                 "appStateEventsFile": str(self.app_state_file),
                 "eventCountsByType": payload["eventCountsByType"],
                 "recordingFile": str(self.recording_file),
@@ -94,6 +102,54 @@ class RecorderState:
 def append_ndjson_line(path: Path, payload: dict) -> None:
     with path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
+
+
+def split_transport_details(payload: dict) -> tuple[dict, dict | None]:
+    event = payload.get("event")
+    if not isinstance(event, dict):
+        return payload, None
+
+    detail_keys = [
+        key
+        for key in ("detailText", "detailJson", "detailBodyText", "detailBodyJson")
+        if key in event
+    ]
+    if len(detail_keys) == 0:
+        return payload, None
+
+    normalized_payload = copy.deepcopy(payload)
+    normalized_event = normalized_payload.get("event")
+    if not isinstance(normalized_event, dict):
+        return normalized_payload, None
+    for key in detail_keys:
+        normalized_event.pop(key, None)
+
+    detail_event = {
+        key: event.get(key)
+        for key in (
+            "type",
+            "requestId",
+            "transport",
+            "method",
+            "url",
+            "status",
+            "direction",
+            "socketId",
+            "kind",
+            "size",
+        )
+        if key in event
+    }
+    for key in detail_keys:
+        detail_event[key] = event.get(key)
+
+    detail_payload = {
+        key: payload.get(key)
+        for key in ("sequenceNumber", "receivedAt", "tabId", "tabUrl", "frameId")
+        if key in payload
+    }
+    detail_payload["event"] = detail_event
+    return normalized_payload, detail_payload
 
 
 def event_type_from_payload(payload: dict) -> str | None:

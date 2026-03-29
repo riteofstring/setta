@@ -1,6 +1,11 @@
 package projectstate
 
-import "testing"
+import (
+	"bytes"
+	"log/slog"
+	"strings"
+	"testing"
+)
 
 // Duplicate code-section diagnostics should not rebroadcast the same payload.
 func TestLSPDiagnosticsRegistrySkipsDuplicateCodeSectionBroadcast(t *testing.T) {
@@ -246,6 +251,46 @@ func TestLSPDiagnosticsRegistryClearsGeneratedDocumentErrorsWhenEmpty(t *testing
 	}
 	if len(payloads[1].GenCode.Errors) != 0 {
 		t.Fatalf("expected generated errors to clear, got %#v", payloads[1].GenCode.Errors)
+	}
+}
+
+func TestLSPDiagnosticsRegistryLogsGeneratedDocumentDebugSummary(t *testing.T) {
+	t.Parallel()
+
+	var buffer bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	registry := NewLSPDiagnosticsRegistry(LSPDiagnosticsRegistryOptions{
+		Logger: logger,
+	})
+
+	registry.UpdateGeneratedDocument(
+		"project-alpha",
+		GeneratedDiagnosticsDocumentCode,
+		ProjectConfigDiagnostics{
+			ProjectID: "project-alpha",
+			Errors: map[string]SectionTypeErrors{
+				"section-1": {
+					Callable: []string{"callable missing"},
+					Params:   map[string][]string{"param-1": {"bad type", "missing value"}},
+				},
+			},
+			IsGenCode: true,
+		},
+		[]LSPDiagnostic{testLSPDiagnostic("unmapped")},
+	)
+
+	output := buffer.String()
+	if !strings.Contains(output, `"trace_event":"lsp_generated_document_updated"`) {
+		t.Fatalf("expected generated-document trace event in log output, got %q", output)
+	}
+	if !strings.Contains(output, `"project_id":"project-alpha"`) {
+		t.Fatalf("expected project id in log output, got %q", output)
+	}
+	if !strings.Contains(output, `"generated_param_error_count":2`) {
+		t.Fatalf("expected param error summary in log output, got %q", output)
+	}
+	if !strings.Contains(output, `"unmapped_generated_diagnostic_count":1`) {
+		t.Fatalf("expected unmapped summary in log output, got %q", output)
 	}
 }
 

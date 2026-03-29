@@ -1,5 +1,6 @@
 const PAGE_RUNTIME_SOURCE = "setta.chrome-repro-recorder/page-runtime";
 const MAX_STRING_LENGTH = 1000;
+const MAX_DETAIL_TEXT_LENGTH = 250000;
 const MAX_ARRAY_ITEMS = 10;
 const MAX_OBJECT_KEYS = 20;
 const MAX_DEPTH = 3;
@@ -29,6 +30,31 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
       return truncateString(String(value));
     } catch {
       return "[unserializable]";
+    }
+  }
+
+  function captureDetailText(value) {
+    if (typeof value !== "string") {
+      return null;
+    }
+    if (value.length <= MAX_DETAIL_TEXT_LENGTH) {
+      return value;
+    }
+    return `${value.slice(0, MAX_DETAIL_TEXT_LENGTH)}...<truncated>`;
+  }
+
+  function tryParseJsonText(value) {
+    if (typeof value !== "string") {
+      return null;
+    }
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+      return null;
+    }
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return null;
     }
   }
 
@@ -152,12 +178,33 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
     return safeToString(value);
   }
 
+  function bodyDetail(value) {
+    if (typeof value === "string") {
+      return {
+        detailBodyText: captureDetailText(value),
+        detailBodyJson: toSerializable(tryParseJsonText(value)),
+      };
+    }
+    if (
+      typeof URLSearchParams !== "undefined" &&
+      value instanceof URLSearchParams
+    ) {
+      return {
+        detailBodyText: captureDetailText(value.toString()),
+      };
+    }
+    return {};
+  }
+
   function previewMessageData(value) {
     if (typeof value === "string") {
+      const parsed = tryParseJsonText(value);
       return {
         kind: "text",
         size: value.length,
         preview: truncateString(value),
+        detailText: captureDetailText(value),
+        detailJson: toSerializable(parsed),
       };
     }
     if (typeof ArrayBuffer !== "undefined" && value instanceof ArrayBuffer) {
@@ -259,6 +306,7 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
         method,
         url: requestUrl,
         body: previewBody(init?.body ?? null),
+        ...bodyDetail(init?.body ?? null),
       });
       try {
         const response = await originalFetch(input, init);
@@ -320,6 +368,7 @@ if (!window.__SETTA_CHROME_REPRO_PAGE_RUNTIME_INSTALLED__) {
         method: metadata.method,
         url: metadata.url,
         body: previewBody(body),
+        ...bodyDetail(body),
       });
       this.addEventListener(
         "loadend",

@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -8974,6 +8975,152 @@ func TestAppSetCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	}
 }
 
+func TestAppSetCodeRoutePublishesMissingArgDiagnosticsForRootWatchCodeBoundSection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppRealBasedpyright(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	seedAppRootWatchCodeBoundSectionProject(t, app)
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save root watch code bound project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	cookie := newAppTestAuthCookie(t, app)
+
+	recordedStates := []string{
+		"def cool_fn",
+		"def cool_fn()",
+		"def cool_fn(,)",
+		"def cool_fn()",
+		"def cool_fn(a)",
+		"def cool_fn(a,)",
+		"def cool_fn(a,b)",
+		"def cool_fn(a,b,)",
+		"def cool_fn(a,b,c)",
+		"def cool_fn(a,b,c):",
+		"def cool_fn(a,b,c):\n    print(\"dog\")\n",
+	}
+	for _, state := range recordedStates {
+		request, err := http.NewRequest(
+			http.MethodPost,
+			server.URL+"/api"+httpapi.RouteSetCode,
+			strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-main","code":`+strconv.Quote(state)+`}`),
+		)
+		if err != nil {
+			t.Fatalf("new setCode request for %q: %v", state, err)
+		}
+		request.Header.Set("Content-Type", "application/json")
+		request.AddCookie(cookie)
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			t.Fatalf("post setCode for %q: %v", state, err)
+		}
+		if response.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(response.Body)
+			response.Body.Close()
+			t.Fatalf("expected setCode 200 for %q, got %d with body %q", state, response.StatusCode, string(body))
+		}
+		response.Body.Close()
+	}
+
+	waitForAppCondition(t, 15*time.Second, func() bool {
+		payload := fetchAppLatestLSPDiagnostics(t, server.URL, cookie, "project-alpha")
+		if generatedDiagnosticsContain(payload, `Arguments missing for parameters "a", "b", "c"`) {
+			return true
+		}
+		return generatedDiagnosticsContain(payload, "watch_code_test")
+	})
+
+	project := app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	entry, ok := project.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok {
+		t.Fatalf("expected cool_fn watch code entry, got %#v", project.WatchCodeRegistry)
+	}
+
+	payload := fetchAppLatestLSPDiagnostics(t, server.URL, cookie, "project-alpha")
+	paramMessages := watchCodeEntryParamMessagesByName(t, project, entry, payload)
+	for _, paramName := range []string{"a", "b", "c"} {
+		if len(paramMessages[paramName]) == 0 {
+			t.Fatalf("expected generated missing-arg diagnostics for %q, got payload %#v", paramName, payload)
+		}
+	}
+}
+
+func TestAppSavePublishesMissingArgDiagnosticsForExistingRootWatchCodeCallable(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppRealBasedpyright(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	project := watchCodeRootBoundProject(t, "watch_code_test.py")
+	if err := project.SetCode("section-main", "def cool_fn(a,b,c):\n    print(\"dog\")\n"); err != nil {
+		t.Fatalf("set root watch code source: %v", err)
+	}
+	if _, err := project.ApplyWatchCodeBoundSectionUpdate(context.Background(), "section-main", cfg.Paths.WorkspaceRoot, nil); err != nil {
+		t.Fatalf("apply root watch code bound update: %v", err)
+	}
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = project
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed existing root watch code callable project: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save existing root watch code callable project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+	cookie := newAppTestAuthCookie(t, app)
+
+	waitForAppCondition(t, 15*time.Second, func() bool {
+		payload := fetchAppLatestLSPDiagnostics(t, server.URL, cookie, "project-alpha")
+		if generatedDiagnosticsContain(payload, `Arguments missing for parameters "a", "b", "c"`) {
+			return true
+		}
+		return generatedDiagnosticsContain(payload, "watch_code_test")
+	})
+
+	project = app.ProjectStates().Main().Snapshot().Document.Projects["project-alpha"]
+	entry, ok := project.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok {
+		t.Fatalf("expected cool_fn watch code entry after save, got %#v", project.WatchCodeRegistry)
+	}
+	payload := fetchAppLatestLSPDiagnostics(t, server.URL, cookie, "project-alpha")
+	paramMessages := watchCodeEntryParamMessagesByName(t, project, entry, payload)
+	for _, paramName := range []string{"a", "b", "c"} {
+		if len(paramMessages[paramName]) == 0 {
+			t.Fatalf("expected generated missing-arg diagnostics for %q after save, got payload %#v", paramName, payload)
+		}
+	}
+}
+
 func TestAppFormatCodeRouteAppliesWatchCodeBoundSectionUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
@@ -10635,6 +10782,42 @@ func newAppTestAuthCookie(t *testing.T, app *App) *http.Cookie {
 	}
 }
 
+func fetchAppLatestLSPDiagnostics(
+	t *testing.T,
+	serverURL string,
+	cookie *http.Cookie,
+	projectID string,
+) projectstate.LSPDiagnosticsPayload {
+	t.Helper()
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		serverURL+"/api"+httpapi.RouteGetLatestLSPDiagnostics,
+		strings.NewReader(`{"projectConfigId":`+strconv.Quote(projectID)+`}`),
+	)
+	if err != nil {
+		t.Fatalf("new diagnostics request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(cookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post diagnostics request: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected diagnostics 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	var payload projectstate.LSPDiagnosticsPayload
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode diagnostics payload: %v", err)
+	}
+	return payload
+}
+
 func saveAppMainProjectDocument(t *testing.T, cfg config.Config, document projectstate.Document) error {
 	t.Helper()
 
@@ -10992,6 +11175,72 @@ func seedAppWatchCodeBoundSectionProject(t *testing.T, app *App) {
 	}
 }
 
+func seedAppRootWatchCodeBoundSectionProject(t *testing.T, app *App) {
+	t.Helper()
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			WatchCodeFiles:   []string{"watch_code_test.py"},
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload:  mustAppJSON(t, map[string]any{"language": string(projectstate.CodeLanguagePython)}),
+				},
+			},
+			SectionVariantMap: map[string]string{
+				"section-main": "variant-main",
+			},
+			Sections: map[string]projectstate.Section{
+				"section-main": {
+					ID:               "section-main",
+					Name:             "Main",
+					VariantIDs:       []string{"variant-main"},
+					DefaultVariantID: "variant-main",
+					UnsharedKeys:     []string{"code"},
+				},
+			},
+			SectionVariants: map[string]projectstate.SectionVariant{
+				"variant-main": {
+					ID:               "variant-main",
+					ImplID:           "impl-main",
+					NonPresetImplIDs: []string{"impl-main"},
+				},
+			},
+			SectionImpls: map[string]projectstate.SectionImpl{
+				"impl-main": {
+					ID:   "impl-main",
+					Kind: projectstate.SectionKindCode,
+					Code: &projectstate.CodeSectionImpl{
+						Language: projectstate.CodeLanguagePython,
+						Binding: &projectstate.CodeFileBinding{
+							Path:       "watch_code_test.py",
+							AccessMode: projectstate.CodeFileAccessModeReadWrite,
+						},
+					},
+					Payload: mustAppJSON(t, map[string]any{
+						"id":   "impl-main",
+						"type": "Code",
+						"code": "",
+						"codeFileBinding": map[string]any{
+							"canonical_path": "watch_code_test.py",
+							"access_mode":    "read_write",
+						},
+						"codeLanguage": "python",
+						"children":     []string{},
+					}),
+				},
+			},
+		}
+		document.DefaultProjectID = "project-alpha"
+		return document, nil
+	}); err != nil {
+		t.Fatalf("mutate root watch code bound section project: %v", err)
+	}
+}
+
 func prepareAppLSPFixture(t *testing.T) {
 	t.Helper()
 
@@ -11007,6 +11256,14 @@ func prepareAppLSPFixture(t *testing.T) {
 			"mini_language_server.py",
 		),
 	)
+}
+
+func prepareAppRealBasedpyright(t *testing.T) {
+	t.Helper()
+
+	repoRoot := appTestRepoRoot(t)
+	t.Setenv("SETTA_LSP_COMMAND", filepath.Join(repoRoot, ".venv", "bin", "basedpyright-langserver"))
+	t.Setenv("SETTA_LSP_ARGS", "--stdio")
 }
 
 func prepareAppPluginLanguageServerFixture(t *testing.T) {

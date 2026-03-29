@@ -125,6 +125,7 @@ Environment:
   SETTA_CHROME_REPRO_SKIP_DEV_START   Skip launching the local dev instance.
   SETTA_CHROME_REPRO_BOOTSTRAP_URL    Use this bootstrap URL directly.
   SETTA_CHROME_REPRO_DEV_MODE         Dev runner mode: start | startr (default: start)
+  SETTA_CHROME_REPRO_LOG_LEVEL        Backend log level for repro runs (default: debug)
   CHROME_BIN                          Path to Chrome/Chromium binary.
 
 The recorder prefers Playwright's bundled Chrome for Testing when available,
@@ -431,6 +432,7 @@ mkdir -p "${artifact_dir}" "${log_dir}" "${profile_dir}"
 
 : "${SETTA_CHROME_REPRO_SKIP_DEV_START:=0}"
 : "${SETTA_CHROME_REPRO_DEV_MODE:=start}"
+: "${SETTA_CHROME_REPRO_LOG_LEVEL:=debug}"
 
 if [[ -z "${SETTA_HOME:-}" ]]; then
   SETTA_HOME="${DEFAULT_SETTA_HOME}"
@@ -448,6 +450,7 @@ fi
 export SETTA_HOME
 export SETTA_WORKSPACE_ROOT
 export SETTA_NO_OPEN=1
+export SETTA_LOG_LEVEL="${SETTA_CHROME_REPRO_LOG_LEVEL}"
 if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
   export SETTA_FILES_ROOT
 else

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
 
@@ -17,6 +18,10 @@ type boundSectionSynchronizer interface {
 	SyncWatchCodeBoundSection(context.Context, projectstate.WatchCodeBoundSection) error
 }
 
+type projectTypeCheckingSynchronizer interface {
+	TypeCheckProject(context.Context, projectstate.Document, string) error
+}
+
 type codeUpdateService struct {
 	projectState         *projectstate.Runtime
 	lspSync              boundSectionSynchronizer
@@ -24,6 +29,7 @@ type codeUpdateService struct {
 	workspaceRoot        string
 	watchCodeWarnings    *watchCodeWarningTracker
 	frontendWebsocketHub *realtime.WebsocketHub
+	logger               *slog.Logger
 }
 
 type codeUpdateServiceOptions struct {
@@ -33,6 +39,7 @@ type codeUpdateServiceOptions struct {
 	WorkspaceRoot      string
 	WatchCodeWarnings  *watchCodeWarningTracker
 	WebsocketHub       *realtime.WebsocketHub
+	Logger             *slog.Logger
 }
 
 func newCodeUpdateService(options codeUpdateServiceOptions) (*codeUpdateService, error) {
@@ -46,6 +53,7 @@ func newCodeUpdateService(options codeUpdateServiceOptions) (*codeUpdateService,
 		workspaceRoot:        strings.TrimSpace(options.WorkspaceRoot),
 		watchCodeWarnings:    options.WatchCodeWarnings,
 		frontendWebsocketHub: options.WebsocketHub,
+		logger:               options.Logger,
 	}, nil
 }
 
@@ -55,6 +63,7 @@ func (s *codeUpdateService) SetCode(ctx context.Context, projectID string, secti
 	}
 
 	signatureObserver := newWatchCodeSignatureObserver(s.callableSignatures)
+	needsProjectTypeCheck := false
 	snapshot, err := s.projectState.MutateAndSaveReconcilePythonGeneratedSections(
 		ctx,
 		[]string{projectID},
@@ -82,11 +91,17 @@ func (s *codeUpdateService) SetCode(ctx context.Context, projectID string, secti
 			); err != nil {
 				return document, err
 			}
+			needsProjectTypeCheck = true
 			return document, nil
 		},
 	)
 	if err != nil {
 		return err
+	}
+	if needsProjectTypeCheck {
+		if err := s.typeCheckProjects(ctx, snapshot.Document, []string{projectID}); err != nil {
+			return err
+		}
 	}
 
 	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, []string{projectID}, signatureObserver.Attempts())
@@ -144,6 +159,7 @@ func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string,
 	for _, binding := range orderedBindings {
 		projectIDs = append(projectIDs, binding.ProjectID)
 	}
+	typeCheckProjectIDs := map[string]struct{}{}
 	snapshot, err := s.projectState.MutateAndSaveReconcilePythonGeneratedSections(
 		ctx,
 		projectIDs,
@@ -180,6 +196,7 @@ func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string,
 				); err != nil {
 					return document, err
 				}
+				typeCheckProjectIDs[project.ID] = struct{}{}
 				document.Projects[project.ID] = project
 			}
 			return document, nil
@@ -188,8 +205,84 @@ func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string,
 	if err != nil {
 		return err
 	}
+	if err := s.typeCheckProjects(ctx, snapshot.Document, mapKeysSorted(typeCheckProjectIDs)); err != nil {
+		return err
+	}
 
 	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, projectIDs, signatureObserver.Attempts())
+}
+
+func (s *codeUpdateService) typeCheckProjects(
+	ctx context.Context,
+	document projectstate.Document,
+	projectIDs []string,
+) error {
+	if s == nil {
+		return nil
+	}
+	typeChecker, ok := s.lspSync.(projectTypeCheckingSynchronizer)
+	if !ok {
+		if s.logger != nil && len(projectIDs) > 0 {
+			s.logger.Debug(
+				"watch code project typecheck skipped",
+				slog.String("trace_event", "watch_code_project_typecheck_skipped"),
+				slog.Any("project_ids", normalizedProjectIDsForTypeCheck(projectIDs)),
+				slog.String("reason", "synchronizer_does_not_support_typecheck"),
+			)
+		}
+		return nil
+	}
+	normalizedProjectIDs := normalizedProjectIDsForTypeCheck(projectIDs)
+	if s.logger != nil && len(normalizedProjectIDs) > 0 {
+		s.logger.Debug(
+			"watch code project typecheck requested",
+			slog.String("trace_event", "watch_code_project_typecheck_requested"),
+			slog.Any("project_ids", normalizedProjectIDs),
+		)
+	}
+	for _, projectID := range normalizedProjectIDs {
+		if err := typeChecker.TypeCheckProject(ctx, document, projectID); err != nil {
+			return err
+		}
+	}
+	if s.logger != nil && len(normalizedProjectIDs) > 0 {
+		s.logger.Debug(
+			"watch code project typecheck completed",
+			slog.String("trace_event", "watch_code_project_typecheck_completed"),
+			slog.Any("project_ids", normalizedProjectIDs),
+		)
+	}
+	return nil
+}
+
+func normalizedProjectIDsForTypeCheck(projectIDs []string) []string {
+	normalized := make([]string, 0, len(projectIDs))
+	seen := map[string]struct{}{}
+	for _, projectID := range projectIDs {
+		trimmedProjectID := strings.TrimSpace(projectID)
+		if trimmedProjectID == "" {
+			continue
+		}
+		if _, ok := seen[trimmedProjectID]; ok {
+			continue
+		}
+		seen[trimmedProjectID] = struct{}{}
+		normalized = append(normalized, trimmedProjectID)
+	}
+	sort.Strings(normalized)
+	return normalized
+}
+
+func mapKeysSorted(input map[string]struct{}) []string {
+	if len(input) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(input))
+	for key := range input {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func (s *codeUpdateService) broadcastWatchCodeWarnings(

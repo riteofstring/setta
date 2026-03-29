@@ -58,7 +58,7 @@ def start_ok_server() -> tuple[ThreadingHTTPServer, threading.Thread, str]:
     return server, thread, f"http://127.0.0.1:{port}"
 
 
-def build_record_chrome_sandbox(tmp_path: Path) -> tuple[Path, Path, Path]:
+def build_record_chrome_sandbox(tmp_path: Path) -> tuple[Path, Path, Path, Path]:
     root = repo_root()
     sandbox_root = tmp_path / "record_chrome_sandbox"
     scripts_dir = sandbox_root / "scripts"
@@ -88,6 +88,7 @@ def build_record_chrome_sandbox(tmp_path: Path) -> tuple[Path, Path, Path]:
 
     reset_capture_args = sandbox_root / "reset_args.txt"
     reset_capture_env = sandbox_root / "reset_env.txt"
+    dev_instance_env = sandbox_root / "dev_instance_env.txt"
     write_stub_executable(
         scripts_dir / "reset-setta-state.sh",
         f"""#!/usr/bin/env bash
@@ -98,13 +99,14 @@ printf '%s' "$*" > "{reset_capture_args}"
     )
     write_stub_executable(
         scripts_dir / "run-dev-instance.sh",
-        """#!/usr/bin/env bash
+        f"""#!/usr/bin/env bash
 set -euo pipefail
+env | sort > "{dev_instance_env}"
 sleep 60
 """,
     )
 
-    return sandbox_root, reset_capture_args, reset_capture_env
+    return sandbox_root, reset_capture_args, reset_capture_env, dev_instance_env
 
 
 def test_chrome_repro_collector_writes_recording_json_on_shutdown(tmp_path: Path) -> None:
@@ -218,15 +220,12 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
     session_payload = json.loads(
         (artifact_dir / "session.json").read_text(encoding="utf-8")
     )
-    console_lines = (artifact_dir / "console.ndjson").read_text(
-        encoding="utf-8"
-    ).splitlines()
-    transport_lines = (artifact_dir / "transport.ndjson").read_text(
-        encoding="utf-8"
-    ).splitlines()
-    app_state_lines = (artifact_dir / "app_state.ndjson").read_text(
-        encoding="utf-8"
-    ).splitlines()
+    console_lines = (artifact_dir / "console.ndjson").read_text(encoding="utf-8").splitlines()
+    transport_lines = (artifact_dir / "transport.ndjson").read_text(encoding="utf-8").splitlines()
+    transport_detail_lines = (
+        artifact_dir / "transport_details.ndjson"
+    ).read_text(encoding="utf-8").splitlines()
+    app_state_lines = (artifact_dir / "app_state.ndjson").read_text(encoding="utf-8").splitlines()
 
     assert session_payload["eventCountsByType"] == {
         "app-state": 1,
@@ -237,21 +236,95 @@ def test_chrome_repro_collector_writes_split_runtime_artifacts(tmp_path: Path) -
     }
     assert session_payload["consoleEventsFile"].endswith("console.ndjson")
     assert session_payload["transportEventsFile"].endswith("transport.ndjson")
+    assert session_payload["transportDetailsFile"].endswith("transport_details.ndjson")
     assert session_payload["appStateEventsFile"].endswith("app_state.ndjson")
     assert [json.loads(line)["event"]["type"] for line in console_lines] == ["console"]
     assert [json.loads(line)["event"]["type"] for line in transport_lines] == [
         "network-response",
         "websocket-message",
     ]
+    assert transport_detail_lines == []
     assert [json.loads(line)["event"]["type"] for line in app_state_lines] == [
         "app-state"
     ]
 
 
+def test_chrome_repro_collector_splits_transport_details_into_sidecar(
+    tmp_path: Path,
+) -> None:
+    root = repo_root()
+    artifact_dir = tmp_path / "collector-artifacts"
+    port = pick_free_port()
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            str(root / "scripts" / "chrome_repro_collector.py"),
+            "--artifact-dir",
+            str(artifact_dir),
+            "--port",
+            str(port),
+        ],
+        cwd=root,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+
+    try:
+        wait_for_http_ok(f"http://127.0.0.1:{port}/health")
+        payload = {
+            "sequenceNumber": 7,
+            "event": {
+                "type": "websocket-message",
+                "socketId": "ws-1",
+                "direction": "recv",
+                "kind": "text",
+                "preview": '{"messageType":"LSPDiagnostics"}',
+                "detailText": '{"messageType":"LSPDiagnostics","content":{"projectConfigId":"project-alpha"}}',
+                "detailJson": {
+                    "messageType": "LSPDiagnostics",
+                    "content": {"projectConfigId": "project-alpha"},
+                },
+            },
+        }
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{port}/event",
+            method="POST",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=2) as response:
+            assert response.status == 200
+    finally:
+        process.send_signal(signal.SIGTERM)
+        stdout, stderr = process.communicate(timeout=10)
+        assert process.returncode == 0, stdout + stderr
+
+    transport_payload = json.loads(
+        (artifact_dir / "transport.ndjson").read_text(encoding="utf-8").splitlines()[0]
+    )
+    transport_detail_payload = json.loads(
+        (artifact_dir / "transport_details.ndjson")
+        .read_text(encoding="utf-8")
+        .splitlines()[0]
+    )
+
+    assert "detailText" not in transport_payload["event"]
+    assert "detailJson" not in transport_payload["event"]
+    assert transport_detail_payload["sequenceNumber"] == 7
+    assert transport_detail_payload["event"]["socketId"] == "ws-1"
+    assert transport_detail_payload["event"]["detailText"].startswith(
+        '{"messageType":"LSPDiagnostics"'
+    )
+    assert transport_detail_payload["event"]["detailJson"]["messageType"] == (
+        "LSPDiagnostics"
+    )
+
+
 def test_record_chrome_repro_wrapper_launches_browser_and_writes_artifacts(
     tmp_path: Path,
 ) -> None:
-    sandbox_root, _, _ = build_record_chrome_sandbox(tmp_path)
+    sandbox_root, _, _, _ = build_record_chrome_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -360,6 +433,7 @@ PY
     assert (artifact_dir / "logs" / "chrome.log").exists()
     assert (artifact_dir / "console.ndjson").exists()
     assert (artifact_dir / "transport.ndjson").exists()
+    assert (artifact_dir / "transport_details.ndjson").exists()
     assert (artifact_dir / "app_state.ndjson").exists()
     assert (artifact_dir / "extension" / "pageRuntime.js").exists()
 
@@ -367,7 +441,7 @@ PY
 def test_record_chrome_repro_wrapper_reset_flag_runs_reset_first(
     tmp_path: Path,
 ) -> None:
-    sandbox_root, reset_capture_args, reset_capture_env = build_record_chrome_sandbox(
+    sandbox_root, reset_capture_args, reset_capture_env, _ = build_record_chrome_sandbox(
         tmp_path
     )
     stub_dir = tmp_path / "bin"
@@ -449,7 +523,7 @@ PY
 def test_record_chrome_repro_wrapper_updates_latest_pointer_and_helper(
     tmp_path: Path,
 ) -> None:
-    sandbox_root, _, _ = build_record_chrome_sandbox(tmp_path)
+    sandbox_root, _, _, _ = build_record_chrome_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -544,12 +618,89 @@ PY
     assert helper_payload["recordingFile"] == latest_payload["recordingFile"]
     assert helper_payload["launcherFile"] == latest_payload["launcherFile"]
     assert helper_payload["chromeLog"].endswith("/logs/chrome.log")
+    assert helper_payload["transportDetailsFile"].endswith("/transport_details.ndjson")
+
+
+def test_record_chrome_repro_wrapper_forces_backend_debug_log_level(
+    tmp_path: Path,
+) -> None:
+    sandbox_root, _, _, dev_instance_env = build_record_chrome_sandbox(tmp_path)
+    stub_dir = tmp_path / "bin"
+    stub_dir.mkdir(parents=True, exist_ok=True)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    artifact_dir = tmp_path / "recording-output"
+    write_stub_executable(
+        stub_dir / "chrome",
+        """#!/usr/bin/env bash
+set -euo pipefail
+user_data_dir=""
+extension_dir=""
+for arg in "$@"; do
+  case "$arg" in
+    --user-data-dir=*)
+      user_data_dir="${arg#--user-data-dir=}"
+      ;;
+    --load-extension=*)
+      extension_dir="${arg#--load-extension=}"
+      ;;
+  esac
+done
+mkdir -p "${user_data_dir}/Default"
+python - "${user_data_dir}/Default/Secure Preferences" "${extension_dir}" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+prefs_path = Path(sys.argv[1])
+payload = {
+    "extensions": {
+        "settings": {
+            "test-extension": {
+                "path": sys.argv[2],
+            }
+        }
+    }
+}
+prefs_path.write_text(json.dumps(payload), encoding="utf-8")
+PY
+""",
+    )
+
+    server, thread, bootstrap_base_url = start_ok_server()
+    try:
+        env = script_env(stub_dir, home_dir)
+        env["CHROME_BIN"] = str(stub_dir / "chrome")
+        env["SETTA_CHROME_REPRO_BOOTSTRAP_URL"] = (
+            f"{bootstrap_base_url}/__setta__/bootstrap#token=test-token"
+        )
+        env.pop("SETTA_WORKSPACE_ROOT", None)
+        env.pop("SETTA_PROJECT_URL", None)
+        env.pop("SETTA_PROJECT_PATH", None)
+
+        result = run_script(
+            [
+                "bash",
+                str(sandbox_root / "scripts" / "record-chrome-repro.sh"),
+                "--artifact-dir",
+                str(artifact_dir),
+            ],
+            cwd=sandbox_root,
+            env=env,
+        )
+    finally:
+        server.shutdown()
+        thread.join(timeout=5)
+
+    assert result.returncode == 0, result.stderr
+    dev_env = parse_env_snapshot(dev_instance_env.read_text(encoding="utf-8"))
+    assert dev_env.get("SETTA_LOG_LEVEL") == "debug"
 
 
 def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
     tmp_path: Path,
 ) -> None:
-    sandbox_root, _, _ = build_record_chrome_sandbox(tmp_path)
+    sandbox_root, _, _, _ = build_record_chrome_sandbox(tmp_path)
     stub_dir = tmp_path / "bin"
     stub_dir.mkdir(parents=True, exist_ok=True)
     home_dir = tmp_path / "home"
@@ -612,3 +763,4 @@ def test_latest_chrome_recording_helper_falls_back_to_latest_recording_scan(
     assert payload["artifactDir"] == str(newer_dir)
     assert payload["eventCount"] == 7
     assert payload["bootstrapUrl"] == "http://127.0.0.1:1234/__setta__/bootstrap"
+    assert payload["transportDetailsFile"].endswith("/transport_details.ndjson")

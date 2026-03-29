@@ -451,6 +451,477 @@ func TestRouterCurrentProcessPythonDiagnosticsUseNestedBasedPyrightSettingsForWa
 	}
 }
 
+func TestRouterCurrentProcessPythonRefreshesGeneratedDiagnosticsWhenImportedWatchCodeSignatureChanges(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	sourcePath := filepath.Join(settaFilesRoot, "watch_code_test.py")
+	generatedPath := filepath.Join(settaFilesRoot, "code", "sections", "tide_lime", "setta_gen.py")
+	initialSourceContent := "def cool_fn():\n    print(\"hello\")\n"
+	updatedSourceContent := "def cool_fn(a, b, c):\n    print(\"hello\")\n"
+	generatedContent := "from watch_code_test import cool_fn\n\n\nclass SettaState:\n    def __init__(state):\n        state.blue_tall = cool_fn()\n\nstate = SettaState()\n"
+
+	if err := os.MkdirAll(filepath.Dir(generatedPath), 0o755); err != nil {
+		t.Fatalf("mkdir generated path: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(sourcePath, []byte(initialSourceContent), 0o644); err != nil {
+		t.Fatalf("seed watch code source: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(generatedPath, []byte(generatedContent), 0o644); err != nil {
+		t.Fatalf("seed generated code source: %v", err)
+	}
+
+	settings := func() map[string]any {
+		return CurrentProcessPythonSettings(map[string]any{
+			"languageServer": map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"diagnosticSeverityOverrides": map[string]any{
+							"reportUnknownVariableType":       "none",
+							"reportUnknownMemberType":         "none",
+							"reportUnannotatedClassAttribute": "none",
+							"reportSelfClsParameterName":      "none",
+						},
+					},
+				},
+			},
+		}, []string{settaFilesRoot})
+	}
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	if err := service.UpsertDocument(ctx, SyncedDocument{
+		Path:       sourcePath,
+		LanguageID: "python",
+		Content:    initialSourceContent,
+	}); err != nil {
+		t.Fatalf("upsert initial watch code source: %v", err)
+	}
+
+	diagnosticsCh := make(chan PublishDiagnosticsParams, 8)
+	if err := service.UpsertDocument(ctx, SyncedDocument{
+		Path:       generatedPath,
+		LanguageID: "python",
+		Content:    generatedContent,
+		Callback: func(params PublishDiagnosticsParams) {
+			diagnosticsCh <- params
+		},
+	}); err != nil {
+		t.Fatalf("upsert generated code source: %v", err)
+	}
+
+	initialDiagnostics := waitForDiagnostics(t, diagnosticsCh)
+	if diagnosticsContainRule(initialDiagnostics.Diagnostics, "reportCallIssue") {
+		t.Fatalf("did not expect missing-arg diagnostics before signature change, got %#v", initialDiagnostics.Diagnostics)
+	}
+
+	if err := service.UpsertDocument(ctx, SyncedDocument{
+		Path:       sourcePath,
+		LanguageID: "python",
+		Content:    updatedSourceContent,
+	}); err != nil {
+		t.Fatalf("upsert updated watch code source: %v", err)
+	}
+
+	select {
+	case refreshed := <-diagnosticsCh:
+		if !diagnosticsContainRule(refreshed.Diagnostics, "reportCallIssue") {
+			t.Fatalf("expected regenerated call diagnostics after imported signature change, got %#v", refreshed.Diagnostics)
+		}
+		if !diagnosticsContainMessage(refreshed.Diagnostics, "Arguments missing for parameters \"a\", \"b\", \"c\"") {
+			t.Fatalf("expected missing-arg diagnostics for a/b/c after imported signature change, got %#v", refreshed.Diagnostics)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("expected generated diagnostics refresh after imported watch code signature change")
+	}
+}
+
+func TestRouterCurrentProcessPythonSyncAndRefreshPublishesGeneratedCallDiagnosticsAfterWatchCodeSignatureChange(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	sourcePath := filepath.Join(settaFilesRoot, "watch_code_test.py")
+	generatedPath := filepath.Join(settaFilesRoot, "code", "sections", "raw_busy", "setta_gen.py")
+	initialSourceContent := "def cool_fn():\n    print(\"hello\")\n"
+	updatedSourceContent := "def cool_fn(a, b, c):\n    print(\"hello\")\n"
+	generatedContent := "from watch_code_test import cool_fn\n\n\nclass SettaState:\n    def __init__(state):\n        state.blue_tall = cool_fn()\n\nstate = SettaState()\n"
+
+	if err := os.MkdirAll(filepath.Dir(generatedPath), 0o755); err != nil {
+		t.Fatalf("mkdir generated path: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(sourcePath, []byte(initialSourceContent), 0o644); err != nil {
+		t.Fatalf("seed initial watch code source: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(generatedPath, []byte(generatedContent), 0o644); err != nil {
+		t.Fatalf("seed generated code source: %v", err)
+	}
+
+	settings := func() map[string]any {
+		return CurrentProcessPythonSettings(map[string]any{
+			"languageServer": map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"diagnosticSeverityOverrides": map[string]any{
+							"reportUnknownVariableType":       "none",
+							"reportUnknownMemberType":         "none",
+							"reportUnannotatedClassAttribute": "none",
+							"reportSelfClsParameterName":      "none",
+						},
+					},
+				},
+			},
+		}, []string{settaFilesRoot})
+	}
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	diagnosticsCh := make(chan PublishDiagnosticsParams, 8)
+	initialDocs := map[string]SyncedDocument{
+		sourcePath: {
+			Path:       sourcePath,
+			LanguageID: "python",
+			Content:    initialSourceContent,
+		},
+		generatedPath: {
+			Path:       generatedPath,
+			LanguageID: "python",
+			Content:    generatedContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				diagnosticsCh <- params
+			},
+		},
+	}
+	if err := service.SyncDocuments(ctx, initialDocs); err != nil {
+		t.Fatalf("sync initial documents: %v", err)
+	}
+
+	initialDiagnostics := waitForDiagnostics(t, diagnosticsCh)
+	if diagnosticsContainRule(initialDiagnostics.Diagnostics, "reportCallIssue") {
+		t.Fatalf("did not expect missing-arg diagnostics before signature change, got %#v", initialDiagnostics.Diagnostics)
+	}
+
+	updatedDocs := map[string]SyncedDocument{
+		sourcePath: {
+			Path:       sourcePath,
+			LanguageID: "python",
+			Content:    updatedSourceContent,
+		},
+		generatedPath: {
+			Path:       generatedPath,
+			LanguageID: "python",
+			Content:    generatedContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				diagnosticsCh <- params
+			},
+		},
+	}
+	if err := service.SyncDocuments(ctx, updatedDocs); err != nil {
+		t.Fatalf("sync updated documents: %v", err)
+	}
+	if err := service.RefreshDocuments(ctx, updatedDocs); err != nil {
+		t.Fatalf("refresh updated documents: %v", err)
+	}
+
+	refreshed, ok := waitForDiagnosticsContainingRule(diagnosticsCh, "reportCallIssue", 5*time.Second)
+	if !ok {
+		t.Fatalf("expected generated call diagnostics after sync+refresh signature change, got %#v", refreshed.Diagnostics)
+	}
+	if !diagnosticsContainMessage(refreshed.Diagnostics, "Arguments missing for parameters \"a\", \"b\", \"c\"") {
+		t.Fatalf("expected missing-arg diagnostics for a/b/c after sync+refresh signature change, got %#v", refreshed.Diagnostics)
+	}
+}
+
+func TestRouterCurrentProcessPythonIncrementalWatchCodeTypingStillPublishesGeneratedCallDiagnostics(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	sourcePath := filepath.Join(settaFilesRoot, "watch_code_test.py")
+	generatedPath := filepath.Join(settaFilesRoot, "code", "sections", "tide_lime", "setta_gen.py")
+	generatedContent := "from watch_code_test import cool_fn\n\n\nclass SettaState:\n    def __init__(state):\n        state.blue_tall = cool_fn()\n\nstate = SettaState()\n"
+	recordedStates := []string{
+		"def cool_fn",
+		"def cool_fn()",
+		"def cool_fn(,)",
+		"def cool_fn()",
+		"def cool_fn(a)",
+		"def cool_fn(a,)",
+		"def cool_fn(a,b)",
+		"def cool_fn(a,b,)",
+		"def cool_fn(a,b,c)",
+		"def cool_fn(a,b,c):",
+		"def cool_fn(a,b,c): print(\"dog\")\n",
+	}
+
+	if err := os.MkdirAll(filepath.Dir(generatedPath), 0o755); err != nil {
+		t.Fatalf("mkdir generated path: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(sourcePath, []byte(recordedStates[0]), 0o644); err != nil {
+		t.Fatalf("seed initial watch code source: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(generatedPath, []byte(generatedContent), 0o644); err != nil {
+		t.Fatalf("seed generated code source: %v", err)
+	}
+
+	settings := func() map[string]any {
+		return CurrentProcessPythonSettings(map[string]any{
+			"languageServer": map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"diagnosticSeverityOverrides": map[string]any{
+							"reportUnknownVariableType":       "none",
+							"reportUnknownMemberType":         "none",
+							"reportUnannotatedClassAttribute": "none",
+							"reportSelfClsParameterName":      "none",
+						},
+					},
+				},
+			},
+		}, []string{settaFilesRoot})
+	}
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	diagnosticsCh := make(chan PublishDiagnosticsParams, 32)
+	for _, sourceContent := range recordedStates {
+		docs := map[string]SyncedDocument{
+			sourcePath: {
+				Path:       sourcePath,
+				LanguageID: "python",
+				Content:    sourceContent,
+			},
+			generatedPath: {
+				Path:       generatedPath,
+				LanguageID: "python",
+				Content:    generatedContent,
+				Callback: func(params PublishDiagnosticsParams) {
+					diagnosticsCh <- params
+				},
+			},
+		}
+		if err := service.SyncDocuments(ctx, docs); err != nil {
+			t.Fatalf("sync incremental documents for %q: %v", sourceContent, err)
+		}
+		if err := service.RefreshDocuments(ctx, docs); err != nil {
+			t.Fatalf("refresh incremental documents for %q: %v", sourceContent, err)
+		}
+	}
+
+	refreshed, ok := waitForDiagnosticsContainingRule(diagnosticsCh, "reportCallIssue", 5*time.Second)
+	if !ok {
+		t.Fatalf("expected generated call diagnostics after incremental watch-code typing, got %#v", refreshed.Diagnostics)
+	}
+	if !diagnosticsContainMessage(refreshed.Diagnostics, "Arguments missing for parameters \"a\", \"b\", \"c\"") {
+		t.Fatalf("expected missing-arg diagnostics for a/b/c after incremental watch-code typing, got %#v", refreshed.Diagnostics)
+	}
+}
+
+func TestRouterCurrentProcessPythonPublishesGeneratedCallDiagnosticsWithWorkspaceAndMirrorWatchCodeCopies(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	workspaceSourcePath := filepath.Join(workspaceRoot, "watch_code_test.py")
+	mirrorSourcePath := filepath.Join(settaFilesRoot, "watch_code_test.py")
+	generatedPath := filepath.Join(settaFilesRoot, "code", "sections", "tide_lime", "setta_gen.py")
+	initialSourceContent := "def cool_fn():\n    print(\"hello\")\n"
+	updatedSourceContent := "def cool_fn(a, b, c):\n    print(\"hello\")\n"
+	generatedContent := "from watch_code_test import cool_fn\n\n\nclass SettaState:\n    def __init__(state):\n        state.blue_tall = cool_fn()\n\nstate = SettaState()\n"
+
+	if err := os.MkdirAll(filepath.Dir(generatedPath), 0o755); err != nil {
+		t.Fatalf("mkdir generated path: %v", err)
+	}
+	for _, file := range []struct {
+		path    string
+		content string
+	}{
+		{path: workspaceSourcePath, content: initialSourceContent},
+		{path: mirrorSourcePath, content: initialSourceContent},
+		{path: generatedPath, content: generatedContent},
+	} {
+		if err := statefs.AtomicWriteFile(file.path, []byte(file.content), 0o644); err != nil {
+			t.Fatalf("seed %q: %v", file.path, err)
+		}
+	}
+
+	settings := func() map[string]any {
+		return CurrentProcessPythonSettings(map[string]any{
+			"languageServer": map[string]any{
+				"basedpyright": map[string]any{
+					"analysis": map[string]any{
+						"diagnosticSeverityOverrides": map[string]any{
+							"reportUnknownVariableType":       "none",
+							"reportUnknownMemberType":         "none",
+							"reportUnannotatedClassAttribute": "none",
+							"reportSelfClsParameterName":      "none",
+						},
+					},
+				},
+			},
+		}, []string{settaFilesRoot})
+	}
+
+	router, err := NewRouter(RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		Settings:      settings,
+	})
+	if err != nil {
+		t.Fatalf("new router: %v", err)
+	}
+	defer func() {
+		if err := router.Close(context.Background()); err != nil {
+			t.Fatalf("close router: %v", err)
+		}
+	}()
+
+	service, ok, err := router.serviceForLanguage("python")
+	if err != nil {
+		t.Fatalf("resolve python service: %v", err)
+	}
+	if !ok || service == nil {
+		t.Fatal("expected python service to be configured")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	diagnosticsCh := make(chan PublishDiagnosticsParams, 16)
+	for _, document := range []SyncedDocument{
+		{
+			Path:       workspaceSourcePath,
+			LanguageID: "python",
+			Content:    initialSourceContent,
+		},
+		{
+			Path:       mirrorSourcePath,
+			LanguageID: "python",
+			Content:    initialSourceContent,
+		},
+		{
+			Path:       generatedPath,
+			LanguageID: "python",
+			Content:    generatedContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				diagnosticsCh <- params
+			},
+		},
+	} {
+		if err := service.UpsertDocument(ctx, document); err != nil {
+			t.Fatalf("upsert initial document %q: %v", document.Path, err)
+		}
+	}
+
+	_ = waitForDiagnostics(t, diagnosticsCh)
+
+	if err := service.UpsertDocument(ctx, SyncedDocument{
+		Path:       workspaceSourcePath,
+		LanguageID: "python",
+		Content:    updatedSourceContent,
+	}); err != nil {
+		t.Fatalf("upsert updated workspace source: %v", err)
+	}
+	if err := service.UpsertDocument(ctx, SyncedDocument{
+		Path:       mirrorSourcePath,
+		LanguageID: "python",
+		Content:    updatedSourceContent,
+	}); err != nil {
+		t.Fatalf("upsert updated mirror source: %v", err)
+	}
+	if err := service.RefreshDocuments(ctx, map[string]SyncedDocument{
+		mirrorSourcePath: {
+			Path:       mirrorSourcePath,
+			LanguageID: "python",
+			Content:    updatedSourceContent,
+		},
+		generatedPath: {
+			Path:       generatedPath,
+			LanguageID: "python",
+			Content:    generatedContent,
+			Callback: func(params PublishDiagnosticsParams) {
+				diagnosticsCh <- params
+			},
+		},
+	}); err != nil {
+		t.Fatalf("refresh mirror and generated documents: %v", err)
+	}
+
+	refreshed, ok := waitForDiagnosticsContainingRule(diagnosticsCh, "reportCallIssue", 5*time.Second)
+	if !ok {
+		t.Fatalf("expected generated call diagnostics with workspace and mirror watch-code copies, got %#v", refreshed.Diagnostics)
+	}
+	if !diagnosticsContainMessage(refreshed.Diagnostics, "Arguments missing for parameters \"a\", \"b\", \"c\"") {
+		t.Fatalf("expected missing-arg diagnostics for a/b/c with workspace and mirror watch-code copies, got %#v", refreshed.Diagnostics)
+	}
+}
+
 func settingsMapsEqual(left map[string]any, right map[string]any) bool {
 	return reflect.DeepEqual(left, right)
 }
@@ -471,6 +942,28 @@ func diagnosticsContainMessage(diagnostics []Diagnostic, fragment string) bool {
 		}
 	}
 	return false
+}
+
+func waitForDiagnosticsContainingRule(
+	diagnosticsCh <-chan PublishDiagnosticsParams,
+	rule string,
+	timeout time.Duration,
+) (PublishDiagnosticsParams, bool) {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	last := PublishDiagnosticsParams{}
+	for {
+		select {
+		case params := <-diagnosticsCh:
+			last = params
+			if diagnosticsContainRule(params.Diagnostics, rule) {
+				return params, true
+			}
+		case <-timer.C:
+			return last, false
+		}
+	}
 }
 
 func resolveRouterTestPythonBinary(t *testing.T) string {

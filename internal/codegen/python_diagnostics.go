@@ -27,6 +27,7 @@ type PythonGeneratedDiagnosticsMapper struct {
 	renderer              *PythonCodeRenderer
 	ignoredTypeErrorsByID map[string]pythonTypeErrorIgnoreState
 	watchCodeModulePaths  map[string]struct{}
+	requiredParamsByID    map[string][]pythonRequiredParam
 }
 
 type PythonGeneratedCodeDiagnosticsResult struct {
@@ -55,6 +56,11 @@ type pythonGeneratedDiagnosticIndexedRange struct {
 	Start int
 	End   int
 	Key   PythonDependencyKey
+}
+
+type pythonRequiredParam struct {
+	ParamID string
+	Name    string
 }
 
 var quotedParameterPattern = regexp.MustCompile(`"([^"]+)"`)
@@ -102,6 +108,7 @@ func NewPythonGeneratedDiagnosticsMapper(
 		renderer:              renderer,
 		ignoredTypeErrorsByID: collectIgnoredTypeErrorsBySection(project, exported),
 		watchCodeModulePaths:  collectWatchCodeModulePaths(project),
+		requiredParamsByID:    collectWatchCodeRequiredParamsBySection(project, graph),
 	}, true, nil
 }
 
@@ -159,6 +166,7 @@ func (m *PythonGeneratedDiagnosticsMapper) AnalyzeCodeDiagnostics(
 			unmapped = append(unmapped, buildProjectDiagnostic(diagnostic, uri))
 		}
 	}
+	m.applyRequiredParamFallback(errors)
 
 	return PythonGeneratedCodeDiagnosticsResult{
 		Diagnostics: projectstate.ProjectConfigDiagnostics{
@@ -572,6 +580,124 @@ func collectWatchCodeModulePaths(project projectstate.Project) map[string]struct
 		output[modulePath] = struct{}{}
 	}
 	return output
+}
+
+func collectWatchCodeRequiredParamsBySection(
+	project projectstate.Project,
+	graph *PythonDependencyGraph,
+) map[string][]pythonRequiredParam {
+	if graph == nil || len(project.WatchCodeRegistry) == 0 {
+		return map[string][]pythonRequiredParam{}
+	}
+
+	watchCodeSectionIDs := map[string]struct{}{}
+	for _, entry := range project.WatchCodeRegistry {
+		for _, sectionID := range entry.SectionIDs {
+			trimmedSectionID := strings.TrimSpace(sectionID)
+			if trimmedSectionID == "" {
+				continue
+			}
+			watchCodeSectionIDs[trimmedSectionID] = struct{}{}
+		}
+	}
+	if len(watchCodeSectionIDs) == 0 {
+		return map[string][]pythonRequiredParam{}
+	}
+
+	required := map[string][]pythonRequiredParam{}
+	for _, key := range graph.NodeOrder {
+		if strings.TrimSpace(key.CodeObjectID) == "" {
+			continue
+		}
+		if _, ok := watchCodeSectionIDs[key.SectionID]; !ok {
+			continue
+		}
+		node, ok := graph.Node(key)
+		if !ok {
+			continue
+		}
+		paramNode, ok := node.(*PythonParamNode)
+		if !ok {
+			continue
+		}
+		if strings.TrimSpace(paramNode.DefaultValue) != "" {
+			continue
+		}
+		switch strings.TrimSpace(paramNode.PassingStyle) {
+		case "ARGS", "KWARGS":
+			continue
+		}
+		required[key.SectionID] = append(required[key.SectionID], pythonRequiredParam{
+			ParamID: key.CodeObjectID,
+			Name:    strings.TrimSpace(paramNode.Name),
+		})
+	}
+	return required
+}
+
+func (m *PythonGeneratedDiagnosticsMapper) applyRequiredParamFallback(
+	errors map[string]projectstate.SectionTypeErrors,
+) {
+	if m == nil || m.graph == nil || len(m.requiredParamsByID) == 0 {
+		return
+	}
+
+	sectionIDs := make([]string, 0, len(m.requiredParamsByID))
+	for sectionID := range m.requiredParamsByID {
+		sectionIDs = append(sectionIDs, sectionID)
+	}
+	sort.Strings(sectionIDs)
+
+	for _, sectionID := range sectionIDs {
+		requiredParams := m.requiredParamsByID[sectionID]
+		if len(requiredParams) == 0 {
+			continue
+		}
+		missing := make([]pythonRequiredParam, 0, len(requiredParams))
+		for _, required := range requiredParams {
+			key := PythonCodeObjectDependencyKey(sectionID, required.ParamID)
+			node, ok := m.graph.Node(key)
+			if !ok {
+				continue
+			}
+			paramNode, ok := node.(*PythonParamNode)
+			if !ok || paramNode.HasNameAndValue() {
+				continue
+			}
+			if len(errors[sectionID].Params[required.ParamID]) > 0 {
+				continue
+			}
+			missing = append(missing, required)
+		}
+		if len(missing) == 0 {
+			continue
+		}
+		message := missingParametersMessage(missing)
+		for _, required := range missing {
+			addGeneratedErrorMessage(errors, sectionID, required.ParamID, message)
+		}
+	}
+}
+
+func missingParametersMessage(params []pythonRequiredParam) string {
+	if len(params) == 0 {
+		return ""
+	}
+	quoted := make([]string, 0, len(params))
+	for _, param := range params {
+		name := strings.TrimSpace(param.Name)
+		if name == "" {
+			continue
+		}
+		quoted = append(quoted, fmt.Sprintf("%q", name))
+	}
+	if len(quoted) == 0 {
+		return ""
+	}
+	if len(quoted) == 1 {
+		return fmt.Sprintf("Argument missing for parameter %s", quoted[0])
+	}
+	return fmt.Sprintf("Arguments missing for parameters %s", strings.Join(quoted, ", "))
 }
 
 func watchCodeModulePathFromIdentity(identity string) string {

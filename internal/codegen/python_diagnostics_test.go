@@ -1,7 +1,9 @@
 package codegen
 
 import (
+	"encoding/json"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -325,6 +327,7 @@ func TestPythonGeneratedDiagnosticsMapperFiltersImplicitRelativeImportForWatchCo
 
 	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
 		GenCodePrefix:       "from watch_code_test import cool_fn\n",
+		ParamValue:          "value",
 		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
 		WatchCodeCallable:   "cool_fn",
 		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
@@ -357,6 +360,7 @@ func TestPythonGeneratedDiagnosticsMapperFiltersMissingImportForWatchCodeModule(
 
 	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
 		GenCodePrefix:       "from watch_code_test import cool_fn\n",
+		ParamValue:          "value",
 		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
 		WatchCodeCallable:   "cool_fn",
 		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
@@ -381,6 +385,47 @@ func TestPythonGeneratedDiagnosticsMapperFiltersMissingImportForWatchCodeModule(
 	}
 	if len(unmapped) != 0 {
 		t.Fatalf("expected watch code missing import to be filtered, got %#v", unmapped)
+	}
+}
+
+func TestPythonGeneratedDiagnosticsMapperFallsBackToWatchCodeRequiredParamErrorsWhenImportFiltered(t *testing.T) {
+	t.Parallel()
+
+	mapper := mustPythonGeneratedDiagnosticsMapper(t, pythonGeneratedDiagnosticsProject(t, pythonGeneratedDiagnosticsProjectOptions{
+		CallableName:        "cool_fn",
+		ParamNames:          []string{"a", "b", "c"},
+		ParamValue:          "",
+		GenCodePrefix:       "from watch_code_test import cool_fn\n",
+		WatchCodeIdentity:   "watch_code_test.cool_fn:function",
+		WatchCodeCallable:   "cool_fn",
+		WatchCodeSourcePath: "/tmp/workspace/watch_code_test.py",
+	}))
+
+	start := strings.Index(mapper.renderer.Code, "watch_code_test")
+	if start < 0 {
+		t.Fatalf("expected watch code import in generated code:\n%s", mapper.renderer.Code)
+	}
+	diagnostic := buildGeneratedDiagnostic(
+		t,
+		mapper.renderer.Code,
+		start,
+		start+len("watch_code_test"),
+		`Import "watch_code_test" could not be resolved`,
+		"reportMissingImports",
+	)
+
+	errors, unmapped := mapper.MapCodeDiagnostics([]PythonGeneratedDiagnostic{diagnostic}, "file:///tmp/setta_gen.py")
+	if len(unmapped) != 0 {
+		t.Fatalf("expected watch code missing import to stay filtered, got %#v", unmapped)
+	}
+	sectionErrors := errors.Errors["section-1"]
+	for _, paramID := range []string{"param-1", "param-2", "param-3"} {
+		if len(sectionErrors.Params[paramID]) == 0 {
+			t.Fatalf("expected fallback required-param diagnostics for %q, got %#v", paramID, errors.Errors)
+		}
+		if !strings.Contains(sectionErrors.Params[paramID][0], `"a", "b", "c"`) {
+			t.Fatalf("expected grouped missing-arg message for %q, got %#v", paramID, sectionErrors.Params[paramID])
+		}
 	}
 }
 
@@ -416,6 +461,7 @@ func TestPythonGeneratedDiagnosticsMapperKeepsImplicitRelativeImportForNonWatchC
 type pythonGeneratedDiagnosticsProjectOptions struct {
 	CallableName        string
 	ParamName           string
+	ParamNames          []string
 	ParamValue          string
 	PassingStyle        string
 	IgnoreParamError    bool
@@ -455,6 +501,10 @@ func pythonGeneratedDiagnosticsProject(
 	if paramName == "" {
 		paramName = "param"
 	}
+	paramNames := append([]string(nil), options.ParamNames...)
+	if len(paramNames) == 0 {
+		paramNames = []string{paramName}
+	}
 	passingStyle := options.PassingStyle
 	if passingStyle == "" {
 		passingStyle = "DEFAULT"
@@ -486,9 +536,59 @@ func pythonGeneratedDiagnosticsProject(
 			callableName = "cool_fn"
 		}
 		watchCodeRegistry[options.WatchCodeIdentity] = projectstate.WatchCodeRegistryEntry{
-			CallableName: callableName,
-			Kind:         projectstate.WatchCodeCallableKindFunction,
-			SourcePath:   options.WatchCodeSourcePath,
+			CallableName:  callableName,
+			Kind:          projectstate.WatchCodeCallableKindFunction,
+			SourcePath:    options.WatchCodeSourcePath,
+			SectionIDs:    []string{"section-1"},
+			SectionsCount: 1,
+		}
+	}
+
+	codeObjVariantMapEntries := []string{`"callable-1":"callable-variant-1"`}
+	codeObjs := map[string]projectstate.CodeObject{
+		"callable-1": {
+			ID:               "callable-1",
+			Name:             callableName,
+			VariantIDs:       []string{"callable-variant-1"},
+			DefaultVariantID: "callable-variant-1",
+		},
+	}
+	codeObjVariants := map[string]projectstate.CodeObjectVariant{
+		"callable-variant-1": {
+			ID:     "callable-variant-1",
+			ImplID: "callable-impl-1",
+		},
+	}
+	codeObjImpls := map[string]projectstate.CodeObjectImpl{
+		"callable-impl-1": {
+			ID: "callable-impl-1",
+			Payload: mustRawJSON(
+				t,
+				`{"id":"callable-impl-1","type":"CodeCallable","children":[`+paramChildrenJSON(paramNames)+`]}`,
+			),
+		},
+	}
+	for index, name := range paramNames {
+		paramID := "param-" + strconv.Itoa(index+1)
+		paramVariantID := "param-variant-" + strconv.Itoa(index+1)
+		paramImplID := "param-impl-" + strconv.Itoa(index+1)
+		codeObjVariantMapEntries = append(codeObjVariantMapEntries, mustJSONString(t, paramID)+":"+mustJSONString(t, paramVariantID))
+		codeObjs[paramID] = projectstate.CodeObject{
+			ID:               paramID,
+			Name:             name,
+			VariantIDs:       []string{paramVariantID},
+			DefaultVariantID: paramVariantID,
+		}
+		codeObjVariants[paramVariantID] = projectstate.CodeObjectVariant{
+			ID:     paramVariantID,
+			ImplID: paramImplID,
+		}
+		codeObjImpls[paramImplID] = projectstate.CodeObjectImpl{
+			ID: paramImplID,
+			Payload: mustRawJSON(
+				t,
+				`{"id":`+mustJSONString(t, paramImplID)+`,"type":"CodeParam","value":`+mustJSONString(t, options.ParamValue)+`,"passingStyle":`+mustJSONString(t, passingStyle)+`}`,
+			),
 		}
 	}
 
@@ -527,55 +627,34 @@ func pythonGeneratedDiagnosticsProject(
 						"type":"Callable",
 						"callable":"callable-1",
 						"ignoreTypeErrors":`+ignoreTypeErrors+`,
-						"codeObjVariantMap":{
-							"callable-1":"callable-variant-1",
-							"param-1":"param-variant-1"
-						}
+						"codeObjVariantMap":{`+strings.Join(codeObjVariantMapEntries, ",")+`}
 					}`,
 				),
 			},
 		},
-		CodeObjs: map[string]projectstate.CodeObject{
-			"callable-1": {
-				ID:               "callable-1",
-				Name:             callableName,
-				VariantIDs:       []string{"callable-variant-1"},
-				DefaultVariantID: "callable-variant-1",
-			},
-			"param-1": {
-				ID:               "param-1",
-				Name:             paramName,
-				VariantIDs:       []string{"param-variant-1"},
-				DefaultVariantID: "param-variant-1",
-			},
-		},
-		CodeObjVariants: map[string]projectstate.CodeObjectVariant{
-			"callable-variant-1": {
-				ID:     "callable-variant-1",
-				ImplID: "callable-impl-1",
-			},
-			"param-variant-1": {
-				ID:     "param-variant-1",
-				ImplID: "param-impl-1",
-			},
-		},
-		CodeObjImpls: map[string]projectstate.CodeObjectImpl{
-			"callable-impl-1": {
-				ID: "callable-impl-1",
-				Payload: mustRawJSON(
-					t,
-					`{"id":"callable-impl-1","type":"CodeCallable","children":["param-1"]}`,
-				),
-			},
-			"param-impl-1": {
-				ID: "param-impl-1",
-				Payload: mustRawJSON(
-					t,
-					`{"id":"param-impl-1","type":"CodeParam","value":`+mustJSONString(t, options.ParamValue)+`,"passingStyle":`+mustJSONString(t, passingStyle)+`}`,
-				),
-			},
-		},
+		CodeObjs:        codeObjs,
+		CodeObjVariants: codeObjVariants,
+		CodeObjImpls:    codeObjImpls,
 	}
+}
+
+func paramChildrenJSON(paramNames []string) string {
+	if len(paramNames) == 0 {
+		return ""
+	}
+	children := make([]string, 0, len(paramNames))
+	for index := range paramNames {
+		children = append(children, mustJSONStringNoTest("param-"+strconv.Itoa(index+1)))
+	}
+	return strings.Join(children, ",")
+}
+
+func mustJSONStringNoTest(value string) string {
+	encoded, err := json.Marshal(value)
+	if err != nil {
+		panic(err)
+	}
+	return string(encoded)
 }
 
 func buildGeneratedDiagnostic(

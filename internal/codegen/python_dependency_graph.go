@@ -112,6 +112,7 @@ func (n *PythonSectionNode) TypeName() string {
 type PythonParamNode struct {
 	PythonDependencyNodeBase
 	CodeObjectType      string
+	DefaultValue        string
 	PassingStyle        string
 	CodeObjectImplID    string
 	HasSecret           bool
@@ -648,6 +649,7 @@ func (b *pythonDependencyGraphBuilder) exportParams(
 				IncludeInCodegen: includeInCodegen,
 			},
 			CodeObjectType:      codeObject.Type,
+			DefaultValue:        codeObject.StringField("defaultVal"),
 			PassingStyle:        defaultPythonPassingStyle(codeObject.StringField("passingStyle")),
 			CodeObjectImplID:    codeObject.ImplID,
 			ValueRepresentation: codeObject.ValuePolicy.Representation,

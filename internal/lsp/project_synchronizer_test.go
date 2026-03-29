@@ -1,7 +1,9 @@
 package lsp
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -91,6 +93,48 @@ func TestProjectSynchronizerMaterializeDocument(t *testing.T) {
 	}
 	if _, err := os.Stat(metadataPath); err != nil {
 		t.Fatalf("generated metadata file missing: %v", err)
+	}
+}
+
+func TestProjectSynchronizerTypeCheckProjectLogsDebugSummary(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	document, sectionPath, generatedPath, metadataPath := lspTestDocument(t, settaFilesRoot)
+	if err := statefs.AtomicWriteFile(sectionPath, []byte("print('runner')\n"), 0o644); err != nil {
+		t.Fatalf("write section code: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(generatedPath, []byte("class SettaState:\n    pass\n"), 0o644); err != nil {
+		t.Fatalf("write generated code: %v", err)
+	}
+	if err := statefs.AtomicWriteFile(metadataPath, []byte("METADATA = {}\n"), 0o644); err != nil {
+		t.Fatalf("write generated metadata: %v", err)
+	}
+
+	var buffer bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buffer, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Service:        &recordingDocumentSyncer{},
+		Logger:         logger,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	if err := synchronizer.TypeCheckProject(context.Background(), document, "project-alpha"); err != nil {
+		t.Fatalf("typecheck project: %v", err)
+	}
+
+	output := buffer.String()
+	if !strings.Contains(output, `"trace_event":"lsp_project_typecheck_refresh"`) {
+		t.Fatalf("expected typecheck refresh trace event in log output, got %q", output)
+	}
+	if !strings.Contains(output, `"project_id":"project-alpha"`) {
+		t.Fatalf("expected project id in log output, got %q", output)
+	}
+	if !strings.Contains(output, sectionPath) {
+		t.Fatalf("expected section path in log output, got %q", output)
 	}
 }
 

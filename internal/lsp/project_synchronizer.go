@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -22,6 +23,7 @@ type ProjectSynchronizerOptions struct {
 	Diagnostics                 *projectstate.LSPDiagnosticsRegistry
 	OnCallableSymbolsResolved   func(context.Context, string, []string)
 	OnCallableSignatureMismatch func(context.Context, string, []string)
+	Logger                      *slog.Logger
 }
 
 type documentSyncer interface {
@@ -40,6 +42,7 @@ type ProjectSynchronizer struct {
 	onCallableSignatureMismatch func(context.Context, string, []string)
 	generatedCallableStateMu    sync.Mutex
 	generatedCallableState      map[string]generatedCallableDiagnosticsState
+	logger                      *slog.Logger
 }
 
 type generatedCallableDiagnosticsState struct {
@@ -63,6 +66,7 @@ func NewProjectSynchronizer(options ProjectSynchronizerOptions) (*ProjectSynchro
 		onCallableSymbolsResolved:   options.OnCallableSymbolsResolved,
 		onCallableSignatureMismatch: options.OnCallableSignatureMismatch,
 		generatedCallableState:      map[string]generatedCallableDiagnosticsState{},
+		logger:                      options.Logger,
 	}, nil
 }
 
@@ -99,6 +103,14 @@ func (s *ProjectSynchronizer) TypeCheckProject(ctx context.Context, document pro
 	project, err := document.ProjectByID(projectID)
 	if err != nil {
 		if errors.Is(err, projectstate.ErrProjectNotFound) {
+			if s.logger != nil {
+				s.logger.Debug(
+					"lsp project typecheck skipped",
+					slog.String("trace_event", "lsp_project_typecheck_skipped"),
+					slog.String("project_id", strings.TrimSpace(projectID)),
+					slog.String("reason", "project_not_found"),
+				)
+			}
 			return nil
 		}
 		return err
@@ -107,7 +119,27 @@ func (s *ProjectSynchronizer) TypeCheckProject(ctx context.Context, document pro
 	if err != nil {
 		return err
 	}
-	return s.service.RefreshDocuments(ctx, documents)
+	if s.logger != nil {
+		s.logger.Debug(
+			"lsp project typecheck refreshing documents",
+			slog.String("trace_event", "lsp_project_typecheck_refresh"),
+			slog.String("project_id", project.ID),
+			slog.Int("document_count", len(documents)),
+			slog.Any("document_paths", sortedSyncedDocumentPaths(documents)),
+		)
+	}
+	if err := s.service.RefreshDocuments(ctx, documents); err != nil {
+		return err
+	}
+	if s.logger != nil {
+		s.logger.Debug(
+			"lsp project typecheck refreshed documents",
+			slog.String("trace_event", "lsp_project_typecheck_refreshed"),
+			slog.String("project_id", project.ID),
+			slog.Int("document_count", len(documents)),
+		)
+	}
+	return nil
 }
 
 func (s *ProjectSynchronizer) Close(ctx context.Context) error {
@@ -263,6 +295,15 @@ func (s *ProjectSynchronizer) codeSectionDiagnosticsCallback(
 	return func(params PublishDiagnosticsParams) {
 		// Source parity: code-section diagnostics ignore versionless publishes.
 		if params.Version == nil {
+			if s.logger != nil {
+				s.logger.Debug(
+					"lsp code section diagnostics ignored versionless publish",
+					slog.String("trace_event", "lsp_code_section_diagnostics_versionless_ignored"),
+					slog.String("project_id", strings.TrimSpace(projectID)),
+					slog.String("section_id", strings.TrimSpace(sectionID)),
+					slog.Int("diagnostic_count", len(params.Diagnostics)),
+				)
+			}
 			return
 		}
 		s.diagnostics.UpdateCodeSectionWithIgnoreState(projectID, sectionID, toProjectDiagnostics(params), ignoreState)
@@ -409,6 +450,16 @@ func (s *ProjectSynchronizer) generatedCodeDiagnosticsCallback(
 
 	return func(params PublishDiagnosticsParams) {
 		result := mapper.AnalyzeCodeDiagnostics(toPythonGeneratedDiagnostics(params.Diagnostics), params.URI)
+		if s.logger != nil {
+			s.logger.Debug(
+				"lsp generated code diagnostics mapped",
+				slog.String("trace_event", "lsp_generated_code_diagnostics_mapped"),
+				slog.String("project_id", strings.TrimSpace(projectID)),
+				slog.Int("incoming_diagnostic_count", len(params.Diagnostics)),
+				slog.Int("mapped_section_error_count", len(result.Diagnostics.Errors)),
+				slog.Int("unmapped_diagnostic_count", len(result.Unmapped)),
+			)
+		}
 		s.diagnostics.UpdateGeneratedDocument(
 			projectID,
 			projectstate.GeneratedDiagnosticsDocumentCode,
@@ -434,6 +485,14 @@ func (s *ProjectSynchronizer) generatedMetadataDiagnosticsCallback(
 	}
 
 	return func(params PublishDiagnosticsParams) {
+		if s.logger != nil {
+			s.logger.Debug(
+				"lsp generated metadata diagnostics mapped",
+				slog.String("trace_event", "lsp_generated_metadata_diagnostics_mapped"),
+				slog.String("project_id", strings.TrimSpace(projectID)),
+				slog.Int("incoming_diagnostic_count", len(params.Diagnostics)),
+			)
+		}
 		s.diagnostics.UpdateGeneratedDocument(
 			projectID,
 			projectstate.GeneratedDiagnosticsDocumentMetadata,
@@ -445,6 +504,18 @@ func (s *ProjectSynchronizer) generatedMetadataDiagnosticsCallback(
 			mapper.MapMetadataDiagnostics(toPythonGeneratedDiagnostics(params.Diagnostics), params.URI),
 		)
 	}
+}
+
+func sortedSyncedDocumentPaths(documents map[string]SyncedDocument) []string {
+	if len(documents) == 0 {
+		return []string{}
+	}
+	paths := make([]string, 0, len(documents))
+	for path := range documents {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 func toPythonGeneratedDiagnostics(diagnostics []Diagnostic) []codegen.PythonGeneratedDiagnostic {

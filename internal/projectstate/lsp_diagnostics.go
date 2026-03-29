@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"log/slog"
 	"reflect"
 	"sort"
 	"strings"
@@ -48,11 +49,13 @@ type LSPDiagnosticsChangeHandler func(LSPDiagnosticsPayload)
 
 type LSPDiagnosticsRegistryOptions struct {
 	OnChange LSPDiagnosticsChangeHandler
+	Logger   *slog.Logger
 }
 
 type LSPDiagnosticsRegistry struct {
 	mu       sync.Mutex
 	onChange LSPDiagnosticsChangeHandler
+	logger   *slog.Logger
 	projects map[string]projectLSPDiagnosticsState
 }
 
@@ -76,6 +79,7 @@ const (
 func NewLSPDiagnosticsRegistry(options LSPDiagnosticsRegistryOptions) *LSPDiagnosticsRegistry {
 	return &LSPDiagnosticsRegistry{
 		onChange: options.OnChange,
+		logger:   options.Logger,
 		projects: map[string]projectLSPDiagnosticsState{},
 	}
 }
@@ -150,9 +154,18 @@ func (r *LSPDiagnosticsRegistry) UpdateCodeSectionWithIgnoreState(
 
 	payload := state.snapshot()
 	onChange := r.onChange
+	logger := r.logger
 	r.projects[trimmedProjectID] = state
 	r.mu.Unlock()
 
+	logLSPDiagnosticsSummary(
+		logger,
+		"lsp_code_section_updated",
+		payload,
+		slog.String("section_id", trimmedSectionID),
+		slog.Int("raw_diagnostic_count", len(diagnostics)),
+		slog.Int("filtered_diagnostic_count", len(filtered)),
+	)
 	if onChange != nil {
 		onChange(payload)
 	}
@@ -187,9 +200,17 @@ func (r *LSPDiagnosticsRegistry) ReapplyCodeSectionIgnoreState(project Project, 
 
 	payload := state.snapshot()
 	onChange := r.onChange
+	logger := r.logger
 	r.projects[project.ID] = state
 	r.mu.Unlock()
 
+	logLSPDiagnosticsSummary(
+		logger,
+		"lsp_code_section_ignore_reapplied",
+		payload,
+		slog.String("section_id", trimmedSectionID),
+		slog.Int("filtered_diagnostic_count", len(filtered)),
+	)
 	if onChange != nil {
 		onChange(payload)
 	}
@@ -379,9 +400,18 @@ func (r *LSPDiagnosticsRegistry) UpdateGeneratedDocument(
 	state.generatedDocs[trimmedDocumentKey] = next
 	payload := state.snapshot()
 	onChange := r.onChange
+	logger := r.logger
 	r.projects[trimmedProjectID] = state
 	r.mu.Unlock()
 
+	logLSPDiagnosticsSummary(
+		logger,
+		"lsp_generated_document_updated",
+		payload,
+		slog.String("document_key", trimmedDocumentKey),
+		slog.Int("generated_error_sections", len(next.Errors)),
+		slog.Int("generated_unmapped_count", len(next.Unmapped)),
+	)
 	if onChange != nil {
 		onChange(payload)
 	}
@@ -407,12 +437,61 @@ func (r *LSPDiagnosticsRegistry) ClearGeneratedDocument(projectID string, docume
 	delete(state.generatedDocs, trimmedDocumentKey)
 	payload := state.snapshot()
 	onChange := r.onChange
+	logger := r.logger
 	r.projects[trimmedProjectID] = state
 	r.mu.Unlock()
 
+	logLSPDiagnosticsSummary(
+		logger,
+		"lsp_generated_document_cleared",
+		payload,
+		slog.String("document_key", trimmedDocumentKey),
+	)
 	if onChange != nil {
 		onChange(payload)
 	}
+}
+
+func logLSPDiagnosticsSummary(
+	logger *slog.Logger,
+	traceEvent string,
+	payload LSPDiagnosticsPayload,
+	extra ...slog.Attr,
+) {
+	if logger == nil {
+		return
+	}
+	args := []any{
+		slog.String("trace_event", strings.TrimSpace(traceEvent)),
+		slog.String("project_id", strings.TrimSpace(payload.ProjectID)),
+		slog.Int("code_section_count", len(payload.CodeSections)),
+		slog.Int("generated_error_sections", len(payload.GenCode.Errors)),
+		slog.Int("generated_callable_error_count", totalGeneratedCallableErrors(payload.GenCode.Errors)),
+		slog.Int("generated_param_error_count", totalGeneratedParamErrors(payload.GenCode.Errors)),
+		slog.Int("unmapped_generated_diagnostic_count", len(payload.UnmappedGenCode)),
+	}
+	for _, attr := range extra {
+		args = append(args, attr)
+	}
+	logger.Debug("lsp diagnostics summary", args...)
+}
+
+func totalGeneratedCallableErrors(errors map[string]SectionTypeErrors) int {
+	total := 0
+	for _, sectionErrors := range errors {
+		total += len(sectionErrors.Callable)
+	}
+	return total
+}
+
+func totalGeneratedParamErrors(errors map[string]SectionTypeErrors) int {
+	total := 0
+	for _, sectionErrors := range errors {
+		for _, messages := range sectionErrors.Params {
+			total += len(messages)
+		}
+	}
+	return total
 }
 
 func cloneSectionTypeErrorsMap(input map[string]SectionTypeErrors) map[string]SectionTypeErrors {

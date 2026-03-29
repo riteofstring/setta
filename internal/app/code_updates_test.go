@@ -39,6 +39,14 @@ type orderingCallableSignatureResolver struct {
 	callCount int
 }
 
+type typeCheckingBoundSectionSynchronizer struct {
+	diagnostics *projectstate.LSPDiagnosticsRegistry
+}
+
+type syncOnlyBoundSectionSynchronizer struct {
+	inner boundSectionSynchronizer
+}
+
 func (s *orderingCallableSignatureResolver) ResolveCallableSignature(
 	_ context.Context,
 	_ projectstate.Project,
@@ -56,6 +64,82 @@ func (s *orderingCallableSignatureResolver) ResolveCallableSignature(
 			{Name: "extra", PassingStyle: "POSITIONAL_ONLY"},
 		},
 	}, true, nil
+}
+
+func (s *typeCheckingBoundSectionSynchronizer) SyncWatchCodeBoundSection(
+	_ context.Context,
+	_ projectstate.WatchCodeBoundSection,
+) error {
+	return nil
+}
+
+func (s *typeCheckingBoundSectionSynchronizer) TypeCheckProject(
+	_ context.Context,
+	document projectstate.Document,
+	projectID string,
+) error {
+	if s == nil || s.diagnostics == nil {
+		return nil
+	}
+
+	project, ok := document.Projects[projectID]
+	if !ok {
+		return nil
+	}
+	entry, ok := project.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok || len(entry.SectionIDs) != 1 {
+		s.diagnostics.UpdateGeneratedDocument(
+			projectID,
+			projectstate.GeneratedDiagnosticsDocumentCode,
+			projectstate.ProjectConfigDiagnostics{
+				ProjectID: projectID,
+				Errors:    map[string]projectstate.SectionTypeErrors{},
+				IsGenCode: true,
+			},
+			nil,
+		)
+		return nil
+	}
+
+	sectionID := entry.SectionIDs[0]
+	paramIDsByName := watchCodeEntryParamIDsByName(project, entry)
+	paramErrors := map[string][]string{}
+	for _, paramName := range []string{"a", "b", "c"} {
+		paramID, ok := paramIDsByName[paramName]
+		if !ok {
+			continue
+		}
+		paramErrors[paramID] = []string{fmt.Sprintf("Arguments missing for parameter %q", paramName)}
+	}
+
+	errors := map[string]projectstate.SectionTypeErrors{}
+	if len(paramErrors) > 0 {
+		errors[sectionID] = projectstate.SectionTypeErrors{
+			Params: paramErrors,
+		}
+	}
+
+	s.diagnostics.UpdateGeneratedDocument(
+		projectID,
+		projectstate.GeneratedDiagnosticsDocumentCode,
+		projectstate.ProjectConfigDiagnostics{
+			ProjectID: projectID,
+			Errors:    errors,
+			IsGenCode: true,
+		},
+		nil,
+	)
+	return nil
+}
+
+func (s *syncOnlyBoundSectionSynchronizer) SyncWatchCodeBoundSection(
+	ctx context.Context,
+	section projectstate.WatchCodeBoundSection,
+) error {
+	if s == nil || s.inner == nil {
+		return nil
+	}
+	return s.inner.SyncWatchCodeBoundSection(ctx, section)
 }
 
 // External bound-file reloads must reuse the same LSP-before-Watch-Code path as
@@ -196,7 +280,7 @@ func TestCodeUpdateServiceSetCodeResolvesParamsForSecondWatchCodeCallable(t *tes
 
 	service, err := newCodeUpdateService(codeUpdateServiceOptions{
 		ProjectState:       projectRuntime,
-		LSPSync:            synchronizer,
+		LSPSync:            &syncOnlyBoundSectionSynchronizer{inner: synchronizer},
 		CallableSignatures: signatures,
 		WorkspaceRoot:      workspaceRoot,
 	})
@@ -400,7 +484,7 @@ func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsForBoundWatchCode
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 
-	harness := openBoundWatchCodeDiagnosticsHarness(t)
+	harness := openPersistedBoundWatchCodeDiagnosticsHarness(t)
 	recordedStates := []string{
 		"def cool_fn",
 		"def cool_fn()",
@@ -444,6 +528,58 @@ func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsForBoundWatchCode
 	}
 }
 
+func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsForBoundWatchCodeCallableWithoutRematerialize(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	harness := openBoundWatchCodeDiagnosticsHarness(t)
+	recordedStates := []string{
+		"def cool_fn",
+		"def cool_fn()",
+		"def cool_fn(,)",
+		"def cool_fn()",
+		"def cool_fn(a)",
+		"def cool_fn(a,)",
+		"def cool_fn(a,b)",
+		"def cool_fn(a,b,)",
+		"def cool_fn(a,b,c)",
+		"def cool_fn(a,b,c):",
+		"def cool_fn(a,b,c): print(\"dog\")\n",
+	}
+	for _, state := range recordedStates {
+		if err := harness.service.SetCode(ctx, "project-alpha", "section-main", state); err != nil {
+			t.Fatalf("set recorded watch-code state %q: %v", state, err)
+		}
+	}
+
+	finalSnapshot := harness.projectRuntime.Snapshot()
+	finalProject := finalSnapshot.Document.Projects["project-alpha"]
+	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok {
+		t.Fatalf("expected cool_fn watch code entry after recorded typing, got %#v", finalProject.WatchCodeRegistry)
+	}
+	sectionID := entry.SectionIDs[0]
+
+	waitForAppCondition(t, 10*time.Second, func() bool {
+		payload := harness.diagnostics.Snapshot("project-alpha")
+		sectionErrors, ok := payload.GenCode.Errors[sectionID]
+		if ok && len(sectionErrors.Params) > 0 {
+			return true
+		}
+		return generatedDiagnosticsContain(payload, "watch_code_test")
+	})
+
+	payload := harness.diagnostics.Snapshot("project-alpha")
+	paramMessages := watchCodeEntryParamMessagesByName(t, finalProject, entry, payload)
+	for _, paramName := range []string{"a", "b", "c"} {
+		if len(paramMessages[paramName]) == 0 {
+			t.Fatalf("expected generated missing-arg diagnostics for %q without rematerialize, got payload %#v", paramName, payload.GenCode.Errors)
+		}
+	}
+}
+
 func TestCodeUpdateServiceSetCodeDoesNotLeaveGeneratedImportErrorForBoundWatchCodeModule(t *testing.T) {
 	t.Parallel()
 
@@ -474,6 +610,175 @@ func TestCodeUpdateServiceSetCodeDoesNotLeaveGeneratedImportErrorForBoundWatchCo
 	payload := harness.diagnostics.Snapshot("project-alpha")
 	if generatedDiagnosticsContain(payload, "watch_code_test") {
 		t.Fatalf("did not expect generated python diagnostics to keep unresolved watch_code_test import, got %#v", payload)
+	}
+}
+
+func TestCodeUpdateServiceSetCodeRefreshesProjectDiagnosticsAfterBoundWatchCodeSignatureChange(t *testing.T) {
+	t.Parallel()
+
+	project := watchCodeRootBoundProject(t, "watch_code_test.py")
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	syncer := &typeCheckingBoundSectionSynchronizer{diagnostics: diagnostics}
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState:  projectRuntime,
+		LSPSync:       syncer,
+		WorkspaceRoot: t.TempDir(),
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	if err := service.SetCode(context.Background(), "project-alpha", "section-main", "def cool_fn():\n    print(\"hello\")\n"); err != nil {
+		t.Fatalf("set initial bound watch-code source: %v", err)
+	}
+	if err := service.SetCode(context.Background(), "project-alpha", "section-main", "def cool_fn(a, b, c):\n    print(\"hello\")\n"); err != nil {
+		t.Fatalf("set updated bound watch-code source: %v", err)
+	}
+
+	finalProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok {
+		t.Fatalf("expected cool_fn watch code entry after signature change, got %#v", finalProject.WatchCodeRegistry)
+	}
+
+	payload := diagnostics.Snapshot("project-alpha")
+	paramMessages := watchCodeEntryParamMessagesByName(t, finalProject, entry, payload)
+	for _, paramName := range []string{"a", "b", "c"} {
+		if len(paramMessages[paramName]) == 0 {
+			t.Fatalf("expected refreshed generated diagnostics for %q after bound watch-code signature change, got %#v", paramName, payload.GenCode.Errors)
+		}
+	}
+}
+
+func TestCodeUpdateServiceReloadBoundCodeFileRefreshesProjectDiagnosticsAfterBoundWatchCodeSignatureChange(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	project := watchCodeRootBoundProject(t, "watch_code_test.py")
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	syncer := &typeCheckingBoundSectionSynchronizer{diagnostics: diagnostics}
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState:  projectRuntime,
+		LSPSync:       syncer,
+		WorkspaceRoot: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	if err := service.ReloadBoundCodeFile(context.Background(), "def cool_fn():\n    print(\"hello\")\n", []boundcode.Binding{
+		{ProjectID: "project-alpha", SectionID: "section-main"},
+	}); err != nil {
+		t.Fatalf("reload initial bound watch-code source: %v", err)
+	}
+	if err := service.ReloadBoundCodeFile(context.Background(), "def cool_fn(a, b, c):\n    print(\"hello\")\n", []boundcode.Binding{
+		{ProjectID: "project-alpha", SectionID: "section-main"},
+	}); err != nil {
+		t.Fatalf("reload updated bound watch-code source: %v", err)
+	}
+
+	finalProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok {
+		t.Fatalf("expected cool_fn watch code entry after reload signature change, got %#v", finalProject.WatchCodeRegistry)
+	}
+
+	payload := diagnostics.Snapshot("project-alpha")
+	paramMessages := watchCodeEntryParamMessagesByName(t, finalProject, entry, payload)
+	for _, paramName := range []string{"a", "b", "c"} {
+		if len(paramMessages[paramName]) == 0 {
+			t.Fatalf("expected refreshed generated diagnostics for %q after reload signature change, got %#v", paramName, payload.GenCode.Errors)
+		}
+	}
+}
+
+func TestCodeUpdateServiceSetCodePublishesMissingArgDiagnosticsWhenWatchCodeSignatureChangesWithoutGeneratedCodeDiff(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	harness := openBoundWatchCodeDiagnosticsHarness(t)
+	initialSource := "def cool_fn():\n    print(\"hello\")\n"
+	if err := harness.service.SetCode(ctx, "project-alpha", "section-main", initialSource); err != nil {
+		t.Fatalf("set initial bound watch-code source: %v", err)
+	}
+	harness.materializeSnapshot(t, ctx)
+
+	initialProject := harness.projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	initialGeneratedPath := filepath.Join(harness.settaFilesRoot, projectstate.GeneratedPythonCodeRelativePath(initialProject.Name))
+	initialGeneratedCode, err := os.ReadFile(initialGeneratedPath)
+	if err != nil {
+		t.Fatalf("read initial generated python: %v", err)
+	}
+
+	updatedSource := "def cool_fn(a, b, c):\n    print(\"hello\")\n"
+	if err := harness.service.SetCode(ctx, "project-alpha", "section-main", updatedSource); err != nil {
+		t.Fatalf("set updated bound watch-code source: %v", err)
+	}
+	harness.materializeSnapshot(t, ctx)
+
+	finalSnapshot := harness.projectRuntime.Snapshot()
+	finalProject := finalSnapshot.Document.Projects["project-alpha"]
+	finalGeneratedPath := filepath.Join(harness.settaFilesRoot, projectstate.GeneratedPythonCodeRelativePath(finalProject.Name))
+	finalGeneratedCode, err := os.ReadFile(finalGeneratedPath)
+	if err != nil {
+		t.Fatalf("read updated generated python: %v", err)
+	}
+	if string(initialGeneratedCode) != string(finalGeneratedCode) {
+		t.Fatalf("expected generated python to stay text-identical across signature-only update:\nold:\n%s\nnew:\n%s", string(initialGeneratedCode), string(finalGeneratedCode))
+	}
+
+	entry, ok := finalProject.WatchCodeRegistry["watch_code_test.cool_fn:function"]
+	if !ok {
+		t.Fatalf("expected cool_fn watch code entry after signature-only update, got %#v", finalProject.WatchCodeRegistry)
+	}
+	sectionID := entry.SectionIDs[0]
+
+	waitForAppCondition(t, 5*time.Second, func() bool {
+		payload := harness.diagnostics.Snapshot("project-alpha")
+		sectionErrors, ok := payload.GenCode.Errors[sectionID]
+		return ok && len(sectionErrors.Params) > 0
+	})
+
+	payload := harness.diagnostics.Snapshot("project-alpha")
+	paramMessages := watchCodeEntryParamMessagesByName(t, finalProject, entry, payload)
+	for _, paramName := range []string{"a", "b", "c"} {
+		if len(paramMessages[paramName]) == 0 {
+			t.Fatalf("expected generated missing-arg diagnostics for %q after signature-only update, got payload %#v", paramName, payload.GenCode.Errors)
+		}
 	}
 }
 
@@ -1089,6 +1394,140 @@ func openBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosti
 	return harness
 }
 
+func openPersistedBoundWatchCodeDiagnosticsHarness(t *testing.T) *boundWatchCodeDiagnosticsHarness {
+	t.Helper()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+
+	materializer, err := codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new python materializer: %v", err)
+	}
+
+	diagnostics := projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{})
+	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
+		WorkspaceRoot: workspaceRoot,
+		LookupEnv:     os.LookupEnv,
+		Environ:       os.Environ,
+		Settings: func() map[string]any {
+			return lsp.CurrentProcessPythonSettings(map[string]any{
+				"languageServer": map[string]any{
+					"basedpyright": map[string]any{
+						"analysis": map[string]any{
+							"diagnosticSeverityOverrides": map[string]any{
+								"reportUnknownVariableType":       "none",
+								"reportUnknownMemberType":         "none",
+								"reportUnannotatedClassAttribute": "none",
+								"reportSelfClsParameterName":      "none",
+							},
+						},
+					},
+				},
+			}, []string{settaFilesRoot})
+		},
+	})
+	if err != nil {
+		t.Fatalf("new lsp router: %v", err)
+	}
+	synchronizer, err := lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    workspaceRoot,
+		Service:        lspRouter,
+		Diagnostics:    diagnostics,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	signatures, err := lspsignature.NewService(lspsignature.ServiceOptions{
+		SettaFilesRoot: settaFilesRoot,
+		RuntimeRoot:    workspaceRoot,
+		LSPService:     lspRouter,
+	})
+	if err != nil {
+		t.Fatalf("new lsp signature service: %v", err)
+	}
+
+	project := watchCodeRootBoundProject(t, "watch_code_test.py")
+	store, err := projectstate.NewStore(filepath.Join(settaFilesRoot, projectstate.MainFileName), projectstate.StoreOptions{})
+	if err != nil {
+		t.Fatalf("new project store: %v", err)
+	}
+	if err := store.Save(context.Background(), projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			project.ID: project,
+		},
+	}); err != nil {
+		t.Fatalf("seed project store: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenRuntimeWithOptions(context.Background(), store, projectstate.RuntimeOptions{
+		BeforeSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+			return projectstate.SaveJSONSourceFiles(snapshot.Document, workspaceRoot)
+		},
+		AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+			if err := materializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+				return err
+			}
+			if err := synchronizer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+				return err
+			}
+			return diagnostics.PruneDocument(snapshot.Document)
+		},
+		PythonCodegenSectionReconciler: materializer,
+	})
+	if err != nil {
+		t.Fatalf("open runtime: %v", err)
+	}
+
+	t.Cleanup(func() {
+		if err := lspRouter.Close(context.Background()); err != nil {
+			t.Fatalf("close lsp router: %v", err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close project synchronizer: %v", err)
+		}
+	})
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	if _, err := projectRuntime.Save(context.Background()); err != nil {
+		t.Fatalf("seed persisted runtime materialization: %v", err)
+	}
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState:       projectRuntime,
+		LSPSync:            synchronizer,
+		CallableSignatures: signatures,
+		WorkspaceRoot:      workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	return &boundWatchCodeDiagnosticsHarness{
+		projectRuntime:  projectRuntime,
+		service:         service,
+		materializer:    materializer,
+		synchronizer:    synchronizer,
+		diagnostics:     diagnostics,
+		workspaceRoot:   workspaceRoot,
+		settaFilesRoot:  settaFilesRoot,
+		latestProjectID: "project-alpha",
+	}
+}
+
 func (h *boundWatchCodeDiagnosticsHarness) applyRecordedStates(
 	t *testing.T,
 	ctx context.Context,
@@ -1297,6 +1736,52 @@ func generatedDiagnosticsContain(payload projectstate.LSPDiagnosticsPayload, fra
 		}
 	}
 	return false
+}
+
+func watchCodeEntryParamIDsByName(
+	project projectstate.Project,
+	entry projectstate.WatchCodeRegistryEntry,
+) map[string]string {
+	if len(entry.SectionIDs) != 1 {
+		return map[string]string{}
+	}
+	sectionID := entry.SectionIDs[0]
+	callableID := ""
+	for codeObjID, codeObj := range project.CodeObjs {
+		if strings.TrimSpace(codeObj.Name) != strings.TrimSpace(entry.CallableName) {
+			continue
+		}
+		if _, _, _, _, err := project.ResolveSectionCodeObject(sectionID, codeObjID); err == nil {
+			callableID = codeObjID
+			break
+		}
+	}
+	if callableID == "" {
+		return map[string]string{}
+	}
+
+	callablePayload, _, _, _, err := project.ResolveSectionCodeObject(sectionID, callableID)
+	if err != nil {
+		return map[string]string{}
+	}
+	rawChildren, ok := callablePayload["children"].([]any)
+	if !ok {
+		return map[string]string{}
+	}
+
+	output := make(map[string]string, len(rawChildren))
+	for _, rawChildID := range rawChildren {
+		childID, ok := rawChildID.(string)
+		if !ok {
+			continue
+		}
+		codeObj, ok := project.CodeObjs[childID]
+		if !ok {
+			continue
+		}
+		output[codeObj.Name] = childID
+	}
+	return output
 }
 
 func watchCodeEntryParamNames(

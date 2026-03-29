@@ -22,6 +22,7 @@ Behavior:
 - starts Setta with the normal dev-state defaults
 - prefers Playwright's bundled Chrome for Testing when available
 - launches a dedicated browser profile with a local recording extension
+- runs the backend at debug log level for the repro session
 - captures browser events into `${TMPDIR:-/tmp}/setta-chrome-recordings/<repo>/recording-<timestamp>/`
 - fails early if the recorder extension did not actually attach
 - finalizes the bundle when that Chrome window exits
@@ -50,6 +51,7 @@ The recorder also writes a stable pointer under the recording root:
 - `events.ndjson`: raw event stream
 - `console.ndjson`: browser console, page errors, and unhandled rejections
 - `transport.ndjson`: fetch/XHR/websocket activity captured from the page runtime
+- `transport_details.ndjson`: full request/websocket payload sidecar for large transport events
 - `app_state.ndjson`: app-published debug snapshots such as diagnostics state
 - `session.json`: recording summary metadata
 - `launcher.json`: launcher/bootstrap metadata
@@ -60,7 +62,9 @@ The recorder captures more than raw clicks and inputs:
 
 - browser console output and uncaught runtime failures
 - fetch/XHR/websocket activity from the page
+- full websocket/request payload details in the transport sidecar when previews are truncated
 - app-published frontend debug snapshots when Setta emits them during state updates
+- backend debug summaries in `logs/backend.log` for LSP diagnostics and watch-code refresh flows
 
 ## Handoff To Codex
 
@@ -77,4 +81,5 @@ so the agent can jump straight to the newest bundle and its logs.
 
 Pass `SETTA_CHROME_REPRO_SKIP_DEV_START=1` when you want to attach to an already
 running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
-skip bootstrap URL discovery.
+skip bootstrap URL discovery. Use `SETTA_CHROME_REPRO_LOG_LEVEL=<level>` to override
+the default debug backend logging for the repro session.
