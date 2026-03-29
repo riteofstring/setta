@@ -12385,3 +12385,63 @@ Record:
     - verified `promptSectionDefault` still renders on `shared-page-runtime` with no visible fallback overlay
 - Next action:
   - Use the new named fallback diagnostics to pick the first concrete visible `dom-context-lost` section, starting with `browserSectionDefault`, and move that scene off the per-card local-app path so the active fallback count drops for real instead of staying an anonymous runtime number.
+
+## 2026-03-31 371
+
+- Item: Move `browserSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing `promptSectionDefault` shared canary.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `370` and targeted the first named visible fallback directly instead of adding more diagnostics or reopening the finished seam-lift path.
+  - Broadened the shared-runtime scene-selection boundary from a single hard-coded prompt canary into a small prioritized allowlist that is now shared by both the page host and the overlay shell:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+  - Upgraded the page host from one managed scene to multiple managed scenes in priority order so the browser slice can move onto the shared host without dropping the already-working prompt slice:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - the shared host now renders both managed scenes into the same page-level Pixi application and exposes:
+      - `data-live-dict-area-pixi-runtime-managed-scene-count`
+      - `data-live-dict-area-pixi-runtime-managed-scene-ids`
+      - `data-live-dict-area-pixi-runtime-managed-scene-names`
+    - `drawLiveDictAreaPixiScene(...)` now supports appending additional scene containers into the shared stage instead of always clearing it first
+  - Locked the new ownership boundary in tests:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - new checks cover:
+      - prompt + browser both appearing in shared-runtime managed-scene metadata
+      - `browserSectionDefault` selecting `shared-page-runtime` in the overlay shell
+      - the live canary keeping `browserSectionDefault` visible on the shared backend without a `dom-context-lost` fallback wrapper
+  - CDP outcome after the change:
+    - worktree live canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` reported:
+      - `hostManagedSceneNames=promptSectionDefault,browserSectionDefault`
+      - `browserScene.renderBackend=shared-page-runtime`
+      - `browserScene.hasDomContextLostFallback=false`
+    - `main` remained the visual oracle for the checked slice, and the browser/prompt overview surface showed no obvious Gate-1 gross drift versus the worktree canary
+  - Verification note:
+    - the usual `./scripts/run-playwright-e2e.sh` path hit the known bootstrap `401` issue during global setup in this worktree on this pass
+    - to keep the slice verified, the targeted Playwright subset was rerun directly against the live worktree runtime with the current bootstrap token, and it passed
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`14 passed`)
+  - Playwright:
+    - helper attempt:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: failed during global setup with bootstrap `401`
+    - direct targeted rerun against the live worktree runtime:
+      - `PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<current worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent against the live worktree canary and read-only `main` reference
+    - verified `browserSectionDefault` is visible on `shared-page-runtime`
+    - verified `browserSectionDefault` has no visible `dom-context-lost` fallback wrapper
+    - verified `hostManagedSceneNames=promptSectionDefault,browserSectionDefault`
+    - verified no obvious Gate-1 gross drift versus `main` for the checked visible slice
+- Next action:
+  - Use the same named-fallback workflow to take the next visible `dom-context-lost` section off the local-app path, starting with whichever section still shows up first in the runtime fallback list after `browserSectionDefault` is gone.

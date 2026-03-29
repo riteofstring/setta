@@ -594,6 +594,7 @@ function getLiveDictAreaPixiSectionStyleColor(
 
 export function drawLiveDictAreaPixiScene({
   app,
+  clearStage = true,
   compactRowPrimitive,
   darkMode,
   edgeRowInteractionState,
@@ -608,6 +609,7 @@ export function drawLiveDictAreaPixiScene({
   valueRowInteractionState,
 }: {
   app: Application;
+  clearStage?: boolean;
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   darkMode: boolean;
   edgeRowInteractionState: {
@@ -629,8 +631,10 @@ export function drawLiveDictAreaPixiScene({
     pressedRowId: string | null;
   };
 }) {
-  for (const child of app.stage.removeChildren()) {
-    child.destroy();
+  if (clearStage) {
+    for (const child of app.stage.removeChildren()) {
+      child.destroy();
+    }
   }
 
   const sceneContainer = new Container();

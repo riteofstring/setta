@@ -5,6 +5,7 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES,
   LiveDictAreaPixiPageRuntimeBoundary,
   LiveDictAreaPixiPageRuntimeHost,
   type LiveDictAreaPixiRegisteredScene,
@@ -402,6 +403,79 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
     expect(
       probe?.getAttribute("data-live-dict-area-pixi-runtime-summary"),
     ).toBe("4:8:10:6");
+  });
+
+  it("tracks every prioritized shared-runtime managed scene without dropping the first canary", () => {
+    const styleSourceElement = document.createElement("div");
+    const emptyLayout = {
+      blocks: [],
+      canvasHeight: 0,
+      canvasWidth: 320,
+      edgeStrip: null,
+      paramAreas: [],
+      readableRowCount: 0,
+      totalRowCount: 0,
+      valuePreviewCount: 0,
+    };
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiPageRuntimeBoundary>
+          <LiveDictAreaPixiPageRuntimeHost />
+          <SceneRegistration
+            bounds={{ height: 180, left: 12, top: 34, width: 320 }}
+            layout={emptyLayout}
+            renderMode="pixi"
+            runtimeSceneId="scene-prompt"
+            sectionId="section-prompt"
+            sectionName={
+              LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES[0]
+            }
+            styleSourceElement={styleSourceElement}
+          />
+          <SceneRegistration
+            bounds={{ height: 120, left: 400, top: 20, width: 280 }}
+            layout={emptyLayout}
+            renderMode="pixi"
+            runtimeSceneId="scene-browser"
+            sectionId="section-browser"
+            sectionName={
+              LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES[1]
+            }
+            styleSourceElement={styleSourceElement}
+          />
+          <SceneRegistration
+            bounds={{ height: 140, left: 720, top: 24, width: 260 }}
+            layout={emptyLayout}
+            renderMode="pixi"
+            runtimeSceneId="scene-other"
+            sectionId="section-other"
+            sectionName="otherSectionDefault"
+            styleSourceElement={styleSourceElement}
+          />
+        </LiveDictAreaPixiPageRuntimeBoundary>,
+      );
+    });
+
+    const host = container.querySelector(
+      "[data-live-dict-area-pixi-page-runtime-host='true']",
+    );
+    expect(
+      host?.getAttribute(
+        "data-live-dict-area-pixi-runtime-managed-scene-count",
+      ),
+    ).toBe("2");
+    expect(
+      host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-ids"),
+    ).toBe("scene-prompt,scene-browser");
+    expect(
+      host?.getAttribute(
+        "data-live-dict-area-pixi-runtime-managed-scene-names",
+      ),
+    ).toBe("promptSectionDefault,browserSectionDefault");
+    expect(
+      host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-name"),
+    ).toBe("promptSectionDefault");
   });
 
   it("keeps one shared context-loss policy once any registered scene reports loss", () => {

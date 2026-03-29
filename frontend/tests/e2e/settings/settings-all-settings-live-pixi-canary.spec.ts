@@ -114,6 +114,7 @@ type LiveDictAreaPageRuntimeSnapshot = {
   domContextLostSections: string[];
   hostPresent: boolean;
   managedSceneName: string;
+  managedSceneNames: string[];
   pixiCount: number;
   sectionNames: string[];
   sections: string[];
@@ -701,6 +702,7 @@ async function readLiveDictAreaPageRuntimeSnapshot(
         domContextLostSections: [],
         hostPresent: false,
         managedSceneName: "",
+        managedSceneNames: [],
         pixiCount: 0,
         sectionNames: [],
         sections: [],
@@ -746,6 +748,13 @@ async function readLiveDictAreaPageRuntimeSnapshot(
         host.getAttribute(
           "data-live-dict-area-pixi-runtime-managed-scene-name",
         ) ?? "",
+      managedSceneNames: (
+        host.getAttribute(
+          "data-live-dict-area-pixi-runtime-managed-scene-names",
+        ) ?? ""
+      )
+        .split(",")
+        .filter((sectionName) => sectionName.length > 0),
       pixiCount: parseCount("data-live-dict-area-pixi-runtime-pixi-count"),
       sectionNames: sectionIds.map(
         (sectionId) => sectionsById[sectionId]?.name ?? "",
@@ -1599,6 +1608,54 @@ test("all settings canary keeps promptSectionDefault on the shared page runtime 
       return page.evaluate(() => {
         const sceneRoot = document.querySelector<HTMLElement>(
           "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='promptSectionDefault']",
+        );
+        if (!sceneRoot) {
+          return "missing";
+        }
+
+        const rect = sceneRoot.getBoundingClientRect();
+        const visible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.top < window.innerHeight;
+        const hasContextLossFallback =
+          sceneRoot.parentElement?.querySelector(
+            "[data-live-dict-area-scene-fallback='dom-context-lost']",
+          ) !== null;
+
+        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
+      });
+    })
+    .toBe("true:false:shared-page-runtime");
+});
+
+test("all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await normalizeAllSettingsOverviewLayout(page);
+  await waitForVisibleSceneMetrics(page);
+
+  const browserOverviewItem = page
+    .locator("#OverviewPane li")
+    .filter({ hasText: "browserSectionDefault" });
+  await expect(browserOverviewItem).toBeVisible();
+  await browserOverviewItem.click();
+
+  await expect
+    .poll(async () => {
+      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
+      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("browserSectionDefault")}:${runtime.domContextLostSectionNames.includes("browserSectionDefault")}`;
+    })
+    .toBe("true:true:false");
+
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const sceneRoot = document.querySelector<HTMLElement>(
+          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='browserSectionDefault']",
         );
         if (!sceneRoot) {
           return "missing";

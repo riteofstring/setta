@@ -34,6 +34,10 @@ import { buildParamContainerLayout } from "./paramContainerView";
 
 export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAME =
   "promptSectionDefault";
+export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES = [
+  LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAME,
+  "browserSectionDefault",
+] as const;
 
 export type LiveDictAreaPixiRegisteredSceneBounds = {
   height: number;
@@ -181,6 +185,18 @@ export function useOptionalLiveDictAreaPixiPageRuntime() {
   return useContext(LiveDictAreaPixiPageRuntimeContext);
 }
 
+export function isLiveDictAreaPixiSharedRuntimeCanarySectionName(
+  sectionName: string | null,
+) {
+  if (sectionName === null) {
+    return false;
+  }
+
+  return LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES.includes(
+    sectionName,
+  );
+}
+
 export function LiveDictAreaPixiPageRuntimeHost() {
   const runtime = useOptionalLiveDictAreaPixiPageRuntime();
   const darkMode = useLocalStorage((state) => state.darkMode);
@@ -201,11 +217,13 @@ export function LiveDictAreaPixiPageRuntimeHost() {
       getLiveDictAreaPixiCompactRowPrimitive({}),
     );
 
-  const managedScene = useMemo(
+  const managedScenes = useMemo(
     () =>
       runtime
-        ? getLiveDictAreaPixiSharedRuntimeManagedScene(runtime.registeredScenes)
-        : null,
+        ? getLiveDictAreaPixiSharedRuntimeManagedScenes(
+            runtime.registeredScenes,
+          )
+        : [],
     [runtime],
   );
 
@@ -301,7 +319,7 @@ export function LiveDictAreaPixiPageRuntimeHost() {
 
   useLayoutEffect(() => {
     const host = hostRef.current;
-    if (!host || !managedScene) {
+    if (!host || managedScenes.length === 0) {
       host?.replaceChildren();
       return;
     }
@@ -310,12 +328,23 @@ export function LiveDictAreaPixiPageRuntimeHost() {
       return;
     }
 
-    const localBounds = getLiveDictAreaPixiManagedSceneLocalBounds({
-      host,
-      sceneBounds: managedScene.bounds,
-      viewportZoom,
+    const renderableScenes = managedScenes.flatMap((managedScene) => {
+      const localBounds = getLiveDictAreaPixiManagedSceneLocalBounds({
+        host,
+        sceneBounds: managedScene.bounds,
+        viewportZoom,
+      });
+
+      return localBounds === null
+        ? []
+        : [
+            {
+              localBounds,
+              managedScene,
+            },
+          ];
     });
-    if (!localBounds) {
+    if (renderableScenes.length === 0) {
       host.replaceChildren();
       return;
     }
@@ -332,27 +361,18 @@ export function LiveDictAreaPixiPageRuntimeHost() {
       });
       const textResolution =
         getLiveDictAreaPixiTextResolution(renderResolution);
-      const textFontFamily = getLiveDictAreaPixiTextFontFamily({
-        fallbackElement: document.body,
-        getComputedStyle: window.getComputedStyle,
-        host: managedScene.styleSourceElement,
-      });
-      const paramColumnWidth = getLiveDictAreaPixiParamColumnWidth({
-        getComputedStyle: window.getComputedStyle,
-        host: managedScene.styleSourceElement,
-      });
       const textStyleSet = getLiveDictAreaPixiTextStyleSet({
         edgeLabelElement: edgeLabelTextStyleRef.current,
         edgeRowElement: edgeRowTextStyleRef.current,
         getComputedStyle: window.getComputedStyle,
         rowElement: rowTextStyleRef.current,
       });
-      const palette = getLiveDictAreaPixiPalette({
-        darkMode,
-        getComputedStyle: window.getComputedStyle,
-        host: managedScene.styleSourceElement,
-        sectionStyleColor: null,
-      });
+      const presentationMode = getLiveDictAreaPixiPresentationMode(
+        viewportZoom,
+        {
+          overviewEnabled: readLiveDictAreaPixiOverviewEnabledFromWindow(),
+        },
+      );
       let app = appRef.current;
 
       if (!app) {
@@ -387,33 +407,50 @@ export function LiveDictAreaPixiPageRuntimeHost() {
       app.canvas.style.height = "100%";
       app.canvas.style.width = "100%";
 
-      drawLiveDictAreaPixiScene({
-        app,
-        compactRowPrimitive,
-        darkMode,
-        edgeRowInteractionState: {
-          focusedPortId: null,
-          hoveredPortId: null,
-          pressedPortId: null,
-        },
-        layout: managedScene.layout,
-        origin: {
-          x: localBounds.left,
-          y: localBounds.top,
-        },
-        palette,
-        paramColumnWidth,
-        presentationMode: getLiveDictAreaPixiPresentationMode(viewportZoom, {
-          overviewEnabled: readLiveDictAreaPixiOverviewEnabledFromWindow(),
-        }),
-        textResolution,
-        textFontFamily,
-        textStyleSet,
-        valueRowInteractionState: {
-          focusedRowId: null,
-          hoveredRowId: null,
-          pressedRowId: null,
-        },
+      renderableScenes.forEach(({ localBounds, managedScene }, index) => {
+        const palette = getLiveDictAreaPixiPalette({
+          darkMode,
+          getComputedStyle: window.getComputedStyle,
+          host: managedScene.styleSourceElement,
+          sectionStyleColor: null,
+        });
+        const paramColumnWidth = getLiveDictAreaPixiParamColumnWidth({
+          getComputedStyle: window.getComputedStyle,
+          host: managedScene.styleSourceElement,
+        });
+        const textFontFamily = getLiveDictAreaPixiTextFontFamily({
+          fallbackElement: document.body,
+          getComputedStyle: window.getComputedStyle,
+          host: managedScene.styleSourceElement,
+        });
+
+        drawLiveDictAreaPixiScene({
+          app,
+          clearStage: index === 0,
+          compactRowPrimitive,
+          darkMode,
+          edgeRowInteractionState: {
+            focusedPortId: null,
+            hoveredPortId: null,
+            pressedPortId: null,
+          },
+          layout: managedScene.layout,
+          origin: {
+            x: localBounds.left,
+            y: localBounds.top,
+          },
+          palette,
+          paramColumnWidth,
+          presentationMode,
+          textResolution,
+          textFontFamily,
+          textStyleSet,
+          valueRowInteractionState: {
+            focusedRowId: null,
+            hoveredRowId: null,
+            pressedRowId: null,
+          },
+        });
       });
 
       app.render();
@@ -436,12 +473,12 @@ export function LiveDictAreaPixiPageRuntimeHost() {
     fontLoadVersion,
     hostSize.height,
     hostSize.width,
-    managedScene,
+    managedScenes,
     viewportZoom,
   ]);
 
   useEffect(() => {
-    if (managedScene !== null) {
+    if (managedScenes.length > 0) {
       return;
     }
 
@@ -453,7 +490,7 @@ export function LiveDictAreaPixiPageRuntimeHost() {
     appRef.current = null;
     destroyLiveDictAreaPixiPageRuntimeHostApplication(app);
     hostRef.current?.replaceChildren();
-  }, [managedScene]);
+  }, [managedScenes]);
 
   useEffect(() => {
     return () => {
@@ -477,6 +514,12 @@ export function LiveDictAreaPixiPageRuntimeHost() {
   const domContextLostScenes = runtime.registeredScenes.filter(
     (scene) => scene.renderMode === "dom-context-lost",
   );
+  const managedSceneIds = managedScenes.map(
+    (managedScene) => managedScene.runtimeSceneId,
+  );
+  const managedSceneNames = managedScenes
+    .map((managedScene) => managedScene.sectionName ?? "")
+    .filter((sectionName) => sectionName.length > 0);
   const domContextLostSceneCount =
     runtime.registeredSceneCount - pixiSceneCount;
   const compactRowPrimitiveLayout = buildParamContainerLayout({
@@ -510,12 +553,21 @@ export function LiveDictAreaPixiPageRuntimeHost() {
       data-live-dict-area-pixi-runtime-lost-scene={
         runtime.contextLostScene?.sectionId ?? ""
       }
+      data-live-dict-area-pixi-runtime-managed-scene-count={
+        managedScenes.length
+      }
       data-live-dict-area-pixi-runtime-managed-scene-id={
-        managedScene?.runtimeSceneId ?? ""
+        managedSceneIds[0] ?? ""
       }
+      data-live-dict-area-pixi-runtime-managed-scene-ids={managedSceneIds.join(
+        ",",
+      )}
       data-live-dict-area-pixi-runtime-managed-scene-name={
-        managedScene?.sectionName ?? ""
+        managedSceneNames[0] ?? ""
       }
+      data-live-dict-area-pixi-runtime-managed-scene-names={managedSceneNames.join(
+        ",",
+      )}
       data-live-dict-area-pixi-runtime-pixi-count={pixiSceneCount}
       data-live-dict-area-pixi-runtime-scenes={runtime.registeredScenes
         .map((scene) => scene.sectionId ?? "")
@@ -605,25 +657,28 @@ function getRegisteredSceneSortKey(scene: LiveDictAreaPixiRegisteredScene) {
   return scene.sectionId ?? scene.runtimeSceneId;
 }
 
-function getLiveDictAreaPixiSharedRuntimeManagedScene(
+function getLiveDictAreaPixiSharedRuntimeManagedScenes(
   scenes: LiveDictAreaPixiRegisteredScene[],
 ) {
-  return (
-    scenes.find(
-      (
-        scene,
-      ): scene is LiveDictAreaPixiRegisteredScene & {
-        bounds: LiveDictAreaPixiRegisteredSceneBounds;
-        layout: LiveDictAreaPixiLayout;
-        styleSourceElement: HTMLElement;
-      } =>
-        scene.renderMode === "pixi" &&
-        scene.sectionName ===
-          LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAME &&
-        scene.bounds !== null &&
-        scene.layout !== null &&
-        scene.styleSourceElement !== null,
-    ) ?? null
+  return LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES.flatMap(
+    (sectionName) => {
+      const managedScene = scenes.find(
+        (
+          scene,
+        ): scene is LiveDictAreaPixiRegisteredScene & {
+          bounds: LiveDictAreaPixiRegisteredSceneBounds;
+          layout: LiveDictAreaPixiLayout;
+          styleSourceElement: HTMLElement;
+        } =>
+          scene.renderMode === "pixi" &&
+          scene.sectionName === sectionName &&
+          scene.bounds !== null &&
+          scene.layout !== null &&
+          scene.styleSourceElement !== null,
+      );
+
+      return managedScene ? [managedScene] : [];
+    },
   );
 }
 
