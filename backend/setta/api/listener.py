@@ -622,60 +622,19 @@ class SettaListener:
             return
         if self._explicit_host or self._explicit_port:
             return
-        raw_autoconnect = os.environ.get("SETTA_LISTENER_AUTOCONNECT")
-        if raw_autoconnect is None:
-            return
-        normalized = raw_autoconnect.strip().lower()
-        if normalized in {"0", "false", "no"}:
-            return
-        if normalized not in {"1", "true", "yes"}:
+        if not self._listener_autoconnect_enabled():
             return
         # If the caller didn't pass host/port, prefer the latest session recorded in
         # this workspace (dev worktrees use per-worktree ports + cookie names).
-        sessions_root = C.RUNTIME_SESSIONS_FOLDER
-        if sessions_root.is_absolute():
-            paths = get_setta_paths()
-            workspace_root = paths.workspace_root.resolve(strict=False)
-            resolved_sessions_root = sessions_root.resolve(strict=False)
-        else:
-            start = Path.cwd().resolve()
-            resolved_sessions_root = None
-            workspace_root = None
-            for parent in (start, *start.parents):
-                candidate = parent / sessions_root
-                if candidate.is_dir():
-                    workspace_root = parent
-                    resolved_sessions_root = candidate
-                    break
-            if resolved_sessions_root is None or workspace_root is None:
-                return
-        sessions_root = resolved_sessions_root
+        session_root_info = self._resolve_autoconnect_sessions_root()
+        if session_root_info is None:
+            return
+        workspace_root, sessions_root = session_root_info
         if not sessions_root.exists():
             return
-
-        registry = SessionRegistry(sessions_root=sessions_root)
-        sessions = registry.find_sessions_by_workspace(
-            workspace_root,
-            prune_stale=False,
-            track_suspicious=True,
-        )
-        sessions = [
-            session
-            for session in sessions
-            if registry.is_session_process_setta(session)
-        ]
-        if not sessions:
+        session_info = self._select_autoconnect_session(sessions_root, workspace_root)
+        if session_info is None:
             return
-        sessions.sort(key=lambda session: session.startedAt)
-
-        suspicious = registry.suspicious_session_ids()
-        preferred = [session for session in sessions if session.id not in suspicious]
-        selected = preferred[-1] if preferred else sessions[-1]
-        try:
-            secret = registry.load_secret(selected)
-        except FileNotFoundError:
-            return
-        session_info = (selected, secret)
         metadata, secret = session_info
         logger.info(
             "SettaListener autoconnecting to session %s at %s:%s (workspace=%s)",
@@ -688,15 +647,65 @@ class SettaListener:
         self._auto_session_secret = secret
         self._host = metadata.host
         self._port = metadata.port
-        if self._set_binary_base_url:
-            if "://" in self._host:
-                os.environ["SETTA_BINARY_BASE_URL"] = (
-                    f"{self._host.rstrip('/')}{Route.PREFIX.value}"
-                )
-            else:
-                os.environ["SETTA_BINARY_BASE_URL"] = (
-                    f"http://{self._host}:{self._port}{Route.PREFIX.value}"
-                )
+        self._update_binary_base_url_for_host()
+
+    def _listener_autoconnect_enabled(self) -> bool:
+        raw_autoconnect = os.environ.get("SETTA_LISTENER_AUTOCONNECT")
+        if raw_autoconnect is None:
+            return False
+        return raw_autoconnect.strip().lower() in {"1", "true", "yes"}
+
+    def _resolve_autoconnect_sessions_root(self) -> tuple[Path, Path] | None:
+        sessions_root = C.RUNTIME_SESSIONS_FOLDER
+        if sessions_root.is_absolute():
+            workspace_root = get_setta_paths().workspace_root.resolve(strict=False)
+            return workspace_root, sessions_root.resolve(strict=False)
+        start = Path.cwd().resolve()
+        for parent in (start, *start.parents):
+            candidate = parent / sessions_root
+            if candidate.is_dir():
+                return parent, candidate
+        return None
+
+    def _select_autoconnect_session(
+        self,
+        sessions_root: Path,
+        workspace_root: Path,
+    ) -> tuple[SessionMetadata, bytes] | None:
+        registry = SessionRegistry(sessions_root=sessions_root)
+        sessions = registry.find_sessions_by_workspace(
+            workspace_root,
+            prune_stale=False,
+            track_suspicious=True,
+        )
+        sessions = [
+            session
+            for session in sessions
+            if registry.is_session_process_setta(session)
+        ]
+        if not sessions:
+            return None
+        sessions.sort(key=lambda session: session.startedAt)
+        suspicious = registry.suspicious_session_ids()
+        preferred = [session for session in sessions if session.id not in suspicious]
+        selected = preferred[-1] if preferred else sessions[-1]
+        try:
+            secret = registry.load_secret(selected)
+        except FileNotFoundError:
+            return None
+        return selected, secret
+
+    def _update_binary_base_url_for_host(self) -> None:
+        if not self._set_binary_base_url:
+            return
+        if "://" in self._host:
+            os.environ["SETTA_BINARY_BASE_URL"] = (
+                f"{self._host.rstrip('/')}{Route.PREFIX.value}"
+            )
+            return
+        os.environ["SETTA_BINARY_BASE_URL"] = (
+            f"http://{self._host}:{self._port}{Route.PREFIX.value}"
+        )
 
     @property
     def _log_identifier(self) -> str:
@@ -819,25 +828,60 @@ class SettaListener:
         """
         self._ensure_logging()
         if hot_reload:
-            if builder is None:
-                raise ValueError("hot_reload=True requires a callback builder")
-            from .hot_reload import ListenerHotReloader
-
-            reloader_kwargs: dict[str, Any] = {
-                "listener": self,
-                "builder": builder,
-                "trigger_refresh": trigger_refresh,
-            }
-            if extra_watch_paths is not None:
-                reloader_kwargs["extra_watch_paths"] = extra_watch_paths
-            if ignore_patterns is not None:
-                reloader_kwargs["ignore_patterns"] = ignore_patterns
-            if settle_delay is not None:
-                reloader_kwargs["settle_delay"] = settle_delay
-            reloader = ListenerHotReloader(**reloader_kwargs)
-            self.start_with_hot_reload(reloader)
+            self.start_with_hot_reload(
+                self._build_hot_reload_reloader(
+                    builder=builder,
+                    extra_watch_paths=extra_watch_paths,
+                    ignore_patterns=ignore_patterns,
+                    trigger_refresh=trigger_refresh,
+                    settle_delay=settle_delay,
+                )
+            )
             return
+        self._validate_start_options_without_hot_reload(
+            builder=builder,
+            extra_watch_paths=extra_watch_paths,
+            ignore_patterns=ignore_patterns,
+            trigger_refresh=trigger_refresh,
+            settle_delay=settle_delay,
+        )
+        self._run_listener_main(self.run_forever())
 
+    def _build_hot_reload_reloader(
+        self,
+        *,
+        builder: ListenerCallbackBuilder | None,
+        extra_watch_paths: Iterable[str] | None,
+        ignore_patterns: Iterable[str] | None,
+        trigger_refresh: bool,
+        settle_delay: float | None,
+    ) -> "ListenerHotReloader":
+        if builder is None:
+            raise ValueError("hot_reload=True requires a callback builder")
+        from .hot_reload import ListenerHotReloader
+
+        reloader_kwargs: dict[str, Any] = {
+            "listener": self,
+            "builder": builder,
+            "trigger_refresh": trigger_refresh,
+        }
+        if extra_watch_paths is not None:
+            reloader_kwargs["extra_watch_paths"] = extra_watch_paths
+        if ignore_patterns is not None:
+            reloader_kwargs["ignore_patterns"] = ignore_patterns
+        if settle_delay is not None:
+            reloader_kwargs["settle_delay"] = settle_delay
+        return ListenerHotReloader(**reloader_kwargs)
+
+    def _validate_start_options_without_hot_reload(
+        self,
+        *,
+        builder: ListenerCallbackBuilder | None,
+        extra_watch_paths: Iterable[str] | None,
+        ignore_patterns: Iterable[str] | None,
+        trigger_refresh: bool,
+        settle_delay: float | None,
+    ) -> None:
         if builder is not None:
             raise ValueError("Provide hot_reload=True when passing a callback builder")
         if extra_watch_paths is not None:
@@ -849,6 +893,7 @@ class SettaListener:
         if settle_delay is not None:
             raise ValueError("settle_delay is only meaningful with hot_reload=True")
 
+    def _run_listener_main(self, task: Awaitable[None]) -> None:
         if self._stop_event.is_set():
             self._stop_event = asyncio.Event()
         try:
@@ -856,7 +901,7 @@ class SettaListener:
                 listener_id=self._log_identifier,
                 listener_socket_id=self._socket_id,
             ):
-                asyncio.run(self.run_forever())
+                asyncio.run(task)
         except KeyboardInterrupt:
             logger.info("Listener %s interrupted by user", self._log_identifier)
         finally:
@@ -936,48 +981,60 @@ class SettaListener:
                 self._websocket = websocket
                 await self._send_bootstrap_init()
                 try:
-                    async for payload in websocket:
-                        if self._stop_event.is_set():
-                            break
-                        message = self._parse_websocket_payload(payload)
-                        if message is None:
-                            continue
-                        await self._dispatch_websocket_message(message)
+                    await self._consume_websocket_messages(websocket)
                 finally:
-                    logger.info("Listener %s connection closed", self._log_identifier)
-                    self._websocket = None
-                    if self._local_core_client is not None:
-                        self._local_core_client.close()
-                    self._registration_pending = False
-                    self._is_registered = False
-                    self._expected_ack_callback_ids = set()
-                    if self._pending_router_endpoint_calls:
-                        pending_calls = list(
-                            self._pending_router_endpoint_calls.items()
-                        )
-                        self._pending_router_endpoint_calls = {}
-                        for call_id, future in pending_calls:
-                            if future.done():
-                                continue
-                            future.set_exception(
-                                RuntimeError(
-                                    f"Listener connection closed before call {call_id} completed"
-                                )
-                            )
-                    if self._pending_router_endpoint_force_refreshes:
-                        pending_force_refreshes = list(
-                            self._pending_router_endpoint_force_refreshes.items()
-                        )
-                        self._pending_router_endpoint_force_refreshes = {}
-                        for call_id, future in pending_force_refreshes:
-                            if future.done():
-                                continue
-                            future.set_exception(
-                                RuntimeError(
-                                    "Listener connection closed before authoritative "
-                                    f"refresh for call {call_id} completed"
-                                )
-                            )
+                    self._handle_connection_closed()
+
+    async def _consume_websocket_messages(self, websocket: "ClientConnection") -> None:
+        async for payload in websocket:
+            if self._stop_event.is_set():
+                break
+            message = self._parse_websocket_payload(payload)
+            if message is None:
+                continue
+            await self._dispatch_websocket_message(message)
+
+    def _handle_connection_closed(self) -> None:
+        logger.info("Listener %s connection closed", self._log_identifier)
+        self._websocket = None
+        if self._local_core_client is not None:
+            self._local_core_client.close()
+        self._registration_pending = False
+        self._is_registered = False
+        self._expected_ack_callback_ids = set()
+        self._fail_pending_router_endpoint_calls()
+        self._fail_pending_router_endpoint_force_refreshes()
+
+    def _fail_pending_router_endpoint_calls(self) -> None:
+        if not self._pending_router_endpoint_calls:
+            return
+        pending_calls = list(self._pending_router_endpoint_calls.items())
+        self._pending_router_endpoint_calls = {}
+        for call_id, future in pending_calls:
+            if future.done():
+                continue
+            future.set_exception(
+                RuntimeError(
+                    f"Listener connection closed before call {call_id} completed"
+                )
+            )
+
+    def _fail_pending_router_endpoint_force_refreshes(self) -> None:
+        if not self._pending_router_endpoint_force_refreshes:
+            return
+        pending_force_refreshes = list(
+            self._pending_router_endpoint_force_refreshes.items()
+        )
+        self._pending_router_endpoint_force_refreshes = {}
+        for call_id, future in pending_force_refreshes:
+            if future.done():
+                continue
+            future.set_exception(
+                RuntimeError(
+                    "Listener connection closed before authoritative "
+                    f"refresh for call {call_id} completed"
+                )
+            )
 
     async def _ensure_runtime_compatibility(self) -> None:
         if self._runtime_compatibility_verified:
@@ -994,115 +1051,13 @@ class SettaListener:
     def _parse_websocket_payload(self, payload: str | bytes) -> Any | None:
         """Parse raw websocket payloads into typed messages."""
         if isinstance(payload, (bytes, bytearray)):
-            try:
-                header, binary_payload = decode_binary_frame(bytes(payload))
-            except ValueError as exc:
-                logger.warning("Received malformed binary listener payload: %s", exc)
-                return None
-            if (
-                isinstance(header, dict)
-                and header.get("messageType")
-                == ListenerMessageType.ListenerRealtimeEvent.value
-            ):
-                try:
-                    content = ListenerRealtimeEventContent.model_validate(
-                        header.get("content")
-                    )
-                except ValidationError:
-                    logger.warning("Received malformed listener payload: %s", header)
-                    return None
-                if not content.deltas:
-                    logger.warning(
-                        "Binary realtime event must contain at least one delta."
-                    )
-                    return None
-                for delta in content.deltas:
-                    delta.binaryPayload = binary_payload
-                return content
-            if (
-                isinstance(header, dict)
-                and header.get("messageType")
-                == ListenerMessageType.ListenerDependencyEvent.value
-            ):
-                try:
-                    content = ListenerDependencyEventContent.model_validate(
-                        header.get("content")
-                    )
-                except ValidationError:
-                    logger.warning("Received malformed listener payload: %s", header)
-                    return None
-                if not content.dependencyEvents:
-                    logger.warning(
-                        "Binary dependency event must contain at least one event."
-                    )
-                    return None
-                for event in content.dependencyEvents:
-                    event.binaryPayload = binary_payload
-                return content
-            logger.warning(
-                "Binary websocket payload uses unsupported message type: %s",
-                header.get("messageType") if isinstance(header, dict) else type(header),
-            )
+            return self._parse_binary_websocket_payload(bytes(payload))
+        raw_message = self._parse_text_websocket_payload(payload)
+        if raw_message is None:
             return None
-        try:
-            raw_message = json.loads(payload)
-        except json.JSONDecodeError:
-            logger.warning("Received malformed listener payload: %s", payload)
-            return None
-        if (
-            isinstance(raw_message, dict)
-            and raw_message.get("messageType")
-            == ListenerMessageType.ListenerRealtimeEvent.value
-        ):
-            try:
-                message = ListenerRealtimeEventContent.model_validate(
-                    raw_message.get("content")
-                )
-            except ValidationError:
-                logger.warning("Received malformed listener payload: %s", payload)
-                return None
-            logger.debug(
-                "Listener %s received %s message",
-                self._log_identifier,
-                ListenerMessageType.ListenerRealtimeEvent,
-            )
-            return message
-        if (
-            isinstance(raw_message, dict)
-            and raw_message.get("messageType")
-            == ListenerMessageType.ListenerDependencyEvent.value
-        ):
-            try:
-                message = ListenerDependencyEventContent.model_validate(
-                    raw_message.get("content")
-                )
-            except ValidationError:
-                logger.warning("Received malformed listener payload: %s", payload)
-                return None
-            logger.debug(
-                "Listener %s received %s message",
-                self._log_identifier,
-                ListenerMessageType.ListenerDependencyEvent,
-            )
-            return message
-        if (
-            isinstance(raw_message, dict)
-            and raw_message.get("messageType")
-            == ListenerMessageType.ListenerForceRefresh.value
-        ):
-            try:
-                message = ListenerForceRefreshEvent.model_validate(
-                    raw_message.get("content")
-                )
-            except ValidationError:
-                logger.warning("Received malformed listener payload: %s", payload)
-                return None
-            logger.debug(
-                "Listener %s received %s message",
-                self._log_identifier,
-                ListenerMessageType.ListenerForceRefresh,
-            )
-            return message
+        control_message = self._parse_listener_control_message(raw_message, payload)
+        if control_message is not None:
+            return control_message
         try:
             message = _validate_generated_listener_message(raw_message)
         except ValidationError:
@@ -1117,6 +1072,132 @@ class SettaListener:
             message.messageType,
         )
         return message
+
+    def _parse_binary_websocket_payload(self, payload: bytes) -> Any | None:
+        try:
+            header, binary_payload = decode_binary_frame(payload)
+        except ValueError as exc:
+            logger.warning("Received malformed binary listener payload: %s", exc)
+            return None
+        if not isinstance(header, dict):
+            logger.warning(
+                "Binary websocket payload uses unsupported message type: %s",
+                type(header),
+            )
+            return None
+        message_type = header.get("messageType")
+        if message_type == ListenerMessageType.ListenerRealtimeEvent.value:
+            return self._parse_binary_realtime_event(header, binary_payload)
+        if message_type == ListenerMessageType.ListenerDependencyEvent.value:
+            return self._parse_binary_dependency_event(header, binary_payload)
+        logger.warning(
+            "Binary websocket payload uses unsupported message type: %s",
+            message_type,
+        )
+        return None
+
+    def _parse_binary_realtime_event(
+        self,
+        header: dict[str, Any],
+        binary_payload: bytes,
+    ) -> ListenerRealtimeEventContent | None:
+        content = self._validate_listener_content(
+            header,
+            header.get("content"),
+            ListenerRealtimeEventContent,
+        )
+        if content is None:
+            return None
+        if not content.deltas:
+            logger.warning("Binary realtime event must contain at least one delta.")
+            return None
+        for delta in content.deltas:
+            delta.binaryPayload = binary_payload
+        return content
+
+    def _parse_binary_dependency_event(
+        self,
+        header: dict[str, Any],
+        binary_payload: bytes,
+    ) -> ListenerDependencyEventContent | None:
+        content = self._validate_listener_content(
+            header,
+            header.get("content"),
+            ListenerDependencyEventContent,
+        )
+        if content is None:
+            return None
+        if not content.dependencyEvents:
+            logger.warning("Binary dependency event must contain at least one event.")
+            return None
+        for event in content.dependencyEvents:
+            event.binaryPayload = binary_payload
+        return content
+
+    def _parse_text_websocket_payload(self, payload: str) -> Any | None:
+        try:
+            return json.loads(payload)
+        except json.JSONDecodeError:
+            logger.warning("Received malformed listener payload: %s", payload)
+            return None
+
+    def _parse_listener_control_message(
+        self,
+        raw_message: Any,
+        payload: str,
+    ) -> Any | None:
+        if not isinstance(raw_message, dict):
+            return None
+        known_messages: tuple[
+            tuple[str, type[BaseModel], ListenerMessageType],
+            ...,
+        ] = (
+            (
+                ListenerMessageType.ListenerRealtimeEvent.value,
+                ListenerRealtimeEventContent,
+                ListenerMessageType.ListenerRealtimeEvent,
+            ),
+            (
+                ListenerMessageType.ListenerDependencyEvent.value,
+                ListenerDependencyEventContent,
+                ListenerMessageType.ListenerDependencyEvent,
+            ),
+            (
+                ListenerMessageType.ListenerForceRefresh.value,
+                ListenerForceRefreshEvent,
+                ListenerMessageType.ListenerForceRefresh,
+            ),
+        )
+        message_type = raw_message.get("messageType")
+        for expected_type, model, log_message_type in known_messages:
+            if message_type != expected_type:
+                continue
+            message = self._validate_listener_content(
+                payload,
+                raw_message.get("content"),
+                model,
+            )
+            if message is None:
+                return None
+            logger.debug(
+                "Listener %s received %s message",
+                self._log_identifier,
+                log_message_type,
+            )
+            return message
+        return None
+
+    def _validate_listener_content(
+        self,
+        payload: Any,
+        raw_content: Any,
+        model: type[BaseModel],
+    ) -> Any | None:
+        try:
+            return model.model_validate(raw_content)
+        except ValidationError:
+            logger.warning("Received malformed listener payload: %s", payload)
+            return None
 
     async def _dispatch_websocket_message(
         self,
@@ -1374,50 +1455,76 @@ class SettaListener:
         self, dependency_metadata: ListenerDependencyMetadata
     ) -> None:
         for spec in self._callbacks.values():
-            if spec.declared_dependencies and not spec.structured_dependencies:
-                structured: list[BaseDependencyKeyUnion] = []
-                for dependency in spec.declared_dependencies:
-                    if isinstance(dependency, ListenerDependencyId):
-                        dep_key = create_dep_key(
-                            sectionId=dependency.sectionId,
-                            codeObjId=dependency.paramInfoId,
-                        )
-                    elif isinstance(
-                        dependency,
-                        (SectionDependencyKey, SectionParamDependencyKey),
-                    ):
-                        dep_key = dependency
-                    elif isinstance(dependency, str):
-                        try:
-                            dep_key = dependency_metadata.dependency_key(dependency)
-                        except KeyError as error:
-                            raise KeyError(
-                                f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
-                            ) from error
-                    else:
-                        raise TypeError(
-                            "Listener dependencies must be a name, dependency id, or dependency key"
-                        )
-                    try:
-                        dependency_metadata.entry_for_key(dep_key)
-                    except KeyError as error:
-                        raise KeyError(
-                            f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
-                        ) from error
-                    structured.append(dep_key)
-                spec.structured_dependencies = tuple(structured)
+            spec.structured_dependencies = self._resolve_callback_structured_dependencies(
+                spec,
+                dependency_metadata,
+            )
             if not spec.structured_dependencies:
                 spec.dependency_names = ()
                 continue
-            names: list[str] = []
-            for dep_key in spec.structured_dependencies:
-                try:
-                    names.append(dependency_metadata.dependency_name(dep_key))
-                except KeyError as error:
-                    raise KeyError(
-                        f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
-                    ) from error
-            spec.dependency_names = tuple(names)
+            spec.dependency_names = self._resolve_callback_dependency_names(
+                spec.structured_dependencies,
+                dependency_metadata,
+            )
+
+    def _resolve_callback_structured_dependencies(
+        self,
+        spec: ListenerCallbackSpec,
+        dependency_metadata: ListenerDependencyMetadata,
+    ) -> tuple[BaseDependencyKeyUnion, ...]:
+        if not spec.declared_dependencies or spec.structured_dependencies:
+            return spec.structured_dependencies
+        structured = [
+            self._resolve_callback_dependency_key(dependency, dependency_metadata)
+            for dependency in spec.declared_dependencies
+        ]
+        return tuple(structured)
+
+    def _resolve_callback_dependency_key(
+        self,
+        dependency: str | ListenerDependencyId | BaseDependencyKeyUnion,
+        dependency_metadata: ListenerDependencyMetadata,
+    ) -> BaseDependencyKeyUnion:
+        if isinstance(dependency, ListenerDependencyId):
+            dep_key = create_dep_key(
+                sectionId=dependency.sectionId,
+                codeObjId=dependency.paramInfoId,
+            )
+        elif isinstance(dependency, (SectionDependencyKey, SectionParamDependencyKey)):
+            dep_key = dependency
+        elif isinstance(dependency, str):
+            try:
+                dep_key = dependency_metadata.dependency_key(dependency)
+            except KeyError as error:
+                raise KeyError(
+                    f"Unknown listener dependency {dependency!r} for project {self._log_identifier}"
+                ) from error
+        else:
+            raise TypeError(
+                "Listener dependencies must be a name, dependency id, or dependency key"
+            )
+        try:
+            dependency_metadata.entry_for_key(dep_key)
+        except KeyError as error:
+            raise KeyError(
+                f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
+            ) from error
+        return dep_key
+
+    def _resolve_callback_dependency_names(
+        self,
+        structured_dependencies: Sequence[BaseDependencyKeyUnion],
+        dependency_metadata: ListenerDependencyMetadata,
+    ) -> tuple[str, ...]:
+        names: list[str] = []
+        for dep_key in structured_dependencies:
+            try:
+                names.append(dependency_metadata.dependency_name(dep_key))
+            except KeyError as error:
+                raise KeyError(
+                    f"Unknown listener dependency key {dep_key!r} for project {self._log_identifier}"
+                ) from error
+        return tuple(names)
 
     async def _send_bootstrap_init(self) -> None:
         """Send an initial bootstrap handshake to identify the target project."""
@@ -1514,23 +1621,9 @@ class SettaListener:
     ) -> None:
         self._validate_sequence_session_id(snapshot.shareSessionId)
         self._reset_realtime_sequence()
-        incoming_project_id = snapshot.projectConfigId
-        if self._project_config_id is None:
-            self._project_config_id = incoming_project_id
-        elif incoming_project_id != self._project_config_id:
-            logger.warning(
-                "Listener %s received %s snapshot for unexpected project %s",
-                self._log_identifier,
-                refresh_kind,
-                incoming_project_id,
-            )
-            self._project_config_id = incoming_project_id
-
-        runtime_state = ListenerRuntimeState(
-            dependency_metadata=ListenerDependencyMetadata.from_catalog(
-                snapshot.dependencyCatalog
-            ),
-            dependency_catalog=snapshot.dependencyCatalog,
+        self._apply_snapshot_project_identity(snapshot.projectConfigId, refresh_kind)
+        runtime_state = self._build_runtime_state_from_catalog(
+            snapshot.dependencyCatalog
         )
         self._latest_dependency_snapshot_values = snapshot.dependencyValues
         self._latest_dependency_catalog = snapshot.dependencyCatalog
@@ -1543,39 +1636,11 @@ class SettaListener:
             runtime_state.dependency_metadata,
         )
         updated_cache = dict(rendered_snapshot_values)
-        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-
-        for spec in self._callbacks.values():
-            self._scheduler.reset(spec.callback_id)
-            changed: dict[str, Any] = {}
-            unresolved_dependencies = False
-            for dependency in spec.dependency_names:
-                value = updated_cache.get(dependency, _UNAVAILABLE)
-                if value is _UNAVAILABLE:
-                    unresolved_dependencies = True
-                    continue
-                previous = previous_cache.get(dependency, _MISSING)
-                updated_cache[dependency] = value
-                if previous is _MISSING or value != previous:
-                    changed[dependency] = value
-
-            if unresolved_dependencies and not changed:
-                continue
-
-            mode = spec.dependency_mode
-            if mode is ListenerDependencyMode.realtime_only:
-                continue
-
-            if mode is ListenerDependencyMode.always:
-                should_run = bool(changed) or spec.run_on_refresh
-                if not spec.dependency_names:
-                    should_run = True
-            else:  # ListenerDependencyMode.refresh_only
-                should_run = True
-
-            if should_run:
-                callbacks_to_run.append((spec, changed))
+        callbacks_to_run = self._collect_snapshot_callbacks_to_run(
+            runtime_state,
+            updated_cache,
+            previous_cache,
+        )
 
         self._runtime_state = runtime_state
         self._latest_dependency_metadata = runtime_state.dependency_metadata
@@ -1600,6 +1665,98 @@ class SettaListener:
                     "refresh_kind": refresh_kind,
                 },
             )
+
+    def _apply_snapshot_project_identity(
+        self,
+        incoming_project_id: str,
+        refresh_kind: Literal["bootstrap", "force_refresh"],
+    ) -> None:
+        if self._project_config_id is None:
+            self._project_config_id = incoming_project_id
+            return
+        if incoming_project_id == self._project_config_id:
+            return
+        logger.warning(
+            "Listener %s received %s snapshot for unexpected project %s",
+            self._log_identifier,
+            refresh_kind,
+            incoming_project_id,
+        )
+        self._project_config_id = incoming_project_id
+
+    def _build_runtime_state_from_catalog(
+        self,
+        dependency_catalog: ListenerDependencyCatalog,
+    ) -> ListenerRuntimeState:
+        return ListenerRuntimeState(
+            dependency_metadata=ListenerDependencyMetadata.from_catalog(
+                dependency_catalog
+            ),
+            dependency_catalog=dependency_catalog,
+        )
+
+    def _collect_snapshot_callbacks_to_run(
+        self,
+        runtime_state: ListenerRuntimeState,
+        updated_cache: dict[str, Any],
+        previous_cache: dict[str, Any],
+    ) -> list[tuple[ListenerCallbackSpec, dict[str, Any]]]:
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
+        for spec in self._callbacks.values():
+            self._scheduler.reset(spec.callback_id)
+            changed, unresolved_dependencies = self._build_refresh_changed_dependencies(
+                spec.dependency_names,
+                updated_cache,
+                previous_cache,
+            )
+            if not self._should_run_snapshot_callback(
+                spec,
+                changed,
+                unresolved_dependencies,
+            ):
+                continue
+            callbacks_to_run.append((spec, changed))
+        return callbacks_to_run
+
+    def _build_refresh_changed_dependencies(
+        self,
+        dependencies: Sequence[str],
+        updated_cache: dict[str, Any],
+        previous_cache: dict[str, Any] | None,
+    ) -> tuple[dict[str, Any], bool]:
+        changed: dict[str, Any] = {}
+        unresolved_dependencies = False
+        for dependency in dependencies:
+            value = updated_cache.get(dependency, _UNAVAILABLE)
+            if value is _UNAVAILABLE:
+                unresolved_dependencies = True
+                continue
+            if previous_cache is None:
+                changed[dependency] = value
+                continue
+            previous = previous_cache.get(dependency, _MISSING)
+            updated_cache[dependency] = value
+            if previous is _MISSING or value != previous:
+                changed[dependency] = value
+        return changed, unresolved_dependencies
+
+    def _should_run_snapshot_callback(
+        self,
+        spec: ListenerCallbackSpec,
+        changed: dict[str, Any],
+        unresolved_dependencies: bool,
+    ) -> bool:
+        if unresolved_dependencies and not changed:
+            return False
+        mode = spec.dependency_mode
+        if mode is ListenerDependencyMode.realtime_only:
+            return False
+        if mode is ListenerDependencyMode.always:
+            if not spec.dependency_names:
+                return True
+            return bool(changed) or spec.run_on_refresh
+        return True
 
     def _build_dependency_cache_from_snapshot_values(
         self,
@@ -1736,48 +1893,255 @@ class SettaListener:
         async with self._refresh_callback_semaphore:
             await self._invoke_callback(spec, state, ctx)
 
+    def _should_ignore_project_event(
+        self,
+        event_project_config_id: str,
+        event_name: str,
+    ) -> bool:
+        project_config_id = self._project_config_id
+        if (
+            project_config_id is None
+            or event_project_config_id == project_config_id
+        ):
+            return False
+        logger.debug(
+            "Listener %s ignoring %s for project %s",
+            self._log_identifier,
+            event_name,
+            event_project_config_id,
+        )
+        return True
+
+    def _runtime_state_for_event(
+        self,
+        event_name: str,
+    ) -> ListenerRuntimeState | None:
+        runtime_state = self._runtime_state
+        if runtime_state is not None:
+            return runtime_state
+        logger.debug(
+            "Listener %s received %s before bootstrap; ignoring",
+            self._log_identifier,
+            event_name,
+        )
+        return None
+
+    def _is_out_of_order_event_sequence(
+        self,
+        sequence: int,
+        share_session_id: str | None,
+        event_name: str,
+    ) -> bool:
+        sequence_session_id = self._validate_sequence_session_id(share_session_id)
+        last_sequence = self._get_last_realtime_sequence()
+        if last_sequence is None or sequence > last_sequence:
+            return False
+        logger.debug(
+            (
+                "Listener %s ignoring out-of-order %s sequence %s "
+                "(last=%s session=%s)"
+            ),
+            self._log_identifier,
+            event_name,
+            sequence,
+            last_sequence,
+            sequence_session_id,
+        )
+        return True
+
+    def _collect_dirty_dependency_keys(
+        self,
+        dependency_metadata: ListenerDependencyMetadata,
+        deltas: Sequence[ListenerRealtimeDelta],
+    ) -> set[BaseDependencyKeyUnion]:
+        dirty_dependency_keys: set[BaseDependencyKeyUnion] = set()
+        for delta in deltas:
+            dep_key = delta.dependency
+            try:
+                dependency_metadata.dependency_name(dep_key)
+            except KeyError:
+                logger.error(
+                    "Listener %s received realtime delta for unknown dependency metadata key %s",
+                    self._log_identifier,
+                    dep_key,
+                )
+                continue
+            dirty_dependency_keys.add(dep_key)
+        return dirty_dependency_keys
+
+    async def _render_local_core_dependency_values(
+        self,
+        runtime_state: ListenerRuntimeState,
+        deltas: Sequence[ListenerRealtimeDelta],
+    ) -> ListenerRenderedDependencyValues | None:
+        try:
+            local_core_result = (
+                await self._get_local_core_client().render_realtime_dependency_values(
+                    self._build_local_core_realtime_request(runtime_state, deltas)
+                )
+            )
+            return local_core_result.dependencyValues
+        except RuntimeCompatibilityError:
+            raise
+        except Exception as error:
+            logger.debug(
+                "Listener %s local core render failed: %s",
+                self._log_identifier,
+                error,
+                exc_info=logger.isEnabledFor(logging.DEBUG),
+            )
+            return None
+
+    def _remove_dirty_dependencies_from_cache(
+        self,
+        updated_cache: dict[str, Any],
+        dirty_dependency_keys: set[BaseDependencyKeyUnion],
+        dependency_metadata: ListenerDependencyMetadata,
+    ) -> None:
+        for dependency_key in dirty_dependency_keys:
+            try:
+                dependency = dependency_metadata.dependency_name(dependency_key)
+            except KeyError:
+                continue
+            updated_cache.pop(dependency, None)
+
+    def _apply_rendered_dependency_values_to_cache(
+        self,
+        updated_cache: dict[str, Any],
+        dependency_values: ListenerRenderedDependencyValues,
+        dependency_metadata: ListenerDependencyMetadata,
+        *,
+        unknown_key_log: str,
+    ) -> set[BaseDependencyKeyUnion]:
+        rendered_dependency_values, _ = self._build_dependency_cache_from_snapshot_values(
+            dependency_values,
+            dependency_metadata,
+        )
+        applied_dependency_keys: set[BaseDependencyKeyUnion] = set()
+        for entry in dependency_values.entries:
+            try:
+                dependency = dependency_metadata.dependency_name(entry.dependencyKey)
+            except KeyError:
+                logger.debug(
+                    unknown_key_log,
+                    self._log_identifier,
+                    entry.dependencyKey,
+                )
+                continue
+            applied_dependency_keys.add(entry.dependencyKey)
+            if dependency in rendered_dependency_values:
+                updated_cache[dependency] = rendered_dependency_values[dependency]
+                continue
+            updated_cache.pop(dependency, None)
+        return applied_dependency_keys
+
+    def _update_latest_dependency_values_from_realtime(
+        self,
+        dirty_dependency_keys: set[BaseDependencyKeyUnion],
+        local_core_dependency_values: ListenerRenderedDependencyValues | None,
+        authoritative_dependency_keys: set[BaseDependencyKeyUnion],
+        authoritative_dependency_values: ListenerRenderedDependencyValues | None,
+    ) -> None:
+        self._latest_dependency_snapshot_values = self._merge_rendered_dependency_values(
+            self._latest_dependency_snapshot_values,
+            remove_keys=dirty_dependency_keys,
+            updates=local_core_dependency_values,
+        )
+        if authoritative_dependency_values is None:
+            return
+        self._latest_dependency_snapshot_values = self._merge_rendered_dependency_values(
+            self._latest_dependency_snapshot_values,
+            remove_keys=authoritative_dependency_keys,
+            updates=authoritative_dependency_values,
+        )
+
+    def _build_cache_diff(
+        self,
+        previous_cache: dict[str, Any],
+        updated_cache: dict[str, Any],
+    ) -> dict[str, Any]:
+        changed = {
+            dependency: updated_cache[dependency]
+            for dependency in updated_cache.keys() - previous_cache.keys()
+        }
+        for dependency, value in updated_cache.items():
+            previous = previous_cache.get(dependency, _MISSING)
+            if previous is _MISSING or previous != value:
+                changed[dependency] = value
+        return changed
+
+    def _build_realtime_changed_dependencies(
+        self,
+        spec: ListenerCallbackSpec,
+        previous_cache: dict[str, Any],
+        updated_cache: dict[str, Any],
+        dirty_dependency_keys: set[BaseDependencyKeyUnion],
+    ) -> dict[str, Any]:
+        if not spec.structured_dependencies:
+            return self._build_cache_diff(previous_cache, updated_cache)
+        changed: dict[str, Any] = {}
+        for dep_key, dependency in zip(
+            spec.structured_dependencies,
+            spec.dependency_names,
+        ):
+            if dep_key in dirty_dependency_keys and dependency in updated_cache:
+                changed[dependency] = updated_cache[dependency]
+        return changed
+
+    def _collect_realtime_callbacks_to_run(
+        self,
+        previous_cache: dict[str, Any],
+        updated_cache: dict[str, Any],
+        dirty_dependency_keys: set[BaseDependencyKeyUnion],
+    ) -> list[tuple[ListenerCallbackSpec, dict[str, Any]]]:
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        for spec in self._callbacks.values():
+            if spec.dependency_mode is ListenerDependencyMode.refresh_only:
+                continue
+            changed = self._build_realtime_changed_dependencies(
+                spec,
+                previous_cache,
+                updated_cache,
+                dirty_dependency_keys,
+            )
+            if changed:
+                callbacks_to_run.append((spec, changed))
+        return callbacks_to_run
+
+    def _collect_dependency_event_callbacks(
+        self,
+        dependency_events: Sequence[DependencyEvent],
+    ) -> dict[str, list[DependencyEvent]]:
+        callbacks_to_run: dict[str, list[DependencyEvent]] = {}
+        for event in dependency_events:
+            for spec in self._callbacks.values():
+                if spec.dependency_mode is ListenerDependencyMode.refresh_only:
+                    continue
+                if (
+                    spec.structured_dependencies
+                    and event.dependencyKey not in spec.structured_dependencies
+                ):
+                    continue
+                callbacks_to_run.setdefault(spec.callback_id, []).append(event)
+        return callbacks_to_run
+
     async def _handle_realtime_event(
         self, content: ListenerRealtimeEventContent
     ) -> None:
         """Apply realtime deltas and invoke interested callbacks."""
-        project_config_id = self._project_config_id
-        if (
-            project_config_id is not None
-            and content.projectConfigId != project_config_id
-        ):
-            logger.debug(
-                "Listener %s ignoring realtime event for project %s",
-                self._log_identifier,
-                content.projectConfigId,
-            )
+        if self._should_ignore_project_event(content.projectConfigId, "realtime event"):
             return
-
-        runtime_state = self._runtime_state
+        runtime_state = self._runtime_state_for_event("realtime event")
         if runtime_state is None:
-            logger.debug(
-                "Listener %s received realtime event before bootstrap; ignoring",
-                self._log_identifier,
-            )
             return
 
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-
-        sequence_session_id = self._validate_sequence_session_id(content.shareSessionId)
-        last_sequence = self._get_last_realtime_sequence()
-        if last_sequence is not None:
-            if content.sequence <= last_sequence:
-                logger.debug(
-                    (
-                        "Listener %s ignoring out-of-order realtime sequence %s "
-                        "(last=%s session=%s)"
-                    ),
-                    self._log_identifier,
-                    content.sequence,
-                    last_sequence,
-                    sequence_session_id,
-                )
-                return
-
+        if self._is_out_of_order_event_sequence(
+            content.sequence,
+            content.shareSessionId,
+            "realtime",
+        ):
+            return
         self._set_last_realtime_sequence(content.sequence)
         if not content.deltas:
             logger.debug(
@@ -1789,20 +2153,10 @@ class SettaListener:
 
         previous_cache = dict(self._dependency_cache)
         updated_cache = dict(previous_cache)
-        initial_dirty_dependency_keys: set[BaseDependencyKeyUnion] = set()
-        for delta in content.deltas:
-            dep_key = delta.dependency
-            try:
-                runtime_state.dependency_metadata.dependency_name(dep_key)
-            except KeyError:
-                logger.error(
-                    "Listener %s received realtime delta for unknown dependency metadata key %s",
-                    self._log_identifier,
-                    dep_key,
-                )
-                continue
-            initial_dirty_dependency_keys.add(dep_key)
-
+        initial_dirty_dependency_keys = self._collect_dirty_dependency_keys(
+            runtime_state.dependency_metadata,
+            content.deltas,
+        )
         if not initial_dirty_dependency_keys:
             return
 
@@ -1810,132 +2164,50 @@ class SettaListener:
             runtime_state.dependency_metadata,
             initial_dirty_dependency_keys,
         )
-        local_core_dependency_values: ListenerRenderedDependencyValues | None = None
-        try:
-            local_core_result = (
-                await self._get_local_core_client().render_realtime_dependency_values(
-                    self._build_local_core_realtime_request(
-                        runtime_state, content.deltas
-                    )
-                )
-            )
-            local_core_dependency_values = local_core_result.dependencyValues
-        except RuntimeCompatibilityError:
-            raise
-        except Exception as error:
-            logger.debug(
-                "Listener %s local core render failed: %s",
-                self._log_identifier,
-                error,
-                exc_info=logger.isEnabledFor(logging.DEBUG),
-            )
-
-        for dependency_key in dirty_dependency_keys:
-            try:
-                dependency = runtime_state.dependency_metadata.dependency_name(
-                    dependency_key
-                )
-            except KeyError:
-                continue
-            updated_cache.pop(dependency, None)
+        local_core_dependency_values = await self._render_local_core_dependency_values(
+            runtime_state,
+            content.deltas,
+        )
+        self._remove_dirty_dependencies_from_cache(
+            updated_cache,
+            dirty_dependency_keys,
+            runtime_state.dependency_metadata,
+        )
 
         authoritative_dependency_keys: set[BaseDependencyKeyUnion] = set()
         if local_core_dependency_values is not None:
-            (
-                rendered_dependency_values,
-                _rendered_dependency_keys,
-            ) = self._build_dependency_cache_from_snapshot_values(
+            self._apply_rendered_dependency_values_to_cache(
+                updated_cache,
                 local_core_dependency_values,
                 runtime_state.dependency_metadata,
+                unknown_key_log=(
+                    "Listener %s ignoring local core value for unknown dependency key %s"
+                ),
             )
-            for entry in local_core_dependency_values.entries:
-                try:
-                    dependency = runtime_state.dependency_metadata.dependency_name(
-                        entry.dependencyKey
-                    )
-                except KeyError:
-                    logger.debug(
-                        "Listener %s ignoring local core value for unknown dependency key %s",
-                        self._log_identifier,
-                        entry.dependencyKey,
-                    )
-                    continue
-                if dependency in rendered_dependency_values:
-                    updated_cache[dependency] = rendered_dependency_values[dependency]
-                    continue
-                updated_cache.pop(dependency, None)
         if content.dependencyValues is not None:
-            (
-                rendered_dependency_values,
-                _rendered_dependency_keys,
-            ) = self._build_dependency_cache_from_snapshot_values(
+            authoritative_dependency_keys = self._apply_rendered_dependency_values_to_cache(
+                updated_cache,
                 content.dependencyValues,
                 runtime_state.dependency_metadata,
+                unknown_key_log=(
+                    "Listener %s ignoring realtime authoritative value for unknown dependency key %s"
+                ),
             )
-            for entry in content.dependencyValues.entries:
-                try:
-                    dependency = runtime_state.dependency_metadata.dependency_name(
-                        entry.dependencyKey
-                    )
-                except KeyError:
-                    logger.debug(
-                        "Listener %s ignoring realtime authoritative value for unknown dependency key %s",
-                        self._log_identifier,
-                        entry.dependencyKey,
-                    )
-                    continue
-                authoritative_dependency_keys.add(entry.dependencyKey)
-                if dependency in rendered_dependency_values:
-                    updated_cache[dependency] = rendered_dependency_values[dependency]
-                    continue
-                updated_cache.pop(dependency, None)
             dirty_dependency_keys.update(authoritative_dependency_keys)
 
-        self._latest_dependency_snapshot_values = (
-            self._merge_rendered_dependency_values(
-                self._latest_dependency_snapshot_values,
-                remove_keys=dirty_dependency_keys,
-                updates=local_core_dependency_values,
-            )
+        self._update_latest_dependency_values_from_realtime(
+            dirty_dependency_keys,
+            local_core_dependency_values,
+            authoritative_dependency_keys,
+            content.dependencyValues,
         )
-        if content.dependencyValues is not None:
-            self._latest_dependency_snapshot_values = (
-                self._merge_rendered_dependency_values(
-                    self._latest_dependency_snapshot_values,
-                    remove_keys=authoritative_dependency_keys,
-                    updates=content.dependencyValues,
-                )
-            )
         self._dependency_cache = updated_cache
 
-        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
-        for spec in self._callbacks.values():
-            if spec.dependency_mode is ListenerDependencyMode.refresh_only:
-                continue
-            if not spec.structured_dependencies:
-                changed = {
-                    dependency: updated_cache[dependency]
-                    for dependency in updated_cache.keys() - previous_cache.keys()
-                }
-                for dependency, value in updated_cache.items():
-                    previous = previous_cache.get(dependency, _MISSING)
-                    if previous is _MISSING or previous != value:
-                        changed[dependency] = value
-                callbacks_to_run.append((spec, changed))
-                continue
-
-            changed: dict[str, Any] = {}
-            for dep_key, dependency in zip(
-                spec.structured_dependencies, spec.dependency_names
-            ):
-                if dep_key in dirty_dependency_keys:
-                    if dependency in updated_cache:
-                        changed[dependency] = updated_cache[dependency]
-                    continue
-
-            if changed:
-                callbacks_to_run.append((spec, changed))
-
+        callbacks_to_run = self._collect_realtime_callbacks_to_run(
+            previous_cache,
+            updated_cache,
+            dirty_dependency_keys,
+        )
         if not callbacks_to_run:
             return
 
@@ -1946,42 +2218,20 @@ class SettaListener:
         self, content: ListenerDependencyEventContent
     ) -> None:
         """Apply realtime dependency events and invoke interested callbacks."""
-        project_config_id = self._project_config_id
-        if (
-            project_config_id is not None
-            and content.projectConfigId != project_config_id
+        if self._should_ignore_project_event(
+            content.projectConfigId,
+            "dependency event",
         ):
-            logger.debug(
-                "Listener %s ignoring dependency event for project %s",
-                self._log_identifier,
-                content.projectConfigId,
-            )
             return
-
-        runtime_state = self._runtime_state
+        runtime_state = self._runtime_state_for_event("dependency event")
         if runtime_state is None:
-            logger.debug(
-                "Listener %s received dependency event before bootstrap; ignoring",
-                self._log_identifier,
-            )
             return
-
-        sequence_session_id = self._validate_sequence_session_id(content.shareSessionId)
-        last_sequence = self._get_last_realtime_sequence()
-        if last_sequence is not None:
-            if content.sequence <= last_sequence:
-                logger.debug(
-                    (
-                        "Listener %s ignoring out-of-order dependency sequence %s "
-                        "(last=%s session=%s)"
-                    ),
-                    self._log_identifier,
-                    content.sequence,
-                    last_sequence,
-                    sequence_session_id,
-                )
-                return
-
+        if self._is_out_of_order_event_sequence(
+            content.sequence,
+            content.shareSessionId,
+            "dependency",
+        ):
+            return
         self._set_last_realtime_sequence(content.sequence)
         if not content.dependencyEvents:
             logger.debug(
@@ -1992,18 +2242,9 @@ class SettaListener:
             return
 
         self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-        callbacks_to_run: dict[str, list[DependencyEvent]] = {}
-        for event in content.dependencyEvents:
-            for spec in self._callbacks.values():
-                if spec.dependency_mode is ListenerDependencyMode.refresh_only:
-                    continue
-                if not spec.structured_dependencies:
-                    callbacks_to_run.setdefault(spec.callback_id, []).append(event)
-                    continue
-                if event.dependencyKey not in spec.structured_dependencies:
-                    continue
-                callbacks_to_run.setdefault(spec.callback_id, []).append(event)
-
+        callbacks_to_run = self._collect_dependency_event_callbacks(
+            content.dependencyEvents,
+        )
         if not callbacks_to_run:
             return
 
@@ -2320,25 +2561,9 @@ class SettaListener:
 
     async def _replay_cached_snapshot(self) -> None:
         """Replay the most recent cached snapshot for newly registered callbacks."""
-        runtime_state = self._runtime_state
+        runtime_state = self._ensure_runtime_state_for_replay()
         if runtime_state is None:
-            if (
-                self._latest_dependency_metadata is None
-                or self._latest_dependency_catalog is None
-            ):
-                logger.debug(
-                    (
-                        "Listener %s cannot replay snapshot without cached "
-                        "dependency metadata"
-                    ),
-                    self._log_identifier,
-                )
-                return
-            runtime_state = ListenerRuntimeState(
-                dependency_metadata=self._latest_dependency_metadata,
-                dependency_catalog=self._latest_dependency_catalog,
-            )
-            self._runtime_state = runtime_state
+            return
 
         (
             rendered_snapshot_values,
@@ -2356,32 +2581,10 @@ class SettaListener:
                 ),
                 self._log_identifier,
             )
-        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
-        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
-
-        for spec in self._callbacks.values():
-            self._scheduler.reset(spec.callback_id)
-            if spec.dependency_mode is ListenerDependencyMode.realtime_only:
-                continue
-            dependencies = spec.dependency_names
-            if not dependencies:
-                callbacks_to_run.append((spec, {}))
-                continue
-
-            changed: dict[str, Any] = {}
-            unresolved_dependencies = False
-            for dependency in dependencies:
-                value = updated_cache.get(dependency, _UNAVAILABLE)
-                if value is _UNAVAILABLE:
-                    unresolved_dependencies = True
-                    continue
-                changed[dependency] = value
-
-            if unresolved_dependencies and not changed:
-                continue
-            if changed or spec.run_on_refresh:
-                callbacks_to_run.append((spec, changed))
-
+        callbacks_to_run = self._collect_replay_callbacks_to_run(
+            runtime_state,
+            updated_cache,
+        )
         self._dependency_cache = updated_cache
 
         callback_state = self._build_callback_state(
@@ -2395,3 +2598,51 @@ class SettaListener:
         for spec, changed in callbacks_to_run:
             ctx = self._build_callback_context(spec, changed, events=[])
             await self._invoke_callback(spec, callback_state, ctx)
+
+    def _ensure_runtime_state_for_replay(self) -> ListenerRuntimeState | None:
+        runtime_state = self._runtime_state
+        if runtime_state is not None:
+            return runtime_state
+        if (
+            self._latest_dependency_metadata is None
+            or self._latest_dependency_catalog is None
+        ):
+            logger.debug(
+                (
+                    "Listener %s cannot replay snapshot without cached "
+                    "dependency metadata"
+                ),
+                self._log_identifier,
+            )
+            return None
+        runtime_state = ListenerRuntimeState(
+            dependency_metadata=self._latest_dependency_metadata,
+            dependency_catalog=self._latest_dependency_catalog,
+        )
+        self._runtime_state = runtime_state
+        return runtime_state
+
+    def _collect_replay_callbacks_to_run(
+        self,
+        runtime_state: ListenerRuntimeState,
+        updated_cache: dict[str, Any],
+    ) -> list[tuple[ListenerCallbackSpec, dict[str, Any]]]:
+        callbacks_to_run: list[tuple[ListenerCallbackSpec, dict[str, Any]]] = []
+        self._refresh_callback_dependency_metadata(runtime_state.dependency_metadata)
+        for spec in self._callbacks.values():
+            self._scheduler.reset(spec.callback_id)
+            if spec.dependency_mode is ListenerDependencyMode.realtime_only:
+                continue
+            if not spec.dependency_names:
+                callbacks_to_run.append((spec, {}))
+                continue
+            changed, unresolved_dependencies = self._build_refresh_changed_dependencies(
+                spec.dependency_names,
+                updated_cache,
+                None,
+            )
+            if unresolved_dependencies and not changed:
+                continue
+            if changed or spec.run_on_refresh:
+                callbacks_to_run.append((spec, changed))
+        return callbacks_to_run
