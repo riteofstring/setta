@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { ensureAppReady } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -7,9 +7,14 @@ const READY_SELECTOR = ".react-flow__pane";
 const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
 const LIVE_PIXI_MODE = "pixi-node-body";
 
-test("all settings canary can replace the live dict-area body with a Pixi scene host", async ({
-  page,
-}) => {
+type DragOverlayRow = {
+  height: number;
+  id: string;
+  left: number;
+  top: number;
+};
+
+async function openAllSettingsLivePixiCanary(page: Page) {
   await ensureAppReady(page);
 
   await page.addInitScript(
@@ -32,6 +37,82 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   });
   await expect(allSettingsTab).toBeVisible();
   await allSettingsTab.click();
+}
+
+async function withParamSelectHeld(page: Page, callback: () => Promise<void>) {
+  const modifierKey = process.platform === "darwin" ? "Meta" : "Control";
+  await page.keyboard.down(modifierKey);
+  await page.keyboard.down("Shift");
+
+  try {
+    await callback();
+  } finally {
+    await page.keyboard.up("Shift");
+    await page.keyboard.up(modifierKey);
+  }
+}
+
+async function dragLocatorBefore(page: Page, source: Locator, target: Locator) {
+  const sourceBox = await source.boundingBox();
+  const targetBox = await target.boundingBox();
+  if (!sourceBox || !targetBox) {
+    throw new Error("Missing drag source or target bounds.");
+  }
+
+  await page.mouse.move(
+    sourceBox.x + Math.max(12, sourceBox.width * 0.18),
+    sourceBox.y + Math.max(10, sourceBox.height * 0.2),
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    targetBox.x + Math.max(12, targetBox.width * 0.18),
+    targetBox.y + Math.max(6, targetBox.height * 0.15),
+    { steps: 40 },
+  );
+  await page.mouse.up();
+}
+
+async function readActiveOverlayTopLevelRows(
+  page: Page,
+  blockId: string,
+): Promise<DragOverlayRow[]> {
+  return page.evaluate((activeBlockId) => {
+    const overlay = document.querySelector<HTMLElement>(
+      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${activeBlockId}']`,
+    );
+    if (!overlay) {
+      return [];
+    }
+
+    const rows = Array.from(
+      overlay.querySelectorAll<HTMLElement>(
+        "[data-param-row='true'][id^='ParamContainer-']",
+      ),
+    )
+      .map((row) => {
+        const rect = row.getBoundingClientRect();
+        return {
+          height: rect.height,
+          id: row.id,
+          left: Math.round(rect.left),
+          top: rect.top,
+        };
+      })
+      .sort((a, b) => a.top - b.top);
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const minLeft = Math.min(...rows.map((row) => row.left));
+    return rows.filter((row) => Math.abs(row.left - minLeft) <= 2);
+  }, blockId);
+}
+
+test("all settings canary can replace the live dict-area body with a Pixi scene host", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
 
   const metrics = await page.waitForFunction(() => {
     const sceneRoot = document.querySelector<HTMLElement>(
@@ -74,28 +155,7 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
 test("all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay", async ({
   page,
 }) => {
-  await ensureAppReady(page);
-
-  await page.addInitScript(
-    ({ mode, storageKey }) => {
-      window.sessionStorage.setItem(storageKey, mode);
-    },
-    {
-      mode: LIVE_PIXI_MODE,
-      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
-    },
-  );
-
-  const url = new URL(SETTINGS_URL);
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allSettingsTab = page.getByRole("button", {
-    name: "All Settings",
-    exact: true,
-  });
-  await expect(allSettingsTab).toBeVisible();
-  await allSettingsTab.click();
+  await openAllSettingsLivePixiCanary(page);
 
   const handoffButton = page
     .locator("[data-live-dict-area-editor-handoff='value-row']")
@@ -139,28 +199,7 @@ test("all settings canary can hand off from the Pixi scene into a value-row DOM 
 test("all settings canary can immediately activate a CodeMirror-backed value row on first Pixi handoff click", async ({
   page,
 }) => {
-  await ensureAppReady(page);
-
-  await page.addInitScript(
-    ({ mode, storageKey }) => {
-      window.sessionStorage.setItem(storageKey, mode);
-    },
-    {
-      mode: LIVE_PIXI_MODE,
-      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
-    },
-  );
-
-  const url = new URL(SETTINGS_URL);
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allSettingsTab = page.getByRole("button", {
-    name: "All Settings",
-    exact: true,
-  });
-  await expect(allSettingsTab).toBeVisible();
-  await allSettingsTab.click();
+  await openAllSettingsLivePixiCanary(page);
 
   const handoffButtons = page.locator(
     "[data-live-dict-area-editor-handoff='value-row']",
@@ -218,28 +257,7 @@ test("all settings canary can immediately activate a CodeMirror-backed value row
 test("all settings canary can immediately open a combobox-backed value row on first Pixi handoff click", async ({
   page,
 }) => {
-  await ensureAppReady(page);
-
-  await page.addInitScript(
-    ({ mode, storageKey }) => {
-      window.sessionStorage.setItem(storageKey, mode);
-    },
-    {
-      mode: LIVE_PIXI_MODE,
-      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
-    },
-  );
-
-  const url = new URL(SETTINGS_URL);
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allSettingsTab = page.getByRole("button", {
-    name: "All Settings",
-    exact: true,
-  });
-  await expect(allSettingsTab).toBeVisible();
-  await allSettingsTab.click();
+  await openAllSettingsLivePixiCanary(page);
 
   const handoffButton = page
     .locator(
@@ -283,28 +301,7 @@ test("all settings canary can immediately open a combobox-backed value row on fi
 test("all settings canary can immediately open a popup color-picker row on first Pixi handoff click", async ({
   page,
 }) => {
-  await ensureAppReady(page);
-
-  await page.addInitScript(
-    ({ mode, storageKey }) => {
-      window.sessionStorage.setItem(storageKey, mode);
-    },
-    {
-      mode: LIVE_PIXI_MODE,
-      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
-    },
-  );
-
-  const url = new URL(SETTINGS_URL);
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allSettingsTab = page.getByRole("button", {
-    name: "All Settings",
-    exact: true,
-  });
-  await expect(allSettingsTab).toBeVisible();
-  await allSettingsTab.click();
+  await openAllSettingsLivePixiCanary(page);
 
   const handoffButton = page
     .locator(
@@ -363,34 +360,9 @@ test("all settings canary can immediately open a popup color-picker row on first
 test("all settings canary can hand off from the Pixi scene into a param-area drag overlay while param select is active", async ({
   page,
 }) => {
-  await ensureAppReady(page);
+  await openAllSettingsLivePixiCanary(page);
 
-  await page.addInitScript(
-    ({ mode, storageKey }) => {
-      window.sessionStorage.setItem(storageKey, mode);
-    },
-    {
-      mode: LIVE_PIXI_MODE,
-      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
-    },
-  );
-
-  const url = new URL(SETTINGS_URL);
-  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
-
-  const allSettingsTab = page.getByRole("button", {
-    name: "All Settings",
-    exact: true,
-  });
-  await expect(allSettingsTab).toBeVisible();
-  await allSettingsTab.click();
-
-  const modifierKey = process.platform === "darwin" ? "Meta" : "Control";
-  await page.keyboard.down(modifierKey);
-  await page.keyboard.down("Shift");
-
-  try {
+  await withParamSelectHeld(page, async () => {
     const dragHandoffButton = page
       .locator("[data-live-dict-area-drag-handoff='param-row']")
       .first();
@@ -436,8 +408,95 @@ test("all settings canary can hand off from the Pixi scene into a param-area dra
     expect(result?.dragParamRowCount).toBeGreaterThan(1);
     expect(result?.mountedParamContainerCount).toBeGreaterThan(0);
     expect(result?.sceneCanvasCount).toBeGreaterThan(0);
-  } finally {
-    await page.keyboard.up("Shift");
-    await page.keyboard.up(modifierKey);
-  }
+  });
+});
+
+test("all settings canary can reorder top-level rows through the Pixi param-area drag overlay", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  let activatedBlockId: string | null = null;
+  let reorderedRowIds: string[] | null = null;
+  let sourceRowId: string | null = null;
+  let targetRowId: string | null = null;
+
+  await withParamSelectHeld(page, async () => {
+    const dragHandoffButton = page
+      .locator("[data-live-dict-area-drag-handoff='param-row']")
+      .first();
+    await expect(dragHandoffButton).toBeVisible();
+    activatedBlockId = await dragHandoffButton.getAttribute(
+      "data-live-dict-area-drag-handoff-block-id",
+    );
+    expect(activatedBlockId).not.toBeNull();
+
+    await dragHandoffButton.click();
+    await page.waitForSelector(
+      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${activatedBlockId}']`,
+    );
+
+    const initialRows = await readActiveOverlayTopLevelRows(
+      page,
+      activatedBlockId!,
+    );
+    expect(initialRows.length).toBeGreaterThan(1);
+    const initialRowIds = initialRows.map((row) => row.id);
+
+    const preferredRows = initialRows.filter((row) => row.height <= 56);
+    const draggableRows =
+      preferredRows.length >= 2 ? preferredRows : initialRows;
+
+    targetRowId = draggableRows[0]?.id ?? null;
+    sourceRowId = draggableRows[1]?.id ?? null;
+    expect(targetRowId).not.toBeNull();
+    expect(sourceRowId).not.toBeNull();
+
+    const targetRow = page.locator(`[id="${targetRowId}"]`).first();
+    const sourceRow = page.locator(`[id="${sourceRowId}"]`).first();
+    await targetRow.scrollIntoViewIfNeeded();
+    await sourceRow.scrollIntoViewIfNeeded();
+    await expect(targetRow).toBeVisible();
+    await expect(sourceRow).toBeVisible();
+
+    await dragLocatorBefore(page, sourceRow, targetRow);
+
+    await expect
+      .poll(async () => {
+        const rowIds = (
+          await readActiveOverlayTopLevelRows(page, activatedBlockId!)
+        ).map((row) => row.id);
+        return rowIds.join("|") !== initialRowIds.join("|");
+      })
+      .toBe(true);
+
+    reorderedRowIds = (
+      await readActiveOverlayTopLevelRows(page, activatedBlockId!)
+    ).map((row) => row.id);
+  });
+
+  expect(activatedBlockId).not.toBeNull();
+  expect(reorderedRowIds).not.toBeNull();
+  expect(sourceRowId).not.toBeNull();
+  expect(targetRowId).not.toBeNull();
+
+  await withParamSelectHeld(page, async () => {
+    const sameBlockHandoff = page
+      .locator(
+        `[data-live-dict-area-drag-handoff='param-row'][data-live-dict-area-drag-handoff-block-id='${activatedBlockId}']`,
+      )
+      .first();
+    await expect(sameBlockHandoff).toBeVisible();
+    await sameBlockHandoff.click();
+
+    await page.waitForSelector(
+      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${activatedBlockId}']`,
+    );
+
+    const reopenedRowIds = (
+      await readActiveOverlayTopLevelRows(page, activatedBlockId!)
+    ).map((row) => row.id);
+
+    expect(reopenedRowIds).toEqual(reorderedRowIds!);
+  });
 });

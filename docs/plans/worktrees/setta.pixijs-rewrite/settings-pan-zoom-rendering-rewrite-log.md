@@ -6754,3 +6754,33 @@ Record:
       - existing console noise remained present, including React 19 `ref` warnings, a Pixi `addChild` deprecation warning, repeated `Too many active WebGL contexts` warnings, and a few `Uncaught (in promise)` errors after the interaction
 - Next action:
   - Continue the live retained-scene slice by turning this param-area drag overlay handoff into the first real row drag/reorder gesture on the Pixi canary and verify row order/state updates without widening back to a whole-shell overlay.
+
+## 2026-03-29 219
+
+- Item: Verify the first real param-row drag/reorder gesture on the live `pixi-node-body` Settings canary.
+- Status: `done`
+- Details:
+  - Kept the runtime slice bounded to the existing drag-overlay handoff and added explicit live-canary coverage for the first real reorder gesture instead of widening the overlay implementation:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The updated canary spec now:
+    - centralizes the repeated live Pixi `All Settings` setup and param-select modifier handling
+    - activates the existing `data-live-dict-area-drag-handoff='param-row'` surface
+    - performs a real pointer drag inside the mounted param-area overlay
+    - asserts that top-level row order changes after the drag and that the updated order is still present after the overlay is reopened
+  - This leaves the first reorder proof anchored to the current live Pixi drag-overlay contract without introducing a broader DOM fallback or widening the retained-scene shell.
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the live worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - the live Pixi canary markers were present and param-select mode mounted the drag overlay successfully
+    - a real pointer drag through the overlay changed top-level row order on the live settings surface
+    - after closing and reopening the overlay, the reordered state persisted; the checked viewport showed no obvious blank, clipped, or major-overlap regression
+    - representative requests returned `200`, including `GET /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `GET /api/authRefreshStatus`, and `POST /api/getFileBrowserRoot`
+    - trustworthiness note:
+      - `POST /__setta__/bootstrap/consume` returned `401` in that browser session, so the verifier fell back to the already-loaded authenticated app session
+- Next action:
+  - Continue the live retained-scene slice by narrowing the current drag-overlay handoff toward a more scene-owned reorder path, starting with the next bounded drag interaction improvement that reduces reliance on the full param-area DOM mount.
