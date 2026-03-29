@@ -10669,3 +10669,46 @@ Record:
     - result: passed; the canary no longer reopened blank/offscreen and visible Pixi scene roots/canvases stayed in the viewport with `All Settings` content visible
 - Next action:
   - Resume the next bounded live Pixi parity slice from the now-visible same-tab canary, preferably against the `main` oracle when that reference session is available again.
+
+## 2026-03-30 325
+
+- Item: Retry dropped initial node-dimension refit requests so the first live Pixi canary load completes fit-view without relying on a manual reset.
+- Status: `done`
+- Details:
+  - Took a bounded live-Pixi parity blocker slice directly from item `324` instead of reopening the completed seam-lift lane:
+    - code inspection showed the initial `requestUpdateNodeDimensions` pass could be dropped when the React Flow viewport shell was not mounted yet, when code areas were still initializing, or when the first fit-view pass still returned `false`
+    - the subscription path was clearing the request flag even in those blocked states, which matched the earlier live-runtime symptom where `/settings` could stay in the default pre-fit shape until a manual reset/refit
+  - Updated the retry path:
+    - `frontend/src/state/actions/nodeInternals.ts`
+    - `frontend/src/state/subscriptions.ts`
+  - `updateNodeDimensions(...)` now reports whether the measurement/refit pass actually completed, and the subscription path now re-queues the request on the next frame when that pass is still blocked instead of silently dropping it.
+  - Added focused regression coverage:
+    - `frontend/src/state/actions/nodeInternals.test.ts`
+    - `frontend/src/state/subscriptions.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The new tests pin:
+    - blocked `updateNodeDimensions(...)` returns for missing viewport shell, unfinished code-area init, and incomplete first fit-view
+    - subscription-level retry behavior that re-arms `requestUpdateNodeDimensions`
+    - a fresh-load live-Pixi canary guard that waits for the first fit-view pass to complete before asserting the zoom-floor state
+  - Kept the slice intentionally narrow:
+    - no Pixi draw/layout primitives changed
+    - no overview/project-chat reset logic changed
+    - this only hardens the initial fit-view retry path for the live canary owner
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/nodeInternals.test.ts src/state/subscriptions.test.ts src/state/actions/project/loadProject.test.ts`
+    - result: passed (`17 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/state/actions/nodeInternals.ts src/state/actions/nodeInternals.test.ts src/state/subscriptions.ts src/state/subscriptions.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary completes the first fit-view pass on initial live Pixi load|all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the current live worktree runtime (`http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`):
+    - the provided bootstrap token was rejected in that verifier session (`/__setta__/bootstrap/consume` `401`), so the verifier reused the directly reachable authenticated live app page
+    - `All Settings` stayed active and the visible settings shell plus live Pixi card surface rendered normally with no obvious blanking or clipping
+    - 45 live Pixi canvases were visible in the DOM on the checked page
+    - the completed first fit-view state was confirmed by the disabled `zoom out` control plus settled `window.reactFlowZoom = 0.1`
+    - sampled backend requests were successful `200`s during the check
+- Next action:
+  - Resume the next bounded live Pixi parity slice against the read-only `main` oracle when that reference runtime is available again; the dropped initial fit-view request is now retried and covered.

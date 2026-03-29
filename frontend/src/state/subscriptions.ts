@@ -83,12 +83,7 @@ export function subscribe() {
     updateNodeDimensionsSubscriptionFn,
     (shouldUpdate) => {
       if (shouldUpdate) {
-        updateNodeDimensions(
-          getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
-        );
-        useMisc.setState({
-          requestUpdateNodeDimensions: false,
-        });
+        processRequestedNodeDimensionsUpdate();
       }
     },
     { equalityFn: _.isEqual },
@@ -130,6 +125,37 @@ export function subscribe() {
       equalityFn: _.isEqual,
     },
   );
+}
+
+function scheduleNodeDimensionsRetry() {
+  const requeueRequest = () => {
+    if (!useMisc.getState().requestUpdateNodeDimensions) {
+      useMisc.setState({ requestUpdateNodeDimensions: true });
+    }
+  };
+
+  if (typeof globalThis.requestAnimationFrame === "function") {
+    globalThis.requestAnimationFrame(() => {
+      requeueRequest();
+    });
+    return;
+  }
+
+  globalThis.setTimeout(requeueRequest, 0);
+}
+
+export function processRequestedNodeDimensionsUpdate() {
+  const updateWasHandled = updateNodeDimensions(
+    getNodeUpdateInformation(useNodeInternals.getState().x.keys(), false),
+  );
+
+  useMisc.setState({
+    requestUpdateNodeDimensions: false,
+  });
+
+  if (!updateWasHandled) {
+    scheduleNodeDimensionsRetry();
+  }
 }
 
 function reactFlowTransformSubscriptionFn(state) {

@@ -147,6 +147,17 @@ async function readViewportTransform(page: Page): Promise<ViewportTransform> {
   }, REACT_FLOW_STORE_MODULE_URL);
 }
 
+async function readFitViewInitState(page: Page): Promise<{
+  fitViewOnInit: boolean;
+  fitViewOnInitDone: boolean;
+}> {
+  return page.evaluate(async (moduleUrl: string) => {
+    const { useReactFlow } = await import(moduleUrl);
+    const { fitViewOnInit, fitViewOnInitDone } = useReactFlow.getState();
+    return { fitViewOnInit, fitViewOnInitDone };
+  }, REACT_FLOW_STORE_MODULE_URL);
+}
+
 async function expectViewportTransformNear(
   page: Page,
   expected: ViewportTransform,
@@ -886,6 +897,21 @@ test("all settings baseline and live Pixi canary share the fit-view zoom-floor s
       viewport: initialViewport,
     });
   }
+});
+
+test("all settings canary completes the first fit-view pass on initial live Pixi load", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await waitForVisibleSceneMetrics(page);
+
+  await expect
+    .poll(async () => {
+      return (await readFitViewInitState(page)).fitViewOnInitDone;
+    })
+    .toBe(true);
+
+  await expectZoomOutButtonDisabled(page, true);
 });
 
 test("all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction", async ({
