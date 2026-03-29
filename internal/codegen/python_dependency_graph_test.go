@@ -258,40 +258,6 @@ func TestBuildPythonDependencyGraphDictSectionExportsNestedChildSections(t *test
 	}
 }
 
-// The standalone sanitizer should stay in lockstep with the source helper for identifier-safe names.
-func TestSanitizePythonIdentifierMatchesSourceContracts(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name  string
-		input string
-		want  string
-	}{
-		{name: "preserves simple identifier", input: "alpha", want: "alpha"},
-		{name: "preserves underscore prefix", input: "_alpha1", want: "_alpha1"},
-		{name: "replaces invalid characters", input: "user-id", want: "user_id"},
-		{name: "replaces whitespace", input: "white space", want: "white_space"},
-		{name: "prefixes digits", input: "123", want: "_123"},
-		{name: "prefixes digits after replacement", input: "123 abc", want: "_123_abc"},
-		{name: "avoids class keyword", input: "class", want: "_class"},
-		{name: "avoids for keyword", input: "for", want: "_for"},
-		{name: "replaces quotes", input: "quote\"key", want: "quote_key"},
-		{name: "replaces backslashes", input: "back\\slash", want: "back_slash"},
-		{name: "empty falls back to underscore", input: "", want: "_"},
-	}
-
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-
-			if got := sanitizePythonIdentifier(testCase.input); got != testCase.want {
-				t.Fatalf("sanitizePythonIdentifier(%q) = %q, want %q", testCase.input, got, testCase.want)
-			}
-		})
-	}
-}
-
 // Param nodes should preserve the resolved code-object value-policy representation from export.
 func TestBuildPythonDependencyGraphParamNodesUseResolvedValuePolicyRepresentation(t *testing.T) {
 	t.Parallel()

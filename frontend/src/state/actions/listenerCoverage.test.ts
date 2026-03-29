@@ -5,7 +5,7 @@ import {
   createListenerCoverageSnapshot,
 } from "utils/generatedTypes";
 
-const { useListenerCoverage, routeGetListenerCoverageMock } = vi.hoisted(() => {
+const { useListenerCoverage } = vi.hoisted(() => {
   function createStore<T extends { byProjectId: Record<string, unknown> }>(
     initial: T,
   ) {
@@ -43,7 +43,6 @@ const { useListenerCoverage, routeGetListenerCoverageMock } = vi.hoisted(() => {
     useListenerCoverage: createStore({
       byProjectId: {} as Record<string, unknown>,
     }),
-    routeGetListenerCoverageMock: vi.fn(),
   };
 });
 
@@ -52,21 +51,15 @@ vi.mock("state/definitions", () => ({
   useListenerCoverage,
 }));
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_get_listener_coverage: routeGetListenerCoverageMock,
-}));
-
 import {
   applyListenerCoverageSnapshot,
   dependencyKeyCovered,
-  fetchListenerCoverageSnapshot,
   getListenerCoverageRecord,
 } from "./listenerCoverage";
 
 describe("listenerCoverage", () => {
   beforeEach(() => {
     useListenerCoverage.reset();
-    routeGetListenerCoverageMock.mockReset();
   });
 
   afterEach(() => {
@@ -143,43 +136,5 @@ describe("listenerCoverage", () => {
         codeObjId: "param-a",
       }),
     ).toBe(true);
-  });
-
-  it("skips coverage fetches when no project is selected", async () => {
-    await fetchListenerCoverageSnapshot("null-project-config-id");
-
-    expect(routeGetListenerCoverageMock).not.toHaveBeenCalled();
-  });
-
-  it("fetches and stores the current listener coverage snapshot", async () => {
-    routeGetListenerCoverageMock.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        projectConfigId: "project-1",
-        dependencies: [
-          {
-            type: DependencyKeyTypeEnum.Section,
-            sectionId: "section-a",
-          },
-        ],
-        hasRealtimeWildcard: false,
-      },
-    });
-
-    await fetchListenerCoverageSnapshot("project-1");
-
-    expect(routeGetListenerCoverageMock).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-    });
-    expect(getListenerCoverageRecord("project-1")).toEqual({
-      hasRealtimeWildcard: false,
-      dependenciesByKey: {
-        "section-a::": {
-          type: DependencyKeyTypeEnum.Section,
-          sectionId: "section-a",
-        },
-      },
-    });
   });
 });

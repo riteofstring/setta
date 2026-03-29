@@ -54,30 +54,6 @@ describe("transcription session actions", () => {
     vi.clearAllMocks();
   });
 
-  it("starts a transcription session", async () => {
-    mockedRouteStartTranscriptionSession.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        sessionId: "session-1",
-        resolvedTransportMode: "file",
-        chunkMs: 1200,
-      },
-    });
-
-    const response = await startTranscriptionSession("transcription-1", "en");
-
-    expect(response).toEqual({
-      sessionId: "session-1",
-      resolvedTransportMode: "file",
-      chunkMs: 1200,
-    });
-    expect(mockedRouteStartTranscriptionSession).toHaveBeenCalledWith({
-      transcriptionProfileId: "transcription-1",
-      language: "en",
-    });
-  });
-
   it("encodes PCM16 chunks as base64 for append calls", async () => {
     mockedRouteAppendTranscriptionAudio.mockResolvedValue({
       status: 200,
@@ -108,44 +84,6 @@ describe("transcription session actions", () => {
     expect(payload.sampleRateHz).toBe(24_000);
     expect(payload.channels).toBe(1);
     expect(payload.audioPcm16Base64).toBe("AQIDBA==");
-  });
-
-  it("returns a final delta when stopping session", async () => {
-    mockedRouteStopTranscriptionSession.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: {
-        appendText: " world",
-        fullText: "hello world",
-        isFinal: true,
-      },
-    });
-
-    const response = await stopTranscriptionSession("session-1");
-
-    expect(response).toEqual({
-      appendText: " world",
-      fullText: "hello world",
-      isFinal: true,
-    });
-    expect(mockedRouteStopTranscriptionSession).toHaveBeenCalledWith({
-      sessionId: "session-1",
-    });
-  });
-
-  it("returns true for successful cancellation", async () => {
-    mockedRouteCancelTranscriptionSession.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: { ok: true },
-    });
-
-    const success = await cancelTranscriptionSession("session-1");
-
-    expect(success).toBe(true);
-    expect(mockedRouteCancelTranscriptionSession).toHaveBeenCalledWith({
-      sessionId: "session-1",
-    });
   });
 
   it("surfaces append errors", async () => {

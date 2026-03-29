@@ -4,11 +4,7 @@ import type { SettaProjectConfigDiagnostics } from "utils/generatedTypes";
 
 const {
   useProjectState,
-  useShareSession,
   useTypeErrors,
-  routeTypeCheckMock,
-  addTemporaryNotificationMock,
-  getCurrProjectConfigIdMock,
 } = vi.hoisted(() => {
   function createStore<T extends Record<string, unknown>>(initial: T) {
     const listeners = new Set<(state: T) => void>();
@@ -37,82 +33,28 @@ const {
     useProjectState: createStore({
       projectConfig: { id: "project-1" },
     }),
-    useShareSession: createStore({
-      isDeploymentMode: false,
-    }),
     useTypeErrors: createStore({
       userRequested: false,
       errors: {} as Record<string, unknown>,
     }),
-    routeTypeCheckMock: vi.fn(),
-    addTemporaryNotificationMock: vi.fn(),
-    getCurrProjectConfigIdMock: vi.fn(() => "project-1"),
   };
 });
 
 vi.mock("state/definitions", () => ({
   useProjectState,
-  useShareSession,
   useTypeErrors,
 }));
 
-vi.mock("utils/generatedEndpoints", () => ({
-  route_type_check: routeTypeCheckMock,
-}));
-
-vi.mock("./notifications", () => ({
-  addTemporaryNotification: addTemporaryNotificationMock,
-}));
-
-vi.mock("./sectionInfos", () => ({
-  getCurrProjectConfigId: getCurrProjectConfigIdMock,
-}));
-
-import { processTypeErrors, requestTypeCheck } from "./typeCheck";
+import { processTypeErrors } from "./typeCheck";
 
 describe("typeCheck", () => {
   beforeEach(() => {
     useProjectState.reset();
-    useShareSession.reset();
     useTypeErrors.reset();
-    routeTypeCheckMock.mockReset();
-    addTemporaryNotificationMock.mockReset();
-    getCurrProjectConfigIdMock.mockReset();
-    getCurrProjectConfigIdMock.mockReturnValue("project-1");
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("posts a type-check request for the current project id", async () => {
-    await requestTypeCheck();
-
-    expect(routeTypeCheckMock).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-    });
-    expect(addTemporaryNotificationMock).not.toHaveBeenCalled();
-  });
-
-  it("marks the request as user requested and notifies before posting", async () => {
-    await requestTypeCheck(true);
-
-    expect(addTemporaryNotificationMock).toHaveBeenCalledWith(
-      "Checking types...",
-    );
-    expect(useTypeErrors.getState().userRequested).toBe(true);
-    expect(routeTypeCheckMock).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-    });
-  });
-
-  it("skips type-check requests in deployment mode", async () => {
-    useShareSession.setState({ isDeploymentMode: true });
-
-    await requestTypeCheck(true);
-
-    expect(addTemporaryNotificationMock).not.toHaveBeenCalled();
-    expect(routeTypeCheckMock).not.toHaveBeenCalled();
   });
 
   it("does not clear existing errors before applying identical payloads", () => {

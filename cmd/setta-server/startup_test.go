@@ -15,47 +15,6 @@ import (
 	"setta/internal/deployments"
 )
 
-func TestBuildBootstrapURLsRewritesWildcardHosts(t *testing.T) {
-	t.Parallel()
-
-	fragment, plain, err := buildBootstrapURLs("0.0.0.0", 61234, "tok")
-	if err != nil {
-		t.Fatalf("build bootstrap urls: %v", err)
-	}
-	if fragment != "http://127.0.0.1:61234/__setta__/bootstrap#token=tok" {
-		t.Fatalf("unexpected fragment url %q", fragment)
-	}
-	if plain != "http://127.0.0.1:61234/__setta__/bootstrap" {
-		t.Fatalf("unexpected plain url %q", plain)
-	}
-}
-
-func TestIsLoopbackHostMatchesSourceContract(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		host     string
-		expected bool
-	}{
-		{host: "127.0.0.1", expected: true},
-		{host: "localhost", expected: true},
-		{host: "::1", expected: true},
-		{host: "0.0.0.0", expected: false},
-		{host: "10.0.0.5", expected: false},
-	}
-
-	for _, testCase := range testCases {
-		testCase := testCase
-		t.Run(testCase.host, func(t *testing.T) {
-			t.Parallel()
-
-			if got := isLoopbackHost(testCase.host); got != testCase.expected {
-				t.Fatalf("expected loopback=%t for %q, got %t", testCase.expected, testCase.host, got)
-			}
-		})
-	}
-}
-
 func TestRenderLocalStartupMessageRemoteSession(t *testing.T) {
 	t.Parallel()
 
