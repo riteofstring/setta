@@ -13111,3 +13111,65 @@ Record:
     - verified on the live worktree canary that `chatSectionDefault` is visible, managed by the shared page runtime, and does not show a visible `dom-context-lost` fallback wrapper
 - Next action:
   - Re-run the normalized visible-scene inspection on the updated live canary and identify the next concrete on-screen fallback/backend blocker before making another shared-runtime allowlist move, because the next visible failure was not obvious in the current viewport after `chatSectionDefault`.
+
+## 2026-04-01 383
+
+- Item: Move `genPythonCodeSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing shared-runtime canaries.
+- Status: `done`
+- Details:
+  - Did not continue the allowlist lane blindly after item `382`.
+  - Ran a fresh normalized live-canary CDP inspection before editing and kept the slice bounded to the first real visible scene still off the shared page runtime:
+    - `genPythonCodeSectionDefault`
+    - section id `f2a37393-3eb5-4d6a-80b6-30fac17231cf`
+    - render backend `local-app`
+    - it was a visible local-app fallback, not a named `dom-context-lost` entry
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+      - `iFrameSectionDefault`
+      - `backend`
+      - `stateMachineGateSectionDefault`
+      - `codeSectionDefault`
+      - `chatSectionDefault`
+      - `genPythonCodeSectionDefault`
+  - Locked the ownership move in the existing focused runtime coverage instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all fourteen shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `genPythonCodeSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `genPythonCodeSectionDefault` stays on `shared-page-runtime` without a visible fallback wrapper
+  - Verification notes:
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - the targeted Playwright subset passed with the refreshed token
+    - the post-edit CDP sub-agent verified against the existing authenticated `/settings?liveDictAreaRenderer=pixi-node-body` session, so this slice did not need another bootstrap round-trip
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that:
+      - `genPythonCodeSectionDefault` is visible on the `All Settings` graph surface
+      - the page-runtime host includes `genPythonCodeSectionDefault` in `data-live-dict-area-pixi-runtime-managed-scene-names`
+      - the page-runtime host excludes `genPythonCodeSectionDefault` from `data-live-dict-area-pixi-runtime-dom-context-lost-scene-names`
+      - the visible `genPythonCodeSectionDefault` scene reports `data-live-dict-area-scene-render-backend="shared-page-runtime"`
+      - there is no visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper containing the checked scene
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`26 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps genPythonCodeSectionDefault on the shared page runtime without fallback"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `genPythonCodeSectionDefault` is visible, managed by the shared page runtime, and does not show a visible `dom-context-lost` fallback wrapper
+- Next action:
+  - Re-run the normalized visible-scene inspection on the updated live canary and identify the next concrete on-screen fallback/backend blocker before making another shared-runtime allowlist move, because `genPythonCodeSectionDefault` was another visible `local-app` fallback rather than a named `dom-context-lost` scene.

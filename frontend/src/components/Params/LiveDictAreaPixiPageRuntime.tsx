@@ -48,6 +48,7 @@ export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES = [
   "stateMachineGateSectionDefault",
   "codeSectionDefault",
   "chatSectionDefault",
+  "genPythonCodeSectionDefault",
 ] as const;
 
 export type LiveDictAreaPixiRegisteredSceneBounds = {
