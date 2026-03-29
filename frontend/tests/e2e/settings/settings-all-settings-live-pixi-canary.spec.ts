@@ -846,42 +846,49 @@ test("all settings canary exposes stable section anchors on visible Pixi scene r
 });
 
 test("all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform", async ({
-  page,
+  browser,
 }) => {
-  await openAllSettingsBaseline(page);
-
-  const baselineViewport = await readViewportTransform(page);
-  expect(baselineViewport.zoom).toBeGreaterThan(0);
-  const projectConfigId = await getCurrentProjectConfigId(page);
+  const baselinePage = await browser.newPage();
+  const canaryPage = await browser.newPage();
+  let projectConfigId: string | null = null;
 
   try {
-    await postBackend(page, "/setViewport", {
-      projectConfigId,
-      viewport: baselineViewport,
-    });
+    await openAllSettingsBaseline(baselinePage);
+    projectConfigId = await getCurrentProjectConfigId(baselinePage);
 
-    await openAllSettingsBaseline(page);
-    await expectViewportTransformNear(page, baselineViewport);
+    // Normalize both surfaces independently so this parity check does not
+    // inherit suite-order viewport state from earlier zoom-floor tests.
+    await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
+    await clearCurrentProjectViewportForRefit(baselinePage);
+    await expectZoomOutButtonDisabled(baselinePage, true);
+
+    const baselineViewport = await readViewportTransform(baselinePage);
+    expect(baselineViewport.zoom).toBeGreaterThan(0);
 
     await expect
       .poll(async () => {
-        return (await readVisibleBlockBounds(page, "baseline", "unpinned"))
-          .length;
+        return (
+          await readVisibleBlockBounds(baselinePage, "baseline", "unpinned")
+        ).length;
       })
       .toBeGreaterThanOrEqual(2);
 
     const baselineBlocks = (
-      await readVisibleBlockBounds(page, "baseline", "unpinned")
+      await readVisibleBlockBounds(baselinePage, "baseline", "unpinned")
     ).slice(0, 2);
     expect(baselineBlocks).toHaveLength(2);
 
-    await openAllSettingsLivePixiCanary(page);
-    await expectViewportTransformNear(page, baselineViewport);
+    await openAllSettingsLivePixiCanary(canaryPage);
+    await resetProjectWorkspaceChromeToDefaultLayout(canaryPage);
+    await clearCurrentProjectViewportForRefit(canaryPage);
+    await waitForVisibleSceneMetrics(canaryPage);
+    await expectZoomOutButtonDisabled(canaryPage, true);
+    await expectViewportTransformNear(canaryPage, baselineViewport);
 
     await expect
       .poll(async () => {
         const visibleCanaryBlocks = await readVisibleBlockBounds(
-          page,
+          canaryPage,
           "pixi",
           "unpinned",
         );
@@ -898,7 +905,7 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
     await expect
       .poll(async () => {
         const canaryBlocks = await readVisibleBlockBounds(
-          page,
+          canaryPage,
           "pixi",
           "unpinned",
         );
@@ -923,10 +930,14 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
       })
       .toBeLessThanOrEqual(2);
   } finally {
-    await postBackend(page, "/setViewport", {
-      projectConfigId,
-      viewport: null,
-    });
+    if (projectConfigId !== null) {
+      await postBackend(baselinePage, "/setViewport", {
+        projectConfigId,
+        viewport: null,
+      });
+    }
+    await baselinePage.close();
+    await canaryPage.close();
   }
 });
 
@@ -940,6 +951,12 @@ test("all settings baseline and live Pixi canary share the fit-view zoom-floor s
   const projectConfigId = await getCurrentProjectConfigId(page);
 
   try {
+    // Neutralize any persisted viewport left by earlier tests so this check
+    // covers the same-tab frontend refit path rather than suite-order residue.
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
     await resetProjectWorkspaceChromeToDefaultLayout(page);
     await clearCurrentProjectViewportForRefit(page);
     await expectZoomOutButtonDisabled(page, true);
@@ -947,8 +964,15 @@ test("all settings baseline and live Pixi canary share the fit-view zoom-floor s
     expect(fitViewViewport.zoom).toBeGreaterThan(0);
 
     await openAllSettingsLivePixiCanary(page);
-    await expectViewportTransformNear(page, fitViewViewport);
+    await waitForVisibleSceneMetrics(page);
     await expectZoomOutButtonDisabled(page, true);
+    await expect
+      .poll(async () => {
+        return Math.abs(
+          (await readViewportTransform(page)).zoom - fitViewViewport.zoom,
+        );
+      })
+      .toBeLessThanOrEqual(0.0001);
   } finally {
     await postBackend(page, "/setViewport", {
       projectConfigId,

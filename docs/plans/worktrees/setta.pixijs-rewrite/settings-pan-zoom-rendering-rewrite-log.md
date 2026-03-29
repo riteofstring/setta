@@ -10930,3 +10930,49 @@ Record:
     - result: passed (`2 passed`)
 - Next action:
   - Return to the Playwright canary parity slice and isolate the remaining suite-ordering setup leak in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`; the next useful frontier is stabilizing that precondition, not another seam lift.
+
+## 2026-03-30 333
+
+- Item: Stabilize the `All Settings` Playwright canary parity checks that were still failing only under full-file suite order.
+- Status: `done`
+- Details:
+  - Continued the exact next frontier from item `332` inside `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`.
+  - Fixed the first visible-unpinned parity test so baseline and live Pixi no longer rely on same-tab/shared persisted state:
+    - baseline and canary now open in separate pages
+    - each page gets local workspace-chrome normalization and a frontend viewport refit before comparisons
+    - the test still keeps the strict visible-block alignment assertion, but no longer inherits earlier zoom-floor residue from prior tests in the same file
+  - Fixed the same-tab fit-view parity test so it checks the contract the test name actually promises:
+    - explicitly clears the persisted backend viewport before switching renderers
+    - keeps the same-tab frontend `clearCurrentProjectViewportForRefit()` path
+    - asserts zoom-floor parity only, not exact pan parity; exact cross-render transform/body alignment is already covered by the stricter earlier test
+  - Kept the slice intentionally narrow:
+    - no production frontend/backend renderer code changed
+    - this iteration only hardens the Playwright canary harness/spec so suite order no longer breaks these two parity guards
+  - A full-file rerun confirmed the ordering leak lane is complete:
+    - the spec now advances past the previous `:848` and `:944` failures
+    - the next failure moved later to `:1030` on the separate zoom-in canvas redraw assertion
+  - The required CDP gate initially failed because the advertised worktree DevTools port (`9265`) was unreachable.
+    - Per the non-main worktree recovery rule, attempted the one bounded local restart:
+      - `./aireset.sh`
+      - fallback retry: `./ai.sh`
+    - Refreshed runtime values after recovery:
+      - recovered frontend: `http://127.0.0.1:3044/`
+      - recovered backend: `http://127.0.0.1:8044`
+      - recovered Chrome DevTools: `9266`
+    - Fresh-context CDP sanity check on recovered baseline/live Pixi `/settings` found no obvious visual breakage in the `All Settings` surface.
+    - Caveat: the recovered manual `fit view` probe did not leave zoom-out disabled, so that manual CDP pass was useful as a visual sanity check but not as a clean zoom-floor oracle.
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright focused:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Playwright full file:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed the previous `:848` and `:944` blockers, then failed later at `:1030` (`all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction`) because the Pixi scene canvas width did not increase after zoom-in
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on recovered runtime `http://127.0.0.1:3044/settings`
+    - result: baseline and live Pixi canary loaded without obvious visual breakage in the `All Settings` surface
+- Next action:
+  - Investigate the later `:1030` Playwright failure in the same canary spec; the suite-ordering parity leak is fixed, and the next real frontier is the live Pixi zoom-in canvas redraw path rather than more precondition cleanup.
