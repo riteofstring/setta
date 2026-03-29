@@ -16,4 +16,4 @@ Fix soon:
 - [x] Break `ChatInput` in `frontend/src/components/Chat/ChatInput.tsx` into smaller hooks and subcomponents.
 - [x] Split `FileBrowserSpreadsheetEditor` in `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.tsx` into smaller load/save/grid state helpers.
 - [x] Break `ProjectChatSkillsMcpViewer` in `frontend/src/components/Panes/Overview/ProjectLevelAI/ProjectChatSkillsMcpViewer.tsx` into smaller panels/hooks.
-- [ ] Replace the large renderer switch in `AppParamUI` in `frontend/src/components/App/appRegistry.tsx` with per-param renderer components or a dispatch map.
+- [x] Replace the large renderer switch in `AppParamUI` in `frontend/src/components/App/appRegistry.tsx` with per-param renderer components or a dispatch map.
