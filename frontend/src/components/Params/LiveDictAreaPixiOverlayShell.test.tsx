@@ -93,6 +93,7 @@ const projectStateStore = vi.hoisted(() => ({
     "code-param-section": { name: "codeParamCodeObjDefault" },
     "gen-python-code-section": { name: "genPythonCodeSectionDefault" },
     "gen-python-metadata-section": { name: "genPythonMetadataSectionDefault" },
+    "global-variables-section": { name: "globalVariablesSectionDefault" },
     "iframe-section": { name: "iFrameSectionDefault" },
     "prompt-section": { name: "promptSectionDefault" },
     "section-sizing-policy-section": { name: "sectionSizingPolicy" },
@@ -1121,6 +1122,38 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         .querySelector("[data-live-dict-area-scene='pixi']")
         ?.getAttribute("data-live-dict-area-scene-section-name"),
     ).toBe("genPythonCodeSectionDefault");
+  });
+
+  it("switches the globalVariablesSectionDefault canary scene over to the shared page-runtime backend", () => {
+    const globalVariablesSectionBoundary = buildTestLiveDictAreaMountBoundary(
+      "global-variables-section",
+    );
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiPageRuntimeBoundary>
+          <LiveDictAreaPixiOverlayShell
+            liveDictAreaMountProps={
+              globalVariablesSectionBoundary.liveDictAreaMountProps
+            }
+            liveDictAreaSceneBoundary={
+              globalVariablesSectionBoundary.liveDictAreaSceneBoundary
+            }
+          />
+        </LiveDictAreaPixiPageRuntimeBoundary>,
+      );
+    });
+
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-render-backend"),
+    ).toBe("shared-page-runtime");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-section-name"),
+    ).toBe("globalVariablesSectionDefault");
   });
 
   it("re-arms fit-view when the first Pixi summary layout arrives before the viewport is initialized", () => {
