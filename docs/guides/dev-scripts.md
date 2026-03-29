@@ -47,6 +47,13 @@ Use these first for day-to-day work.
   - Flags: `--all` (enables opt-in live-provider integration tests).
 - `./format_code.sh`
   - Formats Python via Ruff (requires env activation; see notes below).
+- `./check_quality.sh`
+  - Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
+  - Defaults to staged files so it is usable as a pre-commit gate even while the repo has legacy complexity debt.
+  - Python: `ruff check` plus `C901` complexity checks (default max complexity `10`).
+  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files (default complexity `10`, `max-depth` `4`, `max-params` `5`).
+  - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files (default max complexity `12`).
+  - Supports `--all`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
 - `./build.sh`
   - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
 - `./build_and_upload.sh`

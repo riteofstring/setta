@@ -84,6 +84,7 @@
 
 - Default workflow: think, plan, write tests, implement, then run tests. Update tests as the approach evolves.
 - Use `docs/guides/dev-scripts.md`, `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for the detailed test and browser-verification workflows.
+- Run `./check_quality.sh` before committing. Treat it as the maintainability pre-commit gate for changed files unless the developer explicitly asks for a different verification scope.
 - Do not skip tests broadly. Missing deps/capabilities should usually fail loudly; any skip should be narrow, documented, and justified.
 - UI changes require chrome-devtools-mcp visual verification when relevant.
 - A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
