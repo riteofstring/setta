@@ -128,6 +128,66 @@ func TestParsePythonCallablesSignatureHashesTrackSignatureChanges(t *testing.T) 
 	}
 }
 
+func TestParsePythonCallablesExtractsParamMetadata(t *testing.T) {
+	t.Parallel()
+
+	callables, parsed, err := ParsePythonCallables(`
+def alpha(one, /, two: int = 2, *args, flag: bool = False, **kwargs):
+    return one
+
+class Widget:
+    def __init__(self, value: str, *, enabled=True, **extra):
+        self.value = value
+`, "pkg/watch_me.py")
+	if err != nil {
+		t.Fatalf("parse python callables: %v", err)
+	}
+	if !parsed {
+		t.Fatal("expected parser success")
+	}
+
+	byIdentity := map[string]CallableInfo{}
+	for _, callable := range callables {
+		byIdentity[callable.Identity] = callable
+	}
+
+	alpha := byIdentity["pkg.watch_me.alpha:function"]
+	if got := alpha.Params; len(got) != 5 {
+		t.Fatalf("expected five alpha params, got %#v", got)
+	} else {
+		if got[0].Name != "one" || got[0].PassingStyle != "POSITIONAL_ONLY" {
+			t.Fatalf("expected positional-only param one, got %#v", got[0])
+		}
+		if got[1].Name != "two" || got[1].TypeAnnotation != "int" || got[1].DefaultValue != "2" || got[1].PassingStyle != "DEFAULT" {
+			t.Fatalf("expected typed default param two, got %#v", got[1])
+		}
+		if got[2].Name != "*args" || got[2].PassingStyle != "ARGS" {
+			t.Fatalf("expected args param, got %#v", got[2])
+		}
+		if got[3].Name != "flag" || got[3].TypeAnnotation != "bool" || got[3].DefaultValue != "False" || got[3].PassingStyle != "KEYWORD_ONLY" {
+			t.Fatalf("expected keyword-only param flag, got %#v", got[3])
+		}
+		if got[4].Name != "**kwargs" || got[4].PassingStyle != "KWARGS" {
+			t.Fatalf("expected kwargs param, got %#v", got[4])
+		}
+	}
+
+	widget := byIdentity["pkg.watch_me.Widget:class_init"]
+	if got := widget.Params; len(got) != 3 {
+		t.Fatalf("expected three widget params after dropping self, got %#v", got)
+	} else {
+		if got[0].Name != "value" || got[0].TypeAnnotation != "str" {
+			t.Fatalf("expected typed widget value param, got %#v", got[0])
+		}
+		if got[1].Name != "enabled" || got[1].DefaultValue != "True" || got[1].PassingStyle != "KEYWORD_ONLY" {
+			t.Fatalf("expected keyword-only enabled param, got %#v", got[1])
+		}
+		if got[2].Name != "**extra" || got[2].PassingStyle != "KWARGS" {
+			t.Fatalf("expected widget kwargs param, got %#v", got[2])
+		}
+	}
+}
+
 func TestParsePythonCallablesClassInitDropsSelfFromSignatureHash(t *testing.T) {
 	t.Parallel()
 

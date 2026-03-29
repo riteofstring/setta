@@ -9,10 +9,12 @@ import (
 )
 
 type WatchCodeBoundSection struct {
+	ProjectID    string
 	SectionID    string
 	RelativePath string
 	SourcePath   string
 	Code         string
+	IgnoreState  CodeSectionDiagnosticsIgnoreState
 }
 
 func (d Document) ResolveWatchCodeBoundSection(projectID string, sectionID string, workspaceRoot string) (WatchCodeBoundSection, bool, error) {
@@ -20,7 +22,12 @@ func (d Document) ResolveWatchCodeBoundSection(projectID string, sectionID strin
 	if err != nil {
 		return WatchCodeBoundSection{}, false, err
 	}
-	return project.ResolveWatchCodeBoundSection(sectionID, workspaceRoot)
+	section, ok, err := project.ResolveWatchCodeBoundSection(sectionID, workspaceRoot)
+	if err != nil || !ok {
+		return section, ok, err
+	}
+	section.ProjectID = project.ID
+	return section, true, nil
 }
 
 func (d *Document) ApplyWatchCodeBoundSectionUpdate(
@@ -84,12 +91,17 @@ func (p Project) ResolveWatchCodeBoundSection(sectionID string, workspaceRoot st
 	if err != nil {
 		return WatchCodeBoundSection{}, false, err
 	}
+	ignoreState, err := p.CodeSectionDiagnosticsIgnoreStateForSection(section.ID)
+	if err != nil {
+		return WatchCodeBoundSection{}, false, err
+	}
 
 	return WatchCodeBoundSection{
 		SectionID:    section.ID,
 		RelativePath: relativePath,
 		SourcePath:   sourcePath,
 		Code:         code,
+		IgnoreState:  ignoreState,
 	}, true, nil
 }
 
@@ -125,5 +137,10 @@ func (p *Project) ApplyWatchCodeBoundSectionUpdate(
 		projectWatchCodeRegistryPlanView(p.WatchCodeRegistry),
 		cloneStringSliceMap(p.WatchCodeBaselineByPath),
 	)
-	return p.applyWatchCodeScanPlan(ctx, scanPlan, resolver)
+	return p.applyWatchCodeScanPlanWithParsedSignatures(
+		ctx,
+		scanPlan,
+		resolver,
+		watchCodeParsedSignatureResults(callables),
+	)
 }

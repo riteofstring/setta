@@ -84,3 +84,16 @@ func TestWatchCodeWarningTrackerDedupesUntilCallableStateChanges(t *testing.T) {
 		t.Fatalf("expected warning notification after callable state change, got %#v", third)
 	}
 }
+
+func TestWatchCodeSignatureObserverKeepsLatestAttemptForCallable(t *testing.T) {
+	t.Parallel()
+
+	observer := newWatchCodeSignatureObserver(nil)
+	observer.recordAttempt("another_fn", projectstate.SignatureHelpStatusNoMatch)
+	observer.recordAttempt("another_fn", projectstate.SignatureHelpStatusMatched)
+
+	attempts := observer.Attempts()
+	if attempts["another_fn"] != projectstate.SignatureHelpStatusMatched {
+		t.Fatalf("expected latest attempt to win, got %#v", attempts)
+	}
+}

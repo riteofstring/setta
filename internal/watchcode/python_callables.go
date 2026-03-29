@@ -27,6 +27,14 @@ type CallableInfo struct {
 	Kind          CallableKind
 	SignatureHash string
 	BodyHash      string
+	Params        []CallableParam
+}
+
+type CallableParam struct {
+	Name           string
+	DefaultValue   string
+	TypeAnnotation string
+	PassingStyle   string
 }
 
 func ParsePythonCallables(code string, relativeSourcePath string) ([]CallableInfo, bool, error) {
@@ -81,6 +89,7 @@ func ParsePythonCallables(code string, relativeSourcePath string) ([]CallableInf
 				Kind:          kind,
 				SignatureHash: hashParameterList(definition.ChildByFieldName("parameters"), source, false),
 				BodyHash:      hashNode(definition.ChildByFieldName("body"), source),
+				Params:        extractCallableParams(definition.ChildByFieldName("parameters"), source, false),
 			})
 		case "class_definition":
 			symbolName := nodeText(definition.ChildByFieldName("name"), source)
@@ -100,6 +109,7 @@ func ParsePythonCallables(code string, relativeSourcePath string) ([]CallableInf
 				Kind:          CallableKindClassInit,
 				SignatureHash: signatureHash,
 				BodyHash:      hashNode(definition.ChildByFieldName("body"), source),
+				Params:        extractCallableParams(initDefinitionParameters(initDefinition), source, true),
 			})
 		}
 	}
@@ -116,6 +126,11 @@ func IdentityList(callables []CallableInfo) []string {
 		output = append(output, callable.Identity)
 	}
 	return output
+}
+
+type callableParamToken struct {
+	proposal CallableParam
+	marker   string
 }
 
 func modulePathFromRelativePath(relativeSourcePath string) string {
@@ -198,6 +213,162 @@ func isAsyncFunctionDefinition(node *tree_sitter.Node) bool {
 		}
 	}
 	return false
+}
+
+func initDefinitionParameters(initDefinition *tree_sitter.Node) *tree_sitter.Node {
+	if initDefinition == nil {
+		return nil
+	}
+	return initDefinition.ChildByFieldName("parameters")
+}
+
+func extractCallableParams(parameters *tree_sitter.Node, source []byte, dropFirstNamedParam bool) []CallableParam {
+	if parameters == nil {
+		return []CallableParam{}
+	}
+
+	tokens := make([]callableParamToken, 0, parameters.NamedChildCount())
+	droppedFirstNamedParam := !dropFirstNamedParam
+	for i := uint(0); i < parameters.NamedChildCount(); i++ {
+		child := parameters.NamedChild(i)
+		if child == nil {
+			continue
+		}
+
+		token, ok := callableParamTokenFromNode(child, source)
+		if !ok {
+			continue
+		}
+		if token.marker == "" && !droppedFirstNamedParam {
+			droppedFirstNamedParam = true
+			continue
+		}
+		tokens = append(tokens, token)
+	}
+
+	positionalSeparatorIndex := -1
+	keywordOnlySeparatorIndex := -1
+	for index, token := range tokens {
+		switch token.marker {
+		case "/":
+			positionalSeparatorIndex = index
+		case "*":
+			keywordOnlySeparatorIndex = index
+		default:
+			if token.proposal.PassingStyle == "ARGS" {
+				keywordOnlySeparatorIndex = index
+			}
+		}
+	}
+
+	params := make([]CallableParam, 0, len(tokens))
+	for index, token := range tokens {
+		if token.marker != "" {
+			continue
+		}
+
+		proposal := token.proposal
+		switch {
+		case proposal.PassingStyle == "ARGS" || proposal.PassingStyle == "KWARGS":
+		case positionalSeparatorIndex >= 0 && index < positionalSeparatorIndex:
+			proposal.PassingStyle = "POSITIONAL_ONLY"
+		case keywordOnlySeparatorIndex >= 0 && index > keywordOnlySeparatorIndex:
+			proposal.PassingStyle = "KEYWORD_ONLY"
+		default:
+			proposal.PassingStyle = "DEFAULT"
+		}
+		params = append(params, proposal)
+	}
+	return params
+}
+
+func callableParamTokenFromNode(node *tree_sitter.Node, source []byte) (callableParamToken, bool) {
+	if node == nil {
+		return callableParamToken{}, false
+	}
+
+	switch node.Kind() {
+	case "identifier":
+		name := strings.TrimSpace(nodeText(node, source))
+		if name == "" {
+			return callableParamToken{}, false
+		}
+		return callableParamToken{proposal: CallableParam{Name: name}}, true
+	case "typed_parameter":
+		nameNode := node.Child(0)
+		name, passingStyle, ok := callableParamNameAndStyle(nameNode, source)
+		if !ok {
+			return callableParamToken{}, false
+		}
+		return callableParamToken{proposal: CallableParam{
+			Name:           name,
+			TypeAnnotation: strings.TrimSpace(nodeText(node.ChildByFieldName("type"), source)),
+			PassingStyle:   passingStyle,
+		}}, true
+	case "default_parameter":
+		nameNode := node.ChildByFieldName("name")
+		name, passingStyle, ok := callableParamNameAndStyle(nameNode, source)
+		if !ok {
+			return callableParamToken{}, false
+		}
+		return callableParamToken{proposal: CallableParam{
+			Name:         name,
+			DefaultValue: strings.TrimSpace(nodeText(node.ChildByFieldName("value"), source)),
+			PassingStyle: passingStyle,
+		}}, true
+	case "typed_default_parameter":
+		nameNode := node.ChildByFieldName("name")
+		name, passingStyle, ok := callableParamNameAndStyle(nameNode, source)
+		if !ok {
+			return callableParamToken{}, false
+		}
+		return callableParamToken{proposal: CallableParam{
+			Name:           name,
+			DefaultValue:   strings.TrimSpace(nodeText(node.ChildByFieldName("value"), source)),
+			TypeAnnotation: strings.TrimSpace(nodeText(node.ChildByFieldName("type"), source)),
+			PassingStyle:   passingStyle,
+		}}, true
+	case "list_splat_pattern":
+		name := strings.TrimSpace(nodeText(node, source))
+		if name == "" {
+			return callableParamToken{}, false
+		}
+		return callableParamToken{proposal: CallableParam{Name: name, PassingStyle: "ARGS"}}, true
+	case "dictionary_splat_pattern":
+		name := strings.TrimSpace(nodeText(node, source))
+		if name == "" {
+			return callableParamToken{}, false
+		}
+		return callableParamToken{proposal: CallableParam{Name: name, PassingStyle: "KWARGS"}}, true
+	case "positional_separator":
+		return callableParamToken{marker: "/"}, true
+	case "keyword_separator":
+		return callableParamToken{marker: "*"}, true
+	default:
+		return callableParamToken{}, false
+	}
+}
+
+func callableParamNameAndStyle(node *tree_sitter.Node, source []byte) (string, string, bool) {
+	if node == nil {
+		return "", "", false
+	}
+
+	name := strings.TrimSpace(nodeText(node, source))
+	if name == "" {
+		return "", "", false
+	}
+
+	switch node.Kind() {
+	case "list_splat_pattern":
+		return name, "ARGS", true
+	case "dictionary_splat_pattern":
+		return name, "KWARGS", true
+	case "tuple_pattern":
+		return "", "", false
+	default:
+		return name, "", true
+	}
 }
 
 func hashParameterList(parameters *tree_sitter.Node, source []byte, dropFirstNamedParam bool) string {

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"setta/internal/codegen"
@@ -130,6 +131,28 @@ func (s *ProjectSynchronizer) SyncWatchCodeBoundSection(
 		Content:    section.Code,
 	}); err != nil {
 		return fmt.Errorf("lsp: upsert watch code bound section %q: %w", section.SectionID, err)
+	}
+
+	if strings.TrimSpace(section.RelativePath) == "" {
+		return nil
+	}
+	mirrorPath, err := statefs.ResolveWithinRoot(s.settaFilesRoot, section.RelativePath, "watch code bound section path")
+	if err != nil {
+		return fmt.Errorf("lsp: resolve watch code bound section mirror %q: %w", section.SectionID, err)
+	}
+	if err := statefs.AtomicWriteFile(mirrorPath, []byte(section.Code), 0o644); err != nil {
+		return fmt.Errorf("lsp: materialize watch code bound section mirror %q: %w", section.SectionID, err)
+	}
+	if filepath.Clean(mirrorPath) == filepath.Clean(section.SourcePath) {
+		return nil
+	}
+	if err := s.service.UpsertDocument(ctx, SyncedDocument{
+		Path:       mirrorPath,
+		LanguageID: "python",
+		Content:    section.Code,
+		Callback:   s.codeSectionDiagnosticsCallback(section.ProjectID, section.SectionID, section.IgnoreState),
+	}); err != nil {
+		return fmt.Errorf("lsp: upsert watch code bound section mirror %q: %w", section.SectionID, err)
 	}
 	return nil
 }

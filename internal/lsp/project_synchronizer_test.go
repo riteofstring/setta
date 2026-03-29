@@ -17,6 +17,7 @@ import (
 type recordingDocumentSyncer struct {
 	synced     map[string]SyncedDocument
 	refreshed  map[string]SyncedDocument
+	upserted   []SyncedDocument
 	closeCalls int
 }
 
@@ -30,7 +31,8 @@ func (s *recordingDocumentSyncer) RefreshDocuments(_ context.Context, documents 
 	return nil
 }
 
-func (s *recordingDocumentSyncer) UpsertDocument(context.Context, SyncedDocument) error {
+func (s *recordingDocumentSyncer) UpsertDocument(_ context.Context, document SyncedDocument) error {
+	s.upserted = append(s.upserted, document)
 	return nil
 }
 
@@ -131,6 +133,191 @@ func TestProjectSynchronizerPreservesDiskBackedPythonSectionContent(t *testing.T
 	}
 	if string(sectionCode) != "print('from disk')\n" {
 		t.Fatalf("unexpected disk-backed section code content %q", string(sectionCode))
+	}
+}
+
+// Bound watch-code edits must refresh both the workspace file and the
+// setta_files mirror so snapshot-based signature help does not import a stale
+// shadow module from setta_files.
+func TestProjectSynchronizerSyncWatchCodeBoundSectionKeepsSettaFilesMirrorFreshForSignatureHelp(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	sourcePath := filepath.Join(workspaceRoot, "watch_code_test.py")
+	staleMirrorPath := filepath.Join(settaFilesRoot, "watch_code_test.py")
+	if err := statefs.AtomicWriteFile(staleMirrorPath, []byte("def cool_fn():\n    return 0\n"), 0o644); err != nil {
+		t.Fatalf("write stale setta_files mirror: %v", err)
+	}
+
+	session, err := NewCurrentProcessPythonSession(CurrentProcessPythonSessionOptions{
+		WorkspaceRoot: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new current-process python session: %v", err)
+	}
+	service := NewService(session)
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Service:        service,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	if err := synchronizer.SyncWatchCodeBoundSection(ctx, projectstate.WatchCodeBoundSection{
+		ProjectID:    "project-alpha",
+		SectionID:    "section-main",
+		RelativePath: "watch_code_test.py",
+		SourcePath:   sourcePath,
+		Code:         "def cool_fn(a, b, c):\n    return a + b + c\n",
+	}); err != nil {
+		t.Fatalf("sync watch code bound section: %v", err)
+	}
+
+	signatureHelp, err := service.SignatureHelpSnapshot(ctx, SnapshotSignatureHelpRequest{
+		ReferencePath: filepath.Join(settaFilesRoot, "code", "sections", "Alpha", "setta_gen.py"),
+		LanguageID:    "python",
+		Content:       "from watch_code_test import cool_fn\nvalue = cool_fn(\n",
+		Line:          1,
+		Character:     len("value = cool_fn("),
+	})
+	if err != nil {
+		t.Fatalf("signature help snapshot: %v", err)
+	}
+	if len(signatureHelp.Signatures) != 1 {
+		t.Fatalf("expected one signature, got %#v", signatureHelp.Signatures)
+	}
+	if got := signatureHelp.Signatures[0].Label; !strings.Contains(got, "a") || !strings.Contains(got, "b") || !strings.Contains(got, "c") {
+		t.Fatalf("expected live cool_fn(a, b, c) signature, got %q", got)
+	}
+	if len(signatureHelp.Signatures[0].Parameters) != 3 {
+		t.Fatalf("expected three params from fresh mirror, got %#v", signatureHelp.Signatures[0].Parameters)
+	}
+}
+
+// Bound watch-code imports also need a real on-disk shadow file under
+// setta_files; basedpyright does not reliably resolve a purely in-memory module
+// import for signature help when the bound source does not exist on disk.
+func TestProjectSynchronizerSyncWatchCodeBoundSectionMaterializesMirrorForNewBoundModule(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesRoot := filepath.Join(workspaceRoot, "setta_files")
+	sourcePath := filepath.Join(workspaceRoot, "watch_code_test.py")
+	mirrorPath := filepath.Join(settaFilesRoot, "watch_code_test.py")
+
+	session, err := NewCurrentProcessPythonSession(CurrentProcessPythonSessionOptions{
+		WorkspaceRoot: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new current-process python session: %v", err)
+	}
+	service := NewService(session)
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Service:        service,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	defer func() {
+		if err := synchronizer.Close(context.Background()); err != nil {
+			t.Fatalf("close synchronizer: %v", err)
+		}
+	}()
+
+	content := "def cool_fn(a, b, c):\n    return a + b + c\n"
+	if err := synchronizer.SyncWatchCodeBoundSection(ctx, projectstate.WatchCodeBoundSection{
+		ProjectID:    "project-alpha",
+		SectionID:    "section-main",
+		RelativePath: "watch_code_test.py",
+		SourcePath:   sourcePath,
+		Code:         content,
+	}); err != nil {
+		t.Fatalf("sync watch code bound section: %v", err)
+	}
+
+	mirrorBytes, err := os.ReadFile(mirrorPath)
+	if err != nil {
+		t.Fatalf("read materialized mirror: %v", err)
+	}
+	if string(mirrorBytes) != content {
+		t.Fatalf("expected materialized mirror content %q, got %q", content, string(mirrorBytes))
+	}
+
+	signatureHelp, err := service.SignatureHelpSnapshot(ctx, SnapshotSignatureHelpRequest{
+		ReferencePath: filepath.Join(settaFilesRoot, "code", "sections", "Alpha", "setta_gen.py"),
+		LanguageID:    "python",
+		Content:       "from watch_code_test import cool_fn\nvalue = cool_fn(\n",
+		Line:          1,
+		Character:     len("value = cool_fn("),
+	})
+	if err != nil {
+		t.Fatalf("signature help snapshot: %v", err)
+	}
+	if len(signatureHelp.Signatures) != 1 {
+		t.Fatalf("expected one signature, got %#v", signatureHelp.Signatures)
+	}
+	if len(signatureHelp.Signatures[0].Parameters) != 3 {
+		t.Fatalf("expected three params from materialized mirror, got %#v", signatureHelp.Signatures[0].Parameters)
+	}
+}
+
+// The synchronizer should upsert both the live workspace path and the
+// setta_files mirror, and the mirror should retain a diagnostics callback.
+func TestProjectSynchronizerSyncWatchCodeBoundSectionUpsertsWorkspaceAndMirror(t *testing.T) {
+	t.Parallel()
+
+	settaFilesRoot := t.TempDir()
+	syncer := &recordingDocumentSyncer{}
+	synchronizer, err := NewProjectSynchronizer(ProjectSynchronizerOptions{
+		SettaFilesRoot: settaFilesRoot,
+		Diagnostics:    projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{}),
+		Service:        syncer,
+	})
+	if err != nil {
+		t.Fatalf("new project synchronizer: %v", err)
+	}
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watch_code_test.py")
+	if err := synchronizer.SyncWatchCodeBoundSection(context.Background(), projectstate.WatchCodeBoundSection{
+		ProjectID:    "project-alpha",
+		SectionID:    "section-main",
+		RelativePath: "pkg/watch_code_test.py",
+		SourcePath:   sourcePath,
+		Code:         "def cool_fn(a, b, c):\n    return a + b + c\n",
+		IgnoreState: projectstate.CodeSectionDiagnosticsIgnoreState{
+			Muted: true,
+		},
+	}); err != nil {
+		t.Fatalf("sync watch code bound section: %v", err)
+	}
+
+	if len(syncer.upserted) != 2 {
+		t.Fatalf("expected two upserts, got %#v", syncer.upserted)
+	}
+	if syncer.upserted[0].Path != sourcePath {
+		t.Fatalf("expected workspace upsert first, got %#v", syncer.upserted)
+	}
+	expectedMirrorPath := filepath.Join(settaFilesRoot, "pkg", "watch_code_test.py")
+	if syncer.upserted[1].Path != expectedMirrorPath {
+		t.Fatalf("expected mirror upsert path %q, got %#v", expectedMirrorPath, syncer.upserted)
+	}
+	if syncer.upserted[1].Callback == nil {
+		t.Fatal("expected mirror upsert to keep a diagnostics callback")
 	}
 }
 

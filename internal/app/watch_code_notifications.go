@@ -60,10 +60,7 @@ func (o *watchCodeSignatureObserver) recordAttempt(callableName string, status p
 	o.mu.Lock()
 	defer o.mu.Unlock()
 
-	currentStatus, ok := o.attempts[trimmedCallableName]
-	if !ok || signatureStatusPriority(status) > signatureStatusPriority(currentStatus) {
-		o.attempts[trimmedCallableName] = status
-	}
+	o.attempts[trimmedCallableName] = status
 }
 
 func (o *watchCodeSignatureObserver) Attempts() map[string]projectstate.SignatureHelpStatus {
@@ -79,17 +76,6 @@ func (o *watchCodeSignatureObserver) Attempts() map[string]projectstate.Signatur
 		output[callableName] = status
 	}
 	return output
-}
-
-func signatureStatusPriority(status projectstate.SignatureHelpStatus) int {
-	switch status {
-	case projectstate.SignatureHelpStatusNoMatch:
-		return 3
-	case projectstate.SignatureHelpStatusMatched:
-		return 2
-	default:
-		return 1
-	}
 }
 
 type watchCodeWarningKey struct {

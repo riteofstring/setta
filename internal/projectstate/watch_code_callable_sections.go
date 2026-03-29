@@ -16,8 +16,17 @@ func (p *Project) applyWatchCodeScanPlan(
 	plan watchcode.ScanPlan,
 	resolver CallableSignatureResolver,
 ) (bool, error) {
+	return p.applyWatchCodeScanPlanWithParsedSignatures(ctx, plan, resolver, nil)
+}
+
+func (p *Project) applyWatchCodeScanPlanWithParsedSignatures(
+	ctx context.Context,
+	plan watchcode.ScanPlan,
+	resolver CallableSignatureResolver,
+	parsedSignatures map[string]CallableSignatureResult,
+) (bool, error) {
 	didUpdate := false
-	signatureRefetchIdentities := map[string]struct{}{}
+	signatureRefetchCallables := map[string]watchcode.CallableInfo{}
 
 	if _, ok := p.WatchCodeBaselineByPath[plan.SourcePath]; ok {
 		if p.setWatchCodeBaseline(plan.SourcePath, plan.PrunedBaseline) {
@@ -67,7 +76,7 @@ func (p *Project) applyWatchCodeScanPlan(
 		if p.applyWatchCodeMetadataChange(signatureChange.Identity, signatureChange.Callable, plan.SourcePath) {
 			didUpdate = true
 		}
-		signatureRefetchIdentities[signatureChange.Identity] = struct{}{}
+		signatureRefetchCallables[signatureChange.Identity] = signatureChange.Callable
 		pending, err := p.watchCodeEntryNeedsSection(signatureChange.Identity)
 		if err != nil {
 			return false, err
@@ -99,7 +108,13 @@ func (p *Project) applyWatchCodeScanPlan(
 	}
 	sort.Strings(pendingIdentities)
 	for _, identity := range pendingIdentities {
-		updated, err := p.ensureWatchCodeCallableSection(ctx, identity, pendingByIdentity[identity], resolver)
+		updated, err := p.ensureWatchCodeCallableSection(
+			ctx,
+			identity,
+			pendingByIdentity[identity],
+			resolver,
+			parsedSignatures[identity],
+		)
 		if err != nil {
 			return false, err
 		}
@@ -108,13 +123,18 @@ func (p *Project) applyWatchCodeScanPlan(
 		}
 	}
 
-	refetchIdentities := make([]string, 0, len(signatureRefetchIdentities))
-	for identity := range signatureRefetchIdentities {
+	refetchIdentities := make([]string, 0, len(signatureRefetchCallables))
+	for identity := range signatureRefetchCallables {
 		refetchIdentities = append(refetchIdentities, identity)
 	}
 	sort.Strings(refetchIdentities)
 	for _, identity := range refetchIdentities {
-		updated, err := p.refetchWatchCodeCallableSections(ctx, identity, resolver)
+		updated, err := p.refetchWatchCodeCallableSections(
+			ctx,
+			identity,
+			resolver,
+			parsedSignatures[identity],
+		)
 		if err != nil {
 			return false, err
 		}
@@ -165,6 +185,7 @@ func (p *Project) ensureWatchCodeCallableSection(
 	identity string,
 	callable watchcode.CallableInfo,
 	resolver CallableSignatureResolver,
+	parsedSignature CallableSignatureResult,
 ) (bool, error) {
 	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
@@ -222,7 +243,12 @@ func (p *Project) ensureWatchCodeCallableSection(
 
 	p.WatchCodeRegistry[identity] = entry
 
-	bound, err := p.bindWatchCodeCallableSections(ctx, entry.SectionIDs, referenceName, resolver)
+	bound, err := p.bindWatchCodeCallableSections(
+		ctx,
+		entry.SectionIDs,
+		referenceName,
+		wrapWatchCodeParsedSignatureResolver(referenceName, parsedSignature, resolver),
+	)
 	if err != nil {
 		return false, err
 	}
@@ -251,6 +277,7 @@ func (p *Project) refetchWatchCodeCallableSections(
 	ctx context.Context,
 	identity string,
 	resolver CallableSignatureResolver,
+	parsedSignature CallableSignatureResult,
 ) (bool, error) {
 	entry, ok := p.WatchCodeRegistry[identity]
 	if !ok {
@@ -289,7 +316,13 @@ func (p *Project) refetchWatchCodeCallableSections(
 			var response SetCallableResponse
 			if err := p.withSectionVariantSelected(sectionID, variantID, func() error {
 				var setCallableErr error
-				response, setCallableErr = p.SetCallable(ctx, sectionID, callableName, true, resolver)
+				response, setCallableErr = p.SetCallable(
+					ctx,
+					sectionID,
+					callableName,
+					true,
+					wrapWatchCodeParsedSignatureResolver(callableName, parsedSignature, resolver),
+				)
 				return setCallableErr
 			}); err != nil {
 				return false, err
@@ -301,6 +334,105 @@ func (p *Project) refetchWatchCodeCallableSections(
 	}
 
 	return didUpdate, nil
+}
+
+func watchCodeParsedSignatureResults(callables []watchcode.CallableInfo) map[string]CallableSignatureResult {
+	if len(callables) == 0 {
+		return nil
+	}
+
+	output := make(map[string]CallableSignatureResult, len(callables))
+	for _, callable := range callables {
+		output[callable.Identity] = CallableSignatureResult{
+			Status: SignatureHelpStatusMatched,
+			Params: watchCodeParamProposals(callable),
+		}
+	}
+	return output
+}
+
+func watchCodeParamProposals(callable watchcode.CallableInfo) []CallableParamProposal {
+	proposals := make([]CallableParamProposal, 0, len(callable.Params))
+	for _, param := range callable.Params {
+		proposals = append(proposals, CallableParamProposal{
+			Name:           strings.TrimSpace(param.Name),
+			DefaultValue:   strings.TrimSpace(param.DefaultValue),
+			TypeAnnotation: strings.TrimSpace(param.TypeAnnotation),
+			PassingStyle:   strings.TrimSpace(param.PassingStyle),
+		})
+	}
+	return proposals
+}
+
+func wrapWatchCodeParsedSignatureResolver(
+	callableName string,
+	parsedSignature CallableSignatureResult,
+	fallback CallableSignatureResolver,
+) CallableSignatureResolver {
+	if parsedSignature.Status != SignatureHelpStatusMatched {
+		return fallback
+	}
+	return watchCodeParsedSignatureResolver{
+		callableName:     strings.TrimSpace(callableName),
+		parsedSignature:  parsedSignature,
+		fallbackResolver: fallback,
+	}
+}
+
+type watchCodeParsedSignatureResolver struct {
+	callableName     string
+	parsedSignature  CallableSignatureResult
+	fallbackResolver CallableSignatureResolver
+}
+
+func (r watchCodeParsedSignatureResolver) ResolveCallableSignature(
+	ctx context.Context,
+	project Project,
+	sectionID string,
+	callableName string,
+) (CallableSignatureResult, bool, error) {
+	trimmedCallableName := strings.TrimSpace(callableName)
+	if trimmedCallableName == "" {
+		return CallableSignatureResult{}, false, nil
+	}
+	if trimmedCallableName != r.callableName {
+		if r.fallbackResolver == nil {
+			return CallableSignatureResult{}, false, nil
+		}
+		return r.fallbackResolver.ResolveCallableSignature(ctx, project, sectionID, callableName)
+	}
+
+	if r.fallbackResolver == nil {
+		return r.parsedSignature, true, nil
+	}
+
+	result, ok, err := r.fallbackResolver.ResolveCallableSignature(ctx, project, sectionID, callableName)
+	if err != nil {
+		return CallableSignatureResult{}, false, err
+	}
+	if !ok {
+		return r.parsedSignature, true, nil
+	}
+	if result.Status != SignatureHelpStatusMatched || !sameCallableParamNames(result.Params, r.parsedSignature.Params) {
+		parsedResult := r.parsedSignature
+		if strings.TrimSpace(result.Documentation) != "" {
+			parsedResult.Documentation = result.Documentation
+		}
+		return parsedResult, true, nil
+	}
+	return result, true, nil
+}
+
+func sameCallableParamNames(left []CallableParamProposal, right []CallableParamProposal) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if strings.TrimSpace(left[index].Name) != strings.TrimSpace(right[index].Name) {
+			return false
+		}
+	}
+	return true
 }
 
 func (p *Project) applyWatchCodeRename(plan watchcode.RenamePlan, sourcePath string) (bool, bool, error) {

@@ -10,6 +10,7 @@ import (
 
 	"setta/internal/lsp"
 	"setta/internal/projectstate"
+	"setta/internal/statefs"
 )
 
 // The signature service should build a generated Python snapshot, request
@@ -83,6 +84,96 @@ func TestServiceResolveCallableSignatureReturnsNoMatch(t *testing.T) {
 	}
 	if len(result.Params) != 0 {
 		t.Fatalf("expected no proposals, got %#v", result.Params)
+	}
+}
+
+// A watch-code callable imported from the workspace root should resolve through
+// the real basedpyright service when the generated snapshot imports that module.
+func TestServiceResolveCallableSignatureFromWorkspaceImportWithCurrentProcessLSP(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "watch_code_test.py")
+	if err := statefs.AtomicWriteFile(
+		sourcePath,
+		[]byte("def cool_fn(a, b, c):\n    return a + b + c\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write workspace callable source: %v", err)
+	}
+
+	service, _, closeService := newCurrentProcessSignatureService(t, workspaceRoot)
+	defer closeService()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	result, ok, err := service.ResolveCallableSignature(
+		ctx,
+		signatureImportTestProject(t, "from watch_code_test import cool_fn\n"),
+		"callable-section",
+		"cool_fn",
+	)
+	if err != nil {
+		t.Fatalf("resolve callable signature: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected signature request to be available")
+	}
+	if result.Status != projectstate.SignatureHelpStatusMatched {
+		t.Fatalf("expected matched status, got %q", result.Status)
+	}
+	if got := paramNames(result.Params); !equalStrings(got, []string{"a", "b", "c"}) {
+		t.Fatalf("expected params [a b c], got %#v", result.Params)
+	}
+}
+
+// Basedpyright resolves the generated snapshot import against the setta_files
+// shadow when one exists, even if the live workspace document has newer
+// content. The synchronizer tests cover the product fix by keeping that mirror
+// fresh before signature help runs.
+func TestServiceResolveCallableSignatureUsesStaleSettaFilesShadowWhenMirrorIsOutOfDate(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	settaFilesShadowPath := filepath.Join(workspaceRoot, "setta_files", "watch_code_test.py")
+	if err := statefs.AtomicWriteFile(
+		settaFilesShadowPath,
+		[]byte("def cool_fn():\n    return 0\n"),
+		0o644,
+	); err != nil {
+		t.Fatalf("write stale setta_files shadow: %v", err)
+	}
+
+	service, session, closeService := newCurrentProcessSignatureService(t, filepath.Join(workspaceRoot, "setta_files"))
+	defer closeService()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	workspaceSourcePath := filepath.Join(workspaceRoot, "watch_code_test.py")
+	workspaceContent := "def cool_fn(a, b, c):\n    return a + b + c\n"
+	if err := session.OpenDocument(ctx, workspaceSourcePath, "python", workspaceContent, nil); err != nil {
+		t.Fatalf("open workspace watch-code document: %v", err)
+	}
+
+	result, ok, err := service.ResolveCallableSignature(
+		ctx,
+		signatureImportTestProject(t, "from watch_code_test import cool_fn\n"),
+		"callable-section",
+		"cool_fn",
+	)
+	if err != nil {
+		t.Fatalf("resolve callable signature with stale shadow: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected signature request to be available")
+	}
+	if result.Status != projectstate.SignatureHelpStatusMatched {
+		t.Fatalf("expected matched status, got %q", result.Status)
+	}
+	if len(result.Params) != 0 {
+		t.Fatalf("expected stale zero-arg shadow to win, got %#v", result.Params)
 	}
 }
 
@@ -162,14 +253,54 @@ func newFixtureSignatureService(t *testing.T, settaFilesRoot string) (*Service, 
 	}
 }
 
+func newCurrentProcessSignatureService(t *testing.T, settaFilesRoot string) (*Service, *lsp.Session, func()) {
+	t.Helper()
+
+	workspaceRoot := settaFilesRoot
+	if filepath.Base(workspaceRoot) == "setta_files" {
+		workspaceRoot = filepath.Dir(workspaceRoot)
+	}
+
+	session, err := lsp.NewCurrentProcessPythonSession(lsp.CurrentProcessPythonSessionOptions{
+		WorkspaceRoot: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new current-process python session: %v", err)
+	}
+	service, err := NewService(ServiceOptions{
+		SettaFilesRoot: settaFilesRoot,
+		LSPService:     lsp.NewService(session),
+	})
+	if err != nil {
+		t.Fatalf("new signature service: %v", err)
+	}
+	return service, session, func() {
+		if err := session.Close(context.Background()); err != nil {
+			t.Fatalf("close lsp session: %v", err)
+		}
+	}
+}
+
 func signatureTestProject(t *testing.T) projectstate.Project {
+	t.Helper()
+
+	return signatureImportTestProject(t, "")
+}
+
+func signatureImportTestProject(t *testing.T, genCodePrefix string) projectstate.Project {
 	t.Helper()
 
 	project, err := projectstate.Project{
 		ID:   "project-alpha",
 		Name: "Alpha",
 		CodegenTargets: []projectstate.ProjectCodegenTarget{
-			{Language: string(projectstate.CodeLanguagePython)},
+			{
+				Language: string(projectstate.CodeLanguagePython),
+				Payload: projectstate.RawJSON(`{
+					"language":"python",
+					"genCodePrefix":` + strconvQuote(genCodePrefix) + `
+				}`),
+			},
 		},
 		TopLevelSectionIDs: []string{"callable-section"},
 		SectionVariantMap: map[string]string{
@@ -229,6 +360,47 @@ func signatureTestProject(t *testing.T) projectstate.Project {
 		t.Fatalf("normalize signature test project: %v", err)
 	}
 	return project
+}
+
+func paramNames(params []projectstate.CallableParamProposal) []string {
+	output := make([]string, 0, len(params))
+	for _, param := range params {
+		output = append(output, param.Name)
+	}
+	return output
+}
+
+func equalStrings(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func strconvQuote(value string) string {
+	return `"` + escapeJSONString(value) + `"`
+}
+
+func escapeJSONString(value string) string {
+	escaped := make([]byte, 0, len(value))
+	for i := 0; i < len(value); i++ {
+		switch value[i] {
+		case '\\':
+			escaped = append(escaped, '\\', '\\')
+		case '"':
+			escaped = append(escaped, '\\', '"')
+		case '\n':
+			escaped = append(escaped, '\\', 'n')
+		default:
+			escaped = append(escaped, value[i])
+		}
+	}
+	return string(escaped)
 }
 
 func resolveFixturePythonBinary(t *testing.T) string {
