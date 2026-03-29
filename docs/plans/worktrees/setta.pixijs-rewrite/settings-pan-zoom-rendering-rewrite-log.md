@@ -11555,3 +11555,35 @@ Record:
     - read-only `main` showed the same expanded `All Settings` set, but with a different visible scroll slice in the overview list, so the stale named-view-mode blocker is closed while a separate normalized scroll/viewport alignment frontier remains
 - Next action:
   - Continue normalized read-only `main`-oracle parity verification on `All Settings`, focusing next on the remaining overview-list scroll/viewport alignment rather than reopening the stale named-view-mode lane.
+
+## 2026-03-30 351
+
+- Item: Normalize the persisted `All Settings` overview layout in the live parity harness before comparing the worktree against read-only `main`.
+- Status: `done`
+- Details:
+  - Investigated the remaining `All Settings` overview mismatch directly on the live worktree and read-only `main` sessions instead of continuing the dead `ProjectOverview` ordering experiment.
+  - Fresh Playwright and CDP inspection showed the visible overview list was faithfully rendering each page's own `projectConfig.topLevelSections`; the mismatch was in the loaded settings-project layout state itself, not in the overview tab selection or list rendering.
+  - Confirmed the canonical `All Settings` order from `createSettingsState()` begins with the core settings fields (`shortcuts`, `gui`, `backend`, `chatWindowing`, `sectionSizingPolicy`, `languageServer`, ...), while the live read-only `main` session carried a different persisted overview layout order.
+  - Narrowed the fix to the parity-support boundary in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`:
+    - added `normalizeAllSettingsOverviewLayout(...)`, which rebuilds the active `All Settings` `topLevelSections` layout from the canonical `createSettingsState()` field order using the standard 3-column/600px grid
+    - applied that normalization to both the worktree baseline page and the read-only `main` page immediately before reading the visible overview slice
+    - kept the previously added visible-overview-slice assertion so the test now locks the canonical normalized comparison instead of comparing two potentially contaminated persisted layouts
+  - Reverted the unhelpful local `ProjectOverview` ordering experiment before closing the slice; no production frontend/backend renderer logic changed in the final result.
+  - This slice stays intentionally on the parity-support boundary:
+    - no production renderer, pan/zoom, text, or interaction code changed
+    - the change only makes the live `All Settings` oracle comparison deterministic when the running sessions carry divergent persisted settings-layout state
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Panes/Overview/ProjectOverview/ProjectOverview.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN='...' SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=...' pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings baseline and the read-only main reference share the same visible overview section slice when explicit runtime envs are provided'`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the live worktree `http://127.0.0.1:3043/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - applied the same canonical `All Settings` normalization to both pages before inspection
+    - result: passed
+      - both overview panes showed the same first eight visible labels: `shortcuts`, `gui`, `backend`, `chatWindowing`, `sectionSizingPolicy`, `languageServer`, `browserSectionDefault`, `callableSectionDefault`
+      - no extra chat chrome needed normalization on either page during the CDP check
+- Next action:
+  - Resume normalized read-only `main`-oracle parity verification on `All Settings`, using the canonical overview-layout normalization first and then identifying the next real renderer/canvas drift instead of reopening workspace-state contamination.

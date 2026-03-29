@@ -40,6 +40,8 @@ const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
 const LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM =
   "liveDictAreaInteractionMode";
 const LIVE_PIXI_MODE = "pixi-node-body";
+const SETTINGS_LAYOUT_GRID_COLUMNS = 3;
+const SETTINGS_LAYOUT_GRID_SPACING = 600;
 const SETTA_AUTH_COOKIE_NAME_PREFIX = "setta_auth";
 const NOTIFICATIONS_STORE_MODULE_URL = "/src/state/definitions.ts";
 // Use the exact browser module URL that the app resolves for the singleton
@@ -587,6 +589,105 @@ async function readVisibleSectionNodeBounds(
         return a.x - b.x;
       });
   });
+}
+
+async function readVisibleOverviewSectionLabels(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const scrollContainer = document.querySelector<HTMLElement>(
+      "#OverviewPane .setta-pane-scroll",
+    );
+    if (!scrollContainer) {
+      return [];
+    }
+
+    const viewportRect = scrollContainer.getBoundingClientRect();
+    return Array.from(
+      document.querySelectorAll<HTMLElement>("#OverviewPane li"),
+    )
+      .map((element) => {
+        const label = element
+          .querySelector<HTMLElement>("span.min-w-0.flex-1.truncate")
+          ?.textContent?.trim();
+        const rect = element.getBoundingClientRect();
+        return {
+          label: label ?? "",
+          top: rect.top,
+          visible:
+            rect.height > 0 &&
+            rect.bottom > viewportRect.top &&
+            rect.top < viewportRect.bottom,
+        };
+      })
+      .filter((entry) => entry.visible && entry.label.length > 0)
+      .sort((left, right) => left.top - right.top)
+      .map((entry) => entry.label);
+  });
+}
+
+async function normalizeAllSettingsOverviewLayout(page: Page): Promise<void> {
+  await page.evaluate(
+    async ({
+      gridColumns,
+      gridSpacing,
+    }: {
+      gridColumns: number;
+      gridSpacing: number;
+    }) => {
+      const { useProjectState } = await import("/src/state/definitions.ts");
+      const { createSettingsState, createTopLevelSectionLayout } = await import(
+        "/src/utils/generatedTypes.ts"
+      );
+
+      const state = useProjectState.getState();
+      const activeViewModeId = state.projectConfig.activeViewModeId;
+      if (!activeViewModeId) {
+        throw new Error("Active view mode is not set.");
+      }
+      const activeViewMode = state.projectConfig.viewModes[activeViewModeId];
+      if (!activeViewMode || activeViewMode.name !== "All Settings") {
+        return;
+      }
+
+      const sectionIdByName = Object.fromEntries(
+        Object.entries(state.sections).map(([sectionId, sectionCore]) => [
+          sectionCore.name,
+          sectionId,
+        ]),
+      );
+      const orderedSectionNames = Object.keys(createSettingsState());
+      const nextLayout = Object.fromEntries(
+        orderedSectionNames.map((sectionName, index) => {
+          const sectionId = sectionIdByName[sectionName];
+          if (!sectionId) {
+            throw new Error(
+              `Missing settings section for All Settings normalization: ${sectionName}`,
+            );
+          }
+          return [
+            sectionId,
+            createTopLevelSectionLayout({
+              x: (index % gridColumns) * gridSpacing,
+              y: Math.floor(index / gridColumns) * gridSpacing,
+            }),
+          ];
+        }),
+      );
+
+      useProjectState.setState((currentState) => {
+        currentState.projectConfig.topLevelSections = nextLayout;
+        currentState.projectConfig.viewModes[
+          activeViewModeId
+        ].topLevelSections = nextLayout;
+      });
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    },
+    {
+      gridColumns: SETTINGS_LAYOUT_GRID_COLUMNS,
+      gridSpacing: SETTINGS_LAYOUT_GRID_SPACING,
+    },
+  );
 }
 
 async function withParamSelectHeld(page: Page, callback: () => Promise<void>) {
@@ -1247,6 +1348,52 @@ test("all settings baseline and the read-only main reference resolve the same pr
         )
         .map(([sectionId, variantId]) => `${sectionId}:${variantId}`),
     );
+  } finally {
+    await baselinePage.close();
+    await mainReferencePage.close();
+  }
+});
+
+test("all settings baseline and the read-only main reference share the same visible overview section slice when explicit runtime envs are provided", async ({
+  browser,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "requires SETTA_MAIN_REFERENCE_URL and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL",
+  );
+
+  const baselinePage = await browser.newPage();
+  const mainReferencePage = await browser.newPage();
+
+  try {
+    await openAllSettingsBaseline(baselinePage);
+    await openAllSettingsMainReference(mainReferencePage);
+
+    await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
+    await resetProjectWorkspaceChromeToDefaultLayout(mainReferencePage);
+    await normalizeAllSettingsOverviewLayout(baselinePage);
+    await normalizeAllSettingsOverviewLayout(mainReferencePage);
+
+    await expect
+      .poll(async () => {
+        return (await readVisibleOverviewSectionLabels(baselinePage)).length;
+      })
+      .toBeGreaterThanOrEqual(4);
+    await expect
+      .poll(async () => {
+        return (await readVisibleOverviewSectionLabels(mainReferencePage))
+          .length;
+      })
+      .toBeGreaterThanOrEqual(4);
+
+    const baselineVisibleLabels = (
+      await readVisibleOverviewSectionLabels(baselinePage)
+    ).slice(0, 6);
+    const mainReferenceVisibleLabels = (
+      await readVisibleOverviewSectionLabels(mainReferencePage)
+    ).slice(0, 6);
+
+    expect(mainReferenceVisibleLabels).toEqual(baselineVisibleLabels);
   } finally {
     await baselinePage.close();
     await mainReferencePage.close();
