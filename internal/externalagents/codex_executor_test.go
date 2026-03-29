@@ -467,6 +467,168 @@ func TestCodexExecutorSkipsUsageWithoutThreadTokenUsageUpdated(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestCodexExecutorFailsRunWhenSettaToolCallNeverStarts(t *testing.T) {
+	fixture := newCodexExecutorFixtureWithOptions(t, "stalled_tool_call", codexExecutorFixtureOptions{
+		toolDispatchTimeout:  75 * time.Millisecond,
+		toolResultTimeout:    75 * time.Millisecond,
+		watchdogPollInterval: 10 * time.Millisecond,
+	})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Create a callable section."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start stalled codex run: %v", err)
+	}
+
+	fixture.waitForPendingToolCall(t, result.Run.ID, "call-stalled")
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed status, got %#v", persisted)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "run_failed" {
+		t.Fatalf("expected run_failed event, got %#v", persisted.Events)
+	}
+	if !strings.Contains(stringValue(lastEvent.Payload["error"]), "never received the request") {
+		t.Fatalf("expected dispatch stall failure, got %#v", lastEvent.Payload)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorFailsRunWhenSettaToolCompletesButCodexNeverReturnsResult(t *testing.T) {
+	fixture := newCodexExecutorFixtureWithOptions(t, "stalled_tool_call", codexExecutorFixtureOptions{
+		toolDispatchTimeout:  250 * time.Millisecond,
+		toolResultTimeout:    75 * time.Millisecond,
+		watchdogPollInterval: 10 * time.Millisecond,
+	})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Create a callable section."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start stalled codex run: %v", err)
+	}
+
+	fixture.waitForPendingToolCall(t, result.Run.ID, "call-stalled")
+	fixture.runtime.RecordMCPToolInvocationStarted(result.Run.ID, "create_top_level_section")
+	fixture.runtime.RecordMCPToolInvocationCompleted(result.Run.ID, "create_top_level_section")
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed status, got %#v", persisted)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "run_failed" {
+		t.Fatalf("expected run_failed event, got %#v", persisted.Events)
+	}
+	if !strings.Contains(stringValue(lastEvent.Payload["error"]), "never returned a tool result") {
+		t.Fatalf("expected result stall failure, got %#v", lastEvent.Payload)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorFailsRunWhenRawSettaToolCallNeverStarts(t *testing.T) {
+	fixture := newCodexExecutorFixtureWithOptions(t, "stalled_raw_tool_call", codexExecutorFixtureOptions{
+		toolDispatchTimeout:  75 * time.Millisecond,
+		toolResultTimeout:    75 * time.Millisecond,
+		watchdogPollInterval: 10 * time.Millisecond,
+	})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Create a callable section."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start stalled raw codex run: %v", err)
+	}
+
+	fixture.waitForPendingToolCall(t, result.Run.ID, "call-stalled-raw")
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed status, got %#v", persisted)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "run_failed" {
+		t.Fatalf("expected run_failed event, got %#v", persisted.Events)
+	}
+	if !strings.Contains(stringValue(lastEvent.Payload["error"]), "never received the request") {
+		t.Fatalf("expected dispatch stall failure, got %#v", lastEvent.Payload)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
+func TestCodexExecutorFailsRunWhenRawSettaToolCompletesButCodexNeverReturnsResult(t *testing.T) {
+	fixture := newCodexExecutorFixtureWithOptions(t, "stalled_raw_tool_call", codexExecutorFixtureOptions{
+		toolDispatchTimeout:  250 * time.Millisecond,
+		toolResultTimeout:    75 * time.Millisecond,
+		watchdogPollInterval: 10 * time.Millisecond,
+	})
+	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Create a callable section."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start stalled raw codex run: %v", err)
+	}
+
+	fixture.waitForPendingToolCall(t, result.Run.ID, "call-stalled-raw")
+	fixture.runtime.RecordMCPToolInvocationStarted(result.Run.ID, "create_top_level_section")
+	fixture.runtime.RecordMCPToolInvocationCompleted(result.Run.ID, "create_top_level_section")
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed status, got %#v", persisted)
+	}
+	lastEvent := persisted.Events[len(persisted.Events)-1]
+	if lastEvent.Type != "run_failed" {
+		t.Fatalf("expected run_failed event, got %#v", persisted.Events)
+	}
+	if !strings.Contains(stringValue(lastEvent.Payload["error"]), "never returned a tool result") {
+		t.Fatalf("expected result stall failure, got %#v", lastEvent.Payload)
+	}
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestCodexExecutorIgnoresSlowMCPStatusProbeAndCompletesRun(t *testing.T) {
 	fixture := newCodexExecutorFixture(t, "slow_status")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
@@ -1704,6 +1866,49 @@ func TestApplyCodexResponseItemAppendsToolResultOnce(t *testing.T) {
 	}
 }
 
+func TestCodexEventStateTracksResponseOutputItemFunctionCalls(t *testing.T) {
+	t.Parallel()
+
+	eventState := newCodexEventState()
+	startedAt := time.Date(2026, time.April, 1, 12, 0, 0, 0, time.UTC)
+	eventState.notePayload("run-1", map[string]any{
+		"type": "response.output_item.done",
+		"item": map[string]any{
+			"type":      "function_call",
+			"call_id":   "call-output-item-1",
+			"name":      "mcp__setta__create_top_level_section",
+			"arguments": "{\"projectConfigId\":\"project-alpha\",\"implType\":\"Callable\"}",
+		},
+	}, nil, startedAt)
+
+	pending, ok := eventState.pendingFunctionCalls["call-output-item-1"]
+	if !ok {
+		t.Fatalf("expected pending function call after response.output_item.done, got %#v", eventState.pendingFunctionCalls)
+	}
+	if pending.ToolName != "mcp__setta__create_top_level_section" {
+		t.Fatalf("unexpected pending tool name %#v", pending)
+	}
+	if pending.SettaToolName != "create_top_level_section" {
+		t.Fatalf("unexpected pending Setta tool name %#v", pending)
+	}
+	if !pending.StartedAt.Equal(startedAt) {
+		t.Fatalf("unexpected pending start time %#v", pending)
+	}
+
+	eventState.notePayload("run-1", map[string]any{
+		"type": "response.output_item.done",
+		"item": map[string]any{
+			"type":    "function_call_output",
+			"call_id": "call-output-item-1",
+			"output":  "{\"sectionId\":\"section-1\"}",
+		},
+	}, nil, startedAt.Add(time.Second))
+
+	if _, ok := eventState.pendingFunctionCalls["call-output-item-1"]; ok {
+		t.Fatalf("expected output-item function call to resolve, got %#v", eventState.pendingFunctionCalls)
+	}
+}
+
 func TestApplyCodexResponseItemPreservesReasoningAndText(t *testing.T) {
 	t.Parallel()
 
@@ -2024,6 +2229,17 @@ type codexExecutorFixture struct {
 
 func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture {
 	t.Helper()
+	return newCodexExecutorFixtureWithOptions(t, scenario, codexExecutorFixtureOptions{})
+}
+
+type codexExecutorFixtureOptions struct {
+	toolDispatchTimeout  time.Duration
+	toolResultTimeout    time.Duration
+	watchdogPollInterval time.Duration
+}
+
+func newCodexExecutorFixtureWithOptions(t *testing.T, scenario string, options codexExecutorFixtureOptions) codexExecutorFixture {
+	t.Helper()
 
 	root := t.TempDir()
 	commandPath := writeCodexFixtureCommand(t, scenario)
@@ -2108,6 +2324,9 @@ func newCodexExecutorFixture(t *testing.T, scenario string) codexExecutorFixture
 		TimeNow: func() time.Time {
 			return now
 		},
+		ToolDispatchTimeout:  options.toolDispatchTimeout,
+		ToolResultTimeout:    options.toolResultTimeout,
+		WatchdogPollInterval: options.watchdogPollInterval,
 	})
 	if err != nil {
 		t.Fatalf("new codex executor: %v", err)
@@ -2234,6 +2453,25 @@ func (f codexExecutorFixture) waitForRunUsage(t *testing.T, runID string) map[st
 	}
 	t.Fatalf("timed out waiting for run %s usage payload", runID)
 	return nil
+}
+
+func (f codexExecutorFixture) waitForPendingToolCall(t *testing.T, runID string, toolCallID string) {
+	t.Helper()
+
+	deadline := time.Now().Add(executorFixtureEventTimeout)
+	for time.Now().Before(deadline) {
+		liveState, err := f.runtime.GetLiveChatState(runID)
+		if err != nil {
+			t.Fatalf("get live state while waiting for pending tool call: %v", err)
+		}
+		if liveState != nil {
+			if rawArguments := strings.TrimSpace(liveState.ToolCallArguments[toolCallID]); rawArguments != "" {
+				return
+			}
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for pending tool call %s on run %s", toolCallID, runID)
 }
 
 func writeCodexCompletionGuardSetting(t *testing.T, root string, enabled bool) {
@@ -2498,6 +2736,16 @@ func runCodexFixtureProcess(scenario string) error {
 					return err
 				}
 				return nil
+			case "stalled_tool_call":
+				if err := emitCodexStalledToolCall(writer); err != nil {
+					return err
+				}
+				continue
+			case "stalled_raw_tool_call":
+				if err := emitCodexStalledRawToolCall(writer); err != nil {
+					return err
+				}
+				continue
 			case "slow_status":
 				if err := emitAssistantTurn(writer, "assistant-slow-status", "Hello from Codex"); err != nil {
 					return err
@@ -2722,6 +2970,49 @@ func emitCodexRichTurn(writer *bufio.Writer) error {
 		}
 	}
 	return nil
+}
+
+func emitCodexStalledToolCall(writer *bufio.Writer) error {
+	payload := map[string]any{
+		"type": "response_item",
+		"payload": map[string]any{
+			"type":      "function_call",
+			"name":      "mcp__setta__create_top_level_section",
+			"arguments": "{\"projectConfigId\":\"project-alpha\",\"implType\":\"Callable\"}",
+			"call_id":   "call-stalled",
+		},
+	}
+	content, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if _, err := writer.Write(append(content, '\n')); err != nil {
+		return err
+	}
+	return writer.Flush()
+}
+
+func emitCodexStalledRawToolCall(writer *bufio.Writer) error {
+	payload := map[string]any{
+		"method": "item/started",
+		"params": map[string]any{
+			"item": map[string]any{
+				"id":        "call-stalled-raw",
+				"type":      "mcpToolCall",
+				"server":    "setta",
+				"tool":      "create_top_level_section",
+				"arguments": map[string]any{"projectConfigId": "project-alpha", "implType": "Callable"},
+			},
+		},
+	}
+	content, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if _, err := writer.Write(append(content, '\n')); err != nil {
+		return err
+	}
+	return writer.Flush()
 }
 
 func emitCodexRawTurn(writer *bufio.Writer) error {

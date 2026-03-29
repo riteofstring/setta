@@ -135,6 +135,9 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 			ResultIDPathsByType: map[IDType][]string{
 				IDTypeSection: {"result.sectionId"},
 			},
+			ToolAnnotations: &ToolAnnotationsMetadata{
+				OpenWorldHint: boolPtr(false),
+			},
 			ResultFilter: ResultFilterProjectStateSummary,
 			SearchTags:   []string{"project"},
 		},
@@ -164,6 +167,9 @@ func TestRegistryLookupReturnsClonedMetadata(t *testing.T) {
 	}
 	if second.Metadata.ResultIDPathsByType[IDTypeSection][0] != "result.sectionId" {
 		t.Fatalf("expected cloned result id paths, got %#v", second.Metadata.ResultIDPathsByType)
+	}
+	if second.Metadata.ToolAnnotations == nil || second.Metadata.ToolAnnotations.OpenWorldHint == nil || *second.Metadata.ToolAnnotations.OpenWorldHint {
+		t.Fatalf("expected cloned tool annotations, got %#v", second.Metadata.ToolAnnotations)
 	}
 }
 
@@ -201,4 +207,8 @@ func TestRegistryRemoveDeletesRegisteredTools(t *testing.T) {
 	if registry.Remove("setSectionSizes") {
 		t.Fatal("expected removing an already-missing tool to report no change")
 	}
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

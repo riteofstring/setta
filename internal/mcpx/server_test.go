@@ -8822,6 +8822,57 @@ func openScopedTestProjectRuntime(t *testing.T) *projectstate.Runtime {
 	return runtime
 }
 
+func TestInvokeToolRecordsRunScopedToolActivity(t *testing.T) {
+	t.Parallel()
+
+	projectRuntime := openScopedTestProjectRuntime(t)
+	recorder := &toolInvocationRecorderSpy{}
+	server, err := NewServer(ServerOptions{
+		WorkspaceRoot:   t.TempDir(),
+		ProjectState:    projectRuntime,
+		ToolInvocations: recorder,
+	})
+	if err != nil {
+		t.Fatalf("new server: %v", err)
+	}
+	headers := http.Header{}
+	headers.Set(AgenticContextProjectConfigIDHeader, "project-alpha")
+	headers.Set(AgenticContextChatIDHeader, "chat-1")
+	headers.Set(AgenticContextRunIDHeader, "run-1")
+	headers.Set(AgenticContextSectionIDHeader, "chat-section")
+
+	result, err := server.InvokeTool(context.Background(), "get_latest_project_state_summary", map[string]any{
+		"projectConfigId": "project-alpha",
+	}, ToolRequestContext{
+		Headers: headers,
+	})
+	if err != nil {
+		t.Fatalf("invoke tool: %v", err)
+	}
+	if result == nil || result.IsError {
+		t.Fatalf("expected success result, got %#v", result)
+	}
+	if len(recorder.started) != 1 || recorder.started[0] != "run-1:get_latest_project_state_summary" {
+		t.Fatalf("expected one started record, got %#v", recorder.started)
+	}
+	if len(recorder.completed) != 1 || recorder.completed[0] != "run-1:get_latest_project_state_summary" {
+		t.Fatalf("expected one completed record, got %#v", recorder.completed)
+	}
+}
+
+type toolInvocationRecorderSpy struct {
+	started   []string
+	completed []string
+}
+
+func (s *toolInvocationRecorderSpy) RecordMCPToolInvocationStarted(runID string, toolName string) {
+	s.started = append(s.started, strings.TrimSpace(runID)+":"+strings.TrimSpace(toolName))
+}
+
+func (s *toolInvocationRecorderSpy) RecordMCPToolInvocationCompleted(runID string, toolName string) {
+	s.completed = append(s.completed, strings.TrimSpace(runID)+":"+strings.TrimSpace(toolName))
+}
+
 func openPersistedAppDefinitionTestProjectRuntime(t *testing.T) (string, *projectstate.Runtime) {
 	t.Helper()
 

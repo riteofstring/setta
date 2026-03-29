@@ -53,7 +53,7 @@ func TestBuildToolPayloadsMatchesServerList(t *testing.T) {
 	}
 }
 
-func TestBuildToolPayloadsExposeReadOnlySDKAnnotationsOnlyForReadTools(t *testing.T) {
+func TestBuildToolPayloadsExposeSDKAnnotationsForExplicitlyAnnotatedTools(t *testing.T) {
 	t.Parallel()
 
 	payloads, err := BuildToolPayloads()
@@ -79,8 +79,9 @@ func TestBuildToolPayloadsExposeReadOnlySDKAnnotationsOnlyForReadTools(t *testin
 		t.Fatal("expected write tool payload")
 	}
 
-	// Read tools should advertise the SDK retry/read-only hints, while write
-	// tools should leave annotations unset.
+	// Read tools should advertise the SDK retry/read-only hints. Mutating tools
+	// that Setta can classify precisely should also expose explicit MCP hints
+	// instead of falling back to the protocol defaults.
 	if readTool.Annotations == nil {
 		t.Fatal("expected read tool annotations")
 	}
@@ -90,7 +91,16 @@ func TestBuildToolPayloadsExposeReadOnlySDKAnnotationsOnlyForReadTools(t *testin
 	if readTool.Annotations.OpenWorldHint == nil || *readTool.Annotations.OpenWorldHint {
 		t.Fatalf("expected read tool open-world hint false, got %#v", readTool.Annotations.OpenWorldHint)
 	}
-	if writeTool.Annotations != nil {
-		t.Fatalf("expected write tool annotations to be nil, got %#v", writeTool.Annotations)
+	if writeTool.Annotations == nil {
+		t.Fatal("expected create_top_level_section annotations")
+	}
+	if writeTool.Annotations.ReadOnlyHint {
+		t.Fatalf("did not expect create_top_level_section read-only hint, got %#v", writeTool.Annotations)
+	}
+	if writeTool.Annotations.OpenWorldHint == nil || *writeTool.Annotations.OpenWorldHint {
+		t.Fatalf("expected create_top_level_section open-world hint false, got %#v", writeTool.Annotations.OpenWorldHint)
+	}
+	if writeTool.Annotations.DestructiveHint == nil || *writeTool.Annotations.DestructiveHint {
+		t.Fatalf("expected create_top_level_section destructive hint false, got %#v", writeTool.Annotations.DestructiveHint)
 	}
 }

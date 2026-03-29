@@ -1522,6 +1522,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			AgentRuns:                      agentRunService,
 			UISettingReveals:               uiSettingRevealService,
 			StateMachineRuns:               stateMachineRuntime,
+			ToolInvocations:                externalAgentRuntime,
 		})
 		if err != nil {
 			_ = errors.Join(

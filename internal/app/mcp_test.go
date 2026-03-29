@@ -454,6 +454,126 @@ func TestAppIDEMCPServerSupportsAuthenticatedStreamableHTTPToolListing(t *testin
 	}
 }
 
+func TestAppIDEMCPServerSupportsCreateTopLevelSectionAfterProjectSummaryOverAuthenticatedStreamableHTTP(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppLSPFixture(t)
+	prepareAppCurrentSession(t, cfg)
+	saveAppScopedMCPProject(t, cfg)
+	mustEnableAppSavedPythonCodegen(t, cfg)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
+	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
+		Endpoint:   server.URL + "/mcp",
+		HTTPClient: mustAuthenticatedMCPHTTPClient(t, app, server.URL),
+	}, nil)
+	if err != nil {
+		t.Fatalf("connect authenticated streamable-http mcp client: %v", err)
+	}
+	defer session.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := session.CallTool(ctx, &sdkmcp.CallToolParams{
+		Name: "set_agentic_context",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"allowUnscoped":   true,
+		},
+	})
+	if err != nil {
+		t.Fatalf("call set_agentic_context over streamable-http: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected set_agentic_context success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(ctx, &sdkmcp.CallToolParams{
+		Name:      "getProjectConfigNamesAndIds",
+		Arguments: map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("call getProjectConfigNamesAndIds over streamable-http: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected getProjectConfigNamesAndIds success, got %#v", result.StructuredContent)
+	}
+
+	result, err = session.CallTool(ctx, &sdkmcp.CallToolParams{
+		Name: "get_latest_project_state_summary",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call get_latest_project_state_summary over streamable-http: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected get_latest_project_state_summary success, got %#v", result.StructuredContent)
+	}
+
+	beforeProject, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id before create_top_level_section: %v", err)
+	}
+	beforeSectionIDs := map[string]struct{}{}
+	for sectionID := range beforeProject.Sections {
+		beforeSectionIDs[sectionID] = struct{}{}
+	}
+
+	result, err = session.CallTool(ctx, &sdkmcp.CallToolParams{
+		Name: "create_top_level_section",
+		Arguments: map[string]any{
+			"projectConfigId": "project-alpha",
+			"implType":        "Callable",
+		},
+	})
+	if err != nil {
+		t.Fatalf("call create_top_level_section over streamable-http after summary: %v", err)
+	}
+	if result.IsError {
+		t.Fatalf("expected create_top_level_section success, got %#v", result.StructuredContent)
+	}
+
+	payload := mustStructuredMapValue(t, result.StructuredContent)
+	sectionID, ok := payload["sectionId"].(string)
+	if !ok || strings.TrimSpace(sectionID) == "" {
+		t.Fatalf("expected created section id, got %#v", payload["sectionId"])
+	}
+
+	project, err := app.ProjectStates().Main().Snapshot().Document.ProjectByID("project-alpha")
+	if err != nil {
+		t.Fatalf("project by id after create_top_level_section: %v", err)
+	}
+	var canonicalSectionID string
+	for currentSectionID := range project.Sections {
+		if _, existed := beforeSectionIDs[currentSectionID]; !existed {
+			canonicalSectionID = currentSectionID
+			break
+		}
+	}
+	if canonicalSectionID == "" {
+		t.Fatalf("expected one new canonical section after create_top_level_section, got %#v", project.Sections)
+	}
+	if sectionID == canonicalSectionID {
+		t.Fatalf("expected translated section id to differ from canonical %q", canonicalSectionID)
+	}
+}
+
 func TestAppIDEMCPServerSupportsUtilityReadToolsOverAuthenticatedSSE(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE

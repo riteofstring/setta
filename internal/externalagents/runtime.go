@@ -54,10 +54,18 @@ type Runtime struct {
 }
 
 type runState struct {
-	controller RunController
-	liveChat   *ChatState
-	done       chan struct{}
-	doneClosed bool
+	controller         RunController
+	liveChat           *ChatState
+	done               chan struct{}
+	doneClosed         bool
+	mcpToolInvocations map[string]MCPToolInvocationSnapshot
+}
+
+type MCPToolInvocationSnapshot struct {
+	StartedCount    int        `json:"startedCount"`
+	CompletedCount  int        `json:"completedCount"`
+	LastStartedAt   *time.Time `json:"lastStartedAt,omitempty"`
+	LastCompletedAt *time.Time `json:"lastCompletedAt,omitempty"`
 }
 
 type ApprovalState struct {
@@ -118,6 +126,9 @@ func (r *Runtime) ActivateRun(runID string, controller RunController) error {
 	if state.done == nil || state.doneClosed {
 		state.done = make(chan struct{})
 		state.doneClosed = false
+	}
+	if state.mcpToolInvocations == nil {
+		state.mcpToolInvocations = map[string]MCPToolInvocationSnapshot{}
 	}
 	r.activeRuns[trimmedRunID] = state
 	return nil
@@ -197,6 +208,80 @@ func (r *Runtime) GetLiveChatState(runID string) (*ChatState, error) {
 		return nil, nil
 	}
 	return state.liveChat.Clone(), nil
+}
+
+func (r *Runtime) RecordMCPToolInvocationStarted(runID string, toolName string) {
+	if r == nil {
+		return
+	}
+	trimmedRunID := strings.TrimSpace(runID)
+	trimmedToolName := strings.TrimSpace(toolName)
+	if trimmedRunID == "" || trimmedToolName == "" {
+		return
+	}
+	now := time.Now().UTC()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	state, ok := r.activeRuns[trimmedRunID]
+	if !ok {
+		return
+	}
+	if state.mcpToolInvocations == nil {
+		state.mcpToolInvocations = map[string]MCPToolInvocationSnapshot{}
+	}
+	snapshot := state.mcpToolInvocations[trimmedToolName]
+	snapshot.StartedCount++
+	snapshot.LastStartedAt = &now
+	state.mcpToolInvocations[trimmedToolName] = snapshot
+	r.activeRuns[trimmedRunID] = state
+}
+
+func (r *Runtime) RecordMCPToolInvocationCompleted(runID string, toolName string) {
+	if r == nil {
+		return
+	}
+	trimmedRunID := strings.TrimSpace(runID)
+	trimmedToolName := strings.TrimSpace(toolName)
+	if trimmedRunID == "" || trimmedToolName == "" {
+		return
+	}
+	now := time.Now().UTC()
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	state, ok := r.activeRuns[trimmedRunID]
+	if !ok {
+		return
+	}
+	if state.mcpToolInvocations == nil {
+		state.mcpToolInvocations = map[string]MCPToolInvocationSnapshot{}
+	}
+	snapshot := state.mcpToolInvocations[trimmedToolName]
+	snapshot.CompletedCount++
+	snapshot.LastCompletedAt = &now
+	state.mcpToolInvocations[trimmedToolName] = snapshot
+	r.activeRuns[trimmedRunID] = state
+}
+
+func (r *Runtime) MCPToolInvocationSnapshot(runID string, toolName string) MCPToolInvocationSnapshot {
+	if r == nil {
+		return MCPToolInvocationSnapshot{}
+	}
+	trimmedRunID := strings.TrimSpace(runID)
+	trimmedToolName := strings.TrimSpace(toolName)
+	if trimmedRunID == "" || trimmedToolName == "" {
+		return MCPToolInvocationSnapshot{}
+	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	state, ok := r.activeRuns[trimmedRunID]
+	if !ok || state.mcpToolInvocations == nil {
+		return MCPToolInvocationSnapshot{}
+	}
+	snapshot, ok := state.mcpToolInvocations[trimmedToolName]
+	if !ok {
+		return MCPToolInvocationSnapshot{}
+	}
+	return cloneMCPToolInvocationSnapshot(snapshot)
 }
 
 func (r *Runtime) RegisterApproval(state ApprovalState) error {
@@ -519,6 +604,22 @@ func (r *Runtime) clearApprovalsLocked(runID string) {
 			delete(r.approvals, approvalID)
 		}
 	}
+}
+
+func cloneMCPToolInvocationSnapshot(snapshot MCPToolInvocationSnapshot) MCPToolInvocationSnapshot {
+	cloned := MCPToolInvocationSnapshot{
+		StartedCount:   snapshot.StartedCount,
+		CompletedCount: snapshot.CompletedCount,
+	}
+	if snapshot.LastStartedAt != nil {
+		startedAt := snapshot.LastStartedAt.UTC()
+		cloned.LastStartedAt = &startedAt
+	}
+	if snapshot.LastCompletedAt != nil {
+		completedAt := snapshot.LastCompletedAt.UTC()
+		cloned.LastCompletedAt = &completedAt
+	}
+	return cloned
 }
 
 func (r *Runtime) clearQuestionsLocked(runID string) {

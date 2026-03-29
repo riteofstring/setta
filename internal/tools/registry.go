@@ -174,6 +174,15 @@ func cloneMetadata(metadata Metadata) Metadata {
 			PreviewKind:         metadata.ToolArgumentPreview.PreviewKind,
 		}
 	}
+	var clonedAnnotations *ToolAnnotationsMetadata
+	if metadata.ToolAnnotations != nil {
+		clonedAnnotations = &ToolAnnotationsMetadata{
+			DestructiveHint: cloneBoolPointer(metadata.ToolAnnotations.DestructiveHint),
+			IdempotentHint:  cloneBoolPointer(metadata.ToolAnnotations.IdempotentHint),
+			OpenWorldHint:   cloneBoolPointer(metadata.ToolAnnotations.OpenWorldHint),
+			Title:           metadata.ToolAnnotations.Title,
+		}
+	}
 	return Metadata{
 		Kind:                          metadata.Kind,
 		AccessType:                    metadata.AccessType,
@@ -182,6 +191,7 @@ func cloneMetadata(metadata Metadata) Metadata {
 		IDPathsByType:                 clonedPaths,
 		ResultIDPathsByType:           clonedResultPaths,
 		ToolArgumentPreview:           clonedPreview,
+		ToolAnnotations:               clonedAnnotations,
 		DefaultTargetSingletonSection: metadata.DefaultTargetSingletonSection,
 		ResultFilter:                  metadata.ResultFilter,
 		SearchTags:                    append([]string(nil), metadata.SearchTags...),

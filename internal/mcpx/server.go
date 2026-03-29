@@ -58,6 +58,7 @@ type Server struct {
 	agentRuns            agentRunProvider
 	uiSettingReveals     uisettings.RevealService
 	stateMachineRuns     stateMachineRunProvider
+	toolInvocations      toolInvocationRecorder
 	server               *sdkmcp.Server
 	handler              http.Handler
 	agenticContextMu     sync.RWMutex
@@ -89,6 +90,7 @@ type ServerOptions struct {
 	AgentRuns                      agentRunProvider
 	UISettingReveals               uisettings.RevealService
 	StateMachineRuns               stateMachineRunProvider
+	ToolInvocations                toolInvocationRecorder
 }
 
 type toolDefinition struct {
@@ -230,6 +232,11 @@ type stateMachineRunProvider interface {
 	) (map[string]any, error)
 }
 
+type toolInvocationRecorder interface {
+	RecordMCPToolInvocationStarted(runID string, toolName string)
+	RecordMCPToolInvocationCompleted(runID string, toolName string)
+}
+
 type pluginMutationProvider interface {
 	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
 	Rescan() (plugins.DiscoverySnapshot, error)
@@ -334,6 +341,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		agentRuns:            opts.AgentRuns,
 		uiSettingReveals:     opts.UISettingReveals,
 		stateMachineRuns:     opts.StateMachineRuns,
+		toolInvocations:      opts.ToolInvocations,
 		server:               server,
 		agenticContextBySess: map[string]AgenticContext{},
 	}
@@ -665,6 +673,10 @@ func (s *Server) invokeRegisteredToolDetailed(ctx context.Context, registered to
 		invocation.Scope = scope
 		invocation.ProjectView = projectView
 	}
+	if runID := strings.TrimSpace(invocationRunID(invocation)); runID != "" && s.toolInvocations != nil {
+		s.toolInvocations.RecordMCPToolInvocationStarted(runID, registered.Name)
+		defer s.toolInvocations.RecordMCPToolInvocationCompleted(runID, registered.Name)
+	}
 
 	result, err := registered.Handler(contextWithToolInvocation(ctx, invocation), translatedArguments)
 	if err != nil {
@@ -685,6 +697,13 @@ func (s *Server) invokeRegisteredToolDetailed(ctx context.Context, registered to
 		return s.buildToolErrorResult(err), invocation
 	}
 	return callResult, invocation
+}
+
+func invocationRunID(invocation ToolInvocationContext) string {
+	if invocation.AgenticContext == nil {
+		return ""
+	}
+	return strings.TrimSpace(invocation.AgenticContext.RunID)
 }
 
 func (s *Server) resolveScopedInvocationContext(
@@ -3977,8 +3996,9 @@ func defaultToolDefinitions(
 				Name:        "create_top_level_section",
 				Description: "Create a new top-level section in the requested project config.",
 				Metadata: tools.Metadata{
-					Kind:       tools.KindDiscoverable,
-					AccessType: tools.AccessTypeStructural,
+					Kind:            tools.KindDiscoverable,
+					AccessType:      tools.AccessTypeStructural,
+					ToolAnnotations: additiveClosedWorldToolAnnotations(),
 					ResultIDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection:    {"sectionId"},
 						tools.IDTypeCodeObject: {"metaControlParamId"},
@@ -4050,8 +4070,9 @@ func defaultToolDefinitions(
 				Name:        "create_child_sections",
 				Description: "Create one or more child sections beneath the requested parent section.",
 				Metadata: tools.Metadata{
-					Kind:       tools.KindDiscoverable,
-					AccessType: tools.AccessTypeStructural,
+					Kind:            tools.KindDiscoverable,
+					AccessType:      tools.AccessTypeStructural,
+					ToolAnnotations: additiveClosedWorldToolAnnotations(),
 					IDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection: {"parentId"},
 					},
@@ -4108,8 +4129,9 @@ func defaultToolDefinitions(
 				Name:        "create_child_sections_via_incrementer",
 				Description: "Create one or more child sections using incrementer-style caller placement.",
 				Metadata: tools.Metadata{
-					Kind:       tools.KindDiscoverable,
-					AccessType: tools.AccessTypeStructural,
+					Kind:            tools.KindDiscoverable,
+					AccessType:      tools.AccessTypeStructural,
+					ToolAnnotations: additiveClosedWorldToolAnnotations(),
 					IDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection: {"calledBy"},
 					},
@@ -4305,8 +4327,9 @@ func defaultToolDefinitions(
 				Name:        "create_new_section_variant",
 				Description: "Duplicate the active variant of a section and switch the section to the new variant.",
 				Metadata: tools.Metadata{
-					Kind:       tools.KindDiscoverable,
-					AccessType: tools.AccessTypeStructural,
+					Kind:            tools.KindDiscoverable,
+					AccessType:      tools.AccessTypeStructural,
+					ToolAnnotations: closedWorldToolAnnotations(),
 					IDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection: {"sectionId"},
 					},
@@ -5539,8 +5562,9 @@ func defaultToolDefinitions(
 				Name:        "set_callable",
 				Description: "Select the active callable for a callable section and optionally refetch its params.",
 				Metadata: tools.Metadata{
-					Kind:       tools.KindDiscoverable,
-					AccessType: tools.AccessTypeWrite,
+					Kind:            tools.KindDiscoverable,
+					AccessType:      tools.AccessTypeWrite,
+					ToolAnnotations: closedWorldToolAnnotations(),
 					IDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection: {"sectionId"},
 					},
@@ -5710,8 +5734,9 @@ func defaultToolDefinitions(
 				Name:        "add_kwarg",
 				Description: "Create a new editable parameter entry in the targeted callable or dict section.",
 				Metadata: tools.Metadata{
-					Kind:       tools.KindDiscoverable,
-					AccessType: tools.AccessTypeWrite,
+					Kind:            tools.KindDiscoverable,
+					AccessType:      tools.AccessTypeWrite,
+					ToolAnnotations: additiveClosedWorldToolAnnotations(),
 					IDPathsByType: map[tools.IDType][]string{
 						tools.IDTypeSection: {"sectionId"},
 					},
@@ -7643,15 +7668,48 @@ func (s *Server) buildToolErrorResult(err error) *sdkmcp.CallToolResult {
 }
 
 func buildSDKToolAnnotations(metadata tools.Metadata) *sdkmcp.ToolAnnotations {
-	if metadata.AccessType != tools.AccessTypeRead {
+	annotations := &sdkmcp.ToolAnnotations{}
+	hasAnnotations := false
+	if metadata.AccessType == tools.AccessTypeRead {
+		annotations.ReadOnlyHint = true
+		annotations.IdempotentHint = true
+		annotations.OpenWorldHint = boolPtr(false)
+		hasAnnotations = true
+	}
+	if metadata.ToolAnnotations != nil {
+		if metadata.ToolAnnotations.DestructiveHint != nil {
+			annotations.DestructiveHint = boolPtr(*metadata.ToolAnnotations.DestructiveHint)
+			hasAnnotations = true
+		}
+		if metadata.ToolAnnotations.IdempotentHint != nil {
+			annotations.IdempotentHint = *metadata.ToolAnnotations.IdempotentHint
+			hasAnnotations = true
+		}
+		if metadata.ToolAnnotations.OpenWorldHint != nil {
+			annotations.OpenWorldHint = boolPtr(*metadata.ToolAnnotations.OpenWorldHint)
+			hasAnnotations = true
+		}
+		if title := strings.TrimSpace(metadata.ToolAnnotations.Title); title != "" {
+			annotations.Title = title
+			hasAnnotations = true
+		}
+	}
+	if !hasAnnotations {
 		return nil
 	}
-	openWorld := false
-	return &sdkmcp.ToolAnnotations{
-		ReadOnlyHint:   true,
-		IdempotentHint: true,
-		OpenWorldHint:  &openWorld,
+	return annotations
+}
+
+func closedWorldToolAnnotations() *tools.ToolAnnotationsMetadata {
+	return &tools.ToolAnnotationsMetadata{
+		OpenWorldHint: boolPtr(false),
 	}
+}
+
+func additiveClosedWorldToolAnnotations() *tools.ToolAnnotationsMetadata {
+	annotations := closedWorldToolAnnotations()
+	annotations.DestructiveHint = boolPtr(false)
+	return annotations
 }
 
 func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
@@ -7712,6 +7770,10 @@ func buildSDKToolMeta(metadata tools.Metadata) sdkmcp.Meta {
 
 func NewToolError(code string, format string, args ...any) error {
 	return newToolError(code, format, args...)
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }
 
 func newToolError(code string, format string, args ...any) error {

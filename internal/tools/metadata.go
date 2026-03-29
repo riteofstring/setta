@@ -52,6 +52,13 @@ type ToolArgumentPreviewMetadata struct {
 	PreviewKind         PreviewKind
 }
 
+type ToolAnnotationsMetadata struct {
+	DestructiveHint *bool
+	IdempotentHint  *bool
+	OpenWorldHint   *bool
+	Title           string
+}
+
 type Metadata struct {
 	Kind                          Kind
 	AccessType                    AccessType
@@ -60,6 +67,7 @@ type Metadata struct {
 	IDPathsByType                 map[IDType][]string
 	ResultIDPathsByType           map[IDType][]string
 	ToolArgumentPreview           *ToolArgumentPreviewMetadata
+	ToolAnnotations               *ToolAnnotationsMetadata
 	DefaultTargetSingletonSection string
 	ResultFilter                  ResultFilter
 	SearchTags                    []string
@@ -195,6 +203,11 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 		}
 		toolArgumentPreview = &normalizedPreview
 	}
+	var toolAnnotations *ToolAnnotationsMetadata
+	if m.ToolAnnotations != nil {
+		normalizedAnnotations := normalizeToolAnnotationsMetadata(*m.ToolAnnotations)
+		toolAnnotations = &normalizedAnnotations
+	}
 
 	searchTags, searchCategory := buildSearchMetadata(
 		toolName,
@@ -210,6 +223,7 @@ func (m Metadata) Normalize(toolName string) (Metadata, error) {
 		IDPathsByType:                 idPathsByType,
 		ResultIDPathsByType:           resultIDPathsByType,
 		ToolArgumentPreview:           toolArgumentPreview,
+		ToolAnnotations:               toolAnnotations,
 		DefaultTargetSingletonSection: strings.TrimSpace(m.DefaultTargetSingletonSection),
 		ResultFilter:                  normalizedResultFilter,
 		SearchTags:                    searchTags,
@@ -326,6 +340,15 @@ func normalizePreviewKind(kind PreviewKind) (PreviewKind, error) {
 	}
 }
 
+func normalizeToolAnnotationsMetadata(metadata ToolAnnotationsMetadata) ToolAnnotationsMetadata {
+	return ToolAnnotationsMetadata{
+		DestructiveHint: cloneBoolPointer(metadata.DestructiveHint),
+		IdempotentHint:  cloneBoolPointer(metadata.IdempotentHint),
+		OpenWorldHint:   cloneBoolPointer(metadata.OpenWorldHint),
+		Title:           strings.TrimSpace(metadata.Title),
+	}
+}
+
 func normalizeAccessType(accessType AccessType) (AccessType, error) {
 	switch AccessType(strings.ToLower(strings.TrimSpace(string(accessType)))) {
 	case "":
@@ -382,6 +405,14 @@ func normalizeSearchTags(values []string) []string {
 		normalized = append(normalized, clean)
 	}
 	return normalized
+}
+
+func cloneBoolPointer(value *bool) *bool {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
 }
 
 func normalizePathList(values []string) []string {

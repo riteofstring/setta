@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"reflect"
 	"strings"
+	"time"
 )
 
 const (
@@ -30,12 +31,28 @@ type codexEventState struct {
 	commandOutputByItemID    map[string][]string
 	fileChangeOutputByItemID map[string][]string
 	latestUsagePayload       map[string]any
+	pendingFunctionCalls     map[string]codexPendingFunctionCall
+}
+
+type codexPendingFunctionCall struct {
+	ToolCallID       string
+	ToolName         string
+	StartedAt        time.Time
+	SettaToolName    string
+	ActivityBaseline MCPToolInvocationSnapshot
+}
+
+type codexPendingFunctionCallStall struct {
+	ToolCallID string
+	ToolName   string
+	Reason     string
 }
 
 func newCodexEventState() *codexEventState {
 	return &codexEventState{
 		commandOutputByItemID:    map[string][]string{},
 		fileChangeOutputByItemID: map[string][]string{},
+		pendingFunctionCalls:     map[string]codexPendingFunctionCall{},
 	}
 }
 
@@ -48,6 +65,7 @@ func (s *codexEventState) resetTurn() {
 	s.syntheticAssistantID = ""
 	s.commandOutputByItemID = map[string][]string{}
 	s.fileChangeOutputByItemID = map[string][]string{}
+	s.pendingFunctionCalls = map[string]codexPendingFunctionCall{}
 }
 
 func (s *codexEventState) setUsagePayload(payload map[string]any) bool {
@@ -71,6 +89,172 @@ func (s *codexEventState) usagePayload() map[string]any {
 	}
 	cloned, _ := deepCloneJSONValue(s.latestUsagePayload).(map[string]any)
 	return cloned
+}
+
+func (s *codexEventState) notePayload(runID string, payload map[string]any, runtime *Runtime, now time.Time) {
+	if s == nil {
+		return
+	}
+	switch strings.TrimSpace(stringValue(payload["type"])) {
+	case codexResponseItemEnvelope:
+		s.noteResponseItem(runID, payload, runtime, now)
+	case "response.output_item.added", "response.output_item.done":
+		s.noteResponseOutputItem(runID, payload, runtime, now)
+	}
+	switch strings.TrimSpace(stringValue(payload["method"])) {
+	case "item/started":
+		s.noteStreamItemStarted(runID, payload, runtime, now)
+	case "item/completed":
+		s.noteStreamItemCompleted(payload)
+	}
+}
+
+func (s *codexEventState) noteResponseItem(runID string, payload map[string]any, runtime *Runtime, now time.Time) {
+	if s == nil {
+		return
+	}
+	responsePayload, ok := mapValue(payload["payload"])
+	if !ok {
+		return
+	}
+	switch strings.TrimSpace(stringValue(responsePayload["type"])) {
+	case "function_call":
+		s.noteFunctionCallStarted(runID, responsePayload, runtime, now)
+	case "function_call_output":
+		s.noteFunctionCallResolved(strings.TrimSpace(stringValue(responsePayload["call_id"])))
+	}
+}
+
+func (s *codexEventState) noteResponseOutputItem(runID string, payload map[string]any, runtime *Runtime, now time.Time) {
+	if s == nil {
+		return
+	}
+	item, ok := mapValue(payload["item"])
+	if !ok {
+		return
+	}
+	switch strings.TrimSpace(stringValue(item["type"])) {
+	case "function_call":
+		s.noteFunctionCallStarted(runID, item, runtime, now)
+	case "function_call_output":
+		s.noteFunctionCallResolved(strings.TrimSpace(stringValue(item["call_id"])))
+	}
+}
+
+func (s *codexEventState) noteStreamItemStarted(runID string, payload map[string]any, runtime *Runtime, now time.Time) {
+	if s == nil {
+		return
+	}
+	item, ok := codexEventItem(payload)
+	if !ok || strings.TrimSpace(stringValue(item["type"])) != codexMCPToolCallItemType {
+		return
+	}
+	toolCallID := codexEventItemID(payload, item)
+	if toolCallID == "" {
+		return
+	}
+	s.noteFunctionCallStarted(runID, map[string]any{
+		"call_id": toolCallID,
+		"name":    normalizeCodexMCPToolName(item),
+	}, runtime, now)
+}
+
+func (s *codexEventState) noteStreamItemCompleted(payload map[string]any) {
+	if s == nil {
+		return
+	}
+	item, ok := codexEventItem(payload)
+	if !ok || strings.TrimSpace(stringValue(item["type"])) != codexMCPToolCallItemType {
+		return
+	}
+	s.noteFunctionCallResolved(codexEventItemID(payload, item))
+}
+
+func (s *codexEventState) noteFunctionCallStarted(runID string, payload map[string]any, runtime *Runtime, now time.Time) {
+	if s == nil {
+		return
+	}
+	toolCallID := strings.TrimSpace(stringValue(payload["call_id"]))
+	if toolCallID == "" {
+		return
+	}
+	toolName := strings.TrimSpace(stringValue(payload["name"]))
+	settaToolName := normalizeCodexSettaToolName(toolName)
+	baseline := MCPToolInvocationSnapshot{}
+	if runtime != nil && strings.TrimSpace(settaToolName) != "" {
+		baseline = runtime.MCPToolInvocationSnapshot(runID, settaToolName)
+	}
+	if s.pendingFunctionCalls == nil {
+		s.pendingFunctionCalls = map[string]codexPendingFunctionCall{}
+	}
+	if existing, ok := s.pendingFunctionCalls[toolCallID]; ok {
+		if strings.TrimSpace(existing.ToolName) == "" && toolName != "" {
+			existing.ToolName = toolName
+		}
+		if strings.TrimSpace(existing.SettaToolName) == "" && settaToolName != "" {
+			existing.SettaToolName = settaToolName
+		}
+		s.pendingFunctionCalls[toolCallID] = existing
+		return
+	}
+	s.pendingFunctionCalls[toolCallID] = codexPendingFunctionCall{
+		ToolCallID:       toolCallID,
+		ToolName:         toolName,
+		StartedAt:        now,
+		SettaToolName:    settaToolName,
+		ActivityBaseline: baseline,
+	}
+}
+
+func (s *codexEventState) noteFunctionCallResolved(toolCallID string) {
+	if s == nil || strings.TrimSpace(toolCallID) == "" || s.pendingFunctionCalls == nil {
+		return
+	}
+	delete(s.pendingFunctionCalls, strings.TrimSpace(toolCallID))
+}
+
+func (s *codexEventState) stalledPendingFunctionCall(
+	runID string,
+	runtime *Runtime,
+	now time.Time,
+	dispatchTimeout time.Duration,
+	resultTimeout time.Duration,
+) *codexPendingFunctionCallStall {
+	if s == nil || runtime == nil || len(s.pendingFunctionCalls) == 0 {
+		return nil
+	}
+	var stalled *codexPendingFunctionCallStall
+	var stalledAt time.Time
+	for _, pending := range s.pendingFunctionCalls {
+		if strings.TrimSpace(pending.SettaToolName) == "" {
+			continue
+		}
+		snapshot := runtime.MCPToolInvocationSnapshot(runID, pending.SettaToolName)
+		started := snapshot.StartedCount > pending.ActivityBaseline.StartedCount
+		completed := snapshot.CompletedCount > pending.ActivityBaseline.CompletedCount
+		switch {
+		case !started && now.Sub(pending.StartedAt) >= dispatchTimeout:
+			if stalled == nil || pending.StartedAt.Before(stalledAt) || (pending.StartedAt.Equal(stalledAt) && pending.ToolCallID < stalled.ToolCallID) {
+				stalledAt = pending.StartedAt
+				stalled = &codexPendingFunctionCallStall{
+					ToolCallID: pending.ToolCallID,
+					ToolName:   pending.ToolName,
+					Reason:     "dispatch",
+				}
+			}
+		case completed && snapshot.LastCompletedAt != nil && now.Sub(*snapshot.LastCompletedAt) >= resultTimeout:
+			completedAt := snapshot.LastCompletedAt.UTC()
+			if stalled == nil || completedAt.Before(stalledAt) || (completedAt.Equal(stalledAt) && pending.ToolCallID < stalled.ToolCallID) {
+				stalledAt = completedAt
+				stalled = &codexPendingFunctionCallStall{
+					ToolCallID: pending.ToolCallID,
+					ToolName:   pending.ToolName,
+					Reason:     "result",
+				}
+			}
+		}
+	}
+	return stalled
 }
 
 func (s *codexEventState) resolveToolMessageID(state *ChatState) string {

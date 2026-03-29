@@ -37,12 +37,16 @@ const (
 	codexLoginTimeout          = 20 * time.Second
 	codexMCPStatusTimeout      = 1 * time.Second
 	codexMCPStatusProbeTimeout = 5 * time.Second
+	codexToolDispatchTimeout   = 15 * time.Second
+	codexToolResultTimeout     = 5 * time.Second
+	codexWatchdogPollInterval  = 250 * time.Millisecond
 	codexMaxStderrLines        = 200
 	codexApprovalToolName      = "setta.approval"
 	codexTurnCompletedMethod   = "turn/completed"
 	codexTurnFailedMethod      = "turn/failed"
 	codexTokenUsageMethod      = "thread/tokenUsage/updated"
 	codexResponseItemEnvelope  = "response_item"
+	codexSettaToolPrefix       = "mcp__setta__"
 )
 
 var (
@@ -100,31 +104,37 @@ func (e *MultiExecutor) Start(ctx context.Context, request StartRequest) (StartR
 }
 
 type CodexExecutorOptions struct {
-	Runs               *agentruns.RunStore
-	Runtime            *Runtime
-	WorkspaceRoot      string
-	SettaFilesRoot     string
-	SettaToolRegistry  *tools.Registry
-	CurrentSession     *auth.CurrentSession
-	AuthCookieBaseName string
-	RuntimeRoot        string
-	ProcessEnv         map[string]string
-	Logger             *slog.Logger
-	TimeNow            func() time.Time
+	Runs                 *agentruns.RunStore
+	Runtime              *Runtime
+	WorkspaceRoot        string
+	SettaFilesRoot       string
+	SettaToolRegistry    *tools.Registry
+	CurrentSession       *auth.CurrentSession
+	AuthCookieBaseName   string
+	RuntimeRoot          string
+	ProcessEnv           map[string]string
+	Logger               *slog.Logger
+	TimeNow              func() time.Time
+	ToolDispatchTimeout  time.Duration
+	ToolResultTimeout    time.Duration
+	WatchdogPollInterval time.Duration
 }
 
 type CodexExecutor struct {
-	runs               *agentruns.RunStore
-	runtime            *Runtime
-	workspaceRoot      string
-	settaFilesRoot     string
-	settaToolRegistry  *tools.Registry
-	currentSession     *auth.CurrentSession
-	authCookieBaseName string
-	runtimeRoot        string
-	processEnv         map[string]string
-	logger             *slog.Logger
-	timeNow            func() time.Time
+	runs                 *agentruns.RunStore
+	runtime              *Runtime
+	workspaceRoot        string
+	settaFilesRoot       string
+	settaToolRegistry    *tools.Registry
+	currentSession       *auth.CurrentSession
+	authCookieBaseName   string
+	runtimeRoot          string
+	processEnv           map[string]string
+	logger               *slog.Logger
+	timeNow              func() time.Time
+	toolDispatchTimeout  time.Duration
+	toolResultTimeout    time.Duration
+	watchdogPollInterval time.Duration
 }
 
 func NewCodexExecutor(options CodexExecutorOptions) (*CodexExecutor, error) {
@@ -148,18 +158,33 @@ func NewCodexExecutor(options CodexExecutorOptions) (*CodexExecutor, error) {
 			return time.Now().UTC()
 		}
 	}
+	toolDispatchTimeout := options.ToolDispatchTimeout
+	if toolDispatchTimeout <= 0 {
+		toolDispatchTimeout = codexToolDispatchTimeout
+	}
+	toolResultTimeout := options.ToolResultTimeout
+	if toolResultTimeout <= 0 {
+		toolResultTimeout = codexToolResultTimeout
+	}
+	watchdogPollInterval := options.WatchdogPollInterval
+	if watchdogPollInterval <= 0 {
+		watchdogPollInterval = codexWatchdogPollInterval
+	}
 	return &CodexExecutor{
-		runs:               options.Runs,
-		runtime:            options.Runtime,
-		workspaceRoot:      workspaceRoot,
-		settaFilesRoot:     settaFilesRoot,
-		settaToolRegistry:  options.SettaToolRegistry,
-		currentSession:     cloneCurrentSession(options.CurrentSession),
-		authCookieBaseName: auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
-		runtimeRoot:        strings.TrimSpace(options.RuntimeRoot),
-		processEnv:         cloneStringAnyMapToStringMap(options.ProcessEnv),
-		logger:             options.Logger,
-		timeNow:            timeNow,
+		runs:                 options.Runs,
+		runtime:              options.Runtime,
+		workspaceRoot:        workspaceRoot,
+		settaFilesRoot:       settaFilesRoot,
+		settaToolRegistry:    options.SettaToolRegistry,
+		currentSession:       cloneCurrentSession(options.CurrentSession),
+		authCookieBaseName:   auth.NormalizeCookieBaseName(options.AuthCookieBaseName),
+		runtimeRoot:          strings.TrimSpace(options.RuntimeRoot),
+		processEnv:           cloneStringAnyMapToStringMap(options.ProcessEnv),
+		logger:               options.Logger,
+		timeNow:              timeNow,
+		toolDispatchTimeout:  toolDispatchTimeout,
+		toolResultTimeout:    toolResultTimeout,
+		watchdogPollInterval: watchdogPollInterval,
 	}, nil
 }
 
@@ -340,22 +365,31 @@ func (e *CodexExecutor) runLoop(
 	}
 	e.seedConfigMCPStatuses(request.Run.ID, runtimeConfigPath)
 	e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, &backgroundTasks)
+	watchdog := time.NewTicker(e.watchdogPollInterval)
+	defer watchdog.Stop()
 
 	for {
-		payload, ok := <-session.events
-		if !ok {
-			if err := e.handleProcessExit(request.Run.ID, session.processErr(), session.stderrTail()); err != nil {
-				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+		select {
+		case payload, ok := <-session.events:
+			if !ok {
+				if err := e.handleProcessExit(request.Run.ID, session.processErr(), session.stderrTail()); err != nil {
+					_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+				}
+				return
 			}
-			return
-		}
-		finished, err := e.handleEvent(request, session, payload, &state, eventState, &backgroundTasks)
-		if err != nil {
-			_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
-			return
-		}
-		if finished {
-			return
+			finished, err := e.handleEvent(request, session, payload, &state, eventState, &backgroundTasks)
+			if err != nil {
+				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+				return
+			}
+			if finished {
+				return
+			}
+		case <-watchdog.C:
+			if err := e.checkPendingFunctionCallStall(request.Run.ID, eventState); err != nil {
+				_ = e.markRunFailed(request.Run.ID, err, session.stderrTail())
+				return
+			}
 		}
 	}
 }
@@ -397,6 +431,7 @@ func (e *CodexExecutor) handleEvent(
 		}
 		return false, nil
 	}
+	eventState.notePayload(request.Run.ID, payload, e.runtime, time.Now().UTC())
 
 	switch strings.TrimSpace(stringValue(payload["type"])) {
 	case codexResponseItemEnvelope:
@@ -620,6 +655,30 @@ func (e *CodexExecutor) loadCurrentChatState(run agentruns.Run) (ChatState, erro
 	cloned := built.Clone()
 	cloned.WaitingForResponse = true
 	return *cloned, nil
+}
+
+func (e *CodexExecutor) checkPendingFunctionCallStall(runID string, eventState *codexEventState) error {
+	if e == nil || eventState == nil {
+		return nil
+	}
+	stalled := eventState.stalledPendingFunctionCall(
+		runID,
+		e.runtime,
+		time.Now().UTC(),
+		e.toolDispatchTimeout,
+		e.toolResultTimeout,
+	)
+	if stalled == nil {
+		return nil
+	}
+	switch stalled.Reason {
+	case "dispatch":
+		return fmt.Errorf("codex announced MCP tool call %q (%s) but Setta never received the request within %s", stalled.ToolName, stalled.ToolCallID, e.toolDispatchTimeout)
+	case "result":
+		return fmt.Errorf("codex MCP tool call %q (%s) completed in Setta but Codex never returned a tool result within %s", stalled.ToolName, stalled.ToolCallID, e.toolResultTimeout)
+	default:
+		return fmt.Errorf("codex tool call %q (%s) stalled", stalled.ToolName, stalled.ToolCallID)
+	}
 }
 
 func (e *CodexExecutor) seedConfigMCPStatuses(runID string, configPath string) {
@@ -1607,6 +1666,14 @@ func (e *CodexExecutor) buildCodexMCPHeaders(request StartRequest) (map[string]s
 		headers[mcpx.AgenticContextAllowUnscopedHeader] = "true"
 	}
 	return headers, nil
+}
+
+func normalizeCodexSettaToolName(toolName string) string {
+	trimmedToolName := strings.TrimSpace(toolName)
+	if !strings.HasPrefix(trimmedToolName, codexSettaToolPrefix) {
+		return ""
+	}
+	return strings.TrimSpace(strings.TrimPrefix(trimmedToolName, codexSettaToolPrefix))
 }
 
 func copyCodexAuthFile(baseAuthDir string, runtimeHome string) error {
