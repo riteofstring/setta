@@ -22,6 +22,13 @@ vi.hoisted(() => {
 const liveMiscState = vi.hoisted(() => ({
   isSelectingParams: false,
 }));
+const searchState = vi.hoisted(() => ({
+  focused: null as { paramInfoId: string; sectionId: string } | null,
+  lookup: new Set<string>(),
+}));
+const typeErrorState = vi.hoisted(() => ({
+  errors: {} as Record<string, { params?: Record<string, string[]> }>,
+}));
 
 vi.mock("./LiveDictAreaPixiScene", () => ({
   LiveDictAreaPixiScene: () => <div data-live-dict-area-scene="pixi" />,
@@ -44,12 +51,15 @@ vi.mock("./LiveDictAreaPixiParamAreaOverlay", () => ({
 
 vi.mock("./LiveDictAreaPixiValueRowOverlay", () => ({
   LiveDictAreaPixiValueRowOverlay: ({
+    rowState,
     target,
   }: {
+    rowState: { paramName: string };
     target: { rowId: string };
   }) => (
     <div
       data-live-dict-area-editor-overlay="active"
+      data-live-dict-area-editor-overlay-param-name={rowState.paramName}
       data-live-dict-area-editor-overlay-row-id={target.rowId}
     />
   ),
@@ -61,11 +71,27 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
     ...actual,
     useMisc: (selector: (state: typeof liveMiscState) => unknown) =>
       selector(liveMiscState),
-    useProjectState: (selector: (state: object) => unknown) => selector({}),
+    useProjectSearch: (selector: (state: typeof searchState) => unknown) =>
+      selector(searchState),
+    useProjectState: (selector: (state: object) => unknown) =>
+      selector({
+        projectConfig: {
+          showParamDisplayNames: true,
+        },
+      }),
+    useTypeErrors: (selector: (state: typeof typeErrorState) => unknown) =>
+      selector(typeErrorState),
   };
 });
 
 vi.mock("state/actions/sectionInfos", () => ({
+  getCodeObjCore: (_state: object, rowId: string) => ({
+    displayName:
+      rowId === "pinned-value"
+        ? "Pinned Value Display"
+        : "Unpinned Value Display",
+    name: rowId,
+  }),
   getCurrEffectiveCodeObjImpl: (
     _state: object,
     _sectionId: string,
@@ -83,6 +109,20 @@ vi.mock("state/actions/sectionInfos", () => ({
           type: CodeObjTypeEnum.ColorPickerParam,
         }),
   }),
+  getCurrEffectiveCodeObjImplWithTypeGuard: (
+    _state: object,
+    _sectionId: string,
+    rowId: string,
+  ) => ({
+    coreNameEditable: rowId === "unpinned-value",
+    description:
+      rowId === "pinned-value"
+        ? "Pinned value description"
+        : "Unpinned value description",
+  }),
+  getCurrEffectiveSectionImplWithTypeGuard: () => ({
+    selectedParams: ["pinned-value"],
+  }),
 }));
 
 describe("LiveDictAreaPixiOverlayShell", () => {
@@ -91,6 +131,9 @@ describe("LiveDictAreaPixiOverlayShell", () => {
 
   beforeEach(() => {
     liveMiscState.isSelectingParams = false;
+    searchState.focused = null;
+    searchState.lookup = new Set<string>();
+    typeErrorState.errors = {};
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -199,6 +242,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container.querySelector("[data-live-dict-area-editor-overlay='active']"),
     ).not.toBeNull();
+    expect(
+      container
+        .querySelector("[data-live-dict-area-editor-overlay='active']")
+        ?.getAttribute("data-live-dict-area-editor-overlay-param-name"),
+    ).toBe("Pinned Value Display");
     expect(
       container.querySelector(
         `[data-live-dict-area-editor-overlay-row-id='${activatedRowId}']`,

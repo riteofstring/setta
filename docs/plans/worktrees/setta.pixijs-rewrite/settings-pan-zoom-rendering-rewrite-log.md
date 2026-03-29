@@ -7235,3 +7235,43 @@ Record:
     - representative successful requests included `200 OK` from `api/getFileBrowserRoot` and `api/getFolderContents`
 - Next action:
   - Re-check the remaining Pixi editor-overlay path and only continue if the next slice removes real remaining editor/input shell work rather than another sideways packet or ownership hop.
+
+## 2026-03-29 232
+
+- Item: Hoist the active Pixi value-row editor overlay state into the overlay shell and make the scene row a pure render surface.
+- Status: `done`
+- Details:
+  - Added a pure helper for the visible value-row overlay state lookup:
+    - `frontend/src/components/Params/liveDictAreaPixiValueOverlayRowState.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueOverlayRowState.test.ts`
+  - Moved the active value-row overlay's display/search/error/selection resolution into `LiveDictAreaPixiOverlayShell` instead of leaving those store reads inside the single-row scene surface:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - Kept the existing Pixi value-row overlay behavior intact while turning the direct scene row into a pure render boundary:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+  - The active overlay row now receives an explicit row-state payload for:
+    - resolved param display name
+    - selected/search/focused-search flags
+    - joined type-error text
+    - kwarg-vs-value label handling
+  - This removes the remaining row-level project/search/error subscriptions from the direct Pixi editor row while preserving the existing `ParamInput`, `ParamNameInput`, resize handle, and overlay marker contract.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueOverlayRowState.test.ts src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/liveDictAreaPixiValueOverlayRowState.ts src/components/Params/liveDictAreaPixiValueOverlayRowState.test.ts src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - the provided bootstrap URL was rejected in the verifier session, but the existing `3044` Settings tab stayed connected and usable
+    - after opening `All Settings` and clicking the `maxHeight` value-row handoff in the Pixi scene, the editor overlay appeared and the Pixi canvas stayed mounted
+    - no obvious blanking, clipping, or major overlap regression was observed in the checked viewport
+- Next action:
+  - Re-check the remaining Pixi editor-overlay/input lane and stop it if the next candidate is only another low-payoff ownership hop; otherwise pivot to the next retained-scene step that removes real remaining editor/input shell work or addresses a measured hotspot.

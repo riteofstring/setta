@@ -4,6 +4,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueOverlaySceneRow } from "./LiveDictAreaPixiValueOverlaySceneRow";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 
@@ -21,57 +22,11 @@ type MockParamNameInputProps = {
   sectionId: string;
 };
 
-const projectState = vi.hoisted(() => ({
-  codeObj: {
-    coreNameEditable: false,
-    description: "Scene-backed description",
-  },
-  codeObjCore: {
-    displayName: "Grid Color Display",
-    name: "gridColor",
-  },
-  projectConfig: {
-    showParamDisplayNames: false,
-  },
-  selectedParams: [] as string[],
-}));
-const searchState = vi.hoisted(() => ({
-  focused: null as { paramInfoId: string; sectionId: string } | null,
-  lookup: new Set<string>(),
-}));
-const typeErrorState = vi.hoisted(() => ({
-  errors: {} as Record<string, { params?: Record<string, string[]> }>,
-}));
 const paramInputCalls = vi.hoisted(() => [] as MockParamContainerProps[]);
 const paramNameInputCalls = vi.hoisted(() => [] as MockParamNameInputProps[]);
 const resizeHandleCalls = vi.hoisted(
   () => [] as { showResizeHandle: boolean }[],
 );
-
-vi.mock(import("state/actions/sectionInfos"), async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    getCodeObjCore: () => projectState.codeObjCore,
-    getCurrEffectiveCodeObjImplWithTypeGuard: () => projectState.codeObj,
-    getCurrEffectiveSectionImplWithTypeGuard: () => ({
-      selectedParams: projectState.selectedParams,
-    }),
-  };
-});
-
-vi.mock(import("state/definitions"), async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    useProjectSearch: (selector: (state: typeof searchState) => unknown) =>
-      selector(searchState),
-    useProjectState: (selector: (state: typeof projectState) => unknown) =>
-      selector(projectState),
-    useTypeErrors: (selector: (state: typeof typeErrorState) => unknown) =>
-      selector(typeErrorState),
-  };
-});
 
 vi.mock("components/Utils/FloatingBox", () => ({
   getFloatingBoxHandlers: () => ({}),
@@ -116,21 +71,6 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
-    projectState.codeObj = {
-      coreNameEditable: false,
-      description: "Scene-backed description",
-    };
-    projectState.codeObjCore = {
-      displayName: "Grid Color Display",
-      name: "gridColor",
-    };
-    projectState.projectConfig = {
-      showParamDisplayNames: false,
-    };
-    projectState.selectedParams = [];
-    searchState.focused = null;
-    searchState.lookup = new Set<string>();
-    typeErrorState.errors = {};
     paramInputCalls.length = 0;
     paramNameInputCalls.length = 0;
     resizeHandleCalls.length = 0;
@@ -162,11 +102,21 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       x: 0,
       y: 0,
     };
+    const rowState: LiveDictAreaPixiValueOverlayRowState = {
+      coreNameEditable: false,
+      description: "Scene-backed description",
+      errorMessage: "",
+      isFocusedSearchResult: false,
+      isSearchResult: false,
+      isSelected: false,
+      paramName: "Grid Color Display",
+    };
 
     act(() => {
       root.render(
         <LiveDictAreaPixiValueOverlaySceneRow
           hasSectionStyleTheme={false}
+          rowState={rowState}
           target={target}
         />,
       );
@@ -191,15 +141,10 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       ),
     ).not.toBeNull();
     expect(container.querySelector("[data-param-switch-row-id]")).toBeNull();
-    expect(container.textContent).toContain("Grid Color");
+    expect(container.textContent).toContain("Grid Color Display");
   });
 
   it("keeps kwarg rows on the real ParamNameInput path", () => {
-    projectState.codeObj = {
-      coreNameEditable: true,
-      description: "Editable kwarg",
-    };
-
     const target: LiveDictAreaPixiValueRowTarget = {
       blockId: "pinned",
       handleColumnResizeStart: vi.fn(),
@@ -215,11 +160,21 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       x: 0,
       y: 0,
     };
+    const rowState: LiveDictAreaPixiValueOverlayRowState = {
+      coreNameEditable: true,
+      description: "Editable kwarg",
+      errorMessage: "",
+      isFocusedSearchResult: false,
+      isSearchResult: false,
+      isSelected: false,
+      paramName: "kwargs",
+    };
 
     act(() => {
       root.render(
         <LiveDictAreaPixiValueOverlaySceneRow
           hasSectionStyleTheme={true}
+          rowState={rowState}
           target={target}
         />,
       );

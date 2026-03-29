@@ -1,6 +1,7 @@
 import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueOverlaySceneRow } from "./LiveDictAreaPixiValueOverlaySceneRow";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 import {
@@ -10,11 +11,13 @@ import {
 
 type LiveDictAreaPixiValueRowOverlayProps = {
   editorKind: ParamEditorKind;
+  rowState: LiveDictAreaPixiValueOverlayRowState;
   target: LiveDictAreaPixiValueRowTarget;
 };
 
 export function LiveDictAreaPixiValueRowOverlay({
   editorKind,
+  rowState,
   target,
 }: LiveDictAreaPixiValueRowOverlayProps) {
   const darkMode = useLocalStorage((state) => state.darkMode);
@@ -48,6 +51,7 @@ export function LiveDictAreaPixiValueRowOverlay({
         <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full auto-rows-min content-start gap-y-1 pr-1.5">
           <LiveDictAreaPixiValueOverlaySceneRow
             hasSectionStyleTheme={hasSectionStyleTheme}
+            rowState={rowState}
             target={target}
           />
         </div>

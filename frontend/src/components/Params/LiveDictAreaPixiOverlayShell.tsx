@@ -1,8 +1,22 @@
 import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
-import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
-import { useMisc, useProjectState } from "state/definitions";
-import { CodeObjTypeEnum } from "utils/generatedTypes";
+import {
+  getCodeObjCore,
+  getCurrEffectiveCodeObjImpl,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImplWithTypeGuard,
+} from "state/actions/sectionInfos";
+import {
+  useMisc,
+  useProjectSearch,
+  useProjectState,
+  useTypeErrors,
+} from "state/definitions";
+import {
+  CodeObjTypeEnum,
+  isBaseParamCodeObjImpl,
+  isBaseSectionWithParamsImpl,
+} from "utils/generatedTypes";
 import {
   LiveDictAreaMount,
   type LiveDictAreaMountProps,
@@ -12,6 +26,11 @@ import { buildLiveDictAreaPixiDragRowTargets } from "./liveDictAreaPixiDragRowTa
 import { buildLiveDictAreaPixiFixedMeasurements } from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
+import {
+  buildLiveDictAreaPixiValueOverlayRowStateLookup,
+  type LiveDictAreaPixiValueOverlayRowBaseState,
+  type LiveDictAreaPixiValueOverlayRowStateLookup,
+} from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
 import { resolveParamEditorKind } from "./paramEditorActivation";
@@ -45,6 +64,11 @@ export function LiveDictAreaPixiOverlayShell({
       }),
     [liveDictAreaMountProps, liveDictAreaSceneBoundary],
   );
+  const valueRowIds = useMemo(
+    () => valueRowTargets.map((target) => target.rowId),
+    [valueRowTargets],
+  );
+  const valueRowSectionId = valueRowTargets[0]?.sectionId ?? null;
   const valueRowEditorKinds = useProjectState((state) => {
     if (isSelectingParams) {
       return {};
@@ -68,6 +92,78 @@ export function LiveDictAreaPixiOverlayShell({
       ]),
     );
   }, _.isEqual);
+  const valueRowBaseStateById = useProjectState((state) => {
+    if (isSelectingParams || valueRowSectionId === null) {
+      return {};
+    }
+
+    const paramsImpl = getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      valueRowSectionId,
+      isBaseSectionWithParamsImpl,
+    );
+    const selectedParamIdSet = new Set(paramsImpl.selectedParams);
+
+    return Object.fromEntries(
+      valueRowTargets.map((target) => {
+        const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+          state,
+          target.sectionId,
+          target.rowId,
+          isBaseParamCodeObjImpl,
+        );
+        const codeObjCore = getCodeObjCore(state, target.rowId);
+
+        return [
+          target.rowId,
+          {
+            coreNameEditable: codeObjImpl.coreNameEditable,
+            description: codeObjImpl.description,
+            displayName: codeObjCore.displayName,
+            isSelected: selectedParamIdSet.has(target.rowId),
+            name: codeObjCore.name,
+            showParamDisplayNames: state.projectConfig.showParamDisplayNames,
+          } satisfies LiveDictAreaPixiValueOverlayRowBaseState,
+        ];
+      }),
+    );
+  }, _.isEqual);
+  const valueRowSearchState = useProjectSearch(
+    (state) => ({
+      focused: state.focused,
+      lookup: state.lookup,
+    }),
+    _.isEqual,
+  );
+  const valueRowParamErrorsById = useTypeErrors(
+    (state) =>
+      valueRowSectionId === null
+        ? {}
+        : state.errors[valueRowSectionId]?.params ?? {},
+    _.isEqual,
+  );
+  const valueRowStateLookup = useMemo(() => {
+    if (isSelectingParams || valueRowSectionId === null) {
+      return {};
+    }
+
+    return buildLiveDictAreaPixiValueOverlayRowStateLookup({
+      focusedSearchResult: valueRowSearchState.focused,
+      paramErrorsById: valueRowParamErrorsById,
+      rowBaseStateById: valueRowBaseStateById,
+      rowIds: valueRowIds,
+      searchLookup: valueRowSearchState.lookup,
+      sectionId: valueRowSectionId,
+    });
+  }, [
+    isSelectingParams,
+    valueRowBaseStateById,
+    valueRowIds,
+    valueRowParamErrorsById,
+    valueRowSearchState.focused,
+    valueRowSearchState.lookup,
+    valueRowSectionId,
+  ]);
   const activeValueRowTarget =
     activeValueRowId === null
       ? null
@@ -156,6 +252,10 @@ export function LiveDictAreaPixiOverlayShell({
           editorKind={
             valueRowEditorKinds[activeValueRowTarget.rowId] ?? "other"
           }
+          rowState={getActiveValueRowState({
+            rowId: activeValueRowTarget.rowId,
+            rowStateLookup: valueRowStateLookup,
+          })}
           target={activeValueRowTarget}
         />
       ) : valueRowTargets.length === 0 ? (
@@ -181,6 +281,22 @@ export function LiveDictAreaPixiOverlayShell({
       ) : null}
     </>
   );
+}
+
+function getActiveValueRowState({
+  rowId,
+  rowStateLookup,
+}: {
+  rowId: string;
+  rowStateLookup: LiveDictAreaPixiValueOverlayRowStateLookup;
+}) {
+  const rowState = rowStateLookup[rowId];
+
+  if (!rowState) {
+    throw new Error(`Missing active Pixi value-overlay state for ${rowId}.`);
+  }
+
+  return rowState;
 }
 
 function LiveDictAreaPixiFixedMeasurementMarkers({

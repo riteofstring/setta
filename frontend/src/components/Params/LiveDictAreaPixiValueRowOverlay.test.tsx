@@ -4,19 +4,28 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 
-const sceneRowCalls = vi.hoisted(() => [] as LiveDictAreaPixiValueRowTarget[]);
+const sceneRowCalls = vi.hoisted(
+  () =>
+    [] as Array<{
+      rowState: LiveDictAreaPixiValueOverlayRowState;
+      target: LiveDictAreaPixiValueRowTarget;
+    }>,
+);
 
 vi.mock("./LiveDictAreaPixiValueOverlaySceneRow", () => ({
   LiveDictAreaPixiValueOverlaySceneRow: ({
+    rowState,
     target,
   }: {
     hasSectionStyleTheme: boolean;
+    rowState: LiveDictAreaPixiValueOverlayRowState;
     target: LiveDictAreaPixiValueRowTarget;
   }) => {
-    sceneRowCalls.push(target);
+    sceneRowCalls.push({ rowState, target });
     return (
       <div
         data-live-dict-area-editor-overlay-row="true"
@@ -61,11 +70,21 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       x: 16,
       y: 24,
     };
+    const rowState: LiveDictAreaPixiValueOverlayRowState = {
+      coreNameEditable: false,
+      description: "Pinned value description",
+      errorMessage: "",
+      isFocusedSearchResult: false,
+      isSearchResult: false,
+      isSelected: false,
+      paramName: "Pinned Value",
+    };
 
     act(() => {
       root.render(
         <LiveDictAreaPixiValueRowOverlay
           editorKind="combobox"
+          rowState={rowState}
           target={target}
         />,
       );
@@ -85,11 +104,12 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       overlay?.getAttribute("data-live-dict-area-editor-overlay-row-id"),
     ).toBe("pinned-value");
     expect(sceneRowCalls).toHaveLength(1);
-    expect(sceneRowCalls[0]).toMatchObject({
+    expect(sceneRowCalls[0]?.target).toMatchObject({
       listKey: "pinned",
       rowId: "pinned-value",
       sectionId: "section-1",
     });
+    expect(sceneRowCalls[0]?.rowState.paramName).toBe("Pinned Value");
     expect(
       container.querySelector(
         "[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='pinned-value']",
