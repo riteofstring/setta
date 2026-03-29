@@ -679,40 +679,62 @@ describe("getLiveDictAreaPixiPresentationMode", () => {
 });
 
 describe("getLiveDictAreaPixiColorControlStyle", () => {
-  it("turns color-picker rows with real color values into structured control chrome", () => {
+  const palette = {
+    bodyText: "#0f172a",
+    border: "#cbd5e1",
+    panelBackground: "#f8fafc",
+    panelBackgroundAlt: "#f1f5f9",
+    portDot: "#64748b",
+    portSelectedDot: "#0284c7",
+    rowBackground: "#ffffff",
+    rowBackgroundAlt: "#eef2ff",
+    rowPlaceholderFill: "#f8fafc",
+    titleText: "#475569",
+  } as const;
+
+  it("maps closed color-picker rows onto the same neutral field chrome as the DOM baseline", () => {
     expect(
       getLiveDictAreaPixiColorControlStyle({
+        darkMode: false,
         editorKind: "color-picker",
-        valueSwatch: "#2563eb",
       }),
     ).toEqual({
-      backgroundFill: "#2563eb",
-      textFill: "#f8fafc",
+      backgroundFill: palette.panelBackground,
+      borderFill: palette.border,
+      textFill: palette.bodyText,
     });
   });
 
-  it("uses dark text for light color-picker fills and ignores non-color controls", () => {
+  it("ignores swatch color in the closed state and still skips non-color controls", () => {
     expect(
       getLiveDictAreaPixiColorControlStyle({
+        darkMode: false,
         editorKind: "color-picker",
-        valueSwatch: "#f8fafc",
       }),
     ).toEqual({
-      backgroundFill: "#f8fafc",
-      textFill: "#0f172a",
+      backgroundFill: palette.panelBackground,
+      borderFill: palette.border,
+      textFill: palette.bodyText,
     });
     expect(
       getLiveDictAreaPixiColorControlStyle({
+        darkMode: false,
         editorKind: "combobox",
-        valueSwatch: "#2563eb",
       }),
     ).toBeNull();
+  });
+
+  it("uses the neutral dark fallback control palette when the scene is in dark mode", () => {
     expect(
       getLiveDictAreaPixiColorControlStyle({
+        darkMode: true,
         editorKind: "color-picker",
-        valueSwatch: "not-a-color",
       }),
-    ).toBeNull();
+    ).toEqual({
+      backgroundFill: "#111827",
+      borderFill: "#334155",
+      textFill: "#e5e7eb",
+    });
   });
 });
 

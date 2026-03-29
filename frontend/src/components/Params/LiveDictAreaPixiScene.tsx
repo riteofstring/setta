@@ -367,6 +367,7 @@ function _LiveDictAreaPixiScene({
       drawLiveDictAreaPixiScene({
         app,
         compactRowPrimitive,
+        darkMode,
         edgeRowInteractionState,
         layout: summaryLayout,
         palette,
@@ -523,6 +524,7 @@ function getLiveDictAreaPixiSectionStyleColor(
 function drawLiveDictAreaPixiScene({
   app,
   compactRowPrimitive,
+  darkMode,
   edgeRowInteractionState,
   layout,
   palette,
@@ -535,6 +537,7 @@ function drawLiveDictAreaPixiScene({
 }: {
   app: Application;
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
+  darkMode: boolean;
   edgeRowInteractionState: {
     focusedPortId: string | null;
     hoveredPortId: string | null;
@@ -576,6 +579,7 @@ function drawLiveDictAreaPixiScene({
       drawLiveDictAreaParamArea({
         block,
         compactRowPrimitive,
+        darkMode,
         palette,
         paramColumnWidth,
         presentationMode,
@@ -677,6 +681,7 @@ function drawLiveDictAreaEdgeStrip({
 function drawLiveDictAreaParamArea({
   block,
   compactRowPrimitive,
+  darkMode,
   palette,
   paramColumnWidth,
   presentationMode,
@@ -687,6 +692,7 @@ function drawLiveDictAreaParamArea({
 }: {
   block: LiveDictAreaPixiParamAreaLayout;
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
+  darkMode: boolean;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   presentationMode: LiveDictAreaPixiPresentationMode;
@@ -741,6 +747,7 @@ function drawLiveDictAreaParamArea({
     graphics.addChild(
       drawParamRow({
         compactRowPrimitive,
+        darkMode,
         palette,
         paramColumnWidth,
         row,
@@ -897,6 +904,7 @@ function getOverviewRows(rows: LiveDictAreaPixiRowLayout[]) {
 
 function drawParamRow({
   compactRowPrimitive,
+  darkMode,
   palette,
   paramColumnWidth,
   row,
@@ -906,6 +914,7 @@ function drawParamRow({
   valueRowInteractionState,
 }: {
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
+  darkMode: boolean;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   row: LiveDictAreaPixiRowLayout;
@@ -950,8 +959,8 @@ function drawParamRow({
   const rowRightEdgeX = rowChrome.rowRightEdgeX;
   const valueColumnX = rowChrome.valueColumnX;
   const colorControlStyle = getLiveDictAreaPixiColorControlStyle({
+    darkMode,
     editorKind: row.editorKind,
-    valueSwatch: row.valueSwatch,
   });
   const switchControlStyle = getLiveDictAreaPixiSwitchControlStyle({
     palette,
@@ -1046,6 +1055,7 @@ function drawColorPickerValueControl({
 }: {
   controlStyle: {
     backgroundFill: string;
+    borderFill: string;
     textFill: string;
   };
   graphics: Graphics;
@@ -1097,8 +1107,8 @@ function drawColorPickerValueControl({
   graphics.roundRect(controlX, controlY, controlWidth, controlHeight, 8);
   graphics.fill(controlStyle.backgroundFill);
   graphics.stroke({
-    alpha: 0.65,
-    color: controlStyle.textFill,
+    alpha: 1,
+    color: controlStyle.borderFill,
     width: 1,
   });
 

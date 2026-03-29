@@ -91,6 +91,7 @@ export type LiveDictAreaPixiTextStyleSet = {
 
 export type LiveDictAreaPixiColorControlStyle = {
   backgroundFill: string;
+  borderFill: string;
   textFill: string;
 };
 
@@ -696,24 +697,25 @@ export function getLiveDictAreaPixiTextStyleSet({
 }
 
 export function getLiveDictAreaPixiColorControlStyle({
+  darkMode,
   editorKind,
-  valueSwatch,
 }: {
+  darkMode: boolean;
   editorKind?: ParamEditorKind;
-  valueSwatch: string | null;
 }): LiveDictAreaPixiColorControlStyle | null {
-  if (editorKind !== "color-picker" || !valueSwatch) {
+  if (editorKind !== "color-picker") {
     return null;
   }
 
-  const backgroundFill = getLiveDictAreaPixiUsableComputedColor(valueSwatch);
-  if (!backgroundFill || !parseLiveDictAreaPixiRgbColor(backgroundFill)) {
-    return null;
-  }
+  const neutralPalette = getLiveDictAreaPixiFallbackPalette({
+    darkMode,
+    sectionStyleColor: null,
+  });
 
   return {
-    backgroundFill,
-    textFill: getLiveDictAreaPixiColorControlTextFill(backgroundFill),
+    backgroundFill: neutralPalette.panelBackground,
+    borderFill: neutralPalette.border,
+    textFill: neutralPalette.bodyText,
   };
 }
 

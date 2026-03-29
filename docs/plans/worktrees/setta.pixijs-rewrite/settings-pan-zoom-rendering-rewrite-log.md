@@ -10274,3 +10274,37 @@ Record:
     - result: passed (`1 passed`)
 - Next action:
   - Retry a real `main`-oracle live Pixi parity slice now that the loop prompt carries the current reference runtime values instead of forcing the next pass to rediscover or guess the `main` ports.
+
+## 2026-03-30 313
+
+- Item: Neutralize the closed live Pixi color-picker chrome on the visible `gui` card against the read-only `main` oracle.
+- Status: `done`
+- Details:
+  - Took one bounded `main`-oracle parity slice from item `312` instead of reopening the completed value/edge interaction lanes:
+    - fresh-context Chrome DevTools MCP comparison against the live `main` runtime identified a directly visible mismatch on `All Settings` at browser zoom `100%`
+    - the worktree canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` painted `Grid Color` / `Grid Color Dark Mode` as red-filled pills while the read-only `main` reference rendered those closed controls as neutral fields
+  - Updated the retained Pixi closed color-picker control chrome so it no longer inherits section-tinted or swatch-tinted fill in the resting state:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The control now uses neutral fallback field tokens keyed only by light/dark mode, and the scene draw path now uses the matching neutral border instead of tinting the closed control from the selected swatch or the section theme.
+  - Kept the slice intentionally narrow:
+    - no overlay/editor handoff behavior changed
+    - no additional scene layout or geometry tweaks were mixed into this fix
+    - the remaining slight `gui` card clip/shift versus `main` stays explicit as a separate next blocker rather than being folded into this chrome-only slice
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`59 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can immediately open a popup color-picker row on first Pixi handoff click|all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in fresh sub-agent contexts against the live `main` reference:
+    - comparison succeeded at browser zoom `100%` on `All Settings`
+    - the red-pill mismatch on `Grid Color` / `Grid Color Dark Mode` appears gone on the worktree canary
+    - the broader `gui` card still looks slightly clipped/shifted versus `main`, so the next iteration should take that geometry/parity drift directly instead of reopening closed-color chrome
+- Next action:
+  - Take the next bounded `main`-oracle parity slice on the still-slight `gui` card clip/shift versus `main`; do not reopen the closed color-picker chrome lane unless the red-pill mismatch returns.
