@@ -36,12 +36,7 @@ import {
   BRAILLE_SPINNER_RUNTIME_SIZE_CLASS_NAME,
   BrailleSpinner,
 } from "components/Utils/BrailleSpinner";
-import _ from "lodash";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  getRunInputString,
-  getRunLastUpdatedMs,
-} from "state/actions/agentRunUtils";
 import {
   clearPendingChatDetails,
   getDefaultChatDetails,
@@ -60,11 +55,7 @@ import {
   buildBranchIndexFromBranches,
   ensureChatBranchState,
 } from "state/actions/chatBranches";
-import {
-  buildChatHistoryEntries,
-  type ChatHistoryCompatibility,
-  type ChatRunType,
-} from "state/actions/chatHistory";
+import { type ChatHistoryCompatibility } from "state/actions/chatHistory";
 import { addPersistentNotification } from "state/actions/notifications";
 import {
   dispatchOptimisticProjectStateUpdate,
@@ -88,10 +79,8 @@ import {
   route_set_chat_section_state,
 } from "utils/generatedEndpoints";
 import {
-  AgentRun,
   AgenticEdgeKindEnum,
   ChatFileAttachment,
-  ChatRole,
   ChatRoleEnum,
   ChatSectionState,
   ChatSendEvent,
@@ -106,52 +95,18 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { shallow } from "zustand/shallow";
-
-type ChatSendActionPayload = {
-  action: ChatSendEvent["action"];
-  sectionId: ChatSendEvent["sectionId"];
-  messageId: ChatSendEvent["messageId"];
-  text: ChatSendEvent["text"];
-  attachments: ChatFileAttachment[];
-  role: ChatRole;
-  timestampMs: ChatSendEvent["timestampMs"];
-  managed: ChatSendEvent["managed"];
-};
-
-export function shouldPersistInitializedChatState({
-  currentState,
-  initializedState,
-}: {
-  currentState: ChatSectionState;
-  initializedState: ChatSectionState;
-}): boolean {
-  const currentBranches = currentState.branches ?? {};
-  if (Object.keys(currentBranches).length > 0) {
-    return false;
-  }
-  const currentActiveBranchId =
-    typeof currentState.activeBranchId === "string" &&
-    currentState.activeBranchId.trim() !== ""
-      ? currentState.activeBranchId.trim()
-      : null;
-  if (currentActiveBranchId !== null) {
-    return false;
-  }
-  return _.isEqual(
-    {
-      messages: currentState.messages ?? [],
-      inputText: currentState.inputText ?? "",
-      waitingForResponse: currentState.waitingForResponse,
-      toolCallArguments: currentState.toolCallArguments ?? {},
-    },
-    {
-      messages: initializedState.messages ?? [],
-      inputText: initializedState.inputText ?? "",
-      waitingForResponse: initializedState.waitingForResponse,
-      toolCallArguments: initializedState.toolCallArguments ?? {},
-    },
-  );
-}
+import {
+  buildManagedZeroScopeBannerSessionKey,
+  formatHistoryTimestamp,
+  getHistoryPlaceholderText,
+  getManagedChatRunRefreshKey,
+  resolveManagedChatHistoryPollIntervalMs,
+  resolveManagedChatRunType,
+  shouldExitManagedChatHistory,
+  shouldPersistInitializedChatState,
+  toSortedHistoryEntries,
+  type ChatSectionHistoryEntry,
+} from "./chatAreaUtils";
 
 type ChatActionPayload = ChatSendEvent | ChatStopEvent;
 
@@ -160,87 +115,6 @@ type ChatSectionStateRouteResponse = ResponseDataAndStatus<null>;
 type ChatSectionChatIdUpdate =
   | ChatSectionChatId
   | ((current: ChatSectionChatId) => ChatSectionChatId);
-const MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
-const MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
-
-export function shouldExitManagedChatHistory({
-  previousChatId,
-  nextChatId,
-  previousWaitingForResponse,
-  nextWaitingForResponse,
-}: {
-  previousChatId: ChatSectionChatId | undefined;
-  nextChatId: ChatSectionChatId;
-  previousWaitingForResponse: boolean;
-  nextWaitingForResponse: boolean;
-}): boolean {
-  if (previousChatId !== undefined && previousChatId !== nextChatId) {
-    return true;
-  }
-  return !previousWaitingForResponse && nextWaitingForResponse;
-}
-
-export function getManagedChatRunRefreshKey({
-  agentRuns,
-  sectionId,
-  chatId,
-  runType,
-}: {
-  agentRuns: Array<AgentRun>;
-  sectionId: string;
-  chatId: string | null;
-  runType: ChatRunType | null;
-}): string | null {
-  if (!chatId || !runType) {
-    return null;
-  }
-  let latestMatchingRun: AgentRun | null = null;
-  let latestUpdatedMs = -1;
-  for (const run of agentRuns) {
-    if (getRunInputString(run, "runType") !== runType) {
-      continue;
-    }
-    if (getRunInputString(run, "sectionId") !== sectionId) {
-      continue;
-    }
-    if (getRunInputString(run, "chatId") !== chatId) {
-      continue;
-    }
-    const updatedMs = getRunLastUpdatedMs(run);
-    if (updatedMs <= latestUpdatedMs) {
-      continue;
-    }
-    latestMatchingRun = run;
-    latestUpdatedMs = updatedMs;
-  }
-  if (!latestMatchingRun) {
-    return null;
-  }
-  return `${latestMatchingRun.id}:${latestMatchingRun.status}:${latestUpdatedMs}`;
-}
-
-function buildManagedZeroScopeBannerSessionKey(
-  projectConfigId: string,
-  sectionId: string,
-): string {
-  return `setta:managed-zero-scope-banner-dismissed:${projectConfigId}:${sectionId}`;
-}
-
-export function resolveManagedChatHistoryPollIntervalMs({
-  hasLoadError,
-  hasRunningHistoryEntry,
-}: {
-  hasLoadError: boolean;
-  hasRunningHistoryEntry: boolean;
-}): number | null {
-  if (hasRunningHistoryEntry) {
-    return MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS;
-  }
-  if (hasLoadError) {
-    return MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS;
-  }
-  return null;
-}
 
 type EmitChatSendActionArgs = {
   sectionId: string;
@@ -257,10 +131,6 @@ type EmitChatStopActionArgs = {
   managed: boolean;
   timestampMs: number;
 };
-
-type ChatSectionHistoryEntry = ReturnType<
-  typeof buildChatHistoryEntries
->[number];
 
 function emitChatAction(payload: ChatActionPayload) {
   const literalPayload: LiteralDependencyValue = {
@@ -309,55 +179,6 @@ function emitChatStopAction({
     managed,
     timestampMs,
   });
-}
-
-function formatHistoryTimestamp(timestampMs: number): string {
-  if (timestampMs <= 0) {
-    return "No timestamp";
-  }
-  return new Date(timestampMs).toLocaleString();
-}
-
-function getHistoryPlaceholderText(
-  initialLoadComplete: boolean,
-  loadError: string | null,
-  entryCount: number,
-): string {
-  if (loadError) {
-    return loadError;
-  }
-  if (!initialLoadComplete) {
-    return "Loading chat history...";
-  }
-  if (entryCount === 0) {
-    return "No chat history yet";
-  }
-  return "";
-}
-
-function toSortedHistoryEntries(
-  runs: Array<AgentRun>,
-  projectConfigId: string,
-  sectionId: string,
-  compatibility: ChatHistoryCompatibility | null,
-): Array<ChatSectionHistoryEntry> {
-  return buildChatHistoryEntries(runs, {
-    projectConfigId,
-    sectionId,
-    compatibility,
-  }).sort((left, right) => right.lastUpdatedMs - left.lastUpdatedMs);
-}
-
-function resolveManagedChatRunType(
-  engineType: EngineTypeEnum | null,
-): ChatRunType | null {
-  if (engineType === EngineTypeEnum.external_agent) {
-    return "external_agent";
-  }
-  if (engineType === EngineTypeEnum.setta_llm) {
-    return "llm_chat";
-  }
-  return null;
 }
 
 export function ChatArea({
@@ -474,11 +295,8 @@ function ScriptableChatArea({
   const { ref, isScrollable } = useIsScrollable();
   const projectConfigId = getCurrProjectConfigId();
   const [draftInputText, setDraftInputText] = useState<string | null>(null);
-  const {
-    contextWindowTokens,
-    contextUsedTokens,
-    contextUsageIsEstimated,
-  } = resolveAuthoritativeContextTelemetry(null);
+  const { contextWindowTokens, contextUsedTokens, contextUsageIsEstimated } =
+    resolveAuthoritativeContextTelemetry(null);
 
   const handleInputChange = useCallback(
     (value: string) => {
@@ -1413,12 +1231,6 @@ function ManagedChatArea({
       pickDefaultConfigId(allLLMConfigs)
     );
   }, [allLLMConfigs, selectedEngineConfig]);
-  const selectedLLMConfig = useMemo(() => {
-    if (!selectedLLMConfigId || !allLLMConfigs) {
-      return null;
-    }
-    return allLLMConfigs.configs[selectedLLMConfigId] ?? null;
-  }, [allLLMConfigs, selectedLLMConfigId]);
   const selectedTranscriptionProfile = useMemo(() => {
     if (!transcriptionProfileId) {
       return null;
@@ -1473,14 +1285,11 @@ function ManagedChatArea({
       ) ?? null
     );
   }, [externalAgentConfigs, selectedEngineConfig]);
-  const {
-    contextWindowTokens,
-    contextUsedTokens,
-    contextUsageIsEstimated,
-  } = useMemo(
-    () => resolveAuthoritativeContextTelemetry(contextUsage),
-    [contextUsage],
-  );
+  const { contextWindowTokens, contextUsedTokens, contextUsageIsEstimated } =
+    useMemo(
+      () => resolveAuthoritativeContextTelemetry(contextUsage),
+      [contextUsage],
+    );
   const showPlanModeBadge = shouldShowPlanModeBadge({
     engineType,
     externalAgentToolType: externalAgentConfig?.toolType ?? null,
