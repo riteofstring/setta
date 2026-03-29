@@ -270,9 +270,7 @@ function collectActiveSkillNames({
   if (engineType !== EngineTypeEnum.external_agent) {
     return { activeByName, hasStructuredMetadata };
   }
-  if (
-    externalAgentToolType !== ExternalAgentToolTypeEnum.codex
-  ) {
+  if (externalAgentToolType !== ExternalAgentToolTypeEnum.codex) {
     return { activeByName, hasStructuredMetadata };
   }
   const activitySource = "codex_skill_tool";

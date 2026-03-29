@@ -1936,7 +1936,10 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                       disabled={!canEdit}
                     >
                       {CLAUDE_APPROVAL_POLICY_OPTIONS.map((option) => (
-                        <option key={option.value || "default-source"} value={option.value}>
+                        <option
+                          key={option.value || "default-source"}
+                          value={option.value}
+                        >
                           {option.label}
                         </option>
                       ))}

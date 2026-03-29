@@ -2,12 +2,12 @@
 export const GoRoutePrefixes = {
   api: "/api",
 } as const;
-export const GoRootRoutes = {
+const GoRootRoutes = {
   bootstrapPage: "/__setta__/bootstrap",
   bootstrapConsume: "/__setta__/bootstrap/consume",
   toolsCall: "/__setta__/tools/call",
 } as const;
-export const GoPluginRootRoutes = {
+const GoPluginRootRoutes = {
   pluginAssetWildcard: "/plugins/{pluginId}/*",
 } as const;
 export const GoHTTPRoutes = {
@@ -84,9 +84,11 @@ export const GoHTTPRoutes = {
   shareDeploymentCurrentSession: "/share/deployments/current/session",
   appDeploymentCurrentSession: "/app/deployments/current/session",
   shareDeploymentState: "/share/deployments/{deploymentName}/{version}/state",
-  shareDeploymentProjectConfig: "/share/deployments/{deploymentName}/{version}/project_config",
+  shareDeploymentProjectConfig:
+    "/share/deployments/{deploymentName}/{version}/project_config",
   appDeploymentState: "/app/deployments/{deploymentName}/{version}/state",
-  appDeploymentProjectConfig: "/app/deployments/{deploymentName}/{version}/project_config",
+  appDeploymentProjectConfig:
+    "/app/deployments/{deploymentName}/{version}/project_config",
   shareDeployments: "/share/deployments",
   shareDeploymentVersions: "/share/deployments/{deploymentName}/versions",
   shareDeploymentLatest: "/share/deployments/{deploymentName}/latest",
@@ -291,7 +293,8 @@ export const GoHTTPRoutes = {
   getLatestLspDiagnostics: "/getLatestLspDiagnostics",
   setTypeErrorIgnore: "/setTypeErrorIgnore",
   setCodeSectionDiagnosticsMute: "/setCodeSectionDiagnosticsMute",
-  setCodeSectionDiagnosticCodeSuppression: "/setCodeSectionDiagnosticCodeSuppression",
+  setCodeSectionDiagnosticCodeSuppression:
+    "/setCodeSectionDiagnosticCodeSuppression",
   pluginsRuntime: "/plugins/runtime",
   pluginsRescan: "/plugins/rescan",
   pluginsInstall: "/plugins/install",
@@ -306,7 +309,7 @@ export const GoHTTPRoutes = {
   pluginsLockApply: "/plugins/lock/apply",
   pluginsRestart: "/plugins/restart",
 } as const;
-export const GoWebsocketRoutes = {
+const GoWebsocketRoutes = {
   frontend: "/ws/frontend",
   listenerById: "/ws/listeners/{listenerID}",
   terminalBySection: "/ws/terminals/{projectID}/{sectionID}",
@@ -556,34 +559,58 @@ export const GoHTTPRouteHelpers = {
     return GoHTTPRoutes.appDeploymentCurrentSession;
   },
   shareDeploymentState(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, { deploymentName, version });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, {
+      deploymentName,
+      version,
+    });
   },
-  shareDeploymentProjectConfig(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentProjectConfig, { deploymentName, version });
+  shareDeploymentProjectConfig(
+    deploymentName: string,
+    version: string,
+  ): string {
+    return replaceGeneratedRoutePathParams(
+      GoHTTPRoutes.shareDeploymentProjectConfig,
+      { deploymentName, version },
+    );
   },
   appDeploymentState(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentState, { deploymentName, version });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentState, {
+      deploymentName,
+      version,
+    });
   },
   appDeploymentProjectConfig(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentProjectConfig, { deploymentName, version });
+    return replaceGeneratedRoutePathParams(
+      GoHTTPRoutes.appDeploymentProjectConfig,
+      { deploymentName, version },
+    );
   },
   shareDeployments(): string {
     return GoHTTPRoutes.shareDeployments;
   },
   shareDeploymentVersions(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentVersions, { deploymentName });
+    return replaceGeneratedRoutePathParams(
+      GoHTTPRoutes.shareDeploymentVersions,
+      { deploymentName },
+    );
   },
   shareDeploymentLatest(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, { deploymentName });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, {
+      deploymentName,
+    });
   },
   appDeployments(): string {
     return GoHTTPRoutes.appDeployments;
   },
   appDeploymentVersions(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, { deploymentName });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, {
+      deploymentName,
+    });
   },
   appDeploymentLatest(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, { deploymentName });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, {
+      deploymentName,
+    });
   },
   getLauncherRecentWorkspaces(): string {
     return GoHTTPRoutes.getLauncherRecentWorkspaces;
@@ -748,7 +775,9 @@ export const GoHTTPRouteHelpers = {
     return GoHTTPRoutes.getFileBrowserDownloadUrls;
   },
   fileBrowserDownload(token: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, { token });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, {
+      token,
+    });
   },
   getFileBrowserFileContent(): string {
     return GoHTTPRoutes.getFileBrowserFileContent;
@@ -766,7 +795,9 @@ export const GoHTTPRouteHelpers = {
     return GoHTTPRoutes.binaryUpload;
   },
   binaryDownload(contentId: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, { contentId });
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, {
+      contentId,
+    });
   },
   getGitStatus(): string {
     return GoHTTPRoutes.getGitStatus;
@@ -1227,10 +1258,15 @@ export const GoWebsocketRouteHelpers = {
     return GoWebsocketRoutes.frontend;
   },
   listenerById(listenerID: string): string {
-    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.listenerById, { listenerID });
+    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.listenerById, {
+      listenerID,
+    });
   },
   terminalBySection(projectID: string, sectionID: string): string {
-    return replaceGeneratedRoutePathParams(GoWebsocketRoutes.terminalBySection, { projectID, sectionID });
+    return replaceGeneratedRoutePathParams(
+      GoWebsocketRoutes.terminalBySection,
+      { projectID, sectionID },
+    );
   },
 } as const;
 export const RouteEnum = {
@@ -1312,9 +1348,11 @@ export const RouteEnum = {
   SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
   APP_DEPLOYMENT_CURRENT_SESSION: "/app/deployments/current/session",
   SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
-  SHARE_DEPLOYMENT_PROJECT_CONFIG: "/share/deployments/{deploymentName}/{version}/project_config",
+  SHARE_DEPLOYMENT_PROJECT_CONFIG:
+    "/share/deployments/{deploymentName}/{version}/project_config",
   APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",
-  APP_DEPLOYMENT_PROJECT_CONFIG: "/app/deployments/{deploymentName}/{version}/project_config",
+  APP_DEPLOYMENT_PROJECT_CONFIG:
+    "/app/deployments/{deploymentName}/{version}/project_config",
   SHARE_DEPLOYMENTS: "/share/deployments",
   SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{deploymentName}/versions",
   SHARE_DEPLOYMENT_LATEST: "/share/deployments/{deploymentName}/latest",
@@ -1519,7 +1557,8 @@ export const RouteEnum = {
   GET_LATEST_LSP_DIAGNOSTICS: "/getLatestLspDiagnostics",
   SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
   SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
-  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION: "/setCodeSectionDiagnosticCodeSuppression",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
+    "/setCodeSectionDiagnosticCodeSuppression",
   PLUGINS_RUNTIME: "/plugins/runtime",
   PLUGINS_RESCAN: "/plugins/rescan",
   PLUGINS_INSTALL: "/plugins/install",

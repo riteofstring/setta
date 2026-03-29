@@ -7165,8 +7165,10 @@ const ChatMessage = memo(function ChatMessage({
       toolResultsById,
       toolCallArguments,
     });
-    const autoExpandPendingInteraction =
-      hasPendingInteractiveToolCall(message.tool_calls ?? null, toolResultsById);
+    const autoExpandPendingInteraction = hasPendingInteractiveToolCall(
+      message.tool_calls ?? null,
+      toolResultsById,
+    );
     const hasThinkingActivity = activityTimelineEntries.some(
       (entry) => entry.kind === "thinking",
     );

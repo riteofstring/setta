@@ -513,7 +513,9 @@ class ClaudeSidecar:
             if not isinstance(usage, dict):
                 usage = None
             if client is not None:
-                usage = merge_context_usage(usage, await self.read_context_usage(client))
+                usage = merge_context_usage(
+                    usage, await self.read_context_usage(client)
+                )
             payload = {
                 "type": "result",
                 "sessionId": getattr(message, "session_id", None),
