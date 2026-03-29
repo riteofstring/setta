@@ -16,6 +16,7 @@ import {
   useParamDndChildrenForParent,
 } from "./ParamDndContext";
 import { ParamDuplicateIndexProvider } from "./ParamDuplicateIndexContext";
+import type { ParamListRenderMode } from "./paramListRenderMode";
 
 type ParamDndListProps = {
   sectionId: string;
@@ -25,6 +26,19 @@ type ParamDndListProps = {
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  renderMode?: ParamListRenderMode;
+  renderParamListBody?: (props: ParamDndListBodyRenderProps) => React.ReactNode;
+};
+
+export type ParamDndListBodyRenderProps = {
+  sectionId: string;
+  paramIds: string[];
+  requiredParamIdsToPaths: Record<string, string[]>;
+  onResizeStart: React.MouseEventHandler;
+  isTopLevel: boolean;
+  listKey: ParamListKey;
+  hasSectionStyleTheme: boolean;
+  renderMode: ParamListRenderMode;
 };
 
 export function ParamDndList({
@@ -35,6 +49,8 @@ export function ParamDndList({
   isTopLevel,
   listKey,
   hasSectionStyleTheme,
+  renderMode = "full",
+  renderParamListBody,
 }: ParamDndListProps) {
   const duplicateIndex = useProjectState(
     (state) => buildParamDuplicateIndex(state, sectionId),
@@ -83,17 +99,33 @@ export function ParamDndList({
   }, _.isEqual);
 
   if (!tree) {
+    const bodyProps: ParamDndListBodyRenderProps = {
+      hasSectionStyleTheme,
+      isTopLevel,
+      listKey,
+      onResizeStart,
+      paramIds,
+      renderMode,
+      requiredParamIdsToPaths,
+      sectionId,
+    };
+
     return (
       <ParamDuplicateIndexProvider value={duplicateIndex}>
-        <GetParamSwitch
-          sectionId={sectionId}
-          paramIds={paramIds}
-          requiredParamIdsToPaths={requiredParamIdsToPaths}
-          onResizeStart={onResizeStart}
-          isTopLevel={isTopLevel}
-          listKey={listKey}
-          hasSectionStyleTheme={hasSectionStyleTheme}
-        />
+        {renderParamListBody ? (
+          renderParamListBody(bodyProps)
+        ) : (
+          <GetParamSwitch
+            sectionId={sectionId}
+            paramIds={paramIds}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            onResizeStart={onResizeStart}
+            isTopLevel={isTopLevel}
+            listKey={listKey}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+            renderMode={renderMode}
+          />
+        )}
       </ParamDuplicateIndexProvider>
     );
   }
@@ -115,6 +147,8 @@ export function ParamDndList({
           isTopLevel={isTopLevel}
           listKey={listKey}
           hasSectionStyleTheme={hasSectionStyleTheme}
+          renderMode={renderMode}
+          renderParamListBody={renderParamListBody}
         />
       </ParamDndProvider>
     </ParamDuplicateIndexProvider>
@@ -130,6 +164,8 @@ function ParamDndListBody({
   isTopLevel,
   listKey,
   hasSectionStyleTheme,
+  renderMode,
+  renderParamListBody,
 }: {
   sectionId: string;
   rootId: string;
@@ -139,8 +175,24 @@ function ParamDndListBody({
   isTopLevel: boolean;
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
+  renderMode: ParamListRenderMode;
+  renderParamListBody?: (props: ParamDndListBodyRenderProps) => React.ReactNode;
 }) {
   const renderParamIds = useParamDndChildrenForParent(rootId, paramIds);
+  const bodyProps: ParamDndListBodyRenderProps = {
+    hasSectionStyleTheme,
+    isTopLevel,
+    listKey,
+    onResizeStart,
+    paramIds: renderParamIds,
+    renderMode,
+    requiredParamIdsToPaths,
+    sectionId,
+  };
+
+  if (renderParamListBody) {
+    return renderParamListBody(bodyProps);
+  }
 
   return (
     <GetParamSwitch
@@ -151,6 +203,7 @@ function ParamDndListBody({
       isTopLevel={isTopLevel}
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
+      renderMode={renderMode}
     />
   );
 }
