@@ -55,6 +55,7 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
       liveDictAreaSceneBoundary,
       onSummaryLayoutChange,
       sectionId,
+      valueRowInteractionState,
     }: {
       edgeRowInteractionState?: {
         focusedPortId: string | null;
@@ -64,6 +65,11 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
       liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
       onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
       sectionId?: string | null;
+      valueRowInteractionState?: {
+        focusedRowId: string | null;
+        hoveredRowId: string | null;
+        pressedRowId: string | null;
+      };
     }) => {
       React.useLayoutEffect(() => {
         onSummaryLayoutChange?.(
@@ -86,6 +92,15 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
           }
           data-live-dict-area-scene-edge-pressed-port-id={
             edgeRowInteractionState?.pressedPortId ?? undefined
+          }
+          data-live-dict-area-scene-value-focused-row-id={
+            valueRowInteractionState?.focusedRowId ?? undefined
+          }
+          data-live-dict-area-scene-value-hovered-row-id={
+            valueRowInteractionState?.hoveredRowId ?? undefined
+          }
+          data-live-dict-area-scene-value-pressed-row-id={
+            valueRowInteractionState?.pressedRowId ?? undefined
           }
           data-live-dict-area-scene-section-id={sectionId ?? undefined}
         />
@@ -617,6 +632,117 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         sectionId: "section-edge-overlay",
       },
     ]);
+  });
+
+  it("propagates value-row hover, focus, and press state into the Pixi scene while editor handoff buttons are active", () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "other",
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "Pinned Group",
+              "pinned-value": "Pinned Value",
+              "unpinned-group": "Unpinned Group",
+              "unpinned-value": "Unpinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        getParamValuePresentationKind: () => "text",
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: false,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-value-state",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiOverlayShell
+          liveDictAreaMountProps={
+            liveDictAreaMountBoundary.liveDictAreaMountProps
+          }
+          liveDictAreaSceneBoundary={
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary
+          }
+        />,
+      );
+    });
+
+    const button = container.querySelector<HTMLButtonElement>(
+      "[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-row-id='pinned-value']",
+    );
+    const scene = container.querySelector<HTMLElement>(
+      "[data-live-dict-area-scene='pixi']",
+    );
+
+    expect(button).not.toBeNull();
+    expect(scene).not.toBeNull();
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("mouseover", { bubbles: true }));
+    });
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-value-hovered-row-id"),
+    ).toBe("pinned-value");
+
+    act(() => {
+      button?.focus();
+    });
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-value-focused-row-id"),
+    ).toBe("pinned-value");
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+    });
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-value-pressed-row-id"),
+    ).toBe("pinned-value");
+
+    act(() => {
+      button?.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      button?.dispatchEvent(new MouseEvent("mouseout", { bubbles: true }));
+      button?.blur();
+    });
+    expect(
+      scene?.hasAttribute("data-live-dict-area-scene-value-pressed-row-id"),
+    ).toBe(false);
+    expect(
+      scene?.hasAttribute("data-live-dict-area-scene-value-hovered-row-id"),
+    ).toBe(false);
+    expect(
+      scene?.hasAttribute("data-live-dict-area-scene-value-focused-row-id"),
+    ).toBe(false);
   });
 
   it("propagates edge-row hover, focus, and press state into the Pixi scene while param selection is active", () => {

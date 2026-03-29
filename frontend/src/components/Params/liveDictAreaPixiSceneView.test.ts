@@ -8,6 +8,7 @@ import {
   getLiveDictAreaPixiComboboxControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiDetailRowChrome,
+  getLiveDictAreaPixiDetailRowInteractionChrome,
   getLiveDictAreaPixiEdgePortChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
@@ -375,6 +376,76 @@ describe("getLiveDictAreaPixiDetailRowChrome", () => {
       rowRightEdgeX: 251,
       valueColumnX: 199,
     });
+  });
+});
+
+describe("getLiveDictAreaPixiDetailRowInteractionChrome", () => {
+  const palette = {
+    bodyText: "#e5e7eb",
+    border: "#334155",
+    panelBackground: "#111827",
+    panelBackgroundAlt: "#0f172a",
+    portDot: "#94a3b8",
+    portSelectedDot: "#38bdf8",
+    rowBackground: "#172036",
+    rowBackgroundAlt: "#1e293b",
+    rowPlaceholderFill: "#1f2937",
+    titleText: "#94a3b8",
+  } as const;
+
+  it("keeps the resting detail-row chrome unchanged when the value row is not interactive", () => {
+    expect(
+      getLiveDictAreaPixiDetailRowInteractionChrome({
+        detailRowChrome: { fill: null },
+        interactionState: {
+          isFocused: false,
+          isHovered: false,
+          isPressed: false,
+        },
+        palette,
+      }),
+    ).toEqual({
+      fill: null,
+      labelFill: palette.bodyText,
+      stroke: null,
+      valueFill: palette.bodyText,
+    });
+  });
+
+  it("raises a value row with hover/focus chrome even when the measured compact row surface is transparent", () => {
+    expect(
+      getLiveDictAreaPixiDetailRowInteractionChrome({
+        detailRowChrome: { fill: null },
+        interactionState: {
+          isFocused: true,
+          isHovered: true,
+          isPressed: false,
+        },
+        palette,
+      }),
+    ).toEqual({
+      fill: palette.rowBackgroundAlt,
+      labelFill: palette.bodyText,
+      stroke: palette.portSelectedDot,
+      valueFill: palette.bodyText,
+    });
+  });
+
+  it("uses the pressed chrome so active value rows stay visibly distinct before handoff activation", () => {
+    const chrome = getLiveDictAreaPixiDetailRowInteractionChrome({
+      detailRowChrome: { fill: palette.rowBackground },
+      interactionState: {
+        isFocused: false,
+        isHovered: false,
+        isPressed: true,
+      },
+      palette,
+    });
+
+    expect(chrome.fill).toBe(palette.border);
+    expect(chrome.stroke).toBe(palette.portSelectedDot);
+    expect(chrome.labelFill).toBe(palette.bodyText);
+    expect(chrome.valueFill).toBe(palette.bodyText);
   });
 });
 

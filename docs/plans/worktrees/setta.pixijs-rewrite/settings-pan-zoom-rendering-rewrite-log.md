@@ -10197,3 +10197,38 @@ Record:
       - caveat: the row was easiest to inspect after opening the section in a floating window, and the dark-theme press tint is still subtle even though the row outline now makes it visually legible
 - Next action:
   - Move to the next retained-scene interaction or visual parity gap beyond edge-row hover / focus / press; do not reopen this slice unless the live canary loses direct visibility again.
+
+## 2026-03-30 310
+
+- Item: Make the live Pixi value-row hover / focus / press affordances directly visible on the canary path.
+- Status: `done`
+- Details:
+  - Took the next real scene-owned interaction parity slice after item `309` instead of reopening the completed edge-row lane.
+  - Extended the retained live Pixi overlay shell so value-row handoff buttons now track hover / focus / press state and clear that state cleanly when the editor overlay activates:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+  - Extended the live Pixi scene host and scene draw path so the scene receives the active value-row ids, publishes them on the host for canary diagnostics, and paints visible row chrome for the active value row instead of leaving value-row interaction state invisible:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+  - Added focused coverage for the new value-row chrome helper, scene-host diagnostics, overlay-shell propagation, and the live `All Settings` canary behavior:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`64 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary exposes hover, focus, and press value-row state on the scene host|all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+    - bootstrap/auth succeeded on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - filtered `All Settings` with `Grid Color` so the live Pixi value row was directly inspectable
+    - checked the visible `value` row in `sliderParamCodeObjDefault`
+    - hover outline and pressed/edit state were directly visible by eye in the screenshots, not only in scene-host attrs
+    - no `main` reference row was available for the same filtered context during this check
+- Next action:
+  - Move to the next retained-scene interaction or visual parity gap beyond value-row hover / focus / press; prefer a live canary state that can be checked directly against `main` when the next row/control is exposed.

@@ -274,6 +274,11 @@ describe("LiveDictAreaPixiScene", () => {
     expect(
       container
         .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-value-hovered-row-id"),
+    ).toBeNull();
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
         ?.getAttribute("data-live-dict-area-scene-compact-row-surface"),
     ).toBe("transparent");
     expect(
@@ -358,6 +363,75 @@ describe("LiveDictAreaPixiScene", () => {
     expect(
       scene?.getAttribute("data-live-dict-area-scene-edge-pressed-port-id"),
     ).toBe("edge-input");
+  });
+
+  it("publishes the current value-row interaction state on the scene host for canary diagnostics", async () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamDisplayName: (paramId: string) => paramId,
+        getParamEditorKind: () => "other",
+        getParamValuePresentationKind: () => "text",
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: false,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "value-row": ["value-group", "value-row"],
+          },
+          topLevelParamIds: ["value-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-value-state",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "value-row": ["value-group", "value-row"],
+          },
+          pinnedTopLevelParamIds: ["value-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(LiveDictAreaPixiScene, {
+          liveDictAreaSceneBoundary:
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+          valueRowInteractionState: {
+            focusedRowId: "value-row",
+            hoveredRowId: "value-row",
+            pressedRowId: "value-row",
+          },
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const scene = container.querySelector("[data-live-dict-area-scene='pixi']");
+
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-value-focused-row-id"),
+    ).toBe("value-row");
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-value-hovered-row-id"),
+    ).toBe("value-row");
+    expect(
+      scene?.getAttribute("data-live-dict-area-scene-value-pressed-row-id"),
+    ).toBe("value-row");
   });
 
   it("keeps the mounted scene host in detail presentation mode by default when the flow viewport is heavily zoomed out", async () => {

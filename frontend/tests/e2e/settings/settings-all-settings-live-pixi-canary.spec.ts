@@ -850,6 +850,57 @@ test("all settings canary can hand off from the Pixi scene into a value-row DOM 
   expect(result?.sceneCanvasCount).toBeGreaterThan(0);
 });
 
+test("all settings canary exposes hover, focus, and press value-row state on the scene host", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  const handoffButton = page
+    .locator("[data-live-dict-area-editor-handoff='value-row']")
+    .first();
+  await handoffButton.scrollIntoViewIfNeeded();
+  await expect(handoffButton).toBeVisible();
+
+  const activatedRowId = await handoffButton.getAttribute(
+    "data-live-dict-area-editor-handoff-row-id",
+  );
+  const sectionId = await handoffButton.evaluate((button) =>
+    button.closest("[data-section-id]")?.getAttribute("data-section-id"),
+  );
+
+  expect(activatedRowId).not.toBeNull();
+  expect(sectionId).not.toBeNull();
+
+  const scene = page.locator(
+    `[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-id='${sectionId}']`,
+  );
+
+  await expect(scene).toHaveCount(1);
+  await handoffButton.hover();
+  await expect(scene).toHaveAttribute(
+    "data-live-dict-area-scene-value-hovered-row-id",
+    activatedRowId!,
+  );
+
+  await handoffButton.focus();
+  await expect(scene).toHaveAttribute(
+    "data-live-dict-area-scene-value-focused-row-id",
+    activatedRowId!,
+  );
+
+  await handoffButton.dispatchEvent("mousedown");
+  await expect(scene).toHaveAttribute(
+    "data-live-dict-area-scene-value-pressed-row-id",
+    activatedRowId!,
+  );
+
+  await handoffButton.dispatchEvent("mouseup");
+  await expect(scene).not.toHaveAttribute(
+    "data-live-dict-area-scene-value-pressed-row-id",
+    activatedRowId!,
+  );
+});
+
 test("all settings canary can immediately activate a CodeMirror-backed value row on first Pixi handoff click", async ({
   page,
 }) => {

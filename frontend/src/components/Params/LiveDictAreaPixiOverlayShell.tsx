@@ -12,20 +12,20 @@ import {
 } from "./groupContainerLiveDictAreaMount";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import { buildLiveDictAreaPixiDragRowTargets } from "./liveDictAreaPixiDragRowTargets";
+import { buildLiveDictAreaPixiEdgeRowTargets } from "./liveDictAreaPixiEdgeRowTargets";
 import {
   buildLiveDictAreaPixiFixedMeasurements,
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
+import type { LiveDictAreaPixiSceneProps } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
-import { buildLiveDictAreaPixiEdgeRowTargets } from "./liveDictAreaPixiEdgeRowTargets";
 import { markLiveDictAreaPixiValueRowHandoffStart } from "./liveDictAreaPixiValueRowPerf";
 import {
   buildLiveDictAreaPixiValueRowTargets,
   getLiveDictAreaPixiValueRowHandoffAriaLabel,
 } from "./liveDictAreaPixiValueRowTargets";
-import type { LiveDictAreaPixiSceneProps } from "./LiveDictAreaPixiScene";
 
 type LiveDictAreaPixiOverlayShellProps = {
   liveDictAreaMountProps: LiveDictAreaMountProps;
@@ -44,6 +44,15 @@ export function LiveDictAreaPixiOverlayShell({
     useState<LiveDictAreaPixiLayout | null>(null);
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
   const [activeDragRowId, setActiveDragRowId] = useState<string | null>(null);
+  const [focusedValueRowId, setFocusedValueRowId] = useState<string | null>(
+    null,
+  );
+  const [hoveredValueRowId, setHoveredValueRowId] = useState<string | null>(
+    null,
+  );
+  const [pressedValueRowId, setPressedValueRowId] = useState<string | null>(
+    null,
+  );
   const [focusedEdgePortId, setFocusedEdgePortId] = useState<string | null>(
     null,
   );
@@ -113,6 +122,31 @@ export function LiveDictAreaPixiOverlayShell({
       pressedEdgePortId,
     ],
   );
+  const valueRowInteractionState = useMemo<
+    NonNullable<LiveDictAreaPixiSceneProps["valueRowInteractionState"]>
+  >(
+    () => ({
+      focusedRowId:
+        isSelectingParams || activeValueRowId !== null
+          ? null
+          : focusedValueRowId,
+      hoveredRowId:
+        isSelectingParams || activeValueRowId !== null
+          ? null
+          : hoveredValueRowId,
+      pressedRowId:
+        isSelectingParams || activeValueRowId !== null
+          ? null
+          : pressedValueRowId,
+    }),
+    [
+      activeValueRowId,
+      focusedValueRowId,
+      hoveredValueRowId,
+      isSelectingParams,
+      pressedValueRowId,
+    ],
+  );
   const activeValueRowCoreEditState = useProjectState((state) => {
     if (
       isSelectingParams ||
@@ -151,15 +185,44 @@ export function LiveDictAreaPixiOverlayShell({
   useEffect(() => {
     if (isSelectingParams) {
       setActiveValueRowId(null);
+      setFocusedValueRowId(null);
+      setHoveredValueRowId(null);
+      setPressedValueRowId(null);
       setIsFallbackOverlayActive(false);
       return;
     }
 
     setActiveDragRowId(null);
+    setFocusedValueRowId(null);
+    setHoveredValueRowId(null);
+    setPressedValueRowId(null);
     setFocusedEdgePortId(null);
     setHoveredEdgePortId(null);
     setPressedEdgePortId(null);
   }, [isSelectingParams]);
+
+  useEffect(() => {
+    if (activeValueRowId === null) {
+      return;
+    }
+
+    setFocusedValueRowId(null);
+    setHoveredValueRowId(null);
+    setPressedValueRowId(null);
+  }, [activeValueRowId]);
+
+  useEffect(() => {
+    const validRowIds = new Set(valueRowTargets.map((target) => target.rowId));
+    setFocusedValueRowId((currentRowId) =>
+      currentRowId && !validRowIds.has(currentRowId) ? null : currentRowId,
+    );
+    setHoveredValueRowId((currentRowId) =>
+      currentRowId && !validRowIds.has(currentRowId) ? null : currentRowId,
+    );
+    setPressedValueRowId((currentRowId) =>
+      currentRowId && !validRowIds.has(currentRowId) ? null : currentRowId,
+    );
+  }, [valueRowTargets]);
 
   useEffect(() => {
     const validPortIds = new Set(edgeRowTargets.map((target) => target.portId));
@@ -184,6 +247,7 @@ export function LiveDictAreaPixiOverlayShell({
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
         onSummaryLayoutChange={setSummaryLayout}
         sectionId={sceneSectionId}
+        valueRowInteractionState={valueRowInteractionState}
       />
       {isSelectingParams
         ? [
@@ -245,24 +309,24 @@ export function LiveDictAreaPixiOverlayShell({
             )),
             ...dragRowTargets.map((target) =>
               target.rowId === activeDragRowId ? null : (
-              <button
-                key={target.rowId}
-                aria-label={`Activate drag overlay for ${target.label}`}
-                className="absolute z-[5] cursor-grab appearance-none border-0 bg-transparent p-0"
-                data-live-dict-area-drag-handoff="param-row"
-                data-live-dict-area-drag-handoff-block-id={target.blockId}
-                data-live-dict-area-drag-handoff-row-id={target.rowId}
-                onClick={() => {
-                  setActiveDragRowId(target.rowId);
-                }}
-                style={{
-                  height: target.height,
-                  left: target.x,
-                  top: target.y,
-                  width: target.width,
-                }}
-                type="button"
-              />
+                <button
+                  key={target.rowId}
+                  aria-label={`Activate drag overlay for ${target.label}`}
+                  className="absolute z-[5] cursor-grab appearance-none border-0 bg-transparent p-0"
+                  data-live-dict-area-drag-handoff="param-row"
+                  data-live-dict-area-drag-handoff-block-id={target.blockId}
+                  data-live-dict-area-drag-handoff-row-id={target.rowId}
+                  onClick={() => {
+                    setActiveDragRowId(target.rowId);
+                  }}
+                  style={{
+                    height: target.height,
+                    left: target.x,
+                    top: target.y,
+                    width: target.width,
+                  }}
+                  type="button"
+                />
               ),
             ),
           ]
@@ -282,7 +346,37 @@ export function LiveDictAreaPixiOverlayShell({
                     editorKind: target.editorKind,
                     rowId: target.rowId,
                   });
+                  setPressedValueRowId(null);
                   setActiveValueRowId(target.rowId);
+                }}
+                onFocus={() => {
+                  setFocusedValueRowId(target.rowId);
+                }}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setPressedValueRowId(target.rowId);
+                }}
+                onMouseEnter={() => {
+                  setHoveredValueRowId(target.rowId);
+                }}
+                onMouseLeave={() => {
+                  setHoveredValueRowId((currentRowId) =>
+                    currentRowId === target.rowId ? null : currentRowId,
+                  );
+                  setPressedValueRowId((currentRowId) =>
+                    currentRowId === target.rowId ? null : currentRowId,
+                  );
+                }}
+                onMouseUp={() => {
+                  setPressedValueRowId((currentRowId) =>
+                    currentRowId === target.rowId ? null : currentRowId,
+                  );
+                }}
+                onBlur={() => {
+                  setFocusedValueRowId((currentRowId) =>
+                    currentRowId === target.rowId ? null : currentRowId,
+                  );
                 }}
                 style={{
                   height: target.height,

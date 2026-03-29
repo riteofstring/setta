@@ -123,6 +123,13 @@ export type LiveDictAreaPixiDetailRowChrome = {
   valueColumnX: number;
 };
 
+export type LiveDictAreaPixiDetailRowInteractionChrome = {
+  fill: string | null;
+  labelFill: string;
+  stroke: string | null;
+  valueFill: string;
+};
+
 export type LiveDictAreaPixiEdgePortChrome = {
   dotFill: string;
   labelFill: string;
@@ -132,6 +139,12 @@ export type LiveDictAreaPixiEdgePortChrome = {
 };
 
 export type LiveDictAreaPixiEdgePortInteractionState = {
+  isFocused: boolean;
+  isHovered: boolean;
+  isPressed: boolean;
+};
+
+export type LiveDictAreaPixiDetailRowInteractionState = {
   isFocused: boolean;
   isHovered: boolean;
   isPressed: boolean;
@@ -381,6 +394,40 @@ export function getLiveDictAreaPixiDetailRowChrome({
       contentInsetPx +
       paramColumnWidth +
       PARAM_CONTAINER_CENTER_GUTTER_PX,
+  };
+}
+
+export function getLiveDictAreaPixiDetailRowInteractionChrome({
+  detailRowChrome,
+  interactionState,
+  palette,
+}: {
+  detailRowChrome: Pick<LiveDictAreaPixiDetailRowChrome, "fill">;
+  interactionState: LiveDictAreaPixiDetailRowInteractionState;
+  palette: LiveDictAreaPixiPalette;
+}): LiveDictAreaPixiDetailRowInteractionChrome {
+  const { isFocused, isHovered, isPressed } = interactionState;
+  const isRaised = isFocused || isHovered || isPressed;
+
+  const fill = isPressed
+    ? palette.border
+    : isRaised
+      ? palette.rowBackgroundAlt
+      : detailRowChrome.fill;
+  const stroke = isRaised ? palette.portSelectedDot : null;
+  const readableTextFill =
+    fill === null
+      ? palette.bodyText
+      : getLiveDictAreaPixiComputedReadableTextColor({
+          backgroundColor: fill,
+          textColor: palette.bodyText,
+        }) ?? getLiveDictAreaPixiColorControlTextFill(fill);
+
+  return {
+    fill,
+    labelFill: readableTextFill,
+    stroke,
+    valueFill: readableTextFill,
   };
 }
 
@@ -747,10 +794,10 @@ export function getLiveDictAreaPixiEdgePortChrome({
     labelFill:
       rowFill === null
         ? palette.bodyText
-        : (getLiveDictAreaPixiComputedReadableTextColor({
+        : getLiveDictAreaPixiComputedReadableTextColor({
             backgroundColor: rowFill,
             textColor: palette.bodyText,
-          }) ?? getLiveDictAreaPixiColorControlTextFill(rowFill)),
+          }) ?? getLiveDictAreaPixiColorControlTextFill(rowFill),
     labelFontWeight: textStyleSet.edgeRowFontWeight,
     rowFill,
     rowStroke,

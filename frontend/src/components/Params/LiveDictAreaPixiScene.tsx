@@ -10,6 +10,10 @@ import React, {
 import { useLocalStorage } from "state/definitions";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import {
+  getLiveDictAreaPixiEdgeRowFrame,
+  LIVE_DICT_AREA_PIXI_EDGE_ROW_FRAME_RADIUS_PX,
+} from "./liveDictAreaPixiEdgeRowFrame";
+import {
   buildLiveDictAreaPixiLayout,
   LIVE_DICT_AREA_PIXI_LAYOUT,
   type LiveDictAreaPixiEdgePortLayout,
@@ -19,16 +23,13 @@ import {
   type LiveDictAreaPixiRowLayout,
 } from "./liveDictAreaPixiLayout";
 import {
-  getLiveDictAreaPixiEdgeRowFrame,
-  LIVE_DICT_AREA_PIXI_EDGE_ROW_FRAME_RADIUS_PX,
-} from "./liveDictAreaPixiEdgeRowFrame";
-import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiComboboxControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiDetailRowChrome,
+  getLiveDictAreaPixiDetailRowInteractionChrome,
   getLiveDictAreaPixiEdgePortChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiPalette,
@@ -43,6 +44,7 @@ import {
   readLiveDictAreaPixiOverviewEnabledFromWindow,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
   type LiveDictAreaPixiCompactRowPrimitive,
+  type LiveDictAreaPixiDetailRowInteractionState,
   type LiveDictAreaPixiEdgePortInteractionState,
   type LiveDictAreaPixiPalette,
   type LiveDictAreaPixiPresentationMode,
@@ -55,6 +57,11 @@ export type LiveDictAreaPixiSceneProps = {
     focusedPortId: string | null;
     hoveredPortId: string | null;
     pressedPortId: string | null;
+  };
+  valueRowInteractionState?: {
+    focusedRowId: string | null;
+    hoveredRowId: string | null;
+    pressedRowId: string | null;
   };
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
   onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
@@ -83,6 +90,11 @@ function _LiveDictAreaPixiScene({
     focusedPortId: null,
     hoveredPortId: null,
     pressedPortId: null,
+  },
+  valueRowInteractionState = {
+    focusedRowId: null,
+    hoveredRowId: null,
+    pressedRowId: null,
   },
   liveDictAreaSceneBoundary,
   onSummaryLayoutChange,
@@ -363,6 +375,7 @@ function _LiveDictAreaPixiScene({
         textResolution,
         textFontFamily,
         textStyleSet,
+        valueRowInteractionState,
       });
 
       app.render();
@@ -381,12 +394,14 @@ function _LiveDictAreaPixiScene({
   }, [
     compactRowPrimitive,
     darkMode,
+    edgeRowInteractionState,
     fontLoadVersion,
     presentationMode,
     renderResolution,
     sectionStyleColor,
     summaryLayout,
     textResolution,
+    valueRowInteractionState,
   ]);
 
   useEffect(() => {
@@ -425,6 +440,15 @@ function _LiveDictAreaPixiScene({
       }
       data-live-dict-area-scene-edge-pressed-port-id={
         edgeRowInteractionState.pressedPortId ?? undefined
+      }
+      data-live-dict-area-scene-value-focused-row-id={
+        valueRowInteractionState.focusedRowId ?? undefined
+      }
+      data-live-dict-area-scene-value-hovered-row-id={
+        valueRowInteractionState.hoveredRowId ?? undefined
+      }
+      data-live-dict-area-scene-value-pressed-row-id={
+        valueRowInteractionState.pressedRowId ?? undefined
       }
       data-live-dict-area-scene-presentation-mode={presentationMode}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
@@ -507,6 +531,7 @@ function drawLiveDictAreaPixiScene({
   textResolution,
   textFontFamily,
   textStyleSet,
+  valueRowInteractionState,
 }: {
   app: Application;
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
@@ -522,6 +547,11 @@ function drawLiveDictAreaPixiScene({
   textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
+  valueRowInteractionState: {
+    focusedRowId: string | null;
+    hoveredRowId: string | null;
+    pressedRowId: string | null;
+  };
 }) {
   for (const child of app.stage.removeChildren()) {
     child.destroy();
@@ -552,6 +582,7 @@ function drawLiveDictAreaPixiScene({
         textResolution,
         textFontFamily,
         textStyleSet,
+        valueRowInteractionState,
       }),
     );
   }
@@ -652,6 +683,7 @@ function drawLiveDictAreaParamArea({
   textResolution,
   textFontFamily,
   textStyleSet,
+  valueRowInteractionState,
 }: {
   block: LiveDictAreaPixiParamAreaLayout;
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
@@ -661,6 +693,11 @@ function drawLiveDictAreaParamArea({
   textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
+  valueRowInteractionState: {
+    focusedRowId: string | null;
+    hoveredRowId: string | null;
+    pressedRowId: string | null;
+  };
 }) {
   const panelFill =
     block.kind === "pinned-param-area"
@@ -710,6 +747,18 @@ function drawLiveDictAreaParamArea({
         textResolution,
         textFontFamily,
         textStyleSet,
+        valueRowInteractionState:
+          row.kind === "value"
+            ? {
+                isFocused: valueRowInteractionState.focusedRowId === row.id,
+                isHovered: valueRowInteractionState.hoveredRowId === row.id,
+                isPressed: valueRowInteractionState.pressedRowId === row.id,
+              }
+            : {
+                isFocused: false,
+                isHovered: false,
+                isPressed: false,
+              },
       }),
     );
   }
@@ -854,6 +903,7 @@ function drawParamRow({
   textResolution,
   textFontFamily,
   textStyleSet,
+  valueRowInteractionState,
 }: {
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   palette: LiveDictAreaPixiPalette;
@@ -862,6 +912,7 @@ function drawParamRow({
   textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
+  valueRowInteractionState: LiveDictAreaPixiDetailRowInteractionState;
 }) {
   const rowChrome = getLiveDictAreaPixiDetailRowChrome({
     compactRowPrimitive,
@@ -871,9 +922,14 @@ function drawParamRow({
     rowWidth: row.width,
     rowX: row.x,
   });
+  const valueRowChrome = getLiveDictAreaPixiDetailRowInteractionChrome({
+    detailRowChrome: rowChrome,
+    interactionState: valueRowInteractionState,
+    palette,
+  });
   const graphics = new Graphics();
 
-  if (rowChrome.fill && rowChrome.rowBackgroundWidth > 0) {
+  if (valueRowChrome.fill && rowChrome.rowBackgroundWidth > 0) {
     graphics.roundRect(
       row.x,
       row.y,
@@ -881,7 +937,14 @@ function drawParamRow({
       row.blockHeight,
       rowChrome.cornerRadiusPx,
     );
-    graphics.fill(rowChrome.fill);
+    graphics.fill(valueRowChrome.fill);
+    if (valueRowChrome.stroke) {
+      graphics.stroke({
+        alpha: 1,
+        color: valueRowChrome.stroke,
+        width: 1.5,
+      });
+    }
   }
 
   const rowRightEdgeX = rowChrome.rowRightEdgeX;
@@ -905,7 +968,7 @@ function drawParamRow({
     maxWidth: valueColumnX - rowChrome.labelX - rowChrome.contentInsetPx,
     textResolution,
     style: {
-      fill: palette.bodyText,
+      fill: valueRowChrome.labelFill,
       fontFamily: textFontFamily,
       fontSize: textStyleSet.rowFontSize,
       fontWeight: textStyleSet.rowFontWeight,
@@ -953,7 +1016,7 @@ function drawParamRow({
       maxWidth: rowRightEdgeX - valueColumnX,
       textResolution,
       style: {
-        fill: palette.bodyText,
+        fill: valueRowChrome.valueFill,
         fontFamily: textFontFamily,
         fontSize: textStyleSet.edgeRowFontSize,
         fontWeight: textStyleSet.edgeRowFontWeight,
