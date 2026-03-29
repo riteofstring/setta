@@ -30,6 +30,23 @@ type LiveDictAreaPixiPalette = {
   titleText: ColorSource;
 };
 
+type LiveDictAreaPixiStaticSceneApplication = {
+  canvas: {
+    style: {
+      pointerEvents: string;
+    };
+  };
+  stage: Pick<Application["stage"], "eventMode" | "interactiveChildren">;
+};
+
+export function configureLiveDictAreaPixiStaticScene(
+  app: LiveDictAreaPixiStaticSceneApplication,
+): void {
+  app.stage.eventMode = "none";
+  app.stage.interactiveChildren = false;
+  app.canvas.style.pointerEvents = "none";
+}
+
 function _LiveDictAreaPixiScene({
   liveDictAreaSceneBoundary,
 }: LiveDictAreaPixiSceneProps) {
@@ -88,6 +105,7 @@ function _LiveDictAreaPixiScene({
         }
 
         app.canvas.className = "block h-full w-full";
+        configureLiveDictAreaPixiStaticScene(app);
         appRef.current = app;
       } else {
         app.renderer.resize(layout.canvasWidth, layout.canvasHeight);
@@ -100,6 +118,7 @@ function _LiveDictAreaPixiScene({
       if (host.style.height !== nextCanvasHeight) {
         host.style.height = nextCanvasHeight;
       }
+      configureLiveDictAreaPixiStaticScene(app);
       app.canvas.style.height = `${layout.canvasHeight}px`;
       app.canvas.style.width = "100%";
 

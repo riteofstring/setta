@@ -7497,3 +7497,43 @@ Record:
     - the Pixi scene remained mounted with no obvious blanking or major overlap regression in the checked viewport
 - Next action:
   - Pivot the next iteration to one concrete shared-floor suspect from this trace, starting with shared pointer/hit-test routing (`UiPage.tsx` / Pixi hit-testing) or the live dict-area section store boundary, instead of another widget-specific overlay lane.
+
+## 2026-03-29 239
+
+- Item: Make the live Pixi dict-area scene explicitly static and re-measure the shared-floor handoff path.
+- Status: `done`
+- Details:
+  - Chose the first concrete shared-floor suspect from item `238` instead of resuming another widget-specific overlay lane.
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+  - Added:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+  - The Pixi scene now explicitly opts out of interaction routing:
+    - stage `eventMode = "none"`
+    - `interactiveChildren = false`
+    - owned canvas `pointer-events = "none"`
+  - Kept the change narrowly scoped to the Pixi scene shell because the live canary's real interaction handoff is already handled by DOM overlays and handoff controls.
+  - Recorded the follow-up measurement in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-static-scene-interactivity-probe.md`
+  - Perf result:
+    - the canary still rendered correctly, but the short follow-up trace did not show a material improvement over item `238`
+    - DevTools reported a slow `pointerdown` with `INP 523 ms` (`input 3 ms`, `processing 272 ms`, `presentation 248 ms`)
+    - the insight output did not call out a separate named Pixi hit-testing hotspot on that capture
+    - this keeps the focus on the broader shared pointer/update/presentation floor rather than on Pixi stage interactivity alone
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`1 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - the settings canary rendered and remained visually sane in the checked viewport
+    - no obvious blanking or major overlap regression was observed
+    - the follow-up trace still showed most latency in shared processing/presentation work rather than a clear Pixi-only hotspot
+- Next action:
+  - Move the next iteration to a different shared-floor suspect, starting with `handlePointerDown` in `frontend/src/components/Pages/Project/UiPage.tsx` or the live dict-area section-store boundary, because the static-scene Pixi shell change did not materially shift the measured handoff latency.
