@@ -7205,3 +7205,33 @@ Record:
     - after clicking a live `value-row` handoff, the active overlay appeared with exactly one direct overlay row marker, zero `data-param-switch-row-id` descendants, and the Pixi canvas remained mounted
 - Next action:
   - Re-check the remaining Pixi editor-overlay shells and only continue this lane if the next slice removes real overlay/store work rather than another pure-forwarding seam hop.
+
+## 2026-03-29 231
+
+- Item: Replace the remaining generic `ParamContainer` shell in the live Pixi value-row editor overlay with a direct editor row surface.
+- Status: `done`
+- Details:
+  - Kept the editor-overlay lane on a real shell-reduction step instead of another ownership hop:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+  - The active Pixi value-row overlay no longer mounts the generic `ParamContainer` wrapper for its single-row editor surface:
+    - `LiveDictAreaPixiValueOverlaySceneRow.tsx` now builds the row article directly from `paramContainerView` layout/view-model helpers
+    - the direct overlay row keeps the real `ParamInput`, `ParamNameInput`, resize handle, tooltip, and type-error affordance paths while dropping the generic nested-row / DnD shell from the active editor overlay
+    - the overlay still exposes the existing direct row markers and `data-param-row` / `data-param-render-mode="full"` contract for the mounted editor row
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - after activating a value-row editor overlay in `All Settings`, the overlay appeared and the Pixi canvas remained mounted and visible underneath
+    - no obvious blanking, clipping, or major overlap regression was observed in the checked viewport
+    - representative successful requests included `200 OK` from `api/getFileBrowserRoot` and `api/getFolderContents`
+- Next action:
+  - Re-check the remaining Pixi editor-overlay path and only continue if the next slice removes real remaining editor/input shell work rather than another sideways packet or ownership hop.

@@ -8,13 +8,8 @@ import { LiveDictAreaPixiValueOverlaySceneRow } from "./LiveDictAreaPixiValueOve
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 
 type MockParamContainerProps = {
-  bg: string;
-  border: string;
-  hasSectionStyleTheme: boolean;
-  isKwarg: boolean;
   maybeErrorMessage: string;
   paramInfoId: string;
-  renderMode: string;
   sectionId: string;
 };
 
@@ -31,6 +26,13 @@ const projectState = vi.hoisted(() => ({
     coreNameEditable: false,
     description: "Scene-backed description",
   },
+  codeObjCore: {
+    displayName: "Grid Color Display",
+    name: "gridColor",
+  },
+  projectConfig: {
+    showParamDisplayNames: false,
+  },
   selectedParams: [] as string[],
 }));
 const searchState = vi.hoisted(() => ({
@@ -40,13 +42,17 @@ const searchState = vi.hoisted(() => ({
 const typeErrorState = vi.hoisted(() => ({
   errors: {} as Record<string, { params?: Record<string, string[]> }>,
 }));
-const paramContainerCalls = vi.hoisted(() => [] as MockParamContainerProps[]);
+const paramInputCalls = vi.hoisted(() => [] as MockParamContainerProps[]);
 const paramNameInputCalls = vi.hoisted(() => [] as MockParamNameInputProps[]);
+const resizeHandleCalls = vi.hoisted(
+  () => [] as { showResizeHandle: boolean }[],
+);
 
 vi.mock(import("state/actions/sectionInfos"), async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
+    getCodeObjCore: () => projectState.codeObjCore,
     getCurrEffectiveCodeObjImplWithTypeGuard: () => projectState.codeObj,
     getCurrEffectiveSectionImplWithTypeGuard: () => ({
       selectedParams: projectState.selectedParams,
@@ -67,19 +73,18 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
   };
 });
 
-vi.mock("./ParamContainer", () => ({
-  ParamContainer: ({
-    children,
-    ...props
-  }: MockParamContainerProps & { children: React.ReactNode }) => {
-    paramContainerCalls.push(props);
+vi.mock("components/Utils/FloatingBox", () => ({
+  getFloatingBoxHandlers: () => ({}),
+}));
+
+vi.mock("./ParamItems/ParamInput", () => ({
+  ParamInput: (props: MockParamContainerProps) => {
+    paramInputCalls.push(props);
     return (
       <div
-        data-param-container-row={props.paramInfoId}
-        data-param-render-mode={props.renderMode}
-      >
-        {children}
-      </div>
+        data-param-input-row={props.paramInfoId}
+        data-param-input-section={props.sectionId}
+      />
     );
   },
 }));
@@ -96,6 +101,13 @@ vi.mock("./ParamItems/ParamNameInput", () => ({
   },
 }));
 
+vi.mock("./ResizeHandle", () => ({
+  ResizeHandle: ({ showResizeHandle }: { showResizeHandle: boolean }) => {
+    resizeHandleCalls.push({ showResizeHandle });
+    return <div data-resize-handle={showResizeHandle ? "visible" : "hidden"} />;
+  },
+}));
+
 describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -108,12 +120,20 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       coreNameEditable: false,
       description: "Scene-backed description",
     };
+    projectState.codeObjCore = {
+      displayName: "Grid Color Display",
+      name: "gridColor",
+    };
+    projectState.projectConfig = {
+      showParamDisplayNames: false,
+    };
     projectState.selectedParams = [];
     searchState.focused = null;
     searchState.lookup = new Set<string>();
     typeErrorState.errors = {};
-    paramContainerCalls.length = 0;
+    paramInputCalls.length = 0;
     paramNameInputCalls.length = 0;
+    resizeHandleCalls.length = 0;
   });
 
   afterEach(() => {
@@ -121,11 +141,12 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       root.unmount();
     });
     container.remove();
-    paramContainerCalls.length = 0;
+    paramInputCalls.length = 0;
     paramNameInputCalls.length = 0;
+    resizeHandleCalls.length = 0;
   });
 
-  it("mounts a direct full editor row without the generic ParamSwitch shell", () => {
+  it("mounts a direct full editor row surface without the generic ParamContainer shell", () => {
     const target: LiveDictAreaPixiValueRowTarget = {
       blockId: "unpinned",
       handleColumnResizeStart: vi.fn(),
@@ -151,19 +172,22 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       );
     });
 
-    expect(paramContainerCalls).toHaveLength(1);
-    expect(paramContainerCalls[0]).toMatchObject({
-      hasSectionStyleTheme: false,
-      isKwarg: false,
+    expect(paramInputCalls).toHaveLength(1);
+    expect(paramInputCalls[0]).toMatchObject({
       maybeErrorMessage: "",
       paramInfoId: "gridColor",
-      renderMode: "full",
       sectionId: "settings-section",
     });
     expect(paramNameInputCalls).toHaveLength(0);
+    expect(resizeHandleCalls).toEqual([{ showResizeHandle: true }]);
     expect(
       container.querySelector(
         "[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='gridColor']",
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        "article[data-param-row='true'][data-param-render-mode='full']",
       ),
     ).not.toBeNull();
     expect(container.querySelector("[data-param-switch-row-id]")).toBeNull();
@@ -201,8 +225,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       );
     });
 
-    expect(paramContainerCalls).toHaveLength(1);
-    expect(paramContainerCalls[0]?.isKwarg).toBe(true);
+    expect(paramInputCalls).toHaveLength(1);
     expect(paramNameInputCalls).toHaveLength(1);
     expect(paramNameInputCalls[0]).toMatchObject({
       hasChildren: false,
