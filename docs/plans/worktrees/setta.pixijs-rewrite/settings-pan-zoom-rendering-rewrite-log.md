@@ -13809,6 +13809,37 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 407
+
+- Item: Force the readable low-zoom row-fill path on the exact min-zoom canary boundary.
+- Status: `done`
+- Details:
+  - In `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`, `getLiveDictAreaPixiShouldForceReadableRowFill` now treats the `4.5px` on-screen cutoff as inclusive instead of strict, so `18px` logical rows at the shared `0.25x` `All Settings` min-zoom canary now enter the readable low-zoom glyph path instead of staying on the flatter full-detail row path.
+  - In `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`, the focused readable-row-fill regression now locks the exact `0.25` viewport-zoom boundary as `true`.
+  - Why this slice:
+    - the normalized worktree/main compare surface was trustworthy again after the prior chat-chrome blocker fix
+    - the remaining broad drift was that many tiny cards still looked flatter / near-blank on the worktree even though the row-count/value-preview metrics were already correct
+    - the renderer was straddling the exact boundary: `18 * 0.25 = 4.5`, and the old strict `<` check kept the canary on the wrong row-rendering path at that precise min-zoom state
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - `source activate.sh >/dev/null 2>&1 && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token from bootstrapUrlFragment>' \"$WORKTREE_B64\") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url fragment>' \"$MAIN_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$MAIN_BOOTSTRAP_URL\" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings canary prefers populated same-height value-preview windows in deeper low-zoom Pixi cards|all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards|all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`3 passed`, about `39s`)
+    - note: the first attempt reused a stale bootstrap token and failed Playwright global setup with `401 Unauthorized`; rerunning with fresh `setta status --connect-info` output fixed the auth bootstrap
+  - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Fresh-context CDP visual check via sub-agent on normalized live worktree/main `All Settings`
+    - result: passed
+    - after rerunning both surfaces in the same `1440x720` tab size, the compare surface was trustworthy, blank-card drift improved, and pane/chat contamination did not remain on the final surface
+    - remaining visual drift: the selected-card blue outline still lands on different cards in the shared slice (`browserSectionDefault` in `main`, `promptSectionDefault` in the worktree)
+- Conclusion:
+  - the min-zoom `All Settings` canary no longer misses the readable low-zoom row-fill path at the exact `0.25x` boundary
+  - Gate 2 remains open because the selected-card highlight/selection-state parity still drifts on the shared tiny-card slice
+- Next action:
+  - stay on the production renderer lane and inspect the remaining selected-card highlight mismatch on the shared `All Settings` slice rather than reopening pane/chat normalization work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 405
 
 - Item: Collapse non-target panes before the live Pixi versus `main` `All Settings` visible-slice compare.

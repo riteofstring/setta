@@ -515,7 +515,7 @@ export function getLiveDictAreaPixiShouldForceReadableRowFill(
   return (
     Number.isFinite(viewportZoom) &&
     viewportZoom > 0 &&
-    LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT * viewportZoom <
+    LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT * viewportZoom <=
       LIVE_DICT_AREA_PIXI_FORCE_VISIBLE_ROW_FILL_SCREEN_HEIGHT_THRESHOLD
   );
 }

@@ -776,9 +776,10 @@ describe("getLiveDictAreaPixiPresentationMode", () => {
 });
 
 describe("getLiveDictAreaPixiShouldForceReadableRowFill", () => {
-  it("forces a visible row silhouette once detail rows are below the on-screen readability threshold", () => {
+  it("forces a visible row silhouette once detail rows are at or below the on-screen readability threshold", () => {
     expect(getLiveDictAreaPixiShouldForceReadableRowFill(0.1)).toBe(true);
     expect(getLiveDictAreaPixiShouldForceReadableRowFill(0.2)).toBe(true);
+    expect(getLiveDictAreaPixiShouldForceReadableRowFill(0.25)).toBe(true);
   });
 
   it("keeps the measured DOM row surface behavior once rows are large enough on screen", () => {
