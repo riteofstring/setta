@@ -9451,3 +9451,26 @@ Record:
     - remaining note: the live Pixi card interiors still read a bit flatter/more skeleton-like than baseline even though geometry now aligns
 - Next action:
   - Continue the live Pixi parity lane from this new automated geometry guard by tightening the remaining card-interior/chrome flatness on the first visible `All Settings` cards instead of revisiting geometry alignment again.
+
+## 2026-03-29 287
+
+- Item: Re-check the reported first-visible live Pixi card-interior flatness drift on the current worktree runtime before changing renderer code again.
+- Status: `done`
+- Details:
+  - Took the next bounded slice directly from item `286`'s remaining note instead of making another blind overview/chrome tweak.
+  - Fresh-context Chrome DevTools MCP verification on the current worktree runtime compared:
+    - baseline `http://127.0.0.1:3044/settings`
+    - canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+  - Result on the checked first visible unpinned `All Settings` cards:
+    - no visible baseline-vs-canary drift was reproducible at browser zoom `100%`
+    - checked cards included `shortcuts`, `defaultZoomLevel`, `advancedSearchShortcut`, and `Auto Refetch Callable Params On LSP Mismatch`
+    - the verifier reported the viewport capture for those checked cards as pixel-identical, with a local image diff of `0`
+  - Conclusion:
+    - the previously noted baseline-vs-canary card-interior flatness mismatch is not currently a trustworthy live blocker on this worktree runtime
+    - no production or test changes were made in this iteration because another renderer tweak would have been churn without a reproducible defect
+- Verification:
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+    - compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - result: no visible mismatch on the checked first visible unpinned cards; verifier reported a local image diff of `0`
+- Next action:
+  - Pivot to the next real visual blocker from the plan: re-check live Pixi zoom-time text stability and `main`-oracle parity instead of continuing baseline-vs-canary first-card interior tweaks that are no longer reproducible.
