@@ -215,55 +215,53 @@ test("all settings canary can immediately activate a CodeMirror-backed value row
 }) => {
   await openAllSettingsLivePixiCanary(page);
 
-  const handoffButtons = page.locator(
-    "[data-live-dict-area-editor-handoff='value-row']",
+  const handoffButton = page
+    .locator(
+      "[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-editor-kind='codemirror']",
+    )
+    .first();
+  await handoffButton.scrollIntoViewIfNeeded();
+  await expect(handoffButton).toBeVisible();
+  const activatedRowId = await handoffButton.getAttribute(
+    "data-live-dict-area-editor-handoff-row-id",
   );
-  const handoffButtonCount = await handoffButtons.count();
-  expect(handoffButtonCount).toBeGreaterThan(0);
+  expect(activatedRowId).not.toBeNull();
+  await handoffButton.click();
 
-  let codemirrorActivationResult: {
-    activeElementInsideCodeMirror: boolean;
-    editorKind: string | null;
-    hasCodeMirrorEditor: boolean;
-  } | null = null;
-
-  for (let i = 0; i < handoffButtonCount; i += 1) {
-    const handoffButton = handoffButtons.nth(i);
-    await handoffButton.scrollIntoViewIfNeeded();
-    await handoffButton.click();
-
-    const activationMetrics = await page.waitForFunction(() => {
-      const overlay = document.querySelector<HTMLElement>(
-        "[data-live-dict-area-editor-overlay='active']",
-      );
-      if (!overlay) {
-        return null;
-      }
-
-      const activeElement =
-        document.activeElement instanceof HTMLElement
-          ? document.activeElement
-          : null;
-
-      return {
-        activeElementInsideCodeMirror: Boolean(
-          activeElement?.closest(".cm-editor"),
-        ),
-        editorKind: overlay.getAttribute(
-          "data-live-dict-area-editor-overlay-editor-kind",
-        ),
-        hasCodeMirrorEditor: Boolean(overlay.querySelector(".cm-editor")),
-      };
-    });
-
-    const result = await activationMetrics.jsonValue();
-    if (result?.editorKind === "codemirror") {
-      codemirrorActivationResult = result;
-      break;
+  const activationMetrics = await page.waitForFunction((rowId) => {
+    const overlay = document.querySelector<HTMLElement>(
+      `[data-live-dict-area-editor-overlay='active'][data-live-dict-area-editor-overlay-row-id='${rowId}']`,
+    );
+    if (!overlay) {
+      return null;
     }
-  }
+
+    const activeElement =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
+    const codeMirrorEditor = overlay.querySelector<HTMLElement>(".cm-editor");
+
+    if (
+      overlay.getAttribute("data-live-dict-area-editor-overlay-editor-kind") !==
+        "codemirror" ||
+      codeMirrorEditor === null ||
+      !activeElement?.closest(".cm-editor")
+    ) {
+      return null;
+    }
+
+    return {
+      activeElementInsideCodeMirror: true,
+      editorKind: "codemirror",
+      hasCodeMirrorEditor: true,
+    };
+  }, activatedRowId);
+
+  const codemirrorActivationResult = await activationMetrics.jsonValue();
 
   expect(codemirrorActivationResult).not.toBeNull();
+  expect(codemirrorActivationResult?.editorKind).toBe("codemirror");
   expect(codemirrorActivationResult?.hasCodeMirrorEditor).toBe(true);
   expect(codemirrorActivationResult?.activeElementInsideCodeMirror).toBe(true);
 });

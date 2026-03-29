@@ -7392,3 +7392,35 @@ Record:
     - no obvious blanking, clipping, or overlap regression was visible in the checked viewport
 - Next action:
   - Stop the current editor-kind cleanup lane here; the next real frontier is either a dedicated fix for the separate codemirror value-row handoff hit-target/layout blocker in the live canary or a pivot to the measured retained-scene hotspot, not another packet-forwarding hop.
+
+## 2026-03-29 236
+
+- Item: Fix the live Pixi CodeMirror canary so it waits for the real mounted editor instead of racing the first overlay frame.
+- Status: `done`
+- Details:
+  - Chose the bounded blocker-resolution slice from item `235` instead of extending the same overlay cleanup lane.
+  - Tightened the live canary spec to target a real `codemirror` handoff directly via packeted editor-kind metadata instead of scanning every visible value row:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The `codemirror` assertion now waits for the actual success condition:
+    - active overlay row id matches the clicked handoff row
+    - active overlay editor kind is `codemirror`
+    - `.cm-editor` is mounted
+    - `document.activeElement` is inside CodeMirror
+  - Root-cause note:
+    - a direct headless probe showed the old test was reading the overlay too early
+    - the first overlay frame existed before CodeMirror finished mounting/focusing, so the old `waitForFunction(...)` returned a false-negative object instead of waiting for the real editor state
+  - Verification:
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+        - result: passed
+    - Playwright:
+      - targeted runner check using a temporary no-global-setup config plus saved auth state against the live worktree app on `3044/8044`
+        - result: passed
+        - checked test: `all settings canary can immediately activate a CodeMirror-backed value row on first Pixi handoff click`
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+      - bootstrap was rejected in that browser session, so the verifier reused the existing authenticated `3044` Settings tab
+      - opened `All Settings`, clicked a visible `codemirror` handoff row, and verified the active overlay reported `codemirror`, `.cm-editor` was mounted, and focus was inside CodeMirror
+      - no obvious blank, clipped, or major-overlap regression was observed in the checked viewport
+      - representative `200` requests included `POST /api/loadProjectConfig`, `GET /api/getAgentProfiles`, `POST /api/setTopLevelSectionLayout`, and `GET /api/plugins/runtime`
+- Next action:
+  - Treat the separate CodeMirror canary blocker as resolved and pivot the next iteration to the real next frontier from item `235`, either a measured retained-scene hotspot or another non-churn live canary blocker.
