@@ -550,7 +550,7 @@ export function LiveDictAreaPixiPageRuntimeHost() {
   return (
     <div
       aria-hidden="true"
-      className="pointer-events-none absolute inset-0 z-[4] overflow-hidden"
+      className="pointer-events-none absolute inset-0 z-0 overflow-hidden"
       data-live-dict-area-pixi-page-runtime-host="true"
       data-live-dict-area-pixi-runtime-context-lost={
         runtime.contextLost ? "true" : "false"

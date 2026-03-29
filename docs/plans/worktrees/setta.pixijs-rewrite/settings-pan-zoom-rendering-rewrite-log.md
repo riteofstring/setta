@@ -13809,6 +13809,39 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 414
+
+- Item: Lower the shared Pixi page-runtime host so minimized section chrome stays visible on the focused compare surface.
+- Status: `done`
+- Details:
+  - In `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`, `LiveDictAreaPixiPageRuntimeHost` now uses `z-0` instead of `z-[4]` so the absolute pane-level Pixi runtime canvas no longer paints over DOM-only minimized section chrome.
+  - In `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`, the runtime host test now asserts the new `z-0` stacking contract.
+  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, a focused compare regression now locks `genPythonCodeSectionDefault` presence plus near-equal viewport geometry on the normalized `browserSectionDefault` surface.
+  - Why this slice:
+    - the last trustworthy Gate 2 CDP compare showed `main` rendering the minimized `GENERATED PYTHON CODE` section as a visible rounded floating bar while the worktree only showed the lower-left dock chrome and bare canvas
+    - the shared Pixi page-runtime host sat above DOM section chrome, which matched the symptom: active Pixi scene still visible while the minimized section bar disappeared
+  - Recovery note:
+    - the first fresh-context CDP retry could not verify the live surface after the browser/session bridge reset, so this iteration used the one allowed self-recovery path with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - after restart, fresh bootstrap URLs from `setta status` were required for a trustworthy CDP retry; stale copied bootstrap URLs led to a false bootstrap blocker
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - result: passed
+  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `WORKTREE_BOOTSTRAP_URL=$(source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//' | python3 -c 'import sys,base64,json; data=json.loads(base64.b64decode(sys.stdin.read()).decode()); print(data["bootstrapUrlFragment"])') && MAIN_BOOTSTRAP_URL=$(source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//' | python3 -c 'import sys,base64,json; data=json.loads(base64.b64decode(sys.stdin.read()).decode()); print(data["bootstrapUrlFragment"])') && WORKTREE_BOOTSTRAP_TOKEN=${WORKTREE_BOOTSTRAP_URL#*token=} && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN="$WORKTREE_BOOTSTRAP_TOKEN" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$MAIN_BOOTSTRAP_URL" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary keeps the minimized generated python code section visible on the focused browser compare surface'`
+    - result: passed (`1 passed`, about `55.4s` after restart; earlier same focused slice also passed in about `23.5s` before restart)
+  - Fresh-context CDP visual check via sub-agent on worktree/main `All Settings`
+    - result: done
+    - both fresh bootstrap URLs resolved to the live frontends, the normalized `browserSectionDefault` compare surface was present on both tabs, and the minimized `GENERATED PYTHON CODE` section chrome matched `main` at Gate 1/2
+- Conclusion:
+  - the page-runtime host no longer hides minimized section chrome on the focused compare surface
+  - the minimized `GENERATED PYTHON CODE` drift is closed and covered by focused regression checks
+  - the next visible Gate 2 drift is minor left-panel settings index ordering versus `main`, not this minimized-section path
+- Next action:
+  - Use the same normalized compare flow to inspect and fix the remaining left-panel settings index ordering drift or the next equally early Gate 2 mismatch if CDP shows a more important renderer defect first
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 413
 
 - Item: Make graph-comparison chrome reset wait for minimized project-chat pills too.

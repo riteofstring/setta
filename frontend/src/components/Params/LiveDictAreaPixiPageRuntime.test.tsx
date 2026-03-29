@@ -401,6 +401,7 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
       "[data-live-dict-area-pixi-page-runtime-host='true']",
     );
     expect(host).not.toBeNull();
+    expect(host?.className).toContain("z-0");
     expect(
       host?.getAttribute("data-live-dict-area-pixi-runtime-pixi-count"),
     ).toBe("1");

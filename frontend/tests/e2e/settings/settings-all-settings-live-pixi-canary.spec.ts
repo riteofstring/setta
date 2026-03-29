@@ -3322,6 +3322,105 @@ test("all settings live Pixi canary and the read-only main reference share the s
   }
 });
 
+test("all settings live Pixi canary keeps the minimized generated python code section visible on the focused browser compare surface", async ({
+  browser,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "requires SETTA_MAIN_REFERENCE_URL and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL",
+  );
+
+  const canaryPage = await browser.newPage();
+  const mainReferencePage = await browser.newPage();
+
+  try {
+    await openAllSettingsMainReference(mainReferencePage);
+    await openAllSettingsLivePixiCanary(canaryPage);
+
+    const mainReferenceProjectStateSnapshot =
+      await captureCurrentFrontendProjectStateSnapshot(mainReferencePage);
+    await replayFrontendProjectStateSnapshot(
+      canaryPage,
+      mainReferenceProjectStateSnapshot,
+    );
+
+    await resetProjectWorkspaceChromeToDefaultLayout(canaryPage);
+    await resetProjectWorkspaceChromeToDefaultLayout(mainReferencePage);
+    await normalizeAllSettingsOverviewLayout(canaryPage);
+    await normalizeAllSettingsOverviewLayout(mainReferencePage);
+    await clearCurrentProjectViewportForRefit(canaryPage);
+    await clearCurrentProjectViewportForRefit(mainReferencePage);
+    await waitForVisibleSceneMetrics(canaryPage);
+    await expectZoomOutButtonDisabled(canaryPage, true);
+    await expectZoomOutButtonDisabled(mainReferencePage, true);
+
+    const canaryOverviewItem = canaryPage
+      .locator("#OverviewPane li")
+      .filter({ hasText: "browserSectionDefault" });
+    const mainReferenceOverviewItem = mainReferencePage
+      .locator("#OverviewPane li")
+      .filter({ hasText: "browserSectionDefault" });
+    await expect(canaryOverviewItem).toBeVisible();
+    await expect(mainReferenceOverviewItem).toBeVisible();
+    await canaryOverviewItem.click();
+    await mainReferenceOverviewItem.click();
+    await Promise.all([
+      expectSingleActiveSectionName(canaryPage, "browserSectionDefault"),
+      expectSingleActiveSectionName(mainReferencePage, "browserSectionDefault"),
+    ]);
+
+    await Promise.all([
+      hideProjectWorkspaceChromeForGraphComparison(canaryPage),
+      hideProjectWorkspaceChromeForGraphComparison(mainReferencePage),
+    ]);
+    await Promise.all([
+      focusSectionForGraphComparison(canaryPage, "browserSectionDefault"),
+      focusSectionForGraphComparison(
+        mainReferencePage,
+        "browserSectionDefault",
+      ),
+    ]);
+    await waitForVisibleSceneMetrics(canaryPage);
+    await Promise.all([
+      expectSingleActiveSectionName(canaryPage, "browserSectionDefault"),
+      expectSingleActiveSectionName(mainReferencePage, "browserSectionDefault"),
+    ]);
+    const canaryViewport = await readViewportTransform(canaryPage);
+    await expectViewportTransformNear(mainReferencePage, canaryViewport);
+
+    const canaryMinimizedSection = await readSectionNodeViewportState(
+      canaryPage,
+      "genPythonCodeSectionDefault",
+    );
+    const mainReferenceMinimizedSection = await readSectionNodeViewportState(
+      mainReferencePage,
+      "genPythonCodeSectionDefault",
+    );
+
+    expect(mainReferenceMinimizedSection.found).toBe(true);
+    expect(canaryMinimizedSection.found).toBe(true);
+    expect(mainReferenceMinimizedSection.width).toBeGreaterThan(0);
+    expect(mainReferenceMinimizedSection.height).toBeGreaterThan(0);
+    expect(canaryMinimizedSection.width).toBeGreaterThan(0);
+    expect(canaryMinimizedSection.height).toBeGreaterThan(0);
+    expect(
+      Math.max(
+        Math.abs(mainReferenceMinimizedSection.x - canaryMinimizedSection.x),
+        Math.abs(mainReferenceMinimizedSection.y - canaryMinimizedSection.y),
+        Math.abs(
+          mainReferenceMinimizedSection.width - canaryMinimizedSection.width,
+        ),
+        Math.abs(
+          mainReferenceMinimizedSection.height - canaryMinimizedSection.height,
+        ),
+      ),
+    ).toBeLessThanOrEqual(2);
+  } finally {
+    await canaryPage.close();
+    await mainReferencePage.close();
+  }
+});
+
 test("all settings baseline and live Pixi canary share the same visible canvas section slice after frontend viewport clear", async ({
   browser,
 }) => {
