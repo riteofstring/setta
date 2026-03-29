@@ -7424,3 +7424,36 @@ Record:
       - representative `200` requests included `POST /api/loadProjectConfig`, `GET /api/getAgentProfiles`, `POST /api/setTopLevelSectionLayout`, and `GET /api/plugins/runtime`
 - Next action:
   - Treat the separate CodeMirror canary blocker as resolved and pivot the next iteration to the real next frontier from item `235`, either a measured retained-scene hotspot or another non-churn live canary blocker.
+
+## 2026-03-29 237
+
+- Item: Probe whether the old combobox / `downshift` activation hotspot still dominates the live Pixi value-row handoff path.
+- Status: `done`
+- Details:
+  - Chose a bounded measured-hotspot checkpoint instead of continuing the now-stopped overlay cleanup lane.
+  - Recorded the probe in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-combobox-handoff-probe.md`
+  - Fresh-context Chrome DevTools MCP check on the live worktree canary:
+    - page used: `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - opened `All Settings`
+    - clicked the visible combobox-backed Pixi value-row handoff on `Config Language`
+    - the combobox overlay opened successfully with visible choices including `python` and `json`
+    - no obvious blanking, broken overlay, or layout glitch was observed in the checked viewport
+  - Perf summary from the short profile window:
+    - the old combobox path still appeared, but only as a minor signal
+    - hottest samples were mostly `idle`, `program`, `focus`, and `elementsFromPoint`
+    - only single samples were seen in `downshift`, `useIdNameCombobox`, and related combobox code
+  - Conclusion:
+    - the historical combobox / `downshift` hotspot is no longer the primary remaining issue on this live Pixi handoff canary
+    - the next retained-scene hotspot probe should move away from the combobox-specific path and target the remaining shared interaction floor instead
+- Verification:
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "combobox-backed value row"`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - `All Settings` stayed visible
+    - the `Config Language` combobox overlay opened normally from the Pixi value-row handoff
+    - no obvious visual regression was observed in the checked viewport
+- Next action:
+  - Treat the combobox lane as no longer the dominant hotspot on the live Pixi handoff canary and pivot the next iteration to the remaining shared interaction floor or another measured retained-scene hotspot instead of continuing overlay-shell cleanup.
