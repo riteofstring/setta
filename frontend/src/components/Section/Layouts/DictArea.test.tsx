@@ -167,6 +167,5 @@ describe("DictArea layout", () => {
     expect(classes).toContain("section-args-nested");
     expect(classes).toContain("overflow-y-scroll");
     expect(markup).toContain("section-row-pin-main");
-    expect(markup).not.toContain("Benchmark shell");
   });
 });

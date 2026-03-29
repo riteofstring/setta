@@ -1,8 +1,4 @@
 import {
-  LiveDictAreaPixiPageRuntimeBoundary,
-  LiveDictAreaPixiPageRuntimeHost,
-} from "components/Params/LiveDictAreaPixiPageRuntime";
-import {
   NodesSelectionDragHandleWrapper,
   NodesSelectionWrapper,
 } from "forks/xyflow/core/components/NodesSelection";
@@ -10,7 +6,6 @@ import _ from "lodash";
 import { memo, type ReactNode } from "react";
 import { useAIFollow, useSettings } from "state/definitions";
 import { useReactFlow } from "../store";
-import { buildFlowRendererView } from "./flowRendererView";
 import Pane from "./Pane";
 import ZoomPane from "./ZoomPane";
 
@@ -54,33 +49,29 @@ const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
     };
   }, _.isEqual);
 
-  const flowRendererView = buildFlowRendererView({
-    isFollowTransitioning,
-    panOnDrag,
-    panOnScroll,
-    panOnScrollMode,
-    panOnScrollSpeed,
-    selectionKeyPressed,
-    zoomActivationKeyPressed,
-    zoomOnDoubleClick,
-    zoomOnPinch,
-    zoomOnScroll,
-  });
-
   return (
-    <LiveDictAreaPixiPageRuntimeBoundary>
-      <ZoomPane
-        {...flowRendererView.zoomPaneProps}
-        wrapperDimensions={wrapperDimensions}
+    <ZoomPane
+      zoomOnScroll={!isFollowTransitioning && zoomOnScroll}
+      zoomOnPinch={!isFollowTransitioning && zoomOnPinch}
+      panOnScroll={!isFollowTransitioning && panOnScroll}
+      panOnScrollSpeed={panOnScrollSpeed}
+      panOnScrollMode={panOnScrollMode}
+      zoomOnDoubleClick={!isFollowTransitioning && zoomOnDoubleClick}
+      panOnDrag={!selectionKeyPressed && !isFollowTransitioning && panOnDrag}
+      zoomActivationKeyPressed={
+        !isFollowTransitioning && zoomActivationKeyPressed
+      }
+      wrapperDimensions={wrapperDimensions}
+    >
+      <Pane
+        panOnDrag={!isFollowTransitioning && panOnDrag}
+        isSelecting={!!selectionKeyPressed}
       >
-        <Pane {...flowRendererView.paneProps}>
-          <LiveDictAreaPixiPageRuntimeHost />
-          <NodesSelectionDragHandleWrapper />
-          {children}
-          <NodesSelectionWrapper />
-        </Pane>
-      </ZoomPane>
-    </LiveDictAreaPixiPageRuntimeBoundary>
+        <NodesSelectionDragHandleWrapper />
+        {children}
+        <NodesSelectionWrapper />
+      </Pane>
+    </ZoomPane>
   );
 };
 
