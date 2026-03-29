@@ -60,16 +60,14 @@ vi.mock("../Header/SectionHeader", () => ({
   ),
 }));
 
-vi.mock("./SectionWindowSurfaceBody", () => ({
-  SectionWindowSurfaceBody: ({
+vi.mock("./SectionContainerCoreResizabe", () => ({
+  AreaSwitch: ({
     sectionId,
     chatHost,
     chatModeOverride,
     projectChatSurfaceId,
     projectChatId,
     setProjectChatId,
-    bodyOverride,
-    renderDictArea,
   }: {
     sectionId: string;
     chatHost: string;
@@ -77,19 +75,15 @@ vi.mock("./SectionWindowSurfaceBody", () => ({
     projectChatSurfaceId?: string;
     projectChatId?: string | null;
     setProjectChatId?: unknown;
-    bodyOverride?: ReactNode;
-    renderDictArea?: unknown;
   }) => (
     <div
-      data-testid="mock-section-window-surface-body"
+      data-testid="mock-area-switch"
       data-section-id={sectionId}
       data-chat-host={chatHost}
       data-chat-mode-override={chatModeOverride ?? ""}
       data-project-chat-surface-id={projectChatSurfaceId ?? ""}
       data-project-chat-id={projectChatId ?? ""}
       data-project-chat-controlled={setProjectChatId ? "true" : "false"}
-      data-body-override={bodyOverride ? "present" : ""}
-      data-render-dict-area={renderDictArea ? "true" : "false"}
     />
   ),
 }));
@@ -112,7 +106,7 @@ describe("SectionWindowSurface", () => {
     };
   });
 
-  it("passes authoritative window mode and chat identity into the window surface body boundary", () => {
+  it("passes authoritative window mode and chat identity into the section area switch", () => {
     const markup = renderToStaticMarkup(
       <SectionWindowSurface
         sectionId="section-1"
@@ -126,14 +120,13 @@ describe("SectionWindowSurface", () => {
       />,
     );
 
-    expect(markup).toContain('data-testid="mock-section-window-surface-body"');
+    expect(markup).toContain('data-testid="mock-area-switch"');
     expect(markup).toContain('data-section-id="section-1"');
     expect(markup).toContain('data-chat-host="floating"');
     expect(markup).toContain('data-chat-mode-override="project_ai_mode"');
     expect(markup).toContain('data-project-chat-surface-id="window-surface-1"');
     expect(markup).toContain('data-project-chat-id="chat-section-1"');
     expect(markup).toContain('data-project-chat-controlled="true"');
-    expect(markup).toContain('data-render-dict-area="true"');
   });
 
   it("disables canvas section controls so window surfaces only render supplied header actions", () => {

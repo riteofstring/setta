@@ -1,9 +1,11 @@
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_force_refresh_listener } from "utils/generatedEndpoints";
 
 import { getCurrProjectConfigId } from "./sectionInfos";
+
+type ForceRefreshListenerRouteResponse = ResponseDataAndStatus<null>;
 
 export async function triggerListenerForceRefresh(): Promise<boolean> {
   const projectConfigId = getCurrProjectConfigId();
@@ -14,9 +16,10 @@ export async function triggerListenerForceRefresh(): Promise<boolean> {
     return false;
   }
 
-  const res = await route_force_refresh_listener({
-    projectConfigId,
-  });
+  const res: ForceRefreshListenerRouteResponse =
+    await route_force_refresh_listener({
+      projectConfigId,
+    });
 
   if (res200(res)) {
     addTemporaryNotification(
