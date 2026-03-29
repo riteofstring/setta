@@ -5,7 +5,9 @@ import {
   useLocalStorage,
 } from "state/definitions";
 import {
+  CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
+  INITIAL_UI_EDITOR_WIDTH,
   OverviewTabNameEnum,
   PaneNameEnum,
 } from "utils/constants";
@@ -89,6 +91,11 @@ export function setOverviewProjectConfigOrder(orderedIds: string[]) {
 }
 
 export function resetOverviewPaneToDefaultLayout() {
-  useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.Overview });
+  useLocalStorage.setState({
+    overviewTab: OverviewTabNameEnum.Overview,
+    uiEditorVis: false,
+    uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
+    uiEditorTrueWidth: CLOSED_PANE_WIDTH,
+  });
   setPaneWidthWithLayout(PaneNameEnum.overview, INITIAL_OVERVIEW_WIDTH);
 }

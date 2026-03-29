@@ -1,7 +1,9 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  CLOSED_PANE_WIDTH,
   INITIAL_OVERVIEW_WIDTH,
+  INITIAL_UI_EDITOR_WIDTH,
   OverviewNotificationsPaneTabEnum,
   OverviewTabNameEnum,
 } from "utils/constants";
@@ -61,15 +63,17 @@ describe("shared chat edge mode", () => {
 describe("resetOverviewPaneToDefaultLayout", () => {
   beforeEach(() => {
     useLocalStorage.setState({
-      overviewVis: true,
+      overviewVis: false,
       overviewTab: OverviewTabNameEnum.ProjectAIChat,
-      overviewWidth: 250,
-      overviewTrueWidth: 250,
-      uiEditorVis: false,
+      overviewWidth: 1400,
+      overviewTrueWidth: 40,
+      uiEditorVis: true,
+      uiEditorWidth: 1400,
+      uiEditorTrueWidth: 1400,
     });
   });
 
-  it("restores the default overview tab and width", () => {
+  it("restores the default overview pane and clears stale ui-editor width state", () => {
     resetOverviewPaneToDefaultLayout();
 
     const state = useLocalStorage.getState();
@@ -77,6 +81,9 @@ describe("resetOverviewPaneToDefaultLayout", () => {
     expect(state.overviewTab).toBe(OverviewTabNameEnum.Overview);
     expect(state.overviewWidth).toBe(INITIAL_OVERVIEW_WIDTH);
     expect(state.overviewTrueWidth).toBe(INITIAL_OVERVIEW_WIDTH);
+    expect(state.uiEditorVis).toBe(false);
+    expect(state.uiEditorWidth).toBe(INITIAL_UI_EDITOR_WIDTH);
+    expect(state.uiEditorTrueWidth).toBe(CLOSED_PANE_WIDTH);
   });
 });
 

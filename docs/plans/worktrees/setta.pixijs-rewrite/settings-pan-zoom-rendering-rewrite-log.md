@@ -10468,3 +10468,40 @@ Record:
     - the worktree baseline and canary still did not line up with `main` at browser zoom `100%`; the verifier still observed the selected section at `width 250.0` on worktree baseline/canary versus `width 300.0` on `main`
 - Next action:
   - Diagnose the remaining live `main`-vs-worktree `All Settings` layout drift beyond the now-normalized overview-pane reset; do not reopen the zoom-floor or stale-overview-width hypothesis unless a new check shows those values diverging again.
+
+## 2026-03-30 319
+
+- Item: Harden the frontend-side overview reset helper so live parity checks also clear stale UI-editor pane width state before refitting.
+- Status: `done`
+- Details:
+  - Took a bounded blocker-resolution slice directly from item `318` after the next live-state probe showed the parity reset path could still inherit stale adjacent-pane state even when the overview tab and viewport were being normalized.
+  - Tightened the existing local-storage reset action:
+    - `frontend/src/state/actions/localStorage.ts`
+  - The helper now:
+    - restores `overviewTab` to `Overview`
+    - forces the UI editor closed
+    - resets the stored UI-editor widths to their default hidden-state values before reopening the overview pane at the canonical width
+  - Added focused unit coverage for the stale live-session shape that had been confusing the manual checks:
+    - `frontend/src/state/actions/localStorage.test.ts`
+    - seeds `overviewVis: false`, `overviewTrueWidth: 40`, and a wide visible UI editor, then verifies the reset returns to `overviewTrueWidth: 335` with `uiEditorVis: false` and `uiEditorTrueWidth: 40`
+  - Kept the slice intentionally narrow:
+    - no Pixi renderer code changed
+    - no benchmark/parity thresholds were weakened
+    - this was only a deterministic parity-workflow normalization fix
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/localStorage.test.ts`
+    - result: passed (`22 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/state/actions/localStorage.ts src/state/actions/localStorage.test.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check on the live worktree runtime in a fresh sub-agent context:
+    - bootstrapped `http://127.0.0.1:3043/settings`
+    - invoked `resetOverviewPaneToDefaultLayout()` plus `clearCurrentProjectViewportForRefit()` in page context
+    - observed `overviewTab: Overview`, `overviewVis: true`, `overviewTrueWidth: 335`, `uiEditorVis: false`, `uiEditorTrueWidth: 40`, `projectViewport: null`, and `projectViewportInitialized: false`
+    - `All Settings` remained visible and the settings surface showed no obvious blanking or clipping
+- Next action:
+  - Retry the live `main`-oracle `All Settings` layout comparison now that the parity reset path also clears stale adjacent-pane width state; if width drift remains, take the persisted project-state/layout diff directly instead of reopening local-storage resets.
