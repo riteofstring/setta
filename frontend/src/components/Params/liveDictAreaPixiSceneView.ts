@@ -189,6 +189,9 @@ type LiveDictAreaPixiCompactRowPrimitiveSource = {
 
 export function getLiveDictAreaPixiClippingContainer(sceneRoot: HTMLElement) {
   return (
+    sceneRoot.closest<HTMLElement>(
+      "[data-live-dict-area-pixi-clipping-container]",
+    ) ??
     sceneRoot.closest<HTMLElement>("[data-live-dict-area-render-mode]") ??
     sceneRoot.closest<HTMLElement>(".section-main-full-w") ??
     sceneRoot.closest<HTMLElement>("section") ??

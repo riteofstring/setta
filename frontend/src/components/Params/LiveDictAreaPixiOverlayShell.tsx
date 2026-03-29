@@ -256,7 +256,10 @@ export function LiveDictAreaPixiOverlayShell({
       <LiveDictAreaPixiFixedMeasurementMarkers
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
       />
-      <div className="relative min-h-0 min-w-0 !max-w-full flex-1 overflow-hidden">
+      <div
+        className="relative min-h-0 min-w-0 !max-w-full flex-1 overflow-hidden"
+        data-live-dict-area-pixi-clipping-container="true"
+      >
         <LiveDictAreaPixiScene
           edgeRowInteractionState={edgeRowInteractionState}
           liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}

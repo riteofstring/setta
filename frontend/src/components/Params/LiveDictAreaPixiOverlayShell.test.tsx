@@ -7,7 +7,10 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
-import type { LiveDictAreaPixiLayout } from "./liveDictAreaPixiLayout";
+import {
+  LIVE_DICT_AREA_PIXI_LAYOUT,
+  type LiveDictAreaPixiLayout,
+} from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
 
 vi.hoisted(() => {
@@ -333,6 +336,13 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container
         .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.parentElement?.getAttribute(
+          "data-live-dict-area-pixi-clipping-container",
+        ),
+    ).toBe("true");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
         ?.getAttribute("data-live-dict-area-scene-section-id"),
     ).toBe("section-1");
     const handoffButtons = Array.from(
@@ -365,7 +375,9 @@ describe("LiveDictAreaPixiOverlayShell", () => {
       }),
     ).toBe(true);
     expect(handoffButtons[0]?.style.right).toBe("");
-    expect(handoffButtons[0]?.style.width).toBe("296px");
+    expect(handoffButtons[0]?.style.width).toBe(
+      `${LIVE_DICT_AREA_PIXI_LAYOUT.canvasMinWidth}px`,
+    );
     expect(activeValueRowBaseStateRequests).toEqual([]);
     expect(activeValueRowCoreRequests).toEqual([]);
     expect(liveMiscState.requestUpdateNodeDimensions).toBe(true);

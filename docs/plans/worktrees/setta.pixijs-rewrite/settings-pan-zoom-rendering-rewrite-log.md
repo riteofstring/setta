@@ -3518,6 +3518,32 @@ Record:
 - Next action:
   - Continue the live dict-area surface pass by lifting the new standalone section-surface boundary one level higher in the standalone route stack before any broad Pixi node drawing lands.
 
+## 2026-03-31 122
+
+- Item: Fix the live Pixi canary's browser-zoom lower-shell drift by measuring against the real clipping container.
+- Status: `done`
+- Details:
+  - Stopped the seam-lift lane per the current plan guidance and targeted a production Pixi visual defect instead of lifting another forwarding boundary.
+  - CDP comparison against `main` found the first reproducible divergence at `125%` browser zoom on the live Pixi canary:
+    - the lower workspace/canvas area shifted differently than `main`
+    - the drift was tied to the Pixi scene height/clip region rather than a shared-shell idle-state mismatch
+  - Fixed the scene measurement target so the Pixi scene now measures available height against the actual overflow-hidden clipping wrapper instead of the outer render shell:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+  - Updated focused unit coverage for the new clipping-container contract and the overlay shell seam:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+- Verification:
+  - Vitest: `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed
+  - Playwright: `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - rechecked the specific `125%` browser-zoom compare on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` versus the `main` DOM oracle
+    - result: the zoom-only lower-shell drift no longer reproduced after the clipping-container change
+- Next action:
+  - Continue the live Pixi canary visual pass by identifying the next real Gate 1 or Gate 2 defect on the normalized settings surface instead of resuming the old seam-lift lane.
+
 ## 2026-03-28 122
 
 - Item: Lift the standalone section-surface route handoff one level higher above `frontend/src/components/Section/Container/StandaloneSectionSurfaceBoundary.tsx`.
@@ -11587,3 +11613,50 @@ Record:
       - no extra chat chrome needed normalization on either page during the CDP check
 - Next action:
   - Resume normalized read-only `main`-oracle parity verification on `All Settings`, using the canonical overview-layout normalization first and then identifying the next real renderer/canvas drift instead of reopening workspace-state contamination.
+
+## 2026-03-31 352
+
+- Item: Retry the first real `main`-oracle live-Pixi renderer-drift slice after the allowed non-main lifecycle recovery.
+- Status: `blocked`
+- Details:
+  - Continued directly from item `351` and did not reopen another harness-only or seam-lift lane.
+  - Intended subtask:
+    - use a fresh-context Chrome DevTools MCP verifier on the current worktree baseline, worktree live Pixi canary, and read-only `main` reference after symmetric normalization
+    - identify the first concrete visible live-Pixi-vs-`main` renderer drift and fix only that bounded production issue
+  - The initial fresh-context CDP sub-agent could not connect to the advertised worktree DevTools runtime:
+    - `http://127.0.0.1:9265/json/version`
+    - error: `fetch failed`
+  - Per the non-main recovery rule, performed the one bounded local lifecycle recovery:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 ./aireset.sh`
+  - Refreshed runtime values after recovery:
+    - worktree frontend: `http://127.0.0.1:3044/`
+    - worktree backend: `http://127.0.0.1:8043`
+    - worktree Chrome DevTools: `9265`
+    - worktree bootstrap: `http://127.0.0.1:8043/__setta__/bootstrap#token=...`
+    - read-only `main` frontend: `http://127.0.0.1:3087/`
+    - read-only `main` backend: `http://127.0.0.1:8087`
+    - read-only `main` Chrome DevTools: `9309`
+  - After that recovery, the retried visual verification still could not run:
+    - a second fresh-context CDP sub-agent did not complete the requested comparison
+    - a direct Chrome DevTools MCP health check in the parent session still failed to fetch the worktree browser websocket URL from `http://127.0.0.1:9265/json/version`
+  - No production frontend/backend code changed in this iteration because the required CDP visual gate is still unavailable after the allowed recovery attempt.
+- Verification:
+  - Worktree lifecycle recovery:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 ./aireset.sh`
+    - result: passed; worktree app restarted on `3044` / `8043`
+  - Runtime refresh:
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .`
+    - result: passed
+    - `pnpm -C frontend cdp-port`
+    - result: passed (`9265`)
+    - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+    - result: passed
+    - `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port`
+    - result: passed (`9309`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent before recovery: could not connect to `127.0.0.1:9265`
+    - fresh sub-agent after recovery: did not reach a completed comparison
+    - direct MCP health check after recovery: failed to fetch `http://127.0.0.1:9265/json/version`
+    - result: blocked
+- Next action:
+  - Retry the same normalized `main`-oracle live-Pixi renderer-drift slice on the next fresh Ralph iteration after the outer-loop worktree lifecycle bootstrap; do not make renderer edits until Chrome DevTools MCP can attach again.

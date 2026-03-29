@@ -132,11 +132,15 @@ describe("getLiveDictAreaPixiAvailableCanvasHeight", () => {
 });
 
 describe("getLiveDictAreaPixiClippingContainer", () => {
-  it("prefers the live dict-area render shell over a taller outer section ancestor", () => {
+  it("prefers the dedicated Pixi clipping container over the outer render shell", () => {
     const section = {};
+    const clippingContainer = {};
     const renderShell = {};
     const sceneRoot = {
       closest: vi.fn((selector: string) => {
+        if (selector === "[data-live-dict-area-pixi-clipping-container]") {
+          return clippingContainer;
+        }
         if (selector === "[data-live-dict-area-render-mode]") {
           return renderShell;
         }
@@ -150,7 +154,7 @@ describe("getLiveDictAreaPixiClippingContainer", () => {
 
     expect(
       getLiveDictAreaPixiClippingContainer(sceneRoot as unknown as HTMLElement),
-    ).toBe(renderShell);
+    ).toBe(clippingContainer);
   });
 
   it("falls back to the nearest section or parent when the render shell marker is unavailable", () => {
