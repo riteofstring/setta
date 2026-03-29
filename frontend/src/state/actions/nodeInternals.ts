@@ -51,7 +51,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   const viewportNode = domNode?.querySelector(".react-flow__viewport");
 
   if (!viewportNode) {
-    return;
+    return false;
   }
 
   const newNodes = getNewNodes();
@@ -87,7 +87,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
   const miscState = useMisc.getState();
   // don't do fitView until all code areas are done rendering
   if (miscState.numInitializedCodeAreas !== miscState.numDisplayedCodeAreas) {
-    return;
+    return false;
   }
 
   const nextFitViewOnInitDone =
@@ -100,6 +100,7 @@ export function updateNodeDimensions(updates: NodeDimensionsUpdate) {
       }));
 
   useReactFlow.setState({ fitViewOnInitDone: nextFitViewOnInitDone });
+  return !fitViewOnInit || nextFitViewOnInitDone;
 }
 
 export function updateNodePositions(nodeDragItems: Array<NodeDragItem>) {
