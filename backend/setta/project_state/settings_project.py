@@ -464,6 +464,7 @@ def _create_settings_view_modes(
     section_name_to_id: dict[str, ID],
     section_names: list[str],
     top_level_sections: dict[ID, TopLevelSectionLayout],
+    existing_view_modes_by_name: dict[str, ViewModeConfig] | None = None,
 ) -> list[ViewModeConfig]:
     all_sections = list(section_names)
     view_mode_definitions = [
@@ -486,6 +487,9 @@ def _create_settings_view_modes(
             top_level_sections,
             ordered_section_names,
         )
+        existing_view_mode = None
+        if existing_view_modes_by_name is not None:
+            existing_view_mode = existing_view_modes_by_name.get(name)
         view_modes.append(
             ViewModeConfig(
                 name=name,
@@ -493,8 +497,14 @@ def _create_settings_view_modes(
                 isTab=True,
                 visibilityBySectionId=visibility_by_section_id,
                 topLevelSections=view_layout,
-                viewport=None,
-                viewportInitialized=False,
+                viewport=copy.deepcopy(
+                    existing_view_mode.viewport if existing_view_mode else None
+                ),
+                viewportInitialized=(
+                    existing_view_mode.viewportInitialized
+                    if existing_view_mode is not None
+                    else False
+                ),
             )
         )
     return view_modes
@@ -593,6 +603,7 @@ def ensure_settings_view_modes(project_state: ProjectStateSingleConfig) -> bool:
         section_name_to_id,
         section_names,
         base_layout,
+        existing_view_modes_by_name=view_modes_by_name,
     )
     active_name = None
     active_id = project_state.projectConfig.activeViewModeId

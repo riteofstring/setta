@@ -19,6 +19,7 @@ from setta.types.helpers_lvl1 import (
     get_curr_effective_section_impl_with_type_guard,
     get_variant_base_and_effective_code_obj_impl_with_type_guard,
 )
+from setta.types.project_config import Viewport
 from setta.types.section_impls import DictSectionImpl
 
 
@@ -180,6 +181,53 @@ def test_settings_view_modes_reset_when_view_layout_missing_visible_sections():
         for view_mode in project_state.projectConfig.viewModes.values()
     }
     assert missing_id in refreshed_view_modes["Param Defaults"].topLevelSections
+
+
+def test_settings_view_modes_reset_preserves_matching_viewport_state():
+    project_state = create_settings_project_state(Path("/tmp/settings.json"))
+    view_modes = {
+        view_mode.name: view_mode
+        for view_mode in project_state.projectConfig.viewModes.values()
+    }
+    all_settings_view = view_modes["All Settings"]
+    core_view = view_modes["Core"]
+    all_settings_view.viewport = Viewport(x=381.59, y=160.83, zoom=0.5318596928)
+    all_settings_view.viewportInitialized = True
+    core_view.viewport = Viewport(x=25.0, y=-10.0, zoom=0.75)
+    core_view.viewportInitialized = True
+    project_state.projectConfig.activeViewModeId = all_settings_view.id
+    project_state.projectConfig.viewport = all_settings_view.viewport.model_copy(
+        deep=True
+    )
+    project_state.projectConfig.viewportInitialized = True
+
+    project_state.projectConfig.topLevelSections = {}
+
+    did_reset = ensure_settings_view_modes(project_state)
+
+    assert did_reset is True
+    refreshed_view_modes = {
+        view_mode.name: view_mode
+        for view_mode in project_state.projectConfig.viewModes.values()
+    }
+    refreshed_all_settings = refreshed_view_modes["All Settings"]
+    refreshed_core = refreshed_view_modes["Core"]
+
+    assert project_state.projectConfig.activeViewModeId == refreshed_all_settings.id
+    assert project_state.projectConfig.viewport == Viewport(
+        x=381.59,
+        y=160.83,
+        zoom=0.5318596928,
+    )
+    assert project_state.projectConfig.viewportInitialized is True
+    assert refreshed_all_settings.viewport == Viewport(
+        x=381.59,
+        y=160.83,
+        zoom=0.5318596928,
+    )
+    assert refreshed_all_settings.viewportInitialized is True
+    assert refreshed_core.viewport == Viewport(x=25.0, y=-10.0, zoom=0.75)
+    assert refreshed_core.viewportInitialized is True
 
 
 def test_settings_view_modes_reset_when_top_level_missing_sections():

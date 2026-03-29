@@ -10900,3 +10900,33 @@ Record:
     - result: passed; the project chat window nodes disappeared and the settings surface stayed visible and healthy
 - Next action:
   - Resume the normalized `main`-oracle parity investigation on `All Settings`; the remaining visible drift after symmetric normalization is still baseline-vs-`main`, so the next real frontier is the DOM dict-area scale/layout mismatch rather than more workspace-chrome churn.
+
+## 2026-03-30 332
+
+- Item: Preserve settings view-mode viewport state when the backend repairs/regenerates settings view modes.
+- Status: `done`
+- Details:
+  - Pivoted away from the completed `renderDictArea` seam-lift lane after confirming the seam now reaches `frontend/src/App.tsx`, which is the first real implementation-selection boundary. Further upward forwarding would have been churn.
+  - Traced the current live Pixi canary parity miss to a backend state repair bug instead of another renderer boundary issue:
+    - `backend/setta/project_state/settings_project.py`
+    - `ensure_settings_view_modes()` rebuilt the settings view modes with fresh `viewport=None` / `viewportInitialized=False` values
+    - that discarded saved camera state for named settings tabs, including `"All Settings"`, whenever the settings project view modes were regenerated
+  - Fixed the repair path by preserving existing view-mode viewport state by stable view-mode name during regeneration:
+    - `_create_settings_view_modes(...)` now accepts the existing name-indexed view-mode map
+    - regenerated view modes deep-copy the previous `viewport` and retain `viewportInitialized` when a matching name already exists
+    - `ensure_settings_view_modes()` passes the pre-reset view-mode map into that regeneration step before reassigning the rebuilt modes
+  - Added focused backend regression coverage that proves a reset keeps both the active `"All Settings"` viewport and another named view-mode viewport intact:
+    - `tests/project_state/test_settings_project_view_modes.py`
+  - Also probed the current Playwright parity spec while narrowing the bug:
+    - the backend viewport-loss bug is real and now fixed
+    - the broader `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` file still has an ordering-dependent setup issue when earlier zoom tests run first
+    - I reverted those exploratory harness edits so this commit stays on the verified backend slice only
+- Verification:
+  - Backend pytest:
+    - `source activate.sh && ./scripts/run_backend_tests.sh tests/project_state/test_settings_project_view_modes.py`
+    - result: passed (`9 passed`)
+  - Frontend unit guardrail:
+    - `source activate.sh && pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts --testNamePattern "fits view when active view mode changes with no viewport|requests node dimension updates when switching view modes without a viewport"`
+    - result: passed (`2 passed`)
+- Next action:
+  - Return to the Playwright canary parity slice and isolate the remaining suite-ordering setup leak in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`; the next useful frontier is stabilizing that precondition, not another seam lift.
