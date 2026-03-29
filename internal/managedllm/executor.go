@@ -119,20 +119,35 @@ func (e *Executor) Validate(request agentruns.ExecutionRequest) error {
 }
 
 func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (preparedExecution, error) {
-	provider, err := resolveManagedProvider(request)
+	provider, err := validatePreparedExecutionRequest(request)
 	if err != nil {
 		return preparedExecution{}, err
 	}
+	prepared, err := e.prepareExecutionBase(provider, request)
+	if err != nil {
+		return preparedExecution{}, err
+	}
+	return e.attachPreparedExecutionProvider(prepared, request)
+}
+
+func validatePreparedExecutionRequest(request agentruns.ExecutionRequest) (string, error) {
+	provider, err := resolveManagedProvider(request)
+	if err != nil {
+		return "", err
+	}
 	if strings.TrimSpace(request.LLMConfig.Model) == "" {
-		return preparedExecution{}, ErrModelRequired
+		return "", ErrModelRequired
 	}
 	if err := validateProviderConfig(request); err != nil {
-		return preparedExecution{}, err
+		return "", err
 	}
 	if err := validateReasoningRequest(request); err != nil {
-		return preparedExecution{}, err
+		return "", err
 	}
+	return provider, nil
+}
 
+func (e *Executor) prepareExecutionBase(provider string, request agentruns.ExecutionRequest) (preparedExecution, error) {
 	transcript, executionTranscript, providerMessages, err := e.buildMessages(provider, request)
 	if err != nil {
 		return preparedExecution{}, err
@@ -145,8 +160,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 	if err != nil {
 		return preparedExecution{}, err
 	}
-
-	prepared := preparedExecution{
+	return preparedExecution{
 		provider:             provider,
 		projectConfigID:      optionalStringPointer(request.ProjectConfigID),
 		sectionID:            cloneStringPointer(request.SectionID),
@@ -162,8 +176,14 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		availableTools:       availableTools,
 		toolAllowlist:        allowlist,
 		temporaryToCanonical: temporaryToCanonical,
-	}
-	switch provider {
+	}, nil
+}
+
+func (e *Executor) attachPreparedExecutionProvider(
+	prepared preparedExecution,
+	request agentruns.ExecutionRequest,
+) (preparedExecution, error) {
+	switch prepared.provider {
 	case openAIProvider:
 		client, clientErr := buildOpenAIClient(request, e.httpClient)
 		if clientErr != nil {
@@ -194,7 +214,7 @@ func (e *Executor) prepareExecution(request agentruns.ExecutionRequest) (prepare
 		}
 		prepared.geminiClient = client
 	default:
-		return preparedExecution{}, fmt.Errorf("%w: %q", ErrProviderUnsupported, provider)
+		return preparedExecution{}, fmt.Errorf("%w: %q", ErrProviderUnsupported, prepared.provider)
 	}
 	return prepared, nil
 }
