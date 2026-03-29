@@ -82,7 +82,7 @@ func (s *Service) SyncConfigs(configs map[string]ConfigInputs) error {
 	if err != nil {
 		return err
 	}
-	s.lastSnapshot = snapshot
+	s.lastSnapshot = retainPreviouslyTrackedFiles(s.lastSnapshot, snapshot)
 	return nil
 }
 
@@ -193,4 +193,18 @@ func (s *Service) reportError(err error) {
 		return
 	}
 	_ = fmt.Errorf("watchcode: %w", err)
+}
+
+func retainPreviouslyTrackedFiles(
+	previous TrackedFileSnapshot,
+	current TrackedFileSnapshot,
+) TrackedFileSnapshot {
+	retained := make(map[string]TrackedFile, len(previous.Files))
+	for path, file := range previous.Files {
+		if _, ok := current.Files[path]; !ok {
+			continue
+		}
+		retained[path] = file
+	}
+	return TrackedFileSnapshot{Files: retained}
 }

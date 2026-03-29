@@ -9,10 +9,12 @@ import (
 	"time"
 )
 
-func TestServiceSyncConfigsBaselinesExistingFiles(t *testing.T) {
+func TestServiceSyncConfigsPreservesFirstScanForNewlyTrackedExistingFiles(t *testing.T) {
 	t.Parallel()
 
-	// Syncing configs should seed the current snapshot so existing files do not emit creation callbacks.
+	// Project state owns watch-code baseline suppression. When a new config starts
+	// tracking an already-existing file, the watcher still needs to emit the first
+	// scan so project state can decide whether it is baseline-only or a real update.
 	workspaceRoot := t.TempDir()
 	watchDir := filepath.Join(workspaceRoot, "pkg")
 	watchFile := filepath.Join(watchDir, "existing.py")
@@ -50,10 +52,13 @@ func TestServiceSyncConfigsBaselinesExistingFiles(t *testing.T) {
 		t.Fatalf("sync configs: %v", err)
 	}
 
-	select {
-	case update := <-updateCh:
-		t.Fatalf("expected no baseline update callbacks, got %#v", update)
-	case <-time.After(120 * time.Millisecond):
+	update := waitForMatchingFileUpdate(t, updateCh, nil, func(update FileUpdate) bool {
+		return update.ConfigID == "project-alpha" &&
+			update.Path == watchFile &&
+			update.Raw == "print('existing')\n"
+	})
+	if update.BaselineOnly {
+		t.Fatalf("expected first tracked scan to stay non-baseline at watcher layer, got %#v", update)
 	}
 }
 
@@ -196,6 +201,15 @@ func TestServicePollsMoveAcrossConfigs(t *testing.T) {
 		},
 	}); err != nil {
 		t.Fatalf("sync configs: %v", err)
+	}
+	initialSourceUpdate := waitForMatchingFileUpdate(t, updateCh, errCh, func(update FileUpdate) bool {
+		return update.ConfigID == "project-alpha" &&
+			update.Path == sourcePath &&
+			update.Raw == "print('move')\n" &&
+			update.MovedFrom == ""
+	})
+	if initialSourceUpdate.BaselineOnly {
+		t.Fatalf("expected initial tracked source scan to stay non-baseline, got %#v", initialSourceUpdate)
 	}
 
 	if err := os.Rename(sourcePath, destPath); err != nil {

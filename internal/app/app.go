@@ -675,7 +675,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 				WorkspaceRoot: cfg.Paths.WorkspaceRoot,
 				OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {
 					signatureObserver := newWatchCodeSignatureObserver(lspSignature)
-					snapshot, _, err := projectStates.Main().ApplyWatchCodeFileUpdate(
+					snapshot, didUpdate, err := projectStates.Main().ApplyWatchCodeFileUpdate(
 						ctx,
 						update.ConfigID,
 						update.Path,
@@ -693,10 +693,21 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 							return err
 						}
 					}
+					if didUpdate {
+						if err := broadcastFrontendProjectStateUpdate(
+							ctx,
+							projectStates.Main(),
+							websocketHub,
+							snapshot,
+							update.ConfigID,
+						); err != nil {
+							return err
+						}
+					}
 					return nil
 				},
 				OnFileDelete: func(ctx context.Context, request watchcode.DeleteRequest) error {
-					snapshot, _, err := projectStates.Main().ApplyWatchCodeFileDelete(
+					snapshot, didUpdate, err := projectStates.Main().ApplyWatchCodeFileDelete(
 						ctx,
 						request.ConfigID,
 						request.Path,
@@ -706,6 +717,17 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 						return err
 					}
 					watchCodeWarnings.ReconcileDocument(snapshot.Document)
+					if didUpdate {
+						if err := broadcastFrontendProjectStateUpdate(
+							ctx,
+							projectStates.Main(),
+							websocketHub,
+							snapshot,
+							request.ConfigID,
+						); err != nil {
+							return err
+						}
+					}
 					return nil
 				},
 				OnError: func(err error) {

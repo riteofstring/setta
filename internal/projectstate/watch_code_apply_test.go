@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/watchcode"
@@ -226,6 +227,13 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 	if callableID == "" {
 		t.Fatalf("expected moved section callable binding, got %#v", sectionPayload)
 	}
+	size, ok := sectionPayload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected created watch-code callable size object, got %#v", sectionPayload["size"])
+	}
+	if size["width"] != 250.0 || size["height"] != 150.0 {
+		t.Fatalf("expected created watch-code callable default size {250 150}, got %#v", size)
+	}
 	if got := destProject.CodeObjs[callableID].Name; got != "moved" {
 		t.Fatalf("expected moved callable object name moved, got %q", got)
 	}
@@ -238,6 +246,98 @@ func TestRuntimeApplyWatchCodeFileUpdateMoveAcrossConfigsBackfillsCallableSectio
 	}
 	if target.GenCodePrefix != "from dest.moved import moved\n" {
 		t.Fatalf("expected destination import prefix to be updated, got %q", target.GenCodePrefix)
+	}
+}
+
+func TestRuntimeApplyWatchCodeFileUpdateReconcilesGeneratedPythonSectionsWhenConfigured(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
+	defaultWindowing := DefaultProjectChatWindowingState()
+	project := Project{
+		ID:               "project-alpha",
+		Name:             "Alpha",
+		WatchCodeEnabled: true,
+		WatchCodeFiles:   []string{"pkg/watched.py"},
+		CodegenTargets: []ProjectCodegenTarget{
+			{
+				Language: string(CodeLanguagePython),
+				Payload:  json.RawMessage(`{"language":"python"}`),
+			},
+		},
+		ProjectChatWindowing: &defaultWindowing,
+	}
+
+	structuralReconciler := testRuntimeStructuralMutationPythonGeneratedSectionReconciler()
+	runtime, err := OpenOverlayRuntimeWithOptions(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": project,
+		},
+	}, RuntimeOptions{
+		PythonCodegenSectionReconciler: PythonCodegenSectionReconcilerFunc(func(ctx context.Context, project *Project) error {
+			if err := structuralReconciler.ReconcileProjectPythonGeneratedSections(ctx, project); err != nil {
+				return err
+			}
+			if project == nil {
+				return ErrProjectNotFound
+			}
+			target, ok, err := project.PythonCodegenTarget()
+			if err != nil {
+				return err
+			}
+			if !ok {
+				return nil
+			}
+			payload, err := marshalProjectObject(map[string]any{
+				"id":   GeneratedPythonCodeImplID,
+				"type": "GenPythonCode",
+				"code": target.GenCodePrefix,
+			})
+			if err != nil {
+				return err
+			}
+			impl := project.SectionImpls[GeneratedPythonCodeImplID]
+			impl.Payload = payload
+			project.SectionImpls[GeneratedPythonCodeImplID] = impl
+			return nil
+		}),
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime with generated reconciler: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		sourcePath,
+		"def watched(value):\n    return value\n",
+		false,
+		"",
+		workspaceRoot,
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("apply watch code file update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected watch code update to mutate project state")
+	}
+
+	project = snapshot.Document.Projects["project-alpha"]
+	impl, ok := project.SectionImpls[GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl after watch code update, got %#v", project.SectionImpls)
+	}
+	if !strings.Contains(string(impl.Payload), `from pkg.watched import watched`) {
+		t.Fatalf("expected generated python payload to include watch-code import, got %q", string(impl.Payload))
 	}
 }
 

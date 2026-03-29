@@ -87,7 +87,13 @@ func (r *Runtime) ApplyWatchCodeFileUpdate(
 
 	return r.mutateAndSaveIfUpdated(ctx, func(document Document) (Document, bool, error) {
 		didUpdate, err := document.ApplyWatchCodeFileUpdate(ctx, projectID, sourcePath, raw, baselineOnly, movedFrom, workspaceRoot, resolver)
-		return document, didUpdate, err
+		if err != nil || !didUpdate || baselineOnly {
+			return document, didUpdate, err
+		}
+		if err := r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(ctx, &document, projectID); err != nil {
+			return document, didUpdate, err
+		}
+		return document, didUpdate, nil
 	})
 }
 
@@ -103,7 +109,13 @@ func (r *Runtime) ApplyWatchCodeFileDelete(
 
 	return r.mutateAndSaveIfUpdated(ctx, func(document Document) (Document, bool, error) {
 		didUpdate, err := document.ApplyWatchCodeFileDelete(projectID, sourcePath, workspaceRoot)
-		return document, didUpdate, err
+		if err != nil || !didUpdate {
+			return document, didUpdate, err
+		}
+		if err := r.reconcileProjectPythonGeneratedSectionsAfterProjectMutation(ctx, &document, projectID); err != nil {
+			return document, didUpdate, err
+		}
+		return document, didUpdate, nil
 	})
 }
 

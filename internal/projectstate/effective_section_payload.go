@@ -99,7 +99,7 @@ func sectionImplPayloadDefaults(payload map[string]any, impl SectionImpl) map[st
 		sectionType = fallbackSectionType(impl)
 	}
 
-	defaults := map[string]any{}
+	defaults := createdBaseSectionDefaults(sectionType)
 	switch sectionType {
 	case "Callable", "Dict", "GlobalVariables":
 		defaults["codeObjVariantMap"] = map[string]any{}

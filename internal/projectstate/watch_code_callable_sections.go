@@ -742,12 +742,13 @@ func (p *Project) createWatchCodeCallableSection() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	payload, err := marshalProjectObject(map[string]any{
-		"id":                implID,
-		"type":              "Callable",
-		"callable":          nil,
-		"codeObjVariantMap": map[string]any{},
-	})
+	payload, err := buildCreatedSectionPayload(
+		implID,
+		"Callable",
+		createdCallableSectionDefaults(),
+		StructuralMutationSettings{},
+		nil,
+	)
 	if err != nil {
 		return "", err
 	}

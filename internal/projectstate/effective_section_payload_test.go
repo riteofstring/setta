@@ -251,6 +251,13 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	if got := callablePayload["hideParams"]; got != false {
 		t.Fatalf("expected callable hideParams false, got %#v", got)
 	}
+	callableSize, ok := callablePayload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected callable size object, got %#v", callablePayload["size"])
+	}
+	if callableSize["width"] != 250.0 || callableSize["height"] != 150.0 {
+		t.Fatalf("expected callable default size {250 150}, got %#v", callableSize)
+	}
 
 	dictPayload, err := effectiveSectionPayload(project, "dict-section", "dict-variant")
 	if err != nil {
@@ -290,6 +297,13 @@ func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing
 	groupPayload, err := effectiveSectionPayload(project, "group-section", "group-variant")
 	if err != nil {
 		t.Fatalf("effective group payload: %v", err)
+	}
+	groupSize, ok := groupPayload["size"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected group size object, got %#v", groupPayload["size"])
+	}
+	if groupSize["width"] != 250.0 || groupSize["height"] != 150.0 {
+		t.Fatalf("expected group default size {250 150}, got %#v", groupSize)
 	}
 	if children, ok := groupPayload["children"].([]any); !ok || len(children) != 0 {
 		t.Fatalf("expected group children empty array, got %#v", groupPayload["children"])

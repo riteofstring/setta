@@ -731,6 +731,11 @@ func TestSingleConfigByProjectIDMaterializesLegacySectionImplDefaults(t *testing
 	if got := callablePayload["hideParams"]; got != false {
 		t.Fatalf("expected callable hideParams false, got %#v", got)
 	}
+	if size, ok := callablePayload["size"].(map[string]any); !ok {
+		t.Fatalf("expected callable size object, got %#v", callablePayload["size"])
+	} else if size["width"] != 250.0 || size["height"] != 150.0 {
+		t.Fatalf("expected callable default size {250 150}, got %#v", size)
+	}
 	if params, ok := callablePayload["pinnedParams"].([]any); !ok || len(params) != 0 {
 		t.Fatalf("expected callable pinnedParams empty array, got %#v", callablePayload["pinnedParams"])
 	}

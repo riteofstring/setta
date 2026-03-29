@@ -2224,7 +2224,7 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 		return ok && entry.SignatureHash != initialHash
 	})
 
-	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNotification, 4)
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeNotification, 6)
 	var notification realtime.NotificationContent
 	if err := json.Unmarshal(envelope.Content, &notification); err != nil {
 		t.Fatalf("decode notification content: %v", err)
@@ -2258,6 +2258,129 @@ func TestAppBroadcastsDedupedWatchCodeSignatureWarnings(t *testing.T) {
 	})
 
 	assertNoAppRouteEnvelopeOfType(t, conn, realtime.MessageTypeNotification, 750*time.Millisecond)
+}
+
+func TestAppWatchCodeFileUpdatesBroadcastProjectStateUpdate(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	watchDir := filepath.Join(cfg.Paths.WorkspaceRoot, "pkg")
+	if err := os.MkdirAll(watchDir, 0o755); err != nil {
+		t.Fatalf("mkdir watch dir: %v", err)
+	}
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+
+	if _, err := app.ProjectStates().Main().Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		document.DefaultProjectID = "project-alpha"
+		document.Projects["project-alpha"] = projectstate.Project{
+			ID:               "project-alpha",
+			Name:             "Alpha",
+			WatchCodeEnabled: true,
+			WatchCodeFolders: []projectstate.WatchCodeFolder{
+				{Path: "pkg", Recursive: false},
+			},
+			CodegenTargets: []projectstate.ProjectCodegenTarget{
+				{
+					Language: string(projectstate.CodeLanguagePython),
+					Payload:  json.RawMessage(`{"language":"python"}`),
+				},
+			},
+		}
+		return document, nil
+	}); err != nil {
+		t.Fatalf("seed watch code project: %v", err)
+	}
+	if _, err := app.ProjectStates().Main().Save(context.Background()); err != nil {
+		t.Fatalf("save watch code project: %v", err)
+	}
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	token, _, err := app.Auth().MintAuthCookie(time.Now().UTC())
+	if err != nil {
+		t.Fatalf("mint auth cookie: %v", err)
+	}
+	cookieName, err := app.Auth().CookieName("abc123")
+	if err != nil {
+		t.Fatalf("cookie name: %v", err)
+	}
+
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{cookieName + "=" + token},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	watchFile := filepath.Join(watchDir, "created.py")
+	if err := os.WriteFile(watchFile, []byte("def created(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watched file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		entry, ok := project.WatchCodeRegistry["pkg.created.created:function"]
+		return ok && len(entry.SectionIDs) == 1 && entry.SectionsCount == 1
+	})
+
+	createEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
+	var createContent realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(createEnvelope.Content, &createContent); err != nil {
+		t.Fatalf("decode create project state update content: %v", err)
+	}
+	if createContent.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha create state update, got %q", createContent.ProjectState.ProjectConfig.ID)
+	}
+	createEntry, ok := createContent.ProjectState.ProjectConfig.WatchCodeRegistry["pkg.created.created:function"]
+	if !ok {
+		t.Fatalf("expected watch code registry entry in websocket update, got %#v", createContent.ProjectState.ProjectConfig.WatchCodeRegistry)
+	}
+	if len(createEntry.SectionIDs) != 1 {
+		t.Fatalf("expected one created section id in websocket update, got %#v", createEntry)
+	}
+	createdSectionID := createEntry.SectionIDs[0]
+	if _, ok := createContent.ProjectState.Sections[createdSectionID]; !ok {
+		t.Fatalf("expected created section %q in websocket update, got %#v", createdSectionID, createContent.ProjectState.Sections)
+	}
+
+	if err := os.Remove(watchFile); err != nil {
+		t.Fatalf("remove watched file: %v", err)
+	}
+
+	waitForAppWatchCodeProject(t, app, "project-alpha", func(project projectstate.Project) bool {
+		return len(project.WatchCodeRegistry) == 0
+	})
+
+	deleteEnvelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
+	var deleteContent realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(deleteEnvelope.Content, &deleteContent); err != nil {
+		t.Fatalf("decode delete project state update content: %v", err)
+	}
+	if deleteContent.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha delete state update, got %q", deleteContent.ProjectState.ProjectConfig.ID)
+	}
+	if len(deleteContent.ProjectState.ProjectConfig.WatchCodeRegistry) != 0 {
+		t.Fatalf("expected empty watch code registry after delete, got %#v", deleteContent.ProjectState.ProjectConfig.WatchCodeRegistry)
+	}
+	if _, ok := deleteContent.ProjectState.Sections[createdSectionID]; ok {
+		t.Fatalf("expected deleted watch code section %q to be absent, got %#v", createdSectionID, deleteContent.ProjectState.Sections[createdSectionID])
+	}
 }
 
 func TestAppSetSectionNameRouteBroadcastsRenamePromptAndProjectStateUpdate(t *testing.T) {
