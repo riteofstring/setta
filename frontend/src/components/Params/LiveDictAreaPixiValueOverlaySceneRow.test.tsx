@@ -138,6 +138,13 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       ),
     ).not.toBeNull();
     expect(
+      container
+        .querySelector(
+          "article[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='gridColor']",
+        )
+        ?.getAttribute("data-live-dict-area-editor-overlay-row-surface"),
+    ).toBe("full-row");
+    expect(
       container.querySelector(
         "article[data-param-row='true'][data-param-render-mode='full']",
       ),
@@ -191,5 +198,61 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       paramInfoId: "kwargs",
       sectionId: "settings-section",
     });
+  });
+
+  it("keeps normal CodeMirror canary rows on a value-only editor surface", () => {
+    const target: LiveDictAreaPixiValueRowTarget = {
+      blockId: "unpinned",
+      editorKind: "codemirror",
+      handleColumnResizeStart: vi.fn(),
+      height: 22,
+      label: "Default Zoom Level",
+      listKey: "unpinned",
+      requiredParamIdsToPaths: {
+        defaultZoomLevel: ["defaultZoomLevel"],
+      },
+      rowId: "defaultZoomLevel",
+      sectionId: "settings-section",
+      styleColor: null,
+      width: 280,
+      x: 0,
+      y: 0,
+    };
+    const rowState: LiveDictAreaPixiValueOverlayRowState = {
+      coreNameEditable: false,
+      description: "Live Pixi CodeMirror canary row",
+      errorMessage: "",
+      isFocusedSearchResult: false,
+      isSearchResult: false,
+      isSelected: false,
+      paramName: "Default Zoom Level",
+    };
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiValueOverlaySceneRow
+          hasSectionStyleTheme={false}
+          rowState={rowState}
+          target={target}
+        />,
+      );
+    });
+
+    expect(paramInputCalls).toHaveLength(1);
+    expect(paramInputCalls[0]).toMatchObject({
+      maybeErrorMessage: "",
+      paramInfoId: "defaultZoomLevel",
+      sectionId: "settings-section",
+    });
+    expect(paramNameInputCalls).toHaveLength(0);
+    expect(resizeHandleCalls).toEqual([]);
+    expect(
+      container
+        .querySelector(
+          "article[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='defaultZoomLevel']",
+        )
+        ?.getAttribute("data-live-dict-area-editor-overlay-row-surface"),
+    ).toBe("value-only");
+    expect(container.querySelector(".section-key")).toBeNull();
   });
 });

@@ -25,6 +25,7 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
   rowState,
   target,
 }: LiveDictAreaPixiValueOverlaySceneRowProps) {
+  const hasError = rowState.errorMessage.length > 0;
   const onAutoActivatedCodeMirrorReady =
     target.editorKind === "codemirror"
       ? () => {
@@ -34,6 +35,49 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
           });
         }
       : undefined;
+  const noopMouseHandler = () => {};
+  if (
+    shouldRenderMinimalCodeMirrorOverlayRow({
+      coreNameEditable: rowState.coreNameEditable,
+      editorKind: target.editorKind,
+      hasError,
+    })
+  ) {
+    const { className, style } = buildParamContainerLayout({
+      bg: "",
+      border: "",
+      isTopLevelWithPad: false,
+      paramHoverClassName: "",
+      variant: "leaf",
+    });
+
+    return (
+      <article
+        id={`ParamContainer-${target.sectionId}-${target.rowId}`}
+        className={className}
+        style={style}
+        data-live-dict-area-editor-overlay-row="true"
+        data-live-dict-area-editor-overlay-row-id={target.rowId}
+        data-live-dict-area-editor-overlay-row-surface="value-only"
+        data-live-dict-area-scene-row-depth={0}
+        data-live-dict-area-scene-row-kind="value"
+        data-param-row="true"
+        data-param-render-mode="full"
+        onMouseDownCapture={noopMouseHandler}
+        onClick={noopMouseHandler}
+        tabIndex={-1}
+        role={undefined}
+      >
+        <ParamInput
+          sectionId={target.sectionId}
+          paramInfoId={target.rowId}
+          maybeErrorMessage={rowState.errorMessage}
+          onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
+        />
+      </article>
+    );
+  }
+
   const viewModel = buildParamContainerViewModel({
     hasChildRows: false,
     hasSectionStyleTheme,
@@ -68,7 +112,6 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
     paramHoverClassName: viewModel.paramHoverClassName,
     variant: viewModel.variant,
   });
-  const noopMouseHandler = () => {};
 
   return (
     <article
@@ -77,6 +120,7 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
       style={style}
       data-live-dict-area-editor-overlay-row="true"
       data-live-dict-area-editor-overlay-row-id={target.rowId}
+      data-live-dict-area-editor-overlay-row-surface="full-row"
       data-live-dict-area-scene-row-depth={0}
       data-live-dict-area-scene-row-kind="value"
       data-param-row="true"
@@ -127,6 +171,18 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
       ) : null}
     </article>
   );
+}
+
+function shouldRenderMinimalCodeMirrorOverlayRow({
+  coreNameEditable,
+  editorKind,
+  hasError,
+}: {
+  coreNameEditable: boolean;
+  editorKind: LiveDictAreaPixiValueRowTarget["editorKind"];
+  hasError: boolean;
+}) {
+  return editorKind === "codemirror" && !coreNameEditable && !hasError;
 }
 
 function ValueOverlayErrorSection({

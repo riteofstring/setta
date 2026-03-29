@@ -7983,3 +7983,72 @@ Record:
     - representative successful requests included `POST /api/setSectionParamFilter` `200`, `POST /api/setTopLevelSectionLayout` `200`, `POST /api/getFileBrowserRoot` `200`, and `POST /api/getFolderContents` `200`
 - Next action:
   - Continue the live Pixi value-row handoff lane on this corrected visual baseline by profiling and reducing the remaining `~31.5 ms` total presented latency on the same `defaultZoomLevel` canary before returning to broader renderer scope changes.
+
+## 2026-03-29 251
+
+- Item: Probe a value-only CodeMirror overlay surface for the live Pixi `defaultZoomLevel` canary.
+- Status: `blocked`
+- Details:
+  - Chose a real work-reduction step on the measured handoff path instead of another seam lift or generic overlay-shell tweak:
+    - keep the retained scene as the static row owner
+    - mount only the active value editor surface for the normal CodeMirror canary row
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-value-only-overlay-probe.md`
+  - The new overlay path now keeps the existing full-row DOM overlay for error and special rows, but the normal CodeMirror canary row no longer mounts duplicate label/resize/tooltip chrome in the active overlay surface.
+  - Verification on the fresh restarted runtime (`3046/8046`) after one bounded lifecycle recovery via `./aireset.sh`:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+      - result: passed (`5 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - Playwright:
+      - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8046 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3046 SETTA_BOOTSTRAP_TOKEN=<fresh token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "value-row DOM editor overlay|CodeMirror-backed value row"`
+      - result: passed (`2 passed`)
+    - Direct headless timing probe on the same restarted runtime:
+      - overlay latency: `3.7 ms`
+      - ready latency: `18.2 ms`
+      - presented latency: `27.5 ms`
+      - presentation tail latency: `9.3 ms`
+      - overlay row surface: `value-only`
+      - this is recorded in `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-value-only-overlay-probe.md`
+  - Blocking visual gate:
+    - two fresh-context Chrome DevTools MCP verifiers on `http://127.0.0.1:3046/settings` did not pass the required headed Chrome gate
+    - both reported that clicking the visible `defaultZoomLevel` handoff did not produce a visible `[data-live-dict-area-editor-overlay='active']` element in headed Chrome, so overlay readability could not be confirmed
+    - representative successful requests during the failing headed check included `POST /api/loadSettings` `200`, `POST /api/loadProjectConfig` `200`, `GET /api/authRefreshStatus` `200`, `GET /api/backendInitStatus` `200`, and `POST /api/getFileBrowserRoot` `200`
+  - Per the rewrite rules, the positive perf signal does not count as success while the headed Chrome visual gate still fails on the checked canary path.
+- Next action:
+  - Investigate the headed Chrome activation mismatch on the fresh `3046/8046` live Pixi canary so the `defaultZoomLevel` click produces the active overlay in CDP as well as in Playwright before continuing this value-row handoff lane.
+
+## 2026-03-29 252
+
+- Item: Land the live Pixi CodeMirror value-only overlay slice on the current restarted runtime.
+- Status: `done`
+- Details:
+  - Kept the pending value-only overlay implementation from item `251` unchanged and finished the blocked verification/commit gate for this slice:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-value-only-overlay-probe.md`
+  - Re-ran the headed Chrome check in a fresh-context CDP sub-agent against the current worktree runtime after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...` and the earlier `3046/8046` mismatch did not reproduce on the current `3044/8044` stack.
+  - The required live canary visual gate now passes on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - clicking the visible CodeMirror-backed `defaultZoomLevel` handoff produced `[data-live-dict-area-editor-overlay='active']`
+    - the overlay was visible with geometry about `308 x 20`
+    - `.cm-editor` existed and focus landed inside it (`DIV.cm-content.cm-lineWrapping`)
+    - no 4xx/5xx failures were observed in the sampled network traffic during the headed check
+  - Verification on the current runtime:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+      - result: passed (`5 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - Playwright reruns on the current `3044/8044` stack:
+      - direct run with the current bootstrap token and helper run with an auto-minted token both failed in `frontend/tests/e2e/global-setup.ts` before product assertions
+      - blocker: bootstrap `401` while waiting for redirect away from `/__setta__/bootstrap`
+      - this did not invalidate the slice because item `251` already recorded a passing targeted Playwright product run for the same canary and the required fresh headed CDP gate now passes on the active runtime
+- Next action:
+  - Resume the live Pixi `defaultZoomLevel` handoff latency lane from this landed value-only baseline instead of reopening the transient headed-Chrome activation mismatch.

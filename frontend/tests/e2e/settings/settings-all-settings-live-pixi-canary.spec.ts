@@ -279,6 +279,11 @@ test("all settings canary can immediately activate a CodeMirror-backed value row
       editorKind: "codemirror",
       hasCodeMirrorEditor: true,
       overlayHeight: overlay.getBoundingClientRect().height,
+      overlayRowSurface:
+        overlay
+          .querySelector("[data-live-dict-area-editor-overlay-row='true']")
+          ?.getAttribute("data-live-dict-area-editor-overlay-row-surface") ??
+        null,
       overlayWidth: overlay.getBoundingClientRect().width,
     };
   }, activatedRowId);
@@ -289,6 +294,7 @@ test("all settings canary can immediately activate a CodeMirror-backed value row
   expect(codemirrorActivationResult?.editorKind).toBe("codemirror");
   expect(codemirrorActivationResult?.hasCodeMirrorEditor).toBe(true);
   expect(codemirrorActivationResult?.activeElementInsideCodeMirror).toBe(true);
+  expect(codemirrorActivationResult?.overlayRowSurface).toBe("value-only");
   expect(codemirrorActivationResult?.overlayWidth).toBeGreaterThan(120);
   expect(codemirrorActivationResult?.overlayHeight).toBeGreaterThan(16);
   expect(codemirrorActivationResult?.codeMirrorHeight).toBeGreaterThan(12);
