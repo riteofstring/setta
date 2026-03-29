@@ -5,8 +5,8 @@ import {
   deserializeChatAppGenerationByMessageId,
 } from "state/utils/chatAppGeneration";
 import { BaseChatMessageUnion } from "utils/generatedTypes";
-import { resolveHydratedToolCallArguments } from "./chatSectionAuthority";
 import { reconcileHydratedChatMessages } from "./chatMergeUtils";
+import { resolveHydratedToolCallArguments } from "./chatSectionAuthority";
 
 function getDefaultHydratedChatDetails(): ChatDetails {
   return {
@@ -39,6 +39,12 @@ export function applyHydratedChatDetailsToStore({
   useAIStore.setState((state) => {
     const existingDetails = state.chatDetails[chatId];
     const preserveWaitingForResponse = isChatStreamActive(chatId);
+    // Managed-chat hydration is backend-authoritative for message state.
+    // While a local stream is still active, preserve only the explicit UI
+    // overlays that the frontend owns: the active waiting flag and any
+    // in-flight streamed tool-call arguments. Same-id rows keep local
+    // createdAt so UI chronology remains stable, but speculative content does
+    // not win over backend payloads.
     const nextToolCallArguments = resolveHydratedToolCallArguments({
       backendToolCallArguments,
       localToolCallArguments: existingDetails?.toolCallArguments ?? {},
@@ -53,7 +59,9 @@ export function applyHydratedChatDetailsToStore({
     });
     const nextAppGenerationDetails = buildChatAppGenerationDetails(
       nextMessages,
-      deserializeChatAppGenerationByMessageId(serializedAppGenerationByMessageId),
+      deserializeChatAppGenerationByMessageId(
+        serializedAppGenerationByMessageId,
+      ),
     );
     return {
       chatDetails: {

@@ -40,6 +40,10 @@ function mergeHydratedChatSectionState(
   },
   preserveWaitingForResponse: boolean,
 ): ChatSectionState {
+  // Section chat state is a projection of backend-authored managed chat
+  // messages plus narrow local UI overlays. Hydration replaces message rows
+  // authoritatively and preserves only the section draft input plus
+  // stream-owned waiting/tool-call overlays while a local stream is active.
   const mergedMessages = reconcileHydratedChatMessages({
     backendMessages: incoming.messages ?? [],
     localMessages: currentState.messages ?? [],

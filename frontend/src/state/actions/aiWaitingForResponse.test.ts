@@ -156,11 +156,12 @@ describe("chat hydration waitingForResponse", () => {
     expect(details.waitingForResponse).toBe(true);
   });
 
-  it("preserves backend message order when local assistant arrives before hydration during an active stream", async () => {
+  it("keeps backend message order and backend-authored content during an active stream hydrate", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
           ...getDefaultChatDetails(),
+          waitingForResponse: true,
           messages: [
             {
               id: "assistant-1",
@@ -207,6 +208,7 @@ describe("chat hydration waitingForResponse", () => {
     await getLLMChat(chatId);
 
     const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
     const ids = details.messages.map((message) => message.id);
     expect(ids).toEqual(["user-1", "assistant-1"]);
 
@@ -216,7 +218,7 @@ describe("chat hydration waitingForResponse", () => {
     expect(assistant?.role).toBe(ChatRoleEnum.assistant);
     expect(assistant?.content?.[0]?.type).toBe("text");
     if (assistant?.content?.[0]?.type === "text") {
-      expect(assistant.content[0].text).toBe("Hello there streaming");
+      expect(assistant.content[0].text).toBe("Hello");
     }
   });
 
@@ -347,11 +349,12 @@ describe("chat hydration waitingForResponse", () => {
     ]);
   });
 
-  it("keeps local-only messages while stream is active during hydrate", async () => {
+  it("drops local-only messages while preserving the active waiting overlay during hydrate", async () => {
     useAIStore.setState({
       chatDetails: {
         [chatId]: {
           ...getDefaultChatDetails(),
+          waitingForResponse: true,
           messages: [
             {
               id: "assistant-local-only",
@@ -392,9 +395,9 @@ describe("chat hydration waitingForResponse", () => {
     await getLLMChat(chatId);
 
     const details = useAIStore.getState().chatDetails[chatId];
+    expect(details.waitingForResponse).toBe(true);
     expect(details.messages.map((message) => message.id)).toEqual([
       "assistant-remote",
-      "assistant-local-only",
     ]);
   });
 });
