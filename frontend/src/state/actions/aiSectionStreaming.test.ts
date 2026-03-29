@@ -532,8 +532,10 @@ describe("section chat streaming updates", () => {
     const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
     setCurrEffectiveSectionImplValue<"ChatSection">(backendState, sectionId, {
       messages: [userMessage],
-      waitingForResponse: true,
-      toolCallArguments: {},
+      inputText:
+        "Backend stale draft that should not replace the local draft input",
+      waitingForResponse: false,
+      toolCallArguments: { remote: "{}" },
     });
 
     processProjectStateUpdateFromBackend({
@@ -549,8 +551,62 @@ describe("section chat streaming updates", () => {
     );
     expect(impl.messages).toEqual([userMessage]);
     expect(impl.inputText).toBe("Draft preserved locally");
-    expect(impl.toolCallArguments).toEqual({ local: "{}" });
+    expect(impl.toolCallArguments).toEqual({
+      local: "{}",
+      remote: "{}",
+    });
     expect(impl.waitingForResponse).toBe(true);
+  });
+
+  it("keeps local managed draft input while letting backend state win once the stream is inactive", () => {
+    const backendMessage = {
+      id: "backend-msg",
+      role: ChatRoleEnum.assistant,
+      content: [createMessageTextContent({ text: "Authoritative backend" })],
+      attachments: [],
+      tool_calls: null,
+    };
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (impl && impl.type === SectionTypeEnum.Chat) {
+        impl.messages = [
+          {
+            id: "local-msg",
+            role: ChatRoleEnum.user,
+            content: [createMessageTextContent({ text: "Local speculative" })],
+            attachments: [],
+          },
+        ];
+        impl.inputText = "Draft";
+        impl.toolCallArguments = { local: "{}" };
+        impl.waitingForResponse = true;
+      }
+    });
+
+    const backendState = JSON.parse(JSON.stringify(useProjectState.getState()));
+    setCurrEffectiveSectionImplValue<"ChatSection">(backendState, sectionId, {
+      messages: [backendMessage],
+      inputText:
+        "Backend stale draft input that is longer than the local draft",
+      waitingForResponse: false,
+      toolCallArguments: { remote: "{}" },
+    });
+
+    processProjectStateUpdateFromBackend({
+      projectState: backendState,
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.messages).toEqual([backendMessage]);
+    expect(impl.inputText).toBe("Draft");
+    expect(impl.toolCallArguments).toEqual({ remote: "{}" });
+    expect(impl.waitingForResponse).toBe(false);
   });
 
   it.each(MANAGED_CHAT_STREAM_CONTRACT_CASES)(

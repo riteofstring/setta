@@ -178,20 +178,26 @@ function mergeStreamingChatSections(
     const currentToolArgs = currentChat.toolCallArguments ?? {};
     const incomingInputText = incomingChat.inputText ?? "";
     const currentInputText = currentChat.inputText ?? "";
+    const isManagedSection =
+      isManagedChatSection(projectState, sectionId) ||
+      isManagedChatSection(currentState, sectionId);
     const shouldPreserveStreaming = isSectionStreamActive(sectionId);
-    const nextInputText =
-      currentInputText.length > incomingInputText.length
+    const nextInputText = isManagedSection
+      ? currentInputText
+      : currentInputText.length > incomingInputText.length
         ? currentInputText
         : incomingInputText;
-    const nextWaitingForResponse = shouldPreserveStreaming
-      ? incomingChat.waitingForResponse || currentChat.waitingForResponse
-      : incomingChat.waitingForResponse;
-    const nextToolCallArguments = shouldPreserveStreaming
-      ? {
-          ...incomingToolArgs,
-          ...currentToolArgs,
-        }
-      : incomingToolArgs;
+    const nextWaitingForResponse =
+      isManagedSection && shouldPreserveStreaming
+        ? incomingChat.waitingForResponse || currentChat.waitingForResponse
+        : incomingChat.waitingForResponse;
+    const nextToolCallArguments =
+      isManagedSection && shouldPreserveStreaming
+        ? {
+            ...incomingToolArgs,
+            ...currentToolArgs,
+          }
+        : incomingToolArgs;
     if (
       nextInputText === incomingInputText &&
       nextWaitingForResponse === incomingChat.waitingForResponse &&
