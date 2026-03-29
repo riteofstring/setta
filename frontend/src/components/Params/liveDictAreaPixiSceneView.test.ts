@@ -18,6 +18,8 @@ import {
   LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY,
   LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH,
   LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
+  LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
+  resolveLiveDictAreaPixiOverviewEnabled,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
 } from "./liveDictAreaPixiSceneView";
 
@@ -213,20 +215,69 @@ describe("getLiveDictAreaPixiTextResolution", () => {
   });
 });
 
+describe("resolveLiveDictAreaPixiOverviewEnabled", () => {
+  it("defaults the low-zoom overview experiment off when no explicit opt-in is present", () => {
+    expect(
+      resolveLiveDictAreaPixiOverviewEnabled({
+        search: "",
+      }),
+    ).toBe(false);
+    expect(
+      resolveLiveDictAreaPixiOverviewEnabled({
+        search: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("enables the overview experiment only for the explicit query-param opt-in", () => {
+    expect(
+      resolveLiveDictAreaPixiOverviewEnabled({
+        search: `?${LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM}=enabled`,
+      }),
+    ).toBe(true);
+    expect(
+      resolveLiveDictAreaPixiOverviewEnabled({
+        search: `?${LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM}=disabled`,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("getLiveDictAreaPixiPresentationMode", () => {
-  it("switches the live Pixi scene into overview mode when rows would shrink below a readable on-screen height", () => {
-    expect(getLiveDictAreaPixiPresentationMode(0.12)).toBe("overview");
-    expect(getLiveDictAreaPixiPresentationMode(0.2)).toBe("overview");
+  it("keeps the detailed row rendering path by default while the overview experiment is disabled", () => {
+    expect(getLiveDictAreaPixiPresentationMode(0.12)).toBe("detail");
+    expect(getLiveDictAreaPixiPresentationMode(0.2)).toBe("detail");
+  });
+
+  it("preserves the low-zoom overview mode behind an explicit opt-in", () => {
+    expect(
+      getLiveDictAreaPixiPresentationMode(0.12, {
+        overviewEnabled: true,
+      }),
+    ).toBe("overview");
+    expect(
+      getLiveDictAreaPixiPresentationMode(0.2, {
+        overviewEnabled: true,
+      }),
+    ).toBe("overview");
   });
 
   it("keeps the detailed row rendering path once the viewport scale is large enough", () => {
-    expect(getLiveDictAreaPixiPresentationMode(0.3)).toBe("detail");
+    expect(
+      getLiveDictAreaPixiPresentationMode(0.3, {
+        overviewEnabled: true,
+      }),
+    ).toBe("detail");
     expect(getLiveDictAreaPixiPresentationMode(1)).toBe("detail");
   });
 
   it("falls back to detailed mode for invalid zoom values", () => {
     expect(getLiveDictAreaPixiPresentationMode(Number.NaN)).toBe("detail");
-    expect(getLiveDictAreaPixiPresentationMode(0)).toBe("detail");
+    expect(
+      getLiveDictAreaPixiPresentationMode(0, {
+        overviewEnabled: true,
+      }),
+    ).toBe("detail");
   });
 });
 

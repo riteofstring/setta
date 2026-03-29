@@ -11,6 +11,8 @@ export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
 export const LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH = 200;
 export const LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT =
   LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT;
+export const LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM =
+  "liveDictAreaPixiOverview";
 
 export type LiveDictAreaPixiPalette = {
   bodyText: string;
@@ -64,6 +66,7 @@ const LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET = {
   titleFontWeight: "700",
 } as const;
 const LIVE_DICT_AREA_PIXI_OVERVIEW_ROW_SCREEN_HEIGHT_THRESHOLD = 4.5;
+const LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_VALUE = "enabled";
 
 export type LiveDictAreaPixiTextStyleSet = {
   edgeLabelFontSize: number;
@@ -206,10 +209,33 @@ export function getLiveDictAreaPixiTextResolution(renderResolution: number) {
     : 1;
 }
 
+export function resolveLiveDictAreaPixiOverviewEnabled({
+  search,
+}: {
+  search: string | null | undefined;
+}) {
+  return (
+    new URLSearchParams(search ?? "").get(
+      LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
+    ) === LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_VALUE
+  );
+}
+
+export function readLiveDictAreaPixiOverviewEnabledFromWindow() {
+  if (typeof globalThis.window !== "object") {
+    return false;
+  }
+
+  return resolveLiveDictAreaPixiOverviewEnabled({
+    search: globalThis.location?.search ?? "",
+  });
+}
+
 export function getLiveDictAreaPixiPresentationMode(
   viewportZoom: number,
+  { overviewEnabled = false }: { overviewEnabled?: boolean } = {},
 ): LiveDictAreaPixiPresentationMode {
-  if (!Number.isFinite(viewportZoom) || viewportZoom <= 0) {
+  if (!overviewEnabled || !Number.isFinite(viewportZoom) || viewportZoom <= 0) {
     return "detail";
   }
 

@@ -1,5 +1,8 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import { LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT } from "../../../src/components/Params/liveDictAreaPixiSceneView";
+import {
+  LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
+  LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM,
+} from "../../../src/components/Params/liveDictAreaPixiSceneView";
 import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_OVERLAY_MEASURE_NAME,
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_PRESENTATION_TAIL_MEASURE_NAME,
@@ -84,6 +87,7 @@ async function openAllSettingsPage(
   page: Page,
   options?: {
     interactionMode?: "param-select";
+    overviewEnabled?: boolean;
     rendererMode?: string | null;
   },
 ) {
@@ -96,6 +100,9 @@ async function openAllSettingsPage(
       LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM,
       options.interactionMode,
     );
+  }
+  if (options?.overviewEnabled) {
+    url.searchParams.set(LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM, "enabled");
   }
   await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
@@ -112,10 +119,12 @@ async function openAllSettingsLivePixiCanary(
   page: Page,
   options?: {
     interactionMode?: "param-select";
+    overviewEnabled?: boolean;
   },
 ) {
   await openAllSettingsPage(page, {
     interactionMode: options?.interactionMode,
+    overviewEnabled: options?.overviewEnabled,
     rendererMode: LIVE_PIXI_MODE,
   });
 }
@@ -129,6 +138,72 @@ async function readViewportTransform(page: Page): Promise<ViewportTransform> {
     const { useReactFlow } = await import("/src/forks/xyflow/core/store");
     const [x, y, zoom] = useReactFlow.getState().transform;
     return { x, y, zoom };
+  });
+}
+
+async function zoomViewportOutToMin(page: Page): Promise<void> {
+  await page.waitForSelector(READY_SELECTOR);
+  await page.waitForSelector("[data-live-dict-area-scene='pixi']");
+
+  for (let attempt = 0; attempt < 24; attempt += 1) {
+    const clickResult = await page.evaluate(() => {
+      const zoomOutButton = Array.from(
+        document.querySelectorAll<HTMLButtonElement>("button"),
+      ).find((button) => button.getAttribute("aria-label") === "zoom out");
+
+      if (!zoomOutButton) {
+        return "missing";
+      }
+      if (zoomOutButton.disabled) {
+        return "done";
+      }
+
+      zoomOutButton.click();
+      return "clicked";
+    });
+
+    if (clickResult === "missing") {
+      throw new Error("Missing zoom out button.");
+    }
+    if (clickResult === "done") {
+      return;
+    }
+
+    await page.waitForTimeout(50);
+  }
+
+  throw new Error("Unable to reach the minimum viewport zoom.");
+}
+
+async function readScenePresentationModes(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-scene='pixi']",
+      ),
+    )
+      .filter((sceneRoot) => {
+        const rect = sceneRoot.getBoundingClientRect();
+        const rowCount = Number.parseInt(
+          sceneRoot.getAttribute("data-live-dict-area-scene-row-count") ?? "0",
+          10,
+        );
+
+        return (
+          rowCount > 0 &&
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.top < window.innerHeight
+        );
+      })
+      .map(
+        (sceneRoot) =>
+          sceneRoot.getAttribute(
+            "data-live-dict-area-scene-presentation-mode",
+          ) ?? "detail",
+      )
+      .slice(0, 6);
   });
 }
 
@@ -424,6 +499,36 @@ test("all settings canary rerenders the Pixi scene canvas when the viewport zoom
 
   expect(zoomedCanvasMetrics.cssWidth).toBeGreaterThan(0);
   expect(zoomedCanvasMetrics.pixelWidth).toBeGreaterThan(initialCanvasWidth);
+});
+
+test("all settings canary keeps low-zoom live Pixi cards in detail mode by default", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await zoomViewportOutToMin(page);
+
+  await expect
+    .poll(async () => {
+      const modes = await readScenePresentationModes(page);
+      return modes.length > 0 && modes.every((mode) => mode === "detail");
+    })
+    .toBe(true);
+});
+
+test("all settings canary restores low-zoom overview mode only for the explicit opt-in query param", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page, {
+    overviewEnabled: true,
+  });
+  await zoomViewportOutToMin(page);
+
+  await expect
+    .poll(async () => {
+      const modes = await readScenePresentationModes(page);
+      return modes.length > 0 && modes.every((mode) => mode === "overview");
+    })
+    .toBe(true);
 });
 
 test("all settings canary exposes stable section anchors on visible Pixi scene roots", async ({

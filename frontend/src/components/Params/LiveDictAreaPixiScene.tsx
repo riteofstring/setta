@@ -31,6 +31,7 @@ import {
   getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
   getLiveDictAreaPixiUsableMaxCanvasHeight,
+  readLiveDictAreaPixiOverviewEnabledFromWindow,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
   type LiveDictAreaPixiPalette,
   type LiveDictAreaPixiPresentationMode,
@@ -90,7 +91,11 @@ function _LiveDictAreaPixiScene({
     liveDictAreaSceneBoundary,
   );
   const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
-  const presentationMode = getLiveDictAreaPixiPresentationMode(viewportZoom);
+  const overviewPresentationEnabled =
+    readLiveDictAreaPixiOverviewEnabledFromWindow();
+  const presentationMode = getLiveDictAreaPixiPresentationMode(viewportZoom, {
+    overviewEnabled: overviewPresentationEnabled,
+  });
   const usableMaxCanvasHeight = getLiveDictAreaPixiUsableMaxCanvasHeight(
     availableCanvasHeight,
   );

@@ -9474,3 +9474,82 @@ Record:
     - result: no visible mismatch on the checked first visible unpinned cards; verifier reported a local image diff of `0`
 - Next action:
   - Pivot to the next real visual blocker from the plan: re-check live Pixi zoom-time text stability and `main`-oracle parity instead of continuing baseline-vs-canary first-card interior tweaks that are no longer reproducible.
+
+## 2026-03-29 288
+
+- Item: Disable the low-zoom live Pixi overview / LOD path by default and record that Ralph should not keep pushing it forward.
+- Status: `done`
+- Details:
+  - Revisited the low-zoom overview path after direct user feedback that the skeletonized tiny-card treatment was not a desired product direction unless it had a clear performance case.
+  - Measured the current overview path against forced `detail` in the live worktree runtime and recorded the results in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-overview-lod-perf-probe.md`
+  - Result:
+    - one threshold-crossing zoom step favored overview
+    - deep min-zoom traces did not show a reliable performance win for overview
+    - there was not enough evidence to justify keeping the LOD as the default renderer path on performance grounds
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-overview-disabled-default-rerun.md`
+  - The kept behavior now:
+    - keeps live Pixi cards on the `detail` presentation path by default, including at low zoom
+    - preserves the old overview path only as an explicit experiment via `?liveDictAreaPixiOverview=enabled`
+    - updates unit/integration coverage and the live-Pixi canary so low-zoom `detail` is the default expectation and explicit overview opt-in is still testable
+  - This item supersedes item `275` as planning guidance:
+    - do not treat the overview-capable baseline as the next assumed Ralph lane
+    - do not spend more iterations tightening low-zoom overview/skeleton chrome unless there is fresh explicit product direction or new measured perf evidence that always-`detail` cannot meet the bar
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`39 passed`)
+  - Playwright targeted low-zoom checks:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "low-zoom"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual/perf check on the current worktree runtime:
+    - verified low-zoom live Pixi cards stayed in `detail` on the default path
+    - captured two post-change `0.1 -> 0.12` traces on the current build
+    - result: both traces reported `74 ms` INP with presentation delay still dominating
+- Next action:
+  - Continue the live Pixi parity lane from the always-`detail` baseline and do not reopen low-zoom overview work unless the plan is explicitly changed again.
+
+## 2026-03-29 289
+
+- Item: Stabilize and verify the low-zoom live Pixi default-detail / explicit-overview canary behavior.
+- Status: `done`
+- Details:
+  - Finished the kept behavior change on the live Pixi canary path:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+  - The live Pixi scene now:
+    - stays on the `detail` presentation path by default even at the minimum zoom state
+    - preserves the old low-zoom overview treatment only behind `?liveDictAreaPixiOverview=enabled`
+  - Tightened the live canary coverage in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The new/kept Playwright guards verify:
+    - default low-zoom canary roots remain in `detail`
+    - explicit `liveDictAreaPixiOverview=enabled` still switches the same low-zoom roots into `overview`
+  - Verification notes for later iterations:
+    - the seeded `./scripts/run-playwright-e2e.sh` launcher still hit the known bootstrap `401` path on this worktree during this slice
+    - the full live-Pixi canary file still has an unrelated long-running drag-overlay failure outside this slice, so the kept verification uses the narrow relevant subset on the current worktree runtime with a fresh status token
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`39 passed`)
+  - Playwright targeted low-zoom checks on the current worktree runtime with a fresh `setta status --connect-info --latest --json --workspace .` token:
+    - `pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary restores low-zoom overview mode only for the explicit opt-in query param" --reporter=line`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - default `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+      - after `All Settings` and minimum zoom, viewport scale reached `0.1`
+      - visible Pixi scene roots reported `data-live-dict-area-scene-presentation-mode=detail`
+      - no obvious new visual artifacts were observed
+    - opt-in `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaPixiOverview=enabled`
+      - at the same minimum zoom, visible Pixi scene roots reported `data-live-dict-area-scene-presentation-mode=overview`
+      - no obvious new visual artifacts were observed
+- Next action:
+  - Move to the next real live Pixi visual blocker from the plan: re-check zoom-time text stability and `main`-oracle parity from this always-`detail` baseline instead of reopening low-zoom overview work.
