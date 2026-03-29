@@ -56,6 +56,13 @@ export type LiveDictAreaMountProps = {
   liveDictAreaSurface: LiveDictAreaSurface;
 };
 
+export type LiveDictAreaParamAreaSurfaceBlock = Extract<
+  LiveDictAreaMountProps["liveDictAreaSurface"]["blocks"][number],
+  {
+    kind: "pinned-param-area" | "unpinned-param-area";
+  }
+>;
+
 export function LiveDictAreaMount({
   liveDictAreaSurface,
 }: LiveDictAreaMountProps) {
@@ -64,12 +71,20 @@ export function LiveDictAreaMount({
       return <EdgesStrip key={block.key} {...block.props} />;
     }
 
-    if (block.kind === "pinned-param-area") {
-      return <GetPinnedParams key={block.key} {...block.props} />;
-    }
-
-    return <GetUnpinnedParams key={block.key} {...block.props} />;
+    return <LiveDictAreaParamAreaMount key={block.key} block={block} />;
   });
+}
+
+export function LiveDictAreaParamAreaMount({
+  block,
+}: {
+  block: LiveDictAreaParamAreaSurfaceBlock;
+}) {
+  if (block.kind === "pinned-param-area") {
+    return <GetPinnedParams {...block.props} />;
+  }
+
+  return <GetUnpinnedParams {...block.props} />;
 }
 
 type DictAreaBlockFrameDataProps = {

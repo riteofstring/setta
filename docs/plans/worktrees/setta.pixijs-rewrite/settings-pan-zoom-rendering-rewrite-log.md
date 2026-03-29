@@ -6711,3 +6711,46 @@ Record:
     - representative visible `200` requests included `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, and `POST /api/getListenerCoverage`
 - Next action:
   - Continue the live retained-scene slice by starting the first scene-native param-row drag/reorder handoff on the Pixi canary now that the non-text popup control lane is verified on the real live Settings surface.
+
+## 2026-03-29 218
+
+- Item: Start the first param-row drag handoff on the live `pixi-node-body` Settings canary.
+- Status: `done`
+- Details:
+  - Added a deterministic Pixi drag-target helper derived from the existing live scene/layout plus DOM packet boundary instead of inventing a new drag-only source of truth:
+    - `frontend/src/components/Params/liveDictAreaPixiDragRowTargets.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiDragRowTargets.test.ts`
+  - Extended the live Pixi shell so selection mode now swaps the canary from editor handoffs into drag handoffs without widening back to the old whole-shell overlay:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+  - Added a targeted param-area drag overlay that mounts the existing pinned/unpinned live DOM DnD surface only for the activated block while keeping the Pixi scene mounted underneath:
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaMount.tsx`
+  - Kept the bounded canary behavior explicit and source-of-truth-driven:
+    - while `isSelectingParams` is false, the existing value-row editor handoff path remains unchanged
+    - while `isSelectingParams` is true, the shell now exposes `[data-live-dict-area-drag-handoff='param-row']` targets instead of editor handoffs
+    - clicking one drag target mounts `[data-live-dict-area-drag-overlay='active']` for that pinned/unpinned area so the real `ParamDndList` path is available for the next reorder slice
+  - Extended the live canary Playwright spec to cover the new browser-level handoff on the real Settings surface:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the new test holds the real param-select shortcut modifiers, activates a drag handoff row on `All Settings`, and asserts the param-area drag overlay mounts with live param rows while the Pixi scene canvas stays present
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiDragRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.test.tsx src/components/Params/groupContainerLiveDictAreaMount.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/groupContainerLiveDictAreaMount.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.test.tsx src/components/Params/liveDictAreaPixiDragRowTargets.ts src/components/Params/liveDictAreaPixiDragRowTargets.test.ts src/components/Params/LiveDictAreaPixiParamAreaOverlay.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the live worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - opened `All Settings` and verified the live Pixi canary path was active
+    - activated param-select mode for verification, observed `[data-live-dict-area-drag-handoff='param-row']` targets, and clicked one target successfully
+    - confirmed `[data-live-dict-area-drag-overlay='active']` appeared with live param rows (`[data-param-row='true']`) while the Pixi canvas remained mounted
+    - the checked viewport looked structurally intact with no obvious blank/clipped/major overlap regression
+    - trustworthiness notes:
+      - backend/settings requests were successful
+      - existing console noise remained present, including React 19 `ref` warnings, a Pixi `addChild` deprecation warning, repeated `Too many active WebGL contexts` warnings, and a few `Uncaught (in promise)` errors after the interaction
+- Next action:
+  - Continue the live retained-scene slice by turning this param-area drag overlay handoff into the first real row drag/reorder gesture on the Pixi canary and verify row order/state updates without widening back to a whole-shell overlay.

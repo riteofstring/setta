@@ -1,14 +1,16 @@
 import _ from "lodash";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
-import { useProjectState } from "state/definitions";
+import { useMisc, useProjectState } from "state/definitions";
 import { CodeObjTypeEnum } from "utils/generatedTypes";
 import {
   LiveDictAreaMount,
   type LiveDictAreaMountProps,
 } from "./groupContainerLiveDictAreaMount";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
+import { buildLiveDictAreaPixiDragRowTargets } from "./liveDictAreaPixiDragRowTargets";
 import { buildLiveDictAreaPixiFixedMeasurements } from "./liveDictAreaPixiLayout";
+import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
@@ -24,7 +26,9 @@ export function LiveDictAreaPixiOverlayShell({
   liveDictAreaSceneBoundary,
 }: LiveDictAreaPixiOverlayShellProps) {
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
+  const [activeDragRowId, setActiveDragRowId] = useState<string | null>(null);
   const [isFallbackOverlayActive, setIsFallbackOverlayActive] = useState(false);
+  const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const valueRowTargets = useMemo(
     () =>
       buildLiveDictAreaPixiValueRowTargets({
@@ -33,7 +37,18 @@ export function LiveDictAreaPixiOverlayShell({
       }),
     [liveDictAreaMountProps, liveDictAreaSceneBoundary],
   );
+  const dragRowTargets = useMemo(
+    () =>
+      buildLiveDictAreaPixiDragRowTargets({
+        liveDictAreaMountProps,
+        liveDictAreaSceneBoundary,
+      }),
+    [liveDictAreaMountProps, liveDictAreaSceneBoundary],
+  );
   const valueRowEditorKinds = useProjectState((state) => {
+    if (isSelectingParams) {
+      return {};
+    }
     return Object.fromEntries(
       valueRowTargets.map((target) => [
         target.rowId,
@@ -58,6 +73,21 @@ export function LiveDictAreaPixiOverlayShell({
       ? null
       : valueRowTargets.find((target) => target.rowId === activeValueRowId) ??
         null;
+  const activeDragRowTarget =
+    activeDragRowId === null
+      ? null
+      : dragRowTargets.find((target) => target.rowId === activeDragRowId) ??
+        null;
+
+  useEffect(() => {
+    if (isSelectingParams) {
+      setActiveValueRowId(null);
+      setIsFallbackOverlayActive(false);
+      return;
+    }
+
+    setActiveDragRowId(null);
+  }, [isSelectingParams]);
 
   return (
     <>
@@ -67,31 +97,61 @@ export function LiveDictAreaPixiOverlayShell({
       <LiveDictAreaPixiScene
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
       />
-      {valueRowTargets.map((target) =>
-        target.rowId === activeValueRowId ? null : (
-          <button
-            key={target.rowId}
-            aria-label={`Activate editor overlay for ${target.label}`}
-            className="absolute z-[5] cursor-text appearance-none border-0 bg-transparent p-0"
-            data-live-dict-area-editor-handoff="value-row"
-            data-live-dict-area-editor-handoff-editor-kind={
-              valueRowEditorKinds[target.rowId] ?? "other"
-            }
-            data-live-dict-area-editor-handoff-row-id={target.rowId}
-            onClick={() => {
-              setActiveValueRowId(target.rowId);
-            }}
-            style={{
-              height: target.height,
-              left: target.x,
-              right: 0,
-              top: target.y,
-            }}
-            type="button"
+      {isSelectingParams
+        ? dragRowTargets.map((target) =>
+            target.rowId === activeDragRowId ? null : (
+              <button
+                key={target.rowId}
+                aria-label={`Activate drag overlay for ${target.label}`}
+                className="absolute z-[5] cursor-grab appearance-none border-0 bg-transparent p-0"
+                data-live-dict-area-drag-handoff="param-row"
+                data-live-dict-area-drag-handoff-block-id={target.blockId}
+                data-live-dict-area-drag-handoff-row-id={target.rowId}
+                onClick={() => {
+                  setActiveDragRowId(target.rowId);
+                }}
+                style={{
+                  height: target.height,
+                  left: target.x,
+                  right: 0,
+                  top: target.y,
+                }}
+                type="button"
+              />
+            ),
+          )
+        : valueRowTargets.map((target) =>
+            target.rowId === activeValueRowId ? null : (
+              <button
+                key={target.rowId}
+                aria-label={`Activate editor overlay for ${target.label}`}
+                className="absolute z-[5] cursor-text appearance-none border-0 bg-transparent p-0"
+                data-live-dict-area-editor-handoff="value-row"
+                data-live-dict-area-editor-handoff-editor-kind={
+                  valueRowEditorKinds[target.rowId] ?? "other"
+                }
+                data-live-dict-area-editor-handoff-row-id={target.rowId}
+                onClick={() => {
+                  setActiveValueRowId(target.rowId);
+                }}
+                style={{
+                  height: target.height,
+                  left: target.x,
+                  right: 0,
+                  top: target.y,
+                }}
+                type="button"
+              />
+            ),
+          )}
+      {isSelectingParams ? (
+        activeDragRowTarget ? (
+          <LiveDictAreaPixiParamAreaOverlay
+            liveDictAreaMountProps={liveDictAreaMountProps}
+            target={activeDragRowTarget}
           />
-        ),
-      )}
-      {activeValueRowTarget ? (
+        ) : null
+      ) : activeValueRowTarget ? (
         <LiveDictAreaPixiValueRowOverlay target={activeValueRowTarget} />
       ) : valueRowTargets.length === 0 ? (
         isFallbackOverlayActive ? (

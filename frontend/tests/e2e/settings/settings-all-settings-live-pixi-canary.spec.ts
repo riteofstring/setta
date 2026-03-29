@@ -359,3 +359,85 @@ test("all settings canary can immediately open a popup color-picker row on first
   expect(colorPickerActivationResult?.openPaletteItemCount).toBeGreaterThan(0);
   expect(colorPickerActivationResult?.visiblePaletteLabels).toContain("Red");
 });
+
+test("all settings canary can hand off from the Pixi scene into a param-area drag overlay while param select is active", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.addInitScript(
+    ({ mode, storageKey }) => {
+      window.sessionStorage.setItem(storageKey, mode);
+    },
+    {
+      mode: LIVE_PIXI_MODE,
+      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
+    },
+  );
+
+  const url = new URL(SETTINGS_URL);
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  const modifierKey = process.platform === "darwin" ? "Meta" : "Control";
+  await page.keyboard.down(modifierKey);
+  await page.keyboard.down("Shift");
+
+  try {
+    const dragHandoffButton = page
+      .locator("[data-live-dict-area-drag-handoff='param-row']")
+      .first();
+    await expect(dragHandoffButton).toBeVisible();
+    const activatedRowId = await dragHandoffButton.getAttribute(
+      "data-live-dict-area-drag-handoff-row-id",
+    );
+    const activatedBlockId = await dragHandoffButton.getAttribute(
+      "data-live-dict-area-drag-handoff-block-id",
+    );
+    expect(activatedRowId).not.toBeNull();
+    expect(activatedBlockId).not.toBeNull();
+
+    await dragHandoffButton.click();
+
+    await page.waitForSelector(
+      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-row-id='${activatedRowId}']`,
+    );
+
+    const dragOverlayMetrics = await page.waitForFunction((rowId) => {
+      const overlay = document.querySelector<HTMLElement>(
+        `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-row-id='${rowId}']`,
+      );
+      if (!overlay) {
+        return null;
+      }
+
+      return {
+        dragParamRowCount: overlay.querySelectorAll("[data-param-row='true']")
+          .length,
+        mountedParamContainerCount: overlay.querySelectorAll(
+          '[id^="ParamContainer-"]',
+        ).length,
+        sceneCanvasCount: document.querySelectorAll(
+          "[data-live-dict-area-scene='pixi'] canvas",
+        ).length,
+      };
+    }, activatedRowId);
+
+    const result = await dragOverlayMetrics.jsonValue();
+
+    expect(result).not.toBeNull();
+    expect(result?.dragParamRowCount).toBeGreaterThan(1);
+    expect(result?.mountedParamContainerCount).toBeGreaterThan(0);
+    expect(result?.sceneCanvasCount).toBeGreaterThan(0);
+  } finally {
+    await page.keyboard.up("Shift");
+    await page.keyboard.up(modifierKey);
+  }
+});

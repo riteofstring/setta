@@ -4,10 +4,16 @@ import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { GroupContainerShell } from "./groupContainerShell";
 
+const liveMiscState = vi.hoisted(() => ({
+  isSelectingParams: false,
+}));
+
 vi.mock(import("state/definitions"), async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
+    useMisc: (selector: (state: typeof liveMiscState) => unknown) =>
+      selector(liveMiscState),
     useProjectState: (selector: (state: object) => unknown) => selector({}),
   };
 });
