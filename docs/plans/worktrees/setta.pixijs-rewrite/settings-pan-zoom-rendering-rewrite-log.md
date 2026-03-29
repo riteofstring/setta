@@ -10546,3 +10546,37 @@ Record:
     - the older live refit blocker still remains: `zoom out` stayed enabled even with `projectConfig.viewport: null` and `projectConfig.viewportInitialized: false`
 - Next action:
   - Investigate why the live worktree `/settings` session still fails to land at the fit-view zoom floor after `clearCurrentProjectViewportForRefit()` even when project chat chrome is now hidden; compare the live `useReactFlow`/fit-view init state against the seeded Playwright session instead of reopening project-chat or overview reset work.
+
+## 2026-03-30 321
+
+- Item: Align the null-viewport project-load path with the fit-view re-arm flow so a fresh load clears stale fit-view options and requests the first node-measurement pass.
+- Status: `done`
+- Details:
+  - Took the bounded blocker-resolution slice directly from item `320` after fresh-context CDP showed the live `/settings` tab could still sit in the default pre-fit state (`fitViewOnInit=true`, `fitViewOnInitDone=false`, `transform=[0,0,1]`) before any manual reset.
+  - Updated:
+    - `frontend/src/state/actions/project/loadProject.ts`
+    - `frontend/src/state/actions/project/loadProject.test.ts`
+    - `frontend/src/state/actions/sectionInfos.ts`
+  - `loadProjectState()` now follows the same null-viewport setup used by the later project-state update path:
+    - it reuses `buildFitViewOnInitState(...)` instead of leaving `fitViewOnInitOptions` stale or undefined
+    - it explicitly requests the first node-dimension pass after publishing the loaded project stores so the initial fit-view path is armed deterministically
+    - explicit-viewport loads now also clear stale `fitViewOnInitOptions`
+  - Added focused unit coverage for both branches:
+    - null-viewport loads now assert the fit-view options are rebuilt from visible sections and `requestUpdateNodeDimensions` is raised
+    - explicit-viewport loads now assert stale fit-view options are cleared while the saved transform is restored
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/project/loadProject.test.ts`
+    - result: passed (`11 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/state/actions/project/loadProject.ts src/state/actions/project/loadProject.test.ts src/state/actions/sectionInfos.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP live check in a fresh sub-agent context on the current worktree runtime (`http://127.0.0.1:3043/settings` after bootstrapping through `http://127.0.0.1:8043/__setta__/bootstrap#token=...`):
+    - pre-reset live state still read as the default pre-fit shape (`viewport=null`, `viewportInitialized=false`, `fitViewOnInit=true`, `fitViewOnInitDone=false`, `transform=[0,0,1]`)
+    - after invoking `resetProjectWorkspaceChromeToDefaultLayout()` plus `clearCurrentProjectViewportForRefit()` and waiting for settle, the live tab reached `fitViewOnInitDone=true` with a non-default transform (`[1425.0466062818437, 86.36363636363649, 0.18544907958693654]`)
+    - the page stayed visibly rendered with no obvious blanking or clipping during that live check
+- Next action:
+  - Investigate why the live initial `/settings` load can still present the default pre-fit state before a manual reset even though the reset path now converges; trace the first post-load node-measurement trigger instead of reopening workspace-chrome normalization.

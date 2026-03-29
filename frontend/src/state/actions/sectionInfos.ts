@@ -1133,7 +1133,9 @@ function applyViewportFromProjectState(
   return false;
 }
 
-function buildFitViewOnInitState(projectState: ProjectStateSingleConfig) {
+export function buildFitViewOnInitState(
+  projectState: ProjectStateSingleConfig,
+) {
   return {
     fitViewOnInit: true,
     fitViewOnInitDone: false,

@@ -12,6 +12,7 @@ import {
   runWithAtomicallyPublishedProjectStores,
   useAllProjectMetadata,
   useLocalStorage,
+  useMisc,
   useNodeInternals,
   useProjectState,
 } from "state/definitions";
@@ -40,7 +41,10 @@ import {
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects,
   reconcileProjectChatWindowingEphemeralState,
 } from "../projectChatWindowingEphemeral";
-import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
+import {
+  buildFitViewOnInitState,
+  createNodesMapFromProjectConfigChildren,
+} from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
 export async function loadProjectConfig({ projectConfigName }) {
@@ -82,23 +86,23 @@ export async function loadProjectState(
   projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
 ) {
   const normalizedProjectState = validateLoadedProjectState(projectState);
-  const { viewport, viewportInitialized } =
-    normalizedProjectState.projectConfig;
+  const nextProjectState = {
+    ...sanitizeProjectStateActiveIds(normalizedProjectState),
+    previewSectionVariantMap: {},
+  };
+  const { viewport, viewportInitialized } = nextProjectState.projectConfig;
   cancelPendingActiveSectionIdsSync();
   if (!viewport || !viewportInitialized) {
-    useReactFlow.setState({ fitViewOnInit: true, fitViewOnInitDone: false });
+    useReactFlow.setState(buildFitViewOnInitState(nextProjectState));
   } else {
     const { x, y, zoom } = viewport;
     useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
       transform: [x, y, zoom],
     });
   }
-  const nextProjectState = {
-    ...sanitizeProjectStateActiveIds(normalizedProjectState),
-    previewSectionVariantMap: {},
-  };
   clearProjectChatGitGraphEmbeddedPaneVisibilityForOtherProjects(
     nextProjectState.projectConfig.id,
   );
@@ -133,6 +137,9 @@ export async function loadProjectState(
       });
     },
   );
+  if (!viewport || !viewportInitialized) {
+    useMisc.setState({ requestUpdateNodeDimensions: true });
+  }
   applyPendingNameValidationErrors(normalizedProjectState.projectConfig.id);
   return true;
 }
