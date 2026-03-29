@@ -68,7 +68,7 @@ func mcpToolCallHandler(deps MCPRootRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusNotFound, "tool_not_found", err.Error())
 			return
 		}
-		if summary.ProjectStateRevisionChanged {
+		if summary.ProjectStateRevisionChanged && !deps.Server.HasProjectStateMutationBroadcast() {
 			if err := broadcastMCPToolProjectStateUpdate(r, deps, summary.ResolvedProjectConfigID); err != nil {
 				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 				return

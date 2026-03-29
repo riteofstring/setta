@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	sdkmcp "github.com/modelcontextprotocol/go-sdk/mcp"
 	"setta/internal/agentprofiles"
 	"setta/internal/appspec"
@@ -27,7 +28,9 @@ import (
 	"setta/internal/mcpx"
 	"setta/internal/observability"
 	"setta/internal/projectstate"
+	"setta/internal/realtime"
 	"setta/internal/terminals"
+	"setta/internal/wsapi"
 )
 
 func assertInstalledPythonPackages(t *testing.T, packages []string) {
@@ -424,6 +427,19 @@ func TestAppIDEMCPServerSupportsAuthenticatedStreamableHTTPToolListing(t *testin
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
 
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
 	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
 		Endpoint:   server.URL + "/mcp",
@@ -474,6 +490,19 @@ func TestAppIDEMCPServerSupportsCreateTopLevelSectionAfterProjectSummaryOverAuth
 
 	server := httptest.NewServer(app.Handler())
 	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
 
 	client := sdkmcp.NewClient(&sdkmcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
 	session, err := client.Connect(context.Background(), &sdkmcp.StreamableClientTransport{
@@ -571,6 +600,18 @@ func TestAppIDEMCPServerSupportsCreateTopLevelSectionAfterProjectSummaryOverAuth
 	}
 	if sectionID == canonicalSectionID {
 		t.Fatalf("expected translated section id to differ from canonical %q", canonicalSectionID)
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 6)
+	var update realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &update); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if update.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", update.ProjectState.ProjectConfig.ID)
+	}
+	if _, ok := update.ProjectState.Sections[canonicalSectionID]; !ok {
+		t.Fatalf("expected websocket update to include created canonical section %q", canonicalSectionID)
 	}
 }
 

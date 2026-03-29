@@ -42,6 +42,7 @@ type Server struct {
 	logger               *slog.Logger
 	registry             *tools.Registry
 	projectState         projectStateProvider
+	afterProjectMutation func(context.Context, string) error
 	pluginMutations      pluginMutationProvider
 	pythonPackages       pythonPackageProvider
 	lspDiagnostics       lspDiagnosticsProvider
@@ -70,6 +71,7 @@ type ServerOptions struct {
 	Registry                       *tools.Registry
 	WorkspaceRoot                  string
 	ProjectState                   projectStateProvider
+	AfterProjectStateMutation      func(context.Context, string) error
 	CodegenTargetValidator         projectstate.CodegenTargetValidator
 	PythonCodegenSectionReconciler projectstate.PythonCodegenSectionReconciler
 	CodeUpdates                    codeUpdateProvider
@@ -329,6 +331,7 @@ func NewServer(opts ServerOptions) (*Server, error) {
 		logger:               opts.Logger,
 		registry:             registry,
 		projectState:         opts.ProjectState,
+		afterProjectMutation: opts.AfterProjectStateMutation,
 		pluginMutations:      opts.PluginMutations,
 		pythonPackages:       opts.PythonPackages,
 		lspDiagnostics:       opts.LSPDiagnostics,
@@ -401,6 +404,10 @@ func (s *Server) Handler() http.Handler {
 		return nil
 	}
 	return s.handler
+}
+
+func (s *Server) HasProjectStateMutationBroadcast() bool {
+	return s != nil && s.afterProjectMutation != nil
 }
 
 func newHTTPHandler(server *sdkmcp.Server) http.Handler {
@@ -661,6 +668,12 @@ func (s *Server) invokeRegisteredToolDetailed(ctx context.Context, registered to
 		return s.buildToolErrorResult(err), ToolInvocationContext{}
 	}
 
+	beforeRevision := uint64(0)
+	trackProjectMutation := s.projectState != nil && s.afterProjectMutation != nil
+	if trackProjectMutation {
+		beforeRevision = s.projectState.Snapshot().Revision
+	}
+
 	invocation := ToolInvocationContext{
 		SessionKey: requestContext.SessionKey,
 	}
@@ -695,6 +708,25 @@ func (s *Server) invokeRegisteredToolDetailed(ctx context.Context, registered to
 	callResult, err := buildToolSuccessResult(result)
 	if err != nil {
 		return s.buildToolErrorResult(err), invocation
+	}
+	if trackProjectMutation {
+		afterRevision := s.projectState.Snapshot().Revision
+		if afterRevision != beforeRevision {
+			projectConfigID := ""
+			if invocation.AgenticContext != nil {
+				projectConfigID = strings.TrimSpace(invocation.AgenticContext.ProjectConfigID)
+			}
+			if projectConfigID != "" {
+				if err := s.afterProjectMutation(ctx, projectConfigID); err != nil && s.logger != nil {
+					s.logger.Error(
+						"broadcast MCP project state update failed",
+						"tool", registered.Name,
+						"projectConfigId", projectConfigID,
+						"error", err,
+					)
+				}
+			}
+		}
 	}
 	return callResult, invocation
 }

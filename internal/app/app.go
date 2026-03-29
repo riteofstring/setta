@@ -1498,10 +1498,19 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	}
 	if modePolicy.IsIDE() {
 		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
-			Logger:                         logger,
-			Registry:                       mcpToolRegistry,
-			WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
-			ProjectState:                   projectRuntime,
+			Logger:        logger,
+			Registry:      mcpToolRegistry,
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			ProjectState:  projectRuntime,
+			AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
+				return broadcastFrontendProjectStateUpdate(
+					ctx,
+					projectStates.Main(),
+					websocketHub,
+					projectStates.Main().Snapshot(),
+					projectID,
+				)
+			},
 			CodegenTargetValidator:         codegenValidator,
 			PythonCodegenSectionReconciler: pythonMaterializer,
 			CodeUpdates:                    codeUpdates,
