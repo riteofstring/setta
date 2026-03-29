@@ -467,10 +467,24 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 			inputs["allowedTools"] = append([]string(nil), allowedTools...)
 		}
 	}
+	var latestSettaMCPStatus *mcpx.ServerRuntimeStatus
+	if latestRun, ok := selectLatestRun(externalRunsForChat); ok {
+		statuses := loadExternalMCPStatusSnapshot(latestRun.Outputs)
+		for index := range statuses {
+			status := statuses[index]
+			if strings.TrimSpace(status.ServerID) != "setta" {
+				continue
+			}
+			statusCopy := status
+			latestSettaMCPStatus = &statusCopy
+			break
+		}
+	}
 	systemPromptSections := []string{
 		buildExternalProfilePrompt(profile),
 		appGenerationModePrompt,
 		buildExecutionPolicyPrompt(request.PermissionMode, request.SearchEnabled),
+		buildSettaMCPAwarenessPrompt(externalConfig.ToolType, latestSettaMCPStatus),
 	}
 	if completionGuardEnabled {
 		systemPromptSections = append(systemPromptSections, requiredErrorCheckPrompt)

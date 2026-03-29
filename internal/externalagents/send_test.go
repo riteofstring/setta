@@ -14,6 +14,7 @@ import (
 	"setta/internal/auth"
 	"setta/internal/chatattachments"
 	"setta/internal/externalagentconfigs"
+	"setta/internal/mcpx"
 	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
 )
@@ -972,6 +973,101 @@ func TestSendServiceSeedsCodexThreadIDFromLatestExternalRun(t *testing.T) {
 	}
 	if got := fixture.executor.last.Inputs["threadId"]; got != "thread-codex-prior" {
 		t.Fatalf("expected prior thread id to seed executor inputs, got %#v", got)
+	}
+}
+
+func TestSendServiceIncludesCodexSettaMCPGuidanceAndLastKnownToolCount(t *testing.T) {
+	t.Parallel()
+
+	fixture := newSendServiceFixture(t, sendFixtureOptions{})
+	chatID := "chat-codex-mcp-status"
+	fixture.seedExternalRun(t, chatID, agentruns.RunStatusCompleted, []map[string]any{
+		{
+			"id":   "source-user",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "How many Setta MCP tools do you have?"},
+			},
+		},
+	}, []map[string]any{
+		{
+			"id":   "source-user",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "How many Setta MCP tools do you have?"},
+			},
+		},
+		{
+			"id":   "source-assistant",
+			"role": "assistant",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Let me check."},
+			},
+		},
+	})
+
+	runs, err := fixture.runs.ListByMetadata(agentruns.RunFilter{
+		RunType:         stringPtr(RunTypeExternalAgent),
+		ChatID:          stringPtr(chatID),
+		ProjectConfigID: stringPtr("project-alpha"),
+	})
+	if err != nil {
+		t.Fatalf("list prior external runs: %v", err)
+	}
+	latestRun, ok := selectLatestRun(runs)
+	if !ok {
+		t.Fatal("expected prior external run")
+	}
+	statusSnapshot, err := encodeExternalMCPStatusSnapshot([]mcpx.ServerRuntimeStatus{
+		{
+			ServerID:  "setta",
+			Source:    "external_runtime",
+			Transport: mcpx.TransportStreamableHTTP,
+			Endpoint:  "http://127.0.0.1:8000/mcp",
+			State:     mcpx.RuntimeStateConnected,
+			ToolCount: 4,
+		},
+	})
+	if err != nil {
+		t.Fatalf("encode external mcp status snapshot: %v", err)
+	}
+	latestRun.Outputs = ensureAnyMap(latestRun.Outputs)
+	latestRun.Outputs[externalMCPStatusSnapshotKey] = statusSnapshot
+	if err := fixture.runs.Save(latestRun); err != nil {
+		t.Fatalf("save external run with mcp snapshot: %v", err)
+	}
+
+	_, err = fixture.service.StartChat(context.Background(), StartChatRequest{
+		ChatID: stringPtr(chatID),
+		Message: map[string]any{
+			"id":   "new-message",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "No, count the MCP tools."},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeConfigTomlCustom,
+		SearchEnabled:   true,
+	})
+	if err != nil {
+		t.Fatalf("start codex chat with prior mcp status: %v", err)
+	}
+	if fixture.executor.last == nil {
+		t.Fatal("expected executor request")
+	}
+
+	systemPrompt, _ := fixture.executor.last.Inputs["systemPrompt"].(string)
+	if !containsText(systemPrompt, "Setta MCP tools are namespaced as `mcp__setta__") {
+		t.Fatalf("expected codex system prompt to include setta mcp namespace guidance, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "Do not use `list_mcp_resources` or `list_mcp_resource_templates` to decide whether Setta MCP tools are available.") {
+		t.Fatalf("expected codex system prompt to forbid resources/templates inference, got %q", systemPrompt)
+	}
+	if !containsText(systemPrompt, "Last known Setta MCP runtime status: connected with 4 tools.") {
+		t.Fatalf("expected codex system prompt to include last known tool count, got %q", systemPrompt)
 	}
 }
 
