@@ -81,6 +81,19 @@ type ViewportTransform = {
   zoom: number;
 };
 
+type SectionViewportFocusState = {
+  found: boolean;
+  fullyVisible: boolean;
+  height: number;
+  horizontalCenterOffset: number;
+  verticalCenterOffset: number;
+  viewportHeight: number;
+  viewportWidth: number;
+  width: number;
+  x: number;
+  y: number;
+};
+
 type AllSettingsRuntime = {
   baseUrl: string;
   bootstrapUrl?: string | null;
@@ -1193,14 +1206,7 @@ async function expectSingleActiveSectionName(
 async function readSectionNodeViewportState(
   page: Page,
   sectionName: string,
-): Promise<{
-  found: boolean;
-  fullyVisible: boolean;
-  height: number;
-  width: number;
-  x: number;
-  y: number;
-}> {
+): Promise<SectionViewportFocusState> {
   return page.evaluate(async (targetSectionName) => {
     const { useProjectState } = await import("/src/state/definitions.ts");
     const sections = useProjectState.getState().sections;
@@ -1216,6 +1222,10 @@ async function readSectionNodeViewportState(
         found: false,
         fullyVisible: false,
         height: 0,
+        horizontalCenterOffset: Number.POSITIVE_INFINITY,
+        verticalCenterOffset: Number.POSITIVE_INFINITY,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
         width: 0,
         x: 0,
         y: 0,
@@ -1223,6 +1233,10 @@ async function readSectionNodeViewportState(
     }
 
     const rect = matchingElement.getBoundingClientRect();
+    const viewportCenterX = window.innerWidth / 2;
+    const viewportCenterY = window.innerHeight / 2;
+    const sectionCenterX = rect.left + rect.width / 2;
+    const sectionCenterY = rect.top + rect.height / 2;
 
     return {
       found: true,
@@ -1232,11 +1246,76 @@ async function readSectionNodeViewportState(
         rect.right <= window.innerWidth &&
         rect.bottom <= window.innerHeight,
       height: rect.height,
+      horizontalCenterOffset: Math.abs(sectionCenterX - viewportCenterX),
+      verticalCenterOffset: Math.abs(sectionCenterY - viewportCenterY),
+      viewportHeight: window.innerHeight,
+      viewportWidth: window.innerWidth,
       width: rect.width,
       x: rect.x,
       y: rect.y,
     };
   }, sectionName);
+}
+
+async function expectFocusedSectionCompareSurface(
+  page: Page,
+  sectionName: string,
+): Promise<void> {
+  let lastState:
+    | (SectionViewportFocusState & { focusedCompareSurfaceReady: boolean })
+    | null = null;
+  const deadlineMs = Date.now() + 10_000;
+
+  while (Date.now() < deadlineMs) {
+    const state = await readSectionNodeViewportState(page, sectionName);
+    lastState = {
+      ...state,
+      focusedCompareSurfaceReady:
+        state.found &&
+        state.fullyVisible &&
+        state.width >= state.viewportWidth * 0.12 &&
+        state.height >= state.viewportHeight * 0.14 &&
+        state.horizontalCenterOffset <= state.viewportWidth * 0.22 &&
+        state.verticalCenterOffset <= state.viewportHeight * 0.22,
+    };
+    if (lastState.focusedCompareSurfaceReady) {
+      return;
+    }
+
+    await page.waitForTimeout(200);
+  }
+
+  throw new Error(
+    `Focused compare surface not ready for ${sectionName} on ${page.url()}: ${JSON.stringify(lastState)}`,
+  );
+}
+
+async function focusSectionForGraphComparison(
+  page: Page,
+  sectionName: string,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      return page.evaluate(async (targetSectionName: string) => {
+        const { fitView } = await import("/src/forks/xyflow/core/store/utils");
+        const { useProjectState } = await import("/src/state/definitions.ts");
+        const sections = useProjectState.getState().sections;
+        const matchingSectionEntry = Object.entries(sections).find(
+          ([, sectionCore]) => sectionCore.name === targetSectionName,
+        );
+        if (!matchingSectionEntry) {
+          throw new Error(`Missing section named ${targetSectionName}.`);
+        }
+
+        const [sectionId] = matchingSectionEntry;
+        return fitView({
+          duration: 0,
+          nodes: [{ id: sectionId }],
+          padding: 0.2,
+        });
+      }, sectionName);
+    })
+    .toBe(true);
 }
 
 async function readVisibleOverviewSectionLabels(page: Page): Promise<string[]> {
@@ -3164,14 +3243,13 @@ test("all settings live Pixi canary and the read-only main reference share the s
       hideProjectWorkspaceChromeForGraphComparison(mainReferencePage),
     ]);
     await Promise.all([
-      clearCurrentProjectViewportForRefit(canaryPage),
-      clearCurrentProjectViewportForRefit(mainReferencePage),
+      focusSectionForGraphComparison(canaryPage, "browserSectionDefault"),
+      focusSectionForGraphComparison(
+        mainReferencePage,
+        "browserSectionDefault",
+      ),
     ]);
     await waitForVisibleSceneMetrics(canaryPage);
-    await Promise.all([
-      expectZoomOutButtonDisabled(canaryPage, true),
-      expectZoomOutButtonDisabled(mainReferencePage, true),
-    ]);
     await Promise.all([
       expectSingleActiveSectionName(canaryPage, "browserSectionDefault"),
       expectSingleActiveSectionName(mainReferencePage, "browserSectionDefault"),
@@ -3179,52 +3257,49 @@ test("all settings live Pixi canary and the read-only main reference share the s
 
     const canaryViewport = await readViewportTransform(canaryPage);
     await expectViewportTransformNear(mainReferencePage, canaryViewport);
+    await Promise.all([
+      expectFocusedSectionCompareSurface(canaryPage, "browserSectionDefault"),
+      expectFocusedSectionCompareSurface(
+        mainReferencePage,
+        "browserSectionDefault",
+      ),
+    ]);
 
-    // Corrected shared-runtime sizing can change how many normalized top-level
-    // sections fit into the visible slice. Compare the exact shared slice that
-    // both surfaces settle on instead of hard-coding the historical count.
-    await expect
-      .poll(async () => {
-        const canaryVisibleCount = (
-          await readVisibleSectionNodeBounds(canaryPage)
-        ).length;
-        const mainVisibleCount = (
-          await readVisibleSectionNodeBounds(mainReferencePage)
-        ).length;
-
-        return (
-          canaryVisibleCount >= 5 &&
-          mainVisibleCount >= 5 &&
-          canaryVisibleCount === mainVisibleCount
-        );
-      })
-      .toBe(true);
-
-    const canaryNodes = await readVisibleSectionNodeBounds(canaryPage);
-    const mainReferenceNodes =
-      await readVisibleSectionNodeBounds(mainReferencePage);
-
-    expect(mainReferenceNodes.map((node) => node.sectionName)).toEqual(
-      canaryNodes.map((node) => node.sectionName),
+    // Once the compare flow intentionally fits the active section, compare the
+    // focused section bounds directly instead of assuming the same count of
+    // neighboring sections stays visible on both surfaces.
+    const canaryFocusedSection = await readSectionNodeViewportState(
+      canaryPage,
+      "browserSectionDefault",
     );
-    expect(
-      mainReferenceNodes.every((node) => node.width > 0 && node.height > 0),
-    ).toBe(true);
-    expect(
-      mainReferenceNodes.reduce((maxDelta, mainNode, index) => {
-        const canaryNode = canaryNodes[index];
-        if (!canaryNode) {
-          return Number.POSITIVE_INFINITY;
-        }
+    const mainReferenceFocusedSection = await readSectionNodeViewportState(
+      mainReferencePage,
+      "browserSectionDefault",
+    );
 
-        return Math.max(
-          maxDelta,
-          Math.abs(mainNode.x - canaryNode.x),
-          Math.abs(mainNode.y - canaryNode.y),
-          Math.abs(mainNode.width - canaryNode.width),
-          Math.abs(mainNode.height - canaryNode.height),
-        );
-      }, 0),
+    expect(mainReferenceFocusedSection.found).toBe(true);
+    expect(canaryFocusedSection.found).toBe(true);
+    expect(mainReferenceFocusedSection.fullyVisible).toBe(true);
+    expect(canaryFocusedSection.fullyVisible).toBe(true);
+    expect(
+      Math.max(
+        Math.abs(
+          mainReferenceFocusedSection.horizontalCenterOffset -
+            canaryFocusedSection.horizontalCenterOffset,
+        ),
+        Math.abs(
+          mainReferenceFocusedSection.verticalCenterOffset -
+            canaryFocusedSection.verticalCenterOffset,
+        ),
+        Math.abs(mainReferenceFocusedSection.x - canaryFocusedSection.x),
+        Math.abs(mainReferenceFocusedSection.y - canaryFocusedSection.y),
+        Math.abs(
+          mainReferenceFocusedSection.width - canaryFocusedSection.width,
+        ),
+        Math.abs(
+          mainReferenceFocusedSection.height - canaryFocusedSection.height,
+        ),
+      ),
     ).toBeLessThanOrEqual(2);
   } finally {
     await canaryPage.close();

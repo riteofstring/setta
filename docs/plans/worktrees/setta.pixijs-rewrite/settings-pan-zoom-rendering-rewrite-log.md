@@ -13809,6 +13809,38 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 411
+
+- Item: Center the graph compare harness on `browserSectionDefault` instead of re-fitting the whole visible graph.
+- Status: `done`
+- Details:
+  - Narrowed the iteration to the active compare-surface blocker rather than another renderer tweak.
+  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`:
+    - `readSectionNodeViewportState` now records viewport dimensions plus horizontal/vertical center offsets so the spec can distinguish a genuinely centered target section from a tiny visible tile.
+    - added `expectFocusedSectionCompareSurface`, which fails with the last measured section state if the compare surface is not large enough and near the viewport center.
+    - added `focusSectionForGraphComparison`, which uses React Flow `fitView({ nodes: [{ id: sectionId }], padding: 0.2, duration: 0 })` to center the target section after pane/chat normalization.
+    - replaced the old post-normalization `clearCurrentProjectViewportForRefit()` step in the canary/main compare flow, because that refit was restoring the full visible-graph fit and shrinking `browserSectionDefault` back into a `55x35` top-of-viewport tile.
+    - updated the same-state compare assertions to compare the focused `browserSectionDefault` bounds directly instead of assuming both pages keep the same count of neighboring visible sections after the targeted fit.
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - `source activate.sh >/dev/null 2>&1 && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode worktree bootstrap token>' \"$WORKTREE_B64\") && MAIN_BOOTSTRAP_URL=$(node -e '<decode main bootstrap url>' \"$MAIN_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$MAIN_BOOTSTRAP_URL\" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+      - result: passed (`1 passed`, about `22.2s`)
+  - CDP blocker:
+    - the required paired fresh-context CDP check did not complete in this iteration
+    - first sub-agent attempts failed on stale bootstrap URLs / unusable browser session
+    - one bounded lifecycle recovery was attempted and succeeded:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed afterward with:
+        - `source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+        - `pnpm -C frontend cdp-port`
+      - result: worktree restarted on `frontend 3043`, `backend 8043`, `cdp 9265`, new session `ba046a`
+    - after recovery, the paired CDP retry still blocked because the main-reference bootstrap/session remained rejected or unavailable in the sub-agent, so no trustworthy final visual read was recorded.
+- Next action:
+  - Start the next iteration by refreshing the main-reference runtime values again and rerun the paired fresh-context CDP compare on top of this landed harness fix; if that visual gate passes, move back to the real remaining Gate 2 renderer drift instead of more harness work.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 409
 
 - Item: Preserve subpixel shared-runtime scene bounds so low-zoom tiny-card content does not drop downward from whole-pixel registration.
