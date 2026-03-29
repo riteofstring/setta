@@ -11,15 +11,27 @@ from typing import Literal
 
 import psutil
 from pydantic import BaseModel, Field, ValidationError
-
-from setta.sessions.constants import IN_PROCESS_ENV_VAR
+from setta.types.generated.go_shared_constants import (
+    IN_PROCESS_ENV_VAR,
+    SESSION_METADATA_FILENAME,
+    SESSION_SECRET_FILENAME,
+)
 from setta.utils.constants import C
-from setta.utils.pid_identity import resolve_pid_create_time
-
-SESSION_METADATA_FILENAME = "session.json"
-SESSION_SECRET_FILENAME = "secret"
 
 logger = logging.getLogger(__name__)
+
+
+def resolve_pid_create_time(pid: int) -> float | None:
+    if pid <= 0:
+        return None
+    try:
+        process = psutil.Process(pid)
+    except (psutil.NoSuchProcess, psutil.ZombieProcess):
+        return None
+    try:
+        return process.create_time()
+    except psutil.Error:
+        return None
 
 
 class SessionMetadata(BaseModel):
@@ -379,7 +391,13 @@ class SessionRegistry:
             return False
         if not cmdline:
             return False
-        script_basenames = {"setta", "setta.exe", "setta-script.py"}
+        script_basenames = {
+            "setta",
+            "setta.exe",
+            "setta-script.py",
+            "setta-server",
+            "setta-server.exe",
+        }
         first = cmdline[0].lower()
         if os.path.basename(first) in script_basenames:
             return True
@@ -389,8 +407,6 @@ class SessionRegistry:
         lowered = [item.lower() for item in cmdline]
         for idx, item in enumerate(lowered):
             if item == "-m" and idx + 1 < len(lowered) and lowered[idx + 1] == "setta":
-                return True
-            if item.startswith("setta.") or item.startswith("setta:"):
                 return True
         return False
 
