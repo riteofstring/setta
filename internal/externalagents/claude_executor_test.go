@@ -86,6 +86,47 @@ func TestClaudeExecutorCompletesRunAndPersistsAssistantOutput(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
+func TestClaudeExecutorRunSurvivesCallerContextCancellation(t *testing.T) {
+	fixture := newClaudeExecutorFixture(t, "delayed_complete")
+	ctx, cancel := context.WithCancel(context.Background())
+	result, err := fixture.send.StartChat(ctx, StartChatRequest{
+		Message: map[string]any{
+			"id":   "user-1",
+			"role": "user",
+			"content": []any{
+				map[string]any{"type": "text", "text": "Say hello from Claude after startup"},
+			},
+		},
+		EngineConfigID:  fixture.engineID,
+		ProjectConfigID: "project-alpha",
+		AllowUnscoped:   true,
+		PermissionMode:  ChatPermissionModeMinimal,
+		SearchEnabled:   false,
+	})
+	if err != nil {
+		t.Fatalf("start claude delayed run: %v", err)
+	}
+	cancel()
+
+	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
+	if persisted.Status != agentruns.RunStatusCompleted {
+		t.Fatalf("expected completed status after caller cancellation, got %#v", persisted)
+	}
+	messages, ok := persisted.Outputs["messages"].([]any)
+	if !ok || len(messages) < 2 {
+		t.Fatalf("expected persisted output messages, got %#v", persisted.Outputs)
+	}
+	lastMessage, ok := messages[len(messages)-1].(map[string]any)
+	if !ok {
+		t.Fatalf("expected assistant message, got %#v", messages[len(messages)-1])
+	}
+	if got := extractMessageText(lastMessage); got != "Hello from Claude after delay" {
+		t.Fatalf("unexpected assistant text %q", got)
+	}
+
+	fixture.waitForLiveStateCleanup(t, result.Run.ID)
+}
+
 func TestClaudeExecutorGeneratesTempMCPConfigWhenMissing(t *testing.T) {
 	// This run inspects the generated Claude temp MCP config inside the fixture
 	// sidecar, then exposes the path so the test can verify cleanup afterwards.
@@ -2126,6 +2167,18 @@ func runClaudeFixtureProcess(scenario string) error {
 	}
 
 	switch scenario {
+	case "delayed_complete":
+		time.Sleep(150 * time.Millisecond)
+		if err := emitClaudeAssistantTurn(emit, "session-delayed", "assistant-delayed", "Hello from Claude after delay"); err != nil {
+			return err
+		}
+		return emit(map[string]any{
+			"type":      "result",
+			"sessionId": "session-delayed",
+			"isError":   false,
+			"result":    "ok",
+			"usage":     map[string]any{"input_tokens": 12, "output_tokens": 8},
+		})
 	case "generated_mcp_config":
 		configPath := strings.TrimSpace(stringValue(startPayload["mcpConfigPath"]))
 		if configPath == "" {

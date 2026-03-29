@@ -184,7 +184,10 @@ func (e *ClaudeExecutor) Start(ctx context.Context, request StartRequest) (Start
 			return StartResponse{}, fmt.Errorf("%w: %v", errClaudeExecutorPythonRequired, err)
 		}
 	}
-	cmd := exec.CommandContext(ctx, pythonCommand, e.sidecarPath)
+	// The Claude sidecar outlives the HTTP request that started it, so the
+	// subprocess lifetime must be owned by the run controller instead of the
+	// request-scoped context.
+	cmd := exec.Command(pythonCommand, e.sidecarPath)
 	cmd.Dir = workingDir
 	cmd.Env = envMapToList(envMap)
 
@@ -456,25 +459,15 @@ func (e *ClaudeExecutor) finalizeRun(runID string, state ChatState, sessionID st
 }
 
 func (e *ClaudeExecutor) markRunFailed(runID string, runErr error, stderrLines []string) error {
-	run, err := e.runs.Load(runID)
-	if err != nil {
-		return err
-	}
-	if run.Status == agentruns.RunStatusCancelled {
-		return nil
-	}
-	finishedAt := e.timeNow().UTC()
-	run.Status = agentruns.RunStatusFailed
-	run.FinishedAt = &finishedAt
-	payload := map[string]any{
-		"error": runErr.Error(),
-	}
-	if len(stderrLines) > 0 {
-		payload["cliStderr"] = append([]string(nil), stderrLines...)
-	}
-	e.runtime.attachMCPStatusSnapshot(&run)
-	appendRunEvent(&run, "run_failed", payload, finishedAt)
-	return e.runs.Save(run)
+	_, err := persistExternalAgentRunFailure(
+		e.runs,
+		e.runtime,
+		e.timeNow,
+		runID,
+		runErr,
+		stderrLines,
+	)
+	return err
 }
 
 func (e *ClaudeExecutor) persistLiveState(runID string, state ChatState, sessionID string, usage map[string]any) error {

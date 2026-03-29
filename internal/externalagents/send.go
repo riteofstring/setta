@@ -666,17 +666,14 @@ func hasNonBlankStringInput(inputs map[string]any, key string) bool {
 }
 
 func (s *SendService) markRunFailed(run agentruns.Run, runErr error) (agentruns.Run, error) {
-	failed := run.Clone()
-	finishedAt := s.timeNow().UTC()
-	failed.Status = agentruns.RunStatusFailed
-	failed.FinishedAt = &finishedAt
-	failed.Events = append(failed.Events, agentruns.NewRunEvent("run_failed", map[string]any{
-		"error": runErr.Error(),
-	}, s.timeNow()))
-	if err := s.runs.Save(failed); err != nil {
-		return agentruns.Run{}, err
-	}
-	return s.runs.Load(failed.ID)
+	return persistExternalAgentRunFailure(
+		s.runs,
+		s.runtime,
+		s.timeNow,
+		run.ID,
+		runErr,
+		nil,
+	)
 }
 
 func (s *SendService) ensureExternalChatIDCompatible(chatID string, engineConfigID string, projectConfigID string) ([]agentruns.Run, error) {

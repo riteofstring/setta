@@ -2,12 +2,22 @@ package externalagents
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
+	"log/slog"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"setta/internal/agentruns"
+	"setta/internal/backendlogs"
 	"setta/internal/mcpx"
+	"setta/internal/realtime"
 )
 
 type stubRunController struct {
@@ -520,6 +530,91 @@ func TestRuntimeStopRunPersistsMCPStatusSnapshot(t *testing.T) {
 	}
 }
 
+func TestPersistExternalAgentRunFailureBroadcastsBackendLogEvent(t *testing.T) {
+	hub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	server := newRuntimeBackendLogTestServer(t, hub)
+	defer server.Close()
+
+	frontend := dialRuntimeBackendLogClient(t, server.URL, "frontend-a")
+	defer frontend.CloseNow()
+	waitForRuntimeBackendLogConnection(t, hub, "frontend-a")
+
+	store, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logService, err := backendlogs.NewService(backendlogs.ServiceOptions{
+		Logger:       logger,
+		WebsocketHub: hub,
+		EnvLookup: func(key string) (string, bool) {
+			if key == "SETTA_UI_LOG_LEVEL" {
+				return "info", true
+			}
+			return "", false
+		},
+		IDGenerator: func() string {
+			return "backend-log-id"
+		},
+		TimeNow: func() time.Time {
+			return time.Date(2026, time.March, 9, 9, 5, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new backend log service: %v", err)
+	}
+	runtime, err := NewRuntime(RuntimeOptions{
+		Runs:        store,
+		BackendLogs: logService,
+		Logger:      logger,
+		TimeNow: func() time.Time {
+			return time.Date(2026, time.March, 9, 9, 0, 0, 0, time.UTC)
+		},
+	})
+	if err != nil {
+		t.Fatalf("new runtime: %v", err)
+	}
+	run := newPersistedRuntimeRun(t, store, "run-failure", agentruns.RunStatusRunning)
+
+	failed, err := persistExternalAgentRunFailure(
+		store,
+		runtime,
+		func() time.Time {
+			return time.Date(2026, time.March, 9, 9, 10, 0, 0, time.UTC)
+		},
+		run.ID,
+		errors.New("signal: killed"),
+		[]string{"process exited unexpectedly"},
+	)
+	if err != nil {
+		t.Fatalf("persist external agent run failure: %v", err)
+	}
+	if failed.Status != agentruns.RunStatusFailed {
+		t.Fatalf("expected failed status, got %#v", failed)
+	}
+
+	envelope := readRuntimeBackendLogEnvelope(t, frontend)
+	if envelope.MessageType != backendlogs.MessageTypeBackendLogEvent {
+		t.Fatalf("expected backend log event message type, got %q", envelope.MessageType)
+	}
+	var event backendlogs.Event
+	if err := json.Unmarshal(envelope.Content, &event); err != nil {
+		t.Fatalf("decode backend log event: %v", err)
+	}
+	if event.Severity != backendlogs.SeverityError {
+		t.Fatalf("expected error severity, got %#v", event)
+	}
+	if event.ProjectID == nil || *event.ProjectID != "project-alpha" {
+		t.Fatalf("expected project-alpha backend log event, got %#v", event.ProjectID)
+	}
+	if !strings.Contains(event.Message, "External agent run failed (engine-alpha): signal: killed") {
+		t.Fatalf("expected run failure message, got %q", event.Message)
+	}
+	if !strings.Contains(event.Message, "process exited unexpectedly") {
+		t.Fatalf("expected stderr details in backend log message, got %q", event.Message)
+	}
+}
+
 func buildRuntimeFixture(t *testing.T) (*agentruns.RunStore, *Runtime) {
 	t.Helper()
 
@@ -560,4 +655,84 @@ func newPersistedRuntimeRun(t *testing.T, store *agentruns.RunStore, runID strin
 		t.Fatalf("save persisted runtime run: %v", err)
 	}
 	return run
+}
+
+type runtimeBackendLogEnvelope struct {
+	MessageType string          `json:"messageType"`
+	Content     json.RawMessage `json:"content"`
+}
+
+func newRuntimeBackendLogTestServer(t *testing.T, hub *realtime.WebsocketHub) *httptest.Server {
+	t.Helper()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		conn, err := websocket.Accept(w, r, nil)
+		if err != nil {
+			return
+		}
+		defer conn.CloseNow()
+
+		connection, err := hub.Connect(r.Context(), conn, realtime.ConnectParams{
+			ID:                   r.URL.Query().Get("id"),
+			Type:                 realtime.ConnectionType(r.URL.Query().Get("type")),
+			BroadcastConnections: false,
+		})
+		if err != nil {
+			return
+		}
+		defer hub.Disconnect(context.Background(), connection.ID, false)
+		<-r.Context().Done()
+	})
+	return httptest.NewServer(mux)
+}
+
+func dialRuntimeBackendLogClient(t *testing.T, serverURL string, id string) *websocket.Conn {
+	t.Helper()
+
+	parsedURL, err := url.Parse(serverURL)
+	if err != nil {
+		t.Fatalf("parse test server url: %v", err)
+	}
+	parsedURL.Scheme = "ws"
+	parsedURL.Path = "/ws"
+	query := parsedURL.Query()
+	query.Set("id", id)
+	query.Set("type", string(realtime.ConnectionTypeFrontend))
+	parsedURL.RawQuery = query.Encode()
+
+	conn, _, err := websocket.Dial(context.Background(), parsedURL.String(), nil)
+	if err != nil {
+		t.Fatalf("dial runtime backend log client: %v", err)
+	}
+	return conn
+}
+
+func waitForRuntimeBackendLogConnection(t *testing.T, hub *realtime.WebsocketHub, id string) {
+	t.Helper()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, ok := hub.Connection(id); ok {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for backend log connection %q", id)
+}
+
+func readRuntimeBackendLogEnvelope(t *testing.T, conn *websocket.Conn) runtimeBackendLogEnvelope {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	_, payload, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("read runtime backend log websocket payload: %v", err)
+	}
+	var envelope runtimeBackendLogEnvelope
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		t.Fatalf("decode runtime backend log envelope: %v", err)
+	}
+	return envelope
 }

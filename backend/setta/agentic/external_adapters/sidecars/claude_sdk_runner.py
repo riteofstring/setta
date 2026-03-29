@@ -15,10 +15,17 @@ from claude_agent_sdk import (
     PermissionResultAllow,
     PermissionResultDeny,
     ResultMessage,
-    StreamEvent,
     SystemMessage,
     query,
 )
+
+try:
+    from claude_agent_sdk import StreamEvent as ClaudeStreamEvent
+except ImportError:
+    try:
+        from claude_agent_sdk.types import StreamEvent as ClaudeStreamEvent
+    except ImportError:
+        ClaudeStreamEvent = None
 
 
 def _patch_claude_sdk_query_close() -> None:
@@ -98,6 +105,12 @@ def normalize_tool_name(value: str | None) -> str:
     if trimmed.lower() == "question":
         return "AskUserQuestion"
     return trimmed
+
+
+def is_stream_event_message(message: Any) -> bool:
+    if ClaudeStreamEvent is not None:
+        return isinstance(message, ClaudeStreamEvent)
+    return hasattr(message, "event") or hasattr(message, "stream_event")
 
 
 def normalize_allowed_tools(raw_tools: list[Any] | None) -> list[str]:
@@ -405,7 +418,7 @@ class ClaudeSidecar:
         return ClaudeAgentOptions(**options)
 
     async def handle_message(self, message: Any) -> None:
-        if isinstance(message, StreamEvent):
+        if is_stream_event_message(message):
             payload = to_jsonable(
                 getattr(message, "event", None)
                 or getattr(message, "stream_event", None)

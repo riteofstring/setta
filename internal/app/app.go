@@ -185,6 +185,7 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		externalAgentSend      *externalagents.SendService
 		externalAgentExecutor  externalagents.Executor
 		attachmentService      *chatattachments.Service
+		backendLogService      *backendlogs.Service
 		watchCodeWarnings      *watchCodeWarningTracker
 		codeUpdates            *codeUpdateService
 		renameRefactors        *renameRefactorService
@@ -243,6 +244,14 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 	currentSession := authServiceCurrentSessionOrNil(authService)
 	settaServerURL := resolveSettaServerURL(cfg, currentSession)
 	mcpToolRegistry = tools.NewRegistry()
+	backendLogService, err = backendlogs.NewService(backendlogs.ServiceOptions{
+		Logger:       logger,
+		WebsocketHub: websocketHub,
+		EnvLookup:    os.LookupEnv,
+	})
+	if err != nil {
+		return nil, err
+	}
 	if authService.SupportsSessionAuth() {
 		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
 			RuntimeRoot: cfg.Paths.RuntimeRoot,
@@ -1199,9 +1208,10 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return nil, err
 		}
 		externalAgentRuntime, err = externalagents.NewRuntime(externalagents.RuntimeOptions{
-			Runs:   agentRunStore,
-			Follow: externalAgentFollow,
-			Logger: logger,
+			Runs:        agentRunStore,
+			Follow:      externalAgentFollow,
+			BackendLogs: backendLogService,
+			Logger:      logger,
 		})
 		if err != nil {
 			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
@@ -1374,15 +1384,6 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 		ProjectState: projectRuntime,
 		Deployment:   deploymentRuntime,
 	})
-	backendLogService, err := backendlogs.NewService(backendlogs.ServiceOptions{
-		Logger:       logger,
-		WebsocketHub: websocketHub,
-		EnvLookup:    os.LookupEnv,
-	})
-	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
-	}
 	promptTemplateWatcher, err = prompttemplates.NewWatcher(prompttemplates.WatcherOptions{
 		Store:    promptTemplateStore,
 		Interval: 100 * time.Millisecond,

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/backendlogs"
 	"setta/internal/mcpx"
 )
 
@@ -31,16 +32,18 @@ type RunController interface {
 }
 
 type RuntimeOptions struct {
-	Runs    *agentruns.RunStore
-	Follow  *FollowService
-	Logger  *slog.Logger
-	TimeNow func() time.Time
+	Runs        *agentruns.RunStore
+	Follow      *FollowService
+	BackendLogs *backendlogs.Service
+	Logger      *slog.Logger
+	TimeNow     func() time.Time
 }
 
 type Runtime struct {
-	runs    *agentruns.RunStore
-	logger  *slog.Logger
-	timeNow func() time.Time
+	runs        *agentruns.RunStore
+	logger      *slog.Logger
+	backendLogs *backendlogs.Service
+	timeNow     func() time.Time
 
 	mu          sync.RWMutex
 	activeRuns  map[string]runState
@@ -87,6 +90,7 @@ func NewRuntime(options RuntimeOptions) (*Runtime, error) {
 	return &Runtime{
 		runs:        options.Runs,
 		logger:      options.Logger,
+		backendLogs: options.BackendLogs,
 		timeNow:     timeNow,
 		activeRuns:  map[string]runState{},
 		approvals:   map[string]ApprovalState{},

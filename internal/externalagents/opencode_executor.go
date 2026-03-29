@@ -430,25 +430,15 @@ func (e *OpenCodeExecutor) finalizeRun(runID string, state ChatState, sessionID 
 }
 
 func (e *OpenCodeExecutor) markRunFailed(runID string, runErr error, stderrLines []string) error {
-	run, err := e.runs.Load(runID)
-	if err != nil {
-		return err
-	}
-	if run.Status == agentruns.RunStatusCancelled {
-		return nil
-	}
-	finishedAt := e.timeNow().UTC()
-	run.Status = agentruns.RunStatusFailed
-	run.FinishedAt = &finishedAt
-	payload := map[string]any{
-		"error": runErr.Error(),
-	}
-	if len(stderrLines) > 0 {
-		payload["cliStderr"] = append([]string(nil), stderrLines...)
-	}
-	e.runtime.attachMCPStatusSnapshot(&run)
-	appendRunEvent(&run, "run_failed", payload, finishedAt)
-	return e.runs.Save(run)
+	_, err := persistExternalAgentRunFailure(
+		e.runs,
+		e.runtime,
+		e.timeNow,
+		runID,
+		runErr,
+		stderrLines,
+	)
+	return err
 }
 
 func (e *OpenCodeExecutor) persistLiveState(runID string, state ChatState, sessionID string) error {

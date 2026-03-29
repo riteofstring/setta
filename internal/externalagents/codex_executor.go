@@ -537,25 +537,15 @@ func (e *CodexExecutor) finalizeRun(
 }
 
 func (e *CodexExecutor) markRunFailed(runID string, runErr error, stderrLines []string) error {
-	run, err := e.runs.Load(runID)
-	if err != nil {
-		return err
-	}
-	if run.Status == agentruns.RunStatusCancelled {
-		return nil
-	}
-	e.runtime.attachMCPStatusSnapshot(&run)
-	finishedAt := e.timeNow().UTC()
-	run.Status = agentruns.RunStatusFailed
-	run.FinishedAt = &finishedAt
-	payload := map[string]any{
-		"error": runErr.Error(),
-	}
-	if len(stderrLines) > 0 {
-		payload["cliStderr"] = append([]string(nil), stderrLines...)
-	}
-	appendRunEvent(&run, "run_failed", payload, finishedAt)
-	return e.runs.Save(run)
+	_, err := persistExternalAgentRunFailure(
+		e.runs,
+		e.runtime,
+		e.timeNow,
+		runID,
+		runErr,
+		stderrLines,
+	)
+	return err
 }
 
 func (e *CodexExecutor) persistThreadID(runID string, threadID string) error {
