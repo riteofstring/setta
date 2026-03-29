@@ -140,6 +140,38 @@ async function openAllSettingsBaseline(page: Page): Promise<void> {
   await openAllSettingsPage(page, { rendererMode: null });
 }
 
+test("settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL.toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+  await page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const { createProjectChatWindowInstance, createProjectChatWindowingState } =
+      await import("/src/utils/generatedTypes.ts");
+
+    useProjectState.setState({
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        nextInstanceNumber: 2,
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstance({
+            instanceId: "project-chat-window-1",
+            isClosed: false,
+          }),
+        },
+      }),
+    });
+  });
+
+  const projectChatWindowTitle = page.getByTestId("project-chat-window-title");
+  await expect(projectChatWindowTitle).toContainText("Chat Window 1");
+
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await expect(projectChatWindowTitle).toHaveCount(0);
+});
+
 async function readViewportTransform(page: Page): Promise<ViewportTransform> {
   return page.evaluate(async (moduleUrl: string) => {
     const { useReactFlow } = await import(moduleUrl);

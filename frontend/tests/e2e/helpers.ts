@@ -332,9 +332,8 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
     const { setPaneWidthWithLayout } = await import(
       "/src/components/Panes/paneLayout.ts"
     );
-    const { useLocalStorage } = await import("/src/state/definitions.ts");
-    const { replaceProjectChatWindowingState } = await import(
-      "/src/state/actions/projectChatWindowing.ts"
+    const { useLocalStorage, useProjectState } = await import(
+      "/src/state/definitions.ts"
     );
     const {
       CLOSED_PANE_WIDTH,
@@ -348,8 +347,8 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
 
     // Use the lowest-level stable modules so this normalization works on both
     // the current worktree and the read-only main reference runtime.
-    replaceProjectChatWindowingState(
-      createProjectChatWindowingState({
+    useProjectState.setState({
+      projectChatWindowing: createProjectChatWindowingState({
         order: [hiddenProjectChatWindowId],
         nextInstanceNumber: 2,
         instancesById: {
@@ -359,7 +358,7 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
           }),
         },
       }),
-    );
+    });
     useLocalStorage.setState({
       overviewTab: OverviewTabNameEnum.Overview,
       uiEditorVis: false,

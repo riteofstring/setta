@@ -10844,3 +10844,59 @@ Record:
     - outcome: the earlier canary-only `zoom out enabled` report was a snapshot-interpretation false positive, not a renderer/control regression
 - Next action:
   - Resume the next bounded live Pixi `main`-oracle parity slice once the read-only reference runtime is available, using DOM/state reads instead of snapshot text when a control-state question matters.
+
+## 2026-03-30 330
+
+- Item: Retry the next live Pixi `main`-oracle parity slice after one bounded worktree lifecycle recovery.
+- Status: `blocked`
+- Details:
+  - Started the intended next frontier directly from item `329`:
+    - use a fresh-context CDP probe to compare normalized `main` `/settings`, worktree baseline `/settings`, and worktree live Pixi `/settings?liveDictAreaRenderer=pixi-node-body`
+    - identify one smallest real visible parity blocker before making another renderer change
+  - The initial fresh-context CDP sub-agent could not connect to the advertised worktree debug port:
+    - `http://127.0.0.1:9265/json/version` was unreachable
+    - there was no Chrome/Chromium process exposing that debugging port
+  - Per the repo lifecycle rules, attempted the one bounded self-recovery for the current non-main worktree:
+    - `./aireset.sh`
+    - fallback retry: `./ai.sh`
+  - Refreshed runtime values after the restart attempt:
+    - worktree backend/frontend recovered at `http://127.0.0.1:8043` and `http://127.0.0.1:3043`
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .` reported session `648a03`
+    - `pnpm -C frontend cdp-port` still reported `9265`
+  - CDP remained unavailable after recovery:
+    - `curl http://127.0.0.1:9265/json/version` still failed to connect
+    - without a reachable DevTools port, the required `main`-oracle visual/CDP gate could not run
+  - No production code was changed in this iteration because the next bounded slice depends on a trustworthy parity comparison, and guessing at a visual blocker would violate the plan.
+- Next action:
+  - Retry the same `main`-oracle live Pixi parity slice after a fresh outer-loop worktree lifecycle bootstrap restores a reachable Chrome DevTools port; if `9265` is still unreachable on the next pass, treat it as a persistent local lifecycle blocker instead of continuing adjacent renderer work.
+
+## 2026-03-30 331
+
+- Item: Keep the settings parity-reset helper local-only so workspace-chrome normalization does not mutate canary backend state between Playwright checks.
+- Status: `done`
+- Details:
+  - Took a bounded parity-harness slice directly from the first normalized `main`-oracle comparison in this iteration:
+    - the initial fresh-context CDP probe showed uncontrolled project-chat chrome could still pollute the `All Settings` surface
+    - a stricter normalized re-check then showed the remaining visual drift was baseline-vs-`main`, not a live-Pixi-only mismatch
+    - that made the next useful slice the normalization harness itself, not another renderer change
+  - Updated the shared Playwright normalization helper to reset project chat chrome through local store state instead of the backend-writing windowing action:
+    - `frontend/tests/e2e/helpers.ts`
+  - Added a focused settings regression that seeds a visible chat window via local store state, runs the normalization helper, and asserts the stale chat chrome disappears without touching the canary backend state:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Kept the slice intentionally narrow:
+    - no production renderer code changed
+    - no live Pixi layout or fit-view logic changed
+    - this only hardens the parity-reset/test harness so future visual comparisons are not contaminated by helper-induced backend writes
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|all settings canary can replace the live dict-area body with a Pixi scene host|all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime (`http://127.0.0.1:3043/settings`):
+    - locally seeded a visible `Chat Window 1`
+    - applied the same low-level normalization shape as the Playwright helper (`overviewTab=Overview`, `uiEditorVis=false`, `uiEditorWidth=500`, `uiEditorTrueWidth=40`, overview width `335`, hidden `project-chat-window-1`)
+    - result: passed; the project chat window nodes disappeared and the settings surface stayed visible and healthy
+- Next action:
+  - Resume the normalized `main`-oracle parity investigation on `All Settings`; the remaining visible drift after symmetric normalization is still baseline-vs-`main`, so the next real frontier is the DOM dict-area scale/layout mismatch rather than more workspace-chrome churn.
