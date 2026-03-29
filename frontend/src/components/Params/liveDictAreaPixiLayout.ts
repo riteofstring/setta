@@ -88,9 +88,11 @@ export type LiveDictAreaPixiFixedMeasurement = {
 
 export function buildLiveDictAreaPixiLayout({
   liveDictAreaSceneBoundary,
+  maxCanvasHeight,
   width,
 }: {
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
+  maxCanvasHeight?: number | null;
   width: number;
 }): LiveDictAreaPixiLayout {
   const canvasWidth = Math.max(
@@ -128,8 +130,18 @@ export function buildLiveDictAreaPixiLayout({
     nextBlockY += paramAreaLayout.height + LIVE_DICT_AREA_PIXI_LAYOUT.areaGap;
   }
 
-  const canvasHeight =
+  const unclampedCanvasHeight =
     blocks.length === 0 ? 0 : nextBlockY - LIVE_DICT_AREA_PIXI_LAYOUT.areaGap;
+  const normalizedMaxCanvasHeight =
+    typeof maxCanvasHeight === "number" &&
+    Number.isFinite(maxCanvasHeight) &&
+    maxCanvasHeight > 0
+      ? Math.floor(maxCanvasHeight)
+      : null;
+  const canvasHeight =
+    normalizedMaxCanvasHeight === null
+      ? unclampedCanvasHeight
+      : Math.min(unclampedCanvasHeight, normalizedMaxCanvasHeight);
 
   return {
     blocks,

@@ -145,4 +145,55 @@ describe("buildLiveDictAreaPixiLayout", () => {
       }),
     ]);
   });
+
+  it("clamps the Pixi canvas height to the mounted preview-card height", () => {
+    const liveDictAreaBoundary = buildLiveDictAreaBoundary({
+      bgColor: "bg-surface",
+      canConnect: true,
+      edgeInputParams: [],
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      getParamDisplayName: (paramId: string) => paramId,
+      getParamValuePreview: (paramId: string) => paramId,
+      inputPorts: [{ id: "input-a", label: "Input A" }],
+      isSelectingParams: false,
+      outputPorts: [{ id: "output-a", label: "Output A" }],
+      pinned: {
+        requiredParamIdsToPaths: {
+          "pinned-value": ["pinned-value"],
+        },
+        topLevelParamIds: ["pinned-value"],
+      },
+      positionAndSizeLocked: false,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: null,
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 96,
+        pinnedRequiredParamIdsToPaths: {},
+        pinnedTopLevelParamIds: [],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          "unpinned-value": ["unpinned-value"],
+        },
+        topLevelParamIds: ["unpinned-value"],
+      },
+    });
+    const liveDictAreaSceneBoundary = buildLiveDictAreaSceneBoundary({
+      liveDictAreaBoundary,
+    });
+    const unclamped = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      width: 320,
+    });
+    const clamped = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      maxCanvasHeight: unclamped.canvasHeight - 40,
+      width: 320,
+    });
+
+    expect(unclamped.canvasHeight).toBeGreaterThan(40);
+    expect(clamped.canvasHeight).toBe(unclamped.canvasHeight - 40);
+  });
 });

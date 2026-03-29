@@ -1,8 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
-  getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiLogicalCanvasWidth,
+  getLiveDictAreaPixiMaxCanvasHeight,
+  getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextStyleSet,
@@ -17,6 +18,17 @@ describe("getLiveDictAreaPixiLogicalCanvasWidth", () => {
     expect(getLiveDictAreaPixiLogicalCanvasWidth(0)).toBe(
       LIVE_DICT_AREA_PIXI_LAYOUT.canvasMinWidth,
     );
+  });
+});
+
+describe("getLiveDictAreaPixiMaxCanvasHeight", () => {
+  it("normalizes the mounted preview-card height to a finite integer canvas limit", () => {
+    expect(getLiveDictAreaPixiMaxCanvasHeight(64.8)).toBe(64);
+  });
+
+  it("skips clamping when the mounted container height is unavailable", () => {
+    expect(getLiveDictAreaPixiMaxCanvasHeight(0)).toBeNull();
+    expect(getLiveDictAreaPixiMaxCanvasHeight(Number.NaN)).toBeNull();
   });
 });
 

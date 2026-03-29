@@ -8567,3 +8567,52 @@ Record:
   - Treat item `263`'s claim that row value previews were visibly present as superseded by this correction. The live worktree visual gate is still failing.
 - Next action:
   - Debug why the running worktree Pixi canvas still leaves right-side value previews unpainted despite passing disposable scene-host/handoff checks, then re-run the headed CDP comparison before any further parity cleanup.
+
+## 2026-03-29 265
+
+- Item: Clamp the live Pixi preview-card scene host to the mounted tile height and lock the height contract in tests.
+- Status: `done`
+- Details:
+  - Took the next bounded canary bug directly from the fresh-headed inspection instead of another token/parity cleanup:
+    - the `pixi-node-body` settings tiles on the running worktree were mounting descendant canvases much taller than the visible preview cards (`~257px` canvas inside a `~64px` card on the earlier `shortcuts` check)
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The live Pixi scene now:
+    - observes the mounted container height and normalizes a finite canvas-height limit for preview-card usage
+    - clamps the Pixi layout canvas height to that mounted limit instead of always expanding to the full stacked content height
+    - exposes the measured scene-height contract on the scene host for canary assertions
+  - The canary spec now asserts that the Pixi preview canvas CSS height does not exceed the visible root card height.
+  - Important correction:
+    - the over-tall canvas symptom is fixed on the checked headed tile, but the same tile still looks mostly blank/underpainted after the clamp
+    - this slice should not be treated as visual-parity success; it only removes the earlier oversized-canvas failure mode
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`19 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - direct retry with the provided bootstrap token:
+      - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401`
+    - helper retry:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401`
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - checked the visible `shortcuts` Pixi preview tile
+    - measured heights:
+      - outer visible card/root: `35.2px`
+      - inner scene root: `29.0px`
+      - descendant canvas: `29.0px`
+      - `data-live-dict-area-scene-available-height`: `290`
+    - the over-tall canvas symptom no longer reproduced on that tile (`29.0 <= 36.2`)
+    - blocker remains:
+      - the tile still looked mostly blank/underpainted, with only tiny marks near the top-left rather than a filled preview
+- Next action:
+  - Debug why the small headed settings preview tiles still paint as tiny mostly blank Pixi surfaces after the height clamp, starting with the scene draw scale/visible-row path on the running worktree before more parity cleanup.

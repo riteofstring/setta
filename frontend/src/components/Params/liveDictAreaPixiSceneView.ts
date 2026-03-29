@@ -45,6 +45,14 @@ export function getLiveDictAreaPixiLogicalCanvasWidth(hostWidth: number) {
   return Math.max(safeHostWidth, LIVE_DICT_AREA_PIXI_LAYOUT.canvasMinWidth);
 }
 
+export function getLiveDictAreaPixiMaxCanvasHeight(containerHeight: number) {
+  if (!Number.isFinite(containerHeight) || containerHeight <= 0) {
+    return null;
+  }
+
+  return Math.floor(containerHeight);
+}
+
 export function getLiveDictAreaPixiRenderResolution({
   devicePixelRatio,
   viewportZoom,
@@ -60,6 +68,12 @@ export function getLiveDictAreaPixiRenderResolution({
     Number.isFinite(viewportZoom) && viewportZoom > 0 ? viewportZoom : 1;
 
   return safeDevicePixelRatio * safeViewportZoom;
+}
+
+export function getLiveDictAreaPixiTextResolution(renderResolution: number) {
+  return Number.isFinite(renderResolution) && renderResolution > 1
+    ? renderResolution
+    : 1;
 }
 
 export function getLiveDictAreaPixiTextFontFamily({

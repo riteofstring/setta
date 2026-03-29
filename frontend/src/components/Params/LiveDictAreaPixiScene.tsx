@@ -19,6 +19,7 @@ import {
 } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiLogicalCanvasWidth,
+  getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
@@ -66,12 +67,16 @@ function _LiveDictAreaPixiScene({
 }: LiveDictAreaPixiSceneProps) {
   const darkMode = useLocalStorage((state) => state.darkMode);
   const viewportZoom = useReactFlow((state) => state.transform[2]);
+  const sceneRootRef = useRef<HTMLDivElement | null>(null);
   const hostRef = useRef<HTMLDivElement | null>(null);
   const edgeLabelTextStyleRef = useRef<HTMLParagraphElement | null>(null);
   const edgeRowTextStyleRef = useRef<HTMLSpanElement | null>(null);
   const rowTextStyleRef = useRef<HTMLParagraphElement | null>(null);
   const appRef = useRef<Application | null>(null);
   const [hostWidth, setHostWidth] = useState(0);
+  const [availableCanvasHeight, setAvailableCanvasHeight] = useState<
+    number | null
+  >(null);
   const [devicePixelRatio, setDevicePixelRatio] = useState(() =>
     typeof window === "undefined" ? 1 : window.devicePixelRatio || 1,
   );
@@ -85,9 +90,10 @@ function _LiveDictAreaPixiScene({
     () =>
       buildLiveDictAreaPixiLayout({
         liveDictAreaSceneBoundary,
+        maxCanvasHeight: availableCanvasHeight,
         width: logicalCanvasWidth,
       }),
-    [liveDictAreaSceneBoundary, logicalCanvasWidth],
+    [availableCanvasHeight, liveDictAreaSceneBoundary, logicalCanvasWidth],
   );
 
   useLayoutEffect(() => {
@@ -116,6 +122,39 @@ function _LiveDictAreaPixiScene({
       );
     });
     observer.observe(host);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const sceneRoot = sceneRootRef.current;
+    const container = sceneRoot?.parentElement;
+    if (!sceneRoot || !container) {
+      setAvailableCanvasHeight(null);
+      return;
+    }
+
+    const updateAvailableHeight = () => {
+      const style = window.getComputedStyle(container);
+      const paddingTop = Number.parseFloat(style.paddingTop) || 0;
+      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+      const normalizedHeight = getLiveDictAreaPixiMaxCanvasHeight(
+        container.clientHeight - paddingTop - paddingBottom,
+      );
+
+      setAvailableCanvasHeight((currentHeight) =>
+        currentHeight === normalizedHeight ? currentHeight : normalizedHeight,
+      );
+    };
+
+    updateAvailableHeight();
+
+    const observer = new ResizeObserver(() => {
+      updateAvailableHeight();
+    });
+    observer.observe(container);
 
     return () => {
       observer.disconnect();
@@ -267,11 +306,15 @@ function _LiveDictAreaPixiScene({
     <div
       className="relative"
       data-live-dict-area-scene="pixi"
+      data-live-dict-area-scene-available-height={
+        availableCanvasHeight === null ? "" : availableCanvasHeight
+      }
       data-live-dict-area-scene-block-count={summaryLayout.blocks.length}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
       data-live-dict-area-scene-value-preview-count={
         summaryLayout.valuePreviewCount
       }
+      ref={sceneRootRef}
     >
       <div
         aria-hidden="true"
@@ -325,7 +368,7 @@ function drawLiveDictAreaPixiScene({
   for (const block of layout.blocks) {
     if (block.kind === "edge-strip") {
       app.stage.addChild(
-      drawLiveDictAreaEdgeStrip({
+        drawLiveDictAreaEdgeStrip({
           block,
           palette,
           renderResolution,
@@ -413,6 +456,7 @@ function drawLiveDictAreaEdgeStrip({
 function drawLiveDictAreaParamArea({
   block,
   palette,
+  paramColumnWidth,
   renderResolution,
   textFontFamily,
   textStyleSet,
