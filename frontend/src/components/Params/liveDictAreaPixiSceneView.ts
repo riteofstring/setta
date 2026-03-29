@@ -123,6 +123,13 @@ export type LiveDictAreaPixiDetailRowChrome = {
   valueColumnX: number;
 };
 
+export type LiveDictAreaPixiEdgePortChrome = {
+  dotFill: string;
+  labelFill: string;
+  labelFontWeight: string;
+  rowFill: string | null;
+};
+
 type LiveDictAreaPixiFontFaceSet = Pick<
   FontFaceSet,
   "addEventListener" | "ready" | "removeEventListener" | "status"
@@ -686,6 +693,38 @@ export function getLiveDictAreaPixiSwitchControlStyle({
     thumbFill: palette.panelBackground,
     trackCheckedFill: palette.portSelectedDot,
     trackUncheckedFill: palette.border,
+  };
+}
+
+export function getLiveDictAreaPixiEdgePortChrome({
+  isSelected,
+  palette,
+  textStyleSet,
+}: {
+  isSelected: boolean;
+  palette: LiveDictAreaPixiPalette;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
+}): LiveDictAreaPixiEdgePortChrome {
+  if (!isSelected) {
+    return {
+      dotFill: palette.portDot,
+      labelFill: palette.bodyText,
+      labelFontWeight: textStyleSet.edgeRowFontWeight,
+      rowFill: null,
+    };
+  }
+
+  const rowFill = palette.portSelectedDot;
+
+  return {
+    dotFill: palette.portSelectedDot,
+    labelFill:
+      getLiveDictAreaPixiComputedReadableTextColor({
+        backgroundColor: rowFill,
+        textColor: palette.bodyText,
+      }) ?? getLiveDictAreaPixiColorControlTextFill(rowFill),
+    labelFontWeight: textStyleSet.edgeRowFontWeight,
+    rowFill,
   };
 }
 

@@ -297,7 +297,15 @@ test.describe.serial("edge input args", () => {
         `[data-live-dict-area-edge-handoff='input-port'][data-live-dict-area-edge-handoff-port-id='${paramId}']`,
       );
       await expect(edgeHandoff).toBeVisible();
+      await expect(edgeHandoff).toHaveAttribute(
+        "data-live-dict-area-edge-handoff-selected",
+        "false",
+      );
       await edgeHandoff.click();
+      await expect(edgeHandoff).toHaveAttribute(
+        "data-live-dict-area-edge-handoff-selected",
+        "true",
+      );
 
       await page.keyboard.up("Shift");
       await page.keyboard.up(modKey);

@@ -1,14 +1,11 @@
 import type { LiveDictAreaMountProps } from "./groupContainerLiveDictAreaMount";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
+import { getLiveDictAreaPixiEdgeRowFrame } from "./liveDictAreaPixiEdgeRowFrame";
 import {
   buildLiveDictAreaPixiLayout,
   LIVE_DICT_AREA_PIXI_LAYOUT,
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
-
-const LIVE_DICT_AREA_PIXI_EDGE_STRIP_DIVIDER_WIDTH_PX = 12;
-const LIVE_DICT_AREA_PIXI_EDGE_ROW_TARGET_INSET_X = 4;
-const LIVE_DICT_AREA_PIXI_EDGE_ROW_TARGET_INSET_Y = 2;
 
 type LiveDictAreaPixiEdgeStripSurfaceBlock = Extract<
   LiveDictAreaMountProps["liveDictAreaSurface"]["blocks"][number],
@@ -60,19 +57,6 @@ export function buildLiveDictAreaPixiEdgeRowTargets({
       port,
     ]),
   );
-  const width = Math.max(
-    Math.floor(
-      (edgeStripBlock.width - LIVE_DICT_AREA_PIXI_EDGE_STRIP_DIVIDER_WIDTH_PX) /
-        2,
-    ) -
-      LIVE_DICT_AREA_PIXI_EDGE_ROW_TARGET_INSET_X * 2,
-    0,
-  );
-  const height = Math.max(
-    LIVE_DICT_AREA_PIXI_LAYOUT.edgePortRowHeight -
-      LIVE_DICT_AREA_PIXI_EDGE_ROW_TARGET_INSET_Y * 2,
-    0,
-  );
 
   return edgeStripBlock.inputPorts.flatMap((port) => {
     const inputPort = inputPortsById.get(port.id);
@@ -80,17 +64,22 @@ export function buildLiveDictAreaPixiEdgeRowTargets({
       return [];
     }
 
+    const frame = getLiveDictAreaPixiEdgeRowFrame({
+      block: edgeStripBlock,
+      port,
+    });
+
     return [
       {
         blockId: edgeStripBlock.blockId,
-        height,
+        height: frame.height,
         isSelected: port.isSelected,
         label: port.label,
         portId: port.id,
         sectionId: surfaceBlock.props.sectionId,
-        width,
-        x: edgeStripBlock.x + LIVE_DICT_AREA_PIXI_EDGE_ROW_TARGET_INSET_X,
-        y: port.y - LIVE_DICT_AREA_PIXI_EDGE_ROW_TARGET_INSET_Y,
+        width: frame.width,
+        x: frame.x,
+        y: frame.y,
       },
     ];
   });

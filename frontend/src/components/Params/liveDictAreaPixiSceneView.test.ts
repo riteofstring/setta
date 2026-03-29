@@ -8,6 +8,7 @@ import {
   getLiveDictAreaPixiComboboxControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiDetailRowChrome,
+  getLiveDictAreaPixiEdgePortChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiPalette,
@@ -373,6 +374,71 @@ describe("getLiveDictAreaPixiDetailRowChrome", () => {
       rowBackgroundWidth: 230,
       rowRightEdgeX: 251,
       valueColumnX: 199,
+    });
+  });
+});
+
+describe("getLiveDictAreaPixiEdgePortChrome", () => {
+  const textStyleSet = {
+    edgeLabelFontSize: 8,
+    edgeLabelFontWeight: "700",
+    edgeRowFontSize: 10.4,
+    edgeRowFontWeight: "400",
+    rowFontSize: 12,
+    rowFontWeight: "600",
+    titleFontSize: 8,
+    titleFontWeight: "700",
+  } as const;
+
+  it("keeps unselected edge rows transparent and on the default edge chrome", () => {
+    expect(
+      getLiveDictAreaPixiEdgePortChrome({
+        isSelected: false,
+        palette: {
+          bodyText: "#0f172a",
+          border: "#cbd5e1",
+          panelBackground: "#f8fafc",
+          panelBackgroundAlt: "#f1f5f9",
+          portDot: "#64748b",
+          portSelectedDot: "#0284c7",
+          rowBackground: "#ffffff",
+          rowBackgroundAlt: "#eef2ff",
+          rowPlaceholderFill: "#f8fafc",
+          titleText: "#475569",
+        },
+        textStyleSet,
+      }),
+    ).toEqual({
+      dotFill: "#64748b",
+      labelFill: "#0f172a",
+      labelFontWeight: "400",
+      rowFill: null,
+    });
+  });
+
+  it("uses the selected row fill with a readable text color for active edge rows", () => {
+    expect(
+      getLiveDictAreaPixiEdgePortChrome({
+        isSelected: true,
+        palette: {
+          bodyText: "#0f172a",
+          border: "#cbd5e1",
+          panelBackground: "#f8fafc",
+          panelBackgroundAlt: "#f1f5f9",
+          portDot: "#64748b",
+          portSelectedDot: "#1d4ed8",
+          rowBackground: "#ffffff",
+          rowBackgroundAlt: "#eef2ff",
+          rowPlaceholderFill: "#f8fafc",
+          titleText: "#475569",
+        },
+        textStyleSet,
+      }),
+    ).toEqual({
+      dotFill: "#1d4ed8",
+      labelFill: "#f8fafc",
+      labelFontWeight: "400",
+      rowFill: "#1d4ed8",
     });
   });
 });

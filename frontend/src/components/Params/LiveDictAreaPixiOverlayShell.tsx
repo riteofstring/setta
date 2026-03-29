@@ -154,6 +154,9 @@ export function LiveDictAreaPixiOverlayShell({
                 data-live-dict-area-edge-handoff-block-id={target.blockId}
                 data-live-dict-area-edge-handoff-port-id={target.portId}
                 data-live-dict-area-edge-handoff-section-id={target.sectionId}
+                data-live-dict-area-edge-handoff-selected={
+                  target.isSelected ? "true" : "false"
+                }
                 onClick={(event) => {
                   event.preventDefault();
                   event.stopPropagation();

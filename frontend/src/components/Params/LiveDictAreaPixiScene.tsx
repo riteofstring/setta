@@ -19,12 +19,17 @@ import {
   type LiveDictAreaPixiRowLayout,
 } from "./liveDictAreaPixiLayout";
 import {
+  getLiveDictAreaPixiEdgeRowFrame,
+  LIVE_DICT_AREA_PIXI_EDGE_ROW_FRAME_RADIUS_PX,
+} from "./liveDictAreaPixiEdgeRowFrame";
+import {
   getLiveDictAreaPixiAvailableCanvasHeight,
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiComboboxControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
   getLiveDictAreaPixiDetailRowChrome,
+  getLiveDictAreaPixiEdgePortChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
@@ -561,6 +566,7 @@ function drawLiveDictAreaEdgeStrip({
   for (const port of block.inputPorts) {
     graphics.addChild(
       drawEdgePort({
+        block,
         palette,
         port,
         textResolution,
@@ -573,6 +579,7 @@ function drawLiveDictAreaEdgeStrip({
   for (const port of block.outputPorts) {
     graphics.addChild(
       drawEdgePort({
+        block,
         palette,
         port,
         textResolution,
@@ -1162,12 +1169,14 @@ function buildFittedRowText({
 }
 
 function drawEdgePort({
+  block,
   palette,
   port,
   textResolution,
   textFontFamily,
   textStyleSet,
 }: {
+  block: LiveDictAreaPixiEdgeStripLayout;
   palette: LiveDictAreaPixiPalette;
   port: LiveDictAreaPixiEdgePortLayout;
   textResolution: number;
@@ -1175,20 +1184,39 @@ function drawEdgePort({
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
   const graphics = new Graphics();
+  const portChrome = getLiveDictAreaPixiEdgePortChrome({
+    isSelected: port.isSelected,
+    palette,
+    textStyleSet,
+  });
+
+  if (portChrome.rowFill) {
+    const frame = getLiveDictAreaPixiEdgeRowFrame({
+      block,
+      port,
+    });
+    graphics.roundRect(
+      frame.x,
+      frame.y,
+      frame.width,
+      frame.height,
+      LIVE_DICT_AREA_PIXI_EDGE_ROW_FRAME_RADIUS_PX,
+    );
+    graphics.fill(portChrome.rowFill);
+  }
+
   const dotX = port.align === "left" ? port.x + 4 : port.x - 4;
 
   graphics.circle(dotX, port.y + 6, 3);
-  graphics.fill(port.isSelected ? palette.portSelectedDot : palette.portDot);
+  graphics.fill(portChrome.dotFill);
 
   const label = new Text({
     resolution: textResolution,
     style: {
-      fill: palette.bodyText,
+      fill: portChrome.labelFill,
       fontFamily: textFontFamily,
       fontSize: textStyleSet.edgeRowFontSize,
-      fontWeight: port.isSelected
-        ? textStyleSet.rowFontWeight
-        : textStyleSet.edgeRowFontWeight,
+      fontWeight: portChrome.labelFontWeight,
     },
     text: port.label,
   });

@@ -556,7 +556,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         positionAndSizeLocked: false,
         sectionId: "section-edge-overlay",
         sectionTypeName: SectionTypeEnum.Dict,
-        selectedParamIds: [],
+        selectedParamIds: ["input-a"],
         styleColor: null,
         unpinned: {
           canEditLayout: true,
@@ -588,6 +588,9 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     );
 
     expect(button).not.toBeNull();
+    expect(
+      button?.getAttribute("data-live-dict-area-edge-handoff-selected"),
+    ).toBe("true");
 
     act(() => {
       button?.click();

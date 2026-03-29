@@ -10130,3 +10130,34 @@ Record:
       - opened `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`, navigated to `All Settings`, and confirmed the visible settings shell / live dict-area viewport still rendered normally with no obvious overlap, clipping, or missing content after the new edge-row handoff targets were added
 - Next action:
   - Move to the next scene-owned interaction or visual parity gap beyond edge selection, with selected-state painting for the retained edge strip as the most direct next frontier.
+
+## 2026-03-30 308
+
+- Item: Paint the retained live Pixi edge strip with a real selected-row state after edge-arg selection.
+- Status: `done`
+- Details:
+  - Chose the next real scene-owned parity slice from item `307` instead of reopening the completed seam-lift/helper-lift lane.
+  - Added one shared edge-row frame helper so the selected edge-row paint and the transparent overlay handoff buttons use the same geometry:
+    - `frontend/src/components/Params/liveDictAreaPixiEdgeRowFrame.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiEdgeRowTargets.ts`
+  - The live Pixi edge-strip renderer now paints selected input rows as actual selected rows rather than only changing the dot and label weight:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+  - The transparent edge-row handoff buttons now expose their selected state so the canary can assert that the live selection update reached the retained-scene overlay boundary:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/params/edge-input-args-selection.spec.ts`
+  - Added focused helper coverage for the selected edge-row chrome, kept the scene smoke test in the verification set, and extended the live Pixi edge-arg Playwright path to assert the selected-state marker before pinning.
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiEdgeRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`56 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/params/edge-input-args-selection.spec.ts --grep "live Pixi canary can select an edge arg and pin it back into a value-row handoff"`
+      - result: passed (`1 passed`)
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime:
+      - bootstrap/auth succeeded for `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+      - the visible settings shell and live dict-area viewport rendered normally with no obvious overlap, clipping, or missing content after the selected-edge-row paint change
+      - the `/settings` canary did not expose a directly selectable edge-row state, so the new selected-row paint itself was not directly visible in this live CDP page and stayed covered by the focused Vitest + Playwright checks above
+- Next action:
+  - Move to the next retained-scene interaction parity gap beyond selected edge rows, starting with the next edge-strip state that can be exposed on a trustworthy live canary before changing renderer code again.
