@@ -28,6 +28,9 @@ const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
 const LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM =
   "liveDictAreaInteractionMode";
 const LIVE_PIXI_MODE = "pixi-node-body";
+// Use the exact browser module URL that the app resolves for the singleton
+// Zustand store. Importing the directory URL creates a second detached store.
+const REACT_FLOW_STORE_MODULE_URL = "/src/forks/xyflow/core/store/index.ts";
 
 type DragOverlayRow = {
   height: number;
@@ -137,10 +140,49 @@ async function openAllSettingsBaseline(page: Page): Promise<void> {
 }
 
 async function readViewportTransform(page: Page): Promise<ViewportTransform> {
-  return page.evaluate(async () => {
-    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+  return page.evaluate(async (moduleUrl: string) => {
+    const { useReactFlow } = await import(moduleUrl);
     const [x, y, zoom] = useReactFlow.getState().transform;
     return { x, y, zoom };
+  }, REACT_FLOW_STORE_MODULE_URL);
+}
+
+async function expectViewportTransformNear(
+  page: Page,
+  expected: ViewportTransform,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      const current = await readViewportTransform(page);
+      return (
+        Math.abs(current.x - expected.x) <= 2 &&
+        Math.abs(current.y - expected.y) <= 2 &&
+        Math.abs(current.zoom - expected.zoom) <= 0.0001
+      );
+    })
+    .toBe(true);
+}
+
+async function readFirstSceneCanvasMetrics(page: Page): Promise<{
+  cssHeight: number;
+  cssWidth: number;
+  pixelHeight: number;
+  pixelWidth: number;
+} | null> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector<HTMLCanvasElement>(
+      "[data-live-dict-area-scene='pixi'] canvas",
+    );
+    if (!canvas) {
+      return null;
+    }
+
+    return {
+      cssHeight: canvas.clientHeight,
+      cssWidth: canvas.clientWidth,
+      pixelHeight: canvas.height,
+      pixelWidth: canvas.width,
+    };
   });
 }
 
@@ -558,6 +600,39 @@ test("all settings canary keeps low-zoom live Pixi cards in detail mode by defau
     .toBe(true);
 });
 
+test("all settings canary keeps the true viewport zoom below 1x and the Pixi backing at least CSS-sized at minimum zoom", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  const initialViewport = await readViewportTransform(page);
+  expect(initialViewport.zoom).toBeGreaterThan(0);
+
+  await zoomViewportOutToMin(page);
+  await expectZoomOutButtonDisabled(page, true);
+
+  await expect
+    .poll(async () => (await readViewportTransform(page)).zoom)
+    .toBeLessThan(1);
+
+  const minZoomViewport = await readViewportTransform(page);
+  const canvasMetrics = await readFirstSceneCanvasMetrics(page);
+
+  expect(minZoomViewport.zoom).toBeLessThanOrEqual(initialViewport.zoom);
+  expect(canvasMetrics).not.toBeNull();
+  expect(canvasMetrics?.cssHeight).toBeGreaterThan(0);
+  expect(canvasMetrics?.cssWidth).toBeGreaterThan(0);
+  expect(canvasMetrics?.pixelHeight).toBeGreaterThanOrEqual(
+    canvasMetrics?.cssHeight ?? 0,
+  );
+  expect(canvasMetrics?.pixelWidth).toBeGreaterThanOrEqual(
+    canvasMetrics?.cssWidth ?? 0,
+  );
+  expect(
+    (canvasMetrics?.pixelWidth ?? 0) * (canvasMetrics?.pixelHeight ?? 0),
+  ).toBeLessThanOrEqual(LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS);
+});
+
 test("all settings canary restores low-zoom overview mode only for the explicit opt-in query param", async ({
   page,
 }) => {
@@ -652,9 +727,7 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
     });
 
     await openAllSettingsBaseline(page);
-    await expect
-      .poll(async () => readViewportTransform(page))
-      .toEqual(baselineViewport);
+    await expectViewportTransformNear(page, baselineViewport);
 
     await expect
       .poll(async () => {
@@ -669,9 +742,7 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
     expect(baselineBlocks).toHaveLength(2);
 
     await openAllSettingsLivePixiCanary(page);
-    await expect
-      .poll(async () => readViewportTransform(page))
-      .toEqual(baselineViewport);
+    await expectViewportTransformNear(page, baselineViewport);
 
     await expect
       .poll(async () => {
@@ -742,9 +813,7 @@ test("all settings baseline and live Pixi canary share the fit-view zoom-floor s
     expect(fitViewViewport.zoom).toBeGreaterThan(0);
 
     await openAllSettingsLivePixiCanary(page);
-    await expect
-      .poll(async () => readViewportTransform(page))
-      .toEqual(fitViewViewport);
+    await expectViewportTransformNear(page, fitViewViewport);
     await expectZoomOutButtonDisabled(page, true);
   } finally {
     await postBackend(page, "/setViewport", {

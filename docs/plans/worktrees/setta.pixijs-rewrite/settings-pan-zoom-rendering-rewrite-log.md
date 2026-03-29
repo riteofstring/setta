@@ -10608,3 +10608,36 @@ Record:
     - the live canary no longer reproduced the “backing smaller than CSS” blur/blockiness signature on that checked path
 - Next action:
   - Investigate why the headless Playwright canary runtime still attaches to a detached React Flow store while the live Chrome/CDP canary path is responsive; once that harness gap is resolved, add a real automated low-zoom backing-floor regression instead of reopening seam-lift work.
+
+## 2026-03-30 323
+
+- Item: Bind the settings live-Pixi Playwright canary to the attached React Flow singleton and add a real low-zoom backing-floor regression.
+- Status: `done`
+- Details:
+  - Took the bounded automation-blocker slice directly from item `322` instead of reopening renderer or seam-lift work.
+  - Root cause:
+    - the settings canary spec was reading React Flow state via browser-side `import("/src/forks/xyflow/core/store")`
+    - in the Vite browser runtime that directory URL is a different module specifier from the app’s resolved singleton URL (`/src/forks/xyflow/core/store/index.ts`)
+    - that meant the spec could read a second detached Zustand store with default state, which made viewport-transform assertions falsely pass at `1x` and blocked a trustworthy min-zoom backing-floor guard
+  - Updated:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The canary spec now:
+    - imports the React Flow store from the exact browser module URL the app resolves for the singleton (`/src/forks/xyflow/core/store/index.ts`)
+    - uses a shared `expectViewportTransformNear(...)` helper with a tight `2px` translation tolerance plus `0.0001` zoom tolerance, matching the real attached-store behavior instead of requiring false exact-transform equality across route reloads
+    - adds a focused low-zoom regression that proves the attached store reports a real `< 1` viewport zoom at minimum zoom and that the first visible Pixi canvas keeps backing dimensions at least as large as its CSS box
+  - The targeted rerun exposed one real test-harness issue before the final green pass:
+    - the geometry/fit-view tests had been relying on the detached-store path, so exact `toEqual(...)` viewport assertions were too strict once the real singleton was in play
+    - tightening them to near-equality kept the intended guard while removing the false positive path
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary keeps the true viewport zoom below 1x and the Pixi backing at least CSS-sized at minimum zoom|all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear|all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform"`
+    - result: passed (`4 passed`)
+  - Chrome DevTools MCP live check in a fresh sub-agent context on the current worktree runtime:
+    - checked the authenticated live worktree `/settings` canary path after zooming out to the minimum
+    - observed the first visible Pixi canvas at CSS `55x29` with backing `1100x580`
+    - no obvious blanking or clipping regression was observed on the checked first visible canary cards
+- Next action:
+  - Reuse the now-trustworthy attached-store settings canary harness for the next live Pixi visual/parity guard instead of relying on detached-store viewport reads or CDP-only evidence.
