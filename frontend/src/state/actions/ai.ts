@@ -17,7 +17,6 @@ import {
 import {
   clearChatStreamActive,
   isChatStreamActive,
-  isSectionStreamActive,
   markChatStreamActive,
   recordFinalizedMessage,
   shouldPersistOnMessageStop,
@@ -80,7 +79,6 @@ import {
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
-  route_set_chat_section_state,
   route_set_llm_api_keys,
   route_set_llm_config,
   route_start_transcription_session,
@@ -106,7 +104,6 @@ import {
   ChatPermissionMode,
   ChatPermissionModeEnum,
   ChatRoleEnum,
-  ChatSectionBranch,
   ChatSectionState,
   CreateAgentProfileRequestInput,
   CreateExternalAgentConfigRequestInput,
@@ -156,6 +153,12 @@ import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
 import {
+  applyHydratedChatDetailsToSectionState,
+  getChatSectionStateFromStore,
+  persistChatSectionState,
+  resolveHydratedToolCallArguments,
+} from "./chatSectionAuthority";
+import {
   mergeChatMessages,
   reconcileHydratedChatMessages,
 } from "./chatMergeUtils";
@@ -169,6 +172,8 @@ import {
   updateMessageById,
   upsertMessage,
 } from "./chatStreamState";
+
+export { persistChatSectionState };
 
 const scopeViolationToastTimeouts = new Map<
   string,
@@ -2077,94 +2082,6 @@ export async function stopManagedSectionChatResponse(
   return false;
 }
 
-function mergeChatSectionState(
-  currentState: ChatSectionState,
-  incoming: {
-    messages: Array<BaseChatMessageUnion>;
-    waitingForResponse: boolean;
-    toolCallArguments: Record<string, string>;
-  },
-  preserveWaitingForResponse: boolean,
-): ChatSectionState {
-  const mergedMessages = reconcileHydratedChatMessages({
-    backendMessages: incoming.messages ?? [],
-    localMessages: currentState.messages ?? [],
-  });
-  const nextWaitingForResponse = preserveWaitingForResponse
-    ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
-    : Boolean(incoming.waitingForResponse);
-  const nextToolCallArguments = resolveHydratedToolCallArguments({
-    backendToolCallArguments: incoming.toolCallArguments ?? {},
-    localToolCallArguments: currentState.toolCallArguments ?? {},
-    preserveLocalOverlay: preserveWaitingForResponse,
-  });
-  return {
-    messages: mergedMessages,
-    inputText: currentState.inputText ?? "",
-    waitingForResponse: nextWaitingForResponse,
-    toolCallArguments: nextToolCallArguments,
-    activeBranchId: currentState.activeBranchId ?? null,
-    branches: { ...(currentState.branches ?? {}) },
-  };
-}
-
-function resolveHydratedToolCallArguments({
-  backendToolCallArguments,
-  localToolCallArguments,
-  preserveLocalOverlay,
-}: {
-  backendToolCallArguments: Record<string, string>;
-  localToolCallArguments: Record<string, string>;
-  preserveLocalOverlay: boolean;
-}): Record<string, string> {
-  if (!preserveLocalOverlay) {
-    return { ...backendToolCallArguments };
-  }
-  return {
-    ...backendToolCallArguments,
-    ...localToolCallArguments,
-  };
-}
-
-function applyChatDetailsToSectionState({
-  sectionId,
-  messages,
-  waitingForResponse,
-  toolCallArguments,
-}: {
-  sectionId: string;
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-}): ChatSectionState | null {
-  let nextState: ChatSectionState | null = null;
-  useProjectState.setState((state) => {
-    const currentState = getChatSectionStateFromStore(state, sectionId);
-    if (!currentState) {
-      return;
-    }
-    const preserveWaitingForResponse = isSectionStreamActive(sectionId);
-    nextState = mergeChatSectionState(
-      currentState,
-      {
-        messages,
-        waitingForResponse,
-        toolCallArguments,
-      },
-      preserveWaitingForResponse,
-    );
-    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-      messages: nextState.messages,
-      waitingForResponse: nextState.waitingForResponse,
-      toolCallArguments: nextState.toolCallArguments,
-      inputText: nextState.inputText,
-      activeBranchId: nextState.activeBranchId,
-      branches: nextState.branches,
-    });
-  });
-  return nextState;
-}
-
 export function initializePendingChatDetails(surfaceId: string) {
   useAIStore.setState((state) => ({
     ...setPendingChatDetailsForSurface(
@@ -2391,7 +2308,7 @@ function applyLLMChatHydrationSuccess({
     };
   });
   if (sectionId) {
-    const nextState = applyChatDetailsToSectionState({
+    const nextState = applyHydratedChatDetailsToSectionState({
       sectionId,
       messages,
       waitingForResponse,
@@ -2468,7 +2385,7 @@ function applyExternalChatHydrationSuccess({
     };
   });
   if (sectionId) {
-    const nextState = applyChatDetailsToSectionState({
+    const nextState = applyHydratedChatDetailsToSectionState({
       sectionId,
       messages,
       waitingForResponse,
@@ -3195,41 +3112,6 @@ function applyChatSectionStreamDelta(
   return nextState;
 }
 
-export function persistChatSectionState({
-  projectConfigId,
-  sectionId,
-  nextState,
-  reason,
-}: {
-  projectConfigId: string;
-  sectionId: string;
-  nextState: ChatSectionState | null;
-  reason: string;
-}): void {
-  if (!nextState) {
-    return;
-  }
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-        messages: nextState.messages,
-        inputText: nextState.inputText,
-        waitingForResponse: nextState.waitingForResponse,
-        toolCallArguments: nextState.toolCallArguments,
-        activeBranchId: nextState.activeBranchId,
-        branches: nextState.branches,
-      });
-    },
-    send: (frontendOpId) =>
-      route_set_chat_section_state({
-        projectConfigId,
-        sectionId,
-        state: nextState,
-        frontendOpId,
-      }),
-  });
-}
-
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   if (chunk.message.role === ChatRoleEnum.assistant) {
     setStopEligibleAssistantMessageId(chatId, chunk.message.id);
@@ -3916,53 +3798,6 @@ function rollbackOptimisticUserMessage(
       },
     };
   });
-}
-
-function getChatSectionStateFromStore(
-  state: ZustandProjectState,
-  sectionId: string,
-): ChatSectionState | null {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return null;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return null;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return null;
-  }
-  const effective = {
-    ...impl,
-    ...core.sharedModifier,
-    ...variant.modifier,
-  };
-  if (effective.type !== SectionTypeEnum.Chat) {
-    return null;
-  }
-  const chatImpl = effective as {
-    type: SectionTypeEnum.Chat;
-    messages: BaseChatMessageUnion[];
-    inputText: string;
-    waitingForResponse: boolean;
-    toolCallArguments: Record<string, string>;
-    activeBranchId?: string | null;
-    branches?: Record<string, ChatSectionBranch>;
-  };
-  return {
-    messages: [...(chatImpl.messages ?? [])],
-    inputText: chatImpl.inputText ?? "",
-    waitingForResponse: Boolean(chatImpl.waitingForResponse),
-    toolCallArguments: { ...(chatImpl.toolCallArguments ?? {}) },
-    activeBranchId: chatImpl.activeBranchId ?? null,
-    branches: { ...(chatImpl.branches ?? {}) },
-  };
 }
 
 type ChatIdLookupCache = {
