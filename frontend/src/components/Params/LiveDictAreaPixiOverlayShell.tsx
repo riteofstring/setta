@@ -1,6 +1,13 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   buildFitViewOnInitState,
   getCurrEffectiveCodeObjImplWithTypeGuard,
@@ -19,7 +26,11 @@ import {
   buildLiveDictAreaPixiFixedMeasurements,
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
-import { useOptionalLiveDictAreaPixiPageRuntime } from "./LiveDictAreaPixiPageRuntime";
+import {
+  type LiveDictAreaPixiRegisteredSceneBounds,
+  type LiveDictAreaPixiRegisteredSceneSummary,
+  useOptionalLiveDictAreaPixiPageRuntime,
+} from "./LiveDictAreaPixiPageRuntime";
 import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOverlay";
 import type { LiveDictAreaPixiSceneProps } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
@@ -44,11 +55,15 @@ export function LiveDictAreaPixiOverlayShell({
     () => getLiveDictAreaPixiSceneSectionId({ liveDictAreaMountProps }),
     [liveDictAreaMountProps],
   );
+  const viewportTransform = useReactFlow((state) => state.transform, _.isEqual);
   const liveDictAreaPixiPageRuntime = useOptionalLiveDictAreaPixiPageRuntime();
   const registerScene = liveDictAreaPixiPageRuntime?.registerScene;
   const reportContextLost = liveDictAreaPixiPageRuntime?.reportContextLost;
+  const sceneShellRef = useRef<HTMLDivElement | null>(null);
   const [summaryLayout, setSummaryLayout] =
     useState<LiveDictAreaPixiLayout | null>(null);
+  const [registeredSceneBounds, setRegisteredSceneBounds] =
+    useState<LiveDictAreaPixiRegisteredSceneBounds | null>(null);
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
   const [activeDragRowId, setActiveDragRowId] = useState<string | null>(null);
   const [focusedValueRowId, setFocusedValueRowId] = useState<string | null>(
@@ -192,17 +207,74 @@ export function LiveDictAreaPixiOverlayShell({
     activeValueRowCoreEditState?.coreNameEditable === false &&
     activeValueRowErrorMessage.length === 0;
   const shouldShowDomContextLossFallback = hasLostWebglContext;
+  const registeredSceneSummary =
+    useMemo<LiveDictAreaPixiRegisteredSceneSummary | null>(
+      () =>
+        summaryLayout === null
+          ? null
+          : {
+              blockCount: summaryLayout.blocks.length,
+              readableRowCount: summaryLayout.readableRowCount,
+              totalRowCount: summaryLayout.totalRowCount,
+              valuePreviewCount: summaryLayout.valuePreviewCount,
+            },
+      [summaryLayout],
+    );
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!registerScene) {
       return;
     }
 
     return registerScene({
+      bounds: registeredSceneBounds,
+      renderMode: shouldShowDomContextLossFallback
+        ? "dom-context-lost"
+        : "pixi",
       runtimeSceneId,
       sectionId: sceneSectionId,
+      summary: registeredSceneSummary,
     });
-  }, [registerScene, runtimeSceneId, sceneSectionId]);
+  }, [
+    registerScene,
+    registeredSceneBounds,
+    registeredSceneSummary,
+    runtimeSceneId,
+    sceneSectionId,
+    shouldShowDomContextLossFallback,
+  ]);
+
+  useLayoutEffect(() => {
+    const sceneShell = sceneShellRef.current;
+    if (!sceneShell) {
+      setRegisteredSceneBounds(null);
+      return;
+    }
+
+    const updateBounds = () => {
+      const nextBounds = readRegisteredSceneBounds(sceneShell);
+      setRegisteredSceneBounds((currentBounds) =>
+        areRegisteredSceneBoundsEqual(currentBounds, nextBounds)
+          ? currentBounds
+          : nextBounds,
+      );
+    };
+
+    updateBounds();
+
+    const observer = new ResizeObserver(() => {
+      updateBounds();
+    });
+    observer.observe(sceneShell);
+    window.addEventListener("resize", updateBounds);
+    window.addEventListener("scroll", updateBounds, true);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateBounds);
+      window.removeEventListener("scroll", updateBounds, true);
+    };
+  }, [viewportTransform]);
 
   useEffect(() => {
     if (summaryLayout === null) {
@@ -320,6 +392,7 @@ export function LiveDictAreaPixiOverlayShell({
       <div
         className="relative min-h-0 min-w-0 !max-w-full flex-1 overflow-hidden"
         data-live-dict-area-pixi-clipping-container="true"
+        ref={sceneShellRef}
       >
         {shouldShowDomContextLossFallback ? (
           <div
@@ -528,6 +601,44 @@ export function LiveDictAreaPixiOverlayShell({
         ) : null}
       </div>
     </>
+  );
+}
+
+function readRegisteredSceneBounds(
+  sceneShell: HTMLDivElement,
+): LiveDictAreaPixiRegisteredSceneBounds | null {
+  const rect = sceneShell.getBoundingClientRect();
+  if (!Number.isFinite(rect.width) || !Number.isFinite(rect.height)) {
+    return null;
+  }
+  if (rect.width <= 0 || rect.height <= 0) {
+    return null;
+  }
+
+  return {
+    height: Math.round(rect.height),
+    left: Math.round(rect.left),
+    top: Math.round(rect.top),
+    width: Math.round(rect.width),
+  };
+}
+
+function areRegisteredSceneBoundsEqual(
+  currentBounds: LiveDictAreaPixiRegisteredSceneBounds | null,
+  nextBounds: LiveDictAreaPixiRegisteredSceneBounds | null,
+) {
+  if (currentBounds === nextBounds) {
+    return true;
+  }
+  if (!currentBounds || !nextBounds) {
+    return false;
+  }
+
+  return (
+    currentBounds.height === nextBounds.height &&
+    currentBounds.left === nextBounds.left &&
+    currentBounds.top === nextBounds.top &&
+    currentBounds.width === nextBounds.width
   );
 }
 

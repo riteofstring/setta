@@ -106,6 +106,15 @@ type VisibleScenePaletteSample = {
   top: number;
 };
 
+type LiveDictAreaPageRuntimeSnapshot = {
+  count: number;
+  domContextLostCount: number;
+  hostPresent: boolean;
+  pixiCount: number;
+  sectionNames: string[];
+  sections: string[];
+};
+
 function getBlockKey(block: Pick<VisibleBlockBounds, "blockId" | "sectionId">) {
   return `${block.sectionId}:${block.blockId}`;
 }
@@ -667,6 +676,53 @@ async function readVisibleScenePaletteSamples(
         sectionId,
         top,
       }));
+  });
+}
+
+async function readLiveDictAreaPageRuntimeSnapshot(
+  page: Page,
+): Promise<LiveDictAreaPageRuntimeSnapshot> {
+  return page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const sectionsById = useProjectState.getState().sections;
+    const host = document.querySelector<HTMLElement>(
+      "[data-live-dict-area-pixi-page-runtime-host='true']",
+    );
+    if (!host) {
+      return {
+        count: 0,
+        domContextLostCount: 0,
+        hostPresent: false,
+        pixiCount: 0,
+        sectionNames: [],
+        sections: [],
+      };
+    }
+
+    const parseCount = (attributeName: string) => {
+      const rawValue = host.getAttribute(attributeName);
+      const nextCount = rawValue ? Number.parseInt(rawValue, 10) : 0;
+      return Number.isFinite(nextCount) ? nextCount : 0;
+    };
+
+    const sectionIds = (
+      host.getAttribute("data-live-dict-area-pixi-runtime-scenes") ?? ""
+    )
+      .split(",")
+      .filter((sectionId) => sectionId.length > 0);
+
+    return {
+      count: parseCount("data-live-dict-area-pixi-runtime-count"),
+      domContextLostCount: parseCount(
+        "data-live-dict-area-pixi-runtime-dom-context-lost-count",
+      ),
+      hostPresent: true,
+      pixiCount: parseCount("data-live-dict-area-pixi-runtime-pixi-count"),
+      sectionNames: sectionIds.map(
+        (sectionId) => sectionsById[sectionId]?.name ?? "",
+      ),
+      sections: sectionIds,
+    };
   });
 }
 
@@ -1453,6 +1509,37 @@ test("all settings canary prefers populated same-height value-preview windows in
             scene.valuePreviewCount === scene.optimalValuePreviewCount,
         )
       );
+    })
+    .toBe(true);
+});
+
+test("all settings canary mounts one shared page runtime host and tracks visible scene shells", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await normalizeAllSettingsOverviewLayout(page);
+  await waitForVisibleSceneMetrics(page);
+
+  await expect
+    .poll(async () => {
+      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
+      return (
+        runtime.hostPresent && runtime.count > 0 && runtime.sections.length > 0
+      );
+    })
+    .toBe(true);
+
+  const promptOverviewItem = page
+    .locator("#OverviewPane li")
+    .filter({ hasText: "promptSectionDefault" });
+  await expect(promptOverviewItem).toBeVisible();
+  await promptOverviewItem.click();
+
+  await expect
+    .poll(async () => {
+      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
+      return runtime.sectionNames.includes("promptSectionDefault");
     })
     .toBe(true);
 });

@@ -12224,3 +12224,46 @@ Record:
   - docs-only change; no tests run
 - Next action:
   - Design and land the minimal shared page-level Pixi runtime skeleton for normalized `All Settings`, with `promptSectionDefault` as the first canary that must stay on the Pixi path without `dom-context-lost`.
+
+## 2026-03-31 368
+
+- Item: Land the first shared page-level live Pixi runtime skeleton for visible scene registration.
+- Status: `done`
+- Details:
+  - Moved the current live Pixi boundary one real step into the new shared-runtime lane instead of reopening the per-card `Application` lifecycle lane from items `366` and `367`.
+  - Added a page-level runtime host inside `xyflow`'s `FlowRenderer`:
+    - `frontend/src/forks/xyflow/core/container/FlowRenderer.tsx`
+    - renders one shared `LiveDictAreaPixiPageRuntimeHost` inside the pane as the future page-level Pixi mount/diagnostics surface
+  - Deepened the runtime boundary so it now stores production scene registration data instead of only a scene count:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - tracks each registered scene's render mode, viewport bounds, and summary metrics
+    - keeps the existing shared context-loss policy
+    - exposes stable page-runtime diagnostics for the live canary host
+  - Changed the shell contract so visible live Pixi cards publish real shared-runtime registration data:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - each shell now measures and registers its clipping-container bounds into the page runtime
+    - each shell publishes summary-layout metrics and current render mode (`pixi` vs `dom-context-lost`) into the shared runtime
+    - this is still the existing per-card draw path, but the ownership boundary now has the page-level host plus the scene registry needed for the first true shared-renderer migration slice
+  - Added focused regression coverage for the new boundary:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the new Playwright canary verifies the shared page-runtime host exists on live Pixi `All Settings` and tracks visible scene shells through overview navigation
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/forks/xyflow/core/container/FlowRenderer.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`11 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime
+    - the bootstrap token had already rotated and was rejected, but the existing authenticated worktree session remained usable
+    - verified live `All Settings` still rendered normally on `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified `[data-live-dict-area-pixi-page-runtime-host="true"]` existed once with nonzero shared registration data (`count="46"`, `pixi-count="17"`)
+    - baseline `http://127.0.0.1:3043/settings` showed no obvious gross shell/layout drift from adding the invisible host
+- Next action:
+  - Start moving the first live Pixi canary draw ownership from per-card `Application` instances into the shared page-level runtime host, using normalized `promptSectionDefault` as the first migration canary.

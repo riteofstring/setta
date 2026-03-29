@@ -320,6 +320,11 @@ function RuntimeProbe() {
       data-live-dict-area-pixi-runtime-lost-scene={
         runtime?.contextLostScene?.sectionId ?? ""
       }
+      data-live-dict-area-pixi-runtime-render-modes={
+        runtime?.registeredScenes
+          .map((scene) => `${scene.sectionId ?? ""}:${scene.renderMode}`)
+          .join(",") ?? ""
+      }
     />
   );
 }
@@ -635,6 +640,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         .querySelector("[data-live-dict-area-pixi-runtime-count]")
         ?.getAttribute("data-live-dict-area-pixi-runtime-count"),
     ).toBe("2");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-pixi-runtime-count]")
+        ?.getAttribute("data-live-dict-area-pixi-runtime-render-modes"),
+    ).toBe("section-1:pixi,section-2:pixi");
 
     const contextLossTrigger = container.querySelector<HTMLButtonElement>(
       "[data-live-dict-area-scene-trigger-context-lost='true']",
@@ -653,6 +663,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         .querySelector("[data-live-dict-area-pixi-runtime-count]")
         ?.getAttribute("data-live-dict-area-pixi-runtime-lost-scene"),
     ).toBe("section-1");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-pixi-runtime-count]")
+        ?.getAttribute("data-live-dict-area-pixi-runtime-render-modes"),
+    ).toBe("section-1:dom-context-lost,section-2:pixi");
     expect(
       container.querySelectorAll(
         "[data-live-dict-area-scene-fallback='dom-context-lost']",

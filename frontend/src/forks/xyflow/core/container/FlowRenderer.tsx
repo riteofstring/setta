@@ -1,4 +1,7 @@
-import { LiveDictAreaPixiPageRuntimeBoundary } from "components/Params/LiveDictAreaPixiPageRuntime";
+import {
+  LiveDictAreaPixiPageRuntimeBoundary,
+  LiveDictAreaPixiPageRuntimeHost,
+} from "components/Params/LiveDictAreaPixiPageRuntime";
 import {
   NodesSelectionDragHandleWrapper,
   NodesSelectionWrapper,
@@ -71,6 +74,7 @@ const FlowRenderer = ({ children, wrapperDimensions }: FlowRendererProps) => {
         wrapperDimensions={wrapperDimensions}
       >
         <Pane {...flowRendererView.paneProps}>
+          <LiveDictAreaPixiPageRuntimeHost />
           <NodesSelectionDragHandleWrapper />
           {children}
           <NodesSelectionWrapper />
