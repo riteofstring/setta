@@ -13,8 +13,9 @@ fi
 repo_dev_python() {
   uv run \
     --frozen \
-    --python "${SETTA_PYTHON_VERSION}" \
-    --all-extras \
+    --python "${SETTA_PYTHON_VERSION:-3.13}" \
+    --extra source \
+    --extra dev \
     python \
     "$@"
 }
