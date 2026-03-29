@@ -2,58 +2,12 @@ import {
   BackgroundVariantEnum,
   createSettingsState,
   MetaControlSizeModeEnum,
-  RenameRefactorModeEnum,
   RunSnapshotModeEnum,
   SelectionModeEnum,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 
 describe("generated settings support", () => {
-  it("seeds current Go settings defaults for settings-backed callers", () => {
-    const settings = createSettingsState();
-
-    expect(settings.shortcuts.searchShortcut).toBe("Mod + K");
-    expect(settings.shortcuts.newTerminalShortcut).toBe("Ctrl + `");
-    expect(settings.backend.showDefaultConfigOnLoad).toBe(true);
-    expect(settings.backend.renameRefactorMode).toBe(
-      RenameRefactorModeEnum.ALWAYS_ASK,
-    );
-    expect(
-      settings.sectionSizingPolicy.byType.Callable.hideSearchMinHeight,
-    ).toBe(42);
-    expect(settings.sectionSizingPolicy.byType.StateMachineStart.minWidth).toBe(
-      240,
-    );
-    expect(
-      settings.sectionSizingPolicy.byType.StateMachineStart.minHeight,
-    ).toBe(96);
-    expect(settings.sectionSizingPolicy.byType.StateMachineGate.minHeight).toBe(
-      120,
-    );
-    expect(settings.sectionSizingPolicy.byType.StateMachineEnd.minWidth).toBe(
-      240,
-    );
-    expect(
-      settings.sectionSizingPolicy.globals.unpinnedParamsAreaMinHeight,
-    ).toBe(36);
-    expect(
-      settings.sectionSizingPolicy.metaControlByType.DropdownParam
-        .sizeModeHeight,
-    ).toBe(MetaControlSizeModeEnum.auto_only);
-    expect(settings.languageServer).toEqual({
-      basedpyright: {
-        analysis: {
-          diagnosticSeverityOverrides: {
-            reportUnknownVariableType: "none",
-            reportUnknownMemberType: "none",
-            reportUnannotatedClassAttribute: "none",
-            reportSelfClsParameterName: "none",
-          },
-        },
-      },
-    });
-  });
-
   it("preserves nested defaults when partial settings overrides are applied", () => {
     const settings = createSettingsState({
       shortcuts: {

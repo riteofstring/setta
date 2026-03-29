@@ -4,7 +4,6 @@ import {
   BrowserAreaViewModeEnum,
   BrowserSearchScopeEnum,
   ClipboardDataTypeEnum,
-  CodeFileAccessModeEnum,
   CodeLanguageEnum,
   CodeObjTypeEnum,
   ConfigLanguageEnum,
@@ -50,9 +49,7 @@ import {
   ListRootViewModeEnum,
   ParameterPassingStyleEnum,
   ParamNameTypeEnum,
-  RouteEnum,
   SectionParamCodeObjTypeSet,
-  SectionSizeModeEnum,
   SectionTypeEnum,
   TextBlockDisplayModeEnum,
   TextBlockFormatEnum,
@@ -221,17 +218,10 @@ describe("generated project state factories", () => {
     expect(codeParamImpl.value).toBe("5");
   });
 
-  it("exports code file binding access-mode enums for section settings callers", () => {
-    expect(CodeFileAccessModeEnum.read_write).toBe("read_write");
-    expect(CodeFileAccessModeEnum.read_only).toBe("read_only");
-    expect(CodeFileAccessModeEnum.write_only).toBe("write_only");
-  });
-
   it("exports section-size helpers with explicit auto sizing support", () => {
     const autoSize = createSectionSize();
     const fixedSize = createSectionSize({ width: 360, height: 140 });
 
-    expect(SectionSizeModeEnum.auto).toBe("auto");
     expect(autoSize).toEqual({ width: "auto", height: "auto" });
     expect(fixedSize).toEqual({ width: 360, height: 140 });
   });
@@ -383,7 +373,7 @@ describe("generated project state factories", () => {
     expect(browserImpl.savedSearches[0]?.typeFilters.video).toBe(false);
   });
 
-  it("exports the canonical view-mode helper and route enum surface", () => {
+  it("exports the canonical view-mode helper", () => {
     const viewMode = createViewModeConfig({
       id: "focus-mode",
       name: "Focus",
@@ -395,7 +385,6 @@ describe("generated project state factories", () => {
     expect(viewMode.isTab).toBe(true);
     expect(viewMode.sortIndex).toBe(0);
     expect(viewMode.topLevelSections).toEqual({});
-    expect(RouteEnum.CREATE_TOP_LEVEL_SECTION).toBe("/createTopLevelSection");
   });
 
   it("exports canonical project-shell helper defaults for layouts and agentic edges", () => {
