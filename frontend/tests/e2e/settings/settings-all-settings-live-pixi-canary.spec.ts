@@ -448,6 +448,59 @@ async function readScenePresentationModes(page: Page): Promise<string[]> {
   });
 }
 
+async function readVisibleSceneReadableRows(page: Page): Promise<
+  Array<{
+    left: number;
+    readableRowCount: number;
+    sectionId: string;
+    top: number;
+  }>
+> {
+  return page.evaluate(() => {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-id]",
+      ),
+    )
+      .map((sceneRoot) => {
+        const rect = sceneRoot.getBoundingClientRect();
+
+        return {
+          left: rect.left,
+          readableRowCount: Number.parseInt(
+            sceneRoot.getAttribute(
+              "data-live-dict-area-scene-readable-row-count",
+            ) ?? "0",
+            10,
+          ),
+          sectionId:
+            sceneRoot.getAttribute("data-live-dict-area-scene-section-id") ??
+            "",
+          top: rect.top,
+          visible:
+            rect.width > 0 &&
+            rect.height > 0 &&
+            rect.bottom > 0 &&
+            rect.top < window.innerHeight,
+        };
+      })
+      .filter((sceneRoot) => sceneRoot.visible)
+      .sort((leftScene, rightScene) => {
+        if (Math.abs(leftScene.top - rightScene.top) > 2) {
+          return leftScene.top - rightScene.top;
+        }
+
+        return leftScene.left - rightScene.left;
+      })
+      .map(({ left, readableRowCount, sectionId, top }) => ({
+        left,
+        readableRowCount,
+        sectionId,
+        top,
+      }));
+  });
+}
+
 async function waitForVisibleSceneMetrics(page: Page): Promise<{
   firstVisibleSceneRootWidth: number;
   firstVisibleSceneRootX: number;
@@ -994,6 +1047,24 @@ test("all settings canary keeps low-zoom live Pixi cards in detail mode by defau
     .poll(async () => {
       const modes = await readScenePresentationModes(page);
       return modes.length > 0 && modes.every((mode) => mode === "detail");
+    })
+    .toBe(true);
+});
+
+test("all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await waitForVisibleSceneMetrics(page);
+  await zoomViewportOutToMin(page);
+
+  await expect
+    .poll(async () => {
+      const visibleScenes = await readVisibleSceneReadableRows(page);
+      return (
+        visibleScenes.length >= 3 &&
+        visibleScenes.slice(0, 3).every((scene) => scene.readableRowCount > 0)
+      );
     })
     .toBe(true);
 });

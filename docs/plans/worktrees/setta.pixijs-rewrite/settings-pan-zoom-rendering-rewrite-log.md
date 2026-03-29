@@ -11693,3 +11693,40 @@ Record:
       - visible labels included `gui`, `ARGS`, `Remove arg`, `Add arg`, `Grid Pattern`, `Pan On Drag`, `Show Grid Lines`, and `Zoom On Scroll`
 - Next action:
   - Return to the next real live-Pixi-vs-`main` renderer/parity slice; do not reopen standalone route ownership or slug-path support work unless a new failing canary appears.
+
+## 2026-03-31 354
+
+- Item: Stop low-zoom Pixi detail cards from collapsing into group-only preview shells on the first visible `All Settings` row.
+- Status: `done`
+- Details:
+  - Returned to the live Pixi renderer/parity frontier instead of reopening the finished standalone-route lane.
+  - Narrowed the first live production drift to the top visible `All Settings` row:
+    - `shortcuts`, `gui`, and `backend` were landing in detail mode with blank interiors while the baseline DOM still showed populated inner rows.
+  - Updated the Pixi param-area layout selection so constrained cards no longer keep a leading all-group preview window when a readable row exists later in the same flattened param packet:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+      - added `resolveVisibleParamAreaRows(...)`
+      - when the currently visible row window is group-only, the preview window now shifts down to include the first non-group row and reflows those rows back to the top of the constrained card
+      - exported a `readableRowCount` summary diagnostic on the layout
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - published `data-live-dict-area-scene-readable-row-count` on the scene root for canary/CDP diagnostics
+  - Added focused regression coverage for both the layout fix and the live canary symptom:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+      - compact single-row previews now prefer the first readable row instead of a leading empty group shell
+      - constrained multi-row previews now shift off a group-only window until the first readable row remains visible
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added a low-zoom canary that requires the first visible Pixi cards in reading order to expose non-zero readable-row counts instead of collapsing to group-only previews
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`2` files, `14` tests)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the live worktree `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` after resetting to the minimum zoom on `All Settings`
+    - result: passed
+      - `shortcuts`, `gui`, and `backend` now reported non-zero `data-live-dict-area-scene-readable-row-count`
+      - those three top-row cards were visibly populated again instead of rendering as blank dark shells
+      - `chatWindowing` remained populated, though still sparser than the surrounding cards
+- Next action:
+  - Resume the normalized live-Pixi parity comparison against the worktree baseline and then `main` to identify the next renderer/chrome drift now that the top-row blank-card blocker is closed.

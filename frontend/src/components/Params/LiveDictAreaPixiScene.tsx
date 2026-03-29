@@ -453,6 +453,9 @@ function _LiveDictAreaPixiScene({
       }
       data-live-dict-area-scene-presentation-mode={presentationMode}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
+      data-live-dict-area-scene-readable-row-count={
+        summaryLayout.readableRowCount
+      }
       data-live-dict-area-scene-section-id={sectionId ?? undefined}
       data-live-dict-area-scene-value-preview-count={
         summaryLayout.valuePreviewCount

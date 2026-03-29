@@ -100,6 +100,7 @@ export type LiveDictAreaPixiLayout = {
   canvasWidth: number;
   edgeStrip: LiveDictAreaPixiEdgeStripLayout | null;
   paramAreas: LiveDictAreaPixiParamAreaLayout[];
+  readableRowCount: number;
   totalRowCount: number;
   valuePreviewCount: number;
 };
@@ -194,6 +195,12 @@ export function buildLiveDictAreaPixiLayout({
     canvasWidth,
     edgeStrip,
     paramAreas,
+    readableRowCount: paramAreas.reduce(
+      (readableRowCount, paramArea) =>
+        readableRowCount +
+        paramArea.rows.filter((row) => row.kind !== "group").length,
+      0,
+    ),
     totalRowCount: paramAreas.reduce(
       (rowCount, paramArea) => rowCount + paramArea.rows.length,
       0,
@@ -360,9 +367,12 @@ function buildLiveDictAreaPixiParamAreaLayout({
     return null;
   }
   const visibleRowsBottomY = y + height - areaPaddingBottom;
-  const visibleRows = rows.filter(
-    (row) => row.y + row.blockHeight <= visibleRowsBottomY,
-  );
+  const visibleRows = resolveVisibleParamAreaRows({
+    rows,
+    rowTopOffset,
+    visibleRowsBottomY,
+    rowsStartY,
+  }).filter((row) => row.y + row.blockHeight <= visibleRowsBottomY);
   if (visibleRows.length === 0) {
     return null;
   }
@@ -380,6 +390,52 @@ function buildLiveDictAreaPixiParamAreaLayout({
     x: LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX,
     y,
   };
+}
+
+function resolveVisibleParamAreaRows({
+  rows,
+  rowTopOffset,
+  visibleRowsBottomY,
+  rowsStartY,
+}: {
+  rows: LiveDictAreaPixiRowLayout[];
+  rowTopOffset: number;
+  visibleRowsBottomY: number;
+  rowsStartY: number;
+}) {
+  const visibleRows = rows.filter(
+    (row) => row.y + row.blockHeight <= visibleRowsBottomY,
+  );
+
+  if (
+    visibleRows.length === 0 ||
+    visibleRows.length >= rows.length ||
+    visibleRows.some((row) => row.kind !== "group")
+  ) {
+    return visibleRows;
+  }
+
+  const firstReadableRowIndex = rows.findIndex((row) => row.kind !== "group");
+  if (firstReadableRowIndex === -1) {
+    return visibleRows;
+  }
+
+  const previewRowCount = visibleRows.length;
+  const maxPreviewStartIndex = Math.max(0, rows.length - previewRowCount);
+  const previewStartIndex = Math.min(
+    Math.max(0, firstReadableRowIndex - (previewRowCount - 1)),
+    maxPreviewStartIndex,
+  );
+
+  return rows
+    .slice(previewStartIndex, previewStartIndex + previewRowCount)
+    .map((row, rowIndex) => ({
+      ...row,
+      y:
+        rowsStartY +
+        rowIndex * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
+        rowTopOffset,
+    }));
 }
 
 function getLiveDictAreaPixiReservedTrailingPreviewHeight({
