@@ -3,6 +3,9 @@ import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiRenderResolution,
+  getLiveDictAreaPixiTextStyleSet,
+  getLiveDictAreaPixiTextFontFamily,
+  LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
 } from "./liveDictAreaPixiSceneView";
 
@@ -44,6 +47,68 @@ describe("getLiveDictAreaPixiRenderResolution", () => {
         viewportZoom: 0,
       }),
     ).toBe(1);
+  });
+});
+
+describe("getLiveDictAreaPixiTextFontFamily", () => {
+  it("reads the live Pixi scene font family from the mounted host first", () => {
+    const host = {} as Element;
+    const fallback = {} as Element;
+    const getComputedStyle = vi.fn((element: Element) => ({
+      fontFamily:
+        element === host
+          ? '"SF Pro Text", system-ui, sans-serif'
+          : '"Ignored", sans-serif',
+    }));
+
+    expect(
+      getLiveDictAreaPixiTextFontFamily({
+        fallbackElement: fallback,
+        getComputedStyle,
+        host,
+      }),
+    ).toBe('"SF Pro Text", system-ui, sans-serif');
+  });
+
+  it("falls back to the root element font family when the host has none", () => {
+    const host = {} as Element;
+    const fallback = {} as Element;
+    const getComputedStyle = vi.fn((element: Element) => ({
+      fontFamily: element === host ? "   " : '"Helvetica Neue", sans-serif',
+    }));
+
+    expect(
+      getLiveDictAreaPixiTextFontFamily({
+        fallbackElement: fallback,
+        getComputedStyle,
+        host,
+      }),
+    ).toBe('"Helvetica Neue", sans-serif');
+  });
+
+  it("uses the shared fallback stack when no computed font family is available", () => {
+    expect(
+      getLiveDictAreaPixiTextFontFamily({
+        fallbackElement: null,
+        getComputedStyle: vi.fn(() => ({ fontFamily: "   " })),
+        host: null,
+      }),
+    ).toBe(LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY);
+  });
+});
+
+describe("getLiveDictAreaPixiTextStyleSet", () => {
+  it("matches the current dict-area DOM text sizes for the live Pixi canary", () => {
+    expect(getLiveDictAreaPixiTextStyleSet()).toEqual({
+      edgeLabelFontSize: 8,
+      edgeLabelFontWeight: "700",
+      edgeRowFontSize: 10.4,
+      edgeRowFontWeight: "400",
+      rowFontSize: 12,
+      rowFontWeight: "600",
+      titleFontSize: 8,
+      titleFontWeight: "700",
+    });
   });
 });
 

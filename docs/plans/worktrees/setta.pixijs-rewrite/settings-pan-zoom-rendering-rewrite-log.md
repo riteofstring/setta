@@ -8219,3 +8219,40 @@ Record:
     - notable console noise remained from existing React 19 `element.ref` deprecation errors plus some `Uncaught in promise` messages, but the relevant settings/API requests still succeeded and did not block the canary render
 - Next action:
   - Continue the live Pixi visual-stability lane from this font-load redraw baseline by running the tighter side-by-side `main` comparison at the named canary state, or land the next bounded parity fix if the main reference tab is still unavailable.
+
+## 2026-03-29 257
+
+- Item: Route the live Pixi canary text font family through the mounted DOM surface instead of a hardcoded Pixi font stack.
+- Status: `done`
+- Details:
+  - The planned side-by-side `main` comparison was still unavailable in this browser session:
+    - no separate main/reference settings tab was open
+    - the only other visible Setta page was `http://127.0.0.1:3043/home`, not a reference settings canary
+  - Took the allowed next bounded parity fix on the same live Pixi visual-stability lane instead of inventing a new direction:
+    - removed the hardcoded `Inter, sans-serif` scene text path from the live `pixi-node-body` canary
+    - resolved the Pixi scene text font family from the mounted scene host first, then the app-shell/body surface, with a shared sans fallback only when neither computed style is available
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The live Pixi scene now:
+    - reads the same runtime `font-family` source as the DOM surface instead of baking in a different stack
+    - threads that resolved font family through row labels, edge-port labels, group tags, and section titles on the checked canary path
+    - leaves the existing zoom/DPR/font-load redraw behavior intact while tightening one concrete visual-token mismatch
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`10 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes|CodeMirror-backed value row"`
+      - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - `All Settings` rendered in headed Chrome with the live Pixi dict-area scene visible and no obvious clipping or blanking in the checked viewport
+    - the mounted scene host font family matched the app-shell/root font family exactly:
+      - `ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"`
+    - blocker: none
+- Next action:
+  - Continue the live Pixi visual-stability lane from this shared-font-source baseline by comparing against `main` when a reference settings tab is available, or by landing the next bounded text/chrome token-parity fix on the same canary if the reference surface is still unavailable.

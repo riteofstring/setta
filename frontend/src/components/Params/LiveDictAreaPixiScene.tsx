@@ -20,7 +20,10 @@ import {
 import {
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiRenderResolution,
+  getLiveDictAreaPixiTextFontFamily,
+  getLiveDictAreaPixiTextStyleSet,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
+  type LiveDictAreaPixiTextStyleSet,
 } from "./liveDictAreaPixiSceneView";
 
 type LiveDictAreaPixiSceneProps = {
@@ -30,7 +33,6 @@ type LiveDictAreaPixiSceneProps = {
 type LiveDictAreaPixiPalette = {
   bodyText: ColorSource;
   border: ColorSource;
-  groupTagText: ColorSource;
   panelBackground: ColorSource;
   panelBackgroundAlt: ColorSource;
   portDot: ColorSource;
@@ -164,6 +166,12 @@ function _LiveDictAreaPixiScene({
     let frameId = 0;
 
     const renderSceneForHost = async () => {
+      const textFontFamily = getLiveDictAreaPixiTextFontFamily({
+        fallbackElement: document.body,
+        getComputedStyle: window.getComputedStyle,
+        host,
+      });
+      const textStyleSet = getLiveDictAreaPixiTextStyleSet();
       let app = appRef.current;
 
       if (!app) {
@@ -211,6 +219,8 @@ function _LiveDictAreaPixiScene({
         layout: summaryLayout,
         palette: getLiveDictAreaPixiPalette(darkMode),
         renderResolution,
+        textFontFamily,
+        textStyleSet,
       });
 
       app.render();
@@ -261,11 +271,15 @@ function drawLiveDictAreaPixiScene({
   layout,
   palette,
   renderResolution,
+  textFontFamily,
+  textStyleSet,
 }: {
   app: Application;
   layout: LiveDictAreaPixiLayout;
   palette: LiveDictAreaPixiPalette;
   renderResolution: number;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
   for (const child of app.stage.removeChildren()) {
     child.destroy();
@@ -278,6 +292,8 @@ function drawLiveDictAreaPixiScene({
           block,
           palette,
           renderResolution,
+          textFontFamily,
+          textStyleSet,
         }),
       );
       continue;
@@ -288,6 +304,8 @@ function drawLiveDictAreaPixiScene({
         block,
         palette,
         renderResolution,
+        textFontFamily,
+        textStyleSet,
       }),
     );
   }
@@ -297,10 +315,14 @@ function drawLiveDictAreaEdgeStrip({
   block,
   palette,
   renderResolution,
+  textFontFamily,
+  textStyleSet,
 }: {
   block: LiveDictAreaPixiEdgeStripLayout;
   palette: LiveDictAreaPixiPalette;
   renderResolution: number;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
   const graphics = drawRoundedPanel({
     fill: palette.panelBackground,
@@ -316,6 +338,8 @@ function drawLiveDictAreaEdgeStrip({
       palette,
       renderResolution,
       text: block.title.toUpperCase(),
+      textFontFamily,
+      textStyleSet,
       x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
       y: block.y + 9,
     }),
@@ -327,6 +351,8 @@ function drawLiveDictAreaEdgeStrip({
         palette,
         port,
         renderResolution,
+        textFontFamily,
+        textStyleSet,
       }),
     );
   }
@@ -337,6 +363,8 @@ function drawLiveDictAreaEdgeStrip({
         palette,
         port,
         renderResolution,
+        textFontFamily,
+        textStyleSet,
       }),
     );
   }
@@ -348,10 +376,14 @@ function drawLiveDictAreaParamArea({
   block,
   palette,
   renderResolution,
+  textFontFamily,
+  textStyleSet,
 }: {
   block: LiveDictAreaPixiParamAreaLayout;
   palette: LiveDictAreaPixiPalette;
   renderResolution: number;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
   const panelFill =
     block.kind === "pinned-param-area"
@@ -371,6 +403,8 @@ function drawLiveDictAreaParamArea({
       palette,
       renderResolution,
       text: block.title.toUpperCase(),
+      textFontFamily,
+      textStyleSet,
       x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
       y: block.y + 9,
     }),
@@ -382,6 +416,8 @@ function drawLiveDictAreaParamArea({
         palette,
         renderResolution,
         row,
+        textFontFamily,
+        textStyleSet,
       }),
     );
   }
@@ -393,10 +429,14 @@ function drawParamRow({
   palette,
   renderResolution,
   row,
+  textFontFamily,
+  textStyleSet,
 }: {
   palette: LiveDictAreaPixiPalette;
   renderResolution: number;
   row: LiveDictAreaPixiRowLayout;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
   const fill =
     row.kind === "placeholder"
@@ -419,9 +459,9 @@ function drawParamRow({
     resolution: renderResolution,
     style: {
       fill: palette.bodyText,
-      fontFamily: "Inter, sans-serif",
-      fontSize: 11,
-      fontWeight: row.kind === "group" ? "600" : "500",
+      fontFamily: textFontFamily,
+      fontSize: textStyleSet.rowFontSize,
+      fontWeight: textStyleSet.rowFontWeight,
     },
     text: row.labelText,
   });
@@ -430,23 +470,6 @@ function drawParamRow({
   label.y = row.y + 4;
   graphics.addChild(label);
 
-  if (row.kindTag) {
-    const tag = new Text({
-      resolution: renderResolution,
-      style: {
-        fill: palette.groupTagText,
-        fontFamily: "Inter, sans-serif",
-        fontSize: 9,
-        fontWeight: "600",
-      },
-      text: row.kindTag,
-    });
-
-    tag.x = row.labelX + Math.max(label.width + 8, 72);
-    tag.y = row.y + 5;
-    graphics.addChild(tag);
-  }
-
   return graphics;
 }
 
@@ -454,10 +477,14 @@ function drawEdgePort({
   palette,
   port,
   renderResolution,
+  textFontFamily,
+  textStyleSet,
 }: {
   palette: LiveDictAreaPixiPalette;
   port: LiveDictAreaPixiEdgePortLayout;
   renderResolution: number;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
   const graphics = new Graphics();
   const dotX = port.align === "left" ? port.x + 4 : port.x - 4;
@@ -469,9 +496,11 @@ function drawEdgePort({
     resolution: renderResolution,
     style: {
       fill: palette.bodyText,
-      fontFamily: "Inter, sans-serif",
-      fontSize: 11,
-      fontWeight: port.isSelected ? "600" : "500",
+      fontFamily: textFontFamily,
+      fontSize: textStyleSet.edgeRowFontSize,
+      fontWeight: port.isSelected
+        ? textStyleSet.rowFontWeight
+        : textStyleSet.edgeRowFontWeight,
     },
     text: port.label,
   });
@@ -487,12 +516,16 @@ function drawSceneTitle({
   palette,
   renderResolution,
   text,
+  textFontFamily,
+  textStyleSet,
   x,
   y,
 }: {
   palette: LiveDictAreaPixiPalette;
   renderResolution: number;
   text: string;
+  textFontFamily: string;
+  textStyleSet: LiveDictAreaPixiTextStyleSet;
   x: number;
   y: number;
 }) {
@@ -500,10 +533,9 @@ function drawSceneTitle({
     resolution: renderResolution,
     style: {
       fill: palette.titleText,
-      fontFamily: "Inter, sans-serif",
-      fontSize: 10,
-      fontWeight: "600",
-      letterSpacing: 1.5,
+      fontFamily: textFontFamily,
+      fontSize: textStyleSet.titleFontSize,
+      fontWeight: textStyleSet.titleFontWeight,
     },
     text,
   });
@@ -555,7 +587,6 @@ function getLiveDictAreaPixiPalette(
     return {
       bodyText: "#e5e7eb",
       border: "#334155",
-      groupTagText: "#93c5fd",
       panelBackground: "#111827",
       panelBackgroundAlt: "#0f172a",
       portDot: "#94a3b8",
@@ -570,7 +601,6 @@ function getLiveDictAreaPixiPalette(
   return {
     bodyText: "#0f172a",
     border: "#cbd5e1",
-    groupTagText: "#2563eb",
     panelBackground: "#f8fafc",
     panelBackgroundAlt: "#f1f5f9",
     portDot: "#64748b",
