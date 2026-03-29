@@ -1,6 +1,7 @@
 package projectstate
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -168,98 +169,111 @@ func (p Project) Clone() Project {
 	cloned.GeneratedCodeBinding = cloneCodeFileBinding(p.GeneratedCodeBinding)
 	cloned.GeneratedMetadataBinding = cloneCodeFileBinding(p.GeneratedMetadataBinding)
 	cloned.Viewport = cloneViewport(p.Viewport)
-
-	if p.ViewModes != nil {
-		cloned.ViewModes = make(map[string]ViewMode, len(p.ViewModes))
-		for viewModeID, viewMode := range p.ViewModes {
-			cloned.ViewModes[viewModeID] = viewMode.Clone()
-		}
-	}
-	if p.CodegenTargets != nil {
-		cloned.CodegenTargets = make([]ProjectCodegenTarget, len(p.CodegenTargets))
-		for index, target := range p.CodegenTargets {
-			cloned.CodegenTargets[index] = target.Clone()
-		}
-	}
-	if p.TopLevelSections != nil {
-		cloned.TopLevelSections = make(map[string]TopLevelSectionLayout, len(p.TopLevelSections))
-		for sectionID, layout := range p.TopLevelSections {
-			cloned.TopLevelSections[sectionID] = layout.Clone()
-		}
-	}
-	if p.WindowSpaces != nil {
-		cloned.WindowSpaces = make(map[string]WindowSpaceConfig, len(p.WindowSpaces))
-		for windowSpaceID, windowSpace := range p.WindowSpaces {
-			cloned.WindowSpaces[windowSpaceID] = windowSpace.Clone()
-		}
-	}
-	if p.Edges != nil {
-		cloned.Edges = make([]Edge, len(p.Edges))
-		for index, edge := range p.Edges {
-			cloned.Edges[index] = edge.Clone()
-		}
-	}
-	if p.AgenticEdges != nil {
-		cloned.AgenticEdges = make([]AgenticEdge, len(p.AgenticEdges))
-		for index, edge := range p.AgenticEdges {
-			cloned.AgenticEdges[index] = edge.Clone()
-		}
-	}
-	if p.StateMachineEdges != nil {
-		cloned.StateMachineEdges = make([]StateMachineEdge, len(p.StateMachineEdges))
-		for index, edge := range p.StateMachineEdges {
-			cloned.StateMachineEdges[index] = edge.Clone()
-		}
-	}
-	if p.ProjectChatWindowing != nil {
-		clonedWindowing := p.ProjectChatWindowing.Clone()
-		cloned.ProjectChatWindowing = &clonedWindowing
-	}
-
-	if p.SectionVariantMap != nil {
-		cloned.SectionVariantMap = make(map[string]string, len(p.SectionVariantMap))
-		for sectionID, variantID := range p.SectionVariantMap {
-			cloned.SectionVariantMap[sectionID] = variantID
-		}
-	}
-	if p.Sections != nil {
-		cloned.Sections = make(map[string]Section, len(p.Sections))
-		for sectionID, section := range p.Sections {
-			cloned.Sections[sectionID] = section.Clone()
-		}
-	}
-	if p.SectionVariants != nil {
-		cloned.SectionVariants = make(map[string]SectionVariant, len(p.SectionVariants))
-		for variantID, variant := range p.SectionVariants {
-			cloned.SectionVariants[variantID] = variant.Clone()
-		}
-	}
-	if p.SectionImpls != nil {
-		cloned.SectionImpls = make(map[string]SectionImpl, len(p.SectionImpls))
-		for implID, impl := range p.SectionImpls {
-			cloned.SectionImpls[implID] = impl.Clone()
-		}
-	}
-	if p.CodeObjs != nil {
-		cloned.CodeObjs = make(map[string]CodeObject, len(p.CodeObjs))
-		for codeObjID, codeObj := range p.CodeObjs {
-			cloned.CodeObjs[codeObjID] = codeObj.Clone()
-		}
-	}
-	if p.CodeObjVariants != nil {
-		cloned.CodeObjVariants = make(map[string]CodeObjectVariant, len(p.CodeObjVariants))
-		for variantID, variant := range p.CodeObjVariants {
-			cloned.CodeObjVariants[variantID] = variant.Clone()
-		}
-	}
-	if p.CodeObjImpls != nil {
-		cloned.CodeObjImpls = make(map[string]CodeObjectImpl, len(p.CodeObjImpls))
-		for implID, impl := range p.CodeObjImpls {
-			cloned.CodeObjImpls[implID] = impl.Clone()
-		}
-	}
-
+	copyProjectLayoutState(&cloned, p)
+	copyProjectEdgeState(&cloned, p)
+	copyProjectSectionState(&cloned, p)
+	copyProjectCodeObjectState(&cloned, p)
 	return cloned
+}
+
+func copyProjectLayoutState(dst *Project, src Project) {
+	if src.ViewModes != nil {
+		dst.ViewModes = make(map[string]ViewMode, len(src.ViewModes))
+		for viewModeID, viewMode := range src.ViewModes {
+			dst.ViewModes[viewModeID] = viewMode.Clone()
+		}
+	}
+	if src.CodegenTargets != nil {
+		dst.CodegenTargets = make([]ProjectCodegenTarget, len(src.CodegenTargets))
+		for index, target := range src.CodegenTargets {
+			dst.CodegenTargets[index] = target.Clone()
+		}
+	}
+	if src.TopLevelSections != nil {
+		dst.TopLevelSections = make(map[string]TopLevelSectionLayout, len(src.TopLevelSections))
+		for sectionID, layout := range src.TopLevelSections {
+			dst.TopLevelSections[sectionID] = layout.Clone()
+		}
+	}
+	if src.WindowSpaces != nil {
+		dst.WindowSpaces = make(map[string]WindowSpaceConfig, len(src.WindowSpaces))
+		for windowSpaceID, windowSpace := range src.WindowSpaces {
+			dst.WindowSpaces[windowSpaceID] = windowSpace.Clone()
+		}
+	}
+	if src.ProjectChatWindowing != nil {
+		clonedWindowing := src.ProjectChatWindowing.Clone()
+		dst.ProjectChatWindowing = &clonedWindowing
+	}
+}
+
+func copyProjectEdgeState(dst *Project, src Project) {
+	if src.Edges != nil {
+		dst.Edges = make([]Edge, len(src.Edges))
+		for index, edge := range src.Edges {
+			dst.Edges[index] = edge.Clone()
+		}
+	}
+	if src.AgenticEdges != nil {
+		dst.AgenticEdges = make([]AgenticEdge, len(src.AgenticEdges))
+		for index, edge := range src.AgenticEdges {
+			dst.AgenticEdges[index] = edge.Clone()
+		}
+	}
+	if src.StateMachineEdges != nil {
+		dst.StateMachineEdges = make([]StateMachineEdge, len(src.StateMachineEdges))
+		for index, edge := range src.StateMachineEdges {
+			dst.StateMachineEdges[index] = edge.Clone()
+		}
+	}
+}
+
+func copyProjectSectionState(dst *Project, src Project) {
+	if src.SectionVariantMap != nil {
+		dst.SectionVariantMap = make(map[string]string, len(src.SectionVariantMap))
+		for sectionID, variantID := range src.SectionVariantMap {
+			dst.SectionVariantMap[sectionID] = variantID
+		}
+	}
+	if src.Sections != nil {
+		dst.Sections = make(map[string]Section, len(src.Sections))
+		for sectionID, section := range src.Sections {
+			dst.Sections[sectionID] = section.Clone()
+		}
+	}
+	if src.SectionVariants != nil {
+		dst.SectionVariants = make(map[string]SectionVariant, len(src.SectionVariants))
+		for variantID, variant := range src.SectionVariants {
+			dst.SectionVariants[variantID] = variant.Clone()
+		}
+	}
+	if src.SectionImpls != nil {
+		dst.SectionImpls = make(map[string]SectionImpl, len(src.SectionImpls))
+		for implID, impl := range src.SectionImpls {
+			dst.SectionImpls[implID] = impl.Clone()
+		}
+	}
+}
+
+func copyProjectCodeObjectState(dst *Project, src Project) {
+	if src.CodeObjs != nil {
+		dst.CodeObjs = make(map[string]CodeObject, len(src.CodeObjs))
+		for codeObjID, codeObj := range src.CodeObjs {
+			dst.CodeObjs[codeObjID] = codeObj.Clone()
+		}
+	}
+	if src.CodeObjVariants != nil {
+		dst.CodeObjVariants = make(map[string]CodeObjectVariant, len(src.CodeObjVariants))
+		for variantID, variant := range src.CodeObjVariants {
+			dst.CodeObjVariants[variantID] = variant.Clone()
+		}
+	}
+	if src.CodeObjImpls != nil {
+		dst.CodeObjImpls = make(map[string]CodeObjectImpl, len(src.CodeObjImpls))
+		for implID, impl := range src.CodeObjImpls {
+			dst.CodeObjImpls[implID] = impl.Clone()
+		}
+	}
 }
 
 func (s Section) Clone() Section {
@@ -312,9 +326,69 @@ func (i SectionImpl) Clone() SectionImpl {
 
 func (p Project) Normalized() (Project, error) {
 	normalized := p.Clone()
+	if err := normalized.normalizeProjectStructure(); err != nil {
+		return Project{}, err
+	}
+	if err := normalized.normalizeSectionState(); err != nil {
+		return Project{}, err
+	}
+	if err := normalized.normalizeCodeObjectState(); err != nil {
+		return Project{}, err
+	}
+	if err := normalized.validateNormalizedRelationships(); err != nil {
+		return Project{}, err
+	}
+	if err := normalized.ReconcileCodeSectionBindings(); err != nil {
+		return Project{}, fmt.Errorf("reconcile code section bindings: %w", err)
+	}
+	if err := normalized.ReconcileGeneratedSectionBindings(); err != nil {
+		return Project{}, fmt.Errorf("reconcile generated section bindings: %w", err)
+	}
+	return normalized, nil
+}
+
+func (p *Project) normalizeProjectStructure() error {
+	if p == nil {
+		return nil
+	}
+
+	normalized := p
+	if err := normalized.initializeNormalizedCollections(); err != nil {
+		return err
+	}
+	if err := normalized.normalizeProjectWindowingState(); err != nil {
+		return err
+	}
+	if err := normalized.normalizeProjectCodegenState(); err != nil {
+		return err
+	}
+	return normalized.normalizeProjectViewAndEdgeState()
+}
+
+func (p *Project) initializeNormalizedCollections() error {
+	if p == nil {
+		return nil
+	}
+
+	normalized := p
 	normalized.PreviewImgColor = strings.TrimSpace(normalized.PreviewImgColor)
 	normalized.ActiveViewModeID = strings.TrimSpace(normalized.ActiveViewModeID)
 	normalized.EntryCodeBlockID = strings.TrimSpace(normalized.EntryCodeBlockID)
+	if err := normalized.initializeNormalizedWatchCodeState(); err != nil {
+		return err
+	}
+	if err := normalized.initializeNormalizedGraphCollections(); err != nil {
+		return err
+	}
+	return normalized.initializeNormalizedCodeObjectCollections()
+}
+
+func (p *Project) initializeNormalizedWatchCodeState() error {
+	if p == nil {
+		return nil
+	}
+
+	normalized := p
 	if normalized.SectionVariantMap == nil {
 		normalized.SectionVariantMap = map[string]string{}
 	}
@@ -333,6 +407,15 @@ func (p Project) Normalized() (Project, error) {
 	}
 	normalized.WatchCodeFolders = cloneWatchCodeFolders(normalized.WatchCodeFolders)
 	normalized.WatchCodeFiles = append([]string(nil), normalized.WatchCodeFiles...)
+	return nil
+}
+
+func (p *Project) initializeNormalizedGraphCollections() error {
+	if p == nil {
+		return nil
+	}
+
+	normalized := p
 	if normalized.Sections == nil {
 		normalized.Sections = map[string]Section{}
 	}
@@ -345,362 +428,581 @@ func (p Project) Normalized() (Project, error) {
 	if normalized.TopLevelSections == nil {
 		normalized.TopLevelSections = map[string]TopLevelSectionLayout{}
 	}
-	var err error
 	if normalized.WindowSpaces != nil {
-		normalized.WindowSpaces, err = normalizeWindowSpaces(
+		windowSpaces, err := normalizeWindowSpaces(
 			normalized.WindowSpaces,
 			normalized.Sections,
 		)
 		if err != nil {
-			return Project{}, fmt.Errorf("normalize window spaces: %w", err)
+			return fmt.Errorf("normalize window spaces: %w", err)
 		}
+		normalized.WindowSpaces = windowSpaces
 	}
-	if normalized.CodeObjs == nil {
-		normalized.CodeObjs = map[string]CodeObject{}
+	return nil
+}
+
+func (p *Project) initializeNormalizedCodeObjectCollections() error {
+	if p == nil {
+		return nil
 	}
-	if normalized.CodeObjVariants == nil {
-		normalized.CodeObjVariants = map[string]CodeObjectVariant{}
+
+	if p.CodeObjs == nil {
+		p.CodeObjs = map[string]CodeObject{}
 	}
-	if normalized.CodeObjImpls == nil {
-		normalized.CodeObjImpls = map[string]CodeObjectImpl{}
+	if p.CodeObjVariants == nil {
+		p.CodeObjVariants = map[string]CodeObjectVariant{}
 	}
-	if err := normalized.ensureSectionVariantNames(); err != nil {
-		return Project{}, fmt.Errorf("normalize section variant names: %w", err)
+	if p.CodeObjImpls == nil {
+		p.CodeObjImpls = map[string]CodeObjectImpl{}
 	}
-	normalizedWindowing := ProjectChatWindowingOrDefault(
-		normalized.ProjectChatWindowing,
-	)
-	normalizedWindowing, err = normalizeProjectChatWindowingState(
+	if err := p.ensureSectionVariantNames(); err != nil {
+		return fmt.Errorf("normalize section variant names: %w", err)
+	}
+	return nil
+}
+
+func (p *Project) normalizeProjectWindowingState() error {
+	if p == nil {
+		return nil
+	}
+
+	normalizedWindowing := ProjectChatWindowingOrDefault(p.ProjectChatWindowing)
+	normalizedWindowing, err := normalizeProjectChatWindowingState(
 		normalizedWindowing,
-		normalized.Sections,
+		p.Sections,
 	)
 	if err != nil {
-		return Project{}, fmt.Errorf("normalize project chat windowing: %w", err)
+		return fmt.Errorf("normalize project chat windowing: %w", err)
 	}
-	normalized.ProjectChatWindowing = &normalizedWindowing
-	for index, target := range normalized.CodegenTargets {
+	p.ProjectChatWindowing = &normalizedWindowing
+	return nil
+}
+
+func (p *Project) normalizeProjectCodegenState() error {
+	if p == nil {
+		return nil
+	}
+
+	for index, target := range p.CodegenTargets {
 		normalizedTarget, err := target.Normalized()
 		if err != nil {
-			return Project{}, fmt.Errorf("normalize codegen target %d: %w", index, err)
+			return fmt.Errorf("normalize codegen target %d: %w", index, err)
 		}
-		normalized.CodegenTargets[index] = normalizedTarget
+		p.CodegenTargets[index] = normalizedTarget
 	}
-	normalized.GeneratedCodeBinding, err = normalizeCodeFileBinding(normalized.GeneratedCodeBinding)
+	var err error
+	p.GeneratedCodeBinding, err = normalizeCodeFileBinding(p.GeneratedCodeBinding)
 	if err != nil {
-		return Project{}, fmt.Errorf("normalize generated code binding: %w", err)
+		return fmt.Errorf("normalize generated code binding: %w", err)
 	}
-	normalized.GeneratedMetadataBinding, err = normalizeCodeFileBinding(normalized.GeneratedMetadataBinding)
+	p.GeneratedMetadataBinding, err = normalizeCodeFileBinding(p.GeneratedMetadataBinding)
 	if err != nil {
-		return Project{}, fmt.Errorf("normalize generated metadata binding: %w", err)
+		return fmt.Errorf("normalize generated metadata binding: %w", err)
 	}
-	for viewModeKey, viewMode := range normalized.ViewModes {
+	return nil
+}
+
+func (p *Project) normalizeProjectViewAndEdgeState() error {
+	if p == nil {
+		return nil
+	}
+
+	if err := p.normalizeProjectViewModes(); err != nil {
+		return err
+	}
+	if err := p.normalizeProjectEdges(); err != nil {
+		return err
+	}
+	return p.normalizeProjectStateMachineEdges()
+}
+
+func (p *Project) normalizeProjectViewModes() error {
+	if p == nil {
+		return nil
+	}
+
+	for viewModeKey, viewMode := range p.ViewModes {
 		if strings.TrimSpace(viewModeKey) == "" {
-			return Project{}, ErrViewModeIDRequired
+			return ErrViewModeIDRequired
 		}
 		if strings.TrimSpace(viewMode.ID) == "" {
-			return Project{}, ErrViewModeIDRequired
+			return ErrViewModeIDRequired
 		}
 		if viewMode.ID != viewModeKey {
-			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrViewModeIDKeyMismatch, viewModeKey, viewMode.ID)
+			return fmt.Errorf("%w: key=%q id=%q", ErrViewModeIDKeyMismatch, viewModeKey, viewMode.ID)
 		}
-		normalized.ViewModes[viewModeKey] = viewMode.Clone()
+		p.ViewModes[viewModeKey] = viewMode.Clone()
 	}
-	for index, edge := range normalized.Edges {
-		edge.Style, err = normalizeRawJSON(edge.Style, fmt.Sprintf("edge %q style", edge.ID))
-		if err != nil {
-			return Project{}, err
-		}
-		edge.Data, err = normalizeRawJSON(edge.Data, fmt.Sprintf("edge %q data", edge.ID))
-		if err != nil {
-			return Project{}, err
-		}
-		normalized.Edges[index] = edge.Clone()
+	return nil
+}
+
+func (p *Project) normalizeProjectEdges() error {
+	if p == nil {
+		return nil
 	}
-	for index, edge := range normalized.AgenticEdges {
-		edge.Style, err = normalizeRawJSON(edge.Style, fmt.Sprintf("agentic edge %q style", edge.ID))
+
+	for index, edge := range p.Edges {
+		style, err := normalizeRawJSON(edge.Style, fmt.Sprintf("edge %q style", edge.ID))
 		if err != nil {
-			return Project{}, err
+			return err
 		}
-		normalized.AgenticEdges[index] = edge.Clone()
+		data, err := normalizeRawJSON(edge.Data, fmt.Sprintf("edge %q data", edge.ID))
+		if err != nil {
+			return err
+		}
+		edge.Style = style
+		edge.Data = data
+		p.Edges[index] = edge.Clone()
 	}
-	for index, edge := range normalized.StateMachineEdges {
+	for index, edge := range p.AgenticEdges {
+		style, err := normalizeRawJSON(edge.Style, fmt.Sprintf("agentic edge %q style", edge.ID))
+		if err != nil {
+			return err
+		}
+		edge.Style = style
+		p.AgenticEdges[index] = edge.Clone()
+	}
+	return nil
+}
+
+func (p *Project) normalizeProjectStateMachineEdges() error {
+	if p == nil {
+		return nil
+	}
+
+	for index, edge := range p.StateMachineEdges {
 		normalizedEdge, normalizeErr := edge.Normalized()
 		if normalizeErr != nil {
-			return Project{}, normalizeErr
+			return normalizeErr
 		}
-		normalized.StateMachineEdges[index] = normalizedEdge
+		p.StateMachineEdges[index] = normalizedEdge
+	}
+	return nil
+}
+
+func (p *Project) normalizeSectionState() error {
+	if p == nil {
+		return nil
 	}
 
-	for sectionKey, section := range normalized.Sections {
+	if err := p.normalizeSections(); err != nil {
+		return err
+	}
+	if err := p.normalizeSectionVariants(); err != nil {
+		return err
+	}
+	return p.normalizeSectionImpls()
+}
+
+func (p *Project) normalizeSections() error {
+	if p == nil {
+		return nil
+	}
+
+	for sectionKey, section := range p.Sections {
 		if strings.TrimSpace(sectionKey) == "" {
-			return Project{}, ErrSectionIDRequired
+			return ErrSectionIDRequired
 		}
 		if strings.TrimSpace(section.ID) == "" {
-			return Project{}, ErrSectionIDRequired
+			return ErrSectionIDRequired
 		}
 		if section.ID != sectionKey {
-			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrSectionIDKeyMismatch, sectionKey, section.ID)
+			return fmt.Errorf("%w: key=%q id=%q", ErrSectionIDKeyMismatch, sectionKey, section.ID)
 		}
 		if strings.TrimSpace(section.Name) == "" {
-			return Project{}, fmt.Errorf("%w: %q", ErrSectionNameRequired, section.ID)
+			return fmt.Errorf("%w: %q", ErrSectionNameRequired, section.ID)
 		}
 		if len(section.VariantIDs) > 0 && strings.TrimSpace(section.DefaultVariantID) == "" {
-			return Project{}, fmt.Errorf("%w: %q", ErrSectionDefaultVariantMissing, section.ID)
+			return fmt.Errorf("%w: %q", ErrSectionDefaultVariantMissing, section.ID)
 		}
-		if parentID := strings.TrimSpace(section.ParentSectionID); parentID != "" {
-			if _, ok := normalized.Sections[parentID]; !ok {
-				return Project{}, fmt.Errorf("%w: child=%q parent=%q", ErrParentSectionNotFound, section.ID, parentID)
+		parentID := strings.TrimSpace(section.ParentSectionID)
+		if parentID != "" {
+			if _, ok := p.Sections[parentID]; !ok {
+				return fmt.Errorf("%w: child=%q parent=%q", ErrParentSectionNotFound, section.ID, parentID)
 			}
 		}
-		section.SharedModifier, err = normalizeRawJSON(section.SharedModifier, fmt.Sprintf("section %q sharedModifier", section.ID))
+		sharedModifier, err := normalizeRawJSON(section.SharedModifier, fmt.Sprintf("section %q sharedModifier", section.ID))
 		if err != nil {
-			return Project{}, err
+			return err
 		}
-		normalized.Sections[sectionKey] = section.Clone()
+		section.SharedModifier = sharedModifier
+		p.Sections[sectionKey] = section.Clone()
+	}
+	return nil
+}
+
+func (p *Project) normalizeSectionVariants() error {
+	if p == nil {
+		return nil
 	}
 
-	for variantKey, variant := range normalized.SectionVariants {
+	for variantKey, variant := range p.SectionVariants {
 		if strings.TrimSpace(variantKey) == "" {
-			return Project{}, ErrSectionVariantIDRequired
+			return ErrSectionVariantIDRequired
 		}
 		if strings.TrimSpace(variant.ID) == "" {
-			return Project{}, ErrSectionVariantIDRequired
+			return ErrSectionVariantIDRequired
 		}
 		if variant.ID != variantKey {
-			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrSectionVariantIDKeyMismatch, variantKey, variant.ID)
+			return fmt.Errorf("%w: key=%q id=%q", ErrSectionVariantIDKeyMismatch, variantKey, variant.ID)
 		}
 		if strings.TrimSpace(variant.ImplID) == "" {
-			return Project{}, fmt.Errorf("%w: variant=%q", ErrSectionImplIDRequired, variant.ID)
+			return fmt.Errorf("%w: variant=%q", ErrSectionImplIDRequired, variant.ID)
 		}
-		if _, ok := normalized.SectionImpls[variant.ImplID]; !ok {
-			return Project{}, fmt.Errorf("%w: variant=%q impl=%q", ErrSectionImplNotFound, variant.ID, variant.ImplID)
+		if _, ok := p.SectionImpls[variant.ImplID]; !ok {
+			return fmt.Errorf("%w: variant=%q impl=%q", ErrSectionImplNotFound, variant.ID, variant.ImplID)
 		}
-		variant.Modifier, err = normalizeRawJSON(variant.Modifier, fmt.Sprintf("section variant %q modifier", variant.ID))
+		modifier, err := normalizeRawJSON(variant.Modifier, fmt.Sprintf("section variant %q modifier", variant.ID))
 		if err != nil {
-			return Project{}, err
+			return err
 		}
-		normalized.SectionVariants[variantKey] = variant.Clone()
+		variant.Modifier = modifier
+		p.SectionVariants[variantKey] = variant.Clone()
+	}
+	return nil
+}
+
+func (p *Project) normalizeSectionImpls() error {
+	if p == nil {
+		return nil
 	}
 
-	for implKey, impl := range normalized.SectionImpls {
-		if strings.TrimSpace(implKey) == "" {
-			return Project{}, ErrSectionImplIDRequired
-		}
-		if strings.TrimSpace(impl.ID) == "" {
-			return Project{}, ErrSectionImplIDRequired
-		}
-		if impl.ID != implKey {
-			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrSectionImplIDKeyMismatch, implKey, impl.ID)
-		}
-		impl.Payload, err = normalizeRawJSON(impl.Payload, fmt.Sprintf("section impl %q payload", impl.ID))
+	for implKey, impl := range p.SectionImpls {
+		normalizedImpl, err := normalizeSectionImpl(implKey, impl)
 		if err != nil {
-			return Project{}, err
+			return err
 		}
-		payload, err := rawObjectFromProjectPayload(impl.Payload)
+		p.SectionImpls[implKey] = normalizedImpl
+	}
+	return nil
+}
+
+func normalizeSectionImpl(implKey string, impl SectionImpl) (SectionImpl, error) {
+	if strings.TrimSpace(implKey) == "" {
+		return SectionImpl{}, ErrSectionImplIDRequired
+	}
+	if strings.TrimSpace(impl.ID) == "" {
+		return SectionImpl{}, ErrSectionImplIDRequired
+	}
+	if impl.ID != implKey {
+		return SectionImpl{}, fmt.Errorf("%w: key=%q id=%q", ErrSectionImplIDKeyMismatch, implKey, impl.ID)
+	}
+	payload, err := normalizeSectionImplPayload(impl)
+	if err != nil {
+		return SectionImpl{}, err
+	}
+	impl.Payload = payload
+	impl, err = normalizeSectionImplKind(impl)
+	if err != nil {
+		return SectionImpl{}, err
+	}
+	return impl.Clone(), nil
+}
+
+func normalizeSectionImplPayload(impl SectionImpl) (json.RawMessage, error) {
+	payloadJSON, err := normalizeRawJSON(impl.Payload, fmt.Sprintf("section impl %q payload", impl.ID))
+	if err != nil {
+		return nil, err
+	}
+	payload, err := rawObjectFromProjectPayload(payloadJSON)
+	if err != nil {
+		return nil, fmt.Errorf("decode section impl %q payload: %w", impl.ID, err)
+	}
+	if err := validateCanonicalCodeFileBindingPayload(payload); err != nil {
+		return nil, fmt.Errorf("validate section impl %q code file binding payload: %w", impl.ID, err)
+	}
+	return payloadJSON, nil
+}
+
+func normalizeSectionImplKind(impl SectionImpl) (SectionImpl, error) {
+	if strings.TrimSpace(string(impl.Kind)) == "" {
+		return SectionImpl{}, fmt.Errorf("%w: %q", ErrSectionImplKindRequired, impl.ID)
+	}
+	switch impl.Kind {
+	case SectionKindCode:
+		normalizedCodeImpl, err := normalizeCodeSectionImpl(impl)
 		if err != nil {
-			return Project{}, fmt.Errorf("decode section impl %q payload: %w", impl.ID, err)
+			return SectionImpl{}, err
 		}
-		if err := validateCanonicalCodeFileBindingPayload(payload); err != nil {
-			return Project{}, fmt.Errorf("validate section impl %q code file binding payload: %w", impl.ID, err)
+		impl = normalizedCodeImpl
+	case SectionKindTerminal:
+		if impl.Terminal == nil {
+			return SectionImpl{}, fmt.Errorf("%w: %q", ErrTerminalSectionConfigRequired, impl.ID)
 		}
-		if strings.TrimSpace(string(impl.Kind)) == "" {
-			return Project{}, fmt.Errorf("%w: %q", ErrSectionImplKindRequired, impl.ID)
+	case SectionKindDraw:
+		if impl.Draw == nil {
+			return SectionImpl{}, fmt.Errorf("%w: %q", ErrDrawSectionConfigRequired, impl.ID)
 		}
-		switch impl.Kind {
-		case SectionKindCode:
-			if impl.Code == nil {
-				return Project{}, fmt.Errorf("%w: %q", ErrCodeSectionConfigRequired, impl.ID)
-			}
-			impl.Code.Language = normalizeCodeLanguage(impl.Code.Language)
-			if impl.Code.Language == "" {
-				return Project{}, fmt.Errorf("%w: %q", ErrCodeLanguageRequired, impl.ID)
-			}
-			if impl.Code.Binding != nil {
-				if strings.TrimSpace(impl.Code.Binding.Path) == "" {
-					return Project{}, fmt.Errorf("%w: %q", ErrCodeFileBindingPathRequired, impl.ID)
-				}
-			}
-		case SectionKindTerminal:
-			if impl.Terminal == nil {
-				return Project{}, fmt.Errorf("%w: %q", ErrTerminalSectionConfigRequired, impl.ID)
-			}
-		case SectionKindDraw:
-			if impl.Draw == nil {
-				return Project{}, fmt.Errorf("%w: %q", ErrDrawSectionConfigRequired, impl.ID)
-			}
-		case SectionKindGenerated:
-			if impl.Generated == nil {
-				return Project{}, fmt.Errorf("%w: %q", ErrGeneratedSectionConfigRequired, impl.ID)
-			}
-			if strings.TrimSpace(string(impl.Generated.Kind)) == "" {
-				return Project{}, fmt.Errorf("%w: %q", ErrGeneratedSectionKindRequired, impl.ID)
-			}
-			switch impl.Generated.Kind {
-			case GeneratedSectionKindPythonCode, GeneratedSectionKindPythonMetadata, GeneratedSectionKindPlugin:
-			default:
-				return Project{}, fmt.Errorf("%w: %q", ErrUnsupportedGeneratedSectionKind, impl.Generated.Kind)
-			}
-		default:
-			// Allow richer frontend section kinds to coexist with the narrower
-			// run-planning helpers. The payload becomes the source of truth for
-			// projection until Go owns that section kind semantically.
+	case SectionKindGenerated:
+		if err := validateGeneratedSectionImpl(impl); err != nil {
+			return SectionImpl{}, err
 		}
-		normalized.SectionImpls[implKey] = impl.Clone()
+	}
+	return impl, nil
+}
+
+func normalizeCodeSectionImpl(impl SectionImpl) (SectionImpl, error) {
+	if impl.Code == nil {
+		return SectionImpl{}, fmt.Errorf("%w: %q", ErrCodeSectionConfigRequired, impl.ID)
+	}
+	impl.Code.Language = normalizeCodeLanguage(impl.Code.Language)
+	if impl.Code.Language == "" {
+		return SectionImpl{}, fmt.Errorf("%w: %q", ErrCodeLanguageRequired, impl.ID)
+	}
+	if impl.Code.Binding != nil && strings.TrimSpace(impl.Code.Binding.Path) == "" {
+		return SectionImpl{}, fmt.Errorf("%w: %q", ErrCodeFileBindingPathRequired, impl.ID)
+	}
+	return impl, nil
+}
+
+func validateGeneratedSectionImpl(impl SectionImpl) error {
+	if impl.Generated == nil {
+		return fmt.Errorf("%w: %q", ErrGeneratedSectionConfigRequired, impl.ID)
+	}
+	if strings.TrimSpace(string(impl.Generated.Kind)) == "" {
+		return fmt.Errorf("%w: %q", ErrGeneratedSectionKindRequired, impl.ID)
+	}
+	switch impl.Generated.Kind {
+	case GeneratedSectionKindPythonCode, GeneratedSectionKindPythonMetadata, GeneratedSectionKindPlugin:
+		return nil
+	default:
+		return fmt.Errorf("%w: %q", ErrUnsupportedGeneratedSectionKind, impl.Generated.Kind)
+	}
+}
+
+func (p *Project) normalizeCodeObjectState() error {
+	if p == nil {
+		return nil
 	}
 
-	for codeObjKey, codeObj := range normalized.CodeObjs {
+	if err := p.normalizeCodeObjects(); err != nil {
+		return err
+	}
+	if err := p.normalizeCodeObjectVariants(); err != nil {
+		return err
+	}
+	return p.normalizeCodeObjectImpls()
+}
+
+func (p *Project) normalizeCodeObjects() error {
+	if p == nil {
+		return nil
+	}
+
+	for codeObjKey, codeObj := range p.CodeObjs {
 		if strings.TrimSpace(codeObjKey) == "" {
-			return Project{}, ErrCodeObjIDRequired
+			return ErrCodeObjIDRequired
 		}
 		if strings.TrimSpace(codeObj.ID) == "" {
-			return Project{}, ErrCodeObjIDRequired
+			return ErrCodeObjIDRequired
 		}
 		if codeObj.ID != codeObjKey {
-			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrCodeObjIDKeyMismatch, codeObjKey, codeObj.ID)
+			return fmt.Errorf("%w: key=%q id=%q", ErrCodeObjIDKeyMismatch, codeObjKey, codeObj.ID)
 		}
 		if strings.TrimSpace(codeObj.Name) == "" {
-			allowsEmptyName, allowErr := normalized.codeObjectAllowsEmptyName(codeObj.ID)
+			allowsEmptyName, allowErr := p.codeObjectAllowsEmptyName(codeObj.ID)
 			if allowErr != nil {
-				return Project{}, allowErr
+				return allowErr
 			}
 			if !allowsEmptyName {
-				return Project{}, fmt.Errorf("%w: %q", ErrCodeObjNameRequired, codeObj.ID)
+				return fmt.Errorf("%w: %q", ErrCodeObjNameRequired, codeObj.ID)
 			}
 		}
 		if len(codeObj.VariantIDs) > 0 && strings.TrimSpace(codeObj.DefaultVariantID) == "" {
-			return Project{}, fmt.Errorf("%w: %q", ErrCodeObjDefaultVariantMissing, codeObj.ID)
+			return fmt.Errorf("%w: %q", ErrCodeObjDefaultVariantMissing, codeObj.ID)
 		}
-		codeObj.SharedModifier, err = normalizeRawJSON(codeObj.SharedModifier, fmt.Sprintf("code object %q sharedModifier", codeObj.ID))
+		sharedModifier, err := normalizeRawJSON(codeObj.SharedModifier, fmt.Sprintf("code object %q sharedModifier", codeObj.ID))
 		if err != nil {
-			return Project{}, err
+			return err
 		}
-		normalized.CodeObjs[codeObjKey] = codeObj.Clone()
+		codeObj.SharedModifier = sharedModifier
+		p.CodeObjs[codeObjKey] = codeObj.Clone()
+	}
+	return nil
+}
+
+func (p *Project) normalizeCodeObjectVariants() error {
+	if p == nil {
+		return nil
 	}
 
-	for variantKey, variant := range normalized.CodeObjVariants {
+	for variantKey, variant := range p.CodeObjVariants {
 		if strings.TrimSpace(variantKey) == "" {
-			return Project{}, ErrCodeObjVariantIDRequired
+			return ErrCodeObjVariantIDRequired
 		}
 		if strings.TrimSpace(variant.ID) == "" {
-			return Project{}, ErrCodeObjVariantIDRequired
+			return ErrCodeObjVariantIDRequired
 		}
 		if variant.ID != variantKey {
-			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrCodeObjVariantIDKeyMismatch, variantKey, variant.ID)
+			return fmt.Errorf("%w: key=%q id=%q", ErrCodeObjVariantIDKeyMismatch, variantKey, variant.ID)
 		}
 		if strings.TrimSpace(variant.ImplID) == "" {
-			return Project{}, fmt.Errorf("%w: variant=%q", ErrCodeObjImplIDRequired, variant.ID)
+			return fmt.Errorf("%w: variant=%q", ErrCodeObjImplIDRequired, variant.ID)
 		}
-		if _, ok := normalized.CodeObjImpls[variant.ImplID]; !ok {
-			return Project{}, fmt.Errorf("%w: variant=%q impl=%q", ErrCodeObjImplNotFound, variant.ID, variant.ImplID)
+		if _, ok := p.CodeObjImpls[variant.ImplID]; !ok {
+			return fmt.Errorf("%w: variant=%q impl=%q", ErrCodeObjImplNotFound, variant.ID, variant.ImplID)
 		}
-		variant.Modifier, err = normalizeRawJSON(variant.Modifier, fmt.Sprintf("code object variant %q modifier", variant.ID))
+		modifier, err := normalizeRawJSON(variant.Modifier, fmt.Sprintf("code object variant %q modifier", variant.ID))
 		if err != nil {
-			return Project{}, err
+			return err
 		}
-		normalized.CodeObjVariants[variantKey] = variant.Clone()
+		variant.Modifier = modifier
+		p.CodeObjVariants[variantKey] = variant.Clone()
+	}
+	return nil
+}
+
+func (p *Project) normalizeCodeObjectImpls() error {
+	if p == nil {
+		return nil
 	}
 
-	for implKey, impl := range normalized.CodeObjImpls {
+	for implKey, impl := range p.CodeObjImpls {
 		if strings.TrimSpace(implKey) == "" {
-			return Project{}, ErrCodeObjImplIDRequired
+			return ErrCodeObjImplIDRequired
 		}
 		if strings.TrimSpace(impl.ID) == "" {
-			return Project{}, ErrCodeObjImplIDRequired
+			return ErrCodeObjImplIDRequired
 		}
 		if impl.ID != implKey {
-			return Project{}, fmt.Errorf("%w: key=%q id=%q", ErrCodeObjImplIDKeyMismatch, implKey, impl.ID)
+			return fmt.Errorf("%w: key=%q id=%q", ErrCodeObjImplIDKeyMismatch, implKey, impl.ID)
 		}
 		if strings.TrimSpace(impl.Type) == "" {
-			return Project{}, fmt.Errorf("%w: %q", ErrCodeObjImplTypeRequired, impl.ID)
+			return fmt.Errorf("%w: %q", ErrCodeObjImplTypeRequired, impl.ID)
 		}
-		impl.Payload, err = normalizeRawJSON(impl.Payload, fmt.Sprintf("code object impl %q payload", impl.ID))
+		payload, err := normalizeRawJSON(impl.Payload, fmt.Sprintf("code object impl %q payload", impl.ID))
 		if err != nil {
-			return Project{}, err
+			return err
 		}
-		normalized.CodeObjImpls[implKey] = impl.Clone()
+		impl.Payload = payload
+		p.CodeObjImpls[implKey] = impl.Clone()
+	}
+	return nil
+}
+
+func (p *Project) validateNormalizedRelationships() error {
+	if p == nil {
+		return nil
 	}
 
-	if err := normalized.normalizeViewModesOnLoad(); err != nil {
-		return Project{}, fmt.Errorf("normalize view modes: %w", err)
+	if err := p.normalizeViewModesOnLoad(); err != nil {
+		return fmt.Errorf("normalize view modes: %w", err)
 	}
-	normalized.ActiveIDs = pruneStaleSectionIDs(normalized.ActiveIDs, normalized.Sections)
+	p.ActiveIDs = pruneStaleSectionIDs(p.ActiveIDs, p.Sections)
+	if err := p.validateTopLevelLayout(); err != nil {
+		return err
+	}
+	if err := p.validateActiveSectionVariants(); err != nil {
+		return err
+	}
+	if err := p.validateSectionVariantMemberships(); err != nil {
+		return err
+	}
+	if err := p.validateCodeObjectVariantMemberships(); err != nil {
+		return err
+	}
+	return p.validateEntryCodeBlock()
+}
 
-	topLevelSeen := make(map[string]struct{}, len(normalized.TopLevelSectionIDs))
-	for _, sectionID := range normalized.TopLevelSectionIDs {
-		if _, ok := normalized.Sections[sectionID]; !ok {
-			return Project{}, fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
+func (p *Project) validateTopLevelLayout() error {
+	if p == nil {
+		return nil
+	}
+
+	topLevelSeen := make(map[string]struct{}, len(p.TopLevelSectionIDs))
+	for _, sectionID := range p.TopLevelSectionIDs {
+		if _, ok := p.Sections[sectionID]; !ok {
+			return fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
 		}
 		if _, ok := topLevelSeen[sectionID]; ok {
-			return Project{}, fmt.Errorf("%w: %q", ErrDuplicateTopLevelSection, sectionID)
+			return fmt.Errorf("%w: %q", ErrDuplicateTopLevelSection, sectionID)
 		}
 		topLevelSeen[sectionID] = struct{}{}
 	}
-	for sectionID := range normalized.TopLevelSections {
-		if _, ok := normalized.Sections[sectionID]; !ok {
-			return Project{}, fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
+	for sectionID := range p.TopLevelSections {
+		if _, ok := p.Sections[sectionID]; !ok {
+			return fmt.Errorf("%w: %q", ErrTopLevelSectionNotFound, sectionID)
 		}
 	}
-	for viewModeID, viewMode := range normalized.ViewModes {
+	for viewModeID, viewMode := range p.ViewModes {
 		for sectionID := range viewMode.TopLevelSections {
-			if _, ok := normalized.Sections[sectionID]; !ok {
-				return Project{}, fmt.Errorf("%w: viewMode=%q section=%q", ErrTopLevelSectionNotFound, viewModeID, sectionID)
+			if _, ok := p.Sections[sectionID]; !ok {
+				return fmt.Errorf("%w: viewMode=%q section=%q", ErrTopLevelSectionNotFound, viewModeID, sectionID)
 			}
 		}
 	}
-	if normalized.ActiveViewModeID != "" {
-		if _, ok := normalized.ViewModes[normalized.ActiveViewModeID]; !ok {
-			return Project{}, fmt.Errorf("%w: %q", ErrViewModeNotFound, normalized.ActiveViewModeID)
+	if p.ActiveViewModeID != "" {
+		if _, ok := p.ViewModes[p.ActiveViewModeID]; !ok {
+			return fmt.Errorf("%w: %q", ErrViewModeNotFound, p.ActiveViewModeID)
 		}
 	}
+	return nil
+}
 
-	for sectionID, activeVariantID := range normalized.SectionVariantMap {
-		section, ok := normalized.Sections[sectionID]
+func (p *Project) validateActiveSectionVariants() error {
+	if p == nil {
+		return nil
+	}
+
+	for sectionID, activeVariantID := range p.SectionVariantMap {
+		section, ok := p.Sections[sectionID]
 		if !ok {
-			return Project{}, fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
+			return fmt.Errorf("%w: %q", ErrSectionNotFound, sectionID)
 		}
-		if _, ok := normalized.SectionVariants[activeVariantID]; !ok {
-			return Project{}, fmt.Errorf("%w: section=%q variant=%q", ErrSectionActiveVariantNotFound, sectionID, activeVariantID)
+		if _, ok := p.SectionVariants[activeVariantID]; !ok {
+			return fmt.Errorf("%w: section=%q variant=%q", ErrSectionActiveVariantNotFound, sectionID, activeVariantID)
 		}
 		if !containsString(section.VariantIDs, activeVariantID) {
-			return Project{}, fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantMembership, sectionID, activeVariantID)
+			return fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantMembership, sectionID, activeVariantID)
 		}
 	}
+	return nil
+}
 
-	for sectionID, section := range normalized.Sections {
+func (p *Project) validateSectionVariantMemberships() error {
+	if p == nil {
+		return nil
+	}
+
+	for sectionID, section := range p.Sections {
 		for _, variantID := range section.VariantIDs {
-			if _, ok := normalized.SectionVariants[variantID]; !ok {
-				return Project{}, fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantNotFound, sectionID, variantID)
+			if _, ok := p.SectionVariants[variantID]; !ok {
+				return fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantNotFound, sectionID, variantID)
 			}
 		}
 		if section.DefaultVariantID != "" && !containsString(section.VariantIDs, section.DefaultVariantID) {
-			return Project{}, fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantMembership, sectionID, section.DefaultVariantID)
+			return fmt.Errorf("%w: section=%q variant=%q", ErrSectionVariantMembership, sectionID, section.DefaultVariantID)
 		}
 	}
-	for codeObjID, codeObj := range normalized.CodeObjs {
+	return nil
+}
+
+func (p *Project) validateCodeObjectVariantMemberships() error {
+	if p == nil {
+		return nil
+	}
+
+	for codeObjID, codeObj := range p.CodeObjs {
 		for _, variantID := range codeObj.VariantIDs {
-			if _, ok := normalized.CodeObjVariants[variantID]; !ok {
-				return Project{}, fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantNotFound, codeObjID, variantID)
+			if _, ok := p.CodeObjVariants[variantID]; !ok {
+				return fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantNotFound, codeObjID, variantID)
 			}
 		}
 		if codeObj.DefaultVariantID != "" && !containsString(codeObj.VariantIDs, codeObj.DefaultVariantID) {
-			return Project{}, fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantMembership, codeObjID, codeObj.DefaultVariantID)
+			return fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantMembership, codeObjID, codeObj.DefaultVariantID)
 		}
 	}
+	return nil
+}
 
-	if normalized.EntryCodeBlockID != "" {
-		if _, ok := normalized.Sections[normalized.EntryCodeBlockID]; !ok {
-			return Project{}, fmt.Errorf("%w: %q", ErrEntrySectionNotFound, normalized.EntryCodeBlockID)
-		}
+func (p *Project) validateEntryCodeBlock() error {
+	if p == nil || p.EntryCodeBlockID == "" {
+		return nil
 	}
-
-	if err := normalized.ReconcileCodeSectionBindings(); err != nil {
-		return Project{}, fmt.Errorf("reconcile code section bindings: %w", err)
+	if _, ok := p.Sections[p.EntryCodeBlockID]; !ok {
+		return fmt.Errorf("%w: %q", ErrEntrySectionNotFound, p.EntryCodeBlockID)
 	}
-	if err := normalized.ReconcileGeneratedSectionBindings(); err != nil {
-		return Project{}, fmt.Errorf("reconcile generated section bindings: %w", err)
-	}
-
-	return normalized, nil
+	return nil
 }
 
 func pruneStaleSectionIDs(sectionIDs []string, sections map[string]Section) []string {
