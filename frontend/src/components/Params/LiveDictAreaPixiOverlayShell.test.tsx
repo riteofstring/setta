@@ -84,6 +84,7 @@ const projectStateStore = vi.hoisted(() => ({
     viewportInitialized: false,
   },
   sections: {
+    "draw-section": { name: "drawSectionDefault" },
     "button-param-section": { name: "buttonParamCodeObjDefault" },
     "browser-section": { name: "browserSectionDefault" },
     "code-param-section": { name: "codeParamCodeObjDefault" },
@@ -911,6 +912,32 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         .querySelector("[data-live-dict-area-scene='pixi']")
         ?.getAttribute("data-live-dict-area-scene-section-name"),
     ).toBe("genPythonMetadataSectionDefault");
+  });
+
+  it("switches the drawSectionDefault canary scene over to the shared page-runtime backend", () => {
+    const drawBoundary = buildTestLiveDictAreaMountBoundary("draw-section");
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiPageRuntimeBoundary>
+          <LiveDictAreaPixiOverlayShell
+            liveDictAreaMountProps={drawBoundary.liveDictAreaMountProps}
+            liveDictAreaSceneBoundary={drawBoundary.liveDictAreaSceneBoundary}
+          />
+        </LiveDictAreaPixiPageRuntimeBoundary>,
+      );
+    });
+
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-render-backend"),
+    ).toBe("shared-page-runtime");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-section-name"),
+    ).toBe("drawSectionDefault");
   });
 
   it("re-arms fit-view when the first Pixi summary layout arrives before the viewport is initialized", () => {

@@ -12704,3 +12704,57 @@ Record:
     - read-only `main` was not a usable live Settings oracle on this pass, so slice-level gross-drift comparison remains deferred
 - Next action:
   - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.
+
+## 2026-03-31 377
+
+- Item: Move `drawSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing shared-runtime canaries.
+- Status: `done`
+- Details:
+  - Re-checked the live worktree canary before editing instead of assuming the next section from stale log order.
+  - Fresh CDP inspection showed `drawSectionDefault` was the first still-visible scene on screen that remained on the `dom-context-lost` / local-app fallback path, so this lane is still resolving a real visible blocker.
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+  - Locked the ownership move in the existing focused runtime tests instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all eight shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `drawSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `drawSectionDefault` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Chrome DevTools MCP outcome after the change:
+    - fresh sub-agent verified the live worktree canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified `drawSectionDefault` is visibly on screen after selecting `All Settings`
+    - verified the `drawSectionDefault` scene reports:
+      - `renderBackend=shared-page-runtime`
+      - no visible `dom-context-lost` fallback wrapper
+    - verified the page-runtime host includes `drawSectionDefault` in `managedSceneNames` and excludes it from `domContextLostSceneNames`
+    - main-reference oracle caveat:
+      - the read-only `main` Settings surface still did not expose the live Pixi runtime host during this pass
+      - treat the slice-level `main` oracle comparison as deferred again for this pass
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`20 passed`)
+  - Playwright:
+    - refreshed the current worktree bootstrap token via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - ran the narrowest relevant live canary subset directly against the current worktree runtime:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps drawSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `drawSectionDefault` is visible, managed by the shared page runtime, and has no visible `dom-context-lost` fallback wrapper
+    - read-only `main` was not a usable live Settings oracle on this pass because the runtime host element was absent there
+- Next action:
+  - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.
