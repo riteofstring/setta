@@ -537,55 +537,9 @@ type McpServersByConfigPath = {
 };
 
 export const SETTA_MCP_RUNTIME_SOURCE = "setta_mcp";
-export const EXTERNAL_MCP_RUNTIME_SOURCE = "external_runtime";
 
 function buildRuntimeStatusMapKey(source: string, serverId: string): string {
   return `${source}:${serverId}`;
-}
-
-function getRuntimeStatusForSource({
-  runtimeStatusByServerId,
-  source,
-  serverId,
-}: {
-  runtimeStatusByServerId: Record<string, McpRuntimeServerStatus>;
-  source: string;
-  serverId: string;
-}): McpRuntimeServerStatus | null {
-  return (
-    runtimeStatusByServerId[buildRuntimeStatusMapKey(source, serverId)] ?? null
-  );
-}
-
-function resolveDisplayRuntimeStatus({
-  runtimeStatusByServerId,
-  source,
-  serverId,
-}: {
-  runtimeStatusByServerId: Record<string, McpRuntimeServerStatus>;
-  source: string;
-  serverId: string;
-}): McpRuntimeServerStatus | null {
-  const primaryStatus = getRuntimeStatusForSource({
-    runtimeStatusByServerId,
-    source,
-    serverId,
-  });
-  if (source !== EXTERNAL_MCP_RUNTIME_SOURCE) {
-    return primaryStatus;
-  }
-  if (primaryStatus && primaryStatus.state !== "unknown") {
-    return primaryStatus;
-  }
-  const settaStatus = getRuntimeStatusForSource({
-    runtimeStatusByServerId,
-    source: SETTA_MCP_RUNTIME_SOURCE,
-    serverId,
-  });
-  if (settaStatus) {
-    return settaStatus;
-  }
-  return primaryStatus;
 }
 
 function resolveMcpServerEndpoint(
@@ -622,18 +576,9 @@ export function groupMcpServersByConfigPath({
   externalRuntimeServers?: Array<McpServerListEntry>;
 }): McpServersByConfigPath[] {
   const groups: McpServersByConfigPath[] = [];
-  const externalRuntimeByServerId = new Map(
-    externalRuntimeServers.map((server) => [server.serverId, server]),
-  );
   if (mcpServers) {
     const serverEntries = Object.entries(mcpServers)
       .map(([serverId, config]) => {
-        const liveRuntimeServer = externalRuntimeByServerId.get(serverId);
-        if (liveRuntimeServer) {
-          return {
-            ...liveRuntimeServer,
-          };
-        }
         return {
           serverId,
           source: SETTA_MCP_RUNTIME_SOURCE,
@@ -650,14 +595,11 @@ export function groupMcpServersByConfigPath({
       });
     }
   }
-  const unmatchedExternalRuntimeServers = externalRuntimeServers.filter(
-    (server) => !(mcpServers && server.serverId in mcpServers),
-  );
-  if (unmatchedExternalRuntimeServers.length > 0) {
+  if (externalRuntimeServers.length > 0) {
     groups.push({
       configPath: null,
       configLabel: "Active external runtime",
-      servers: [...unmatchedExternalRuntimeServers].sort((a, b) =>
+      servers: [...externalRuntimeServers].sort((a, b) =>
         a.serverId.localeCompare(b.serverId),
       ),
     });
@@ -1043,11 +985,8 @@ export function resolveMcpServerStatus({
       quickInfo: "Status unknown: MCP runtime status data is not available.",
     };
   }
-  const runtimeStatus = resolveDisplayRuntimeStatus({
-    runtimeStatusByServerId,
-    source,
-    serverId,
-  });
+  const runtimeStatus =
+    runtimeStatusByServerId[buildRuntimeStatusMapKey(source, serverId)];
   if (!runtimeStatus) {
     return {
       color: "yellow",

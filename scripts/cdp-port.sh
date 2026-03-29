@@ -101,10 +101,11 @@ PROFILE_NEEDLE="setta-mcp/${INSTANCE_NAME}-${PROFILE_SUFFIX}/devtools-profile"
 PID_FROM_PS="$(
   ps -ax -o pid= -o command= 2>/dev/null \
     | awk -v needle="${PROFILE_NEEDLE}" '
-        index($0, needle) && index($0, "--remote-debugging-port") { print $1 }
-      '
+        index($0, needle) && index($0, "--remote-debugging-port") && index($0, "--type=") == 0 { print $1 }
+      ' \
+    | sort -nr \
+    | head -n 1
 )"
-PID_FROM_PS="${PID_FROM_PS%%$'\n'*}"
 if [[ -n "${PID_FROM_PS}" ]] && kill -0 "${PID_FROM_PS}" 2>/dev/null; then
   CMD="$(ps -p "${PID_FROM_PS}" -o command= 2>/dev/null || true)"
   PORT="$(printf "%s" "${CMD}" | sed -n 's/.*--remote-debugging-port[= ]\([0-9][0-9]*\).*/\1/p')"
