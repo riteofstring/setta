@@ -1,5 +1,5 @@
-import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
+import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
 import {
   createAgentRun,
   createAssistantChatMessage,
@@ -30,7 +30,7 @@ import {
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
-} from "./ProjectChatCore";
+} from "./projectChatCoreUtils";
 import {
   resolveProjectChatHydrationAuthority,
   resolveProjectChatRunTypeForEngine,

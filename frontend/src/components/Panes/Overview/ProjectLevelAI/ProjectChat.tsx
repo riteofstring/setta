@@ -78,11 +78,11 @@ import {
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
 import { ProjectAISettings } from "./ProjectAISettings";
+import { ProjectChatCore } from "./ProjectChatCore";
 import {
   getDefaultProjectChatPermissionMode,
-  ProjectChatCore,
   type ProjectChatBlockedErrorCode,
-} from "./ProjectChatCore";
+} from "./projectChatCoreUtils";
 import {
   focusInputWithoutSelectionById,
   PROJECT_AI_ENGINE_COMBOBOX_INPUT_ID,
