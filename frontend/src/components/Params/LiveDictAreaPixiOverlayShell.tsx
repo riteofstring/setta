@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   toggleParamSelected,
@@ -63,6 +63,7 @@ export function LiveDictAreaPixiOverlayShell({
     null,
   );
   const [isFallbackOverlayActive, setIsFallbackOverlayActive] = useState(false);
+  const requestedInitialNodeDimensionsRef = useRef(false);
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const valueRowTargets = useMemo(
     () =>
@@ -181,6 +182,19 @@ export function LiveDictAreaPixiOverlayShell({
     activeValueRowTarget?.editorKind === "codemirror" &&
     activeValueRowCoreEditState?.coreNameEditable === false &&
     activeValueRowErrorMessage.length === 0;
+
+  useEffect(() => {
+    if (summaryLayout === null) {
+      requestedInitialNodeDimensionsRef.current = false;
+      return;
+    }
+    if (requestedInitialNodeDimensionsRef.current) {
+      return;
+    }
+
+    requestedInitialNodeDimensionsRef.current = true;
+    useMisc.setState({ requestUpdateNodeDimensions: true });
+  }, [summaryLayout]);
 
   useEffect(() => {
     if (isSelectingParams) {

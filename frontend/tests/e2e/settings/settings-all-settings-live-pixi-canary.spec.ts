@@ -265,6 +265,55 @@ async function readScenePresentationModes(page: Page): Promise<string[]> {
   });
 }
 
+async function waitForVisibleSceneMetrics(page: Page): Promise<{
+  firstVisibleSceneRootWidth: number;
+  firstVisibleSceneRootX: number;
+  viewportWidth: number;
+  visibleSceneCanvasCount: number;
+  visibleSceneRootCount: number;
+}> {
+  const visibleSceneMetrics = await page.waitForFunction(() => {
+    const visibleSceneRoots = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-live-dict-area-render-mode='pixi-node-body']",
+      ),
+    ).filter((sceneRoot) => {
+      const rect = sceneRoot.getBoundingClientRect();
+
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.top < window.innerHeight &&
+        rect.right > 0 &&
+        rect.left < window.innerWidth
+      );
+    });
+
+    if (visibleSceneRoots.length === 0) {
+      return null;
+    }
+
+    const firstVisibleSceneRoot = visibleSceneRoots[0];
+    const firstVisibleSceneRootRect =
+      firstVisibleSceneRoot.getBoundingClientRect();
+
+    return {
+      firstVisibleSceneRootWidth: firstVisibleSceneRootRect.width,
+      firstVisibleSceneRootX: firstVisibleSceneRootRect.x,
+      viewportWidth: window.innerWidth,
+      visibleSceneCanvasCount: visibleSceneRoots.reduce(
+        (count, sceneRoot) =>
+          count + sceneRoot.querySelectorAll("canvas").length,
+        0,
+      ),
+      visibleSceneRootCount: visibleSceneRoots.length,
+    };
+  });
+
+  return (await visibleSceneMetrics.jsonValue())!;
+}
+
 async function readVisibleBlockBounds(
   page: Page,
   source: "baseline" | "pixi",
@@ -528,6 +577,22 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
         !ariaLabel.startsWith("Activate editor overlay for "),
     ),
   ).toBe(true);
+});
+
+test("all settings canary keeps visible Pixi scene roots after switching from the baseline in the same tab", async ({
+  page,
+}) => {
+  await openAllSettingsBaseline(page);
+  await openAllSettingsLivePixiCanary(page);
+
+  const visibleSceneMetrics = await waitForVisibleSceneMetrics(page);
+
+  expect(visibleSceneMetrics.visibleSceneRootCount).toBeGreaterThan(0);
+  expect(visibleSceneMetrics.visibleSceneCanvasCount).toBeGreaterThan(0);
+  expect(visibleSceneMetrics.firstVisibleSceneRootWidth).toBeGreaterThan(0);
+  expect(visibleSceneMetrics.firstVisibleSceneRootX).toBeLessThan(
+    visibleSceneMetrics.viewportWidth,
+  );
 });
 
 test("all settings canary rerenders the Pixi scene canvas when the viewport zoom changes", async ({

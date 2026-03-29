@@ -23,6 +23,7 @@ vi.hoisted(() => {
 
 const liveMiscState = vi.hoisted(() => ({
   isSelectingParams: false,
+  requestUpdateNodeDimensions: false,
 }));
 const localStorageState = vi.hoisted(() => ({
   darkMode: false,
@@ -42,6 +43,29 @@ const activeValueRowCoreRequests = vi.hoisted(() => [] as string[]);
 const toggleParamSelectedRequests = vi.hoisted(
   () => [] as Array<{ rowId: string; sectionId: string }>,
 );
+const useMiscStoreMock = vi.hoisted(() => {
+  const store = ((selector: (state: typeof liveMiscState) => unknown) =>
+    selector(liveMiscState)) as ((
+    selector: (state: typeof liveMiscState) => unknown,
+  ) => unknown) & {
+    setState: ReturnType<typeof vi.fn>;
+  };
+
+  store.setState = vi.fn(
+    (
+      nextState:
+        | Partial<typeof liveMiscState>
+        | ((state: typeof liveMiscState) => Partial<typeof liveMiscState>),
+    ) => {
+      Object.assign(
+        liveMiscState,
+        typeof nextState === "function" ? nextState(liveMiscState) : nextState,
+      );
+    },
+  );
+
+  return store;
+});
 
 vi.mock("./LiveDictAreaPixiScene", async () => {
   const React = await import("react");
@@ -149,8 +173,7 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
     ...actual,
     useLocalStorage: (selector: (state: typeof localStorageState) => unknown) =>
       selector(localStorageState),
-    useMisc: (selector: (state: typeof liveMiscState) => unknown) =>
-      selector(liveMiscState),
+    useMisc: useMiscStoreMock,
     useProjectSearch: (selector: (state: typeof searchState) => unknown) =>
       selector(searchState),
     useProjectState: (selector: (state: object) => unknown) =>
@@ -206,6 +229,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
 
   beforeEach(() => {
     liveMiscState.isSelectingParams = false;
+    liveMiscState.requestUpdateNodeDimensions = false;
     localStorageState.darkMode = false;
     searchState.focused = null;
     searchState.lookup = new Set<string>();
@@ -216,6 +240,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     activeValueRowBaseStateRequests.length = 0;
     activeValueRowCoreRequests.length = 0;
     toggleParamSelectedRequests.length = 0;
+    useMiscStoreMock.setState.mockClear();
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -343,6 +368,10 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(handoffButtons[0]?.style.width).toBe("296px");
     expect(activeValueRowBaseStateRequests).toEqual([]);
     expect(activeValueRowCoreRequests).toEqual([]);
+    expect(liveMiscState.requestUpdateNodeDimensions).toBe(true);
+    expect(useMiscStoreMock.setState).toHaveBeenCalledWith({
+      requestUpdateNodeDimensions: true,
+    });
 
     const activatedRowId =
       handoffButtons[0]?.getAttribute(

@@ -10641,3 +10641,31 @@ Record:
     - no obvious blanking or clipping regression was observed on the checked first visible canary cards
 - Next action:
   - Reuse the now-trustworthy attached-store settings canary harness for the next live Pixi visual/parity guard instead of relying on detached-store viewport reads or CDP-only evidence.
+
+## 2026-03-30 324
+
+- Item: Re-request node measurement when the live Pixi summary layout first becomes ready so the canary stays visible after a same-tab baseline-to-Pixi switch.
+- Status: `done`
+- Details:
+  - Took a bounded live-canary visibility slice directly from item `323` after fresh-context CDP found the live `All Settings` canary rendering offscreen to the right when switching from baseline to `?liveDictAreaRenderer=pixi-node-body` in the same browser tab.
+  - Updated the live Pixi overlay shell to request one node-dimension refresh the first time the summary layout becomes non-null, instead of relying on the scene mount to be noticed implicitly:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+  - Added focused overlay-shell coverage for the new measurement re-arm so the canary keeps raising `requestUpdateNodeDimensions` when the first Pixi summary layout arrives:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - Added a same-tab Playwright guard that opens baseline `All Settings`, switches to the live Pixi canary in the same tab, and asserts visible Pixi scene roots/canvases are still in the viewport:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`6 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary keeps visible Pixi scene roots after switching from the baseline in the same tab|all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform"`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the live worktree runtime:
+    - checked `/settings` and then `/settings?liveDictAreaRenderer=pixi-node-body` in the same tab
+    - result: passed; the canary no longer reopened blank/offscreen and visible Pixi scene roots/canvases stayed in the viewport with `All Settings` content visible
+- Next action:
+  - Resume the next bounded live Pixi parity slice from the now-visible same-tab canary, preferably against the `main` oracle when that reference session is available again.
