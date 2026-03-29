@@ -5,6 +5,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 
 ## Guides
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
+- `guides/dependency-audits.md` – dependency audit and remediation policy, including release-age enforcement.
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
 - `guides/browser-mcp-quickstart.md` – quickstart for Chrome DevTools MCP.
 - `guides/chrome-repro-recording.md` – record headed Chrome repro bundles and hand them to Codex.

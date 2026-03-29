@@ -41,17 +41,11 @@
 
 ## Dependency Audits
 
-- Start with `./audit_supply_chain.sh` for full repo visibility, but do not assume every reported item should be fixed in the same pass.
-- The default remediation target is critical/high findings only unless the developer explicitly asks for broader cleanup. Do not churn versions just to clear low/moderate advisories.
-- Keep dependency fixes minimal and exact. Prefer the smallest official upstream version bump that clears the severe finding, then refresh lockfiles intentionally and rerun focused tests in the touched area.
-- Python: `pip-audit` CLI output does not include severity in the table. Confirm severity from OSV/GHSA metadata before deciding whether a Python finding should be fixed in a severe-only pass.
-- Go: prioritize code-reachable `govulncheck` findings. Do not bump unrelated modules just because verbose output lists non-reachable advisories.
-- Frontend/Node: prefer official upstream releases and narrow `pnpm.overrides` for transitive fixes when the upstream dependency range already allows a safe version. Avoid broad toolchain churn unless it is required to clear the severe finding.
-- Do not switch to obscure forks, republished packages, or unofficial mirrors just to silence an audit finding. If the official package has no fixed mainstream release, leave the finding in place, explain the blocker, and present replacement/migration as a separate decision.
-- Every accepted dependency upgrade must also satisfy the repo minimum release-age policy. Re-run `./audit_supply_chain.sh` after refreshes, or at minimum rerun the Python, Go, and pnpm release-age checks before keeping the lockfile changes.
-- pnpm uses `minimum-release-age` in minutes, not `min-release-age` in days. Treat the pnpm config as resolver guidance only; the hard enforcement for checked-in Node dependencies is `scripts/check_pnpm_lock_release_age.py` via `./update_dependencies.sh` and `./audit_supply_chain.sh`.
-- Normal install scripts must remain frozen. Refresh lockfiles only through `./update_dependencies.sh` or an intentionally scoped lockfile update as part of the dependency-fix change.
-- If `./audit_supply_chain.sh` still fails only because of intentionally unaddressed lower-severity findings, say that explicitly instead of widening the remediation scope without approval.
+- Follow `docs/guides/dependency-audits.md` for the full auditing and remediation policy.
+- Start with `./audit_supply_chain.sh`.
+- Default to fixing critical/high findings only unless the developer explicitly asks for broader cleanup.
+- Do not use obscure forks, republished packages, or unofficial mirrors just to silence audit findings.
+- Every kept dependency upgrade must satisfy the repo minimum release-age policy.
 
 ## Coding Style & Naming Conventions
 
@@ -79,10 +73,8 @@
 
 ## Generation & Cleanup
 
-- Use `pnpm generate` to regenerate the Go-owned frontend bindings plus the Go-owned Python SDK/shared generated types. This command can produce a large diff.
-- Use `pnpm -C frontend generate-go-frontend-bindings` when only the canonical frontend route/type/endpoint outputs need regeneration; this path does not require Python activation.
-- `./gcf.sh` / `pnpm gcf` run `pnpm generate`, `pnpm full-cleanup`, Go formatting for `cmd/` and `internal/`, and frontend formatting.
-- `pnpm full-cleanup` runs Knip plus the Python generated-type prune step, and can delete unused generated TS/Python outputs.
+- Use `docs/guides/dev-scripts.md` for the generation/cleanup command map.
+- Regenerate before relying on new generated endpoints/types, and use `./gcf.sh` when you need the full wrapper.
 - Large diffs after generation or cleanup are often expected; do not assume they are incorrect.
 - If you need new generated outputs, run generation first and import/use those outputs before cleanup, or cleanup can delete them as unused.
 - Regenerate whenever editing files under `frontend/generation/`.
@@ -91,14 +83,10 @@
 ## Testing & Verification
 
 - Default workflow: think, plan, write tests, implement, then run tests. Update tests as the approach evolves.
+- Use `docs/guides/dev-scripts.md`, `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for the detailed test and browser-verification workflows.
 - Do not skip tests broadly. Missing deps/capabilities should usually fail loudly; any skip should be narrow, documented, and justified.
-- Frontend unit/integration tests live beside the code as `*.test.tsx`; frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts`.
-- UI changes require chrome-devtools-mcp visual verification. When relevant Playwright coverage exists or should exist, add or update it and run it.
-- Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` and follow `docs/guides/verification-checklist.md`.
-- For Chrome repro recorder workflows, read `docs/guides/chrome-repro-recording.md`.
-- A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`.
-- When the user says `see the latest Chrome recording`, resolve it with `./scripts/latest-chrome-recording.sh --json` instead of guessing paths under `/tmp`.
-- Chrome recordings can include redacted `llm_engine_artifacts/` copied from the active `setta_files` root; check that manifest when debugging external-agent runs.
+- UI changes require chrome-devtools-mcp visual verification when relevant.
+- A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
 - Never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself; if CDP access is needed, the developer starts it.
 - Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
 - Add Go tests beside the backend owner when changing runtime behavior; add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.
@@ -121,6 +109,7 @@
 ## Refactoring
 
 - We do not need backward compatibility unless the developer explicitly asks for it.
-- Refactors are behavior-preserving by default. If behavior is unclear, stop and ask instead of guessing.
+- Refactors should preserve the current intended behavior for supported workflows unless the developer asks for a behavior change. Do not keep legacy behavior solely for backward compatibility.
+- If the current intended behavior is unclear, stop and ask instead of guessing.
 - Performance-relevant refactors must baseline first, re-measure after, and add or update automated coverage where feasible.
 - Record before/after performance results in `perf/` as append-only reports.
