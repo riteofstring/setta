@@ -1,6 +1,8 @@
+import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  buildFitViewOnInitState,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
@@ -64,6 +66,7 @@ export function LiveDictAreaPixiOverlayShell({
   );
   const [isFallbackOverlayActive, setIsFallbackOverlayActive] = useState(false);
   const requestedInitialNodeDimensionsRef = useRef(false);
+  const requestedInitialFitViewRearmRef = useRef(false);
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const valueRowTargets = useMemo(
     () =>
@@ -186,13 +189,32 @@ export function LiveDictAreaPixiOverlayShell({
   useEffect(() => {
     if (summaryLayout === null) {
       requestedInitialNodeDimensionsRef.current = false;
-      return;
-    }
-    if (requestedInitialNodeDimensionsRef.current) {
+      requestedInitialFitViewRearmRef.current = false;
       return;
     }
 
-    requestedInitialNodeDimensionsRef.current = true;
+    if (!requestedInitialNodeDimensionsRef.current) {
+      requestedInitialNodeDimensionsRef.current = true;
+      useMisc.setState({ requestUpdateNodeDimensions: true });
+    }
+
+    if (requestedInitialFitViewRearmRef.current) {
+      return;
+    }
+
+    const projectConfig = useProjectState.getState().projectConfig;
+    if (projectConfig.viewportInitialized) {
+      requestedInitialFitViewRearmRef.current = true;
+      return;
+    }
+
+    const reactFlowState = useReactFlow.getState();
+    if (reactFlowState.fitViewOnInit && !reactFlowState.fitViewOnInitDone) {
+      return;
+    }
+
+    requestedInitialFitViewRearmRef.current = true;
+    useReactFlow.setState(buildFitViewOnInitState(useProjectState.getState()));
     useMisc.setState({ requestUpdateNodeDimensions: true });
   }, [summaryLayout]);
 

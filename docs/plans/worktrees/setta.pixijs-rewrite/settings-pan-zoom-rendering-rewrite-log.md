@@ -11767,3 +11767,35 @@ Record:
       - remaining differences such as `Autosaved!` on `main` were outside the checked canvas slice
 - Next action:
   - Resume the real normalized live-Pixi-vs-`main` renderer investigation on `All Settings`; with the resting baseline-vs-`main` canvas slice now locked down, target the next actual Pixi-only drift instead of more oracle-state cleanup.
+
+## 2026-03-31 356
+
+- Item: Re-arm live Pixi fit-view from the first settled summary layout and lock the baseline-vs-live visible canvas slice in automation.
+- Status: `done`
+- Details:
+  - Took the next real production slice from the normalized `main`-oracle CDP finding instead of reopening support work:
+    - live Pixi was landing on a different visible `All Settings` canvas slice than the normalized baseline / `main` surfaces
+    - the likely failure mode was the live Pixi summary layout becoming ready after the first fit-view pass had already settled, which left the final Pixi node bounds measured without one last refit
+  - Updated the live Pixi overlay shell so the first non-null summary layout now does two bounded things:
+    - still requests node-dimension measurement on first summary-layout readiness
+    - when the project viewport is still uninitialized but fit-view has already settled, re-arms `buildFitViewOnInitState(...)` once and requests another node-dimension pass so the final Pixi body dimensions drive the visible slice
+  - Added focused coverage for that behavior:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - Added a new Playwright canary that pins the previously CDP-only failure shape:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - after the same workspace reset, canonical `All Settings` overview-layout normalization, and frontend viewport clear, baseline DOM and live Pixi must expose the same first visible canvas section slice
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`7 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the same visible canvas section slice after frontend viewport clear|all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear|all settings baseline and live Pixi canary independently settle at the same initial zoom floor"`
+      - result: passed (`3 passed`)
+    - Chrome DevTools MCP visual check:
+      - fresh sub-agent on worktree baseline `http://127.0.0.1:3043/settings`, worktree live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`, and read-only `main` `http://127.0.0.1:3087/settings`
+      - result: partial pass for this bounded slice
+        - live Pixi no longer presented the earlier clearly different visible section ordering as the first blocker, and it compared closer to the normalized baseline slice
+        - residual live Pixi drift remains inside that slice as visible density / scroll-state mismatch versus the normalized baseline / `main`, so this lane improved the viewport-fit boundary but did not close the remaining renderer parity work
+- Next action:
+  - Investigate the residual live Pixi density / scroll-state drift inside the now-aligned normalized `All Settings` slice; do not reopen workspace normalization or visible-slice ordering unless the new canary regresses.

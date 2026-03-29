@@ -1,5 +1,6 @@
 /* @vitest-environment jsdom */
 
+import { useReactFlow } from "forks/xyflow/core/store";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
@@ -69,6 +70,12 @@ const useMiscStoreMock = vi.hoisted(() => {
 
   return store;
 });
+const projectStateStore = vi.hoisted(() => ({
+  projectConfig: {
+    showParamDisplayNames: true,
+    viewportInitialized: false,
+  },
+}));
 
 vi.mock("./LiveDictAreaPixiScene", async () => {
   const React = await import("react");
@@ -172,6 +179,13 @@ vi.mock("./LiveDictAreaPixiValueRowOverlay", () => ({
 
 vi.mock(import("state/definitions"), async (importOriginal) => {
   const actual = await importOriginal();
+  const useProjectStateStore = ((selector: (state: object) => unknown) =>
+    selector(projectStateStore)) as ((
+    selector: (state: object) => unknown,
+  ) => unknown) & {
+    getState: () => typeof projectStateStore;
+  };
+  useProjectStateStore.getState = () => projectStateStore;
   return {
     ...actual,
     useLocalStorage: (selector: (state: typeof localStorageState) => unknown) =>
@@ -179,12 +193,7 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
     useMisc: useMiscStoreMock,
     useProjectSearch: (selector: (state: typeof searchState) => unknown) =>
       selector(searchState),
-    useProjectState: (selector: (state: object) => unknown) =>
-      selector({
-        projectConfig: {
-          showParamDisplayNames: true,
-        },
-      }),
+    useProjectState: useProjectStateStore,
     useTemporaryMiscState: (
       selector: (state: typeof temporaryMiscState) => unknown,
     ) => selector(temporaryMiscState),
@@ -194,6 +203,11 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
 });
 
 vi.mock("state/actions/sectionInfos", () => ({
+  buildFitViewOnInitState: () => ({
+    fitViewOnInit: true,
+    fitViewOnInitDone: false,
+    fitViewOnInitOptions: { nodes: [{ id: "section-1" }] },
+  }),
   getCodeObjCore: (_state: object, rowId: string) => {
     activeValueRowCoreRequests.push(rowId);
     return {
@@ -234,6 +248,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     liveMiscState.isSelectingParams = false;
     liveMiscState.requestUpdateNodeDimensions = false;
     localStorageState.darkMode = false;
+    projectStateStore.projectConfig.viewportInitialized = false;
     searchState.focused = null;
     searchState.lookup = new Set<string>();
     for (const key of Object.keys(temporaryMiscState)) {
@@ -244,6 +259,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     activeValueRowCoreRequests.length = 0;
     toggleParamSelectedRequests.length = 0;
     useMiscStoreMock.setState.mockClear();
+    useReactFlow.setState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: undefined,
+    });
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
@@ -257,6 +277,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     activeValueRowBaseStateRequests.length = 0;
     activeValueRowCoreRequests.length = 0;
     toggleParamSelectedRequests.length = 0;
+    useReactFlow.setState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: undefined,
+    });
   });
 
   it("mounts a value-row editor overlay on demand over the Pixi scene canary", () => {
@@ -409,6 +434,78 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     ).not.toBeNull();
     expect(activeValueRowBaseStateRequests).toEqual([]);
     expect(activeValueRowCoreRequests).toEqual([]);
+  });
+
+  it("re-arms fit-view when the first Pixi summary layout arrives before the viewport is initialized", () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamEditorKind: () => "text",
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "Pinned Group",
+              "pinned-value": "Pinned Value",
+              "unpinned-group": "Unpinned Group",
+              "unpinned-value": "Unpinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: false,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-1",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiOverlayShell
+          liveDictAreaMountProps={
+            liveDictAreaMountBoundary.liveDictAreaMountProps
+          }
+          liveDictAreaSceneBoundary={
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary
+          }
+        />,
+      );
+    });
+
+    expect(useReactFlow.getState()).toMatchObject({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: { nodes: [{ id: "section-1" }] },
+    });
+    expect(useMiscStoreMock.setState).toHaveBeenCalledWith({
+      requestUpdateNodeDimensions: true,
+    });
   });
 
   it("keeps the normal CodeMirror handoff on the value-only overlay path without full row state lookups", () => {
