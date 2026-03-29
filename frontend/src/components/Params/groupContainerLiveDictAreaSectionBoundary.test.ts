@@ -12,7 +12,11 @@ import {
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildLiveDictAreaSectionBoundary } from "./groupContainerLiveDictAreaSectionBoundary";
+import {
+  buildLiveDictAreaSectionBoundary,
+  buildLiveDictAreaSectionBoundaryFromState,
+} from "./groupContainerLiveDictAreaSectionBoundary";
+import { buildLiveDictAreaSectionState } from "./groupContainerLiveDictAreaSectionState";
 
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
@@ -264,5 +268,59 @@ describe("groupContainerLiveDictAreaSectionBoundary", () => {
       },
       topLevelParamIds: ["unpinned-param"],
     });
+  });
+
+  it("can rebuild the higher-level boundary from a preselected pure section-state payload", () => {
+    const sectionId = "section-live-dict-area-boundary-from-state";
+    const state = seedLiveDictAreaSectionBoundaryState({
+      sectionId,
+      edgeInputParamIds: ["edge-direct"],
+      pinnedParamIds: ["pinned-param"],
+      unpinnedParamIds: ["unpinned-param"],
+    });
+    const handleColumnResizeStart = vi.fn();
+
+    const result = buildLiveDictAreaSectionBoundaryFromState({
+      bgColor: "bg-surface",
+      canEditLayout: true,
+      canEditStructure: true,
+      handleColumnResizeStart,
+      isSelectingParams: false,
+      sectionId,
+      sectionState: buildLiveDictAreaSectionState({ sectionId, state }),
+      sectionTypeName: SectionTypeEnum.Dict,
+      unpinnedParamsAreaMinHeight: 88,
+    });
+
+    const expected = buildLiveDictAreaSectionBoundary({
+      bgColor: "bg-surface",
+      canEditLayout: true,
+      canEditStructure: true,
+      handleColumnResizeStart,
+      isSelectingParams: false,
+      sectionId,
+      sectionTypeName: SectionTypeEnum.Dict,
+      state,
+      unpinnedParamsAreaMinHeight: 88,
+    });
+
+    expect(result).toMatchObject({
+      canConnect: expected.canConnect,
+      edgeInputParams: expected.edgeInputParams,
+      hideUnpinnedParams: expected.hideUnpinnedParams,
+      inputPorts: expected.inputPorts,
+      outputPorts: expected.outputPorts,
+      pinned: expected.pinned,
+      selectedParamIds: expected.selectedParamIds,
+      styleColor: expected.styleColor,
+      unpinned: expected.unpinned,
+    });
+    expect(result.handleColumnResizeStart).toBe(handleColumnResizeStart);
+    expect(result.getParamDisplayName("pinned-param")).toBe(
+      expected.getParamDisplayName("pinned-param"),
+    );
+    expect(result.getParamEditorKind("pinned-param")).toBe(
+      expected.getParamEditorKind("pinned-param"),
+    );
   });
 });

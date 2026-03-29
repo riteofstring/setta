@@ -290,4 +290,41 @@ describe("useLiveDictAreaSectionStoreBoundary", () => {
     );
     expect(boundary.getParamDisplayName("missing-param")).toBe("missing-param");
   });
+
+  it("stays stable across unrelated project-state updates once the function-bearing boundary is memoized outside the selector", async () => {
+    const sectionId = "section-live-dict-area-section-store-stability";
+    const handleColumnResizeStart = vi.fn();
+    const onBoundaryChange = vi.fn();
+
+    seedLiveDictAreaSectionStoreBoundaryState({
+      sectionId,
+      pinnedParamIds: ["pinned-param"],
+      unpinnedParamIds: ["unpinned-param"],
+    });
+
+    await act(async () => {
+      root.render(
+        <StoreBoundaryHarness
+          bgColor="bg-transparent"
+          handleColumnResizeStart={handleColumnResizeStart}
+          onBoundaryChange={onBoundaryChange}
+          sectionId={sectionId}
+          sectionTypeName={SectionTypeEnum.Dict}
+        />,
+      );
+    });
+
+    expect(onBoundaryChange).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      useProjectState.setState((state) => {
+        state.previewSectionVariantMap = {
+          ...state.previewSectionVariantMap,
+          unrelated: "next-variant",
+        };
+      });
+    });
+
+    expect(onBoundaryChange).toHaveBeenCalledTimes(1);
+  });
 });

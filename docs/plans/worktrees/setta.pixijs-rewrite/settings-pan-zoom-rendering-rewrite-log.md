@@ -7537,3 +7537,44 @@ Record:
     - the follow-up trace still showed most latency in shared processing/presentation work rather than a clear Pixi-only hotspot
 - Next action:
   - Move the next iteration to a different shared-floor suspect, starting with `handlePointerDown` in `frontend/src/components/Pages/Project/UiPage.tsx` or the live dict-area section-store boundary, because the static-scene Pixi shell change did not materially shift the measured handoff latency.
+
+## 2026-03-29 240
+
+- Item: Stabilize the live dict-area section-store boundary selector and re-measure the generic Pixi value-row handoff.
+- Status: `done`
+- Details:
+  - Chose the second concrete shared-floor suspect from item `239` instead of starting another overlay-ownership hop.
+  - Updated:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionBoundary.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.ts`
+  - Added or updated focused coverage:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionBoundary.test.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx`
+  - The live dict-area section-store hook no longer returns a function-bearing boundary object from `useProjectState(..., _.isEqual)`:
+    - `useLiveDictAreaSectionStoreBoundary(...)` now selects pure `buildLiveDictAreaSectionState(...)` data from project state and memoizes the function-bearing boundary assembly outside the selector
+    - `groupContainerLiveDictAreaSectionBoundary.ts` now exposes `buildLiveDictAreaSectionBoundaryFromState(...)` so the same higher-level boundary can be rebuilt from preselected pure section state
+  - Added a hook-level regression guard:
+    - `groupContainerLiveDictAreaSectionStoreBoundary.test.tsx` now verifies that an unrelated `previewSectionVariantMap` project-state update does not rerender the hook
+  - Recorded the follow-up measurement in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-section-store-boundary-memoization-probe.md`
+  - Perf result:
+    - the same `defaultZoomLevel` generic value-row handoff improved from the earlier `INP 73 ms` probe to `INP 54 ms`
+    - presentation delay improved from `49 ms` to `33 ms`
+    - the earlier `checkIfSnapshotChanged` / `groupContainerLiveDictAreaSectionStoreBoundary.ts` hotspot signature did not reappear in the hottest named samples
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts src/components/Params/groupContainerLiveDictAreaSectionBoundary.test.ts src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx`
+      - result: passed (`8 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/groupContainerLiveDictAreaSectionBoundary.ts src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.ts src/components/Params/groupContainerLiveDictAreaSectionBoundary.test.ts src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - `All Settings` loaded while the page stayed authenticated
+    - clicking `defaultZoomLevel` still opened the DOM editor overlay with no obvious blanking, clipping, or major overlap
+    - representative successful requests included `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/getFileBrowserRoot`, and `POST /api/setTopLevelSectionLayout`
+- Next action:
+  - Treat the section-store boundary lane as materially improved and move the next iteration to the remaining shared event/task/presentation floor, starting with `handlePointerDown` in `frontend/src/components/Pages/Project/UiPage.tsx` or another freshly measured shared-floor suspect instead of reopening this boundary.
