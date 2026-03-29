@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  buildNormalizedAllSettingsTopLevelSections,
   SETTINGS_ALL_SETTINGS_NORMALIZATION_GRID_COLUMNS,
   SETTINGS_ALL_SETTINGS_NORMALIZATION_MIN_CELL_SIZE_PX,
 } from "../../../src/components/Pages/Project/settingsAllSettingsNormalization";
@@ -18,6 +19,7 @@ import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_START_MARK_NAME,
 } from "../../../src/components/Params/liveDictAreaPixiValueRowPerf";
 import { LIVE_DICT_AREA_RENDERER_QUERY_PARAM } from "../../../src/components/Section/Layouts/liveDictAreaRendererMode";
+import { createSettingsState } from "../../../src/utils/generatedTypes";
 import {
   clearCurrentProjectViewportForRefit,
   ensureAppReady,
@@ -1131,43 +1133,26 @@ async function readVisibleOverviewSectionLabels(page: Page): Promise<string[]> {
 }
 
 async function normalizeAllSettingsOverviewLayout(page: Page): Promise<void> {
-  await page.evaluate(
-    async ({
-      gridColumns,
-      minimumCellSizePx,
-    }: {
-      gridColumns: number;
-      minimumCellSizePx: number;
-    }) => {
-      const { buildNormalizedAllSettingsTopLevelSections } = await import(
-        "/src/components/Pages/Project/settingsAllSettingsNormalization.ts"
-      );
-      const { useProjectState } = await import("/src/state/definitions.ts");
-      const { createSettingsState } = await import(
-        "/src/utils/generatedTypes.ts"
-      );
+  const normalizationSnapshot = await page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
 
-      const state = useProjectState.getState();
-      const activeViewModeId = state.projectConfig.activeViewModeId;
-      if (!activeViewModeId) {
-        throw new Error("Active view mode is not set.");
-      }
-      const activeViewMode = state.projectConfig.viewModes[activeViewModeId];
-      if (!activeViewMode || activeViewMode.name !== "All Settings") {
-        return;
-      }
+    const state = useProjectState.getState();
+    const activeViewModeId = state.projectConfig.activeViewModeId;
+    if (!activeViewModeId) {
+      throw new Error("Active view mode is not set.");
+    }
+    const activeViewMode = state.projectConfig.viewModes[activeViewModeId];
+    if (!activeViewMode || activeViewMode.name !== "All Settings") {
+      return null;
+    }
 
-      const sectionIdByName = Object.fromEntries(
-        Object.entries(state.sections).map(([sectionId, sectionCore]) => [
-          sectionCore.name,
-          sectionId,
-        ]),
-      );
-      const orderedSectionNames = Object.keys(createSettingsState());
-      await new Promise<void>((resolve) => {
-        window.requestAnimationFrame(() => resolve());
-      });
-      const measuredSectionSizesById = Object.fromEntries(
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+
+    return {
+      activeViewModeId,
+      measuredSectionSizesById: Object.fromEntries(
         Array.from(
           document.querySelectorAll<HTMLElement>(".react-flow__node[data-id]"),
         ).map((element) => {
@@ -1180,14 +1165,37 @@ async function normalizeAllSettingsOverviewLayout(page: Page): Promise<void> {
             },
           ];
         }),
-      );
-      const nextLayout = buildNormalizedAllSettingsTopLevelSections({
-        gridColumns,
-        measuredSectionSizesById,
-        minimumCellSizePx,
-        orderedSectionNames,
-        sectionIdByName,
-      });
+      ),
+      sectionIdByName: Object.fromEntries(
+        Object.entries(state.sections).map(([sectionId, sectionCore]) => [
+          sectionCore.name,
+          sectionId,
+        ]),
+      ),
+    };
+  });
+
+  if (normalizationSnapshot === null) {
+    return;
+  }
+
+  const nextLayout = buildNormalizedAllSettingsTopLevelSections({
+    gridColumns: SETTINGS_ALL_SETTINGS_NORMALIZATION_GRID_COLUMNS,
+    measuredSectionSizesById: normalizationSnapshot.measuredSectionSizesById,
+    minimumCellSizePx: SETTINGS_ALL_SETTINGS_NORMALIZATION_MIN_CELL_SIZE_PX,
+    orderedSectionNames: Object.keys(createSettingsState()),
+    sectionIdByName: normalizationSnapshot.sectionIdByName,
+  });
+
+  await page.evaluate(
+    async ({
+      activeViewModeId,
+      nextLayout,
+    }: {
+      activeViewModeId: string;
+      nextLayout: Record<string, { x: number; y: number }>;
+    }) => {
+      const { useProjectState } = await import("/src/state/definitions.ts");
 
       useProjectState.setState((currentState) => {
         currentState.projectConfig.topLevelSections = nextLayout;
@@ -1200,8 +1208,8 @@ async function normalizeAllSettingsOverviewLayout(page: Page): Promise<void> {
       });
     },
     {
-      gridColumns: SETTINGS_ALL_SETTINGS_NORMALIZATION_GRID_COLUMNS,
-      minimumCellSizePx: SETTINGS_ALL_SETTINGS_NORMALIZATION_MIN_CELL_SIZE_PX,
+      activeViewModeId: normalizationSnapshot.activeViewModeId,
+      nextLayout,
     },
   );
 }

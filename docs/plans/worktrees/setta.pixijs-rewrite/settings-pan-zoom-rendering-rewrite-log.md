@@ -13337,3 +13337,54 @@ Record:
     - verified on the normalized live worktree canary, and cross-checked against the normalized `main` reference, that `spreadsheetSectionDefault` is fully in frame and the previous right-edge clipped sliver is gone
 - Next action:
   - Re-run the normalized live-canary versus `main` comparison now that the surface framing support is trustworthy again, then take the next real Gate 1 or Gate 2 renderer/interactions defect instead of doing more normalization-only work.
+
+## 2026-04-01 387
+
+- Item: Repair the `All Settings` normalization harness so explicit worktree-versus-`main` parity checks no longer depend on a worktree-only page-origin module.
+- Status: `done`
+- Details:
+  - Did not keep pushing another normalization tweak after item `386` without checking whether the restored `main`-oracle path was actually trustworthy.
+  - A fresh explicit-runtime Playwright run exposed the direct blocker:
+    - `normalizeAllSettingsOverviewLayout(...)` was dynamically importing `/src/components/Pages/Project/settingsAllSettingsNormalization.ts` inside `page.evaluate(...)`
+    - that import succeeds on the worktree frontend origin but fails on the read-only `main` frontend origin because the helper module only exists in this worktree
+    - result: the explicit baseline-versus-`main` canvas comparison could not run, so the oracle path was broken at the support boundary rather than in renderer code
+  - Kept the fix tightly scoped to the parity harness:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - moved canonical `All Settings` layout construction into the Playwright runner by importing:
+        - `buildNormalizedAllSettingsTopLevelSections(...)`
+        - `createSettingsState()`
+      - `page.evaluate(...)` now only:
+        - reads the active view mode id
+        - snapshots `sectionIdByName`
+        - snapshots measured `.react-flow__node[data-id]` widths/heights
+        - applies the already-built layout back into `useProjectState`
+      - this removes the page-origin dependency on a worktree-only source module while preserving the same canonical normalization math for both the worktree and read-only `main`
+  - This slice intentionally stayed on the harness/oracle boundary only:
+    - no production frontend/backend renderer logic changed
+    - no Pixi drawing, pan/zoom, or interaction code changed
+  - Fresh CDP after the fix confirms the support blocker is closed but a real parity blocker remains:
+    - the worktree live Pixi canary still shows a different first visible normalized slice than read-only `main`
+    - worktree first visible labels started with `browserSectionDefault`, `textBlockSectionDefault`, `promptSectionDefault`
+    - read-only `main` started with `textAreaParamCodeObjDefault`, `dropzoneParamCodeObjDefault`, `promptSectionDefault`
+    - so the next iteration should spend its time on that production/oracle drift, not on more harness repair
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/settingsAllSettingsNormalization.test.ts`
+    - result: passed (`3 passed`)
+  - Playwright:
+    - explicit worktree-versus-`main` normalization checks with inline-refreshed runtime tokens:
+      - `source activate.sh && ... pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings baseline and the read-only main reference share the same visible overview section slice when explicit runtime envs are provided|all settings baseline and the read-only main reference share the same visible canvas section slice when explicit runtime envs are provided'`
+      - result: passed (`2 passed`)
+    - shared live-canary normalization guard:
+      - `source activate.sh && ... pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings baseline and live Pixi canary share the same visible canvas section slice after frontend viewport clear'`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent compared the normalized worktree live Pixi canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` against read-only `main` at `http://127.0.0.1:3087/settings`
+    - result: support path usable, but parity still fails
+      - worktree first visible normalized labels: `browserSectionDefault`, `textBlockSectionDefault`, `promptSectionDefault`
+      - read-only `main` first visible normalized labels: `textAreaParamCodeObjDefault`, `dropzoneParamCodeObjDefault`, `promptSectionDefault`
+- Next action:
+  - Use the restored trustworthy `main`-oracle comparison to take the first real production Gate 1 mismatch in the normalized live Pixi canary instead of doing another harness-only slice.
