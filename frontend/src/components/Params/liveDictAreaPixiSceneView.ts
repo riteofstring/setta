@@ -291,9 +291,13 @@ export function getLiveDictAreaPixiPalette({
       computedChrome?.borderColor ||
       computedFallbackPalette.border,
     panelBackground:
-      sectionPanelBackground || computedFallbackPalette.panelBackground,
+      sectionPanelBackground ||
+      computedChrome?.backgroundColor ||
+      computedFallbackPalette.panelBackground,
     panelBackgroundAlt:
-      sectionBackground || computedFallbackPalette.panelBackgroundAlt,
+      sectionBackground ||
+      computedChrome?.backgroundColor ||
+      computedFallbackPalette.panelBackgroundAlt,
     portDot: sectionMutedText || computedFallbackPalette.portDot,
     portSelectedDot: sectionOutline || computedFallbackPalette.portSelectedDot,
     rowBackground: sectionBackground || computedFallbackPalette.rowBackground,

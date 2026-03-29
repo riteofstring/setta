@@ -9299,3 +9299,34 @@ Record:
     - remaining drift is now primarily visual: those cards still render as brighter white tiles than baseline, and the top row still sits slightly tight under the chrome
 - Next action:
   - Continue the live Pixi parity lane from this fixed height-clamp baseline by tightening the remaining palette/chrome drift on the first visible `All Settings` cards instead of revisiting clip sizing again.
+
+## 2026-03-29 282
+
+- Item: Source live Pixi panel fills from the mounted shell chrome when section-style vars are absent.
+- Status: `done`
+- Details:
+  - Took the next bounded parity slice directly from item `281`'s remaining “brighter white tiles” drift instead of returning to seam lifting or another broad overview-geometry pass.
+  - Updated `frontend/src/components/Params/liveDictAreaPixiSceneView.ts` so `getLiveDictAreaPixiPalette(...)` now prefers the mounted host's computed background color for `panelBackground` and `panelBackgroundAlt` before falling back to the generic palette when section-style CSS variables are unavailable.
+  - This keeps the live `pixi-node-body` scene anchored to the actual DOM shell chrome on `All Settings` cards that do not expose explicit section-style vars, rather than guessing a lighter alternate panel fill.
+  - Updated `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts` to lock the computed-chrome background fallback in the no-section-style path.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed (`32 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Playwright:
+    - initial targeted retry on the old runtime blocked in `frontend/tests/e2e/global-setup.ts` because the stale bootstrap token returned `401`
+    - bounded lifecycle recovery: `./aireset.sh`
+      - restarted the current worktree on frontend `http://127.0.0.1:3045`, backend `http://127.0.0.1:8045`, bootstrap session `d3fdc3`
+    - targeted rerun:
+      - `SETTA_BOOTSTRAP_TOKEN=<fresh token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3045 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8045 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host" --reporter=line`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared baseline `/settings` against `/settings?liveDictAreaRenderer=pixi-node-body` at browser zoom `100%`
+    - the brighter white tile drift improved and the first visible `backend` / `gui` / `languageServer` cards read closer to baseline
+    - a few first-row cards still look too bright relative to baseline, and the remaining spacing/chrome drift is still visible even though it is less jarring than before
+    - no major new visual regression was observed
+- Next action:
+  - Continue the live Pixi parity lane from this darker shell-matched baseline by tightening the remaining top-row spacing/chrome drift on the first visible `All Settings` overview cards.

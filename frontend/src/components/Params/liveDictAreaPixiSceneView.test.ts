@@ -388,8 +388,8 @@ describe("getLiveDictAreaPixiPalette", () => {
     ).toEqual({
       bodyText: "rgb(248, 250, 252)",
       border: "rgb(51, 65, 85)",
-      panelBackground: "#111827",
-      panelBackgroundAlt: "#0f172a",
+      panelBackground: "rgb(16, 20, 27)",
+      panelBackgroundAlt: "rgb(16, 20, 27)",
       portDot: "#94a3b8",
       portSelectedDot: "#38bdf8",
       rowBackground: "#172036",
@@ -433,8 +433,8 @@ describe("getLiveDictAreaPixiPalette", () => {
     ).toEqual({
       bodyText: "#e5e7eb",
       border: "rgb(51, 65, 85)",
-      panelBackground: "#111827",
-      panelBackgroundAlt: "#0f172a",
+      panelBackground: "rgb(16, 20, 27)",
+      panelBackgroundAlt: "rgb(16, 20, 27)",
       portDot: "#94a3b8",
       portSelectedDot: "#38bdf8",
       rowBackground: "#172036",
