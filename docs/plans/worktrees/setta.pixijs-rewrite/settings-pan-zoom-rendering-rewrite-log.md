@@ -13809,6 +13809,36 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 412
+
+- Item: Re-establish the paired fresh-context `/settings` CDP compare surface for `browserSectionDefault`.
+- Status: `done`
+- Details:
+  - This iteration stayed on the direct compare-surface blocker and changed no production or test files.
+  - Refreshed live runtime values before the retry:
+    - worktree: `frontend 3043`, `backend 8043`, bootstrap session `401dc9`
+    - main reference: `frontend 3087`, `backend 8087`, bootstrap session `d6b4a9`
+  - A first fresh-context sub-agent drifted off the strict `/settings` route and reported a misleading replay failure where the worktree fell back to shell state.
+  - A second fresh-context sub-agent retried with stricter route ownership and explicit route/project-state tracing:
+    - main bootstrap `/__setta__/bootstrap` -> main `/settings` with project `settings`, `46` sections
+    - worktree bootstrap `/__setta__/bootstrap` -> worktree `/settings` with project `settings`, `46` sections
+    - replayed the main `JSON.stringify(useProjectState.getState())` snapshot into the worktree successfully
+    - kept the worktree on `/settings` and converged its project id/name/view state to the main reference state
+    - clicked `browserSectionDefault`, normalized to `1600x1000`, and kept both tabs synchronized for the compare
+- Verification:
+  - Fresh-context CDP visual check via sub-agent on worktree/main `/settings`
+    - result: passed
+    - `browserSectionDefault` compare surface was trustworthy again after replay and normalization
+    - no post-replay drift was reported on the checked `browserSectionDefault` surface versus `main`
+- Conclusion:
+  - the paired `/settings` CDP compare blocker is resolved
+  - the centered `browserSectionDefault` parity lane is no longer blocked on bootstrap/session or route-state drift
+  - this lane should be treated as closed rather than extended with more harness-only churn
+- Next action:
+  - Return to the product lane and identify the next real Gate 2 renderer defect outside this closed compare-surface setup path.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 411
 
 - Item: Center the graph compare harness on `browserSectionDefault` instead of re-fitting the whole visible graph.
