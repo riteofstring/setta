@@ -221,318 +221,666 @@ func (s *SendService) Disabled() bool {
 	return s == nil || s.executor == nil
 }
 
-func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (StartChatResult, error) {
-	if s == nil || s.executor == nil {
-		return StartChatResult{}, ErrExecutorUnavailable
-	}
-	if s.preflight == nil {
-		return StartChatResult{}, ErrSendPreflightCheckerRequired
-	}
+type normalizedStartChatRequest struct {
+	Message                 map[string]any
+	ChatID                  *string
+	ContinueFromChatID      *string
+	EngineConfigID          string
+	AgentProfileID          *string
+	Thinking                bool
+	ProjectConfigID         string
+	SectionID               *string
+	FrontendAffinityToken   *string
+	AllowUnscoped           bool
+	BranchParentChatID      *string
+	BranchFromMessageID     *string
+	IsBranchRequest         bool
+	PermissionMode          ChatPermissionMode
+	SearchEnabled           bool
+	AppGenerationMode       *string
+	AppGenerationModePrompt string
+	AdditionalInputs        map[string]any
+	CompletionGuardEnabled  bool
+}
 
-	normalizedMessage, err := normalizeMessage(request.Message)
-	if err != nil {
-		return StartChatResult{}, ErrMessageRequired
-	}
-	projectConfigID := strings.TrimSpace(request.ProjectConfigID)
-	if projectConfigID == "" {
-		return StartChatResult{}, ErrProjectConfigIDRequired
-	}
-	sectionID := normalizeOptionalString(request.SectionID)
-	if sectionID == nil && !request.AllowUnscoped {
-		return StartChatResult{}, ErrSectionIDRequired
-	}
-	if sectionID != nil && request.AllowUnscoped {
-		return StartChatResult{}, ErrAllowUnscopedRequiresSectionOmitted
-	}
-	if _, err := validatePermissionMode(request.PermissionMode); err != nil {
+type startChatConversation struct {
+	ChatID                 string
+	PrefetchedExternalRuns []agentruns.Run
+	PriorMessages          []map[string]any
+	ParentRun              *agentruns.Run
+}
+
+type resolvedStartChatEngine struct {
+	EngineConfig   agentruns.EngineConfig
+	ExternalConfig externalagentconfigs.Config
+}
+
+type preparedStartChatRun struct {
+	ChatID         string
+	Profile        *agentprofiles.Profile
+	ProfileID      *string
+	Inputs         map[string]any
+	EngineConfig   agentruns.EngineConfig
+	ExternalConfig externalagentconfigs.Config
+}
+
+func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (StartChatResult, error) {
+	if err := s.validateStartChatPreconditions(); err != nil {
 		return StartChatResult{}, err
 	}
+	normalized, err := s.normalizeStartChatRequest(ctx, request)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	if err := s.validateStartChatProjectTarget(normalized); err != nil {
+		return StartChatResult{}, err
+	}
+	resolvedEngine, err := s.resolveStartChatEngine(normalized.EngineConfigID)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	conversation, err := s.resolveStartChatConversation(normalized)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	appGenerationByMessageID, err := resolveSubmittedTurnAppGenerationByMessageID(
+		normalized,
+		conversation.PriorMessages,
+	)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	if err := validateStartChatImageRequirements(
+		normalized,
+		conversation.PriorMessages,
+		appGenerationByMessageID,
+	); err != nil {
+		return StartChatResult{}, err
+	}
+	preparedRun, err := s.prepareStartChatRun(
+		normalized,
+		resolvedEngine,
+		conversation,
+		appGenerationByMessageID,
+	)
+	if err != nil {
+		return StartChatResult{}, err
+	}
+	return s.startPreparedChatRun(ctx, normalized, conversation, preparedRun)
+}
 
-	branchParentChatID := normalizeOptionalString(request.BranchParentChatID)
-	branchFromMessageID := normalizeOptionalString(request.BranchFromMessageID)
-	isBranchRequest := branchParentChatID != nil || branchFromMessageID != nil
-	if isBranchRequest && request.ContinueFromChatID != nil {
-		if strings.TrimSpace(*request.ContinueFromChatID) != "" {
-			return StartChatResult{}, ErrContinueFromChatWithBranchEdits
-		}
+func (s *SendService) validateStartChatPreconditions() error {
+	if s == nil || s.executor == nil {
+		return ErrExecutorUnavailable
 	}
-	if request.ChatID != nil && request.ContinueFromChatID != nil {
-		if strings.TrimSpace(*request.ChatID) != "" && strings.TrimSpace(*request.ContinueFromChatID) != "" {
-			return StartChatResult{}, ErrContinueFromChatRequiresChatIDOmitted
-		}
+	if s.preflight == nil {
+		return ErrSendPreflightCheckerRequired
 	}
-	if isBranchRequest && (branchParentChatID == nil || branchFromMessageID == nil) {
-		return StartChatResult{}, ErrBranchFieldsRequired
+	return nil
+}
+
+func (s *SendService) normalizeStartChatRequest(
+	ctx context.Context,
+	request StartChatRequest,
+) (normalizedStartChatRequest, error) {
+	normalizedMessage, projectConfigID, sectionID, permissionMode, err := normalizeStartChatCoreRequest(request)
+	if err != nil {
+		return normalizedStartChatRequest{}, err
+	}
+	chatID, continueFromChatID, branchParentChatID, branchFromMessageID, isBranchRequest, err := normalizeStartChatConversationIDs(request)
+	if err != nil {
+		return normalizedStartChatRequest{}, err
 	}
 	frontendAffinityToken, err := normalizeFrontendAffinityToken(request.FrontendAffinityToken)
 	if err != nil {
-		return StartChatResult{}, err
+		return normalizedStartChatRequest{}, err
+	}
+	appGenerationMode, appGenerationModePrompt, err := normalizeStartChatGenerationOptions(request)
+	if err != nil {
+		return normalizedStartChatRequest{}, err
 	}
 	completionGuardEnabled, err := s.resolveCompletionGuardEnabled(ctx)
 	if err != nil {
-		return StartChatResult{}, err
+		return normalizedStartChatRequest{}, err
 	}
+	return normalizedStartChatRequest{
+		Message:                 normalizedMessage,
+		ChatID:                  chatID,
+		ContinueFromChatID:      continueFromChatID,
+		EngineConfigID:          strings.TrimSpace(request.EngineConfigID),
+		AgentProfileID:          normalizeOptionalString(request.AgentProfileID),
+		Thinking:                request.Thinking,
+		ProjectConfigID:         projectConfigID,
+		SectionID:               sectionID,
+		FrontendAffinityToken:   frontendAffinityToken,
+		AllowUnscoped:           request.AllowUnscoped,
+		BranchParentChatID:      branchParentChatID,
+		BranchFromMessageID:     branchFromMessageID,
+		IsBranchRequest:         isBranchRequest,
+		PermissionMode:          permissionMode,
+		SearchEnabled:           request.SearchEnabled,
+		AppGenerationMode:       appGenerationMode,
+		AppGenerationModePrompt: appGenerationModePrompt,
+		AdditionalInputs:        request.AdditionalInputs,
+		CompletionGuardEnabled:  completionGuardEnabled,
+	}, nil
+}
+
+func normalizeStartChatCoreRequest(
+	request StartChatRequest,
+) (map[string]any, string, *string, ChatPermissionMode, error) {
+	normalizedMessage, err := normalizeMessage(request.Message)
+	if err != nil {
+		return nil, "", nil, "", ErrMessageRequired
+	}
+	projectConfigID := strings.TrimSpace(request.ProjectConfigID)
+	if projectConfigID == "" {
+		return nil, "", nil, "", ErrProjectConfigIDRequired
+	}
+	sectionID := normalizeOptionalString(request.SectionID)
+	if sectionID == nil && !request.AllowUnscoped {
+		return nil, "", nil, "", ErrSectionIDRequired
+	}
+	if sectionID != nil && request.AllowUnscoped {
+		return nil, "", nil, "", ErrAllowUnscopedRequiresSectionOmitted
+	}
+	permissionMode, err := validatePermissionMode(request.PermissionMode)
+	if err != nil {
+		return nil, "", nil, "", err
+	}
+	return normalizedMessage, projectConfigID, sectionID, permissionMode, nil
+}
+
+func normalizeStartChatConversationIDs(
+	request StartChatRequest,
+) (*string, *string, *string, *string, bool, error) {
+	chatID := normalizeOptionalString(request.ChatID)
+	continueFromChatID := normalizeOptionalString(request.ContinueFromChatID)
+	branchParentChatID := normalizeOptionalString(request.BranchParentChatID)
+	branchFromMessageID := normalizeOptionalString(request.BranchFromMessageID)
+	isBranchRequest := branchParentChatID != nil || branchFromMessageID != nil
+	if isBranchRequest && continueFromChatID != nil {
+		return nil, nil, nil, nil, false, ErrContinueFromChatWithBranchEdits
+	}
+	if chatID != nil && continueFromChatID != nil {
+		return nil, nil, nil, nil, false, ErrContinueFromChatRequiresChatIDOmitted
+	}
+	if isBranchRequest && (branchParentChatID == nil || branchFromMessageID == nil) {
+		return nil, nil, nil, nil, false, ErrBranchFieldsRequired
+	}
+	return chatID, continueFromChatID, branchParentChatID, branchFromMessageID, isBranchRequest, nil
+}
+
+func normalizeStartChatGenerationOptions(
+	request StartChatRequest,
+) (*string, string, error) {
 	appGenerationMode, err := normalizeAppGenerationMode(request.AppGenerationMode)
 	if err != nil {
-		return StartChatResult{}, err
+		return nil, "", err
 	}
 	referenceImageURL, referenceImageNotes, err := normalizeReferenceImageInputs(
 		request.AppGenerationReferenceImageURL,
 		request.AppGenerationReferenceImageNotes,
 	)
 	if err != nil {
-		return StartChatResult{}, err
+		return nil, "", err
 	}
 	if appGenerationMode == nil || *appGenerationMode != AppGenerationModeJSONRenderWithImage {
 		referenceImageURL = nil
 		referenceImageNotes = nil
 	}
-	appGenerationModePrompt := buildAppGenerationModePrompt(
+	return appGenerationMode, buildAppGenerationModePrompt(
 		appGenerationMode,
 		request.AppSpecStreamingEnabled,
 		referenceImageURL,
 		referenceImageNotes,
-	)
+	), nil
+}
 
+func (s *SendService) validateStartChatProjectTarget(request normalizedStartChatRequest) error {
 	projectDocument := s.projectState.Snapshot().Document
-	project, err := projectDocument.ProjectByID(projectConfigID)
+	project, err := projectDocument.ProjectByID(request.ProjectConfigID)
 	if err != nil {
-		return StartChatResult{}, err
+		return err
 	}
-	if sectionID != nil {
-		if _, _, _, err := project.ResolveSection(*sectionID); err != nil {
-			return StartChatResult{}, err
-		}
+	if request.SectionID == nil {
+		return nil
 	}
+	_, _, _, err = project.ResolveSection(*request.SectionID)
+	return err
+}
 
-	engineConfigID := strings.TrimSpace(request.EngineConfigID)
+func (s *SendService) resolveStartChatEngine(engineConfigID string) (resolvedStartChatEngine, error) {
 	engineConfig, err := s.engines.Get(engineConfigID)
 	if err != nil {
-		return StartChatResult{}, err
+		return resolvedStartChatEngine{}, err
 	}
 	if engineConfig.EngineType != agentruns.EngineTypeExternalAgent {
-		return StartChatResult{}, ErrExternalAgentEngineRequired
+		return resolvedStartChatEngine{}, ErrExternalAgentEngineRequired
 	}
 	if engineConfig.ExternalAgentConfigID == nil || strings.TrimSpace(*engineConfig.ExternalAgentConfigID) == "" {
-		return StartChatResult{}, ErrExternalAgentConfigIDRequired
+		return resolvedStartChatEngine{}, ErrExternalAgentConfigIDRequired
 	}
-	externalConfigID := strings.TrimSpace(*engineConfig.ExternalAgentConfigID)
-	externalConfig, err := s.configs.Get(externalConfigID)
+	externalConfig, err := s.configs.Get(strings.TrimSpace(*engineConfig.ExternalAgentConfigID))
 	if err != nil {
-		return StartChatResult{}, err
+		return resolvedStartChatEngine{}, err
 	}
 	preflightStatus, err := s.preflight.Check(externalConfig)
 	if err != nil {
-		return StartChatResult{}, err
+		return resolvedStartChatEngine{}, err
 	}
 	if !preflightStatus.Available {
-		return StartChatResult{}, &PreflightUnavailableError{Status: preflightStatus}
+		return resolvedStartChatEngine{}, &PreflightUnavailableError{Status: preflightStatus}
 	}
+	return resolvedStartChatEngine{
+		EngineConfig:   engineConfig,
+		ExternalConfig: externalConfig,
+	}, nil
+}
 
-	var profile *agentprofiles.Profile
-	var profileID *string
-	if request.AgentProfileID != nil && strings.TrimSpace(*request.AgentProfileID) != "" {
-		if s.profiles == nil {
-			return StartChatResult{}, agentprofiles.ErrProfileNotFound
-		}
-		resolvedProfile, err := s.profiles.Get(strings.TrimSpace(*request.AgentProfileID))
+func (s *SendService) resolveStartChatConversation(
+	request normalizedStartChatRequest,
+) (startChatConversation, error) {
+	chatID, prefetchedExternalRuns, err := s.resolveStartChatID(request)
+	if err != nil {
+		return startChatConversation{}, err
+	}
+	priorMessages, parentRun, err := s.resolveStartChatPriorMessages(
+		request,
+		chatID,
+		prefetchedExternalRuns,
+	)
+	if err != nil {
+		return startChatConversation{}, err
+	}
+	return startChatConversation{
+		ChatID:                 chatID,
+		PrefetchedExternalRuns: prefetchedExternalRuns,
+		PriorMessages:          priorMessages,
+		ParentRun:              parentRun,
+	}, nil
+}
+
+func (s *SendService) resolveStartChatID(
+	request normalizedStartChatRequest,
+) (string, []agentruns.Run, error) {
+	if request.IsBranchRequest {
+		chatID := newChatID()
+		prefetchedExternalRuns, err := s.ensureExternalChatIDCompatible(
+			*request.BranchParentChatID,
+			request.EngineConfigID,
+			request.ProjectConfigID,
+		)
 		if err != nil {
-			return StartChatResult{}, err
+			return "", nil, err
 		}
-		profile = &resolvedProfile
-		profileID = stringPtr(resolvedProfile.ID)
+		return chatID, prefetchedExternalRuns, nil
 	}
-
-	var chatID string
-	var externalRunsForChat []agentruns.Run
-	if isBranchRequest {
+	chatID := derefOptionalString(request.ChatID)
+	if chatID == "" {
 		chatID = newChatID()
-		externalRunsForChat, err = s.ensureExternalChatIDCompatible(*branchParentChatID, engineConfigID, projectConfigID)
-		if err != nil {
-			return StartChatResult{}, err
-		}
-	} else {
-		chatID = strings.TrimSpace(derefOptionalString(request.ChatID))
-		if chatID == "" {
-			chatID = newChatID()
-		}
-		externalRunsForChat, err = s.ensureExternalChatIDCompatible(chatID, engineConfigID, projectConfigID)
-		if err != nil {
-			return StartChatResult{}, err
-		}
 	}
+	prefetchedExternalRuns, err := s.ensureExternalChatIDCompatible(
+		chatID,
+		request.EngineConfigID,
+		request.ProjectConfigID,
+	)
+	if err != nil {
+		return "", nil, err
+	}
+	return chatID, prefetchedExternalRuns, nil
+}
 
-	priorMessages := []map[string]any{}
-	var parentRun *agentruns.Run
-	if isBranchRequest {
-		run, err := s.getLatestRunForExternalChat(*branchParentChatID, projectConfigID)
-		if err != nil {
-			return StartChatResult{}, err
-		}
-		if run != nil {
-			parentRun = run
-			state, err := buildChatStateFromRun(run.Clone())
-			if err != nil {
-				return StartChatResult{}, err
-			}
-			priorMessages = state.Messages
-			if !hasMessageID(priorMessages, *branchFromMessageID) {
-				priorMessages, err = parseInputMessages(run.Clone())
-				if err != nil {
-					return StartChatResult{}, err
-				}
-			}
-		}
-		priorMessages, err = buildBranchMessages(priorMessages, normalizedMessage, *branchFromMessageID)
-		if err != nil {
-			return StartChatResult{}, err
-		}
-	} else {
-		if request.ChatID != nil && strings.TrimSpace(*request.ChatID) != "" {
-			priorMessages, err = s.getPriorMessagesForExternalChat(chatID, projectConfigID, externalRunsForChat)
-			if err != nil {
-				return StartChatResult{}, err
-			}
-		} else if request.ContinueFromChatID != nil && strings.TrimSpace(*request.ContinueFromChatID) != "" {
-			priorMessages, err = s.getPriorMessagesForSeedChat(strings.TrimSpace(*request.ContinueFromChatID), projectConfigID)
-			if err != nil {
-				return StartChatResult{}, err
-			}
-		}
-		priorMessages = buildInputMessages(priorMessages, normalizedMessage)
+func (s *SendService) resolveStartChatPriorMessages(
+	request normalizedStartChatRequest,
+	chatID string,
+	prefetchedExternalRuns []agentruns.Run,
+) ([]map[string]any, *agentruns.Run, error) {
+	if request.IsBranchRequest {
+		return s.resolveBranchStartChatPriorMessages(request, prefetchedExternalRuns)
 	}
+	priorMessages, err := s.loadStartChatPriorMessages(request, chatID, prefetchedExternalRuns)
+	if err != nil {
+		return nil, nil, err
+	}
+	return buildInputMessages(priorMessages, request.Message), nil, nil
+}
+
+func (s *SendService) loadStartChatPriorMessages(
+	request normalizedStartChatRequest,
+	chatID string,
+	prefetchedExternalRuns []agentruns.Run,
+) ([]map[string]any, error) {
+	switch {
+	case request.ChatID != nil:
+		return s.getPriorMessagesForExternalChat(chatID, request.ProjectConfigID, prefetchedExternalRuns)
+	case request.ContinueFromChatID != nil:
+		return s.getPriorMessagesForSeedChat(*request.ContinueFromChatID, request.ProjectConfigID)
+	default:
+		return []map[string]any{}, nil
+	}
+}
+
+func (s *SendService) resolveBranchStartChatPriorMessages(
+	request normalizedStartChatRequest,
+	prefetchedExternalRuns []agentruns.Run,
+) ([]map[string]any, *agentruns.Run, error) {
+	run, err := s.getLatestRunForExternalChat(
+		*request.BranchParentChatID,
+		request.ProjectConfigID,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	priorMessages, err := buildBranchSourceMessages(run, *request.BranchFromMessageID)
+	if err != nil {
+		return nil, nil, err
+	}
+	priorMessages, err = buildBranchMessages(priorMessages, request.Message, *request.BranchFromMessageID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return priorMessages, run, nil
+}
+
+func buildBranchSourceMessages(run *agentruns.Run, branchFromMessageID string) ([]map[string]any, error) {
+	if run == nil {
+		return []map[string]any{}, nil
+	}
+	state, err := buildChatStateFromRun(run.Clone())
+	if err != nil {
+		return nil, err
+	}
+	priorMessages := state.Messages
+	if hasMessageID(priorMessages, branchFromMessageID) {
+		return priorMessages, nil
+	}
+	return parseInputMessages(run.Clone())
+}
+
+func resolveSubmittedTurnAppGenerationByMessageID(
+	request normalizedStartChatRequest,
+	priorMessages []map[string]any,
+) (map[string]string, error) {
 	submittedMessageID, err := messageID(priorMessages[len(priorMessages)-1])
 	if err != nil {
-		return StartChatResult{}, err
+		return nil, err
 	}
 	appGenerationByMessageID := agentruns.NormalizeSubmittedTurnAppGenerationByMessageID(
 		nil,
 		submittedMessageID,
-		appGenerationMode,
+		request.AppGenerationMode,
 	)
-	if request.AdditionalInputs != nil {
-		appGenerationByMessageID = agentruns.NormalizeSubmittedTurnAppGenerationByMessageID(
-			request.AdditionalInputs["appGenerationByMessageId"],
-			submittedMessageID,
-			appGenerationMode,
-		)
+	if request.AdditionalInputs == nil {
+		return appGenerationByMessageID, nil
 	}
-	if appGenerationMode != nil && *appGenerationMode == AppGenerationModeJSONRenderWithImage {
-		if !agentruns.MessageHasImageAttachment(normalizedMessage) &&
-			!agentruns.HasRetainedImageAttachmentFromImageModeThread(priorMessages, appGenerationByMessageID) {
-			return StartChatResult{}, ErrAppGenerationImageAttachmentRequired
-		}
-	}
+	return agentruns.NormalizeSubmittedTurnAppGenerationByMessageID(
+		request.AdditionalInputs["appGenerationByMessageId"],
+		submittedMessageID,
+		request.AppGenerationMode,
+	), nil
+}
 
+func validateStartChatImageRequirements(
+	request normalizedStartChatRequest,
+	priorMessages []map[string]any,
+	appGenerationByMessageID map[string]string,
+) error {
+	if request.AppGenerationMode == nil || *request.AppGenerationMode != AppGenerationModeJSONRenderWithImage {
+		return nil
+	}
+	if agentruns.MessageHasImageAttachment(request.Message) {
+		return nil
+	}
+	if agentruns.HasRetainedImageAttachmentFromImageModeThread(priorMessages, appGenerationByMessageID) {
+		return nil
+	}
+	return ErrAppGenerationImageAttachmentRequired
+}
+
+func (s *SendService) prepareStartChatRun(
+	request normalizedStartChatRequest,
+	resolvedEngine resolvedStartChatEngine,
+	conversation startChatConversation,
+	appGenerationByMessageID map[string]string,
+) (preparedStartChatRun, error) {
+	profile, profileID, err := s.resolveStartChatProfile(request.AgentProfileID)
+	if err != nil {
+		return preparedStartChatRun{}, err
+	}
+	inputs, err := s.buildStartChatInputs(
+		request,
+		resolvedEngine,
+		conversation,
+		appGenerationByMessageID,
+		profile,
+	)
+	if err != nil {
+		return preparedStartChatRun{}, err
+	}
+	return preparedStartChatRun{
+		ChatID:         conversation.ChatID,
+		Profile:        profile,
+		ProfileID:      profileID,
+		Inputs:         inputs,
+		EngineConfig:   resolvedEngine.EngineConfig,
+		ExternalConfig: resolvedEngine.ExternalConfig,
+	}, nil
+}
+
+func (s *SendService) resolveStartChatProfile(
+	agentProfileID *string,
+) (*agentprofiles.Profile, *string, error) {
+	if agentProfileID == nil {
+		return nil, nil, nil
+	}
+	if s.profiles == nil {
+		return nil, nil, agentprofiles.ErrProfileNotFound
+	}
+	resolvedProfile, err := s.profiles.Get(*agentProfileID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &resolvedProfile, stringPtr(resolvedProfile.ID), nil
+}
+
+func (s *SendService) buildStartChatInputs(
+	request normalizedStartChatRequest,
+	resolvedEngine resolvedStartChatEngine,
+	conversation startChatConversation,
+	appGenerationByMessageID map[string]string,
+	profile *agentprofiles.Profile,
+) (map[string]any, error) {
 	inputs := cloneAnyMap(request.AdditionalInputs)
 	if inputs == nil {
 		inputs = map[string]any{}
 	}
 	inputs["appGenerationByMessageId"] = appGenerationByMessageID
-	inputs["chatId"] = chatID
-	inputs["projectConfigId"] = projectConfigID
+	inputs["chatId"] = conversation.ChatID
+	inputs["projectConfigId"] = request.ProjectConfigID
 	inputs["thinking"] = request.Thinking
-	inputs["engineConfigId"] = engineConfigID
+	inputs["engineConfigId"] = resolvedEngine.EngineConfig.ID
 	inputs["runType"] = RunTypeExternalAgent
 	inputs["permissionMode"] = string(request.PermissionMode)
 	inputs["searchEnabled"] = request.SearchEnabled
-	inputs["messages"] = messageSliceToJSONList(priorMessages)
-	if chatattachments.HasAttachments(priorMessages) {
-		if s.attachments == nil {
-			return StartChatResult{}, ErrSendAttachmentsRequired
-		}
-		attachmentPayload, err := s.attachments.BuildPayload(chatattachments.BuildPayloadRequest{
-			Messages:            priorMessages,
-			ProjectConfigID:     projectConfigID,
-			IncludeText:         externalConfig.ToolType == externalagentconfigs.ToolTypeClaudeCode,
-			IncludeTextNoImages: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
-			IncludeDownloadURLs: externalConfig.ToolType == externalagentconfigs.ToolTypeCodex,
-		})
-		if err != nil {
-			return StartChatResult{}, err
-		}
-		for key, value := range attachmentPayload.AsMap() {
-			inputs[key] = value
-		}
+	inputs["messages"] = messageSliceToJSONList(conversation.PriorMessages)
+	if err := s.attachStartChatPayload(
+		conversation.PriorMessages,
+		request.ProjectConfigID,
+		resolvedEngine.ExternalConfig.ToolType,
+		inputs,
+	); err != nil {
+		return nil, err
 	}
-	applyExternalReasoningDefaults(inputs, externalConfig.ToolType, request.Thinking)
-	if approvalPolicyOverride := resolveExternalApprovalPolicyOverride(request.PermissionMode, externalConfig.ToolType); approvalPolicyOverride != nil {
+	applyStartChatExecutionInputs(
+		inputs,
+		request,
+		resolvedEngine.ExternalConfig.ToolType,
+		profile,
+	)
+	inputs["systemPrompt"] = buildStartChatSystemPrompt(
+		profile,
+		request,
+		resolvedEngine.ExternalConfig.ToolType,
+		conversation.PrefetchedExternalRuns,
+	)
+	inputs["completionGuardEnabled"] = request.CompletionGuardEnabled
+	s.applyStartChatConversationInputs(inputs, request, conversation, resolvedEngine.ExternalConfig.ToolType)
+	return inputs, nil
+}
+
+func (s *SendService) attachStartChatPayload(
+	priorMessages []map[string]any,
+	projectConfigID string,
+	toolType externalagentconfigs.ToolType,
+	inputs map[string]any,
+) error {
+	if !chatattachments.HasAttachments(priorMessages) {
+		return nil
+	}
+	if s.attachments == nil {
+		return ErrSendAttachmentsRequired
+	}
+	attachmentPayload, err := s.attachments.BuildPayload(chatattachments.BuildPayloadRequest{
+		Messages:            priorMessages,
+		ProjectConfigID:     projectConfigID,
+		IncludeText:         toolType == externalagentconfigs.ToolTypeClaudeCode,
+		IncludeTextNoImages: toolType == externalagentconfigs.ToolTypeCodex,
+		IncludeDownloadURLs: toolType == externalagentconfigs.ToolTypeCodex,
+	})
+	if err != nil {
+		return err
+	}
+	for key, value := range attachmentPayload.AsMap() {
+		inputs[key] = value
+	}
+	return nil
+}
+
+func applyStartChatExecutionInputs(
+	inputs map[string]any,
+	request normalizedStartChatRequest,
+	toolType externalagentconfigs.ToolType,
+	profile *agentprofiles.Profile,
+) {
+	applyExternalReasoningDefaults(inputs, toolType, request.Thinking)
+	if approvalPolicyOverride := resolveExternalApprovalPolicyOverride(request.PermissionMode, toolType); approvalPolicyOverride != nil {
 		inputs["approvalPolicy"] = *approvalPolicyOverride
 	}
-	if sandboxPolicyOverride := resolveExternalSandboxPolicyOverride(request.PermissionMode, externalConfig.ToolType); sandboxPolicyOverride != nil {
+	if sandboxPolicyOverride := resolveExternalSandboxPolicyOverride(request.PermissionMode, toolType); sandboxPolicyOverride != nil {
 		inputs["sandboxPolicy"] = *sandboxPolicyOverride
 	}
-	if externalConfig.ToolType == externalagentconfigs.ToolTypeClaudeCode && !hasExplicitClaudeAllowedToolsInput(inputs) {
-		if allowedTools := buildClaudeAllowedToolsFromProfile(profile, completionGuardEnabled); len(allowedTools) > 0 {
+	if toolType == externalagentconfigs.ToolTypeClaudeCode && !hasExplicitClaudeAllowedToolsInput(inputs) {
+		if allowedTools := buildClaudeAllowedToolsFromProfile(profile, request.CompletionGuardEnabled); len(allowedTools) > 0 {
 			inputs["allowedTools"] = append([]string(nil), allowedTools...)
 		}
 	}
-	var latestSettaMCPStatus *mcpx.ServerRuntimeStatus
-	if latestRun, ok := selectLatestRun(externalRunsForChat); ok {
-		statuses := loadExternalMCPStatusSnapshot(latestRun.Outputs)
-		for index := range statuses {
-			status := statuses[index]
-			if strings.TrimSpace(status.ServerID) != "setta" {
-				continue
-			}
-			statusCopy := status
-			latestSettaMCPStatus = &statusCopy
-			break
-		}
-	}
+}
+
+func buildStartChatSystemPrompt(
+	profile *agentprofiles.Profile,
+	request normalizedStartChatRequest,
+	toolType externalagentconfigs.ToolType,
+	prefetchedExternalRuns []agentruns.Run,
+) string {
 	systemPromptSections := []string{
 		buildExternalProfilePrompt(profile),
-		appGenerationModePrompt,
+		request.AppGenerationModePrompt,
 		buildExecutionPolicyPrompt(request.PermissionMode, request.SearchEnabled),
-		buildSettaMCPAwarenessPrompt(externalConfig.ToolType, latestSettaMCPStatus),
+		buildSettaMCPAwarenessPrompt(toolType, resolveLatestSettaMCPStatus(prefetchedExternalRuns)),
 	}
-	if completionGuardEnabled {
+	if request.CompletionGuardEnabled {
 		systemPromptSections = append(systemPromptSections, requiredErrorCheckPrompt)
 	}
-	inputs["systemPrompt"] = combinePromptSections(systemPromptSections...)
-	inputs["completionGuardEnabled"] = completionGuardEnabled
-	if isBranchRequest {
-		branchRootChatID := resolveBranchRootChatID(parentRun, *branchParentChatID)
-		inputs["branchParentChatId"] = *branchParentChatID
-		inputs["branchFromMessageId"] = *branchFromMessageID
-		inputs["branchRootChatId"] = branchRootChatID
+	return combinePromptSections(systemPromptSections...)
+}
+
+func resolveLatestSettaMCPStatus(
+	prefetchedExternalRuns []agentruns.Run,
+) *mcpx.ServerRuntimeStatus {
+	latestRun, ok := selectLatestRun(prefetchedExternalRuns)
+	if !ok {
+		return nil
+	}
+	statuses := loadExternalMCPStatusSnapshot(latestRun.Outputs)
+	for index := range statuses {
+		status := statuses[index]
+		if strings.TrimSpace(status.ServerID) != "setta" {
+			continue
+		}
+		statusCopy := status
+		return &statusCopy
+	}
+	return nil
+}
+
+func (s *SendService) applyStartChatConversationInputs(
+	inputs map[string]any,
+	request normalizedStartChatRequest,
+	conversation startChatConversation,
+	toolType externalagentconfigs.ToolType,
+) {
+	if request.IsBranchRequest {
+		inputs["branchParentChatId"] = *request.BranchParentChatID
+		inputs["branchFromMessageId"] = *request.BranchFromMessageID
+		inputs["branchRootChatId"] = resolveBranchRootChatID(
+			conversation.ParentRun,
+			*request.BranchParentChatID,
+		)
 		inputs["branchCreatedAt"] = s.timeNow().UTC().UnixMilli()
 	}
-	if sectionID != nil {
-		inputs["sectionId"] = *sectionID
+	if request.SectionID != nil {
+		inputs["sectionId"] = *request.SectionID
 	}
 	if request.AllowUnscoped {
 		inputs["allowUnscoped"] = true
 	}
-	if frontendAffinityToken != nil {
-		inputs["frontendAffinityToken"] = *frontendAffinityToken
+	if request.FrontendAffinityToken != nil {
+		inputs["frontendAffinityToken"] = *request.FrontendAffinityToken
 	}
-	if latestRun, ok := selectLatestRun(externalRunsForChat); ok {
-		switch externalConfig.ToolType {
-		case externalagentconfigs.ToolTypeCodex:
-			if !hasNonBlankStringInput(inputs, "threadId") {
-				if threadID := resolveRunOutputString(latestRun.Clone(), "threadId"); threadID != "" {
-					inputs["threadId"] = threadID
-				}
+	applyStartChatContinuationInputs(inputs, toolType, conversation.PrefetchedExternalRuns)
+}
+
+func applyStartChatContinuationInputs(
+	inputs map[string]any,
+	toolType externalagentconfigs.ToolType,
+	prefetchedExternalRuns []agentruns.Run,
+) {
+	latestRun, ok := selectLatestRun(prefetchedExternalRuns)
+	if !ok {
+		return
+	}
+	switch toolType {
+	case externalagentconfigs.ToolTypeCodex:
+		if !hasNonBlankStringInput(inputs, "threadId") {
+			if threadID := resolveRunOutputString(latestRun.Clone(), "threadId"); threadID != "" {
+				inputs["threadId"] = threadID
 			}
-		case externalagentconfigs.ToolTypeClaudeCode:
-			if !hasNonBlankStringInput(inputs, "sessionId") {
-				if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
-					inputs["sessionId"] = sessionID
-				}
+		}
+	case externalagentconfigs.ToolTypeClaudeCode:
+		if !hasNonBlankStringInput(inputs, "sessionId") {
+			if sessionID := resolveRunOutputString(latestRun.Clone(), "sessionId"); sessionID != "" {
+				inputs["sessionId"] = sessionID
 			}
 		}
 	}
+}
 
-	run := agentruns.NewRun(profileID, inputs, s.timeNow())
+func (s *SendService) startPreparedChatRun(
+	ctx context.Context,
+	request normalizedStartChatRequest,
+	conversation startChatConversation,
+	prepared preparedStartChatRun,
+) (StartChatResult, error) {
+	run := agentruns.NewRun(prepared.ProfileID, prepared.Inputs, s.timeNow())
 	if err := s.runs.Save(run); err != nil {
 		return StartChatResult{}, err
 	}
 	run.Events = append(run.Events, agentruns.NewRunEvent("run_started", map[string]any{
-		"engineConfigId":  engineConfigID,
-		"projectConfigId": projectConfigID,
-		"chatId":          chatID,
-		"sectionId":       derefOptionalString(sectionID),
+		"engineConfigId":  prepared.EngineConfig.ID,
+		"projectConfigId": request.ProjectConfigID,
+		"chatId":          prepared.ChatID,
+		"sectionId":       derefOptionalString(request.SectionID),
 	}, s.timeNow()))
 	if err := s.runs.Save(run); err != nil {
 		return StartChatResult{}, err
@@ -540,26 +888,26 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 
 	started, err := s.executor.Start(ctx, StartRequest{
 		Run:             run.Clone(),
-		EngineConfig:    engineConfig,
-		ExternalConfig:  externalConfig,
-		Profile:         cloneProfilePtr(profile),
-		ProjectConfigID: projectConfigID,
-		ChatID:          chatID,
-		SectionID:       cloneOptionalString(sectionID),
-		Inputs:          cloneAnyMap(inputs),
+		EngineConfig:    prepared.EngineConfig,
+		ExternalConfig:  prepared.ExternalConfig,
+		Profile:         cloneProfilePtr(prepared.Profile),
+		ProjectConfigID: request.ProjectConfigID,
+		ChatID:          prepared.ChatID,
+		SectionID:       cloneOptionalString(request.SectionID),
+		Inputs:          cloneAnyMap(prepared.Inputs),
 	})
 	if err != nil {
 		failedRun, markErr := s.markRunFailed(run, err)
 		if markErr != nil {
 			return StartChatResult{}, markErr
 		}
-		return StartChatResult{ChatID: chatID, Run: failedRun}, err
+		return StartChatResult{ChatID: prepared.ChatID, Run: failedRun}, err
 	}
 	if err := s.runtime.ActivateRun(run.ID, started.Controller); err != nil {
 		return StartChatResult{}, err
 	}
 	if err := s.runtime.SetLiveChatState(run.ID, ChatState{
-		Messages:           cloneMessageSlice(priorMessages),
+		Messages:           cloneMessageSlice(conversation.PriorMessages),
 		WaitingForResponse: true,
 		ToolCallArguments:  map[string]string{},
 	}); err != nil {
@@ -570,13 +918,12 @@ func (s *SendService) StartChat(ctx context.Context, request StartChatRequest) (
 	if readyController, ok := started.Controller.(runtimeReadyController); ok {
 		readyController.markRuntimeReady()
 	}
-
 	persisted, err := s.runs.Load(run.ID)
 	if err != nil {
 		return StartChatResult{}, err
 	}
 	return StartChatResult{
-		ChatID: chatID,
+		ChatID: prepared.ChatID,
 		Run:    persisted,
 	}, nil
 }
@@ -602,42 +949,55 @@ func hasExplicitClaudeAllowedToolsInput(inputs map[string]any) bool {
 	}
 }
 
+func normalizeClaudeAllowedToolName(entry string) (string, bool) {
+	normalized := strings.TrimSpace(entry)
+	if normalized == "" {
+		return "", false
+	}
+	if strings.HasPrefix(normalized, "mcp__") {
+		return normalized, true
+	}
+	if !strings.Contains(normalized, mcpx.ToolNameSeparator) {
+		return normalized, true
+	}
+	serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
+	if !ok || strings.TrimSpace(serverID) == "" || strings.TrimSpace(toolName) == "" {
+		return normalized, true
+	}
+	return "mcp__" + serverID + mcpx.ToolNameSeparator + toolName, true
+}
+
+func requiredClaudeAllowedTools(completionGuardEnabled bool) []string {
+	requiredTools := []string{"mcp__" + mcpx.DefaultServerID + mcpx.ToolNameSeparator + "set_agentic_context"}
+	if completionGuardEnabled {
+		requiredTools = append(requiredTools, "mcp__"+mcpx.DefaultServerID+mcpx.ToolNameSeparator+"report_completion_status")
+	}
+	return requiredTools
+}
+
+func hasClaudeAllowedTool(tools []string, target string) bool {
+	for _, tool := range tools {
+		if tool == target {
+			return true
+		}
+	}
+	return false
+}
+
 func buildClaudeAllowedToolsFromProfile(profile *agentprofiles.Profile, completionGuardEnabled bool) []string {
 	if profile == nil || len(profile.ToolAllowlist) == 0 {
 		return nil
 	}
 	tools := make([]string, 0, len(profile.ToolAllowlist)+2)
 	for _, entry := range profile.ToolAllowlist {
-		normalized := strings.TrimSpace(entry)
-		if normalized == "" {
+		normalized, ok := normalizeClaudeAllowedToolName(entry)
+		if !ok {
 			continue
-		}
-		if strings.HasPrefix(normalized, "mcp__") {
-			tools = append(tools, normalized)
-			continue
-		}
-		if strings.Contains(normalized, mcpx.ToolNameSeparator) {
-			serverID, toolName, ok := mcpx.SplitNamespacedToolName(normalized)
-			if ok && strings.TrimSpace(serverID) != "" && strings.TrimSpace(toolName) != "" {
-				tools = append(tools, "mcp__"+serverID+mcpx.ToolNameSeparator+toolName)
-				continue
-			}
 		}
 		tools = append(tools, normalized)
 	}
-	requiredTools := []string{"mcp__" + mcpx.DefaultServerID + mcpx.ToolNameSeparator + "set_agentic_context"}
-	if completionGuardEnabled {
-		requiredTools = append(requiredTools, "mcp__"+mcpx.DefaultServerID+mcpx.ToolNameSeparator+"report_completion_status")
-	}
-	for _, requiredTool := range requiredTools {
-		present := false
-		for _, tool := range tools {
-			if tool == requiredTool {
-				present = true
-				break
-			}
-		}
-		if !present {
+	for _, requiredTool := range requiredClaudeAllowedTools(completionGuardEnabled) {
+		if !hasClaudeAllowedTool(tools, requiredTool) {
 			tools = append(tools, requiredTool)
 		}
 	}
