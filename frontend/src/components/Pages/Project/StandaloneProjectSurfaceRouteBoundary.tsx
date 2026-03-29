@@ -19,6 +19,7 @@ import {
 } from "utils/generatedTypes";
 import { NotFound } from "../NotFound/NotFound";
 import { StandaloneProjectSurfaceRouteSectionBoundary } from "./StandaloneProjectSurfaceRouteSectionBoundary";
+import { canRenderStandaloneSurfaceTarget } from "./standaloneProjectSurfacePageTargetState";
 import { StandaloneWindowSpaceSurface } from "./StandaloneWindowSpaceSurface";
 
 export type StandaloneSurfaceTarget =
@@ -64,32 +65,6 @@ function StandaloneSurfaceShell({ children }: { children: ReactNode }) {
       </section>
     </SectionDndContext>
   );
-}
-
-function canRenderStandaloneSectionSurface({
-  managedChatAuthorityState,
-  target,
-}: {
-  managedChatAuthorityState: ManagedChatSurfaceAuthorityState;
-  target: StandaloneSurfaceTarget;
-}): boolean {
-  if (target.kind !== "section") {
-    return true;
-  }
-
-  const variantId =
-    managedChatAuthorityState.projectConfig.sectionVariantMap[target.sectionId];
-  if (variantId === undefined) {
-    return false;
-  }
-  if (!managedChatAuthorityState.sections[target.sectionId]) {
-    return false;
-  }
-  const variant = managedChatAuthorityState.sectionVariants[variantId];
-  if (!variant) {
-    return false;
-  }
-  return managedChatAuthorityState.sectionImpls[variant.impl] !== undefined;
 }
 
 export function StandaloneManagedChatBlockedSurface() {
@@ -268,8 +243,8 @@ function _StandaloneProjectSurfaceRouteBoundary({
   }
 
   if (
-    !canRenderStandaloneSectionSurface({
-      managedChatAuthorityState,
+    !canRenderStandaloneSurfaceTarget({
+      state: managedChatAuthorityState,
       target,
     })
   ) {

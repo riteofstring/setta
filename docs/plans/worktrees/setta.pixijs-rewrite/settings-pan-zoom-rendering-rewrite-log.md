@@ -11660,3 +11660,36 @@ Record:
     - result: blocked
 - Next action:
   - Retry the same normalized `main`-oracle live-Pixi renderer-drift slice on the next fresh Ralph iteration after the outer-loop worktree lifecycle bootstrap; do not make renderer edits until Chrome DevTools MCP can attach again.
+
+## 2026-03-31 353
+
+- Item: Keep standalone section-route readiness aligned with renderable section subtrees and fail closed for incomplete top-level slug entries.
+- Status: `done`
+- Details:
+  - Pivoted away from the exhausted pure-forwarding seam-lift lane and took one bounded standalone-route blocker slice instead:
+    - `frontend/src/components/Pages/Project/standaloneProjectSurfacePageTargetState.ts`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.tsx`
+    - `frontend/src/utils/sectionSlugPaths.ts`
+    - `frontend/src/components/Pages/Project/standaloneProjectSurfacePageTargetState.test.ts`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx`
+    - `frontend/src/utils/sectionSlugPaths.test.ts`
+  - Replaced the old top-level-only standalone section readiness check with a shared recursive subtree check so standalone section routes stay on the loading shell until every descendant section in the active subtree has a renderable variant + impl.
+  - Hardened standalone section slug indexing to skip incomplete slug-path entries instead of throwing, including top-level sections whose own active variant mapping is not present yet.
+  - Added focused regression coverage for both sides of that behavior:
+    - standalone section targets remain not-ready while a descendant section is still missing its active variant/impl data
+    - standalone parent slugs still resolve when only an incomplete descendant is missing
+    - top-level sections without an active variant mapping fail closed instead of producing a partial slug entry or a null-deref
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/utils/sectionSlugPaths.test.ts src/components/Pages/Project/standaloneProjectSurfacePageTargetState.test.ts src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfaceRouteBoundary.test.tsx`
+    - result: passed (`4` files, `25` tests)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on `http://127.0.0.1:3043/settings/section/gui` after bootstrapping with the current worktree session
+    - result: passed
+      - the route settled on the real GUI standalone section surface, not the `Section Not Found` fallback
+      - visible labels included `gui`, `ARGS`, `Remove arg`, `Add arg`, `Grid Pattern`, `Pan On Drag`, `Show Grid Lines`, and `Zoom On Scroll`
+- Next action:
+  - Return to the next real live-Pixi-vs-`main` renderer/parity slice; do not reopen standalone route ownership or slug-path support work unless a new failing canary appears.

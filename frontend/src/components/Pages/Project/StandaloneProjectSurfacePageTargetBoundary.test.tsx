@@ -7,7 +7,12 @@ import {
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { SectionTypeEnum, createWindowSpaceConfig } from "utils/generatedTypes";
+import {
+  SectionTypeEnum,
+  createGroupSectionImpl,
+  createUserDefaultGroupSectionImpl,
+  createWindowSpaceConfig,
+} from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { StandaloneProjectSurfacePageTargetBoundary } from "./StandaloneProjectSurfacePageTargetBoundary";
 
@@ -216,6 +221,36 @@ function createTextSectionFixture({
   };
 }
 
+function createGroupSectionFixture({
+  sectionId,
+  sectionName,
+  children,
+}: {
+  sectionId: string;
+  sectionName: string;
+  children: string[];
+}) {
+  const variantId = `${sectionId}-variant`;
+  const implId = `${sectionId}-impl`;
+  return {
+    sectionId,
+    core: {
+      name: sectionName,
+      sharedModifier: {},
+    } satisfies MockSectionCore,
+    variantId,
+    variant: {
+      impl: implId,
+      modifier: {},
+    } satisfies MockSectionVariant,
+    implId,
+    impl: createGroupSectionImpl(createUserDefaultGroupSectionImpl(), {
+      id: implId,
+      children,
+    }) satisfies MockSectionImpl,
+  };
+}
+
 describe("StandaloneProjectSurfacePageTargetBoundary", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -384,6 +419,51 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
           sectionId: "gui-section",
           sectionName: "gui",
           sectionType: SectionTypeEnum.TextBlock,
+        },
+      }),
+    );
+  });
+
+  it("keeps standalone section routes on the loading gate until descendant sections are renderable", async () => {
+    const groupSection = createGroupSectionFixture({
+      sectionId: "gui-section",
+      sectionName: "gui",
+      children: ["grid-color-section"],
+    });
+    hoisted.state.projectState.sections[groupSection.sectionId] =
+      groupSection.core;
+    hoisted.state.projectState.sectionVariants[groupSection.variantId] =
+      groupSection.variant;
+    hoisted.state.projectState.sectionImpls[groupSection.implId] =
+      groupSection.impl;
+    hoisted.state.projectState.sections["grid-color-section"] = {
+      name: "Grid Color",
+      sharedModifier: {},
+    };
+    hoisted.state.projectState.projectConfig.sectionVariantMap[
+      groupSection.sectionId
+    ] = groupSection.variantId;
+    hoisted.state.projectState.parentSectionMap[groupSection.sectionId] = null;
+    hoisted.state.projectState.parentSectionMap["grid-color-section"] =
+      groupSection.sectionId;
+
+    await act(async () => {
+      root.render(
+        <StandaloneProjectSurfacePageTargetBoundary
+          {...createBaseProps()}
+          sectionSlug="gui"
+        />,
+      );
+    });
+
+    expect(stateBoundaryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        doneLoading: false,
+        target: {
+          kind: "section",
+          sectionId: "gui-section",
+          sectionName: "gui",
+          sectionType: SectionTypeEnum.Group,
         },
       }),
     );

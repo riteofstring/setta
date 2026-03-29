@@ -4,7 +4,11 @@ import {
 } from "components/Chat/sharePolicyChatAccess";
 import { buildChatHistoryEntries } from "state/actions/chatHistory";
 import type { ZustandProjectState } from "state/definitions";
-import type { WindowSpaceConfig } from "utils/generatedTypes";
+import {
+  isBaseParentSectionImpl,
+  type BaseSectionImplUnion,
+  type WindowSpaceConfig,
+} from "utils/generatedTypes";
 import { resolveStandaloneSectionSlug } from "utils/sectionSlugPaths";
 import { resolveStandaloneWindowSpaceSlug } from "utils/windowSpacePaths";
 import type { StandaloneSurfaceTarget } from "./StandaloneProjectSurfaceRouteBoundary";
@@ -68,6 +72,60 @@ export type StandaloneProjectSurfacePageTargetRenderState = Pick<
   >;
 };
 
+function getRenderableStandaloneSectionImpl(
+  state: StandaloneProjectSurfacePageTargetRenderState,
+  sectionId: string,
+): BaseSectionImplUnion | null {
+  const variantId = state.projectConfig.sectionVariantMap[sectionId];
+  if (variantId === undefined) {
+    return null;
+  }
+  const variant = state.sectionVariants[variantId];
+  if (!variant) {
+    return null;
+  }
+  const impl = state.sectionImpls[variant.impl];
+  if (!impl) {
+    return null;
+  }
+  const core = state.sections[sectionId];
+  if (!core) {
+    return null;
+  }
+
+  return {
+    ...impl,
+    ...core.sharedModifier,
+    ...variant.modifier,
+  } as BaseSectionImplUnion;
+}
+
+function canRenderStandaloneSectionSubtree(
+  state: StandaloneProjectSurfacePageTargetRenderState,
+  sectionId: string,
+  visited = new Set<string>(),
+): boolean {
+  if (visited.has(sectionId)) {
+    return true;
+  }
+  visited.add(sectionId);
+
+  const impl = getRenderableStandaloneSectionImpl(state, sectionId);
+  if (!impl) {
+    return false;
+  }
+  if (!isBaseParentSectionImpl(impl)) {
+    return true;
+  }
+
+  for (const childId of impl.children) {
+    if (!canRenderStandaloneSectionSubtree(state, childId, visited)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function buildStandaloneProjectSurfacePageTargetProjectState({
   projectConfigId,
   windowSpaces,
@@ -100,20 +158,7 @@ export function canRenderStandaloneSurfaceTarget({
   if (target.kind !== "section") {
     return true;
   }
-
-  const variantId = state.projectConfig.sectionVariantMap[target.sectionId];
-  if (variantId === undefined) {
-    return false;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return false;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return false;
-  }
-  return state.sections[target.sectionId] !== undefined;
+  return canRenderStandaloneSectionSubtree(state, target.sectionId);
 }
 
 export function resolveStandaloneSurfaceTarget(

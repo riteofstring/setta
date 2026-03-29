@@ -3,7 +3,9 @@ import {
   SectionTypeEnum,
   createCore,
   createProjectConfig,
+  createGroupSectionImpl,
   createTextBlockSectionImpl,
+  createUserDefaultGroupSectionImpl,
   createVariant,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
@@ -82,6 +84,57 @@ function createProjectState({
     },
     parentSectionMap: {
       [sectionId]: null,
+    },
+  };
+}
+
+function createGroupProjectStateWithMissingChildVariant(): StandaloneProjectSurfacePageTargetProjectState {
+  const parentId = "group-section";
+  const childId = "child-section";
+  const parentVariantId = `${parentId}-variant`;
+  const parentImplId = `${parentId}-impl`;
+
+  return {
+    projectConfig: {
+      id: "project-config-1",
+      windowSpaces: {},
+      sectionVariantMap: {
+        [parentId]: parentVariantId,
+      },
+    },
+    sections: {
+      [parentId]: createCore({
+        id: parentId,
+        name: "GUI",
+        variants: [parentVariantId],
+        defaultVariant: parentVariantId,
+      }),
+      [childId]: createCore({
+        id: childId,
+        name: "Grid Color",
+        variants: [`${childId}-variant`],
+        defaultVariant: `${childId}-variant`,
+      }),
+    },
+    sectionVariants: {
+      [parentVariantId]: createVariant({
+        id: parentVariantId,
+        impl: parentImplId,
+        nonPresetImpls: [],
+      }),
+    },
+    sectionImpls: {
+      [parentImplId]: createGroupSectionImpl(
+        createUserDefaultGroupSectionImpl(),
+        {
+          id: parentImplId,
+          children: [childId],
+        },
+      ),
+    },
+    parentSectionMap: {
+      [parentId]: null,
+      [childId]: parentId,
     },
   };
 }
@@ -205,6 +258,57 @@ describe("standaloneProjectSurfacePageTargetState", () => {
           sections: readyState.sections,
           sectionVariants: readyState.sectionVariants,
           sectionImpls: readyState.sectionImpls,
+        },
+        target,
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps section targets not ready until descendant section variants are renderable", () => {
+    const target = {
+      kind: "section" as const,
+      sectionId: "group-section",
+      sectionName: "GUI",
+      sectionType: SectionTypeEnum.Group,
+    };
+    const incompleteState = createGroupProjectStateWithMissingChildVariant();
+
+    expect(
+      canRenderStandaloneSurfaceTarget({
+        state: {
+          projectConfig: {
+            sectionVariantMap: incompleteState.projectConfig.sectionVariantMap,
+          },
+          sections: incompleteState.sections,
+          sectionVariants: incompleteState.sectionVariants,
+          sectionImpls: incompleteState.sectionImpls,
+        },
+        target,
+      }),
+    ).toBe(false);
+
+    const childVariantId = "child-section-variant";
+    const childImplId = "child-section-impl";
+    incompleteState.projectConfig.sectionVariantMap["child-section"] =
+      childVariantId;
+    incompleteState.sectionVariants[childVariantId] = createVariant({
+      id: childVariantId,
+      impl: childImplId,
+      nonPresetImpls: [],
+    });
+    incompleteState.sectionImpls[childImplId] = createTextBlockSectionImpl({
+      id: childImplId,
+    });
+
+    expect(
+      canRenderStandaloneSurfaceTarget({
+        state: {
+          projectConfig: {
+            sectionVariantMap: incompleteState.projectConfig.sectionVariantMap,
+          },
+          sections: incompleteState.sections,
+          sectionVariants: incompleteState.sectionVariants,
+          sectionImpls: incompleteState.sectionImpls,
         },
         target,
       }),
