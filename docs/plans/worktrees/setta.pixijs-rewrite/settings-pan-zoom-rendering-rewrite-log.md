@@ -12445,3 +12445,47 @@ Record:
     - verified no obvious Gate-1 gross drift versus `main` for the checked visible slice
 - Next action:
   - Use the same named-fallback workflow to take the next visible `dom-context-lost` section off the local-app path, starting with whichever section still shows up first in the runtime fallback list after `browserSectionDefault` is gone.
+
+## 2026-03-31 372
+
+- Item: Move `textBlockSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing prompt/browser shared canaries.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `371` and used the already-named fallback ordering instead of opening a new diagnostics or harness lane.
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+  - Kept the ownership move bounded to the existing allowlist-driven shared-host selection path and locked it in the focused runtime tests:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all three shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `textBlockSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `textBlockSectionDefault` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Chrome DevTools MCP outcome after the change:
+    - refreshed the worktree bootstrap URL after the earlier loop token expired, then re-opened the live canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified the page-runtime host now reports:
+      - `managedSceneNames=promptSectionDefault,browserSectionDefault,textBlockSectionDefault`
+      - `domContextLostSceneNames` no longer includes `textBlockSectionDefault`
+    - verified the visible `textBlockSectionDefault` scene reports:
+      - `renderBackend=shared-page-runtime`
+      - no `dom-context-lost` fallback sibling/wrapper
+    - checked the same `All Settings` surface against the read-only `main` reference and saw no obvious Gate-1 gross shell/layout drift for the checked slice
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`15 passed`)
+  - Playwright:
+    - `PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost"`
+    - result: passed (`4 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `textBlockSectionDefault` is managed by the shared page runtime and no longer appears in the active fallback set
+    - verified no obvious Gate-1 gross drift versus the read-only `main` reference for the checked `All Settings` slice
+- Next action:
+  - Keep taking named visible `dom-context-lost` sections off the local-app path in fallback-list order, starting with the next remaining visible section after `textBlockSectionDefault`.

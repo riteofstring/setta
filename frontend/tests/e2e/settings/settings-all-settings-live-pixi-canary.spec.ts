@@ -1678,6 +1678,54 @@ test("all settings canary keeps browserSectionDefault on the shared page runtime
     .toBe("true:false:shared-page-runtime");
 });
 
+test("all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await normalizeAllSettingsOverviewLayout(page);
+  await waitForVisibleSceneMetrics(page);
+
+  const textBlockOverviewItem = page
+    .locator("#OverviewPane li")
+    .filter({ hasText: "textBlockSectionDefault" });
+  await expect(textBlockOverviewItem).toBeVisible();
+  await textBlockOverviewItem.click();
+
+  await expect
+    .poll(async () => {
+      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
+      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("textBlockSectionDefault")}:${runtime.domContextLostSectionNames.includes("textBlockSectionDefault")}`;
+    })
+    .toBe("true:true:false");
+
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const sceneRoot = document.querySelector<HTMLElement>(
+          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='textBlockSectionDefault']",
+        );
+        if (!sceneRoot) {
+          return "missing";
+        }
+
+        const rect = sceneRoot.getBoundingClientRect();
+        const visible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.top < window.innerHeight;
+        const hasContextLossFallback =
+          sceneRoot.parentElement?.querySelector(
+            "[data-live-dict-area-scene-fallback='dom-context-lost']",
+          ) !== null;
+
+        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
+      });
+    })
+    .toBe("true:false:shared-page-runtime");
+});
+
 test("all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards", async ({
   page,
 }) => {
