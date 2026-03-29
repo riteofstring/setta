@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiAvailableCanvasHeight,
+  getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
@@ -118,6 +119,57 @@ describe("getLiveDictAreaPixiAvailableCanvasHeight", () => {
         sceneRoot,
       }),
     ).toBe(100);
+  });
+});
+
+describe("getLiveDictAreaPixiClippingContainer", () => {
+  it("prefers the live dict-area render shell over a taller outer section ancestor", () => {
+    const section = {};
+    const renderShell = {};
+    const sceneRoot = {
+      closest: vi.fn((selector: string) => {
+        if (selector === "[data-live-dict-area-render-mode]") {
+          return renderShell;
+        }
+        if (selector === "section") {
+          return section;
+        }
+        return null;
+      }),
+      parentElement: section,
+    };
+
+    expect(
+      getLiveDictAreaPixiClippingContainer(sceneRoot as unknown as HTMLElement),
+    ).toBe(renderShell);
+  });
+
+  it("falls back to the nearest section or parent when the render shell marker is unavailable", () => {
+    const section = {};
+    const sectionSceneRoot = {
+      closest: vi.fn((selector: string) =>
+        selector === "section" ? section : null,
+      ),
+      parentElement: null,
+    };
+
+    expect(
+      getLiveDictAreaPixiClippingContainer(
+        sectionSceneRoot as unknown as HTMLElement,
+      ),
+    ).toBe(section);
+
+    const detachedParent = {};
+    const detachedSceneRoot = {
+      closest: vi.fn(() => null),
+      parentElement: detachedParent,
+    };
+
+    expect(
+      getLiveDictAreaPixiClippingContainer(
+        detachedSceneRoot as unknown as HTMLElement,
+      ),
+    );
   });
 });
 

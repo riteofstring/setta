@@ -9234,3 +9234,68 @@ Record:
     - confirmed the inspected cards/rows (`sectionSizingPolicy`, `gui`, `backend`, `languageServer`) stayed visually stable without a new obvious regression
 - Next action:
   - Continue the live Pixi parity lane from this cleaned handoff-label baseline by tightening the next concrete editable-control or text/chrome drift visible on `All Settings`, preferably against a read-only `main` reference tab when available.
+
+## 2026-03-29 280
+
+- Item: Try tightening tiny live Pixi overview-band chrome so the first visible `All Settings` cards stop reading as squashed summary bars.
+- Status: `blocked`
+- Details:
+  - Took the next bounded parity slice directly from the fresh CDP diagnosis instead of more seam lifting:
+    - the current remaining defect was localized to the first visible `All Settings` cards in the live `pixi-node-body` canary
+    - fresh CDP comparison against baseline `/settings` showed the top `gui` / `backend` style cards still reading as overly squashed stripped-down overview bars rather than the denser compact card bodies visible on the baseline
+  - Experimental updates were applied only to:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The experiment tried to make the overview-band chrome scale to very short band heights instead of using the existing fixed inset/bar geometry.
+  - Automated verification on the experimental diff stayed green:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`35 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`9 passed`)
+  - The hard gate remained the live CDP comparison, and the trustworthy post-change visual check failed:
+    - fresh-context CDP compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` after resetting browser zoom to `100%`
+    - the old tiny stripped-bar symptom changed shape, but the top visible canary cards still did not match baseline closely enough
+    - the checked canary drifted toward larger mostly blank white blocks in the same `gui` / `backend` region where baseline still showed compact dark cards with visible text/detail
+  - Because the required CDP visual gate failed, the experimental overview-band chrome change was reverted and is not being committed from this iteration.
+- Next action:
+  - Re-diagnose the first visible `All Settings` Pixi overview cards in fresh CDP before changing code again; focus on why those cards drift into large blank white blocks relative to the baseline instead of continuing blind overview-band geometry tweaks.
+
+## 2026-03-29 281
+
+- Item: Clamp the live Pixi scene height to the live dict-area render shell instead of sizing from a taller outer section ancestor.
+- Status: `done`
+- Details:
+  - Followed the fresh CDP diagnosis from item `280` instead of another blind overview-band tweak:
+    - the clearest current regression on the `backend` / `gui` / `languageServer` cards was no longer text-token drift first
+    - the live `pixi-node-body` canary was sizing its canvas against a taller outer section clip, which left the visible card body looking squashed/clipped
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - Added an explicit `getLiveDictAreaPixiClippingContainer(...)` helper that prefers the nearest `[data-live-dict-area-render-mode]` shell before falling back to older section/parent heuristics.
+  - The live Pixi scene height measurement now uses that explicit render-shell boundary when computing `availableCanvasHeight`, so the scene no longer sizes itself off the taller outer section container by default.
+  - Locked the new clip-container selection in focused unit tests so future scene-host changes do not silently regress back to the outer-section measurement path.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`35 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+  - Playwright:
+    - helper attempt:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` by disposable-stack bootstrap `401`
+    - direct current-worktree retry with a fresh status token:
+      - `SETTA_BOOTSTRAP_TOKEN=<fresh current-worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes" --reporter=line`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared baseline `/settings` against `/settings?liveDictAreaRenderer=pixi-node-body` at browser zoom `100%`
+    - the earlier oversized-canvas / clipped-card symptom was no longer visible on the first checked `backend` / `gui` / `languageServer` cards
+    - no obvious remaining vertical canvas-over-body clipping was observed in that region
+    - remaining drift is now primarily visual: those cards still render as brighter white tiles than baseline, and the top row still sits slightly tight under the chrome
+- Next action:
+  - Continue the live Pixi parity lane from this fixed height-clamp baseline by tightening the remaining palette/chrome drift on the first visible `All Settings` cards instead of revisiting clip sizing again.

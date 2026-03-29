@@ -20,6 +20,7 @@ import {
 } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiAvailableCanvasHeight,
+  getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiPalette,
@@ -145,10 +146,7 @@ function _LiveDictAreaPixiScene({
       setAvailableCanvasHeight(null);
       return;
     }
-    const clippingContainer =
-      sceneRoot.closest<HTMLElement>("section") ??
-      sceneRoot.closest<HTMLElement>(".section-main-full-w") ??
-      sceneRoot.parentElement;
+    const clippingContainer = getLiveDictAreaPixiClippingContainer(sceneRoot);
     if (!clippingContainer) {
       setAvailableCanvasHeight(null);
       return;

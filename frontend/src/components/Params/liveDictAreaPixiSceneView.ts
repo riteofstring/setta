@@ -112,6 +112,15 @@ type LiveDictAreaPixiTextStyleSource = {
   rowElement?: Element | null;
 };
 
+export function getLiveDictAreaPixiClippingContainer(sceneRoot: HTMLElement) {
+  return (
+    sceneRoot.closest<HTMLElement>("[data-live-dict-area-render-mode]") ??
+    sceneRoot.closest<HTMLElement>(".section-main-full-w") ??
+    sceneRoot.closest<HTMLElement>("section") ??
+    sceneRoot.parentElement
+  );
+}
+
 export function getLiveDictAreaPixiLogicalCanvasWidth(hostWidth: number) {
   const safeHostWidth =
     Number.isFinite(hostWidth) && hostWidth > 0 ? Math.floor(hostWidth) : 0;
