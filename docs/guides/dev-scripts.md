@@ -155,6 +155,8 @@ Useful when you need to debug a specific subsystem.
   - Direct Go-to-Python generation helper (SDK contracts + shared types + generated-type pruning).
 - `frontend/scripts/gcf.sh`
   - Implements `pnpm gcf` + logging.
+- `scripts/latest-chrome-recording.sh`
+  - Resolves the newest Chrome repro recording bundle and its key logs/metadata.
 
 ## Notes
 

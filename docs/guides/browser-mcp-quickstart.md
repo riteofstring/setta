@@ -102,45 +102,13 @@ Bundle contents:
 Pass extra `playwright codegen` flags directly, for example:
 `./scripts/record-playwright-e2e.sh --browser chromium`
 
-## Chrome repro recording (repo-owned extension)
+## Chrome Repro Recording
 
-Use this when you want a simpler headed Chrome recording flow without the
-Playwright Inspector UI:
+The capture-first Chrome repro workflow now lives in
+[chrome-repro-recording.md](/Users/kevin/Documents/AppDevelopment/setta.go-rewrite/docs/guides/chrome-repro-recording.md).
 
-`./scripts/record-chrome-repro.sh`
+Use that guide for:
 
-Behavior:
-
-- starts Setta with the normal dev-state defaults
-- prefers Playwright's bundled Chrome for Testing when available
-- launches a dedicated browser profile with a local recording extension
-- captures browser events into `${TMPDIR:-/tmp}/setta-chrome-recordings/<repo>/recording-<timestamp>/`
-- fails early if the recorder extension did not actually attach
-- finalizes the bundle when that Chrome window exits
-
-Options:
-
-- `--artifact-dir <dir>` to override the output directory
-- `--reset` to clear the active dev `setta_files_dev` state first
-
-Bundle contents:
-
-- `recording.json`: finalized event recording payload
-- `events.ndjson`: raw event stream
-- `console.ndjson`: browser console, page errors, and unhandled rejections
-- `transport.ndjson`: fetch/XHR/websocket activity captured from the page runtime
-- `app_state.ndjson`: app-published debug snapshots such as diagnostics state
-- `session.json`: recording summary metadata
-- `launcher.json`: launcher/bootstrap metadata
-- `extension/`: the generated unpacked extension used for that session
-- `logs/`: dev-instance, collector, and browser logs
-
-The recorder also captures more than raw clicks/inputs now:
-
-- browser console output and uncaught runtime failures
-- fetch/XHR/websocket activity from the page
-- app-published frontend debug snapshots when Setta emits them during state updates
-
-Pass `SETTA_CHROME_REPRO_SKIP_DEV_START=1` when you want to attach to an already
-running local Setta instance, and `SETTA_CHROME_REPRO_BOOTSTRAP_URL=<url>` to
-skip bootstrap URL discovery.
+- `./scripts/record-chrome-repro.sh`
+- `./scripts/latest-chrome-recording.sh`
+- the `see the latest Chrome recording` handoff flow

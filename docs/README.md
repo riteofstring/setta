@@ -7,6 +7,7 @@ The `plans/` tree is for working notes, not the default contributor entrypoint.
 - `guides/dev-quickstart.md` – boot a full-stack dev environment.
 - `guides/worktree-dev-quickstart.md` – create worktrees and run isolated dev instances with predictable ports.
 - `guides/browser-mcp-quickstart.md` – quickstart for Chrome DevTools MCP.
+- `guides/chrome-repro-recording.md` – record headed Chrome repro bundles and hand them to Codex.
 - `guides/install-setta-desktop.md` – beginner desktop install flow (no repo required).
 - `guides/install-setta-desktop-macos.md` – macOS desktop install quickstart.
 - `guides/install-setta-desktop-windows.md` – Windows desktop install quickstart.

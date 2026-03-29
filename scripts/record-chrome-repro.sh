@@ -44,6 +44,38 @@ log() {
   printf '[%s] %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >&2
 }
 
+write_latest_recording_pointer() {
+  local recording_root="$1"
+  local artifact_dir="$2"
+  local latest_json="${recording_root}/latest.json"
+  local latest_link="${recording_root}/latest"
+
+  mkdir -p "${recording_root}"
+  "${PYTHON_BIN}" - "${latest_json}" "${recording_root}" "${artifact_dir}" <<'PY'
+import json
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+
+latest_json = Path(sys.argv[1])
+recording_root = Path(sys.argv[2]).resolve()
+artifact_dir = Path(sys.argv[3]).resolve()
+payload = {
+    "format": "setta.chrome-repro-latest/v1",
+    "updatedAt": datetime.now(UTC).isoformat(),
+    "recordingRoot": str(recording_root),
+    "artifactDir": str(artifact_dir),
+    "sessionFile": str(artifact_dir / "session.json"),
+    "recordingFile": str(artifact_dir / "recording.json"),
+    "launcherFile": str(artifact_dir / "launcher.json"),
+}
+latest_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+
+  rm -f "${latest_link}"
+  ln -s "${artifact_dir}" "${latest_link}"
+}
+
 resolve_default_recording_root() {
   if [[ -n "${SETTA_CHROME_REPRO_ROOT_DIR:-}" ]]; then
     printf '%s\n' "${SETTA_CHROME_REPRO_ROOT_DIR}"
@@ -80,6 +112,8 @@ By default, the recorder uses the normal dev state:
   SETTA_PROJECT_PATH=/home
 
 Close the dedicated Chrome window when you are done recording.
+After the run, resolve the newest bundle with:
+  ./scripts/latest-chrome-recording.sh --json
 
 Options:
   --artifact-dir <dir>  Override the recording bundle directory.
@@ -384,7 +418,10 @@ while (( $# > 0 )); do
 done
 
 if [[ -z "${artifact_dir}" ]]; then
-  artifact_dir="$(resolve_default_recording_root)/recording-$(date +%Y%m%d-%H%M%S)"
+  recording_root="$(resolve_default_recording_root)"
+  artifact_dir="${recording_root}/recording-$(date +%Y%m%d-%H%M%S)"
+else
+  recording_root="$(resolve_default_recording_root)"
 fi
 
 log_dir="${artifact_dir}/logs"
@@ -464,7 +501,11 @@ cleanup() {
   fi
 
   if [[ "${exit_code}" -eq 0 ]]; then
+    if ! write_latest_recording_pointer "${recording_root}" "${artifact_dir}"; then
+      log "Failed to update latest Chrome repro pointer under ${recording_root}."
+    fi
     log "Chrome repro artifacts saved in ${artifact_dir}."
+    log "Resolve the newest bundle later with ./scripts/latest-chrome-recording.sh --json"
   fi
 }
 
