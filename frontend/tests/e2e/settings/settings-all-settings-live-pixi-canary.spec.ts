@@ -105,6 +105,11 @@ type VisibleSectionNodeBounds = {
   y: number;
 };
 
+type ActiveSectionSelectionSnapshot = {
+  domActiveSectionNames: string[];
+  uiActiveSectionNames: string[];
+};
+
 type VisibleScenePaletteSample = {
   left: number;
   panelBackground: string;
@@ -1139,6 +1144,50 @@ async function readVisibleSectionNodeBounds(
         return a.x - b.x;
       });
   });
+}
+
+async function readActiveSectionSelectionSnapshot(
+  page: Page,
+): Promise<ActiveSectionSelectionSnapshot> {
+  return page.evaluate(async () => {
+    const { useProjectState, useActiveSectionUI } = await import(
+      "/src/state/definitions.ts"
+    );
+    const sections = useProjectState.getState().sections;
+    const uiActiveSectionNames = useActiveSectionUI
+      .getState()
+      .activeIds.map((sectionId) => sections[sectionId]?.name ?? "")
+      .filter((sectionName) => sectionName.length > 0);
+    const domActiveSectionNames = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        "[data-section-active='true'][data-section-id]",
+      ),
+    )
+      .map((element) => {
+        const sectionId = element.getAttribute("data-section-id") ?? "";
+        return sections[sectionId]?.name ?? "";
+      })
+      .filter((sectionName) => sectionName.length > 0);
+
+    return {
+      domActiveSectionNames: Array.from(new Set(domActiveSectionNames)),
+      uiActiveSectionNames: Array.from(new Set(uiActiveSectionNames)),
+    };
+  });
+}
+
+async function expectSingleActiveSectionName(
+  page: Page,
+  expectedSectionName: string,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      return await readActiveSectionSelectionSnapshot(page);
+    })
+    .toEqual({
+      domActiveSectionNames: [expectedSectionName],
+      uiActiveSectionNames: [expectedSectionName],
+    });
 }
 
 async function readSectionNodeViewportState(
@@ -3105,6 +3154,10 @@ test("all settings live Pixi canary and the read-only main reference share the s
     await expect(mainReferenceOverviewItem).toBeVisible();
     await canaryOverviewItem.click();
     await mainReferenceOverviewItem.click();
+    await Promise.all([
+      expectSingleActiveSectionName(canaryPage, "browserSectionDefault"),
+      expectSingleActiveSectionName(mainReferencePage, "browserSectionDefault"),
+    ]);
 
     await Promise.all([
       hideProjectWorkspaceChromeForGraphComparison(canaryPage),
@@ -3118,6 +3171,10 @@ test("all settings live Pixi canary and the read-only main reference share the s
     await Promise.all([
       expectZoomOutButtonDisabled(canaryPage, true),
       expectZoomOutButtonDisabled(mainReferencePage, true),
+    ]);
+    await Promise.all([
+      expectSingleActiveSectionName(canaryPage, "browserSectionDefault"),
+      expectSingleActiveSectionName(mainReferencePage, "browserSectionDefault"),
     ]);
 
     const canaryViewport = await readViewportTransform(canaryPage);

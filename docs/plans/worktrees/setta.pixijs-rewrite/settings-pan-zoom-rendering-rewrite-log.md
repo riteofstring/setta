@@ -13809,6 +13809,34 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 408
+
+- Item: Lock the normalized `browserSectionDefault` compare flow to the actual active section instead of treating a transient selected-card mismatch as renderer drift.
+- Status: `done`
+- Details:
+  - Fresh-context CDP diagnostic via sub-agent showed the prior selected-card mismatch did not reproduce:
+    - worktree active section name: `browserSectionDefault`
+    - main active section name: `browserSectionDefault`
+    - both visible cards showed the same blue active outline state (`outline-blue-600`, computed `rgb(29, 78, 216)`)
+  - Added a narrow compare-flow trust guard in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - new helpers now read both the UI active-section store and the DOM `data-section-active` shells
+    - the shared-slice compare test now asserts that `browserSectionDefault` remains the sole active section on both surfaces immediately after the overview click and again after the graph-only pane/chat cleanup
+  - This iteration intentionally did not change production renderer code:
+    - the goal was to close the false blocker so the next renderer slice can target real tiny-card fidelity drift instead of rechecking selection state
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `WORKTREE_BOOTSTRAP_URL=<fresh 8043 bootstrap url> && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"${WORKTREE_BOOTSTRAP_URL#*#token=}\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh 8087 bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`1 passed`, about `21.5s`)
+  - fresh-context CDP diagnostic via sub-agent on normalized live worktree/main `All Settings`
+    - result: passed
+    - both surfaces converged to `browserSectionDefault` and both active cards showed the same blue active outline
+- Next action:
+  - Return to the production renderer lane and inspect the remaining low-zoom tiny-card content-density / spacing drift on the normalized shared `All Settings` slice now that the selected-card mismatch is ruled out.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 407
 
 - Item: Force the readable low-zoom row-fill path on the exact min-zoom canary boundary.
