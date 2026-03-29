@@ -11957,3 +11957,27 @@ Record:
       - no obvious new clipping or blank-shell regression was visible in the inspected first two rows
 - Next action:
   - Resume the normalized live-Pixi-vs-`main` parity investigation on `All Settings` and identify the next renderer-only drift beyond this compact preview readability slice.
+
+## 2026-03-31 361
+
+- Item: Re-check the normalized worktree baseline-vs-live first visible `All Settings` canvas slice before taking another renderer edit.
+- Status: `done`
+- Details:
+  - Continued directly from item `360` and kept the slice bounded to the current first-visible live-Pixi parity frontier instead of inventing another renderer tweak.
+  - Used a fresh-context Chrome DevTools MCP verifier on the current worktree runtime only:
+    - baseline DOM `http://127.0.0.1:3043/settings`
+    - live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+  - Re-ran the existing normalized `All Settings` comparison shape:
+    - reset workspace chrome
+    - open `All Settings`
+    - compare the first visible canvas slice after the normal parity reset flow
+  - Result:
+    - no concrete visible baseline-vs-live mismatch stood out in the checked first visible canvas slice after normalization
+    - this means the current first-visible worktree-only micro-lane is not a trustworthy place to keep spending renderer edits
+  - No production frontend/backend code changed in this iteration.
+- Verification:
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime
+    - result: passed; no mismatch was visible in the normalized first visible baseline-vs-live `All Settings` canvas slice
+- Next action:
+  - Move to the next real live-Pixi parity frontier beyond the already-clean first visible slice, preferably by widening the normalized `All Settings` comparison to the next visible canvas region or another concrete interaction/zoom canary instead of reopening first-row compact-preview tuning.
