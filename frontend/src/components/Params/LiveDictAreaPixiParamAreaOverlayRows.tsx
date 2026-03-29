@@ -1,5 +1,9 @@
 import { isTempParam, type ParamListKey } from "forks/dnd-kit/paramDndState";
 import { useMemo, type MouseEventHandler } from "react";
+import {
+  LiveDictAreaPixiDragOverlaySceneRow,
+  type LiveDictAreaPixiDragOverlaySceneRowPacket,
+} from "./LiveDictAreaPixiDragOverlaySceneRow";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
 import { ParamSwitch } from "./ParamSwitch";
 import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
@@ -77,37 +81,55 @@ function LiveDictAreaPixiParamAreaOverlayRowBranch({
   );
   const baseScenePacket = sceneRowLookup.sceneRowsById[paramInfoId];
 
-  if (!baseScenePacket && !isTempParam(paramInfoId)) {
+  if (isTempParam(paramInfoId)) {
+    return (
+      <>
+        <ParamSwitch
+          sectionId={sectionId}
+          paramInfoId={paramInfoId}
+          requiredParamIdsToPaths={requiredParamIdsToPaths}
+          onResizeStart={onResizeStart}
+          isTopLevelWithPad={false}
+          listKey={listKey}
+          hasSectionStyleTheme={hasSectionStyleTheme}
+          renderMode="drag-overlay"
+        />
+        {childParamIds.map((childParamId) => (
+          <LiveDictAreaPixiParamAreaOverlayRowBranch
+            key={childParamId}
+            depth={depth + 1}
+            hasSectionStyleTheme={hasSectionStyleTheme}
+            listKey={listKey}
+            onResizeStart={onResizeStart}
+            paramInfoId={childParamId}
+            requiredParamIdsToPaths={requiredParamIdsToPaths}
+            sceneRowLookup={sceneRowLookup}
+            sectionId={sectionId}
+          />
+        ))}
+      </>
+    );
+  }
+
+  if (!baseScenePacket) {
     throw new Error(
       `Expected drag-overlay scene packet for visible row ${paramInfoId}.`,
     );
   }
 
-  const scenePacket =
-    baseScenePacket === undefined
-      ? {
-          depth,
-          id: paramInfoId,
-          kind: "placeholder" as const,
-          label: null,
-        }
-      : {
-          ...baseScenePacket,
-          depth,
-        };
+  const scenePacket: LiveDictAreaPixiDragOverlaySceneRowPacket = {
+    ...baseScenePacket,
+    childIds: fallbackChildIds,
+    depth,
+  };
 
   return (
     <>
-      <ParamSwitch
-        sectionId={sectionId}
-        paramInfoId={paramInfoId}
-        requiredParamIdsToPaths={requiredParamIdsToPaths}
-        onResizeStart={onResizeStart}
-        isTopLevelWithPad={false}
-        listKey={listKey}
+      <LiveDictAreaPixiDragOverlaySceneRow
         hasSectionStyleTheme={hasSectionStyleTheme}
-        renderMode="drag-overlay"
+        listKey={listKey}
         scenePacket={scenePacket}
+        sectionId={sectionId}
       />
       {childParamIds.map((childParamId) => (
         <LiveDictAreaPixiParamAreaOverlayRowBranch

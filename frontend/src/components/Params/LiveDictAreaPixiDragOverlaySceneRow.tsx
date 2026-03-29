@@ -1,0 +1,164 @@
+import { useSortable } from "forks/dnd-kit/adapter";
+import {
+  applyZoomToTransform,
+  transformToString,
+} from "forks/dnd-kit/adapter/zoom";
+import {
+  getParamDndItemId,
+  type ParamListKey,
+} from "forks/dnd-kit/paramDndState";
+import _ from "lodash";
+import { useCallback, type MouseEvent } from "react";
+import {
+  getCurrEffectiveSectionImplWithTypeGuard,
+  toggleParamSelected,
+} from "state/actions/sectionInfos";
+import {
+  useMisc,
+  useProjectSearch,
+  useProjectState,
+  useTypeErrors,
+} from "state/definitions";
+import { createProjectSearchLookupKey } from "state/hooks/search";
+import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
+import { LiveDictAreaPixiDragOverlayParamRow } from "./LiveDictAreaPixiDragOverlayParamRow";
+import { useParamDndContext } from "./ParamDndContext";
+import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
+
+export type LiveDictAreaPixiDragOverlaySceneRowPacket = ParamSceneRowPacket & {
+  childIds: string[];
+};
+
+type LiveDictAreaPixiDragOverlaySceneRowProps = {
+  hasSectionStyleTheme: boolean;
+  listKey: ParamListKey;
+  scenePacket: LiveDictAreaPixiDragOverlaySceneRowPacket;
+  sectionId: string;
+};
+
+export function LiveDictAreaPixiDragOverlaySceneRow({
+  hasSectionStyleTheme,
+  listKey,
+  scenePacket,
+  sectionId,
+}: LiveDictAreaPixiDragOverlaySceneRowProps) {
+  const paramInfoId = scenePacket.id;
+  const typeErrors = useTypeErrors(
+    (state) => state.errors[sectionId]?.params?.[paramInfoId],
+  );
+  const typeErrorMessage = typeErrors?.join("\n") ?? "";
+  const hasError = typeErrorMessage.length > 0;
+  const { isFocusedSearchResult, isSearchResult } = useProjectSearch(
+    (state) => {
+      return {
+        isFocusedSearchResult:
+          state.focused?.sectionId === sectionId &&
+          state.focused?.paramInfoId === paramInfoId,
+        isSearchResult: state.lookup.has(
+          createProjectSearchLookupKey(sectionId, paramInfoId),
+        ),
+      };
+    },
+    _.isEqual,
+  );
+  const paramIsSelected = useProjectState((state) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
+      state,
+      sectionId,
+      isBaseSectionWithParamsImpl,
+    ).selectedParams.includes(paramInfoId),
+  );
+  const isSelectingParams = useMisc((state) => state.isSelectingParams);
+  const handleParamMouseDown = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (!isSelectingParams) {
+        return;
+      }
+      event.stopPropagation();
+      event.preventDefault();
+    },
+    [isSelectingParams],
+  );
+  const handleParamClick = useCallback(
+    (event: MouseEvent<HTMLElement>) => {
+      if (!isSelectingParams) {
+        return;
+      }
+      event.stopPropagation();
+      toggleParamSelected(sectionId, paramInfoId);
+    },
+    [isSelectingParams, paramInfoId, sectionId],
+  );
+
+  const selectedBgClassName = hasSectionStyleTheme
+    ? "!bg-[color:var(--setta-section-style-outline)] !text-[color:var(--setta-section-style-text)] [&_*]:!text-[color:var(--setta-section-style-text)] active:!bg-[color:var(--setta-section-style-border)]"
+    : "active:!bg-cyan-300 !bg-blue-700 [&_*]:!text-white";
+  const bg = paramIsSelected
+    ? `transition-colors rounded-sm ${selectedBgClassName}`
+    : "transition-colors rounded-sm";
+
+  let border = "";
+  if (hasError) {
+    border = "bg-red-200 dark:bg-red-800/30";
+  } else if (isFocusedSearchResult) {
+    border = "outline outline-4 outline-green-500 dark:outline-green-500/80";
+  } else if (isSearchResult) {
+    border = "outline outline-4 outline-blue-500 dark:outline-cyan-300/80";
+  }
+
+  const dndContext = useParamDndContext();
+  const dndEnabled = Boolean(dndContext?.enabled);
+  const dndId = getParamDndItemId(paramInfoId, listKey);
+  const hasNested = scenePacket.childIds.length > 0;
+  const onlyChildId =
+    scenePacket.childIds.length === 1 ? scenePacket.childIds[0] : null;
+  const {
+    attributes,
+    isDragging,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+  } = useSortable({
+    id: dndId,
+    disabled: !dndEnabled,
+    data: {
+      type: "param",
+      paramId: paramInfoId,
+      sectionId,
+      listKey,
+      isTopLevel: false,
+      hasNested,
+      onlyChildId,
+    },
+  });
+  const { role: _role, ...restAttributes } = attributes;
+  const scaledTransform = applyZoomToTransform(transform);
+  const dndStyle = {
+    transform: transformToString(scaledTransform),
+    transition,
+    zIndex: isDragging ? 1000 : undefined,
+  };
+
+  return (
+    <LiveDictAreaPixiDragOverlayParamRow
+      bg={bg}
+      border={border}
+      dndAttributes={restAttributes}
+      dndClassName={isDragging ? "opacity-80" : ""}
+      dndListeners={listeners}
+      dndRef={setNodeRef}
+      dndStyle={dndStyle}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      label={
+        <p className="cursor-pointer truncate py-[.125rem] font-sans text-xs font-semibold text-setta-800 dark:text-setta-200">
+          {scenePacket.label ?? ""}
+        </p>
+      }
+      onClick={handleParamClick}
+      onMouseDown={handleParamMouseDown}
+      paramInfoId={paramInfoId}
+      scenePacket={scenePacket}
+    />
+  );
+}

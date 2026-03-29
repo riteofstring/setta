@@ -236,6 +236,9 @@ describe("LiveDictAreaPixiParamAreaOverlay", () => {
         },
       },
     });
+    useProjectState.setState((state) => {
+      state.codeObjs["pinned-param"].name = "Mutated Store Name";
+    });
     const target = buildLiveDictAreaPixiDragRowTargets({
       liveDictAreaMountProps: boundary.liveDictAreaMountProps,
       liveDictAreaSceneBoundary: boundary.liveDictAreaSceneBoundary,
@@ -258,6 +261,8 @@ describe("LiveDictAreaPixiParamAreaOverlay", () => {
     expect(markup).toContain('data-param-render-mode="drag-overlay"');
     expect(markup).toContain('data-live-dict-area-drag-overlay-row="true"');
     expect(markup).toContain('data-live-dict-area-scene-row-depth="0"');
+    expect(markup).toContain("Pinned Param");
+    expect(markup).not.toContain("Mutated Store Name");
     expect(markup).not.toContain(
       "ParamContainer-section-live-overlay-pinned-param",
     );
