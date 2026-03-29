@@ -12105,3 +12105,42 @@ Record:
       - the post-restart live CDP verification did not produce a trustworthy Pixi canary result in this iteration, so the visual gate for the forced context-loss path remains deferred instead of claimed
 - Next action:
   - Re-run the forced context-loss CDP check on the fresh worktree session once the live Pixi canary is trustworthy again, then continue the normalized deeper-stack live-Pixi-vs-`main` parity comparison for the next renderer-only drift.
+
+## 2026-03-31 365
+
+- Item: Stop one live Pixi scene fallback from clearing Pixi's shared texture pools for sibling `All Settings` cards.
+- Status: `done`
+- Details:
+  - Continued directly from item `364` because the deferred CDP gate repeated the same clean-bootstrap blocker instead of surfacing a new parity drift:
+    - with a fresh runtime token, the live Pixi route no longer reproduced the earlier stale-token auth caveat
+    - but the page still hit `Unhandled Thrown Error! TypeError: Cannot read properties of undefined (reading 'push')`
+    - the crash stack pointed at `TexturePoolClass.returnTexture` / `CanvasTextSystem.returnTexture` before the graph surface could stay trustworthy
+  - Root cause for this bounded slice:
+    - each `LiveDictAreaPixiScene` instance was tearing down with `app.destroy(true, true)`
+    - the boolean renderer destroy flag tells Pixi to release page-global pooled resources, including the shared texture pool
+    - on `All Settings`, one scene falling back after `webglcontextlost` could therefore clear the shared pool while sibling live Pixi scene apps were still mounted, which matches the repeated `returnTexture(...).push` crash
+  - Fixed the production scene teardown boundary:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - added a narrow scene-destroy helper that still removes the torn-down canvas view
+      - switched both the cancelled-init path and the unmount cleanup from `app.destroy(true, true)` to `app.destroy({ removeView: true }, true)` so an individual scene teardown no longer releases Pixi's global pools for the whole page
+  - Added focused regression coverage for the new teardown contract:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - added a unit test that renders a real scene, unmounts it, and requires `Application.destroy` to receive `{ removeView: true }` instead of the global-resource-releasing boolean flag
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`16 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary falls back to the DOM mount when a live Pixi canvas loses its WebGL context"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime after the fix
+    - the bootstrap URL token had rotated again by verification time and was rejected, but the already-running authenticated worktree session still exposed the real live Pixi `All Settings` surface
+    - visible live Pixi canvases were present (`15` visible canvases reported)
+    - the old `TexturePoolClass.returnTexture` / `CanvasTextSystem.returnTexture` crash did not reproduce and the page was not stuck on the prior error overlay
+    - dispatching `webglcontextlost` on a visible canvas still returned `defaultPrevented = true` and swapped that scene to `data-live-dict-area-scene-fallback="dom-context-lost"` with visible param-row content
+- Next action:
+  - Return to the normalized deeper-stack live-Pixi-vs-`main` parity lane and identify the next renderer-only drift now that the repeated shared-texture-pool teardown crash is closed.

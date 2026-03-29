@@ -86,6 +86,13 @@ export function configureLiveDictAreaPixiStaticScene(
   app.canvas.style.pointerEvents = "none";
 }
 
+function destroyLiveDictAreaPixiSceneApplication(app: Application): void {
+  // Each card owns its renderer view, but the Pixi pools are page-global.
+  // Avoid the boolean renderer destroy flag here so one scene fallback does
+  // not clear shared pooled textures for sibling live scenes that are still mounted.
+  app.destroy({ removeView: true }, true);
+}
+
 function _LiveDictAreaPixiScene({
   edgeRowInteractionState = {
     focusedPortId: null,
@@ -353,7 +360,7 @@ function _LiveDictAreaPixiScene({
         });
 
         if (cancelled) {
-          app.destroy(true, true);
+          destroyLiveDictAreaPixiSceneApplication(app);
           return;
         }
 
@@ -440,7 +447,7 @@ function _LiveDictAreaPixiScene({
         return;
       }
       appRef.current = null;
-      app.destroy(true, true);
+      destroyLiveDictAreaPixiSceneApplication(app);
     };
   }, []);
 

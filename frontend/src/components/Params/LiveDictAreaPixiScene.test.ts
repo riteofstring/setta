@@ -13,6 +13,7 @@ import {
 import { LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_PARAM } from "./liveDictAreaPixiSceneView";
 
 const mockApplicationRender = vi.hoisted(() => vi.fn());
+const mockApplicationDestroy = vi.hoisted(() => vi.fn());
 const mockViewportZoom = vi.hoisted(() => ({ value: 1 }));
 
 vi.hoisted(() => {
@@ -112,7 +113,9 @@ vi.mock("pixi.js", () => {
 
     async init() {}
 
-    destroy() {}
+    destroy(...args: unknown[]) {
+      mockApplicationDestroy(...args);
+    }
 
     render = mockApplicationRender;
   }
@@ -152,6 +155,7 @@ describe("LiveDictAreaPixiScene", () => {
   let unhandledRejectionErrors: unknown[];
 
   beforeEach(() => {
+    mockApplicationDestroy.mockClear();
     mockApplicationRender.mockClear();
     mockViewportZoom.value = 1;
     unhandledRejectionErrors = [];
@@ -671,6 +675,101 @@ describe("LiveDictAreaPixiScene", () => {
 
     expect(contextLossEvent.defaultPrevented).toBe(true);
     expect(onWebglContextLost).toHaveBeenCalledTimes(1);
+  });
+
+  it("destroys only its own renderer view on unmount so sibling Pixi scenes keep shared pools", async () => {
+    const getParamValuePresentationKind = (
+      paramId: string,
+    ): "combobox" | "switch" | "text" => {
+      if (paramId === "pinned-value") {
+        return "combobox";
+      }
+      if (paramId === "unpinned-value") {
+        return "switch";
+      }
+      return "text";
+    };
+    const getParamValuePreview = (paramId: string): string | null => {
+      if (paramId === "pinned-value") {
+        return "Choice A";
+      }
+      if (paramId === "unpinned-value") {
+        return "true";
+      }
+      return null;
+    };
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [{ id: "edge-input", label: "Edge Input" }],
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "Pinned Group",
+              "pinned-value": "Pinned Value",
+              "unpinned-group": "Unpinned Group",
+              "unpinned-value": "Unpinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "other",
+        getParamValuePresentationKind,
+        getParamValuePreview,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [{ id: "input-a", label: "Input A" }],
+        isSelectingParams: false,
+        outputPorts: [{ id: "output-a", label: "Output A" }],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-1",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(LiveDictAreaPixiScene, {
+          liveDictAreaSceneBoundary:
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+          sectionId: "section-1",
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    act(() => {
+      root.render(React.createElement(React.Fragment));
+    });
+
+    expect(mockApplicationDestroy).toHaveBeenCalledTimes(1);
+    expect(mockApplicationDestroy).toHaveBeenCalledWith(
+      { removeView: true },
+      true,
+    );
   });
 
   function handleUnhandledRejection(event: PromiseRejectionEvent) {
