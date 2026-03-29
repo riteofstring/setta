@@ -93,7 +93,6 @@ import {
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
-  AttachmentDownloadURLEntry,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -284,8 +283,13 @@ const ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES = new Set<string>([
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
 
 type AttachmentUrlEntry = {
-  url: AttachmentDownloadURLEntry["url"];
-  expiresAt: AttachmentDownloadURLEntry["expiresAt"];
+  url: string;
+  expiresAt: number;
+};
+type AttachmentUrlResponseEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
 };
 type AttachmentTextPreview = {
   text: string;
@@ -7357,7 +7361,7 @@ function ChatMessages({
         attachmentUrlRequests.current.add(attachment.id);
       }
       const projectConfigId = getCurrProjectConfigId();
-      let entries: AttachmentDownloadURLEntry[] = [];
+      let entries: AttachmentUrlResponseEntry[] = [];
       try {
         const res = await route_get_attachment_download_urls({
           artifactIds: pending.map((attachment) => attachment.id),

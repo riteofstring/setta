@@ -1,18 +1,12 @@
-import { ModalContainer } from "components/Modals/ModalContainer";
-import { ShareWrapper } from "components/Pages/Share/ShareWrapper";
-import { StandaloneProjectSurfacePageWithLoadState } from "./StandaloneProjectSurfacePage";
+import type { ComponentProps } from "react";
+import { ShareStandaloneProjectSurfacePageBoundary } from "./ShareStandaloneProjectSurfacePageBoundary";
 
-export function ShareStandaloneProjectSurfacePage() {
-  return (
-    <ShareWrapper manageTitle={false}>
-      {({ doneLoading, is404 }) => (
-        <ModalContainer>
-          <StandaloneProjectSurfacePageWithLoadState
-            doneLoading={doneLoading}
-            is404={is404}
-          />
-        </ModalContainer>
-      )}
-    </ShareWrapper>
-  );
+export type ShareStandaloneProjectSurfacePageProps = ComponentProps<
+  typeof ShareStandaloneProjectSurfacePageBoundary
+>;
+
+export function ShareStandaloneProjectSurfacePage(
+  props: ShareStandaloneProjectSurfacePageProps,
+) {
+  return <ShareStandaloneProjectSurfacePageBoundary {...props} />;
 }
