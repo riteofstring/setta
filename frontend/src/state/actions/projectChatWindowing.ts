@@ -12,6 +12,7 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
+  useMisc,
   useProjectState,
   useSettings,
   useShareSession,
@@ -48,6 +49,7 @@ import {
   resolveTrackedGitPaneGraphWindowInstanceId,
   setTrackedGitPaneGraphWindowInstanceId,
 } from "./projectChatWindowingEphemeral";
+import { getProjectChatBootPointerCandidates } from "./projectChatWindowingPointerTracking";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -332,10 +334,8 @@ function resolveProjectChatCanvasBootPosition(
     }
   }
   const miscState = useMisc.getState();
-  const cursorCandidates: Array<unknown> = [
-    miscState.lastMouseUpLocation,
-    miscState.lastMouseDownLocation,
-  ];
+  const cursorCandidates: Array<unknown> =
+    getProjectChatBootPointerCandidates();
   for (const candidate of cursorCandidates) {
     if (!isFinitePoint(candidate)) {
       continue;

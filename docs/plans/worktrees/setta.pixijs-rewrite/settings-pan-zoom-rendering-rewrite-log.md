@@ -7578,3 +7578,41 @@ Record:
     - representative successful requests included `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/getFileBrowserRoot`, and `POST /api/setTopLevelSectionLayout`
 - Next action:
   - Treat the section-store boundary lane as materially improved and move the next iteration to the remaining shared event/task/presentation floor, starting with `handlePointerDown` in `frontend/src/components/Pages/Project/UiPage.tsx` or another freshly measured shared-floor suspect instead of reopening this boundary.
+
+## 2026-03-29 241
+
+- Item: Move project-chat boot pointer tracking off `useMisc` and re-measure the live Pixi generic value-row handoff.
+- Status: `done`
+- Details:
+  - Chose the `UiPage.tsx` shared pointer floor from item `240` instead of reopening a completed seam-lift lane.
+  - Added a dedicated ephemeral pointer cache for project-chat boot positioning:
+    - `frontend/src/state/actions/projectChatWindowingPointerTracking.ts`
+    - `frontend/src/state/actions/projectChatWindowingPointerTracking.test.ts`
+  - Moved the global document `pointerdown` / `pointerup` tracking in `UIPage` off the reactive misc store:
+    - `frontend/src/components/Pages/Project/UiPage.tsx`
+    - `frontend/src/state/definitions.ts`
+    - `frontend/src/state/utils.ts`
+  - Updated the chat-window boot path to read cursor candidates from the dedicated cache while keeping the existing pane-click fallback and source-window anchoring behavior:
+    - `frontend/src/state/actions/projectChatWindowing.ts`
+    - `frontend/src/state/actions/projectChatWindowing.test.ts`
+    - `frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts`
+  - Recorded the before/after live-canary probe in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-project-chat-pointer-cache-probe.md`
+  - Perf result on the live Pixi `defaultZoomLevel` handoff:
+    - fresh pre-change baseline in this iteration: `INP 57 ms` (`input 4 ms`, `processing 1 ms`, `presentation 51 ms`)
+    - post-change follow-up: `INP 48 ms` (`input 10.8 ms`, `processing 6.6 ms`, `presentation 30.6 ms`)
+    - the main gain was lower presentation cost after removing the hot pointer writes from the reactive misc store
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/projectChatWindowingPointerTracking.test.ts src/state/actions/projectChatWindowing.test.ts`
+      - result: passed (`47 passed`)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/overview/project-ai/project-chat-bottom-dock.spec.ts --grep "project chat move-to-canvas anchors new canvas chats to the visible source window instead of the last cursor point|project chat move-to-canvas keeps the project-ai surface and the source window size"`
+      - result: passed (`2 passed`)
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "value-row DOM editor overlay"`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual/perf checks in fresh sub-agent contexts on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - baseline: `defaultZoomLevel` overlay opened correctly with `INP 57 ms`
+    - post-change: overlay still opened cleanly, the scene stayed mounted, no obvious blanking/clipping appeared, and the short trace improved to `INP 48 ms`
+- Next action:
+  - Keep moving down the remaining shared event/layout floor from the live Pixi canary, with the next bounded probe or fix aimed at the generic layout/reflow path surfaced by DevTools instead of restoring more data to `useMisc`.

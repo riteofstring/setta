@@ -2031,10 +2031,15 @@ test("project chat move-to-canvas anchors new canvas chats to the visible source
       getExpectedClampedScreenOrigin(sourceWindowBox, canvasRect),
     );
     await page.evaluate(async (cursorPoint) => {
+      const { setProjectChatBootPointerLocations } = await import(
+        "/src/state/actions/projectChatWindowingPointerTracking.ts"
+      );
       const { useMisc } = await import("/src/state/definitions.ts");
+      setProjectChatBootPointerLocations({
+        lastPointerDownLocation: cursorPoint,
+        lastPointerUpLocation: cursorPoint,
+      });
       useMisc.setState({
-        lastMouseDownLocation: cursorPoint,
-        lastMouseUpLocation: cursorPoint,
         lastPaneClickLocation: { x: 0, y: 0 },
       });
     }, insideCursorPoint);
@@ -2606,10 +2611,15 @@ test("project chat move-to-canvas keeps the project-ai surface and the source wi
       throw new Error("Unable to find a point outside the react-flow canvas.");
     }
     await page.evaluate(async (cursorPoint) => {
+      const { setProjectChatBootPointerLocations } = await import(
+        "/src/state/actions/projectChatWindowingPointerTracking.ts"
+      );
       const { useMisc } = await import("/src/state/definitions.ts");
+      setProjectChatBootPointerLocations({
+        lastPointerDownLocation: cursorPoint,
+        lastPointerUpLocation: cursorPoint,
+      });
       useMisc.setState({
-        lastMouseDownLocation: cursorPoint,
-        lastMouseUpLocation: cursorPoint,
         lastPaneClickLocation: { x: 0, y: 0 },
       });
     }, outsideCursorPoint);

@@ -6,7 +6,11 @@ import ReactFlow from "forks/xyflow/core/container/ReactFlow";
 import "forks/xyflow/core/styles/style.css";
 import { useEffect, type ComponentType } from "react";
 import { attachKeyEventListeners } from "state/actions/keyActivations";
-import { useLocalStorage, useMisc } from "state/definitions";
+import {
+  recordProjectChatPointerDownLocation,
+  recordProjectChatPointerUpLocation,
+} from "state/actions/projectChatWindowingPointerTracking";
+import { useLocalStorage } from "state/definitions";
 import { syncLiveDictAreaInteractionModeFromSearch } from "../../Section/Layouts/liveDictAreaInteractionMode";
 import { syncLiveDictAreaRendererModeFromSearch } from "../../Section/Layouts/liveDictAreaRendererMode";
 import "./react-flow-css.css";
@@ -64,15 +68,17 @@ function useInitGlobalKeyEventListeners() {
 
 function useLastMouseDownMouseUpLocation() {
   useEffect(() => {
-    const handlePointerDown = (e) => {
-      useMisc.setState({
-        lastMouseDownLocation: { x: e.clientX, y: e.clientY },
+    const handlePointerDown = (event: PointerEvent) => {
+      recordProjectChatPointerDownLocation({
+        x: event.clientX,
+        y: event.clientY,
       });
     };
 
-    const handlePointerUp = (e) => {
-      useMisc.setState({
-        lastMouseUpLocation: { x: e.clientX, y: e.clientY },
+    const handlePointerUp = (event: PointerEvent) => {
+      recordProjectChatPointerUpLocation({
+        x: event.clientX,
+        y: event.clientY,
       });
     };
 
