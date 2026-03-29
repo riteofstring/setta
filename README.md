@@ -27,6 +27,12 @@ Default setup:
 ./scripts/run-dev-instance.sh
 ```
 
+Refresh dependency lockfiles explicitly when dependency manifests change:
+
+```sh
+./update_dependencies.sh
+```
+
 Common commands:
 
 - `./scripts/go.sh test ./... -count=1` or `./scripts/run_go_tests.sh`
@@ -43,6 +49,9 @@ or packaging flows:
 . ./dev_install_python.sh
 source activate.sh
 ```
+
+`dev_install.sh` and `dev_install_python.sh` use frozen installs and should not
+rewrite lockfiles.
 
 ## Packaging boundary
 

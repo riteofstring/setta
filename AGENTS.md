@@ -30,7 +30,9 @@
 
 - Prefer `./start.sh`, `./reset.sh`, and `./ai.sh` for the high-level source-checkout dev loop. For exact script behavior, use `docs/guides/dev-scripts.md`.
 - `dev_install.sh` is the default Go-first local setup. `dev_install_python.sh` is opt-in for Python/package tooling, packaging flows, and Python tests/formatting/generation.
+- `dev_install.sh` and `dev_install_python.sh` must not rewrite dependency lockfiles; use `./update_dependencies.sh` for explicit Python/pnpm lock refreshes.
 - The default source-checkout dev loop does not require Python activation. For Python/package tooling, use `source activate.sh && <command>`.
+- Pin all checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests. Keep the corresponding lockfiles committed and current so Python and Node transitive resolutions stay pinned.
 - Run Go through `./scripts/go.sh`; do not assume the pinned toolchain is on `PATH`.
 - Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
 - Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh`, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.

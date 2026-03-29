@@ -16,6 +16,12 @@ If you also need the Python SDK/package tooling in this checkout:
 . ./dev_install_python.sh
 ```
 
+If you changed dependency manifests and need to refresh lockfiles on purpose:
+
+```bash
+./update_dependencies.sh
+```
+
 Run the default dev instance without browser MCP:
 
 ```bash

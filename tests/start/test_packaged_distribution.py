@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -127,6 +128,49 @@ def _build_wheel(project_root: Path, outdir: Path) -> subprocess.CompletedProces
         text=True,
         check=False,
     )
+
+
+def _install_editable(project_root: Path, venv_python: Path) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [str(venv_python), "-m", "pip", "install", "--no-deps", "-e", str(project_root)],
+        cwd=project_root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_editable_install_does_not_require_packaged_go_binaries(tmp_path: Path) -> None:
+    project_root = _write_minimal_distribution_project(
+        tmp_path,
+        include_go_binaries=False,
+    )
+    for relative_path in (
+        "backend/setta/static/frontend",
+        "backend/setta/vendor/node",
+        "backend/setta/plugins/schemas",
+        "backend/setta/launcher_artifacts/assets",
+        "backend/setta/go_bin",
+    ):
+        shutil.rmtree(project_root / relative_path)
+    venv_root = tmp_path / "editable-venv"
+
+    subprocess.run(
+        [sys.executable, "-m", "venv", str(venv_root)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    venv_python = (
+        venv_root / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else venv_root / "bin" / "python"
+    )
+
+    result = _install_editable(project_root, venv_python)
+
+    combined_output = f"{result.stdout}\n{result.stderr}"
+    assert result.returncode == 0, combined_output
 
 
 def test_wheel_build_requires_packaged_go_binaries(tmp_path: Path) -> None:

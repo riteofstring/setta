@@ -63,13 +63,24 @@ Use these first for day-to-day work.
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop default local setup (Go toolchain readiness + frontend deps + sidecars).
+  - One-stop default local setup (Go toolchain readiness + frozen frontend deps + frozen sidecars).
 - `./dev_install_python.sh`
-  - Opt-in setup for Python tooling, then runs the default local dev install.
+  - Opt-in setup for Python tooling with a frozen `uv` sync, then runs the default local dev install.
+- `./update_dependencies.sh`
+  - Explicit dependency refresh path for Python and pnpm lockfiles.
+  - Runs `uv lock --upgrade` with the repo release-age policy, strips the transient `uv` cutoff metadata from `uv.lock`, syncs the Python env, then refreshes both pnpm lockfiles and installs from them.
 - `./init_env.sh`
-  - Creates/updates the Python environment.
-  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync` with
-    explicit `source` and `dev` extras for repo workflows.
+  - Checks that `uv.lock` is current, then syncs the Python environment without rewriting the lockfile.
+  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync --frozen` with explicit `source` and `dev` extras for repo workflows.
+  - When `supply_chain_policy.env` is present, also verifies the locked Python artifacts are at least the configured age.
+- `./audit_supply_chain.sh`
+  - Runs `pip-audit`, `govulncheck`, a Go module release-age check, and `pnpm audit` for both `frontend/` and the sidecar package.
+  - Uses `supply_chain_policy.env` when present; defaults to a 7-day minimum release age otherwise.
+- `./configure_supply_chain.sh`
+  - Updates the dependency release-age policy.
+  - `--local-only` (default) updates `supply_chain_policy.env` plus the repo-local pnpm configs under `frontend/` and the sidecar package.
+  - `--global` updates user-level `npm` and `pnpm` config instead.
+  - `--days N` changes the minimum package age.
 
 ## Layer 2: Repo `scripts/` helpers
 
@@ -161,6 +172,7 @@ Useful when you need to debug a specific subsystem.
 ## Notes
 
 - **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
+- **Supply-chain policy**: `supply_chain_policy.env` is the repo-local minimum release age policy used by `init_env.sh`, `update_dependencies.sh`, and `audit_supply_chain.sh`. Current `uv` only supports an absolute `--exclude-newer` cutoff and persists that cutoff into `uv.lock`, so the repo uses `--exclude-newer` only during explicit lock refreshes and enforces the rolling age policy during installs/audits with `scripts/check_uv_lock_release_age.py`. Go does not expose a native install-time minimum-age setting, so Go age enforcement is audit-only.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
 - **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).

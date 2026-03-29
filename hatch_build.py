@@ -10,8 +10,18 @@ class SettaWheelBuildHook(BuildHookInterface):
     PLUGIN_NAME = "setta-wheel"
 
     def initialize(self, version: str, build_data: dict[str, Any]) -> None:
-        del version
         if self.target_name != "wheel":
+            return
+
+        if version == "editable":
+            # Source-checkout editable installs should not depend on packaged
+            # wheel assets that are staged only for release builds. Hatchling
+            # falls back to the normal force-include map when
+            # force_include_editable is empty, so seed it with a harmless file.
+            build_data["force_include"] = {}
+            build_data["force_include_editable"] = {
+                str(Path(self.root) / "LICENSE"): "_setta_editable/LICENSE"
+            }
             return
 
         self._require_packaged_go_binaries()
