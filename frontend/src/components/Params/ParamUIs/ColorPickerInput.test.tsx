@@ -3,14 +3,21 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ColorPickerInput } from "./ColorPickerInput";
 
-let host: HTMLDivElement;
-let root: Root;
-
 describe("ColorPickerInput", () => {
+  let host: HTMLDivElement;
+  let root: Root;
+  let originalResizeObserver: typeof globalThis.ResizeObserver | undefined;
+
   beforeEach(() => {
+    originalResizeObserver = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -21,30 +28,49 @@ describe("ColorPickerInput", () => {
       root.unmount();
     });
     host.remove();
-    document.body.innerHTML = "";
+    globalThis.ResizeObserver = originalResizeObserver;
   });
 
-  it("can auto-open the popup color-choice menu on mount", async () => {
+  it("opens color choices and commits the selected color", async () => {
+    const onChange = vi.fn();
+    const onCommit = vi.fn();
+
     await act(async () => {
       root.render(
         <ColorPickerInput
           colorChoices={[
-            { color: "#ff0000", description: "Red" },
-            { color: "#00ff00", description: "Green" },
+            { color: "#ef4444", description: "Red" },
+            { color: "#3b82f6", description: "Blue" },
           ]}
-          colorPickerChoicesClasses="flex"
-          onChange={() => {}}
-          shouldAutoOpenOnMount={true}
-          value={JSON.stringify("#ff0000")}
-          wrapperClassName="flex"
+          value="#ef4444"
+          onChange={onChange}
+          onCommit={onCommit}
+          wrapperClassName="h-8 w-36"
+          colorPickerChoicesClasses="flex h-8 w-36 items-center rounded-lg"
         />,
       );
     });
 
-    const menuItems = document.body.querySelectorAll("[role='menuitem']");
-    expect(menuItems).toHaveLength(2);
-    expect(
-      Array.from(menuItems).map((item) => item.textContent?.trim()),
-    ).toEqual(["Red", "Green"]);
+    const trigger = host.querySelector(
+      'button[aria-haspopup="listbox"]',
+    ) as HTMLButtonElement | null;
+    expect(trigger).not.toBeNull();
+
+    await act(async () => {
+      trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    const blueOption = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="option"]'),
+    ).find((element) => element.textContent?.includes("Blue"));
+    expect(blueOption).toBeTruthy();
+
+    await act(async () => {
+      blueOption?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onChange).toHaveBeenCalledWith("#3b82f6");
+    expect(onCommit).toHaveBeenCalledWith("#3b82f6");
+    expect(document.querySelector('[role="listbox"]')).toBeNull();
   });
 });
