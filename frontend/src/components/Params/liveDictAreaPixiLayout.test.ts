@@ -77,9 +77,9 @@ describe("buildLiveDictAreaPixiLayout", () => {
       "Pinned Params",
       "Params",
     ]);
-    expect(result.paramAreas[0]?.rows.map((row) => row.kindTag)).toEqual([
-      "Group",
-      null,
+    expect(result.paramAreas[0]?.rows.map((row) => row.labelText)).toEqual([
+      "Pinned Group",
+      "Pinned Value",
     ]);
     expect(result.paramAreas[1]?.height).toBeGreaterThanOrEqual(96);
   });

@@ -23,7 +23,6 @@ export const LIVE_DICT_AREA_PIXI_LAYOUT = {
 
 export type LiveDictAreaPixiRowLayout = ParamSceneRowPacket & {
   blockHeight: number;
-  kindTag: "Group" | "Placeholder" | null;
   labelText: string;
   labelX: number;
   width: number;
@@ -289,12 +288,6 @@ function buildLiveDictAreaPixiRowLayout({
   return {
     ...row,
     blockHeight: LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight - 4,
-    kindTag:
-      row.kind === "group"
-        ? "Group"
-        : row.kind === "placeholder"
-          ? "Placeholder"
-          : null,
     labelText: row.label ?? "Placeholder",
     labelX: x + LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2,
     width,

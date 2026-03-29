@@ -8369,3 +8369,33 @@ Record:
     - no separate `main` reference settings tab was available, so this remained a single-surface visual check
 - Next action:
   - Continue the live Pixi visual-stability lane by either running the side-by-side `main` comparison when a reference settings tab is available, or landing the next bounded token-parity fix on the canary chrome/colors instead of returning to forwarding seam lifts.
+
+## 2026-03-29 259
+
+- Item: Remove the remaining unused live Pixi row-kind badge packet from the committed row-layout surface.
+- Status: `done`
+- Details:
+  - The broader DOM-sampled text-token slice was already recorded in the log, but the checked repo state still carried one unused `kindTag` field on `LiveDictAreaPixiRowLayout`.
+  - Landed the remaining bounded cleanup needed to make the committed layout surface match the already-logged canary contract:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+  - The Pixi row layout now:
+    - drops the unused `kindTag` packet entirely instead of carrying stale `Group` / `Placeholder` chrome metadata through the scene row shape
+    - keeps the row label text as the only text payload consumed by the current Pixi row renderer
+    - aligns the layout packet surface with the earlier visual check that confirmed no extra row-kind badge text is drawn in the normalized `100%` canary viewport
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`14 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host|rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - `All Settings` was open in headed Chrome with populated settings rows/body content visible at normalized `100%` zoom
+    - no stale `Group` or `Placeholder` badge text was visible as extra chrome in the checked viewport
+    - representative authenticated requests returned `200`, including `GET /api/getFileBrowserRoot` and `GET /api/getFolderContents`
+- Next action:
+  - Continue the live Pixi visual-stability lane from the cleaned row-layout surface by running the named side-by-side `main` comparison when a reference settings tab is available, or by landing the next bounded token-parity fix on canary chrome/colors.
