@@ -6,16 +6,6 @@
 - Treat `backend/setta/` as the Python package surface for CLI dispatch, source SDKs, packaging, and shipped assets.
 - If a Python file outside that package surface looks unused, prove the surviving caller or replacement owner before deleting it.
 
-## Go-Backed Python
-
-- Distinguish `Go-owned Python types` from `Go-backed Python`:
-- `Go-owned Python types` means Python consumes generated Go-owned contracts/models instead of handwritten Python schema mirrors.
-- `Go-backed Python` means that when the retained Python SDK needs canonical Setta behavior locally, Python should delegate that work to Go, either through the running backend or through the `setta sdk-local-core` subprocess path.
-- Do not treat “the Python model is generated from Go” as proof that the behavior is already Go-backed.
-- Canonical validation, derived metadata, and correctness-sensitive local runtime behavior should not stay implemented in handwritten Python just because Python has the data locally.
-- Python should keep ergonomic helper behavior: transport/session glue, context managers, callback scheduling, iterators, friendly lookup/builders, and other read-only convenience layers over authoritative Go-owned contracts.
-- If Python is only parsing backend-authored payloads or using generated contracts as DTOs, that does not by itself require a local Go subprocess call.
-
 ## Project Structure & Module Organization
 
 - `cmd/` contains the active Go entrypoints (`setta`, `setta-server`, generators, test seeders).
@@ -25,6 +15,16 @@
 - `setta_files/` stores runtime metadata created by the app; it is gitignored and should not be committed. Keep only canonical fixtures under version control elsewhere and wipe local noise before committing.
 - Root scripts such as `build.sh`, `build_and_upload.sh`, and `format_code.sh` orchestrate packaging, publishing, and formatting; keep them executable after edits.
 - Go tests live alongside the packages they cover under `cmd/*` and `internal/*`. The `tests/` directory is for Python/package pytest coverage; do not nest suites under `tests/setta`.
+
+## Go-Backed Python
+
+- Distinguish `Go-owned Python types` from `Go-backed Python`:
+- `Go-owned Python types` means Python consumes generated Go-owned contracts/models instead of handwritten Python schema mirrors.
+- `Go-backed Python` means that when the retained Python SDK needs canonical Setta behavior locally, Python should delegate that work to Go, either through the running backend or through the `setta sdk-local-core` subprocess path.
+- Do not treat “the Python model is generated from Go” as proof that the behavior is already Go-backed.
+- Canonical validation, derived metadata, and correctness-sensitive local runtime behavior should not stay implemented in handwritten Python just because Python has the data locally.
+- Python should keep ergonomic helper behavior: transport/session glue, context managers, callback scheduling, iterators, friendly lookup/builders, and other read-only convenience layers over authoritative Go-owned contracts.
+- If Python is only parsing backend-authored payloads or using generated contracts as DTOs, that does not by itself require a local Go subprocess call.
 
 ## Dev Workflow
 
@@ -55,28 +55,6 @@
 - Use `docs/reference/ui-style-consistency.md` as the canonical style anchor map for UI work.
 - Do not default to adding borders around every UI container or row. Add borders only when they convey clear structure, hierarchy, or interaction affordance.
 
-## Testing & Verification
-
-- Default workflow: think, plan, write tests, implement, then run tests. Update tests as the approach evolves.
-- Do not skip tests broadly. Missing deps/capabilities should usually fail loudly; any skip should be narrow, documented, and justified.
-- Frontend unit/integration tests live beside the code as `*.test.tsx`; frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts`.
-- UI changes require chrome-devtools-mcp visual verification. When relevant Playwright coverage exists or should exist, add or update it and run it.
-- Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` and follow `docs/guides/verification-checklist.md`.
-- Never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself; if CDP access is needed, the developer starts it.
-- Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
-- Add Go tests beside the backend owner when changing runtime behavior; add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.
-- Treat frontend performance testing as first-class. Prefer automated guardrails, and use chrome-devtools-mcp for deeper profiling when needed.
-- Do not add generator drift tests that only rerun generators/formatters and compare checked-in artifacts against current output.
-- Tests must not rely on existing files in `setta_files`; use temporary directories instead.
-- Tests must never mutate real git history in this repo or any non-disposable developer worktree.
-- Tests should reflect production behavior. Do not add mocks, fakes, dummy classes, cast tricks, tautological tests, or production-only code paths added solely to ease tests.
-
-## Project State access style
-
-- Prefer a hard `KeyError` instead of hiding problems via `project_state.some_dict.get(key)`.
-- Make existence checks explicit instead of relying on bare dict access for side effects.
-- When a section impl or code obj impl must be a specific type, use the helper getters ending with `with_type_guard`.
-
 ## Endpoints
 
 - Backend and frontend endpoint functions should have the exact same name.
@@ -94,9 +72,26 @@
 - Regenerate whenever editing files under `frontend/generation/`.
 - Don't manually edit files in `backend/setta/types/generated`; they are generated outputs.
 
+## Testing & Verification
+
+- Default workflow: think, plan, write tests, implement, then run tests. Update tests as the approach evolves.
+- Do not skip tests broadly. Missing deps/capabilities should usually fail loudly; any skip should be narrow, documented, and justified.
+- Frontend unit/integration tests live beside the code as `*.test.tsx`; frontend E2E tests live under `frontend/tests/e2e/` as Playwright `*.spec.ts`.
+- UI changes require chrome-devtools-mcp visual verification. When relevant Playwright coverage exists or should exist, add or update it and run it.
+- Before using chrome-devtools-mcp, read `docs/guides/browser-mcp-quickstart.md` and follow `docs/guides/verification-checklist.md`.
+- Never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself; if CDP access is needed, the developer starts it.
+- Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
+- Add Go tests beside the backend owner when changing runtime behavior; add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.
+- Treat frontend performance testing as first-class. Prefer automated guardrails, and use chrome-devtools-mcp for deeper profiling when needed.
+- Do not add generator drift tests that only rerun generators/formatters and compare checked-in artifacts against current output.
+- Tests must not rely on existing files in `setta_files`; use temporary directories instead.
+- Tests must never mutate real git history in this repo or any non-disposable developer worktree.
+- Tests should reflect production behavior. Do not add mocks, fakes, dummy classes, cast tricks, tautological tests, or production-only code paths added solely to ease tests.
+
 ## Safety & Robustness
 
 - Do not add `try/except` or `try/catch` blocks unless absolutely necessary.
+- Prefer failing loudly and specifically over failing silently or mysteriously. From a UX perspective, it is better to know that something failed and what the actual failure was than to hide it behind broad exception handling or fallback behavior.
 - Avoid over-defensive code and endless safety checks.
 - Solutions must not rely on fake estimates or brittle keyword matching when a standardized source-of-truth pathway exists.
 - Prefer provider/runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields over heuristics.
