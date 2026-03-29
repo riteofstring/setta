@@ -8,39 +8,41 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 ## Current status
 
-- Latest terminal loop status: `SUBTASK_DONE`
-- Current gate focus: Gate 2 still belongs to the low-zoom tiny-card/right-column preview drift versus `main`, but the focused shared-runtime compare blocker from the last iteration is now resolved and should not be reopened by default.
-- This iteration closed the compare-surface blocker in the E2E canary itself:
-  - in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, added `expectSharedPageRuntimeSectionWithoutDomContextLost()` so the shared-runtime guards assert the target section stays managed, Pixi-backed, and free of per-section DOM fallback without relying on unrelated global `runtime.contextLost`
-  - updated every `shared page runtime without dom-context-lost` canary in that file to use the new helper instead of duplicating brittle string assertions
-  - relaxed `expectFocusedSectionCompareSurface()` to require a centered, fully visible section with non-zero bounds instead of a fixed viewport-percentage minimum size that the real focused `browserSectionDefault` surface no longer satisfies
+- Latest terminal loop status: `REPLAN_REQUIRED`
+- Current gate focus: Gate 2 still belongs to the low-zoom tiny-card/right-column preview drift versus `main`, and this iteration did not find a safe production fix worth landing.
+- This iteration intentionally leaves the source tree on the pre-iteration renderer baseline after rejecting two production hypotheses:
+  - a temporary tiny-card low-zoom glyph thickening pass in `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+  - a temporary measured-logical-scale shared-runtime pass in `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx` that derived per-scene scale from `sceneBounds.width|height / logicalWidth|logicalHeight`
+- Additional blocker evidence gathered this iteration:
+  - a live DOM probe that raised the shared page-runtime host from `z-0` back to `z-[4]` did not materially change the blank/header-only tiny-card surface, so item `414` host stacking is not the primary cause of the remaining drift
+  - the measured-scale shared-runtime patch passed focused Vitest coverage but the refreshed live worktree screenshot still showed the same header-only tiny cards while `main` kept populated row/value previews
 - Conclusion:
-  - do not reopen the focused compare blocker on the old `runtime.contextLost === true` expectation
-  - do not restore the old minimum height/width readiness threshold; it rejects the real focused compare surface that the exact `fitView(..., padding: 0.2)` flow produces
+  - do not keep iterating on low-zoom alpha/width thresholds or one-line shared-runtime scale tweaks without a deeper plan
+  - the next step needs a real replan or deeper instrumentation on the shared tiny-card draw path rather than another speculative renderer patch
 
 ## Recent evidence
 
-- Focused Playwright slice after the assertion cleanup:
-  - command:
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3088/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'shared page runtime without|share the same visible canvas section slice after frontend viewport clear'`
-  - result:
-    - passed (`19 passed`, about `8.7m`)
-- Formatting check:
-  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
-    - result: passed
-- Fresh-context CDP visual check:
-  - result: done
-  - worktree `/settings` with the exact `fitView({ duration: 0, nodes: [{ id: sectionId }], padding: 0.2 })` flow:
-    - `browserSectionDefault` found, fully visible, effectively centered (`horizontalCenterOffset ~= 0`, `verticalCenterOffset = 0`)
-  - main `/settings` with the same raw exact `fitView(...)` flow:
-    - `browserSectionDefault` found and fully visible, but still left-shifted (`horizontalCenterOffset ~= 147.5px`) with `callableSectionDefault` remaining visible on the right
-  - implication:
-    - the readiness helper must stay tolerant of the raw `main` fitView offset; the later compare assertions already sync the main viewport to the canary viewport before judging direct bounds parity
+- Rejected measured-scale production patch:
+  - temporary files touched and reverted before finish:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+  - focused verification while the patch was applied:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`20 passed`)
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+  - live visual result:
+    - refreshed worktree screenshot still showed the same header-only low-zoom tiny cards; no trustworthy improvement versus `main`
+- Same-state screenshot evidence used for the rejection:
+  - `main`: `/tmp/setta-main-crop.png`
+    - populated row/value previews remain visible inside the tiny cards
+  - worktree after the rejected patch: `/tmp/setta-ztest-crop.png`
+    - tiny cards still read as header-only dark bodies
 
 ## Immediate next frontier
 
-- Return to the product lane from items `400`, `402`, and `417`.
-- Use the trusted same-state compare path to pick the next concrete low-zoom tiny-card/right-column preview drift versus `main`; avoid another compare-surface harness slice unless a new blocker appears that cannot be resolved inside the production renderer path.
+- Stop the automatic iteration lane here and replan the shared tiny-card renderer investigation.
+- The next attempt should start from a new plan or deeper instrumentation for the shared page-runtime/top-level tiny-card draw path rather than another harness tweak, alpha tweak, or one-line bounds/scale tweak.
 
 ## Durable completed work
 
@@ -50,6 +52,6 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 ## History pointers
 
 - Active history window: items `400` through `418`
-- Latest item: `2026-04-01 418`
+- Latest item: `2026-04-01 419`
 - Prior product slice: `2026-04-01 403`
 - Older detail before item `400`: use the history index to find the relevant archive file

@@ -70,6 +70,51 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 419
+
+- Item: Test and reject another shared-runtime tiny-card renderer hypothesis after the trusted same-state compare stayed header-only versus `main`.
+- Status: `replan_required`
+- Details:
+  - Stayed on the Gate 2 product lane from items `400`, `402`, and `417`; no production source changes survive this iteration.
+  - Trusted same-state screenshot evidence remained the same before any code was kept:
+    - `main` tiny cards (`/tmp/setta-main-crop.png`) still show populated row/value previews
+    - worktree tiny cards (`/tmp/setta-ztest-crop.png`) still read as header-only dark bodies
+  - Ruling out the simplest live-stacking suspicion:
+    - a fresh live DOM probe temporarily changed the shared page-runtime host class from `z-0` back to `z-[4]`
+    - result: no material visual change on the tiny-card surface, so item `414` host stacking is not the primary cause of the remaining drift
+  - Rejected production experiment 1 in the same iteration:
+    - temporary low-zoom tiny-card glyph thickening/contrast changes in `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - focused scene/unit verification while applied:
+      - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts`
+        - result: passed
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+        - result: passed after formatting
+    - live result:
+      - refreshed worktree screenshots remained header-only on the tiny-card surface, so the glyph pass was reverted before finish
+  - Rejected production experiment 2 in the same iteration:
+    - temporary shared-runtime per-scene measured-scale patch in:
+      - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+      - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - hypothesis:
+      - derive each managed scene scale from `sceneBounds.width|height / logicalWidth|logicalHeight` instead of assuming raw `viewportZoom`
+    - focused verification while applied:
+      - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+        - result: passed (`20 passed`)
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+        - result: passed
+    - live result:
+      - refreshed worktree screenshots still showed the same header-only tiny cards, so the measured-scale patch was also reverted before finish
+  - Final tree state:
+    - only the durable handoff/history docs change in this iteration
+    - the renderer source tree remains at the pre-iteration baseline because neither production hypothesis proved out visually
+- Conclusion:
+  - two consecutive production hypotheses for the same low-zoom tiny-card/shared-runtime blocker have now failed (`417` logical-space bounds, `419` glyph + measured-scale probes)
+  - the next step should not be another one-line threshold/scale tweak; this lane now needs a human replan or a deeper instrumentation plan for the shared tiny-card draw path
+- Next action:
+  - stop the automatic loop and replan the shared page-runtime tiny-card investigation before more production-code churn
+
+LOOP_TERMINAL_MARKER: replan_required
+
 ## 2026-04-01 401
 
 - Item: Harden the headless CDP lifecycle so live DevTools access fails fast instead of stalling on stale browser state.
