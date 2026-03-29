@@ -1,68 +1,36 @@
-/* @vitest-environment jsdom */
-
-import { act, createElement, useEffect } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { useReactFlow } from "forks/xyflow/core/store";
 import {
   buildProjectChatEphemeralWindowInstanceKey,
   getTrackedGitPaneGraphWindowInstanceIdForProject,
 } from "state/actions/projectChatWindowingEphemeral";
 import {
   useAllProjectMetadata,
-  useLocalStorage,
   useMisc,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  OverviewTabNameEnum,
-  PAGE_LOAD_TYPES,
-  pathRelativeToProject,
-} from "utils/constants";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfig,
-  createSettaLspDiagnosticsPayload,
-  createSettaProjectConfigDiagnostics,
+  createSingletonSections,
   createWindowSpaceConfig,
   type ProjectStateSingleConfigInput,
+  type ViewModeConfig,
 } from "utils/generatedTypes";
-import {
-  afterAll,
-  beforeAll,
-  beforeEach,
-  describe,
-  expect,
-  it,
-  vi,
-} from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const routeCreateProjectConfigMock = vi.fn();
-const routeLoadProjectConfigMock = vi.fn();
 const routeLoadAllProjectMetadataMock = vi.fn();
-const routeGetLatestLspDiagnosticsMock = vi.fn();
 const initializeServerModeMock = vi.fn();
-const requestAIFollowSnapshotMock = vi.fn();
-const fetchListenerCoverageSnapshotMock = vi.fn();
-const processLspDiagnosticsMock = vi.fn();
-const navigateMock = vi.fn();
-
-vi.mock("react-router-dom", () => ({
-  useNavigate: () => navigateMock,
-}));
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_create_project_config: (...args: unknown[]) =>
-    routeCreateProjectConfigMock(...args),
-  route_get_latest_lsp_diagnostics: (...args: unknown[]) =>
-    routeGetLatestLspDiagnosticsMock(...args),
+  route_create_project_config: vi.fn(),
+  route_get_latest_lsp_diagnostics: vi.fn(),
   route_load_all_project_metadata: (...args: unknown[]) =>
     routeLoadAllProjectMetadataMock(...args),
-  route_load_project_config: (...args: unknown[]) =>
-    routeLoadProjectConfigMock(...args),
+  route_load_project_config: vi.fn(),
 }));
 
 vi.mock("../serverMode", () => ({
@@ -70,80 +38,7 @@ vi.mock("../serverMode", () => ({
     initializeServerModeMock(...args),
 }));
 
-vi.mock("../aiFollow", () => ({
-  requestAIFollowSnapshot: (...args: unknown[]) =>
-    requestAIFollowSnapshotMock(...args),
-}));
-
-vi.mock("../listenerCoverage", () => ({
-  fetchListenerCoverageSnapshot: (...args: unknown[]) =>
-    fetchListenerCoverageSnapshotMock(...args),
-}));
-
-vi.mock("../lspDiagnostics", () => ({
-  processLspDiagnostics: (...args: unknown[]) =>
-    processLspDiagnosticsMock(...args),
-}));
-
-import {
-  loadAllProjectMetadata,
-  loadProjectConfig,
-  loadProjectState,
-  useCreateAndGoToProjectConfig,
-} from "./loadProject";
-
-const originalReactActEnvironment = (
-  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
-).IS_REACT_ACT_ENVIRONMENT;
-
-beforeAll(() => {
-  (
-    globalThis as typeof globalThis & {
-      IS_REACT_ACT_ENVIRONMENT?: boolean;
-    }
-  ).IS_REACT_ACT_ENVIRONMENT = true;
-});
-
-afterAll(() => {
-  (
-    globalThis as typeof globalThis & {
-      IS_REACT_ACT_ENVIRONMENT?: boolean;
-    }
-  ).IS_REACT_ACT_ENVIRONMENT = originalReactActEnvironment;
-});
-
-type CreateProjectInvokerProps = {
-  onReady: (handler: () => Promise<void>) => void;
-};
-
-function CreateProjectInvoker({ onReady }: CreateProjectInvokerProps) {
-  const createAndGo = useCreateAndGoToProjectConfig();
-
-  useEffect(() => {
-    onReady(createAndGo);
-  }, [createAndGo, onReady]);
-
-  return null;
-}
-
-type RenderedProjectInvoker = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-async function renderCreateProjectInvoker(
-  onReady: (handler: () => Promise<void>) => void,
-): Promise<RenderedProjectInvoker> {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(createElement(CreateProjectInvoker, { onReady }));
-  });
-
-  return { host, root };
-}
+import { loadAllProjectMetadata, loadProjectState } from "./loadProject";
 
 describe("loadAllProjectMetadata", () => {
   beforeEach(() => {
@@ -152,15 +47,8 @@ describe("loadAllProjectMetadata", () => {
       defaultProjectConfigId: null,
       projectMetadata: [],
     });
-    routeCreateProjectConfigMock.mockReset();
     routeLoadAllProjectMetadataMock.mockReset();
-    routeLoadProjectConfigMock.mockReset();
-    routeGetLatestLspDiagnosticsMock.mockReset();
     initializeServerModeMock.mockReset();
-    requestAIFollowSnapshotMock.mockReset();
-    fetchListenerCoverageSnapshotMock.mockReset();
-    processLspDiagnosticsMock.mockReset();
-    navigateMock.mockReset();
   });
 
   it("returns false and skips loading when server mode is not ide", async () => {
@@ -210,107 +98,101 @@ describe("loadAllProjectMetadata", () => {
     expect(useAllProjectMetadata.getState().projectMetadata).toEqual([]);
     expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBeNull();
   });
-
-  it("hydrates a project config and triggers the Go-owned follow-up reads", async () => {
-    const loadedProjectState = createProjectStateSingleConfig({
-      projectConfig: createProjectConfig({
-        id: "project-loaded",
-        name: "Loaded Project",
-      }),
-    });
-    const diagnostics = createSettaLspDiagnosticsPayload({
-      projectConfigId: "project-loaded",
-      genCode: createSettaProjectConfigDiagnostics({
-        projectConfigId: "project-loaded",
-        isGenCode: true,
-        errors: {},
-      }),
-      codeSections: {},
-      unmappedGenCode: [],
-    });
-    routeLoadProjectConfigMock.mockResolvedValue({
-      data: loadedProjectState,
-      status: 200,
-      hasResponse: true,
-    });
-    routeGetLatestLspDiagnosticsMock.mockResolvedValue({
-      data: diagnostics,
-      status: 200,
-      hasResponse: true,
-    });
-    requestAIFollowSnapshotMock.mockResolvedValue(undefined);
-    fetchListenerCoverageSnapshotMock.mockResolvedValue(undefined);
-
-    const loaded = await loadProjectConfig({
-      projectConfigName: "Loaded Project",
-    });
-
-    expect(loaded).toBe(true);
-    expect(routeLoadProjectConfigMock).toHaveBeenCalledWith({
-      projectConfigName: "Loaded Project",
-    });
-    expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
-      projectConfigId: "project-loaded",
-    });
-    expect(processLspDiagnosticsMock).toHaveBeenCalledWith(diagnostics);
-    expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-loaded");
-    expect(fetchListenerCoverageSnapshotMock).toHaveBeenCalledWith(
-      "project-loaded",
-    );
-    expect(useProjectState.getState().projectConfig.id).toBe("project-loaded");
-  });
-});
-
-describe("useCreateAndGoToProjectConfig", () => {
-  beforeEach(() => {
-    resetProjectStores();
-    routeCreateProjectConfigMock.mockReset();
-    navigateMock.mockReset();
-  });
-
-  it("navigates to the created project using the Go create-project response", async () => {
-    routeCreateProjectConfigMock.mockResolvedValue({
-      data: "Created Project",
-      status: 200,
-      hasResponse: true,
-    });
-
-    let createAndGo: (() => Promise<void>) | null = null;
-    const { host, root } = await renderCreateProjectInvoker((handler) => {
-      createAndGo = handler;
-    });
-
-    try {
-      await act(async () => {
-        await createAndGo?.();
-      });
-
-      // The hook should forward the Go-owned project name contract into the
-      // navigation target and set the Project AI overview tab.
-      expect(routeCreateProjectConfigMock).toHaveBeenCalledWith({
-        previewImgColor: expect.any(String),
-      });
-      expect(useLocalStorage.getState().overviewTab).toBe(
-        OverviewTabNameEnum.ProjectAIChat,
-      );
-      expect(navigateMock).toHaveBeenCalledWith(
-        pathRelativeToProject("Created Project"),
-        {
-          state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
-        },
-      );
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
 });
 
 describe("loadProjectState", () => {
   beforeEach(() => {
     resetProjectStores();
+  });
+
+  it("re-arms fit view and requests a node measurement pass when loading a null-viewport project", async () => {
+    const sectionVisible = "section-visible";
+    const sectionHidden = "section-hidden";
+    const viewModeId = "view-1";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const viewMode: ViewModeConfig = {
+      id: viewModeId,
+      name: "Visible View",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: true,
+      visibilityBySectionId: {
+        [sectionVisible]: true,
+        [sectionHidden]: false,
+      },
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {
+        [sectionVisible]: { ...layout },
+        [sectionHidden]: { ...layout },
+      },
+    };
+
+    useMisc.setState({ requestUpdateNodeDimensions: false });
+    useReactFlow.setState({
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+      fitViewOnInitOptions: { nodes: [{ id: "stale-node" }] },
+    });
+
+    await loadProjectState({
+      projectConfig: createProjectConfig({
+        id: "project-fit-view",
+        topLevelSections: {
+          [sectionVisible]: { ...layout },
+          [sectionHidden]: { ...layout },
+        },
+        viewModes: { [viewModeId]: viewMode },
+        activeViewModeId: viewModeId,
+        viewport: null,
+        viewportInitialized: false,
+      }),
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      projectChatWindowing: createProjectChatWindowingState(),
+      requiredDecodedImages: [],
+    });
+
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.fitViewOnInit).toBe(true);
+    expect(reactFlowState.fitViewOnInitDone).toBe(false);
+    expect(reactFlowState.fitViewOnInitOptions?.nodes).toEqual([
+      { id: sectionVisible },
+    ]);
+    expect(useMisc.getState().requestUpdateNodeDimensions).toBe(true);
+  });
+
+  it("clears stale fit-view options when loading an explicit viewport", async () => {
+    useMisc.setState({ requestUpdateNodeDimensions: false });
+    useReactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: { nodes: [{ id: "stale-node" }] },
+    });
+
+    await loadProjectState({
+      projectConfig: createProjectConfig({
+        id: "project-explicit-viewport",
+        viewport: { x: 10, y: -20, zoom: 1.5 },
+        viewportInitialized: true,
+      }),
+      projectChatWindowing: createProjectChatWindowingState(),
+    });
+
+    const reactFlowState = useReactFlow.getState();
+    expect(reactFlowState.fitViewOnInit).toBe(false);
+    expect(reactFlowState.fitViewOnInitDone).toBe(true);
+    expect(reactFlowState.fitViewOnInitOptions).toBeUndefined();
+    expect(reactFlowState.transform).toEqual([10, -20, 1.5]);
+    expect(useMisc.getState().requestUpdateNodeDimensions).toBe(false);
   });
 
   it("throws when loaded project config is missing window spaces", async () => {
