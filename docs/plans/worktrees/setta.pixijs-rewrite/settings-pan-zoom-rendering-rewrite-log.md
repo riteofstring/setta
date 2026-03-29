@@ -8907,3 +8907,102 @@ Record:
     - remaining drift is smaller and visual, not structural: previews still look somewhat compressed/low-contrast versus the baseline DOM cards
 - Next action:
   - Continue the live Pixi visual-parity lane from this non-empty canary state by tightening row/value readability and contrast against the baseline/main oracle, not by doing more seam lifting.
+
+## 2026-03-29 271
+
+- Item: Try to restore readable body rows in constrained live Pixi canary cards by reserving preview height and hardening the scene palette fallback.
+- Status: `blocked`
+- Details:
+  - Took the next bounded canary slice directly from the current baseline-vs-canary comparison instead of returning to more seam lifting:
+    - baseline `/settings` still showed readable body rows/value previews inside the visible `All Settings` cards after `fit view`
+    - canary `/settings?liveDictAreaRenderer=pixi-node-body` still showed mostly blank/white card bodies with only shell chrome/header bars intact
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The attempted fix now:
+    - clamps constrained Pixi blocks to the actual remaining card-body height instead of letting earlier fixed blocks overrun the mounted preview budget
+    - reserves a readable compact preview budget for trailing param-area rows before the edge strip can consume the whole card body
+    - derives the scene palette from the nearest computed DOM chrome when section-style CSS vars and explicit section-style metadata are unavailable
+  - Verification results:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`31 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts`
+      - result: passed
+    - Playwright:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts`; the freshly minted bootstrap token stayed on `http://127.0.0.1:8044/__setta__/bootstrap#token=...` and the consume request returned `401`
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on baseline `/settings` versus canary `?liveDictAreaRenderer=pixi-node-body` after `fit view`
+      - baseline remained visually correct: readable body rows/value previews were visible in the center canvas stack
+      - canary still failed the hard gate: visible Pixi cards remained mostly blank/white shells without the same readable body rows/value previews
+      - the accessibility tree still exposed row/value content, so the remaining blocker looks closer to scene paint/rendering than missing data
+  - Because the required live canary visual gate still fails, this slice is not being committed as complete in this iteration.
+- Next action:
+  - Investigate the remaining live Pixi white-shell regression directly in `LiveDictAreaPixiScene.tsx` / scene draw output, using the now-documented clue that the row/value data survives but the visible body paint still does not.
+
+## 2026-03-29 272
+
+- Item: Tighten the computed Pixi palette fallback so dark canary cards stop inheriting unreadable DOM text colors.
+- Status: `blocked`
+- Details:
+  - Took one narrow follow-up slice on the same visual blocker instead of doing another seam lift:
+    - fresh CDP inspection on the canary showed `darkMode: true`, a dark nearest-section background (`rgb(16, 20, 27)`), but an inherited computed `color: rgb(0, 0, 0)` on the scene host/ancestor with no `--setta-section-style-*` vars available
+    - that meant the previous computed-chrome fallback could still render unreadable black body text on a dark fallback surface even after the row/panel contrast fix
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - The attempted fix now:
+    - walks up the DOM ancestry to gather fallback background/border/text chrome instead of trusting only the immediate host
+    - infers the generic dark/light fallback palette from the resolved computed background instead of the stale caller-provided mode alone
+    - rejects computed text colors that fail contrast against that resolved background, so unreadable black-on-dark text falls back to the scene’s dark body text instead
+- Verification results:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`32 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Playwright:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+    - result: still blocked in `frontend/tests/e2e/global-setup.ts`; the helper minted a fresh bootstrap token, but `/__setta__/bootstrap#token=...` still failed with `401`
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - the earlier flat white-shell signal improved into a dark structured scene, but the hard gate still fails on the first visible `All Settings` cards
+    - first visible cards still render as mostly header-only dark shells without the readable body rows/value previews visible in baseline
+    - this points away from palette/text fallback as the primary remaining blocker and back toward card-body clipping / missing scene body presentation in the first visible cards
+  - Because the required live canary visual gate still fails, this slice is not being committed as complete in this iteration.
+- Next action:
+  - Investigate why the first visible Pixi `All Settings` cards still clip away the scene body despite nonzero canvas height, starting in `LiveDictAreaPixiScene.tsx` and the mounted card-body height selection rather than in palette fallback code.
+
+## 2026-03-29 273
+
+- Item: Fix the live Pixi scene blank-card runtime failure by restoring the layout constant import and adding a scene smoke test.
+- Status: `done`
+- Details:
+  - Took the next bounded subtask directly on the active blocker instead of continuing seam lifting:
+    - fresh CDP inspection showed the first visible canary card mounted a correctly sized Pixi canvas but still painted as an empty shell
+    - the decisive clue was an unhandled promise rejection from `LiveDictAreaPixiScene.tsx`: `ReferenceError: LIVE_DICT_AREA_PIXI_LAYOUT is not defined`
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+  - The fix now:
+    - restores the missing `LIVE_DICT_AREA_PIXI_LAYOUT` import so the rounded panel/body draw path no longer throws at runtime
+    - adds a jsdom smoke test that mounts `LiveDictAreaPixiScene` with mocked Pixi primitives, verifies the scene renders a canvas, and fails if an unhandled draw rejection escapes during mount
+- Verification results:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed (`33 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN='<loop token>' PLAYWRIGHT_BASE_URL='http://127.0.0.1:3044' SETTA_BACKEND_ORIGIN='http://127.0.0.1:8044' pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+    - result: blocked in `frontend/tests/e2e/global-setup.ts`; the bootstrap consume flow remained on `/__setta__/bootstrap#token=...` and returned `401 Unauthorized`
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on baseline `/settings` versus canary `?liveDictAreaRenderer=pixi-node-body`
+    - no `LiveDictAreaPixiScene.tsx` unhandled rejection remained after reload
+    - the first visible canary card body was painted instead of rendering as a blank/header-only shell
+    - baseline and canary both showed visible settings row content in the checked viewport, so this runtime failure is no longer the active blocker
+- Next action:
+  - Continue the live Pixi visual-parity lane from this non-blank canary state by tightening row readability and card-body parity against the baseline/main oracle, while the Playwright bootstrap `401` remains a separate verification blocker.

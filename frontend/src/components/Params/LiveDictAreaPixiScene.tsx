@@ -11,6 +11,7 @@ import { useLocalStorage } from "state/definitions";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import {
   buildLiveDictAreaPixiLayout,
+  LIVE_DICT_AREA_PIXI_LAYOUT,
   type LiveDictAreaPixiEdgePortLayout,
   type LiveDictAreaPixiEdgeStripLayout,
   type LiveDictAreaPixiLayout,
