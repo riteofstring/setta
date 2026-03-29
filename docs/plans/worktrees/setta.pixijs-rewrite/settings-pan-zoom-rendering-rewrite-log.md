@@ -6673,3 +6673,41 @@ Record:
     - separate isolated Playwright runs against the seeded settings app also confirmed the current settings canary does not expose a popup-style `color-picker` handoff row yet
 - Next action:
   - Before spending another iteration on color-picker handoff verification, expose a real popup-style `color-picker` row with non-empty `colorChoices` on a stable live Pixi canary surface, or explicitly pivot to the next available non-text popup control that already exists in the live settings path.
+
+## 2026-03-29 217
+
+- Item: Expose a real popup-style `color-picker` row on the live `pixi-node-body` Settings canary and complete the deferred live visual gate.
+- Status: `done`
+- Details:
+  - Seeded explicit shared-palette metadata onto the real Settings GUI color fields and taught the settings-project builder/upgrader to backfill missing `colorChoices` on existing saved settings projects, so live Settings color rows no longer fall back to native `<input type="color">`:
+    - `backend/setta/types/settings_state.py`
+    - `backend/setta/project_state/settings_project.py`
+  - Added focused backend regression coverage for both the fresh-create and existing-project upgrade paths:
+    - `tests/project_state/test_settings_project_view_modes.py`
+  - Fixed the live Pixi color-picker handoff wiring bug in the param UI stack:
+    - the `ColorPickerParam` branch now actually forwards `shouldAutoOpenColorPickerOnMount`
+    - removed the stray misplaced color-picker auto-open prop from the slider branch
+    - file:
+      - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+  - Restored the live Pixi canary E2E assertion for the real popup palette instead of leaving the color-picker slice at editor-kind-only coverage:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Live-gate recovery note:
+    - the first CDP check on the stale pre-restart worktree app still failed to expose a live `color-picker` handoff row
+    - used the one allowed non-main worktree self-recovery via `./aireset.sh`
+    - the restarted worktree came up on frontend `3046` / backend `8046`, and the fresh live canary then exposed the `Grid Color` popup handoff correctly
+- Verification:
+  - Pytest:
+    - `source activate.sh && pytest tests/project_state/test_settings_project_view_modes.py`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check on the restarted live worktree app (`http://127.0.0.1:3046/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context:
+    - bootstrapped the fresh worktree session, opened `Settings`, then `All Settings`
+    - verified `data-live-dict-area-editor-handoff-editor-kind="color-picker"` rows were present
+    - clicking `Grid Color` activated `data-live-dict-area-editor-overlay-editor-kind="color-picker"`
+    - a visible popup palette/menu appeared with `Red`, `Orange`, `Yellow`, `Green`, `Cyan`, `Blue`, `Purple`, and `Slate`
+    - no obvious blank/clipped regression was observed in the checked viewport
+    - representative visible `200` requests included `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `GET /api/backendInitStatus`, `POST /api/getLatestLspDiagnostics`, `POST /api/getAIFollowSnapshot`, and `POST /api/getListenerCoverage`
+- Next action:
+  - Continue the live retained-scene slice by starting the first scene-native param-row drag/reorder handoff on the Pixi canary now that the non-text popup control lane is verified on the real live Settings surface.

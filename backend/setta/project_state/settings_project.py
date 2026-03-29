@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic import BaseModel
 
 from setta.types.code_obj_impls import (
+    ColorPickerChoice,
     ColorPickerParamCodeObjImpl,
     DropdownParamCodeObjImpl,
     NestedParamCodeObjImpl,
@@ -34,6 +35,7 @@ from setta.types.section_impls import (
     DictSectionImpl,
     SectionSize,
 )
+from setta.types.settings_state import SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY
 from setta.utils.paths import normalize_workspace_path
 
 _CAMEL_CASE_PATTERN = re.compile(r"[A-Z]+(?=[A-Z][a-z]|[0-9]|$)|[A-Z]?[a-z]+|[0-9]+")
@@ -232,6 +234,100 @@ def add_code_obj_details(
     return codeObj.id, codeObjVariant.id
 
 
+def _resolve_settings_color_choices_for_field(
+    model_class: type[BaseModel],
+    *,
+    field_name: str,
+) -> list[ColorPickerChoice]:
+    field = model_class.model_fields[field_name]
+    if not isinstance(field.json_schema_extra, dict):
+        return []
+
+    source_field_name = field.json_schema_extra.get(
+        SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY
+    )
+    if source_field_name is None:
+        return []
+    if not isinstance(source_field_name, str):
+        raise TypeError(
+            f"{model_class.__name__}.{field_name} uses a non-string {SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY}."
+        )
+    if source_field_name not in model_class.model_fields:
+        raise KeyError(
+            f"{model_class.__name__}.{field_name} references missing color-choices source field {source_field_name}."
+        )
+
+    source_field = model_class.model_fields[source_field_name]
+    if source_field.default_factory is not None:
+        source_default = source_field.default_factory()
+    else:
+        source_default = copy.deepcopy(source_field.default)
+
+    if not isinstance(source_default, list):
+        raise TypeError(
+            f"{model_class.__name__}.{source_field_name} must default to a list of color choices."
+        )
+
+    return copy.deepcopy(source_default)
+
+
+def _create_settings_color_picker_impl(
+    model_class: type[BaseModel],
+    *,
+    field_name: str,
+) -> ColorPickerParamCodeObjImpl:
+    return ColorPickerParamCodeObjImpl(
+        colorChoices=_resolve_settings_color_choices_for_field(
+            model_class,
+            field_name=field_name,
+        )
+    )
+
+
+def _ensure_existing_settings_color_picker_choices(
+    project_state: ProjectStateSingleConfig,
+    *,
+    section_id: ID,
+    section_impl: DictSectionImpl,
+    code_obj_id: ID,
+    model_class: type[BaseModel],
+    field_name: str,
+) -> bool:
+    color_choices = _resolve_settings_color_choices_for_field(
+        model_class,
+        field_name=field_name,
+    )
+    if not color_choices:
+        return False
+
+    variant_ids = {project_state.codeObjs[code_obj_id].defaultVariant}
+    if code_obj_id in section_impl.codeObjVariantMap:
+        variant_ids.add(section_impl.codeObjVariantMap[code_obj_id])
+
+    changed = False
+    for variant_id in variant_ids:
+        if variant_id not in project_state.codeObjVariants:
+            raise KeyError(
+                f"Settings section {section_id} missing code obj variant {variant_id}."
+            )
+        impl_id = project_state.codeObjVariants[variant_id].impl
+        if impl_id not in project_state.codeObjImpls:
+            raise KeyError(
+                f"Settings section {section_id} missing code obj impl {impl_id}."
+            )
+        code_obj_impl = project_state.codeObjImpls[impl_id]
+        if not isinstance(code_obj_impl, ColorPickerParamCodeObjImpl):
+            raise TypeError(
+                f"Settings section {section_id} expected ColorPickerParamCodeObjImpl for {field_name}, got {type(code_obj_impl).__name__}."
+            )
+        if code_obj_impl.colorChoices:
+            continue
+        code_obj_impl.colorChoices = copy.deepcopy(color_choices)
+        changed = True
+
+    return changed
+
+
 def process_model_fields(
     model_class: type[BaseModel],
     codeObjs: dict[ID, Core],
@@ -274,7 +370,13 @@ def process_model_fields(
                 presetCodeObjImplNames[presetName] = codeObjImpl
 
         elif isinstance(v.default, str) and is_color_hex(v.default):
-            codeObjName, codeObjImpl = k, ColorPickerParamCodeObjImpl()
+            codeObjName, codeObjImpl = (
+                k,
+                _create_settings_color_picker_impl(
+                    model_class,
+                    field_name=k,
+                ),
+            )
 
         if codeObjName and codeObjImpl:
             codeObjId, codeObjVariantId = add_code_obj_details(
@@ -554,6 +656,17 @@ def _ensure_settings_model_code_objs(
     changed = False
     for field_name, field in model_class.model_fields.items():
         if field_name in child_name_to_id:
+            changed = (
+                _ensure_existing_settings_color_picker_choices(
+                    project_state,
+                    section_id=section_id,
+                    section_impl=section_impl,
+                    code_obj_id=child_name_to_id[field_name],
+                    model_class=model_class,
+                    field_name=field_name,
+                )
+                or changed
+            )
             continue
 
         annotation = field.annotation
@@ -583,7 +696,10 @@ def _ensure_settings_model_code_objs(
                 preset_code_obj_impls[preset_name] = preset_impl
             code_obj_impl = preset_impl
         elif isinstance(field.default, str) and is_color_hex(field.default):
-            code_obj_impl = ColorPickerParamCodeObjImpl()
+            code_obj_impl = _create_settings_color_picker_impl(
+                model_class,
+                field_name=field_name,
+            )
 
         if code_obj_impl is None:
             continue

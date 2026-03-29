@@ -279,3 +279,83 @@ test("all settings canary can immediately open a combobox-backed value row on fi
   expect(comboboxActivationResult?.activeElementInsideComboboxInput).toBe(true);
   expect(comboboxActivationResult?.openMenuItemCount).toBeGreaterThan(0);
 });
+
+test("all settings canary can immediately open a popup color-picker row on first Pixi handoff click", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+
+  await page.addInitScript(
+    ({ mode, storageKey }) => {
+      window.sessionStorage.setItem(storageKey, mode);
+    },
+    {
+      mode: LIVE_PIXI_MODE,
+      storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
+    },
+  );
+
+  const url = new URL(SETTINGS_URL);
+  await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allSettingsTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allSettingsTab).toBeVisible();
+  await allSettingsTab.click();
+
+  const handoffButton = page
+    .locator(
+      "[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-editor-kind='color-picker']",
+    )
+    .first();
+  await handoffButton.scrollIntoViewIfNeeded();
+  await expect(handoffButton).toBeVisible();
+  await handoffButton.click();
+
+  const activationMetrics = await page.waitForFunction(() => {
+    const overlay = document.querySelector<HTMLElement>(
+      "[data-live-dict-area-editor-overlay='active']",
+    );
+    if (!overlay) {
+      return null;
+    }
+
+    const paletteLabels = new Set([
+      "Red",
+      "Orange",
+      "Yellow",
+      "Green",
+      "Cyan",
+      "Blue",
+      "Purple",
+      "Slate",
+    ]);
+    const visibleMenuItems = Array.from(
+      document.body.querySelectorAll<HTMLElement>("[role='menuitem']"),
+    ).filter((item) => {
+      const style = getComputedStyle(item);
+      return style.display !== "none" && style.visibility !== "hidden";
+    });
+    const visiblePaletteLabels = visibleMenuItems
+      .map((item) => item.textContent?.trim() ?? "")
+      .filter((label) => paletteLabels.has(label));
+
+    return {
+      editorKind: overlay.getAttribute(
+        "data-live-dict-area-editor-overlay-editor-kind",
+      ),
+      openPaletteItemCount: visiblePaletteLabels.length,
+      visiblePaletteLabels,
+    };
+  });
+
+  const colorPickerActivationResult = await activationMetrics.jsonValue();
+
+  expect(colorPickerActivationResult).not.toBeNull();
+  expect(colorPickerActivationResult?.editorKind).toBe("color-picker");
+  expect(colorPickerActivationResult?.openPaletteItemCount).toBeGreaterThan(0);
+  expect(colorPickerActivationResult?.visiblePaletteLabels).toContain("Red");
+});

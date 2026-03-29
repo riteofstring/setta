@@ -352,7 +352,6 @@ export function ParamUI({
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
-          shouldAutoOpenColorPickerOnMount={shouldAutoOpenColorPickerOnMount}
         />
       );
     case CodeObjTypeEnum.RotaryParam:
@@ -385,6 +384,7 @@ export function ParamUI({
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
+          shouldAutoOpenColorPickerOnMount={shouldAutoOpenColorPickerOnMount}
         />
       );
     case CodeObjTypeEnum.DropdownParam:

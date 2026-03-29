@@ -17,6 +17,7 @@ META_CONTROL_DROPZONE_MIN_HEIGHT = 120
 META_CONTROL_DEFAULT_MIN_WIDTH = DEFAULT_MIN_WIDTH
 META_CONTROL_DROPZONE_MIN_WIDTH = 240
 UNPINNED_PARAMS_AREA_MIN_HEIGHT = 36
+SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY = "settingsColorChoicesSourceField"
 
 
 class RenameRefactorMode(str, Enum):
@@ -129,15 +130,51 @@ class ChatWindowingSettings(BaseModel):
     shortcuts: ChatWindowingShortcuts = Field(default_factory=ChatWindowingShortcuts)
 
 
+def get_default_section_tag_color_choices() -> list[ColorPickerChoice]:
+    return [
+        ColorPickerChoice(color="#ef4444", description="Red"),
+        ColorPickerChoice(color="#f97316", description="Orange"),
+        ColorPickerChoice(color="#eab308", description="Yellow"),
+        ColorPickerChoice(color="#22c55e", description="Green"),
+        ColorPickerChoice(color="#06b6d4", description="Cyan"),
+        ColorPickerChoice(color="#3b82f6", description="Blue"),
+        ColorPickerChoice(color="#a855f7", description="Purple"),
+        ColorPickerChoice(color="#64748b", description="Slate"),
+    ]
+
+
+_SETTINGS_GUI_SHARED_COLOR_CHOICES_FIELD = "sectionTagColorChoices"
+
+
 class SettingsGUI(BaseModel):
     snapGrid: tuple[int, int] = (15, 15)
     showGridLines: bool = True
     gridPattern: BackgroundVariant = BackgroundVariant.dots
     gridPatternSize: int = 2
-    gridColor: str = "#afbacf"
-    gridColorDarkMode: str = "#2b364a"
-    wireColor: str = "#41506c"
-    wireColorDarkMode: str = "#bac2d3"
+    gridColor: str = Field(
+        default="#afbacf",
+        json_schema_extra={
+            SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY: _SETTINGS_GUI_SHARED_COLOR_CHOICES_FIELD
+        },
+    )
+    gridColorDarkMode: str = Field(
+        default="#2b364a",
+        json_schema_extra={
+            SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY: _SETTINGS_GUI_SHARED_COLOR_CHOICES_FIELD
+        },
+    )
+    wireColor: str = Field(
+        default="#41506c",
+        json_schema_extra={
+            SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY: _SETTINGS_GUI_SHARED_COLOR_CHOICES_FIELD
+        },
+    )
+    wireColorDarkMode: str = Field(
+        default="#bac2d3",
+        json_schema_extra={
+            SETTINGS_COLOR_CHOICES_SOURCE_FIELD_KEY: _SETTINGS_GUI_SHARED_COLOR_CHOICES_FIELD
+        },
+    )
     defaultZoomLevel: float = 1.0
     minZoom: float = 0.1
     maxZoom: float = 10.0
@@ -152,16 +189,7 @@ class SettingsGUI(BaseModel):
     leftSidePaneShiftsMap: bool = True
     transitionDuration: int = 50
     sectionTagColorChoices: list[ColorPickerChoice] = Field(
-        default_factory=lambda: [
-            ColorPickerChoice(color="#ef4444", description="Red"),
-            ColorPickerChoice(color="#f97316", description="Orange"),
-            ColorPickerChoice(color="#eab308", description="Yellow"),
-            ColorPickerChoice(color="#22c55e", description="Green"),
-            ColorPickerChoice(color="#06b6d4", description="Cyan"),
-            ColorPickerChoice(color="#3b82f6", description="Blue"),
-            ColorPickerChoice(color="#a855f7", description="Purple"),
-            ColorPickerChoice(color="#64748b", description="Slate"),
-        ]
+        default_factory=get_default_section_tag_color_choices
     )
 
 
