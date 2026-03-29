@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _parse_upload_time(raw_value: str) -> datetime:
+def parse_upload_time(raw_value: str) -> datetime:
     return datetime.fromisoformat(raw_value.replace("Z", "+00:00")).astimezone(UTC)
 
 
@@ -46,11 +46,11 @@ def main() -> int:
 
         sdist = package.get("sdist")
         if isinstance(sdist, dict) and "upload-time" in sdist:
-            upload_times.append(_parse_upload_time(sdist["upload-time"]))
+            upload_times.append(parse_upload_time(sdist["upload-time"]))
 
         for wheel in package.get("wheels", []):
             if "upload-time" in wheel:
-                upload_times.append(_parse_upload_time(wheel["upload-time"]))
+                upload_times.append(parse_upload_time(wheel["upload-time"]))
 
         if not upload_times:
             continue
