@@ -78,6 +78,75 @@ func TestServiceGetChatHydratesMergedMessagesFromLatestExternalRun(t *testing.T)
 	}
 }
 
+func TestServiceGetChatHydratesPersistedToolCallArgumentsFromRunOutputs(t *testing.T) {
+	t.Parallel()
+
+	store, err := agentruns.NewRunStore(t.TempDir())
+	if err != nil {
+		t.Fatalf("new run store: %v", err)
+	}
+	run := agentruns.NewRun(nil, map[string]any{
+		"runType":         RunTypeExternalAgent,
+		"chatId":          "chat-persisted-tool-args",
+		"projectConfigId": "project-alpha",
+		"messages": []any{
+			map[string]any{
+				"id":   "user-1",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Need approval"},
+				},
+			},
+		},
+	}, time.Date(2026, 3, 8, 12, 10, 0, 0, time.UTC))
+	run.Status = agentruns.RunStatusRunning
+	run.Outputs = map[string]any{
+		"messages": []any{
+			map[string]any{
+				"id":   "user-1",
+				"role": "user",
+				"content": []any{
+					map[string]any{"type": "text", "text": "Need approval"},
+				},
+			},
+			map[string]any{
+				"id":      "approval-1",
+				"role":    "assistant",
+				"content": []any{},
+				"tool_calls": []any{
+					map[string]any{
+						"id":   "approval-1",
+						"type": "function",
+						"function": map[string]any{
+							"name": "setta.approval",
+						},
+					},
+				},
+			},
+		},
+		"toolCallArguments": map[string]any{
+			"approval-1": `{"approvalId":"approval-1","toolName":"setta__get_setta_docs","input":{}}`,
+		},
+	}
+	run.Events = append(run.Events, agentruns.NewRunEvent("approval_request", nil, time.Date(2026, 3, 8, 12, 10, 3, 0, time.UTC)))
+	if err := store.Save(run); err != nil {
+		t.Fatalf("save run: %v", err)
+	}
+
+	service, err := NewService(ServiceOptions{Runs: store})
+	if err != nil {
+		t.Fatalf("new service: %v", err)
+	}
+
+	hydrated, err := service.GetChat("chat-persisted-tool-args", stringPtr("project-alpha"))
+	if err != nil {
+		t.Fatalf("get chat: %v", err)
+	}
+	if got := hydrated.ToolCallArguments["approval-1"]; got != `{"approvalId":"approval-1","toolName":"setta__get_setta_docs","input":{}}` {
+		t.Fatalf("unexpected hydrated toolCallArguments %#v", hydrated.ToolCallArguments)
+	}
+}
+
 func TestServiceGetChatReturnsAppGenerationProvenanceFromRunInputs(t *testing.T) {
 	t.Parallel()
 

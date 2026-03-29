@@ -559,6 +559,7 @@ func (e *CodexExecutor) finalizeRun(
 	}
 	run.Outputs = ensureAnyMap(run.Outputs)
 	run.Outputs["messages"] = messageSliceToJSONList(state.Messages)
+	run.Outputs["toolCallArguments"] = cloneStringMap(state.ToolCallArguments)
 	if threadID != "" {
 		run.Outputs["threadId"] = threadID
 	}
@@ -625,6 +626,7 @@ func (e *CodexExecutor) persistLiveState(runID string, state ChatState, threadID
 	}
 	run.Outputs = ensureAnyMap(run.Outputs)
 	run.Outputs["messages"] = messageSliceToJSONList(state.Messages)
+	run.Outputs["toolCallArguments"] = cloneStringMap(state.ToolCallArguments)
 	if threadID != "" {
 		run.Outputs["threadId"] = threadID
 	}

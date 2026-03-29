@@ -444,6 +444,7 @@ func (e *ClaudeExecutor) finalizeRun(runID string, state ChatState, sessionID st
 	}
 	run.Outputs = ensureAnyMap(run.Outputs)
 	run.Outputs["messages"] = messageSliceToJSONList(state.Messages)
+	run.Outputs["toolCallArguments"] = cloneStringMap(state.ToolCallArguments)
 	if strings.TrimSpace(sessionID) != "" {
 		run.Outputs["sessionId"] = sessionID
 	}
@@ -480,6 +481,7 @@ func (e *ClaudeExecutor) persistLiveState(runID string, state ChatState, session
 	}
 	run.Outputs = ensureAnyMap(run.Outputs)
 	run.Outputs["messages"] = messageSliceToJSONList(state.Messages)
+	run.Outputs["toolCallArguments"] = cloneStringMap(state.ToolCallArguments)
 	if strings.TrimSpace(sessionID) != "" {
 		run.Outputs["sessionId"] = sessionID
 	}

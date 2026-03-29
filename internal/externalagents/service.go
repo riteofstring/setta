@@ -167,12 +167,16 @@ func buildChatStateFromRun(run agentruns.Run) (*ChatState, error) {
 	if err != nil {
 		return nil, err
 	}
+	outputToolCallArguments, err := parseOutputToolCallArguments(run)
+	if err != nil {
+		return nil, err
+	}
 	merged := mergeMessages(inputMessages, outputMessages, hasOutputs)
 	filtered := filterResponsePlaceholderMessages(merged)
 	return &ChatState{
 		Messages:           filtered,
 		WaitingForResponse: run.Status == agentruns.RunStatusRunning,
-		ToolCallArguments:  map[string]string{},
+		ToolCallArguments:  outputToolCallArguments,
 	}, nil
 }
 
@@ -200,6 +204,39 @@ func parseOutputMessages(run agentruns.Run) ([]map[string]any, bool, error) {
 		return nil, false, err
 	}
 	return parsed, true, nil
+}
+
+func parseOutputToolCallArguments(run agentruns.Run) (map[string]string, error) {
+	if run.Outputs == nil {
+		return map[string]string{}, nil
+	}
+	rawArguments, ok := run.Outputs["toolCallArguments"]
+	if !ok || rawArguments == nil {
+		return map[string]string{}, nil
+	}
+	return parseToolCallArgumentsMap(rawArguments)
+}
+
+func parseToolCallArgumentsMap(raw any) (map[string]string, error) {
+	switch value := raw.(type) {
+	case map[string]string:
+		return cloneStringMap(value), nil
+	case map[string]any:
+		parsed := make(map[string]string, len(value))
+		for key, entry := range value {
+			if strings.TrimSpace(key) == "" {
+				continue
+			}
+			stringValue, ok := entry.(string)
+			if !ok {
+				return nil, fmt.Errorf("toolCallArguments[%q] must be a string", key)
+			}
+			parsed[key] = stringValue
+		}
+		return parsed, nil
+	default:
+		return nil, fmt.Errorf("toolCallArguments must be an object")
+	}
 }
 
 func parseMessageList(raw any) ([]map[string]any, error) {

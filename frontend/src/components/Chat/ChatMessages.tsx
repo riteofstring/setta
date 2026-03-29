@@ -1717,15 +1717,10 @@ function resolveDisplayArgsForToolCallEntry({
   toolCallArguments: Record<string, string>;
 }): unknown {
   const argsFromResult = toolResult?.arguments;
-  const argsFromAssistant = toolCall.function?.arguments;
-  const pendingArgs = toolCallArguments?.[toolCall.id];
   if (argsFromResult && Object.keys(argsFromResult).length > 0) {
     return argsFromResult;
   }
-  if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
-    return argsFromAssistant;
-  }
-  return pendingArgs;
+  return resolveToolCallArguments(toolCall, toolCallArguments);
 }
 
 function resolveCompactionEntryLabel({
@@ -5796,6 +5791,74 @@ const AssistantActionSection = memo(function AssistantActionSection({
       toolResult,
       toolCallArguments,
     });
+    const normalizedToolName = normalizeToolName(toolCall.function?.name);
+
+    if (normalizedToolName === APPROVAL_TOOL_NAME) {
+      const approvalPayload = parseApprovalPayload(argsToDisplay);
+      if (approvalPayload) {
+        const approvalToolName = normalizeToolName(approvalPayload.toolName);
+        if (approvalToolName === QUESTION_TOOL_NAME) {
+          const questionPayload = parseAskUserQuestionPayload(
+            approvalPayload.input,
+          );
+          if (questionPayload) {
+            const resolvedAnswers = resolveQuestionAnswers(
+              questionPayload,
+              toolResult,
+            );
+            return (
+              <div
+                key={entry.key}
+                className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
+              >
+                <QuestionCard
+                  toolCallId={toolCall.id}
+                  payload={questionPayload}
+                  resolvedAnswers={resolvedAnswers}
+                />
+              </div>
+            );
+          }
+        }
+        return (
+          <div
+            key={entry.key}
+            className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
+          >
+            <ApprovalCard
+              toolCallId={toolCall.id}
+              toolName={approvalPayload.toolName ?? null}
+              toolType={approvalPayload.toolType ?? null}
+              input={approvalPayload.input}
+              toolResult={toolResult}
+              isStreaming={toolEntry.isStreaming}
+            />
+          </div>
+        );
+      }
+    }
+
+    if (normalizedToolName === QUESTION_TOOL_NAME) {
+      const questionPayload = parseAskUserQuestionPayload(argsToDisplay);
+      if (questionPayload) {
+        const resolvedAnswers = resolveQuestionAnswers(
+          questionPayload,
+          toolResult,
+        );
+        return (
+          <div
+            key={entry.key}
+            className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
+          >
+            <QuestionCard
+              toolCallId={toolCall.id}
+              payload={questionPayload}
+              resolvedAnswers={resolvedAnswers}
+            />
+          </div>
+        );
+      }
+    }
 
     if (entry.kind === "action") {
       return (
@@ -5947,6 +6010,34 @@ function resolveToolCallSectionState(
     return "running";
   }
   return "complete";
+}
+
+function hasPendingInteractiveToolCall(
+  toolCalls: ToolCall[] | null | undefined,
+  toolResultsById: Record<string, ToolChatMessage>,
+): boolean {
+  if (!toolCalls || toolCalls.length === 0) {
+    return false;
+  }
+  return toolCalls.some((toolCall) => {
+    const normalizedName = normalizeToolName(toolCall.function?.name);
+    if (
+      normalizedName !== APPROVAL_TOOL_NAME &&
+      normalizedName !== QUESTION_TOOL_NAME
+    ) {
+      return false;
+    }
+    return !toolResultsById[toolCall.id];
+  });
+}
+
+function hasPendingInteractiveToolCallsInMessages(
+  messages: AssistantChatMessage[],
+  toolResultsById: Record<string, ToolChatMessage>,
+): boolean {
+  return messages.some((message) =>
+    hasPendingInteractiveToolCall(message.tool_calls ?? null, toolResultsById),
+  );
 }
 
 type ToolSectionTimingAnchors = {
@@ -6159,6 +6250,7 @@ const ToolCallSection = memo(function ToolCallSection({
   toolCount,
   latestToolLabel,
   sectionState,
+  defaultExpanded,
   startedAtMs,
   completedAtMs,
   runKey,
@@ -6167,6 +6259,7 @@ const ToolCallSection = memo(function ToolCallSection({
   toolCount: number;
   latestToolLabel: string;
   sectionState: ToolCallSectionState;
+  defaultExpanded?: boolean;
   startedAtMs: number | null;
   completedAtMs: number | null;
   runKey: string;
@@ -6181,7 +6274,12 @@ const ToolCallSection = memo(function ToolCallSection({
   );
   const title = "Tool calls";
   return (
-    <Accordion.Root type="single" collapsible className="w-full">
+    <Accordion.Root
+      type="single"
+      collapsible
+      className="w-full"
+      defaultValue={defaultExpanded ? "tool-call-details" : undefined}
+    >
       <Accordion.Item
         value="tool-call-details"
         className={TOOL_SECTION_CARD_CLASS}
@@ -6324,6 +6422,15 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
   });
 
   const sectionState = resolveToolCallSectionState(toolCallStates);
+  const defaultExpanded = entries.some(({ toolCall }) => {
+    if (toolResultsById[toolCall.id]) {
+      return false;
+    }
+    return Boolean(
+      toolCallContext.approvalPayloadById[toolCall.id] ||
+        toolCallContext.questionPayloadById[toolCall.id],
+    );
+  });
   const latestToolLabel =
     toolLabels.length > 0 ? toolLabels[toolLabels.length - 1] : "Tool activity";
   const { startedAtMs, completedAtMs } = resolveToolSectionTimingAnchors(
@@ -6337,6 +6444,7 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
       toolCount={entries.length}
       latestToolLabel={latestToolLabel}
       sectionState={sectionState}
+      defaultExpanded={defaultExpanded}
       startedAtMs={startedAtMs}
       completedAtMs={completedAtMs}
       runKey={runKey}
@@ -7057,6 +7165,8 @@ const ChatMessage = memo(function ChatMessage({
       toolResultsById,
       toolCallArguments,
     });
+    const autoExpandPendingInteraction =
+      hasPendingInteractiveToolCall(message.tool_calls ?? null, toolResultsById);
     const hasThinkingActivity = activityTimelineEntries.some(
       (entry) => entry.kind === "thinking",
     );
@@ -7080,7 +7190,9 @@ const ChatMessage = memo(function ChatMessage({
                   suppressActivityThoughtScroll ||
                   (isStreaming && hasMeaningfulDisplayItems)
                 }
-                defaultOpen={activityAccordionOpenByDefault}
+                defaultOpen={
+                  activityAccordionOpenByDefault || autoExpandPendingInteraction
+                }
                 defaultChildrenOpen={activityChildrenOpenByDefault}
                 conversationSearchTerms={conversationSearchTerms}
               >
@@ -7493,6 +7605,11 @@ function ChatMessages({
         toolResultsById,
         toolCallArguments,
       });
+      const autoExpandPendingInteraction =
+        hasPendingInteractiveToolCallsInMessages(
+          activityMessageContexts.map((context) => context.message),
+          toolResultsById,
+        );
       const activitySectionTiming = resolveActivitySectionTiming({
         timelineEntries,
         toolResultsById,
@@ -7557,7 +7674,10 @@ function ChatMessages({
                   suppressThoughtScrollAnimation={
                     suppressActivityThoughtScrollAnimation
                   }
-                  defaultOpen={activityAccordionOpenByDefault}
+                  defaultOpen={
+                    activityAccordionOpenByDefault ||
+                    autoExpandPendingInteraction
+                  }
                   defaultChildrenOpen={activityChildrenOpenByDefault}
                   conversationSearchTerms={conversationSearchTerms}
                 >

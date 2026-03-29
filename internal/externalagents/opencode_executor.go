@@ -418,6 +418,7 @@ func (e *OpenCodeExecutor) finalizeRun(runID string, state ChatState, sessionID 
 	}
 	run.Outputs = ensureAnyMap(run.Outputs)
 	run.Outputs["messages"] = messageSliceToJSONList(state.Messages)
+	run.Outputs["toolCallArguments"] = cloneStringMap(state.ToolCallArguments)
 	if strings.TrimSpace(sessionID) != "" {
 		run.Outputs["sessionId"] = sessionID
 	}
@@ -451,6 +452,7 @@ func (e *OpenCodeExecutor) persistLiveState(runID string, state ChatState, sessi
 	}
 	run.Outputs = ensureAnyMap(run.Outputs)
 	run.Outputs["messages"] = messageSliceToJSONList(state.Messages)
+	run.Outputs["toolCallArguments"] = cloneStringMap(state.ToolCallArguments)
 	if strings.TrimSpace(sessionID) != "" {
 		run.Outputs["sessionId"] = sessionID
 	}
