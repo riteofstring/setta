@@ -119,12 +119,9 @@ import {
   DeletePromptTemplateRequestInput,
   DeleteTranscriptionProfileRequestInput,
   EngineConfig,
-  ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
-  GetLLMChatResponse,
   LLMStreamingResponse,
-  ManagedAPIKeysSnapshot,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageImageUrlContent,
@@ -135,7 +132,6 @@ import {
   SectionTypeEnum,
   SettaNotificationTypeEnum,
   StartTranscriptionSessionResponse,
-  StopLLMChatResponse,
   StreamingEventTypeEnum,
   ToolArgumentPreviewDeltaEvent,
   ToolCall,
@@ -179,6 +175,13 @@ const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
 const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
+type ManagedAPIKeysSnapshotPayload = {
+  apiKeys: APIKeys;
+  revision: number;
+  corrupt?: boolean;
+  errorCode?: string | null;
+  message?: string | null;
+};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -248,7 +251,7 @@ export async function appendTranscriptionAudio(
   return res.data;
 }
 
-async function stopTranscriptionSession(
+export async function stopTranscriptionSession(
   sessionId: string,
   options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
@@ -262,7 +265,9 @@ async function stopTranscriptionSession(
   return res.data;
 }
 
-async function cancelTranscriptionSession(sessionId: string): Promise<boolean> {
+export async function cancelTranscriptionSession(
+  sessionId: string,
+): Promise<boolean> {
   if (!sessionId) {
     return true;
   }
@@ -766,7 +771,7 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
 }
 
 export function receiveLLMApiKeysSnapshotUpdate(
-  payload: ManagedAPIKeysSnapshot,
+  payload: ManagedAPIKeysSnapshotPayload,
 ) {
   const isCorrupt =
     payload.corrupt === true ||
@@ -1933,7 +1938,13 @@ function reconcileStoppedLLMChatOutcome({
 }: {
   chatId: string;
   localSnapshot: StopChatResponseSnapshot;
-  stopOutcome: StopLLMChatResponse | null | undefined;
+  stopOutcome:
+    | {
+        alreadyStopped: boolean;
+        stoppedMessageId: string | null;
+      }
+    | null
+    | undefined;
 }): void {
   if (!stopOutcome) {
     return;
@@ -2271,7 +2282,11 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<ChatHydrationProbeResult<GetLLMChatResponse>> {
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>
+  >
+> {
   const response = await route_get_llm_chat({ chatId, projectConfigId });
   if (!res200(response)) {
     return {
@@ -2290,7 +2305,13 @@ async function probeLLMChatHydration(
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
-): Promise<ChatHydrationProbeResult<ExternalAgentChatResponse>> {
+): Promise<
+  ChatHydrationProbeResult<
+    NonNullable<
+      Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+    >
+  >
+> {
   const response = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -2318,7 +2339,7 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: GetLLMChatResponse;
+  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
 }): void {
   const {
     messages,
@@ -2390,7 +2411,9 @@ function applyExternalChatHydrationSuccess({
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
-  payload: ExternalAgentChatResponse;
+  payload: NonNullable<
+    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
+  >;
 }): void {
   const {
     messages,
@@ -2632,7 +2655,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data;
+      const returnedChatId = res.data.chatId;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2811,7 +2834,7 @@ export async function submitEditedMessage({
       }
       return null;
     }
-    const returnedChatId = res.data;
+    const returnedChatId = res.data.chatId;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {
@@ -3052,34 +3075,14 @@ function isResponsePlaceholderId(
   return messageId.startsWith("rs_") || messageId.startsWith("resp_");
 }
 
-function assistantMessageEmpty(
-  message: AssistantChatMessage,
-): boolean {
-  return (
-    message.content.length === 0 &&
-    (message.tool_calls?.length ?? 0) === 0 &&
-    (message.attachments?.length ?? 0) === 0
-  );
-}
-
-function shouldIgnoreResponsePlaceholderMessage(
-  message: BaseChatMessageUnion,
-): boolean {
-  return (
-    message.role === ChatRoleEnum.assistant &&
-    isResponsePlaceholderId(message.id) &&
-    assistantMessageEmpty(message)
-  );
-}
-
 function shouldIgnoreResponsePlaceholderChunk(
   chunk: LLMStreamingResponse["chunk"],
 ): boolean {
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_START) {
-    return shouldIgnoreResponsePlaceholderMessage(chunk.message);
+    return isResponsePlaceholderId(chunk.message.id);
   }
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
-    return shouldIgnoreResponsePlaceholderMessage(chunk.message);
+    return isResponsePlaceholderId(chunk.message.id);
   }
   return false;
 }
@@ -4429,10 +4432,10 @@ function mergeFinalizedAssistantMessage(
   const mergedContent = hasFinalizedContent
     ? message.content
     : existingAssistant.content;
-  const mergedToolCalls = mergeFinalizedAssistantToolCalls(
-    message.tool_calls,
-    existingAssistant.tool_calls,
-  );
+  const finalizedToolCalls = message.tool_calls ?? [];
+  const existingToolCalls = existingAssistant.tool_calls ?? [];
+  const mergedToolCalls =
+    finalizedToolCalls.length > 0 ? finalizedToolCalls : existingToolCalls;
   const finalizedAttachments = message.attachments ?? [];
   const existingAttachments = existingAssistant.attachments ?? [];
   const mergedAttachments =
@@ -4452,22 +4455,6 @@ function mergeFinalizedAssistantMessage(
     tool_calls: mergedToolCalls,
     attachments: mergedAttachments,
   };
-}
-
-function mergeFinalizedAssistantToolCalls(
-  finalizedToolCalls: AssistantChatMessage["tool_calls"],
-  existingToolCalls: AssistantChatMessage["tool_calls"],
-): AssistantChatMessage["tool_calls"] {
-  if (finalizedToolCalls && finalizedToolCalls.length > 0) {
-    return finalizedToolCalls;
-  }
-  if (existingToolCalls && existingToolCalls.length > 0) {
-    return existingToolCalls;
-  }
-  if (finalizedToolCalls === null || existingToolCalls === null) {
-    return null;
-  }
-  return finalizedToolCalls ?? existingToolCalls;
 }
 
 function applyMessageDeltaToChatMessages(
