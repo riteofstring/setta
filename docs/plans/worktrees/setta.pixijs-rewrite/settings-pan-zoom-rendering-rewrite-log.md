@@ -7950,3 +7950,36 @@ Record:
       - representative successful requests included `POST /api/getFolderContents` and `POST /api/getFileBrowserRoot`
 - Next action:
   - Return to the presented-tail timing lane on the same live Pixi `defaultZoomLevel` canary now that the visual blocker is cleared, and re-measure the post-ready presentation tail against this fixed overlay path.
+
+## 2026-03-29 250
+
+- Item: Re-measure the live Pixi `defaultZoomLevel` presented-tail timings on the fixed CodeMirror overlay canary.
+- Status: `done`
+- Details:
+  - Took the explicit next step from item `249` instead of returning to another seam lift or speculative probe:
+    - rerun the presented-tail timing lane on the same live Pixi `defaultZoomLevel` handoff
+    - keep the visual gate explicit on the corrected overlay path
+  - Recorded the post-fix timing snapshot in a new append-only perf report:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-value-row-presented-tail-post-fix-rerun.md`
+  - Focused verification on the exact canary path:
+    - targeted the `defaultZoomLevel` CodeMirror handoff on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - confirmed the active outer overlay shell was about `308 x 20` with the expected `scale(10)` counter-transform at viewport zoom `0.1`
+    - confirmed the visible overlay value remained readable as `1.0`
+  - Updated timing snapshot on the fixed visual baseline:
+    - overlay latency: `3.9 ms`
+    - ready latency: `20.8 ms`
+    - presented latency: `31.5 ms`
+    - presentation tail latency: `10.7 ms`
+  - Compared with the earlier failing-visual report:
+    - presented latency dropped from about `83.2 ms` to `31.5 ms`
+    - presentation tail dropped from about `65.1 ms` to `10.7 ms`
+- Verification:
+  - Playwright:
+    - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN=<current bootstrap token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - visual gate passed when judged on the correct outer overlay shell
+    - the active `defaultZoomLevel` value-row overlay was readable and not tiny, clipped, or collapsed in the checked viewport
+    - representative successful requests included `POST /api/setSectionParamFilter` `200`, `POST /api/setTopLevelSectionLayout` `200`, `POST /api/getFileBrowserRoot` `200`, and `POST /api/getFolderContents` `200`
+- Next action:
+  - Continue the live Pixi value-row handoff lane on this corrected visual baseline by profiling and reducing the remaining `~31.5 ms` total presented latency on the same `defaultZoomLevel` canary before returning to broader renderer scope changes.
