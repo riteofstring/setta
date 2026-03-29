@@ -22,6 +22,9 @@ import {
 } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const MAIN_REFERENCE_BASE_URL = process.env.SETTA_MAIN_REFERENCE_URL ?? null;
+const MAIN_REFERENCE_BOOTSTRAP_URL =
+  process.env.SETTA_MAIN_REFERENCE_BOOTSTRAP_URL ?? null;
 const SETTINGS_URL = new URL("/settings", BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
 const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
@@ -58,8 +61,22 @@ type ViewportTransform = {
   zoom: number;
 };
 
+type AllSettingsRuntime = {
+  baseUrl: string;
+  bootstrapUrl?: string | null;
+  requireAppReady: boolean;
+};
+
 type VisibleBlockBounds = {
   blockId: string;
+  height: number;
+  sectionId: string;
+  width: number;
+  x: number;
+  y: number;
+};
+
+type VisibleSectionNodeBounds = {
   height: number;
   sectionId: string;
   width: number;
@@ -90,18 +107,50 @@ async function setLiveDictAreaRendererMode(
   );
 }
 
+function buildSettingsUrl(runtime: AllSettingsRuntime): URL {
+  const url = new URL("/settings", runtime.baseUrl);
+  if (runtime.bootstrapUrl) {
+    url.searchParams.set(
+      "__setta_backend_origin",
+      new URL(runtime.bootstrapUrl).origin,
+    );
+  }
+  return url;
+}
+
+async function bootstrapRuntimeIfNeeded(
+  page: Page,
+  runtime: AllSettingsRuntime,
+): Promise<void> {
+  if (!runtime.bootstrapUrl) {
+    return;
+  }
+
+  const expectedOrigin = new URL(runtime.baseUrl).origin;
+  await page.goto(runtime.bootstrapUrl, { waitUntil: "domcontentloaded" });
+  await page.waitForURL((url) => url.origin === expectedOrigin, {
+    waitUntil: "domcontentloaded",
+  });
+  await page.waitForSelector(".setta-titlebar-offset", { state: "attached" });
+}
+
 async function openAllSettingsPage(
   page: Page,
+  runtime: AllSettingsRuntime,
   options?: {
     interactionMode?: "param-select";
     overviewEnabled?: boolean;
     rendererMode?: string | null;
   },
 ) {
-  await ensureAppReady(page);
+  if (runtime.requireAppReady) {
+    await ensureAppReady(page);
+  } else {
+    await bootstrapRuntimeIfNeeded(page, runtime);
+  }
   await setLiveDictAreaRendererMode(page, options?.rendererMode ?? null);
 
-  const url = new URL(SETTINGS_URL);
+  const url = buildSettingsUrl(runtime);
   if (options?.interactionMode) {
     url.searchParams.set(
       LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM,
@@ -129,15 +178,47 @@ async function openAllSettingsLivePixiCanary(
     overviewEnabled?: boolean;
   },
 ) {
-  await openAllSettingsPage(page, {
-    interactionMode: options?.interactionMode,
-    overviewEnabled: options?.overviewEnabled,
-    rendererMode: LIVE_PIXI_MODE,
-  });
+  await openAllSettingsPage(
+    page,
+    {
+      baseUrl: BASE_URL,
+      requireAppReady: true,
+    },
+    {
+      interactionMode: options?.interactionMode,
+      overviewEnabled: options?.overviewEnabled,
+      rendererMode: LIVE_PIXI_MODE,
+    },
+  );
 }
 
 async function openAllSettingsBaseline(page: Page): Promise<void> {
-  await openAllSettingsPage(page, { rendererMode: null });
+  await openAllSettingsPage(
+    page,
+    {
+      baseUrl: BASE_URL,
+      requireAppReady: true,
+    },
+    { rendererMode: null },
+  );
+}
+
+async function openAllSettingsMainReference(page: Page): Promise<void> {
+  if (!MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL) {
+    throw new Error(
+      "Missing SETTA_MAIN_REFERENCE_URL or SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+    );
+  }
+
+  await openAllSettingsPage(
+    page,
+    {
+      baseUrl: MAIN_REFERENCE_BASE_URL,
+      bootstrapUrl: MAIN_REFERENCE_BOOTSTRAP_URL,
+      requireAppReady: false,
+    },
+    { rendererMode: null },
+  );
 }
 
 test("settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state", async ({
@@ -424,6 +505,43 @@ async function readVisibleBlockBounds(
       source,
     },
   );
+}
+
+async function readVisibleSectionNodeBounds(
+  page: Page,
+): Promise<VisibleSectionNodeBounds[]> {
+  return page.evaluate(() => {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(".react-flow__node[data-id]"),
+    )
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          height: rect.height,
+          sectionId: element.getAttribute("data-id") ?? "",
+          width: rect.width,
+          x: rect.x,
+          y: rect.y,
+        };
+      })
+      .filter((node) => {
+        return (
+          node.sectionId.length > 0 &&
+          node.width > 0 &&
+          node.height > 0 &&
+          node.x < window.innerWidth &&
+          node.y < window.innerHeight &&
+          node.x + node.width > 0 &&
+          node.y + node.height > 0
+        );
+      })
+      .sort((a, b) => {
+        if (a.y !== b.y) {
+          return a.y - b.y;
+        }
+        return a.x - b.x;
+      });
+  });
 }
 
 async function withParamSelectHeld(page: Page, callback: () => Promise<void>) {
@@ -939,6 +1057,33 @@ test("all settings canary keeps first visible unpinned live card bodies aligned 
     await baselinePage.close();
     await canaryPage.close();
   }
+});
+
+test("all settings can open the read-only main reference surface when explicit runtime envs are provided", async ({
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL || !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "requires SETTA_MAIN_REFERENCE_URL and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL",
+  );
+
+  await openAllSettingsMainReference(page);
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+
+  const mainViewport = await readViewportTransform(page);
+  expect(mainViewport.zoom).toBeGreaterThan(0);
+
+  await expect
+    .poll(async () => {
+      return (await readVisibleSectionNodeBounds(page)).length;
+    })
+    .toBeGreaterThanOrEqual(2);
+
+  const mainNodes = await readVisibleSectionNodeBounds(page);
+  expect(mainNodes.length).toBeGreaterThanOrEqual(2);
+  expect(
+    mainNodes.every((node) => node.sectionId.length > 0 && node.width > 0),
+  ).toBe(true);
 });
 
 test("all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear", async ({

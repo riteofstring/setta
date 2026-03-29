@@ -11261,3 +11261,82 @@ Record:
     - result: passed; CDP attached successfully, normalized baseline/live `All Settings` surfaces were both healthy, and a one-step `zoom in` check did not reveal a new local live-Pixi-only visual blocker
 - Next action:
   - Resume normalized `main`-oracle `All Settings` parity verification once the read-only reference runtime is reachable again; do not invent another worktree-only renderer edit unless a reproducible local mismatch reappears.
+
+## 2026-03-31 343
+
+- Item: Replace the stale `main`-runtime port assumption in the live Pixi canary harness with explicit read-only reference runtime inputs.
+- Status: `blocked`
+- Details:
+  - Continued directly from item `342` and kept the slice on the named `main`-oracle blocker instead of reopening another renderer tweak.
+  - Verified that the repeated `http://127.0.0.1:3000/settings` assumption was stale in the local environment:
+    - read-only `main` frontend responded on `http://127.0.0.1:3087/settings`
+    - read-only `main` backend session was running on `http://127.0.0.1:8087`
+    - local listeners confirmed `3043/8043` for the worktree and `3087/8087` for `main`
+  - Updated the focused canary Playwright spec so it no longer hardcodes only the worktree runtime:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The spec now:
+    - accepts `SETTA_MAIN_REFERENCE_URL` and `SETTA_MAIN_REFERENCE_BOOTSTRAP_URL`
+    - opens `All Settings` through an explicit runtime descriptor instead of assuming only the worktree base URL
+    - bootstraps the read-only `main` runtime explicitly before opening `/settings`
+    - adds a focused reference-runtime reachability guard for `All Settings`
+  - During implementation it became clear that the disposable `./scripts/run-playwright-e2e.sh` workspace is not a trustworthy cross-runtime geometry oracle against the live read-only `main` session:
+    - the disposable worktree test app and the live `main` reference do not share the same runtime workspace/project state
+    - the new Playwright slice was therefore narrowed to proving explicit `main` reference accessibility, while leaving actual side-by-side `main` parity as a live-runtime/CDP gate
+  - Verification completed before the blocker:
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - Playwright:
+      - `SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=...' ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings can open the read-only main reference surface when explicit runtime envs are provided'`
+      - result: passed (`2 passed`)
+  - Required post-edit CDP verification remained unavailable even after the allowed non-main recovery:
+    - attempted local lifecycle recovery: `./aireset.sh`
+    - refreshed runtime values afterward:
+      - worktree frontend `http://127.0.0.1:3043/`
+      - worktree backend `http://127.0.0.1:8043`
+      - Chrome DevTools `9265`
+      - worktree session id `90b806`
+    - fresh-context CDP verifier still could not attach to `http://127.0.0.1:9265/json/version` (`fetch failed`)
+    - because the repo policy requires a CDP gate for this frontend slice, the harness change is not being committed in this iteration
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=...' ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings can open the read-only main reference surface when explicit runtime envs are provided'`
+    - result: passed
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent before recovery: failed to attach
+    - `./aireset.sh`: passed, but CDP remained unavailable afterward
+    - fresh sub-agent after recovery: failed to attach to `9265/json/version`
+    - result: blocked
+- Next action:
+  - Retry this exact explicit-main-runtime harness slice on the next Ralph iteration after the outer-loop lifecycle bootstrap; if CDP attaches, rerun the minimal worktree/reference accessibility check, record the CDP result, and then commit the harness change.
+
+## 2026-03-31 344
+
+- Item: Complete the explicit read-only `main` runtime harness slice for the live Pixi canary.
+- Status: `done`
+- Details:
+  - Continued directly from item `343` and kept the slice narrowly on the blocked explicit-runtime harness change instead of reopening renderer work.
+  - Reused the existing focused spec change in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Confirmed the local live runtimes before verification:
+    - worktree frontend/backend: `http://127.0.0.1:3043` / `http://127.0.0.1:8043`
+    - read-only `main` frontend/backend: `http://127.0.0.1:3087` / `http://127.0.0.1:8087`
+    - Chrome DevTools: `http://127.0.0.1:9265`
+  - The focused Playwright slice now passes with explicit `main` reference env vars, proving the harness no longer depends on the stale `3000` assumption.
+  - Required CDP verification also recovered on the fresh outer-loop runtime:
+    - fresh-context CDP attached successfully
+    - worktree `/settings` loaded `All Settings`
+    - read-only `main` `/settings` loaded `All Settings`
+    - in the shared debug Chrome verifier session, the `main` bootstrap URL did not serve as a trustworthy oracle because it landed on the worktree settings surface; the CDP gate therefore verified the read-only `main` surface directly at `http://127.0.0.1:3087/settings` after confirming the runtime was reachable
+  - This closes the blocked harness slice; no production renderer code changed in this iteration.
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=...' ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings can open the read-only main reference surface when explicit runtime envs are provided'`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the current worktree runtime
+    - result: passed; CDP attached on `9265`, worktree `/settings` loaded `All Settings`, and read-only `main` `/settings` loaded `All Settings`
+- Next action:
+  - Resume normalized read-only `main`-oracle `All Settings` parity verification using the explicit runtime inputs instead of the stale hardcoded reference port assumption.
