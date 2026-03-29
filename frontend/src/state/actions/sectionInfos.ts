@@ -2008,6 +2008,24 @@ export function updateAllProjectMetadata(x: AllProjectMetadata) {
   useAllProjectMetadata.setState(x);
 }
 
+function applyViewportToActiveViewMode(
+  projectConfig: ProjectStateSingleConfig["projectConfig"],
+  viewport: Viewport | null,
+) {
+  const activeViewModeId = projectConfig.activeViewModeId;
+  if (activeViewModeId === null) {
+    return;
+  }
+
+  const activeViewMode = projectConfig.viewModes[activeViewModeId];
+  if (!activeViewMode) {
+    throw new Error(`View mode ${activeViewModeId} not found`);
+  }
+
+  activeViewMode.viewport = viewport;
+  activeViewMode.viewportInitialized = viewport !== null;
+}
+
 function dispatchViewportUpdate(viewport: Viewport | null) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
@@ -2020,6 +2038,7 @@ function dispatchViewportUpdate(viewport: Viewport | null) {
     apply: (state) => {
       state.projectConfig.viewport = viewport;
       state.projectConfig.viewportInitialized = viewport !== null;
+      applyViewportToActiveViewMode(state.projectConfig, viewport);
     },
     send: (frontendOpId) =>
       route_set_viewport({

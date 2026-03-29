@@ -1362,6 +1362,10 @@ describe("processProjectStateUpdateFromBackend", () => {
       const currentProjectConfig = useProjectState.getState().projectConfig;
       expect(currentProjectConfig.viewport).toBeNull();
       expect(currentProjectConfig.viewportInitialized).toBe(false);
+      const currentViewMode =
+        currentProjectConfig.viewModes[currentProjectConfig.activeViewModeId!];
+      expect(currentViewMode?.viewport).toBeNull();
+      expect(currentViewMode?.viewportInitialized).toBe(false);
 
       const reactFlowState = useReactFlow.getState();
       expect(reactFlowState.fitViewOnInit).toBe(true);

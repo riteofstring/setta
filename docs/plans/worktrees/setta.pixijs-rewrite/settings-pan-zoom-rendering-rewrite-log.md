@@ -11862,3 +11862,38 @@ Record:
       - normalized baseline-vs-canary X-offset drift still remains in the live worktree session, so the next frontier is the fit-view width/source-of-truth mismatch rather than another renderer-mode sync change
 - Next action:
   - Investigate why normalized baseline and explicit-query live Pixi tabs still settle different fit-view X offsets on the live worktree session; target the width / visible-canvas source of truth in the fit-view path instead of more query-param or session-storage work.
+
+## 2026-03-31 358
+
+- Item: Keep the frontend viewport-clear path aligned with the active view mode during explicit live-renderer route entry.
+- Status: `done`
+- Details:
+  - Took one bounded production slice on the explicit query-param route-entry lane instead of reopening the false quoted-value report or another harness-only pass.
+  - Updated the local optimistic viewport write path to mirror backend semantics into the active view mode immediately:
+    - `frontend/src/state/actions/sectionInfos.ts`
+      - added `applyViewportToActiveViewMode(...)`
+      - `dispatchViewportUpdate(...)` now updates both `projectConfig.viewport` and the active `viewModes[activeViewModeId].viewport`
+  - Tightened the focused regression coverage for the route-entry refit bookkeeping:
+    - `frontend/src/state/actions/sectionInfos.test.ts`
+      - `clearCurrentProjectViewportForRefit()` now asserts that the active view mode viewport is also cleared locally before fit-view re-arms
+  - Why this slice mattered:
+    - the backend `set_viewport` path already keeps `projectConfig.viewport` and the active view mode viewport in sync
+    - the frontend-only clear path did not, which left a local window where the explicit `?liveDictAreaRenderer=pixi-node-body` route could still carry stale view-mode viewport state through the first refit cycle
+  - This slice closed the bookkeeping mismatch but did not claim the full visual parity lane:
+    - fresh CDP verification on the running worktree showed the explicit query-param canary no longer landing on a blank/off-canvas stale viewport
+    - however, the canary still shows a visible rightward X-offset versus the baseline canvas layout after `All Settings`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts`
+    - result: passed (`23` tests)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings explicit renderer query-param canary clears a stale saved viewport on first load"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the running worktree baseline `http://127.0.0.1:3043/settings` and explicit-query canary `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - result: partial pass for this bounded slice
+      - both tabs showed visible `All Settings` section cards and a settled zoom floor (`zoom out` disabled)
+      - the explicit-query canary no longer landed on a stale blank/off-canvas viewport
+      - a visible rightward X-offset versus the baseline canvas layout still remains
+- Next action:
+  - Investigate the remaining baseline-vs-explicit-query rightward X-offset on `All Settings`; target the fit-view width / visible-canvas source of truth now that the viewport-clear bookkeeping is aligned locally and on the backend.
