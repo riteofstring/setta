@@ -1058,11 +1058,29 @@ test("all settings canary can immediately open a popup color-picker row on first
 }) => {
   await openAllSettingsLivePixiCanary(page);
 
-  const handoffButton = page
-    .locator(
-      "[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-editor-kind='color-picker']",
-    )
-    .first();
+  const colorPickerHandoffButtons = page.locator(
+    "[data-live-dict-area-editor-handoff='value-row'][data-live-dict-area-editor-handoff-editor-kind='color-picker']",
+  );
+  const visibleColorPickerHandoffLabels =
+    await colorPickerHandoffButtons.evaluateAll((buttons) =>
+      buttons
+        .filter((button) => {
+          const style = window.getComputedStyle(button);
+          return (
+            style.display !== "none" &&
+            style.visibility !== "hidden" &&
+            button.getBoundingClientRect().height > 0
+          );
+        })
+        .map((button) => button.getAttribute("aria-label") ?? ""),
+    );
+
+  expect(visibleColorPickerHandoffLabels.length).toBeGreaterThan(0);
+  visibleColorPickerHandoffLabels.forEach((handoffAriaLabel) => {
+    expect(handoffAriaLabel).not.toMatch(/#[0-9a-f]{3,8}/i);
+  });
+
+  const handoffButton = colorPickerHandoffButtons.first();
   await handoffButton.scrollIntoViewIfNeeded();
   await expect(handoffButton).toBeVisible();
   await handoffButton.click();

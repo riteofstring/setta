@@ -29,6 +29,7 @@ type ParamSceneValueRowPacket = {
   label: string;
   valuePresentationKind?: ParamValuePresentationKind;
   valuePreview: string | null;
+  valueSwatch?: string | null;
 };
 
 export type ParamSceneRowPacket =
@@ -46,6 +47,7 @@ type BuildVisibleParamScenePacketsArgs = {
   paramFilter: string;
   getParamDisplayName: (paramId: string) => string;
   getParamValuePreview?: (paramId: string) => string | null;
+  getParamValueSwatch?: (paramId: string) => string | null;
 };
 
 export function buildVisibleParamScenePackets({
@@ -56,6 +58,7 @@ export function buildVisibleParamScenePackets({
   paramFilter,
   getParamDisplayName,
   getParamValuePreview,
+  getParamValueSwatch,
 }: BuildVisibleParamScenePacketsArgs): ParamSceneRowPacket[] {
   const visibleParamIds = resolveVisibleParamIds({
     paramIds,
@@ -83,25 +86,39 @@ export function buildVisibleParamScenePackets({
 
     const kind = groupIds.has(paramId) ? "group" : "value";
 
+    if (kind === "value") {
+      const valueSwatch = getParamValueSwatch
+        ? getParamValueSwatch(paramId)
+        : null;
+
+      return {
+        depth: path.length - 1,
+        ...(getParamEditorKind
+          ? {
+              editorKind: getParamEditorKind(paramId),
+            }
+          : {}),
+        ...(getParamValuePresentationKind
+          ? {
+              valuePresentationKind: getParamValuePresentationKind(paramId),
+            }
+          : {}),
+        ...(valueSwatch !== null
+          ? {
+              valueSwatch,
+            }
+          : {}),
+        id: paramId,
+        kind,
+        label: getParamDisplayName(paramId),
+        valuePreview: getParamValuePreview
+          ? getParamValuePreview(paramId)
+          : null,
+      };
+    }
+
     return {
       depth: path.length - 1,
-      ...(kind === "value" && getParamEditorKind
-        ? {
-            editorKind: getParamEditorKind(paramId),
-          }
-        : {}),
-      ...(kind === "value" && getParamValuePresentationKind
-        ? {
-            valuePresentationKind: getParamValuePresentationKind(paramId),
-          }
-        : {}),
-      ...(kind === "value"
-        ? {
-            valuePreview: getParamValuePreview
-              ? getParamValuePreview(paramId)
-              : null,
-          }
-        : {}),
       id: paramId,
       kind,
       label: getParamDisplayName(paramId),

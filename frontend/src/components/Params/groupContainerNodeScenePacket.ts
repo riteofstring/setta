@@ -40,6 +40,7 @@ export function buildLiveDictAreaNodeScenePacket({
   getParamDisplayName,
   getParamValuePresentationKind,
   getParamValuePreview,
+  getParamValueSwatch,
   inputPorts,
   isSelectingParams,
   outputPorts,
@@ -57,6 +58,7 @@ export function buildLiveDictAreaNodeScenePacket({
     paramId: string,
   ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
+  getParamValueSwatch?: (paramId: string) => string | null;
   inputPorts: LiveDictAreaEdgeStripPortInput[];
   isSelectingParams: boolean;
   outputPorts: LiveDictAreaEdgeStripPortInput[];
@@ -92,6 +94,7 @@ export function buildLiveDictAreaNodeScenePacket({
     getParamDisplayName,
     getParamValuePresentationKind,
     getParamValuePreview,
+    getParamValueSwatch,
     pinned,
     unpinned,
   });

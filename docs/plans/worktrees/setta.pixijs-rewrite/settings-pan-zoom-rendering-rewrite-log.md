@@ -9822,3 +9822,41 @@ Record:
     - plain text values no longer hugged the far right edge on the checked first visible unpinned cards
 - Next action:
   - Return to the next measured retained-scene hotspot or remaining visible mismatch outside the now-cleared first visible unpinned card value/control path; do not resume pure forwarding seam lifts.
+
+## 2026-03-30 298
+
+- Item: Make live Pixi choice-backed color-picker rows use DOM source-of-truth labels while keeping their swatch color separate.
+- Status: `done`
+- Details:
+  - Landed a bounded live retained-scene parity slice for choice-backed color-picker rows:
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionInput.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.ts`
+    - `frontend/src/components/Params/paramSwitchScenePackets.ts`
+    - `frontend/src/components/Params/groupContainerScenePackets.ts`
+    - `frontend/src/components/Params/groupContainerNodeScenePacket.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - focused tests under `frontend/src/components/Params/*.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Added a source-of-truth color-choice selection path that mirrors the DOM color-picker trigger behavior:
+    - choice-backed color-picker previews now use the selected choice `description`
+    - when the stored value does not match a choice, the preview/swatch falls back to the first choice just like the DOM control
+    - the actual swatch color now travels separately from the visible preview text through section state, scene packets, and Pixi row layout
+  - Updated the Pixi color control renderer so it styles from the swatch value instead of trying to parse the visible label text; this keeps the compact control chrome correct even when the label is human-readable or empty.
+  - Tightened the live canary Playwright guard to assert visible `editor-kind="color-picker"` handoff labels do not leak raw hex values before activating the popup.
+  - CDP follow-up classified the remaining visible raw-hex `Brush Color "#ff0000"` row as `editor-kind="other"` rather than a choice-backed color-picker row, so it is outside this slice. The visible choice-backed rows (`Grid Color`, `Grid Color Dark Mode`) now read with human labels.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/groupContainerLiveDictAreaSectionInput.test.ts src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/paramSwitchScenePackets.test.ts src/components/Params/groupContainerScenePackets.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can immediately open a popup color-picker row on first Pixi handoff click"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app at `http://127.0.0.1:3044/`
+    - checked baseline `/settings` and the live Pixi canary on `/settings?liveDictAreaRenderer=pixi-node-body` / `...&liveDictAreaPixiOverview=enabled`
+    - confirmed visible choice-backed color-picker handoff rows now show human-readable labels (`Grid Color "Red"`, `Grid Color Dark Mode "Red"`) rather than raw hex
+    - confirmed the remaining visible `Brush Color "#ff0000"` row is `editor-kind="other"` and not one of the choice-backed color-picker rows targeted here
+    - note: a separate `main` worktree session at `http://127.0.0.1:3000/` was not reachable in this verification pass
+- Next action:
+  - Return to the next measured retained-scene hotspot or remaining visible mismatch outside the now-cleared choice-backed color-picker row path; do not expand this into generic non-choice color value rows unless they become the next explicit target.

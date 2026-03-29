@@ -36,6 +36,12 @@ export type LiveDictAreaSectionInput = {
   unpinnedTopLevelParamIds: string[];
   valuePresentationKindsById: Record<string, ParamValuePresentationKind>;
   valuePreviewsById: Record<string, string>;
+  valueSwatchesById: Record<string, string>;
+};
+
+type LiveDictAreaColorChoicePreview = {
+  color: string;
+  description: string;
 };
 
 export function buildLiveDictAreaSectionDisplayNames({
@@ -93,10 +99,8 @@ export function buildLiveDictAreaSectionValuePresentationKinds({
     requiredParamIdsToPaths,
     topLevelParamIds,
   });
-  const valuePresentationKindsById: Record<
-    string,
-    ParamValuePresentationKind
-  > = {};
+  const valuePresentationKindsById: Record<string, ParamValuePresentationKind> =
+    {};
 
   for (const paramId of paramIds) {
     valuePresentationKindsById[paramId] =
@@ -108,22 +112,53 @@ export function buildLiveDictAreaSectionValuePresentationKinds({
 
 export function resolveLiveDictAreaValuePreview({
   codeObjType,
+  colorChoices = [],
   value,
 }: {
   codeObjType: CodeObjTypeEnum;
+  colorChoices?: LiveDictAreaColorChoicePreview[];
   value: string;
 }): string | null {
-  const normalizedValue = value.replace(/\s+/g, " ").trim();
-
-  if (normalizedValue.length === 0) {
-    return null;
-  }
-
   if (codeObjType === CodeObjTypeEnum.PasswordParam) {
     return "\u2022\u2022\u2022\u2022\u2022\u2022";
   }
 
-  return normalizedValue;
+  if (codeObjType === CodeObjTypeEnum.ColorPickerParam) {
+    const selectedColorChoice = resolveLiveDictAreaSelectedColorChoice({
+      colorChoices,
+      value,
+    });
+
+    if (selectedColorChoice) {
+      return normalizeLiveDictAreaValueText(selectedColorChoice.description);
+    }
+  }
+
+  return normalizeLiveDictAreaValueText(value);
+}
+
+export function resolveLiveDictAreaValueSwatch({
+  codeObjType,
+  colorChoices = [],
+  value,
+}: {
+  codeObjType: CodeObjTypeEnum;
+  colorChoices?: LiveDictAreaColorChoicePreview[];
+  value: string;
+}): string | null {
+  if (codeObjType !== CodeObjTypeEnum.ColorPickerParam) {
+    return null;
+  }
+
+  const selectedColorChoice = resolveLiveDictAreaSelectedColorChoice({
+    colorChoices,
+    value,
+  });
+  if (!selectedColorChoice) {
+    return null;
+  }
+
+  return normalizeLiveDictAreaValueText(selectedColorChoice.color);
 }
 
 export function buildLiveDictAreaSectionValuePreviews({
@@ -149,6 +184,31 @@ export function buildLiveDictAreaSectionValuePreviews({
   }
 
   return valuePreviewsById;
+}
+
+export function buildLiveDictAreaSectionValueSwatches({
+  getParamValueSwatch,
+  requiredParamIdsToPaths,
+  topLevelParamIds,
+}: {
+  getParamValueSwatch: (paramId: string) => string | null;
+  requiredParamIdsToPaths: Record<string, string[]>;
+  topLevelParamIds: string[];
+}): Record<string, string> {
+  const paramIds = collectLiveDictAreaParamIds({
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+  });
+  const valueSwatchesById: Record<string, string> = {};
+
+  for (const paramId of paramIds) {
+    const valueSwatch = getParamValueSwatch(paramId);
+    if (valueSwatch !== null) {
+      valueSwatchesById[paramId] = valueSwatch;
+    }
+  }
+
+  return valueSwatchesById;
 }
 
 function collectLiveDictAreaParamIds({
@@ -194,6 +254,7 @@ export function buildLiveDictAreaSectionInput({
   unpinnedTopLevelParamIds,
   valuePresentationKindsById,
   valuePreviewsById,
+  valueSwatchesById,
 }: LiveDictAreaSectionInput): LiveDictAreaRenderBoundaryInput {
   return {
     bgColor,
@@ -221,6 +282,8 @@ export function buildLiveDictAreaSectionInput({
     },
     getParamValuePreview: (paramId: string) =>
       valuePreviewsById[paramId] ?? null,
+    getParamValueSwatch: (paramId: string) =>
+      valueSwatchesById[paramId] ?? null,
     handleColumnResizeStart,
     hideUnpinnedParams,
     inputPorts: edgeInputPorts,
@@ -246,4 +309,29 @@ export function buildLiveDictAreaSectionInput({
       topLevelParamIds: unpinnedTopLevelParamIds,
     },
   };
+}
+
+function normalizeLiveDictAreaValueText(value: string): string | null {
+  const normalizedValue = value.replace(/\s+/g, " ").trim();
+
+  return normalizedValue.length === 0 ? null : normalizedValue;
+}
+
+function resolveLiveDictAreaSelectedColorChoice({
+  colorChoices,
+  value,
+}: {
+  colorChoices: LiveDictAreaColorChoicePreview[];
+  value: string;
+}): LiveDictAreaColorChoicePreview | null {
+  if (colorChoices.length === 0) {
+    return null;
+  }
+
+  return (
+    colorChoices.find((colorChoice) => colorChoice.color === value) ?? {
+      color: colorChoices[0].color,
+      description: colorChoices[0].description,
+    }
+  );
 }

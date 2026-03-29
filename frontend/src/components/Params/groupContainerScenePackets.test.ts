@@ -41,6 +41,8 @@ describe("buildLiveDictAreaScenePacket", () => {
               "beta-leaf": "beta-preview",
             }) as Record<string, string>
           )[paramId] ?? null,
+        getParamValueSwatch: (paramId: string) =>
+          paramId === "beta-leaf" ? "#2563eb" : null,
         pinned: {
           requiredParamIdsToPaths: {
             "pinned-leaf": ["pinned-group", "pinned-leaf"],
@@ -134,6 +136,7 @@ describe("buildLiveDictAreaScenePacket", () => {
               kind: "value",
               label: "Beta Value",
               valuePreview: "beta-preview",
+              valueSwatch: "#2563eb",
             },
           ],
           shouldApplyMinHeight: true,

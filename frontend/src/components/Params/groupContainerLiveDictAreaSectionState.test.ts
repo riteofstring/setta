@@ -274,6 +274,7 @@ describe("groupContainerLiveDictAreaSectionState", () => {
         "edge-unnamed": "preview edge value",
         "unpinned-param": "line 1 line 2",
       },
+      valueSwatchesById: {},
       edgeInputParams: ["edge-direct", "edge-unnamed"],
       edgeInputPorts: [
         { id: "edge-direct", label: "edge-direct" },
@@ -354,6 +355,7 @@ describe("groupContainerLiveDictAreaSectionState", () => {
     expect(result.valuePreviewsById).toEqual({
       "preview-missing": "line 1 line 2",
     });
+    expect(result.valueSwatchesById).toEqual({});
   });
 
   it("derives concrete value presentation kinds from the effective code object impl type", () => {
@@ -382,6 +384,40 @@ describe("groupContainerLiveDictAreaSectionState", () => {
     expect(result.valuePresentationKindsById).toEqual({
       "dropdown-param": "combobox",
       "switch-param": "switch",
+    });
+  });
+
+  it("mirrors color-picker choice descriptions in previews while keeping the actual swatch color", () => {
+    const { state } = seedLiveDictAreaSectionState({
+      sectionId: "section-live-dict-area-state-color-picker",
+      paramValues: {
+        "grid-color": "#22c55e",
+      },
+      unpinnedParamIds: ["grid-color"],
+    });
+
+    useProjectState.setState((projectState) => {
+      projectState.codeObjImpls["grid-color-impl"] = {
+        ...projectState.codeObjImpls["grid-color-impl"],
+        colorChoices: [
+          { color: "#ef4444", description: "Red" },
+          { color: "#22c55e", description: "Green" },
+        ],
+        type: CodeObjTypeEnum.ColorPickerParam,
+      };
+    });
+
+    const result = buildLiveDictAreaSectionState({
+      previewParamEntriesById: null,
+      sectionId: "section-live-dict-area-state-color-picker",
+      state: useProjectState.getState(),
+    });
+
+    expect(result.valuePreviewsById).toEqual({
+      "grid-color": "Green",
+    });
+    expect(result.valueSwatchesById).toEqual({
+      "grid-color": "#22c55e",
     });
   });
 });

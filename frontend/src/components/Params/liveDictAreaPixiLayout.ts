@@ -47,6 +47,7 @@ export type LiveDictAreaPixiRowLayout = ParamSceneRowPacket & {
   blockHeight: number;
   labelText: string;
   labelX: number;
+  valueSwatch: string | null;
   valueText: string | null;
   width: number;
   x: number;
@@ -451,6 +452,7 @@ function buildLiveDictAreaPixiRowLayout({
     blockHeight: LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
     labelText: row.label ?? "Placeholder",
     labelX: x + LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2,
+    valueSwatch: row.kind === "value" ? row.valueSwatch ?? null : null,
     valueText: row.kind === "value" ? row.valuePreview : null,
     width,
     x,

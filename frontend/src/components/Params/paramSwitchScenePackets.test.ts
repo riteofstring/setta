@@ -9,9 +9,9 @@ describe("buildVisibleParamScenePackets", () => {
     expect(
       buildVisibleParamScenePackets({
         getParamEditorKind: (paramId: string) =>
-          paramId === "beta-leaf" ? "combobox" : "other",
+          paramId === "beta-leaf" ? "color-picker" : "other",
         getParamValuePresentationKind: (paramId: string) =>
-          paramId === "beta-leaf" ? "combobox" : "text",
+          paramId === "beta-leaf" ? "color-picker" : "text",
         paramIds: ["alpha-group", "alpha-leaf", "beta-group", "beta-leaf"],
         requiredParamIdsToPaths: {
           "alpha-leaf": ["alpha-group", "alpha-leaf"],
@@ -29,6 +29,8 @@ describe("buildVisibleParamScenePackets", () => {
           )[paramId] ?? paramId,
         getParamValuePreview: (paramId: string) =>
           paramId === "beta-leaf" ? "preview-beta" : null,
+        getParamValueSwatch: (paramId: string) =>
+          paramId === "beta-leaf" ? "#2563eb" : null,
       }),
     ).toEqual([
       {
@@ -39,12 +41,13 @@ describe("buildVisibleParamScenePackets", () => {
       },
       {
         depth: 1,
-        editorKind: "combobox",
+        editorKind: "color-picker",
         id: "beta-leaf",
         kind: "value",
         label: "Beta Setting",
-        valuePresentationKind: "combobox",
+        valuePresentationKind: "color-picker",
         valuePreview: "preview-beta",
+        valueSwatch: "#2563eb",
       },
     ]);
   });

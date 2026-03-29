@@ -830,7 +830,7 @@ function drawParamRow({
   const valueColumnX = rowChrome.valueColumnX;
   const colorControlStyle = getLiveDictAreaPixiColorControlStyle({
     editorKind: row.editorKind,
-    valueText: row.valueText,
+    valueSwatch: row.valueSwatch,
   });
   const switchControlStyle = getLiveDictAreaPixiSwitchControlStyle({
     palette,
@@ -936,7 +936,7 @@ function drawColorPickerValueControl({
   valueColumnX: number;
 }) {
   const controlWidth = rowRightEdgeX - valueColumnX;
-  if (controlWidth <= 18 || !row.valueText) {
+  if (controlWidth <= 18) {
     return;
   }
 
@@ -954,18 +954,24 @@ function drawColorPickerValueControl({
     text: "\u25be",
   });
   const chevronInsetX = 8;
-  const label = buildFittedRowText({
-    maxWidth:
-      controlWidth - chevron.width - chevronInsetX * 2 - chevronInsetX / 2,
-    textResolution,
-    style: {
-      fill: controlStyle.textFill,
-      fontFamily: textFontFamily,
-      fontSize: textStyleSet.edgeRowFontSize,
-      fontWeight: textStyleSet.rowFontWeight,
-    },
-    text: row.valueText,
-  });
+  const label =
+    row.valueText && row.valueText.trim().length > 0
+      ? buildFittedRowText({
+          maxWidth:
+            controlWidth -
+            chevron.width -
+            chevronInsetX * 2 -
+            chevronInsetX / 2,
+          textResolution,
+          style: {
+            fill: controlStyle.textFill,
+            fontFamily: textFontFamily,
+            fontSize: textStyleSet.edgeRowFontSize,
+            fontWeight: textStyleSet.rowFontWeight,
+          },
+          text: row.valueText,
+        })
+      : null;
 
   graphics.roundRect(controlX, controlY, controlWidth, controlHeight, 8);
   graphics.fill(controlStyle.backgroundFill);

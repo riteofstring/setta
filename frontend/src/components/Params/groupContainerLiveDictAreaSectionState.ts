@@ -11,6 +11,7 @@ import type {
 } from "state/definitions";
 import { C } from "utils/c";
 import {
+  CodeObjTypeEnum,
   isBaseChildlessCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
@@ -19,7 +20,9 @@ import {
   buildLiveDictAreaSectionEditorKinds,
   buildLiveDictAreaSectionValuePresentationKinds,
   buildLiveDictAreaSectionValuePreviews,
+  buildLiveDictAreaSectionValueSwatches,
   resolveLiveDictAreaValuePreview,
+  resolveLiveDictAreaValueSwatch,
   type LiveDictAreaSectionInput,
 } from "./groupContainerLiveDictAreaSectionInput";
 import {
@@ -45,6 +48,7 @@ export type LiveDictAreaSectionState = Pick<
   | "unpinnedTopLevelParamIds"
   | "valuePresentationKindsById"
   | "valuePreviewsById"
+  | "valueSwatchesById"
 >;
 
 type BuildLiveDictAreaSectionStateInput = {
@@ -111,6 +115,34 @@ export function buildLiveDictAreaSectionState({
 
         return resolveLiveDictAreaValuePreview({
           codeObjType: codeObjImpl.type,
+          colorChoices:
+            codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam
+              ? codeObjImpl.colorChoices
+              : undefined,
+          value: previewParamEntriesById?.[paramId]?.value ?? codeObjImpl.value,
+        });
+      },
+      requiredParamIdsToPaths,
+      topLevelParamIds,
+    }),
+    valueSwatchesById: buildLiveDictAreaSectionValueSwatches({
+      getParamValueSwatch: (paramId: string) => {
+        const codeObjImpl = getCurrEffectiveCodeObjImpl(
+          state,
+          sectionId,
+          paramId,
+          true,
+        );
+        if (!isBaseChildlessCodeObjImpl(codeObjImpl)) {
+          return null;
+        }
+
+        return resolveLiveDictAreaValueSwatch({
+          codeObjType: codeObjImpl.type,
+          colorChoices:
+            codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam
+              ? codeObjImpl.colorChoices
+              : undefined,
           value: previewParamEntriesById?.[paramId]?.value ?? codeObjImpl.value,
         });
       },

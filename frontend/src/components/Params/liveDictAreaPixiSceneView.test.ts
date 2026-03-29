@@ -448,7 +448,7 @@ describe("getLiveDictAreaPixiColorControlStyle", () => {
     expect(
       getLiveDictAreaPixiColorControlStyle({
         editorKind: "color-picker",
-        valueText: "#2563eb",
+        valueSwatch: "#2563eb",
       }),
     ).toEqual({
       backgroundFill: "#2563eb",
@@ -460,7 +460,7 @@ describe("getLiveDictAreaPixiColorControlStyle", () => {
     expect(
       getLiveDictAreaPixiColorControlStyle({
         editorKind: "color-picker",
-        valueText: "#f8fafc",
+        valueSwatch: "#f8fafc",
       }),
     ).toEqual({
       backgroundFill: "#f8fafc",
@@ -469,13 +469,13 @@ describe("getLiveDictAreaPixiColorControlStyle", () => {
     expect(
       getLiveDictAreaPixiColorControlStyle({
         editorKind: "combobox",
-        valueText: "#2563eb",
+        valueSwatch: "#2563eb",
       }),
     ).toBeNull();
     expect(
       getLiveDictAreaPixiColorControlStyle({
         editorKind: "color-picker",
-        valueText: "not-a-color",
+        valueSwatch: "not-a-color",
       }),
     ).toBeNull();
   });

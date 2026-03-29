@@ -38,6 +38,7 @@ type BuildParamAreaScenePacketArgs = {
     paramId: string,
   ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
+  getParamValueSwatch?: (paramId: string) => string | null;
   grow: boolean;
   id: ParamListKey;
   listKey: ParamListKey;
@@ -59,6 +60,7 @@ export function buildLiveDictAreaScenePacket({
   getParamDisplayName,
   getParamValuePresentationKind,
   getParamValuePreview,
+  getParamValueSwatch,
   pinned,
   unpinned,
 }: {
@@ -71,6 +73,7 @@ export function buildLiveDictAreaScenePacket({
     paramId: string,
   ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
+  getParamValueSwatch?: (paramId: string) => string | null;
   pinned: {
     requiredParamIdsToPaths: Record<string, string[]>;
     topLevelParamIds: string[];
@@ -92,6 +95,7 @@ export function buildLiveDictAreaScenePacket({
     getParamDisplayName,
     getParamValuePresentationKind,
     getParamValuePreview,
+    getParamValueSwatch,
     hideUnpinnedParams,
     paramFilter,
     requiredParamIdsToPaths: pinned.requiredParamIdsToPaths,
@@ -110,6 +114,7 @@ export function buildLiveDictAreaScenePacket({
     getParamDisplayName,
     getParamValuePresentationKind,
     getParamValuePreview,
+    getParamValueSwatch,
     hideUnpinnedParams,
     paramFilter,
     pinnedRequiredParamIdsToPaths: unpinned.pinnedRequiredParamIdsToPaths,
@@ -132,6 +137,7 @@ export function buildPinnedParamsAreaScenePacket({
   getParamDisplayName,
   getParamValuePresentationKind,
   getParamValuePreview,
+  getParamValueSwatch,
   hideUnpinnedParams,
   paramFilter,
   requiredParamIdsToPaths,
@@ -144,6 +150,7 @@ export function buildPinnedParamsAreaScenePacket({
     paramId: string,
   ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
+  getParamValueSwatch?: (paramId: string) => string | null;
   hideUnpinnedParams: boolean;
   paramFilter: string;
   requiredParamIdsToPaths: Record<string, string[]>;
@@ -165,6 +172,7 @@ export function buildPinnedParamsAreaScenePacket({
     getParamDisplayName,
     getParamValuePresentationKind,
     getParamValuePreview,
+    getParamValueSwatch,
     grow: false,
     id: "pinned",
     listKey: "pinned",
@@ -187,6 +195,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   getParamDisplayName,
   getParamValuePresentationKind,
   getParamValuePreview,
+  getParamValueSwatch,
   hideUnpinnedParams,
   paramFilter,
   pinnedRequiredParamIdsToPaths,
@@ -204,6 +213,7 @@ export function buildUnpinnedParamsAreaScenePacket({
     paramId: string,
   ) => ParamValuePresentationKind;
   getParamValuePreview?: (paramId: string) => string | null;
+  getParamValueSwatch?: (paramId: string) => string | null;
   hideUnpinnedParams: boolean;
   paramFilter: string;
   pinnedRequiredParamIdsToPaths: Record<string, string[]>;
@@ -233,6 +243,7 @@ export function buildUnpinnedParamsAreaScenePacket({
     getParamDisplayName,
     getParamValuePresentationKind,
     getParamValuePreview,
+    getParamValueSwatch,
     grow: true,
     id: "unpinned",
     listKey: "unpinned",
@@ -252,6 +263,7 @@ function buildParamAreaScenePacket({
   getParamDisplayName,
   getParamValuePresentationKind,
   getParamValuePreview,
+  getParamValueSwatch,
   grow,
   id,
   listKey,
@@ -275,6 +287,7 @@ function buildParamAreaScenePacket({
     paramFilter,
     getParamDisplayName,
     getParamValuePreview,
+    getParamValueSwatch,
   });
 
   return {

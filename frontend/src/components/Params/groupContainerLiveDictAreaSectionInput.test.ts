@@ -6,6 +6,7 @@ import {
   buildLiveDictAreaSectionValuePresentationKinds,
   buildLiveDictAreaSectionValuePreviews,
   resolveLiveDictAreaValuePreview,
+  resolveLiveDictAreaValueSwatch,
 } from "./groupContainerLiveDictAreaSectionInput";
 
 describe("groupContainerLiveDictAreaSectionInput", () => {
@@ -78,6 +79,9 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
       valuePreviewsById: {
         "pinned-param": "42",
       },
+      valueSwatchesById: {
+        "pinned-param": "#2563eb",
+      },
     });
 
     expect(result.canConnect).toBe(false);
@@ -96,6 +100,8 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
     );
     expect(result.getParamValuePreview("pinned-param")).toBe("42");
     expect(result.getParamValuePreview("missing-param")).toBeNull();
+    expect(result.getParamValueSwatch("pinned-param")).toBe("#2563eb");
+    expect(result.getParamValueSwatch("missing-param")).toBeNull();
     expect(result.pinned).toEqual({
       requiredParamIdsToPaths: {
         "pinned-param": ["pinned-param"],
@@ -200,5 +206,48 @@ describe("groupContainerLiveDictAreaSectionInput", () => {
         value: "   ",
       }),
     ).toBeNull();
+  });
+
+  it("uses color-picker choice descriptions for previews and keeps swatches separate", () => {
+    expect(
+      resolveLiveDictAreaValuePreview({
+        codeObjType: CodeObjTypeEnum.ColorPickerParam,
+        colorChoices: [
+          { color: "#ef4444", description: "Red" },
+          { color: "#22c55e", description: "Green" },
+        ],
+        value: "#22c55e",
+      }),
+    ).toBe("Green");
+    expect(
+      resolveLiveDictAreaValueSwatch({
+        codeObjType: CodeObjTypeEnum.ColorPickerParam,
+        colorChoices: [
+          { color: "#ef4444", description: "Red" },
+          { color: "#22c55e", description: "Green" },
+        ],
+        value: "#22c55e",
+      }),
+    ).toBe("#22c55e");
+    expect(
+      resolveLiveDictAreaValuePreview({
+        codeObjType: CodeObjTypeEnum.ColorPickerParam,
+        colorChoices: [
+          { color: "#ef4444", description: "Red" },
+          { color: "#22c55e", description: "Green" },
+        ],
+        value: "#000000",
+      }),
+    ).toBe("Red");
+    expect(
+      resolveLiveDictAreaValueSwatch({
+        codeObjType: CodeObjTypeEnum.ColorPickerParam,
+        colorChoices: [
+          { color: "#ef4444", description: "Red" },
+          { color: "#22c55e", description: "Green" },
+        ],
+        value: "#000000",
+      }),
+    ).toBe("#ef4444");
   });
 });

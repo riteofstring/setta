@@ -363,7 +363,10 @@ export function getLiveDictAreaPixiDetailRowChrome({
       (LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX +
         contentInsetPx),
     valueColumnX:
-      rowX + contentInsetPx + paramColumnWidth + PARAM_CONTAINER_CENTER_GUTTER_PX,
+      rowX +
+      contentInsetPx +
+      paramColumnWidth +
+      PARAM_CONTAINER_CENTER_GUTTER_PX,
   };
 }
 
@@ -633,16 +636,16 @@ export function getLiveDictAreaPixiTextStyleSet({
 
 export function getLiveDictAreaPixiColorControlStyle({
   editorKind,
-  valueText,
+  valueSwatch,
 }: {
   editorKind?: ParamEditorKind;
-  valueText: string | null;
+  valueSwatch: string | null;
 }): LiveDictAreaPixiColorControlStyle | null {
-  if (editorKind !== "color-picker" || !valueText) {
+  if (editorKind !== "color-picker" || !valueSwatch) {
     return null;
   }
 
-  const backgroundFill = getLiveDictAreaPixiUsableComputedColor(valueText);
+  const backgroundFill = getLiveDictAreaPixiUsableComputedColor(valueSwatch);
   if (!backgroundFill || !parseLiveDictAreaPixiRgbColor(backgroundFill)) {
     return null;
   }
