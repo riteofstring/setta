@@ -11139,3 +11139,31 @@ Record:
     - result: current compact-card drift is still at the outer card shell, with the speculative compact-preview tweak worsening the real live delta to about `+30px` on representative cards while row controls themselves stayed aligned
 - Next action:
   - Investigate the compact card shell / mounted-body sizing path on the live `All Settings` canary; do not reopen compact row-height constants until that outer-height source is understood.
+
+## 2026-03-30 339
+
+- Item: Remove the synthetic unpinned detail-header height reserve from the live Pixi compact-card shell path.
+- Status: `done`
+- Details:
+  - Continued directly from item `338` and kept the slice narrowly on the named compact-card shell / mounted-body sizing blocker.
+  - Updated `frontend/src/components/Params/liveDictAreaPixiLayout.ts` so regular unpinned Pixi param-area blocks no longer reserve the hidden `areaHeaderHeight` in their canvas/body height.
+  - The unpinned live Pixi shell height now follows the visible mounted-body contract instead of carrying an extra hidden `~28px` detail-header reserve.
+  - Updated the focused layout contract coverage in `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts` to lock that corrected mounted-body expectation.
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed (`7 passed`)
+  - Playwright focused:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - done in a fresh sub-agent context on the current worktree runtime
+    - bootstrapped via `http://127.0.0.1:8043/__setta__/bootstrap#token=...`
+    - checked baseline DOM `http://127.0.0.1:3043/settings` versus live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - read-only `main` reference at `http://127.0.0.1:3000/settings` was unavailable locally (`ERR_CONNECTION_REFUSED`)
+    - result: passed for this settled slice; the earlier compact-card outer-shell drift was not visible, and the final baseline/live captures were byte-identical in the checked view
+- Next action:
+  - Return to the next real live Pixi visual-stability blocker on `All Settings`, with `main`-oracle comparison re-enabled once the read-only reference runtime is reachable again.

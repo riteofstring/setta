@@ -284,7 +284,7 @@ describe("buildLiveDictAreaPixiLayout", () => {
     expect(constrainedLayout.valuePreviewCount).toBe(1);
   });
 
-  it("drops the synthetic unpinned detail header strip without shrinking the preserved body height", () => {
+  it("drops the synthetic unpinned detail header strip from the mounted body height", () => {
     const liveDictAreaBoundary = buildLiveDictAreaBoundary({
       bgColor: "bg-surface",
       canConnect: true,
@@ -335,7 +335,6 @@ describe("buildLiveDictAreaPixiLayout", () => {
     expect(result.paramAreas[0]).toMatchObject({
       headerHeight: 0,
       height:
-        LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
         LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop +
         2 * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
         LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom,

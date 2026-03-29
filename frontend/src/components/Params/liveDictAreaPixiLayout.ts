@@ -324,9 +324,6 @@ function buildLiveDictAreaPixiParamAreaLayout({
     usesCompactPreview || block.kind === "unpinned-param-area"
       ? 0
       : LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight;
-  const reservedHeaderHeight = usesCompactPreview
-    ? 0
-    : LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight;
   const areaPaddingTop = usesCompactPreview
     ? LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingTop
     : LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop;
@@ -347,7 +344,7 @@ function buildLiveDictAreaPixiParamAreaLayout({
     }),
   );
   const contentHeight =
-    reservedHeaderHeight +
+    headerHeight +
     areaPaddingTop +
     rows.length * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
     areaPaddingBottom;
