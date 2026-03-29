@@ -45,8 +45,8 @@ const LIVE_DICT_AREA_PIXI_REGULAR_SINGLE_ROW_MIN_HEIGHT =
 
 export type LiveDictAreaPixiRowLayout = ParamSceneRowPacket & {
   blockHeight: number;
+  contentX: number;
   labelText: string;
-  labelX: number;
   valueSwatch: string | null;
   valueText: string | null;
   width: number;
@@ -443,19 +443,19 @@ function buildLiveDictAreaPixiRowLayout({
   width: number;
   y: number;
 }): LiveDictAreaPixiRowLayout {
-  const x =
+  const contentX =
     LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX +
     row.depth * LIVE_DICT_AREA_PIXI_LAYOUT.rowIndent;
 
   return {
     ...row,
     blockHeight: LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
+    contentX,
     labelText: row.label ?? "Placeholder",
-    labelX: x + LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2,
     valueSwatch: row.kind === "value" ? row.valueSwatch ?? null : null,
     valueText: row.kind === "value" ? row.valuePreview : null,
     width,
-    x,
+    x: LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX,
     y: y + rowIndex * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight + rowTopOffset,
   };
 }

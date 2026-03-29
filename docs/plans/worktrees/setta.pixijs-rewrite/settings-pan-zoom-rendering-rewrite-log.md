@@ -11073,3 +11073,44 @@ Record:
     - result: passed; the previously suspected quoted-value mismatch was not visibly painted and should not drive renderer changes
 - Next action:
   - Return to the actual visible `All Settings` parity drift, with row cadence / renderer-internal spacing still the next real blocker to measure against the baseline DOM surface instead of accessibility snapshot text.
+
+## 2026-03-30 337
+
+- Item: Align live Pixi value-row surfaces to the full card body while keeping the existing content indent.
+- Status: `done`
+- Details:
+  - Narrowed the current row-cadence lane to a concrete renderer issue instead of another seam lift:
+    - the live Pixi row layout was reusing the same `x` offset for both the visible row surface and the internal text/value-column indent
+    - that made the painted row shell and the value-row handoff/drag targets inherit an unnecessary inset instead of spanning the card body
+  - Updated the row-layout and draw path so the surface and the content indent are modeled separately:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+  - The row shell now anchors to the section/card edge while preserving the prior content column alignment through a separate `contentX` value, so this slice does not retune text placement at the same time.
+  - Added focused regression coverage for the new contract:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiDragRowTargets.test.ts`
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/liveDictAreaPixiDragRowTargets.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`71 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay"`
+      - result: passed (`2 passed`)
+    - Chrome DevTools MCP visual check:
+      - the initial post-edit gate was blocked because the inherited `9265` DevTools runtime was unavailable
+      - attempted the one bounded non-main recovery:
+        - `./aireset.sh`
+        - fallback retry: `./ai.sh`
+      - refreshed runtime values after recovery:
+        - frontend: `http://127.0.0.1:3044/`
+        - backend: `http://127.0.0.1:8044`
+        - DevTools: `9266`
+      - fresh-context CDP sub-agent check on `/settings`:
+        - baseline DOM and live Pixi canary both loaded `All Settings`
+        - the canary showed a Pixi scene
+        - no obvious new left-edge inset artifact or visual breakage was observed on the first visible unpinned card area versus baseline
+- Next action:
+  - Continue the normalized `All Settings` live Pixi parity investigation from the next actual visible drift; this row-surface inset lane is closed.

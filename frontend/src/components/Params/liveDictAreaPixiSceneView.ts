@@ -351,15 +351,17 @@ export function getLiveDictAreaPixiDetailRowChrome({
   palette,
   paramColumnWidth,
   rowKind,
+  rowContentX,
+  rowSurfaceX,
   rowWidth,
-  rowX,
 }: {
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   rowKind: "group" | "placeholder" | "value";
+  rowContentX: number;
+  rowSurfaceX: number;
   rowWidth: number;
-  rowX: number;
 }): LiveDictAreaPixiDetailRowChrome {
   const contentInsetPx = Math.max(
     0,
@@ -382,17 +384,19 @@ export function getLiveDictAreaPixiDetailRowChrome({
     contentInsetPx,
     cornerRadiusPx,
     fill,
-    labelX: rowX + contentInsetPx,
+    labelX: rowContentX + contentInsetPx,
     rowBackgroundWidth: Math.max(
       0,
-      rowWidth - rowX - LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX,
+      rowWidth -
+        rowSurfaceX -
+        LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX,
     ),
     rowRightEdgeX:
       rowWidth -
       (LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX +
         contentInsetPx),
     valueColumnX:
-      rowX +
+      rowContentX +
       contentInsetPx +
       paramColumnWidth +
       PARAM_CONTAINER_CENTER_GUTTER_PX,

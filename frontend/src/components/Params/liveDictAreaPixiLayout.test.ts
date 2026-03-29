@@ -98,6 +98,16 @@ describe("buildLiveDictAreaPixiLayout", () => {
     expect(result.paramAreas[0]?.rows[0]?.blockHeight).toBe(
       LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
     );
+    expect(result.paramAreas[0]?.rows[0]).toMatchObject({
+      contentX: LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
+      x: LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX,
+    });
+    expect(result.paramAreas[0]?.rows[1]).toMatchObject({
+      contentX:
+        LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX +
+        LIVE_DICT_AREA_PIXI_LAYOUT.rowIndent,
+      x: LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX,
+    });
     expect(
       (result.paramAreas[0]?.rows[1]?.y ?? 0) -
         (result.paramAreas[0]?.rows[0]?.y ?? 0),

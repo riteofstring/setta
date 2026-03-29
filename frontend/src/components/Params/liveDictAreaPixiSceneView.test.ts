@@ -322,15 +322,16 @@ describe("getLiveDictAreaPixiDetailRowChrome", () => {
         palette,
         paramColumnWidth: 200,
         rowKind: "value",
+        rowContentX: 12,
+        rowSurfaceX: 0,
         rowWidth: 320,
-        rowX: 12,
       }),
     ).toEqual({
       contentInsetPx: 2,
       cornerRadiusPx: 2,
       fill: null,
       labelX: 14,
-      rowBackgroundWidth: 302,
+      rowBackgroundWidth: 314,
       rowRightEdgeX: 312,
       valueColumnX: 226,
     });
@@ -347,8 +348,9 @@ describe("getLiveDictAreaPixiDetailRowChrome", () => {
         palette,
         paramColumnWidth: 200,
         rowKind: "placeholder",
+        rowContentX: 12,
+        rowSurfaceX: 0,
         rowWidth: 320,
-        rowX: 12,
       }).fill,
     ).toBe(palette.rowPlaceholderFill);
   });
@@ -364,15 +366,16 @@ describe("getLiveDictAreaPixiDetailRowChrome", () => {
         palette,
         paramColumnWidth: 160,
         rowKind: "group",
+        rowContentX: 24,
+        rowSurfaceX: 0,
         rowWidth: 260,
-        rowX: 24,
       }),
     ).toMatchObject({
       contentInsetPx: 3,
       cornerRadiusPx: 4,
       fill: palette.rowBackgroundAlt,
       labelX: 27,
-      rowBackgroundWidth: 230,
+      rowBackgroundWidth: 254,
       rowRightEdgeX: 251,
       valueColumnX: 199,
     });

@@ -928,8 +928,9 @@ function drawParamRow({
     palette,
     paramColumnWidth,
     rowKind: row.kind,
+    rowContentX: row.contentX,
+    rowSurfaceX: row.x,
     rowWidth: row.width,
-    rowX: row.x,
   });
   const valueRowChrome = getLiveDictAreaPixiDetailRowInteractionChrome({
     detailRowChrome: rowChrome,
