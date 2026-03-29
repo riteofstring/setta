@@ -14150,3 +14150,35 @@ LOOP_TERMINAL_MARKER: none
   - Use the restored canvas-only compare flow to identify the next real Gate 2 renderer defect outside the closed `browserSectionDefault` lane and outside pane/chat normalization
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-01 410
+
+- Item: Draw shared-runtime managed scenes in pane screen space with explicit zoom scaling and clip masks.
+- Status: `done`
+- Details:
+  - In `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`, `getLiveDictAreaPixiManagedSceneLocalBounds` now keeps managed-scene bounds in host screen space instead of converting the shared-runtime origin back into logical coordinates.
+  - The shared page runtime now passes those screen-space bounds through as a clip rect and applies the live React Flow zoom explicitly when drawing each managed scene.
+  - In `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`, `drawLiveDictAreaPixiScene` now supports per-scene scaling plus a stage mask so shared-runtime scenes render inside their clipped visible slice on the pane-level runtime canvas.
+  - Added focused regressions in:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - the new coverage locks the host-screen-space contract and the scene mask/scale handoff.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed (`18 passed`)
+  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed
+  - `source activate.sh >/dev/null 2>&1 && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode worktree bootstrap token>' \"$WORKTREE_B64\") && MAIN_BOOTSTRAP_URL=$(node -e '<decode main bootstrap url>' \"$MAIN_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$MAIN_BOOTSTRAP_URL\" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`1 passed`, about `26.1s`)
+  - fresh-context CDP visual check via sub-agent on worktree/main `All Settings`
+    - result: done, partial Gate 2 compare
+    - Gate 1 looked improved/pass on the checked slice
+    - `main` remained collapsed into the tiny stacked overview tiles instead of the centered `browserSectionDefault` surface, so the detailed Gate 2 compare was not fully trustworthy
+- Conclusion:
+  - the shared runtime now treats the pane-level canvas as screen space and applies viewport zoom intentionally instead of relying on logical-origin math
+  - the renderer slice is landed and the same-state Playwright compare still passes after the change
+  - the next blocker is restoring a trustworthy centered worktree/main CDP compare surface, not another blind shared-runtime placement tweak
+- Next action:
+  - Re-establish a trustworthy centered `browserSectionDefault` worktree/main CDP compare on top of this screen-space runtime path, then inspect any remaining Gate 2 drift from that exact state
+
+LOOP_TERMINAL_MARKER: none

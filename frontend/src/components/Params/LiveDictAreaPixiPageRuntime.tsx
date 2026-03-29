@@ -447,6 +447,7 @@ export function LiveDictAreaPixiPageRuntimeHost() {
           },
           forceReadableRowFill: shouldForceReadableRowFill,
           layout: managedScene.layout,
+          maskRect: localBounds,
           origin: {
             x: localBounds.left,
             y: localBounds.top,
@@ -454,6 +455,10 @@ export function LiveDictAreaPixiPageRuntimeHost() {
           palette,
           paramColumnWidth,
           presentationMode,
+          scale: {
+            x: viewportZoom,
+            y: viewportZoom,
+          },
           textResolution,
           textFontFamily,
           textStyleSet,
@@ -710,20 +715,10 @@ export function getLiveDictAreaPixiManagedSceneLocalBounds({
   }
 
   const hostBounds = host.getBoundingClientRect();
-  const left = (sceneBounds.left - hostBounds.left) / viewportZoom;
-  const top = (sceneBounds.top - hostBounds.top) / viewportZoom;
-  const width =
-    typeof sceneBounds.logicalWidth === "number" &&
-    Number.isFinite(sceneBounds.logicalWidth) &&
-    sceneBounds.logicalWidth > 0
-      ? sceneBounds.logicalWidth
-      : sceneBounds.width / viewportZoom;
-  const height =
-    typeof sceneBounds.logicalHeight === "number" &&
-    Number.isFinite(sceneBounds.logicalHeight) &&
-    sceneBounds.logicalHeight > 0
-      ? sceneBounds.logicalHeight
-      : sceneBounds.height / viewportZoom;
+  const left = sceneBounds.left - hostBounds.left;
+  const top = sceneBounds.top - hostBounds.top;
+  const width = sceneBounds.width;
+  const height = sceneBounds.height;
 
   if (
     !Number.isFinite(left) ||

@@ -74,6 +74,8 @@ vi.mock("pixi.js", () => {
 
   class MockContainer {
     children: Array<{ destroy: () => void }> = [];
+    mask: unknown = null;
+    scale = { x: 1, y: 1 };
     x = 0;
     y = 0;
 
@@ -276,7 +278,7 @@ function ContextLossButton({
 }
 
 describe("getLiveDictAreaPixiManagedSceneLocalBounds", () => {
-  it("prefers the registered logical scene size when the visible screen rect is clipped at low zoom", () => {
+  it("keeps managed scene bounds in host screen space when the visible scene rect is clipped at low zoom", () => {
     const host = document.createElement("div");
     host.getBoundingClientRect = vi.fn(() => ({
       bottom: 400,
@@ -304,14 +306,14 @@ describe("getLiveDictAreaPixiManagedSceneLocalBounds", () => {
         viewportZoom: 0.25,
       }),
     ).toEqual({
-      height: 140,
-      left: 160,
-      top: 80,
-      width: 260,
+      height: 35,
+      left: 40,
+      top: 20,
+      width: 55,
     });
   });
 
-  it("preserves fractional registered scene offsets so low-zoom shared-runtime scenes do not drift vertically", () => {
+  it("preserves fractional screen-space offsets so low-zoom shared-runtime scenes do not drift vertically", () => {
     const host = document.createElement("div");
     host.getBoundingClientRect = vi.fn(() => ({
       bottom: 380.1,
@@ -339,10 +341,10 @@ describe("getLiveDictAreaPixiManagedSceneLocalBounds", () => {
         viewportZoom: 0.25,
       }),
     ).toEqual({
-      height: 140,
-      left: 161.6,
-      top: 81.2,
-      width: 260,
+      height: 35.2,
+      left: 40.4,
+      top: 20.3,
+      width: 55.2,
     });
   });
 });

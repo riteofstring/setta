@@ -6,8 +6,10 @@ import "testUtils/reactRefreshPreamble";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
+import type { LiveDictAreaPixiLayout } from "./liveDictAreaPixiLayout";
 import {
   configureLiveDictAreaPixiStaticScene,
+  drawLiveDictAreaPixiScene,
   getLiveDictAreaPixiLowZoomGlyphAlphaProfile,
   getLiveDictAreaPixiLowZoomGlyphWidth,
   getLiveDictAreaPixiLowZoomParamRowGlyphMetrics,
@@ -53,6 +55,8 @@ vi.mock("state/definitions", async (importOriginal) => {
 vi.mock("pixi.js", () => {
   class MockContainer {
     children: unknown[] = [];
+    mask: unknown = null;
+    scale = { x: 1, y: 1 };
     x = 0;
     y = 0;
 
@@ -163,6 +167,100 @@ describe("configureLiveDictAreaPixiStaticScene", () => {
     expect(app.stage.eventMode).toBe("none");
     expect(app.stage.interactiveChildren).toBe(false);
     expect(app.canvas.style.pointerEvents).toBe("none");
+  });
+});
+
+describe("drawLiveDictAreaPixiScene", () => {
+  it("applies page-runtime screen-space clipping and viewport scaling to the scene container", () => {
+    const app = {
+      stage: {
+        addChild(child: unknown) {
+          this.children.push(child);
+          return child;
+        },
+        children: [] as unknown[],
+        removeChildren() {
+          const children = [...this.children];
+          this.children = [];
+          return children;
+        },
+      },
+    } as unknown as Parameters<typeof drawLiveDictAreaPixiScene>[0]["app"];
+    const layout: LiveDictAreaPixiLayout = {
+      blocks: [],
+      canvasHeight: 140,
+      canvasWidth: 260,
+      edgeStrip: null,
+      paramAreas: [],
+      readableRowCount: 0,
+      totalRowCount: 0,
+      valuePreviewCount: 0,
+    };
+
+    drawLiveDictAreaPixiScene({
+      app,
+      compactRowPrimitive: {
+        cornerRadiusPx: 12,
+        horizontalPaddingPx: 8,
+        surfaceKind: "solid",
+      },
+      darkMode: false,
+      edgeRowInteractionState: {
+        focusedPortId: null,
+        hoveredPortId: null,
+        pressedPortId: null,
+      },
+      layout,
+      maskRect: {
+        height: 35,
+        left: 40,
+        top: 20,
+        width: 55,
+      },
+      origin: { x: 40, y: 20 },
+      palette: {
+        bodyText: "#0f172a",
+        border: "#cbd5e1",
+        panelBackground: "#f8fafc",
+        panelBackgroundAlt: "#f1f5f9",
+        portDot: "#64748b",
+        portSelectedDot: "#0284c7",
+        rowBackground: "#ffffff",
+        rowBackgroundAlt: "#eef2ff",
+        rowPlaceholderFill: "#f8fafc",
+        titleText: "#475569",
+      },
+      paramColumnWidth: 120,
+      presentationMode: "overview",
+      scale: { x: 0.25, y: 0.25 },
+      textFontFamily: "sans-serif",
+      textResolution: 1,
+      textStyleSet: {
+        edgeLabelFontSize: 8,
+        edgeLabelFontWeight: "700",
+        edgeRowFontSize: 10,
+        edgeRowFontWeight: "400",
+        rowFontSize: 12,
+        rowFontWeight: "600",
+        titleFontSize: 8,
+        titleFontWeight: "700",
+      },
+      valueRowInteractionState: {
+        focusedRowId: null,
+        hoveredRowId: null,
+        pressedRowId: null,
+      },
+    });
+
+    expect(app.stage.children).toHaveLength(2);
+    const [clipMask, sceneContainer] = app.stage.children as [
+      { destroy: () => void },
+      { mask: unknown; scale: { x: number; y: number }; x: number; y: number },
+    ];
+    expect(sceneContainer.x).toBe(40);
+    expect(sceneContainer.y).toBe(20);
+    expect(sceneContainer.scale).toEqual({ x: 0.25, y: 0.25 });
+    expect(sceneContainer.mask).toBe(clipMask);
   });
 });
 

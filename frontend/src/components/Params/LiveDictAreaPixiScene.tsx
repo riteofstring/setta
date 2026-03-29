@@ -689,10 +689,12 @@ export function drawLiveDictAreaPixiScene({
   edgeRowInteractionState,
   forceReadableRowFill = false,
   layout,
+  maskRect,
   origin = { x: 0, y: 0 },
   palette,
   paramColumnWidth,
   presentationMode,
+  scale,
   textResolution,
   textFontFamily,
   textStyleSet,
@@ -709,10 +711,12 @@ export function drawLiveDictAreaPixiScene({
   };
   forceReadableRowFill?: boolean;
   layout: LiveDictAreaPixiLayout;
+  maskRect?: { height: number; left: number; top: number; width: number };
   origin?: { x: number; y: number };
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   presentationMode: LiveDictAreaPixiPresentationMode;
+  scale?: { x: number; y: number };
   textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
@@ -731,6 +735,24 @@ export function drawLiveDictAreaPixiScene({
   const sceneContainer = new Container();
   sceneContainer.x = origin.x;
   sceneContainer.y = origin.y;
+  if (scale) {
+    sceneContainer.scale.x = scale.x;
+    sceneContainer.scale.y = scale.y;
+  }
+
+  if (maskRect) {
+    const clipMask = new Graphics()
+      .roundRect(
+        maskRect.left,
+        maskRect.top,
+        maskRect.width,
+        maskRect.height,
+        0,
+      )
+      .fill(0xffffff);
+    sceneContainer.mask = clipMask;
+    app.stage.addChild(clipMask);
+  }
 
   for (const block of layout.blocks) {
     if (block.kind === "edge-strip") {
