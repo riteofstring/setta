@@ -407,35 +407,54 @@ function resolveVisibleParamAreaRows({
     (row) => row.y + row.blockHeight <= visibleRowsBottomY,
   );
 
-  if (
-    visibleRows.length === 0 ||
-    visibleRows.length >= rows.length ||
-    visibleRows.some((row) => row.kind !== "group")
-  ) {
-    return visibleRows;
-  }
-
-  const firstReadableRowIndex = rows.findIndex((row) => row.kind !== "group");
-  if (firstReadableRowIndex === -1) {
+  if (visibleRows.length === 0 || visibleRows.length >= rows.length) {
     return visibleRows;
   }
 
   const previewRowCount = visibleRows.length;
-  const maxPreviewStartIndex = Math.max(0, rows.length - previewRowCount);
-  const previewStartIndex = Math.min(
-    Math.max(0, firstReadableRowIndex - (previewRowCount - 1)),
-    maxPreviewStartIndex,
-  );
+  const currentReadableRowCount =
+    countLiveDictAreaPixiReadableRows(visibleRows);
+  let bestPreviewRows = visibleRows;
+  let bestPreviewReadableRowCount = currentReadableRowCount;
 
-  return rows
-    .slice(previewStartIndex, previewStartIndex + previewRowCount)
-    .map((row, rowIndex) => ({
-      ...row,
-      y:
-        rowsStartY +
-        rowIndex * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
-        rowTopOffset,
-    }));
+  for (
+    let previewStartIndex = 1;
+    previewStartIndex <= rows.length - previewRowCount;
+    previewStartIndex += 1
+  ) {
+    const candidatePreviewRows = rows.slice(
+      previewStartIndex,
+      previewStartIndex + previewRowCount,
+    );
+    const candidateReadableRowCount =
+      countLiveDictAreaPixiReadableRows(candidatePreviewRows);
+    if (candidateReadableRowCount <= bestPreviewReadableRowCount) {
+      continue;
+    }
+
+    bestPreviewRows = candidatePreviewRows;
+    bestPreviewReadableRowCount = candidateReadableRowCount;
+  }
+
+  if (bestPreviewReadableRowCount <= currentReadableRowCount) {
+    return visibleRows;
+  }
+
+  return bestPreviewRows.map((row, rowIndex) => ({
+    ...row,
+    y:
+      rowsStartY +
+      rowIndex * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
+      rowTopOffset,
+  }));
+}
+
+function countLiveDictAreaPixiReadableRows(rows: LiveDictAreaPixiRowLayout[]) {
+  return rows.reduce(
+    (readableRowCount, row) =>
+      readableRowCount + (row.kind === "group" ? 0 : 1),
+    0,
+  );
 }
 
 function getLiveDictAreaPixiReservedTrailingPreviewHeight({

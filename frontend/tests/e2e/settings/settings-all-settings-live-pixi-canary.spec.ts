@@ -1091,8 +1091,8 @@ test("all settings canary keeps the first visible low-zoom Pixi cards from colla
     .poll(async () => {
       const visibleScenes = await readVisibleSceneReadableRows(page);
       return (
-        visibleScenes.length >= 3 &&
-        visibleScenes.slice(0, 3).every((scene) => scene.readableRowCount > 0)
+        visibleScenes.length >= 6 &&
+        visibleScenes.slice(0, 6).every((scene) => scene.readableRowCount > 0)
       );
     })
     .toBe(true);

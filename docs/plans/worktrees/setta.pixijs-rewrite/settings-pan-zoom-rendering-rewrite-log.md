@@ -11927,3 +11927,33 @@ Record:
       - both tabs showed the same viewport transform and visible section-card geometry in the checked `All Settings` slice
 - Next action:
   - Move back to the next real live-Pixi renderer/parity frontier on `All Settings`; do not reopen the explicit-query route-entry lane unless this new canary or a fresh CDP pass regresses.
+
+## 2026-03-31 360
+
+- Item: Prefer the densest readable preview window for constrained live Pixi compact cards on `All Settings`.
+- Status: `done`
+- Details:
+  - Took one bounded renderer-layout slice on the remaining compact-card readability lane instead of reopening route-entry or harness work.
+  - Updated `frontend/src/components/Params/liveDictAreaPixiLayout.ts` so constrained preview cards now score every same-height row window and only shift when a later window exposes strictly more readable rows than the default top slice.
+    - this keeps the existing top-anchored window when it is already optimal
+    - when a mixed group/value card can show a denser readable slice later in the same constrained height, the preview now reflows that better slice to the top of the compact card
+  - Added focused unit coverage for the mixed-window case in `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`.
+  - Tightened the existing low-zoom Playwright guard in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` so it now checks the first six visible Pixi cards instead of only the first three, keeping the second visible row (`chatWindowing`, `sectionSizingPolicy`, `languageServer`) under the same non-empty preview guard.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed (`9 passed`)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews"`
+    - result: passed (`2 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on worktree baseline `http://127.0.0.1:3043/settings`, worktree live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`, and read-only `main` `http://127.0.0.1:3087/settings`
+    - result: passed
+      - live Pixi loaded in the authenticated `All Settings` surface without a bootstrap/login barrier
+      - the first visible compact cards, including `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, and `languageServer`, showed populated body rows instead of blank or group-only shells
+      - no obvious new clipping or blank-shell regression was visible in the inspected first two rows
+- Next action:
+  - Resume the normalized live-Pixi-vs-`main` parity investigation on `All Settings` and identify the next renderer-only drift beyond this compact preview readability slice.
