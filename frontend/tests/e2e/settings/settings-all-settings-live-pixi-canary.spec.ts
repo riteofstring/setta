@@ -189,6 +189,12 @@ test("all settings canary can hand off from the Pixi scene into a value-row DOM 
       localParamContainerCount: overlay.querySelectorAll(
         '[id^="ParamContainer-"]',
       ).length,
+      localParamSwitchCount: overlay.querySelectorAll(
+        "[data-param-switch-row-id]",
+      ).length,
+      overlayRowCount: overlay.querySelectorAll(
+        "[data-live-dict-area-editor-overlay-row='true']",
+      ).length,
       sceneCanvasCount: document.querySelectorAll(
         "[data-live-dict-area-scene='pixi'] canvas",
       ).length,
@@ -199,6 +205,8 @@ test("all settings canary can hand off from the Pixi scene into a value-row DOM 
 
   expect(result).not.toBeNull();
   expect(result?.localParamContainerCount).toBe(1);
+  expect(result?.localParamSwitchCount).toBe(0);
+  expect(result?.overlayRowCount).toBe(1);
   expect(result?.sceneCanvasCount).toBeGreaterThan(0);
 });
 

@@ -1,12 +1,12 @@
 import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
+import { LiveDictAreaPixiValueOverlaySceneRow } from "./LiveDictAreaPixiValueOverlaySceneRow";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 import {
   type ParamEditorKind,
   PixiOverlayParamEditorKindProvider,
 } from "./paramEditorActivation";
-import { ParamSwitch } from "./ParamSwitch";
 
 type LiveDictAreaPixiValueRowOverlayProps = {
   editorKind: ParamEditorKind;
@@ -46,14 +46,9 @@ export function LiveDictAreaPixiValueRowOverlay({
         }}
       >
         <div className="section-args-nested section-key-value section-min-rows grid min-h-0 w-full auto-rows-min content-start gap-y-1 pr-1.5">
-          <ParamSwitch
-            sectionId={target.sectionId}
-            paramInfoId={target.rowId}
-            requiredParamIdsToPaths={target.requiredParamIdsToPaths}
-            onResizeStart={target.handleColumnResizeStart}
-            listKey={target.listKey}
+          <LiveDictAreaPixiValueOverlaySceneRow
             hasSectionStyleTheme={hasSectionStyleTheme}
-            renderMode="full"
+            target={target}
           />
         </div>
       </div>

@@ -7171,3 +7171,37 @@ Record:
     - representative `200` responses included `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, and `POST /api/getFolderContents`
 - Next action:
   - Continue the focused editor-overlay lane by replacing the remaining row-level `ParamSwitch` store/render shell in the Pixi value-row handoff with a lighter scene-aligned editor row boundary, while preserving first-click editor activation.
+
+## 2026-03-29 230
+
+- Item: Replace the remaining Pixi value-row overlay `ParamSwitch` shell with a direct scene-aligned editor row boundary.
+- Status: `done`
+- Details:
+  - Landed the next real editor-overlay slice instead of another ownership hop:
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The active Pixi value-row overlay no longer mounts the generic row-level `ParamSwitch` store/render shell:
+    - `LiveDictAreaPixiValueRowOverlay.tsx` now hands the selected row to `LiveDictAreaPixiValueOverlaySceneRow`
+    - the new scene-row boundary reads only the row state it needs, mounts `ParamContainer` directly in `renderMode="full"`, keeps `ParamNameInput` for kwarg rows, and renders a direct scene-aligned label for normal value rows
+    - the overlay now exposes an explicit single-row marker (`data-live-dict-area-editor-overlay-row="true"`) so the live canary can prove the overlay boundary is direct instead of recursive
+  - Extended the live canary assertion to prove the new boundary shape:
+    - exactly one overlay row marker exists for the activated value-row editor overlay
+    - zero `data-param-switch-row-id` descendants remain inside that overlay
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - after clicking a live `value-row` handoff, the active overlay appeared with exactly one direct overlay row marker, zero `data-param-switch-row-id` descendants, and the Pixi canvas remained mounted
+- Next action:
+  - Re-check the remaining Pixi editor-overlay shells and only continue this lane if the next slice removes real overlay/store work rather than another pure-forwarding seam hop.

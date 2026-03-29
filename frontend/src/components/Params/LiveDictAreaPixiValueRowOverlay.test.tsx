@@ -7,47 +7,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 
-type MockParamSwitchProps = {
-  hasSectionStyleTheme: boolean;
-  listKey: string;
-  onResizeStart: React.MouseEventHandler;
-  paramInfoId: string;
-  renderMode: string;
-  requiredParamIdsToPaths: Record<string, string[]>;
-  sectionId: string;
-};
+const sceneRowCalls = vi.hoisted(() => [] as LiveDictAreaPixiValueRowTarget[]);
 
-const localStorageState = vi.hoisted(() => ({
-  darkMode: false,
-}));
-
-const temporaryMiscState = vi.hoisted(() => ({}) as Record<string, unknown>);
-const paramSwitchCalls = vi.hoisted(() => [] as MockParamSwitchProps[]);
-
-vi.mock(import("state/definitions"), async (importOriginal) => {
-  const actual = await importOriginal();
-  return {
-    ...actual,
-    useLocalStorage: (selector: (state: typeof localStorageState) => unknown) =>
-      selector(localStorageState),
-    useTemporaryMiscState: (
-      selector: (state: Record<string, unknown>) => unknown,
-    ) => selector(temporaryMiscState),
-  };
-});
-
-vi.mock("./ParamSwitch", () => ({
-  ParamSwitch: (props: MockParamSwitchProps) => {
-    paramSwitchCalls.push(props);
+vi.mock("./LiveDictAreaPixiValueOverlaySceneRow", () => ({
+  LiveDictAreaPixiValueOverlaySceneRow: ({
+    target,
+  }: {
+    hasSectionStyleTheme: boolean;
+    target: LiveDictAreaPixiValueRowTarget;
+  }) => {
+    sceneRowCalls.push(target);
     return (
       <div
-        data-param-switch-has-section-style-theme={
-          props.hasSectionStyleTheme ? "true" : "false"
-        }
-        data-param-switch-list-key={props.listKey}
-        data-param-switch-render-mode={props.renderMode}
-        data-param-switch-row-id={props.paramInfoId}
-        data-param-switch-section-id={props.sectionId}
+        data-live-dict-area-editor-overlay-row="true"
+        data-live-dict-area-editor-overlay-row-id={target.rowId}
       />
     );
   },
@@ -61,7 +34,7 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
     container = document.createElement("div");
     document.body.append(container);
     root = createRoot(container);
-    paramSwitchCalls.length = 0;
+    sceneRowCalls.length = 0;
   });
 
   afterEach(() => {
@@ -69,10 +42,10 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       root.unmount();
     });
     container.remove();
-    paramSwitchCalls.length = 0;
+    sceneRowCalls.length = 0;
   });
 
-  it("mounts a single direct ParamSwitch row with the Pixi editor-overlay contract", () => {
+  it("mounts overlay metadata and delegates row rendering to the direct scene-row boundary", () => {
     const target: LiveDictAreaPixiValueRowTarget = {
       blockId: "pinned",
       handleColumnResizeStart: vi.fn(),
@@ -111,20 +84,15 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
     expect(
       overlay?.getAttribute("data-live-dict-area-editor-overlay-row-id"),
     ).toBe("pinned-value");
-    expect(paramSwitchCalls).toHaveLength(1);
-    expect(paramSwitchCalls[0]).toMatchObject({
-      hasSectionStyleTheme: false,
+    expect(sceneRowCalls).toHaveLength(1);
+    expect(sceneRowCalls[0]).toMatchObject({
       listKey: "pinned",
-      paramInfoId: "pinned-value",
-      renderMode: "full",
-      requiredParamIdsToPaths: {
-        "pinned-value": ["pinned-group", "pinned-value"],
-      },
+      rowId: "pinned-value",
       sectionId: "section-1",
     });
     expect(
       container.querySelector(
-        "[data-param-switch-row-id='pinned-value'][data-param-switch-render-mode='full']",
+        "[data-live-dict-area-editor-overlay-row='true'][data-live-dict-area-editor-overlay-row-id='pinned-value']",
       ),
     ).not.toBeNull();
   });
