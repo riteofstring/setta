@@ -271,6 +271,16 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         "[data-live-dict-area-editor-handoff-editor-kind='color-picker']",
       ),
     ).not.toBeNull();
+    expect(
+      handoffButtons.every((button) => {
+        const ariaLabel = button.getAttribute("aria-label");
+        return (
+          ariaLabel !== null &&
+          ariaLabel.length > 0 &&
+          !ariaLabel.includes("Activate editor overlay for")
+        );
+      }),
+    ).toBe(true);
     expect(handoffButtons[0]?.style.right).toBe("");
     expect(handoffButtons[0]?.style.width).toBe("296px");
     expect(activeValueRowBaseStateRequests).toEqual([]);

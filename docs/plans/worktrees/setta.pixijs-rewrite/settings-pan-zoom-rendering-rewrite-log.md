@@ -9198,3 +9198,39 @@ Record:
     - no separate read-only `main` reference settings tab was available in the browser session for this iteration
 - Next action:
   - Continue the live Pixi parity lane from this color-control baseline by tightening the next visible editable-control chrome drift on `All Settings`, preferably against `main` when a reference settings tab is available.
+
+## 2026-03-29 279
+
+- Item: Stop live Pixi value-row handoff overlays from leaking activation-prose labels into the checked `All Settings` canary cards.
+- Status: `done`
+- Details:
+  - Took the next bounded parity slice directly from the fresh CDP inspection instead of another scene-paint tweak:
+    - the canary's first visible `All Settings` cards were exposing accessibility/button text like `Activate editor overlay for ...` where baseline showed baseline-like row/value names
+    - the issue was localized to the invisible Pixi value-row handoff buttons in the overlay shell, not the scene draw packets themselves
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The kept fix now:
+    - carries each visible row's `valueText` through the Pixi handoff target metadata
+    - derives baseline-like handoff button names such as `Grid Pattern "dot"` instead of overlay activation prose
+    - keeps the invisible click targets and first-click editor handoff behavior unchanged
+    - adds unit and Playwright coverage so the canary fails if visible handoff buttons regress back to `Activate editor overlay for ...`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`6 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiValueRowTargets.ts src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - checked baseline `/settings` and canary `/settings?liveDictAreaRenderer=pixi-node-body` at browser zoom `100%`
+    - confirmed zero checked canary hits for the old `Activate editor overlay for` text
+    - confirmed the inspected cards/rows (`sectionSizingPolicy`, `gui`, `backend`, `languageServer`) stayed visually stable without a new obvious regression
+- Next action:
+  - Continue the live Pixi parity lane from this cleaned handoff-label baseline by tightening the next concrete editable-control or text/chrome drift visible on `All Settings`, preferably against a read-only `main` reference tab when available.

@@ -219,6 +219,25 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   });
 
   const result = await metrics.jsonValue();
+  const visibleHandoffAriaLabels = await page.evaluate(() =>
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        "[data-live-dict-area-editor-handoff='value-row']",
+      ),
+    )
+      .filter((button) => {
+        const rect = button.getBoundingClientRect();
+
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.top < window.innerHeight
+        );
+      })
+      .slice(0, 4)
+      .map((button) => button.getAttribute("aria-label") ?? ""),
+  );
 
   expect(result).not.toBeNull();
   expect(result?.visibleSceneRootCount).toBeGreaterThan(0);
@@ -237,6 +256,14 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
     (result?.sceneRootCssHeight ?? 0) + 1,
   );
   expect(result?.localParamContainerCount).toBe(0);
+  expect(visibleHandoffAriaLabels.length).toBeGreaterThan(0);
+  expect(
+    visibleHandoffAriaLabels.every(
+      (ariaLabel) =>
+        ariaLabel.length > 0 &&
+        !ariaLabel.startsWith("Activate editor overlay for "),
+    ),
+  ).toBe(true);
 });
 
 test("all settings canary rerenders the Pixi scene canvas when the viewport zoom changes", async ({

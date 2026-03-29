@@ -2,7 +2,10 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { buildLiveDictAreaPixiLayout } from "./liveDictAreaPixiLayout";
-import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
+import {
+  buildLiveDictAreaPixiValueRowTargets,
+  getLiveDictAreaPixiValueRowHandoffAriaLabel,
+} from "./liveDictAreaPixiValueRowTargets";
 
 describe("buildLiveDictAreaPixiValueRowTargets", () => {
   it("builds activatable targets only for value rows on the Pixi canary", () => {
@@ -152,5 +155,22 @@ describe("buildLiveDictAreaPixiValueRowTargets", () => {
     });
 
     expect(targets.map((target) => target.rowId)).toEqual(["pinned-value"]);
+  });
+});
+
+describe("getLiveDictAreaPixiValueRowHandoffAriaLabel", () => {
+  it("uses baseline-like row/value text instead of overlay activation prose", () => {
+    expect(
+      getLiveDictAreaPixiValueRowHandoffAriaLabel({
+        label: "Grid Pattern",
+        valueText: "dot",
+      }),
+    ).toBe('Grid Pattern "dot"');
+    expect(
+      getLiveDictAreaPixiValueRowHandoffAriaLabel({
+        label: "Password Param",
+        valueText: null,
+      }),
+    ).toBe("Password Param");
   });
 });

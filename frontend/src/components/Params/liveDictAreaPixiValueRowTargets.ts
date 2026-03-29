@@ -27,10 +27,29 @@ export type LiveDictAreaPixiValueRowTarget = {
   rowId: string;
   sectionId: string;
   styleColor: string | null;
+  valueText: string | null;
   width: number;
   x: number;
   y: number;
 };
+
+export function getLiveDictAreaPixiValueRowHandoffAriaLabel({
+  label,
+  valueText,
+}: Pick<LiveDictAreaPixiValueRowTarget, "label" | "valueText">) {
+  const trimmedLabel = label.trim();
+  const trimmedValueText = valueText?.trim() ?? "";
+
+  if (trimmedLabel.length === 0) {
+    return trimmedValueText;
+  }
+
+  if (trimmedValueText.length === 0) {
+    return trimmedLabel;
+  }
+
+  return `${trimmedLabel} "${trimmedValueText}"`;
+}
 
 export function buildLiveDictAreaPixiValueRowTargets({
   layout,
@@ -96,6 +115,7 @@ export function buildLiveDictAreaPixiValueRowTargets({
           rowId: row.id,
           sectionId: surfaceBlock.props.sectionId,
           styleColor: surfaceBlock.props.domPacket.styleColor,
+          valueText: row.valueText,
           width: Math.max(row.width - row.x, 0),
           x: row.x,
           y: row.y,

@@ -17,7 +17,10 @@ import { LiveDictAreaPixiParamAreaOverlay } from "./LiveDictAreaPixiParamAreaOve
 import { LiveDictAreaPixiScene } from "./LiveDictAreaPixiScene";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import { markLiveDictAreaPixiValueRowHandoffStart } from "./liveDictAreaPixiValueRowPerf";
-import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
+import {
+  buildLiveDictAreaPixiValueRowTargets,
+  getLiveDictAreaPixiValueRowHandoffAriaLabel,
+} from "./liveDictAreaPixiValueRowTargets";
 
 type LiveDictAreaPixiOverlayShellProps = {
   liveDictAreaMountProps: LiveDictAreaMountProps;
@@ -147,7 +150,7 @@ export function LiveDictAreaPixiOverlayShell({
             target.rowId === activeValueRowId ? null : (
               <button
                 key={target.rowId}
-                aria-label={`Activate editor overlay for ${target.label}`}
+                aria-label={getLiveDictAreaPixiValueRowHandoffAriaLabel(target)}
                 className="absolute z-[5] cursor-text appearance-none border-0 bg-transparent p-0"
                 data-live-dict-area-editor-handoff="value-row"
                 data-live-dict-area-editor-handoff-editor-kind={
