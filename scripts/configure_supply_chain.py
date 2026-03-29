@@ -5,12 +5,13 @@ import subprocess
 from pathlib import Path
 
 DEFAULT_MIN_RELEASE_AGE_DAYS = 7
+MINUTES_PER_DAY = 24 * 60
 LOCAL_PNPM_PROJECTS = (
     Path("frontend"),
     Path("backend/setta/agentic/external_adapters/sidecars"),
 )
 LOCAL_POLICY_FILE = Path("supply_chain_policy.env")
-NPMRC_KEY_ALIASES = ("min-release-age", "minimum-release-age")
+NPMRC_KEY_ALIASES = ("minimum-release-age", "min-release-age", "minimumReleaseAge")
 
 
 def parse_args() -> argparse.Namespace:
@@ -73,7 +74,12 @@ def resolve_days(args: argparse.Namespace) -> int:
     return DEFAULT_MIN_RELEASE_AGE_DAYS
 
 
+def days_to_minutes(days: int) -> int:
+    return days * MINUTES_PER_DAY
+
+
 def upsert_npmrc(path: Path, *, days: int) -> None:
+    minutes = days_to_minutes(days)
     lines: list[str]
     if path.exists():
         lines = path.read_text(encoding="utf-8").splitlines()
@@ -87,13 +93,13 @@ def upsert_npmrc(path: Path, *, days: int) -> None:
         key = stripped.split("=", 1)[0].strip() if "=" in stripped else None
         if key in NPMRC_KEY_ALIASES:
             if not replaced:
-                updated_lines.append(f"min-release-age={days}")
+                updated_lines.append(f"minimum-release-age={minutes}")
                 replaced = True
             continue
         updated_lines.append(line)
 
     if not replaced:
-        updated_lines.append(f"min-release-age={days}")
+        updated_lines.append(f"minimum-release-age={minutes}")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(updated_lines).rstrip() + "\n", encoding="utf-8")
@@ -122,6 +128,9 @@ def configure_local(repo_root: Path, *, days: int) -> None:
         "Go has no native install-time release-age setting; use ./audit_supply_chain.sh for Go module age checks."
     )
     print(
+        "pnpm uses minimum-release-age in minutes, and this repo also verifies checked-in pnpm lockfiles with audit/update scripts."
+    )
+    print(
         "uv only supports an absolute cutoff date, so this repo enforces Python age gating through init_env.sh and audit_supply_chain.sh."
     )
 
@@ -131,12 +140,13 @@ def run_checked(command: list[str], *, cwd: Path) -> None:
 
 
 def configure_global(repo_root: Path, *, days: int) -> None:
+    minutes = days_to_minutes(days)
     run_checked(
-        ["npm", "config", "set", "min-release-age", str(days), "--location=user"],
+        ["npm", "config", "set", "minimum-release-age", str(minutes), "--location=user"],
         cwd=repo_root,
     )
     run_checked(
-        ["pnpm", "config", "set", "min-release-age", str(days), "--global"],
+        ["pnpm", "config", "set", "minimum-release-age", str(minutes), "--global"],
         cwd=repo_root,
     )
 

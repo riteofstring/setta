@@ -1,6 +1,9 @@
+import json
 import os
 import subprocess
+import threading
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from tests.start.dev_script_wiring_helpers import repo_root, write_stub_executable
 
@@ -51,9 +54,11 @@ def test_configure_supply_chain_local_only_updates_repo_policy_and_npmrc_files(
         "# Repo-local dependency install policy.\nSETTA_MIN_RELEASE_AGE_DAYS=11\n"
     )
     assert (frontend_dir / ".npmrc").read_text(encoding="utf-8") == (
-        "legacy-peer-deps=true\nmin-release-age=11\n"
+        "legacy-peer-deps=true\nminimum-release-age=15840\n"
     )
-    assert (sidecar_dir / ".npmrc").read_text(encoding="utf-8") == "min-release-age=11\n"
+    assert (sidecar_dir / ".npmrc").read_text(encoding="utf-8") == (
+        "minimum-release-age=15840\n"
+    )
 
 
 def test_configure_supply_chain_global_updates_user_npm_and_pnpm_config(
@@ -96,8 +101,8 @@ echo "pnpm $*" >> "{command_log}"
 
     assert result.returncode == 0, result.stderr
     assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "npm config set min-release-age 13 --location=user",
-        "pnpm config set min-release-age 13 --global",
+        "npm config set minimum-release-age 18720 --location=user",
+        "pnpm config set minimum-release-age 18720 --global",
     ]
 
 
@@ -198,6 +203,84 @@ sdist = { url = "https://example.com/newpkg-1.0.0.tar.gz", hash = "sha256:new", 
 
     assert result.returncode == 1
     assert "newpkg==1.0.0" in result.stdout
+
+
+def test_check_pnpm_lock_release_age_reports_packages_that_are_too_new(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = tmp_path / "pnpm_release_age"
+    scripts_dir = sandbox_root / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/check_pnpm_lock_release_age.py"
+    )
+    (sandbox_root / "pnpm-lock.yaml").write_text(
+        """lockfileVersion: '9.0'
+
+packages:
+
+  oldpkg@1.0.0:
+    resolution: {integrity: sha512-old}
+  '@scope/newpkg@2.0.0(peer@1.0.0)':
+    resolution: {integrity: sha512-new}
+  aliaspkg@npm:realpkg@3.0.0:
+    resolution: {integrity: sha512-real}
+""",
+        encoding="utf-8",
+    )
+
+    metadata_by_path = {
+        "/oldpkg": {"time": {"1.0.0": "2024-01-01T00:00:00Z"}},
+        "/%40scope%2Fnewpkg": {"time": {"2.0.0": "2099-01-01T00:00:00Z"}},
+        "/realpkg": {"time": {"3.0.0": "2024-01-01T00:00:00Z"}},
+    }
+
+    class RegistryHandler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:  # noqa: N802
+            payload = metadata_by_path.get(self.path)
+            if payload is None:
+                self.send_response(404)
+                self.end_headers()
+                return
+            body = json.dumps(payload).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, format: str, *args: object) -> None:
+            return
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), RegistryHandler)
+    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
+    server_thread.start()
+
+    try:
+        result = subprocess.run(
+            [
+                "python3",
+                str(sandbox_root / "scripts" / "check_pnpm_lock_release_age.py"),
+                "--days",
+                "7",
+                "--lockfile",
+                str(sandbox_root / "pnpm-lock.yaml"),
+                "--registry-url",
+                f"http://127.0.0.1:{server.server_port}",
+            ],
+            cwd=sandbox_root,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+    finally:
+        server.shutdown()
+        server.server_close()
+        server_thread.join(timeout=5)
+
+    assert result.returncode == 1
+    assert "@scope/newpkg@2.0.0" in result.stdout
 
 
 def test_normalize_uv_lock_strips_exclude_newer_options_block(
@@ -306,6 +389,8 @@ echo "go $*" >> "{command_log}"
         "uv run --frozen --python 3.13 --extra source --extra dev pip-audit",
         f"go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...",
         f"python3 ./scripts/check_go_module_release_age.py --days 9 --repo-root {sandbox_root}",
+        "python3 ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
+        "python3 ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm audit",
         "pnpm audit",
     ]
@@ -378,6 +463,8 @@ echo "go $*" >> "{command_log}"
         "uv run --frozen --python 3.13 --extra source --extra dev pip-audit",
         "go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...",
         f"python3 ./scripts/check_go_module_release_age.py --days 9 --repo-root {sandbox_root}",
+        "python3 ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
+        "python3 ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm audit",
         "pnpm audit",
     ]
@@ -497,7 +584,9 @@ echo "python3 $*" >> "{command_log}"
         "uv sync --frozen --extra source --extra dev --python 3.13",
         "activate",
         "pnpm -C frontend install --lockfile-only",
+        "python3 ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./frontend/pnpm-lock.yaml",
         "pnpm -C frontend install --frozen-lockfile",
         "pnpm -C backend/setta/agentic/external_adapters/sidecars install --lockfile-only",
+        "python3 ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm -C backend/setta/agentic/external_adapters/sidecars install --frozen-lockfile --prefer-offline",
     ]

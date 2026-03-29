@@ -48,7 +48,8 @@
 - Go: prioritize code-reachable `govulncheck` findings. Do not bump unrelated modules just because verbose output lists non-reachable advisories.
 - Frontend/Node: prefer official upstream releases and narrow `pnpm.overrides` for transitive fixes when the upstream dependency range already allows a safe version. Avoid broad toolchain churn unless it is required to clear the severe finding.
 - Do not switch to obscure forks, republished packages, or unofficial mirrors just to silence an audit finding. If the official package has no fixed mainstream release, leave the finding in place, explain the blocker, and present replacement/migration as a separate decision.
-- Every accepted dependency upgrade must also satisfy the repo minimum release-age policy. Re-run the repo Python and Go age checks after refreshes, and verify npm publish times for any changed frontend direct dependency or override target before keeping it.
+- Every accepted dependency upgrade must also satisfy the repo minimum release-age policy. Re-run `./audit_supply_chain.sh` after refreshes, or at minimum rerun the Python, Go, and pnpm release-age checks before keeping the lockfile changes.
+- pnpm uses `minimum-release-age` in minutes, not `min-release-age` in days. Treat the pnpm config as resolver guidance only; the hard enforcement for checked-in Node dependencies is `scripts/check_pnpm_lock_release_age.py` via `./update_dependencies.sh` and `./audit_supply_chain.sh`.
 - Normal install scripts must remain frozen. Refresh lockfiles only through `./update_dependencies.sh` or an intentionally scoped lockfile update as part of the dependency-fix change.
 - If `./audit_supply_chain.sh` still fails only because of intentionally unaddressed lower-severity findings, say that explicitly instead of widening the remediation scope without approval.
 

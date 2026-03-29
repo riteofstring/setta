@@ -68,13 +68,13 @@ Use these first for day-to-day work.
   - Opt-in setup for Python tooling with a frozen `uv` sync, then runs the default local dev install.
 - `./update_dependencies.sh`
   - Explicit dependency refresh path for Python and pnpm lockfiles.
-  - Runs `uv lock --upgrade` with the repo release-age policy, strips the transient `uv` cutoff metadata from `uv.lock`, syncs the Python env, then refreshes both pnpm lockfiles and installs from them.
+  - Runs `uv lock --upgrade` with the repo release-age policy, strips the transient `uv` cutoff metadata from `uv.lock`, syncs the Python env, refreshes both pnpm lockfiles, verifies their npm publish dates against the repo minimum age, then installs from them.
 - `./init_env.sh`
   - Checks that `uv.lock` is current, then syncs the Python environment without rewriting the lockfile.
   - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync --frozen` with explicit `source` and `dev` extras for repo workflows.
   - When `supply_chain_policy.env` is present, also verifies the locked Python artifacts are at least the configured age.
 - `./audit_supply_chain.sh`
-  - Runs `pip-audit`, `govulncheck`, a Go module release-age check, and `pnpm audit` for both `frontend/` and the sidecar package.
+  - Runs `pip-audit`, `govulncheck`, Python/Go/pnpm release-age checks, and `pnpm audit` for both `frontend/` and the sidecar package.
   - Uses `supply_chain_policy.env` when present; defaults to a 7-day minimum release age otherwise.
   - This is the full visibility pass, not an instruction to upgrade everything it reports.
 - `./configure_supply_chain.sh`
@@ -173,7 +173,7 @@ Useful when you need to debug a specific subsystem.
 ## Notes
 
 - **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
-- **Supply-chain policy**: `supply_chain_policy.env` is the repo-local minimum release age policy used by `init_env.sh`, `update_dependencies.sh`, and `audit_supply_chain.sh`. Current `uv` only supports an absolute `--exclude-newer` cutoff and persists that cutoff into `uv.lock`, so the repo uses `--exclude-newer` only during explicit lock refreshes and enforces the rolling age policy during installs/audits with `scripts/check_uv_lock_release_age.py`. Go does not expose a native install-time minimum-age setting, so Go age enforcement is audit-only.
+- **Supply-chain policy**: `supply_chain_policy.env` is the repo-local minimum release age policy used by `init_env.sh`, `update_dependencies.sh`, and `audit_supply_chain.sh`. Current `uv` only supports an absolute `--exclude-newer` cutoff and persists that cutoff into `uv.lock`, so the repo uses `--exclude-newer` only during explicit lock refreshes and enforces the rolling age policy during installs/audits with `scripts/check_uv_lock_release_age.py`. Go does not expose a native install-time minimum-age setting, so Go age enforcement is audit-only. pnpm’s resolver setting is `minimum-release-age` in minutes; the repo also enforces checked-in pnpm lockfiles with `scripts/check_pnpm_lock_release_age.py` because config alone is not sufficient protection.
 - **Audit remediation policy**:
   - Start with `./audit_supply_chain.sh`, then triage by severity instead of upgrading every reported package.
   - Default policy is to fix critical/high findings only unless the developer explicitly asks for broader cleanup.

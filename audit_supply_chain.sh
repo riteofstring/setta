@@ -121,6 +121,20 @@ go_release_age_audit() {
   )
 }
 
+frontend_release_age_audit() {
+  (
+    cd "${repo_root}"
+    "${python_bin}" ./scripts/check_pnpm_lock_release_age.py --days "${days}" --lockfile ./frontend/pnpm-lock.yaml
+  )
+}
+
+sidecar_release_age_audit() {
+  (
+    cd "${repo_root}"
+    "${python_bin}" ./scripts/check_pnpm_lock_release_age.py --days "${days}" --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml
+  )
+}
+
 frontend_pnpm_audit() {
   (
     cd "${repo_root}/frontend"
@@ -140,6 +154,8 @@ run_step "Python release-age audit (${days} days)..." python_release_age_audit
 run_step "Python vulnerability audit (uv + pip-audit)..." python_vulnerability_audit
 run_step "Go vulnerability audit (govulncheck)..." go_vulnerability_audit
 run_step "Go module release-age audit (${days} days)..." go_release_age_audit
+run_step "Frontend pnpm release-age audit (${days} days)..." frontend_release_age_audit
+run_step "Sidecar pnpm release-age audit (${days} days)..." sidecar_release_age_audit
 run_step "Frontend pnpm audit..." frontend_pnpm_audit
 run_step "Sidecar pnpm audit..." sidecar_pnpm_audit
 
