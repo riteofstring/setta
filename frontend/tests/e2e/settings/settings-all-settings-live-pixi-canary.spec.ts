@@ -17,15 +17,22 @@ import {
   clearCurrentProjectViewportForRefit,
   ensureAppReady,
   getCurrentProjectConfigId,
+  loadProjectConfig,
   postBackend,
+  readActiveBackendOrigin,
   readProjectWorkspaceChromeLayout,
   resetProjectWorkspaceChromeToDefaultLayout,
 } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
+const WORKTREE_BACKEND_ORIGIN =
+  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const MAIN_REFERENCE_BASE_URL = process.env.SETTA_MAIN_REFERENCE_URL ?? null;
 const MAIN_REFERENCE_BOOTSTRAP_URL =
   process.env.SETTA_MAIN_REFERENCE_BOOTSTRAP_URL ?? null;
+const MAIN_REFERENCE_BACKEND_ORIGIN = MAIN_REFERENCE_BOOTSTRAP_URL
+  ? new URL(MAIN_REFERENCE_BOOTSTRAP_URL).origin
+  : null;
 const SETTINGS_URL = new URL("/settings", BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
 const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
@@ -1139,6 +1146,56 @@ test("all settings baseline and the read-only main reference share the same norm
       uiEditorVis: false,
       uiEditorWidth: 500,
     });
+  } finally {
+    await baselinePage.close();
+    await mainReferencePage.close();
+  }
+});
+
+test("all settings baseline and the read-only main reference resolve the same project config on their intended backends when explicit runtime envs are provided", async ({
+  browser,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_BASE_URL ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN,
+    "requires explicit main reference runtime envs",
+  );
+
+  const baselinePage = await browser.newPage();
+  const mainReferencePage = await browser.newPage();
+
+  try {
+    await openAllSettingsBaseline(baselinePage);
+    await openAllSettingsMainReference(mainReferencePage);
+
+    await resetProjectWorkspaceChromeToDefaultLayout(baselinePage);
+    await resetProjectWorkspaceChromeToDefaultLayout(mainReferencePage);
+
+    expect(await readActiveBackendOrigin(baselinePage)).toBe(
+      WORKTREE_BACKEND_ORIGIN,
+    );
+    expect(await readActiveBackendOrigin(mainReferencePage)).toBe(
+      MAIN_REFERENCE_BACKEND_ORIGIN,
+    );
+
+    const baselineProjectConfig = await loadProjectConfig(baselinePage);
+    const mainReferenceProjectConfig =
+      await loadProjectConfig(mainReferencePage);
+
+    expect(
+      Object.entries(baselineProjectConfig.projectConfig.sectionVariantMap)
+        .sort(([leftSectionId], [rightSectionId]) =>
+          leftSectionId.localeCompare(rightSectionId),
+        )
+        .map(([sectionId, variantId]) => `${sectionId}:${variantId}`),
+    ).toEqual(
+      Object.entries(mainReferenceProjectConfig.projectConfig.sectionVariantMap)
+        .sort(([leftSectionId], [rightSectionId]) =>
+          leftSectionId.localeCompare(rightSectionId),
+        )
+        .map(([sectionId, variantId]) => `${sectionId}:${variantId}`),
+    );
   } finally {
     await baselinePage.close();
     await mainReferencePage.close();

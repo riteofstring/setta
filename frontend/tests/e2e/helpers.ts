@@ -841,6 +841,13 @@ export async function getCurrentProjectConfigId(page: Page): Promise<string> {
   throw new Error("Unable to resolve projectConfigId for test.");
 }
 
+export async function readActiveBackendOrigin(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const { C_ADDRESSES } = await import("/src/utils/c_addresses");
+    return C_ADDRESSES.BACKEND_ORIGIN;
+  });
+}
+
 async function getCurrentProjectConfigName(page: Page): Promise<string> {
   const metadata = await postBackend<ProjectMetadataResponse>(
     page,

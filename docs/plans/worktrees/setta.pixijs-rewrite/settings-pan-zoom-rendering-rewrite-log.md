@@ -11420,3 +11420,37 @@ Record:
     - result: passed; normalized baseline/live `All Settings` surfaces did not paint quoted primitive values, and the reopened quote report reduced to invisible handoff-button `aria-label` text rather than a renderer bug
 - Next action:
   - Align or re-bootstrap the read-only `main` reference onto the same `All Settings` workspace/project surface before treating any remaining `main`-vs-worktree difference as renderer parity drift; do not reopen the quoted-value lane without new pixel evidence.
+
+## 2026-03-30 347
+
+- Item: Prove the explicit read-only `main` runtime canary path is bound to the intended backend and `All Settings` project surface before using it as the visual oracle.
+- Status: `done`
+- Details:
+  - Continued directly from item `346` and kept the slice on the named `main`-oracle alignment blocker instead of reopening another renderer or packet-extraction lane.
+  - Added a reusable runtime-identity helper for E2E pages:
+    - `frontend/tests/e2e/helpers.ts`
+      - `readActiveBackendOrigin(page)` now reads `C_ADDRESSES.BACKEND_ORIGIN` from the live app bundle so the harness can prove which backend a page is actually bound to.
+  - Hardened the focused live Pixi canary harness with an explicit cross-runtime identity guard:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The new guard now proves, before `main` is used as a parity oracle:
+    - the worktree baseline `All Settings` page is bound to the expected worktree backend origin
+    - the read-only `main` `All Settings` page is bound to the explicit `main` backend origin from the provided bootstrap runtime
+    - both pages resolve the same `settings` project config shape by comparing the sorted `sectionVariantMap` entries returned by `loadProjectConfig(...)`
+  - This stays intentionally on the parity-harness boundary:
+    - no production frontend/backend renderer code changed
+    - no live Pixi drawing, text, zoom, or interaction logic changed
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='http://127.0.0.1:8087/__setta__/bootstrap#token=...' ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings can open the read-only main reference surface when explicit runtime envs are provided|all settings baseline and the read-only main reference share the same normalized workspace chrome state when explicit runtime envs are provided|all settings baseline and the read-only main reference resolve the same project config on their intended backends when explicit runtime envs are provided'`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent on the live runtimes
+    - normalized both tabs in-page via `resetProjectWorkspaceChromeToDefaultLayout()` from `/src/state/actions/workspaceChrome.ts`
+    - result: passed
+      - worktree: `http://127.0.0.1:3043/settings`, `All Settings` visible, `C_ADDRESSES.BACKEND_ORIGIN = http://127.0.0.1:8043`
+      - read-only `main`: `http://127.0.0.1:3087/settings`, `All Settings` visible, `C_ADDRESSES.BACKEND_ORIGIN = http://127.0.0.1:8087`
+- Next action:
+  - Resume normalized read-only `main`-oracle live Pixi parity verification now that the harness proves the reference page is on the intended backend and `settings` project surface; treat any remaining normalized `main`-vs-worktree drift as a real parity signal rather than a runtime-alignment artifact.
