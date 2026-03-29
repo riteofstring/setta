@@ -1,16 +1,38 @@
 import { isTempParam } from "forks/dnd-kit/paramDndState";
+import type { ParamEditorKind } from "./paramEditorActivation";
 import { resolveVisibleParamIds } from "./paramSwitchView";
 
 export type ParamSceneRowPacketKind = "group" | "placeholder" | "value";
 
-export type ParamSceneRowPacket = {
+type ParamSceneGroupRowPacket = {
   depth: number;
   id: string;
-  kind: ParamSceneRowPacketKind;
+  kind: "group";
   label: string | null;
 };
 
+type ParamScenePlaceholderRowPacket = {
+  depth: number;
+  id: string;
+  kind: "placeholder";
+  label: null;
+};
+
+type ParamSceneValueRowPacket = {
+  depth: number;
+  editorKind?: ParamEditorKind;
+  id: string;
+  kind: "value";
+  label: string;
+};
+
+export type ParamSceneRowPacket =
+  | ParamSceneGroupRowPacket
+  | ParamScenePlaceholderRowPacket
+  | ParamSceneValueRowPacket;
+
 type BuildVisibleParamScenePacketsArgs = {
+  getParamEditorKind?: (paramId: string) => ParamEditorKind;
   paramIds: string[];
   requiredParamIdsToPaths: Record<string, string[]>;
   paramFilter: string;
@@ -18,6 +40,7 @@ type BuildVisibleParamScenePacketsArgs = {
 };
 
 export function buildVisibleParamScenePackets({
+  getParamEditorKind,
   paramIds,
   requiredParamIdsToPaths,
   paramFilter,
@@ -47,10 +70,17 @@ export function buildVisibleParamScenePackets({
       throw new Error(`Missing visible param path for ${paramId}.`);
     }
 
+    const kind = groupIds.has(paramId) ? "group" : "value";
+
     return {
       depth: path.length - 1,
+      ...(kind === "value" && getParamEditorKind
+        ? {
+            editorKind: getParamEditorKind(paramId),
+          }
+        : {}),
       id: paramId,
-      kind: groupIds.has(paramId) ? "group" : "value",
+      kind,
       label: getParamDisplayName(paramId),
     };
   });

@@ -2,7 +2,6 @@ import _ from "lodash";
 import { useEffect, useMemo, useState } from "react";
 import {
   getCodeObjCore,
-  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
@@ -16,7 +15,6 @@ import {
 } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
 import {
-  CodeObjTypeEnum,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
@@ -36,7 +34,6 @@ import {
 } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
-import { resolveParamEditorKind } from "./paramEditorActivation";
 
 type LiveDictAreaPixiOverlayShellProps = {
   liveDictAreaMountProps: LiveDictAreaMountProps;
@@ -78,29 +75,6 @@ export function LiveDictAreaPixiOverlayShell({
       ? null
       : dragRowTargets.find((target) => target.rowId === activeDragRowId) ??
         null;
-  const valueRowEditorKinds = useProjectState((state) => {
-    if (isSelectingParams) {
-      return {};
-    }
-    return Object.fromEntries(
-      valueRowTargets.map((target) => [
-        target.rowId,
-        (() => {
-          const codeObjImpl = getCurrEffectiveCodeObjImpl(
-            state,
-            target.sectionId,
-            target.rowId,
-          );
-          return resolveParamEditorKind(codeObjImpl.type, {
-            hasColorChoiceMenu:
-              codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam &&
-              Array.isArray(codeObjImpl.colorChoices) &&
-              codeObjImpl.colorChoices.length > 0,
-          });
-        })(),
-      ]),
-    );
-  }, _.isEqual);
   const activeValueRowBaseState = useProjectState((state) => {
     if (isSelectingParams || activeValueRowTarget === null) {
       return null;
@@ -171,10 +145,7 @@ export function LiveDictAreaPixiOverlayShell({
     valueRowSearchState.focused,
     valueRowSearchState.lookup,
   ]);
-  const activeValueRowEditorKind =
-    activeValueRowTarget === null
-      ? "other"
-      : valueRowEditorKinds[activeValueRowTarget.rowId] ?? "other";
+  const activeValueRowEditorKind = activeValueRowTarget?.editorKind ?? "other";
   const activeValueRowStyleColorPreview = useTemporaryMiscState((state) => {
     if (activeValueRowTarget === null) {
       return undefined;
@@ -249,7 +220,7 @@ export function LiveDictAreaPixiOverlayShell({
                 className="absolute z-[5] cursor-text appearance-none border-0 bg-transparent p-0"
                 data-live-dict-area-editor-handoff="value-row"
                 data-live-dict-area-editor-handoff-editor-kind={
-                  valueRowEditorKinds[target.rowId] ?? "other"
+                  target.editorKind
                 }
                 data-live-dict-area-editor-handoff-row-id={target.rowId}
                 onClick={() => {

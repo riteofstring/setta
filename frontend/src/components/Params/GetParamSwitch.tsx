@@ -1,6 +1,7 @@
 import type { ParamListKey } from "forks/dnd-kit/paramDndState";
 import { useMemo } from "react";
 import {
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getParamDisplayName,
 } from "state/actions/sectionInfos";
@@ -8,6 +9,7 @@ import { useProjectState } from "state/definitions";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import { shallow } from "zustand/shallow";
 import { ParamSwitch } from "./ParamSwitch";
+import { resolveParamEditorKindFromCodeObjImpl } from "./paramEditorActivation";
 import type { ParamListRenderMode } from "./paramListRenderMode";
 import { buildVisibleParamScenePackets } from "./paramSwitchScenePackets";
 
@@ -62,6 +64,10 @@ export function GetParamSwitch({
   const scenePackets = useMemo(() => {
     const state = useProjectState.getState();
     return buildVisibleParamScenePackets({
+      getParamEditorKind: (paramId: string) =>
+        resolveParamEditorKindFromCodeObjImpl(
+          getCurrEffectiveCodeObjImpl(state, sectionId, paramId),
+        ),
       paramIds,
       requiredParamIdsToPaths,
       paramFilter: paramsImpl.paramFilter,

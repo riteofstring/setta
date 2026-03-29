@@ -3,6 +3,7 @@ import {
   buildPinnedParamsAreaView,
   buildUnpinnedParamsAreaView,
 } from "./groupContainerView";
+import type { ParamEditorKind } from "./paramEditorActivation";
 import {
   buildVisibleParamScenePackets,
   type ParamSceneRowPacket,
@@ -28,6 +29,7 @@ export type LiveDictAreaScenePacket = {
 };
 
 type BuildParamAreaScenePacketArgs = {
+  getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
   grow: boolean;
   id: ParamListKey;
@@ -44,6 +46,7 @@ type BuildParamAreaScenePacketArgs = {
 
 export function buildLiveDictAreaScenePacket({
   edgeInputParams,
+  getParamEditorKind,
   hideUnpinnedParams,
   paramFilter,
   getParamDisplayName,
@@ -51,6 +54,7 @@ export function buildLiveDictAreaScenePacket({
   unpinned,
 }: {
   edgeInputParams: string[];
+  getParamEditorKind: (paramId: string) => ParamEditorKind;
   hideUnpinnedParams: boolean;
   paramFilter: string;
   getParamDisplayName: (paramId: string) => string;
@@ -71,6 +75,7 @@ export function buildLiveDictAreaScenePacket({
   const paramAreas: LiveDictAreaSceneParamAreaPacket[] = [];
   const pinnedPacket = buildPinnedParamsAreaScenePacket({
     edgeInputParams,
+    getParamEditorKind,
     getParamDisplayName,
     hideUnpinnedParams,
     paramFilter,
@@ -86,6 +91,7 @@ export function buildLiveDictAreaScenePacket({
     canEditLayout: unpinned.canEditLayout,
     configuredMinHeight: unpinned.configuredMinHeight,
     edgeInputParams,
+    getParamEditorKind,
     getParamDisplayName,
     hideUnpinnedParams,
     paramFilter,
@@ -105,6 +111,7 @@ export function buildLiveDictAreaScenePacket({
 
 export function buildPinnedParamsAreaScenePacket({
   edgeInputParams,
+  getParamEditorKind,
   getParamDisplayName,
   hideUnpinnedParams,
   paramFilter,
@@ -112,6 +119,7 @@ export function buildPinnedParamsAreaScenePacket({
   topLevelParamIds,
 }: {
   edgeInputParams: string[];
+  getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -130,6 +138,7 @@ export function buildPinnedParamsAreaScenePacket({
   }
 
   return buildParamAreaScenePacket({
+    getParamEditorKind,
     getParamDisplayName,
     grow: false,
     id: "pinned",
@@ -149,6 +158,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   canEditLayout,
   configuredMinHeight,
   edgeInputParams,
+  getParamEditorKind,
   getParamDisplayName,
   hideUnpinnedParams,
   paramFilter,
@@ -161,6 +171,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   canEditLayout: boolean;
   configuredMinHeight: number | null | undefined;
   edgeInputParams: string[];
+  getParamEditorKind: (paramId: string) => ParamEditorKind;
   getParamDisplayName: (paramId: string) => string;
   hideUnpinnedParams: boolean;
   paramFilter: string;
@@ -187,6 +198,7 @@ export function buildUnpinnedParamsAreaScenePacket({
   });
 
   return buildParamAreaScenePacket({
+    getParamEditorKind,
     getParamDisplayName,
     grow: true,
     id: "unpinned",
@@ -203,6 +215,7 @@ export function buildUnpinnedParamsAreaScenePacket({
 }
 
 function buildParamAreaScenePacket({
+  getParamEditorKind,
   getParamDisplayName,
   grow,
   id,
@@ -217,6 +230,7 @@ function buildParamAreaScenePacket({
   topLevelParamIds,
 }: BuildParamAreaScenePacketArgs): LiveDictAreaSceneParamAreaPacket {
   const rows = buildVisibleParamScenePackets({
+    getParamEditorKind,
     paramIds: buildParamSceneInputIds({
       topLevelParamIds,
       requiredParamIdsToPaths,

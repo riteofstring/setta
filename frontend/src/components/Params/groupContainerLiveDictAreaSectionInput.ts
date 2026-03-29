@@ -1,5 +1,6 @@
 import type { SectionTypeEnum } from "utils/generatedTypes";
 import type { LiveDictAreaRenderBoundaryInput } from "./groupContainerLiveDictAreaRenderBoundary";
+import type { ParamEditorKind } from "./paramEditorActivation";
 
 export type LiveDictAreaSectionDisplayNamesInput = {
   getParamDisplayName: (paramId: string) => string;
@@ -12,6 +13,7 @@ export type LiveDictAreaSectionInput = {
   canEditLayout: boolean;
   canEditStructure: boolean;
   displayNamesById: Record<string, string>;
+  editorKindsById: Record<string, ParamEditorKind>;
   edgeInputParams: string[];
   edgeInputPorts: LiveDictAreaRenderBoundaryInput["inputPorts"];
   edgeOutputPorts: LiveDictAreaRenderBoundaryInput["outputPorts"];
@@ -36,6 +38,48 @@ export function buildLiveDictAreaSectionDisplayNames({
   requiredParamIdsToPaths,
   topLevelParamIds,
 }: LiveDictAreaSectionDisplayNamesInput): Record<string, string> {
+  const paramIds = collectLiveDictAreaParamIds({
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+  });
+  const displayNamesById: Record<string, string> = {};
+
+  for (const paramId of paramIds) {
+    displayNamesById[paramId] = getParamDisplayName(paramId);
+  }
+
+  return displayNamesById;
+}
+
+export function buildLiveDictAreaSectionEditorKinds({
+  getParamEditorKind,
+  requiredParamIdsToPaths,
+  topLevelParamIds,
+}: {
+  getParamEditorKind: (paramId: string) => ParamEditorKind;
+  requiredParamIdsToPaths: Record<string, string[]>;
+  topLevelParamIds: string[];
+}): Record<string, ParamEditorKind> {
+  const paramIds = collectLiveDictAreaParamIds({
+    requiredParamIdsToPaths,
+    topLevelParamIds,
+  });
+  const editorKindsById: Record<string, ParamEditorKind> = {};
+
+  for (const paramId of paramIds) {
+    editorKindsById[paramId] = getParamEditorKind(paramId);
+  }
+
+  return editorKindsById;
+}
+
+function collectLiveDictAreaParamIds({
+  requiredParamIdsToPaths,
+  topLevelParamIds,
+}: {
+  requiredParamIdsToPaths: Record<string, string[]>;
+  topLevelParamIds: string[];
+}) {
   const paramIds = new Set(topLevelParamIds);
 
   Object.values(requiredParamIdsToPaths).forEach((path) => {
@@ -44,12 +88,7 @@ export function buildLiveDictAreaSectionDisplayNames({
     });
   });
 
-  const displayNamesById: Record<string, string> = {};
-  for (const paramId of paramIds) {
-    displayNamesById[paramId] = getParamDisplayName(paramId);
-  }
-
-  return displayNamesById;
+  return paramIds;
 }
 
 export function buildLiveDictAreaSectionInput({
@@ -57,6 +96,7 @@ export function buildLiveDictAreaSectionInput({
   canEditLayout,
   canEditStructure,
   displayNamesById,
+  editorKindsById,
   edgeInputParams,
   edgeInputPorts,
   edgeOutputPorts,
@@ -79,6 +119,15 @@ export function buildLiveDictAreaSectionInput({
     bgColor,
     canConnect: canEditStructure && !isSelectingParams,
     edgeInputParams,
+    getParamEditorKind: (paramId: string) => {
+      const editorKind = editorKindsById[paramId];
+      if (!editorKind) {
+        throw new Error(
+          `Missing live dict-area editor kind for ${paramId} in ${sectionId}.`,
+        );
+      }
+      return editorKind;
+    },
     getParamDisplayName: (paramId: string) =>
       displayNamesById[paramId] ?? paramId,
     handleColumnResizeStart,

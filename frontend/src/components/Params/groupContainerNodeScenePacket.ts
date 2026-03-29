@@ -10,6 +10,7 @@ import {
   type LiveDictAreaScenePacket,
 } from "./groupContainerScenePackets";
 import { buildLiveDictAreaSceneRendererPackets } from "./groupContainerSceneRendererPackets";
+import type { ParamEditorKind } from "./paramEditorActivation";
 
 export type LiveDictAreaNodeEdgeStripScenePacket = {
   canConnect: boolean;
@@ -30,6 +31,7 @@ export type LiveDictAreaNodeScenePacket = {
 export function buildLiveDictAreaNodeScenePacket({
   canConnect,
   edgeInputParams,
+  getParamEditorKind,
   hideUnpinnedParams,
   paramFilter,
   getParamDisplayName,
@@ -42,6 +44,7 @@ export function buildLiveDictAreaNodeScenePacket({
 }: {
   canConnect: boolean;
   edgeInputParams: string[];
+  getParamEditorKind: (paramId: string) => ParamEditorKind;
   hideUnpinnedParams: boolean;
   paramFilter: string;
   getParamDisplayName: (paramId: string) => string;
@@ -74,6 +77,7 @@ export function buildLiveDictAreaNodeScenePacket({
   };
   const scenePacket = buildLiveDictAreaScenePacket({
     edgeInputParams,
+    getParamEditorKind,
     hideUnpinnedParams,
     paramFilter,
     getParamDisplayName,

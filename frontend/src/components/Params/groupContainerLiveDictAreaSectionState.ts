@@ -1,4 +1,5 @@
 import {
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
   getParamDisplayName,
@@ -9,12 +10,15 @@ import { C } from "utils/c";
 import { isBaseSectionWithParamsImpl } from "utils/generatedTypes";
 import {
   buildLiveDictAreaSectionDisplayNames,
+  buildLiveDictAreaSectionEditorKinds,
   type LiveDictAreaSectionInput,
 } from "./groupContainerLiveDictAreaSectionInput";
+import { resolveParamEditorKindFromCodeObjImpl } from "./paramEditorActivation";
 
 export type LiveDictAreaSectionState = Pick<
   LiveDictAreaSectionInput,
   | "displayNamesById"
+  | "editorKindsById"
   | "edgeInputParams"
   | "edgeInputPorts"
   | "edgeOutputPorts"
@@ -58,6 +62,14 @@ export function buildLiveDictAreaSectionState({
     displayNamesById: buildLiveDictAreaSectionDisplayNames({
       getParamDisplayName: (paramId: string) =>
         getParamDisplayName(state, sectionId, paramId),
+      requiredParamIdsToPaths,
+      topLevelParamIds,
+    }),
+    editorKindsById: buildLiveDictAreaSectionEditorKinds({
+      getParamEditorKind: (paramId: string) =>
+        resolveParamEditorKindFromCodeObjImpl(
+          getCurrEffectiveCodeObjImpl(state, sectionId, paramId),
+        ),
       requiredParamIdsToPaths,
       topLevelParamIds,
     }),

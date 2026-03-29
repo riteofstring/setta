@@ -8,6 +8,8 @@ describe("buildVisibleParamScenePackets", () => {
     // visible ancestors stay in order and carry stable group/value semantics.
     expect(
       buildVisibleParamScenePackets({
+        getParamEditorKind: (paramId: string) =>
+          paramId === "beta-leaf" ? "combobox" : "other",
         paramIds: ["alpha-group", "alpha-leaf", "beta-group", "beta-leaf"],
         requiredParamIdsToPaths: {
           "alpha-leaf": ["alpha-group", "alpha-leaf"],
@@ -16,12 +18,12 @@ describe("buildVisibleParamScenePackets", () => {
         paramFilter: "beta",
         getParamDisplayName: (paramId: string) =>
           (
-            {
+            ({
               "alpha-group": "Alpha Group",
               "alpha-leaf": "Alpha Setting",
               "beta-group": "Beta Group",
               "beta-leaf": "Beta Setting",
-            } as Record<string, string>
+            }) as Record<string, string>
           )[paramId] ?? paramId,
       }),
     ).toEqual([
@@ -33,6 +35,7 @@ describe("buildVisibleParamScenePackets", () => {
       },
       {
         depth: 1,
+        editorKind: "combobox",
         id: "beta-leaf",
         kind: "value",
         label: "Beta Setting",
@@ -47,6 +50,7 @@ describe("buildVisibleParamScenePackets", () => {
 
     expect(
       buildVisibleParamScenePackets({
+        getParamEditorKind: () => "other",
         paramIds: ["alpha-group", "alpha-leaf", tempParamId],
         requiredParamIdsToPaths: {
           "alpha-leaf": ["alpha-group", "alpha-leaf"],
@@ -67,6 +71,8 @@ describe("buildVisibleParamScenePackets", () => {
   it("keeps nested parent rows typed as groups on the unfiltered live path", () => {
     expect(
       buildVisibleParamScenePackets({
+        getParamEditorKind: (paramId: string) =>
+          paramId === "child-leaf" ? "codemirror" : "other",
         paramIds: ["parent", "child-group", "child-leaf"],
         requiredParamIdsToPaths: {
           "child-leaf": ["parent", "child-group", "child-leaf"],
@@ -74,11 +80,11 @@ describe("buildVisibleParamScenePackets", () => {
         paramFilter: "",
         getParamDisplayName: (paramId: string) =>
           (
-            {
+            ({
               parent: "Parent",
               "child-group": "Child Group",
               "child-leaf": "Child Leaf",
-            } as Record<string, string>
+            }) as Record<string, string>
           )[paramId] ?? paramId,
       }),
     ).toEqual([
@@ -96,6 +102,7 @@ describe("buildVisibleParamScenePackets", () => {
       },
       {
         depth: 2,
+        editorKind: "codemirror",
         id: "child-leaf",
         kind: "value",
         label: "Child Leaf",

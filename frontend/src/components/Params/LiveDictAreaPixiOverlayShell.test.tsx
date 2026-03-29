@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { CodeObjTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
@@ -108,23 +108,6 @@ vi.mock("state/actions/sectionInfos", () => ({
       name: rowId,
     };
   },
-  getCurrEffectiveCodeObjImpl: (
-    _state: object,
-    _sectionId: string,
-    rowId: string,
-  ) => ({
-    ...(rowId === "pinned-value"
-      ? {
-          type: CodeObjTypeEnum.DropdownParam,
-        }
-      : {
-          colorChoices: [
-            { color: "#ff0000", description: "Red" },
-            { color: "#00ff00", description: "Green" },
-          ],
-          type: CodeObjTypeEnum.ColorPickerParam,
-        }),
-  }),
   getCurrEffectiveCodeObjImplWithTypeGuard: (
     _state: object,
     sectionId: string,
@@ -179,6 +162,8 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         bgColor: "bg-transparent",
         canConnect: true,
         edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "color-picker",
         getParamDisplayName: (paramId: string) =>
           (
             ({
@@ -302,6 +287,8 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         bgColor: "bg-transparent",
         canConnect: true,
         edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "color-picker",
         getParamDisplayName: (paramId: string) =>
           (
             ({

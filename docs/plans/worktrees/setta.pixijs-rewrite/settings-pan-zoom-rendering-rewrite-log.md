@@ -7342,3 +7342,53 @@ Record:
     - representative successful requests included `POST /api/setProjectChatWindowingState` and `POST /api/getFolderContents`
 - Next action:
   - Re-check whether the remaining active Pixi value-row `ParamInput`/`ParamUI` shell is a real editor/input reduction target; if not, stop this overlay-cleanup lane and pivot to a measured retained-scene hotspot instead of continuing ownership churn.
+
+## 2026-03-29 235
+
+- Item: Packet source-of-truth value-row editor kinds into the live Pixi row targets so the overlay shell stops scanning all visible rows.
+- Status: `done`
+- Details:
+  - Kept the live Pixi editor-overlay lane on a real store/work reduction step instead of another forwarding hop:
+    - `frontend/src/components/Params/paramEditorActivation.tsx`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionInput.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.ts`
+    - `frontend/src/components/Params/groupContainerNodeScenePacket.ts`
+    - `frontend/src/components/Params/groupContainerScenePackets.ts`
+    - `frontend/src/components/Params/paramSwitchScenePackets.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/paramEditorActivation.test.ts`
+    - `frontend/src/components/Params/groupContainerLiveDictAreaSectionState.test.ts`
+    - `frontend/src/components/Params/groupContainerScenePackets.test.ts`
+    - `frontend/src/components/Params/paramSwitchScenePackets.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - The live Pixi overlay shell no longer reads project state to derive editor kinds for every visible handoff target:
+    - `groupContainerLiveDictAreaSectionState.ts` now builds `editorKindsById` from source-of-truth code object impls
+    - `groupContainerScenePackets.ts`, `groupContainerNodeScenePacket.ts`, `paramSwitchScenePackets.ts`, and `liveDictAreaPixiValueRowTargets.ts` now carry that editor-kind metadata forward with the visible value-row packets/targets
+    - `LiveDictAreaPixiOverlayShell.tsx` now uses packeted `target.editorKind` for handoff button metadata and the active overlay editor kind instead of scanning all visible rows through `useProjectState`
+    - `GetParamSwitch.tsx` now passes editor kinds through the same visible-row packet builder used by the DOM switch path, keeping the source of truth aligned across both renderers
+  - Added focused guardrails for the new boundary:
+    - `paramEditorActivation.tsx` exports `resolveParamEditorKindFromCodeObjImpl`
+    - scene-packet, section-state, target-builder, and overlay-shell tests now assert that value rows carry the expected editor kind all the way to the handoff targets
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramEditorActivation.test.ts src/components/Params/paramSwitchScenePackets.test.ts src/components/Params/groupContainerScenePackets.test.ts src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerLiveDictAreaSectionInput.ts src/components/Params/groupContainerLiveDictAreaSectionState.ts src/components/Params/groupContainerLiveDictAreaSectionState.test.ts src/components/Params/groupContainerNodeScenePacket.ts src/components/Params/groupContainerScenePackets.ts src/components/Params/groupContainerScenePackets.test.ts src/components/Params/liveDictAreaPixiValueRowTargets.ts src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/paramEditorActivation.tsx src/components/Params/paramEditorActivation.test.ts src/components/Params/paramSwitchScenePackets.ts src/components/Params/paramSwitchScenePackets.test.ts`
+      - result: passed
+  - Playwright:
+    - `source activate.sh && TOKEN=$(python - <<'PY' ... PY) && SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN="$TOKEN" SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body|value-row DOM editor overlay|combobox-backed value row|popup color-picker row"`
+      - result: passed (`4 passed`)
+    - diagnostic only:
+      - `source activate.sh && TOKEN=$(python - <<'PY' ... PY) && SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN="$TOKEN" SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+      - result: failed in the live headless canary because the codemirror handoff strip's click target is occluded by fixed overview/ui-editor rails and row chrome before activation; a direct live-browser probe still opened the codemirror overlay and mounted/focused `.cm-editor`, so this remaining issue is hit-target/layout work rather than editor-kind packet wiring
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - reused the authenticated `3044` Settings tab and confirmed row-packet handoff metadata for `combobox` (`Core Name Type`) and `color-picker` (`Grid Color`, `Wire Color`)
+    - activated the `Grid Color` handoff and observed the active color menu while the Pixi canvas stayed mounted and visible underneath
+    - no obvious blanking, clipping, or overlap regression was visible in the checked viewport
+- Next action:
+  - Stop the current editor-kind cleanup lane here; the next real frontier is either a dedicated fix for the separate codemirror value-row handoff hit-target/layout blocker in the live canary or a pivot to the measured retained-scene hotspot, not another packet-forwarding hop.

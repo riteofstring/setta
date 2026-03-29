@@ -228,6 +228,11 @@ describe("groupContainerLiveDictAreaSectionState", () => {
         "group-parent": "group-parent",
         "unpinned-param": "unpinned-param",
       },
+      editorKindsById: {
+        "edge-unnamed": "codemirror",
+        "group-parent": "codemirror",
+        "unpinned-param": "codemirror",
+      },
       edgeInputParams: ["edge-direct", "edge-unnamed"],
       edgeInputPorts: [
         { id: "edge-direct", label: "edge-direct" },
@@ -265,9 +270,10 @@ describe("groupContainerLiveDictAreaSectionState", () => {
     });
 
     useProjectState.setState((projectState) => {
-      const variantId = projectState.projectConfig.sectionVariantMap[
-        "section-live-dict-area-state-defaults"
-      ];
+      const variantId =
+        projectState.projectConfig.sectionVariantMap[
+          "section-live-dict-area-state-defaults"
+        ];
       const implId = projectState.sectionVariants[variantId].impl;
       const dictImpl = projectState.sectionImpls[implId];
 

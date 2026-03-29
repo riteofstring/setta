@@ -6,6 +6,7 @@ import {
   buildLiveDictAreaPixiLayout,
   LIVE_DICT_AREA_PIXI_LAYOUT,
 } from "./liveDictAreaPixiLayout";
+import type { ParamEditorKind } from "./paramEditorActivation";
 
 type LiveDictAreaPixiValueRowSurfaceBlock = Extract<
   LiveDictAreaMountProps["liveDictAreaSurface"]["blocks"][number],
@@ -16,6 +17,7 @@ type LiveDictAreaPixiValueRowSurfaceBlock = Extract<
 
 export type LiveDictAreaPixiValueRowTarget = {
   blockId: "pinned" | "unpinned";
+  editorKind: ParamEditorKind;
   handleColumnResizeStart: MouseEventHandler<HTMLDivElement>;
   height: number;
   label: string;
@@ -60,6 +62,11 @@ export function buildLiveDictAreaPixiValueRowTargets({
       if (row.kind !== "value") {
         return [];
       }
+      if (!row.editorKind) {
+        throw new Error(
+          `Missing Pixi value-row editor kind for ${row.id} in ${paramArea.blockId}.`,
+        );
+      }
 
       const requiredPath =
         surfaceBlock.props.domPacket.visualPacket.list.requiredParamIdsToPaths[
@@ -72,6 +79,7 @@ export function buildLiveDictAreaPixiValueRowTargets({
       return [
         {
           blockId: paramArea.blockId,
+          editorKind: row.editorKind,
           handleColumnResizeStart: surfaceBlock.props.handleColumnResizeStart,
           height: row.blockHeight,
           label: row.labelText,

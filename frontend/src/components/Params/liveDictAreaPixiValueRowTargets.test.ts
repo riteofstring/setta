@@ -10,6 +10,8 @@ describe("buildLiveDictAreaPixiValueRowTargets", () => {
         bgColor: "bg-transparent",
         canConnect: true,
         edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "color-picker",
         getParamDisplayName: (paramId: string) =>
           (
             ({
@@ -59,6 +61,10 @@ describe("buildLiveDictAreaPixiValueRowTargets", () => {
     });
 
     expect(targets).toHaveLength(2);
+    expect(targets.map((target) => target.editorKind)).toEqual([
+      "combobox",
+      "color-picker",
+    ]);
     expect(targets.map((target) => target.rowId)).toEqual([
       "pinned-value",
       "unpinned-value",

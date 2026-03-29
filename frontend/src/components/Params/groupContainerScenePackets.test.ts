@@ -6,18 +6,32 @@ describe("buildLiveDictAreaScenePacket", () => {
     expect(
       buildLiveDictAreaScenePacket({
         edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "other",
+              "pinned-leaf": "combobox",
+              "alpha-group": "other",
+              "alpha-leaf": "codemirror",
+              "beta-group": "other",
+              "beta-leaf": "color-picker",
+            }) as Record<
+              string,
+              "codemirror" | "combobox" | "color-picker" | "other"
+            >
+          )[paramId] ?? "other",
         hideUnpinnedParams: false,
         paramFilter: "",
         getParamDisplayName: (paramId: string) =>
           (
-            {
+            ({
               "pinned-group": "Pinned Group",
               "pinned-leaf": "Pinned Value",
               "alpha-group": "Alpha Group",
               "alpha-leaf": "Alpha Value",
               "beta-group": "Beta Group",
               "beta-leaf": "Beta Value",
-            } as Record<string, string>
+            }) as Record<string, string>
           )[paramId] ?? paramId,
         pinned: {
           requiredParamIdsToPaths: {
@@ -61,6 +75,7 @@ describe("buildLiveDictAreaScenePacket", () => {
             },
             {
               depth: 1,
+              editorKind: "combobox",
               id: "pinned-leaf",
               kind: "value",
               label: "Pinned Value",
@@ -91,6 +106,7 @@ describe("buildLiveDictAreaScenePacket", () => {
             },
             {
               depth: 1,
+              editorKind: "codemirror",
               id: "alpha-leaf",
               kind: "value",
               label: "Alpha Value",
@@ -103,6 +119,7 @@ describe("buildLiveDictAreaScenePacket", () => {
             },
             {
               depth: 1,
+              editorKind: "color-picker",
               id: "beta-leaf",
               kind: "value",
               label: "Beta Value",
@@ -121,6 +138,7 @@ describe("buildLiveDictAreaScenePacket", () => {
     expect(
       buildLiveDictAreaScenePacket({
         edgeInputParams: ["edge-param"],
+        getParamEditorKind: () => "other",
         hideUnpinnedParams: true,
         paramFilter: "",
         getParamDisplayName: () => "ignored",
@@ -149,16 +167,18 @@ describe("buildLiveDictAreaScenePacket", () => {
     expect(
       buildLiveDictAreaScenePacket({
         edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "beta-leaf" ? "combobox" : "other",
         hideUnpinnedParams: false,
         paramFilter: "beta",
         getParamDisplayName: (paramId: string) =>
           (
-            {
+            ({
               "alpha-group": "Alpha Group",
               "alpha-leaf": "Alpha Value",
               "beta-group": "Beta Group",
               "beta-leaf": "Beta Value",
-            } as Record<string, string>
+            }) as Record<string, string>
           )[paramId] ?? paramId,
         pinned: {
           requiredParamIdsToPaths: {},
@@ -198,6 +218,7 @@ describe("buildLiveDictAreaScenePacket", () => {
           },
           {
             depth: 1,
+            editorKind: "combobox",
             id: "beta-leaf",
             kind: "value",
             label: "Beta Value",

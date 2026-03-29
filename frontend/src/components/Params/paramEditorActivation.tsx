@@ -21,6 +21,11 @@ type ResolveParamEditorKindOptions = {
   hasColorChoiceMenu?: boolean;
 };
 
+type ParamEditorKindCodeObjImpl = {
+  colorChoices?: unknown;
+  type: CodeObjTypeEnum;
+};
+
 const PixiOverlayParamEditorKindContext =
   createContext<ParamEditorKind>("other");
 
@@ -41,6 +46,17 @@ export function resolveParamEditorKind(
     return "color-picker";
   }
   return "other";
+}
+
+export function resolveParamEditorKindFromCodeObjImpl(
+  codeObjImpl: ParamEditorKindCodeObjImpl,
+): ParamEditorKind {
+  return resolveParamEditorKind(codeObjImpl.type, {
+    hasColorChoiceMenu:
+      codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam &&
+      Array.isArray(codeObjImpl.colorChoices) &&
+      codeObjImpl.colorChoices.length > 0,
+  });
 }
 
 export function PixiOverlayParamEditorKindProvider({
