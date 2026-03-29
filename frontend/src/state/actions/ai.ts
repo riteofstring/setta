@@ -37,9 +37,7 @@ import {
   useToolArgumentPreview,
 } from "state/definitions";
 import {
-  buildChatAppGenerationDetails,
   collectChatAppGenerationDetailsByChatId,
-  deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   mergeChatAppGenerationDetails,
   mergeChatAppGenerationDetailsByChatId,
@@ -151,15 +149,12 @@ import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
+import { applyHydratedChatDetailsToStore } from "./chatDetailsAuthority";
 import {
   applyHydratedChatDetailsToSectionState,
   persistChatSectionState,
-  resolveHydratedToolCallArguments,
 } from "./chatSectionAuthority";
-import {
-  mergeChatMessages,
-  reconcileHydratedChatMessages,
-} from "./chatMergeUtils";
+import { mergeChatMessages } from "./chatMergeUtils";
 import {
   applyChatSectionStreamDelta,
   resolveSectionIdForChatId,
@@ -2270,44 +2265,14 @@ function applyLLMChatHydrationSuccess({
     contextUsage,
     appGenerationByMessageId,
   } = payload;
-  let nextWaitingForResponse = Boolean(waitingForResponse);
-  useAIStore.setState((state) => {
-    const existingDetails = state.chatDetails[chatId];
-    const preserveWaitingForResponse = isChatStreamActive(chatId);
-    const nextToolCallArguments = resolveHydratedToolCallArguments({
-      backendToolCallArguments: {},
-      localToolCallArguments: existingDetails?.toolCallArguments ?? {},
-      preserveLocalOverlay: preserveWaitingForResponse,
-    });
-    nextWaitingForResponse = preserveWaitingForResponse
-      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
-      : Boolean(waitingForResponse);
-    const nextMessages = reconcileHydratedChatMessages({
-      backendMessages: messages,
-      localMessages: existingDetails?.messages ?? [],
-    });
-    const nextAppGenerationDetails = buildChatAppGenerationDetails(
-      nextMessages,
-      deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
-    );
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(existingDetails ?? {}),
-          messages: nextMessages,
-          waitingForResponse: nextWaitingForResponse,
-          toolCallArguments: nextToolCallArguments,
-          llmConfig: llmConfig,
-          contextUsage: contextUsage ?? null,
-        },
-      },
-      chatAppGenerationDetailsByChatId: {
-        ...state.chatAppGenerationDetailsByChatId,
-        [chatId]: nextAppGenerationDetails,
-      },
-    };
+  const nextWaitingForResponse = applyHydratedChatDetailsToStore({
+    chatId,
+    messages,
+    waitingForResponse,
+    backendToolCallArguments: {},
+    llmConfig,
+    contextUsage: contextUsage ?? null,
+    serializedAppGenerationByMessageId: appGenerationByMessageId,
   });
   if (sectionId) {
     const nextState = applyHydratedChatDetailsToSectionState({
@@ -2347,44 +2312,14 @@ function applyExternalChatHydrationSuccess({
     contextUsage,
     appGenerationByMessageId,
   } = payload;
-  let nextWaitingForResponse = Boolean(waitingForResponse);
-  useAIStore.setState((state) => {
-    const existingDetails = state.chatDetails[chatId];
-    const preserveWaitingForResponse = isChatStreamActive(chatId);
-    const nextToolCallArguments = resolveHydratedToolCallArguments({
-      backendToolCallArguments: toolCallArguments,
-      localToolCallArguments: existingDetails?.toolCallArguments ?? {},
-      preserveLocalOverlay: preserveWaitingForResponse,
-    });
-    nextWaitingForResponse = preserveWaitingForResponse
-      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
-      : Boolean(waitingForResponse);
-    const nextMessages = reconcileHydratedChatMessages({
-      backendMessages: messages,
-      localMessages: existingDetails?.messages ?? [],
-    });
-    const nextAppGenerationDetails = buildChatAppGenerationDetails(
-      nextMessages,
-      deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
-    );
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(existingDetails ?? {}),
-          messages: nextMessages,
-          waitingForResponse: nextWaitingForResponse,
-          toolCallArguments: nextToolCallArguments,
-          llmConfig: null,
-          contextUsage: contextUsage ?? null,
-        },
-      },
-      chatAppGenerationDetailsByChatId: {
-        ...state.chatAppGenerationDetailsByChatId,
-        [chatId]: nextAppGenerationDetails,
-      },
-    };
+  const nextWaitingForResponse = applyHydratedChatDetailsToStore({
+    chatId,
+    messages,
+    waitingForResponse,
+    backendToolCallArguments: toolCallArguments,
+    llmConfig: null,
+    contextUsage: contextUsage ?? null,
+    serializedAppGenerationByMessageId: appGenerationByMessageId,
   });
   if (sectionId) {
     const nextState = applyHydratedChatDetailsToSectionState({
