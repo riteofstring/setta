@@ -11,7 +11,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
-  getCurrSectionVariantId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import {
@@ -36,7 +35,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
   const {
     projectConfigId,
     promptTemplateId,
-    sectionVariantId,
     template,
     format,
     isFrozen,
@@ -51,7 +49,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
     return {
       projectConfigId: state.projectConfig.id,
       promptTemplateId: impl.promptTemplateId ?? null,
-      sectionVariantId: getCurrSectionVariantId(state, sectionId),
       template: impl.template,
       format: impl.format,
       isFrozen: impl.isFrozen,
@@ -79,7 +76,6 @@ export function PromptArea({ sectionId }: { sectionId: string }) {
         });
       });
     },
-    sectionVariantId,
   );
   const resolvedSource = useMemo(
     () =>
