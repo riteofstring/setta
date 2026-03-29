@@ -51,7 +51,14 @@ def status_env(tmp_path):
         [
             sys.executable,
             "-c",
-            "import time; time.sleep(60)",
+            (
+                "import socket, time; "
+                "sock = socket.socket(); "
+                "sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); "
+                "sock.bind(('127.0.0.1', 61234)); "
+                "sock.listen(); "
+                "time.sleep(60)"
+            ),
             "setta.server:app",
         ],
         stdout=subprocess.DEVNULL,
@@ -123,7 +130,14 @@ def status_workspace_env(tmp_path):
         [
             sys.executable,
             "-c",
-            "import time; time.sleep(60)",
+            (
+                "import socket, time; "
+                "sock = socket.socket(); "
+                "sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); "
+                "sock.bind(('127.0.0.1', 61234)); "
+                "sock.listen(); "
+                "time.sleep(60)"
+            ),
             "setta.server:app",
         ],
         stdout=subprocess.DEVNULL,
@@ -731,6 +745,57 @@ def test_stop_local_profile_uses_profile_runtime_sessions_root(
     assert f"Stopped session {profile_session.id}." in result.output
     assert (profile_sessions_root / profile_session.id).exists() is False
     assert (default_sessions_root / default_session.id).exists() is True
+
+
+def test_stop_finds_matching_local_dev_runtime_session_without_explicit_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    setta_home = tmp_path / ".setta"
+    setta_home.mkdir(parents=True, exist_ok=True)
+    dev_setta_files_root = workspace / "setta_files_dev"
+    dev_sessions_root = dev_setta_files_root / "runtime" / "sessions"
+    dev_sessions_root.mkdir(parents=True, exist_ok=True)
+
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "setta.server:app",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(0.05)
+
+    try:
+        with temporary_setta_paths(workspace_root=workspace, setta_home=setta_home):
+            session = SessionRegistry(sessions_root=dev_sessions_root).create_session(
+                workspace_path=workspace,
+                host="127.0.0.1",
+                port=61234,
+                pid=process.pid,
+                runtime_root=str(
+                    (dev_setta_files_root / "runtime").resolve(strict=False)
+                ),
+                setta_files_root=str(dev_setta_files_root.resolve(strict=False)),
+                setta_home=str(setta_home.resolve(strict=False)),
+            )
+            session_dir = dev_sessions_root / session.id
+            monkeypatch.setattr("setta.start._stop_session_process", lambda _pid: None)
+
+            runner = CliRunner()
+            result = runner.invoke(stop, ["--workspace", str(workspace)])
+
+        assert result.exit_code == 0, result.output
+        assert f"Stopped session {session.id}." in result.output
+        assert session_dir.exists() is False
+    finally:
+        if process.poll() is None:
+            process.terminate()
+        process.wait()
 
 
 def test_cli_docs_describe_status_and_stop_server_mode_semantics() -> None:

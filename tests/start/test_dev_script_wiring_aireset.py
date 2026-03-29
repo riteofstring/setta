@@ -85,6 +85,24 @@ def test_aireset_always_passes_worktree_workspace_to_reset(tmp_path: Path) -> No
     assert f"--workspace {sandbox_root}" in reset_args
 
 
+def test_aireset_kills_existing_worktree_before_reset(tmp_path: Path) -> None:
+    sandbox_root = build_aireset_sandbox(tmp_path)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(tmp_path / "unused-bin", home_dir)
+
+    result = run_script(
+        ["bash", str(sandbox_root / "aireset.sh")],
+        cwd=sandbox_root,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    kill_env = (sandbox_root / "kill_env.txt").read_text(encoding="utf-8")
+    assert f"SETTA_HOME={home_dir / '.setta-development'}" in kill_env
+    assert f"SETTA_FILES_ROOT={sandbox_root / 'setta_files_dev'}" in kill_env
+
+
 def test_aireset_setta_files_location_arg_unsets_setta_files_root(
     tmp_path: Path,
 ) -> None:

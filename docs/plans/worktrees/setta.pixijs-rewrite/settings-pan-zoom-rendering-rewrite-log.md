@@ -9914,3 +9914,164 @@ Record:
     - confirmed `/settings/section/gui` renders the GUI settings surface (`ARGS`, `defaultZoomLevel`, `Grid Color`, etc.) rather than the `Section Not Found` fallback
 - Next action:
   - Return to the next real retained-scene hotspot or remaining visual mismatch; do not reopen standalone route ownership hops unless a new failing canary appears.
+
+## 2026-03-30 301
+
+- Item: Probe whether DOM-backed combobox typography fixes the remaining cramped first-visible `All Settings` card drift.
+- Status: `blocked`
+- Details:
+  - Took one bounded slice from item `299`'s remaining `sectionSizingPolicy` / `By Type` mismatch:
+    - temporarily threaded a hidden DOM combobox typography sample through the live Pixi scene text-style path
+    - temporarily updated the Pixi combobox control label/chevron draw path to use that measured combobox contract instead of the existing edge-row text contract
+    - temporarily pinned the measurement contract in focused scene/view Vitest coverage
+  - Focused automation passed while the probe was applied:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`48 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction|all settings canary can immediately open a combobox-backed value row on first Pixi handoff click"`
+      - result: passed (`3 passed`)
+  - Fresh-context Chrome DevTools MCP diagnosis on the live worktree runtime showed this was the wrong level of fix:
+    - baseline `By Type` / `Browser` labels render as real DOM rows with computed `12px` / `600` system-sans text and `16px` line-height
+    - the remaining canary mismatch is primarily renderer-internal layout/scaling, not outer card typography
+    - the checked Pixi handoff/value rows were still landing on a tighter `22px` cadence with `18px`-tall row buttons versus the baseline DOM row rhythm's looser `24px` cadence
+    - the same diagnosis also reported a suspiciously small Pixi backing-store size (`110x58` for a `550x290` CSS area), which points at renderer-internal scale/resolution behavior rather than a missing combobox font token
+  - Because the required visual gate did not clear, the typography probe was reverted in full and no production or test changes were kept from this iteration.
+  - Required recovery attempt:
+    - after the first CDP pass, later fresh-context verification started failing because the worktree bootstrap token was being rejected with `401`
+    - ran the allowed self-recovery with `./aireset.sh`, which restarted the worktree on `http://127.0.0.1:3044/` / `http://127.0.0.1:8044` and refreshed the reported CDP port to `9267`
+    - reran fresh-context CDP verification against the refreshed runtime, but the new bootstrap token was also rejected before `All Settings` fully loaded, so the post-restart visual gate remained blocked
+- Next action:
+  - Pivot to the renderer-internal row-pitch / backing-scale diagnosis from the successful CDP pass, and do not retry another typography-only fix; first restore a trustworthy fresh bootstrap/CDP session so the next renderer probe can be visually verified on the current runtime.
+
+## 2026-03-30 302
+
+- Item: Raise the live Pixi row cadence to the DOM baseline without inflating the compact row block height.
+- Status: `blocked`
+- Details:
+  - Took one bounded renderer-internal slice directly from item `301`'s measured cadence mismatch instead of reopening another typography-only probe:
+    - updated `frontend/src/components/Params/liveDictAreaPixiLayout.ts` so the live Pixi row pitch is `24px` while the compact row block height stays pinned at `18px`
+    - updated `frontend/src/components/Params/LiveDictAreaPixiDragOverlayParamRow.tsx` so the drag-overlay row min-height follows the shared compact row block-height contract rather than re-deriving from the row pitch
+    - tightened `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts` to pin the new contract: stable `18px` row block height plus `24px` row-to-row cadence
+  - Focused automation passed on the code slice:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`14 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary can immediately open a combobox-backed value row on first Pixi handoff click|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+      - result: passed (`3 passed`)
+  - Required Chrome DevTools MCP verification remained blocked after the allowed self-recovery attempt:
+    - the first fresh-context CDP verifier could not establish a usable DevTools session against the reported browser; `list_pages` and `new_page` both failed with `Network.enable timed out`
+    - ran the one allowed self-recovery with `./aireset.sh`, which restarted the worktree on `http://127.0.0.1:3046/` / `http://127.0.0.1:8046` and printed a new bootstrap URL plus debug port `9268`
+    - after the restart, `pnpm -C frontend cdp-port` still reported `9267`, which disagreed with the restart output
+    - the retrying fresh-context CDP verifier remained unusable on the restarted runtime:
+      - `chrome-devtools/list_pages` timed out awaiting `tools/call`
+      - `chrome-devtools/new_page` to `http://127.0.0.1:3046/settings` failed with `Network.enable timed out`
+    - because the required visual gate never became runnable, baseline `/settings` vs canary `/settings?liveDictAreaRenderer=pixi-node-body` was not re-checked on the restarted runtime and this row-cadence change is intentionally left uncommitted
+- Next action:
+  - Restore a trustworthy Chrome DevTools MCP session for this worktree first, then rerun the live Pixi baseline-vs-canary visual check on the restarted runtime before deciding whether to keep and commit the row-cadence change.
+
+## 2026-03-30 303
+
+- Item: Retry the live Pixi row-cadence visual gate after the allowed worktree lifecycle restart.
+- Status: `blocked`
+- Details:
+  - Kept the existing bounded row-cadence slice under test only; no new renderer change was added in this iteration:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiDragOverlayParamRow.tsx`
+  - Focused automation still passes for the pending slice:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`14 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary can immediately open a combobox-backed value row on first Pixi handoff click|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+      - result: passed (`3 passed`)
+  - Ran the one allowed self-recovery attempt with `./aireset.sh` after fresh-context CDP verification again failed on `Network.enable timed out`.
+  - Refreshed the runtime after restart:
+    - frontend: `http://127.0.0.1:3046/`
+    - backend: `http://127.0.0.1:8046`
+    - bootstrap: `http://127.0.0.1:8046/__setta__/bootstrap#token=...`
+    - `source activate.sh && setta status --connect-info --latest --json --workspace .` reported the restarted `fcc7b5` session on `8046`
+    - `pnpm -C frontend cdp-port` still reported `9267` even though `./aireset.sh` printed `9268`
+    - raw `curl` confirmed `http://127.0.0.1:9267/json/version` responds while `9268` does not
+  - Retried fresh-context Chrome DevTools MCP verification on the restarted runtime, but it remained unusable:
+    - one verifier reported `list_pages` / `new_page` failures with `Network.enable timed out`
+    - the retrying verifier reported page, console, and network calls being aborted before any browser state returned
+    - no baseline `/settings` vs canary `/settings?liveDictAreaRenderer=pixi-node-body` visual comparison completed on the restarted runtime
+  - Because the required CDP visual gate is still blocked after the allowed recovery attempt, this slice remains intentionally uncommitted.
+- Next action:
+  - Fix or bypass the current Chrome DevTools MCP attach failure for this worktree before retrying the pending row-cadence baseline-vs-canary visual check; do not commit the slice until that gate runs.
+
+## 2026-03-30 304
+
+- Item: Retry the pending live Pixi row-cadence visual gate on a fresh Ralph iteration and stop if Chrome DevTools MCP still cannot attach after one bounded recovery.
+- Status: `blocked`
+- Details:
+  - Kept the existing bounded row-cadence slice under test only; no new renderer change was added in this iteration:
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiDragOverlayParamRow.tsx`
+  - Re-ran the narrow automated checks on the pending slice:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`14 passed`)
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary can immediately open a combobox-backed value row on first Pixi handoff click|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+      - result: passed (`3 passed`)
+  - Fresh-context Chrome DevTools MCP verification remained blocked before any page state was readable:
+    - first verifier on the original `3044/8044` runtime hung at `chrome-devtools/list_pages` and earlier diagnostics had also reported `Network.enable timed out`
+    - performed the one allowed self-recovery with `./aireset.sh`
+    - refreshed runtime after restart:
+      - frontend: `http://127.0.0.1:3046/`
+      - backend: `http://127.0.0.1:8046`
+      - bootstrap: `http://127.0.0.1:8046/__setta__/bootstrap#token=...`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace .` reported session `d957ad` on `8046`
+      - `pnpm -C frontend cdp-port` still reported `9267` even though `./aireset.sh` printed `9268`
+      - raw `curl` confirmed `http://127.0.0.1:9267/json/version` responds while `9268` does not
+    - retried fresh-context Chrome DevTools MCP verification on the restarted runtime, but it remained blocked at the first CDP call:
+      - `chrome-devtools/list_pages` hung until the verifier was interrupted after about `55s`
+      - no browser page state became readable, so baseline `/settings` vs canary `/settings?liveDictAreaRenderer=pixi-node-body` was not re-checked
+  - Because the required CDP visual gate is still blocked after the allowed recovery attempt, this row-cadence slice remains intentionally uncommitted.
+- Next action:
+  - Stop iterating on the row-cadence renderer slice until Chrome DevTools MCP can successfully attach to the current worktree browser again; the next pass should treat DevTools attach health as the blocker, not do another renderer probe.
+
+## 2026-03-30 305
+
+- Item: Restore worktree restart and CDP attach health so the pending live Pixi row-cadence gate can be retried on a trustworthy browser/session.
+- Status: `done`
+- Details:
+  - Landed one bounded blocker-resolution slice across the worktree restart helpers instead of touching renderer code again:
+    - `backend/setta/sessions/utils.py`
+    - `backend/setta/start.py`
+    - `scripts/kill-setta.sh`
+    - `scripts/stop-browser-mcp.sh`
+    - `scripts/cdp-port.sh`
+    - `aireset.sh`
+    - `scripts/run-codex-loop.sh`
+    - focused tests under `tests/start/` and `tests/utils/`
+  - Session/runtime cleanup changes:
+    - `setta stop --all -w <workspace>` now prefers the live local-dev runtime session root before stale defaults, and still honors explicit profile/root/runtime overrides
+    - `kill-setta.sh` now stops the matching dev process tree with escalation instead of sending one flat kill to a pid list
+    - `aireset.sh` now kills the current worktree stack before wiping state and relaunching, so the in-iteration recovery path behaves like a real restart rather than layering a second stack on top
+  - Browser/CDP cleanup changes:
+    - `stop-browser-mcp.sh` now stops matching devtools Chrome process trees by pid file, explicit profile path, legacy profile path, and worktree profile suffix so TMPDIR drift does not leave the old worktree browser alive
+    - `cdp-port.sh` now prefers the newest matching browser-root process when it has to fall back to `ps`, so duplicate matching browsers no longer pin the reported port to an older stale instance
+    - `run-codex-loop.sh` now treats workspace session presence via `setta status --list-sessions --server-mode ide` and retries the next iteration after a lifecycle bootstrap failure instead of continuing with stale runtime assumptions
+  - Verification:
+    - Pytest:
+      - `source activate.sh && pytest tests/start/test_start_status.py tests/utils/test_setta_paths.py tests/start/test_dev_script_wiring_aireset.py tests/start/test_start_browser_mcp_script.py tests/start/test_stop_browser_mcp_script.py tests/start/test_cdp_port_script.py -q`
+      - result: passed (`82 passed`)
+    - Shell syntax:
+      - `bash -n aireset.sh scripts/cdp-port.sh scripts/kill-setta.sh scripts/stop-browser-mcp.sh scripts/run-codex-loop.sh`
+      - result: passed
+    - Live restart/runtime check:
+      - `./aireset.sh` stopped session `0eb6c5`, stopped the old devtools Chrome/profile matches, reset `setta_files_dev`, and restarted the worktree on `http://127.0.0.1:3044/` / `http://127.0.0.1:8044` with session `9ec4fc`
+      - `source activate.sh && setta status --list-sessions --json --workspace . --server-mode ide` reported the new live IDE session `9ec4fc` on `8044`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace .` returned the current bootstrap/connect payload for session `9ec4fc`
+      - `pnpm -C frontend cdp-port` reported the current worktree browser port `9266`
+    - Chrome DevTools MCP attach check in a fresh sub-agent context:
+      - attached cleanly to the worktree browser without `Network.enable` timeouts
+      - page listing, bootstrap navigation, and root-page state reads all succeeded
+- Next action:
+  - Retry the pending live Pixi row-cadence baseline-vs-canary visual gate now that the worktree restart path and CDP attach path are working again.

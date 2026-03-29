@@ -44,6 +44,27 @@ def _find_matching_workspace_sessions_root(
     workspace_path: Path,
     resolved_sessions_root: Path,
 ) -> Path | None:
+    live_match = _find_matching_workspace_sessions_root_with_prune_mode(
+        workspace_path=workspace_path,
+        resolved_sessions_root=resolved_sessions_root,
+        prune_stale=True,
+    )
+    if live_match is not None:
+        return live_match
+
+    return _find_matching_workspace_sessions_root_with_prune_mode(
+        workspace_path=workspace_path,
+        resolved_sessions_root=resolved_sessions_root,
+        prune_stale=False,
+    )
+
+
+def _find_matching_workspace_sessions_root_with_prune_mode(
+    *,
+    workspace_path: Path,
+    resolved_sessions_root: Path,
+    prune_stale: bool,
+) -> Path | None:
     for sessions_root in _candidate_sessions_roots(
         workspace_path=workspace_path,
         resolved_sessions_root=resolved_sessions_root,
@@ -52,7 +73,7 @@ def _find_matching_workspace_sessions_root(
             continue
         registry = SessionRegistry(sessions_root=sessions_root)
         sessions = registry.find_sessions_by_workspace(
-            workspace_path, prune_stale=False
+            workspace_path, prune_stale=prune_stale
         )
         if sessions:
             return sessions_root

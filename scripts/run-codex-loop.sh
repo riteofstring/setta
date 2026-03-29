@@ -385,7 +385,7 @@ workspace_setta_status_payload() {
   fi
 
   status_payload="$(
-    setta status --connect-info --latest --json --workspace "${target_root}" 2>/dev/null || true
+    setta status --list-sessions --json --workspace "${target_root}" --server-mode ide 2>/dev/null || true
   )"
   if [[ "${status_payload}" != __SETTA_JSON_B64__* ]]; then
     return 1
@@ -398,12 +398,29 @@ workspace_has_live_setta_session() {
   local target_root="$1"
   local status_payload=""
 
-  if status_payload="$(workspace_setta_status_payload "${target_root}")"; then
-    [[ -n "${status_payload}" ]]
-    return 0
+  if ! status_payload="$(workspace_setta_status_payload "${target_root}")"; then
+    return 1
   fi
 
-  return 1
+  python - "${status_payload}" <<'PY'
+import base64
+import json
+import sys
+
+prefix = "__SETTA_JSON_B64__"
+raw_payload = sys.argv[1]
+if not raw_payload.startswith(prefix):
+    raise SystemExit(1)
+
+try:
+    payload = json.loads(base64.b64decode(raw_payload[len(prefix) :]).decode("utf-8"))
+except Exception:
+    raise SystemExit(1)
+
+sessions = payload.get("sessions")
+if not isinstance(sessions, list) or not sessions:
+    raise SystemExit(1)
+PY
 }
 
 workspace_session_state() {
@@ -1736,7 +1753,23 @@ for ((iteration = 1; ; iteration += 1)); do
   mkdir -p "${run_dir}"
   if [[ "${worktree_lifecycle}" != "none" ]] && [[ -n "${worktree_lifecycle}" ]]; then
     echo "[$iteration/$iterations] Bootstrapping worktree (${worktree_lifecycle})"
+    set +e
     run_lifecycle_mode "worktree" "${workdir}" "${worktree_lifecycle}" "${run_dir}" "${resolved_terminal_mode}"
+    lifecycle_exit_code="$?"
+    set -e
+    if [[ "${lifecycle_exit_code}" -ne 0 ]]; then
+      write_status_file "${status_file}" \
+        "status=bootstrap-failure" \
+        "mode=bootstrap" \
+        "exit_code=${lifecycle_exit_code}" \
+        "lifecycle_mode=${worktree_lifecycle}"
+      echo "[$iteration/$iterations] Worktree bootstrap failed with exit code ${lifecycle_exit_code}; retrying next iteration." >&2
+      if [[ "${stop_on_error}" == "1" ]]; then
+        exit "${lifecycle_exit_code}"
+      fi
+      sleep 5
+      continue
+    fi
   fi
 
   worktree_frontend_url=""

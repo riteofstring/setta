@@ -1,6 +1,9 @@
 import hashlib
 import json
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -578,6 +581,71 @@ def test_resolve_sessions_root_prefers_matching_local_dev_runtime_sessions(
     sessions_root = resolve_sessions_root(workspace)
 
     assert sessions_root == dev_sessions_root.resolve(strict=False)
+
+
+def test_resolve_sessions_root_prefers_live_dev_runtime_over_stale_default(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    default_sessions_root = workspace / "setta_files" / "runtime" / "sessions"
+    default_sessions_root.mkdir(parents=True)
+    dev_sessions_root = workspace / "setta_files_dev" / "runtime" / "sessions"
+    dev_sessions_root.mkdir(parents=True)
+
+    stale_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "unit-test",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    live_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import socket, time; "
+                "sock = socket.socket(); "
+                "sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); "
+                "sock.bind(('127.0.0.1', 61234)); "
+                "sock.listen(); "
+                "time.sleep(60)"
+            ),
+            "setta.server:app",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(0.05)
+
+    try:
+        SessionRegistry(sessions_root=default_sessions_root).create_session(
+            workspace_path=workspace,
+            host="127.0.0.1",
+            port=61233,
+            pid=stale_process.pid,
+        )
+        SessionRegistry(sessions_root=dev_sessions_root).create_session(
+            workspace_path=workspace,
+            host="127.0.0.1",
+            port=61234,
+            pid=live_process.pid,
+        )
+
+        sessions_root = resolve_sessions_root(workspace)
+
+        assert sessions_root == dev_sessions_root.resolve(strict=False)
+    finally:
+        if stale_process.poll() is None:
+            stale_process.terminate()
+        stale_process.wait()
+        if live_process.poll() is None:
+            live_process.terminate()
+        live_process.wait()
 
 
 def test_explicit_setta_files_root_overrides_local_root(tmp_path: Path) -> None:

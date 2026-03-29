@@ -53,6 +53,8 @@ def build_aireset_sandbox(tmp_path: Path) -> Path:
 
     reset_capture_env = sandbox_root / "reset_env.txt"
     reset_capture_args = sandbox_root / "reset_args.txt"
+    kill_capture_env = sandbox_root / "kill_env.txt"
+    kill_capture_args = sandbox_root / "kill_args.txt"
     ai_capture_env = sandbox_root / "ai_env.txt"
     ai_capture_args = sandbox_root / "ai_args.txt"
 
@@ -62,6 +64,14 @@ def build_aireset_sandbox(tmp_path: Path) -> Path:
 set -euo pipefail
 env | sort > "{reset_capture_env}"
 echo "$*" > "{reset_capture_args}"
+""",
+    )
+    write_stub_executable(
+        sandbox_root / "kill.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+env | sort > "{kill_capture_env}"
+echo "$*" > "{kill_capture_args}"
 """,
     )
     write_stub_executable(

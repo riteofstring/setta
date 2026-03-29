@@ -3101,7 +3101,15 @@ def stop(
             runtime_root=_to_optional_string(params.get("runtime_root")),
             validate=False,
         )
-        registry = SessionRegistry(sessions_root=resolved_paths.runtime_sessions_root)
+        sessions_root = resolve_sessions_root(resolved_paths.workspace_root)
+        if (
+            _to_optional_string(params.get("profile")) is not None
+            or _to_optional_string(params.get("setta_files_root")) is not None
+            or _to_optional_string(params.get("setta_files_location")) is not None
+            or _to_optional_string(params.get("runtime_root")) is not None
+        ):
+            sessions_root = resolved_paths.runtime_sessions_root
+        registry = SessionRegistry(sessions_root=sessions_root)
         sessions = registry.find_sessions_by_workspace_and_mode(
             resolved_paths.workspace_root,
             stop_mode_filter,
