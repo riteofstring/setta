@@ -517,72 +517,154 @@ func (e *Executor) processOpenAIChunk(
 	accumulator *toolCallAccumulator,
 	previewAccumulator *toolPreviewAccumulator,
 ) (map[string]any, error) {
-	var usage map[string]any
-	if chunk.JSON.Usage.Valid() {
-		usage = buildCompletionUsagePayload(chunk.Usage)
-	}
+	usage := openAIChunkUsagePayload(chunk)
 	for _, choice := range chunk.Choices {
-		text := choice.Delta.Content
-		if text != "" {
-			appendAssistantText(assistantMessage, text)
+		if err := e.applyOpenAIChunkChoiceText(
+			ctx,
+			prepared,
+			assistantMessage,
+			choice.Delta.Content,
+		); err != nil {
+			return usage, err
 		}
-		if prepared.emitStream && text != "" {
-			if err := e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
-				Type:      realtime.StreamingEventTypeDelta,
-				MessageID: stringValue(assistantMessage["id"]),
-				Content: []any{
-					realtime.MessageTextDelta{
-						Type:  realtime.MessageContentTypeTextDelta,
-						Index: 0,
-						Text:  text,
-					},
-				},
-			}); err != nil {
-				return usage, err
-			}
-		}
-		for _, toolCall := range choice.Delta.ToolCalls {
-			argumentsDelta := toolCall.Function.Arguments
-			state := accumulator.apply(int(toolCall.Index), toolCall.ID, "", toolCall.Function.Name, argumentsDelta)
-			if !prepared.emitStream || state == nil {
-				continue
-			}
-			var toolName *string
-			if strings.TrimSpace(state.name) != "" {
-				toolName = optionalStringPointer(state.name)
-			}
-			if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
-				Type:           realtime.StreamingEventTypeToolCallDelta,
-				MessageID:      stringValue(assistantMessage["id"]),
-				ToolCallID:     strings.TrimSpace(state.id),
-				ArgumentsDelta: argumentsDelta,
-				ToolName:       toolName,
-			}); err != nil {
-				return usage, err
-			}
-			descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
-			if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
-				continue
-			}
-			previewEvent, err := previewAccumulator.buildEvent(
-				stringValue(assistantMessage["id"]),
-				state,
-				descriptor.Metadata.ToolArgumentPreview,
-				argumentsDelta,
-				prepared.temporaryToCanonical,
-			)
-			if err != nil {
-				return usage, err
-			}
-			if previewEvent == nil {
-				continue
-			}
-			if err := e.applyChunk(ctx, prepared, *previewEvent); err != nil {
-				return usage, err
-			}
+		if err := e.applyOpenAIChunkChoiceToolCalls(
+			ctx,
+			prepared,
+			assistantMessage,
+			choice.Delta.ToolCalls,
+			accumulator,
+			previewAccumulator,
+		); err != nil {
+			return usage, err
 		}
 	}
 	return usage, nil
+}
+
+func openAIChunkUsagePayload(chunk openai.ChatCompletionChunk) map[string]any {
+	if !chunk.JSON.Usage.Valid() {
+		return nil
+	}
+	return buildCompletionUsagePayload(chunk.Usage)
+}
+
+func (e *Executor) applyOpenAIChunkChoiceText(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	text string,
+) error {
+	if text == "" {
+		return nil
+	}
+	appendAssistantText(assistantMessage, text)
+	if !prepared.emitStream {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, realtime.MessageDeltaEvent{
+		Type:      realtime.StreamingEventTypeDelta,
+		MessageID: stringValue(assistantMessage["id"]),
+		Content: []any{
+			realtime.MessageTextDelta{
+				Type:  realtime.MessageContentTypeTextDelta,
+				Index: 0,
+				Text:  text,
+			},
+		},
+	})
+}
+
+func (e *Executor) applyOpenAIChunkChoiceToolCalls(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	toolCalls []openai.ChatCompletionChunkChoiceDeltaToolCall,
+	accumulator *toolCallAccumulator,
+	previewAccumulator *toolPreviewAccumulator,
+) error {
+	for _, toolCall := range toolCalls {
+		if err := e.applyOpenAIChunkChoiceToolCall(
+			ctx,
+			prepared,
+			assistantMessage,
+			toolCall,
+			accumulator,
+			previewAccumulator,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *Executor) applyOpenAIChunkChoiceToolCall(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	toolCall openai.ChatCompletionChunkChoiceDeltaToolCall,
+	accumulator *toolCallAccumulator,
+	previewAccumulator *toolPreviewAccumulator,
+) error {
+	argumentsDelta := toolCall.Function.Arguments
+	state := accumulator.apply(
+		int(toolCall.Index),
+		toolCall.ID,
+		"",
+		toolCall.Function.Name,
+		argumentsDelta,
+	)
+	if !prepared.emitStream || state == nil {
+		return nil
+	}
+	var toolName *string
+	if strings.TrimSpace(state.name) != "" {
+		toolName = optionalStringPointer(state.name)
+	}
+	if err := e.applyChunk(ctx, prepared, realtime.ToolCallDeltaEvent{
+		Type:           realtime.StreamingEventTypeToolCallDelta,
+		MessageID:      stringValue(assistantMessage["id"]),
+		ToolCallID:     strings.TrimSpace(state.id),
+		ArgumentsDelta: argumentsDelta,
+		ToolName:       toolName,
+	}); err != nil {
+		return err
+	}
+	return e.emitOpenAIChunkToolPreview(
+		ctx,
+		prepared,
+		assistantMessage,
+		state,
+		argumentsDelta,
+		previewAccumulator,
+	)
+}
+
+func (e *Executor) emitOpenAIChunkToolPreview(
+	ctx context.Context,
+	prepared preparedExecution,
+	assistantMessage map[string]any,
+	state *toolCallState,
+	argumentsDelta string,
+	previewAccumulator *toolPreviewAccumulator,
+) error {
+	descriptor, ok := prepared.availableTools[mcpx.NormalizeToolName(state.name)]
+	if !ok || descriptor.Metadata == nil || descriptor.Metadata.ToolArgumentPreview == nil {
+		return nil
+	}
+	previewEvent, err := previewAccumulator.buildEvent(
+		stringValue(assistantMessage["id"]),
+		state,
+		descriptor.Metadata.ToolArgumentPreview,
+		argumentsDelta,
+		prepared.temporaryToCanonical,
+	)
+	if err != nil {
+		return err
+	}
+	if previewEvent == nil {
+		return nil
+	}
+	return e.applyChunk(ctx, prepared, *previewEvent)
 }
 
 type openAIResponseStreamState struct {
