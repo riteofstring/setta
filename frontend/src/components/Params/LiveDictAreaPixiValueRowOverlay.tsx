@@ -1,5 +1,7 @@
+import { useLayoutEffect } from "react";
 import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueOverlaySceneRow } from "./LiveDictAreaPixiValueOverlaySceneRow";
+import { markLiveDictAreaPixiValueRowOverlayMounted } from "./liveDictAreaPixiValueRowPerf";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 import {
   type ParamEditorKind,
@@ -19,6 +21,13 @@ export function LiveDictAreaPixiValueRowOverlay({
   rowState,
   target,
 }: LiveDictAreaPixiValueRowOverlayProps) {
+  useLayoutEffect(() => {
+    markLiveDictAreaPixiValueRowOverlayMounted({
+      editorKind,
+      rowId: target.rowId,
+    });
+  }, [editorKind, target.rowId]);
+
   return (
     <PixiOverlayParamEditorKindProvider value={editorKind}>
       <div

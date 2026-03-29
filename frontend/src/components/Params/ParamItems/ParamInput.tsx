@@ -34,6 +34,7 @@ type ParamInputProps = {
   sectionId: string;
   paramInfoId: string;
   maybeErrorMessage?: string;
+  onAutoActivatedCodeMirrorReady?: () => void;
 };
 
 type ParamInputState = {
@@ -46,6 +47,7 @@ function _ParamInput({
   sectionId,
   paramInfoId,
   maybeErrorMessage,
+  onAutoActivatedCodeMirrorReady,
 }: ParamInputProps) {
   const { projectConfigId, baseValue, codeObjType } = useProjectState(
     (x): ParamInputState => {
@@ -184,6 +186,7 @@ function _ParamInput({
       onRevealPassword={onRevealPassword}
       isPasswordRevealPending={isRevealing}
       maybeErrorMessage={maybeErrorMessage}
+      onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
     />
   );
 }

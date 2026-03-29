@@ -7819,3 +7819,52 @@ Record:
     - post-change: visual passed; the `defaultZoomLevel` overlay opened cleanly and the short trace reported `INP 88 ms`
 - Next action:
   - Keep moving down the remaining presentation/layout floor on the same live Pixi handoff path, but prefer the next slice only if it comes with a better-isolated trace than this geometry-bounding probe.
+
+## 2026-03-29 247
+
+- Item: Add deterministic handoff timing marks for the live Pixi CodeMirror value-row canary.
+- Status: `done`
+- Details:
+  - Pivoted away from another overlay-layout micro-optimization because the last few iterations were repeating the same live Pixi handoff shape while the measurement itself was still partially noisy.
+  - Added a small explicit performance-timeline helper for the real production handoff path:
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowPerf.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowPerf.test.ts`
+  - Wired the live Pixi value-row path to emit deterministic marks/measures for the exact canary interaction:
+    - handoff start from `LiveDictAreaPixiOverlayShell`
+    - overlay mount from `LiveDictAreaPixiValueRowOverlay`
+    - CodeMirror-ready from the auto-activated overlay row path through `ParamInput` / `ParamUI` / `TextInputCodeMirror`
+  - Updated coverage so the production canary now proves the marks/measures exist on the real `defaultZoomLevel` click:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx`
+    - `frontend/src/components/Params/ParamItems/ParamInput.tsx`
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.render.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Added the perf note for this instrumentation slice:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-value-row-handoff-timing-marks.md`
+  - Live CDP verification on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` after bootstrapping confirmed:
+    - the visible handoff row was `defaultZoomLevel`
+    - the new marks/measures were present for the activated `codemirror` row id `94dbd722-d397-4dd3-a855-37c0dd1c059d`
+    - representative retrieved timings:
+      - overlay latency: about `6.1 ms`
+      - ready latency: about `15.7 ms`
+    - the inline editor appeared cleanly with no obvious blanking, clipping, or major overlap in the checked viewport
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueRowPerf.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/TextInputCodeMirror.render.test.tsx`
+      - result: passed (`20 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiValueRowPerf.ts src/components/Params/liveDictAreaPixiValueRowPerf.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.tsx src/components/Params/ParamItems/ParamInput.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/TextInputCodeMirror.render.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "CodeMirror-backed value row"`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - bootstrapped successfully, opened `All Settings`, and activated the visible CodeMirror-backed `defaultZoomLevel` handoff
+    - verified all requested performance entry names were present
+    - representative 200-status requests included `api/serverMode`, `api/loadSettings`, `api/loadProjectConfig`, `api/getLatestLspDiagnostics`, `api/getAIFollowSnapshot`, `api/getListenerCoverage`, and `api/setTopLevelSectionLayout`
+    - visual check passed with no obvious blanking, clipping, or major overlap around the activated inline editor
+- Next action:
+  - Use these explicit handoff marks as the default measurement boundary for the next live Pixi `defaultZoomLevel` performance slice instead of relying on another broad trace window with bootstrap/navigation noise.

@@ -1,4 +1,10 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import {
+  LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_OVERLAY_MEASURE_NAME,
+  LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_READY_MARK_NAME,
+  LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_READY_MEASURE_NAME,
+  LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_START_MARK_NAME,
+} from "../../../src/components/Params/liveDictAreaPixiValueRowPerf";
 import { ensureAppReady } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -13,6 +19,15 @@ type DragOverlayRow = {
   height: number;
   id: string;
   top: number;
+};
+
+type ValueRowPerfSnapshot = {
+  overlayDuration: number;
+  readyDuration: number;
+  readyEditorKind: string | null;
+  readyRowId: string | null;
+  startEditorKind: string | null;
+  startRowId: string | null;
 };
 
 async function openAllSettingsLivePixiCanary(
@@ -264,6 +279,71 @@ test("all settings canary can immediately activate a CodeMirror-backed value row
   expect(codemirrorActivationResult?.editorKind).toBe("codemirror");
   expect(codemirrorActivationResult?.hasCodeMirrorEditor).toBe(true);
   expect(codemirrorActivationResult?.activeElementInsideCodeMirror).toBe(true);
+
+  const performanceSnapshot = await page.waitForFunction(
+    ({ names, rowId }) => {
+      const getLastEntry = (name: string, type: "mark" | "measure") => {
+        const entries = performance.getEntriesByName(name, type);
+        return entries.length > 0 ? entries.at(-1) ?? null : null;
+      };
+      const readDetail = (entry: PerformanceEntry | null) => {
+        if (!entry || !("detail" in entry)) {
+          return null;
+        }
+        return entry.detail as
+          | { editorKind?: string; rowId?: string }
+          | null
+          | undefined;
+      };
+
+      const startMark = getLastEntry(names.startMark, "mark");
+      const readyMark = getLastEntry(names.readyMark, "mark");
+      const overlayMeasure = getLastEntry(names.overlayMeasure, "measure");
+      const readyMeasure = getLastEntry(names.readyMeasure, "measure");
+      const startDetail = readDetail(startMark);
+      const readyDetail = readDetail(readyMark);
+
+      if (
+        !overlayMeasure ||
+        !readyMeasure ||
+        startDetail?.rowId !== rowId ||
+        readyDetail?.rowId !== rowId
+      ) {
+        return null;
+      }
+
+      return {
+        overlayDuration: overlayMeasure.duration,
+        readyDuration: readyMeasure.duration,
+        readyEditorKind: readyDetail?.editorKind ?? null,
+        readyRowId: readyDetail?.rowId ?? null,
+        startEditorKind: startDetail?.editorKind ?? null,
+        startRowId: startDetail?.rowId ?? null,
+      } satisfies ValueRowPerfSnapshot;
+    },
+    {
+      names: {
+        overlayMeasure:
+          LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_OVERLAY_MEASURE_NAME,
+        readyMark: LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_READY_MARK_NAME,
+        readyMeasure: LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_READY_MEASURE_NAME,
+        startMark: LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_START_MARK_NAME,
+      },
+      rowId: activatedRowId,
+    },
+  );
+
+  const handoffPerf = await performanceSnapshot.jsonValue();
+
+  expect(handoffPerf).not.toBeNull();
+  expect(handoffPerf?.startEditorKind).toBe("codemirror");
+  expect(handoffPerf?.startRowId).toBe(activatedRowId);
+  expect(handoffPerf?.readyEditorKind).toBe("codemirror");
+  expect(handoffPerf?.readyRowId).toBe(activatedRowId);
+  expect(handoffPerf?.overlayDuration).toBeGreaterThanOrEqual(0);
+  expect(handoffPerf?.readyDuration).toBeGreaterThanOrEqual(
+    handoffPerf?.overlayDuration ?? 0,
+  );
 });
 
 test("all settings canary can immediately open a combobox-backed value row on first Pixi handoff click", async ({

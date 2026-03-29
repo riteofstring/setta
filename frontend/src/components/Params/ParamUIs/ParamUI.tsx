@@ -72,6 +72,7 @@ type ParamUIProps = {
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
   maybeErrorMessage?: string;
+  onAutoActivatedCodeMirrorReady?: () => void;
 };
 
 export function ParamUIConfig({
@@ -152,6 +153,7 @@ export function ParamUI({
   onRevealPassword,
   isPasswordRevealPending,
   maybeErrorMessage,
+  onAutoActivatedCodeMirrorReady,
 }: ParamUIProps) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
@@ -282,6 +284,7 @@ export function ParamUI({
           shouldAutoActivateCodeMirrorOnMount={
             shouldAutoActivateCodeMirrorOnMount
           }
+          onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
         />
       );
     case CodeObjTypeEnum.TextParam:
@@ -301,6 +304,7 @@ export function ParamUI({
           shouldAutoActivateCodeMirrorOnMount={
             shouldAutoActivateCodeMirrorOnMount
           }
+          onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
         />
       );
     case CodeObjTypeEnum.DateParam:
@@ -429,6 +433,7 @@ export function ParamUI({
           shouldAutoActivateCodeMirrorOnMount={
             shouldAutoActivateCodeMirrorOnMount
           }
+          onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
         />
       );
     case CodeObjTypeEnum.DropzoneParam:
@@ -463,6 +468,7 @@ function TextParamConfigured({
   waitingForResult,
   isSelectingParams,
   shouldAutoActivateCodeMirrorOnMount,
+  onAutoActivatedCodeMirrorReady,
 }: {
   sectionId: string;
   paramInfoId: string;
@@ -476,6 +482,7 @@ function TextParamConfigured({
   waitingForResult: boolean;
   isSelectingParams: boolean;
   shouldAutoActivateCodeMirrorOnMount: boolean;
+  onAutoActivatedCodeMirrorReady?: () => void;
 }) {
   return (
     <>
@@ -497,6 +504,7 @@ function TextParamConfigured({
         isDisabled={isDisabled}
         shouldAutoActivateOnMount={shouldAutoActivateCodeMirrorOnMount}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        onAutoActivatedEditorReady={onAutoActivatedCodeMirrorReady}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />

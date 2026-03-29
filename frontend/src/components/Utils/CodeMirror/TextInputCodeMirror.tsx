@@ -56,6 +56,7 @@ export function TextInputCodeMirror({
   isDisabled = false,
   shouldAutoActivateOnMount = false,
   completionsFn,
+  onAutoActivatedEditorReady,
 }) {
   const initialActivationEvent = getInitialTextInputCodeMirrorActivationEvent({
     isDisabled,
@@ -172,6 +173,9 @@ export function TextInputCodeMirror({
           isKeyName={isKeyName}
           tooltipParentDivId={tooltipParentDivId}
           completionsFn={completionsFn}
+          onAutoActivatedEditorReady={
+            shouldAutoActivateOnMount ? onAutoActivatedEditorReady : undefined
+          }
         />
       )}
     </>
@@ -201,6 +205,7 @@ function CoreCodeMirror({
   isKeyName,
   completionsFn,
   tooltipParentDivId,
+  onAutoActivatedEditorReady,
 }) {
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const didImperativelyRevealEditorRef = useRef(false);
@@ -244,11 +249,11 @@ function CoreCodeMirror({
     onEditorReady: () => {
       if (shouldTrackInitializationInState) {
         setRealIsInitialized(true);
-        return;
+      } else {
+        didImperativelyRevealEditorRef.current = true;
+        document.getElementById(coreView.divId)?.classList.remove("opacity-0");
       }
-
-      didImperativelyRevealEditorRef.current = true;
-      document.getElementById(coreView.divId)?.classList.remove("opacity-0");
+      onAutoActivatedEditorReady?.();
     },
     divId: coreView.divId,
     value,

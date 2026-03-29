@@ -6,6 +6,7 @@ import { ParamInput } from "./ParamItems/ParamInput";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ResizeHandle } from "./ResizeHandle";
 import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
+import { markLiveDictAreaPixiValueRowEditorReady } from "./liveDictAreaPixiValueRowPerf";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
 import {
   PARAM_CONTAINER_COLUMN_WIDTH,
@@ -24,6 +25,15 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
   rowState,
   target,
 }: LiveDictAreaPixiValueOverlaySceneRowProps) {
+  const onAutoActivatedCodeMirrorReady =
+    target.editorKind === "codemirror"
+      ? () => {
+          markLiveDictAreaPixiValueRowEditorReady({
+            editorKind: target.editorKind,
+            rowId: target.rowId,
+          });
+        }
+      : undefined;
   const viewModel = buildParamContainerViewModel({
     hasChildRows: false,
     hasSectionStyleTheme,
@@ -103,6 +113,7 @@ export function LiveDictAreaPixiValueOverlaySceneRow({
         sectionId={target.sectionId}
         paramInfoId={target.rowId}
         maybeErrorMessage={viewModel.errorMessage}
+        onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
       />
       <ResizeHandle
         showResizeHandle={true}

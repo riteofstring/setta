@@ -88,6 +88,8 @@ describe("TextInputCodeMirror render path", () => {
   });
 
   it("mounts the real editor immediately without a second initialization rerender for auto-activated Pixi handoffs", async () => {
+    const onAutoActivatedEditorReady = vi.fn();
+
     await act(async () => {
       root.render(
         <TextInputCodeMirror
@@ -102,6 +104,7 @@ describe("TextInputCodeMirror render path", () => {
           wrapLines={false}
           dummyDivId="dummy-editor"
           shouldAutoActivateOnMount={true}
+          onAutoActivatedEditorReady={onAutoActivatedEditorReady}
         />,
       );
     });
@@ -117,6 +120,7 @@ describe("TextInputCodeMirror render path", () => {
     );
     expect(codeMirrorRoot).not.toBeNull();
     expect(codeMirrorRoot?.className.includes("opacity-0")).toBe(false);
+    expect(onAutoActivatedEditorReady).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the dummy shell until activation for non-auto mounts", () => {

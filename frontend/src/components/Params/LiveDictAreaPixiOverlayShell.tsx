@@ -33,6 +33,7 @@ import {
   type LiveDictAreaPixiValueOverlayRowBaseState,
 } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueRowOverlay } from "./LiveDictAreaPixiValueRowOverlay";
+import { markLiveDictAreaPixiValueRowHandoffStart } from "./liveDictAreaPixiValueRowPerf";
 import { buildLiveDictAreaPixiValueRowTargets } from "./liveDictAreaPixiValueRowTargets";
 
 type LiveDictAreaPixiOverlayShellProps = {
@@ -224,6 +225,10 @@ export function LiveDictAreaPixiOverlayShell({
                 }
                 data-live-dict-area-editor-handoff-row-id={target.rowId}
                 onClick={() => {
+                  markLiveDictAreaPixiValueRowHandoffStart({
+                    editorKind: target.editorKind,
+                    rowId: target.rowId,
+                  });
                   setActiveValueRowId(target.rowId);
                 }}
                 style={{
