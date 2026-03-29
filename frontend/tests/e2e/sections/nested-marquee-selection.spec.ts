@@ -1,11 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
-  moveSectionsFromFrontend,
   openIsolatedProject,
+  postBackend,
 } from "../helpers";
 
 type ImplType = "Group" | "Code";
@@ -30,7 +28,7 @@ test("marquee selection includes nested group children", async ({ page }) => {
       [groupId]: { x: 420, y: 120 },
       [childId]: { x: 80, y: 120 },
     });
-    await moveSectionsFromFrontend(page, {
+    await postBackend(page, "/moveSections", {
       projectConfigId: projectContext.projectConfigId,
       sectionIds: [childId],
       newParentId: groupId,
@@ -234,10 +232,15 @@ async function createTopLevelSection(
   projectConfigId: string,
   implType: ImplType,
 ): Promise<string> {
-  const response = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType,
-  });
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType,
+    },
+  );
+
   const sectionId = response?.sectionId;
   if (!sectionId) {
     throw new Error(`Missing section id for impl type ${implType}.`);
@@ -250,21 +253,17 @@ async function placeSections(
   projectConfigId: string,
   positionsById: Record<string, { x: number; y: number }>,
 ): Promise<void> {
-  await applyProjectMutationsFromFrontend(page, {
-    projectConfigId,
-    operations: Object.entries(positionsById).map(([sectionId, position]) => ({
-      routeName: "route_move_sections" as const,
-      payload: {
-        sectionIds: [sectionId],
-        newParentId: null,
-        newIndex: null,
-        positionsById: {
-          [sectionId]: position,
-        },
-        frontendOpId: null,
+  for (const [sectionId, position] of Object.entries(positionsById)) {
+    await postBackend(page, "/moveSections", {
+      projectConfigId,
+      sectionIds: [sectionId],
+      newParentId: null,
+      newIndex: null,
+      positionsById: {
+        [sectionId]: position,
       },
-    })),
-  });
+    });
+  }
 }
 
 async function readFrontendActiveIds(page: Page): Promise<string[]> {
