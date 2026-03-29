@@ -46,6 +46,10 @@ done
 setta_path_flags_validate
 setta_path_flags_apply_env
 
+if [[ -x "${SCRIPT_DIR}/kill.sh" ]]; then
+  "${SCRIPT_DIR}/kill.sh"
+fi
+
 if [[ -n "${SETTA_FILES_LOCATION_OVERRIDE}" && -z "${SETTA_FILES_ROOT_OVERRIDE}" ]]; then
   # CLI location arg is passed through in RESET_ARGS/AI_ARGS.
   unset SETTA_FILES_LOCATION
