@@ -360,8 +360,8 @@ func TestBuildCodexApprovalStateIncludesCommandAndFileChangePayloads(t *testing.
 	}
 }
 
-func TestCodexExecutorPersistsUsageWithContextWindow(t *testing.T) {
-	fixture := newCodexExecutorFixture(t, "usage_direct")
+func TestCodexExecutorPersistsUsageFromThreadTokenUsageUpdated(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "usage_stream")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -398,8 +398,8 @@ func TestCodexExecutorPersistsUsageWithContextWindow(t *testing.T) {
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
-func TestCodexExecutorReadsUsageFromThreadReadFallback(t *testing.T) {
-	fixture := newCodexExecutorFixture(t, "usage_fallback")
+func TestCodexExecutorPersistsUsageDuringActiveRun(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "usage_live")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -415,25 +415,33 @@ func TestCodexExecutorReadsUsageFromThreadReadFallback(t *testing.T) {
 		SearchEnabled:   false,
 	})
 	if err != nil {
-		t.Fatalf("start fallback codex run: %v", err)
+		t.Fatalf("start live usage codex run: %v", err)
+	}
+
+	usage := fixture.waitForRunUsage(t, result.Run.ID)
+	if int(floatValueForTest(usage["inputTokens"])) != 23 || int(floatValueForTest(usage["outputTokens"])) != 5 {
+		t.Fatalf("unexpected live usage totals %#v", usage)
+	}
+	if int(floatValueForTest(usage["contextUsedTokens"])) != 23 || int(floatValueForTest(usage["contextWindowTokens"])) != 400000 {
+		t.Fatalf("unexpected live context usage %#v", usage)
 	}
 
 	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
 	usage, ok := persisted.Outputs["usage"].(map[string]any)
 	if !ok {
-		t.Fatalf("expected persisted fallback usage payload, got %#v", persisted.Outputs["usage"])
+		t.Fatalf("expected persisted live usage payload, got %#v", persisted.Outputs["usage"])
 	}
-	if int(floatValueForTest(usage["inputTokens"])) != 69941 || int(floatValueForTest(usage["outputTokens"])) != 1455 {
-		t.Fatalf("unexpected fallback usage totals %#v", usage)
+	if int(floatValueForTest(usage["inputTokens"])) != 23 || int(floatValueForTest(usage["outputTokens"])) != 5 {
+		t.Fatalf("unexpected persisted live usage totals %#v", usage)
 	}
-	if int(floatValueForTest(usage["contextUsedTokens"])) != 24766 || int(floatValueForTest(usage["contextWindowTokens"])) != 258400 {
-		t.Fatalf("unexpected fallback context usage %#v", usage)
+	if int(floatValueForTest(usage["contextUsedTokens"])) != 23 || int(floatValueForTest(usage["contextWindowTokens"])) != 400000 {
+		t.Fatalf("unexpected persisted live context usage %#v", usage)
 	}
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
 
-func TestCodexExecutorSkipsUsageWhenThreadTokenUsageReadTimesOut(t *testing.T) {
-	fixture := newCodexExecutorFixture(t, "usage_slow")
+func TestCodexExecutorSkipsUsageWithoutThreadTokenUsageUpdated(t *testing.T) {
+	fixture := newCodexExecutorFixture(t, "usage_missing")
 	result, err := fixture.send.StartChat(context.Background(), StartChatRequest{
 		Message: map[string]any{
 			"id":   "user-1",
@@ -449,18 +457,12 @@ func TestCodexExecutorSkipsUsageWhenThreadTokenUsageReadTimesOut(t *testing.T) {
 		SearchEnabled:   false,
 	})
 	if err != nil {
-		t.Fatalf("start slow usage codex run: %v", err)
+		t.Fatalf("start missing usage codex run: %v", err)
 	}
 
-	// Measure only the post-start completion window so suite-wide startup jitter
-	// does not masquerade as a slow token-usage probe.
-	startedAt := time.Now()
 	persisted := fixture.waitForTerminalRun(t, result.Run.ID)
-	if elapsed := time.Since(startedAt); elapsed >= 3500*time.Millisecond {
-		t.Fatalf("expected usage timeout to stay short, run took %s", elapsed)
-	}
 	if _, ok := persisted.Outputs["usage"]; ok {
-		t.Fatalf("expected timed-out usage probe to be omitted, got %#v", persisted.Outputs["usage"])
+		t.Fatalf("expected missing usage event to be omitted, got %#v", persisted.Outputs["usage"])
 	}
 	fixture.waitForLiveStateCleanup(t, result.Run.ID)
 }
@@ -2216,6 +2218,24 @@ func (f codexExecutorFixture) waitForTerminalRun(t *testing.T, runID string) age
 	return agentruns.Run{}
 }
 
+func (f codexExecutorFixture) waitForRunUsage(t *testing.T, runID string) map[string]any {
+	t.Helper()
+
+	deadline := time.Now().Add(executorFixtureEventTimeout)
+	for time.Now().Before(deadline) {
+		run, err := f.runs.Load(runID)
+		if err != nil {
+			t.Fatalf("load run %s while waiting for usage: %v", runID, err)
+		}
+		if usage, ok := run.Outputs["usage"].(map[string]any); ok && usage != nil {
+			return usage
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatalf("timed out waiting for run %s usage payload", runID)
+	return nil
+}
+
 func writeCodexCompletionGuardSetting(t *testing.T, root string, enabled bool) {
 	t.Helper()
 
@@ -2436,10 +2456,48 @@ func runCodexFixtureProcess(scenario string) error {
 					return err
 				}
 				return nil
-			case "usage_direct", "usage_fallback", "usage_slow":
+			case "usage_stream":
+				if err := emitCodexThreadTokenUsageUpdated(writer, map[string]any{
+					"total": map[string]any{
+						"inputTokens":  11,
+						"outputTokens": 2,
+						"totalTokens":  13,
+					},
+					"last": map[string]any{
+						"contextUsedTokens": 11,
+					},
+					"modelContextWindow": 272000,
+				}); err != nil {
+					return err
+				}
 				if err := emitAssistantTurn(writer, "assistant-usage", "HELLO"); err != nil {
 					return err
 				}
+				return nil
+			case "usage_live":
+				if err := emitCodexThreadTokenUsageUpdated(writer, map[string]any{
+					"total": map[string]any{
+						"inputTokens":  23,
+						"outputTokens": 5,
+						"totalTokens":  28,
+					},
+					"last": map[string]any{
+						"contextUsedTokens": 23,
+					},
+					"modelContextWindow": 400000,
+				}); err != nil {
+					return err
+				}
+				time.Sleep(200 * time.Millisecond)
+				if err := emitAssistantTurn(writer, "assistant-usage-live", "HELLO"); err != nil {
+					return err
+				}
+				return nil
+			case "usage_missing":
+				if err := emitAssistantTurn(writer, "assistant-usage", "HELLO"); err != nil {
+					return err
+				}
+				return nil
 			case "slow_status":
 				if err := emitAssistantTurn(writer, "assistant-slow-status", "Hello from Codex"); err != nil {
 					return err
@@ -2527,77 +2585,8 @@ func runCodexFixtureProcess(scenario string) error {
 			if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{"servers": []any{}}}); err != nil {
 				return err
 			}
-		case "thread/tokenUsage/read":
-			params, _ := mapValue(payload["params"])
-			if got := stringValue(params["threadId"]); got == "" || got != "thread-"+scenario {
-				return fmt.Errorf("unexpected thread id for token-usage request: %#v", payload)
-			}
-			switch scenario {
-			case "usage_direct":
-				if err := emit(map[string]any{
-					"id": payload["id"],
-					"result": map[string]any{
-						"inputTokens":         11,
-						"outputTokens":        2,
-						"totalTokens":         13,
-						"contextUsedTokens":   11,
-						"contextWindowTokens": 272000,
-					},
-				}); err != nil {
-					return err
-				}
-			case "usage_fallback":
-				if err := emit(map[string]any{
-					"id": payload["id"],
-					"error": map[string]any{
-						"code":    -32600,
-						"message": "Invalid request: unknown variant `thread/tokenUsage/read`",
-					},
-				}); err != nil {
-					return err
-				}
-			case "usage_slow":
-				time.Sleep(4 * time.Second)
-				if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
-					return err
-				}
-			default:
-				if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
-					return err
-				}
-			}
-		case "thread/read":
-			params, _ := mapValue(payload["params"])
-			if got := stringValue(params["threadId"]); got == "" || got != "thread-"+scenario {
-				return fmt.Errorf("unexpected thread id for thread/read request: %#v", payload)
-			}
-			switch scenario {
-			case "usage_fallback":
-				if err := emit(map[string]any{
-					"id": payload["id"],
-					"result": map[string]any{
-						"thread": map[string]any{
-							"tokenUsage": map[string]any{
-								"total": map[string]any{
-									"inputTokens":  69941,
-									"outputTokens": 1455,
-								},
-								"last": map[string]any{
-									"inputTokens":  24766,
-									"outputTokens": 430,
-								},
-								"modelContextWindow": 258400,
-							},
-						},
-					},
-				}); err != nil {
-					return err
-				}
-			default:
-				if err := emit(map[string]any{"id": payload["id"], "result": map[string]any{}}); err != nil {
-					return err
-				}
-			}
+		case "thread/tokenUsage/read", "thread/read":
+			return fmt.Errorf("unexpected undocumented codex usage read request: %#v", payload)
 		default:
 			if scenario == "approval" && payload["id"] == float64(42) {
 				result, _ := mapValue(payload["result"])
@@ -2655,6 +2644,24 @@ func emitAssistantTurn(writer *bufio.Writer, messageID string, text string) erro
 		}
 	}
 	return nil
+}
+
+func emitCodexThreadTokenUsageUpdated(writer *bufio.Writer, tokenUsage map[string]any) error {
+	payload := map[string]any{
+		"method": "thread/tokenUsage/updated",
+		"params": map[string]any{
+			"threadId":   "thread-usage",
+			"tokenUsage": tokenUsage,
+		},
+	}
+	content, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if _, err := writer.Write(append(content, '\n')); err != nil {
+		return err
+	}
+	return writer.Flush()
 }
 
 func emitCodexRichTurn(writer *bufio.Writer) error {

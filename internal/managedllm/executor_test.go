@@ -75,6 +75,40 @@ func (c *captureBroadcaster) ResultFollowMessages() []realtime.AIFollowToolResul
 	return cloned
 }
 
+func handledManagedLLMModelLookupTestRequest(t *testing.T, w http.ResponseWriter, r *http.Request) bool {
+	t.Helper()
+
+	if strings.HasPrefix(r.URL.Path, "/v1/models/") {
+		modelID := strings.TrimPrefix(r.URL.Path, "/v1/models/")
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"id":           modelID,
+			"object":       "model",
+			"created":      1,
+			"owned_by":     "test",
+			"created_at":   "2026-01-01T00:00:00Z",
+			"display_name": modelID,
+			"type":         "model",
+		}); err != nil {
+			t.Fatalf("encode model metadata: %v", err)
+		}
+		return true
+	}
+	if strings.HasPrefix(r.URL.Path, "/v1beta/models/") && !strings.HasSuffix(r.URL.Path, ":streamGenerateContent") {
+		modelID := strings.TrimPrefix(r.URL.Path, "/v1beta/models/")
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(map[string]any{
+			"name":            "models/" + modelID,
+			"displayName":     modelID,
+			"inputTokenLimit": 0,
+		}); err != nil {
+			t.Fatalf("encode gemini model metadata: %v", err)
+		}
+		return true
+	}
+	return false
+}
+
 func findBroadcastTextDelta(messages []realtime.LLMStreamingResponseMessage, index int, text string) *realtime.MessageTextDelta {
 	for _, message := range messages {
 		deltaEvent, ok := message.Content.Chunk.(realtime.MessageDeltaEvent)
@@ -218,6 +252,9 @@ func TestExecutorExecuteStreamsManagedChatAndReturnsOutputs(t *testing.T) {
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/chat/completions" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -349,6 +386,9 @@ func TestExecutorExecuteStreamsManagedAzureChatAndReturnsOutputs(t *testing.T) {
 	}
 	var meta requestMeta
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		meta = requestMeta{
 			Path:   r.URL.Path,
 			Query:  r.URL.RawQuery,
@@ -463,6 +503,9 @@ func TestExecutorExecuteStreamsManagedToolArgumentPreview(t *testing.T) {
 
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -584,6 +627,9 @@ func TestExecutorExecuteReturnsPartialResultOnCancellation(t *testing.T) {
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		flusher, ok := w.(http.Flusher)
 		if !ok {
@@ -757,6 +803,9 @@ func TestExecutorInlinesManagedAttachmentTextWhenAttachmentServiceIsAvailable(t 
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/chat/completions" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -1244,6 +1293,9 @@ func TestExecutorExecuteStreamsAnthropicManagedChatAndReturnsOutputs(t *testing.
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/messages" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -1389,6 +1441,9 @@ func TestExecutorExecuteStreamsGeminiManagedChatAndReturnsOutputs(t *testing.T) 
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1beta/models/gemini-2.5-pro:streamGenerateContent" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -1519,6 +1574,9 @@ func TestExecutorExecuteRunsGeminiToolCallsThroughMCPAndContinuesProviderTurns(t
 	requestBodies := make([]map[string]any, 0, 2)
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode provider request: %v", err)
@@ -1683,6 +1741,9 @@ func TestExecutorExecuteRunsAnthropicToolCallsThroughMCPAndContinuesProviderTurn
 	requestBodies := make([]map[string]any, 0, 2)
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode provider request: %v", err)
@@ -2079,6 +2140,9 @@ func TestExecutorExecuteStreamsOpenAIResponsesThinkingAndReturnsOutputs(t *testi
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -2287,6 +2351,9 @@ func TestExecutorExecuteResendsOpenAIResponsesProviderMessageMetadataInFollowUpT
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -2409,6 +2476,9 @@ func TestExecutorExecuteResendsOpenAIResponsesRefusalContentInFollowUpTranscript
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -2523,6 +2593,9 @@ func TestExecutorExecuteEmitsOpenAIResponsesOutputItemAddedContentDeltas(t *test
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -2624,6 +2697,9 @@ func TestExecutorExecuteUsesOpenAIResponsesDoneEventsAsAuthoritativeContent(t *t
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -2743,6 +2819,9 @@ func TestExecutorExecuteUsesOpenAIResponsesRefusalDoneAsAuthoritativeText(t *tes
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -2843,6 +2922,9 @@ func TestExecutorExecuteUsesOpenAIResponsesContentPartDoneAsAuthoritativeContent
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -2962,6 +3044,9 @@ func TestExecutorExecuteUsesOpenAIResponsesContentPartDoneAsAuthoritativeRefusal
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3062,6 +3147,9 @@ func TestExecutorExecuteUsesOpenAIResponsesSummaryPartAndContentPartAddedEvents(
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3177,6 +3265,9 @@ func TestExecutorExecuteRecoversOpenAIResponsesSummaryPartDoneAndContentPartAdde
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3295,6 +3386,9 @@ func TestExecutorExecuteTreatsOpenAIResponsesIncompleteEventAsProviderFailure(t 
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3386,6 +3480,9 @@ func TestExecutorExecutePreservesOpenAIResponsesEarlyTextWhenReasoningArrivesLat
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3499,6 +3596,9 @@ func TestExecutorExecuteFlushesBufferedOpenAIResponsesTextWhenReasoningNeverMate
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3600,6 +3700,9 @@ func TestExecutorExecuteRecoversOpenAIResponsesOutputItemDoneBeforeIncompleteFai
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3699,6 +3802,9 @@ func TestExecutorExecuteRecoversOpenAIResponsesReasoningItemDoneBeforeIncomplete
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3821,6 +3927,9 @@ func TestExecutorExecuteRecoversOpenAIResponsesIncompletePayloadContentBeforeFai
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -3968,6 +4077,9 @@ func TestExecutorExecuteRecoversOpenAIResponsesFailedPayloadContentBeforeFailure
 	t.Parallel()
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -4117,6 +4229,9 @@ func TestExecutorExecuteRunsOpenAIResponsesToolCallsThroughMCPAndContinuesProvid
 	requestBodies := make([]map[string]any, 0, 2)
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -4346,6 +4461,9 @@ func TestExecutorExecuteRecoversOpenAIResponsesToolCallsFromCompletedFallback(t 
 	requestBodies := make([]map[string]any, 0, 2)
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -4522,6 +4640,9 @@ func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromCompletedFallback(t *
 
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -4689,6 +4810,9 @@ func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromArgumentsDoneEvent(t 
 
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -4879,6 +5003,9 @@ func TestExecutorExecuteEmitsOpenAIResponsesToolPreviewFromFunctionCallItemDoneE
 
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -5054,6 +5181,9 @@ func TestExecutorExecutePreservesCompletedOpenAIResponsesToolCallBeforeIncomplet
 
 	requestBodies := make([]map[string]any, 0, 1)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if r.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected path %q", r.URL.Path)
 		}
@@ -5210,6 +5340,9 @@ func TestExecutorExecuteStreamsAnthropicThinkingBlocksAndReturnsOutputs(t *testi
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
 			t.Fatalf("decode provider request: %v", err)
 		}
@@ -5342,6 +5475,9 @@ func TestExecutorExecuteStreamsGeminiThinkingBlocksAndReturnsOutputs(t *testing.
 
 	var seenRequest map[string]any
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		if err := json.NewDecoder(r.Body).Decode(&seenRequest); err != nil {
 			t.Fatalf("decode provider request: %v", err)
 		}
@@ -5482,6 +5618,9 @@ func TestExecutorExecuteRunsToolCallsThroughMCPAndContinuesProviderTurns(t *test
 	requestBodies := make([]map[string]any, 0, 2)
 	requestCount := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if handledManagedLLMModelLookupTestRequest(t, w, r) {
+			return
+		}
 		body := map[string]any{}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			t.Fatalf("decode provider request: %v", err)

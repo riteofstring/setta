@@ -860,7 +860,7 @@ func buildCompletionUsagePayload(usage openai.CompletionUsage) map[string]any {
 	if usage.CompletionTokensDetails.ReasoningTokens > 0 {
 		payload["reasoning_output_tokens"] = usage.CompletionTokensDetails.ReasoningTokens
 	}
-	return payload
+	return appendContextUsageFromRawJSON(payload, usage.RawJSON())
 }
 
 func buildResponseUsagePayload(usage responses.ResponseUsage) map[string]any {
@@ -877,7 +877,7 @@ func buildResponseUsagePayload(usage responses.ResponseUsage) map[string]any {
 	if usage.OutputTokensDetails.ReasoningTokens > 0 {
 		payload["reasoning_output_tokens"] = usage.OutputTokensDetails.ReasoningTokens
 	}
-	return payload
+	return appendContextUsageFromRawJSON(payload, usage.RawJSON())
 }
 
 func wrapOpenAIProviderError(err error) error {

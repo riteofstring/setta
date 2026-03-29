@@ -53,11 +53,12 @@ type ExecutorOptions struct {
 }
 
 type Executor struct {
-	live         *managedchat.LiveRuntime
-	tools        ToolClient
-	httpClient   *http.Client
-	attachments  *chatattachments.Service
-	resultFollow *ToolResultFollowEmitter
+	live           *managedchat.LiveRuntime
+	tools          ToolClient
+	httpClient     *http.Client
+	attachments    *chatattachments.Service
+	resultFollow   *ToolResultFollowEmitter
+	contextWindows *contextWindowCache
 }
 
 type preparedExecution struct {
@@ -90,11 +91,12 @@ func NewExecutor(options ExecutorOptions) *Executor {
 		httpClient = http.DefaultClient
 	}
 	return &Executor{
-		live:         options.Live,
-		tools:        options.Tools,
-		httpClient:   httpClient,
-		attachments:  options.Attachments,
-		resultFollow: options.ResultFollow,
+		live:           options.Live,
+		tools:          options.Tools,
+		httpClient:     httpClient,
+		attachments:    options.Attachments,
+		resultFollow:   options.ResultFollow,
+		contextWindows: newContextWindowCache(),
 	}
 }
 
@@ -332,6 +334,7 @@ func (e *Executor) executeTurn(
 	}
 
 	usage, err := e.consumeProviderStream(ctx, prepared, assistantMessage, executionTranscript, providerMessages, request)
+	usage = e.finalizeUsagePayload(ctx, prepared, request, usage)
 	compactAssistantContent(assistantMessage)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(ctx.Err(), context.Canceled) {

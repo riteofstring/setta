@@ -802,7 +802,7 @@ func buildAnthropicUsagePayload(usage anthropic.Usage) map[string]any {
 	if usage.CacheCreationInputTokens > 0 {
 		payload["cache_creation_input_tokens"] = usage.CacheCreationInputTokens
 	}
-	return payload
+	return appendContextUsageFromRawJSON(payload, usage.RawJSON())
 }
 
 func buildAnthropicDeltaUsagePayload(usage anthropic.MessageDeltaUsage) map[string]any {
@@ -822,7 +822,7 @@ func buildAnthropicDeltaUsagePayload(usage anthropic.MessageDeltaUsage) map[stri
 	if usage.CacheCreationInputTokens > 0 {
 		payload["cache_creation_input_tokens"] = usage.CacheCreationInputTokens
 	}
-	return payload
+	return appendContextUsageFromRawJSON(payload, usage.RawJSON())
 }
 
 func wrapAnthropicProviderError(err error) error {

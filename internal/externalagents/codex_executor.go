@@ -41,6 +41,7 @@ const (
 	codexApprovalToolName      = "setta.approval"
 	codexTurnCompletedMethod   = "turn/completed"
 	codexTurnFailedMethod      = "turn/failed"
+	codexTokenUsageMethod      = "thread/tokenUsage/updated"
 	codexResponseItemEnvelope  = "response_item"
 )
 
@@ -421,13 +422,18 @@ func (e *CodexExecutor) handleEvent(
 	}
 
 	method := strings.TrimSpace(stringValue(payload["method"]))
+	if usagePayload := captureCodexTokenUsageEvent(eventState, payload); usagePayload != nil {
+		if err := e.persistUsagePayload(request.Run.ID, usagePayload); err != nil {
+			return false, err
+		}
+	}
 	switch method {
 	case codexTurnCompletedMethod:
 		applyCompletionGuardToState(state, boolValue(request.Inputs["completionGuardEnabled"]))
 		if e.shouldRefreshMCPStatuses(request.Run.ID) {
 			e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, backgroundTasks)
 		}
-		usagePayload := e.readThreadTokenUsage(session, session.threadID())
+		usagePayload := eventState.usagePayload()
 		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusCompleted, nil, *state, session.threadID(), usagePayload); err != nil {
 			return false, err
 		}
@@ -445,7 +451,7 @@ func (e *CodexExecutor) handleEvent(
 		if e.shouldRefreshMCPStatuses(request.Run.ID) {
 			e.scheduleMCPStatusCapture(session, request.Run.ID, codexMCPStatusProbeTimeout, backgroundTasks)
 		}
-		usagePayload := e.readThreadTokenUsage(session, session.threadID())
+		usagePayload := eventState.usagePayload()
 		if err := e.finalizeRun(request.Run.ID, agentruns.RunStatusFailed, errorPayload, *state, session.threadID(), usagePayload); err != nil {
 			return false, err
 		}
@@ -546,6 +552,19 @@ func (e *CodexExecutor) markRunFailed(runID string, runErr error, stderrLines []
 		stderrLines,
 	)
 	return err
+}
+
+func (e *CodexExecutor) persistUsagePayload(runID string, usagePayload map[string]any) error {
+	if usagePayload == nil {
+		return nil
+	}
+	run, err := e.runs.Load(runID)
+	if err != nil {
+		return err
+	}
+	run.Outputs = ensureAnyMap(run.Outputs)
+	run.Outputs["usage"] = deepCloneJSONValue(usagePayload)
+	return e.runs.Save(run)
 }
 
 func (e *CodexExecutor) persistThreadID(runID string, threadID string) error {
@@ -704,34 +723,6 @@ func (e *CodexExecutor) logMCPStatusSummary(traceEvent string, runID string, sou
 		attrs = append(attrs, slog.String("error", err.Error()))
 	}
 	e.logger.Debug("codex MCP status update", attrs...)
-}
-
-func (e *CodexExecutor) readThreadTokenUsage(session *codexSession, threadID string) map[string]any {
-	if e == nil || session == nil {
-		return nil
-	}
-	params := map[string]any{}
-	if trimmedThreadID := strings.TrimSpace(threadID); trimmedThreadID != "" {
-		params["threadId"] = trimmedThreadID
-	}
-
-	usageCtx, cancel := context.WithTimeout(context.Background(), codexMCPStatusTimeout)
-	defer cancel()
-	usagePayload, err := session.sendRequest(usageCtx, "thread/tokenUsage/read", params)
-	if err == nil {
-		return normalizeCodexThreadUsagePayload(usagePayload)
-	}
-	if !strings.Contains(err.Error(), "unknown variant") || !strings.Contains(err.Error(), "thread/tokenUsage/read") {
-		return nil
-	}
-
-	fallbackCtx, cancel := context.WithTimeout(context.Background(), codexMCPStatusTimeout)
-	defer cancel()
-	threadPayload, err := session.sendRequest(fallbackCtx, "thread/read", params)
-	if err != nil {
-		return nil
-	}
-	return normalizeCodexThreadUsagePayload(threadPayload)
 }
 
 func (e *CodexExecutor) resolveWorkingDir(config externalagentconfigs.Config) (string, func() error, error) {
@@ -1215,8 +1206,33 @@ func buildCodexTurnParams(request StartRequest, prompt string, threadID string, 
 	return params, nil
 }
 
-func normalizeCodexThreadUsagePayload(payload map[string]any) map[string]any {
-	candidate := extractCodexThreadUsageCandidate(payload)
+func captureCodexTokenUsageEvent(eventState *codexEventState, payload map[string]any) map[string]any {
+	if strings.TrimSpace(stringValue(payload["method"])) != codexTokenUsageMethod {
+		return nil
+	}
+	usagePayload := normalizeCodexUsageNotificationPayload(payload)
+	if usagePayload == nil {
+		return nil
+	}
+	if eventState != nil && !eventState.setUsagePayload(usagePayload) {
+		return nil
+	}
+	return usagePayload
+}
+
+func normalizeCodexUsageNotificationPayload(payload map[string]any) map[string]any {
+	if payload == nil {
+		return nil
+	}
+	if params, ok := mapValue(payload["params"]); ok && params != nil {
+		if normalized := normalizeCodexUsagePayloadMap(params); normalized != nil {
+			return normalized
+		}
+	}
+	return normalizeCodexUsagePayloadMap(payload)
+}
+
+func normalizeCodexUsagePayloadMap(candidate map[string]any) map[string]any {
 	if candidate == nil {
 		return nil
 	}
@@ -1252,45 +1268,6 @@ func normalizeCodexThreadUsagePayload(payload map[string]any) map[string]any {
 		return nil
 	}
 	return normalized
-}
-
-func extractCodexThreadUsageCandidate(payload map[string]any) map[string]any {
-	if payload == nil {
-		return nil
-	}
-	candidates := []map[string]any{payload}
-	for _, key := range []string{"thread", "conversation", "data", "result"} {
-		if nested, ok := mapValue(payload[key]); ok && nested != nil {
-			candidates = append(candidates, nested)
-		}
-	}
-	for _, candidate := range candidates {
-		if candidate == nil {
-			continue
-		}
-		if _, ok := mapValue(candidate["tokenUsage"]); ok {
-			return candidate
-		}
-		if _, ok := mapValue(candidate["usage"]); ok {
-			return candidate
-		}
-		for _, key := range []string{
-			"usedTokens",
-			"windowTokens",
-			"inputTokens",
-			"promptTokens",
-			"completionTokens",
-			"outputTokens",
-			"contextUsedTokens",
-			"contextWindowTokens",
-			"modelContextWindow",
-		} {
-			if candidate[key] != nil {
-				return candidate
-			}
-		}
-	}
-	return nil
 }
 
 func normalizeCodexTokenUsage(tokenUsage map[string]any) map[string]any {

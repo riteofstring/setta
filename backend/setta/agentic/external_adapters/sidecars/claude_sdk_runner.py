@@ -12,11 +12,11 @@ from uuid import uuid4
 from claude_agent_sdk import (
     AssistantMessage,
     ClaudeAgentOptions,
+    ClaudeSDKClient,
     PermissionResultAllow,
     PermissionResultDeny,
     ResultMessage,
     SystemMessage,
-    query,
 )
 
 try:
@@ -80,6 +80,10 @@ def stringify_error(exc: Exception) -> str:
     return exc.__class__.__name__
 
 
+def log_debug(message: str) -> None:
+    print(message, file=sys.stderr)
+
+
 def to_jsonable(value: Any) -> Any:
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
@@ -105,6 +109,57 @@ def normalize_tool_name(value: str | None) -> str:
     if trimmed.lower() == "question":
         return "AskUserQuestion"
     return trimmed
+
+
+def parse_non_negative_int(value: Any) -> int | None:
+    if isinstance(value, bool) or not isinstance(value, int):
+        return None
+    if value < 0:
+        return None
+    return value
+
+
+def merge_context_usage(
+    result_usage: dict[str, Any] | None,
+    context_usage: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(result_usage, dict):
+        result_usage = None
+    if not isinstance(context_usage, dict):
+        return result_usage
+
+    usage = dict(result_usage) if result_usage is not None else {}
+
+    context_used_tokens = parse_non_negative_int(context_usage.get("totalTokens"))
+    if context_used_tokens is not None:
+        usage["contextUsedTokens"] = context_used_tokens
+
+    context_window_tokens = parse_non_negative_int(context_usage.get("rawMaxTokens"))
+    if context_window_tokens is None or context_window_tokens <= 0:
+        context_window_tokens = parse_non_negative_int(context_usage.get("maxTokens"))
+    if context_window_tokens is not None and context_window_tokens > 0:
+        usage["contextWindowTokens"] = context_window_tokens
+
+    effective_window_tokens = parse_non_negative_int(context_usage.get("maxTokens"))
+    if (
+        effective_window_tokens is not None
+        and effective_window_tokens > 0
+        and effective_window_tokens != context_window_tokens
+        and "effectiveContextWindowTokens" not in usage
+    ):
+        usage["effectiveContextWindowTokens"] = effective_window_tokens
+
+    auto_compact_threshold = parse_non_negative_int(
+        context_usage.get("autoCompactThreshold")
+    )
+    if (
+        auto_compact_threshold is not None
+        and auto_compact_threshold > 0
+        and "autoCompactThresholdTokens" not in usage
+    ):
+        usage["autoCompactThresholdTokens"] = auto_compact_threshold
+
+    return usage if usage else None
 
 
 def is_stream_event_message(message: Any) -> bool:
@@ -217,28 +272,11 @@ async def open_stdin_reader() -> asyncio.StreamReader:
     return reader
 
 
-async def build_prompt_stream(
-    prompt: str,
-    session_id: str | None,
-    close_prompt_event: asyncio.Event,
-):
-    payload: dict[str, Any] = {
-        "type": "user",
-        "message": {"role": "user", "content": prompt},
-        "parent_tool_use_id": None,
-    }
-    if isinstance(session_id, str) and session_id.strip():
-        payload["session_id"] = session_id.strip()
-    yield payload
-    await close_prompt_event.wait()
-
-
 class ClaudeSidecar:
     def __init__(self, start_payload: dict[str, Any], reader: asyncio.StreamReader):
         self.start_payload = start_payload
         self.reader = reader
         self.pending_approvals: dict[str, PendingApproval] = {}
-        self.close_prompt_event = asyncio.Event()
 
     async def can_use_tool(
         self,
@@ -417,7 +455,22 @@ class ClaudeSidecar:
             options["mcp_servers"] = mcp_servers
         return ClaudeAgentOptions(**options)
 
-    async def handle_message(self, message: Any) -> None:
+    async def read_context_usage(self, client: Any) -> dict[str, Any] | None:
+        getter = getattr(client, "get_context_usage", None)
+        if not callable(getter):
+            return None
+        try:
+            payload = to_jsonable(await getter())
+        except Exception as exc:
+            log_debug(
+                f"setta: failed to read Claude context usage via SDK: {stringify_error(exc)}"
+            )
+            return None
+        if isinstance(payload, dict):
+            return payload
+        return None
+
+    async def handle_message(self, message: Any, client: Any | None = None) -> None:
         if is_stream_event_message(message):
             payload = to_jsonable(
                 getattr(message, "event", None)
@@ -456,15 +509,19 @@ class ClaudeSidecar:
             write_event(event)
             return
         if isinstance(message, ResultMessage):
+            usage = to_jsonable(getattr(message, "usage", None))
+            if not isinstance(usage, dict):
+                usage = None
+            if client is not None:
+                usage = merge_context_usage(usage, await self.read_context_usage(client))
             payload = {
                 "type": "result",
                 "sessionId": getattr(message, "session_id", None),
                 "isError": bool(getattr(message, "is_error", False)),
                 "result": getattr(message, "result", None),
-                "usage": to_jsonable(getattr(message, "usage", None)),
+                "usage": usage,
             }
             write_event(payload)
-            self.close_prompt_event.set()
             return
 
     async def run(self) -> int:
@@ -473,18 +530,19 @@ class ClaudeSidecar:
         options = self.build_options()
         command_task = asyncio.create_task(self.read_commands())
         try:
-            async for message in query(
-                prompt=build_prompt_stream(prompt, session_id, self.close_prompt_event),
-                options=options,
-            ):
-                await self.handle_message(message)
+            async with ClaudeSDKClient(options=options) as client:
+                await client.query(
+                    prompt=prompt,
+                    session_id=session_id or "default",
+                )
+                async for message in client.receive_response():
+                    await self.handle_message(message, client)
         except asyncio.CancelledError:
             raise
         except Exception as exc:
             write_event({"type": "error", "message": stringify_error(exc)})
             return 1
         finally:
-            self.close_prompt_event.set()
             for pending in self.pending_approvals.values():
                 if pending.future.done():
                     continue

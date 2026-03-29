@@ -304,7 +304,7 @@ def test_wheel_metadata_limits_default_dependencies_to_packaged_boundary(
     }
 
     assert default_requires == {
-        "Requires-Dist: claude-agent-sdk==0.1.21",
+        "Requires-Dist: claude-agent-sdk==0.1.52",
         "Requires-Dist: basedpyright==1.25.0",
         "Requires-Dist: ruff==0.12.12",
     }

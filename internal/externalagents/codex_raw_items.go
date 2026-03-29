@@ -2,6 +2,7 @@ package externalagents
 
 import (
 	"encoding/json"
+	"reflect"
 	"strings"
 )
 
@@ -28,6 +29,7 @@ type codexEventState struct {
 	syntheticAssistantID     string
 	commandOutputByItemID    map[string][]string
 	fileChangeOutputByItemID map[string][]string
+	latestUsagePayload       map[string]any
 }
 
 func newCodexEventState() *codexEventState {
@@ -46,6 +48,29 @@ func (s *codexEventState) resetTurn() {
 	s.syntheticAssistantID = ""
 	s.commandOutputByItemID = map[string][]string{}
 	s.fileChangeOutputByItemID = map[string][]string{}
+}
+
+func (s *codexEventState) setUsagePayload(payload map[string]any) bool {
+	if s == nil || payload == nil {
+		return false
+	}
+	cloned, ok := deepCloneJSONValue(payload).(map[string]any)
+	if !ok || cloned == nil {
+		return false
+	}
+	if reflect.DeepEqual(s.latestUsagePayload, cloned) {
+		return false
+	}
+	s.latestUsagePayload = cloned
+	return true
+}
+
+func (s *codexEventState) usagePayload() map[string]any {
+	if s == nil || s.latestUsagePayload == nil {
+		return nil
+	}
+	cloned, _ := deepCloneJSONValue(s.latestUsagePayload).(map[string]any)
+	return cloned
 }
 
 func (s *codexEventState) resolveToolMessageID(state *ChatState) string {
