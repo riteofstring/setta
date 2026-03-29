@@ -514,6 +514,17 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
             bounds={{ height: 108, left: 2504, top: 24, width: 220 }}
             layout={emptyLayout}
             renderMode="pixi"
+            runtimeSceneId="scene-iframe"
+            sectionId="section-iframe"
+            sectionName={
+              LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES[8]
+            }
+            styleSourceElement={styleSourceElement}
+          />
+          <SceneRegistration
+            bounds={{ height: 104, left: 2756, top: 24, width: 220 }}
+            layout={emptyLayout}
+            renderMode="pixi"
             runtimeSceneId="scene-other"
             sectionId="section-other"
             sectionName="otherSectionDefault"
@@ -530,18 +541,18 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
       host?.getAttribute(
         "data-live-dict-area-pixi-runtime-managed-scene-count",
       ),
-    ).toBe("8");
+    ).toBe("9");
     expect(
       host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-ids"),
     ).toBe(
-      "scene-prompt,scene-browser,scene-text-block,scene-code-param,scene-section-sizing-policy,scene-button-param,scene-gen-python-metadata,scene-draw",
+      "scene-prompt,scene-browser,scene-text-block,scene-code-param,scene-section-sizing-policy,scene-button-param,scene-gen-python-metadata,scene-draw,scene-iframe",
     );
     expect(
       host?.getAttribute(
         "data-live-dict-area-pixi-runtime-managed-scene-names",
       ),
     ).toBe(
-      "promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault,sectionSizingPolicy,buttonParamCodeObjDefault,genPythonMetadataSectionDefault,drawSectionDefault",
+      "promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault,sectionSizingPolicy,buttonParamCodeObjDefault,genPythonMetadataSectionDefault,drawSectionDefault,iFrameSectionDefault",
     );
     expect(
       host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-name"),

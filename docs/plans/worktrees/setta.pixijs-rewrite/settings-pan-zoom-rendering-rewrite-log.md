@@ -12758,3 +12758,66 @@ Record:
     - read-only `main` was not a usable live Settings oracle on this pass because the runtime host element was absent there
 - Next action:
   - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.
+
+## 2026-03-31 378
+
+- Item: Move `iFrameSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing shared-runtime canaries.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `377` and kept the slice bounded to the first concrete visible fallback reported by a fresh CDP inspection instead of continuing another abstract seam-lift hop.
+  - Fresh worktree CDP inspection identified `iFrameSectionDefault` as the first still-visible scene on screen that remained on the `dom-context-lost` / local-app fallback path.
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+      - `iFrameSectionDefault`
+  - Locked the ownership move in the existing focused runtime coverage instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all nine shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `iFrameSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `iFrameSectionDefault` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Verification notes:
+    - the first targeted Playwright rerun used a stale bootstrap token and failed in global setup with bootstrap `401`
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - reran the same targeted Playwright subset with the refreshed token and it passed
+  - Chrome DevTools MCP outcome after the change:
+    - fresh sub-agent verified the live worktree canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified `iFrameSectionDefault` is present and rendered on `shared-page-runtime`
+    - verified there is no visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper around the checked `iFrameSectionDefault` scene
+    - verified the page-runtime host now reports:
+      - `managedSceneNames=promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault,sectionSizingPolicy,buttonParamCodeObjDefault,genPythonMetadataSectionDefault,drawSectionDefault,iFrameSectionDefault`
+      - `domContextLostSceneNames=textParamCodeObjDefault,chatWindowing,stateMachineGateSectionDefault,globalVariablesSectionDefault,dropdownParamCodeObjDefault,backend,gui,colorPickerParamCodeObjDefault,timeParamCodeObjDefault,stateMachineEndSectionDefault,imageSectionDefault,chartSectionDefault,switchParamCodeObjDefault,rotaryParamCodeObjDefault,nestedParamCodeObjDefault,groupSectionDefault,spreadsheetSectionDefault,socialSectionDefault,metaControlSectionDefault,callableSectionDefault,dropzoneParamCodeObjDefault`
+      - `runtimeCount=46`
+      - `domContextLostCount=21`
+    - main-reference oracle caveat:
+      - the read-only `main` bootstrap completed, but the reference session still did not expose the live runtime markers or an `iFrameSectionDefault` runtime node
+      - treat the slice-level `main` oracle comparison as deferred again for this pass
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`21 passed`)
+  - Playwright:
+    - failed attempt with stale token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<stale worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps iFrameSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: failed during global setup with bootstrap `401`
+    - passing rerun with refreshed token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps iFrameSectionDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `iFrameSectionDefault` is visible, managed by the shared page runtime, and has no visible `dom-context-lost` fallback wrapper
+    - read-only `main` was still not a trustworthy live Settings oracle for this exact scene path on this pass because the runtime markers were absent there
+- Next action:
+  - Re-run the named-fallback inspection on the updated live canary and take the next remaining visible `dom-context-lost` scene off the local-app path, instead of assuming the next section from stale ordering.

@@ -43,6 +43,7 @@ export const LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES = [
   "buttonParamCodeObjDefault",
   "genPythonMetadataSectionDefault",
   "drawSectionDefault",
+  "iFrameSectionDefault",
 ] as const;
 
 export type LiveDictAreaPixiRegisteredSceneBounds = {
