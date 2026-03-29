@@ -304,77 +304,7 @@ func (s *Service) GetChat(chatID string, projectConfigID *string) (HydratedChat,
 }
 
 func (s *Service) StopChat(chatID string) (StopResult, error) {
-	if s == nil || s.runs == nil {
-		return StopResult{}, ErrRunStoreRequired
-	}
-	trimmedChatID := strings.TrimSpace(chatID)
-	if trimmedChatID == "" {
-		return StopResult{}, fmt.Errorf("chat id is required")
-	}
-	runs, err := s.runs.ListByMetadata(agentruns.RunFilter{
-		RunType: stringPtr(RunTypeManagedChat),
-		ChatID:  &trimmedChatID,
-	})
-	if err != nil {
-		return StopResult{}, err
-	}
-	runningRuns := make([]agentruns.Run, 0, len(runs))
-	for _, run := range runs {
-		if run.Status == agentruns.RunStatusRunning {
-			runningRuns = append(runningRuns, run)
-		}
-	}
-	latestRun, ok := selectLatestRun(runningRuns)
-	if !ok {
-		return StopResult{AlreadyStopped: true}, nil
-	}
-	if s.stopper == nil {
-		return StopResult{}, ErrStopperRequired
-	}
-	stoppedRun, err := s.stopper.StopRun(latestRun.ID)
-	if err != nil {
-		return StopResult{}, err
-	}
-	if stoppedRun.Status != agentruns.RunStatusCancelled {
-		return StopResult{AlreadyStopped: true}, nil
-	}
-	stoppedRunID := stoppedRun.ID
-	stoppedMessageID, err := resolveLatestAssistantMessageID(stoppedRun)
-	if err != nil {
-		return StopResult{}, err
-	}
-	if stoppedMessageID == nil && s.live != nil {
-		liveState, err := s.live.GetLiveChatState(stoppedRun.ID)
-		if err != nil {
-			return StopResult{}, err
-		}
-		if liveState != nil {
-			inputMessages, err := parseInputMessages(stoppedRun)
-			if err != nil {
-				return StopResult{}, err
-			}
-			stoppedMessageID = resolveLatestAssistantMessageIDFromMessages(inputMessages, liveState.Messages)
-			stoppedRun, err = s.persistLiveChatStateToRun(stoppedRun, liveState)
-			if err != nil {
-				return StopResult{}, err
-			}
-		}
-	}
-	if stoppedMessageID == nil {
-		stoppedRun, err = s.waitForStoppedRunPersistence(stoppedRun)
-		if err != nil {
-			return StopResult{}, err
-		}
-		stoppedMessageID, err = resolveLatestAssistantMessageID(stoppedRun)
-		if err != nil {
-			return StopResult{}, err
-		}
-	}
-	return StopResult{
-		AlreadyStopped:   false,
-		StoppedRunID:     &stoppedRunID,
-		StoppedMessageID: stoppedMessageID,
-	}, nil
+	return s.stopChat(chatID)
 }
 
 func (s *Service) resolveManagedProfile(agentProfileID *string, engineConfigID string) (agentprofiles.Profile, error) {
