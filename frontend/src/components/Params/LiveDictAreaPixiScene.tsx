@@ -23,6 +23,7 @@ import {
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
+  getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
   type LiveDictAreaPixiTextStyleSet,
@@ -86,6 +87,7 @@ function _LiveDictAreaPixiScene({
     devicePixelRatio,
     viewportZoom,
   });
+  const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
   const summaryLayout = useMemo(
     () =>
       buildLiveDictAreaPixiLayout({
@@ -130,18 +132,24 @@ function _LiveDictAreaPixiScene({
 
   useLayoutEffect(() => {
     const sceneRoot = sceneRootRef.current;
-    const container = sceneRoot?.parentElement;
-    if (!sceneRoot || !container) {
+    if (!sceneRoot) {
+      setAvailableCanvasHeight(null);
+      return;
+    }
+    const clippingContainer =
+      sceneRoot.closest<HTMLElement>("section") ??
+      sceneRoot.closest<HTMLElement>(".section-main-full-w") ??
+      sceneRoot.parentElement;
+    if (!clippingContainer) {
       setAvailableCanvasHeight(null);
       return;
     }
 
     const updateAvailableHeight = () => {
-      const style = window.getComputedStyle(container);
-      const paddingTop = Number.parseFloat(style.paddingTop) || 0;
-      const paddingBottom = Number.parseFloat(style.paddingBottom) || 0;
+      const clippingRect = clippingContainer.getBoundingClientRect();
+      const sceneRootRect = sceneRoot.getBoundingClientRect();
       const normalizedHeight = getLiveDictAreaPixiMaxCanvasHeight(
-        container.clientHeight - paddingTop - paddingBottom,
+        clippingRect.bottom - sceneRootRect.top,
       );
 
       setAvailableCanvasHeight((currentHeight) =>
@@ -154,10 +162,13 @@ function _LiveDictAreaPixiScene({
     const observer = new ResizeObserver(() => {
       updateAvailableHeight();
     });
-    observer.observe(container);
+    observer.observe(sceneRoot);
+    observer.observe(clippingContainer);
+    window.addEventListener("resize", updateAvailableHeight);
 
     return () => {
       observer.disconnect();
+      window.removeEventListener("resize", updateAvailableHeight);
     };
   }, []);
 
@@ -271,7 +282,7 @@ function _LiveDictAreaPixiScene({
         layout: summaryLayout,
         palette: getLiveDictAreaPixiPalette(darkMode),
         paramColumnWidth,
-        renderResolution,
+        textResolution,
         textFontFamily,
         textStyleSet,
       });
@@ -289,7 +300,13 @@ function _LiveDictAreaPixiScene({
         cancelAnimationFrame(frameId);
       }
     };
-  }, [darkMode, fontLoadVersion, renderResolution, summaryLayout]);
+  }, [
+    darkMode,
+    fontLoadVersion,
+    renderResolution,
+    summaryLayout,
+    textResolution,
+  ]);
 
   useEffect(() => {
     return () => {
@@ -349,7 +366,7 @@ function drawLiveDictAreaPixiScene({
   layout,
   palette,
   paramColumnWidth,
-  renderResolution,
+  textResolution,
   textFontFamily,
   textStyleSet,
 }: {
@@ -357,7 +374,7 @@ function drawLiveDictAreaPixiScene({
   layout: LiveDictAreaPixiLayout;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
-  renderResolution: number;
+  textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
@@ -371,7 +388,7 @@ function drawLiveDictAreaPixiScene({
         drawLiveDictAreaEdgeStrip({
           block,
           palette,
-          renderResolution,
+          textResolution,
           textFontFamily,
           textStyleSet,
         }),
@@ -384,7 +401,7 @@ function drawLiveDictAreaPixiScene({
         block,
         palette,
         paramColumnWidth,
-        renderResolution,
+        textResolution,
         textFontFamily,
         textStyleSet,
       }),
@@ -395,13 +412,13 @@ function drawLiveDictAreaPixiScene({
 function drawLiveDictAreaEdgeStrip({
   block,
   palette,
-  renderResolution,
+  textResolution,
   textFontFamily,
   textStyleSet,
 }: {
   block: LiveDictAreaPixiEdgeStripLayout;
   palette: LiveDictAreaPixiPalette;
-  renderResolution: number;
+  textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
@@ -417,7 +434,7 @@ function drawLiveDictAreaEdgeStrip({
   graphics.addChild(
     drawSceneTitle({
       palette,
-      renderResolution,
+      textResolution,
       text: block.title.toUpperCase(),
       textFontFamily,
       textStyleSet,
@@ -431,7 +448,7 @@ function drawLiveDictAreaEdgeStrip({
       drawEdgePort({
         palette,
         port,
-        renderResolution,
+        textResolution,
         textFontFamily,
         textStyleSet,
       }),
@@ -443,7 +460,7 @@ function drawLiveDictAreaEdgeStrip({
       drawEdgePort({
         palette,
         port,
-        renderResolution,
+        textResolution,
         textFontFamily,
         textStyleSet,
       }),
@@ -457,14 +474,14 @@ function drawLiveDictAreaParamArea({
   block,
   palette,
   paramColumnWidth,
-  renderResolution,
+  textResolution,
   textFontFamily,
   textStyleSet,
 }: {
   block: LiveDictAreaPixiParamAreaLayout;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
-  renderResolution: number;
+  textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
@@ -484,7 +501,7 @@ function drawLiveDictAreaParamArea({
   graphics.addChild(
     drawSceneTitle({
       palette,
-      renderResolution,
+      textResolution,
       text: block.title.toUpperCase(),
       textFontFamily,
       textStyleSet,
@@ -498,8 +515,8 @@ function drawLiveDictAreaParamArea({
       drawParamRow({
         palette,
         paramColumnWidth,
-        renderResolution,
         row,
+        textResolution,
         textFontFamily,
         textStyleSet,
       }),
@@ -512,15 +529,15 @@ function drawLiveDictAreaParamArea({
 function drawParamRow({
   palette,
   paramColumnWidth,
-  renderResolution,
   row,
+  textResolution,
   textFontFamily,
   textStyleSet,
 }: {
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
-  renderResolution: number;
   row: LiveDictAreaPixiRowLayout;
+  textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
@@ -550,7 +567,7 @@ function drawParamRow({
     2;
   const label = buildFittedRowText({
     maxWidth: valueColumnX - row.labelX - 12,
-    renderResolution,
+    textResolution,
     style: {
       fill: palette.bodyText,
       fontFamily: textFontFamily,
@@ -569,7 +586,7 @@ function drawParamRow({
   if (row.valueText) {
     const valueLabel = buildFittedRowText({
       maxWidth: rowRightEdgeX - valueColumnX,
-      renderResolution,
+      textResolution,
       style: {
         fill: palette.bodyText,
         fontFamily: textFontFamily,
@@ -591,12 +608,12 @@ function drawParamRow({
 
 function buildFittedRowText({
   maxWidth,
-  renderResolution,
+  textResolution,
   style,
   text,
 }: {
   maxWidth: number;
-  renderResolution: number;
+  textResolution: number;
   style: {
     fill: ColorSource;
     fontFamily: string;
@@ -610,7 +627,7 @@ function buildFittedRowText({
   }
 
   const label = new Text({
-    resolution: renderResolution,
+    resolution: textResolution,
     style,
     text,
   });
@@ -650,13 +667,13 @@ function buildFittedRowText({
 function drawEdgePort({
   palette,
   port,
-  renderResolution,
+  textResolution,
   textFontFamily,
   textStyleSet,
 }: {
   palette: LiveDictAreaPixiPalette;
   port: LiveDictAreaPixiEdgePortLayout;
-  renderResolution: number;
+  textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
@@ -667,7 +684,7 @@ function drawEdgePort({
   graphics.fill(port.isSelected ? palette.portSelectedDot : palette.portDot);
 
   const label = new Text({
-    resolution: renderResolution,
+    resolution: textResolution,
     style: {
       fill: palette.bodyText,
       fontFamily: textFontFamily,
@@ -688,7 +705,7 @@ function drawEdgePort({
 
 function drawSceneTitle({
   palette,
-  renderResolution,
+  textResolution,
   text,
   textFontFamily,
   textStyleSet,
@@ -696,7 +713,7 @@ function drawSceneTitle({
   y,
 }: {
   palette: LiveDictAreaPixiPalette;
-  renderResolution: number;
+  textResolution: number;
   text: string;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
@@ -704,7 +721,7 @@ function drawSceneTitle({
   y: number;
 }) {
   const title = new Text({
-    resolution: renderResolution,
+    resolution: textResolution,
     style: {
       fill: palette.titleText,
       fontFamily: textFontFamily,

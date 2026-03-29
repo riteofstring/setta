@@ -146,7 +146,7 @@ describe("buildLiveDictAreaPixiLayout", () => {
     ]);
   });
 
-  it("clamps the Pixi canvas height to the mounted preview-card height", () => {
+  it("keeps the full Pixi canvas height for the mounted settings card stack", () => {
     const liveDictAreaBoundary = buildLiveDictAreaBoundary({
       bgColor: "bg-surface",
       canConnect: true,
@@ -183,17 +183,83 @@ describe("buildLiveDictAreaPixiLayout", () => {
     const liveDictAreaSceneBoundary = buildLiveDictAreaSceneBoundary({
       liveDictAreaBoundary,
     });
-    const unclamped = buildLiveDictAreaPixiLayout({
+    const result = buildLiveDictAreaPixiLayout({
       liveDictAreaSceneBoundary,
-      width: 320,
-    });
-    const clamped = buildLiveDictAreaPixiLayout({
-      liveDictAreaSceneBoundary,
-      maxCanvasHeight: unclamped.canvasHeight - 40,
       width: 320,
     });
 
-    expect(unclamped.canvasHeight).toBeGreaterThan(40);
-    expect(clamped.canvasHeight).toBe(unclamped.canvasHeight - 40);
+    expect(result.canvasHeight).toBeGreaterThan(40);
+    expect(result.canvasHeight).toBeGreaterThan(
+      result.paramAreas[0]?.height ?? 0,
+    );
+  });
+
+  it("fits the grow param-area rows into the mounted card-body height instead of rendering the full stack offscreen", () => {
+    const liveDictAreaBoundary = buildLiveDictAreaBoundary({
+      bgColor: "bg-surface",
+      canConnect: true,
+      edgeInputParams: [],
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      getParamDisplayName: (paramId: string) =>
+        (
+          ({
+            "pinned-group": "Pinned Group",
+            "pinned-value": "Pinned Value",
+            "unpinned-group": "Unpinned Group",
+            "unpinned-value": "Unpinned Value",
+          }) as Record<string, string>
+        )[paramId] ?? paramId,
+      getParamValuePreview: (paramId: string) =>
+        paramId === "unpinned-value" ? "42" : null,
+      inputPorts: [{ id: "input-a", label: "Input A" }],
+      isSelectingParams: false,
+      outputPorts: [{ id: "output-a", label: "Output A" }],
+      pinned: {
+        requiredParamIdsToPaths: {
+          "pinned-value": ["pinned-group", "pinned-value"],
+        },
+        topLevelParamIds: ["pinned-group"],
+      },
+      positionAndSizeLocked: false,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: null,
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 96,
+        pinnedRequiredParamIdsToPaths: {
+          "pinned-value": ["pinned-group", "pinned-value"],
+        },
+        pinnedTopLevelParamIds: ["pinned-group"],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          "unpinned-value": ["unpinned-group", "unpinned-value"],
+        },
+        topLevelParamIds: ["unpinned-group"],
+      },
+    });
+    const liveDictAreaSceneBoundary = buildLiveDictAreaSceneBoundary({
+      liveDictAreaBoundary,
+    });
+    const fullLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      width: 320,
+    });
+    const constrainedLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      maxCanvasHeight: (fullLayout.paramAreas[1]?.y ?? 0) + 64,
+      width: 320,
+    });
+
+    expect(constrainedLayout.canvasHeight).toBe(
+      (fullLayout.paramAreas[1]?.y ?? 0) + 64,
+    );
+    expect(constrainedLayout.paramAreas[1]?.height).toBe(64);
+    expect(constrainedLayout.paramAreas[1]?.rows.map((row) => row.id)).toEqual([
+      "unpinned-group",
+    ]);
+    expect(constrainedLayout.totalRowCount).toBe(3);
+    expect(constrainedLayout.valuePreviewCount).toBe(0);
   });
 });

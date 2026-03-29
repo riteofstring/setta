@@ -8570,6 +8570,50 @@ Record:
 
 ## 2026-03-29 265
 
+- Item: Retry the blank live Pixi row/value-body blocker with direct scene draw-path fixes on the current `pixi-node-body` canary.
+- Status: `blocked`
+- Details:
+  - Followed item `264` directly instead of another forwarding hop:
+    - fixed a real bug where `drawLiveDictAreaParamArea(...)` was not destructuring `paramColumnWidth` before forwarding row draw props
+    - added `getLiveDictAreaPixiTextResolution(...)` and routed scene text through a `>= 1x` text-resolution floor instead of the sub-1 backing-store resolution
+    - removed the live Pixi scene-height clamp after fresh CDP showed the canary was incorrectly shrinking itself to `42px` even while the visible card stack was much taller
+  - Touched files:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`18 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+    - Playwright:
+      - helper retry:
+        - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host"`
+        - result: blocked again in `frontend/tests/e2e/global-setup.ts` by bootstrap `401`
+      - direct retry with the iteration bootstrap token:
+        - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host"`
+        - result: passed once earlier in the iteration before the later follow-up fixes, then later expired with bootstrap `401`; no fresh passing direct Playwright rerun was available after the latest scene-height change
+    - Chrome DevTools MCP visual checks in fresh sub-agent contexts:
+      - reproduced the original host/container mismatch:
+        - scene host `clientWidth=550`
+        - first canvas `clientWidth=550`, `width=201`
+        - scene `data-live-dict-area-scene-available-height=42`, scene `clientHeight=42`
+      - after removing the clamp, the visual blocker still remained:
+        - baseline `/settings` visibly rendered rows such as `advancedSearchShortcut "Mod + P"` and `defaultZoomLevel 1.0`
+        - `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` still rendered pane headers/toolbars but left the `shortcuts`, `gui`, `backend`, `sectionSizingPolicy`, and `languageServer` body areas blank in the checked viewport
+      - console/network checks during the canary run showed no Pixi runtime exceptions and no failing API requests tied to this blank-row state
+  - Result:
+    - the scene-height clamp was real but not sufficient
+    - the live Pixi `pixi-node-body` canary still fails the required visual gate on the current runtime, so this slice is not complete and was not committed
+- Next action:
+  - Inspect the remaining scene row text/draw path directly, starting with `buildFittedRowText(...)` / row-text placement versus the live layout packets, because the canvas still paints shell chrome while dropping the settings row label/value text with no surfaced runtime error.
+
+## 2026-03-29 265
+
 - Item: Clamp the live Pixi preview-card scene host to the mounted tile height and lock the height contract in tests.
 - Status: `done`
 - Details:
@@ -8616,3 +8660,96 @@ Record:
       - the tile still looked mostly blank/underpainted, with only tiny marks near the top-left rather than a filled preview
 - Next action:
   - Debug why the small headed settings preview tiles still paint as tiny mostly blank Pixi surfaces after the height clamp, starting with the scene draw scale/visible-row path on the running worktree before more parity cleanup.
+
+## 2026-03-29 266
+
+- Item: Retry the tiny/blank live Pixi preview-card blocker by flooring scene text resolution at `1x`.
+- Status: `blocked`
+- Details:
+  - Took the next bounded draw-scale/text-rendering probe directly from item `265` instead of another seam-lift or token-only parity pass:
+    - wired `LiveDictAreaPixiScene` to use `getLiveDictAreaPixiTextResolution(...)` for Pixi `Text` nodes so row/title glyph rendering no longer drops below `1x` even when the scene render resolution follows a zoomed-out viewport
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`17 passed`)
+    - Prettier:
+      - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+    - Playwright:
+      - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: passed (`2 passed`)
+    - Chrome DevTools MCP visual check in a fresh sub-agent context:
+      - compared same-worktree baseline `/settings` against `/settings?liveDictAreaRenderer=pixi-node-body`
+      - baseline `/settings` still painted settings rows and value text inside the visible cards
+      - blocker remains:
+        - the Pixi canary still showed mostly blank preview cards with only card chrome/headers visible, so this text-resolution-floor slice did not clear the tiny/blank-card failure
+- Next action:
+  - Debug the preview-card layout/fit path itself on the running worktree before more text-token tweaks, starting with whether the Pixi scene is clipping full row layouts into the short mounted card instead of switching to a compact/fit-to-card preview mode.
+
+## 2026-03-29 268
+
+- Item: Fit the live Pixi preview-card scene to the visible card body so headed settings cards paint visible rows instead of clipping a full offscreen stack.
+- Status: `done`
+- Details:
+  - Took the next bounded card-body fit slice directly from item `266` instead of another seam lift or token-only draw tweak:
+    - restored a measured `maxCanvasHeight` path for the live Pixi scene and fed it into `buildLiveDictAreaPixiLayout(...)`
+    - changed grow param-area layout to clamp itself to the visible mounted body height and drop rows that would land fully below the clipped bottom edge instead of still rendering the full stacked body offscreen
+    - switched the live scene height probe to the nearest `section` clipping ancestor before falling back to other wrappers, which avoided the self-referential parent-shell measurement that was still producing the blank/underpainted headed cards
+    - kept the `>= 1x` Pixi text-resolution floor in place while verifying this layout/fit fix
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Verification:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`21 passed`)
+    - Playwright:
+      - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` because bootstrap stayed on `http://127.0.0.1:8044/__setta__/bootstrap#token=...` and returned `401`
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+      - the first visible headed Pixi settings card no longer rendered as a blank/tiny surface
+      - the checked card painted visible row/value-preview lines inside the card body instead of only card chrome/header with an offscreen body stack
+  - Result:
+    - this bounded blank-card/fit blocker is improved enough to land as a separate slice
+    - the broader `main`-parity visual gate is still not complete; the next iteration should resume side-by-side parity tightening once the auth/bootstrap path is stable enough to make the comparison deterministic again
+- Next action:
+  - Re-run side-by-side `/settings` versus `?liveDictAreaRenderer=pixi-node-body` verification once bootstrap/auth is stable again, then continue closing the remaining visual parity drift on the live canary instead of more forwarding churn.
+
+## 2026-03-29 267
+
+- Item: Re-check the live `pixi-node-body` canary on a fresh restarted worktree session before doing more scene/layout edits.
+- Status: `blocked`
+- Details:
+  - Took the active blocker directly instead of continuing the same unverified draw-path edits:
+    - the previous runtime token had expired, so the first narrowed Playwright rerun failed in `frontend/tests/e2e/global-setup.ts` with bootstrap `401`
+    - used the one allowed lifecycle recovery for this non-main automated iteration:
+      - `./aireset.sh`
+      - the restarted worktree came up on frontend `http://127.0.0.1:3046/`, backend `http://127.0.0.1:8046`, with a fresh bootstrap URL/token emitted in the startup output
+    - attempted to refresh runtime metadata after the restart:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace .`
+      - result: still returned `Error: No matching Setta sessions found.`
+      - `pnpm -C frontend cdp-port`
+      - result: reported `9265`, which did not match the fresh `./aireset.sh` startup output (`9268`)
+    - as an investigation-only probe, temporarily rewrote the baseline All Settings Playwright check to search all Pixi scene hosts for a populated one instead of assuming `document.querySelector(...)` hit the right shell
+      - on the restarted runtime, that probe still timed out without finding any populated scene host
+      - reverted that exploratory spec patch before ending the iteration so no speculative test change is left behind
+  - Verification:
+    - Playwright after the restart:
+      - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8046 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3046 SETTA_BOOTSTRAP_TOKEN=<fresh aireset token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: blocked; the first test timed out after the exploratory probe could not find any populated Pixi scene host on the live restarted runtime
+    - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3046/settings?liveDictAreaRenderer=pixi-node-body` after opening `All Settings`:
+      - visible shell/cards were present, and the page still mounted many canvases (`canvasCount: 46`)
+      - blocker remains:
+        - no populated Pixi body rows were visible
+        - DOM scrape summary from the check: `roleRowCount: 0`, `trCount: 0`, `bodyRows: []`, `valueWords: []`
+  - Result:
+    - after the bounded lifecycle restart, the live canary still mounts canvases without ever surfacing populated body rows/value text in the checked All Settings state
+    - no safe code fix was verified this iteration, so nothing was committed
+- Next action:
+  - Debug why the restarted live canary mounts Pixi canvases but never exposes populated row/value body content, starting from the live boundary/data path on the running worktree instead of doing more probe-only or text-resolution-only tweaks.

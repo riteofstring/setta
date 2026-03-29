@@ -6,6 +6,7 @@ import {
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
+  getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
   LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY,
   LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH,
@@ -22,8 +23,8 @@ describe("getLiveDictAreaPixiLogicalCanvasWidth", () => {
 });
 
 describe("getLiveDictAreaPixiMaxCanvasHeight", () => {
-  it("normalizes the mounted preview-card height to a finite integer canvas limit", () => {
-    expect(getLiveDictAreaPixiMaxCanvasHeight(64.8)).toBe(64);
+  it("normalizes the mounted card-body height to a finite integer canvas limit", () => {
+    expect(getLiveDictAreaPixiMaxCanvasHeight(210.9)).toBe(210);
   });
 
   it("skips clamping when the mounted container height is unavailable", () => {
@@ -61,6 +62,14 @@ describe("getLiveDictAreaPixiRenderResolution", () => {
         viewportZoom: 0,
       }),
     ).toBe(1);
+  });
+});
+
+describe("getLiveDictAreaPixiTextResolution", () => {
+  it("never lets fitted Pixi row text render below 1x resolution", () => {
+    expect(getLiveDictAreaPixiTextResolution(0.2)).toBe(1);
+    expect(getLiveDictAreaPixiTextResolution(1)).toBe(1);
+    expect(getLiveDictAreaPixiTextResolution(2.5)).toBe(2.5);
   });
 });
 

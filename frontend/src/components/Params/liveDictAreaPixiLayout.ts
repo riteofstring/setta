@@ -101,12 +101,25 @@ export function buildLiveDictAreaPixiLayout({
   );
   const blocks: LiveDictAreaPixiLayout["blocks"] = [];
   const paramAreas: LiveDictAreaPixiParamAreaLayout[] = [];
+  const normalizedMaxCanvasHeight =
+    typeof maxCanvasHeight === "number" &&
+    Number.isFinite(maxCanvasHeight) &&
+    maxCanvasHeight > 0
+      ? Math.floor(maxCanvasHeight)
+      : null;
   const edgeStripState =
     liveDictAreaSceneBoundary.liveDictAreaBoundary.nodeScenePacket.edgeStrip;
   let edgeStrip: LiveDictAreaPixiEdgeStripLayout | null = null;
   let nextBlockY = LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetY;
 
   for (const block of liveDictAreaSceneBoundary.blocks) {
+    if (
+      normalizedMaxCanvasHeight !== null &&
+      nextBlockY >= normalizedMaxCanvasHeight
+    ) {
+      break;
+    }
+
     if (block.kind === "edge-strip") {
       const edgeStripLayout = buildLiveDictAreaPixiEdgeStripLayout({
         block,
@@ -123,25 +136,22 @@ export function buildLiveDictAreaPixiLayout({
     const paramAreaLayout = buildLiveDictAreaPixiParamAreaLayout({
       block,
       canvasWidth,
+      maxHeight:
+        block.mount.mountKind === "grow" && normalizedMaxCanvasHeight !== null
+          ? normalizedMaxCanvasHeight - nextBlockY
+          : null,
       y: nextBlockY,
     });
+    if (!paramAreaLayout) {
+      continue;
+    }
     blocks.push(paramAreaLayout);
     paramAreas.push(paramAreaLayout);
     nextBlockY += paramAreaLayout.height + LIVE_DICT_AREA_PIXI_LAYOUT.areaGap;
   }
 
-  const unclampedCanvasHeight =
-    blocks.length === 0 ? 0 : nextBlockY - LIVE_DICT_AREA_PIXI_LAYOUT.areaGap;
-  const normalizedMaxCanvasHeight =
-    typeof maxCanvasHeight === "number" &&
-    Number.isFinite(maxCanvasHeight) &&
-    maxCanvasHeight > 0
-      ? Math.floor(maxCanvasHeight)
-      : null;
   const canvasHeight =
-    normalizedMaxCanvasHeight === null
-      ? unclampedCanvasHeight
-      : Math.min(unclampedCanvasHeight, normalizedMaxCanvasHeight);
+    blocks.length === 0 ? 0 : nextBlockY - LIVE_DICT_AREA_PIXI_LAYOUT.areaGap;
 
   return {
     blocks,
@@ -150,7 +160,7 @@ export function buildLiveDictAreaPixiLayout({
     edgeStrip,
     paramAreas,
     totalRowCount: paramAreas.reduce(
-      (rowCount, paramArea) => rowCount + paramArea.rowCount,
+      (rowCount, paramArea) => rowCount + paramArea.rows.length,
       0,
     ),
     valuePreviewCount: paramAreas.reduce(
@@ -244,14 +254,16 @@ function buildLiveDictAreaPixiEdgeStripLayout({
 function buildLiveDictAreaPixiParamAreaLayout({
   block,
   canvasWidth,
+  maxHeight,
   y,
 }: {
   block:
     | NonNullable<LiveDictAreaSceneBoundary["pinnedParamAreaBlock"]>
     | NonNullable<LiveDictAreaSceneBoundary["unpinnedParamAreaBlock"]>;
   canvasWidth: number;
+  maxHeight: number | null;
   y: number;
-}): LiveDictAreaPixiParamAreaLayout {
+}): LiveDictAreaPixiParamAreaLayout | null {
   const width = canvasWidth - LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX * 2;
   const rowsStartY =
     y +
@@ -270,10 +282,26 @@ function buildLiveDictAreaPixiParamAreaLayout({
     LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingTop +
     rows.length * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
     LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom;
-  const height =
+  const unclampedHeight =
     block.shouldApplyMinHeight && block.minHeight !== null
       ? Math.max(contentHeight, block.minHeight)
       : contentHeight;
+  const normalizedMaxHeight =
+    typeof maxHeight === "number" && Number.isFinite(maxHeight) && maxHeight > 0
+      ? Math.floor(maxHeight)
+      : null;
+  const height =
+    normalizedMaxHeight === null
+      ? unclampedHeight
+      : Math.min(unclampedHeight, normalizedMaxHeight);
+  if (height <= 0) {
+    return null;
+  }
+  const visibleRowsBottomY =
+    y + height - LIVE_DICT_AREA_PIXI_LAYOUT.areaPaddingBottom;
+  const visibleRows = rows.filter(
+    (row) => row.y + row.blockHeight <= visibleRowsBottomY,
+  );
 
   return {
     blockId: block.blockId,
@@ -282,7 +310,7 @@ function buildLiveDictAreaPixiParamAreaLayout({
     kind: block.kind,
     mountKind: block.mount.mountKind,
     rowCount: block.rowCount,
-    rows,
+    rows: visibleRows,
     title: block.title,
     width,
     x: LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX,
