@@ -65,6 +65,7 @@ export type LiveDictAreaPixiSceneProps = {
   };
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
   onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
+  onWebglContextLost?: () => void;
   sectionId?: string | null;
 };
 
@@ -98,6 +99,7 @@ function _LiveDictAreaPixiScene({
   },
   liveDictAreaSceneBoundary,
   onSummaryLayoutChange,
+  onWebglContextLost,
   sectionId = null,
 }: LiveDictAreaPixiSceneProps) {
   const darkMode = useLocalStorage((state) => state.darkMode);
@@ -109,6 +111,7 @@ function _LiveDictAreaPixiScene({
   const compactRowPrimitiveRef = useRef<HTMLElement | null>(null);
   const rowTextStyleRef = useRef<HTMLParagraphElement | null>(null);
   const appRef = useRef<Application | null>(null);
+  const webglContextLossCleanupRef = useRef<(() => void) | null>(null);
   const [hostWidth, setHostWidth] = useState(0);
   const [availableCanvasHeight, setAvailableCanvasHeight] = useState<
     number | null
@@ -156,6 +159,9 @@ function _LiveDictAreaPixiScene({
     paramHoverClassName: "",
     variant: "leaf",
   });
+  const onWebglContextLostRef = useRef(onWebglContextLost);
+
+  onWebglContextLostRef.current = onWebglContextLost;
 
   useLayoutEffect(() => {
     onSummaryLayoutChange?.(
@@ -352,6 +358,17 @@ function _LiveDictAreaPixiScene({
         }
 
         app.canvas.className = "block h-full w-full";
+        const handleWebglContextLost = (event: Event) => {
+          event.preventDefault();
+          onWebglContextLostRef.current?.();
+        };
+        app.canvas.addEventListener("webglcontextlost", handleWebglContextLost);
+        webglContextLossCleanupRef.current = () => {
+          app.canvas.removeEventListener(
+            "webglcontextlost",
+            handleWebglContextLost,
+          );
+        };
         configureLiveDictAreaPixiStaticScene(app);
         appRef.current = app;
       } else {
@@ -416,6 +433,8 @@ function _LiveDictAreaPixiScene({
 
   useEffect(() => {
     return () => {
+      webglContextLossCleanupRef.current?.();
+      webglContextLossCleanupRef.current = null;
       const app = appRef.current;
       if (!app) {
         return;

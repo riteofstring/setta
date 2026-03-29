@@ -12058,3 +12058,50 @@ Record:
       - the live Pixi cards showed the same dense ARGS/control-row content in ordinary use for the checked deeper slice
 - Next action:
   - Re-run the normalized deeper-stack live-Pixi-vs-`main` parity comparison and identify the next renderer-only drift now that the prompt/plugin same-height preview-window sparsity is closed.
+
+## 2026-03-31 364
+
+- Item: Fall back to the DOM mount when an individual live Pixi scene loses its WebGL context instead of leaving a blank white card.
+- Status: `done`
+- Details:
+  - Continued the active live-Pixi parity lane from item `363` and targeted the next concrete production blocker surfaced by the normalized deeper-stack CDP pass:
+    - several deeper live Pixi cards were going white / blank while baseline and `main` stayed populated
+    - scene-root diagnostics still reported the correct dark panel and row palette, so the failure was not a palette-choice issue
+    - the concrete runtime signal was repeated `Too many active WebGL contexts. Oldest context will be lost.` warnings, which pointed at scene-level context loss instead of row-layout drift
+  - Fixed the production scene ownership boundary instead of adding a heuristic renderer fallback:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - added an `onWebglContextLost` scene callback
+      - registers a real `webglcontextlost` listener on the scene canvas when the Pixi app is initialized
+      - prevents the browser default loss handling and reports the loss back to the owner
+      - cleans up the listener when the scene unmounts / destroys the Pixi app
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+      - tracks scene-level WebGL context loss separately from the existing user-triggered full-shell fallback overlay
+      - when a scene reports context loss, clears stale scene/handoff interaction state and swaps that shell to the existing `LiveDictAreaMount`
+      - renders the recovery surface under `data-live-dict-area-scene-fallback="dom-context-lost"` so the failure mode is explicit and testable instead of silently white
+  - Added focused regression coverage for the same failure shape:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - added a unit test that dispatches a cancelable `webglcontextlost` event on the scene canvas and requires default prevention plus owner notification
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added a shell-level test that simulates a scene-reported context loss and requires the DOM mount fallback surface to appear with param-row content
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added an `All Settings` Playwright canary that dispatches `webglcontextlost` on a visible live Pixi canvas and requires the DOM mount fallback to appear with param content
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`15 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary falls back to the DOM mount when a live Pixi canvas loses its WebGL context"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check:
+    - first fresh sub-agent confirmed the page loaded without obvious white cards but only exposed `data-live-dict-area-render-mode="dom"` nodes, so the actual Pixi canvas/fallback path was not reachable
+    - second fresh sub-agent hit a browser-session bootstrap rejection and then a `Cannot read properties of undefined (reading 'push')` page error before any visible Pixi scene roots or canvases appeared
+    - performed the one allowed local lifecycle recovery for this non-main worktree:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed the runtime / CDP session (`session 6b636e`, frontend `http://127.0.0.1:3043/`, backend `http://127.0.0.1:8043`, CDP port `9265`)
+    - result: deferred
+      - the post-restart live CDP verification did not produce a trustworthy Pixi canary result in this iteration, so the visual gate for the forced context-loss path remains deferred instead of claimed
+- Next action:
+  - Re-run the forced context-loss CDP check on the fresh worktree session once the live Pixi canary is trustworthy again, then continue the normalized deeper-stack live-Pixi-vs-`main` parity comparison for the next renderer-only drift.

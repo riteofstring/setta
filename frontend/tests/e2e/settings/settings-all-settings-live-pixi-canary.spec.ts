@@ -1345,6 +1345,51 @@ test("all settings canary rerenders the Pixi scene canvas when the viewport zoom
   ).toBeLessThanOrEqual(LIVE_DICT_AREA_PIXI_MAX_BACKING_PIXELS);
 });
 
+test("all settings canary falls back to the DOM mount when a live Pixi canvas loses its WebGL context", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await waitForVisibleSceneMetrics(page);
+
+  const contextLossPrevented = await page.evaluate(() => {
+    const visibleCanvas = Array.from(
+      document.querySelectorAll<HTMLCanvasElement>(
+        "[data-live-dict-area-scene='pixi'] canvas",
+      ),
+    ).find((canvas) => {
+      const rect = canvas.getBoundingClientRect();
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.left < window.innerWidth &&
+        rect.top < window.innerHeight
+      );
+    });
+
+    if (!visibleCanvas) {
+      return null;
+    }
+
+    const contextLossEvent = new Event("webglcontextlost", {
+      cancelable: true,
+    });
+    visibleCanvas.dispatchEvent(contextLossEvent);
+    return contextLossEvent.defaultPrevented;
+  });
+
+  expect(contextLossPrevented).toBe(true);
+
+  const domFallback = page.locator(
+    "[data-live-dict-area-scene-fallback='dom-context-lost']",
+  );
+  await expect(domFallback.first()).toBeVisible();
+  await expect(
+    domFallback.locator("[data-param-row='true']").first(),
+  ).toBeVisible();
+});
+
 test("all settings canary keeps low-zoom live Pixi cards in detail mode by default", async ({
   page,
 }) => {

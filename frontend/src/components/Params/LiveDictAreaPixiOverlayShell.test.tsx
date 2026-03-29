@@ -14,6 +14,10 @@ import {
 } from "./liveDictAreaPixiLayout";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
 
+vi.mock("./groupContainerLiveDictAreaMount", () => ({
+  LiveDictAreaMount: () => <div data-param-row="true" />,
+}));
+
 vi.hoisted(() => {
   class ResizeObserverMock {
     observe = vi.fn();
@@ -88,6 +92,7 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
       edgeRowInteractionState,
       liveDictAreaSceneBoundary,
       onSummaryLayoutChange,
+      onWebglContextLost,
       sectionId,
       valueRowInteractionState,
     }: {
@@ -98,6 +103,7 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
       };
       liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
       onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
+      onWebglContextLost?: () => void;
       sectionId?: string | null;
       valueRowInteractionState?: {
         focusedRowId: string | null;
@@ -137,7 +143,15 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
             valueRowInteractionState?.pressedRowId ?? undefined
           }
           data-live-dict-area-scene-section-id={sectionId ?? undefined}
-        />
+        >
+          <button
+            data-live-dict-area-scene-trigger-context-lost="true"
+            onClick={() => {
+              onWebglContextLost?.();
+            }}
+            type="button"
+          />
+        </div>
       );
     },
   };
@@ -434,6 +448,93 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     ).not.toBeNull();
     expect(activeValueRowBaseStateRequests).toEqual([]);
     expect(activeValueRowCoreRequests).toEqual([]);
+  });
+
+  it("falls back to the DOM mount when the live Pixi scene loses its WebGL context", () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamEditorKind: (paramId: string) =>
+          paramId === "pinned-value" ? "combobox" : "color-picker",
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "pinned-group": "Pinned Group",
+              "pinned-value": "Pinned Value",
+              "unpinned-group": "Unpinned Group",
+              "unpinned-value": "Unpinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [{ id: "input-a", label: "Input A" }],
+        isSelectingParams: false,
+        outputPorts: [{ id: "output-a", label: "Output A" }],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-1",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiOverlayShell
+          liveDictAreaMountProps={
+            liveDictAreaMountBoundary.liveDictAreaMountProps
+          }
+          liveDictAreaSceneBoundary={
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary
+          }
+        />,
+      );
+    });
+
+    const contextLossTrigger = container.querySelector<HTMLButtonElement>(
+      "[data-live-dict-area-scene-trigger-context-lost='true']",
+    );
+    expect(contextLossTrigger).not.toBeNull();
+
+    act(() => {
+      contextLossTrigger?.click();
+    });
+
+    expect(
+      container.querySelector("[data-live-dict-area-scene='pixi']"),
+    ).toBeNull();
+    expect(
+      container.querySelector(
+        "[data-live-dict-area-scene-fallback='dom-context-lost']",
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        "[data-live-dict-area-scene-fallback='dom-context-lost'] [data-param-row='true']",
+      ),
+    ).not.toBeNull();
   });
 
   it("re-arms fit-view when the first Pixi summary layout arrives before the viewport is initialized", () => {
