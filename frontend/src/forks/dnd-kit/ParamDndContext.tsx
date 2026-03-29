@@ -12,6 +12,10 @@ import { useMemo, type ReactNode } from "react";
 import { useMisc } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { DragOperationShapeSync } from "./DragOperationShapeSync";
+import {
+  buildParamDndCollisionScopeView,
+  buildParamDndContextView,
+} from "./paramDndContextView";
 import { useParamDndChildren } from "./paramDndChildren";
 import { useParamDndState } from "./paramDndState";
 import { useParamDndSensors } from "./useDNDSensors";
@@ -21,11 +25,14 @@ function debugParamDnd(_message: string, _details?: Record<string, unknown>) {}
 export function ParamDndContext({ children }: { children: ReactNode }) {
   const { canEditStructure } = useShareCapabilities();
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
-  const paramDndEnabled = canEditStructure && isSelectingParams;
   const paramDndActive = useParamDndState(
     (state) => Boolean(state.activeId) || state.pendingReset,
   );
-  const shouldRenderHelpers = paramDndEnabled || paramDndActive;
+  const { dndContext, shouldRenderHelpers } = buildParamDndContextView({
+    canEditStructure,
+    isSelectingParams,
+    paramDndActive,
+  });
   const sensors = useParamDndSensors();
   const collisionTracker = useMemo<CollisionTracker>(() => {
     const baseTracker = createCollisionTracker({
@@ -36,42 +43,31 @@ export function ParamDndContext({ children }: { children: ReactNode }) {
       ...baseTracker,
       update: (collisions: SettaCollision[] | null) => {
         const listKey = useParamDndState.getState().listKey;
-        if (!listKey || !collisions || collisions.length === 0) {
-          baseTracker.update(collisions);
-          return;
-        }
-        const filtered = collisions.filter((collision) => {
-          const data = collision.data?.droppable?.data as
-            | { current?: { listKey?: string | null } }
-            | undefined;
-          return data?.current?.listKey === listKey;
+        const collisionScope = buildParamDndCollisionScopeView({
+          collisions,
+          listKey,
         });
-        if (filtered.length === 0) {
+        if (collisionScope.filteredToEmpty) {
           debugParamDnd("tracker:filtered-empty", {
             listKey,
-            collisions: collisions.map((collision) => String(collision.id)),
+            collisions: collisions?.map((collision) => String(collision.id)),
           });
-          baseTracker.update(null);
+          baseTracker.update(collisionScope.collisions);
           return;
         }
-        if (filtered.length !== collisions.length) {
+        if (collisionScope.filteredOutCollisions) {
           debugParamDnd("tracker:filtered", {
             listKey,
             collisions: collisions.map((collision) => String(collision.id)),
-            filtered: filtered.map((collision) => String(collision.id)),
+            filtered: collisionScope.collisions?.map((collision) =>
+              String(collision.id),
+            ),
           });
         }
-        baseTracker.update(filtered);
+        baseTracker.update(collisionScope.collisions);
       },
     };
   }, []);
-  const dndContext = useMemo(
-    () => ({
-      isMovingFree: false,
-      isSorting: false,
-    }),
-    [],
-  );
 
   return (
     <DragDropProvider
