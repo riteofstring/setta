@@ -9,7 +9,11 @@ import {
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_READY_MEASURE_NAME,
   LIVE_DICT_AREA_PIXI_VALUE_ROW_HANDOFF_START_MARK_NAME,
 } from "../../../src/components/Params/liveDictAreaPixiValueRowPerf";
-import { ensureAppReady } from "../helpers";
+import {
+  ensureAppReady,
+  getCurrentProjectConfigId,
+  postBackend,
+} from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL);
@@ -38,23 +42,53 @@ type ValueRowPerfSnapshot = {
   startRowId: string | null;
 };
 
-async function openAllSettingsLivePixiCanary(
-  page: Page,
-  options?: {
-    interactionMode?: "param-select";
-  },
-) {
-  await ensureAppReady(page);
+type ViewportTransform = {
+  x: number;
+  y: number;
+  zoom: number;
+};
 
-  await page.addInitScript(
-    ({ mode, storageKey }) => {
-      window.sessionStorage.setItem(storageKey, mode);
+type VisibleBlockBounds = {
+  blockId: string;
+  height: number;
+  sectionId: string;
+  width: number;
+  x: number;
+  y: number;
+};
+
+function getBlockKey(block: Pick<VisibleBlockBounds, "blockId" | "sectionId">) {
+  return `${block.sectionId}:${block.blockId}`;
+}
+
+async function setLiveDictAreaRendererMode(
+  page: Page,
+  mode: string | null,
+): Promise<void> {
+  await page.evaluate(
+    ({ mode: nextMode, storageKey }) => {
+      if (nextMode === null) {
+        window.sessionStorage.removeItem(storageKey);
+        return;
+      }
+      window.sessionStorage.setItem(storageKey, nextMode);
     },
     {
-      mode: LIVE_PIXI_MODE,
+      mode,
       storageKey: LIVE_DICT_AREA_RENDERER_STORAGE_KEY,
     },
   );
+}
+
+async function openAllSettingsPage(
+  page: Page,
+  options?: {
+    interactionMode?: "param-select";
+    rendererMode?: string | null;
+  },
+) {
+  await ensureAppReady(page);
+  await setLiveDictAreaRendererMode(page, options?.rendererMode ?? null);
 
   const url = new URL(SETTINGS_URL);
   if (options?.interactionMode) {
@@ -72,6 +106,87 @@ async function openAllSettingsLivePixiCanary(
   });
   await expect(allSettingsTab).toBeVisible();
   await allSettingsTab.click();
+}
+
+async function openAllSettingsLivePixiCanary(
+  page: Page,
+  options?: {
+    interactionMode?: "param-select";
+  },
+) {
+  await openAllSettingsPage(page, {
+    interactionMode: options?.interactionMode,
+    rendererMode: LIVE_PIXI_MODE,
+  });
+}
+
+async function openAllSettingsBaseline(page: Page): Promise<void> {
+  await openAllSettingsPage(page, { rendererMode: null });
+}
+
+async function readViewportTransform(page: Page): Promise<ViewportTransform> {
+  return page.evaluate(async () => {
+    const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+    const [x, y, zoom] = useReactFlow.getState().transform;
+    return { x, y, zoom };
+  });
+}
+
+async function readVisibleBlockBounds(
+  page: Page,
+  source: "baseline" | "pixi",
+  blockId: string,
+): Promise<VisibleBlockBounds[]> {
+  return page.evaluate(
+    ({ blockId: targetBlockId, source: targetSource }) => {
+      const selector =
+        targetSource === "baseline"
+          ? `[data-dict-area-block-id='${targetBlockId}']`
+          : `[data-live-dict-area-scene-block-anchor='true'][data-live-dict-area-scene-block-id='${targetBlockId}']`;
+
+      return Array.from(document.querySelectorAll<HTMLElement>(selector))
+        .map((element) => {
+          const rect = element.getBoundingClientRect();
+          const sectionId =
+            targetSource === "baseline"
+              ? element
+                  .closest<HTMLElement>("[data-section-id]")
+                  ?.getAttribute("data-section-id") ?? ""
+              : element.getAttribute("data-live-dict-area-scene-section-id") ??
+                "";
+
+          return {
+            blockId: targetBlockId,
+            height: rect.height,
+            sectionId,
+            width: rect.width,
+            x: rect.x,
+            y: rect.y,
+          };
+        })
+        .filter((block) => {
+          return (
+            block.sectionId.length > 0 &&
+            block.width > 0 &&
+            block.height > 0 &&
+            block.x < window.innerWidth &&
+            block.y < window.innerHeight &&
+            block.x + block.width > 0 &&
+            block.y + block.height > 0
+          );
+        })
+        .sort((a, b) => {
+          if (a.y !== b.y) {
+            return a.y - b.y;
+          }
+          return a.x - b.x;
+        });
+    },
+    {
+      blockId,
+      source,
+    },
+  );
 }
 
 async function withParamSelectHeld(page: Page, callback: () => Promise<void>) {
@@ -371,6 +486,95 @@ test("all settings canary exposes stable section anchors on visible Pixi scene r
         anchor.blockAnchorCount === anchor.blockCount,
     ),
   ).toBe(true);
+});
+
+test("all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform", async ({
+  page,
+}) => {
+  await openAllSettingsBaseline(page);
+
+  const baselineViewport = await readViewportTransform(page);
+  expect(baselineViewport.zoom).toBeGreaterThan(0);
+  const projectConfigId = await getCurrentProjectConfigId(page);
+
+  try {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: baselineViewport,
+    });
+
+    await openAllSettingsBaseline(page);
+    await expect
+      .poll(async () => readViewportTransform(page))
+      .toEqual(baselineViewport);
+
+    await expect
+      .poll(async () => {
+        return (await readVisibleBlockBounds(page, "baseline", "unpinned"))
+          .length;
+      })
+      .toBeGreaterThanOrEqual(2);
+
+    const baselineBlocks = (
+      await readVisibleBlockBounds(page, "baseline", "unpinned")
+    ).slice(0, 2);
+    expect(baselineBlocks).toHaveLength(2);
+
+    await openAllSettingsLivePixiCanary(page);
+    await expect
+      .poll(async () => readViewportTransform(page))
+      .toEqual(baselineViewport);
+
+    await expect
+      .poll(async () => {
+        const visibleCanaryBlocks = await readVisibleBlockBounds(
+          page,
+          "pixi",
+          "unpinned",
+        );
+        const visibleCanaryKeys = new Set(
+          visibleCanaryBlocks.map((block) => getBlockKey(block)),
+        );
+
+        return baselineBlocks.every((block) =>
+          visibleCanaryKeys.has(getBlockKey(block)),
+        );
+      })
+      .toBe(true);
+
+    await expect
+      .poll(async () => {
+        const canaryBlocks = await readVisibleBlockBounds(
+          page,
+          "pixi",
+          "unpinned",
+        );
+        const canaryBlocksByKey = new Map(
+          canaryBlocks.map((block) => [getBlockKey(block), block]),
+        );
+
+        return baselineBlocks.reduce((maxDelta, baselineBlock) => {
+          const canaryBlock = canaryBlocksByKey.get(getBlockKey(baselineBlock));
+          if (!canaryBlock) {
+            return Number.POSITIVE_INFINITY;
+          }
+
+          return Math.max(
+            maxDelta,
+            Math.abs(canaryBlock.x - baselineBlock.x),
+            Math.abs(canaryBlock.y - baselineBlock.y),
+            Math.abs(canaryBlock.width - baselineBlock.width),
+            Math.abs(canaryBlock.height - baselineBlock.height),
+          );
+        }, 0);
+      })
+      .toBeLessThanOrEqual(2);
+  } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+  }
 });
 
 test("all settings canary can hand off from the Pixi scene into a value-row DOM editor overlay", async ({

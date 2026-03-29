@@ -9390,3 +9390,64 @@ Record:
     - after the app settled, no new overlays, probe artifacts, or visible drift were observed on the checked initial fit-view `All Settings` cards
 - Next action:
   - Use the new section-scoped scene anchors to retry the first-visible-card automated parity guard against the matching baseline section bodies, not the broader section/shell proxies that disagreed with CDP in item `283`.
+
+## 2026-03-29 285
+
+- Item: Retry the first-visible-card automated parity guard with the new section/block anchors.
+- Status: `blocked`
+- Details:
+  - Took the next bounded slice directly from item `284` by prototyping a new Playwright parity guard in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The temporary guard compared baseline DOM block bodies (`[data-dict-area-block-id]`) against the new Pixi scene block anchors (`[data-live-dict-area-scene-block-anchor='true']`) keyed by the same `sectionId:blockId`.
+  - Result:
+    - the new anchors did solve the old section/shell-proxy ambiguity
+    - but the seeded Playwright workspace still does not produce a trustworthy common camera state for baseline vs canary
+  - Concrete seeded-workspace findings from the targeted debug runs:
+    - in the initial fit-view state, baseline exposed large `unpinned` bodies around `293x154` while the canary exposed tiny overview-mode bodies around `55x29` for different first-visible cards
+    - forcing `reset zoom` on both pages flipped the mismatch instead of normalizing it: baseline stayed on tiny overview cards while the canary surfaced large `550x290` bodies for matching section ids
+    - this means the automated parity guard is currently measuring divergent viewport/fit states, not a single shared first-visible canary view that can be trusted as the visual oracle
+  - Important contrast:
+    - direct live-worktree inspection on `http://127.0.0.1:3044/settings` vs `?liveDictAreaRenderer=pixi-node-body` still showed no obvious layout drift in fresh current-runtime checks
+    - fresh Chrome DevTools MCP verification in a sub-agent context also reported the live baseline/canary shells and first visible cards as visually aligned, with only a text-formatting/accessibility-tree difference noted for quoted values
+  - No production or test changes were kept from this iteration; the temporary spec/debug edits were reverted after diagnosis.
+- Verification:
+  - Playwright targeted parity-guard probe:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps the first visible live card body geometry aligned with baseline in the initial fit-view state"`
+    - result: failed in the seeded workspace because baseline and canary landed in different visible-card regimes even with the new anchors
+  - Live-worktree manual geometry probe:
+    - temporary direct Playwright script against `http://127.0.0.1:3044/settings` and `?liveDictAreaRenderer=pixi-node-body`
+    - result: current-worktree runtime showed exact top-row block parity for the checked `unpinned` bodies
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - result: no obvious visible layout drift on the checked first visible cards; only a quoted-value text-formatting difference was noted in the accessibility tree
+- Next action:
+  - Resolve the seeded-workspace camera-state mismatch before attempting to land an automated parity guard; likely options are a deterministic shared fit/viewport control for both renderers or a narrower guard that targets a state the seeded workspace can reproduce faithfully.
+
+## 2026-03-29 286
+
+- Item: Land a seeded-workspace-safe live Pixi parity guard by forcing both renderers through one persisted viewport state.
+- Status: `done`
+- Details:
+  - Took the next bounded slice directly from item `285`'s repeated blocker instead of another renderer tweak:
+    - the new section/block anchors were already good enough
+    - the remaining mismatch was that the seeded Playwright workspace could still re-enter divergent fit-view state after baseline/canary reloads
+  - Updated:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The kept test change now:
+    - opens baseline `/settings`, captures the baseline React Flow transform, and persists that exact viewport through `/setViewport`
+    - reloads both baseline and `?liveDictAreaRenderer=pixi-node-body` from the same authoritative backend viewport instead of relying on client-only fit/reset behavior
+    - compares the first visible `unpinned` card bodies using the existing `sectionId:blockId` anchors, narrowed to the first two visible bodies so the seeded suite does not depend on a third card staying in-view
+    - clears the persisted viewport back to `null` in test cleanup so later cases keep the normal fit-view behavior
+- Verification:
+  - Playwright targeted guard:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform"`
+    - result: passed
+  - Playwright full canary file:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed (`11 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on the current worktree runtime (`http://127.0.0.1:3044/settings` vs `?liveDictAreaRenderer=pixi-node-body`) at browser zoom `100%`
+    - the first visible unpinned card bodies and top-row live cards lined up in the same grid positions and widths with no visible drift
+    - no new probe/anchor artifacts were visible
+    - remaining note: the live Pixi card interiors still read a bit flatter/more skeleton-like than baseline even though geometry now aligns
+- Next action:
+  - Continue the live Pixi parity lane from this new automated geometry guard by tightening the remaining card-interior/chrome flatness on the first visible `All Settings` cards instead of revisiting geometry alignment again.
