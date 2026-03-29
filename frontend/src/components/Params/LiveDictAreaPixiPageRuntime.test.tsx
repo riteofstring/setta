@@ -456,7 +456,18 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
             styleSourceElement={styleSourceElement}
           />
           <SceneRegistration
-            bounds={{ height: 110, left: 1000, top: 24, width: 220 }}
+            bounds={{ height: 132, left: 1000, top: 24, width: 300 }}
+            layout={emptyLayout}
+            renderMode="pixi"
+            runtimeSceneId="scene-code-param"
+            sectionId="section-code-param"
+            sectionName={
+              LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAMES[3]
+            }
+            styleSourceElement={styleSourceElement}
+          />
+          <SceneRegistration
+            bounds={{ height: 110, left: 1340, top: 24, width: 220 }}
             layout={emptyLayout}
             renderMode="pixi"
             runtimeSceneId="scene-other"
@@ -475,16 +486,16 @@ describe("LiveDictAreaPixiPageRuntimeBoundary", () => {
       host?.getAttribute(
         "data-live-dict-area-pixi-runtime-managed-scene-count",
       ),
-    ).toBe("3");
+    ).toBe("4");
     expect(
       host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-ids"),
-    ).toBe("scene-prompt,scene-browser,scene-text-block");
+    ).toBe("scene-prompt,scene-browser,scene-text-block,scene-code-param");
     expect(
       host?.getAttribute(
         "data-live-dict-area-pixi-runtime-managed-scene-names",
       ),
     ).toBe(
-      "promptSectionDefault,browserSectionDefault,textBlockSectionDefault",
+      "promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault",
     );
     expect(
       host?.getAttribute("data-live-dict-area-pixi-runtime-managed-scene-name"),

@@ -12489,3 +12489,59 @@ Record:
     - verified no obvious Gate-1 gross drift versus the read-only `main` reference for the checked `All Settings` slice
 - Next action:
   - Keep taking named visible `dom-context-lost` sections off the local-app path in fallback-list order, starting with the next remaining visible section after `textBlockSectionDefault`.
+
+## 2026-03-31 373
+
+- Item: Move `codeParamCodeObjDefault` onto the shared page-level live Pixi runtime host without regressing the existing prompt/browser/text-block shared canaries.
+- Status: `done`
+- Details:
+  - Continued the shared page-runtime lane from item `372` and targeted the first remaining visible `dom-context-lost` fallback reported by the live worktree canary instead of widening the slice beyond one named scene.
+  - Broadened the shared-runtime canary allowlist by one real visible section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+  - Kept the ownership move bounded to the existing allowlist-driven shared-host selection path and locked it in the focused runtime tests:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all four shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `codeParamCodeObjDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `codeParamCodeObjDefault` stays on `shared-page-runtime` and does not reappear in the active `dom-context-lost` list
+  - Verification notes:
+    - the first direct Playwright rerun used the now-stale loop bootstrap token and failed in global setup with bootstrap `401`
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - reran the targeted Playwright subset with the refreshed token and it passed
+  - Chrome DevTools MCP outcome after the change:
+    - verified on the live worktree canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` that the page-runtime host now reports:
+      - `managedSceneNames=promptSectionDefault,browserSectionDefault,textBlockSectionDefault,codeParamCodeObjDefault`
+      - `domContextLostSceneNames` no longer includes `codeParamCodeObjDefault`
+    - verified the visible `codeParamCodeObjDefault` scene reports:
+      - `renderBackend=shared-page-runtime`
+      - no `dom-context-lost` fallback sibling/wrapper
+    - main-reference oracle caveat:
+      - refreshed the read-only `main` bootstrap URL, but that bootstrap was rejected in CDP
+      - opening the `main` frontend URL directly only showed the minimal connected shell instead of the full Settings canvas, so a trustworthy Gate-1 side-by-side oracle comparison for this slice is still deferred
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`16 passed`)
+  - Playwright:
+    - failed attempt with stale token:
+      - `PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<stale loop token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps codeParamCodeObjDefault on the shared page runtime without dom-context-lost"`
+      - result: failed during global setup with bootstrap `401`
+    - passing rerun with refreshed token:
+      - `PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost|all settings canary keeps codeParamCodeObjDefault on the shared page runtime without dom-context-lost"`
+      - result: passed (`5 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `codeParamCodeObjDefault` is managed by the shared page runtime and no longer appears in the active fallback set
+    - verified the visible `codeParamCodeObjDefault` scene uses `shared-page-runtime` with no visible `dom-context-lost` fallback wrapper
+    - read-only `main` reference comparison was not trustworthy on this pass because the reference session did not reach the full Settings surface
+- Next action:
+  - Keep taking named visible `dom-context-lost` sections off the local-app path in fallback-list order, starting with `sectionSizingPolicy`, while keeping the `main` oracle gap explicit until the read-only Settings surface becomes reachable again.
