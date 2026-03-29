@@ -70,6 +70,7 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       rowId: "pinned-value",
       sectionId: "section-1",
       styleColor: null,
+      width: 280,
       x: 16,
       y: 24,
     };
@@ -108,6 +109,8 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       overlay?.getAttribute("data-live-dict-area-editor-overlay-row-id"),
     ).toBe("pinned-value");
     expect(overlay?.style.contain).toBe("layout paint");
+    expect(overlay?.style.right).toBe("");
+    expect(overlay?.style.width).toBe("280px");
     expect(overlay?.firstElementChild?.className).toBe("min-h-0 w-full pr-1.5");
     expect(sceneRowCalls).toHaveLength(1);
     expect(sceneRowCalls[0]?.target).toMatchObject({

@@ -31,8 +31,8 @@ export function LiveDictAreaPixiValueRowOverlay({
           contain: "layout paint",
           left: target.x,
           minHeight: target.height,
-          right: 0,
           top: target.y,
+          width: target.width,
         }}
       >
         <div className="min-h-0 w-full pr-1.5">

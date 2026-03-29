@@ -26,6 +26,7 @@ export type LiveDictAreaPixiValueRowTarget = {
   rowId: string;
   sectionId: string;
   styleColor: string | null;
+  width: number;
   x: number;
   y: number;
 };
@@ -90,6 +91,7 @@ export function buildLiveDictAreaPixiValueRowTargets({
           rowId: row.id,
           sectionId: surfaceBlock.props.sectionId,
           styleColor: surfaceBlock.props.domPacket.styleColor,
+          width: Math.max(row.width - row.x, 0),
           x: row.x,
           y: row.y,
         },

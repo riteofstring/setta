@@ -7776,3 +7776,46 @@ Record:
     - the `defaultZoomLevel` handoff still opened the inline CodeMirror overlay cleanly, and the checked overlay looked visually sane with no blanking, clipping, or major overlap
 - Next action:
   - Keep moving down the remaining presentation/layout floor on the same live Pixi CodeMirror handoff path, starting with the next bounded lever that removes overlay/layout work beyond this now-flattened active row shell.
+
+## 2026-03-29 246
+
+- Item: Constrain the live Pixi value-row handoff surfaces to the explicit scene-row width.
+- Status: `done`
+- Details:
+  - Chose a real geometry/layout lever from item `245` instead of reopening the flattened-row shell or returning to a forwarding-only seam lift.
+  - Updated:
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiValueRowTargets.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - The live Pixi value-row handoff now uses explicit row geometry instead of stretching the inactive button and active overlay shell with `right: 0`:
+    - `buildLiveDictAreaPixiValueRowTargets(...)` now carries the remaining scene-row width as part of the target packet
+    - `LiveDictAreaPixiOverlayShell` now applies that width to the inactive value-row handoff button
+    - `LiveDictAreaPixiValueRowOverlay` now applies that width to the active overlay shell
+  - Recorded the probe in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-value-row-surface-width-bounding-probe.md`
+  - Perf result:
+    - fresh baseline in this iteration did not surface a clean isolated INP sample; the closest signal was a forced-reflow cluster totaling about `1284 ms` with `getHandleCenter` contributing about `1173 ms`
+    - the post-change follow-up trace reported `INP 88 ms` (`input 5 ms`, `processing 2 ms`, `presentation 81 ms`)
+    - the comparison is directional only because the follow-up trace attached partly to bootstrap/navigation work instead of a perfectly isolated settings-only interaction
+  - Visual result:
+    - the live Pixi `defaultZoomLevel` handoff still opened an editable inline `1.0` field
+    - no obvious blanking, clipping, or major overlap regression was observed in the checked viewport
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed (`6 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/liveDictAreaPixiValueRowTargets.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/liveDictAreaPixiValueRowTargets.test.ts src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "value-row DOM editor overlay|CodeMirror-backed value row"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual/perf checks in fresh sub-agent contexts on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - baseline: visual passed; the closest perf signal was the forced-reflow cluster noted above
+    - post-change: visual passed; the `defaultZoomLevel` overlay opened cleanly and the short trace reported `INP 88 ms`
+- Next action:
+  - Keep moving down the remaining presentation/layout floor on the same live Pixi handoff path, but prefer the next slice only if it comes with a better-isolated trace than this geometry-bounding probe.

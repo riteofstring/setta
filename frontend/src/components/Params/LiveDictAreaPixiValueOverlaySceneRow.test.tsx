@@ -100,6 +100,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       rowId: "gridColor",
       sectionId: "settings-section",
       styleColor: null,
+      width: 280,
       x: 0,
       y: 0,
     };
@@ -159,6 +160,7 @@ describe("LiveDictAreaPixiValueOverlaySceneRow", () => {
       rowId: "kwargs",
       sectionId: "settings-section",
       styleColor: null,
+      width: 280,
       x: 0,
       y: 0,
     };

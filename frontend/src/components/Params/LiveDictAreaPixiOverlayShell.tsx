@@ -205,8 +205,8 @@ export function LiveDictAreaPixiOverlayShell({
                 style={{
                   height: target.height,
                   left: target.x,
-                  right: 0,
                   top: target.y,
+                  width: target.width,
                 }}
                 type="button"
               />
@@ -229,8 +229,8 @@ export function LiveDictAreaPixiOverlayShell({
                 style={{
                   height: target.height,
                   left: target.x,
-                  right: 0,
                   top: target.y,
+                  width: target.width,
                 }}
                 type="button"
               />

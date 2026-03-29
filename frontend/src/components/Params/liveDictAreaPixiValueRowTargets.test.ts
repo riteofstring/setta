@@ -82,6 +82,8 @@ describe("buildLiveDictAreaPixiValueRowTargets", () => {
     expect(targets[0]?.sectionId).toBe("section-1");
     expect(targets[0]?.label).toBe("Pinned Value");
     expect(targets[1]?.label).toBe("Unpinned Value");
+    expect(targets[0]?.width).toBe(296);
+    expect(targets[1]?.width).toBe(296);
     expect(targets[0]?.y).toBeLessThan(targets[1]?.y ?? 0);
   });
 });
