@@ -5,6 +5,18 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
 
+env_flag_enabled() {
+  local raw_value="${1:-}"
+  case "$(printf '%s' "${raw_value}" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 terminate_process_tree() {
   local target_pid="$1"
   local signal_name="${2:-TERM}"
@@ -99,6 +111,53 @@ stop_dev_processes() {
   fi
 }
 
+collect_chrome_pids() {
+  ps -ax -o pid= -o command= | awk '
+    /Google Chrome\.app\/Contents\/MacOS\/Google Chrome/ ||
+    /Google Chrome Canary\.app\/Contents\/MacOS\/Google Chrome Canary/ ||
+    /Google Chrome for Testing\.app\/Contents\/MacOS\/Google Chrome for Testing/ ||
+    /Chromium\.app\/Contents\/MacOS\/Chromium/ ||
+    /Google Chrome Helper/ ||
+    /Chromium Helper/ ||
+    /(^|[[:space:]\/])google-chrome(-stable)?([[:space:]]|$)/ ||
+    /(^|[[:space:]\/])chrome([[:space:]]|$)/ ||
+    /(^|[[:space:]\/])chromium(-browser)?([[:space:]]|$)/ {
+      print $1
+    }
+  ' | sort -u
+}
+
+stop_all_chrome_processes() {
+  local pids=""
+  local pid=""
+
+  if ! env_flag_enabled "${SETTA_KILL_ALL_CHROME:-0}"; then
+    return 0
+  fi
+
+  if [[ "${OSTYPE:-}" == darwin* ]] && command -v osascript >/dev/null 2>&1; then
+    for app_name in "Google Chrome" "Google Chrome Canary" "Google Chrome for Testing" "Chromium"; do
+      osascript -e "tell application \"${app_name}\" to quit" >/dev/null 2>&1 || true
+    done
+    sleep 1
+  fi
+
+  pids="$(collect_chrome_pids)"
+  if [[ -z "${pids}" ]]; then
+    echo "No Chrome/Chromium processes found."
+    return 0
+  fi
+
+  while IFS= read -r pid; do
+    if [[ -n "${pid}" ]]; then
+      stop_pid_with_escalation "${pid}"
+    fi
+  done <<< "${pids}"
+
+  echo "Stopped all Chrome/Chromium processes."
+}
+
 stop_setta_sessions
 "${ROOT_DIR}/scripts/stop-browser-mcp.sh" --devtools || true
 stop_dev_processes
+stop_all_chrome_processes

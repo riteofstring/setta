@@ -13809,6 +13809,40 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 401
+
+- Item: Harden the headless CDP lifecycle so live DevTools access fails fast instead of stalling on stale browser state.
+- Status: `done`
+- Details:
+  - `frontend/playwright.config.ts` now respects `PLAYWRIGHT_HEADLESS=0|false|no|off` instead of forcing headless mode on every loop-driven Playwright run.
+  - `scripts/start-browser-mcp.sh` now supports `DEVTOOLS_HEADLESS`, waits for the DevTools `/json/version` endpoint before declaring success, and keeps the macOS `open -a ... --args` path only for non-headless launches.
+  - `scripts/cdp-port.sh` now probes the reported DevTools endpoint, ignores stale `devtools.pid` files, and refuses to echo a dead fallback port.
+  - `scripts/chrome-devtools-mcp.sh` now fails cleanly when `cdp-port.sh` cannot find a live browser or when `BROWSER_URL` points at a dead endpoint.
+  - `scripts/kill-setta.sh` now supports `SETTA_KILL_ALL_CHROME=1` to clear stuck Chrome/Chromium processes during loop restarts.
+  - Added and expanded focused regression coverage for the lifecycle/CDP support paths in:
+    - `tests/start/test_cdp_port_script.py`
+    - `tests/start/test_chrome_devtools_mcp_script.py`
+    - `tests/start/test_kill_setta_script.py`
+    - `tests/start/test_start_browser_mcp_script.py`
+  - The only code change needed in this iteration was to make the macOS `open` launch test explicit about `DEVTOOLS_HEADLESS=0` and `DEVTOOLS_OPEN_WITH_CHROME=1`, because the Ralph loop env otherwise forces the headless branch.
+  - Verification:
+    - `source activate.sh && pytest tests/start/test_cdp_port_script.py tests/start/test_chrome_devtools_mcp_script.py tests/start/test_start_browser_mcp_script.py`
+      - result: passed
+    - `source activate.sh && pytest tests/start/test_kill_setta_script.py tests/start/test_run_codex_loop_script.py`
+      - result: passed
+    - `source activate.sh && ruff check tests/start/test_start_browser_mcp_script.py`
+      - result: passed
+    - `pnpm -C frontend exec prettier --check playwright.config.ts`
+      - result: passed
+    - Fresh-context CDP smoke via sub-agent:
+      - result: passed
+      - sub-agent listed pages, navigated a worktree tab to `http://127.0.0.1:3043/`, and captured a text snapshot at `http://127.0.0.1:3043/home`
+  - Conclusion:
+    - the repeated live CDP accessibility blocker is no longer reproduced in this iteration
+    - the next iteration should stop on the support lane and return to the live `All Settings` tiny-card Gate 2 visual check
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 400
 
 - Item: Boost low-zoom tiny-card glyph contrast in the live Pixi right-column previews.

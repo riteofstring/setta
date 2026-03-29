@@ -85,6 +85,7 @@ BOOTSTRAP_ENABLED="${BOOTSTRAP_ENABLED:-1}"
 BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
 DEVTOOLS_CLOSE_BLANK_TABS="${DEVTOOLS_CLOSE_BLANK_TABS:-1}"
 DEVTOOLS_OPEN_WITH_CHROME="${DEVTOOLS_OPEN_WITH_CHROME:-1}"
+DEVTOOLS_HEADLESS="${DEVTOOLS_HEADLESS:-0}"
 BOOTSTRAP_VERBOSE="${BOOTSTRAP_VERBOSE:-1}"
 
 CHROME_ARGS=()
@@ -92,6 +93,17 @@ if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
   # shellcheck disable=SC2206
   CHROME_ARGS=(${CHROME_EXTRA_ARGS})
 fi
+
+flag_enabled() {
+  case "$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')" in
+    1|true|yes|on)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
 
 resolve_python_bin() {
   if command -v python >/dev/null 2>&1; then
@@ -103,6 +115,78 @@ resolve_python_bin() {
     return 0
   fi
   return 1
+}
+
+devtools_endpoint_ready() {
+  local probe_url="http://127.0.0.1:${DEBUG_PORT}/json/version"
+  local response=""
+  local python_bin=""
+
+  if command -v curl >/dev/null 2>&1; then
+    response="$(
+      curl \
+        --silent \
+        --show-error \
+        --fail \
+        --max-time 1 \
+        "${probe_url}" 2>/dev/null || true
+    )"
+    if [[ "${response}" == *"webSocketDebuggerUrl"* ]]; then
+      return 0
+    fi
+  fi
+
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    return 1
+  fi
+
+  DEVTOOLS_PROBE_URL="${probe_url}" "${python_bin}" - <<'PY'
+import json
+import os
+import sys
+import urllib.request
+
+probe_url = os.environ.get("DEVTOOLS_PROBE_URL", "")
+if not probe_url:
+    sys.exit(1)
+
+try:
+    with urllib.request.urlopen(probe_url, timeout=1) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+except Exception:
+    sys.exit(1)
+
+if payload.get("webSocketDebuggerUrl"):
+    sys.exit(0)
+
+sys.exit(1)
+PY
+}
+
+wait_for_devtools_endpoint() {
+  local timeout_seconds="${START_BROWSER_MCP_CONNECT_TIMEOUT_SECONDS:-10}"
+  local start_ts=""
+  local elapsed=""
+
+  if [[ "${timeout_seconds}" == "0" ]]; then
+    devtools_endpoint_ready
+    return $?
+  fi
+
+  start_ts="$(date +%s)"
+  while true; do
+    if devtools_endpoint_ready; then
+      return 0
+    fi
+
+    elapsed="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
+      return 1
+    fi
+
+    sleep 1
+  done
 }
 
 write_pid() {
@@ -305,7 +389,10 @@ open_url_in_devtools_profile() {
     return 1
   fi
   if [[ "$DEVTOOLS_OPEN_WITH_CHROME" != "1" ]]; then
-    return 0
+    return 1
+  fi
+  if flag_enabled "$DEVTOOLS_HEADLESS"; then
+    return 1
   fi
 
   local app_bundle=""
@@ -357,8 +444,9 @@ open_bootstrap_in_devtools() {
           fi
           if [[ "$DEVTOOLS_OPEN_WITH_CHROME" == "1" ]]; then
             # Fallback for environments where the DevTools JSON endpoint isn't reachable yet.
-            open_url_in_devtools_profile "$url_candidate"
-            return 0
+            if open_url_in_devtools_profile "$url_candidate"; then
+              return 0
+            fi
           fi
         elif [[ "$BOOTSTRAP_VERBOSE" == "1" ]] && (( elapsed % 5 == 0 )); then
           echo "Bootstrap URL not ready yet (backend still starting)."
@@ -392,6 +480,7 @@ Environment variables:
   BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
   DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)
   DEVTOOLS_OPEN_WITH_CHROME  Also ask Chrome to open the URL in the devtools profile (default: 1)
+  DEVTOOLS_HEADLESS  Launch the CDP browser with --headless=new (default: 0)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
 
@@ -462,20 +551,28 @@ fi
 
 mkdir -p "$PROFILE_DIR"
 
+CHROME_LAUNCH_ARGS=(
+  --remote-debugging-port="$DEBUG_PORT"
+  --user-data-dir="$PROFILE_DIR"
+  --no-first-run
+  --no-default-browser-check
+)
+if flag_enabled "$DEVTOOLS_HEADLESS"; then
+  CHROME_LAUNCH_ARGS+=(--headless=new)
+fi
+if [[ ${#CHROME_ARGS[@]} -gt 0 ]]; then
+  CHROME_LAUNCH_ARGS+=("${CHROME_ARGS[@]}")
+fi
+CHROME_LAUNCH_ARGS+=(about:blank)
+
 echo "Starting Chrome with remote debugging on port $DEBUG_PORT..."
 if [[ "$FOREGROUND" == "1" ]]; then
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$$"
   open_bootstrap_in_devtools
-  exec "$CHROME_BIN" \
-    --remote-debugging-port="$DEBUG_PORT" \
-    --user-data-dir="$PROFILE_DIR" \
-    --no-first-run \
-    --no-default-browser-check \
-    "${CHROME_ARGS[@]:-}" \
-    about:blank
+  exec "$CHROME_BIN" "${CHROME_LAUNCH_ARGS[@]}"
 else
   app_bundle=""
-  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+  if ! flag_enabled "$DEVTOOLS_HEADLESS" && [[ "${OSTYPE:-}" == "darwin"* ]]; then
     case "$CHROME_BIN" in
       *.app/Contents/MacOS/*)
         app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
@@ -483,33 +580,20 @@ else
     esac
   fi
   if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
-    if ! open -g -n -a "$app_bundle" --args \
-      --remote-debugging-port="$DEBUG_PORT" \
-      --user-data-dir="$PROFILE_DIR" \
-      --no-first-run \
-      --no-default-browser-check \
-      "${CHROME_ARGS[@]:-}" \
-      about:blank >/dev/null 2>&1; then
-      "$CHROME_BIN" \
-        --remote-debugging-port="$DEBUG_PORT" \
-        --user-data-dir="$PROFILE_DIR" \
-        --no-first-run \
-        --no-default-browser-check \
-        "${CHROME_ARGS[@]:-}" \
-        about:blank >/dev/null 2>&1 &
+    if ! open -g -n -a "$app_bundle" --args "${CHROME_LAUNCH_ARGS[@]}" >/dev/null 2>&1; then
+      "$CHROME_BIN" "${CHROME_LAUNCH_ARGS[@]}" >/dev/null 2>&1 &
       write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
     fi
   else
-    "$CHROME_BIN" \
-      --remote-debugging-port="$DEBUG_PORT" \
-      --user-data-dir="$PROFILE_DIR" \
-      --no-first-run \
-      --no-default-browser-check \
-      "${CHROME_ARGS[@]:-}" \
-      about:blank >/dev/null 2>&1 &
+    "$CHROME_BIN" "${CHROME_LAUNCH_ARGS[@]}" >/dev/null 2>&1 &
     write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
+  fi
+  if ! wait_for_devtools_endpoint; then
+    rm -f "${MCP_RUN_DIR}/devtools.pid"
+    echo "Timed out waiting for Chrome DevTools endpoint on port ${DEBUG_PORT}." >&2
+    exit 1
   fi
   open_bootstrap_in_devtools
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"
-  echo "To stop the debug browser, quit that Chrome window or kill its process."
+  echo "To stop the debug browser, kill its process."
 fi
