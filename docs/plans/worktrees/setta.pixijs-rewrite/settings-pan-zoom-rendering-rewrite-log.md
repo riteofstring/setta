@@ -9860,3 +9860,32 @@ Record:
     - note: a separate `main` worktree session at `http://127.0.0.1:3000/` was not reachable in this verification pass
 - Next action:
   - Return to the next measured retained-scene hotspot or remaining visible mismatch outside the now-cleared choice-backed color-picker row path; do not expand this into generic non-choice color value rows unless they become the next explicit target.
+
+## 2026-03-30 299
+
+- Item: Probe DOM-backed row/title spacing metrics as the source of the remaining cramped first-visible `All Settings` card drift.
+- Status: `blocked`
+- Details:
+  - Took the next bounded slice directly from item `298`'s remaining visual mismatch instead of reopening seam lifting:
+    - a fresh CDP check on the running worktree still judged the first visible unpinned cards around `shortcuts` and `sectionSizingPolicy` / `By Type` as slightly tighter/compressed than baseline `/settings`
+    - the next hypothesis was that the retained Pixi scene was still using the wrong row pitch / title inset constants even after the earlier row-chrome and control/value parity fixes
+  - Tried one bounded measurement probe in the live Pixi path:
+    - added a hidden DOM sample inside `LiveDictAreaPixiScene` to read row block height, row pitch, and title/value text insets from the mounted DOM source of truth
+    - threaded those measurements into the live Pixi layout/scene view so the same canary path could draw from measured spacing rather than the existing constants
+    - pinned the probe in focused scene/layout/view tests plus the existing narrow `All Settings` live-Pixi canary checks
+  - Focused automation passed while the probe was applied:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+      - result: passed (`2 passed`)
+  - Fresh visual verification still failed the slice:
+    - fresh-context Chrome DevTools MCP compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` at browser zoom `100%`
+    - the canary remained visibly cramped in the same checked area; `shortcuts` still looked tight near the card edges and `sectionSizingPolicy` / `By Type` still read denser/smaller than baseline
+    - the probe did not materially relax that drift, so the layout mismatch is not explained well enough by row pitch/title inset constants alone
+  - Because the required CDP visual gate failed, the probe was reverted in full and no production or test changes were kept from this iteration.
+  - Reference availability note:
+    - `127.0.0.1:3000` was still unreachable during this verification pass, so no read-only `main` side-by-side oracle was available.
+- Next action:
+  - Diagnose a different source of the remaining first-visible `All Settings` text/layout compression before making another renderer change; do not continue the DOM-backed row-metrics measurement shape.
