@@ -5,10 +5,6 @@ import { Node } from "forks/xyflow/core/types";
 import _ from "lodash";
 import { unstable_batchedUpdates } from "react-dom";
 import {
-  getMessageCompletenessScore,
-  mergeChatMessages,
-} from "state/actions/chatMergeUtils";
-import {
   markRenameBroadcastsReady,
   maybeOpenNextRenamePrompt,
 } from "state/actions/renameRefactors";
@@ -47,7 +43,6 @@ import {
 } from "utils/generatedEndpoints";
 import {
   AllProjectMetadata,
-  BaseChatMessageUnion,
   BaseCodeObjImplUnion,
   BaseSectionImplUnion,
   CodeObjType,
@@ -67,8 +62,8 @@ import {
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
-import { readLiveDictAreaRendererModeFromWindow } from "../../components/Section/Layouts/liveDictAreaRendererMode";
 import { applyActiveSectionChange } from "./activeSectionController";
+import { resolveHydratedToolCallArguments } from "./chatHydrationOverlays";
 import { recordAuthoritativeProjectChatWindowingState } from "./projectChatWindowingAuthoritative";
 import { reconcileProjectChatWindowingEphemeralState } from "./projectChatWindowingEphemeral";
 
@@ -180,81 +175,48 @@ function mergeStreamingChatSections(
       currentVariant,
     ) as ChatSectionImpl;
 
-    const incomingMessages = Array.isArray(incomingChat.messages)
-      ? incomingChat.messages
-      : [];
-    const currentMessages = Array.isArray(currentChat.messages)
-      ? currentChat.messages
-      : [];
     const incomingToolArgs = incomingChat.toolCallArguments ?? {};
     const currentToolArgs = currentChat.toolCallArguments ?? {};
     const incomingInputText = incomingChat.inputText ?? "";
     const currentInputText = currentChat.inputText ?? "";
+    const isManagedSection =
+      isManagedChatSection(projectState, sectionId) ||
+      isManagedChatSection(currentState, sectionId);
     const shouldPreserveStreaming = isSectionStreamActive(sectionId);
-    const shouldMergeFast =
-      shouldPreserveStreaming ||
-      currentMessages.length > incomingMessages.length ||
-      Object.keys(currentToolArgs).length >
-        Object.keys(incomingToolArgs).length ||
-      currentInputText.length > incomingInputText.length;
-    const shouldMerge = shouldMergeFast
-      ? true
-      : hasMoreCompleteChatMessages(currentMessages, incomingMessages);
-    if (!shouldMerge) {
+    const nextInputText = isManagedSection
+      ? currentInputText
+      : currentInputText.length > incomingInputText.length
+        ? currentInputText
+        : incomingInputText;
+    const nextWaitingForResponse =
+      isManagedSection && shouldPreserveStreaming
+        ? incomingChat.waitingForResponse || currentChat.waitingForResponse
+        : incomingChat.waitingForResponse;
+    const nextToolCallArguments =
+      isManagedSection && shouldPreserveStreaming
+        ? resolveHydratedToolCallArguments({
+            backendToolCallArguments: incomingToolArgs,
+            localToolCallArguments: currentToolArgs,
+            preserveLocalOverlay: true,
+          })
+        : incomingToolArgs;
+    if (
+      nextInputText === incomingInputText &&
+      nextWaitingForResponse === incomingChat.waitingForResponse &&
+      _.isEqual(nextToolCallArguments, incomingToolArgs)
+    ) {
       continue;
     }
 
-    const mergedMessages = mergeChatMessages(incomingMessages, currentMessages);
-    const mergedToolArgs = {
-      ...incomingToolArgs,
-      ...currentToolArgs,
-    };
-    const mergedInputText =
-      currentInputText.length > incomingInputText.length
-        ? currentInputText
-        : incomingInputText;
-    const mergedWaitingForResponse = shouldPreserveStreaming
-      ? incomingChat.waitingForResponse || currentChat.waitingForResponse
-      : incomingChat.waitingForResponse;
     setEffectiveImplValue<"ChatSection">(incomingImpl, incomingCore, variant, {
-      messages: mergedMessages,
-      toolCallArguments: mergedToolArgs,
-      inputText: mergedInputText,
-      waitingForResponse: mergedWaitingForResponse,
+      toolCallArguments: nextToolCallArguments,
+      inputText: nextInputText,
+      waitingForResponse: nextWaitingForResponse,
     });
     mergedSectionIds.push(sectionId);
   }
 
   return mergedSectionIds;
-}
-
-function hasMoreCompleteChatMessages(
-  currentMessages: Array<BaseChatMessageUnion>,
-  incomingMessages: Array<BaseChatMessageUnion>,
-): boolean {
-  if (currentMessages.length === 0) {
-    return false;
-  }
-  if (incomingMessages.length === 0) {
-    return currentMessages.length > 0;
-  }
-  const incomingById = new Map<string, BaseChatMessageUnion>();
-  for (const message of incomingMessages) {
-    incomingById.set(message.id, message);
-  }
-  for (const message of currentMessages) {
-    const incoming = incomingById.get(message.id);
-    if (!incoming) {
-      return true;
-    }
-    if (
-      getMessageCompletenessScore(message) >
-      getMessageCompletenessScore(incoming)
-    ) {
-      return true;
-    }
-  }
-  return false;
 }
 
 export function isBaseCodeSectionType(sectionType: SectionType): boolean {
@@ -518,12 +480,31 @@ export function getCurrEffectiveSectionImplWithTypeGuard<T>(
   typeGuard: (impl) => impl is T,
   preview = false,
 ): T {
-  const effective = getCurrEffectiveSectionImpl(p, sectionId, preview);
+  const effective = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+    p,
+    sectionId,
+    typeGuard,
+    preview,
+  );
+  if (!effective) {
+    throw new Error(`Missing section implementation for section ${sectionId}`);
+  }
+  return effective;
+}
+
+export function getCurrEffectiveSectionImplWithTypeGuardIfPresent<T>(
+  p: ZustandProjectState,
+  sectionId: string,
+  typeGuard: (impl) => impl is T,
+  preview = false,
+): T | null {
+  const effective = getCurrEffectiveSectionImplIfPresent(p, sectionId, preview);
+  if (!effective) {
+    return null;
+  }
 
   if (!typeGuard(effective)) {
-    throw new Error(
-      `Section implementation failed type guard for section ${sectionId}`,
-    );
+    return null;
   }
 
   return effective;
@@ -601,7 +582,25 @@ export function getVariantBaseAndEffectiveSectionImpl(
   return { variant, baseImpl, impl };
 }
 
-export function getCurrCodeObjVariant(
+function getCurrCodeObjVariant(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  preview = false,
+) {
+  const variant = getCurrCodeObjVariantIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!variant) {
+    throw new Error();
+  }
+  return variant;
+}
+
+export function getCurrCodeObjVariantIfPresent(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
@@ -611,25 +610,25 @@ export function getCurrCodeObjVariant(
   if (isBaseSectionWithParamsImpl(sectionImpl)) {
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      throw new Error();
+      return null;
     }
-    return getCodeObjVariant(p, variantId);
+    return p.codeObjVariants[variantId] ?? null;
   }
   if (sectionImpl.type === SectionTypeEnum.MetaControl) {
     const controlParamId = sectionImpl.metaControlParamId;
     if (!controlParamId) {
-      throw new Error();
+      return null;
     }
     if (controlParamId !== codeObjId) {
-      throw new Error();
+      return null;
     }
     const variantId = sectionImpl.codeObjVariantMap[codeObjId];
     if (variantId === undefined) {
-      throw new Error();
+      return null;
     }
-    return getCodeObjVariant(p, variantId);
+    return p.codeObjVariants[variantId] ?? null;
   }
-  throw new Error();
+  return null;
 }
 
 export function getCurrEffectiveCodeObjImpl(
@@ -638,30 +637,79 @@ export function getCurrEffectiveCodeObjImpl(
   codeObjId: string,
   preview = false,
 ) {
-  const variant = getCurrCodeObjVariant(p, sectionId, codeObjId, preview);
+  const impl = getCurrEffectiveCodeObjImplIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!impl) {
+    throw new Error();
+  }
+  return impl;
+}
+
+export function getCurrEffectiveCodeObjImplIfPresent(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  preview = false,
+) {
+  const variant = getCurrCodeObjVariantIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    preview,
+  );
+  if (!variant) {
+    return null;
+  }
   const baseImpl = getCodeObjImpl(p, variant.impl);
   const core = getCodeObjCore(p, codeObjId);
   return getEffectiveImpl(baseImpl, core, variant);
 }
 
-export function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
+function getCurrEffectiveCodeObjImplWithTypeGuard<T>(
   p: ZustandProjectState,
   sectionId: string,
   codeObjId: string,
   typeGuard: (impl) => impl is T,
   preview = false,
 ): T {
-  const effective = getCurrEffectiveCodeObjImpl(
+  const effective = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    p,
+    sectionId,
+    codeObjId,
+    typeGuard,
+    preview,
+  );
+  if (!effective) {
+    throw new Error(
+      `Missing code obj implementation for section ${sectionId}, codeObj ${codeObjId}`,
+    );
+  }
+  return effective;
+}
+
+export function getCurrEffectiveCodeObjImplWithTypeGuardIfPresent<T>(
+  p: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+  typeGuard: (impl) => impl is T,
+  preview = false,
+): T | null {
+  const effective = getCurrEffectiveCodeObjImplIfPresent(
     p,
     sectionId,
     codeObjId,
     preview,
   );
+  if (!effective) {
+    return null;
+  }
 
   if (!typeGuard(effective)) {
-    throw new Error(
-      `Code obj implementation failed type guard for section ${sectionId}, codeObj ${codeObjId}`,
-    );
+    return null;
   }
 
   return effective;
@@ -764,6 +812,18 @@ export function setCurrEffectiveCodeObjImplValue<
   return setEffectiveImplValue<K>(impl, core, variant, args);
 }
 
+export function setCodeObjVariantImplValue<K extends keyof ImplArgsBundleMap>(
+  state: ZustandProjectState,
+  codeObjId: string,
+  codeObjVariantId: string,
+  args: ImplArgsBundleMap[K]["args"],
+): ImplArgsBundleMap[K]["impl"] {
+  const variant = getCodeObjVariant(state, codeObjVariantId);
+  const impl = getCodeObjImpl(state, variant.impl);
+  const core = getCodeObjCore(state, codeObjId);
+  return setEffectiveImplValue<K>(impl, core, variant, args);
+}
+
 export function getSectionCore(p: ZustandProjectState, sectionId: string) {
   const section = p.sections[sectionId];
   if (!section) {
@@ -801,12 +861,33 @@ export function getParamDisplayName(
   sectionId: string,
   codeObjId: string,
 ) {
-  const codeObj = getCodeObjCore(state, codeObjId);
+  const displayName = getParamDisplayNameIfPresent(state, sectionId, codeObjId);
+  if (displayName === null) {
+    throw new Error(
+      `Missing param display name for section ${sectionId}, codeObj ${codeObjId}`,
+    );
+  }
+  return displayName;
+}
+
+export function getParamDisplayNameIfPresent(
+  state: ZustandProjectState,
+  sectionId: string,
+  codeObjId: string,
+): string | null {
+  const codeObj = state.codeObjs[codeObjId];
+  if (!codeObj) {
+    return null;
+  }
   if (!state.projectConfig.showParamDisplayNames) {
     return codeObj.name;
   }
-  const impl = getCurrEffectiveCodeObjImpl(state, sectionId, codeObjId);
-  if (isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
+  const impl = getCurrEffectiveCodeObjImplIfPresent(
+    state,
+    sectionId,
+    codeObjId,
+  );
+  if (impl && isBaseParamCodeObjImpl(impl) && impl.coreNameEditable) {
     return codeObj.name;
   }
   const trimmedDisplayName = codeObj.displayName.trim();
@@ -982,6 +1063,15 @@ export function getSectionDescendants(
   return ids;
 }
 
+export function getSectionImplChildren(
+  sectionImpl: BaseSectionImplUnion,
+): Array<string> {
+  if (!isBaseParentSectionImpl(sectionImpl)) {
+    return [];
+  }
+  return [...sectionImpl.children];
+}
+
 export function manualDndChildrenReset() {
   updateDndChildren(
     getDisplayedSectionIdToChildren(useProjectState.getState()),
@@ -1009,6 +1099,39 @@ function getComparableProjectState(
   });
 }
 
+function pruneProjectChatWindowingForExistingSections(
+  projectState: ProjectStateSingleConfig,
+): ProjectStateSingleConfig {
+  const existingSectionIds = new Set(Object.keys(projectState.sections));
+  let changed = false;
+  const nextInstancesById = Object.fromEntries(
+    Object.entries(projectState.projectChatWindowing.instancesById).filter(
+      ([, instance]) => {
+        const sectionId = instance.sectionIdOrNull;
+        if (!sectionId || existingSectionIds.has(sectionId)) {
+          return true;
+        }
+        changed = true;
+        return false;
+      },
+    ),
+  );
+  if (!changed) {
+    return projectState;
+  }
+  const nextOrder = projectState.projectChatWindowing.order.filter(
+    (instanceId) => instanceId in nextInstancesById,
+  );
+  return {
+    ...projectState,
+    projectChatWindowing: {
+      ...projectState.projectChatWindowing,
+      instancesById: nextInstancesById,
+      order: nextOrder,
+    },
+  };
+}
+
 export function processProjectStateUpdateFromBackend(
   x: ProjectStateSingleConfigWithCompletedOpIds,
 ) {
@@ -1018,6 +1141,7 @@ export function processProjectStateUpdateFromBackend(
   }
   const currentState = useProjectState.getState();
   mergeStreamingChatSections(x.projectState, currentState);
+  x.projectState = pruneProjectChatWindowingForExistingSections(x.projectState);
   recordAuthoritativeProjectChatWindowingState(
     x.projectState.projectConfig.id,
     x.projectState.projectChatWindowing,
@@ -1040,6 +1164,7 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
+  reconcilePendingViewport(nextPending);
   reconcilePendingTopLevelLayout(nextPending);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
@@ -1111,28 +1236,31 @@ function applyViewportFromProjectState(
   projectState: ProjectStateSingleConfig,
 ): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
-  const currentConfig = useProjectState.getState().projectConfig;
-  const shouldSuppressViewportPersistenceUntilFitViewSettles =
-    useMisc.getState().suppressViewportPersistenceUntilFitViewSettles;
+  const currentState = useProjectState.getState();
+  const currentConfig = currentState.projectConfig;
   const viewModeChanged =
     currentConfig.activeViewModeId !==
     projectState.projectConfig.activeViewModeId;
   const viewportChanged =
     !_.isEqual(currentConfig.viewport, viewport) ||
     currentConfig.viewportInitialized !== viewportInitialized;
+  const visibleTopLevelSectionIdsChanged = !_.isEqual(
+    getVisibleTopLevelSectionIdsForAutoFit(currentState),
+    getVisibleTopLevelSectionIdsForAutoFit(projectState),
+  );
   if (
     !viewportChanged &&
     !viewModeChanged &&
-    !shouldSuppressViewportPersistenceUntilFitViewSettles
+    (!(!viewport || !viewportInitialized) || !visibleTopLevelSectionIdsChanged)
   ) {
     return false;
   }
-  if (
-    !viewport ||
-    !viewportInitialized ||
-    shouldSuppressViewportPersistenceUntilFitViewSettles
-  ) {
-    useReactFlow.setState(buildFitViewOnInitState(projectState));
+  if (!viewport || !viewportInitialized) {
+    useReactFlow.setState({
+      fitViewOnInit: true,
+      fitViewOnInitDone: false,
+      fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
+    });
     return true;
   }
   useReactFlow.setState({
@@ -1144,14 +1272,23 @@ function applyViewportFromProjectState(
   return false;
 }
 
-export function buildFitViewOnInitState(
+function getVisibleTopLevelSectionIdsForAutoFit(
   projectState: ProjectStateSingleConfig,
-) {
-  return {
-    fitViewOnInit: true,
-    fitViewOnInitDone: false,
-    fitViewOnInitOptions: getFitViewOptionsForVisibleSections(projectState),
-  };
+): string[] {
+  const topLevelSections = getActiveViewModeTopLevelSections(projectState);
+  const orderedSectionIds = Object.keys(topLevelSections);
+  const { activeViewModeId, isEditingViewMode, viewModes } =
+    projectState.projectConfig;
+  if (isEditingViewMode || !activeViewModeId) {
+    return orderedSectionIds;
+  }
+  const activeViewMode = viewModes[activeViewModeId];
+  if (!activeViewMode) {
+    return orderedSectionIds;
+  }
+  return orderedSectionIds.filter(
+    (sectionId) => activeViewMode.visibilityBySectionId[sectionId],
+  );
 }
 
 function getFitViewOptionsForVisibleSections(
@@ -1587,6 +1724,40 @@ export function createTopLevelSectionLayoutDict(
 type TopLevelSectionLayoutMap =
   ProjectStateSingleConfig["projectConfig"]["topLevelSections"];
 
+type PendingViewportState = Viewport | null;
+
+const pendingViewportRef: {
+  opId: string | null;
+  snapshot: PendingViewportState;
+  hasQueuedSend: boolean;
+} = {
+  opId: null,
+  snapshot: null,
+  hasQueuedSend: false,
+};
+
+function applyViewportSnapshotToProjectState(
+  state: ZustandProjectState,
+  viewport: PendingViewportState,
+) {
+  state.projectConfig.viewport = viewport;
+  state.projectConfig.viewportInitialized = viewport !== null;
+  const { activeViewModeId, viewModes } = state.projectConfig;
+  if (!activeViewModeId) {
+    return;
+  }
+  const activeViewMode = viewModes[activeViewModeId];
+  if (!activeViewMode) {
+    return;
+  }
+  activeViewMode.viewport = viewport;
+  activeViewMode.viewportInitialized = viewport !== null;
+}
+
+function applyPendingViewport(state: ZustandProjectState) {
+  applyViewportSnapshotToProjectState(state, pendingViewportRef.snapshot);
+}
+
 const pendingTopLevelLayoutRef: {
   opId: string | null;
   snapshot: TopLevelSectionLayoutMap | null;
@@ -1655,6 +1826,41 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   }
 }, 500);
 
+const sendViewportToBackend = _.debounce(() => {
+  if (!pendingViewportRef.opId) {
+    return;
+  }
+  const opId = pendingViewportRef.opId;
+  const snapshot = pendingViewportRef.snapshot;
+  pendingViewportRef.hasQueuedSend = false;
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    removePendingOp(opId);
+    if (pendingViewportRef.opId === opId) {
+      pendingViewportRef.opId = null;
+    }
+    pendingViewportRef.snapshot = null;
+    return;
+  }
+  const result = route_set_viewport({
+    projectConfigId,
+    viewport: snapshot,
+    frontendOpId: opId,
+  });
+  if (result instanceof Promise) {
+    void result.then((res) => {
+      if (isResponseDataAndStatus(res) && res200(res)) {
+        acknowledgePendingOp(opId);
+      } else if (isResponseDataAndStatus(res) && res.hasResponse) {
+        removePendingOp(opId);
+        if (pendingViewportRef.opId === opId) {
+          pendingViewportRef.opId = null;
+        }
+      }
+    });
+  }
+}, 1000);
+
 function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
   const currentOpId = pendingTopLevelLayoutRef.opId;
   if (!currentOpId) {
@@ -1680,6 +1886,30 @@ function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
   pendingTopLevelLayoutRef.opId = null;
   pendingTopLevelLayoutRef.snapshot = null;
   pendingTopLevelLayoutRef.hasQueuedSend = false;
+}
+
+function reconcilePendingViewport(nextPending: PendingOperation[]) {
+  const currentOpId = pendingViewportRef.opId;
+  if (!currentOpId) {
+    return;
+  }
+  const stillPending = nextPending.some((op) => op.opId === currentOpId);
+  if (stillPending) {
+    return;
+  }
+  if (pendingViewportRef.hasQueuedSend) {
+    const opId = createNewId();
+    pendingViewportRef.opId = opId;
+    nextPending.push({
+      opId,
+      apply: applyPendingViewport,
+      acknowledged: false,
+    });
+    return;
+  }
+  pendingViewportRef.opId = null;
+  pendingViewportRef.snapshot = null;
+  pendingViewportRef.hasQueuedSend = false;
 }
 
 export function debounced_route_set_top_level_section_layout() {
@@ -1776,7 +2006,10 @@ export async function ungroupActiveGroups() {
     return;
   }
   const groupIds = getActiveSectionUIIds();
-  route_ungroup_groups({ projectConfigId: getCurrProjectConfigId(), groupIds });
+  route_ungroup_groups({
+    projectConfigId: getCurrProjectConfigId(),
+    groupIds,
+  });
 }
 
 function addPendingOp(apply: (x: ZustandProjectState) => void) {
@@ -2019,93 +2252,61 @@ export function updateAllProjectMetadata(x: AllProjectMetadata) {
   useAllProjectMetadata.setState(x);
 }
 
-function applyViewportToActiveViewMode(
-  projectConfig: ProjectStateSingleConfig["projectConfig"],
-  viewport: Viewport | null,
-) {
-  const activeViewModeId = projectConfig.activeViewModeId;
-  if (activeViewModeId === null) {
-    return;
-  }
-
-  const activeViewMode = projectConfig.viewModes[activeViewModeId];
-  if (!activeViewMode) {
-    throw new Error(`View mode ${activeViewModeId} not found`);
-  }
-
-  activeViewMode.viewport = viewport;
-  activeViewMode.viewportInitialized = viewport !== null;
-}
-
-function applyViewportLocally(viewport: Viewport | null) {
-  useProjectState.setState((state) => {
-    state.projectConfig.viewport = viewport;
-    state.projectConfig.viewportInitialized = viewport !== null;
-    applyViewportToActiveViewMode(state.projectConfig, viewport);
-  });
-}
-
-function dispatchViewportUpdate(viewport: Viewport | null) {
+function dispatchViewportUpdate(viewport: Viewport | null, immediate = false) {
   const projectConfigId = getCurrProjectConfigId();
   if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
     return;
   }
-  if (_.isEqual(useProjectState.getState().projectConfig.viewport, viewport)) {
+  if (pendingViewportRef.opId) {
+    const pendingOps = usePendingOperations.getState().pending;
+    const stillPending = pendingOps.some(
+      (opInfo) => opInfo.opId === pendingViewportRef.opId,
+    );
+    if (!stillPending) {
+      pendingViewportRef.opId = null;
+    }
+  }
+  const currentProjectState = useProjectState.getState();
+  const snapshotUnchanged = _.isEqual(pendingViewportRef.snapshot, viewport);
+  const currentMatches =
+    _.isEqual(currentProjectState.projectConfig.viewport, viewport) &&
+    currentProjectState.projectConfig.viewportInitialized ===
+      (viewport !== null);
+  if (
+    !pendingViewportRef.hasQueuedSend &&
+    !pendingViewportRef.opId &&
+    snapshotUnchanged &&
+    currentMatches
+  ) {
     return;
   }
-  if (readLiveDictAreaRendererModeFromWindow() === "pixi-node-body") {
-    applyViewportLocally(viewport);
-    return;
-  }
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      state.projectConfig.viewport = viewport;
-      state.projectConfig.viewportInitialized = viewport !== null;
-      applyViewportToActiveViewMode(state.projectConfig, viewport);
-    },
-    send: (frontendOpId) =>
-      route_set_viewport({
-        projectConfigId,
-        viewport,
-        frontendOpId,
-      }),
-  });
-}
-
-export function clearCurrentProjectViewportForRefit() {
-  const projectState = useProjectState.getState();
-  if (projectState.projectConfig.id === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-
-  dispatchViewportUpdate(null);
-  useReactFlow.setState(buildFitViewOnInitState(projectState));
-  useMisc.setState({
-    requestUpdateNodeDimensions: true,
-    suppressViewportPersistenceUntilFitViewSettles: false,
-  });
-}
-
-export function requestCurrentProjectViewportRefitWithoutSaving() {
-  const projectState = useProjectState.getState();
-  if (projectState.projectConfig.id === NULL_PROJECT_CONFIG_ID) {
-    return;
-  }
-
-  debouncedDispatchViewportUpdate.cancel();
+  pendingViewportRef.snapshot = viewport;
+  pendingViewportRef.hasQueuedSend = true;
   useProjectState.setState((state) => {
-    state.projectConfig.viewport = null;
-    state.projectConfig.viewportInitialized = false;
-    applyViewportToActiveViewMode(state.projectConfig, null);
+    applyViewportSnapshotToProjectState(state, viewport);
   });
-  useMisc.setState({
-    requestUpdateNodeDimensions: true,
-    suppressViewportPersistenceUntilFitViewSettles: true,
-  });
-  useReactFlow.setState(buildFitViewOnInitState(projectState));
+  if (!pendingViewportRef.opId) {
+    pendingViewportRef.opId = addPendingOp(applyPendingViewport);
+  }
+  sendViewportToBackend();
+  if (immediate) {
+    sendViewportToBackend.flush();
+  }
 }
 
-export const debouncedDispatchViewportUpdate = _.debounce(
+export const debouncedDispatchViewportUpdate = Object.assign(
   () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
-  1000,
+  {
+    cancel: () => {
+      sendViewportToBackend.cancel();
+    },
+    flush: () => {
+      sendViewportToBackend.flush();
+    },
+  },
 );
+
+export function dispatchViewportUpdateImmediately() {
+  debouncedDispatchViewportUpdate.cancel();
+  dispatchViewportUpdate(getCurrProjectConfigViewport(), true);
+}

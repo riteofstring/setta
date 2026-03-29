@@ -10,15 +10,6 @@ if [ -f "./supply_chain_policy.env" ]; then
   . "./supply_chain_policy.env"
 fi
 
-if [ -n "${SETTA_MIN_RELEASE_AGE_DAYS:-}" ]; then
-  case "${SETTA_MIN_RELEASE_AGE_DAYS}" in
-    *[!0-9]*)
-      echo "Minimum release age must be a non-negative integer: ${SETTA_MIN_RELEASE_AGE_DAYS}" >&2
-      exit 1
-      ;;
-  esac
-fi
-
 SETTA_EXCLUDE_NEWER=""
 if [ -n "${SETTA_MIN_RELEASE_AGE_DAYS:-}" ] && [ "${SETTA_MIN_RELEASE_AGE_DAYS}" -gt 0 ]; then
   if command -v python3 >/dev/null 2>&1; then
@@ -49,6 +40,22 @@ if [ -n "${SETTA_MIN_RELEASE_AGE_DAYS:-}" ] && [ "${SETTA_MIN_RELEASE_AGE_DAYS}"
     --lockfile ./uv.lock
 fi
 
-uv sync --frozen --all-extras --python "${SETTA_PYTHON_VERSION}"
+# Repo-local source/dev installs intentionally pull the Python SDK,
+# source-only helpers, and repo test/release tooling. The packaged user install
+# path is narrower and does not use these extras.
+if [ "${SETTA_INIT_ENV_NO_INSTALL_PROJECT:-}" = "1" ]; then
+  uv sync \
+    --frozen \
+    --extra source \
+    --extra dev \
+    --python "${SETTA_PYTHON_VERSION}" \
+    --no-install-project
+else
+  uv sync \
+    --frozen \
+    --extra source \
+    --extra dev \
+    --python "${SETTA_PYTHON_VERSION}"
+fi
 
 . ./activate.sh
