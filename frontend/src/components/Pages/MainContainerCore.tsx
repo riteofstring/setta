@@ -7,6 +7,7 @@ import { FloatingBox } from "components/Utils/FloatingBox";
 import { GridWrapper } from "components/Utils/GridWrapper";
 import { useAddMouseLocationListener } from "forks/xyflow/core/utils/mouseLocation";
 import { usePluginRuntimeBootstrap } from "plugins/runtime";
+import { type ComponentType } from "react";
 import { useAppPreview } from "state/definitions";
 import {
   useAIFollowViewport,
@@ -22,11 +23,13 @@ import { ViewModeTabs } from "./Project/ViewModeTabs";
 type MainContainerCoreProps = {
   doneLoading: boolean;
   is404: boolean;
+  SectionBoundary: ComponentType<{ sectionId: string }>;
 };
 
 export function MainContainerCore({
   doneLoading,
   is404,
+  SectionBoundary,
 }: MainContainerCoreProps) {
   const isAppPreviewEnabled = useAppPreview((x) => x.isPreviewEnabled);
   useCodeMirrorStyleLoader(doneLoading, is404);
@@ -49,7 +52,11 @@ export function MainContainerCore({
       <Overview />
       <UiEditor />
       <GridWrapper>
-        {isAppPreviewEnabled ? <AppPreview /> : <UIPage />}
+        {isAppPreviewEnabled ? (
+          <AppPreview />
+        ) : (
+          <UIPage SectionBoundary={SectionBoundary} />
+        )}
       </GridWrapper>
       <ProjectChatBottomDock />
       <ViewModeTabs />

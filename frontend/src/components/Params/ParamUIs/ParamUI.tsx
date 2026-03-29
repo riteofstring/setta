@@ -1,8 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
-  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -38,6 +38,11 @@ import {
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
 import { shouldShowPasswordReveal } from "utils/paramValue";
+import {
+  useShouldAutoActivateCodeMirrorOnMount,
+  useShouldAutoOpenColorPickerOnMount,
+  useShouldAutoOpenComboboxOnMount,
+} from "../paramEditorActivation";
 import { ButtonInputConfigForParam } from "./ButtonInput";
 import { ColorPickerInputConfigForParam } from "./ColorPickerInput";
 import {
@@ -67,6 +72,7 @@ type ParamUIProps = {
   onRevealPassword?: () => void;
   isPasswordRevealPending?: boolean;
   maybeErrorMessage?: string;
+  onAutoActivatedCodeMirrorReady?: () => void;
 };
 
 export function ParamUIConfig({
@@ -147,25 +153,42 @@ export function ParamUI({
   onRevealPassword,
   isPasswordRevealPending,
   maybeErrorMessage,
+  onAutoActivatedCodeMirrorReady,
 }: ParamUIProps) {
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
-  const paramUiState = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+  const {
+    codeObjType,
+    passwordHasSecret,
+    configLanguage,
+    defaultVal,
+    disabledOrFrozen,
+    dropzoneMode,
+    dropzoneMaxAttachments,
+    dropzonePlaceholder,
+    timeControlMode,
+    timeDisplayFormat,
+    timeDisplayTransparent,
+    timeDisplayScale,
+    timeDisplayFont,
+    dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
+    dateIncludesTime,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
       isBaseChildlessCodeObjImpl,
     );
-    if (!impl || !codeObjImpl) {
-      return null;
-    }
     const isDropzone = codeObjImpl.type === CodeObjTypeEnum.DropzoneParam;
     const hasPasswordSecret =
       codeObjImpl.type === CodeObjTypeEnum.PasswordParam
@@ -212,32 +235,6 @@ export function ParamUI({
       dateIncludesTime: isDateParam ? codeObjImpl.dateIncludesTime : false,
     };
   }, _.isEqual);
-  const hasParamUiState = paramUiState !== null;
-  const codeObjType = paramUiState?.codeObjType ?? CodeObjTypeEnum.TextParam;
-  const passwordHasSecret = paramUiState?.passwordHasSecret ?? false;
-  const configLanguage = paramUiState?.configLanguage;
-  const defaultVal = paramUiState?.defaultVal ?? "";
-  const disabledOrFrozen = paramUiState?.disabledOrFrozen ?? false;
-  const dropzoneMode = paramUiState?.dropzoneMode ?? null;
-  const dropzoneMaxAttachments = paramUiState?.dropzoneMaxAttachments ?? null;
-  const dropzonePlaceholder = paramUiState?.dropzonePlaceholder ?? null;
-  const timeControlMode =
-    paramUiState?.timeControlMode ?? TimeControlModeEnum.display;
-  const timeDisplayFormat =
-    paramUiState?.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour;
-  const timeDisplayTransparent = paramUiState?.timeDisplayTransparent ?? false;
-  const timeDisplayScale = paramUiState?.timeDisplayScale ?? 1;
-  const timeDisplayFont =
-    paramUiState?.timeDisplayFont ?? TimeDisplayFontEnum.monospace;
-  const dateDisplayFormat =
-    paramUiState?.dateDisplayFormat ?? DateDisplayFormatEnum.iso;
-  const dateControlMode =
-    paramUiState?.dateControlMode ?? DateControlModeEnum.input;
-  const dateSelectionMode =
-    paramUiState?.dateSelectionMode ?? DateSelectionModeEnum.single;
-  const dateCalendarWeekStart =
-    paramUiState?.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday;
-  const dateIncludesTime = paramUiState?.dateIncludesTime ?? false;
 
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -255,12 +252,13 @@ export function ParamUI({
       value,
       hasSecret: passwordHasSecret,
     });
+  const shouldAutoActivateCodeMirrorOnMount =
+    useShouldAutoActivateCodeMirrorOnMount();
+  const shouldAutoOpenComboboxOnMount = useShouldAutoOpenComboboxOnMount();
+  const shouldAutoOpenColorPickerOnMount =
+    useShouldAutoOpenColorPickerOnMount();
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
-
-  if (!hasParamUiState) {
-    return null;
-  }
 
   function onEscape() {
     focusOnSection(null, sectionId, false);
@@ -283,6 +281,10 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          shouldAutoActivateCodeMirrorOnMount={
+            shouldAutoActivateCodeMirrorOnMount
+          }
+          onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
         />
       );
     case CodeObjTypeEnum.TextParam:
@@ -299,6 +301,10 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          shouldAutoActivateCodeMirrorOnMount={
+            shouldAutoActivateCodeMirrorOnMount
+          }
+          onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
         />
       );
     case CodeObjTypeEnum.DateParam:
@@ -382,6 +388,7 @@ export function ParamUI({
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
+          shouldAutoOpenColorPickerOnMount={shouldAutoOpenColorPickerOnMount}
         />
       );
     case CodeObjTypeEnum.DropdownParam:
@@ -392,6 +399,7 @@ export function ParamUI({
           value={value}
           onChange={onChange}
           isDisabled={isDisabled}
+          shouldAutoOpenComboboxOnMount={shouldAutoOpenComboboxOnMount}
         />
       );
     case CodeObjTypeEnum.PasswordParam:
@@ -422,6 +430,10 @@ export function ParamUI({
           configLanguage={configLanguage}
           waitingForResult={waitingForResult}
           isSelectingParams={isSelectingParams}
+          shouldAutoActivateCodeMirrorOnMount={
+            shouldAutoActivateCodeMirrorOnMount
+          }
+          onAutoActivatedCodeMirrorReady={onAutoActivatedCodeMirrorReady}
         />
       );
     case CodeObjTypeEnum.DropzoneParam:
@@ -455,6 +467,8 @@ function TextParamConfigured({
   configLanguage,
   waitingForResult,
   isSelectingParams,
+  shouldAutoActivateCodeMirrorOnMount,
+  onAutoActivatedCodeMirrorReady,
 }: {
   sectionId: string;
   paramInfoId: string;
@@ -467,6 +481,8 @@ function TextParamConfigured({
   configLanguage: string;
   waitingForResult: boolean;
   isSelectingParams: boolean;
+  shouldAutoActivateCodeMirrorOnMount: boolean;
+  onAutoActivatedCodeMirrorReady?: () => void;
 }) {
   return (
     <>
@@ -486,7 +502,9 @@ function TextParamConfigured({
         realCodeClassName={`${NO_PAN_CLASS_NAME} nodrag self-end peer/textinput ${maybeErrorMessage ? "[&_*]:!text-red-500" : ""} [&_*]:!outline-0 cursor-text select-text [&_.cm-activeLine]:!px-0 [&_.cm-activeLine]:!bg-setta-200/10 [&_.cm-content]:!py-0 [&_.cm-content]:!px-0 [&_.cm-line]:!px-0 [&_.cm-content]:text-xs section-value py-[.125rem]`}
         language={configLanguage}
         isDisabled={isDisabled}
+        shouldAutoActivateOnMount={shouldAutoActivateCodeMirrorOnMount}
         tooltipParentDivId={CODEMIRROR_TOOLTIP_PARENT_ID}
+        onAutoActivatedEditorReady={onAutoActivatedCodeMirrorReady}
       />
       {waitingForResult && (
         <i className="section-value gg-spinner self-center justify-self-end text-blue-500/70" />
@@ -668,6 +686,7 @@ function ColorPickerParamConfigured({
   onChange,
   onEscape,
   isDisabled,
+  shouldAutoOpenColorPickerOnMount,
 }) {
   return (
     <ConfiguredColorPickerInput
@@ -679,6 +698,7 @@ function ColorPickerParamConfigured({
       wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
       isDisabled={isDisabled}
+      shouldAutoOpenOnMount={shouldAutoOpenColorPickerOnMount}
     />
   );
 }
@@ -689,6 +709,14 @@ function DropdownParamConfigured({
   value,
   onChange,
   isDisabled,
+  shouldAutoOpenComboboxOnMount,
+}: {
+  sectionId: string;
+  paramInfoId: string;
+  value: string;
+  onChange: ParamValueChange;
+  isDisabled: boolean;
+  shouldAutoOpenComboboxOnMount: boolean;
 }) {
   return (
     <ConfiguredDropdownInput
@@ -698,6 +726,7 @@ function DropdownParamConfigured({
       onChange={onChange}
       outerDivClasses="section-value flex justify-self-start self-center [&_search]:my-auto"
       isDisabled={isDisabled}
+      shouldAutoOpenOnMount={shouldAutoOpenComboboxOnMount}
     />
   );
 }
