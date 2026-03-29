@@ -9677,3 +9677,36 @@ Record:
     - `127.0.0.1:3000` and `127.0.0.1:8000` were still unreachable during the verification attempts, so no `main`-oracle side-by-side was available in this iteration.
 - Next action:
   - Diagnose which remaining live Pixi primitives on the first visible unpinned `All Settings` cards still create the overfilled chrome versus the DOM baseline before making another renderer change; do not commit more speculative fill-removal tweaks until that mapping is explicit.
+
+## 2026-03-29 294
+
+- Item: Re-probe the first visible live Pixi unpinned card chrome after explicitly targeting the row primitive.
+- Status: `blocked`
+- Details:
+  - Started from item `293`'s handoff and a fresh CDP diagnosis of the live worktree runtime:
+    - the repeated per-row rounded fills were the main visible mismatch on the first visible `All Settings` cards
+    - value-control fills looked secondary
+    - the unpinned panel shell was not the dominant visible source on those checked cards
+  - Tried one bounded renderer probe against that diagnosis:
+    - temporarily removed default detail-row fills
+    - temporarily removed unpinned param-area shell chrome
+    - temporarily pinned that mapping in focused scene/unit tests
+  - Focused automation passed while the probe was applied:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`44 passed`)
+    - Playwright:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes" --reporter=line`
+      - result: passed (`2 passed`)
+  - Additional adjacent zoom-anchor coverage was not trusted as evidence for this slice:
+    - the existing zoom-anchor guard failed on the current worktree runtime during the probe
+    - rerunning it in isolation with a fresh token still failed before zoom, reporting `0` visible `unpinned` anchors
+    - because the row-chrome probe was reverted and did not touch anchor wiring directly, this iteration records that failure as an adjacent canary concern rather than a landed regression
+  - Fresh visual verification still failed the slice:
+    - fresh-context Chrome DevTools MCP compared baseline `http://127.0.0.1:3044/settings` against canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` at browser zoom `100%`
+    - the change did not materially fix the overfilled look
+    - the canary drifted toward large blank white bodies on the same first visible cards instead of matching the compact baseline row presentation
+    - only `200` / cached `304` traffic was observed during that check, so auth did not undermine the result
+  - Because the required CDP visual gate failed, the probe was reverted in full and no code or test changes were kept from this iteration.
+- Next action:
+  - Explicitly map the real compact row primitive on the first visible `All Settings` cards before making another renderer change; do not assume that removing row fills or unpinned shell chrome is the right parity model.
