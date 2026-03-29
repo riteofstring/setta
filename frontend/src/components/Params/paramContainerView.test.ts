@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   PARAM_CONTAINER_COLUMN_WIDTH,
+  PARAM_CONTAINER_CENTER_GUTTER_PX,
   PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
   PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX,
   buildParamContainerLayout,
@@ -126,6 +127,7 @@ describe("buildParamContainerLayout", () => {
       gridTemplateAreas: '"key center-gutter value"',
       zIndex: 10,
     });
+    expect(PARAM_CONTAINER_CENTER_GUTTER_PX).toBe(12);
     expect(PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX).toBe(2);
     expect(PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX).toBe(2);
   });

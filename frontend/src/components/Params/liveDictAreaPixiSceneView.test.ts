@@ -6,6 +6,7 @@ import {
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
+  getLiveDictAreaPixiDetailRowChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiPalette,
@@ -288,6 +289,88 @@ describe("getLiveDictAreaPixiCompactRowPrimitive", () => {
       cornerRadiusPx: 3,
       horizontalPaddingPx: 4,
       surfaceKind: "filled",
+    });
+  });
+});
+
+describe("getLiveDictAreaPixiDetailRowChrome", () => {
+  const palette = {
+    bodyText: "#e5e7eb",
+    border: "#334155",
+    panelBackground: "#111827",
+    panelBackgroundAlt: "#0f172a",
+    portDot: "#94a3b8",
+    portSelectedDot: "#38bdf8",
+    rowBackground: "#172036",
+    rowBackgroundAlt: "#1e293b",
+    rowPlaceholderFill: "#1f2937",
+    titleText: "#94a3b8",
+  } as const;
+
+  it("drops default detail-row fills when the measured compact row surface is transparent", () => {
+    expect(
+      getLiveDictAreaPixiDetailRowChrome({
+        compactRowPrimitive: {
+          cornerRadiusPx: 2,
+          horizontalPaddingPx: 2,
+          surfaceKind: "transparent",
+        },
+        palette,
+        paramColumnWidth: 200,
+        rowKind: "value",
+        rowWidth: 320,
+        rowX: 12,
+      }),
+    ).toEqual({
+      contentInsetPx: 2,
+      cornerRadiusPx: 2,
+      fill: null,
+      labelX: 14,
+      rowBackgroundWidth: 302,
+      rowRightEdgeX: 312,
+      valueColumnX: 226,
+    });
+  });
+
+  it("keeps placeholder row fills even when ordinary detail rows stay transparent", () => {
+    expect(
+      getLiveDictAreaPixiDetailRowChrome({
+        compactRowPrimitive: {
+          cornerRadiusPx: 2,
+          horizontalPaddingPx: 2,
+          surfaceKind: "transparent",
+        },
+        palette,
+        paramColumnWidth: 200,
+        rowKind: "placeholder",
+        rowWidth: 320,
+        rowX: 12,
+      }).fill,
+    ).toBe(palette.rowPlaceholderFill);
+  });
+
+  it("keeps the measured radius and filled row surface when the DOM row shell is actually filled", () => {
+    expect(
+      getLiveDictAreaPixiDetailRowChrome({
+        compactRowPrimitive: {
+          cornerRadiusPx: 4,
+          horizontalPaddingPx: 3,
+          surfaceKind: "filled",
+        },
+        palette,
+        paramColumnWidth: 160,
+        rowKind: "group",
+        rowWidth: 260,
+        rowX: 24,
+      }),
+    ).toMatchObject({
+      contentInsetPx: 3,
+      cornerRadiusPx: 4,
+      fill: palette.rowBackgroundAlt,
+      labelX: 27,
+      rowBackgroundWidth: 230,
+      rowRightEdgeX: 251,
+      valueColumnX: 199,
     });
   });
 });

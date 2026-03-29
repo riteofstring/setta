@@ -23,6 +23,7 @@ import {
   getLiveDictAreaPixiClippingContainer,
   getLiveDictAreaPixiColorControlStyle,
   getLiveDictAreaPixiCompactRowPrimitive,
+  getLiveDictAreaPixiDetailRowChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
@@ -335,6 +336,7 @@ function _LiveDictAreaPixiScene({
 
       drawLiveDictAreaPixiScene({
         app,
+        compactRowPrimitive,
         layout: summaryLayout,
         palette,
         paramColumnWidth,
@@ -358,8 +360,10 @@ function _LiveDictAreaPixiScene({
       }
     };
   }, [
+    compactRowPrimitive,
     darkMode,
     fontLoadVersion,
+    presentationMode,
     renderResolution,
     sectionStyleColor,
     summaryLayout,
@@ -466,6 +470,7 @@ function getLiveDictAreaPixiSectionStyleColor(
 
 function drawLiveDictAreaPixiScene({
   app,
+  compactRowPrimitive,
   layout,
   palette,
   paramColumnWidth,
@@ -475,6 +480,7 @@ function drawLiveDictAreaPixiScene({
   textStyleSet,
 }: {
   app: Application;
+  compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   layout: LiveDictAreaPixiLayout;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
@@ -504,6 +510,7 @@ function drawLiveDictAreaPixiScene({
     app.stage.addChild(
       drawLiveDictAreaParamArea({
         block,
+        compactRowPrimitive,
         palette,
         paramColumnWidth,
         presentationMode,
@@ -578,6 +585,7 @@ function drawLiveDictAreaEdgeStrip({
 
 function drawLiveDictAreaParamArea({
   block,
+  compactRowPrimitive,
   palette,
   paramColumnWidth,
   presentationMode,
@@ -586,6 +594,7 @@ function drawLiveDictAreaParamArea({
   textStyleSet,
 }: {
   block: LiveDictAreaPixiParamAreaLayout;
+  compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   presentationMode: LiveDictAreaPixiPresentationMode;
@@ -634,6 +643,7 @@ function drawLiveDictAreaParamArea({
   for (const row of block.rows) {
     graphics.addChild(
       drawParamRow({
+        compactRowPrimitive,
         palette,
         paramColumnWidth,
         row,
@@ -777,6 +787,7 @@ function getOverviewRows(rows: LiveDictAreaPixiRowLayout[]) {
 }
 
 function drawParamRow({
+  compactRowPrimitive,
   palette,
   paramColumnWidth,
   row,
@@ -784,6 +795,7 @@ function drawParamRow({
   textFontFamily,
   textStyleSet,
 }: {
+  compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   row: LiveDictAreaPixiRowLayout;
@@ -791,36 +803,35 @@ function drawParamRow({
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
 }) {
-  const fill =
-    row.kind === "placeholder"
-      ? palette.rowPlaceholderFill
-      : row.kind === "group"
-        ? palette.rowBackgroundAlt
-        : palette.rowBackground;
+  const rowChrome = getLiveDictAreaPixiDetailRowChrome({
+    compactRowPrimitive,
+    palette,
+    paramColumnWidth,
+    rowKind: row.kind,
+    rowWidth: row.width,
+    rowX: row.x,
+  });
   const graphics = new Graphics();
 
-  graphics.roundRect(
-    row.x,
-    row.y,
-    row.width - row.x - LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX,
-    row.blockHeight,
-    8,
-  );
-  graphics.fill(fill);
+  if (rowChrome.fill && rowChrome.rowBackgroundWidth > 0) {
+    graphics.roundRect(
+      row.x,
+      row.y,
+      rowChrome.rowBackgroundWidth,
+      row.blockHeight,
+      rowChrome.cornerRadiusPx,
+    );
+    graphics.fill(rowChrome.fill);
+  }
 
-  const rowRightEdgeX = row.width - LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2;
-  const valueColumnX =
-    row.x +
-    LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX +
-    paramColumnWidth +
-    LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX +
-    2;
+  const rowRightEdgeX = rowChrome.rowRightEdgeX;
+  const valueColumnX = rowChrome.valueColumnX;
   const colorControlStyle = getLiveDictAreaPixiColorControlStyle({
     editorKind: row.editorKind,
     valueText: row.valueText,
   });
   const label = buildFittedRowText({
-    maxWidth: valueColumnX - row.labelX - 12,
+    maxWidth: valueColumnX - rowChrome.labelX - rowChrome.contentInsetPx,
     textResolution,
     style: {
       fill: palette.bodyText,
@@ -832,7 +843,7 @@ function drawParamRow({
   });
 
   if (label) {
-    label.x = row.labelX;
+    label.x = rowChrome.labelX;
     label.y = row.y + 4;
     graphics.addChild(label);
   }

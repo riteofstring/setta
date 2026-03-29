@@ -21,6 +21,8 @@ export const LIVE_DICT_AREA_PIXI_LAYOUT = {
   titleInsetX: 12,
 } as const;
 
+export const LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX = 6;
+
 const LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT = {
   areaPaddingBottom: 2,
   areaPaddingTop: 2,

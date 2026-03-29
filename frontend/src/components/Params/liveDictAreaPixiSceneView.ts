@@ -2,9 +2,11 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
   LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT,
   LIVE_DICT_AREA_PIXI_LAYOUT,
+  LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX,
   LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
 } from "./liveDictAreaPixiLayout";
 import {
+  PARAM_CONTAINER_CENTER_GUTTER_PX,
   PARAM_CONTAINER_COMPACT_ROW_HORIZONTAL_PADDING_PX,
   PARAM_CONTAINER_COMPACT_ROW_RADIUS_PX,
 } from "./paramContainerView";
@@ -93,6 +95,16 @@ export type LiveDictAreaPixiCompactRowPrimitive = {
   cornerRadiusPx: number;
   horizontalPaddingPx: number;
   surfaceKind: "filled" | "transparent";
+};
+
+export type LiveDictAreaPixiDetailRowChrome = {
+  contentInsetPx: number;
+  cornerRadiusPx: number;
+  fill: string | null;
+  labelX: number;
+  rowBackgroundWidth: number;
+  rowRightEdgeX: number;
+  valueColumnX: number;
 };
 
 type LiveDictAreaPixiFontFaceSet = Pick<
@@ -286,6 +298,56 @@ export function getLiveDictAreaPixiCompactRowPrimitive({
     )
       ? "filled"
       : "transparent",
+  };
+}
+
+export function getLiveDictAreaPixiDetailRowChrome({
+  compactRowPrimitive,
+  palette,
+  paramColumnWidth,
+  rowKind,
+  rowWidth,
+  rowX,
+}: {
+  compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
+  palette: LiveDictAreaPixiPalette;
+  paramColumnWidth: number;
+  rowKind: "group" | "placeholder" | "value";
+  rowWidth: number;
+  rowX: number;
+}): LiveDictAreaPixiDetailRowChrome {
+  const contentInsetPx = Math.max(
+    0,
+    Math.floor(compactRowPrimitive.horizontalPaddingPx),
+  );
+  const cornerRadiusPx = Math.max(
+    0,
+    Math.floor(compactRowPrimitive.cornerRadiusPx),
+  );
+  const fill =
+    rowKind === "placeholder"
+      ? palette.rowPlaceholderFill
+      : compactRowPrimitive.surfaceKind === "transparent"
+        ? null
+        : rowKind === "group"
+          ? palette.rowBackgroundAlt
+          : palette.rowBackground;
+
+  return {
+    contentInsetPx,
+    cornerRadiusPx,
+    fill,
+    labelX: rowX + contentInsetPx,
+    rowBackgroundWidth: Math.max(
+      0,
+      rowWidth - rowX - LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX,
+    ),
+    rowRightEdgeX:
+      rowWidth -
+      (LIVE_DICT_AREA_PIXI_PARAM_AREA_CONTENT_RIGHT_PADDING_PX +
+        contentInsetPx),
+    valueColumnX:
+      rowX + contentInsetPx + paramColumnWidth + PARAM_CONTAINER_CENTER_GUTTER_PX,
   };
 }
 

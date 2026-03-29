@@ -9746,3 +9746,39 @@ Record:
       - no obvious new clipping, overlap, or missing content was observed in the visible viewport
 - Next action:
   - Use this explicit compact-row primitive as the source of truth for the next bounded live Pixi row-chrome change, instead of continuing speculative fill-removal probes.
+
+## 2026-03-30 296
+
+- Item: Make the live Pixi detail-row body consume the mapped compact-row primitive instead of the hardcoded pill chrome.
+- Status: `done`
+- Details:
+  - Landed the next bounded row-body parity slice on the live Pixi canary:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/paramContainerView.ts`
+    - `frontend/src/components/Params/paramContainerView.test.ts`
+  - Replaced the old hardcoded detail-row draw contract (`8px` radius, always-filled row body, wide hardcoded right inset) with a DOM-backed row chrome helper that now:
+    - drops default detail-row fills when the measured compact DOM row surface is transparent
+    - keeps placeholder fills explicit
+    - uses the mapped compact-row radius and horizontal padding for label/value placement
+    - respects the DOM list's right padding so value text no longer rides the right edge
+  - Added focused unit coverage for the new row-chrome helper and shared DOM gutter constant.
+  - Fresh CDP comparison on the running worktree runtime judged this narrow slice as improved and no longer blocked on row-body chrome:
+    - the first visible unpinned cards looked acceptably closer on row body treatment
+    - no obvious right-edge clipping remained
+    - the remaining visible mismatch is now a separate value/control presentation issue, not the row-body shell itself
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramContainerView.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app at `http://127.0.0.1:3044/` after bootstrapping via `http://127.0.0.1:8044/__setta__/bootstrap#token=...`
+    - compared `/settings` vs `/settings?liveDictAreaRenderer=pixi-node-body` on `All Settings` at browser zoom `100%`
+    - first visible unpinned cards no longer showed the earlier obvious pill-filled row bodies or right-edge value clipping
+    - remaining mismatch on cards like `gui` / `backend` is the value/control rendering path, not row-body chrome
+- Next action:
+  - Move to the next real visual blocker: make the live Pixi value/control presentation match the DOM baseline on the first visible unpinned `All Settings` cards instead of flattening controls into right-aligned text.
