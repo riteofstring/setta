@@ -7457,3 +7457,43 @@ Record:
     - no obvious visual regression was observed in the checked viewport
 - Next action:
   - Treat the combobox lane as no longer the dominant hotspot on the live Pixi handoff canary and pivot the next iteration to the remaining shared interaction floor or another measured retained-scene hotspot instead of continuing overlay-shell cleanup.
+
+## 2026-03-29 238
+
+- Item: Probe the remaining shared interaction floor on the live Pixi generic value-row handoff canary.
+- Status: `done`
+- Details:
+  - Chose a bounded measured-hotspot checkpoint instead of restarting widget-specific overlay cleanup after item `237`.
+  - Recorded the probe in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-value-row-shared-floor-probe.md`
+  - Fresh-context Chrome DevTools MCP check on the live worktree canary:
+    - page used: `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - reused the authenticated `3044` Settings tab
+    - opened `All Settings`
+    - clicked the visible generic value-row handoff on `defaultZoomLevel`
+    - the overlay opened correctly, focus landed in a CodeMirror textbox with value `1.0`, and the Pixi / React Flow surface stayed mounted throughout the interaction
+  - Perf summary from the short profile window:
+    - trace came back at `INP 73 ms`
+    - input delay: `8 ms`
+    - processing: `16 ms`
+    - presentation delay: `49 ms`
+    - the click handler itself was not the dominant cost; the slowest portion was presentation/compositor work
+    - hottest named samples were shared-floor signals:
+      - Pixi hit-testing and interactivity: `hitTest`, `hitTestRecursive`, `get eventMode`, `_interactivePrune`, `_isInteractive`
+      - shared pointer handling: `handlePointerDown` in `src/components/Pages/Project/UiPage.tsx`
+      - shared section/update path: `checkIfSnapshotChanged`, `src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.ts`
+      - React commit/presentation work: `commitMutationEffectsOnFiber`, `commitPassiveMountOnFiber`, `recursivelyTraversePassiveMountEffects`
+  - Conclusion:
+    - the remaining live Pixi handoff cost looks like a shared interaction floor, not a widget-specific overlay/editor hotspot
+    - the next retained-scene hotspot slice should target shared Pixi hit-testing / pointer-routing / section-store work instead of more combobox or overlay-shell cleanup
+- Verification:
+  - Playwright:
+    - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN=<current bootstrap token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "value-row DOM editor overlay"`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - the active value-row overlay opened on `defaultZoomLevel`
+    - focus landed inside the mounted CodeMirror field
+    - the Pixi scene remained mounted with no obvious blanking or major overlap regression in the checked viewport
+- Next action:
+  - Pivot the next iteration to one concrete shared-floor suspect from this trace, starting with shared pointer/hit-test routing (`UiPage.tsx` / Pixi hit-testing) or the live dict-area section store boundary, instead of another widget-specific overlay lane.
