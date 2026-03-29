@@ -1622,6 +1622,39 @@ test("all settings canary prefers populated same-height value-preview windows in
     .toBe(true);
 });
 
+test("all settings canary keeps browserSectionDefault on its densest visible low-zoom preview window", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await normalizeAllSettingsOverviewLayout(page);
+  await clearCurrentProjectViewportForRefit(page);
+  await waitForVisibleSceneMetrics(page);
+  await expectZoomOutButtonDisabled(page, true);
+
+  const browserOverviewItem = page
+    .locator("#OverviewPane li")
+    .filter({ hasText: "browserSectionDefault" });
+  await expect(browserOverviewItem).toBeVisible();
+  await browserOverviewItem.click();
+
+  await expect
+    .poll(async () => {
+      const diagnostics = await readVisibleSceneWindowOptimality(page, [
+        "browserSectionDefault",
+      ]);
+
+      return (
+        diagnostics.length === 1 &&
+        diagnostics[0]?.readableRowCount ===
+          diagnostics[0]?.optimalReadableRowCount &&
+        diagnostics[0]?.valuePreviewCount ===
+          diagnostics[0]?.optimalValuePreviewCount
+      );
+    })
+    .toBe(true);
+});
+
 test("all settings canary mounts one shared page runtime host and tracks visible scene shells", async ({
   page,
 }) => {

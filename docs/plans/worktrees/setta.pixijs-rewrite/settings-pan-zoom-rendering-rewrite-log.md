@@ -13809,6 +13809,33 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 404
+
+- Item: Add a focused `browserSectionDefault` low-zoom preview-window guard for the live Pixi canary.
+- Status: `done`
+- Details:
+  - Added a dedicated same-state Playwright canary check in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The new test drives the normalized live Pixi `All Settings` canary to `browserSectionDefault`, then uses the existing `readVisibleSceneWindowOptimality` helper to prove that the visible low-zoom preview window already matches the densest available readable/value-preview row slice for that section.
+  - Outcome:
+    - `browserSectionDefault` row-window selection is not the remaining Gate 2 drift
+    - the next renderer slice should target another nested-preview fidelity path instead of reopening shared-runtime bounds or preview-window-selection work
+- Verification:
+  - `WORKTREE_B64=$(source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.) && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' \"$WORKTREE_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'browserSectionDefault on its densest visible low-zoom preview window'`
+    - result: passed (`1 passed`, about `20s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Fresh-context CDP check via sub-agent:
+    - result: not trustworthy for visual acceptance
+    - both devtools runtimes only exposed blank/bootstrap shells and never surfaced an authenticated `browserSectionDefault` preview, so this iteration did not get a meaningful live nested-preview compare
+- Conclusion:
+  - the `browserSectionDefault` preview-window-selection lane is complete
+  - remaining Gate 2 drift must come from another nested preview path, not the visible row-window heuristic
+- Next action:
+  - Return to production renderer work for `browserSectionDefault` and target the next nested-preview fidelity path, with CDP compare retried only once a trustworthy authenticated live surface exists
+
+LOOP_TERMINAL_MARKER: none
+
 
 ## 2026-04-01 401
 

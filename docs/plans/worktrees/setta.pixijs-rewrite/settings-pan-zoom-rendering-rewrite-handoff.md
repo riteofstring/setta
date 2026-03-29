@@ -10,41 +10,33 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 - Latest terminal loop status: `SUBTASK_DONE`
 - Current gate focus: Gate 2 tiny-card low-zoom preview fidelity on the normalized live Pixi versus `main` `All Settings` canary.
-- This iteration targeted the shared page-runtime sizing path after CDP evidence suggested the nested `browserSectionDefault` preview was still narrower/shorter than `main` and cropped on the right.
-- Shared-runtime scene registration now preserves logical width and height from client/offset metrics, and the managed-scene local-bounds math now prefers those logical dimensions over the clipped transformed `getBoundingClientRect()` size.
+- This iteration targeted a focused worktree-side guard for the nested `browserSectionDefault` preview window itself, instead of another top-level slice compare.
+- The new canary check proves the live Pixi `browserSectionDefault` scene already uses its densest visible low-zoom row/value-preview window after the normalized viewport-clear path.
 - Result:
-  - the shared runtime no longer derives nested scene size purely from clipped screen-space width/height
-  - the normalized canary/main Playwright section-slice parity still passes after updating the guard to compare the shared settled visible slice instead of assuming the historical six-section count
+  - the row-window / densest-preview-selection lane is now closed for `browserSectionDefault`
+  - the remaining Gate 2 drift is not explained by choosing the wrong visible preview window
 - Remaining drift:
-  - the fresh-context CDP compare this iteration could not isolate the nested `browserSectionDefault` preview on either live surface, so the targeted visual improvement was not directly confirmed
-  - Gate 2 tiny-card crop/compression drift remains open until a trusted live compare can surface that nested preview itself
+  - the fresh-context CDP compare still could not provide a trustworthy authenticated `browserSectionDefault` surface on either runtime; the devtools sessions exposed only blank/bootstrap shells instead of a live nested preview
+  - Gate 2 tiny-card crop/compression drift remains open, but it now points at another nested-preview fidelity path rather than preview-window selection
 
 ## Recent evidence
 
-- Shared-runtime logical-bounds fix landed in:
-  - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
-  - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
-- Focused regression coverage now exists for the clipped-screen-rect shared-runtime bounds case:
-  - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
-- The same-state main-reference Playwright compare was updated in:
+- Focused `browserSectionDefault` low-zoom preview-window coverage now exists in:
   - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
-  - note: a `browserSectionDefault`-specific baseline block-bounds guard was attempted and removed in the same iteration after proving invalid, because that preview is nested and does not map to stable top-level baseline block anchors
 - Verification completed this iteration:
-  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+  - `WORKTREE_B64=$(source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.) && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' \"$WORKTREE_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'browserSectionDefault on its densest visible low-zoom preview window'`
+    - result: passed (`1 passed`, about `20s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
     - result: passed
-  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
-    - result: passed
-  - `source activate.sh && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace . | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' <<< "$WORKTREE_B64") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url>' <<< "$MAIN_B64") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN="$WORKTREE_BOOTSTRAP_TOKEN" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$MAIN_BOOTSTRAP_URL" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
-    - result: passed (`1 passed`, about `42s`)
   - fresh-context CDP visual check via sub-agent on live worktree `All Settings`
-    - result: inconclusive for the target preview
-    - paired direct `/settings` surfaces looked visually identical, but the sub-agent could not surface `browserSectionDefault` itself on either live side; the debug browser rejected the bootstrap-token path, so this was not a targeted nested-preview compare
+    - result: not trustworthy for the target preview
+    - both devtools runtimes exposed only blank/bootstrap shells and never surfaced a comparable authenticated `browserSectionDefault` scene payload, so this did not provide a usable live nested-preview compare
 
 ## Immediate next frontier
 
-- Stay on the product lane and use a compare setup that can actually surface the nested `browserSectionDefault` preview on both canary and `main`.
-- Do not retry the removed top-level block-anchor guard; it is the wrong harness for this preview.
-- Once the nested preview is isolated, decide whether the remaining Gate 2 crop/compression drift is still a shared-runtime bounds problem or another nested-preview sizing path.
+- Return to the product lane; do not spend another iteration on `browserSectionDefault` row-window selection because that lane now has a passing guard.
+- Target the next real nested-preview fidelity path for `browserSectionDefault` itself, likely glyph/chrome/content-density behavior rather than shared-runtime bounds or window selection.
+- Re-establish a trustworthy authenticated CDP compare only when the live browser session can actually surface the nested preview; do not treat blank/bootstrap shells as meaningful visual evidence.
 
 ## Durable completed work
 
@@ -53,7 +45,7 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 ## History pointers
 
-- Active history window: items `380` through `403`
-- Latest item: `2026-04-01 403`
-- Prior product slice: `2026-04-01 402`
+- Active history window: items `380` through `404`
+- Latest item: `2026-04-01 404`
+- Prior product slice: `2026-04-01 403`
 - Older detail before item `380`: use the history index to find the relevant archive file
