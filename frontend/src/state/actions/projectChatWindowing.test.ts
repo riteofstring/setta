@@ -1,4 +1,5 @@
 import { buildProjectChatEphemeralWindowInstanceKey } from "state/actions/projectChatWindowingEphemeral";
+import { setProjectChatBootPointerLocations } from "state/actions/projectChatWindowingPointerTracking";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
@@ -21,16 +22,23 @@ const hoistedProjectChatWindowing = vi.hoisted(() => ({
   createTopLevelSectionWithResult: vi.fn(),
   routeSetProjectChatWindowingState: vi.fn(),
   routeSetProjectChatWindowChatId: vi.fn(),
+  screenToFlowPosition: vi.fn((point: { x: number; y: number }) => point),
+  reactFlowState: {
+    transform: [0, 0, 1],
+    d3Zoom: null,
+    d3Selection: null,
+    domNode: null as { getBoundingClientRect: () => DOMRect } | null,
+  },
+}));
+
+vi.mock("forks/xyflow/core/hooks/useViewportHelper", () => ({
+  screenToFlowPosition: (...args: unknown[]) =>
+    hoistedProjectChatWindowing.screenToFlowPosition(...args),
 }));
 
 vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: {
-    getState: () => ({
-      transform: [0, 0, 1],
-      d3Zoom: null,
-      d3Selection: null,
-      domNode: null,
-    }),
+    getState: () => hoistedProjectChatWindowing.reactFlowState,
   },
 }));
 
@@ -82,6 +90,8 @@ import {
 describe("project chat windowing reducer helpers", () => {
   beforeEach(() => {
     resetProjectStores();
+    hoistedProjectChatWindowing.reactFlowState.domNode = null;
+    hoistedProjectChatWindowing.screenToFlowPosition.mockClear();
     useAIStore.setState({ activeChatId: undefined });
     useProjectState.setState((state) => {
       state.projectConfig = createProjectConfig({ id: "project-1" });
@@ -105,6 +115,10 @@ describe("project chat windowing reducer helpers", () => {
         hasResponse: true,
       }),
     );
+    setProjectChatBootPointerLocations({
+      lastPointerDownLocation: null,
+      lastPointerUpLocation: null,
+    });
   });
 
   it("creates an open bottom-docked chat window instance by default", () => {
@@ -1470,6 +1484,57 @@ describe("project chat windowing reducer helpers", () => {
         target.instanceId
       ]?.title,
     ).toBeNull();
+  });
+
+  it("uses the tracked pointer location for canvas boot when no source surface is visible", async () => {
+    hoistedProjectChatWindowing.createTopLevelSectionWithResult.mockResolvedValue(
+      {
+        sectionId: "section-created",
+      },
+    );
+    const domNode = {
+      getBoundingClientRect: () =>
+        ({
+          left: 100,
+          top: 80,
+          right: 1000,
+          bottom: 680,
+          width: 900,
+          height: 600,
+        }) as DOMRect,
+    };
+    hoistedProjectChatWindowing.reactFlowState.domNode = domNode;
+    const trackedPointer = { x: 180, y: 220 };
+    setProjectChatBootPointerLocations({
+      lastPointerDownLocation: trackedPointer,
+      lastPointerUpLocation: trackedPointer,
+    });
+    const target = createProjectChatWindowInstance({
+      instanceId: "chat-window-target",
+      placement: ChatWindowPlacementEnum.bottom_docked,
+    });
+    useProjectState.setState((state) => {
+      state.projectChatWindowing = createProjectChatWindowingState({
+        order: [target.instanceId],
+        instancesById: {
+          [target.instanceId]: target,
+        },
+        nextInstanceNumber: 2,
+      });
+      state.projectChatWindowing.instancesById[target.instanceId] = target;
+    });
+
+    await expect(
+      bootProjectChatWindowToCanvasSection(target.instanceId),
+    ).resolves.toBe("section-created");
+
+    expect(
+      hoistedProjectChatWindowing.createTopLevelSectionWithResult,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        position: trackedPointer,
+      }),
+    );
   });
 
   it("does not boot git graph windows into canvas sections", async () => {

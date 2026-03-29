@@ -4,32 +4,6 @@ Short guide for starting/stopping local dev and telling the assistant how to con
 
 ## Start
 
-Default setup:
-
-```bash
-./dev_install.sh
-```
-
-If you also need the Python SDK/package tooling in this checkout:
-
-```bash
-. ./dev_install_python.sh
-```
-
-If you changed dependency manifests and need to refresh lockfiles on purpose:
-
-```bash
-./update_dependencies.sh
-```
-
-Run the default dev instance without browser MCP:
-
-```bash
-./scripts/run-dev-instance.sh
-```
-
-Run the same flow with browser MCP helpers:
-
 ```bash
 ./ai.sh
 ```
@@ -48,6 +22,12 @@ Resets state + starts:
 
 ```bash
 ./aireset.sh
+```
+
+If you changed dependency manifests and need to refresh lockfiles on purpose:
+
+```bash
+./update_dependencies.sh
 ```
 
 Reset/start with explicit profile:
