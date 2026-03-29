@@ -173,13 +173,6 @@ const DEFAULT_CLAUDE_ASK_RULES = [
   "Bash(shutdown:*)",
   "Bash(reboot:*)",
 ];
-const CLAUDE_APPROVAL_POLICY_OPTIONS = [
-  { value: "", label: "Use settings file / chat override" },
-  { value: "default", label: "Default" },
-  { value: "acceptEdits", label: "Accept edits" },
-  { value: "plan", label: "Plan" },
-  { value: "bypassPermissions", label: "YOLO (bypassPermissions)" },
-] as const;
 const TRANSCRIPTION_CHUNK_MS_DEFAULT = 1200;
 
 export function resolveTranscriptionChunkMsForSave({
@@ -1960,39 +1953,15 @@ function ExternalAgentConfigsManager({ canEdit }: { canEdit: boolean }) {
                     disabled={!canEdit}
                   />
                 </Field>
-                <Field
-                  label="Approval Policy"
-                  hint={
-                    draft.toolType === ExternalAgentToolTypeEnum.claude_code
-                      ? "Claude Code permission mode. Choose YOLO to bypass approval prompts when chat permissions stay at config_toml_custom; /permissions yolo still overrides per run."
-                      : undefined
-                  }
-                >
-                  {draft.toolType === ExternalAgentToolTypeEnum.claude_code ? (
-                    <select
-                      value={draft.approvalPolicy}
-                      onChange={(event) =>
-                        handleFieldChange("approvalPolicy", event.target.value)
-                      }
-                      className={SELECT_CLASS_NAME}
-                      disabled={!canEdit}
-                    >
-                      {CLAUDE_APPROVAL_POLICY_OPTIONS.map((option) => (
-                        <option key={option.value || "default-source"} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      value={draft.approvalPolicy}
-                      onChange={(event) =>
-                        handleFieldChange("approvalPolicy", event.target.value)
-                      }
-                      className={INPUT_CLASS_NAME}
-                      disabled={!canEdit}
-                    />
-                  )}
+                <Field label="Approval Policy">
+                  <input
+                    value={draft.approvalPolicy}
+                    onChange={(event) =>
+                      handleFieldChange("approvalPolicy", event.target.value)
+                    }
+                    className={INPUT_CLASS_NAME}
+                    disabled={!canEdit}
+                  />
                 </Field>
               </div>
               <div className="grid gap-3 @[40rem]:grid-cols-2">

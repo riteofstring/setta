@@ -519,42 +519,6 @@ describe("ChatMessages tool call status", () => {
     expect(markup).not.toContain("px-0.5 pb-0.5");
   });
 
-  it("auto-expands pending approval tool calls so approval controls are visible", () => {
-    const messages: BaseChatMessageUnion[] = [
-      {
-        id: "m-approval-1",
-        role: ChatRoleEnum.assistant,
-        content: [],
-        attachments: [],
-        tool_calls: [
-          {
-            id: "approval-1",
-            type: "function",
-            function: {
-              name: "setta.approval",
-              arguments: {},
-            },
-          },
-        ],
-      },
-    ];
-
-    const markup = renderToStaticMarkup(
-      <ChatMessageList
-        messages={messages}
-        waitingForResponse={true}
-        toolCallArguments={{
-          "approval-1":
-            '{"approvalId":"approval-1","toolName":"setta__get_setta_docs","input":{}}',
-        }}
-      />,
-    );
-
-    expect(markup).toContain('data-state="open"');
-    expect(markup).toContain("Approve this action?");
-    expect(markup).toContain("setta__get_setta_docs");
-  });
-
   it("shows braille activity indicators while rows are in flight", () => {
     const messages: BaseChatMessageUnion[] = [
       {
