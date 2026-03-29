@@ -5,13 +5,12 @@ import {
 import { describe, expect, it } from "vitest";
 
 describe("plugin overview tab key helpers", () => {
-  it("round-trips plugin and pane ids through encoded tab keys", () => {
-    const tabKey = buildPluginPaneOverviewTabName(
-      "acme/plugin alpha",
-      "pane:one/two",
-    );
-
-    expect(parsePluginPaneOverviewTabName(tabKey)).toEqual({
+  it("parses encoded plugin and pane ids from plugin tab keys", () => {
+    expect(
+      parsePluginPaneOverviewTabName(
+        "PluginPane:acme%2Fplugin%20alpha:pane%3Aone%2Ftwo",
+      ),
+    ).toEqual({
       pluginId: "acme/plugin alpha",
       paneId: "pane:one/two",
     });
