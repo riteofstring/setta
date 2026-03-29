@@ -5,6 +5,7 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { GetParamSwitch } from "./GetParamSwitch";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
@@ -20,11 +21,19 @@ type LiveDictAreaPixiValueRowOverlayProps = {
 export function LiveDictAreaPixiValueRowOverlay({
   target,
 }: LiveDictAreaPixiValueRowOverlayProps) {
-  const editorKind = useProjectState((state) =>
-    resolveParamEditorKind(
-      getCurrEffectiveCodeObjImpl(state, target.sectionId, target.rowId).type,
-    ),
-  );
+  const editorKind = useProjectState((state) => {
+    const codeObjImpl = getCurrEffectiveCodeObjImpl(
+      state,
+      target.sectionId,
+      target.rowId,
+    );
+    return resolveParamEditorKind(codeObjImpl.type, {
+      hasColorChoiceMenu:
+        codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam &&
+        Array.isArray(codeObjImpl.colorChoices) &&
+        codeObjImpl.colorChoices.length > 0,
+    });
+  });
   const darkMode = useLocalStorage((state) => state.darkMode);
   const styleColorPreviewKey = getSectionStylePreviewColorKey(target.sectionId);
   const previewStyleColor = useTemporaryMiscState(

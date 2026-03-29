@@ -40,6 +40,7 @@ import {
 import { shouldShowPasswordReveal } from "utils/paramValue";
 import {
   useShouldAutoActivateCodeMirrorOnMount,
+  useShouldAutoOpenColorPickerOnMount,
   useShouldAutoOpenComboboxOnMount,
 } from "../paramEditorActivation";
 import { ButtonInputConfigForParam } from "./ButtonInput";
@@ -252,6 +253,8 @@ export function ParamUI({
   const shouldAutoActivateCodeMirrorOnMount =
     useShouldAutoActivateCodeMirrorOnMount();
   const shouldAutoOpenComboboxOnMount = useShouldAutoOpenComboboxOnMount();
+  const shouldAutoOpenColorPickerOnMount =
+    useShouldAutoOpenColorPickerOnMount();
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
 
@@ -349,6 +352,7 @@ export function ParamUI({
           onChange={onChange}
           onEscape={onEscape}
           isDisabled={isDisabled}
+          shouldAutoOpenColorPickerOnMount={shouldAutoOpenColorPickerOnMount}
         />
       );
     case CodeObjTypeEnum.RotaryParam:
@@ -674,6 +678,7 @@ function ColorPickerParamConfigured({
   onChange,
   onEscape,
   isDisabled,
+  shouldAutoOpenColorPickerOnMount,
 }) {
   return (
     <ConfiguredColorPickerInput
@@ -685,6 +690,7 @@ function ColorPickerParamConfigured({
       wrapperClassName="section-value single-cell-container min-w-0 w-[calc(100%_-_2px)] justify-self-start self-center h-[calc(100%_-_4px)] min-h-0"
       colorPickerChoicesClasses="flex-1 cursor-pointer items-center overflow-hidden rounded-lg single-cell-container colorpicker h-full min-h-0 w-full min-w-0 items-center text-white"
       isDisabled={isDisabled}
+      shouldAutoOpenOnMount={shouldAutoOpenColorPickerOnMount}
     />
   );
 }

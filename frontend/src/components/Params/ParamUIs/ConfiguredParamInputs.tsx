@@ -148,6 +148,7 @@ type ConfiguredColorPickerInputProps = {
   isDisabled?: boolean;
   wrapperClassName: string;
   colorPickerChoicesClasses: string;
+  shouldAutoOpenOnMount?: boolean;
 };
 
 export function ConfiguredColorPickerInput({
@@ -159,6 +160,7 @@ export function ConfiguredColorPickerInput({
   isDisabled,
   wrapperClassName,
   colorPickerChoicesClasses,
+  shouldAutoOpenOnMount,
 }: ConfiguredColorPickerInputProps) {
   const { colorChoices } = useParamCodeObjUIConfig(
     sectionId,
@@ -175,6 +177,7 @@ export function ConfiguredColorPickerInput({
       wrapperClassName={wrapperClassName}
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
+      shouldAutoOpenOnMount={shouldAutoOpenOnMount}
     />
   );
 }

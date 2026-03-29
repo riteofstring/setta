@@ -25,4 +25,15 @@ describe("resolveParamEditorKind", () => {
       "combobox",
     );
   });
+
+  it("classifies popup color pickers only when a color-choice menu is available", () => {
+    expect(resolveParamEditorKind(CodeObjTypeEnum.ColorPickerParam)).toBe(
+      "other",
+    );
+    expect(
+      resolveParamEditorKind(CodeObjTypeEnum.ColorPickerParam, {
+        hasColorChoiceMenu: true,
+      }),
+    ).toBe("color-picker");
+  });
 });

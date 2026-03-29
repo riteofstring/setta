@@ -1,6 +1,6 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import _ from "lodash";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -190,6 +190,7 @@ export function ColorPickerInput({
   onChange,
   onCommit,
   onEscape,
+  shouldAutoOpenOnMount = false,
   wrapperClassName,
   colorPickerChoicesClasses,
   isDisabled = false,
@@ -200,6 +201,7 @@ export function ColorPickerInput({
   onChange: (newColor: string) => void;
   onCommit?: (newColor: string) => void;
   onEscape?: () => void;
+  shouldAutoOpenOnMount?: boolean;
   wrapperClassName: string;
   colorPickerChoicesClasses: string;
   isDisabled?: boolean;
@@ -214,6 +216,7 @@ export function ColorPickerInput({
         onChange={onChange}
         onCommit={onCommit}
         onEscape={onEscape}
+        shouldAutoOpenOnMount={shouldAutoOpenOnMount}
         colorPickerChoicesClasses={colorPickerChoicesClasses}
         isDisabled={isDisabled}
         theme={theme}
@@ -236,6 +239,7 @@ type ColorPickerProps = {
   onChange: (newColor: string) => void;
   onCommit?: (newColor: string) => void;
   onEscape?: () => void;
+  shouldAutoOpenOnMount: boolean;
   colorPickerChoicesClasses: string;
   isDisabled: boolean;
   theme?: ColorPickerInputTheme;
@@ -247,6 +251,7 @@ function ColorPicker({
   onChange,
   onCommit,
   onEscape,
+  shouldAutoOpenOnMount,
   colorPickerChoicesClasses,
   isDisabled,
   theme,
@@ -289,6 +294,7 @@ function ColorPicker({
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
       onEscape={onEscape}
+      shouldAutoOpenOnMount={shouldAutoOpenOnMount}
       theme={theme}
     />
   ) : (
@@ -343,6 +349,7 @@ type ColorPickerFromColorChoicesProps = {
   colorPickerChoicesClasses: string;
   isDisabled: boolean;
   onEscape?: () => void;
+  shouldAutoOpenOnMount: boolean;
   theme?: ColorPickerInputTheme;
 };
 
@@ -354,8 +361,12 @@ function ColorPickerFromColorChoices({
   colorPickerChoicesClasses,
   isDisabled,
   onEscape,
+  shouldAutoOpenOnMount,
   theme,
 }: ColorPickerFromColorChoicesProps) {
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const hasAutoOpenedRef = useRef(false);
+  const [isOpen, setIsOpen] = useState(false);
   let selectedItem = colorChoices.find((c) => c.color === color);
   if (!selectedItem) {
     selectedItem = colorChoices[0];
@@ -380,9 +391,19 @@ function ColorPickerFromColorChoices({
     theme?.menuItemTextClassName ??
     "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
 
+  useLayoutEffect(() => {
+    if (!shouldAutoOpenOnMount || isDisabled || hasAutoOpenedRef.current) {
+      return;
+    }
+    hasAutoOpenedRef.current = true;
+    setIsOpen(true);
+    triggerRef.current?.focus();
+  }, [isDisabled, shouldAutoOpenOnMount]);
+
   return (
-    <DropdownMenu.Root modal={false}>
+    <DropdownMenu.Root modal={false} open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenu.Trigger
+        ref={triggerRef}
         className={colorPickerChoicesClasses}
         disabled={isDisabled}
         onKeyDown={(e) => {

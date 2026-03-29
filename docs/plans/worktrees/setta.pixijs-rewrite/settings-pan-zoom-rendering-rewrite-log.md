@@ -6634,3 +6634,42 @@ Record:
     - note: the provided bootstrap token was rejected in that browser session, but the already-live worktree settings tab remained authenticated and usable for verification
 - Next action:
   - Continue the live retained-scene slice by landing the next popup-style control handoff on the Pixi canary, starting with another targeted non-text editor path such as the color-picker row before moving on to drag/reorder work.
+
+## 2026-03-29 216
+
+- Item: Land the popup-style color-picker handoff contract on the live `pixi-node-body` value-row canary.
+- Status: `done`
+- Details:
+  - Extended the Pixi row editor-kind boundary so popup-style color pickers are only classified when the resolved param implementation actually exposes a color-choice menu, avoiding heuristic activation on native `<input type="color">` rows:
+    - `frontend/src/components/Params/paramEditorActivation.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+  - Threaded a bounded one-time color-picker auto-open path through the shared param UI stack so a Pixi handoff can immediately open the Radix popup menu on mount when the row is explicitly tagged `color-picker`:
+    - `frontend/src/components/Params/ParamUIs/ParamUI.tsx`
+    - `frontend/src/components/Params/ParamUIs/ConfiguredParamInputs.tsx`
+    - `frontend/src/components/Params/ParamUIs/ColorPickerInput.tsx`
+  - Added focused coverage for the new classification and popup auto-open contract:
+    - `frontend/src/components/Params/paramEditorActivation.test.ts`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/groupContainerShell.test.tsx`
+    - `frontend/src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+  - Fixed a live-session blocker uncovered during CDP verification retries: `GroupContainerShell` was referencing `LiveDictAreaMount` without importing it, which broke the DOM-path settings shell before the Pixi canary could render:
+    - `frontend/src/components/Params/groupContainerShell.tsx`
+  - Attempted to extend the existing settings canary Playwright spec to cover a real `color-picker` row, but removed that assertion after verifying the current seeded settings surface does not expose any `data-live-dict-area-editor-handoff-editor-kind='color-picker'` row yet. Leaving the failing assertion in place would have encoded a nonexistent canary instead of real coverage.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/paramEditorActivation.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/groupContainerShell.test.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/paramEditorActivation.tsx src/components/Params/paramEditorActivation.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/groupContainerShell.tsx src/components/Params/groupContainerShell.test.tsx src/components/Params/ParamUIs/ConfiguredParamInputs.tsx src/components/Params/ParamUIs/ParamUI.tsx src/components/Params/ParamUIs/ColorPickerInput.tsx src/components/Params/ParamUIs/ColorPickerInput.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Chrome DevTools MCP visual check in fresh sub-agent contexts on the restarted worktree app:
+    - result: deferred
+    - first retry on `http://127.0.0.1:3046/settings` failed before the settings canary rendered with `ReferenceError: LiveDictAreaMount is not defined`
+    - after fixing that import blocker and retrying, the live tab/bootstrap session still did not yield a trustworthy canary: the sub-agent could not reach any `data-live-dict-area-editor-handoff-editor-kind='color-picker'` row, and the bootstrap token was being rejected in that browser session
+    - separate isolated Playwright runs against the seeded settings app also confirmed the current settings canary does not expose a popup-style `color-picker` handoff row yet
+- Next action:
+  - Before spending another iteration on color-picker handoff verification, expose a real popup-style `color-picker` row with non-empty `colorChoices` on a stable live Pixi canary surface, or explicitly pivot to the next available non-text popup control that already exists in the live settings path.

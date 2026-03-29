@@ -3,7 +3,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { CodeObjTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
@@ -50,7 +50,17 @@ vi.mock("state/actions/sectionInfos", () => ({
     _sectionId: string,
     rowId: string,
   ) => ({
-    type: rowId === "pinned-value" ? "DropdownParam" : "TextParam",
+    ...(rowId === "pinned-value"
+      ? {
+          type: CodeObjTypeEnum.DropdownParam,
+        }
+      : {
+          colorChoices: [
+            { color: "#ff0000", description: "Red" },
+            { color: "#00ff00", description: "Green" },
+          ],
+          type: CodeObjTypeEnum.ColorPickerParam,
+        }),
   }),
 }));
 
@@ -147,6 +157,11 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     expect(
       container.querySelector(
         "[data-live-dict-area-editor-handoff-editor-kind='combobox']",
+      ),
+    ).not.toBeNull();
+    expect(
+      container.querySelector(
+        "[data-live-dict-area-editor-handoff-editor-kind='color-picker']",
       ),
     ).not.toBeNull();
 

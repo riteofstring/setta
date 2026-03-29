@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { SectionTypeEnum } from "utils/generatedTypes";
+import { CodeObjTypeEnum, SectionTypeEnum } from "utils/generatedTypes";
 import { describe, expect, it, vi } from "vitest";
 import { buildLiveDictAreaMountBoundary } from "./groupContainerLiveDictAreaMountBoundary";
 import { GroupContainerShell } from "./groupContainerShell";
@@ -18,7 +18,17 @@ vi.mock("state/actions/sectionInfos", () => ({
     _sectionId: string,
     rowId: string,
   ) => ({
-    type: rowId === "pinned-value" ? "DropdownParam" : "TextParam",
+    ...(rowId === "pinned-value"
+      ? {
+          type: CodeObjTypeEnum.DropdownParam,
+        }
+      : {
+          colorChoices: [
+            { color: "#ff0000", description: "Red" },
+            { color: "#00ff00", description: "Green" },
+          ],
+          type: CodeObjTypeEnum.ColorPickerParam,
+        }),
   }),
 }));
 
@@ -92,6 +102,9 @@ describe("GroupContainerShell", () => {
     expect(markup).toContain('data-live-dict-area-editor-handoff="value-row"');
     expect(markup).toContain(
       'data-live-dict-area-editor-handoff-editor-kind="combobox"',
+    );
+    expect(markup).toContain(
+      'data-live-dict-area-editor-handoff-editor-kind="color-picker"',
     );
     expect(markup).toContain('data-live-dict-area-fixed-measurement="edges"');
     expect(markup).toContain('data-live-dict-area-fixed-measurement="pinned"');

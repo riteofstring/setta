@@ -1,4 +1,7 @@
-import type { LiveDictAreaMountProps } from "./groupContainerLiveDictAreaMount";
+import {
+  LiveDictAreaMount,
+  type LiveDictAreaMountProps,
+} from "./groupContainerLiveDictAreaMount";
 import type { LiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaSceneBoundary";
 import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
 

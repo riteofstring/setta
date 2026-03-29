@@ -2,6 +2,7 @@ import _ from "lodash";
 import { useMemo, useState } from "react";
 import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
+import { CodeObjTypeEnum } from "utils/generatedTypes";
 import {
   LiveDictAreaMount,
   type LiveDictAreaMountProps,
@@ -36,10 +37,19 @@ export function LiveDictAreaPixiOverlayShell({
     return Object.fromEntries(
       valueRowTargets.map((target) => [
         target.rowId,
-        resolveParamEditorKind(
-          getCurrEffectiveCodeObjImpl(state, target.sectionId, target.rowId)
-            .type,
-        ),
+        (() => {
+          const codeObjImpl = getCurrEffectiveCodeObjImpl(
+            state,
+            target.sectionId,
+            target.rowId,
+          );
+          return resolveParamEditorKind(codeObjImpl.type, {
+            hasColorChoiceMenu:
+              codeObjImpl.type === CodeObjTypeEnum.ColorPickerParam &&
+              Array.isArray(codeObjImpl.colorChoices) &&
+              codeObjImpl.colorChoices.length > 0,
+          });
+        })(),
       ]),
     );
   }, _.isEqual);
