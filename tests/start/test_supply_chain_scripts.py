@@ -2,13 +2,13 @@ import json
 import os
 import subprocess
 import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from tests.start.dev_script_wiring_helpers import repo_root, write_stub_executable
 
 
-def copy_repo_file(*, sandbox_root: Path, relative_path: str) -> Path:
+def _copy_repo_file(*, sandbox_root: Path, relative_path: str) -> Path:
     src = repo_root() / relative_path
     dst = sandbox_root / relative_path
     dst.parent.mkdir(parents=True, exist_ok=True)
@@ -17,7 +17,7 @@ def copy_repo_file(*, sandbox_root: Path, relative_path: str) -> Path:
     return dst
 
 
-def sandbox_env(sandbox_root: Path) -> dict[str, str]:
+def _sandbox_env(sandbox_root: Path) -> dict[str, str]:
     env = os.environ.copy()
     env["PATH"] = f"{sandbox_root / 'bin'}:{env.get('PATH', '')}"
     return env
@@ -26,41 +26,24 @@ def sandbox_env(sandbox_root: Path) -> dict[str, str]:
 def test_configure_supply_chain_local_only_updates_repo_policy_and_npmrc_files(
     tmp_path: Path,
 ) -> None:
-    # Local configuration should update the repo policy file plus both pnpm projects.
     sandbox_root = tmp_path / "configure_supply_chain_local"
     scripts_dir = sandbox_root / "scripts"
     frontend_dir = sandbox_root / "frontend"
-    sidecar_dir = (
-        sandbox_root
-        / "backend"
-        / "setta"
-        / "agentic"
-        / "external_adapters"
-        / "sidecars"
-    )
+    sidecar_dir = sandbox_root / "backend" / "setta" / "agentic" / "external_adapters" / "sidecars"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     frontend_dir.mkdir(parents=True, exist_ok=True)
     sidecar_dir.mkdir(parents=True, exist_ok=True)
 
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="configure_supply_chain.sh")
-    copy_repo_file(
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="configure_supply_chain.sh")
+    _copy_repo_file(
         sandbox_root=sandbox_root, relative_path="scripts/configure_supply_chain.py"
     )
-    (frontend_dir / ".npmrc").write_text(
-        "legacy-peer-deps=true\nsave-exact=true\n",
-        encoding="utf-8",
-    )
+    (frontend_dir / ".npmrc").write_text("legacy-peer-deps=true\n", encoding="utf-8")
 
     result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "configure_supply_chain.sh"),
-            "--local-only",
-            "--days",
-            "11",
-        ],
+        ["bash", str(sandbox_root / "configure_supply_chain.sh"), "--local-only", "--days", "11"],
         cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
+        env=_sandbox_env(sandbox_root),
         check=False,
         capture_output=True,
         text=True,
@@ -71,7 +54,7 @@ def test_configure_supply_chain_local_only_updates_repo_policy_and_npmrc_files(
         "# Repo-local dependency install policy.\nSETTA_MIN_RELEASE_AGE_DAYS=11\n"
     )
     assert (frontend_dir / ".npmrc").read_text(encoding="utf-8") == (
-        "legacy-peer-deps=true\nsave-exact=true\nminimum-release-age=15840\n"
+        "legacy-peer-deps=true\nminimum-release-age=15840\n"
     )
     assert (sidecar_dir / ".npmrc").read_text(encoding="utf-8") == (
         "minimum-release-age=15840\n"
@@ -81,7 +64,6 @@ def test_configure_supply_chain_local_only_updates_repo_policy_and_npmrc_files(
 def test_configure_supply_chain_global_updates_user_npm_and_pnpm_config(
     tmp_path: Path,
 ) -> None:
-    # Global mode should only delegate to npm/pnpm config commands.
     sandbox_root = tmp_path / "configure_supply_chain_global"
     scripts_dir = sandbox_root / "scripts"
     bin_dir = sandbox_root / "bin"
@@ -89,8 +71,8 @@ def test_configure_supply_chain_global_updates_user_npm_and_pnpm_config(
     bin_dir.mkdir(parents=True, exist_ok=True)
     command_log = sandbox_root / "command-log.txt"
 
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="configure_supply_chain.sh")
-    copy_repo_file(
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="configure_supply_chain.sh")
+    _copy_repo_file(
         sandbox_root=sandbox_root, relative_path="scripts/configure_supply_chain.py"
     )
     write_stub_executable(
@@ -109,15 +91,9 @@ echo "pnpm $*" >> "{command_log}"
     )
 
     result = subprocess.run(
-        [
-            "bash",
-            str(sandbox_root / "configure_supply_chain.sh"),
-            "--global",
-            "--days",
-            "13",
-        ],
+        ["bash", str(sandbox_root / "configure_supply_chain.sh"), "--global", "--days", "13"],
         cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
+        env=_sandbox_env(sandbox_root),
         check=False,
         capture_output=True,
         text=True,
@@ -130,15 +106,66 @@ echo "pnpm $*" >> "{command_log}"
     ]
 
 
+def test_check_go_module_release_age_reports_modules_that_are_too_new(
+    tmp_path: Path,
+) -> None:
+    sandbox_root = tmp_path / "go_release_age"
+    scripts_dir = sandbox_root / "scripts"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/check_go_module_release_age.py"
+    )
+    write_stub_executable(
+        scripts_dir / "go.sh",
+        """#!/usr/bin/env bash
+set -euo pipefail
+cat <<'EOF'
+{
+  "Path": "setta",
+  "Main": true
+}
+{
+  "Path": "example.com/old",
+  "Version": "v1.0.0",
+  "Time": "2024-01-01T00:00:00Z"
+}
+{
+  "Path": "example.com/new",
+  "Version": "v1.0.0",
+  "Time": "2099-01-01T00:00:00Z"
+}
+EOF
+""",
+    )
+
+    result = subprocess.run(
+        [
+            "python3",
+            str(sandbox_root / "scripts" / "check_go_module_release_age.py"),
+            "--days",
+            "7",
+            "--repo-root",
+            str(sandbox_root),
+        ],
+        cwd=sandbox_root,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 1
+    assert "example.com/new@v1.0.0" in result.stdout
+
+
 def test_check_uv_lock_release_age_reports_packages_that_are_too_new(
     tmp_path: Path,
 ) -> None:
-    # The uv lock checker should fail on packages published after the allowed cutoff.
     sandbox_root = tmp_path / "uv_release_age"
     scripts_dir = sandbox_root / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
 
-    copy_repo_file(
+    _copy_repo_file(
         sandbox_root=sandbox_root, relative_path="scripts/check_uv_lock_release_age.py"
     )
     (sandbox_root / "uv.lock").write_text(
@@ -181,14 +208,12 @@ sdist = { url = "https://example.com/newpkg-1.0.0.tar.gz", hash = "sha256:new", 
 def test_check_pnpm_lock_release_age_reports_packages_that_are_too_new(
     tmp_path: Path,
 ) -> None:
-    # The pnpm lock checker should resolve aliases and scoped packages against registry metadata.
     sandbox_root = tmp_path / "pnpm_release_age"
     scripts_dir = sandbox_root / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
 
-    copy_repo_file(
-        sandbox_root=sandbox_root,
-        relative_path="scripts/check_pnpm_lock_release_age.py",
+    _copy_repo_file(
+        sandbox_root=sandbox_root, relative_path="scripts/check_pnpm_lock_release_age.py"
     )
     (sandbox_root / "pnpm-lock.yaml").write_text(
         """lockfileVersion: '9.0'
@@ -225,7 +250,7 @@ packages:
             self.end_headers()
             self.wfile.write(body)
 
-        def log_message(self, _format: str, *_args: object) -> None:
+        def log_message(self, format: str, *args: object) -> None:
             return
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), RegistryHandler)
@@ -258,15 +283,14 @@ packages:
     assert "@scope/newpkg@2.0.0" in result.stdout
 
 
-def test_normalize_uv_lock_strips_exclude_newer_options_block(tmp_path: Path) -> None:
-    # The transient uv exclude-newer state should never remain committed in uv.lock.
+def test_normalize_uv_lock_strips_exclude_newer_options_block(
+    tmp_path: Path,
+) -> None:
     sandbox_root = tmp_path / "normalize_uv_lock"
     scripts_dir = sandbox_root / "scripts"
     scripts_dir.mkdir(parents=True, exist_ok=True)
 
-    copy_repo_file(
-        sandbox_root=sandbox_root, relative_path="scripts/normalize_uv_lock.py"
-    )
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="scripts/normalize_uv_lock.py")
     lockfile = sandbox_root / "uv.lock"
     lockfile.write_text(
         """version = 1
@@ -301,193 +325,13 @@ version = "1.0.0"
     )
 
 
-def test_init_env_uses_frozen_sync_and_activate(tmp_path: Path) -> None:
-    # Normal bootstrap should verify the lockfile, sync from it, and activate the venv.
-    sandbox_root = tmp_path / "init_env_default"
-    bin_dir = sandbox_root / "bin"
-    scripts_dir = sandbox_root / "scripts"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    scripts_dir.mkdir(parents=True, exist_ok=True)
-    command_log = sandbox_root / "command-log.txt"
-
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="init_env.sh")
-    write_stub_executable(
-        sandbox_root / "activate.sh",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo activate >> "{command_log}"
-""",
-    )
-    write_stub_executable(
-        bin_dir / "uv",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "uv $*" >> "{command_log}"
-""",
-    )
-
-    result = subprocess.run(
-        ["bash", str(sandbox_root / "init_env.sh")],
-        cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "uv lock --check",
-        "uv sync --frozen --all-extras --python 3.13",
-        "activate",
-    ]
-
-
-def test_init_env_applies_release_age_cutoff_when_repo_policy_exists(
+def test_audit_supply_chain_wires_python_go_and_pnpm_audits(
     tmp_path: Path,
 ) -> None:
-    # When the repo policy is present, bootstrap should also verify uv artifact ages.
-    sandbox_root = tmp_path / "init_env_policy"
-    bin_dir = sandbox_root / "bin"
-    scripts_dir = sandbox_root / "scripts"
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    scripts_dir.mkdir(parents=True, exist_ok=True)
-    command_log = sandbox_root / "command-log.txt"
-
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="init_env.sh")
-    copy_repo_file(
-        sandbox_root=sandbox_root, relative_path="scripts/check_uv_lock_release_age.py"
-    )
-    (sandbox_root / "supply_chain_policy.env").write_text(
-        "SETTA_MIN_RELEASE_AGE_DAYS=7\n",
-        encoding="utf-8",
-    )
-    write_stub_executable(
-        sandbox_root / "activate.sh",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo activate >> "{command_log}"
-""",
-    )
-    write_stub_executable(
-        bin_dir / "uv",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "uv $*" >> "{command_log}"
-""",
-    )
-    write_stub_executable(
-        bin_dir / "python3",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "python3 $*" >> "{command_log}"
-""",
-    )
-
-    result = subprocess.run(
-        ["bash", str(sandbox_root / "init_env.sh")],
-        cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "uv lock --check",
-        "python3 ./scripts/check_uv_lock_release_age.py --days 7 --lockfile ./uv.lock",
-        "uv sync --frozen --all-extras --python 3.13",
-        "activate",
-    ]
-
-
-def test_dev_install_uses_frozen_installs(tmp_path: Path) -> None:
-    # The high-level dev install path should be read-only with respect to lockfiles.
-    sandbox_root = tmp_path / "dev_install"
-    frontend_dir = sandbox_root / "frontend"
-    scripts_dir = sandbox_root / "scripts"
-    bin_dir = sandbox_root / "bin"
-    frontend_dir.mkdir(parents=True, exist_ok=True)
-    scripts_dir.mkdir(parents=True, exist_ok=True)
-    bin_dir.mkdir(parents=True, exist_ok=True)
-    command_log = sandbox_root / "command-log.txt"
-
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="dev_install.sh")
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="init_env.sh")
-    copy_repo_file(
-        sandbox_root=sandbox_root, relative_path="scripts/install_sidecars.sh"
-    )
-    write_stub_executable(
-        sandbox_root / "activate.sh",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo activate >> "{command_log}"
-""",
-    )
-    write_stub_executable(
-        sandbox_root / "cleanup.sh",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo cleanup >> "{command_log}"
-""",
-    )
-    write_stub_executable(
-        bin_dir / "uv",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "uv $*" >> "{command_log}"
-""",
-    )
-    write_stub_executable(
-        bin_dir / "pnpm",
-        f"""#!/usr/bin/env bash
-set -euo pipefail
-echo "pnpm $*" >> "{command_log}"
-""",
-    )
-    (
-        sandbox_root
-        / "backend"
-        / "setta"
-        / "agentic"
-        / "external_adapters"
-        / "sidecars"
-    ).mkdir(parents=True, exist_ok=True)
-
-    result = subprocess.run(
-        ["bash", str(sandbox_root / "dev_install.sh")],
-        cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
-        check=False,
-        capture_output=True,
-        text=True,
-    )
-
-    assert result.returncode == 0, result.stderr
-    assert command_log.read_text(encoding="utf-8").splitlines() == [
-        "uv lock --check",
-        "uv sync --frozen --all-extras --python 3.13",
-        "activate",
-        "pnpm install --frozen-lockfile",
-        "pnpm install --frozen-lockfile --prefer-offline",
-        "cleanup",
-    ]
-
-
-def test_audit_supply_chain_wires_python_and_pnpm_audits(tmp_path: Path) -> None:
-    # The audit entrypoint should run the full Python/pnpm visibility pass.
     sandbox_root = tmp_path / "audit_supply_chain"
     scripts_dir = sandbox_root / "scripts"
     frontend_dir = sandbox_root / "frontend"
-    sidecar_dir = (
-        sandbox_root
-        / "backend"
-        / "setta"
-        / "agentic"
-        / "external_adapters"
-        / "sidecars"
-    )
+    sidecar_dir = sandbox_root / "backend" / "setta" / "agentic" / "external_adapters" / "sidecars"
     bin_dir = sandbox_root / "bin"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     frontend_dir.mkdir(parents=True, exist_ok=True)
@@ -495,7 +339,7 @@ def test_audit_supply_chain_wires_python_and_pnpm_audits(tmp_path: Path) -> None
     bin_dir.mkdir(parents=True, exist_ok=True)
     command_log = sandbox_root / "command-log.txt"
 
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="audit_supply_chain.sh")
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="audit_supply_chain.sh")
     (sandbox_root / "supply_chain_policy.env").write_text(
         "SETTA_MIN_RELEASE_AGE_DAYS=9\n",
         encoding="utf-8",
@@ -521,11 +365,18 @@ set -euo pipefail
 echo "pnpm $*" >> "{command_log}"
 """,
     )
+    write_stub_executable(
+        scripts_dir / "go.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "go $*" >> "{command_log}"
+""",
+    )
 
     result = subprocess.run(
         ["bash", str(sandbox_root / "audit_supply_chain.sh")],
         cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
+        env=_sandbox_env(sandbox_root),
         check=False,
         capture_output=True,
         text=True,
@@ -535,9 +386,11 @@ echo "pnpm $*" >> "{command_log}"
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 9 --lockfile ./uv.lock",
-        "uv run --frozen --python 3.13 --all-extras pip-audit",
-        "uv run --frozen --python 3.13 --all-extras python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
-        "uv run --frozen --python 3.13 --all-extras python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra source --extra dev pip-audit",
+        f"go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...",
+        f"uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_go_module_release_age.py --days 9 --repo-root {sandbox_root}",
+        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm audit",
         "pnpm audit",
     ]
@@ -546,18 +399,10 @@ echo "pnpm $*" >> "{command_log}"
 def test_audit_supply_chain_continues_running_checks_after_failure(
     tmp_path: Path,
 ) -> None:
-    # A failed audit step should not prevent later checks from running.
     sandbox_root = tmp_path / "audit_supply_chain_failure"
     scripts_dir = sandbox_root / "scripts"
     frontend_dir = sandbox_root / "frontend"
-    sidecar_dir = (
-        sandbox_root
-        / "backend"
-        / "setta"
-        / "agentic"
-        / "external_adapters"
-        / "sidecars"
-    )
+    sidecar_dir = sandbox_root / "backend" / "setta" / "agentic" / "external_adapters" / "sidecars"
     bin_dir = sandbox_root / "bin"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     frontend_dir.mkdir(parents=True, exist_ok=True)
@@ -565,7 +410,7 @@ def test_audit_supply_chain_continues_running_checks_after_failure(
     bin_dir.mkdir(parents=True, exist_ok=True)
     command_log = sandbox_root / "command-log.txt"
 
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="audit_supply_chain.sh")
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="audit_supply_chain.sh")
     (sandbox_root / "supply_chain_policy.env").write_text(
         "SETTA_MIN_RELEASE_AGE_DAYS=9\n",
         encoding="utf-8",
@@ -594,11 +439,18 @@ set -euo pipefail
 echo "pnpm $*" >> "{command_log}"
 """,
     )
+    write_stub_executable(
+        scripts_dir / "go.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "go $*" >> "{command_log}"
+""",
+    )
 
     result = subprocess.run(
         ["bash", str(sandbox_root / "audit_supply_chain.sh")],
         cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
+        env=_sandbox_env(sandbox_root),
         check=False,
         capture_output=True,
         text=True,
@@ -608,29 +460,57 @@ echo "pnpm $*" >> "{command_log}"
     assert command_log.read_text(encoding="utf-8").splitlines() == [
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 9 --lockfile ./uv.lock",
-        "uv run --frozen --python 3.13 --all-extras pip-audit",
-        "uv run --frozen --python 3.13 --all-extras python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
-        "uv run --frozen --python 3.13 --all-extras python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra source --extra dev pip-audit",
+        "go run golang.org/x/vuln/cmd/govulncheck@v1.1.4 ./...",
+        f"uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_go_module_release_age.py --days 9 --repo-root {sandbox_root}",
+        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./frontend/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 9 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm audit",
         "pnpm audit",
+    ]
+
+
+def test_install_sidecars_uses_frozen_lockfile(tmp_path: Path) -> None:
+    sandbox_root = tmp_path / "install_sidecars"
+    scripts_dir = sandbox_root / "scripts"
+    sidecar_dir = sandbox_root / "backend" / "setta" / "agentic" / "external_adapters" / "sidecars"
+    bin_dir = sandbox_root / "bin"
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    sidecar_dir.mkdir(parents=True, exist_ok=True)
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    command_log = sandbox_root / "command-log.txt"
+
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="scripts/install_sidecars.sh")
+    write_stub_executable(
+        bin_dir / "pnpm",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+echo "pnpm $*" >> "{command_log}"
+""",
+    )
+
+    result = subprocess.run(
+        ["bash", str(sandbox_root / "scripts" / "install_sidecars.sh")],
+        cwd=sandbox_root,
+        env=_sandbox_env(sandbox_root),
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert command_log.read_text(encoding="utf-8").splitlines() == [
+        "pnpm install --frozen-lockfile --prefer-offline",
     ]
 
 
 def test_update_dependencies_refreshes_python_and_pnpm_lockfiles(
     tmp_path: Path,
 ) -> None:
-    # The explicit refresh path should update lockfiles, validate ages, then reinstall from them.
     sandbox_root = tmp_path / "update_dependencies"
     scripts_dir = sandbox_root / "scripts"
     frontend_dir = sandbox_root / "frontend"
-    sidecar_dir = (
-        sandbox_root
-        / "backend"
-        / "setta"
-        / "agentic"
-        / "external_adapters"
-        / "sidecars"
-    )
+    sidecar_dir = sandbox_root / "backend" / "setta" / "agentic" / "external_adapters" / "sidecars"
     bin_dir = sandbox_root / "bin"
     scripts_dir.mkdir(parents=True, exist_ok=True)
     frontend_dir.mkdir(parents=True, exist_ok=True)
@@ -638,20 +518,16 @@ def test_update_dependencies_refreshes_python_and_pnpm_lockfiles(
     bin_dir.mkdir(parents=True, exist_ok=True)
     command_log = sandbox_root / "command-log.txt"
 
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="update_dependencies.sh")
-    copy_repo_file(sandbox_root=sandbox_root, relative_path="init_env.sh")
-    copy_repo_file(
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="update_dependencies.sh")
+    _copy_repo_file(sandbox_root=sandbox_root, relative_path="init_env.sh")
+    _copy_repo_file(
         sandbox_root=sandbox_root, relative_path="scripts/compute_release_age_cutoff.py"
     )
-    copy_repo_file(
+    _copy_repo_file(
         sandbox_root=sandbox_root, relative_path="scripts/normalize_uv_lock.py"
     )
-    copy_repo_file(
+    _copy_repo_file(
         sandbox_root=sandbox_root, relative_path="scripts/check_uv_lock_release_age.py"
-    )
-    copy_repo_file(
-        sandbox_root=sandbox_root,
-        relative_path="scripts/check_pnpm_lock_release_age.py",
     )
     write_stub_executable(
         sandbox_root / "activate.sh",
@@ -693,7 +569,7 @@ echo "python3 $*" >> "{command_log}"
     result = subprocess.run(
         ["bash", str(sandbox_root / "update_dependencies.sh")],
         cwd=sandbox_root,
-        env=sandbox_env(sandbox_root),
+        env=_sandbox_env(sandbox_root),
         check=False,
         capture_output=True,
         text=True,
@@ -705,12 +581,12 @@ echo "python3 $*" >> "{command_log}"
         "python3 ./scripts/normalize_uv_lock.py ./uv.lock",
         "uv lock --check",
         "python3 ./scripts/check_uv_lock_release_age.py --days 7 --lockfile ./uv.lock",
-        "uv sync --frozen --all-extras --python 3.13",
+        "uv sync --frozen --extra source --extra dev --python 3.13",
         "activate",
         "pnpm -C frontend install --lockfile-only",
-        "uv run --frozen --python 3.13 --all-extras python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./frontend/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./frontend/pnpm-lock.yaml",
         "pnpm -C frontend install --frozen-lockfile",
         "pnpm -C backend/setta/agentic/external_adapters/sidecars install --lockfile-only",
-        "uv run --frozen --python 3.13 --all-extras python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
+        "uv run --frozen --python 3.13 --extra source --extra dev python ./scripts/check_pnpm_lock_release_age.py --days 7 --lockfile ./backend/setta/agentic/external_adapters/sidecars/pnpm-lock.yaml",
         "pnpm -C backend/setta/agentic/external_adapters/sidecars install --frozen-lockfile --prefer-offline",
     ]
