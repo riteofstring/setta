@@ -1,19 +1,144 @@
 import { CODEMIRROR_TOOLTIP_PARENT_ID } from "utils/constants";
 import { describe, expect, it } from "vitest";
-import { resolveTooltipParentDivId } from "./TextInputCodeMirror";
+import {
+  buildTextInputCodeMirrorCoreView,
+  planTextInputCodeMirrorMouseDown,
+  shouldActivateTextInputCodeMirrorFromFocus,
+  shouldAutoActivateTextInputCodeMirrorOnMount,
+} from "./textInputCodeMirrorView";
 
-describe("resolveTooltipParentDivId", () => {
-  it("returns null when tooltipParentDivId is undefined", () => {
-    expect(resolveTooltipParentDivId(undefined)).toBeNull();
+describe("planTextInputCodeMirrorMouseDown", () => {
+  it("activates the real editor and marks the section active on left click", () => {
+    expect(
+      planTextInputCodeMirrorMouseDown({
+        button: 0,
+        isDisabled: false,
+      }),
+    ).toEqual({
+      shouldActivate: true,
+      shouldApplyActiveSectionChange: true,
+    });
   });
 
-  it("returns null when tooltipParentDivId is null", () => {
-    expect(resolveTooltipParentDivId(null)).toBeNull();
+  it("ignores non-left clicks and disabled inputs", () => {
+    expect(
+      planTextInputCodeMirrorMouseDown({
+        button: 2,
+        isDisabled: false,
+      }),
+    ).toEqual({
+      shouldActivate: false,
+      shouldApplyActiveSectionChange: false,
+    });
+    expect(
+      planTextInputCodeMirrorMouseDown({
+        button: 0,
+        isDisabled: true,
+      }),
+    ).toEqual({
+      shouldActivate: false,
+      shouldApplyActiveSectionChange: false,
+    });
+  });
+});
+
+describe("shouldActivateTextInputCodeMirrorFromFocus", () => {
+  it("only activates tab focus when the editor is enabled and not already active", () => {
+    expect(
+      shouldActivateTextInputCodeMirrorFromFocus({
+        hasActivationEvent: false,
+        isDisabled: false,
+      }),
+    ).toBe(true);
+    expect(
+      shouldActivateTextInputCodeMirrorFromFocus({
+        hasActivationEvent: true,
+        isDisabled: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldActivateTextInputCodeMirrorFromFocus({
+        hasActivationEvent: false,
+        isDisabled: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("shouldAutoActivateTextInputCodeMirrorOnMount", () => {
+  it("activates once for enabled Pixi handoff mounts that do not already have an activation event", () => {
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: false,
+        hasAutoActivatedOnMount: false,
+        isDisabled: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(true);
   });
 
-  it("returns the provided tooltip parent id", () => {
-    expect(resolveTooltipParentDivId(CODEMIRROR_TOOLTIP_PARENT_ID)).toBe(
-      CODEMIRROR_TOOLTIP_PARENT_ID,
-    );
+  it("does not auto-activate when the editor is disabled, already active, or already auto-activated", () => {
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: true,
+        hasAutoActivatedOnMount: false,
+        isDisabled: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: false,
+        hasAutoActivatedOnMount: true,
+        isDisabled: false,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldAutoActivateTextInputCodeMirrorOnMount({
+        hasActivationEvent: false,
+        hasAutoActivatedOnMount: false,
+        isDisabled: true,
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("buildTextInputCodeMirrorCoreView", () => {
+  it("builds the key-name editor id, enables python autocomplete, and normalizes missing tooltip parents", () => {
+    expect(
+      buildTextInputCodeMirrorCoreView({
+        sectionId: "section-1",
+        paramInfoId: "param-1",
+        isKeyName: true,
+        isDeploymentMode: false,
+        autocomplete: true,
+        language: "python",
+        tooltipParentDivId: undefined,
+      }),
+    ).toEqual({
+      divId: "CodeMirror-section-1-param-1-keyName",
+      shouldAutocomplete: true,
+      resolvedTooltipParentDivId: null,
+    });
+  });
+
+  it("keeps explicit tooltip parents while disabling autocomplete outside local python editing", () => {
+    expect(
+      buildTextInputCodeMirrorCoreView({
+        sectionId: "section-1",
+        paramInfoId: null,
+        isKeyName: false,
+        isDeploymentMode: true,
+        autocomplete: true,
+        language: "python",
+        tooltipParentDivId: CODEMIRROR_TOOLTIP_PARENT_ID,
+      }),
+    ).toEqual({
+      divId: "CodeMirror-section-1-null",
+      shouldAutocomplete: false,
+      resolvedTooltipParentDivId: CODEMIRROR_TOOLTIP_PARENT_ID,
+    });
   });
 });

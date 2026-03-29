@@ -13,8 +13,8 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import React, { useCallback } from "react";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
-  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImplWithTypeGuard,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import {
@@ -145,32 +145,24 @@ function RealParamSwitch(props: ParamSwitchProps) {
     };
   }, _.isEqual);
 
-  const paramState = useProjectState((x) => {
-    const paramsImpl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+  const paramsImpl = useProjectState((x) =>
+    getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
-    );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    ),
+  );
+  const codeObjImpl = useProjectState((x) =>
+    getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
       isBaseParamCodeObjImpl,
-    );
-    if (!paramsImpl || !codeObjImpl) {
-      return null;
-    }
-    return { paramsImpl, codeObjImpl };
-  }, _.isEqual);
-  const paramsImpl = paramState?.paramsImpl ?? null;
-  const codeObjImpl = paramState?.codeObjImpl ?? null;
-  const isNestedParam = codeObjImpl
-    ? isBaseParentCodeObjImpl(codeObjImpl)
-    : false;
-  const paramIsSelected = paramsImpl
-    ? paramsImpl.selectedParams.includes(paramInfoId)
-    : false;
-  const isKwarg = codeObjImpl?.coreNameEditable ?? false;
+    ),
+  );
+  const isNestedParam = isBaseParentCodeObjImpl(codeObjImpl);
+  const paramIsSelected = paramsImpl.selectedParams.includes(paramInfoId);
+  const isKwarg = codeObjImpl.coreNameEditable;
   const paramChildren = isNestedParam ? codeObjImpl.children : [];
 
   const hasChildren = paramChildren.length > 0;
@@ -246,10 +238,6 @@ function RealParamSwitch(props: ParamSwitchProps) {
     onMouseDown: onMouseDownAlways,
     paramChildren,
   };
-
-  if (!paramState) {
-    return null;
-  }
 
   return <SortableRealParamSwitchRow {...sharedProps} />;
 }

@@ -109,13 +109,11 @@ describe("workspacePythonSignals", () => {
 
   it("dedupes in-flight root scans for the same workspace path", async () => {
     const cache: WorkspacePythonSignalCache = new Map();
-    let resolveRequest:
-      | ((value: {
-          data: Array<{ name: string; type: string; fullPath: string }>;
-          status: number;
-          hasResponse: boolean;
-        }) => void)
-      | null = null;
+    let resolveRequest: ((value: {
+      data: Array<{ name: string; type: string; fullPath: string }>;
+      status: number;
+      hasResponse: boolean;
+    }) => void) | null = null;
 
     mockedGetFolderContents.mockImplementation(
       () =>

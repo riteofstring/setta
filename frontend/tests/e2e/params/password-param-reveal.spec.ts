@@ -1,24 +1,24 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
-  addKwargFromFrontend,
-  changeParamImplFromFrontend,
-  cleanupIsolatedProject,
-  createCallableSection,
-  ensureAppReady,
-  openIsolatedProject,
-  setCodeObjNameFromFrontend,
-  setParamEnteredValueFromFrontend,
-  setCallableFromFrontend,
-} from "../helpers";
+import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
 const TARGET_CALLABLE = "math.sqrt";
 
+type ProjectMetadataEntry = { id: string; name: string };
+type ProjectMetadataResponse = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: ProjectMetadataEntry[];
+};
+type ProjectStateResponse = {
+  projectState: {
+    codeObjs: Record<string, unknown>;
+  };
+};
+
 test("password param reveals saved secret on demand", async ({ page }) => {
   await ensureAppReady(page);
-  const projectContext = await openIsolatedProject(page);
-  const projectConfigId = projectContext.projectConfigId;
+  const projectConfigId = await getCurrentProjectConfigId(page);
   const sectionId = await createCallableSection(page, projectConfigId);
 
   try {
@@ -27,28 +27,24 @@ test("password param reveals saved secret on demand", async ({ page }) => {
       page.locator(`[id="${sectionId}-CustomResizable"]`),
     ).toBeVisible();
 
-    const beforeParamIds = await getSectionParamIds(page, sectionId);
+    const beforeState = await loadProjectState(page, projectConfigId);
+    const beforeIds = new Set(Object.keys(beforeState.codeObjs));
 
-    await addKwargFromFrontend(page, {
+    await postBackend(page, "/addKwarg", {
       projectConfigId,
       sectionId,
     });
 
-    const afterParamIds = await getSectionParamIds(page, sectionId);
-    const paramId = getNewParamId(beforeParamIds, afterParamIds);
+    const afterState = await loadProjectState(page, projectConfigId);
+    const paramId = getNewCodeObjId(beforeIds, Object.keys(afterState.codeObjs));
 
-    await setCodeObjNameFromFrontend(page, {
-      projectConfigId,
-      codeObjId: paramId,
-      name: "secret_value",
-    });
-    await changeParamImplFromFrontend(page, {
+    await postBackend(page, "/changeParamImpl", {
       projectConfigId,
       sectionId,
       paramInfoId: paramId,
       selectedId: "PasswordParam",
     });
-    await setParamEnteredValueFromFrontend(page, {
+    await postBackend(page, "/setParamEnteredValue", {
       projectConfigId,
       sectionId,
       paramInfoId: paramId,
@@ -86,39 +82,25 @@ test("password param reveals saved secret on demand", async ({ page }) => {
       projectConfigId,
       sectionIds: [sectionId],
     });
-    await cleanupIsolatedProject(page, projectContext);
   }
 });
 
-async function getSectionParamIds(
+async function createCallableSection(
   page: Page,
-  sectionId: string,
-): Promise<string[]> {
-  const prefix = `ParamContainer-${sectionId}-`;
-  return await page
-    .locator(`[id^="${prefix}"]`)
-    .evaluateAll(
-      (nodes, idPrefix) =>
-        nodes
-          .map((node) => node.id)
-          .filter((id) => id.startsWith(idPrefix))
-          .map((id) => id.slice(idPrefix.length)),
-      prefix,
-    );
-}
-
-function getNewParamId(
-  beforeIds: string[],
-  afterIds: string[],
-): string {
-  const beforeIdSet = new Set(beforeIds);
-  const newIds = afterIds.filter((id) => !beforeIdSet.has(id));
-  if (newIds.length !== 1) {
-    throw new Error(
-      `Expected 1 new param id, found ${newIds.length}: ${newIds.join(", ")}`,
-    );
+  projectConfigId: string,
+): Promise<string> {
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Callable",
+    },
+  );
+  if (!response?.sectionId) {
+    throw new Error("Missing sectionId when creating callable section.");
   }
-  return newIds[0];
+  return response.sectionId;
 }
 
 async function setCallable(
@@ -126,22 +108,40 @@ async function setCallable(
   projectConfigId: string,
   sectionId: string,
 ): Promise<void> {
-  for (let attempt = 0; attempt < 8; attempt += 1) {
-    try {
-      await setCallableFromFrontend(page, {
-        projectConfigId,
-        sectionId,
-        callableName: TARGET_CALLABLE,
-        refetchParams: false,
-      });
-      return;
-    } catch (error) {
-      if (attempt === 7) {
-        throw error;
-      }
-      await page.waitForTimeout(500);
-    }
+  await postBackendWithRetries(page, "/setCallable", {
+    projectConfigId,
+    sectionId,
+    callableName: TARGET_CALLABLE,
+    refetchParams: false,
+  });
+}
+
+async function loadProjectState(
+  page: Page,
+  projectConfigId: string,
+): Promise<ProjectStateResponse["projectState"]> {
+  const response = await postBackend<ProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
+  );
+  if (!response?.projectState) {
+    throw new Error("Missing project state response.");
   }
+  return response.projectState;
+}
+
+function getNewCodeObjId(
+  beforeIds: Set<string>,
+  afterIds: string[],
+): string {
+  const newIds = afterIds.filter((id) => !beforeIds.has(id));
+  if (newIds.length !== 1) {
+    throw new Error(
+      `Expected 1 new code obj id, found ${newIds.length}: ${newIds.join(", ")}`,
+    );
+  }
+  return newIds[0];
 }
 
 async function postBackend<T>(
@@ -163,4 +163,61 @@ async function postBackend<T>(
     return null;
   }
   return JSON.parse(text) as T;
+}
+
+async function postBackendWithRetries<T>(
+  page: Page,
+  path: string,
+  payload: Record<string, unknown> | null,
+  attempts = 8,
+  delayMs = 500,
+): Promise<T | null> {
+  let lastStatus = 0;
+  let lastText = "";
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
+      data: payload,
+    });
+    lastStatus = response.status();
+    lastText = await response.text();
+    if (response.ok()) {
+      if (!lastText) {
+        return null;
+      }
+      return JSON.parse(lastText) as T;
+    }
+    if (attempt < attempts - 1) {
+      await page.waitForTimeout(delayMs);
+    }
+  }
+  const detail = lastText ? ` ${lastText}` : "";
+  throw new Error(
+    `Backend request failed (${lastStatus}): ${path}${detail}`,
+  );
+}
+
+async function getCurrentProjectConfigId(page: Page): Promise<string> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+
+  const currentPath = new URL(page.url()).pathname;
+  const projectName = currentPath.split("/").filter(Boolean)[0];
+  if (projectName) {
+    const match = metadata.projectMetadata.find((p) => p.name === projectName);
+    if (match?.id) {
+      return match.id;
+    }
+  }
+
+  if (metadata.defaultProjectConfigId) {
+    return metadata.defaultProjectConfigId;
+  }
+
+  throw new Error("Unable to resolve projectConfigId for test.");
 }
