@@ -798,6 +798,132 @@ func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeRefetchesCallableParams(t
 	}
 }
 
+func TestRuntimeApplyWatchCodeFileUpdateInitialAdditionRefetchesCallableParams(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	sourcePath := filepath.Join(workspaceRoot, "pkg", "watched.py")
+
+	runtime, err := OpenOverlayRuntime(Document{
+		SchemaVersion:    CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/watched.py"},
+				CodegenTargets: []ProjectCodegenTarget{
+					{
+						Language: string(CodeLanguagePython),
+						Payload:  json.RawMessage(`{"language":"python"}`),
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := runtime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	resolver := &stubCallableSignatureResolver{
+		ok: true,
+		result: CallableSignatureResult{
+			Documentation: "Sort values.",
+			Status:        SignatureHelpStatusMatched,
+			Params: []CallableParamProposal{
+				{
+					Name:           "iterable",
+					Description:    "Values to sort.",
+					PassingStyle:   "POSITIONAL_ONLY",
+					TypeAnnotation: "list[int]",
+				},
+				{
+					Name:         "reverse",
+					DefaultValue: "False",
+					Description:  "Descending order flag.",
+					PassingStyle: "KEYWORD_ONLY",
+				},
+			},
+		},
+	}
+
+	snapshot, didUpdate, err := runtime.ApplyWatchCodeFileUpdate(
+		context.Background(),
+		"project-alpha",
+		sourcePath,
+		"def sorted(iterable, reverse=False):\n    return iterable\n",
+		false,
+		"",
+		workspaceRoot,
+		resolver,
+	)
+	if err != nil {
+		t.Fatalf("apply initial watch code update: %v", err)
+	}
+	if !didUpdate {
+		t.Fatal("expected initial watch code update to create and bind a callable section")
+	}
+	if resolver.callCount != 1 {
+		t.Fatalf("expected one resolver call, got %d", resolver.callCount)
+	}
+
+	project := snapshot.Document.Projects["project-alpha"]
+	entry, ok := project.WatchCodeRegistry["pkg.watched.sorted:function"]
+	if !ok {
+		t.Fatalf("expected watch code registry entry, got %#v", project.WatchCodeRegistry)
+	}
+	if len(entry.SectionIDs) != 1 {
+		t.Fatalf("expected one created callable section, got %#v", entry)
+	}
+
+	sectionID := entry.SectionIDs[0]
+	payload, err := currentCallablePayloadForWatchCodeTest(project, sectionID)
+	if err != nil {
+		t.Fatalf("current callable payload: %v", err)
+	}
+	callableID := payloadStringField(payload, "callable")
+	if callableID == "" {
+		t.Fatalf("expected created callable binding, got %#v", payload)
+	}
+
+	callablePayload, _, _, _, err := project.resolveCurrentCodeObjectContext(sectionID, callableID)
+	if err != nil {
+		t.Fatalf("resolve callable payload: %v", err)
+	}
+	children := payloadStringArrayField(callablePayload, "children")
+	if len(children) != 2 {
+		t.Fatalf("expected initial watch code binding to create params, got %#v", children)
+	}
+	if got := project.CodeObjs[children[0]].Name; got != "iterable" {
+		t.Fatalf("expected first param iterable, got %q", got)
+	}
+	if got := project.CodeObjs[children[1]].Name; got != "reverse" {
+		t.Fatalf("expected second param reverse, got %q", got)
+	}
+
+	iterablePayload, _, _, _, err := project.resolveCurrentCodeObjectContext(sectionID, children[0])
+	if err != nil {
+		t.Fatalf("resolve iterable param payload: %v", err)
+	}
+	if got := payloadStringField(iterablePayload, "typeAnnotation"); got != "list[int]" {
+		t.Fatalf("expected iterable param type annotation list[int], got %q", got)
+	}
+
+	reversePayload, _, _, _, err := project.resolveCurrentCodeObjectContext(sectionID, children[1])
+	if err != nil {
+		t.Fatalf("resolve reverse param payload: %v", err)
+	}
+	if got := payloadStringField(reversePayload, "defaultVal"); got != "False" {
+		t.Fatalf("expected reverse param default False, got %q", got)
+	}
+}
+
 func TestRuntimeApplyWatchCodeFileUpdateSignatureChangeWithoutSignatureContextKeepsParams(t *testing.T) {
 	t.Parallel()
 

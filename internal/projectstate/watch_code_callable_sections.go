@@ -613,11 +613,15 @@ func (p *Project) deleteWatchCodeCodeObject(codeObjID string) error {
 }
 
 func (p *Project) bindWatchCodeCallableSections(
-	_ context.Context,
+	ctx context.Context,
 	sectionIDs []string,
 	callableName string,
-	_ CallableSignatureResolver,
+	resolver CallableSignatureResolver,
 ) (bool, error) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
 	didUpdate := false
 	for _, sectionID := range uniqueSortedTrimmedStrings(sectionIDs) {
 		if _, ok := p.Sections[sectionID]; !ok {
@@ -628,6 +632,16 @@ func (p *Project) bindWatchCodeCallableSections(
 			return false, err
 		}
 		if updated {
+			didUpdate = true
+		}
+		if !updated {
+			continue
+		}
+		response, err := p.SetCallable(ctx, sectionID, callableName, true, resolver)
+		if err != nil {
+			return false, err
+		}
+		if response.LSPStatus != SignatureHelpStatusSkipped {
 			didUpdate = true
 		}
 	}
