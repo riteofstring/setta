@@ -598,6 +598,50 @@ describe("openWebSocket", () => {
     expect(getFrontendAffinityToken()).toBe("frontend-second-token");
   });
 
+  it("does not add a connected notification on the initial socket open", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { addTemporaryNotification } = await import(
+      "state/actions/notifications"
+    );
+    const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const socket = MockWebSocket.instances[0];
+    await socket.emit("open");
+
+    expect(mockedAddTemporaryNotification).not.toHaveBeenCalledWith(
+      "Connected to server",
+    );
+  });
+
+  it("adds a connected notification after a reconnect succeeds", async () => {
+    const { openWebSocket } = await import("state/actions/websocketReceive");
+    const { addTemporaryNotification } = await import(
+      "state/actions/notifications"
+    );
+    const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
+
+    openWebSocket("/project");
+    vi.runAllTimers();
+
+    const firstSocket = MockWebSocket.instances[0];
+    await firstSocket.emit("open");
+    mockedAddTemporaryNotification.mockClear();
+
+    await firstSocket.emit("close", { code: 1006 });
+    vi.advanceTimersByTime(3000);
+
+    const reconnectSocket = MockWebSocket.instances[1];
+    await reconnectSocket.emit("open");
+
+    expect(mockedAddTemporaryNotification).toHaveBeenCalledWith(
+      "Connected to server",
+    );
+    vi.advanceTimersByTime(1000);
+  });
+
   it("reconnects once after an active-socket transport error followed by close", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     const { route_get_auth_refresh_status } = await import(

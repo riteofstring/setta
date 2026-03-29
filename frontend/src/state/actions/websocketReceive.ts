@@ -152,7 +152,13 @@ function beginWebsocketGeneration(): number {
 }
 
 export const openWebSocket = _.debounce(
-  (pathname: string, shareSessionId: string | null = null) => {
+  (
+    pathname: string,
+    shareSessionId: string | null = null,
+    options?: {
+      notifyOnConnect?: boolean;
+    },
+  ) => {
     if (authLost) {
       return;
     }
@@ -196,7 +202,9 @@ export const openWebSocket = _.debounce(
           return;
         }
         sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
-        addTemporaryNotification("Connected to server");
+        if (options?.notifyOnConnect) {
+          addTemporaryNotification("Connected to server");
+        }
         addWebsocketConnection(
           createWebsocketConnectionInfo({
             id: "main",
@@ -294,7 +302,9 @@ export const openWebSocket = _.debounce(
         clearFrontendWebsocketAffinity(socketGeneration);
         // Attempt to reconnect
         setTimeout(() => {
-          openWebSocket(lastPathname ?? pathname, lastShareSessionId);
+          openWebSocket(lastPathname ?? pathname, lastShareSessionId, {
+            notifyOnConnect: true,
+          });
         }, 3000);
       });
     }
@@ -336,7 +346,9 @@ async function attemptAuthRecovery(pathname: string) {
     updateAuthRefreshWindowSeconds(res.data.authCookieRefreshWindowSeconds);
     authLost = false;
     clearAuthRecoveryTimer();
-    openWebSocket(lastPathname ?? pathname, lastShareSessionId);
+    openWebSocket(lastPathname ?? pathname, lastShareSessionId, {
+      notifyOnConnect: true,
+    });
     return;
   }
   scheduleAuthRecovery(pathname);

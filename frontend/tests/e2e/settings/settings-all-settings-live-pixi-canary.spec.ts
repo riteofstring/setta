@@ -28,6 +28,7 @@ const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
 const LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM =
   "liveDictAreaInteractionMode";
 const LIVE_PIXI_MODE = "pixi-node-body";
+const NOTIFICATIONS_STORE_MODULE_URL = "/src/state/definitions.ts";
 // Use the exact browser module URL that the app resolves for the singleton
 // Zustand store. Importing the directory URL creates a second detached store.
 const REACT_FLOW_STORE_MODULE_URL = "/src/forks/xyflow/core/store/index.ts";
@@ -156,6 +157,17 @@ async function readFitViewInitState(page: Page): Promise<{
     const { fitViewOnInit, fitViewOnInitDone } = useReactFlow.getState();
     return { fitViewOnInit, fitViewOnInitDone };
   }, REACT_FLOW_STORE_MODULE_URL);
+}
+
+async function readNotificationMessages(page: Page): Promise<string[]> {
+  return page.evaluate(async (moduleUrl: string) => {
+    const { useNotifications } = await import(moduleUrl);
+    return useNotifications
+      .getState()
+      .notifications.map((notification: { message: string }) => {
+        return notification.message;
+      });
+  }, NOTIFICATIONS_STORE_MODULE_URL);
 }
 
 async function expectViewportTransformNear(
@@ -588,6 +600,20 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
         !ariaLabel.startsWith("Activate editor overlay for "),
     ),
   ).toBe(true);
+});
+
+test("all settings canary does not add an initial connected notification on first load", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  await expect
+    .poll(async () => {
+      return (await readNotificationMessages(page)).includes(
+        "Connected to server",
+      );
+    })
+    .toBe(false);
 });
 
 test("all settings canary keeps visible Pixi scene roots after switching from the baseline in the same tab", async ({

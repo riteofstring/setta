@@ -10784,3 +10784,35 @@ Record:
     - the live standalone section route is once again a trustworthy section-surface canary for render/fail-closed checks on this worktree runtime
 - Next action:
   - Return to the active live Pixi parity sequence against the read-only `main` oracle now that the standalone section canary is stable again for supporting route-level checks.
+
+## 2026-03-30 328
+
+- Item: Stop the live Pixi canary from surfacing the initial websocket `Connected to server` notification in the top-of-page parity slice.
+- Status: `done`
+- Details:
+  - Took one bounded `main`-oracle parity slice directly from the fresh CDP comparison instead of starting another unrelated renderer probe:
+    - the worktree canary showed an extra visible `Connected to server` line under `Home`
+    - the worktree baseline and the read-only `main` oracle did not show that line
+  - Updated the websocket open path so the first page-load connection stays quiet while reconnects still surface the existing success notification:
+    - `frontend/src/state/actions/websocketReceive.ts`
+    - `frontend/src/state/actions/websocketReceive.test.ts`
+  - Added focused coverage for the new contract:
+    - initial socket open does not add `Connected to server`
+    - reconnect after an unexpected close still adds `Connected to server`
+  - Added a narrow settings canary guard so the regression stays pinned on the exact surface that exposed it:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/websocketReceive.test.ts`
+    - result: passed (`21 passed`)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary does not add an initial connected notification on first load|all settings canary can replace the live dict-area body with a Pixi scene host"`
+    - result: passed (`2 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/state/actions/websocketReceive.ts src/state/actions/websocketReceive.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Chrome DevTools MCP visual check in a fresh sub-agent context against the live `main` reference plus the worktree baseline/canary:
+    - compared the same top-of-page `Home` area on `http://127.0.0.1:3087/settings`, `http://127.0.0.1:3043/settings`, and `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - result: passed; the canary-only `Connected to server` line is gone and no replacement mismatch stood out in that same slice
+- Next action:
+  - Resume the next bounded live Pixi `main`-oracle parity slice now that the top-of-page notification drift no longer pollutes the `All Settings` comparison surface.
