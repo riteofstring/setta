@@ -12973,3 +12973,75 @@ Record:
     - verified on the live worktree canary that `stateMachineGateSectionDefault` is visible, managed by the shared page runtime, and does not show a visible `dom-context-lost` fallback wrapper
 - Next action:
   - Re-run the named visible-fallback inspection on the updated live canary and move the next real visible `dom-context-lost` scene only after that fresh ordering is confirmed, instead of assuming the post-`stateMachineGateSectionDefault` order.
+
+## 2026-03-31 381
+
+- Item: Move `codeSectionDefault` onto the shared page-level live Pixi runtime host without regressing the existing shared-runtime canaries.
+- Status: `done`
+- Details:
+  - Did not continue the prior `dom-context-lost` allowlist order blindly after item `380`.
+  - Ran a fresh normalized worktree canary inspection before editing and found the first visible fallback had shifted:
+    - the runtime host still managed the existing eleven scenes through `stateMachineGateSectionDefault`
+    - `codeSectionDefault` was visibly on screen but still reported:
+      - `data-live-dict-area-scene-render-backend="local-app"`
+      - section id `d312b1d3-48e3-4a7a-bcb5-b6bf25db7607`
+    - unlike the earlier slices, `codeSectionDefault` was not in the host's named `dom-context-lost` list, so the real blocker had become a visible `local-app` fallback rather than another named context-loss wrapper
+  - Kept the slice bounded to that one real visible fallback by broadening the shared-runtime canary allowlist by one section:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - shared-runtime canary section names now include:
+      - `promptSectionDefault`
+      - `browserSectionDefault`
+      - `textBlockSectionDefault`
+      - `codeParamCodeObjDefault`
+      - `sectionSizingPolicy`
+      - `buttonParamCodeObjDefault`
+      - `genPythonMetadataSectionDefault`
+      - `drawSectionDefault`
+      - `iFrameSectionDefault`
+      - `backend`
+      - `stateMachineGateSectionDefault`
+      - `codeSectionDefault`
+  - Locked the ownership move in the existing focused runtime coverage instead of opening a new harness lane:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - managed-scene host expectations now cover all twelve shared-runtime scenes in order
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - added the `codeSectionDefault` overlay-shell backend assertion
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added the live canary assertion that `codeSectionDefault` stays on `shared-page-runtime` without a visible fallback wrapper
+      - tightened the overview selector to `^codeSectionDefault$` after the first targeted rerun showed a strict-mode collision with `genPythonCodeSectionDefault`
+  - Verification notes:
+    - the second targeted Playwright rerun failed in global setup because the previously refreshed bootstrap token had expired and `/__setta__/bootstrap` returned `401`
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - reran the same targeted Playwright subset with the refreshed token and it passed
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent verified the live worktree canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - verified `All Settings` was active and `codeSectionDefault` was visible on screen
+    - verified the checked scene reports:
+      - `data-live-dict-area-scene-section-name="codeSectionDefault"`
+      - `data-live-dict-area-scene-render-backend="shared-page-runtime"`
+    - verified the runtime host now includes `codeSectionDefault` in `data-live-dict-area-pixi-runtime-managed-scene-names`
+    - verified the runtime host excludes `codeSectionDefault` from `data-live-dict-area-pixi-runtime-dom-context-lost-scene-names`
+    - verified there is no visible `data-live-dict-area-scene-fallback="dom-context-lost"` wrapper around the checked scene
+    - this slice stayed on the earliest failing gate and did not re-open the read-only `main` oracle, because the live worktree canary still had a concrete visible fallback/backend blocker to remove first
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`24 passed`)
+  - Playwright:
+    - first targeted run:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<current worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps codeSectionDefault on the shared page runtime without fallback"`
+      - result: failed (`codeSectionDefault` selector matched `genPythonCodeSectionDefault` too)
+    - second targeted run:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<stale worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps codeSectionDefault on the shared page runtime without fallback"`
+      - result: failed during global setup with bootstrap `401`
+    - passing rerun with refreshed token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps codeSectionDefault on the shared page runtime without fallback"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - verified on the live worktree canary that `codeSectionDefault` is visible, managed by the shared page runtime, and no longer uses the visible `local-app` fallback path
+- Next action:
+  - Re-run the fresh visible-scene inspection on the updated live canary and take the next real on-screen fallback off the per-card path only after confirming the new ordering, because the visible blocker is no longer limited to the named `dom-context-lost` list.
