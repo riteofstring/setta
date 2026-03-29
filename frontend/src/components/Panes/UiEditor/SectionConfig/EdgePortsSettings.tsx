@@ -15,7 +15,7 @@ import {
   getCurrProjectConfigId,
   getCurrSectionVariantId,
   getCurrShownParamIds,
-  getParamDisplayName,
+  getParamDisplayNameIfPresent,
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
   setSectionVariantImplValue,
@@ -104,7 +104,7 @@ function buildParamLabels(
     const path = requiredParamIdsToPaths[paramId];
     const label = path
       ? paramNameFromPathArray(state, sectionId, path)
-      : getParamDisplayName(state, sectionId, paramId);
+      : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
     return { id: paramId, label };
   });
 }
