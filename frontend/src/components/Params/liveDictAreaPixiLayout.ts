@@ -26,15 +26,13 @@ const LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT = {
   areaPaddingTop: 2,
   rowTopOffset: 2,
 } as const;
+const LIVE_DICT_AREA_PIXI_COMPACT_READABLE_PREVIEW_ROW_COUNT = 2;
 
 export const LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT =
   LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight - 4;
 
 export const LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT =
-  LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingTop +
-  LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.rowTopOffset +
-  LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT +
-  LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingBottom;
+  getLiveDictAreaPixiCompactPreviewMinHeight(1);
 
 const LIVE_DICT_AREA_PIXI_REGULAR_SINGLE_ROW_MIN_HEIGHT =
   LIVE_DICT_AREA_PIXI_LAYOUT.areaHeaderHeight +
@@ -134,11 +132,15 @@ export function buildLiveDictAreaPixiLayout({
   let edgeStrip: LiveDictAreaPixiEdgeStripLayout | null = null;
   let nextBlockY = LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetY;
 
-  for (const block of liveDictAreaSceneBoundary.blocks) {
-    if (
-      normalizedMaxCanvasHeight !== null &&
-      nextBlockY >= normalizedMaxCanvasHeight
-    ) {
+  for (const [
+    blockIndex,
+    block,
+  ] of liveDictAreaSceneBoundary.blocks.entries()) {
+    const remainingCanvasHeight =
+      normalizedMaxCanvasHeight === null
+        ? null
+        : normalizedMaxCanvasHeight - nextBlockY;
+    if (remainingCanvasHeight !== null && remainingCanvasHeight <= 0) {
       break;
     }
 
@@ -147,8 +149,19 @@ export function buildLiveDictAreaPixiLayout({
         block,
         canvasWidth,
         edgeStripState,
+        maxHeight:
+          remainingCanvasHeight === null
+            ? null
+            : remainingCanvasHeight -
+              getLiveDictAreaPixiReservedTrailingPreviewHeight({
+                blockIndex,
+                blocks: liveDictAreaSceneBoundary.blocks,
+              }),
         y: nextBlockY,
       });
+      if (!edgeStripLayout) {
+        continue;
+      }
       blocks.push(edgeStripLayout);
       edgeStrip = edgeStripLayout;
       nextBlockY += edgeStripLayout.height + LIVE_DICT_AREA_PIXI_LAYOUT.areaGap;
@@ -158,10 +171,7 @@ export function buildLiveDictAreaPixiLayout({
     const paramAreaLayout = buildLiveDictAreaPixiParamAreaLayout({
       block,
       canvasWidth,
-      maxHeight:
-        block.mount.mountKind === "grow" && normalizedMaxCanvasHeight !== null
-          ? normalizedMaxCanvasHeight - nextBlockY
-          : null,
+      maxHeight: remainingCanvasHeight,
       y: nextBlockY,
     });
     if (!paramAreaLayout) {
@@ -216,13 +226,15 @@ function buildLiveDictAreaPixiEdgeStripLayout({
   block,
   canvasWidth,
   edgeStripState,
+  maxHeight,
   y,
 }: {
   block: LiveDictAreaSceneBoundary["edgeStripBlock"];
   canvasWidth: number;
   edgeStripState: LiveDictAreaSceneBoundary["liveDictAreaBoundary"]["nodeScenePacket"]["edgeStrip"];
+  maxHeight: number | null;
   y: number;
-}): LiveDictAreaPixiEdgeStripLayout {
+}): LiveDictAreaPixiEdgeStripLayout | null {
   if (!block) {
     throw new Error(
       "Expected live edge-strip renderer packet for Pixi layout.",
@@ -236,11 +248,22 @@ function buildLiveDictAreaPixiEdgeStripLayout({
     block.portRowCount,
   );
   const rowsStartY = y + LIVE_DICT_AREA_PIXI_LAYOUT.edgeHeaderHeight + 4;
-  const height = Math.max(
+  const unclampedHeight = Math.max(
     block.estimatedHeight,
     LIVE_DICT_AREA_PIXI_LAYOUT.edgeMinHeight +
       rowCount * LIVE_DICT_AREA_PIXI_LAYOUT.edgePortRowHeight,
   );
+  const normalizedMaxHeight =
+    typeof maxHeight === "number" && Number.isFinite(maxHeight) && maxHeight > 0
+      ? Math.floor(maxHeight)
+      : null;
+  const height =
+    normalizedMaxHeight === null
+      ? unclampedHeight
+      : Math.min(unclampedHeight, normalizedMaxHeight);
+  if (height <= 0) {
+    return null;
+  }
 
   return {
     blockId: block.blockId,
@@ -336,6 +359,9 @@ function buildLiveDictAreaPixiParamAreaLayout({
   const visibleRows = rows.filter(
     (row) => row.y + row.blockHeight <= visibleRowsBottomY,
   );
+  if (visibleRows.length === 0) {
+    return null;
+  }
 
   return {
     blockId: block.blockId,
@@ -350,6 +376,51 @@ function buildLiveDictAreaPixiParamAreaLayout({
     x: LIVE_DICT_AREA_PIXI_LAYOUT.sectionInsetX,
     y,
   };
+}
+
+function getLiveDictAreaPixiReservedTrailingPreviewHeight({
+  blockIndex,
+  blocks,
+}: {
+  blockIndex: number;
+  blocks: LiveDictAreaSceneBoundary["blocks"];
+}) {
+  const trailingParamArea = blocks
+    .slice(blockIndex + 1)
+    .find(
+      (block) =>
+        (block.kind === "pinned-param-area" ||
+          block.kind === "unpinned-param-area") &&
+        block.rowCount > 0,
+    );
+
+  if (!trailingParamArea) {
+    return 0;
+  }
+
+  return (
+    LIVE_DICT_AREA_PIXI_LAYOUT.areaGap +
+    getLiveDictAreaPixiCompactPreviewMinHeight(
+      Math.min(
+        trailingParamArea.rowCount,
+        LIVE_DICT_AREA_PIXI_COMPACT_READABLE_PREVIEW_ROW_COUNT,
+      ),
+    )
+  );
+}
+
+function getLiveDictAreaPixiCompactPreviewMinHeight(visibleRowCount: number) {
+  if (visibleRowCount <= 0) {
+    return 0;
+  }
+
+  return (
+    LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingTop +
+    LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.rowTopOffset +
+    LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT +
+    (visibleRowCount - 1) * LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight +
+    LIVE_DICT_AREA_PIXI_COMPACT_PREVIEW_LAYOUT.areaPaddingBottom
+  );
 }
 
 function buildLiveDictAreaPixiRowLayout({

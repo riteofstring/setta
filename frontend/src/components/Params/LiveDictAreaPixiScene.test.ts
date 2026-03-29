@@ -12,6 +12,7 @@ import {
 } from "./LiveDictAreaPixiScene";
 
 const mockApplicationRender = vi.hoisted(() => vi.fn());
+const mockViewportZoom = vi.hoisted(() => ({ value: 1 }));
 
 vi.hoisted(() => {
   class ResizeObserverMock {
@@ -32,7 +33,7 @@ vi.hoisted(() => {
 vi.mock("forks/xyflow/core/store", () => ({
   useReactFlow: (
     selector: (state: { transform: [number, number, number] }) => unknown,
-  ) => selector({ transform: [0, 0, 1] }),
+  ) => selector({ transform: [0, 0, mockViewportZoom.value] }),
 }));
 
 vi.mock("state/definitions", async (importOriginal) => {
@@ -151,6 +152,7 @@ describe("LiveDictAreaPixiScene", () => {
 
   beforeEach(() => {
     mockApplicationRender.mockClear();
+    mockViewportZoom.value = 1;
     unhandledRejectionErrors = [];
     container = document.createElement("div");
     document.body.append(container);
@@ -232,6 +234,68 @@ describe("LiveDictAreaPixiScene", () => {
     expect(
       container.querySelector("[data-live-dict-area-scene='pixi'] canvas"),
     ).not.toBeNull();
+  });
+
+  it("switches the mounted scene host into overview presentation mode when the flow viewport is heavily zoomed out", async () => {
+    mockViewportZoom.value = 0.12;
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamDisplayName: (paramId: string) =>
+          (
+            ({
+              "unpinned-group": "Unpinned Group",
+              "unpinned-value": "Unpinned Value",
+            }) as Record<string, string>
+          )[paramId] ?? paramId,
+        getParamEditorKind: () => "text",
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: false,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {},
+          topLevelParamIds: [],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-overview",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {},
+          pinnedTopLevelParamIds: [],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(LiveDictAreaPixiScene, {
+          liveDictAreaSceneBoundary:
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-presentation-mode"),
+    ).toBe("overview");
   });
 
   function handleUnhandledRejection(event: PromiseRejectionEvent) {

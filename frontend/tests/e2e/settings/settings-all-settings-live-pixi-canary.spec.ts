@@ -193,6 +193,9 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
         10,
       ),
       canvasCssHeight: sceneCanvas.getBoundingClientRect().height,
+      presentationMode:
+        sceneHost.getAttribute("data-live-dict-area-scene-presentation-mode") ??
+        "detail",
       localParamContainerCount: visibleSceneRoot.querySelectorAll(
         '[id^="ParamContainer-"]',
       ).length,
@@ -223,9 +226,13 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   expect(result?.rowCount).toBeGreaterThan(0);
   expect(result?.valuePreviewCount).toBeGreaterThan(0);
   expect(result?.availableHeight).toBeGreaterThan(0);
-  expect(result?.canvasCssHeight).toBeGreaterThanOrEqual(
-    LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
-  );
+  if (result?.presentationMode === "overview") {
+    expect(result?.canvasCssHeight).toBeGreaterThan(0);
+  } else {
+    expect(result?.canvasCssHeight).toBeGreaterThanOrEqual(
+      LIVE_DICT_AREA_PIXI_MIN_USABLE_CANVAS_HEIGHT,
+    );
+  }
   expect(result?.canvasCssHeight).toBeLessThanOrEqual(
     (result?.sceneRootCssHeight ?? 0) + 1,
   );

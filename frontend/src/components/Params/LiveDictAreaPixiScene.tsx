@@ -23,6 +23,7 @@ import {
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
+  getLiveDictAreaPixiPresentationMode,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
@@ -30,6 +31,7 @@ import {
   getLiveDictAreaPixiUsableMaxCanvasHeight,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
   type LiveDictAreaPixiPalette,
+  type LiveDictAreaPixiPresentationMode,
   type LiveDictAreaPixiTextStyleSet,
 } from "./liveDictAreaPixiSceneView";
 
@@ -82,6 +84,7 @@ function _LiveDictAreaPixiScene({
     liveDictAreaSceneBoundary,
   );
   const textResolution = getLiveDictAreaPixiTextResolution(renderResolution);
+  const presentationMode = getLiveDictAreaPixiPresentationMode(viewportZoom);
   const usableMaxCanvasHeight = getLiveDictAreaPixiUsableMaxCanvasHeight(
     availableCanvasHeight,
   );
@@ -284,6 +287,7 @@ function _LiveDictAreaPixiScene({
         layout: summaryLayout,
         palette,
         paramColumnWidth,
+        presentationMode,
         textResolution,
         textFontFamily,
         textStyleSet,
@@ -330,6 +334,7 @@ function _LiveDictAreaPixiScene({
         availableCanvasHeight === null ? "" : availableCanvasHeight
       }
       data-live-dict-area-scene-block-count={summaryLayout.blocks.length}
+      data-live-dict-area-scene-presentation-mode={presentationMode}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
       data-live-dict-area-scene-value-preview-count={
         summaryLayout.valuePreviewCount
@@ -376,6 +381,7 @@ function drawLiveDictAreaPixiScene({
   layout,
   palette,
   paramColumnWidth,
+  presentationMode,
   textResolution,
   textFontFamily,
   textStyleSet,
@@ -384,6 +390,7 @@ function drawLiveDictAreaPixiScene({
   layout: LiveDictAreaPixiLayout;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
+  presentationMode: LiveDictAreaPixiPresentationMode;
   textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
@@ -411,6 +418,7 @@ function drawLiveDictAreaPixiScene({
         block,
         palette,
         paramColumnWidth,
+        presentationMode,
         textResolution,
         textFontFamily,
         textStyleSet,
@@ -484,6 +492,7 @@ function drawLiveDictAreaParamArea({
   block,
   palette,
   paramColumnWidth,
+  presentationMode,
   textResolution,
   textFontFamily,
   textStyleSet,
@@ -491,6 +500,7 @@ function drawLiveDictAreaParamArea({
   block: LiveDictAreaPixiParamAreaLayout;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
+  presentationMode: LiveDictAreaPixiPresentationMode;
   textResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
@@ -507,6 +517,17 @@ function drawLiveDictAreaParamArea({
     x: block.x,
     y: block.y,
   });
+
+  if (presentationMode === "overview") {
+    graphics.addChild(
+      drawParamAreaOverview({
+        block,
+        palette,
+      }),
+    );
+
+    return graphics;
+  }
 
   if (block.headerHeight > 0) {
     graphics.addChild(
@@ -536,6 +557,135 @@ function drawLiveDictAreaParamArea({
   }
 
   return graphics;
+}
+
+function drawParamAreaOverview({
+  block,
+  palette,
+}: {
+  block: LiveDictAreaPixiParamAreaLayout;
+  palette: LiveDictAreaPixiPalette;
+}) {
+  const graphics = new Graphics();
+  const summaryRows = getOverviewRows(block.rows);
+  if (summaryRows.length === 0) {
+    return graphics;
+  }
+
+  const bodyInsetX = LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX;
+  const bodyTop = block.y + 8;
+  const bodyBottom = block.y + block.height - 8;
+  const availableBodyHeight = Math.max(0, bodyBottom - bodyTop);
+  const bandGap = summaryRows.length === 1 ? 0 : 8;
+  const bandHeight = Math.max(
+    12,
+    Math.floor(
+      (availableBodyHeight - bandGap * (summaryRows.length - 1)) /
+        summaryRows.length,
+    ),
+  );
+  const bandWidth =
+    block.width - LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2 - bodyInsetX;
+
+  summaryRows.forEach((row, index) => {
+    const y = bodyTop + index * (bandHeight + bandGap);
+    graphics.addChild(
+      drawOverviewRowBand({
+        fill:
+          row.kind === "group"
+            ? palette.rowBackgroundAlt
+            : palette.rowBackground,
+        hasValuePreview: row.valueText !== null,
+        height: bandHeight,
+        palette,
+        width: bandWidth,
+        x: block.x + bodyInsetX,
+        y,
+      }),
+    );
+  });
+
+  return graphics;
+}
+
+function drawOverviewRowBand({
+  fill,
+  hasValuePreview,
+  height,
+  palette,
+  width,
+  x,
+  y,
+}: {
+  fill: ColorSource;
+  hasValuePreview: boolean;
+  height: number;
+  palette: LiveDictAreaPixiPalette;
+  width: number;
+  x: number;
+  y: number;
+}) {
+  const graphics = new Graphics();
+
+  graphics.roundRect(x, y, width, height, 10);
+  graphics.fill(fill);
+
+  const insetX = 12;
+  const insetY = Math.max(8, Math.floor(height * 0.24));
+  const barHeight = Math.max(10, Math.floor(height * 0.22));
+  const labelWidth = Math.max(32, Math.floor(width * 0.42));
+  const valueWidth = hasValuePreview
+    ? Math.max(28, Math.floor(width * 0.2))
+    : 0;
+  const secondaryBarWidth = Math.max(24, Math.floor(width * 0.28));
+
+  graphics.roundRect(x + insetX, y + insetY, labelWidth, barHeight, 999);
+  graphics.fill(palette.bodyText);
+
+  graphics.roundRect(
+    x + insetX,
+    y + height - insetY - barHeight,
+    secondaryBarWidth,
+    barHeight,
+    999,
+  );
+  graphics.fill(palette.titleText);
+
+  if (hasValuePreview) {
+    graphics.roundRect(
+      x + width - insetX - valueWidth,
+      y + insetY,
+      valueWidth,
+      barHeight,
+      999,
+    );
+    graphics.fill(palette.portSelectedDot);
+  }
+
+  return graphics;
+}
+
+function getOverviewRows(rows: LiveDictAreaPixiRowLayout[]) {
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const targetRowCount = rows.length >= 6 ? 3 : rows.length >= 3 ? 2 : 1;
+  const selectedRows: LiveDictAreaPixiRowLayout[] = [];
+
+  for (let index = 0; index < targetRowCount; index += 1) {
+    const rowIndex =
+      targetRowCount === 1
+        ? 0
+        : Math.round((index * (rows.length - 1)) / (targetRowCount - 1));
+    const nextRow = rows[rowIndex];
+    if (!nextRow || selectedRows.includes(nextRow)) {
+      continue;
+    }
+    selectedRows.push(nextRow);
+  }
+
+  return selectedRows;
 }
 
 function drawParamRow({

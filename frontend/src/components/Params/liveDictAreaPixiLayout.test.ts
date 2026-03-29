@@ -5,6 +5,8 @@ import { buildLiveDictAreaSceneBoundary } from "./groupContainerLiveDictAreaScen
 import {
   buildLiveDictAreaPixiFixedMeasurements,
   buildLiveDictAreaPixiLayout,
+  LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT,
+  LIVE_DICT_AREA_PIXI_LAYOUT,
 } from "./liveDictAreaPixiLayout";
 
 describe("buildLiveDictAreaPixiLayout", () => {
@@ -322,5 +324,73 @@ describe("buildLiveDictAreaPixiLayout", () => {
       "unpinned-group",
     ]);
     expect(constrainedLayout.totalRowCount).toBe(1);
+  });
+
+  it("reserves a readable compact preview after a constrained edge strip so short cards do not render as empty shells", () => {
+    const liveDictAreaBoundary = buildLiveDictAreaBoundary({
+      bgColor: "bg-surface",
+      canConnect: true,
+      edgeInputParams: [],
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      getParamDisplayName: (paramId: string) =>
+        (
+          ({
+            "unpinned-group": "Unpinned Group",
+            "unpinned-value": "Unpinned Value",
+          }) as Record<string, string>
+        )[paramId] ?? paramId,
+      getParamValuePreview: (paramId: string) =>
+        paramId === "unpinned-value" ? "42" : null,
+      inputPorts: [{ id: "input-a", label: "Input A" }],
+      isSelectingParams: false,
+      outputPorts: [{ id: "output-a", label: "Output A" }],
+      pinned: {
+        requiredParamIdsToPaths: {},
+        topLevelParamIds: [],
+      },
+      positionAndSizeLocked: false,
+      sectionTypeName: SectionTypeEnum.Dict,
+      selectedParamIds: [],
+      styleColor: null,
+      unpinned: {
+        canEditLayout: true,
+        configuredMinHeight: 0,
+        pinnedRequiredParamIdsToPaths: {},
+        pinnedTopLevelParamIds: [],
+        positionAndSizeLocked: false,
+        requiredParamIdsToPaths: {
+          "unpinned-group": ["unpinned-group"],
+          "unpinned-value": ["unpinned-group", "unpinned-value"],
+        },
+        topLevelParamIds: ["unpinned-group"],
+      },
+    });
+    const liveDictAreaSceneBoundary = buildLiveDictAreaSceneBoundary({
+      liveDictAreaBoundary,
+    });
+    const fullLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      width: 320,
+    });
+    const constrainedLayout = buildLiveDictAreaPixiLayout({
+      liveDictAreaSceneBoundary,
+      maxCanvasHeight:
+        (fullLayout.edgeStrip?.height ?? 0) +
+        LIVE_DICT_AREA_PIXI_LAYOUT.areaGap +
+        LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT +
+        LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight -
+        1,
+      width: 320,
+    });
+
+    expect(constrainedLayout.edgeStrip?.height).toBeLessThan(
+      fullLayout.edgeStrip?.height ?? 0,
+    );
+    expect(constrainedLayout.paramAreas[0]?.rows.map((row) => row.id)).toEqual([
+      "unpinned-group",
+      "unpinned-value",
+    ]);
+    expect(constrainedLayout.totalRowCount).toBe(2);
   });
 });

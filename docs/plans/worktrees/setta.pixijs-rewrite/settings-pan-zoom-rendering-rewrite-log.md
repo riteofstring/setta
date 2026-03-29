@@ -9044,3 +9044,43 @@ Record:
     - `/settings?liveDictAreaRenderer=pixi-node-body` also loaded authenticated, `All Settings` was visible, and no new obvious viewport regression was observed during the sanity check
 - Next action:
   - Return to the live Pixi visual-parity lane with session/bootstrap verification unblocked, starting from the remaining row/body readability and `main` parity drift on the first visible `All Settings` cards.
+
+## 2026-03-29 275
+
+- Item: Add a low-zoom overview presentation for tiny live Pixi `All Settings` cards and align the canary to that intended mode.
+- Status: `done`
+- Details:
+  - Fresh CDP diagnosis showed the repeated tiny-card blocker was no longer a constrained-height or blank-canvas failure:
+    - the first visible Pixi cards in the checked fit-view state were rendering at React Flow zoom `0.12`
+    - the scene hosts already had nonzero `availableHeight`, row counts, value-preview counts, and canvases
+    - the real issue was low-zoom presentation, not missing data or another separator-height clamp
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The kept fix now:
+    - derives a live Pixi presentation mode from the effective on-screen row height instead of treating every visible scene host as a detailed row renderer
+    - switches heavily zoomed-out cards into an `overview` presentation path that draws stronger body structure/value-preview bands rather than tiny unreadable detailed text
+    - exposes the active scene presentation mode on the mounted host for diagnostics/canary assertions
+    - keeps the existing compact-preview/layout and computed-chrome fallback work in place, but no longer mistakes the current tiny-card failure for another height-clamp bug
+    - updates the live canary Playwright assertion so overview-mode scene hosts are accepted without requiring the detailed-mode minimum CSS canvas height
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - result: passed (`37 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `SETTA_BOOTSTRAP_TOKEN=<fresh current-worktree token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes" --reporter=line`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context:
+    - checked `http://127.0.0.1:3043/settings` and `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - reproduced the low-zoom tiny-card state and confirmed the canary scene host reported `data-live-dict-area-scene-presentation-mode="overview"`
+    - first visible tiny Pixi cards now showed clearer body structure/previews and the slice was judged visually acceptable
+- Next action:
+  - Continue the live Pixi parity lane from this overview-capable baseline by comparing the named canary state against `main` and tightening any remaining card chrome/detail drift that is still visible at normalized `100%` browser zoom.

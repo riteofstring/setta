@@ -7,6 +7,7 @@ import {
   getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
+  getLiveDictAreaPixiPresentationMode,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
@@ -159,6 +160,23 @@ describe("getLiveDictAreaPixiTextResolution", () => {
   });
 });
 
+describe("getLiveDictAreaPixiPresentationMode", () => {
+  it("switches the live Pixi scene into overview mode when rows would shrink below a readable on-screen height", () => {
+    expect(getLiveDictAreaPixiPresentationMode(0.12)).toBe("overview");
+    expect(getLiveDictAreaPixiPresentationMode(0.2)).toBe("overview");
+  });
+
+  it("keeps the detailed row rendering path once the viewport scale is large enough", () => {
+    expect(getLiveDictAreaPixiPresentationMode(0.3)).toBe("detail");
+    expect(getLiveDictAreaPixiPresentationMode(1)).toBe("detail");
+  });
+
+  it("falls back to detailed mode for invalid zoom values", () => {
+    expect(getLiveDictAreaPixiPresentationMode(Number.NaN)).toBe("detail");
+    expect(getLiveDictAreaPixiPresentationMode(0)).toBe("detail");
+  });
+});
+
 describe("getLiveDictAreaPixiPalette", () => {
   it("reads section-style CSS variables from the mounted host before falling back to the generic light palette", () => {
     const host = {} as Element;
@@ -242,6 +260,96 @@ describe("getLiveDictAreaPixiPalette", () => {
       rowBackgroundAlt: theme!.panelBg,
       rowPlaceholderFill: theme!.bg,
       titleText: theme!.mutedText,
+    });
+  });
+
+  it("uses computed DOM chrome to choose a matching structured fallback palette when section variables and metadata are unavailable", () => {
+    const section = {
+      parentElement: null,
+    } as unknown as Element;
+    const host = {
+      parentElement: section,
+    } as unknown as Element;
+    const getComputedStyle = vi.fn((element: Element) => {
+      if (element === host) {
+        return {
+          backgroundColor: "transparent",
+          borderColor: "rgba(0, 0, 0, 0)",
+          color: "",
+          getPropertyValue: () => "   ",
+        };
+      }
+
+      return {
+        backgroundColor: "rgb(16, 20, 27)",
+        borderColor: "rgb(51, 65, 85)",
+        color: "rgb(248, 250, 252)",
+        getPropertyValue: () => "   ",
+      };
+    }) as unknown as (element: Element) => CSSStyleDeclaration;
+
+    expect(
+      getLiveDictAreaPixiPalette({
+        darkMode: false,
+        getComputedStyle,
+        host,
+      }),
+    ).toEqual({
+      bodyText: "rgb(248, 250, 252)",
+      border: "rgb(51, 65, 85)",
+      panelBackground: "#111827",
+      panelBackgroundAlt: "#0f172a",
+      portDot: "#94a3b8",
+      portSelectedDot: "#38bdf8",
+      rowBackground: "#172036",
+      rowBackgroundAlt: "#1e293b",
+      rowPlaceholderFill: "#1f2937",
+      titleText: "#94a3b8",
+    });
+  });
+
+  it("ignores unreadable computed text colors when the nearest fallback chrome is a dark surface", () => {
+    const section = {
+      parentElement: null,
+    } as unknown as Element;
+    const host = {
+      parentElement: section,
+    } as unknown as Element;
+    const getComputedStyle = vi.fn((element: Element) => {
+      if (element === host) {
+        return {
+          backgroundColor: "transparent",
+          borderColor: "rgba(0, 0, 0, 0)",
+          color: "",
+          getPropertyValue: () => "   ",
+        };
+      }
+
+      return {
+        backgroundColor: "rgb(16, 20, 27)",
+        borderColor: "rgb(51, 65, 85)",
+        color: "rgb(0, 0, 0)",
+        getPropertyValue: () => "   ",
+      };
+    }) as unknown as (element: Element) => CSSStyleDeclaration;
+
+    expect(
+      getLiveDictAreaPixiPalette({
+        darkMode: false,
+        getComputedStyle,
+        host,
+      }),
+    ).toEqual({
+      bodyText: "#e5e7eb",
+      border: "rgb(51, 65, 85)",
+      panelBackground: "#111827",
+      panelBackgroundAlt: "#0f172a",
+      portDot: "#94a3b8",
+      portSelectedDot: "#38bdf8",
+      rowBackground: "#172036",
+      rowBackgroundAlt: "#1e293b",
+      rowPlaceholderFill: "#1f2937",
+      titleText: "#94a3b8",
     });
   });
 });

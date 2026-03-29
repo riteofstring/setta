@@ -2,6 +2,7 @@ import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
   LIVE_DICT_AREA_PIXI_COMPACT_SINGLE_ROW_MIN_HEIGHT,
   LIVE_DICT_AREA_PIXI_LAYOUT,
+  LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT,
 } from "./liveDictAreaPixiLayout";
 
 export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
@@ -22,6 +23,8 @@ export type LiveDictAreaPixiPalette = {
   rowPlaceholderFill: string;
   titleText: string;
 };
+
+export type LiveDictAreaPixiPresentationMode = "detail" | "overview";
 
 const LIVE_DICT_AREA_PIXI_FALLBACK_DARK_PALETTE: LiveDictAreaPixiPalette = {
   bodyText: "#e5e7eb",
@@ -59,6 +62,7 @@ const LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET = {
   titleFontSize: 8,
   titleFontWeight: "700",
 } as const;
+const LIVE_DICT_AREA_PIXI_OVERVIEW_ROW_SCREEN_HEIGHT_THRESHOLD = 4.5;
 
 export type LiveDictAreaPixiTextStyleSet = {
   edgeLabelFontSize: number;
@@ -79,6 +83,12 @@ type LiveDictAreaPixiFontFaceSet = Pick<
 type LiveDictAreaPixiRectLike = {
   bottom: number;
   top: number;
+};
+
+type LiveDictAreaPixiRgbColor = {
+  b: number;
+  g: number;
+  r: number;
 };
 
 type LiveDictAreaPixiOffsetElement = {
@@ -181,6 +191,19 @@ export function getLiveDictAreaPixiTextResolution(renderResolution: number) {
     : 1;
 }
 
+export function getLiveDictAreaPixiPresentationMode(
+  viewportZoom: number,
+): LiveDictAreaPixiPresentationMode {
+  if (!Number.isFinite(viewportZoom) || viewportZoom <= 0) {
+    return "detail";
+  }
+
+  return LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT * viewportZoom <
+    LIVE_DICT_AREA_PIXI_OVERVIEW_ROW_SCREEN_HEIGHT_THRESHOLD
+    ? "overview"
+    : "detail";
+}
+
 export function getLiveDictAreaPixiPalette({
   darkMode,
   getComputedStyle,
@@ -226,19 +249,44 @@ export function getLiveDictAreaPixiPalette({
     computedStyle,
     propertyName: "--setta-section-style-muted-text",
   });
+  const computedChrome = getLiveDictAreaPixiComputedChrome({
+    getComputedStyle,
+    host,
+  });
+  const computedFallbackPalette = getLiveDictAreaPixiFallbackPalette({
+    darkMode:
+      getLiveDictAreaPixiComputedChromeDarkMode(
+        computedChrome?.backgroundColor ?? null,
+      ) ?? darkMode,
+    sectionStyleColor,
+  });
+  const computedReadableTextColor =
+    getLiveDictAreaPixiComputedReadableTextColor({
+      backgroundColor: computedChrome?.backgroundColor ?? null,
+      textColor: computedChrome?.textColor ?? null,
+    });
 
   return {
-    bodyText: sectionText || fallbackPalette.bodyText,
-    border: sectionBorder || fallbackPalette.border,
-    panelBackground: sectionPanelBackground || fallbackPalette.panelBackground,
-    panelBackgroundAlt: sectionBackground || fallbackPalette.panelBackgroundAlt,
-    portDot: sectionMutedText || fallbackPalette.portDot,
-    portSelectedDot: sectionOutline || fallbackPalette.portSelectedDot,
-    rowBackground: sectionBackground || fallbackPalette.rowBackground,
+    bodyText:
+      sectionText ||
+      computedReadableTextColor ||
+      computedFallbackPalette.bodyText,
+    border:
+      sectionBorder ||
+      computedChrome?.borderColor ||
+      computedFallbackPalette.border,
+    panelBackground:
+      sectionPanelBackground || computedFallbackPalette.panelBackground,
+    panelBackgroundAlt:
+      sectionBackground || computedFallbackPalette.panelBackgroundAlt,
+    portDot: sectionMutedText || computedFallbackPalette.portDot,
+    portSelectedDot: sectionOutline || computedFallbackPalette.portSelectedDot,
+    rowBackground: sectionBackground || computedFallbackPalette.rowBackground,
     rowBackgroundAlt:
-      sectionPanelBackground || fallbackPalette.rowBackgroundAlt,
-    rowPlaceholderFill: sectionBackground || fallbackPalette.rowPlaceholderFill,
-    titleText: sectionMutedText || fallbackPalette.titleText,
+      sectionPanelBackground || computedFallbackPalette.rowBackgroundAlt,
+    rowPlaceholderFill:
+      sectionBackground || computedFallbackPalette.rowPlaceholderFill,
+    titleText: sectionMutedText || computedFallbackPalette.titleText,
   };
 }
 
@@ -460,6 +508,178 @@ function getLiveDictAreaPixiFallbackPalette({
     rowPlaceholderFill: sectionStyleTheme.bg,
     titleText: sectionStyleTheme.mutedText,
   };
+}
+
+function getLiveDictAreaPixiComputedChrome({
+  getComputedStyle,
+  host,
+}: {
+  getComputedStyle: (element: Element) => CSSStyleDeclaration;
+  host: Element;
+}): {
+  backgroundColor: string | null;
+  borderColor: string | null;
+  textColor: string | null;
+} | null {
+  let current: Element | null = host;
+  let backgroundColor: string | null = null;
+  let borderColor: string | null = null;
+  let textColor: string | null = null;
+
+  while (current) {
+    const computedStyle = getComputedStyle(current);
+    backgroundColor ??= getLiveDictAreaPixiUsableComputedColor(
+      computedStyle.backgroundColor,
+    );
+    borderColor ??= getLiveDictAreaPixiUsableComputedColor(
+      computedStyle.borderColor,
+    );
+    textColor ??= getLiveDictAreaPixiUsableComputedColor(computedStyle.color);
+
+    if (backgroundColor && borderColor && textColor) {
+      break;
+    }
+
+    current = current.parentElement;
+  }
+
+  if (!backgroundColor && !borderColor && !textColor) {
+    return null;
+  }
+
+  return {
+    backgroundColor,
+    borderColor,
+    textColor,
+  };
+}
+
+function getLiveDictAreaPixiComputedChromeDarkMode(
+  backgroundColor: string | null,
+): boolean | null {
+  const rgbColor = parseLiveDictAreaPixiRgbColor(backgroundColor);
+  if (!rgbColor) {
+    return null;
+  }
+
+  return getLiveDictAreaPixiRelativeLuminance(rgbColor) < 0.3;
+}
+
+function getLiveDictAreaPixiComputedReadableTextColor({
+  backgroundColor,
+  textColor,
+}: {
+  backgroundColor: string | null;
+  textColor: string | null;
+}) {
+  const backgroundRgbColor = parseLiveDictAreaPixiRgbColor(backgroundColor);
+  const textRgbColor = parseLiveDictAreaPixiRgbColor(textColor);
+  if (!backgroundRgbColor || !textRgbColor) {
+    return textColor;
+  }
+
+  return getLiveDictAreaPixiContrastRatio(backgroundRgbColor, textRgbColor) >=
+    4.5
+    ? textColor
+    : null;
+}
+
+function getLiveDictAreaPixiUsableComputedColor(rawValue: string | undefined) {
+  if (!rawValue) {
+    return null;
+  }
+
+  const normalizedValue = rawValue.trim().toLowerCase();
+
+  if (
+    normalizedValue.length === 0 ||
+    normalizedValue === "transparent" ||
+    normalizedValue === "rgba(0, 0, 0, 0)" ||
+    normalizedValue === "rgba(0,0,0,0)" ||
+    normalizedValue === "hsla(0, 0%, 0%, 0)" ||
+    normalizedValue === "hsla(0,0%,0%,0)"
+  ) {
+    return null;
+  }
+
+  return rawValue.trim();
+}
+
+function parseLiveDictAreaPixiRgbColor(
+  rawValue: string | null | undefined,
+): LiveDictAreaPixiRgbColor | null {
+  if (!rawValue) {
+    return null;
+  }
+
+  const normalizedValue = rawValue.trim().toLowerCase();
+  if (normalizedValue.startsWith("#")) {
+    const hexValue = normalizedValue.slice(1);
+    if (hexValue.length !== 6) {
+      return null;
+    }
+
+    const r = Number.parseInt(hexValue.slice(0, 2), 16);
+    const g = Number.parseInt(hexValue.slice(2, 4), 16);
+    const b = Number.parseInt(hexValue.slice(4, 6), 16);
+    if (Number.isNaN(r) || Number.isNaN(g) || Number.isNaN(b)) {
+      return null;
+    }
+
+    return { b, g, r };
+  }
+
+  const channelMatches = normalizedValue.match(/\d+(?:\.\d+)?/g);
+  if (!channelMatches || channelMatches.length < 3) {
+    return null;
+  }
+
+  const [rawR, rawG, rawB] = channelMatches;
+  const r = Number.parseFloat(rawR);
+  const g = Number.parseFloat(rawG);
+  const b = Number.parseFloat(rawB);
+  if (!Number.isFinite(r) || !Number.isFinite(g) || !Number.isFinite(b)) {
+    return null;
+  }
+
+  return {
+    b: Math.max(0, Math.min(255, Math.round(b))),
+    g: Math.max(0, Math.min(255, Math.round(g))),
+    r: Math.max(0, Math.min(255, Math.round(r))),
+  };
+}
+
+function getLiveDictAreaPixiRelativeLuminance({
+  b,
+  g,
+  r,
+}: LiveDictAreaPixiRgbColor) {
+  const red = getLiveDictAreaPixiLinearizedColorChannel(r);
+  const green = getLiveDictAreaPixiLinearizedColorChannel(g);
+  const blue = getLiveDictAreaPixiLinearizedColorChannel(b);
+
+  return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+}
+
+function getLiveDictAreaPixiContrastRatio(
+  a: LiveDictAreaPixiRgbColor,
+  b: LiveDictAreaPixiRgbColor,
+) {
+  const luminanceA = getLiveDictAreaPixiRelativeLuminance(a);
+  const luminanceB = getLiveDictAreaPixiRelativeLuminance(b);
+  const lighterLuminance = Math.max(luminanceA, luminanceB);
+  const darkerLuminance = Math.min(luminanceA, luminanceB);
+
+  return (lighterLuminance + 0.05) / (darkerLuminance + 0.05);
+}
+
+function getLiveDictAreaPixiLinearizedColorChannel(channel: number) {
+  const normalizedChannel = channel / 255;
+  if (normalizedChannel <= 0.04045) {
+    return normalizedChannel / 12.92;
+  }
+
+  return Math.pow((normalizedChannel + 0.055) / 1.055, 2.4);
 }
 
 function getLiveDictAreaPixiRelativeOffsetTop({
