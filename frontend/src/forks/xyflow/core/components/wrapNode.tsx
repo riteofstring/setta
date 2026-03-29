@@ -1,7 +1,6 @@
 import cc from "classcat";
-import { SectionContainer } from "components/Section/Container/SectionContainer";
 import _ from "lodash";
-import type { CSSProperties } from "react";
+import type { ComponentType, CSSProperties } from "react";
 import { memo, useEffect, useRef } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { useNodeInternals, useProjectState } from "state/definitions";
@@ -22,10 +21,12 @@ const _NodeWrapper = ({
   isDraggable: _isDraggable,
   resizeObserver,
   visibility,
+  SectionBoundary,
 }: Pick<Node, "id"> & {
   isDraggable: boolean;
   resizeObserver: ResizeObserver | null;
   visibility: CSSProperties["visibility"];
+  SectionBoundary: ComponentType<{ sectionId: string }>;
 }) => {
   const node = useNodeInternals((x) => x.x.get(id), _.isEqual);
   const nodeRef = useRef<HTMLDivElement>(null);
@@ -69,7 +70,7 @@ const _NodeWrapper = ({
       data-id={id}
       data-testid={`rf__node-${id}`}
     >
-      <SectionContainer sectionId={id} isTopLevel={true} />
+      <SectionBoundary sectionId={id} />
     </div>
   );
 };

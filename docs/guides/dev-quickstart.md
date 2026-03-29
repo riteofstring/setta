@@ -4,26 +4,6 @@ Short guide for starting/stopping local dev and telling the assistant how to con
 
 ## Start
 
-Default setup:
-
-```bash
-./dev_install.sh
-```
-
-If you also need the Python SDK/package tooling in this checkout:
-
-```bash
-. ./dev_install_python.sh
-```
-
-Run the default dev instance without browser MCP:
-
-```bash
-./scripts/run-dev-instance.sh
-```
-
-Run the same flow with browser MCP helpers:
-
 ```bash
 ./ai.sh
 ```
