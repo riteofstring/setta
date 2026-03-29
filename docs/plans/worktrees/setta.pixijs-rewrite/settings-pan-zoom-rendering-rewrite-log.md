@@ -9648,3 +9648,32 @@ Record:
       - compared against the live baseline `/settings` shell and saw no new blank canary panels
 - Next action:
   - Return to the remaining live Pixi visual-parity gate: re-check `main`-oracle zoom parity when a read-only `main` session is available, now that the canary’s zoom-time blank-rectangle repaint failure is no longer reproducing.
+
+## 2026-03-29 293
+
+- Item: Probe whether removing default live Pixi row/panel fill chrome fixes the first visible unpinned `All Settings` card mismatch.
+- Status: `blocked`
+- Details:
+  - Took the next bounded slice from item `292`'s remaining visual blocker while `main` was still unavailable on `127.0.0.1:3000/8000`.
+  - Read the DOM mount path in `frontend/src/components/Params/groupContainerLiveDictAreaMount.tsx` and confirmed:
+    - the real unpinned param area is a plain scroll container without a rounded filled panel shell
+    - individual param rows in the DOM path are mostly transparent `rounded-sm` shells rather than always-filled pills
+  - Tried a bounded renderer experiment in the live Pixi canary:
+    - stop filling default group/value rows
+    - stop filling the unpinned param-area panel shell
+    - pin those contracts in focused scene/unit tests plus the existing live-Pixi canary host test
+  - Focused automation passed while the experiment was applied:
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed
+    - Playwright:
+      - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings canary rerenders the Pixi scene canvas when the viewport zoom changes"`
+      - result: passed
+  - Fresh visual verification still failed the slice:
+    - baseline `http://127.0.0.1:3044/settings` remained visibly flatter/less filled on the first visible unpinned `All Settings` cards
+    - canary `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` still showed obvious extra filled row/card chrome in that same area
+  - Because the experiment did not satisfy the required visual gate, the code/test changes were reverted and nothing was kept from this probe.
+  - Reference availability note:
+    - `127.0.0.1:3000` and `127.0.0.1:8000` were still unreachable during the verification attempts, so no `main`-oracle side-by-side was available in this iteration.
+- Next action:
+  - Diagnose which remaining live Pixi primitives on the first visible unpinned `All Settings` cards still create the overfilled chrome versus the DOM baseline before making another renderer change; do not commit more speculative fill-removal tweaks until that mapping is explicit.
