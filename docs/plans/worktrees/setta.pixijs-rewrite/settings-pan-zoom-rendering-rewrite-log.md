@@ -8547,3 +8547,23 @@ Record:
     - no auth/bootstrap blocker or obvious new visual regression was observed for this slice
 - Next action:
   - Return to the live Pixi visual-parity lane against `main` when the read-only reference session is available again; if it is still unavailable, take the next bounded canary parity fix from what is visibly different on the current surface.
+
+## 2026-03-29 264
+
+- Item: Re-check live Pixi value-preview paint on the running worktree after the DOM-aligned column renderer slice.
+- Status: `blocked`
+- Details:
+  - Followed the item `263` next step with a fresh-headed check on the running worktree instead of another forwarding/refactor hop:
+    - no separate read-only `main` settings tab was available in Chrome, so the live canary was re-checked against the same-worktree `/settings` baseline at `http://127.0.0.1:3044/settings`
+  - Fresh-context Chrome DevTools MCP verification contradicted the earlier visual-success note in item `263`:
+    - baseline `/settings` visibly painted row-body values such as `advancedSearchShortcut "Mod + P"`, `defaultZoomLevel 1.0`, `autobackupFreq 300`, and `reportSelfClsParameterName "none"`
+    - the `pixi-node-body` canary at `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` still rendered the section cards/chrome but left those right-side body/value areas blank in the checked viewport
+    - a second fresh CDP diagnosis pass found no faint/clipped glyphs in the checked body crop, so this still looks like an unpainted live renderer path rather than a simple contrast issue
+  - Disposable verification stayed green for the latest renderer slice:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/groupContainerLiveDictAreaSectionStoreBoundary.test.tsx src/components/Params/groupContainerLiveDictAreaSectionState.test.ts`
+      - result: passed (`20 passed`)
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can replace the live dict-area body with a Pixi scene host|all settings can immediately activate a CodeMirror-backed value row on first Pixi handoff click"`
+      - result: passed (`2 passed`)
+  - Treat item `263`'s claim that row value previews were visibly present as superseded by this correction. The live worktree visual gate is still failing.
+- Next action:
+  - Debug why the running worktree Pixi canvas still leaves right-side value previews unpainted despite passing disposable scene-host/handoff checks, then re-run the headed CDP comparison before any further parity cleanup.
