@@ -26,6 +26,7 @@ const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 const READY_SELECTOR = ".react-flow__pane";
 const READY_TIMEOUT_MS = 30000;
 const SHOULD_RESOLVE_DEFAULT_PROJECT = PROJECT_URL === BASE_URL;
+const HIDDEN_PROJECT_CHAT_WINDOW_ID = "project-chat-window-1";
 type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS";
 type AllowedApiError = {
   path: string;
@@ -327,12 +328,46 @@ export async function clearProjectChatWindows(page: Page): Promise<void> {
 export async function resetProjectWorkspaceChromeToDefaultLayout(
   page: Page,
 ): Promise<void> {
-  await page.evaluate(async () => {
-    const { resetProjectWorkspaceChromeToDefaultLayout } = await import(
-      "/src/state/actions/workspaceChrome.ts"
+  await page.evaluate(async (hiddenProjectChatWindowId: string) => {
+    const { setPaneWidthWithLayout } = await import(
+      "/src/components/Panes/paneLayout.ts"
     );
-    resetProjectWorkspaceChromeToDefaultLayout();
-  });
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    const { replaceProjectChatWindowingState } = await import(
+      "/src/state/actions/projectChatWindowing.ts"
+    );
+    const {
+      CLOSED_PANE_WIDTH,
+      INITIAL_OVERVIEW_WIDTH,
+      INITIAL_UI_EDITOR_WIDTH,
+      OverviewTabNameEnum,
+      PaneNameEnum,
+    } = await import("/src/utils/constants.ts");
+    const { createProjectChatWindowInstance, createProjectChatWindowingState } =
+      await import("/src/utils/generatedTypes.ts");
+
+    // Use the lowest-level stable modules so this normalization works on both
+    // the current worktree and the read-only main reference runtime.
+    replaceProjectChatWindowingState(
+      createProjectChatWindowingState({
+        order: [hiddenProjectChatWindowId],
+        nextInstanceNumber: 2,
+        instancesById: {
+          [hiddenProjectChatWindowId]: createProjectChatWindowInstance({
+            instanceId: hiddenProjectChatWindowId,
+            isClosed: true,
+          }),
+        },
+      }),
+    );
+    useLocalStorage.setState({
+      overviewTab: OverviewTabNameEnum.Overview,
+      uiEditorVis: false,
+      uiEditorWidth: INITIAL_UI_EDITOR_WIDTH,
+      uiEditorTrueWidth: CLOSED_PANE_WIDTH,
+    });
+    setPaneWidthWithLayout(PaneNameEnum.overview, INITIAL_OVERVIEW_WIDTH);
+  }, HIDDEN_PROJECT_CHAT_WINDOW_ID);
   await page.waitForFunction(() => {
     return [
       '[data-testid="project-chat-floating-window"]',

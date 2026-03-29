@@ -10712,3 +10712,41 @@ Record:
     - sampled backend requests were successful `200`s during the check
 - Next action:
   - Resume the next bounded live Pixi parity slice against the read-only `main` oracle when that reference runtime is available again; the dropped initial fit-view request is now retried and covered.
+
+## 2026-03-30 326
+
+- Item: Rebuild the Playwright workspace-chrome normalization helper from stable low-level modules so the same parity reset works on both the worktree and the read-only `main` runtime.
+- Status: `done`
+- Details:
+  - Took the active blocker directly from the post-`325` parity investigation instead of reopening renderer seam-lift work:
+    - the existing `resetProjectWorkspaceChromeToDefaultLayout(...)` e2e helper imported `/src/state/actions/workspaceChrome.ts`
+    - that module exists only on this rewrite branch, so the helper could normalize the worktree surface but not the `main` oracle surface
+    - without a symmetric normalization path, `main`-versus-worktree visual comparisons stayed vulnerable to incidental pane/chat chrome drift instead of isolating renderer differences
+  - Updated:
+    - `frontend/tests/e2e/helpers.ts`
+  - Replaced the helper’s branch-local action import with the underlying stable modules that exist on both runtimes:
+    - `setPaneWidthWithLayout(...)` from `components/Panes/paneLayout`
+    - `useLocalStorage` from `state/definitions`
+    - `replaceProjectChatWindowingState(...)` from `state/actions/projectChatWindowing`
+    - shared constants plus generated `createProjectChatWindowInstance(...)` / `createProjectChatWindowingState(...)`
+  - The rebuilt helper now performs the same normalization shape as the worktree-only action, but through cross-branch primitives:
+    - resets overview/ui-editor pane state to the default overview layout
+    - preserves a single closed `project-chat-window-1` record so chat chrome does not immediately respawn
+    - keeps the existing post-action wait that asserts chat surfaces are absent before the caller continues
+  - Kept the slice intentionally narrow:
+    - no production renderer code changed
+    - no Pixi scene/layout code changed
+    - this only removes the parity-surface normalization mismatch between the worktree canary harness and the `main` oracle runtime
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP check in a fresh sub-agent context against both live runtimes:
+    - worktree `http://127.0.0.1:3044/settings`: passed
+    - main `http://127.0.0.1:3087/settings`: passed
+    - on both pages, the same low-level import/action sequence completed successfully and read back the same normalized chrome state: `overviewTab=Overview`, `uiEditorVis=false`, `uiEditorWidth=500`, `uiEditorTrueWidth=40`, `overviewWidth=335`, `overviewTrueWidth=335`
+- Next action:
+  - Resume the next bounded live Pixi parity slice against the read-only `main` oracle now that both surfaces can be normalized symmetrically before comparison.
