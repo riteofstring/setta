@@ -278,17 +278,17 @@ describe("ChatInput composer controls", () => {
     expect(markup).not.toContain("est. context left");
   });
 
-  it("renders an unavailable badge when context telemetry is unavailable", () => {
+  it("renders no badge when context telemetry is unavailable", () => {
     const markup = renderChatInput({
       contextWindowTokens: null,
       contextUsedTokens: null,
-      contextUsageUnavailable: true,
       value: "1234",
       onChange: vi.fn(),
     });
 
-    expect(markup).toContain("context unavailable");
-    expect(markup).toContain('aria-label="context unavailable"');
+    expect(markup).not.toContain("context unavailable");
+    expect(markup).not.toContain('aria-label="context unavailable"');
+    expect(markup).not.toContain("context left");
   });
 
   it("does not render slash buttons above the composer", () => {

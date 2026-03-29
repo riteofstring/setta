@@ -1472,7 +1472,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
     contextWindowTokens,
     contextUsedTokens,
     contextUsageIsEstimated,
-    contextUsageUnavailable,
   } = useMemo(
     () => resolveProjectChatContextTelemetry(contextUsage),
     [contextUsage],
@@ -2378,9 +2377,6 @@ export const ProjectChatCore = memo(function ProjectChatCore({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={
-            showEmptyState ? false : contextUsageUnavailable
-          }
           submittedMessageHistory={submittedMessageHistory}
           runtimeActivityCounts={runtimeActivityCounts}
           runtimeActivityDetails={runtimeActivityDetails}

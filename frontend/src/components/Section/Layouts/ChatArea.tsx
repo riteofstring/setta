@@ -478,7 +478,6 @@ function ScriptableChatArea({
     contextWindowTokens,
     contextUsedTokens,
     contextUsageIsEstimated,
-    contextUsageUnavailable,
   } = resolveAuthoritativeContextTelemetry(null);
 
   const handleInputChange = useCallback(
@@ -986,7 +985,6 @@ function ScriptableChatArea({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={contextUsageUnavailable}
           onProviderDictationTranscribe={
             providerDictationAvailable
               ? handleProviderDictationTranscribe
@@ -1479,7 +1477,6 @@ function ManagedChatArea({
     contextWindowTokens,
     contextUsedTokens,
     contextUsageIsEstimated,
-    contextUsageUnavailable,
   } = useMemo(
     () => resolveAuthoritativeContextTelemetry(contextUsage),
     [contextUsage],
@@ -2024,7 +2021,6 @@ function ManagedChatArea({
           contextWindowTokens={contextWindowTokens}
           contextUsedTokens={contextUsedTokens}
           contextUsageIsEstimated={contextUsageIsEstimated}
-          contextUsageUnavailable={contextUsageUnavailable}
           onProviderDictationTranscribe={
             isExternalEngine || !providerDictationAvailable
               ? undefined
