@@ -9,34 +9,36 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 ## Current status
 
 - Latest terminal loop status: `SUBTASK_DONE`
-- Current gate focus: Gate 2 tiny-card low-zoom preview fidelity on the normalized live Pixi versus `main` `All Settings` canary.
-- This iteration targeted a focused worktree-side guard for the nested `browserSectionDefault` preview window itself, instead of another top-level slice compare.
-- The new canary check proves the live Pixi `browserSectionDefault` scene already uses its densest visible low-zoom row/value-preview window after the normalized viewport-clear path.
+- Current gate focus: Gate 2 normalized live-slice trustworthiness for the `All Settings` canary/main compare, not another `browserSectionDefault` renderer tweak.
+- This iteration targeted the support blocker that was still contaminating live visual comparisons after the `browserSectionDefault` preview-window lane had already closed.
 - Result:
-  - the row-window / densest-preview-selection lane is now closed for `browserSectionDefault`
-  - the remaining Gate 2 drift is not explained by choosing the wrong visible preview window
+  - `frontend/tests/e2e/helpers.ts` now exposes `hideProjectWorkspaceChromeForGraphComparison`, which closes non-target overview/UI panes after the compare flow has used them for navigation
+  - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts` now uses that helper in the same-state live Pixi versus `main` visible-slice compare, then re-runs the frontend viewport-clear/refit step on the wider canvas before comparing
+  - the focused helper regression and the updated same-state compare passed
+  - fresh-context CDP confirmed the worktree no longer left a visible `Chat Window 1` surface after normalization, and the compared visible slice was trustworthy
 - Remaining drift:
-  - the fresh-context CDP compare still could not provide a trustworthy authenticated `browserSectionDefault` surface on either runtime; the devtools sessions exposed only blank/bootstrap shells instead of a live nested preview
-  - Gate 2 tiny-card crop/compression drift remains open, but it now points at another nested-preview fidelity path rather than preview-window selection
+  - no obvious non-chrome renderer drift remains in the checked normalized visible slice around `browserSectionDefault` and the neighboring cards that were spot-checked in CDP
+  - do not reopen the `browserSectionDefault` visible-slice lane unless a new trusted compare shows a concrete renderer defect there
 
 ## Recent evidence
 
-- Focused `browserSectionDefault` low-zoom preview-window coverage now exists in:
+- Focused graph-comparison chrome collapse coverage now exists in:
+  - `frontend/tests/e2e/helpers.ts`
   - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
 - Verification completed this iteration:
-  - `WORKTREE_B64=$(source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.) && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' \"$WORKTREE_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'browserSectionDefault on its densest visible low-zoom preview window'`
-    - result: passed (`1 passed`, about `20s`)
-  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - `source activate.sh && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' \"$WORKTREE_B64\") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url>' \"$MAIN_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$MAIN_BOOTSTRAP_URL\" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|settings graph comparison chrome hide collapses non-target panes after overview navigation|all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`3 passed`, about `50s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
     - result: passed
-  - fresh-context CDP visual check via sub-agent on live worktree `All Settings`
-    - result: not trustworthy for the target preview
-    - both devtools runtimes exposed only blank/bootstrap shells and never surfaced a comparable authenticated `browserSectionDefault` scene payload, so this did not provide a usable live nested-preview compare
+  - fresh-context CDP visual check via sub-agent on normalized live worktree/main `All Settings`
+    - result: passed
+    - CDP access worked on both tabs, `Chat Window 1` was not visible after normalization in the worktree view, and the visible slice looked trustworthy for comparison
 
 ## Immediate next frontier
 
-- Return to the product lane; do not spend another iteration on `browserSectionDefault` row-window selection because that lane now has a passing guard.
-- Target the next real nested-preview fidelity path for `browserSectionDefault` itself, likely glyph/chrome/content-density behavior rather than shared-runtime bounds or window selection.
-- Re-establish a trustworthy authenticated CDP compare only when the live browser session can actually surface the nested preview; do not treat blank/bootstrap shells as meaningful visual evidence.
+- Move past the `browserSectionDefault` visible-slice normalization lane; it now has both automated and trusted CDP confirmation.
+- Use the normalized canvas-only compare flow to identify the next real Gate 2 renderer defect in a different slice or canary state instead of reopening pane/chat normalization work.
+- Treat any future `Chat Window 1` reappearance during compare work as harness regression, not renderer drift.
 
 ## Durable completed work
 

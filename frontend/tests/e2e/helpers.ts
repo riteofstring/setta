@@ -408,6 +408,54 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
   await closeProjectChatManagerMenuIfVisible(page);
 }
 
+export async function hideProjectWorkspaceChromeForGraphComparison(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { togglePaneVisibility } = await import(
+      "/src/components/Panes/paneLayout.ts"
+    );
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    const { PaneNameEnum } = await import("/src/utils/constants.ts");
+
+    const localStorageState = useLocalStorage.getState();
+    if (localStorageState.overviewVis) {
+      togglePaneVisibility(PaneNameEnum.overview);
+    }
+    if (localStorageState.uiEditorVis) {
+      togglePaneVisibility(PaneNameEnum.uiEditor);
+    }
+
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+  await page.waitForFunction(() => {
+    const isHidden = (selector: string) => {
+      return Array.from(document.querySelectorAll(selector)).every(
+        (element) => {
+          if (!(element instanceof HTMLElement)) {
+            return true;
+          }
+          const style = window.getComputedStyle(element);
+          if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            Number.parseFloat(style.opacity || "1") === 0
+          ) {
+            return true;
+          }
+          const rect = element.getBoundingClientRect();
+          return rect.width === 0 || rect.height === 0;
+        },
+      );
+    };
+
+    return isHidden("#OverviewPane") && isHidden("#UiEditorPane");
+  });
+  await closeProjectChatManagerMenuIfVisible(page);
+}
+
 export type ProjectWorkspaceChromeLayoutSnapshot = {
   hiddenProjectChatWindowClosed: boolean | null;
   overviewTab: string;

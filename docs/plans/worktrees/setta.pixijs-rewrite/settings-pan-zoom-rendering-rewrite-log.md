@@ -13809,6 +13809,39 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 405
+
+- Item: Collapse non-target panes before the live Pixi versus `main` `All Settings` visible-slice compare.
+- Status: `done`
+- Details:
+  - Added `hideProjectWorkspaceChromeForGraphComparison` in:
+    - `frontend/tests/e2e/helpers.ts`
+    - the helper closes overview/UI panes after the compare flow has used them for navigation, then waits for the pane shells to collapse before continuing
+  - Added a focused Playwright regression in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - it proves the graph-comparison helper collapses non-target panes after overview navigation instead of leaving the graph compare polluted by workspace chrome
+  - Updated the same-state live Pixi versus `main` compare in:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - after selecting `browserSectionDefault` from the overview, both runtimes now collapse overview/UI panes and rerun the frontend viewport-clear/refit step before the visible-slice compare
+  - Why this slice:
+    - fresh trusted CDP earlier in the iteration showed the checked `browserSectionDefault` renderer itself no longer had an obvious non-chrome drift
+    - the remaining contamination was a worktree-only `Chat Window 1` workspace surface surviving compare normalization, so the next useful step was to normalize the comparison surface instead of inventing another renderer tweak
+- Verification:
+  - `source activate.sh && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token>' \"$WORKTREE_B64\") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url>' \"$MAIN_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$MAIN_BOOTSTRAP_URL\" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|settings graph comparison chrome hide collapses non-target panes after overview navigation|all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`3 passed`, about `50s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Fresh-context CDP check via sub-agent:
+    - result: passed
+    - CDP worked on both tabs, `Chat Window 1` was not visible after normalization in the worktree view, and the visible slice looked trustworthy for comparison
+- Conclusion:
+  - the checked `browserSectionDefault` visible-slice lane now has trustworthy automated and CDP normalization
+  - the next iteration should move to the next real Gate 2 renderer frontier instead of reopening pane/chat normalization or `browserSectionDefault` preview-window work
+- Next action:
+  - use the canvas-only compare flow to identify the next renderer defect outside the now-closed `browserSectionDefault` visible-slice lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 404
 
 - Item: Add a focused `browserSectionDefault` low-zoom preview-window guard for the live Pixi canary.

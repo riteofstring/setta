@@ -25,6 +25,7 @@ import {
   clearCurrentProjectViewportForRefit,
   ensureAppReady,
   getCurrentProjectConfigId,
+  hideProjectWorkspaceChromeForGraphComparison,
   loadProjectConfig,
   postBackend,
   readActiveBackendOrigin,
@@ -411,6 +412,65 @@ test("settings workspace chrome reset hides stale project chat chrome without mu
     maximizedWindowCount: 0,
     windowTitles: [],
   });
+});
+
+test("settings graph comparison chrome hide collapses non-target panes after overview navigation", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+
+  const browserOverviewItem = page
+    .locator("#OverviewPane li")
+    .filter({ hasText: "browserSectionDefault" });
+  await expect(browserOverviewItem).toBeVisible();
+  await browserOverviewItem.click();
+
+  await page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    useLocalStorage.setState({
+      uiEditorTrueWidth: 420,
+      uiEditorVis: true,
+      uiEditorWidth: 420,
+    });
+    await new Promise<void>((resolve) => {
+      window.requestAnimationFrame(() => resolve());
+    });
+  });
+  await expect(page.locator("#UiEditorPane")).toBeVisible();
+
+  await hideProjectWorkspaceChromeForGraphComparison(page);
+
+  expect(await readProjectWorkspaceChromeLayout(page)).toMatchObject({
+    overviewVis: false,
+    uiEditorVis: false,
+  });
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const isCollapsed = (selector: string) => {
+          return Array.from(document.querySelectorAll(selector)).every(
+            (element) => {
+              if (!(element instanceof HTMLElement)) {
+                return true;
+              }
+              const style = window.getComputedStyle(element);
+              if (
+                style.display === "none" ||
+                style.visibility === "hidden" ||
+                Number.parseFloat(style.opacity || "1") === 0
+              ) {
+                return true;
+              }
+              const rect = element.getBoundingClientRect();
+              return rect.width === 0 || rect.height === 0;
+            },
+          );
+        };
+
+        return isCollapsed("#OverviewPane") && isCollapsed("#UiEditorPane");
+      });
+    })
+    .toBe(true);
 });
 
 async function readViewportTransform(page: Page): Promise<ViewportTransform> {
@@ -3016,6 +3076,20 @@ test("all settings live Pixi canary and the read-only main reference share the s
     await expect(mainReferenceOverviewItem).toBeVisible();
     await canaryOverviewItem.click();
     await mainReferenceOverviewItem.click();
+
+    await Promise.all([
+      hideProjectWorkspaceChromeForGraphComparison(canaryPage),
+      hideProjectWorkspaceChromeForGraphComparison(mainReferencePage),
+    ]);
+    await Promise.all([
+      clearCurrentProjectViewportForRefit(canaryPage),
+      clearCurrentProjectViewportForRefit(mainReferencePage),
+    ]);
+    await waitForVisibleSceneMetrics(canaryPage);
+    await Promise.all([
+      expectZoomOutButtonDisabled(canaryPage, true),
+      expectZoomOutButtonDisabled(mainReferencePage, true),
+    ]);
 
     const canaryViewport = await readViewportTransform(canaryPage);
     await expectViewportTransformNear(mainReferencePage, canaryViewport);
