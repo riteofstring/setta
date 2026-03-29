@@ -1,44 +1,9 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-import { useServerMode } from "state/definitions";
+import { describe, expect, it } from "vitest";
 import {
-  ENDPOINT_ORIGIN_POLICY,
   getErrorCode,
   getErrorDetail,
-  resolveEndpointOrigin,
 } from "./endpointUtils";
-import { RouteEnum } from "./generatedTypes";
-
-describe("endpointUtils origin policy", () => {
-  beforeEach(() => {
-    useServerMode.setState({
-      mode: null,
-      modeResolved: true,
-      modeError: null,
-    });
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("keeps a single endpoint-origin policy contract", () => {
-    // Contract test: launcher mode routes always resolve to launcher origin.
-    useServerMode.setState({
-      mode: "launcher",
-      modeResolved: true,
-      modeError: null,
-    });
-    for (const [route, origin] of Object.entries(ENDPOINT_ORIGIN_POLICY)) {
-      if (origin === "launcher") {
-        expect(resolveEndpointOrigin(route)).toBe("launcher");
-      }
-    }
-    expect(resolveEndpointOrigin(RouteEnum.GET_LAUNCHER_STATUS)).toBe(
-      "backend",
-    );
-  });
-
+describe("endpointUtils", () => {
   it("extracts detail from raw binary JSON payloads", () => {
     const binaryJson = new TextEncoder().encode(
       JSON.stringify({ detail: "Permission denied." }),

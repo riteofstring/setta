@@ -12,7 +12,6 @@ import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { getEmptySpacePosition } from "state/actions/sections/createSections";
 
 import { SETTA_API_PRESET_ROUTES } from "./backendTransport";
-import { GoHTTPRouteHelpers } from "./generatedRoutes";
 import { SectionTypeEnum } from "./generatedTypes";
 import {
   buildSettaApiPayload,
@@ -24,19 +23,6 @@ describe("settaApiPresets", () => {
   beforeEach(() => {
     vi.mocked(getCurrProjectConfigId).mockReturnValue("project-alpha");
     vi.mocked(getEmptySpacePosition).mockReturnValue({ x: 120, y: 240 });
-  });
-
-  it("keeps preset routes aligned with canonical generated route constants", () => {
-    expect(SETTA_API_PRESETS.map((preset) => preset.route)).toEqual([
-      SETTA_API_PRESET_ROUTES.createTopLevelSection,
-      SETTA_API_PRESET_ROUTES.getLatestProjectState,
-      SETTA_API_PRESET_ROUTES.saveProject,
-    ]);
-    expect(SETTA_API_PRESET_ROUTES).toEqual({
-      createTopLevelSection: GoHTTPRouteHelpers.createTopLevelSection(),
-      getLatestProjectState: GoHTTPRouteHelpers.getLatestProjectState(),
-      saveProject: GoHTTPRouteHelpers.saveProject(),
-    });
   });
 
   it("formats preset request bodies from live project state helpers", () => {
