@@ -10253,3 +10253,24 @@ Record:
     - confirmed there is no other small, directly inspectable `All Settings` row/control mismatch worth taking as the next bounded slice
 - Next action:
   - Treat the current direct-inspection `All Settings` interaction/control lane as complete and move the next iteration to a broader retained-scene frontier: either `main`-oracle parity when the reference session is available or a measured perf hotspot on the now-stabilized canary.
+
+## 2026-03-30 312
+
+- Item: Surface the live `main` reference runtime values in Ralph prompts so parity checks stop guessing `3000`.
+- Status: `done`
+- Details:
+  - Took the repeated `main`-oracle availability blocker directly instead of starting another renderer-side micro-slice while the reference session details were still missing from the loop handoff.
+  - Updated `scripts/run-codex-loop.sh` so each rendered iteration prompt now carries the current `main` reference worktree plus the parsed `main` frontend/backend/bootstrap/debug/runtime-log values when the reference lifecycle log is available.
+  - Added explicit prompt guidance to refresh the `main` reference connect-info/debug-port values and to read the `Local:` entry from the current `main` lifecycle log instead of guessing `http://127.0.0.1:3000`.
+  - Escaped the prompt refresh commands so they stay literal prompt text during heredoc rendering instead of being executed while the prompt file is generated.
+  - Added a focused shell-level regression test that boots a fake `main` reference lifecycle and asserts the per-iteration prompt contains the live `main` runtime values:
+    - `tests/start/test_run_codex_loop_script.py`
+- Verification:
+  - Shell syntax:
+    - `bash -n scripts/run-codex-loop.sh`
+    - result: passed
+  - Pytest:
+    - `source activate.sh && pytest tests/start/test_run_codex_loop_script.py -q`
+    - result: passed (`1 passed`)
+- Next action:
+  - Retry a real `main`-oracle live Pixi parity slice now that the loop prompt carries the current reference runtime values instead of forcing the next pass to rediscover or guess the `main` ports.

@@ -935,6 +935,28 @@ lifecycle_log_label() {
   esac
 }
 
+refresh_main_runtime_values() {
+  local main_log_label=""
+
+  main_frontend_url=""
+  main_backend_url=""
+  main_bootstrap_url=""
+  main_debug_port=""
+  main_runtime_log_path=""
+
+  if [[ -z "${main_worktree_root:-}" ]]; then
+    return 0
+  fi
+
+  if main_log_label="$(lifecycle_log_label "${main_lifecycle:-}")"; then
+    main_runtime_log_path="${output_dir}/main-${main_log_label}.log"
+    main_frontend_url="$(extract_frontend_url_from_log "${main_runtime_log_path}" || true)"
+    main_backend_url="$(extract_backend_url_from_log "${main_runtime_log_path}" || true)"
+    main_bootstrap_url="$(extract_bootstrap_url_from_log "${main_runtime_log_path}" || true)"
+    main_debug_port="$(extract_debug_port_from_log "${main_runtime_log_path}" || true)"
+  fi
+}
+
 run_lifecycle_mode() {
   local target_name="$1"
   local target_root="$2"
@@ -1084,10 +1106,20 @@ Loop context:
 - current worktree bootstrap url: ${worktree_bootstrap_url:-unknown}
 - current worktree debug port: ${worktree_debug_port:-unknown}
 - current worktree runtime log: ${worktree_runtime_log_path:-unknown}
+- current main reference worktree: ${main_worktree_root:-unknown}
+- current main reference frontend url: ${main_frontend_url:-unknown}
+- current main reference backend url: ${main_backend_url:-unknown}
+- current main reference bootstrap url: ${main_bootstrap_url:-unknown}
+- current main reference debug port: ${main_debug_port:-unknown}
+- current main reference runtime log: ${main_runtime_log_path:-unknown}
 - use these current runtime values instead of guessing old ports if defaults were reassigned during startup
 - if you restart the current worktree lifecycle inside the iteration, refresh runtime values before continuing:
-  - connect info: `setta status --connect-info --latest --json --workspace ${workdir}`
-  - debug port: `pnpm -C frontend cdp-port`
+  - connect info: \`setta status --connect-info --latest --json --workspace ${workdir}\`
+  - debug port: \`pnpm -C frontend cdp-port\`
+- if you need to refresh the current main reference runtime values before a side-by-side check:
+  - connect info: \`setta status --connect-info --latest --json --workspace ${main_worktree_root:-<main-worktree>}\`
+  - debug port: \`cd ${main_worktree_root:-<main-worktree>} && pnpm -C frontend cdp-port\`
+  - frontend url: read the latest \`Local:\` entry from \`${main_runtime_log_path:-the main lifecycle log}\` instead of guessing \`http://127.0.0.1:3000\`
 
 After reading the files, continue the current effort by selecting exactly one bounded next subtask that can be completed, verified, logged, and committed within this iteration.
 
@@ -1654,6 +1686,13 @@ worktree_backend_url=""
 worktree_bootstrap_url=""
 worktree_debug_port=""
 worktree_runtime_log_path=""
+main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
+main_frontend_url=""
+main_backend_url=""
+main_bootstrap_url=""
+main_debug_port=""
+main_runtime_log_path=""
+refresh_main_runtime_values
 
 start_prompt_file="${output_dir}/rendered-start-prompt.txt"
 followup_rendered_prompt_file="${output_dir}/rendered-followup-prompt.txt"
@@ -1679,7 +1718,6 @@ echo "Worktree lifecycle: ${worktree_lifecycle:-none} (per iteration)"
 echo "Main lifecycle: ${main_lifecycle:-none} (reference only)"
 echo "Terminal mode: ${resolved_terminal_mode}"
 
-main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
 if [[ -n "${main_worktree_root}" ]]; then
   echo "Main worktree root: ${main_worktree_root}"
   if [[ "$(cd "${workdir}" && pwd -P)" == "$(cd "${main_worktree_root}" && pwd -P)" ]]; then
@@ -1724,6 +1762,7 @@ if [[ "${main_lifecycle}" != "none" ]] && [[ -n "${main_lifecycle}" ]]; then
   fi
   echo "[reference] Bootstrapping main (${main_lifecycle})"
   run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${output_dir}" "${resolved_terminal_mode}" "0"
+  refresh_main_runtime_values
 fi
 
 for ((iteration = 1; ; iteration += 1)); do
@@ -1784,6 +1823,7 @@ for ((iteration = 1; ; iteration += 1)); do
     worktree_bootstrap_url="$(extract_bootstrap_url_from_log "${worktree_runtime_log_path}" || true)"
     worktree_debug_port="$(extract_debug_port_from_log "${worktree_runtime_log_path}" || true)"
   fi
+  refresh_main_runtime_values
 
   if [[ "${mode}" == "resume" ]]; then
     prompt_for_iteration="${run_dir}/rendered-resume-prompt.txt"
