@@ -196,6 +196,108 @@
       }
     },
     {
+      "name": "placeholder_message_start_with_attachment_is_preserved_and_sets_waiting",
+      "initialState": {
+        "messages": [],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      },
+      "chunks": [
+        {
+          "type": "message_start",
+          "message": {
+            "id": "resp_placeholder_start_attachment_1",
+            "role": "assistant",
+            "content": [],
+            "attachments": [
+              {
+                "id": "attachment-start-1",
+                "mimeType": "image/png",
+                "name": "preview.png",
+                "size": 256
+              }
+            ],
+            "tool_calls": null
+          }
+        }
+      ],
+      "expectedState": {
+        "messages": [
+          {
+            "id": "resp_placeholder_start_attachment_1",
+            "role": "assistant",
+            "content": [],
+            "attachments": [
+              {
+                "id": "attachment-start-1",
+                "mimeType": "image/png",
+                "name": "preview.png",
+                "size": 256
+              }
+            ],
+            "tool_calls": null
+          }
+        ],
+        "waitingForResponse": true,
+        "toolCallArguments": {}
+      }
+    },
+    {
+      "name": "placeholder_message_start_with_tool_call_is_preserved_and_sets_waiting",
+      "initialState": {
+        "messages": [],
+        "waitingForResponse": false,
+        "toolCallArguments": {}
+      },
+      "chunks": [
+        {
+          "type": "message_start",
+          "message": {
+            "id": "resp_placeholder_start_tool_call_1",
+            "role": "assistant",
+            "content": [],
+            "attachments": [],
+            "tool_calls": [
+              {
+                "id": "tool-call-start-1",
+                "type": "function",
+                "function": {
+                  "name": "Task",
+                  "arguments": {
+                    "task": "Start work"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "expectedState": {
+        "messages": [
+          {
+            "id": "resp_placeholder_start_tool_call_1",
+            "role": "assistant",
+            "content": [],
+            "attachments": [],
+            "tool_calls": [
+              {
+                "id": "tool-call-start-1",
+                "type": "function",
+                "function": {
+                  "name": "Task",
+                  "arguments": {
+                    "task": "Start work"
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "waitingForResponse": true,
+        "toolCallArguments": {}
+      }
+    },
+    {
       "name": "placeholder_thinking_delta_is_replaced_by_real_finalized_message",
       "initialState": {
         "messages": [],
