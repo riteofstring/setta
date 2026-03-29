@@ -1,4 +1,3 @@
-import { centerViewportOnWorldPoint } from "components/Pages/Project/graphSubstrate/viewportTransform";
 import { zoomIdentity } from "d3-zoom";
 import _ from "lodash";
 import { useLocalStorage, useSettings } from "state/definitions";
@@ -70,17 +69,10 @@ export function setCenter(x: number, y: number, options?: ZoomOptions) {
   const { overviewTrueWidth } = useLocalStorage.getState();
 
   const nextZoom = typeof options?.zoom === "number" ? options.zoom : maxZoom;
-  const nextViewport = centerViewportOnWorldPoint(
-    { x: 0, y: 0, zoom: nextZoom },
-    {
-      worldPoint: { x, y },
-      screenPoint: { x: width / 2 + overviewTrueWidth, y: height / 2 },
-      zoom: nextZoom,
-    },
-  );
-  const transform = zoomIdentity
-    .translate(nextViewport.x, nextViewport.y)
-    .scale(nextViewport.zoom);
+  const visibleCenterX = width / 2 + overviewTrueWidth;
+  const centerX = visibleCenterX - x * nextZoom;
+  const centerY = height / 2 - y * nextZoom;
+  const transform = zoomIdentity.translate(centerX, centerY).scale(nextZoom);
 
   d3Zoom!.transform(
     getD3Transition(d3Selection!, options?.duration),

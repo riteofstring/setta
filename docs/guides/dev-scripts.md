@@ -35,37 +35,65 @@ Use these first for day-to-day work.
   - If you create a single worktree, enters it (starts a new shell there).
   - If you create multiple worktrees, stays in the current folder (equivalent to `--stay`).
 - `./t.sh`
-  - Runs tests (backend pytest + frontend Vitest + Playwright).
-  - Flags: `--b` (backend-only), `--f` (frontend + Playwright only), `--all` (enables opt-in external agent integration tests).
+  - Runs tests (Go suite + Python pytest + frontend Vitest + Playwright).
+  - Flags: `--b` (Go + Python coverage only), `--f` (frontend + Playwright only), `--all` (enables opt-in live-provider integration tests).
   - Logs to `tests.log` at the repo root.
-  - External agent integration tests (Claude/Codex/OpenCode) are opt-in; use `--all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1`) to enable.
+  - Live-provider integration tests (real OpenAI/Anthropic managed chat checks) are opt-in; use `--all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1`) to enable.
 - `./gcf.sh`
-  - Runs `pnpm gcf` (generate + cleanup + format) with env activation.
+  - Runs `pnpm gcf` (generate + cleanup + Go/Python/frontend formatting) with env activation.
   - Logs to `gcf.log` at the repo root.
 - `./gcft.sh`
   - Runs `pnpm gcft` (gcf + tests), with env activation.
-  - Flags: `--all` (enables opt-in external agent integration tests).
+  - Flags: `--all` (enables opt-in live-provider integration tests).
 - `./format_code.sh`
   - Formats Python via Ruff (requires env activation; see notes below).
+- `./check_quality.sh`
+  - Runs maintainability-oriented quality checks with an emphasis on cyclomatic complexity.
+  - Defaults to staged files so it is usable as a pre-commit gate even while the repo has legacy complexity debt.
+  - Python: `ruff check` plus `C901` complexity checks (default max complexity `10`).
+  - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files (default complexity `10`, `max-depth` `4`, `max-params` `5`).
+  - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files (default max complexity `12`).
+  - Supports `--all`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
+- `./report_quality_hotspots.sh`
+  - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
+  - Defaults to the top `20` hotspots per language section and mirrors the same test/generated-file exclusions as `./check_quality.sh`.
+  - Supports `--top`, `--python-min`, `--frontend-min`, and `--go-min` to narrow the report.
+  - Intended for cleanup planning and hotspot discovery, not commit gating.
 - `./build.sh`
-  - Builds the production frontend and bundles the backend wheel.
+  - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
 - `./build_and_upload.sh`
   - Builds + uploads release artifacts.
 - `./cleanup.sh`
   - Removes stale build artifacts before packaging/publishing.
 - `./verify_install.sh`
-  - Release smoke test (builds + installs sdist via `uv pip`).
+  - Dedicated sdist-completeness smoke (runs the full `build.sh` path, then installs the built sdist via `uv pip`).
 - `./install_built_setta.sh`
   - Builds Setta and installs the latest wheel into an isolated uv venv.
+  - This is the wheel-based packaged-user install check, not the sdist smoke path.
   - Default install root: `.venv_for_built_setta` (override with `--install-root`).
 - `source ./activate_built_setta.sh`
   - Activates the isolated built-install venv in the current shell.
   - Resets runtime defaults for built behavior (`SETTA_HOME=~/.setta`, local workspace `setta_files`).
 - `./dev_install.sh`
-  - One-stop local setup (uv sync + frontend deps + sidecars).
+  - One-stop default local setup (Go toolchain readiness + frozen frontend deps + frozen sidecars).
+- `./dev_install_python.sh`
+  - Opt-in setup for Python tooling with a frozen `uv` sync, then runs the default local dev install.
+- `./update_dependencies.sh`
+  - Explicit dependency refresh path for Python and pnpm lockfiles.
+  - Runs `uv lock --upgrade` with the repo release-age policy, strips the transient `uv` cutoff metadata from `uv.lock`, syncs the Python env, refreshes both pnpm lockfiles, verifies their npm publish dates against the repo minimum age, then installs from them.
 - `./init_env.sh`
-  - Creates/updates the Python environment.
-  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync`.
+  - Checks that `uv.lock` is current, then syncs the Python environment without rewriting the lockfile.
+  - Uses `SETTA_PYTHON_VERSION` (default `3.13`) when running `uv sync --frozen` with explicit `source` and `dev` extras for repo workflows.
+  - When `supply_chain_policy.env` is present, also verifies the locked Python artifacts are at least the configured age.
+- `./audit_supply_chain.sh`
+  - Runs `pip-audit`, `govulncheck`, Python/Go/pnpm release-age checks, and `pnpm audit` for both `frontend/` and the sidecar package.
+  - Uses `supply_chain_policy.env` when present; defaults to a 7-day minimum release age otherwise.
+  - This is the full visibility pass, not an instruction to upgrade everything it reports.
+- `./configure_supply_chain.sh`
+  - Updates the dependency release-age policy.
+  - `--local-only` (default) updates `supply_chain_policy.env` plus the repo-local pnpm configs under `frontend/` and the sidecar package.
+  - `--global` updates user-level `npm` and `pnpm` config instead.
+  - `--days N` changes the minimum package age.
 
 ## Layer 2: Repo `scripts/` helpers
 
@@ -81,7 +109,10 @@ These are used by the top-level wrappers or for advanced workflows.
   - Resolves the active Setta state root and deletes it.
   - Used by `reset`/`aireset` flows.
 - `./scripts/run_backend_tests.sh`
-  - Backend pytest runner (invoked by `t.sh`).
+  - Python pytest runner (invoked by `t.sh`).
+- `./scripts/run_go_tests.sh`
+  - Go test wrapper (invoked by `t.sh`).
+  - Runs `./scripts/go.sh test ./... -count=1` and accepts extra `go test` args.
 - `./scripts/run-playwright-e2e.sh`
   - Playwright E2E runner (invoked by `t.sh`).
   - Always uses disposable temp `SETTA_WORKSPACE_ROOT` + `SETTA_HOME` paths for isolation.
@@ -120,11 +151,15 @@ These are the underlying tasks used by the wrappers above.
   - Vitest (watchable).
 - `pnpm generate`
   - Regenerates templates/types from `frontend/generation/`.
+- `pnpm -C frontend generate-go-frontend-bindings`
+  - Regenerates only the canonical frontend route/type/endpoint files.
+- `pnpm -C frontend generate-go-python-types`
+  - Regenerates the Go-owned Python SDK/shared types, then runs the generated-type prune pass.
 - `pnpm gcf`
-  - Generate + cleanup + format (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
+  - Generate + cleanup + Go/Python/frontend formatting (logs to `gcf.log` via `frontend/scripts/gcf.sh`).
 - `pnpm gcft`
   - `pnpm gcf` + `./t.sh`.
-  - To enable opt-in external agent integration tests, prefer `./gcft.sh --all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1` when running this directly).
+  - To enable opt-in live-provider integration tests, prefer `./gcft.sh --all` (or set `SETTA_RUN_EXTERNAL_AGENT_INTEGRATION_TESTS=1` when running this directly).
 - `pnpm full-cleanup`
   - Knip + Python prune step.
 - `pnpm worktree` / `pnpm worktrees`
@@ -135,15 +170,23 @@ These are the underlying tasks used by the wrappers above.
 Useful when you need to debug a specific subsystem.
 
 - `frontend/backendStart.sh`
-  - Starts the backend process (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
+  - Starts the backend process for source/dev runs (writes `backend.log` by default; override via `SETTA_BACKEND_LOG_FILE`).
 - `frontend/generation/generate.sh`
   - Template/type generation (used by `pnpm generate`).
+- `frontend/generation/generate_go_frontend_bindings.sh`
+  - Direct frontend route/type/endpoint generation helper.
+- `frontend/generation/generate_go_python_types.sh`
+  - Direct Go-to-Python generation helper (SDK contracts + shared types + generated-type pruning).
 - `frontend/scripts/gcf.sh`
   - Implements `pnpm gcf` + logging.
+- `scripts/latest-chrome-recording.sh`
+  - Resolves the newest Chrome repro recording bundle, its key logs/metadata, and bundled LLM artifact paths.
 
 ## Notes
 
-- **Env activation**: run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly.
+- **Env activation**: the default `start.sh` / `reset.sh` / `ai.sh` loop does not require Python activation. Run `source activate.sh` before Python commands. The `gcf.sh` and `gcft.sh` wrappers already do this. `pnpm generate` still requires it when run directly; `pnpm -C frontend generate-go-frontend-bindings` does not.
+- **Supply-chain policy**: `supply_chain_policy.env` is the repo-local minimum release age policy used by `init_env.sh`, `update_dependencies.sh`, and `audit_supply_chain.sh`. Current `uv` only supports an absolute `--exclude-newer` cutoff and persists that cutoff into `uv.lock`, so the repo uses `--exclude-newer` only during explicit lock refreshes and enforces the rolling age policy for `uv.lock` during bootstrap with `scripts/check_uv_lock_release_age.py`. Go does not expose a native install-time minimum-age setting, so Go age enforcement is audit-only. pnpm’s resolver setting is `minimum-release-age` in minutes; the repo also enforces checked-in Go/pnpm metadata checks through the repo `uv` dev environment so those scripts can use managed Python dependencies instead of assuming system-installed packages.
+- **Audit remediation policy**: use `docs/guides/dependency-audits.md`.
 - **Repo-root logs**: `backend.log`, `chrome_mcp_backend.log`, `tests.log`, `gcf.log` (and sometimes `frontend.log`, depending on runner env).
 - **Playwright E2E logs**: `scripts/run-playwright-e2e.sh` writes `backend.log` and `frontend.log` under its `LOG_DIR` (defaults under `/tmp`; override via `SETTA_E2E_LOG_DIR`).
 - **Reset**: `reset.sh` and `pnpm reset` delete the resolved active Setta state root (including backups under that root).
