@@ -13809,6 +13809,37 @@ LOOP_TERMINAL_MARKER: replan_required
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 409
+
+- Item: Preserve subpixel shared-runtime scene bounds so low-zoom tiny-card content does not drop downward from whole-pixel registration.
+- Status: `done`
+- Details:
+  - In `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`, `readRegisteredSceneBounds` now keeps the registered scene rect and logical dimensions at `0.01px` precision instead of rounding them to whole screen pixels before they are handed to the shared page runtime.
+  - In `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`, `getLiveDictAreaPixiManagedSceneLocalBounds` now normalizes the derived local scene origin/size to the same subpixel precision so low-zoom shared-runtime stage placement stays stable instead of carrying float tails after the screen-to-logical conversion.
+  - Added focused regressions in:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - the new coverage locks the exact low-zoom fractional-bounds path that was shifting the visible slice downward.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - result: passed (`31 passed`)
+  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - result: passed
+  - `source activate.sh >/dev/null 2>&1 && WORKTREE_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/. | sed 's/^__SETTA_JSON_B64__//') && MAIN_B64=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//') && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token from bootstrapUrlFragment>' \"$WORKTREE_B64\") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url fragment>' \"$MAIN_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$MAIN_BOOTSTRAP_URL\" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`1 passed`, about `22.6s`)
+  - Fresh-context CDP visual check via sub-agent on normalized live worktree/main `All Settings`
+    - result: done with residual drift
+    - the prior downward tiny-card Y-offset / extra blank space improved but did not disappear
+    - active shell names diverged again in that CDP pass (`promptSectionDefault` worktree, `browserSectionDefault` main) even though both visible cards still showed the same blue active-outline styling
+- Conclusion:
+  - the whole-pixel shared-runtime registration path was part of the low-zoom geometry drift and is now corrected to subpixel precision
+  - Gate 2 remains open because residual low-zoom vertical alignment drift is still visible in CDP after this fix
+  - the selected-card mismatch should not be reopened yet on CDP alone because the Playwright active-section guard still passed in the same iteration
+- Next action:
+  - Stay on the production renderer lane and inspect the remaining low-zoom shared-runtime scene-origin / geometry drift on the normalized `All Settings` slice rather than returning to pane/chat cleanup or a support-only selection-state lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 408
 
 - Item: Lock the normalized `browserSectionDefault` compare flow to the actual active section instead of treating a transient selected-card mismatch as renderer drift.

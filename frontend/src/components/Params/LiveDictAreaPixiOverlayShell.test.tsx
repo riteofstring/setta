@@ -12,7 +12,10 @@ import {
   LIVE_DICT_AREA_PIXI_LAYOUT,
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
-import { LiveDictAreaPixiOverlayShell } from "./LiveDictAreaPixiOverlayShell";
+import {
+  LiveDictAreaPixiOverlayShell,
+  readRegisteredSceneBounds,
+} from "./LiveDictAreaPixiOverlayShell";
 import {
   LiveDictAreaPixiPageRuntimeBoundary,
   useOptionalLiveDictAreaPixiPageRuntime,
@@ -396,6 +399,34 @@ describe("LiveDictAreaPixiOverlayShell", () => {
       fitViewOnInit: false,
       fitViewOnInitDone: false,
       fitViewOnInitOptions: undefined,
+    });
+  });
+
+  it("preserves subpixel registered scene bounds at low zoom instead of rounding them to whole screen pixels", () => {
+    const sceneShell = document.createElement("div");
+    Object.defineProperty(sceneShell, "clientHeight", { value: 116 });
+    Object.defineProperty(sceneShell, "clientWidth", { value: 220 });
+    Object.defineProperty(sceneShell, "offsetHeight", { value: 116 });
+    Object.defineProperty(sceneShell, "offsetWidth", { value: 220 });
+    sceneShell.getBoundingClientRect = vi.fn(() => ({
+      bottom: 79.4,
+      height: 35.2,
+      left: 759.9,
+      right: 815.1,
+      top: 44.2,
+      width: 55.2,
+      x: 759.9,
+      y: 44.2,
+      toJSON: () => "",
+    })) as typeof sceneShell.getBoundingClientRect;
+
+    expect(readRegisteredSceneBounds(sceneShell, 0.25)).toEqual({
+      height: 35.2,
+      left: 759.9,
+      logicalHeight: 116,
+      logicalWidth: 220,
+      top: 44.2,
+      width: 55.2,
     });
   });
 

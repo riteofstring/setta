@@ -310,6 +310,41 @@ describe("getLiveDictAreaPixiManagedSceneLocalBounds", () => {
       width: 260,
     });
   });
+
+  it("preserves fractional registered scene offsets so low-zoom shared-runtime scenes do not drift vertically", () => {
+    const host = document.createElement("div");
+    host.getBoundingClientRect = vi.fn(() => ({
+      bottom: 380.1,
+      height: 300,
+      left: 100.2,
+      right: 500.2,
+      top: 80.1,
+      width: 400,
+      x: 100.2,
+      y: 80.1,
+      toJSON: () => "",
+    })) as typeof host.getBoundingClientRect;
+
+    expect(
+      getLiveDictAreaPixiManagedSceneLocalBounds({
+        host,
+        sceneBounds: {
+          height: 35.2,
+          left: 140.6,
+          logicalHeight: 140,
+          logicalWidth: 260,
+          top: 100.4,
+          width: 55.2,
+        },
+        viewportZoom: 0.25,
+      }),
+    ).toEqual({
+      height: 140,
+      left: 161.6,
+      top: 81.2,
+      width: 260,
+    });
+  });
 });
 
 describe("LiveDictAreaPixiPageRuntimeBoundary", () => {

@@ -634,7 +634,11 @@ export function LiveDictAreaPixiOverlayShell({
   );
 }
 
-function readRegisteredSceneBounds(
+function normalizeRegisteredSceneBoundsMeasure(value: number) {
+  return Number.isFinite(value) ? Math.round(value * 100) / 100 : value;
+}
+
+export function readRegisteredSceneBounds(
   sceneShell: HTMLDivElement,
   viewportZoom: number,
 ): LiveDictAreaPixiRegisteredSceneBounds | null {
@@ -666,12 +670,12 @@ function readRegisteredSceneBounds(
   }
 
   return {
-    height: Math.round(rect.height),
-    left: Math.round(rect.left),
-    logicalHeight: Math.round(logicalHeight),
-    logicalWidth: Math.round(logicalWidth),
-    top: Math.round(rect.top),
-    width: Math.round(rect.width),
+    height: normalizeRegisteredSceneBoundsMeasure(rect.height),
+    left: normalizeRegisteredSceneBoundsMeasure(rect.left),
+    logicalHeight: normalizeRegisteredSceneBoundsMeasure(logicalHeight),
+    logicalWidth: normalizeRegisteredSceneBoundsMeasure(logicalWidth),
+    top: normalizeRegisteredSceneBoundsMeasure(rect.top),
+    width: normalizeRegisteredSceneBoundsMeasure(rect.width),
   };
 }
 

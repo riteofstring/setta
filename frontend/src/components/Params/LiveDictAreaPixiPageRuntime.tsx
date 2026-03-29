@@ -692,6 +692,10 @@ function destroyLiveDictAreaPixiPageRuntimeHostApplication(
   app.destroy({ removeView: true }, true);
 }
 
+function normalizeLiveDictAreaPixiManagedSceneMeasure(value: number) {
+  return Number.isFinite(value) ? Math.round(value * 100) / 100 : value;
+}
+
 export function getLiveDictAreaPixiManagedSceneLocalBounds({
   host,
   sceneBounds,
@@ -733,9 +737,9 @@ export function getLiveDictAreaPixiManagedSceneLocalBounds({
   }
 
   return {
-    height,
-    left,
-    top,
-    width,
+    height: normalizeLiveDictAreaPixiManagedSceneMeasure(height),
+    left: normalizeLiveDictAreaPixiManagedSceneMeasure(left),
+    top: normalizeLiveDictAreaPixiManagedSceneMeasure(top),
+    width: normalizeLiveDictAreaPixiManagedSceneMeasure(width),
   };
 }
