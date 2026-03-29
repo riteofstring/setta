@@ -2580,6 +2580,9 @@ function resolveThreadAgentBadgeLabel({
     ) {
       return "claude";
     }
+    if (externalAgentConfig.toolType === ExternalAgentToolTypeEnum.opencode) {
+      return "opencode";
+    }
     return null;
   }
   return null;

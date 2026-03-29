@@ -20,7 +20,6 @@ import { FiChevronDown, FiPlus, FiRefreshCw, FiSave } from "react-icons/fi";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { loadAgentRuns } from "state/actions/ai";
-import { postChromeReproEvent } from "state/actions/chromeRepro";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
   type ProjectChatCustomSlashCommand,
@@ -709,9 +708,10 @@ export function ProjectChatSkillsMcpViewer({
   >(null);
   const [mcpRuntimeStatusByServerId, setMcpRuntimeStatusByServerId] =
     useState<Record<string, McpRuntimeServerStatus> | null>(null);
-  const [runtimeServers, setRuntimeServers] = useState<
+  const [externalRuntimeServers, setExternalRuntimeServers] = useState<
     Array<{
       serverId: string;
+      source: string;
       transport: string;
       endpoint: string;
     }>
@@ -909,36 +909,27 @@ export function ProjectChatSkillsMcpViewer({
       }
       if (!res200(res)) {
         const detail = getErrorDetail(res.data);
-        postChromeReproEvent("mcp-runtime-status", {
-          projectConfigId,
-          chatId: chatId ?? null,
-          engineConfigId,
-          error: detail ?? "Failed to load MCP runtime status.",
-        });
         setMcpRuntimeStatusError(
           detail ?? "Failed to load MCP runtime status.",
         );
         setMcpRuntimeStatusByServerId(null);
-        setRuntimeServers([]);
+        setExternalRuntimeServers([]);
         setMcpConfigPath(null);
         setSettaFilesLocation(null);
         setMcpRuntimeStatusLoading(false);
         return;
       }
-      const resolvedStatuses = res.data.resolvedServers;
-      const runtimeStatusesByServerId =
-        toRuntimeStatusByServerId(resolvedStatuses);
-      postChromeReproEvent("mcp-runtime-status", {
-        projectConfigId,
-        chatId: chatId ?? null,
-        engineConfigId,
-        response: res.data,
-        derivedRuntimeStatusByServerId: runtimeStatusesByServerId,
-      });
+      const settaStatuses = res.data.servers;
+      const externalStatuses = res.data.externalServers;
+      const runtimeStatusesByServerId = toRuntimeStatusByServerId([
+        ...settaStatuses,
+        ...externalStatuses,
+      ]);
       setMcpRuntimeStatusByServerId(runtimeStatusesByServerId);
-      setRuntimeServers(
-        resolvedStatuses.map((status) => ({
+      setExternalRuntimeServers(
+        externalStatuses.map((status) => ({
           serverId: status.serverId,
+          source: status.source,
           transport: status.transport,
           endpoint: status.endpoint,
         })),
@@ -1007,11 +998,11 @@ export function ProjectChatSkillsMcpViewer({
       mcpServers: allLLMConfigs?.mcpServers,
       mcpConfigPath,
       settaFilesLocation,
-      runtimeServers,
+      externalRuntimeServers,
     });
   }, [
     allLLMConfigs?.mcpServers,
-    runtimeServers,
+    externalRuntimeServers,
     mcpConfigPath,
     settaFilesLocation,
   ]);
@@ -1808,6 +1799,7 @@ export function ProjectChatSkillsMcpViewer({
                       const serverEndpointDisplay = `${server.transport} · ${server.endpoint}`;
                       const status = resolveMcpServerStatus({
                         serverId: server.serverId,
+                        source: server.source,
                         endpoint: server.endpoint,
                         runtimeStatusByServerId: mcpRuntimeStatusByServerId,
                         runtimeStatusLoading: mcpRuntimeStatusLoading,
@@ -1844,13 +1836,6 @@ export function ProjectChatSkillsMcpViewer({
                             data-testid="skills-mcp-server-endpoint"
                           >
                             {serverEndpointDisplay}
-                          </div>
-                          <div
-                            className="truncate text-[10px] text-setta-500 dark:text-setta-400"
-                            title={status.quickInfo}
-                            data-testid="skills-mcp-server-status"
-                          >
-                            {status.quickInfo}
                           </div>
                         </div>
                       );
