@@ -9889,3 +9889,28 @@ Record:
     - `127.0.0.1:3000` was still unreachable during this verification pass, so no read-only `main` side-by-side oracle was available.
 - Next action:
   - Diagnose a different source of the remaining first-visible `All Settings` text/layout compression before making another renderer change; do not continue the DOM-backed row-metrics measurement shape.
+
+## 2026-03-30 300
+
+- Item: Keep standalone settings section routes on one consistent project-state snapshot so `/settings/section/gui` no longer falls through during load.
+- Status: `done`
+- Details:
+  - Took the next bounded blocker-resolution slice from the repeated standalone settings canary failure instead of continuing another pure forwarding seam lift:
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.tsx`
+    - `frontend/src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx`
+  - Reworked `StandaloneProjectSurfacePageTargetBoundary` so the standalone target resolution and `targetReady` gating both derive from the same lifted `useProjectState` snapshot instead of mixing a rebuilt project-state object with a separate store subscription.
+  - This keeps the standalone section route handoff deterministic across load transitions and avoids stranding the page on a stale `section_not_found` target while the backing section map finishes loading.
+  - Added focused regression coverage for the top-level settings `gui` slug and tightened the target-boundary expectations to assert the page-state handoff stays marked `doneLoading` once the lifted selector resolves.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/StandaloneProjectSurfacePageTargetBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageRouteStateBoundary.test.tsx src/components/Pages/Project/StandaloneProjectSurfacePageStateBoundary.test.tsx`
+    - result: passed (`10 passed`)
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/chat/standalone-project-surface-routes.spec.ts --grep "standalone section routes resolve the renamed slug and fail closed on the stale slug|wraps standalone project chat routes in the shared project-chat frame"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app at `http://127.0.0.1:3044/`
+    - checked authenticated live standalone settings routes for both `/settings/section/gui` and `/settings/section/languageserver`
+    - confirmed the loaded `settings` project contains a single unambiguous `gui` section slug and a single unambiguous `languageServer` slug
+    - confirmed `/settings/section/gui` renders the GUI settings surface (`ARGS`, `defaultZoomLevel`, `Grid Color`, etc.) rather than the `Section Not Found` fallback
+- Next action:
+  - Return to the next real retained-scene hotspot or remaining visual mismatch; do not reopen standalone route ownership hops unless a new failing canary appears.

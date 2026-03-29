@@ -133,6 +133,7 @@ vi.mock("state/definitions", () => ({
 
 vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
   StandaloneProjectSurfacePageStateBoundary: ({
+    doneLoading,
     projectConfigId,
     target,
     standaloneWindowSpace,
@@ -143,6 +144,7 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
     renderNestedSections,
     renderDictArea,
   }: {
+    doneLoading: boolean;
     projectConfigId: string;
     target: { kind: string };
     standaloneWindowSpace: { id: string; name: string } | null;
@@ -159,6 +161,7 @@ vi.mock("./StandaloneProjectSurfacePageStateBoundary", () => ({
     renderDictArea: unknown;
   }) => {
     stateBoundaryMock({
+      doneLoading,
       projectConfigId,
       target,
       standaloneWindowSpace,
@@ -279,6 +282,7 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
     );
     expect(stateBoundaryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        doneLoading: true,
         hasRenderDictArea: true,
         projectConfigId: "project-config-1",
         target: {
@@ -325,6 +329,7 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
 
     expect(stateBoundaryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        doneLoading: true,
         hasRenderDictArea: true,
         target: {
           kind: "section",
@@ -344,6 +349,42 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
             }),
           }),
         }),
+      }),
+    );
+  });
+
+  it("resolves the top-level gui settings slug through the lifted selector boundary", async () => {
+    const guiSection = createTextSectionFixture({
+      sectionId: "gui-section",
+      sectionName: "gui",
+    });
+    hoisted.state.projectState.sections[guiSection.sectionId] = guiSection.core;
+    hoisted.state.projectState.sectionVariants[guiSection.variantId] =
+      guiSection.variant;
+    hoisted.state.projectState.sectionImpls[guiSection.implId] =
+      guiSection.impl;
+    hoisted.state.projectState.projectConfig.sectionVariantMap[
+      guiSection.sectionId
+    ] = guiSection.variantId;
+
+    await act(async () => {
+      root.render(
+        <StandaloneProjectSurfacePageTargetBoundary
+          {...createBaseProps()}
+          sectionSlug="gui"
+        />,
+      );
+    });
+
+    expect(stateBoundaryMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        doneLoading: true,
+        target: {
+          kind: "section",
+          sectionId: "gui-section",
+          sectionName: "gui",
+          sectionType: SectionTypeEnum.TextBlock,
+        },
       }),
     );
   });
@@ -373,6 +414,7 @@ describe("StandaloneProjectSurfacePageTargetBoundary", () => {
 
     expect(stateBoundaryMock).toHaveBeenLastCalledWith(
       expect.objectContaining({
+        doneLoading: true,
         hasRenderDictArea: true,
         target: {
           kind: "window_space",

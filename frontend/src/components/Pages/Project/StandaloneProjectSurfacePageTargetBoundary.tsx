@@ -2,6 +2,7 @@ import {
   renderDefaultSectionContainerCoreBody,
   renderDefaultSectionContainerNestedSections,
 } from "components/Section/Container/sectionContainerDefaultRenderers";
+import _ from "lodash";
 import { type ComponentProps, useMemo } from "react";
 import {
   useAIStore,
@@ -15,8 +16,6 @@ import {
   buildStandaloneProjectSurfacePageTargetState,
   canRenderStandaloneSurfaceTarget,
   type StandaloneProjectSurfacePageTargetProjectState,
-  type StandaloneProjectSurfacePageTargetProjectStateRefs,
-  type StandaloneProjectSurfacePageTargetRenderState,
 } from "./standaloneProjectSurfacePageTargetState";
 
 export type StandaloneProjectSurfacePageTargetBoundaryProps = Omit<
@@ -41,10 +40,10 @@ function _StandaloneProjectSurfacePageTargetBoundary({
   windowSpaceSlug,
   ...stateBoundaryProps
 }: StandaloneProjectSurfacePageTargetBoundaryProps) {
-  const projectStateRefs =
-    useProjectState<StandaloneProjectSurfacePageTargetProjectStateRefs>(
+  const projectState =
+    useProjectState<StandaloneProjectSurfacePageTargetProjectState>(
       (state) =>
-        ({
+        buildStandaloneProjectSurfacePageTargetProjectState({
           projectConfigId: state.projectConfig.id,
           windowSpaces: state.projectConfig.windowSpaces,
           sectionVariantMap: state.projectConfig.sectionVariantMap,
@@ -52,13 +51,9 @@ function _StandaloneProjectSurfacePageTargetBoundary({
           sectionVariants: state.sectionVariants,
           sectionImpls: state.sectionImpls,
           parentSectionMap: state.parentSectionMap,
-        }) satisfies StandaloneProjectSurfacePageTargetProjectStateRefs,
-      shallow,
+        }),
+      _.isEqual,
     );
-  const projectState = useMemo<StandaloneProjectSurfacePageTargetProjectState>(
-    () => buildStandaloneProjectSurfacePageTargetProjectState(projectStateRefs),
-    [projectStateRefs],
-  );
   const { isDeploymentMode, allowLLM } = useShareSession(
     (state) => ({
       isDeploymentMode: state.isDeploymentMode,
@@ -67,42 +62,32 @@ function _StandaloneProjectSurfacePageTargetBoundary({
     shallow,
   );
   const agentRuns = useAIStore((state) => state.agentRuns);
-  const targetState = useMemo(
-    () =>
-      buildStandaloneProjectSurfacePageTargetState({
-        projectState,
-        sectionSlug,
-        chatId,
-        windowSpaceSlug,
-        agentRuns,
-        isDeploymentMode,
-        allowLLM,
-      }),
-    [
-      agentRuns,
-      allowLLM,
-      chatId,
-      isDeploymentMode,
+  const { targetReady, targetState } = useMemo(() => {
+    const nextTargetState = buildStandaloneProjectSurfacePageTargetState({
       projectState,
       sectionSlug,
+      chatId,
       windowSpaceSlug,
-    ],
-  );
-  const targetReady = useProjectState(
-    (state) =>
-      canRenderStandaloneSurfaceTarget({
-        state: {
-          projectConfig: {
-            sectionVariantMap: state.projectConfig.sectionVariantMap,
-          },
-          sections: state.sections,
-          sectionVariants: state.sectionVariants,
-          sectionImpls: state.sectionImpls,
-        } satisfies StandaloneProjectSurfacePageTargetRenderState,
-        target: targetState.target,
+      agentRuns,
+      isDeploymentMode,
+      allowLLM,
+    });
+    return {
+      targetReady: canRenderStandaloneSurfaceTarget({
+        state: projectState,
+        target: nextTargetState.target,
       }),
-    Object.is,
-  );
+      targetState: nextTargetState,
+    };
+  }, [
+    agentRuns,
+    allowLLM,
+    chatId,
+    isDeploymentMode,
+    projectState,
+    sectionSlug,
+    windowSpaceSlug,
+  ]);
 
   return (
     <StandaloneProjectSurfacePageStateBoundary
