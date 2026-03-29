@@ -58,7 +58,6 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import type { ChatMessageBranchInfo } from "state/actions/aiBranches";
 import { addTemporaryNotification } from "state/actions/notifications";
-import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useAIStore } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -90,10 +89,7 @@ import {
   type ConversationSearchTextRange,
   findConversationSearchTextRanges,
 } from "utils/conversationSearch";
-import { getErrorDetail, res200 } from "utils/endpointUtils";
-import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
 import {
-  AttachmentDownloadURLEntry,
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
@@ -110,6 +106,11 @@ import {
   reconcileAnimatedStreamingCharacters,
   splitStreamingMarkdownText,
 } from "./streamingMarkdown";
+import {
+  type AttachmentUrlEntry,
+  isAttachmentUrlStale,
+  useChatMessageAttachmentUrls,
+} from "./useChatMessageAttachmentUrls";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 type AssistantChatMessage = Extract<
@@ -201,7 +202,6 @@ type ToolCallContext = {
 
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
-const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const CHAT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = CHAT_BUBBLE_MAX_WIDTH_CLASS;
 const CHAT_MARKDOWN_BASE_CLASS =
@@ -283,10 +283,6 @@ const ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES = new Set<string>([
 ]);
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
 
-type AttachmentUrlEntry = {
-  url: AttachmentDownloadURLEntry["url"];
-  expiresAt: AttachmentDownloadURLEntry["expiresAt"];
-};
 type AttachmentTextPreview = {
   text: string;
   truncated: boolean;
@@ -2980,28 +2976,6 @@ function ChatImage({
 const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
-
-function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
-  return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
-}
-
-function collectAttachments(
-  messages: Array<BaseChatMessageUnion>,
-): ChatFileAttachment[] {
-  const map = new Map<string, ChatFileAttachment>();
-  for (const message of messages) {
-    const attachments =
-      "attachments" in message && Array.isArray(message.attachments)
-        ? message.attachments
-        : [];
-    for (const attachment of attachments) {
-      if (!map.has(attachment.id)) {
-        map.set(attachment.id, attachment);
-      }
-    }
-  }
-  return Array.from(map.values());
-}
 
 function getAttachmentSizeLabel(attachment: ChatFileAttachment): string | null {
   if (attachment.size === null || attachment.size === undefined) {
@@ -7430,91 +7404,11 @@ function ChatMessages({
   const [editingBubbleWidthPx, setEditingBubbleWidthPx] = useState<
     number | null
   >(null);
-  const [attachmentUrlMap, setAttachmentUrlMap] = useState<
-    Record<string, AttachmentUrlEntry>
-  >({});
-  const attachmentUrlRequests = useRef<Set<string>>(new Set());
-  const allAttachments = useMemo(
-    () => collectAttachments(messages),
-    [messages],
-  );
+  const { attachmentUrlMap, requestAttachmentUrls } =
+    useChatMessageAttachmentUrls(messages);
   const toolResultsById = useMemo(
     () => buildToolResultMap(allMessages),
     [allMessages],
-  );
-  const requestAttachmentUrls = useCallback(
-    async (
-      targets: ChatFileAttachment[],
-      options: { force?: boolean } = {},
-    ) => {
-      if (targets.length === 0) {
-        return {};
-      }
-      const now = Date.now();
-      const pending = targets.filter((attachment) => {
-        const entry = attachmentUrlMap[attachment.id];
-        if (!options.force && entry && !isAttachmentUrlStale(entry, now)) {
-          return false;
-        }
-        if (
-          attachmentUrlRequests.current.has(attachment.id) &&
-          !options.force
-        ) {
-          return false;
-        }
-        return true;
-      });
-      if (pending.length === 0) {
-        return {};
-      }
-      for (const attachment of pending) {
-        attachmentUrlRequests.current.add(attachment.id);
-      }
-      const projectConfigId = getCurrProjectConfigId();
-      let entries: AttachmentDownloadURLEntry[] = [];
-      try {
-        const res = await route_get_attachment_download_urls({
-          artifactIds: pending.map((attachment) => attachment.id),
-          projectConfigId,
-        });
-        if (!res200(res)) {
-          const detail = getErrorDetail(res.data);
-          console.warn(
-            "Failed to load attachment URLs",
-            detail ?? pending.map((attachment) => attachment.id),
-          );
-          return {};
-        }
-        entries = res.data;
-      } catch (error) {
-        console.warn("Failed to load attachment URLs", error);
-        return {};
-      } finally {
-        for (const attachment of pending) {
-          attachmentUrlRequests.current.delete(attachment.id);
-        }
-      }
-      const nextEntries: Record<string, AttachmentUrlEntry> = {};
-      for (const entry of entries) {
-        if (
-          typeof entry.expiresAt !== "number" ||
-          !Number.isFinite(entry.expiresAt)
-        ) {
-          console.error("Attachment URL missing expiresAt", entry);
-          continue;
-        }
-        const expiresAt = entry.expiresAt * 1000;
-        nextEntries[entry.artifactId] = {
-          url: entry.url,
-          expiresAt,
-        };
-      }
-      if (Object.keys(nextEntries).length > 0) {
-        setAttachmentUrlMap((prev) => ({ ...prev, ...nextEntries }));
-      }
-      return nextEntries;
-    },
-    [attachmentUrlMap],
   );
 
   useEffect(() => {
@@ -7523,13 +7417,6 @@ function ChatMessages({
       setEditingBubbleWidthPx(null);
     }
   }, [waitingForResponse]);
-
-  useEffect(() => {
-    if (allAttachments.length === 0) {
-      return;
-    }
-    void requestAttachmentUrls(allAttachments);
-  }, [allAttachments, requestAttachmentUrls]);
   const output: ReactNode[] = [];
   const lastMessage = messages[messages.length - 1];
   let streamingMessageId: string | null = null;
