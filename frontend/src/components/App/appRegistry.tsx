@@ -19,9 +19,9 @@ import remarkMath from "remark-math";
 import { ensureAppProjectConfigLoaded } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
   getCurrEffectiveSectionImpl,
-  getParamDisplayNameIfPresent,
+  getParamDisplayName,
 } from "state/actions/sectionInfos";
 import {
   sendRealtimeDependencyEvent,
@@ -43,7 +43,7 @@ import {
   SETTA_PREVENT_SECTION_ACTIVE_CSS,
 } from "utils/constants";
 import type { DropzoneStatelessAttachment } from "utils/dropzone";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_get_password_param_value,
   route_load_cached_image_artifacts,
@@ -51,7 +51,6 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   DateParamCodeObjImpl,
-  LoadCachedImageArtifactsResponse,
   TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
@@ -126,9 +125,6 @@ const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
   surfaceAlt: "var(--app-surface-alt)",
   card: "var(--app-card-bg)",
 };
-
-type LoadCachedImageArtifactsRouteResponse =
-  ResponseDataAndStatus<LoadCachedImageArtifactsResponse>;
 
 function resolveConfigId(
   bindingConfigId: string | null,
@@ -702,29 +698,16 @@ function ParamInputBlock({ element }: AppComponentProps) {
       sectionId,
       previewActive,
     );
-    const effectiveCodeObjImpl =
-      getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
-        configState,
-        sectionId,
-        paramId,
-        isBaseChildlessCodeObjImpl,
-        previewActive,
-      );
-    if (!effectiveCodeObjImpl) {
-      return {
-        canRenderParam: false,
-        displayName: null,
-        sectionImpl: null,
-        codeObjImpl: null,
-      };
-    }
+    const effectiveCodeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
+      configState,
+      sectionId,
+      paramId,
+      isBaseChildlessCodeObjImpl,
+      previewActive,
+    );
     return {
       canRenderParam: true,
-      displayName: getParamDisplayNameIfPresent(
-        configState,
-        sectionId,
-        paramId,
-      ),
+      displayName: getParamDisplayName(configState, sectionId, paramId),
       sectionImpl: effectiveSectionImpl,
       codeObjImpl: effectiveCodeObjImpl,
     };
@@ -1548,8 +1531,7 @@ async function loadCachedImagesById(paths: Array<string>) {
   if (paths.length === 0) {
     return;
   }
-  const res: LoadCachedImageArtifactsRouteResponse =
-    await route_load_cached_image_artifacts({ paths });
+  const res = await route_load_cached_image_artifacts({ paths });
   if (res200(res)) {
     useImages.setState((state) => {
       const next = { ...state.x };
