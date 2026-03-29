@@ -14033,3 +14033,30 @@ LOOP_TERMINAL_MARKER: none
   - Stay on the product lane and tighten low-zoom tiny-card fidelity now that the gross height-clipping bug is gone; focus next on the remaining sparse/compressed preview structure and empty-canvas drift versus `main`.
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-01 406
+
+- Item: Make the graph-only compare helper clear stale project chat chrome as well as panes.
+- Status: `done`
+- Details:
+  - In `frontend/tests/e2e/helpers.ts`, `hideProjectWorkspaceChromeForGraphComparison` now resets `projectChatWindowing` to the hidden closed sentinel instance, flushes pending project chat windowing writes, and waits for project chat chrome to disappear alongside the Overview/UI Editor panes.
+  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, the focused graph-comparison helper regression now seeds a visible floating `Chat Window 1` after overview navigation and asserts that the helper removes all visible project chat chrome.
+  - This was a blocker-only harness slice:
+    - a fresh CDP pass found `Chat Window 1` visible again on the supposedly normalized graph compare surface
+    - per the handoff, that made the compare untrustworthy and had to be fixed before returning to renderer work
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `WORKTREE_B64=$(source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.) && MAIN_B64=$(source activate.sh >/dev/null 2>&1 && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta) && WORKTREE_BOOTSTRAP_TOKEN=$(node -e '<decode current worktree bootstrap token from bootstrapUrlFragment>' \"$WORKTREE_B64\") && MAIN_BOOTSTRAP_URL=$(node -e '<decode current main bootstrap url fragment>' \"$MAIN_B64\") && BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=\"$WORKTREE_BOOTSTRAP_TOKEN\" SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=\"$MAIN_BOOTSTRAP_URL\" pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'settings workspace chrome reset hides stale project chat chrome without mutating the canary backend state|settings graph comparison chrome hide collapses non-target panes and stale project chat chrome after overview navigation|all settings live Pixi canary and the read-only main reference share the same visible canvas section slice after frontend viewport clear'`
+    - result: passed (`3 passed`, about `41s`)
+    - note: the first attempt used the stale loop-start bootstrap token and failed in Playwright global setup with `401 Unauthorized`; rerunning with fresh `setta status --connect-info` output fixed the auth bootstrap
+  - Fresh-context CDP visual check via sub-agent on normalized live worktree/main `All Settings`
+    - result: passed
+    - `Chat Window 1` was absent after normalization on both tabs and the compare surface stayed canvas-only
+- Conclusion:
+  - the normalized `All Settings` compare surface is trustworthy again after overview navigation
+  - this iteration intentionally did not land a new renderer change
+- Next action:
+  - Use the restored canvas-only compare flow to identify the next real Gate 2 renderer defect outside the closed `browserSectionDefault` lane and outside pane/chat normalization
+
+LOOP_TERMINAL_MARKER: none

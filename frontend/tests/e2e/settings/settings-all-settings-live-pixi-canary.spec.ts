@@ -414,7 +414,7 @@ test("settings workspace chrome reset hides stale project chat chrome without mu
   });
 });
 
-test("settings graph comparison chrome hide collapses non-target panes after overview navigation", async ({
+test("settings graph comparison chrome hide collapses non-target panes and stale project chat chrome after overview navigation", async ({
   page,
 }) => {
   await openAllSettingsLivePixiCanary(page);
@@ -437,6 +437,27 @@ test("settings graph comparison chrome hide collapses non-target panes after ove
     });
   });
   await expect(page.locator("#UiEditorPane")).toBeVisible();
+  await page.evaluate(async () => {
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const { createProjectChatWindowInstance, createProjectChatWindowingState } =
+      await import("/src/utils/generatedTypes.ts");
+
+    useProjectState.setState({
+      projectChatWindowing: createProjectChatWindowingState({
+        order: ["project-chat-window-1"],
+        nextInstanceNumber: 2,
+        instancesById: {
+          "project-chat-window-1": createProjectChatWindowInstance({
+            instanceId: "project-chat-window-1",
+            isClosed: false,
+          }),
+        },
+      }),
+    });
+  });
+  await expect(page.getByTestId("project-chat-window-title")).toContainText(
+    "Chat Window 1",
+  );
 
   await hideProjectWorkspaceChromeForGraphComparison(page);
 
@@ -471,6 +492,14 @@ test("settings graph comparison chrome hide collapses non-target panes after ove
       });
     })
     .toBe(true);
+  expect(await readVisibleProjectChatChrome(page)).toEqual({
+    bottomDockWindowCount: 0,
+    floatingWindowCount: 0,
+    managerMenuItemCount: 0,
+    managerMenuVisible: false,
+    maximizedWindowCount: 0,
+    windowTitles: [],
+  });
 });
 
 async function readViewportTransform(page: Page): Promise<ViewportTransform> {

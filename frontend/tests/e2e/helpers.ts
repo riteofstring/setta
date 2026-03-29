@@ -411,26 +411,49 @@ export async function resetProjectWorkspaceChromeToDefaultLayout(
 export async function hideProjectWorkspaceChromeForGraphComparison(
   page: Page,
 ): Promise<void> {
-  await page.evaluate(async () => {
+  await page.evaluate(async (hiddenProjectChatWindowId: string) => {
     const { togglePaneVisibility } = await import(
       "/src/components/Panes/paneLayout.ts"
     );
     const { useLocalStorage } = await import("/src/state/definitions.ts");
+    const projectChatWindowingModule = await import(
+      "/src/state/actions/projectChatWindowing.ts"
+    );
     const { PaneNameEnum } = await import("/src/utils/constants.ts");
+    const generatedTypesModule = await import("/src/utils/generatedTypes.ts");
 
     const localStorageState = useLocalStorage.getState();
+    projectChatWindowingModule.replaceProjectChatWindowingState(
+      generatedTypesModule.createProjectChatWindowingState({
+        order: [hiddenProjectChatWindowId],
+        nextInstanceNumber: 2,
+        instancesById: {
+          [hiddenProjectChatWindowId]:
+            generatedTypesModule.createProjectChatWindowInstance({
+              instanceId: hiddenProjectChatWindowId,
+              isClosed: true,
+            }),
+        },
+      }),
+    );
     if (localStorageState.overviewVis) {
       togglePaneVisibility(PaneNameEnum.overview);
     }
     if (localStorageState.uiEditorVis) {
       togglePaneVisibility(PaneNameEnum.uiEditor);
     }
+    if (
+      typeof projectChatWindowingModule.flushPendingProjectChatWindowingWrites ===
+      "function"
+    ) {
+      await projectChatWindowingModule.flushPendingProjectChatWindowingWrites();
+    }
 
     await new Promise<void>((resolve) => {
       window.requestAnimationFrame(() => resolve());
     });
-  });
-  await page.waitForFunction(() => {
+  }, HIDDEN_PROJECT_CHAT_WINDOW_ID);
+  await page.waitForFunction((selectors: readonly string[]) => {
     const isHidden = (selector: string) => {
       return Array.from(document.querySelectorAll(selector)).every(
         (element) => {
@@ -451,8 +474,12 @@ export async function hideProjectWorkspaceChromeForGraphComparison(
       );
     };
 
-    return isHidden("#OverviewPane") && isHidden("#UiEditorPane");
-  });
+    return (
+      isHidden("#OverviewPane") &&
+      isHidden("#UiEditorPane") &&
+      selectors.every((selector) => isHidden(selector))
+    );
+  }, PROJECT_CHAT_WINDOW_CHROME_SELECTORS);
   await closeProjectChatManagerMenuIfVisible(page);
 }
 
