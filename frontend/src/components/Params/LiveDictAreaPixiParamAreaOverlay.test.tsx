@@ -256,7 +256,9 @@ describe("LiveDictAreaPixiParamAreaOverlay", () => {
       'data-live-dict-area-drag-overlay-kind="param-list"',
     );
     expect(markup).toContain('data-param-render-mode="drag-overlay"');
-    expect(markup).toContain(
+    expect(markup).toContain('data-live-dict-area-drag-overlay-row="true"');
+    expect(markup).toContain('data-live-dict-area-scene-row-depth="0"');
+    expect(markup).not.toContain(
       "ParamContainer-section-live-overlay-pinned-param",
     );
     expect(markup).not.toContain("-ParamInput");

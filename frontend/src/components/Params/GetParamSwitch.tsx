@@ -94,6 +94,7 @@ export function GetParamSwitch({
       listKey={listKey}
       hasSectionStyleTheme={hasSectionStyleTheme}
       renderMode={renderMode}
+      scenePacket={packet}
     />
   ));
 }

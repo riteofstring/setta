@@ -29,11 +29,13 @@ import {
   isBaseParentCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import { LiveDictAreaPixiDragOverlayParamRow } from "./LiveDictAreaPixiDragOverlayParamRow";
 import { ParamContainer } from "./ParamContainer";
 import { useParamDndContext } from "./ParamDndContext";
 import { ParamNameInput } from "./ParamItems/ParamNameInput";
 import { ParamTextLabel } from "./ParamItems/ParamTextLabel";
 import type { ParamListRenderMode } from "./paramListRenderMode";
+import type { ParamSceneRowPacket } from "./paramSwitchScenePackets";
 
 type ParamSwitchProps = {
   sectionId: string;
@@ -44,6 +46,7 @@ type ParamSwitchProps = {
   listKey: ParamListKey;
   hasSectionStyleTheme: boolean;
   renderMode: ParamListRenderMode;
+  scenePacket?: ParamSceneRowPacket;
 };
 
 function _ParamSwitch(props: ParamSwitchProps) {
@@ -235,24 +238,140 @@ function RealParamSwitch(props: ParamSwitchProps) {
       />
     );
 
-  const sharedProps = {
-    ...props,
-    bg,
-    border,
-    hasSectionStyleTheme,
-    isKwarg,
-    isNestedParam,
-    label,
-    maybeErrorMessage,
-    onClick: handleParamClick,
-    onMouseDown: onMouseDownAlways,
-    paramChildren,
-  };
+  if (props.renderMode === "drag-overlay") {
+    if (!props.scenePacket) {
+      throw new Error("Expected drag-overlay scene packet for param row.");
+    }
 
-  return <SortableRealParamSwitchRow {...sharedProps} />;
+    return (
+      <SortablePixiDragOverlayParamSwitchRow
+        bg={bg}
+        border={border}
+        hasSectionStyleTheme={hasSectionStyleTheme}
+        label={label}
+        listKey={props.listKey}
+        onClick={handleParamClick}
+        onMouseDown={onMouseDownAlways}
+        onResizeStart={props.onResizeStart}
+        paramChildren={paramChildren}
+        paramInfoId={paramInfoId}
+        requiredParamIdsToPaths={props.requiredParamIdsToPaths}
+        scenePacket={props.scenePacket}
+        sectionId={sectionId}
+      />
+    );
+  }
+
+  return (
+    <SortableRealParamSwitchRow
+      bg={bg}
+      border={border}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      isKwarg={isKwarg}
+      isNestedParam={isNestedParam}
+      isTopLevelWithPad={props.isTopLevelWithPad}
+      label={label}
+      listKey={props.listKey}
+      maybeErrorMessage={maybeErrorMessage}
+      onClick={handleParamClick}
+      onMouseDown={onMouseDownAlways}
+      onResizeStart={props.onResizeStart}
+      paramChildren={paramChildren}
+      paramInfoId={paramInfoId}
+      renderMode={props.renderMode}
+      requiredParamIdsToPaths={props.requiredParamIdsToPaths}
+      sectionId={sectionId}
+    />
+  );
 }
 
 export const ParamSwitch = React.memo(_ParamSwitch, _.isEqual);
+
+function SortablePixiDragOverlayParamSwitchRow({
+  bg,
+  border,
+  hasSectionStyleTheme,
+  onClick,
+  onMouseDown,
+  onResizeStart,
+  sectionId,
+  paramInfoId,
+  requiredParamIdsToPaths,
+  listKey,
+  paramChildren,
+  label,
+  scenePacket,
+}: {
+  bg: string;
+  border: string;
+  hasSectionStyleTheme: boolean;
+  label: React.ReactNode;
+  onClick: React.MouseEventHandler;
+  onMouseDown: React.MouseEventHandler;
+  onResizeStart: React.MouseEventHandler;
+  paramChildren: string[];
+  scenePacket: ParamSceneRowPacket;
+  sectionId: string;
+  paramInfoId: string;
+  requiredParamIdsToPaths: Record<string, string[]>;
+  listKey: ParamListKey;
+}) {
+  const dndContext = useParamDndContext();
+  const dndEnabled = Boolean(dndContext?.enabled);
+  const dndId = getParamDndItemId(paramInfoId, listKey);
+  const hasNested = paramChildren.length > 0;
+  const onlyChildId = paramChildren.length === 1 ? paramChildren[0] : null;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: dndId,
+    disabled: !dndEnabled,
+    data: {
+      type: "param",
+      paramId: paramInfoId,
+      sectionId,
+      listKey,
+      isTopLevel: false,
+      hasNested,
+      onlyChildId,
+    },
+  });
+  const { role: _role, ...restAttributes } = attributes;
+  const scaledTransform = applyZoomToTransform(transform);
+  const dndStyle = {
+    transform: transformToString(scaledTransform),
+    transition,
+    zIndex: isDragging ? 1000 : undefined,
+  };
+
+  return (
+    <LiveDictAreaPixiDragOverlayParamRow
+      bg={bg}
+      border={border}
+      hasSectionStyleTheme={hasSectionStyleTheme}
+      onClick={onClick}
+      onMouseDown={onMouseDown}
+      onResizeStart={onResizeStart}
+      sectionId={sectionId}
+      paramInfoId={paramInfoId}
+      requiredParamIdsToPaths={requiredParamIdsToPaths}
+      listKey={listKey}
+      paramChildren={paramChildren}
+      label={label}
+      scenePacket={scenePacket}
+      dndAttributes={restAttributes}
+      dndListeners={listeners}
+      dndRef={setNodeRef}
+      dndStyle={dndStyle}
+      dndClassName={isDragging ? "opacity-80" : ""}
+    />
+  );
+}
 
 function SortableRealParamSwitchRow({
   sectionId,
@@ -260,6 +379,7 @@ function SortableRealParamSwitchRow({
   listKey,
   paramChildren,
   label,
+  scenePacket: _scenePacket,
   ...props
 }: ParamSwitchProps & {
   bg: string;

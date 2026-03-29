@@ -6911,3 +6911,41 @@ Record:
     - representative `200` requests included `GET /settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`, `GET /@vite/client`, `GET /src/index.tsx`, and `GET /api/loadSettings`
 - Next action:
   - Continue the retained-scene drag lane by replacing the remaining `ParamContainer` row shell in the Pixi drag overlay with a lighter scene-aligned row surface, now that editor/input chrome is no longer part of the overlay path.
+
+## 2026-03-29 223
+
+- Item: Replace the remaining `ParamContainer` row shell in the live Pixi param-list drag overlay with a lighter scene-aligned row surface.
+- Status: `done`
+- Details:
+  - Routed the drag-overlay row path through explicit scene-row metadata so the Pixi overlay no longer mounts `ParamContainer` for its param-list rows:
+    - `frontend/src/components/Params/GetParamSwitch.tsx`
+    - `frontend/src/components/Params/ParamSwitch.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiDragOverlayParamRow.tsx`
+  - The new overlay row surface keeps the real DnD/reorder path intact while flattening the DOM shape for the Pixi-only overlay path:
+    - `GetParamSwitch` now passes the existing scene row packet into each `ParamSwitch`
+    - drag-overlay rows now mount through `LiveDictAreaPixiDragOverlayParamRow` instead of `ParamContainer`
+    - the overlay rows expose explicit scene-aligned markers (`data-live-dict-area-drag-overlay-row`, `data-live-dict-area-drag-overlay-row-id`, `data-live-dict-area-scene-row-depth`, `data-live-dict-area-scene-row-kind`)
+    - nested overlay rows now recurse as flat scene-aligned siblings instead of carrying the old `ParamContainer` shell into the retained-scene handoff path
+  - Updated the focused overlay regression coverage and live canary selectors to assert the new lighter contract instead of `ParamContainer-*` ids:
+    - `frontend/src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/GetParamSwitch.tsx src/components/Params/ParamSwitch.tsx src/components/Params/LiveDictAreaPixiDragOverlayParamRow.tsx src/components/Params/LiveDictAreaPixiParamAreaOverlay.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8` passed)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`:
+    - result: passed
+    - after selecting `All Settings` and clicking one `param-row` handoff, the active overlay reported `data-live-dict-area-drag-overlay-kind="param-list"`
+    - the overlay exposed `data-live-dict-area-drag-overlay-row` and `data-live-dict-area-scene-row-depth` markers
+    - `[id^='ParamContainer-']` descendants inside the overlay were `0`
+    - the Pixi scene canvas remained mounted (`46` canvas elements observed)
+    - no obvious blanking, clipping, or major-overlap regression was observed in the checked viewport
+    - representative `200` requests included `POST /api/getFolderContents`, `POST /api/setActiveViewMode`, `POST /api/setTopLevelSectionLayout`, and `POST /api/getFileBrowserRoot`
+- Next action:
+  - Continue the retained-scene drag lane by routing the Pixi param-list overlay directly from the existing scene row packets instead of the remaining `GetParamSwitch` recursion, while preserving the real DnD reorder path.

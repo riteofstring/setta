@@ -12,7 +12,6 @@ const LIVE_PIXI_MODE = "pixi-node-body";
 type DragOverlayRow = {
   height: number;
   id: string;
-  left: number;
   top: number;
 };
 
@@ -99,26 +98,20 @@ async function readActiveOverlayTopLevelRows(
 
     const rows = Array.from(
       overlay.querySelectorAll<HTMLElement>(
-        "[data-param-row='true'][id^='ParamContainer-']",
+        "[data-live-dict-area-drag-overlay-row='true'][data-live-dict-area-scene-row-depth='0']",
       ),
     )
       .map((row) => {
         const rect = row.getBoundingClientRect();
         return {
           height: rect.height,
-          id: row.id,
-          left: Math.round(rect.left),
+          id: row.getAttribute("data-live-dict-area-drag-overlay-row-id") ?? "",
           top: rect.top,
         };
       })
       .sort((a, b) => a.top - b.top);
 
-    if (rows.length === 0) {
-      return [];
-    }
-
-    const minLeft = Math.min(...rows.map((row) => row.left));
-    return rows.filter((row) => Math.abs(row.left - minLeft) <= 2);
+    return rows;
   }, blockId);
 }
 
@@ -494,7 +487,7 @@ test("all settings canary can hand off from the Pixi scene into a param-list dra
     expect(result?.hasBlockFrameMount).toBe(false);
     expect(result?.hasHeaderMount).toBe(false);
     expect(result?.interactiveControlCount).toBe(0);
-    expect(result?.mountedParamContainerCount).toBeGreaterThan(0);
+    expect(result?.mountedParamContainerCount).toBe(0);
     expect(result?.sceneCanvasCount).toBeGreaterThan(0);
   });
 });
@@ -540,8 +533,19 @@ test("all settings canary can reorder top-level rows through the Pixi param-list
     expect(targetRowId).not.toBeNull();
     expect(sourceRowId).not.toBeNull();
 
-    const targetRow = page.locator(`[id="${targetRowId}"]`).first();
-    const sourceRow = page.locator(`[id="${sourceRowId}"]`).first();
+    const activeOverlay = page.locator(
+      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${activatedBlockId}']`,
+    );
+    const targetRow = activeOverlay
+      .locator(
+        `[data-live-dict-area-drag-overlay-row-id='${targetRowId}'][data-live-dict-area-scene-row-depth='0']`,
+      )
+      .first();
+    const sourceRow = activeOverlay
+      .locator(
+        `[data-live-dict-area-drag-overlay-row-id='${sourceRowId}'][data-live-dict-area-scene-row-depth='0']`,
+      )
+      .first();
     await targetRow.scrollIntoViewIfNeeded();
     await sourceRow.scrollIntoViewIfNeeded();
     await expect(targetRow).toBeVisible();
