@@ -10308,3 +10308,32 @@ Record:
     - the broader `gui` card still looks slightly clipped/shifted versus `main`, so the next iteration should take that geometry/parity drift directly instead of reopening closed-color chrome
 - Next action:
   - Take the next bounded `main`-oracle parity slice on the still-slight `gui` card clip/shift versus `main`; do not reopen the closed color-picker chrome lane unless the red-pill mismatch returns.
+
+## 2026-03-30 314
+
+- Item: Constrain the live Pixi overlay shell to the section body so the visible `gui` card stops clipping/offsetting against the `main` oracle.
+- Status: `done`
+- Details:
+  - Took the next bounded `main`-oracle parity slice from item `313` instead of reopening the already-closed color-picker chrome lane:
+    - fresh-context Chrome DevTools MCP checks on the live worktree still showed the visible `gui` card clipping/offsetting relative to `main`
+    - the likely failure mode in code was the Pixi overlay path rendering directly in the section shell without the same body-constraining wrapper semantics the DOM path relies on, which left the scene and absolute handoff layers free to size/clip against a broader shell
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - Wrapped the live Pixi scene and its absolute handoff / overlay layers in one explicit `relative min-h-0 min-w-0 !max-w-full flex-1 overflow-hidden` container so the retained scene stays clipped and sized to the card body instead of bleeding into broader section chrome.
+  - Added a focused overlay-shell assertion so future changes keep the Pixi scene under an overflow-hidden flex body wrapper rather than regressing back to the unconstrained layout.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`6 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary can immediately open a popup color-picker row on first Pixi handoff click|all settings canary keeps first visible unpinned live card bodies aligned with baseline when both renderers share the same viewport transform"`
+    - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context against the live `main` reference:
+    - compared `http://127.0.0.1:3087/settings` against `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body` at browser zoom `100%`
+    - result: passed; the visible `gui` card no longer looked clipped or offset relative to `main`
+- Next action:
+  - Move to the next bounded `main`-oracle parity or retained-scene frontier beyond the now-closed visible `gui` card clip/shift lane; do not reopen this wrapper-containment slice unless the card drift returns.

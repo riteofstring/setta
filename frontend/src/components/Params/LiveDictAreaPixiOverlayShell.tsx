@@ -242,82 +242,144 @@ export function LiveDictAreaPixiOverlayShell({
       <LiveDictAreaPixiFixedMeasurementMarkers
         liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
       />
-      <LiveDictAreaPixiScene
-        edgeRowInteractionState={edgeRowInteractionState}
-        liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
-        onSummaryLayoutChange={setSummaryLayout}
-        sectionId={sceneSectionId}
-        valueRowInteractionState={valueRowInteractionState}
-      />
-      {isSelectingParams
-        ? [
-            ...edgeRowTargets.map((target) => (
-              <button
-                key={`${target.blockId}-${target.portId}`}
-                aria-label={`Select edge input ${target.label}`}
-                className="absolute z-[6] cursor-pointer appearance-none border-0 bg-transparent p-0"
-                data-live-dict-area-edge-handoff="input-port"
-                data-live-dict-area-edge-handoff-block-id={target.blockId}
-                data-live-dict-area-edge-handoff-port-id={target.portId}
-                data-live-dict-area-edge-handoff-section-id={target.sectionId}
-                data-live-dict-area-edge-handoff-selected={
-                  target.isSelected ? "true" : "false"
-                }
-                onClick={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setPressedEdgePortId(null);
-                  toggleParamSelected(target.sectionId, target.portId);
-                }}
-                onFocus={() => {
-                  setFocusedEdgePortId(target.portId);
-                }}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setPressedEdgePortId(target.portId);
-                }}
-                onMouseEnter={() => {
-                  setHoveredEdgePortId(target.portId);
-                }}
-                onMouseLeave={() => {
-                  setHoveredEdgePortId((currentPortId) =>
-                    currentPortId === target.portId ? null : currentPortId,
-                  );
-                  setPressedEdgePortId((currentPortId) =>
-                    currentPortId === target.portId ? null : currentPortId,
-                  );
-                }}
-                onMouseUp={() => {
-                  setPressedEdgePortId((currentPortId) =>
-                    currentPortId === target.portId ? null : currentPortId,
-                  );
-                }}
-                onBlur={() => {
-                  setFocusedEdgePortId((currentPortId) =>
-                    currentPortId === target.portId ? null : currentPortId,
-                  );
-                }}
-                style={{
-                  height: target.height,
-                  left: target.x,
-                  top: target.y,
-                  width: target.width,
-                }}
-                type="button"
-              />
-            )),
-            ...dragRowTargets.map((target) =>
-              target.rowId === activeDragRowId ? null : (
+      <div className="relative min-h-0 min-w-0 !max-w-full flex-1 overflow-hidden">
+        <LiveDictAreaPixiScene
+          edgeRowInteractionState={edgeRowInteractionState}
+          liveDictAreaSceneBoundary={liveDictAreaSceneBoundary}
+          onSummaryLayoutChange={setSummaryLayout}
+          sectionId={sceneSectionId}
+          valueRowInteractionState={valueRowInteractionState}
+        />
+        {isSelectingParams
+          ? [
+              ...edgeRowTargets.map((target) => (
+                <button
+                  key={`${target.blockId}-${target.portId}`}
+                  aria-label={`Select edge input ${target.label}`}
+                  className="absolute z-[6] cursor-pointer appearance-none border-0 bg-transparent p-0"
+                  data-live-dict-area-edge-handoff="input-port"
+                  data-live-dict-area-edge-handoff-block-id={target.blockId}
+                  data-live-dict-area-edge-handoff-port-id={target.portId}
+                  data-live-dict-area-edge-handoff-section-id={target.sectionId}
+                  data-live-dict-area-edge-handoff-selected={
+                    target.isSelected ? "true" : "false"
+                  }
+                  onClick={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setPressedEdgePortId(null);
+                    toggleParamSelected(target.sectionId, target.portId);
+                  }}
+                  onFocus={() => {
+                    setFocusedEdgePortId(target.portId);
+                  }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setPressedEdgePortId(target.portId);
+                  }}
+                  onMouseEnter={() => {
+                    setHoveredEdgePortId(target.portId);
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredEdgePortId((currentPortId) =>
+                      currentPortId === target.portId ? null : currentPortId,
+                    );
+                    setPressedEdgePortId((currentPortId) =>
+                      currentPortId === target.portId ? null : currentPortId,
+                    );
+                  }}
+                  onMouseUp={() => {
+                    setPressedEdgePortId((currentPortId) =>
+                      currentPortId === target.portId ? null : currentPortId,
+                    );
+                  }}
+                  onBlur={() => {
+                    setFocusedEdgePortId((currentPortId) =>
+                      currentPortId === target.portId ? null : currentPortId,
+                    );
+                  }}
+                  style={{
+                    height: target.height,
+                    left: target.x,
+                    top: target.y,
+                    width: target.width,
+                  }}
+                  type="button"
+                />
+              )),
+              ...dragRowTargets.map((target) =>
+                target.rowId === activeDragRowId ? null : (
+                  <button
+                    key={target.rowId}
+                    aria-label={`Activate drag overlay for ${target.label}`}
+                    className="absolute z-[5] cursor-grab appearance-none border-0 bg-transparent p-0"
+                    data-live-dict-area-drag-handoff="param-row"
+                    data-live-dict-area-drag-handoff-block-id={target.blockId}
+                    data-live-dict-area-drag-handoff-row-id={target.rowId}
+                    onClick={() => {
+                      setActiveDragRowId(target.rowId);
+                    }}
+                    style={{
+                      height: target.height,
+                      left: target.x,
+                      top: target.y,
+                      width: target.width,
+                    }}
+                    type="button"
+                  />
+                ),
+              ),
+            ]
+          : valueRowTargets.map((target) =>
+              target.rowId === activeValueRowId ? null : (
                 <button
                   key={target.rowId}
-                  aria-label={`Activate drag overlay for ${target.label}`}
-                  className="absolute z-[5] cursor-grab appearance-none border-0 bg-transparent p-0"
-                  data-live-dict-area-drag-handoff="param-row"
-                  data-live-dict-area-drag-handoff-block-id={target.blockId}
-                  data-live-dict-area-drag-handoff-row-id={target.rowId}
+                  aria-label={getLiveDictAreaPixiValueRowHandoffAriaLabel(
+                    target,
+                  )}
+                  className="absolute z-[5] cursor-text appearance-none border-0 bg-transparent p-0"
+                  data-live-dict-area-editor-handoff="value-row"
+                  data-live-dict-area-editor-handoff-editor-kind={
+                    target.editorKind
+                  }
+                  data-live-dict-area-editor-handoff-row-id={target.rowId}
                   onClick={() => {
-                    setActiveDragRowId(target.rowId);
+                    markLiveDictAreaPixiValueRowHandoffStart({
+                      editorKind: target.editorKind,
+                      rowId: target.rowId,
+                    });
+                    setPressedValueRowId(null);
+                    setActiveValueRowId(target.rowId);
+                  }}
+                  onFocus={() => {
+                    setFocusedValueRowId(target.rowId);
+                  }}
+                  onMouseDown={(event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setPressedValueRowId(target.rowId);
+                  }}
+                  onMouseEnter={() => {
+                    setHoveredValueRowId(target.rowId);
+                  }}
+                  onMouseLeave={() => {
+                    setHoveredValueRowId((currentRowId) =>
+                      currentRowId === target.rowId ? null : currentRowId,
+                    );
+                    setPressedValueRowId((currentRowId) =>
+                      currentRowId === target.rowId ? null : currentRowId,
+                    );
+                  }}
+                  onMouseUp={() => {
+                    setPressedValueRowId((currentRowId) =>
+                      currentRowId === target.rowId ? null : currentRowId,
+                    );
+                  }}
+                  onBlur={() => {
+                    setFocusedValueRowId((currentRowId) =>
+                      currentRowId === target.rowId ? null : currentRowId,
+                    );
                   }}
                   style={{
                     height: target.height,
@@ -328,103 +390,45 @@ export function LiveDictAreaPixiOverlayShell({
                   type="button"
                 />
               ),
-            ),
-          ]
-        : valueRowTargets.map((target) =>
-            target.rowId === activeValueRowId ? null : (
-              <button
-                key={target.rowId}
-                aria-label={getLiveDictAreaPixiValueRowHandoffAriaLabel(target)}
-                className="absolute z-[5] cursor-text appearance-none border-0 bg-transparent p-0"
-                data-live-dict-area-editor-handoff="value-row"
-                data-live-dict-area-editor-handoff-editor-kind={
-                  target.editorKind
-                }
-                data-live-dict-area-editor-handoff-row-id={target.rowId}
-                onClick={() => {
-                  markLiveDictAreaPixiValueRowHandoffStart({
-                    editorKind: target.editorKind,
-                    rowId: target.rowId,
-                  });
-                  setPressedValueRowId(null);
-                  setActiveValueRowId(target.rowId);
-                }}
-                onFocus={() => {
-                  setFocusedValueRowId(target.rowId);
-                }}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setPressedValueRowId(target.rowId);
-                }}
-                onMouseEnter={() => {
-                  setHoveredValueRowId(target.rowId);
-                }}
-                onMouseLeave={() => {
-                  setHoveredValueRowId((currentRowId) =>
-                    currentRowId === target.rowId ? null : currentRowId,
-                  );
-                  setPressedValueRowId((currentRowId) =>
-                    currentRowId === target.rowId ? null : currentRowId,
-                  );
-                }}
-                onMouseUp={() => {
-                  setPressedValueRowId((currentRowId) =>
-                    currentRowId === target.rowId ? null : currentRowId,
-                  );
-                }}
-                onBlur={() => {
-                  setFocusedValueRowId((currentRowId) =>
-                    currentRowId === target.rowId ? null : currentRowId,
-                  );
-                }}
-                style={{
-                  height: target.height,
-                  left: target.x,
-                  top: target.y,
-                  width: target.width,
-                }}
-                type="button"
-              />
-            ),
-          )}
-      {isSelectingParams ? (
-        activeDragRowTarget ? (
-          <LiveDictAreaPixiParamAreaOverlay
-            liveDictAreaMountProps={liveDictAreaMountProps}
-            target={activeDragRowTarget}
+            )}
+        {isSelectingParams ? (
+          activeDragRowTarget ? (
+            <LiveDictAreaPixiParamAreaOverlay
+              liveDictAreaMountProps={liveDictAreaMountProps}
+              target={activeDragRowTarget}
+            />
+          ) : null
+        ) : activeValueRowTarget ? (
+          <LiveDictAreaPixiValueRowOverlay
+            editorKind={activeValueRowEditorKind}
+            errorMessage={activeValueRowErrorMessage}
+            overlaySurface={
+              shouldUseValueOnlyCodeMirrorOverlay ? "value-only" : "full-row"
+            }
+            target={activeValueRowTarget}
           />
-        ) : null
-      ) : activeValueRowTarget ? (
-        <LiveDictAreaPixiValueRowOverlay
-          editorKind={activeValueRowEditorKind}
-          errorMessage={activeValueRowErrorMessage}
-          overlaySurface={
-            shouldUseValueOnlyCodeMirrorOverlay ? "value-only" : "full-row"
-          }
-          target={activeValueRowTarget}
-        />
-      ) : valueRowTargets.length === 0 ? (
-        isFallbackOverlayActive ? (
-          <div
-            className="absolute inset-0 z-20 overflow-y-auto"
-            data-live-dict-area-editor-overlay="active"
-            data-live-dict-area-editor-overlay-kind="full-shell"
-          >
-            <LiveDictAreaMount {...liveDictAreaMountProps} />
-          </div>
-        ) : (
-          <button
-            aria-label="Activate live dict-area editor overlay"
-            className="absolute inset-0 z-[5] appearance-none border-0 bg-transparent p-0"
-            data-live-dict-area-editor-handoff="available"
-            onClick={() => {
-              setIsFallbackOverlayActive(true);
-            }}
-            type="button"
-          />
-        )
-      ) : null}
+        ) : valueRowTargets.length === 0 ? (
+          isFallbackOverlayActive ? (
+            <div
+              className="absolute inset-0 z-20 overflow-y-auto"
+              data-live-dict-area-editor-overlay="active"
+              data-live-dict-area-editor-overlay-kind="full-shell"
+            >
+              <LiveDictAreaMount {...liveDictAreaMountProps} />
+            </div>
+          ) : (
+            <button
+              aria-label="Activate live dict-area editor overlay"
+              className="absolute inset-0 z-[5] appearance-none border-0 bg-transparent p-0"
+              data-live-dict-area-editor-handoff="available"
+              onClick={() => {
+                setIsFallbackOverlayActive(true);
+              }}
+              type="button"
+            />
+          )
+        ) : null}
+      </div>
     </>
   );
 }

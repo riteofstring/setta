@@ -298,6 +298,14 @@ describe("LiveDictAreaPixiOverlayShell", () => {
       container.querySelector("[data-live-dict-area-scene='pixi']"),
     ).not.toBeNull();
     expect(
+      container.querySelector("[data-live-dict-area-scene='pixi']")
+        ?.parentElement?.className,
+    ).toContain("overflow-hidden");
+    expect(
+      container.querySelector("[data-live-dict-area-scene='pixi']")
+        ?.parentElement?.className,
+    ).toContain("flex-1");
+    expect(
       container
         .querySelector("[data-live-dict-area-scene='pixi']")
         ?.getAttribute("data-live-dict-area-scene-section-id"),
