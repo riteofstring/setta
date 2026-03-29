@@ -146,319 +146,461 @@ func (p *Project) UpdateParamImplConfig(sectionID string, paramInfoID string, ne
 }
 
 func normalizeParamImplConfigPatch(codeObjType string, currentPayload map[string]any, newConfig map[string]any) (map[string]any, error) {
-	normalized := map[string]any{}
 	if len(newConfig) == 0 {
-		return normalized, nil
+		return map[string]any{}, nil
 	}
-
-	nextDateIncludesTime := payloadBoolField(currentPayload, "dateIncludesTime")
 	switch codeObjType {
 	case "SliderParam":
-		nextMin := int(numberFieldOrDefault(currentPayload, "min", 0))
-		nextMax := int(numberFieldOrDefault(currentPayload, "max", 100))
-		nextStep := int(numberFieldOrDefault(currentPayload, "step", 1))
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "min":
-				value, err := readIntConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				nextMin = value
-				normalized[fieldName] = value
-			case "max":
-				value, err := readIntConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				nextMax = value
-				normalized[fieldName] = value
-			case "step":
-				value, err := readIntConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				nextStep = value
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		if err := validateNumericRangeConfig(float64(nextMin), float64(nextMax), float64(nextStep)); err != nil {
-			return nil, fmt.Errorf("%w: type=%q: %s", ErrUpdateParamImplConfigFieldInvalid, codeObjType, err.Error())
-		}
-		return normalized, nil
+		return normalizeSliderParamImplConfigPatch(codeObjType, currentPayload, newConfig)
 	case "RotaryParam":
-		nextMin := numberFieldOrDefault(currentPayload, "min", 0)
-		nextMax := numberFieldOrDefault(currentPayload, "max", 1)
-		nextStep := numberFieldOrDefault(currentPayload, "step", 0.1)
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "min":
-				value, err := readFiniteNumberConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				nextMin = value
-				normalized[fieldName] = value
-			case "max":
-				value, err := readFiniteNumberConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				nextMax = value
-				normalized[fieldName] = value
-			case "step":
-				value, err := readFiniteNumberConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				nextStep = value
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		if err := validateNumericRangeConfig(nextMin, nextMax, nextStep); err != nil {
-			return nil, fmt.Errorf("%w: type=%q: %s", ErrUpdateParamImplConfigFieldInvalid, codeObjType, err.Error())
-		}
-		return normalized, nil
+		return normalizeRotaryParamImplConfigPatch(codeObjType, currentPayload, newConfig)
 	case "TextParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "uiType":
-				value, err := readEnumConfigValue(rawValue, textParamUITypeValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		return normalized, nil
+		return normalizeTextParamImplConfigPatch(codeObjType, newConfig)
 	case "DateParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "dateDisplayFormat":
-				value, err := readEnumConfigValue(rawValue, dateDisplayFormatValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "dateControlMode":
-				value, err := readEnumConfigValue(rawValue, dateControlModeValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "dateSelectionMode":
-				value, err := readEnumConfigValue(rawValue, dateSelectionModeValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "dateCalendarWeekStart":
-				value, err := readEnumConfigValue(rawValue, dateCalendarWeekStartValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "dateIncludesTime":
-				value, err := readBoolConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				nextDateIncludesTime = value
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		if nextDateIncludesTime {
-			normalized["dateSelectionMode"] = "single"
-		}
-		return normalized, nil
+		return normalizeDateParamImplConfigPatch(codeObjType, currentPayload, newConfig)
 	case "TimeParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "timeControlMode":
-				value, err := readEnumConfigValue(rawValue, timeControlModeValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "timeDisplayFormat":
-				value, err := readEnumConfigValue(rawValue, timeDisplayFormatValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "timeDisplayTransparent":
-				value, err := readBoolConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "timeDisplayScale":
-				value, err := readFiniteNumberConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				if value < 0.5 || value > 3 {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, "must be between 0.5 and 3")
-				}
-				normalized[fieldName] = value
-			case "timeDisplayFont":
-				value, err := readEnumConfigValue(rawValue, timeDisplayFontValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		return normalized, nil
+		return normalizeTimeParamImplConfigPatch(codeObjType, newConfig)
 	case "ButtonParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description", "label", "requestUrl", "requestHeaderKey", "requestHeaderValue", "requestBody":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "actionMode":
-				value, err := readEnumConfigValue(rawValue, buttonActionModeValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "requestMethod":
-				value, err := readEnumConfigValue(rawValue, httpRequestMethodValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		return normalized, nil
+		return normalizeButtonParamImplConfigPatch(codeObjType, newConfig)
 	case "ColorPickerParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "colorChoices":
-				value, err := readColorChoicesConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		return normalized, nil
+		return normalizeColorPickerParamImplConfigPatch(codeObjType, newConfig)
 	case "DropdownParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "choices":
-				value, err := readStringListConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		return normalized, nil
+		return normalizeDropdownParamImplConfigPatch(codeObjType, newConfig)
 	case "DropzoneParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description", "placeholder":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "mode":
-				value, err := readEnumConfigValue(rawValue, dropzoneModeValues)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			case "maxAttachments":
-				value, err := readNullablePositiveIntConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		return normalized, nil
+		return normalizeDropzoneParamImplConfigPatch(codeObjType, newConfig)
 	case "NestedParam", codeParamType, "SwitchParam", "PasswordParam", "TextAreaParam":
-		for fieldName, rawValue := range newConfig {
-			switch fieldName {
-			case "description":
-				value, err := readRawStringConfigValue(rawValue)
-				if err != nil {
-					return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
-				}
-				normalized[fieldName] = value
-			default:
-				return nil, unsupportedParamImplConfigFieldError(codeObjType, fieldName)
-			}
-		}
-		return normalized, nil
+		return normalizeDescriptionOnlyParamImplConfigPatch(codeObjType, newConfig)
 	default:
 		return nil, fmt.Errorf("%w: type=%q", ErrUpdateParamImplConfigUnsupported, codeObjType)
 	}
+}
+
+type paramImplConfigFieldHandler func(rawValue any) error
+
+func normalizeParamImplConfigFields(
+	codeObjType string,
+	newConfig map[string]any,
+	handlers map[string]paramImplConfigFieldHandler,
+) error {
+	for fieldName, rawValue := range newConfig {
+		handler, ok := handlers[fieldName]
+		if !ok {
+			return unsupportedParamImplConfigFieldError(codeObjType, fieldName)
+		}
+		if err := handler(rawValue); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func setParamImplRawStringField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+) (string, error) {
+	value, err := readRawStringConfigValue(rawValue)
+	if err != nil {
+		return "", wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func setParamImplEnumField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+	allowed map[string]struct{},
+) (string, error) {
+	value, err := readEnumConfigValue(rawValue, allowed)
+	if err != nil {
+		return "", wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func setParamImplBoolField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+) (bool, error) {
+	value, err := readBoolConfigValue(rawValue)
+	if err != nil {
+		return false, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func setParamImplIntField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+) (int, error) {
+	value, err := readIntConfigValue(rawValue)
+	if err != nil {
+		return 0, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func setParamImplFiniteNumberField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+) (float64, error) {
+	value, err := readFiniteNumberConfigValue(rawValue)
+	if err != nil {
+		return 0, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func setParamImplNullablePositiveIntField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+) (any, error) {
+	value, err := readNullablePositiveIntConfigValue(rawValue)
+	if err != nil {
+		return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func setParamImplStringListField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+) ([]string, error) {
+	value, err := readStringListConfigValue(rawValue)
+	if err != nil {
+		return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func setParamImplColorChoicesField(
+	normalized map[string]any,
+	codeObjType string,
+	fieldName string,
+	rawValue any,
+) ([]map[string]any, error) {
+	value, err := readColorChoicesConfigValue(rawValue)
+	if err != nil {
+		return nil, wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, fieldName, err.Error())
+	}
+	normalized[fieldName] = value
+	return value, nil
+}
+
+func normalizeSliderParamImplConfigPatch(
+	codeObjType string,
+	currentPayload map[string]any,
+	newConfig map[string]any,
+) (map[string]any, error) {
+	normalized := map[string]any{}
+	nextMin := int(numberFieldOrDefault(currentPayload, "min", 0))
+	nextMax := int(numberFieldOrDefault(currentPayload, "max", 100))
+	nextStep := int(numberFieldOrDefault(currentPayload, "step", 1))
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"min": func(rawValue any) error {
+			value, err := setParamImplIntField(normalized, codeObjType, "min", rawValue)
+			if err != nil {
+				return err
+			}
+			nextMin = value
+			return nil
+		},
+		"max": func(rawValue any) error {
+			value, err := setParamImplIntField(normalized, codeObjType, "max", rawValue)
+			if err != nil {
+				return err
+			}
+			nextMax = value
+			return nil
+		},
+		"step": func(rawValue any) error {
+			value, err := setParamImplIntField(normalized, codeObjType, "step", rawValue)
+			if err != nil {
+				return err
+			}
+			nextStep = value
+			return nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+	if err := validateNumericRangeConfig(float64(nextMin), float64(nextMax), float64(nextStep)); err != nil {
+		return nil, fmt.Errorf("%w: type=%q: %s", ErrUpdateParamImplConfigFieldInvalid, codeObjType, err.Error())
+	}
+	return normalized, nil
+}
+
+func normalizeRotaryParamImplConfigPatch(
+	codeObjType string,
+	currentPayload map[string]any,
+	newConfig map[string]any,
+) (map[string]any, error) {
+	normalized := map[string]any{}
+	nextMin := numberFieldOrDefault(currentPayload, "min", 0)
+	nextMax := numberFieldOrDefault(currentPayload, "max", 1)
+	nextStep := numberFieldOrDefault(currentPayload, "step", 0.1)
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"min": func(rawValue any) error {
+			value, err := setParamImplFiniteNumberField(normalized, codeObjType, "min", rawValue)
+			if err != nil {
+				return err
+			}
+			nextMin = value
+			return nil
+		},
+		"max": func(rawValue any) error {
+			value, err := setParamImplFiniteNumberField(normalized, codeObjType, "max", rawValue)
+			if err != nil {
+				return err
+			}
+			nextMax = value
+			return nil
+		},
+		"step": func(rawValue any) error {
+			value, err := setParamImplFiniteNumberField(normalized, codeObjType, "step", rawValue)
+			if err != nil {
+				return err
+			}
+			nextStep = value
+			return nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+	if err := validateNumericRangeConfig(nextMin, nextMax, nextStep); err != nil {
+		return nil, fmt.Errorf("%w: type=%q: %s", ErrUpdateParamImplConfigFieldInvalid, codeObjType, err.Error())
+	}
+	return normalized, nil
+}
+
+func normalizeTextParamImplConfigPatch(codeObjType string, newConfig map[string]any) (map[string]any, error) {
+	normalized := map[string]any{}
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"uiType": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "uiType", rawValue, textParamUITypeValues)
+			return err
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+func normalizeDateParamImplConfigPatch(
+	codeObjType string,
+	currentPayload map[string]any,
+	newConfig map[string]any,
+) (map[string]any, error) {
+	normalized := map[string]any{}
+	nextDateIncludesTime := payloadBoolField(currentPayload, "dateIncludesTime")
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"dateDisplayFormat": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "dateDisplayFormat", rawValue, dateDisplayFormatValues)
+			return err
+		},
+		"dateControlMode": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "dateControlMode", rawValue, dateControlModeValues)
+			return err
+		},
+		"dateSelectionMode": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "dateSelectionMode", rawValue, dateSelectionModeValues)
+			return err
+		},
+		"dateCalendarWeekStart": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "dateCalendarWeekStart", rawValue, dateCalendarWeekStartValues)
+			return err
+		},
+		"dateIncludesTime": func(rawValue any) error {
+			value, err := setParamImplBoolField(normalized, codeObjType, "dateIncludesTime", rawValue)
+			if err != nil {
+				return err
+			}
+			nextDateIncludesTime = value
+			return nil
+		},
+	}); err != nil {
+		return nil, err
+	}
+	if nextDateIncludesTime {
+		normalized["dateSelectionMode"] = "single"
+	}
+	return normalized, nil
+}
+
+func normalizeTimeParamImplConfigPatch(codeObjType string, newConfig map[string]any) (map[string]any, error) {
+	normalized := map[string]any{}
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"timeControlMode": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "timeControlMode", rawValue, timeControlModeValues)
+			return err
+		},
+		"timeDisplayFormat": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "timeDisplayFormat", rawValue, timeDisplayFormatValues)
+			return err
+		},
+		"timeDisplayTransparent": func(rawValue any) error {
+			_, err := setParamImplBoolField(normalized, codeObjType, "timeDisplayTransparent", rawValue)
+			return err
+		},
+		"timeDisplayScale": func(rawValue any) error {
+			value, err := setParamImplFiniteNumberField(normalized, codeObjType, "timeDisplayScale", rawValue)
+			if err != nil {
+				return err
+			}
+			if value < 0.5 || value > 3 {
+				return wrapParamImplConfigFieldError(ErrUpdateParamImplConfigFieldInvalid, codeObjType, "timeDisplayScale", "must be between 0.5 and 3")
+			}
+			return nil
+		},
+		"timeDisplayFont": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "timeDisplayFont", rawValue, timeDisplayFontValues)
+			return err
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+func normalizeButtonParamImplConfigPatch(codeObjType string, newConfig map[string]any) (map[string]any, error) {
+	normalized := map[string]any{}
+	rawStringHandler := func(fieldName string) paramImplConfigFieldHandler {
+		return func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, fieldName, rawValue)
+			return err
+		}
+	}
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description":        rawStringHandler("description"),
+		"label":              rawStringHandler("label"),
+		"requestUrl":         rawStringHandler("requestUrl"),
+		"requestHeaderKey":   rawStringHandler("requestHeaderKey"),
+		"requestHeaderValue": rawStringHandler("requestHeaderValue"),
+		"requestBody":        rawStringHandler("requestBody"),
+		"actionMode": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "actionMode", rawValue, buttonActionModeValues)
+			return err
+		},
+		"requestMethod": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "requestMethod", rawValue, httpRequestMethodValues)
+			return err
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+func normalizeColorPickerParamImplConfigPatch(codeObjType string, newConfig map[string]any) (map[string]any, error) {
+	normalized := map[string]any{}
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"colorChoices": func(rawValue any) error {
+			_, err := setParamImplColorChoicesField(normalized, codeObjType, "colorChoices", rawValue)
+			return err
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+func normalizeDropdownParamImplConfigPatch(codeObjType string, newConfig map[string]any) (map[string]any, error) {
+	normalized := map[string]any{}
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"choices": func(rawValue any) error {
+			_, err := setParamImplStringListField(normalized, codeObjType, "choices", rawValue)
+			return err
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+func normalizeDropzoneParamImplConfigPatch(codeObjType string, newConfig map[string]any) (map[string]any, error) {
+	normalized := map[string]any{}
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+		"placeholder": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "placeholder", rawValue)
+			return err
+		},
+		"mode": func(rawValue any) error {
+			_, err := setParamImplEnumField(normalized, codeObjType, "mode", rawValue, dropzoneModeValues)
+			return err
+		},
+		"maxAttachments": func(rawValue any) error {
+			_, err := setParamImplNullablePositiveIntField(normalized, codeObjType, "maxAttachments", rawValue)
+			return err
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return normalized, nil
+}
+
+func normalizeDescriptionOnlyParamImplConfigPatch(codeObjType string, newConfig map[string]any) (map[string]any, error) {
+	normalized := map[string]any{}
+	if err := normalizeParamImplConfigFields(codeObjType, newConfig, map[string]paramImplConfigFieldHandler{
+		"description": func(rawValue any) error {
+			_, err := setParamImplRawStringField(normalized, codeObjType, "description", rawValue)
+			return err
+		},
+	}); err != nil {
+		return nil, err
+	}
+	return normalized, nil
 }
 
 func (p *Project) normalizeValueAfterParamImplConfigUpdate(sectionID string, paramInfoID string) error {

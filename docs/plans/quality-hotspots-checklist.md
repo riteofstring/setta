@@ -11,7 +11,7 @@ Fix soon:
 - [x] Split `app.New` in `internal/app/app.go` into smaller setup/build helpers.
 - [x] Break `Project.Normalized` in `internal/projectstate/project_graph.go` into focused normalization helpers.
 - [x] Split `(*SendService).StartChat` in `internal/externalagents/send.go` into validation, config resolution, preflight, and run-setup helpers.
-- [ ] Replace the large type/field switch in `normalizeParamImplConfigPatch` in `internal/projectstate/update_param_impl_config.go` with per-param-type normalizers.
+- [x] Replace the large type/field switch in `normalizeParamImplConfigPatch` in `internal/projectstate/update_param_impl_config.go` with per-param-type normalizers.
 - [ ] Refactor `backend/setta/api/listener.py` so `_handle_realtime_event` and `_parse_websocket_payload` delegate to smaller helpers.
 - [ ] Break `ChatInput` in `frontend/src/components/Chat/ChatInput.tsx` into smaller hooks and subcomponents.
 - [ ] Split `FileBrowserSpreadsheetEditor` in `frontend/src/components/Panes/Overview/FileBrowser/FileBrowserSpreadsheetEditor.tsx` into smaller load/save/grid state helpers.
