@@ -7,6 +7,13 @@ CHROME_EXTRA_ARGS="${CHROME_EXTRA_ARGS:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+SETTA_CLI_HELPER="${ROOT_DIR}/scripts/lib/setta_cli_command.sh"
+if [[ ! -f "${SETTA_CLI_HELPER}" ]]; then
+  echo "Missing Setta CLI helper: ${SETTA_CLI_HELPER}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${SETTA_CLI_HELPER}"
 
 instance_offset() {
   local instance_name="$1"
@@ -116,25 +123,23 @@ get_bootstrap_url() {
     # shellcheck disable=SC1090
     source "${ROOT_DIR}/activate.sh"
   fi
-  if ! command -v setta >/dev/null 2>&1; then
+  if ! setta_cli_command_init "${ROOT_DIR}"; then
     return 1
   fi
 
   local status_payload=""
-  status_payload="$(setta status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
+  status_payload="$("${SETTA_CLI_CMD[@]}" status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
   if [[ "$status_payload" != __SETTA_JSON_B64__* ]]; then
-    get_bootstrap_url_from_backend_log
-    return $?
+    return 1
   fi
 
   local b64_payload="${status_payload#__SETTA_JSON_B64__}"
   local python_bin=""
   python_bin="$(resolve_python_bin || true)"
   if [[ -z "$python_bin" ]]; then
-    get_bootstrap_url_from_backend_log
-    return $?
+    return 1
   fi
-  if SETTA_STATUS_B64="$b64_payload" "$python_bin" - <<'PY'
+  SETTA_STATUS_B64="$b64_payload" "$python_bin" - <<'PY'
 import base64
 import json
 import os
@@ -148,42 +153,6 @@ url = data.get("bootstrapUrlFragment", "") or data.get("bootstrapUrlPlain", "")
 if url:
     print(url)
 PY
-  then
-    return 0
-  fi
-
-  get_bootstrap_url_from_backend_log
-}
-
-get_bootstrap_url_from_backend_log() {
-  local backend_log_file="${SETTA_BACKEND_LOG_FILE:-${ROOT_DIR}/backend.log}"
-  if [[ ! -f "${backend_log_file}" ]]; then
-    return 1
-  fi
-
-  awk '
-    /Bootstrap URL \(recommended\):/ {
-      want_url = 1
-      next
-    }
-    want_url {
-      if (match($0, /https?:\/\/[^[:space:]]+/)) {
-        url = substr($0, RSTART, RLENGTH)
-        want_url = 0
-        next
-      }
-      if ($0 ~ /[^[:space:]]/) {
-        want_url = 0
-      }
-    }
-    END {
-      if (url != "") {
-        print url
-        exit 0
-      }
-      exit 1
-    }
-  ' "${backend_log_file}"
 }
 
 open_devtools_tab() {

@@ -16,18 +16,12 @@ import {
 } from "utils/generatedTypes";
 import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import { SectionHeader } from "../Header/SectionHeader";
+import { AreaSwitch } from "./SectionContainerCoreResizabe";
 import {
   getSectionContainerShellClassName,
   getSectionSurfaceClassName,
 } from "./sectionChrome";
-import { SectionContainerAreaDictBoundary } from "./SectionContainerAreaDictBoundary";
-import { SectionWindowSurfaceBody } from "./SectionWindowSurfaceBody";
-import type { SectionContainerAreaDictProps } from "./sectionContainerAreaView";
 import { getBgColor } from "./utils";
-
-function renderSectionWindowSurfaceDictArea(props: SectionContainerAreaDictProps) {
-  return <SectionContainerAreaDictBoundary {...props} />;
-}
 
 type SectionWindowSurfaceProps = {
   sectionId: string;
@@ -40,7 +34,6 @@ type SectionWindowSurfaceProps = {
   setProjectChatId?: (next: SetStateAction<string | null | undefined>) => void;
   onProjectChatBlockedErrorCodeChange?: (errorCode: string | null) => void;
   bodyOverride?: React.ReactNode;
-  renderDictArea?: (props: SectionContainerAreaDictProps) => React.ReactNode;
   headerProps?: Omit<
     React.ComponentPropsWithoutRef<"header">,
     "children" | "ref"
@@ -58,7 +51,6 @@ export function SectionWindowSurface({
   setProjectChatId,
   onProjectChatBlockedErrorCodeChange,
   bodyOverride = null,
-  renderDictArea = renderSectionWindowSurfaceDictArea,
   headerProps,
 }: SectionWindowSurfaceProps) {
   const isStandalonePage = chatHost === "standalone_page";
@@ -157,22 +149,23 @@ export function SectionWindowSurface({
         <div
           className={`section-main-full-w flex min-h-0 flex-1 flex-col overflow-hidden ${bgColor}`}
         >
-          <SectionWindowSurfaceBody
-            sectionId={sectionId}
-            sectionTypeName={sectionTypeName}
-            bgColor={bgColor}
-            isMinimized={isMinimized}
-            chatHost={chatHost}
-            chatModeOverride={chatModeOverride}
-            projectChatSurfaceId={projectChatSurfaceId}
-            projectChatId={projectChatId}
-            setProjectChatId={setProjectChatId}
-            onProjectChatBlockedErrorCodeChange={
-              onProjectChatBlockedErrorCodeChange
-            }
-            bodyOverride={bodyOverride}
-            renderDictArea={renderDictArea}
-          />
+          {bodyOverride ?? (
+            <AreaSwitch
+              sectionId={sectionId}
+              sectionTypeName={sectionTypeName}
+              bgColor={bgColor}
+              isMinimized={isMinimized}
+              isUserView={false}
+              chatHost={chatHost}
+              chatModeOverride={chatModeOverride}
+              projectChatSurfaceId={projectChatSurfaceId}
+              projectChatId={projectChatId}
+              setProjectChatId={setProjectChatId}
+              onProjectChatBlockedErrorCodeChange={
+                onProjectChatBlockedErrorCodeChange
+              }
+            />
+          )}
         </div>
       </div>
     </section>
