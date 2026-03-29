@@ -19,6 +19,7 @@ import {
 } from "./liveDictAreaPixiLayout";
 import {
   getLiveDictAreaPixiLogicalCanvasWidth,
+  getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextStyleSet,
@@ -174,6 +175,10 @@ function _LiveDictAreaPixiScene({
         getComputedStyle: window.getComputedStyle,
         host,
       });
+      const paramColumnWidth = getLiveDictAreaPixiParamColumnWidth({
+        getComputedStyle: window.getComputedStyle,
+        host,
+      });
       const textStyleSet = getLiveDictAreaPixiTextStyleSet({
         edgeLabelElement: edgeLabelTextStyleRef.current,
         edgeRowElement: edgeRowTextStyleRef.current,
@@ -226,6 +231,7 @@ function _LiveDictAreaPixiScene({
         app,
         layout: summaryLayout,
         palette: getLiveDictAreaPixiPalette(darkMode),
+        paramColumnWidth,
         renderResolution,
         textFontFamily,
         textStyleSet,
@@ -263,6 +269,9 @@ function _LiveDictAreaPixiScene({
       data-live-dict-area-scene="pixi"
       data-live-dict-area-scene-block-count={summaryLayout.blocks.length}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
+      data-live-dict-area-scene-value-preview-count={
+        summaryLayout.valuePreviewCount
+      }
     >
       <div
         aria-hidden="true"
@@ -296,6 +305,7 @@ function drawLiveDictAreaPixiScene({
   app,
   layout,
   palette,
+  paramColumnWidth,
   renderResolution,
   textFontFamily,
   textStyleSet,
@@ -303,6 +313,7 @@ function drawLiveDictAreaPixiScene({
   app: Application;
   layout: LiveDictAreaPixiLayout;
   palette: LiveDictAreaPixiPalette;
+  paramColumnWidth: number;
   renderResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
@@ -314,7 +325,7 @@ function drawLiveDictAreaPixiScene({
   for (const block of layout.blocks) {
     if (block.kind === "edge-strip") {
       app.stage.addChild(
-        drawLiveDictAreaEdgeStrip({
+      drawLiveDictAreaEdgeStrip({
           block,
           palette,
           renderResolution,
@@ -329,6 +340,7 @@ function drawLiveDictAreaPixiScene({
       drawLiveDictAreaParamArea({
         block,
         palette,
+        paramColumnWidth,
         renderResolution,
         textFontFamily,
         textStyleSet,
@@ -407,6 +419,7 @@ function drawLiveDictAreaParamArea({
 }: {
   block: LiveDictAreaPixiParamAreaLayout;
   palette: LiveDictAreaPixiPalette;
+  paramColumnWidth: number;
   renderResolution: number;
   textFontFamily: string;
   textStyleSet: LiveDictAreaPixiTextStyleSet;
@@ -440,6 +453,7 @@ function drawLiveDictAreaParamArea({
     graphics.addChild(
       drawParamRow({
         palette,
+        paramColumnWidth,
         renderResolution,
         row,
         textFontFamily,
@@ -453,12 +467,14 @@ function drawLiveDictAreaParamArea({
 
 function drawParamRow({
   palette,
+  paramColumnWidth,
   renderResolution,
   row,
   textFontFamily,
   textStyleSet,
 }: {
   palette: LiveDictAreaPixiPalette;
+  paramColumnWidth: number;
   renderResolution: number;
   row: LiveDictAreaPixiRowLayout;
   textFontFamily: string;
@@ -481,8 +497,16 @@ function drawParamRow({
   );
   graphics.fill(fill);
 
-  const label = new Text({
-    resolution: renderResolution,
+  const rowRightEdgeX = row.width - LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2;
+  const valueColumnX =
+    row.x +
+    LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX +
+    paramColumnWidth +
+    LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX +
+    2;
+  const label = buildFittedRowText({
+    maxWidth: valueColumnX - row.labelX - 12,
+    renderResolution,
     style: {
       fill: palette.bodyText,
       fontFamily: textFontFamily,
@@ -492,11 +516,91 @@ function drawParamRow({
     text: row.labelText,
   });
 
-  label.x = row.labelX;
-  label.y = row.y + 4;
-  graphics.addChild(label);
+  if (label) {
+    label.x = row.labelX;
+    label.y = row.y + 4;
+    graphics.addChild(label);
+  }
+
+  if (row.valueText) {
+    const valueLabel = buildFittedRowText({
+      maxWidth: rowRightEdgeX - valueColumnX,
+      renderResolution,
+      style: {
+        fill: palette.bodyText,
+        fontFamily: textFontFamily,
+        fontSize: textStyleSet.edgeRowFontSize,
+        fontWeight: textStyleSet.edgeRowFontWeight,
+      },
+      text: row.valueText,
+    });
+
+    if (valueLabel) {
+      valueLabel.x = rowRightEdgeX - valueLabel.width;
+      valueLabel.y = row.y + 4;
+      graphics.addChild(valueLabel);
+    }
+  }
 
   return graphics;
+}
+
+function buildFittedRowText({
+  maxWidth,
+  renderResolution,
+  style,
+  text,
+}: {
+  maxWidth: number;
+  renderResolution: number;
+  style: {
+    fill: ColorSource;
+    fontFamily: string;
+    fontSize: number;
+    fontWeight: string;
+  };
+  text: string;
+}) {
+  if (maxWidth <= 0 || text.trim().length === 0) {
+    return null;
+  }
+
+  const label = new Text({
+    resolution: renderResolution,
+    style,
+    text,
+  });
+  if (label.width <= maxWidth) {
+    return label;
+  }
+
+  const ellipsis = "...";
+  label.text = ellipsis;
+  if (label.width > maxWidth) {
+    label.destroy();
+    return null;
+  }
+
+  let bestText = ellipsis;
+  let low = 0;
+  let high = text.length;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const nextText = `${text.slice(0, mid).trimEnd()}${ellipsis}`;
+    label.text = nextText;
+
+    if (label.width <= maxWidth) {
+      bestText = nextText;
+      low = mid + 1;
+      continue;
+    }
+
+    high = mid - 1;
+  }
+
+  label.text = bestText;
+  return label;
 }
 
 function drawEdgePort({

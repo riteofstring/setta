@@ -25,6 +25,7 @@ export type LiveDictAreaPixiRowLayout = ParamSceneRowPacket & {
   blockHeight: number;
   labelText: string;
   labelX: number;
+  valueText: string | null;
   width: number;
   x: number;
   y: number;
@@ -77,6 +78,7 @@ export type LiveDictAreaPixiLayout = {
   edgeStrip: LiveDictAreaPixiEdgeStripLayout | null;
   paramAreas: LiveDictAreaPixiParamAreaLayout[];
   totalRowCount: number;
+  valuePreviewCount: number;
 };
 
 export type LiveDictAreaPixiFixedMeasurement = {
@@ -137,6 +139,12 @@ export function buildLiveDictAreaPixiLayout({
     paramAreas,
     totalRowCount: paramAreas.reduce(
       (rowCount, paramArea) => rowCount + paramArea.rowCount,
+      0,
+    ),
+    valuePreviewCount: paramAreas.reduce(
+      (valuePreviewCount, paramArea) =>
+        valuePreviewCount +
+        paramArea.rows.filter((row) => row.valueText !== null).length,
       0,
     ),
   };
@@ -290,6 +298,7 @@ function buildLiveDictAreaPixiRowLayout({
     blockHeight: LIVE_DICT_AREA_PIXI_LAYOUT.rowHeight - 4,
     labelText: row.label ?? "Placeholder",
     labelX: x + LIVE_DICT_AREA_PIXI_LAYOUT.rowInsetX * 2,
+    valueText: row.kind === "value" ? row.valuePreview : null,
     width,
     x,
     y:

@@ -1,11 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 import {
+  getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiLogicalCanvasWidth,
   getLiveDictAreaPixiRenderResolution,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextStyleSet,
   LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY,
+  LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH,
   subscribeToLiveDictAreaPixiFontLoadInvalidation,
 } from "./liveDictAreaPixiSceneView";
 
@@ -94,6 +96,34 @@ describe("getLiveDictAreaPixiTextFontFamily", () => {
         host: null,
       }),
     ).toBe(LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY);
+  });
+});
+
+describe("getLiveDictAreaPixiParamColumnWidth", () => {
+  it("reads the live param column width from the mounted host CSS variable", () => {
+    const host = {} as Element;
+    const getComputedStyle = vi.fn(() => ({
+      getPropertyValue: (propertyName: string) =>
+        propertyName === "--param-column-width" ? "236px" : "",
+    }));
+
+    expect(
+      getLiveDictAreaPixiParamColumnWidth({
+        getComputedStyle,
+        host,
+      }),
+    ).toBe(236);
+  });
+
+  it("falls back to the shared default width when the CSS variable is absent", () => {
+    expect(
+      getLiveDictAreaPixiParamColumnWidth({
+        getComputedStyle: vi.fn(() => ({
+          getPropertyValue: () => "   ",
+        })),
+        host: {} as Element,
+      }),
+    ).toBe(LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH);
   });
 });
 

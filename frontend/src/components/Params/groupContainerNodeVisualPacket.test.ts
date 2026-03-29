@@ -25,6 +25,7 @@ describe("buildLiveDictAreaNodeVisualPacket", () => {
                   "unpinned-value": "Unpinned Value",
                 }) as Record<string, string>
               )[paramId] ?? paramId,
+            getParamValuePreview: () => null,
             pinned: {
               requiredParamIdsToPaths: {
                 "pinned-value": ["pinned-group", "pinned-value"],

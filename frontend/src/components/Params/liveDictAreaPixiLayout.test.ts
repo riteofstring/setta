@@ -24,6 +24,13 @@ describe("buildLiveDictAreaPixiLayout", () => {
             "unpinned-value": "Unpinned Value",
           }) as Record<string, string>
         )[paramId] ?? paramId,
+      getParamValuePreview: (paramId: string) =>
+        (
+          ({
+            "pinned-value": "42",
+            "unpinned-value": "1.0",
+          }) as Record<string, string>
+        )[paramId] ?? null,
       inputPorts: [{ id: "input-a", label: "Input A" }],
       isSelectingParams: true,
       outputPorts: [{ id: "output-a", label: "Output A" }],
@@ -67,6 +74,7 @@ describe("buildLiveDictAreaPixiLayout", () => {
       "unpinned",
     ]);
     expect(result.totalRowCount).toBe(4);
+    expect(result.valuePreviewCount).toBe(2);
     expect(result.edgeStrip?.inputPorts[0]).toMatchObject({
       id: "input-a",
       isSelected: true,
@@ -81,6 +89,9 @@ describe("buildLiveDictAreaPixiLayout", () => {
       "Pinned Group",
       "Pinned Value",
     ]);
+    expect(result.paramAreas[0]?.rows[1]).toMatchObject({
+      valueText: "42",
+    });
     expect(result.paramAreas[1]?.height).toBeGreaterThanOrEqual(96);
   });
 
@@ -92,6 +103,7 @@ describe("buildLiveDictAreaPixiLayout", () => {
       hideUnpinnedParams: false,
       paramFilter: "",
       getParamDisplayName: (paramId: string) => paramId,
+      getParamValuePreview: (paramId: string) => paramId,
       inputPorts: [{ id: "input-a", label: "Input A" }],
       isSelectingParams: false,
       outputPorts: [{ id: "output-a", label: "Output A" }],

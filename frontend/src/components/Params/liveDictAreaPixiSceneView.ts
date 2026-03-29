@@ -2,6 +2,7 @@ import { LIVE_DICT_AREA_PIXI_LAYOUT } from "./liveDictAreaPixiLayout";
 
 export const LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY =
   "ui-sans-serif, system-ui, sans-serif";
+export const LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH = 200;
 
 const LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET = {
   edgeLabelFontSize: 8,
@@ -86,6 +87,27 @@ export function getLiveDictAreaPixiTextFontFamily({
   }
 
   return LIVE_DICT_AREA_PIXI_FALLBACK_FONT_FAMILY;
+}
+
+export function getLiveDictAreaPixiParamColumnWidth({
+  getComputedStyle,
+  host,
+}: {
+  getComputedStyle?: ((element: Element) => CSSStyleDeclaration) | null;
+  host?: Element | null;
+}) {
+  if (!host || !getComputedStyle) {
+    return LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH;
+  }
+
+  const rawValue = getComputedStyle(host)
+    .getPropertyValue("--param-column-width")
+    .trim();
+  const parsedValue = Number.parseFloat(rawValue);
+
+  return Number.isFinite(parsedValue) && parsedValue > 0
+    ? parsedValue
+    : LIVE_DICT_AREA_PIXI_FALLBACK_PARAM_COLUMN_WIDTH;
 }
 
 function getLiveDictAreaPixiResolvedFontSize({

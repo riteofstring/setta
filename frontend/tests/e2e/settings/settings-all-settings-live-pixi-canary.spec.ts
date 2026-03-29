@@ -161,6 +161,12 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
       localParamContainerCount: sceneRoot.querySelectorAll(
         '[id^="ParamContainer-"]',
       ).length,
+      valuePreviewCount: Number.parseInt(
+        sceneHost.getAttribute(
+          "data-live-dict-area-scene-value-preview-count",
+        ) ?? "0",
+        10,
+      ),
       rowCount: Number.parseInt(
         sceneHost.getAttribute("data-live-dict-area-scene-row-count") ?? "0",
         10,
@@ -177,6 +183,7 @@ test("all settings canary can replace the live dict-area body with a Pixi scene 
   expect(result).not.toBeNull();
   expect(result?.sceneBlockCount).toBeGreaterThan(0);
   expect(result?.rowCount).toBeGreaterThan(0);
+  expect(result?.valuePreviewCount).toBeGreaterThan(0);
   expect(result?.localParamContainerCount).toBe(0);
 });
 

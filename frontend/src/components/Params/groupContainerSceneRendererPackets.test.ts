@@ -23,6 +23,7 @@ describe("buildLiveDictAreaSceneRendererPackets", () => {
                 "alpha-leaf": "Alpha Value",
               }) as Record<string, string>
             )[paramId] ?? paramId,
+          getParamValuePreview: () => null,
           pinned: {
             requiredParamIdsToPaths: {
               "pinned-leaf": ["pinned-group", "pinned-leaf"],
@@ -189,6 +190,7 @@ describe("buildLiveDictAreaSceneRendererPackets", () => {
             ({
               "pinned-value": "Pinned Value",
             })[paramId] ?? paramId,
+          getParamValuePreview: () => null,
           pinned: {
             requiredParamIdsToPaths: {
               "pinned-value": ["pinned-value"],

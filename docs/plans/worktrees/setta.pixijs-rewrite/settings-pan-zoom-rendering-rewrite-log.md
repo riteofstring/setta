@@ -8501,3 +8501,49 @@ Record:
       - no separate `main` reference tab was available, so this remained a single-surface check rather than a side-by-side oracle comparison
 - Next action:
   - Investigate why the live Pixi section-body viewport still renders mostly blank despite nonzero scene preview counts, starting with scene row placement/clipping in the `pixi-node-body` canary before returning to `main` token-parity checks.
+
+## 2026-03-29 263
+
+- Item: Render live Pixi row value previews inside the scene so populated section bodies no longer look mostly blank.
+- Status: `done`
+- Details:
+  - Continued directly from item `262` instead of another cleanup hop:
+    - the scene packet/layout path now carried nonzero preview values, but the live `pixi-node-body` scene still did not draw those values into the visible rows
+  - Updated:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiLayout.test.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - `frontend/src/components/Params/groupContainerNodeLayoutView.test.ts`
+    - `frontend/src/components/Params/groupContainerNodeVisualPacket.test.ts`
+    - `frontend/src/components/Params/groupContainerSceneRendererPackets.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The live Pixi canary now:
+    - carries `valueText` on value-row layout packets instead of dropping preview text at the scene-layout boundary
+    - counts visible preview-bearing rows via `valuePreviewCount` on the scene host for canary verification
+    - reads the live `--param-column-width` CSS variable from the mounted host so the Pixi row renderer can keep label/value text in the same column split as the DOM canary
+    - fits and truncates row label/value text inside those DOM-aligned columns instead of letting either side overrun the row surface
+    - draws right-aligned value preview text into Pixi value rows when there is room, so the section body is no longer mostly blank while keeping the existing row-label rendering intact
+  - The related test fixtures now pass `getParamValuePreview` through the higher-level node layout / node visual / scene renderer builders so the value-preview contract stays explicit above the Pixi layout boundary.
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/groupContainerNodeLayoutView.test.ts src/components/Params/groupContainerNodeVisualPacket.test.ts src/components/Params/groupContainerSceneRendererPackets.test.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - result: passed (`20 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/liveDictAreaPixiLayout.ts src/components/Params/liveDictAreaPixiLayout.test.ts src/components/Params/groupContainerNodeLayoutView.test.ts src/components/Params/groupContainerNodeVisualPacket.test.ts src/components/Params/groupContainerSceneRendererPackets.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - helper attempt:
+      - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host"`
+      - result: blocked in `frontend/tests/e2e/global-setup.ts` by bootstrap `401`
+    - direct current-worktree retry with the iteration bootstrap token:
+      - `SETTA_BOOTSTRAP_TOKEN=<iteration token> PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "replace the live dict-area body with a Pixi scene host"`
+      - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check on the running worktree app (`http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`) in a fresh sub-agent context
+    - `All Settings` was visible
+    - the live Pixi dict-area scene was populated instead of mostly blank
+    - row value previews were visibly present in the checked viewport
+    - no auth/bootstrap blocker or obvious new visual regression was observed for this slice
+- Next action:
+  - Return to the live Pixi visual-parity lane against `main` when the read-only reference session is available again; if it is still unavailable, take the next bounded canary parity fix from what is visibly different on the current surface.
