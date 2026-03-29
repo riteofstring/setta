@@ -7,6 +7,7 @@ import {
   shouldActivateTextInputCodeMirrorFromFocus,
   shouldAutoActivateTextInputCodeMirrorOnMount,
   shouldRenderTextInputCodeMirrorDummy,
+  shouldTrackTextInputCodeMirrorInitializationInState,
 } from "./textInputCodeMirrorView";
 
 describe("planTextInputCodeMirrorMouseDown", () => {
@@ -130,6 +131,24 @@ describe("getInitialTextInputCodeMirrorActivationEvent", () => {
         shouldAutoActivateOnMount: false,
       }),
     ).toBeNull();
+  });
+});
+
+describe("shouldTrackTextInputCodeMirrorInitializationInState", () => {
+  it("keeps the guaranteed Pixi auto-activate mount off the extra initialization rerender", () => {
+    expect(
+      shouldTrackTextInputCodeMirrorInitializationInState({
+        shouldAutoActivateOnMount: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps the legacy DOM activation path on the state-tracked initialization flow", () => {
+    expect(
+      shouldTrackTextInputCodeMirrorInitializationInState({
+        shouldAutoActivateOnMount: false,
+      }),
+    ).toBe(true);
   });
 });
 

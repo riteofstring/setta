@@ -7696,3 +7696,45 @@ Record:
     - post-change: reused the authenticated live Settings tab, the overlay still opened cleanly with no obvious blanking/clipping, and the short trace improved to `INP 123 ms`
 - Next action:
   - Treat this no-dummy auto-activate mount change as accepted and move the next iteration to another measured presentation/layout lever on the same live Pixi handoff path instead of reopening this CodeMirror mount-frame lane.
+
+## 2026-03-29 244
+
+- Item: Remove the extra initialization-state rerender from guaranteed live Pixi CodeMirror auto-activate mounts.
+- Status: `done`
+- Details:
+  - Chose another measured presentation/layout lever on the same live Pixi CodeMirror handoff path instead of reopening the rejected prop-stability lane from item `242` or the dummy-frame lane from item `243`.
+  - Updated:
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.tsx`
+    - `frontend/src/components/Utils/CodeMirror/getOnCreateEditor.ts`
+    - `frontend/src/components/Utils/CodeMirror/textInputCodeMirrorView.ts`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts`
+    - `frontend/src/components/Utils/CodeMirror/TextInputCodeMirror.render.test.tsx`
+  - The guaranteed Pixi overlay auto-activate path no longer spends a second React render just to reveal the real editor after `onCreateEditor(...)` fires:
+    - the legacy DOM activation path still tracks initialization readiness in React state
+    - the guaranteed Pixi auto-activate path now uses an imperative ready-reveal once the real CodeMirror editor is created
+    - the pure CodeMirror view helper now exposes the explicit rule for which mount path still needs the state-tracked initialization flow
+    - the render test now proves the auto-activated Pixi handoff mounts the real editor without a second initialization rerender
+  - Recorded the before/after live-canary probe in:
+    - `perf/reports/frontend/2026-03-29_settings-live-pixi-codemirror-imperative-ready-reveal-probe.md`
+  - Perf result on the live Pixi `defaultZoomLevel` handoff:
+    - latest accepted comparison point from item `243`: `INP 123 ms` (`input 4 ms`, `processing 14 ms`, `presentation 105 ms`)
+    - post-change follow-up: `INP 88 ms` (`input 2 ms`, `processing 11 ms`, `presentation 75 ms`)
+    - the direction is good, but the path is still presentation-heavy overall
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/TextInputCodeMirror.render.test.tsx`
+      - result: passed (`15 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Utils/CodeMirror/TextInputCodeMirror.tsx src/components/Utils/CodeMirror/textInputCodeMirrorView.ts src/components/Utils/CodeMirror/getOnCreateEditor.ts src/components/Utils/CodeMirror/TextInputCodeMirror.test.ts src/components/Utils/CodeMirror/TextInputCodeMirror.render.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "value-row DOM editor overlay|CodeMirror-backed value row"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual/perf check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`
+    - used the already-authenticated live Settings tab; bootstrap was not needed in that browser session
+    - `All Settings` was visible
+    - the visible `defaultZoomLevel` handoff opened cleanly into a focused inline textbox showing `1.0`
+    - the Pixi scene stayed mounted behind the overlay with no obvious blanking, clipping, or major overlap in the checked viewport
+    - representative visible requests returned `200`, including `POST /api/setViewport` and `POST /api/getFolderContents`
+- Next action:
+  - Keep moving down the remaining presentation/layout floor on the same live Pixi CodeMirror handoff path, starting with the next bounded lever that reduces overlay reveal/layout cost without reopening this accepted initialization-rerender slice.

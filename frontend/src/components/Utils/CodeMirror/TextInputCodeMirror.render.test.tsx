@@ -13,7 +13,29 @@ vi.mock("@uiw/react-codemirror", async () => {
   return {
     default: (props: Record<string, unknown>) => {
       codeMirrorProps.push(props);
-      return React.createElement("div", { "data-testid": "codemirror" });
+      React.useEffect(() => {
+        const onCreateEditor = props.onCreateEditor as
+          | ((view: {
+              contentDOM: { focus: (options?: FocusOptions) => void };
+              dispatch: (transaction: unknown) => void;
+              focus: () => void;
+              posAtCoords: () => number;
+            }) => void)
+          | undefined;
+        onCreateEditor?.({
+          contentDOM: {
+            focus: () => undefined,
+          },
+          dispatch: () => undefined,
+          focus: () => undefined,
+          posAtCoords: () => 0,
+        });
+      }, []);
+      return React.createElement("div", {
+        id: props.id as string | undefined,
+        className: props.className as string | undefined,
+        "data-testid": "codemirror",
+      });
     },
   };
 });
@@ -30,10 +52,15 @@ vi.mock("./getExtensions", () => ({
   getExtensions: () => ["base-extension"],
 }));
 
-vi.mock("./getOnCreateEditor", () => ({
-  getOnCreateEditor: () => () => undefined,
-  wrappedCompletionsFn: vi.fn(),
-}));
+vi.mock("./getOnCreateEditor", async () => {
+  const actual = await vi.importActual<typeof import("./getOnCreateEditor")>(
+    "./getOnCreateEditor",
+  );
+  return {
+    ...actual,
+    wrappedCompletionsFn: vi.fn(actual.wrappedCompletionsFn),
+  };
+});
 
 vi.mock("state/definitions", () => ({
   useShareSession: (
@@ -60,8 +87,8 @@ describe("TextInputCodeMirror render path", () => {
     codeMirrorProps.length = 0;
   });
 
-  it("mounts the real editor immediately and skips the dummy shell for auto-activated Pixi handoffs", () => {
-    act(() => {
+  it("mounts the real editor immediately without a second initialization rerender for auto-activated Pixi handoffs", async () => {
+    await act(async () => {
       root.render(
         <TextInputCodeMirror
           sectionId="section-1"
@@ -85,6 +112,11 @@ describe("TextInputCodeMirror render path", () => {
     ).not.toBeNull();
     expect(codeMirrorProps).toHaveLength(1);
     expect(codeMirrorProps[0]?.id).toBe("CodeMirror-section-1-param-1");
+    const codeMirrorRoot = container.querySelector(
+      "#CodeMirror-section-1-param-1",
+    );
+    expect(codeMirrorRoot).not.toBeNull();
+    expect(codeMirrorRoot?.className.includes("opacity-0")).toBe(false);
   });
 
   it("keeps the dummy shell until activation for non-auto mounts", () => {

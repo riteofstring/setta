@@ -23,6 +23,7 @@ import {
   shouldActivateTextInputCodeMirrorFromFocus,
   shouldAutoActivateTextInputCodeMirrorOnMount,
   shouldRenderTextInputCodeMirrorDummy,
+  shouldTrackTextInputCodeMirrorInitializationInState,
 } from "./textInputCodeMirrorView";
 import { useCodeMirrorTooltipParent } from "./useCodeMirrorTooltipParent";
 
@@ -65,6 +66,10 @@ export function TextInputCodeMirror({
   const [realIsInitialized, setRealIsInitialized] = useState(false);
   const didAutoActivateOnMountRef = useRef(initialActivationEvent === "tab");
   const theme = useCodeMirrorStyle(color);
+  const shouldTrackInitializationInState =
+    shouldTrackTextInputCodeMirrorInitializationInState({
+      shouldAutoActivateOnMount,
+    });
   const shouldRenderDummy = shouldRenderTextInputCodeMirrorDummy({
     hasActivationEvent: activationEvent !== null,
     isRealEditorInitialized: realIsInitialized,
@@ -160,6 +165,7 @@ export function TextInputCodeMirror({
           initialEvent={activationEvent}
           realIsInitialized={realIsInitialized}
           setRealIsInitialized={setRealIsInitialized}
+          shouldTrackInitializationInState={shouldTrackInitializationInState}
           theme={theme}
           language={language}
           autocomplete={autocomplete}
@@ -188,6 +194,7 @@ function CoreCodeMirror({
   initialEvent,
   realIsInitialized,
   setRealIsInitialized,
+  shouldTrackInitializationInState,
   theme,
   language,
   autocomplete,
@@ -196,6 +203,7 @@ function CoreCodeMirror({
   tooltipParentDivId,
 }) {
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
+  const didImperativelyRevealEditorRef = useRef(false);
   const coreView = buildTextInputCodeMirrorCoreView({
     sectionId,
     paramInfoId,
@@ -215,6 +223,9 @@ function CoreCodeMirror({
       : () => null,
     [sectionId, paramInfoId, coreView.shouldAutocomplete, completionsFn],
   );
+  const shouldHideEditor = shouldTrackInitializationInState
+    ? !realIsInitialized
+    : !didImperativelyRevealEditorRef.current;
 
   const extensions = getExtensions({
     parent: tooltipParent,
@@ -230,7 +241,15 @@ function CoreCodeMirror({
 
   const onCreateEditor = getOnCreateEditor({
     initialEvent,
-    setRealIsInitialized,
+    onEditorReady: () => {
+      if (shouldTrackInitializationInState) {
+        setRealIsInitialized(true);
+        return;
+      }
+
+      didImperativelyRevealEditorRef.current = true;
+      document.getElementById(coreView.divId)?.classList.remove("opacity-0");
+    },
     divId: coreView.divId,
     value,
     defaultVal,
@@ -239,7 +258,7 @@ function CoreCodeMirror({
   return (
     <CodeMirror
       id={coreView.divId}
-      className={`${className} ${!realIsInitialized ? "opacity-0" : ""}`}
+      className={`${className} ${shouldHideEditor ? "opacity-0" : ""}`.trim()}
       value={value}
       placeholder={defaultVal}
       basicSetup={{

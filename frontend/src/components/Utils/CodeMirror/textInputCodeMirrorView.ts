@@ -67,6 +67,14 @@ export function shouldAutoActivateTextInputCodeMirrorOnMount({
   );
 }
 
+export function shouldTrackTextInputCodeMirrorInitializationInState({
+  shouldAutoActivateOnMount,
+}: {
+  shouldAutoActivateOnMount: boolean;
+}): boolean {
+  return !shouldAutoActivateOnMount;
+}
+
 export function getInitialTextInputCodeMirrorActivationEvent({
   isDisabled,
   shouldAutoActivateOnMount,
