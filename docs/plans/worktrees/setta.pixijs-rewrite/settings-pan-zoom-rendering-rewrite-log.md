@@ -12144,3 +12144,50 @@ Record:
     - dispatching `webglcontextlost` on a visible canvas still returned `defaultPrevented = true` and swapped that scene to `data-live-dict-area-scene-fallback="dom-context-lost"` with visible param-row content
 - Next action:
   - Return to the normalized deeper-stack live-Pixi-vs-`main` parity lane and identify the next renderer-only drift now that the repeated shared-texture-pool teardown crash is closed.
+
+## 2026-03-31 366
+
+- Item: Probe whether per-card live Pixi scene lifecycle tightening can keep `promptSectionDefault` on the Pixi path instead of dropping into `dom-context-lost`.
+- Status: `blocked`
+- Details:
+  - Used a fresh-context Chrome DevTools MCP comparison on normalized `All Settings` after selecting `promptSectionDefault` from the overview pane:
+    - worktree live Pixi `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - worktree baseline `http://127.0.0.1:3043/settings`
+    - read-only `main` `http://127.0.0.1:3087/settings`
+  - The concrete live-Pixi-only blocker for this slice was:
+    - `promptSectionDefault` still dropped into `data-live-dict-area-scene-fallback="dom-context-lost"` while baseline and `main` kept the section on the normal graph surface
+    - broader prompt body spacing/text looked aligned at a coarse Gate-1 level when the section stayed visible, so the remaining defect is the fallback itself rather than a new row-layout mismatch
+  - Tried one bounded production experiment locally:
+    - tightened `LiveDictAreaPixiScene` lifecycle to unload offscreen Pixi apps before they spend more WebGL contexts
+    - added a fresh Playwright canary for `promptSectionDefault` plus unit coverage for scene visibility teardown/re-entry
+  - Result:
+    - the exploratory visibility-only lifecycle change was not sufficient
+    - the fresh prompt-section Playwright canary still failed with the selected prompt section in `dom-context-lost` and no visible Pixi scene
+    - reverted the exploratory production/test changes so the worktree returned to the prior passing state before ending the iteration
+  - This iteration closes as a blocker instead of another partial renderer commit because the remaining problem now points at the larger per-card-`Application` architecture, not another small per-scene lifecycle tweak:
+    - existing passing checks after the revert:
+      - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary falls back to the DOM mount when a live Pixi canvas loses its WebGL context"`
+- Next action:
+  - Replan the live Pixi scene ownership around a shared page-level renderer/context strategy for visible cards instead of continuing per-card `Application` lifecycle tweaks; the prompt-section fallback blocker repeated after a bounded retry and no longer looks fixable through another small seam-level patch.
+
+## 2026-03-31 367
+
+- Item: Replan the live Pixi canary around a shared page-level renderer while keeping `xyflow` as the viewport source of truth.
+- Status: `done`
+- Details:
+  - Took the blocker handoff from item `366` instead of proposing another bounded per-card lifecycle experiment.
+  - Updated the rewrite plan so the next architectural move is explicit:
+    - stop treating each visible live Pixi card as its own Pixi `Application`
+    - keep `xyflow` as the single owner of viewport / fit-view / graph transform state
+    - do not add a second independent Pixi pan/zoom system or a dual-transform reconciliation layer
+    - move the live canary toward one shared page-level Pixi runtime that reads the same viewport state and renders the visible graph/card surfaces from that shared runtime
+    - keep heavyweight editors, DOM overlays, and app chrome on DOM while they continue to read the same shared viewport/orchestration state
+  - Why this replan is now required:
+    - the repeated `Too many active WebGL contexts` / `dom-context-lost` failures are no longer pointing at one bad card or one missing cleanup path
+    - the blocked `promptSectionDefault` retry showed the current per-card-`Application` ownership model itself is the next frontier
+  - No production frontend/backend code changed in this iteration; this was a planning reset to keep the next Ralph slice on the right architectural lever.
+- Verification:
+  - docs-only change; no tests run
+- Next action:
+  - Design and land the minimal shared page-level Pixi runtime skeleton for normalized `All Settings`, with `promptSectionDefault` as the first canary that must stay on the Pixi path without `dom-context-lost`.

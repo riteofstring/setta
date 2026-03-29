@@ -1,7 +1,7 @@
 # Settings Pan/Zoom Rendering Rewrite Plan
 
 Date: 2026-03-25
-Updated: 2026-03-26
+Updated: 2026-03-31
 Imported to this worktree: 2026-03-26
 Worktree: `setta.pixijs-rewrite`
 Current branch: `pixijs-rewrite`
@@ -13,7 +13,7 @@ Related summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-re
 
 ## Goal
 
-Achieve genuinely high-performance pan and zoom on dense Setta canvases such as `settings` and `tier1Synthetic`, while preserving near-1:1 visual parity and exact interaction behavior where users actively edit or manipulate content.
+Achieve genuinely high-performance pan and zoom on dense Setta canvases such as `settings` and `tier1Synthetic`, while preserving `1:1` visual parity with `main` in the primary macOS `100%`-zoom canary states and exact interaction behavior where users actively edit or manipulate content, including faithful hover, active, focus, and selected-state feedback for anything that remains scene/canvas-owned.
 
 This plan is not satisfied by:
 
@@ -21,11 +21,16 @@ This plan is not satisfied by:
 - reducing hitching subjectively in short checks
 - improving only `RunTask` while `Paint` stays bad
 - getting a prettier approximation that drifts from current product visuals
+- landing performance wins while the renderer still shows first-zoom text metric shifts, blurry or blocky zoom behavior, or visible snap-after-zoom artifacts
 
 This plan is satisfied only when:
 
 - the authoritative benchmark shows a major drop in motion-time `Paint` cost on the dense scenes that matter
 - the UI no longer changes shape during motion
+- side-by-side comparison against `main` does not reveal obvious layout, chrome, spacing, or affordance drift in normal use
+- the targeted canary states are pixel-perfect versus `main` at `100%` zoom in the primary macOS reference environment
+- the targeted canary interaction states are also faithful versus `main`: hover, active/pressed, focus, and selected visuals for any scene/canvas-owned rows, ports, handles, or controls must match the current product behavior
+- text and chrome remain visually stable through zoom interactions; no first-zoom width jump, no temporary too-wide text frame, and no blurry or blocky text presentation during normal zooming
 - active interaction remains faithful and immediate
 
 ## Reset Decision
@@ -90,6 +95,16 @@ TDD rule:
   - Pixi/scene implementation
   - test run and verification
   - append-only log update
+
+Verification surface normalization rule:
+
+- unless a slice is explicitly about workspace chrome, pane behavior, or project chat behavior, normalize the verification surface before comparing against `main`
+- apply that normalization symmetrically to both the current worktree surface and the read-only `main` reference surface before any side-by-side comparison
+- default parity/test setup should minimize or close non-target panes and close the docked/floating/maximized chat surfaces so the checked state on both sides is the graph surface itself, not incidental surrounding chrome
+- keep a pane or chat surface open only when the current test or parity slice is specifically verifying that pane/chat behavior or truly requires that surface to exercise the target interaction
+- if a verification run intentionally keeps extra pane or chat chrome visible, log that choice and the reason so later iterations do not mistake uncontrolled workspace state for renderer drift
+- parity-harness and oracle-alignment work is support work only; once the graph surface is normalized and the intended `main` reference/backend binding is proven, the next slice should target a renderer or interaction defect rather than continue refining support checks
+- do not spend more than two consecutive iterations on harness/oracle-only work without landing production renderer/interaction code; if the next candidate slice is still support-only, stop and replan instead of continuing the pattern
 
 Translation rule:
 
@@ -174,6 +189,17 @@ This layer owns:
 - rare deliberate editor surfaces
 - only narrowly-scoped whole-node overlays if explicitly justified by parity and benchmark data
 
+### Current Canary Versus Intended Scope
+
+The current `pixi-node-body` slice is a proving canary, not the final scope boundary.
+
+Treat that explicitly:
+
+- `pixi-node-body` is only the first retained-scene slice that proves scene rendering, overlays, and interaction handoff on a real Settings path
+- the intended end state is broader scene ownership of the hot visible graph surface whenever practical, including dense node bodies, edges, and graph-surface visuals
+- panes, popups, heavyweight editors, and other non-graph app chrome remain DOM-first
+- if the current Pixi text or chrome path cannot reach the visual bar against `main`, the implementation must change; the plan should not be weakened to fit the current canary
+
 ### Layer 3: Panes And App Chrome
 
 Keep the existing DOM app shell:
@@ -255,6 +281,10 @@ Create one canonical layer for:
 
 Without this, scene parity will drift even if colors and radii match.
 
+Scene text and chrome must also stay stable through zoom, DPR, and font-load transitions.
+
+A renderer that looks wrong on the first zoom and only becomes correct after a later redraw does not satisfy this plan, even if the resting screenshot eventually looks right.
+
 ### 3. Semantic Scene Primitives
 
 Do not try to mirror the entire DOM wrapper tree in the scene renderer.
@@ -286,8 +316,36 @@ Target standard:
 
 Important caveat:
 
-- exact subpixel text identity across all zoom levels is not the right success criterion
-- practical near-1:1 parity in normal use is the right target
+- exact subpixel text identity across every platform, DPR, and zoom level is not the right success criterion
+- however, for the primary macOS Chrome `100%` zoom canary states, the final acceptance target is `1:1` appearance versus `main`, not "near parity"
+
+Staged gate sequencing:
+
+- Gate 1, workable baseline:
+  - no gross visual drift
+  - no wrong workspace/project surface or stale chrome state
+  - no obvious zoom artifacts
+  - interactions correct for the checked slice
+- Gate 2, normal-use parity:
+  - spacing, text, chrome, and interaction-state behavior should become visually indistinguishable in ordinary use without deliberate pixel hunting
+- Gate 3, final canary parity:
+  - macOS Chrome `100%` canary should reach `1:1` versus `main`
+- The rewrite should always target the earliest failing gate first; do not burn iterations on Gate 3 cleanup while Gate 1 or Gate 2 still has obvious failures.
+
+Visual drift guardrails:
+
+- `main` remains the visual oracle for the rewrite unless a different reference is explicitly named
+- the primary screenshot/parity environment for this rewrite is macOS Chrome at `100%` zoom; in that environment, the final target is pixel-perfect reproduction of `main` for the named canary states
+- on other platforms, the goal is not "match macOS pixels"; the goal is that Pixi/canvas layout, spacing, wrapping, truncation, and control geometry match the DOM implementation on that same local platform
+- acceptable differences are limited to low-level rendering details that are not meaningfully visible in ordinary use, such as microscopic antialiasing or rasterization differences, and only when geometry/layout/chrome still match
+- unacceptable differences include changed row heights, changed spacing/padding/gaps, changed truncation or wrapping behavior, changed icon/text alignment, changed handle or port placement, changed border/radius/shadow treatment, missing chrome, or any visible layout simplification that a human would notice in a side-by-side comparison
+- unacceptable differences also include resting-state parity that only looks right until interaction begins: if a scene/canvas-owned affordance loses or changes its hover, active/pressed, focus, or selected feedback relative to `main`, the parity gate is not met
+- DOM elements and Pixi-rendered elements must agree on local platform font metrics strongly enough that row heights, baselines, wrapping, truncation, padding, and perceived control sizing stay matched within the same environment
+- first-zoom text instability is not acceptable: no temporary too-wide text frame, no later snap-to-correct-width redraw, and no visible font-metric jump once zoom begins
+- zoom-time blur/blockiness is not acceptable in normal use: if the Pixi path looks visibly blurrier or more pixelated than `main` during ordinary zoom interaction, that path has not met the visual gate
+- performance improvements do not buy permission to keep these artifacts; visual stability against `main` remains a hard gate
+- if a parity exception is intentional, it must be called out explicitly in the log and justified as required for performance or interaction correctness; do not silently drift from `main`
+- "close enough" means a user familiar with the current product should not notice a styling or layout change during normal use without deliberately hunting for microscopic rendering differences
 
 ## Text And Layout Risk
 
@@ -461,12 +519,19 @@ Reason:
 ### Product Criteria
 
 - no visible fallback-style appearance swaps during pan or zoom
+- no obvious visual regression versus `main` in side-by-side comparison of the targeted canary path
+- pixel-perfect reproduction versus `main` at `100%` zoom in the primary macOS reference environment for the targeted canary path, except for explicitly allowed microscopic rasterization differences
+- no first-zoom text width jump, no transient too-wide text frame, and no later snap-to-correct-metrics redraw on the targeted canary path
+- no visibly blurry or blocky text during ordinary zoom interaction on the targeted canary path
 - no second-click requirement to interact with a section
 - no obvious handoff glitch when a node transitions from scene rendering to active DOM
 - active editing state remains faithful and immediately interactive
 - active-node overlays preserve current complex behaviors cleanly
 - code-like fields and code blocks enter edit on the first click and accept typing immediately
 - graph-surface controls do not visibly change renderer ownership in a janky way during normal interaction
+- any row, port, handle, or control that remains scene/canvas-owned preserves the same hover, active/pressed, focus, and selected-state feedback as `main`; parity is not limited to resting screenshots
+- layout metrics that users actually perceive must stay stable: row height, indentation depth, label/value alignment, section chrome spacing, and edge/handle placement should match the current product unless a logged exception says otherwise
+- on non-macOS platforms, local DOM and local Pixi/canvas rendering must still match each other in fonts, spacing, row sizing, wrapping, truncation, and alignment even if the platform font rasterization differs from macOS
 
 ### Benchmark Criteria
 
@@ -699,11 +764,61 @@ These collectively show:
 
 ## Immediate Next Actions
 
-1. Update the rewrite RFC language to retained-scene/GPU-first rather than "canvas-first".
-2. Lock the stricter visible-surface rule: visible graph pixels stay scene-owned by default, and code editing cannot require an extra activation click.
-3. Add explicit text/layout and edge strategy sections before implementation work expands.
-4. Add the cleanup-first, skill-assisted TDD workflow to the branch handoff checklist, including the rule that the refactored non-Pixi slice must be working before Pixi work starts.
-5. Lock the vertical slice: one benchmark scene, one text-heavy node type, edges included, first-click CodeMirror editing, one popup control, and one graph-surface drag/reorder path.
-6. Restart the implementation from `main`.
-7. Transfer the revised plan and append-only log into the new branch once it exists.
-8. Reject the slice quickly if it does not materially beat the retained queued-image checkpoint on benchmark `Paint` for both dense scenes.
+### Current Ralph Frontier And Stop Condition
+
+The cleanup-first and packet/boundary extraction work was useful up through the point where the live dict-area and section boundaries reached real composition points.
+
+The recent route/bootstrap seam-lift loop is not the right next lever.
+
+Treat the following as explicit plan guidance:
+
+- The current seam-lift lane is complete once the renderer/boundary contract reaches the nearest caller that actually chooses an implementation.
+- Do not continue lifting `SectionBoundary`, `renderDictArea`, or equivalent contracts through pure forwarding layers such as route assembly, browser-router wrappers, `App.tsx`, bootstrap modules, or `index.tsx` unless that layer truly selects between implementations or removes a real dependency.
+- Repeated "move it one level higher" work through pass-through callers is churn, not progress.
+- If the next candidate slice is another pure forwarding hop, stop that lane and move to the real blocker or the next real implementation step.
+- Low-zoom Pixi `overview` / LOD presentation is disabled by default and is not the current product baseline.
+- Do not spend iterations reintroducing, polishing, or re-tuning low-zoom overview/skeleton states unless there is fresh explicit product direction or new measured perf evidence that the always-`detail` baseline cannot meet the bar.
+- If overview must be checked again, keep it as an explicit experiment (`?liveDictAreaPixiOverview=enabled`), not as the default canary path or the next assumed Ralph lane.
+
+### Current Highest-Priority Blocker
+
+The current blocker is failure to consistently clear the early visual gates on the live Pixi canary, not more perf-only probing and not more scope shuffling.
+
+Current evidence says:
+
+- the live `pixi-node-body` canary is visibly far from `main` in ordinary use
+- text can look too wide on first zoom and then settle after a later redraw
+- text can look blurry or blocky during zoom interaction
+- those artifacts are user-visible failures, not acceptable canary debt
+- perf findings on a visually unstable canary are still useful research, but they do not mean the renderer path is ready or even visually acceptable
+- repeated `Too many active WebGL contexts` / `dom-context-lost` failures now show that per-card Pixi `Application` ownership is itself part of the blocker, not just the local lifecycle details
+
+This means the immediate job is not "keep probing perf forever" and not "treat node-body-only scope as the final architecture."
+
+The immediate job is to clear Gate 1 reliably, then push toward Gate 2, so further perf work is happening on the right visual baseline. Gate 3 remains the final acceptance bar, but it is not the only definition of useful progress during the rewrite.
+
+### Renderer Ownership Reset
+
+The recent blocker means the next replan is about ownership, not visuals-only polish:
+
+- do not keep each visible live Pixi card on its own Pixi `Application` lifecycle
+- do not introduce a second independent Pixi pan/zoom controller
+- keep `xyflow` as the single source of truth for viewport, fit-view, and graph transform
+- move Pixi to a shared page-level runtime that reads the same viewport state and renders the visible graph/card surfaces from that shared runtime
+- keep heavyweight editors, DOM overlays, and app chrome on DOM, but have them read the same transform/orchestration state instead of reconciling two viewport systems
+
+### Real Next Actions
+
+1. Replace per-card Pixi `Application` ownership with one shared page-level Pixi runtime for the visible `settings` graph/card surfaces on the live canary.
+2. Keep `xyflow` as the single viewport source of truth: Pixi and DOM must read the same transform/fit-view state instead of running separate pan/zoom systems and reconciling them later.
+3. Change the shell boundary so cards publish packets, bounds, and interaction state into the shared runtime instead of creating/destroying their own Pixi apps.
+4. Land the shared runtime skeleton before more parity tuning:
+   - register/update/unregister visible cards
+   - one render scheduler
+   - one context-loss policy
+   - one pooled resource lifecycle
+5. Use normalized `All Settings` with `promptSectionDefault` as the first migration canary; acceptance for that slice is that the section stays on the Pixi path without `dom-context-lost`.
+6. After the shared runtime keeps the canary stable, resume Gate 1 and Gate 2 work: text/layout parity, zoom-time stability, interaction-state parity, and then perf on the stabilized baseline.
+7. Continue side-by-side CDP verification after each visual-stability change, but keep support work subordinate to the renderer path itself: once the surface is normalized and reachable, move the next slice back into production renderer work.
+8. Gate 3 remains the final acceptance bar: after Gate 1 and Gate 2 are solid, chase macOS Chrome `100%` canary `1:1` parity against `main`, including the relevant hover/active interaction states.
+9. If the shared-runtime direction still cannot clear the staged gates, revisit the retained-scene ownership boundary again rather than layering more per-card heuristics onto the current model.
