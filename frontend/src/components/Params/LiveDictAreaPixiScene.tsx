@@ -1,5 +1,11 @@
 import { useReactFlow } from "forks/xyflow/core/store";
-import { Application, Graphics, Text, type ColorSource } from "pixi.js";
+import {
+  Application,
+  Container,
+  Graphics,
+  Text,
+  type ColorSource,
+} from "pixi.js";
 import React, {
   useEffect,
   useLayoutEffect,
@@ -66,7 +72,9 @@ export type LiveDictAreaPixiSceneProps = {
   liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
   onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
   onWebglContextLost?: () => void;
+  renderBackend?: "local-app" | "shared-page-runtime";
   sectionId?: string | null;
+  sectionName?: string | null;
 };
 
 type LiveDictAreaPixiStaticSceneApplication = {
@@ -107,7 +115,9 @@ function _LiveDictAreaPixiScene({
   liveDictAreaSceneBoundary,
   onSummaryLayoutChange,
   onWebglContextLost,
+  renderBackend = "local-app",
   sectionId = null,
+  sectionName = null,
 }: LiveDictAreaPixiSceneProps) {
   const darkMode = useLocalStorage((state) => state.darkMode);
   const viewportZoom = useReactFlow((state) => state.transform[2]);
@@ -302,6 +312,9 @@ function _LiveDictAreaPixiScene({
   }, [darkMode]);
 
   useLayoutEffect(() => {
+    if (renderBackend !== "local-app") {
+      return;
+    }
     const host = hostRef.current;
     if (
       !host ||
@@ -431,12 +444,30 @@ function _LiveDictAreaPixiScene({
     edgeRowInteractionState,
     fontLoadVersion,
     presentationMode,
+    renderBackend,
     renderResolution,
     sectionStyleColor,
     summaryLayout,
     textResolution,
     valueRowInteractionState,
   ]);
+
+  useEffect(() => {
+    if (renderBackend === "local-app") {
+      return;
+    }
+
+    webglContextLossCleanupRef.current?.();
+    webglContextLossCleanupRef.current = null;
+    const app = appRef.current;
+    if (!app) {
+      return;
+    }
+
+    appRef.current = null;
+    destroyLiveDictAreaPixiSceneApplication(app);
+    hostRef.current?.replaceChildren();
+  }, [renderBackend]);
 
   useEffect(() => {
     return () => {
@@ -488,10 +519,12 @@ function _LiveDictAreaPixiScene({
       }
       data-live-dict-area-scene-presentation-mode={presentationMode}
       data-live-dict-area-scene-row-count={summaryLayout.totalRowCount}
+      data-live-dict-area-scene-render-backend={renderBackend}
       data-live-dict-area-scene-readable-row-count={
         summaryLayout.readableRowCount
       }
       data-live-dict-area-scene-section-id={sectionId ?? undefined}
+      data-live-dict-area-scene-section-name={sectionName ?? undefined}
       data-live-dict-area-scene-value-preview-count={
         summaryLayout.valuePreviewCount
       }
@@ -559,12 +592,13 @@ function getLiveDictAreaPixiSectionStyleColor(
   );
 }
 
-function drawLiveDictAreaPixiScene({
+export function drawLiveDictAreaPixiScene({
   app,
   compactRowPrimitive,
   darkMode,
   edgeRowInteractionState,
   layout,
+  origin = { x: 0, y: 0 },
   palette,
   paramColumnWidth,
   presentationMode,
@@ -582,6 +616,7 @@ function drawLiveDictAreaPixiScene({
     pressedPortId: string | null;
   };
   layout: LiveDictAreaPixiLayout;
+  origin?: { x: number; y: number };
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   presentationMode: LiveDictAreaPixiPresentationMode;
@@ -598,9 +633,13 @@ function drawLiveDictAreaPixiScene({
     child.destroy();
   }
 
+  const sceneContainer = new Container();
+  sceneContainer.x = origin.x;
+  sceneContainer.y = origin.y;
+
   for (const block of layout.blocks) {
     if (block.kind === "edge-strip") {
-      app.stage.addChild(
+      sceneContainer.addChild(
         drawLiveDictAreaEdgeStrip({
           block,
           edgeRowInteractionState,
@@ -613,7 +652,7 @@ function drawLiveDictAreaPixiScene({
       continue;
     }
 
-    app.stage.addChild(
+    sceneContainer.addChild(
       drawLiveDictAreaParamArea({
         block,
         compactRowPrimitive,
@@ -628,6 +667,8 @@ function drawLiveDictAreaPixiScene({
       }),
     );
   }
+
+  app.stage.addChild(sceneContainer);
 }
 
 function drawLiveDictAreaEdgeStrip({

@@ -3,12 +3,131 @@
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LiveDictAreaPixiPageRuntimeBoundary,
   LiveDictAreaPixiPageRuntimeHost,
+  type LiveDictAreaPixiRegisteredScene,
   useOptionalLiveDictAreaPixiPageRuntime,
 } from "./LiveDictAreaPixiPageRuntime";
+
+vi.hoisted(() => {
+  class ResizeObserverMock {
+    observe = vi.fn();
+    disconnect = vi.fn();
+    unobserve = vi.fn();
+  }
+
+  globalThis.ResizeObserver =
+    ResizeObserverMock as unknown as typeof ResizeObserver;
+  globalThis.requestAnimationFrame = ((callback: FrameRequestCallback) => {
+    callback(0);
+    return 1;
+  }) as typeof requestAnimationFrame;
+  globalThis.cancelAnimationFrame = vi.fn();
+});
+
+vi.mock("forks/xyflow/core/store", () => ({
+  useReactFlow: (
+    selector: (state: { transform: [number, number, number] }) => unknown,
+  ) => selector({ transform: [0, 0, 1] }),
+}));
+
+vi.mock("state/definitions", async (importOriginal) => {
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    useLocalStorage: (selector: (state: { darkMode: boolean }) => unknown) =>
+      selector({ darkMode: false }),
+  };
+});
+
+vi.mock("pixi.js", () => {
+  class MockApplication {
+    canvas = document.createElement("canvas");
+    renderer = {
+      resize: vi.fn(),
+    };
+    stage = {
+      children: [] as Array<{ destroy: () => void }>,
+      eventMode: "auto",
+      interactiveChildren: true,
+      addChild: (child: { destroy: () => void }) => {
+        this.stage.children.push(child);
+        return child;
+      },
+      removeChildren: () => {
+        const children = [...this.stage.children];
+        this.stage.children = [];
+        return children;
+      },
+    };
+
+    async init() {}
+
+    destroy() {}
+
+    render() {}
+  }
+
+  class MockContainer {
+    children: Array<{ destroy: () => void }> = [];
+    x = 0;
+    y = 0;
+
+    addChild(child: { destroy: () => void }) {
+      this.children.push(child);
+      return child;
+    }
+
+    destroy() {}
+  }
+
+  class MockGraphics {
+    addChild(child: { destroy: () => void }) {
+      return child;
+    }
+
+    circle() {
+      return this;
+    }
+
+    destroy() {}
+
+    fill() {
+      return this;
+    }
+
+    roundRect() {
+      return this;
+    }
+
+    stroke() {
+      return this;
+    }
+  }
+
+  class MockText {
+    text: string;
+
+    constructor({ text }: { text: string }) {
+      this.text = text;
+    }
+
+    destroy() {}
+
+    get width() {
+      return this.text.length * 6;
+    }
+  }
+
+  return {
+    Application: MockApplication,
+    Container: MockContainer,
+    Graphics: MockGraphics,
+    Text: MockText,
+  };
+});
 
 function RuntimeProbe() {
   const runtime = useOptionalLiveDictAreaPixiPageRuntime();
@@ -58,15 +177,23 @@ function RuntimeProbe() {
 
 function SceneRegistration({
   bounds = null,
+  layout = null,
   renderMode = "pixi",
   runtimeSceneId,
+  sceneBoundary = null,
   sectionId,
+  sectionName = sectionId,
+  styleSourceElement = null,
   summary = null,
 }: {
   bounds?: { height: number; left: number; top: number; width: number } | null;
+  layout?: LiveDictAreaPixiRegisteredScene["layout"];
   renderMode?: "dom-context-lost" | "pixi";
   runtimeSceneId: string;
+  sceneBoundary?: LiveDictAreaPixiRegisteredScene["sceneBoundary"];
   sectionId: string;
+  sectionName?: string | null;
+  styleSourceElement?: HTMLElement | null;
   summary?: {
     blockCount: number;
     readableRowCount: number;
@@ -84,12 +211,27 @@ function SceneRegistration({
 
     return registerScene({
       bounds,
+      layout,
       renderMode,
       runtimeSceneId,
+      sceneBoundary,
       sectionId,
+      sectionName,
+      styleSourceElement,
       summary,
     });
-  }, [bounds, registerScene, renderMode, runtimeSceneId, sectionId, summary]);
+  }, [
+    bounds,
+    layout,
+    registerScene,
+    renderMode,
+    runtimeSceneId,
+    sceneBoundary,
+    sectionId,
+    sectionName,
+    styleSourceElement,
+    summary,
+  ]);
 
   return null;
 }

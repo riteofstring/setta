@@ -12267,3 +12267,49 @@ Record:
     - baseline `http://127.0.0.1:3043/settings` showed no obvious gross shell/layout drift from adding the invisible host
 - Next action:
   - Start moving the first live Pixi canary draw ownership from per-card `Application` instances into the shared page-level runtime host, using normalized `promptSectionDefault` as the first migration canary.
+
+## 2026-03-31 369
+
+- Item: Move `promptSectionDefault` onto the shared page-level live Pixi runtime host as the first real draw-ownership migration slice.
+- Status: `done`
+- Details:
+  - Followed the shared-runtime frontier from item `368` instead of reopening the finished seam-lift lane or another per-card lifecycle-only experiment.
+  - Changed the runtime and shell contracts so the page-level runtime now has the minimum production data needed to own a real scene instead of only tracking diagnostics:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - registered scenes now include layout, scene boundary, section name, and a style-source element
+    - the runtime host now chooses the normalized `promptSectionDefault` canary scene, creates one shared Pixi `Application`, and reuses the existing live scene draw path to render that scene into the shared host at the translated origin
+  - Taught the live scene component to support an explicit shared-runtime render backend without mounting its own local Pixi canvas:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+    - exported `drawLiveDictAreaPixiScene(...)` so both the legacy per-card path and the shared page-runtime path use the same scene drawing logic
+    - local Pixi `Application` creation now stays disabled for shared-runtime scenes, and the component tears down any existing local app when ownership switches
+  - Wired the first canary selection rule through production code:
+    - `promptSectionDefault` now uses `renderBackend="shared-page-runtime"` when the page runtime is present and the shell is not already in the DOM fallback path
+    - the shared host publishes managed-scene diagnostics so the live canary can assert that the prompt section is actually owned by the page runtime
+  - Added focused regression coverage for the ownership switch:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the new Playwright canary verifies the selected `promptSectionDefault` section stays on the shared page runtime backend without the visible DOM fallback path
+  - Chrome DevTools MCP check result for this slice:
+    - live canary on `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` selected `promptSectionDefault` correctly and exposed `data-live-dict-area-pixi-runtime-managed-scene-name="promptSectionDefault"`
+    - no visible `dom-context-lost` / error overlay appeared, and there was no obvious gross clipping or missing-surface drift versus the `main` reference
+    - caveat: the runtime DOM still reported recovered context-loss state (`data-live-dict-area-pixi-runtime-context-lost="true"` and nonzero DOM context-loss count), so the first shared-runtime migration kept the canary visible but did not yet eliminate the underlying context-loss churn
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - result: passed (`21 passed`)
+  - Playwright:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary mounts one shared page runtime host and tracks visible scene shells|all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost|all settings canary falls back to the DOM mount when a live Pixi canvas loses its WebGL context"`
+    - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent against the current worktree and `main` reference runtimes
+    - verified the live canary selected `promptSectionDefault` on the shared runtime path and stayed visibly rendered without a DOM fallback overlay
+    - verified no obvious Gate-1 gross drift versus `main`
+    - remaining blocker recorded from the same check: shared-runtime visibility improved, but recovered context-loss state still accumulates in the runtime DOM
+- Next action:
+  - Keep the shared page-runtime lane and target the remaining blocker directly: reduce or remove the recovered context-loss churn that still appears while `promptSectionDefault` is page-runtime-managed, then broaden shared-host ownership only after that runtime state stays clean.

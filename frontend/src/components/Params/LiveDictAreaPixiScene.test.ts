@@ -48,6 +48,19 @@ vi.mock("state/definitions", async (importOriginal) => {
 });
 
 vi.mock("pixi.js", () => {
+  class MockContainer {
+    children: unknown[] = [];
+    x = 0;
+    y = 0;
+
+    addChild(child: unknown) {
+      this.children.push(child);
+      return child;
+    }
+
+    destroy() {}
+  }
+
   class MockGraphics {
     children: unknown[] = [];
 
@@ -122,6 +135,7 @@ vi.mock("pixi.js", () => {
 
   return {
     Application: MockApplication,
+    Container: MockContainer,
     Graphics: MockGraphics,
     Text: MockText,
   };
@@ -302,6 +316,77 @@ describe("LiveDictAreaPixiScene", () => {
         "[data-live-dict-area-scene-block-anchor='true'][data-live-dict-area-scene-section-id='section-1']",
       ).length,
     ).toBeGreaterThan(0);
+  });
+
+  it("can keep the prompt canary on the shared page-runtime backend without mounting a local Pixi canvas", async () => {
+    const liveDictAreaMountBoundary = buildLiveDictAreaMountBoundary({
+      input: {
+        bgColor: "bg-transparent",
+        canConnect: true,
+        edgeInputParams: [],
+        getParamDisplayName: (paramId: string) => paramId,
+        getParamEditorKind: () => "other",
+        handleColumnResizeStart: vi.fn(),
+        hideUnpinnedParams: false,
+        inputPorts: [],
+        isSelectingParams: false,
+        outputPorts: [],
+        paramFilter: "",
+        pinned: {
+          requiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          topLevelParamIds: ["pinned-group"],
+        },
+        positionAndSizeLocked: false,
+        sectionId: "section-1",
+        sectionTypeName: SectionTypeEnum.Dict,
+        selectedParamIds: [],
+        styleColor: null,
+        unpinned: {
+          canEditLayout: true,
+          configuredMinHeight: 80,
+          pinnedRequiredParamIdsToPaths: {
+            "pinned-value": ["pinned-group", "pinned-value"],
+          },
+          pinnedTopLevelParamIds: ["pinned-group"],
+          positionAndSizeLocked: false,
+          requiredParamIdsToPaths: {
+            "unpinned-value": ["unpinned-group", "unpinned-value"],
+          },
+          topLevelParamIds: ["unpinned-group"],
+        },
+      },
+    });
+
+    await act(async () => {
+      root.render(
+        React.createElement(LiveDictAreaPixiScene, {
+          liveDictAreaSceneBoundary:
+            liveDictAreaMountBoundary.liveDictAreaSceneBoundary,
+          renderBackend: "shared-page-runtime",
+          sectionId: "section-1",
+          sectionName: "promptSectionDefault",
+        }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockApplicationRender).not.toHaveBeenCalled();
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-render-backend"),
+    ).toBe("shared-page-runtime");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-section-name"),
+    ).toBe("promptSectionDefault");
+    expect(
+      container.querySelector("[data-live-dict-area-scene='pixi'] canvas"),
+    ).toBeNull();
   });
 
   it("publishes the current edge-row interaction state on the scene host for canary diagnostics", async () => {

@@ -83,6 +83,11 @@ const projectStateStore = vi.hoisted(() => ({
     showParamDisplayNames: true,
     viewportInitialized: false,
   },
+  sections: {
+    "prompt-section": { name: "promptSectionDefault" },
+    "section-1": { name: "section-1" },
+    "section-2": { name: "section-2" },
+  },
 }));
 
 vi.mock("./LiveDictAreaPixiScene", async () => {
@@ -97,7 +102,9 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
       liveDictAreaSceneBoundary,
       onSummaryLayoutChange,
       onWebglContextLost,
+      renderBackend,
       sectionId,
+      sectionName,
       valueRowInteractionState,
     }: {
       edgeRowInteractionState?: {
@@ -108,7 +115,9 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
       liveDictAreaSceneBoundary: LiveDictAreaSceneBoundary;
       onSummaryLayoutChange?: (layout: LiveDictAreaPixiLayout | null) => void;
       onWebglContextLost?: () => void;
+      renderBackend?: "local-app" | "shared-page-runtime";
       sectionId?: string | null;
+      sectionName?: string | null;
       valueRowInteractionState?: {
         focusedRowId: string | null;
         hoveredRowId: string | null;
@@ -147,6 +156,8 @@ vi.mock("./LiveDictAreaPixiScene", async () => {
             valueRowInteractionState?.pressedRowId ?? undefined
           }
           data-live-dict-area-scene-section-id={sectionId ?? undefined}
+          data-live-dict-area-scene-section-name={sectionName ?? undefined}
+          data-live-dict-area-scene-render-backend={renderBackend}
         >
           <button
             data-live-dict-area-scene-trigger-context-lost="true"
@@ -673,6 +684,32 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         "[data-live-dict-area-scene-fallback='dom-context-lost']",
       ),
     ).toHaveLength(1);
+  });
+
+  it("switches the promptSectionDefault canary scene over to the shared page-runtime backend", () => {
+    const promptBoundary = buildTestLiveDictAreaMountBoundary("prompt-section");
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiPageRuntimeBoundary>
+          <LiveDictAreaPixiOverlayShell
+            liveDictAreaMountProps={promptBoundary.liveDictAreaMountProps}
+            liveDictAreaSceneBoundary={promptBoundary.liveDictAreaSceneBoundary}
+          />
+        </LiveDictAreaPixiPageRuntimeBoundary>,
+      );
+    });
+
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-render-backend"),
+    ).toBe("shared-page-runtime");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-section-name"),
+    ).toBe("promptSectionDefault");
   });
 
   it("re-arms fit-view when the first Pixi summary layout arrives before the viewport is initialized", () => {

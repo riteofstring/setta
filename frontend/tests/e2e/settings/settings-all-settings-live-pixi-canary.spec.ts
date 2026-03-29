@@ -110,6 +110,7 @@ type LiveDictAreaPageRuntimeSnapshot = {
   count: number;
   domContextLostCount: number;
   hostPresent: boolean;
+  managedSceneName: string;
   pixiCount: number;
   sectionNames: string[];
   sections: string[];
@@ -693,6 +694,7 @@ async function readLiveDictAreaPageRuntimeSnapshot(
         count: 0,
         domContextLostCount: 0,
         hostPresent: false,
+        managedSceneName: "",
         pixiCount: 0,
         sectionNames: [],
         sections: [],
@@ -717,6 +719,10 @@ async function readLiveDictAreaPageRuntimeSnapshot(
         "data-live-dict-area-pixi-runtime-dom-context-lost-count",
       ),
       hostPresent: true,
+      managedSceneName:
+        host.getAttribute(
+          "data-live-dict-area-pixi-runtime-managed-scene-name",
+        ) ?? "",
       pixiCount: parseCount("data-live-dict-area-pixi-runtime-pixi-count"),
       sectionNames: sectionIds.map(
         (sectionId) => sectionsById[sectionId]?.name ?? "",
@@ -1542,6 +1548,54 @@ test("all settings canary mounts one shared page runtime host and tracks visible
       return runtime.sectionNames.includes("promptSectionDefault");
     })
     .toBe(true);
+});
+
+test("all settings canary keeps promptSectionDefault on the shared page runtime without dom-context-lost", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page);
+  await resetProjectWorkspaceChromeToDefaultLayout(page);
+  await normalizeAllSettingsOverviewLayout(page);
+  await waitForVisibleSceneMetrics(page);
+
+  const promptOverviewItem = page
+    .locator("#OverviewPane li")
+    .filter({ hasText: "promptSectionDefault" });
+  await expect(promptOverviewItem).toBeVisible();
+  await promptOverviewItem.click();
+
+  await expect
+    .poll(async () => {
+      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
+      return runtime.managedSceneName;
+    })
+    .toBe("promptSectionDefault");
+
+  await expect
+    .poll(async () => {
+      return page.evaluate(() => {
+        const sceneRoot = document.querySelector<HTMLElement>(
+          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='promptSectionDefault']",
+        );
+        if (!sceneRoot) {
+          return "missing";
+        }
+
+        const rect = sceneRoot.getBoundingClientRect();
+        const visible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.top < window.innerHeight;
+        const hasContextLossFallback =
+          sceneRoot.parentElement?.querySelector(
+            "[data-live-dict-area-scene-fallback='dom-context-lost']",
+          ) !== null;
+
+        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
+      });
+    })
+    .toBe("true:false:shared-page-runtime");
 });
 
 test("all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards", async ({

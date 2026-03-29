@@ -27,6 +27,7 @@ import {
   type LiveDictAreaPixiLayout,
 } from "./liveDictAreaPixiLayout";
 import {
+  LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAME,
   type LiveDictAreaPixiRegisteredSceneBounds,
   type LiveDictAreaPixiRegisteredSceneSummary,
   useOptionalLiveDictAreaPixiPageRuntime,
@@ -54,6 +55,13 @@ export function LiveDictAreaPixiOverlayShell({
   const sceneSectionId = useMemo(
     () => getLiveDictAreaPixiSceneSectionId({ liveDictAreaMountProps }),
     [liveDictAreaMountProps],
+  );
+  const sceneSectionName = useProjectState(
+    (state) =>
+      sceneSectionId === null
+        ? null
+        : state.sections[sceneSectionId]?.name ?? null,
+    Object.is,
   );
   const viewportTransform = useReactFlow((state) => state.transform, _.isEqual);
   const liveDictAreaPixiPageRuntime = useOptionalLiveDictAreaPixiPageRuntime();
@@ -207,6 +215,11 @@ export function LiveDictAreaPixiOverlayShell({
     activeValueRowCoreEditState?.coreNameEditable === false &&
     activeValueRowErrorMessage.length === 0;
   const shouldShowDomContextLossFallback = hasLostWebglContext;
+  const shouldUseSharedPageRuntimeScene =
+    liveDictAreaPixiPageRuntime !== null &&
+    sceneSectionName ===
+      LIVE_DICT_AREA_PIXI_SHARED_RUNTIME_CANARY_SECTION_NAME &&
+    !shouldShowDomContextLossFallback;
   const registeredSceneSummary =
     useMemo<LiveDictAreaPixiRegisteredSceneSummary | null>(
       () =>
@@ -228,16 +241,23 @@ export function LiveDictAreaPixiOverlayShell({
 
     return registerScene({
       bounds: registeredSceneBounds,
+      layout: summaryLayout,
       renderMode: shouldShowDomContextLossFallback
         ? "dom-context-lost"
         : "pixi",
       runtimeSceneId,
+      sceneBoundary: liveDictAreaSceneBoundary,
       sectionId: sceneSectionId,
+      sectionName: sceneSectionName,
+      styleSourceElement: sceneShellRef.current,
       summary: registeredSceneSummary,
     });
   }, [
+    liveDictAreaSceneBoundary,
     registerScene,
+    sceneSectionName,
     registeredSceneBounds,
+    summaryLayout,
     registeredSceneSummary,
     runtimeSceneId,
     sceneSectionId,
@@ -413,7 +433,13 @@ export function LiveDictAreaPixiOverlayShell({
               });
               setHasLostWebglContext(true);
             }}
+            renderBackend={
+              shouldUseSharedPageRuntimeScene
+                ? "shared-page-runtime"
+                : "local-app"
+            }
             sectionId={sceneSectionId}
+            sectionName={sceneSectionName}
             valueRowInteractionState={valueRowInteractionState}
           />
         )}
