@@ -385,6 +385,21 @@ describe("LiveDictAreaPixiScene", () => {
         ?.getAttribute("data-live-dict-area-scene-section-name"),
     ).toBe("promptSectionDefault");
     expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-panel-background"),
+    ).toBe("#f8fafc");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-row-background"),
+    ).toBe("#ffffff");
+    expect(
+      container
+        .querySelector("[data-live-dict-area-scene='pixi']")
+        ?.getAttribute("data-live-dict-area-scene-row-background-alt"),
+    ).toBe("#eef2ff");
+    expect(
       container.querySelector("[data-live-dict-area-scene='pixi'] canvas"),
     ).toBeNull();
   });

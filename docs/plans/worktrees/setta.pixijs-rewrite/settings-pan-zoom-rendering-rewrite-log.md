@@ -13388,3 +13388,94 @@ Record:
       - read-only `main` first visible normalized labels: `textAreaParamCodeObjDefault`, `dropzoneParamCodeObjDefault`, `promptSectionDefault`
 - Next action:
   - Use the restored trustworthy `main`-oracle comparison to take the first real production Gate 1 mismatch in the normalized live Pixi canary instead of doing another harness-only slice.
+
+## 2026-04-01 388
+
+- Item: Strengthen the low-zoom live Pixi detail-row paint so minimum-zoom `All Settings` cards stop reading as empty dark slabs versus `main`.
+- Status: `blocked`
+- Details:
+  - Did not continue the harness/oracle lane after item `387`; used the restored `main` comparison to take the first real production Gate 1 mismatch on the live Pixi surface.
+  - Kept the attempt scoped to the current low-zoom detail paint path:
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+      - added `getLiveDictAreaPixiShouldForceReadableRowFill(...)`
+      - allowed transparent detail rows to reuse the measured row backgrounds when cards are below the on-screen readability threshold
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - threaded the low-zoom readable-row-fill flag through the live scene draw path
+      - moved the scene palette dataset publication out of the `local-app`-only branch so shared-page-runtime cards expose the same palette diagnostics as local cards
+      - added a low-zoom detail-row glyph pass, then tightened it once more with thicker/higher-contrast bars after the first CDP attempt still looked too sparse
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+      - passed the same low-zoom readable-row-fill flag through the shared page-runtime draw path
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+      - pinned the shared page-runtime palette datasets so the low-zoom canary no longer depends on a missing host diagnostic attribute
+  - The automated canary now has the palette diagnostics it expected, but the real visual blocker remains:
+    - fresh CDP comparison after an explicit worktree reload still shows the first visible low-zoom worktree cards reading as sparse/empty dark slabs versus the denser `main` cards
+    - a one-off headless Playwright diagnostic on the same canary state showed the first visible scenes already have substantial content at `zoom: 0.1`
+      - `browserSectionDefault`: `rowCount=11`, `readableRowCount=10`, `valuePreviewCount=10`
+      - `callableSectionDefault`: `rowCount=11`, `readableRowCount=11`, `valuePreviewCount=11`
+      - `chartSectionDefault`: `rowCount=10`, `readableRowCount=9`, `valuePreviewCount=9`
+      - second visible row scenes were similarly populated
+    - that means the remaining mismatch is not another row-window / group-only-preview selection bug; it is a screen-space paint-density / contrast problem in the low-zoom detail renderer itself
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+    - result: passed (`69 passed`)
+  - Playwright:
+    - refreshed the current worktree bootstrap URL via:
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.`
+    - targeted run:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews|all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards"`
+      - result: passed (`3 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent explicitly reloaded worktree page `2`, reset `sessionStorage['setta.liveDictAreaRendererMode']='pixi-node-body'`, confirmed `Settings -> All Settings` at minimum zoom, and compared against `main` page `5`
+    - result: failed visual gate
+      - worktree still reads as sparse/empty dark slabs at low zoom
+      - `main` still shows materially denser internal row/content silhouettes
+- Next action:
+  - Keep the lane on this product blocker and replace the current low-zoom detail paint with a true screen-space-aware body-structure treatment (or equivalent higher-contrast row banding) instead of doing more row-window or harness work.
+
+## 2026-04-01 389
+
+- Item: Replace the low-zoom live Pixi row paint with higher-contrast body-structure banding so minimum-zoom `All Settings` cards keep visible internal anatomy.
+- Status: `done`
+- Details:
+  - Continued the same production blocker from item `388` instead of opening another support lane.
+  - Kept the fix scoped to the low-zoom detail renderer:
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - kept the forced-readable low-zoom path in the live scene and shared page-runtime draw flow
+      - replaced the earlier faint dark-row treatment with brighter low-zoom title glyphs plus semi-transparent body-structure bands and stronger label/value silhouettes inside each row
+      - kept the higher-contrast treatment confined to the minimum-zoom readable-row path so normal detail rendering is unchanged
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.ts`
+      - added the pure low-zoom glyph palette helper used by the stronger row/title treatment
+    - `frontend/src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - pinned the brighter low-zoom glyph palette contract, including swatch preservation
+    - carried forward the existing low-zoom forced-fill plumbing already present in:
+      - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+      - `frontend/src/components/Params/LiveDictAreaPixiScene.test.ts`
+  - Iteration notes:
+    - the first contrast pass in this iteration was still too conservative in CDP
+    - the follow-up switched the low-zoom bands to semi-transparent light structure fills and brighter header/value silhouettes, which cleared the visual blocker
+  - Verification:
+    - Prettier:
+      - `pnpm -C frontend exec prettier --write src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiScene.tsx src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/liveDictAreaPixiSceneView.ts src/components/Params/liveDictAreaPixiSceneView.test.ts`
+      - result: passed
+    - Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Params/liveDictAreaPixiSceneView.test.ts src/components/Params/LiveDictAreaPixiScene.test.ts src/components/Params/LiveDictAreaPixiPageRuntime.test.tsx`
+      - result: passed (`72 passed`)
+    - Playwright:
+      - first rerun with stale token:
+        - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<stale worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews|all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards"`
+        - result: failed during global setup (`401` bootstrap token rejection)
+      - passing rerun with refreshed token:
+        - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps low-zoom live Pixi cards in detail mode by default|all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews|all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards"`
+        - result: passed (`3 passed`)
+    - Chrome DevTools MCP visual check:
+      - fresh sub-agent compared the worktree live Pixi canary at `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body` against the read-only `main` reference at `http://127.0.0.1:3087/settings`
+      - both runtimes were at minimum in-app zoom (`zoom out` disabled)
+      - result: passed for this blocker
+        - worktree low-zoom cards now keep visible borders, internal rows, and section blocks instead of collapsing into sparse dark slabs
+        - the earlier low-zoom hollow-card failure is no longer the earliest failing gate
+- Next action:
+  - Re-run the normalized live Pixi canary versus `main` and take the next real Gate 1 or Gate 2 visual mismatch now that the minimum-zoom hollow-card blocker is cleared.

@@ -38,10 +38,12 @@ import {
   getLiveDictAreaPixiDetailRowInteractionChrome,
   getLiveDictAreaPixiEdgePortChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
+  getLiveDictAreaPixiLowZoomGlyphPalette,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiPresentationMode,
   getLiveDictAreaPixiRenderResolution,
+  getLiveDictAreaPixiShouldForceReadableRowFill,
   getLiveDictAreaPixiSwitchControlStyle,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
@@ -150,6 +152,8 @@ function _LiveDictAreaPixiScene({
   const presentationMode = getLiveDictAreaPixiPresentationMode(viewportZoom, {
     overviewEnabled: overviewPresentationEnabled,
   });
+  const shouldForceReadableRowFill =
+    getLiveDictAreaPixiShouldForceReadableRowFill(viewportZoom);
   const usableMaxCanvasHeight = getLiveDictAreaPixiUsableMaxCanvasHeight(
     availableCanvasHeight,
   );
@@ -312,12 +316,26 @@ function _LiveDictAreaPixiScene({
   }, [darkMode]);
 
   useLayoutEffect(() => {
-    if (renderBackend !== "local-app") {
+    const host = hostRef.current;
+    if (!host) {
       return;
     }
-    const host = hostRef.current;
+    const palette = getLiveDictAreaPixiPalette({
+      darkMode,
+      getComputedStyle: window.getComputedStyle,
+      host,
+      sectionStyleColor,
+    });
+    const sceneRoot = sceneRootRef.current;
+    if (sceneRoot) {
+      sceneRoot.dataset.liveDictAreaScenePanelBackground =
+        palette.panelBackground;
+      sceneRoot.dataset.liveDictAreaSceneRowBackground = palette.rowBackground;
+      sceneRoot.dataset.liveDictAreaSceneRowBackgroundAlt =
+        palette.rowBackgroundAlt;
+    }
     if (
-      !host ||
+      renderBackend !== "local-app" ||
       summaryLayout.canvasWidth <= 0 ||
       summaryLayout.canvasHeight <= 0
     ) {
@@ -342,21 +360,6 @@ function _LiveDictAreaPixiScene({
         getComputedStyle: window.getComputedStyle,
         rowElement: rowTextStyleRef.current,
       });
-      const palette = getLiveDictAreaPixiPalette({
-        darkMode,
-        getComputedStyle: window.getComputedStyle,
-        host,
-        sectionStyleColor,
-      });
-      const sceneRoot = sceneRootRef.current;
-      if (sceneRoot) {
-        sceneRoot.dataset.liveDictAreaScenePanelBackground =
-          palette.panelBackground;
-        sceneRoot.dataset.liveDictAreaSceneRowBackground =
-          palette.rowBackground;
-        sceneRoot.dataset.liveDictAreaSceneRowBackgroundAlt =
-          palette.rowBackgroundAlt;
-      }
       let app = appRef.current;
 
       if (!app) {
@@ -415,6 +418,7 @@ function _LiveDictAreaPixiScene({
         compactRowPrimitive,
         darkMode,
         edgeRowInteractionState,
+        forceReadableRowFill: shouldForceReadableRowFill,
         layout: summaryLayout,
         palette,
         paramColumnWidth,
@@ -447,6 +451,7 @@ function _LiveDictAreaPixiScene({
     renderBackend,
     renderResolution,
     sectionStyleColor,
+    shouldForceReadableRowFill,
     summaryLayout,
     textResolution,
     valueRowInteractionState,
@@ -598,6 +603,7 @@ export function drawLiveDictAreaPixiScene({
   compactRowPrimitive,
   darkMode,
   edgeRowInteractionState,
+  forceReadableRowFill = false,
   layout,
   origin = { x: 0, y: 0 },
   palette,
@@ -617,6 +623,7 @@ export function drawLiveDictAreaPixiScene({
     hoveredPortId: string | null;
     pressedPortId: string | null;
   };
+  forceReadableRowFill?: boolean;
   layout: LiveDictAreaPixiLayout;
   origin?: { x: number; y: number };
   palette: LiveDictAreaPixiPalette;
@@ -661,6 +668,7 @@ export function drawLiveDictAreaPixiScene({
         block,
         compactRowPrimitive,
         darkMode,
+        forceReadableRowFill,
         palette,
         paramColumnWidth,
         presentationMode,
@@ -765,6 +773,7 @@ function drawLiveDictAreaParamArea({
   block,
   compactRowPrimitive,
   darkMode,
+  forceReadableRowFill,
   palette,
   paramColumnWidth,
   presentationMode,
@@ -776,6 +785,7 @@ function drawLiveDictAreaParamArea({
   block: LiveDictAreaPixiParamAreaLayout;
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   darkMode: boolean;
+  forceReadableRowFill: boolean;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   presentationMode: LiveDictAreaPixiPresentationMode;
@@ -814,15 +824,20 @@ function drawLiveDictAreaParamArea({
 
   if (block.headerHeight > 0) {
     graphics.addChild(
-      drawSceneTitle({
-        palette,
-        textResolution,
-        text: block.title.toUpperCase(),
-        textFontFamily,
-        textStyleSet,
-        x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
-        y: block.y + 9,
-      }),
+      forceReadableRowFill
+        ? drawLowZoomSceneTitleGlyphs({
+            block,
+            palette,
+          })
+        : drawSceneTitle({
+            palette,
+            textResolution,
+            text: block.title.toUpperCase(),
+            textFontFamily,
+            textStyleSet,
+            x: block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX,
+            y: block.y + 9,
+          }),
     );
   }
 
@@ -831,6 +846,7 @@ function drawLiveDictAreaParamArea({
       drawParamRow({
         compactRowPrimitive,
         darkMode,
+        forceReadableRowFill,
         palette,
         paramColumnWidth,
         row,
@@ -988,6 +1004,7 @@ function getOverviewRows(rows: LiveDictAreaPixiRowLayout[]) {
 function drawParamRow({
   compactRowPrimitive,
   darkMode,
+  forceReadableRowFill,
   palette,
   paramColumnWidth,
   row,
@@ -998,6 +1015,7 @@ function drawParamRow({
 }: {
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
   darkMode: boolean;
+  forceReadableRowFill: boolean;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   row: LiveDictAreaPixiRowLayout;
@@ -1008,6 +1026,7 @@ function drawParamRow({
 }) {
   const rowChrome = getLiveDictAreaPixiDetailRowChrome({
     compactRowPrimitive,
+    forceReadableSurface: forceReadableRowFill,
     palette,
     paramColumnWidth,
     rowKind: row.kind,
@@ -1042,6 +1061,16 @@ function drawParamRow({
 
   const rowRightEdgeX = rowChrome.rowRightEdgeX;
   const valueColumnX = rowChrome.valueColumnX;
+  if (forceReadableRowFill) {
+    graphics.addChild(
+      drawLowZoomParamRowGlyphs({
+        palette,
+        row,
+        rowChrome,
+      }),
+    );
+    return graphics;
+  }
   const colorControlStyle = getLiveDictAreaPixiColorControlStyle({
     darkMode,
     editorKind: row.editorKind,
@@ -1125,6 +1154,148 @@ function drawParamRow({
   }
 
   return graphics;
+}
+
+function drawLowZoomParamRowGlyphs({
+  palette,
+  row,
+  rowChrome,
+}: {
+  palette: LiveDictAreaPixiPalette;
+  row: LiveDictAreaPixiRowLayout;
+  rowChrome: Pick<
+    ReturnType<typeof getLiveDictAreaPixiDetailRowChrome>,
+    "contentInsetPx" | "labelX" | "rowRightEdgeX" | "valueColumnX"
+  >;
+}) {
+  const glyphs = new Graphics();
+  const lowZoomGlyphPalette = getLiveDictAreaPixiLowZoomGlyphPalette({
+    palette,
+    rowKind: row.kind,
+    valueSwatch: row.valueSwatch ?? null,
+  });
+  const insetY = Math.max(2, Math.floor(row.blockHeight * 0.12));
+  const primaryBarHeight = Math.max(10, Math.floor(row.blockHeight * 0.5));
+  const secondaryBarHeight = Math.max(8, Math.floor(row.blockHeight * 0.38));
+  const bandHeight = Math.max(8, Math.floor(row.blockHeight * 0.56));
+  const bandWidth =
+    row.kind === "group"
+      ? Math.max(
+          32,
+          Math.min(
+            rowChrome.rowRightEdgeX - rowChrome.labelX,
+            Math.floor(row.width * 0.68),
+          ),
+        )
+      : Math.max(36, rowChrome.rowRightEdgeX - rowChrome.labelX);
+  const labelWidth = Math.max(
+    34,
+    Math.min(
+      rowChrome.valueColumnX - rowChrome.labelX - rowChrome.contentInsetPx * 2,
+      Math.floor(row.width * (row.kind === "group" ? 0.56 : 0.48)),
+    ),
+  );
+  const labelX = rowChrome.labelX;
+  const labelY = row.y + insetY;
+  const secondaryY = row.y + row.blockHeight - insetY - secondaryBarHeight;
+  const bandY =
+    row.y + Math.max(2, Math.floor((row.blockHeight - bandHeight) / 2));
+
+  glyphs.roundRect(labelX, bandY, bandWidth, bandHeight, 999);
+  glyphs.fill({
+    alpha: row.kind === "group" ? 0.24 : 0.18,
+    color: lowZoomGlyphPalette.bandFill,
+  });
+
+  glyphs.roundRect(labelX, labelY, labelWidth, primaryBarHeight, 999);
+  glyphs.fill({
+    alpha: 0.92,
+    color: lowZoomGlyphPalette.primaryFill,
+  });
+
+  if (row.kind === "group") {
+    const secondaryWidth = Math.max(28, Math.floor(labelWidth * 0.76));
+    glyphs.roundRect(
+      labelX + rowChrome.contentInsetPx,
+      secondaryY,
+      secondaryWidth,
+      secondaryBarHeight,
+      999,
+    );
+    glyphs.fill({
+      alpha: 0.68,
+      color: lowZoomGlyphPalette.primaryFill,
+    });
+    return glyphs;
+  }
+
+  const valueWidth = Math.max(
+    28,
+    Math.min(
+      rowChrome.rowRightEdgeX - rowChrome.valueColumnX,
+      Math.floor(row.width * 0.24),
+    ),
+  );
+  const valueX = rowChrome.rowRightEdgeX - valueWidth;
+
+  glyphs.roundRect(valueX, labelY, valueWidth, primaryBarHeight, 999);
+  glyphs.fill({
+    alpha: row.valueSwatch ? 0.88 : 0.76,
+    color: lowZoomGlyphPalette.valueFill,
+  });
+
+  const secondaryWidth = row.valueText
+    ? Math.max(20, Math.floor(valueWidth * 0.8))
+    : Math.max(26, Math.floor(labelWidth * 0.42));
+  glyphs.roundRect(
+    row.valueText ? rowChrome.valueColumnX : labelX + rowChrome.contentInsetPx,
+    secondaryY,
+    secondaryWidth,
+    secondaryBarHeight,
+    999,
+  );
+  glyphs.fill({
+    alpha: 0.6,
+    color: lowZoomGlyphPalette.primaryFill,
+  });
+
+  return glyphs;
+}
+
+function drawLowZoomSceneTitleGlyphs({
+  block,
+  palette,
+}: {
+  block: LiveDictAreaPixiParamAreaLayout;
+  palette: LiveDictAreaPixiPalette;
+}) {
+  const glyphs = new Graphics();
+  const x = block.x + LIVE_DICT_AREA_PIXI_LAYOUT.titleInsetX;
+  const y = block.y + 10;
+  const primaryWidth = Math.max(
+    48,
+    Math.min(Math.floor(block.width * 0.34), 116),
+  );
+  const accentWidth = Math.max(18, Math.min(Math.floor(block.width * 0.1), 28));
+  const fullWidth = primaryWidth + accentWidth + 8;
+
+  glyphs.roundRect(x, y, fullWidth, 10, 999);
+  glyphs.fill({
+    alpha: 0.14,
+    color: palette.bodyText,
+  });
+  glyphs.roundRect(x, y + 1, primaryWidth, 8, 999);
+  glyphs.fill({
+    alpha: 0.92,
+    color: palette.bodyText,
+  });
+  glyphs.roundRect(x + primaryWidth + 8, y + 1, accentWidth, 8, 999);
+  glyphs.fill({
+    alpha: 0.64,
+    color: palette.bodyText,
+  });
+
+  return glyphs;
 }
 
 function drawColorPickerValueControl({

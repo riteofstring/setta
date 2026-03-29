@@ -24,6 +24,7 @@ import {
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiPresentationMode,
   getLiveDictAreaPixiRenderResolution,
+  getLiveDictAreaPixiShouldForceReadableRowFill,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
   getLiveDictAreaPixiTextStyleSet,
@@ -377,6 +378,8 @@ export function LiveDictAreaPixiPageRuntimeHost() {
           overviewEnabled: readLiveDictAreaPixiOverviewEnabledFromWindow(),
         },
       );
+      const shouldForceReadableRowFill =
+        getLiveDictAreaPixiShouldForceReadableRowFill(viewportZoom);
       let app = appRef.current;
 
       if (!app) {
@@ -440,6 +443,7 @@ export function LiveDictAreaPixiPageRuntimeHost() {
             hoveredPortId: null,
             pressedPortId: null,
           },
+          forceReadableRowFill: shouldForceReadableRowFill,
           layout: managedScene.layout,
           origin: {
             x: localBounds.left,

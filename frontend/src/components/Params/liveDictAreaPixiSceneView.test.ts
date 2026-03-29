@@ -11,11 +11,13 @@ import {
   getLiveDictAreaPixiDetailRowInteractionChrome,
   getLiveDictAreaPixiEdgePortChrome,
   getLiveDictAreaPixiLogicalCanvasWidth,
+  getLiveDictAreaPixiLowZoomGlyphPalette,
   getLiveDictAreaPixiMaxCanvasHeight,
   getLiveDictAreaPixiPalette,
   getLiveDictAreaPixiParamColumnWidth,
   getLiveDictAreaPixiPresentationMode,
   getLiveDictAreaPixiRenderResolution,
+  getLiveDictAreaPixiShouldForceReadableRowFill,
   getLiveDictAreaPixiSwitchControlStyle,
   getLiveDictAreaPixiTextFontFamily,
   getLiveDictAreaPixiTextResolution,
@@ -359,6 +361,41 @@ describe("getLiveDictAreaPixiDetailRowChrome", () => {
     ).toBe(palette.rowPlaceholderFill);
   });
 
+  it("restores low-zoom row fills when transparent DOM row chrome would otherwise vanish on screen", () => {
+    expect(
+      getLiveDictAreaPixiDetailRowChrome({
+        compactRowPrimitive: {
+          cornerRadiusPx: 2,
+          horizontalPaddingPx: 2,
+          surfaceKind: "transparent",
+        },
+        forceReadableSurface: true,
+        palette,
+        paramColumnWidth: 200,
+        rowKind: "value",
+        rowContentX: 12,
+        rowSurfaceX: 0,
+        rowWidth: 320,
+      }).fill,
+    ).toBe(palette.rowBackground);
+    expect(
+      getLiveDictAreaPixiDetailRowChrome({
+        compactRowPrimitive: {
+          cornerRadiusPx: 2,
+          horizontalPaddingPx: 2,
+          surfaceKind: "transparent",
+        },
+        forceReadableSurface: true,
+        palette,
+        paramColumnWidth: 200,
+        rowKind: "group",
+        rowContentX: 12,
+        rowSurfaceX: 0,
+        rowWidth: 320,
+      }).fill,
+    ).toBe(palette.rowBackgroundAlt);
+  });
+
   it("keeps the measured radius and filled row surface when the DOM row shell is actually filled", () => {
     expect(
       getLiveDictAreaPixiDetailRowChrome({
@@ -682,6 +719,76 @@ describe("getLiveDictAreaPixiPresentationMode", () => {
         overviewEnabled: true,
       }),
     ).toBe("detail");
+  });
+});
+
+describe("getLiveDictAreaPixiShouldForceReadableRowFill", () => {
+  it("forces a visible row silhouette once detail rows are below the on-screen readability threshold", () => {
+    expect(getLiveDictAreaPixiShouldForceReadableRowFill(0.1)).toBe(true);
+    expect(getLiveDictAreaPixiShouldForceReadableRowFill(0.2)).toBe(true);
+  });
+
+  it("keeps the measured DOM row surface behavior once rows are large enough on screen", () => {
+    expect(getLiveDictAreaPixiShouldForceReadableRowFill(0.3)).toBe(false);
+    expect(getLiveDictAreaPixiShouldForceReadableRowFill(1)).toBe(false);
+    expect(getLiveDictAreaPixiShouldForceReadableRowFill(Number.NaN)).toBe(
+      false,
+    );
+  });
+});
+
+describe("getLiveDictAreaPixiLowZoomGlyphPalette", () => {
+  const palette = {
+    bodyText: "#e5e7eb",
+    border: "#334155",
+    panelBackground: "#111827",
+    panelBackgroundAlt: "#0f172a",
+    portDot: "#94a3b8",
+    portSelectedDot: "#38bdf8",
+    rowBackground: "#172036",
+    rowBackgroundAlt: "#1e293b",
+    rowPlaceholderFill: "#1f2937",
+    titleText: "#94a3b8",
+  };
+
+  it("switches low-zoom value rows onto higher-contrast structure fills instead of the faint title tint", () => {
+    expect(
+      getLiveDictAreaPixiLowZoomGlyphPalette({
+        palette,
+        rowKind: "value",
+      }),
+    ).toEqual({
+      bandFill: palette.bodyText,
+      primaryFill: palette.bodyText,
+      valueFill: palette.bodyText,
+    });
+  });
+
+  it("preserves explicit swatches while brightening the surrounding low-zoom row structure", () => {
+    expect(
+      getLiveDictAreaPixiLowZoomGlyphPalette({
+        palette,
+        rowKind: "value",
+        valueSwatch: "#ef4444",
+      }),
+    ).toEqual({
+      bandFill: palette.bodyText,
+      primaryFill: palette.bodyText,
+      valueFill: "#ef4444",
+    });
+  });
+
+  it("uses the same brighter low-zoom silhouette fill for group rows so nested structure stays visible", () => {
+    expect(
+      getLiveDictAreaPixiLowZoomGlyphPalette({
+        palette,
+        rowKind: "group",
+      }),
+    ).toEqual({
+      bandFill: palette.bodyText,
+      primaryFill: palette.bodyText,
+      valueFill: palette.bodyText,
+    });
   });
 });
 

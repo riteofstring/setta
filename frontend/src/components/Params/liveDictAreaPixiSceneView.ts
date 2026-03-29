@@ -76,6 +76,8 @@ const LIVE_DICT_AREA_PIXI_FALLBACK_TEXT_STYLE_SET = {
   titleFontWeight: "700",
 } as const;
 const LIVE_DICT_AREA_PIXI_OVERVIEW_ROW_SCREEN_HEIGHT_THRESHOLD = 4.5;
+const LIVE_DICT_AREA_PIXI_FORCE_VISIBLE_ROW_FILL_SCREEN_HEIGHT_THRESHOLD =
+  LIVE_DICT_AREA_PIXI_OVERVIEW_ROW_SCREEN_HEIGHT_THRESHOLD;
 const LIVE_DICT_AREA_PIXI_OVERVIEW_QUERY_VALUE = "enabled";
 
 export type LiveDictAreaPixiTextStyleSet = {
@@ -99,6 +101,12 @@ export type LiveDictAreaPixiComboboxControlStyle = {
   backgroundFill: string;
   borderFill: string;
   textFill: string;
+};
+
+export type LiveDictAreaPixiLowZoomGlyphPalette = {
+  bandFill: string;
+  primaryFill: string;
+  valueFill: string;
 };
 
 export type LiveDictAreaPixiSwitchControlStyle = {
@@ -351,6 +359,7 @@ export function getLiveDictAreaPixiCompactRowPrimitive({
 
 export function getLiveDictAreaPixiDetailRowChrome({
   compactRowPrimitive,
+  forceReadableSurface = false,
   palette,
   paramColumnWidth,
   rowKind,
@@ -359,6 +368,7 @@ export function getLiveDictAreaPixiDetailRowChrome({
   rowWidth,
 }: {
   compactRowPrimitive: LiveDictAreaPixiCompactRowPrimitive;
+  forceReadableSurface?: boolean;
   palette: LiveDictAreaPixiPalette;
   paramColumnWidth: number;
   rowKind: "group" | "placeholder" | "value";
@@ -378,7 +388,11 @@ export function getLiveDictAreaPixiDetailRowChrome({
     rowKind === "placeholder"
       ? palette.rowPlaceholderFill
       : compactRowPrimitive.surfaceKind === "transparent"
-        ? null
+        ? forceReadableSurface
+          ? rowKind === "group"
+            ? palette.rowBackgroundAlt
+            : palette.rowBackground
+          : null
         : rowKind === "group"
           ? palette.rowBackgroundAlt
           : palette.rowBackground;
@@ -474,6 +488,33 @@ export function getLiveDictAreaPixiPresentationMode(
     LIVE_DICT_AREA_PIXI_OVERVIEW_ROW_SCREEN_HEIGHT_THRESHOLD
     ? "overview"
     : "detail";
+}
+
+export function getLiveDictAreaPixiShouldForceReadableRowFill(
+  viewportZoom: number,
+) {
+  return (
+    Number.isFinite(viewportZoom) &&
+    viewportZoom > 0 &&
+    LIVE_DICT_AREA_PIXI_ROW_BLOCK_HEIGHT * viewportZoom <
+      LIVE_DICT_AREA_PIXI_FORCE_VISIBLE_ROW_FILL_SCREEN_HEIGHT_THRESHOLD
+  );
+}
+
+export function getLiveDictAreaPixiLowZoomGlyphPalette({
+  palette,
+  rowKind,
+  valueSwatch = null,
+}: {
+  palette: LiveDictAreaPixiPalette;
+  rowKind: "group" | "placeholder" | "value";
+  valueSwatch?: string | null;
+}): LiveDictAreaPixiLowZoomGlyphPalette {
+  return {
+    bandFill: palette.bodyText,
+    primaryFill: palette.bodyText,
+    valueFill: valueSwatch ?? palette.bodyText,
+  };
 }
 
 export function getLiveDictAreaPixiPalette({
