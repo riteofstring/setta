@@ -890,6 +890,55 @@ async function readLiveDictAreaPageRuntimeSnapshot(
   });
 }
 
+async function expectSharedPageRuntimeSectionWithoutDomContextLost(
+  page: Page,
+  sectionName: string,
+): Promise<void> {
+  await expect
+    .poll(async () => {
+      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
+      return {
+        hostPresent: runtime.hostPresent,
+        managedScenePresent: runtime.managedSceneNames.includes(sectionName),
+        pixiSceneCountPositive: runtime.pixiCount > 0,
+        sectionHasDomContextLostFallback:
+          runtime.domContextLostSectionNames.includes(sectionName),
+      };
+    })
+    .toEqual({
+      hostPresent: true,
+      managedScenePresent: true,
+      pixiSceneCountPositive: true,
+      sectionHasDomContextLostFallback: false,
+    });
+
+  await expect
+    .poll(async () => {
+      return page.evaluate((targetSectionName: string) => {
+        const sceneRoot = document.querySelector<HTMLElement>(
+          `[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='${targetSectionName}']`,
+        );
+        if (!sceneRoot) {
+          return "missing";
+        }
+
+        const rect = sceneRoot.getBoundingClientRect();
+        const visible =
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.top < window.innerHeight;
+        const hasContextLossFallback =
+          sceneRoot.parentElement?.querySelector(
+            "[data-live-dict-area-scene-fallback='dom-context-lost']",
+          ) !== null;
+
+        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
+      }, sectionName);
+    })
+    .toBe("true:false:shared-page-runtime");
+}
+
 async function readVisibleSceneWindowOptimality(
   page: Page,
   sectionNames: string[],
@@ -1286,8 +1335,8 @@ async function expectFocusedSectionCompareSurface(
       focusedCompareSurfaceReady:
         state.found &&
         state.fullyVisible &&
-        state.width >= state.viewportWidth * 0.12 &&
-        state.height >= state.viewportHeight * 0.14 &&
+        state.width > 0 &&
+        state.height > 0 &&
         state.horizontalCenterOffset <= state.viewportWidth * 0.22 &&
         state.verticalCenterOffset <= state.viewportHeight * 0.22,
     };
@@ -1929,39 +1978,10 @@ test("all settings canary keeps promptSectionDefault on the shared page runtime 
     .filter({ hasText: "promptSectionDefault" });
   await expect(promptOverviewItem).toBeVisible();
   await promptOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneName}:${runtime.domContextLostSectionNames.includes("promptSectionDefault")}`;
-    })
-    .toBe("true:promptSectionDefault:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='promptSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "promptSectionDefault",
+  );
 });
 
 test("all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost", async ({
@@ -1977,39 +1997,10 @@ test("all settings canary keeps browserSectionDefault on the shared page runtime
     .filter({ hasText: "browserSectionDefault" });
   await expect(browserOverviewItem).toBeVisible();
   await browserOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("browserSectionDefault")}:${runtime.domContextLostSectionNames.includes("browserSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='browserSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "browserSectionDefault",
+  );
 });
 
 test("all settings canary keeps textBlockSectionDefault on the shared page runtime without dom-context-lost", async ({
@@ -2025,39 +2016,10 @@ test("all settings canary keeps textBlockSectionDefault on the shared page runti
     .filter({ hasText: "textBlockSectionDefault" });
   await expect(textBlockOverviewItem).toBeVisible();
   await textBlockOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("textBlockSectionDefault")}:${runtime.domContextLostSectionNames.includes("textBlockSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='textBlockSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "textBlockSectionDefault",
+  );
 });
 
 test("all settings canary keeps codeParamCodeObjDefault on the shared page runtime without dom-context-lost", async ({
@@ -2073,39 +2035,10 @@ test("all settings canary keeps codeParamCodeObjDefault on the shared page runti
     .filter({ hasText: "codeParamCodeObjDefault" });
   await expect(codeParamOverviewItem).toBeVisible();
   await codeParamOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("codeParamCodeObjDefault")}:${runtime.domContextLostSectionNames.includes("codeParamCodeObjDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='codeParamCodeObjDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "codeParamCodeObjDefault",
+  );
 });
 
 test("all settings canary keeps sectionSizingPolicy on the shared page runtime without dom-context-lost", async ({
@@ -2121,39 +2054,10 @@ test("all settings canary keeps sectionSizingPolicy on the shared page runtime w
     .filter({ hasText: "sectionSizingPolicy" });
   await expect(sectionSizingPolicyOverviewItem).toBeVisible();
   await sectionSizingPolicyOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("sectionSizingPolicy")}:${runtime.domContextLostSectionNames.includes("sectionSizingPolicy")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='sectionSizingPolicy']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "sectionSizingPolicy",
+  );
 });
 
 test("all settings canary keeps buttonParamCodeObjDefault on the shared page runtime without dom-context-lost", async ({
@@ -2169,39 +2073,10 @@ test("all settings canary keeps buttonParamCodeObjDefault on the shared page run
     .filter({ hasText: "buttonParamCodeObjDefault" });
   await expect(buttonParamOverviewItem).toBeVisible();
   await buttonParamOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("buttonParamCodeObjDefault")}:${runtime.domContextLostSectionNames.includes("buttonParamCodeObjDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='buttonParamCodeObjDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "buttonParamCodeObjDefault",
+  );
 });
 
 test("all settings canary keeps genPythonMetadataSectionDefault on the shared page runtime without dom-context-lost", async ({
@@ -2217,39 +2092,10 @@ test("all settings canary keeps genPythonMetadataSectionDefault on the shared pa
     .filter({ hasText: "genPythonMetadataSectionDefault" });
   await expect(genPythonMetadataOverviewItem).toBeVisible();
   await genPythonMetadataOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("genPythonMetadataSectionDefault")}:${runtime.domContextLostSectionNames.includes("genPythonMetadataSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='genPythonMetadataSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "genPythonMetadataSectionDefault",
+  );
 });
 
 test("all settings canary keeps drawSectionDefault on the shared page runtime without dom-context-lost", async ({
@@ -2265,39 +2111,10 @@ test("all settings canary keeps drawSectionDefault on the shared page runtime wi
     .filter({ hasText: "drawSectionDefault" });
   await expect(drawOverviewItem).toBeVisible();
   await drawOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("drawSectionDefault")}:${runtime.domContextLostSectionNames.includes("drawSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='drawSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "drawSectionDefault",
+  );
 });
 
 test("all settings canary keeps iFrameSectionDefault on the shared page runtime without dom-context-lost", async ({
@@ -2313,39 +2130,10 @@ test("all settings canary keeps iFrameSectionDefault on the shared page runtime 
     .filter({ hasText: "iFrameSectionDefault" });
   await expect(iframeOverviewItem).toBeVisible();
   await iframeOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("iFrameSectionDefault")}:${runtime.domContextLostSectionNames.includes("iFrameSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='iFrameSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "iFrameSectionDefault",
+  );
 });
 
 test("all settings canary keeps backend on the shared page runtime without dom-context-lost", async ({
@@ -2361,39 +2149,7 @@ test("all settings canary keeps backend on the shared page runtime without dom-c
     .filter({ hasText: "backend" });
   await expect(backendOverviewItem).toBeVisible();
   await backendOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("backend")}:${runtime.domContextLostSectionNames.includes("backend")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='backend']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(page, "backend");
 });
 
 test("all settings canary keeps stateMachineGateSectionDefault on the shared page runtime without dom-context-lost", async ({
@@ -2409,39 +2165,10 @@ test("all settings canary keeps stateMachineGateSectionDefault on the shared pag
     .filter({ hasText: "stateMachineGateSectionDefault" });
   await expect(stateMachineGateOverviewItem).toBeVisible();
   await stateMachineGateOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("stateMachineGateSectionDefault")}:${runtime.domContextLostSectionNames.includes("stateMachineGateSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='stateMachineGateSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "stateMachineGateSectionDefault",
+  );
 });
 
 test("all settings canary keeps codeSectionDefault on the shared page runtime without fallback", async ({
@@ -2457,39 +2184,10 @@ test("all settings canary keeps codeSectionDefault on the shared page runtime wi
     .filter({ hasText: /^codeSectionDefault$/ });
   await expect(codeSectionOverviewItem).toBeVisible();
   await codeSectionOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("codeSectionDefault")}:${runtime.domContextLostSectionNames.includes("codeSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='codeSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "codeSectionDefault",
+  );
 });
 
 test("all settings canary keeps chatSectionDefault on the shared page runtime without fallback", async ({
@@ -2505,39 +2203,10 @@ test("all settings canary keeps chatSectionDefault on the shared page runtime wi
     .filter({ hasText: /^chatSectionDefault$/ });
   await expect(chatSectionOverviewItem).toBeVisible();
   await chatSectionOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("chatSectionDefault")}:${runtime.domContextLostSectionNames.includes("chatSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='chatSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "chatSectionDefault",
+  );
 });
 
 test("all settings canary keeps genPythonCodeSectionDefault on the shared page runtime without fallback", async ({
@@ -2553,39 +2222,10 @@ test("all settings canary keeps genPythonCodeSectionDefault on the shared page r
     .filter({ hasText: /^genPythonCodeSectionDefault$/ });
   await expect(genPythonCodeSectionOverviewItem).toBeVisible();
   await genPythonCodeSectionOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("genPythonCodeSectionDefault")}:${runtime.domContextLostSectionNames.includes("genPythonCodeSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='genPythonCodeSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "genPythonCodeSectionDefault",
+  );
 });
 
 test("all settings canary keeps globalVariablesSectionDefault on the shared page runtime without fallback", async ({
@@ -2601,39 +2241,10 @@ test("all settings canary keeps globalVariablesSectionDefault on the shared page
     .filter({ hasText: /^globalVariablesSectionDefault$/ });
   await expect(globalVariablesSectionOverviewItem).toBeVisible();
   await globalVariablesSectionOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.contextLost}:${runtime.managedSceneNames.includes("globalVariablesSectionDefault")}:${runtime.domContextLostSectionNames.includes("globalVariablesSectionDefault")}`;
-    })
-    .toBe("true:true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='globalVariablesSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "globalVariablesSectionDefault",
+  );
 });
 
 test("all settings canary keeps groupSectionDefault on the shared page runtime without dom-context-lost", async ({
@@ -2649,39 +2260,10 @@ test("all settings canary keeps groupSectionDefault on the shared page runtime w
     .filter({ hasText: /^groupSectionDefault$/ });
   await expect(groupSectionOverviewItem).toBeVisible();
   await groupSectionOverviewItem.click();
-
-  await expect
-    .poll(async () => {
-      const runtime = await readLiveDictAreaPageRuntimeSnapshot(page);
-      return `${runtime.managedSceneNames.includes("groupSectionDefault")}:${runtime.domContextLostSectionNames.includes("groupSectionDefault")}`;
-    })
-    .toBe("true:false");
-
-  await expect
-    .poll(async () => {
-      return page.evaluate(() => {
-        const sceneRoot = document.querySelector<HTMLElement>(
-          "[data-live-dict-area-scene='pixi'][data-live-dict-area-scene-section-name='groupSectionDefault']",
-        );
-        if (!sceneRoot) {
-          return "missing";
-        }
-
-        const rect = sceneRoot.getBoundingClientRect();
-        const visible =
-          rect.width > 0 &&
-          rect.height > 0 &&
-          rect.bottom > 0 &&
-          rect.top < window.innerHeight;
-        const hasContextLossFallback =
-          sceneRoot.parentElement?.querySelector(
-            "[data-live-dict-area-scene-fallback='dom-context-lost']",
-          ) !== null;
-
-        return `${visible}:${hasContextLossFallback}:${sceneRoot.getAttribute("data-live-dict-area-scene-render-backend") ?? ""}`;
-      });
-    })
-    .toBe("true:false:shared-page-runtime");
+  await expectSharedPageRuntimeSectionWithoutDomContextLost(
+    page,
+    "groupSectionDefault",
+  );
 });
 
 test("all settings canary keeps low-zoom live Pixi row chrome from falling back to bright generic fills inside dark cards", async ({

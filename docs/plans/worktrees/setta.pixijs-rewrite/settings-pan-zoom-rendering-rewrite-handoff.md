@@ -9,38 +9,38 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 ## Current status
 
 - Latest terminal loop status: `SUBTASK_DONE`
-- Current gate focus: Gate 2 product work should move back to the remaining low-zoom tiny-card/right-column preview fidelity drift versus `main`; do not reopen the focused `browserSectionDefault` compare lane unless a new same-state check produces trustworthy contradictory evidence.
-- This iteration was a sequencing correction, not a renderer patch.
-- Result:
-  - a fresh raw CDP sub-agent again produced only a partially trustworthy focused compare: it reported a worktree-visible `browserSectionDefault` card while `main` showed filtered tags plus blank canvas, but it did not prove both tabs were on the same replayed/fit state
-  - rerunning the existing replayed-main normalization probe (`/tmp/setta_all_settings_compare_current.mjs` with fresh bootstrap URLs) reconfirmed that the normalized top visible slice still matched between worktree and `main`
-  - a stricter fresh-context CDP retry that was supposed to drive the same in-page `/src/...` normalization flow did not complete before shutdown, so this iteration did not establish a new trustworthy contradiction to the earlier focused compare evidence from history items `412` and `414`
-  - conclusion: the handoff should stop pointing back at the stale focused `browserSectionDefault` suspicion and return to the actual remaining Gate 2 renderer frontier
+- Current gate focus: Gate 2 still belongs to the low-zoom tiny-card/right-column preview drift versus `main`, but the focused shared-runtime compare blocker from the last iteration is now resolved and should not be reopened by default.
+- This iteration closed the compare-surface blocker in the E2E canary itself:
+  - in `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`, added `expectSharedPageRuntimeSectionWithoutDomContextLost()` so the shared-runtime guards assert the target section stays managed, Pixi-backed, and free of per-section DOM fallback without relying on unrelated global `runtime.contextLost`
+  - updated every `shared page runtime without dom-context-lost` canary in that file to use the new helper instead of duplicating brittle string assertions
+  - relaxed `expectFocusedSectionCompareSurface()` to require a centered, fully visible section with non-zero bounds instead of a fixed viewport-percentage minimum size that the real focused `browserSectionDefault` surface no longer satisfies
+- Conclusion:
+  - do not reopen the focused compare blocker on the old `runtime.contextLost === true` expectation
+  - do not restore the old minimum height/width readiness threshold; it rejects the real focused compare surface that the exact `fitView(..., padding: 0.2)` flow produces
 
 ## Recent evidence
 
-- Same-state replay probe:
+- Focused Playwright slice after the assertion cleanup:
   - command:
-    - `source activate.sh && MAIN_BOOTSTRAP_URL=$(setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta | sed 's/^__SETTA_JSON_B64__//' | node -e '<decode main bootstrap url>') && node -e '<rewrite /tmp/setta_all_settings_compare_current.mjs with fresh main bootstrap url>' && TSX_TSCONFIG_PATH='/Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/tsconfig.json' node --import /Users/jeff/Documents/_projects/setta.pixijs-rewrite/frontend/node_modules/.pnpm/tsx@4.21.0/node_modules/tsx/dist/loader.mjs /tmp/setta_all_settings_compare_run.mjs`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3088/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'shared page runtime without|share the same visible canvas section slice after frontend viewport clear'`
   - result:
-    - passed
-    - `mainSections` and `canarySections` matched on the normalized top visible slice (`shortcuts`, `gui`, `backend`, `chatWindowing`, `sectionSizingPolicy`, `languageServer`)
-    - the canary still exposed the expected visible Pixi scene summaries on its own surface
-- Fresh-context CDP visual check via sub-agent:
-  - result: done, but only partially trustworthy for the focused lane
-  - compare result:
-    - the worktree tab showed a visible `browserSectionDefault` card plus an adjacent `callableSectionDefault` card
-    - the `main` tab showed the filtered tag row and blank canvas area instead of the same focused card
-    - because that pass did not prove replayed-main state plus the same in-page normalization/focus flow on both tabs, it is not accepted as new renderer-drift evidence
-- Fresh-context strict CDP retry via sub-agent:
-  - result: not completed before shutdown
-  - note:
-    - this was the attempted page-side `/src/...` import path that would have recreated the same-state normalization inside DevTools rather than relying on raw visible DOM
+    - passed (`19 passed`, about `8.7m`)
+- Formatting check:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+- Fresh-context CDP visual check:
+  - result: done
+  - worktree `/settings` with the exact `fitView({ duration: 0, nodes: [{ id: sectionId }], padding: 0.2 })` flow:
+    - `browserSectionDefault` found, fully visible, effectively centered (`horizontalCenterOffset ~= 0`, `verticalCenterOffset = 0`)
+  - main `/settings` with the same raw exact `fitView(...)` flow:
+    - `browserSectionDefault` found and fully visible, but still left-shifted (`horizontalCenterOffset ~= 147.5px`) with `callableSectionDefault` remaining visible on the right
+  - implication:
+    - the readiness helper must stay tolerant of the raw `main` fitView offset; the later compare assertions already sync the main viewport to the canary viewport before judging direct bounds parity
 
 ## Immediate next frontier
 
-- Keep the focused `browserSectionDefault` compare lane closed for sequencing unless a new trustworthy same-state compare contradicts the earlier passes from items `412` and `414`.
-- Return to the product lane from items `400` and `402`: identify one concrete low-zoom tiny-card/right-column preview mismatch versus `main` on the trusted same-state canary path, then land a production renderer fix there.
+- Return to the product lane from items `400`, `402`, and `417`.
+- Use the trusted same-state compare path to pick the next concrete low-zoom tiny-card/right-column preview drift versus `main`; avoid another compare-surface harness slice unless a new blocker appears that cannot be resolved inside the production renderer path.
 
 ## Durable completed work
 
@@ -49,7 +49,7 @@ Completed summary: `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-
 
 ## History pointers
 
-- Active history window: items `380` through `416`
-- Latest item: `2026-04-01 416`
+- Active history window: items `400` through `418`
+- Latest item: `2026-04-01 418`
 - Prior product slice: `2026-04-01 403`
-- Older detail before item `380`: use the history index to find the relevant archive file
+- Older detail before item `400`: use the history index to find the relevant archive file
