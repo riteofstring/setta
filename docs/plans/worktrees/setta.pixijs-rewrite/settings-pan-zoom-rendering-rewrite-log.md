@@ -7275,3 +7275,36 @@ Record:
     - no obvious blanking, clipping, or major overlap regression was observed in the checked viewport
 - Next action:
   - Re-check the remaining Pixi editor-overlay/input lane and stop it if the next candidate is only another low-payoff ownership hop; otherwise pivot to the next retained-scene step that removes real remaining editor/input shell work or addresses a measured hotspot.
+
+## 2026-03-29 233
+
+- Item: Hoist the active Pixi value-row overlay's remaining section-style theme state into the overlay shell so the overlay mount stays store-free.
+- Status: `done`
+- Details:
+  - Kept the live Pixi editor-overlay lane on a real shell/store reduction step instead of another helper hop:
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx`
+    - `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+  - The active value-row overlay no longer reads local-storage or temporary section-style preview state inside `LiveDictAreaPixiValueRowOverlay.tsx`:
+    - `LiveDictAreaPixiOverlayShell.tsx` now resolves the active row's section-style preview color plus dark-mode state and passes `hasSectionStyleTheme` down with the already-resolved editor metadata
+    - `LiveDictAreaPixiValueRowOverlay.tsx` is now a pure mount boundary that only receives `editorKind`, `hasSectionStyleTheme`, `rowState`, and `target`
+    - the direct scene-row surface keeps the existing `ParamInput`, `ParamNameInput`, resize handle, and overlay marker contract unchanged
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx src/components/Params/LiveDictAreaPixiValueOverlaySceneRow.test.tsx src/components/Params/liveDictAreaPixiValueOverlayRowState.test.ts`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.tsx src/components/Params/LiveDictAreaPixiValueRowOverlay.test.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+      - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body`:
+    - result: passed
+    - reused the already-authenticated Settings tab; bootstrap was not needed
+    - opened `All Settings`, clicked the live `View Mode` value-row handoff in the Pixi scene, and observed the active `CHOICES` overlay with the Pixi canvas still mounted underneath
+    - no obvious blanking, clipping, or major overlap regression was visible in the checked viewport
+    - relevant successful requests included `POST /api/loadSettings`, `POST /api/loadProjectConfig`, `POST /api/getAIFollowSnapshot`, `POST /api/getListenerCoverage`, `POST /api/setTopLevelSectionLayout`, and `POST /api/setActiveViewMode`
+- Next action:
+  - Re-check the remaining Pixi editor-overlay/input lane and stop it if the next candidate is only another low-payoff ownership hop; otherwise pick the next slice that removes real remaining editor/input shell work or a measured hotspot from the live canary.

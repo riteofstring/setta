@@ -1,6 +1,3 @@
-import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
-import { getSectionStylePreviewColorKey } from "utils/constants";
-import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import type { LiveDictAreaPixiValueOverlayRowState } from "./liveDictAreaPixiValueOverlayRowState";
 import { LiveDictAreaPixiValueOverlaySceneRow } from "./LiveDictAreaPixiValueOverlaySceneRow";
 import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowTargets";
@@ -11,28 +8,17 @@ import {
 
 type LiveDictAreaPixiValueRowOverlayProps = {
   editorKind: ParamEditorKind;
+  hasSectionStyleTheme: boolean;
   rowState: LiveDictAreaPixiValueOverlayRowState;
   target: LiveDictAreaPixiValueRowTarget;
 };
 
 export function LiveDictAreaPixiValueRowOverlay({
   editorKind,
+  hasSectionStyleTheme,
   rowState,
   target,
 }: LiveDictAreaPixiValueRowOverlayProps) {
-  const darkMode = useLocalStorage((state) => state.darkMode);
-  const styleColorPreviewKey = getSectionStylePreviewColorKey(target.sectionId);
-  const previewStyleColor = useTemporaryMiscState(
-    (state) => state[styleColorPreviewKey] as string | null | undefined,
-  );
-  const resolvedStyleColor =
-    previewStyleColor === undefined ? target.styleColor : previewStyleColor;
-  const hasSectionStyleTheme = Boolean(
-    resolvedStyleColor
-      ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
-      : null,
-  );
-
   return (
     <PixiOverlayParamEditorKindProvider value={editorKind}>
       <div

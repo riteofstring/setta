@@ -11,6 +11,7 @@ import type { LiveDictAreaPixiValueRowTarget } from "./liveDictAreaPixiValueRowT
 const sceneRowCalls = vi.hoisted(
   () =>
     [] as Array<{
+      hasSectionStyleTheme: boolean;
       rowState: LiveDictAreaPixiValueOverlayRowState;
       target: LiveDictAreaPixiValueRowTarget;
     }>,
@@ -18,6 +19,7 @@ const sceneRowCalls = vi.hoisted(
 
 vi.mock("./LiveDictAreaPixiValueOverlaySceneRow", () => ({
   LiveDictAreaPixiValueOverlaySceneRow: ({
+    hasSectionStyleTheme,
     rowState,
     target,
   }: {
@@ -25,7 +27,7 @@ vi.mock("./LiveDictAreaPixiValueOverlaySceneRow", () => ({
     rowState: LiveDictAreaPixiValueOverlayRowState;
     target: LiveDictAreaPixiValueRowTarget;
   }) => {
-    sceneRowCalls.push({ rowState, target });
+    sceneRowCalls.push({ hasSectionStyleTheme, rowState, target });
     return (
       <div
         data-live-dict-area-editor-overlay-row="true"
@@ -84,6 +86,7 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       root.render(
         <LiveDictAreaPixiValueRowOverlay
           editorKind="combobox"
+          hasSectionStyleTheme={true}
           rowState={rowState}
           target={target}
         />,
@@ -109,6 +112,7 @@ describe("LiveDictAreaPixiValueRowOverlay", () => {
       rowId: "pinned-value",
       sectionId: "section-1",
     });
+    expect(sceneRowCalls[0]?.hasSectionStyleTheme).toBe(true);
     expect(sceneRowCalls[0]?.rowState.paramName).toBe("Pinned Value");
     expect(
       container.querySelector(

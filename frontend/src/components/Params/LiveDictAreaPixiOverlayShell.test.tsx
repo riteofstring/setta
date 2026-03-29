@@ -22,10 +22,14 @@ vi.hoisted(() => {
 const liveMiscState = vi.hoisted(() => ({
   isSelectingParams: false,
 }));
+const localStorageState = vi.hoisted(() => ({
+  darkMode: false,
+}));
 const searchState = vi.hoisted(() => ({
   focused: null as { paramInfoId: string; sectionId: string } | null,
   lookup: new Set<string>(),
 }));
+const temporaryMiscState = vi.hoisted(() => ({}) as Record<string, unknown>);
 const typeErrorState = vi.hoisted(() => ({
   errors: {} as Record<string, { params?: Record<string, string[]> }>,
 }));
@@ -69,6 +73,8 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
+    useLocalStorage: (selector: (state: typeof localStorageState) => unknown) =>
+      selector(localStorageState),
     useMisc: (selector: (state: typeof liveMiscState) => unknown) =>
       selector(liveMiscState),
     useProjectSearch: (selector: (state: typeof searchState) => unknown) =>
@@ -79,6 +85,9 @@ vi.mock(import("state/definitions"), async (importOriginal) => {
           showParamDisplayNames: true,
         },
       }),
+    useTemporaryMiscState: (
+      selector: (state: typeof temporaryMiscState) => unknown,
+    ) => selector(temporaryMiscState),
     useTypeErrors: (selector: (state: typeof typeErrorState) => unknown) =>
       selector(typeErrorState),
   };
@@ -131,8 +140,12 @@ describe("LiveDictAreaPixiOverlayShell", () => {
 
   beforeEach(() => {
     liveMiscState.isSelectingParams = false;
+    localStorageState.darkMode = false;
     searchState.focused = null;
     searchState.lookup = new Set<string>();
+    for (const key of Object.keys(temporaryMiscState)) {
+      delete temporaryMiscState[key];
+    }
     typeErrorState.errors = {};
     container = document.createElement("div");
     document.body.append(container);

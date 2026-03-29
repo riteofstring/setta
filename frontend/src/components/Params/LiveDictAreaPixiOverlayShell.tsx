@@ -7,16 +7,20 @@ import {
   getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import {
+  useLocalStorage,
   useMisc,
   useProjectSearch,
   useProjectState,
+  useTemporaryMiscState,
   useTypeErrors,
 } from "state/definitions";
+import { getSectionStylePreviewColorKey } from "utils/constants";
 import {
   CodeObjTypeEnum,
   isBaseParamCodeObjImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
+import { deriveSectionStyleTheme } from "utils/sectionStyleColors";
 import {
   LiveDictAreaMount,
   type LiveDictAreaMountProps,
@@ -47,6 +51,7 @@ export function LiveDictAreaPixiOverlayShell({
   const [activeValueRowId, setActiveValueRowId] = useState<string | null>(null);
   const [activeDragRowId, setActiveDragRowId] = useState<string | null>(null);
   const [isFallbackOverlayActive, setIsFallbackOverlayActive] = useState(false);
+  const darkMode = useLocalStorage((state) => state.darkMode);
   const isSelectingParams = useMisc((state) => state.isSelectingParams);
   const valueRowTargets = useMemo(
     () =>
@@ -174,6 +179,30 @@ export function LiveDictAreaPixiOverlayShell({
       ? null
       : dragRowTargets.find((target) => target.rowId === activeDragRowId) ??
         null;
+  const activeValueRowStyleColorPreview = useTemporaryMiscState((state) => {
+    if (activeValueRowTarget === null) {
+      return undefined;
+    }
+    const previewKey = getSectionStylePreviewColorKey(
+      activeValueRowTarget.sectionId,
+    );
+    return state[previewKey] as string | null | undefined;
+  });
+  const activeValueRowHasSectionStyleTheme = useMemo(() => {
+    if (activeValueRowTarget === null) {
+      return false;
+    }
+
+    const resolvedStyleColor =
+      activeValueRowStyleColorPreview === undefined
+        ? activeValueRowTarget.styleColor
+        : activeValueRowStyleColorPreview;
+    return Boolean(
+      resolvedStyleColor
+        ? deriveSectionStyleTheme(resolvedStyleColor, darkMode)
+        : null,
+    );
+  }, [activeValueRowStyleColorPreview, activeValueRowTarget, darkMode]);
 
   useEffect(() => {
     if (isSelectingParams) {
@@ -252,6 +281,7 @@ export function LiveDictAreaPixiOverlayShell({
           editorKind={
             valueRowEditorKinds[activeValueRowTarget.rowId] ?? "other"
           }
+          hasSectionStyleTheme={activeValueRowHasSectionStyleTheme}
           rowState={getActiveValueRowState({
             rowId: activeValueRowTarget.rowId,
             rowStateLookup: valueRowStateLookup,
