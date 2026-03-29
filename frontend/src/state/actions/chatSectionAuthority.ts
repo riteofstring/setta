@@ -56,13 +56,45 @@ function mergeHydratedChatSectionState(
     localToolCallArguments: currentState.toolCallArguments ?? {},
     preserveLocalOverlay: preserveWaitingForResponse,
   });
+  const nextBranches = syncHydratedActiveBranchMessages({
+    branches: currentState.branches ?? {},
+    activeBranchId: currentState.activeBranchId ?? null,
+    messages: mergedMessages,
+  });
   return {
     messages: mergedMessages,
     inputText: currentState.inputText ?? "",
     waitingForResponse: nextWaitingForResponse,
     toolCallArguments: nextToolCallArguments,
     activeBranchId: currentState.activeBranchId ?? null,
-    branches: { ...(currentState.branches ?? {}) },
+    branches: nextBranches,
+  };
+}
+
+function syncHydratedActiveBranchMessages({
+  branches,
+  activeBranchId,
+  messages,
+}: {
+  branches: Record<string, ChatSectionBranch>;
+  activeBranchId: string | null;
+  messages: Array<BaseChatMessageUnion>;
+}): Record<string, ChatSectionBranch> {
+  if (!activeBranchId) {
+    return { ...branches };
+  }
+  const activeBranch = branches[activeBranchId];
+  if (!activeBranch) {
+    return { ...branches };
+  }
+  return {
+    ...branches,
+    [activeBranchId]: {
+      ...activeBranch,
+      // The active section branch is the visible projection of the
+      // authoritative managed-chat history and must track hydrated messages.
+      messages: [...messages],
+    },
   };
 }
 

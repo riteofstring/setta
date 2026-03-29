@@ -446,6 +446,133 @@ describe("chat history sync to section state", () => {
     });
   });
 
+  it("syncs the active section branch to hydrated backend messages without rewriting inactive branches", async () => {
+    const route_get_external_agent_chat = (
+      await import("utils/generatedEndpoints")
+    ).route_get_external_agent_chat as unknown as vi.Mock;
+    const route_set_chat_section_state = (
+      await import("utils/generatedEndpoints")
+    ).route_set_chat_section_state as unknown as vi.Mock;
+    const authoritativeMessage = {
+      id: "msg-remote-branch",
+      role: ChatRoleEnum.assistant,
+      content: [createMessageTextContent({ text: "Backend branch history" })],
+      attachments: [],
+      tool_calls: null,
+    };
+    route_get_external_agent_chat.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: {
+        messages: [authoritativeMessage],
+        waitingForResponse: false,
+        toolCallArguments: { remote: "{}" },
+        appGenerationByMessageId: {},
+      },
+    });
+    route_set_chat_section_state.mockResolvedValue({
+      status: 200,
+      hasResponse: true,
+      data: null,
+    });
+
+    useProjectState.setState((state) => {
+      const impl = state.sectionImpls[implId];
+      if (!impl || impl.type !== SectionTypeEnum.Chat) {
+        return;
+      }
+      impl.messages = [
+        {
+          id: "msg-local-active",
+          role: ChatRoleEnum.user,
+          content: [createMessageTextContent({ text: "Local active branch" })],
+          attachments: [],
+        },
+      ];
+      impl.activeBranchId = "branch-active";
+      impl.branches = {
+        "branch-active": {
+          messages: [
+            {
+              id: "msg-local-active",
+              role: ChatRoleEnum.user,
+              content: [
+                createMessageTextContent({ text: "Local active branch" }),
+              ],
+              attachments: [],
+            },
+          ],
+          createdAt: 100,
+          parentBranchId: null,
+          branchFromMessageId: null,
+        },
+        "branch-inactive": {
+          messages: [
+            {
+              id: "msg-inactive",
+              role: ChatRoleEnum.user,
+              content: [
+                createMessageTextContent({ text: "Inactive branch draft" }),
+              ],
+              attachments: [],
+            },
+          ],
+          createdAt: 200,
+          parentBranchId: "branch-active",
+          branchFromMessageId: "msg-local-active",
+        },
+      };
+      impl.waitingForResponse = true;
+      impl.toolCallArguments = { local: "{}" };
+    });
+    markChatStreamActive(chatId, sectionId);
+
+    await getExternalAgentChat(chatId, projectConfigId, sectionId);
+
+    const impl = getCurrEffectiveSectionImplOfType(
+      useProjectState.getState(),
+      sectionId,
+      SectionTypeEnum.Chat,
+    );
+    expect(impl.messages).toEqual([authoritativeMessage]);
+    expect(impl.waitingForResponse).toBe(true);
+    expect(impl.toolCallArguments).toEqual({ local: "{}", remote: "{}" });
+    expect(impl.branches["branch-active"]?.messages).toEqual([
+      authoritativeMessage,
+    ]);
+    expect(impl.branches["branch-inactive"]?.messages).toEqual([
+      {
+        id: "msg-inactive",
+        role: ChatRoleEnum.user,
+        content: [createMessageTextContent({ text: "Inactive branch draft" })],
+        attachments: [],
+      },
+    ]);
+    const persistedCall = route_set_chat_section_state.mock.calls.find(
+      (call) => call[0]?.sectionId === sectionId,
+    );
+    expect(persistedCall).toBeDefined();
+    if (!persistedCall) {
+      throw new Error(
+        "Expected setChatSectionState call for active branch hydrate sync.",
+      );
+    }
+    expect(persistedCall[0].state.messages).toEqual([authoritativeMessage]);
+    expect(persistedCall[0].state.branches["branch-active"]?.messages).toEqual([
+      authoritativeMessage,
+    ]);
+    expect(
+      persistedCall[0].state.branches["branch-inactive"]?.messages,
+    ).toEqual([
+      {
+        id: "msg-inactive",
+        role: ChatRoleEnum.user,
+        content: [createMessageTextContent({ text: "Inactive branch draft" })],
+        attachments: [],
+      },
+    ]);
+  });
+
   it("drops local-only section messages after hydrate when stream is inactive", async () => {
     const route_get_external_agent_chat = (
       await import("utils/generatedEndpoints")
