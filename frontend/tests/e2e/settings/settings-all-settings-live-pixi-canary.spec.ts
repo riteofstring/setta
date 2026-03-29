@@ -18,7 +18,7 @@ import {
   ensureAppReady,
   getCurrentProjectConfigId,
   postBackend,
-  resetOverviewPaneToDefaultLayout,
+  resetProjectWorkspaceChromeToDefaultLayout,
 } from "../helpers";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
@@ -735,7 +735,7 @@ test("all settings baseline and live Pixi canary share the fit-view zoom-floor s
   const projectConfigId = await getCurrentProjectConfigId(page);
 
   try {
-    await resetOverviewPaneToDefaultLayout(page);
+    await resetProjectWorkspaceChromeToDefaultLayout(page);
     await clearCurrentProjectViewportForRefit(page);
     await expectZoomOutButtonDisabled(page, true);
     const fitViewViewport = await readViewportTransform(page);

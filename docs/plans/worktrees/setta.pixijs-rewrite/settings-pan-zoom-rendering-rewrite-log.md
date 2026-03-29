@@ -10505,3 +10505,44 @@ Record:
     - `All Settings` remained visible and the settings surface showed no obvious blanking or clipping
 - Next action:
   - Retry the live `main`-oracle `All Settings` layout comparison now that the parity reset path also clears stale adjacent-pane width state; if width drift remains, take the persisted project-state/layout diff directly instead of reopening local-storage resets.
+
+## 2026-03-30 320
+
+- Item: Stop the live parity reset path from immediately recreating a visible bottom-docked project chat window after clearing workspace chrome state.
+- Status: `done`
+- Details:
+  - Took a bounded blocker-resolution slice directly from item `319` after fresh-context CDP showed the new workspace-chrome reset helper still left `Chat Window 1` visible in the live worktree runtime even though the seeded Playwright path stayed clean.
+  - Root cause from the live trace:
+    - `ProjectChatBottomDock` auto-creates an initial managed chat window whenever `projectChatWindowing.order.length === 0`
+    - the first version of the shared workspace-chrome reset helper cleared the windowing state to empty, which let the dock recreate a fresh visible bottom-docked chat surface in the live browser session
+  - Added a small shared workspace-chrome action:
+    - `frontend/src/state/actions/workspaceChrome.ts`
+  - The helper now:
+    - resets the overview pane/UI-editor layout through the existing local-storage action
+    - replaces project chat windowing with a single closed hidden dock record instead of an empty state so the dock has no visible window but also does not auto-create a new one
+  - Added focused unit coverage:
+    - `frontend/src/state/actions/workspaceChrome.test.ts`
+  - Updated the Playwright-side parity normalization helper and the seeded `All Settings` fit-view guard to use the shared workspace-chrome reset path:
+    - `frontend/tests/e2e/helpers.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Kept the slice intentionally narrow:
+    - no Pixi renderer code changed
+    - no benchmark/perf thresholds changed
+    - this was only a live parity-workflow normalization fix for the project-chat runtime owner
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/workspaceChrome.test.ts`
+    - result: passed (`1 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/state/actions/workspaceChrome.ts src/state/actions/workspaceChrome.test.ts tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check on the live worktree runtime in a fresh sub-agent context:
+    - invoked `resetProjectWorkspaceChromeToDefaultLayout()` plus `clearCurrentProjectViewportForRefit()` on `http://127.0.0.1:3044/settings`
+    - observed `overviewTrueWidth: 335`, `uiEditorTrueWidth: 40`, `projectChatWindowing.order.length: 1`, and the sentinel window stayed `isClosed: true`
+    - no visible project chat floating window, docked panel, maximized window, or minimized pill remained; `All Settings` stayed visible and the surface showed no obvious blanking/clipping regression
+    - the older live refit blocker still remains: `zoom out` stayed enabled even with `projectConfig.viewport: null` and `projectConfig.viewportInitialized: false`
+- Next action:
+  - Investigate why the live worktree `/settings` session still fails to land at the fit-view zoom floor after `clearCurrentProjectViewportForRefit()` even when project chat chrome is now hidden; compare the live `useReactFlow`/fit-view init state against the seeded Playwright session instead of reopening project-chat or overview reset work.

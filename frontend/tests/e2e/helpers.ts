@@ -324,6 +324,25 @@ export async function clearProjectChatWindows(page: Page): Promise<void> {
   });
 }
 
+export async function resetProjectWorkspaceChromeToDefaultLayout(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { resetProjectWorkspaceChromeToDefaultLayout } = await import(
+      "/src/state/actions/workspaceChrome.ts"
+    );
+    resetProjectWorkspaceChromeToDefaultLayout();
+  });
+  await page.waitForFunction(() => {
+    return [
+      '[data-testid="project-chat-floating-window"]',
+      '[data-testid="project-chat-bottom-dock-window-panel"]',
+      '[data-testid="project-chat-maximized-window"]',
+      '[data-testid="project-chat-window-title"]',
+    ].every((selector) => document.querySelector(selector) === null);
+  });
+}
+
 export async function clearCurrentProjectViewportForRefit(
   page: Page,
 ): Promise<void> {
