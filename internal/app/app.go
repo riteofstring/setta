@@ -136,307 +136,368 @@ func resolveSettaServerURL(
 	)
 }
 
-func New(cfg config.Config, logger *slog.Logger) (*App, error) {
-	if logger == nil {
-		logger = observability.NewLogger(cfg.Server.LogLevel, os.Stderr)
-	}
+type launchServices struct {
+	trustedOrigins        *frontendorigins.Service
+	launchIntentService   *workspacelaunch.IntentService
+	localLaunchService    *workspacelaunch.LocalLaunchService
+	localSessionLauncher  *launcher.LocalIDESessionLauncher
+	sshRuntime            *sshx.Service
+	launcherHome          *launcher.HomeService
+	launcherManagement    *launcher.ManagementService
+	launcherOpenWorkspace *launcher.OpenWorkspaceService
+}
 
-	modePolicy := modes.NewPolicy(cfg.Server.Mode)
-	manager := runtime.New(context.Background(), logger)
-	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
-	authService, err := auth.NewService(auth.Options{
-		Mode:              cfg.Server.Mode,
-		RuntimeRoot:       cfg.Paths.RuntimeRoot,
-		ProfileCookieName: cfg.Paths.AuthCookieName,
-		EnvLookup:         os.LookupEnv,
-	})
-	if err != nil {
-		return nil, err
-	}
-	var mcpServer *mcpx.Server
-	var mcpClient *mcpx.Client
-	if modePolicy.IsIDE() {
-		mcpClient, err = newInternalMCPClient(cfg, logger, authService)
+func launcherSessionAuthExpiryResolver(
+	authService *auth.Service,
+) func(now time.Time) (int64, error) {
+	return func(now time.Time) (int64, error) {
+		_, payload, err := authService.MintAuthCookie(now)
 		if err != nil {
-			return nil, err
+			return 0, err
 		}
+		return payload.Exp, nil
 	}
+}
 
-	var (
-		projectStates          *projectstate.Registry
-		deploymentRuntime      *deployments.Runtime
-		projectRuntime         *projectstate.Runtime
-		settingsStateRuntime   *settingsstate.Runtime
-		codegenValidator       projectstate.CodegenTargetValidator
-		lspDiagnostics         *projectstate.LSPDiagnosticsRegistry
-		lspRouter              *lsp.Router
-		projectLSPSyncer       *lsp.ProjectSynchronizer
-		lspCompletion          *lspcompletion.Service
-		lspSignature           *lspsignature.Service
-		pythonMaterializer     *codegen.PythonMaterializer
-		pluginMaterializer     *codegen.PluginMaterializer
-		watchCodeService       *watchcode.Service
-		jsonSourceWatchService *jsonsourcewatch.Service
-		artifactWatchService   *artifactwatch.Service
-		boundCodeService       *boundcode.Service
-		externalAgentChats     *externalagents.Service
-		externalAgentFollow    *externalagents.FollowService
-		externalAgentRuntime   *externalagents.Runtime
-		externalAgentSend      *externalagents.SendService
-		externalAgentExecutor  externalagents.Executor
-		attachmentService      *chatattachments.Service
-		backendLogService      *backendlogs.Service
-		watchCodeWarnings      *watchCodeWarningTracker
-		codeUpdates            *codeUpdateService
-		renameRefactors        *renameRefactorService
-		plannerFilesRoot       string
-		artifactsRoot          string
-		deploymentCatalog      *deployments.Catalog
-		sharePublisher         *deployments.SharePublisher
-		appPublisher           *deployments.AppPublisher
-		shareSessions          modes.ShareSessionStore
-		trustedOrigins         *frontendorigins.Service
-		launcherHome           *launcher.HomeService
-		launcherManagement     *launcher.ManagementService
-		launcherOpenWorkspace  *launcher.OpenWorkspaceService
-		launchIntentService    *workspacelaunch.IntentService
-		localLaunchService     *workspacelaunch.LocalLaunchService
-		localSessionLauncher   *launcher.LocalIDESessionLauncher
-		sshRuntime             *sshx.Service
-		llmRuntime             *llmconfig.Runtime
-		llmService             *llmconfig.Service
-		engineStore            *agentruns.EngineStore
-		agentRunStore          *agentruns.RunStore
-		agentRunRuntime        *agentruns.Runtime
-		managedLiveRuntime     *managedchat.LiveRuntime
-		managedChatService     *managedchat.Service
-		stateMachineRuntime    *statemachineruns.Runtime
-		scriptableChatService  *scriptablechat.Service
-		chatSectionChatIDs     *chatsections.Service
-		gitReadService         *gitread.Service
-		fileBrowserService     *filebrowser.Service
-		artifactService        *artifacts.Service
-		shareArtifactService   *shareartifacts.Service
-		projectShellService    *projectshell.Service
-		notificationStore      *notifications.Store
-		notificationService    *notifications.Service
-		appGenSkillService     *appgenskills.Service
-		pathRevealService      *pathreveal.Service
-		runChainRuntime        *runchains.Runtime
-		detachedRunManager     *detachedruns.Manager
-		externalConfigStore    *externalagentconfigs.Store
-		externalConfigService  *externalagentconfigs.Service
-		externalPreflight      externalagentconfigs.Checker
-		transcriptionStore     *transcriptionprofiles.Store
-		transcriptionProfiles  *transcriptionprofiles.Service
-		transcriptionSessions  *transcriptionsessions.Service
-		agenticSummaryStatus   *agenticsummarycache.Service
-		promptTemplateStore    *prompttemplates.Store
-		promptTemplateWatcher  *prompttemplates.Watcher
-		pluginStore            *plugins.Store
-		pluginDiscovery        *plugins.DiscoveryService
-		pluginMutationService  *plugins.Service
-		pluginRuntimeRefresh   *pluginBackendRuntimeRefresher
-		pluginRouteService     httpapi.PluginRouteService
-		pythonPackages         *pythonenv.Runtime
-		mcpToolRegistry        *tools.Registry
-	)
-	currentSession := authServiceCurrentSessionOrNil(authService)
-	settaServerURL := resolveSettaServerURL(cfg, currentSession)
-	mcpToolRegistry = tools.NewRegistry()
-	backendLogService, err = backendlogs.NewService(backendlogs.ServiceOptions{
-		Logger:       logger,
-		WebsocketHub: websocketHub,
-		EnvLookup:    os.LookupEnv,
+func initializeSessionLaunchServices(
+	cfg config.Config,
+	authService *auth.Service,
+	services *launchServices,
+) error {
+	trustedOrigins, err := frontendorigins.NewService(frontendorigins.Options{
+		RuntimeRoot: cfg.Paths.RuntimeRoot,
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
+	services.trustedOrigins = trustedOrigins
+
+	launchIntentService, err := workspacelaunch.NewIntentService(workspacelaunch.IntentServiceOptions{
+		RuntimeRoot:    cfg.Paths.RuntimeRoot,
+		TrustedOrigins: trustedOrigins,
+	})
+	if err != nil {
+		return err
+	}
+	services.launchIntentService = launchIntentService
+
+	executablePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	localSessionLauncher, err := launcher.NewLocalIDESessionLauncher(launcher.LocalIDESessionLauncherOptions{
+		ExecutablePath: executablePath,
+	})
+	if err != nil {
+		return err
+	}
+	services.localSessionLauncher = localSessionLauncher
+
+	sshRuntime, err := sshx.NewService(sshx.ServiceOptions{
+		RuntimeRoot: cfg.Paths.RuntimeRoot,
+	})
+	if err != nil {
+		return err
+	}
+	services.sshRuntime = sshRuntime
+
+	localLaunchService, err := workspacelaunch.NewLocalLaunchService(workspacelaunch.LocalLaunchServiceOptions{
+		DefaultSettaHome:         cfg.Paths.SettaHome,
+		DefaultProfileLookupHome: cfg.Paths.ProfileLookupHome,
+		Intents:                  launchIntentService,
+		TrustedOrigins:           trustedOrigins,
+		Sessions:                 localSessionLauncher,
+		SSH:                      sshRuntime,
+		ResolveLauncherSessionAuthExpiry: launcherSessionAuthExpiryResolver(
+			authService,
+		),
+	})
+	if err != nil {
+		return err
+	}
+	services.localLaunchService = localLaunchService
+	return nil
+}
+
+func initializeIDELaunchManagementService(services *launchServices) error {
+	executablePath, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	launcherManagement, err := launcher.NewManagementService(launcher.ManagementServiceOptions{
+		ExecutablePath: executablePath,
+	})
+	if err != nil {
+		return err
+	}
+	services.launcherManagement = launcherManagement
+	return nil
+}
+
+func initializeLauncherOpenWorkspaceService(
+	cfg config.Config,
+	authService *auth.Service,
+	services *launchServices,
+) error {
+	launcherOpenWorkspace, err := launcher.NewOpenWorkspaceService(launcher.OpenWorkspaceServiceOptions{
+		DefaultSettaHome: cfg.Paths.SettaHome,
+		Home:             services.launcherHome,
+		Sessions:         services.localSessionLauncher,
+		TrustedOrigins:   services.trustedOrigins,
+		ResolveLauncherSessionAuthExpiry: launcherSessionAuthExpiryResolver(
+			authService,
+		),
+	})
+	if err != nil {
+		return err
+	}
+	services.launcherOpenWorkspace = launcherOpenWorkspace
+	return nil
+}
+
+func initializeLaunchServices(
+	cfg config.Config,
+	authService *auth.Service,
+	modePolicy modes.Policy,
+) (launchServices, error) {
+	services := launchServices{
+		launcherHome: launcher.NewHomeService(launcher.HomeServiceOptions{
+			EnvLookup: os.LookupEnv,
+		}),
+	}
+
 	if authService.SupportsSessionAuth() {
-		trustedOrigins, err = frontendorigins.NewService(frontendorigins.Options{
-			RuntimeRoot: cfg.Paths.RuntimeRoot,
-		})
-		if err != nil {
-			return nil, err
-		}
-		launchIntentService, err = workspacelaunch.NewIntentService(workspacelaunch.IntentServiceOptions{
-			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			TrustedOrigins: trustedOrigins,
-		})
-		if err != nil {
-			return nil, err
-		}
-		executablePath, err := os.Executable()
-		if err != nil {
-			return nil, err
-		}
-		localSessionLauncher, err = launcher.NewLocalIDESessionLauncher(launcher.LocalIDESessionLauncherOptions{
-			ExecutablePath: executablePath,
-		})
-		if err != nil {
-			return nil, err
-		}
-		sshRuntime, err = sshx.NewService(sshx.ServiceOptions{
-			RuntimeRoot: cfg.Paths.RuntimeRoot,
-		})
-		if err != nil {
-			return nil, err
-		}
-		localLaunchService, err = workspacelaunch.NewLocalLaunchService(workspacelaunch.LocalLaunchServiceOptions{
-			DefaultSettaHome:         cfg.Paths.SettaHome,
-			DefaultProfileLookupHome: cfg.Paths.ProfileLookupHome,
-			Intents:                  launchIntentService,
-			TrustedOrigins:           trustedOrigins,
-			Sessions:                 localSessionLauncher,
-			SSH:                      sshRuntime,
-			ResolveLauncherSessionAuthExpiry: func(now time.Time) (int64, error) {
-				_, payload, err := authService.MintAuthCookie(now)
-				if err != nil {
-					return 0, err
-				}
-				return payload.Exp, nil
-			},
-		})
-		if err != nil {
-			return nil, err
+		if err := initializeSessionLaunchServices(cfg, authService, &services); err != nil {
+			return launchServices{}, err
 		}
 	}
-	launcherHome = launcher.NewHomeService(launcher.HomeServiceOptions{
-		EnvLookup: os.LookupEnv,
-	})
+
 	if modePolicy.IsIDE() {
-		executablePath, err := os.Executable()
-		if err != nil {
-			return nil, err
-		}
-		launcherManagement, err = launcher.NewManagementService(launcher.ManagementServiceOptions{
-			ExecutablePath: executablePath,
-		})
-		if err != nil {
-			return nil, err
+		if err := initializeIDELaunchManagementService(&services); err != nil {
+			return launchServices{}, err
 		}
 	}
+
 	if modePolicy.IsLauncher() {
-		launcherOpenWorkspace, err = launcher.NewOpenWorkspaceService(launcher.OpenWorkspaceServiceOptions{
-			DefaultSettaHome: cfg.Paths.SettaHome,
-			Home:             launcherHome,
-			Sessions:         localSessionLauncher,
-			TrustedOrigins:   trustedOrigins,
-			ResolveLauncherSessionAuthExpiry: func(now time.Time) (int64, error) {
-				_, payload, err := authService.MintAuthCookie(now)
-				if err != nil {
-					return 0, err
-				}
-				return payload.Exp, nil
-			},
-		})
-		if err != nil {
-			return nil, err
+		if err := initializeLauncherOpenWorkspaceService(cfg, authService, &services); err != nil {
+			return launchServices{}, err
 		}
 	}
+
+	return services, nil
+}
+
+type projectServices struct {
+	projectStates         *projectstate.Registry
+	deploymentRuntime     *deployments.Runtime
+	projectRuntime        *projectstate.Runtime
+	settingsStateRuntime  *settingsstate.Runtime
+	codegenValidator      projectstate.CodegenTargetValidator
+	lspDiagnostics        *projectstate.LSPDiagnosticsRegistry
+	lspRouter             *lsp.Router
+	projectLSPSyncer      *lsp.ProjectSynchronizer
+	lspCompletion         *lspcompletion.Service
+	lspSignature          *lspsignature.Service
+	pythonMaterializer    *codegen.PythonMaterializer
+	pluginMaterializer    *codegen.PluginMaterializer
+	watchCodeService      *watchcode.Service
+	boundCodeService      *boundcode.Service
+	watchCodeWarnings     *watchCodeWarningTracker
+	codeUpdates           *codeUpdateService
+	renameRefactors       *renameRefactorService
+	plannerFilesRoot      string
+	artifactsRoot         string
+	shareSessions         modes.ShareSessionStore
+	pluginDiscovery       *plugins.DiscoveryService
+	pluginMutationService *plugins.Service
+	pluginRouteService    httpapi.PluginRouteService
+	pythonPackages        *pythonenv.Runtime
+}
+
+type projectWatchRefs struct {
+	jsonSourceWatchService *jsonsourcewatch.Service
+	artifactWatchService   *artifactwatch.Service
+}
+
+func closeInitializedProjectServices(services projectServices) error {
+	return closeProjectStateServices(
+		services.projectStates,
+		services.deploymentRuntime,
+		services.projectLSPSyncer,
+		services.watchCodeService,
+		services.boundCodeService,
+		context.Background(),
+	)
+}
+
+func initializeProjectServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	websocketHub *realtime.WebsocketHub,
+	watchRefs *projectWatchRefs,
+) (projectServices, error) {
 	if modePolicy.IsDeployment() {
-		listenerPython, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
-		if err != nil {
-			listenerPython = ""
+		return initializeDeploymentProjectServices(cfg)
+	}
+
+	services := projectServices{}
+	if err := initializeWorkspacePluginServices(cfg, logger, &services); err != nil {
+		return projectServices{}, err
+	}
+	if err := initializeWorkspaceLSPServices(cfg, logger, websocketHub, &services); err != nil {
+		return projectServices{}, err
+	}
+	if err := openWorkspaceProjectServices(cfg, logger, websocketHub, watchRefs, &services); err != nil {
+		return projectServices{}, err
+	}
+	if modePolicy.IsIDE() {
+		if err := initializeIDEProjectEditingServices(cfg, logger, websocketHub, &services); err != nil {
+			return projectServices{}, err
 		}
-		deploymentRuntime, err = deployments.Open(context.Background(), deployments.RuntimeOptions{
+	}
+	return services, nil
+}
+
+func initializeDeploymentProjectServices(cfg config.Config) (projectServices, error) {
+	services := projectServices{}
+	listenerPython, err := pythonenv.ResolveCurrentProcessInterpreter(os.LookupEnv)
+	if err != nil {
+		listenerPython = ""
+	}
+	services.deploymentRuntime, err = deployments.Open(
+		context.Background(),
+		deployments.RuntimeOptions{
 			DeploymentRoot: cfg.Paths.DeploymentRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
 			ListenerHost:   cfg.Server.Host,
 			ListenerPort:   cfg.Server.Port,
 			ListenerPython: listenerPython,
-		})
-		if err != nil {
-			return nil, err
-		}
-		projectRuntime = deploymentRuntime.Base()
-		plannerFilesRoot = deploymentRuntime.Paths().DeploymentRoot
-		artifactsRoot = deploymentRuntime.Paths().ArtifactsRoot
-		shareSessions = deploymentRuntime
-		pluginStore, err = plugins.NewStore(plugins.StoreOptions{
-			WorkspaceRoot:  deploymentRuntime.Paths().DeploymentRoot,
-			SettaFilesRoot: deploymentRuntime.Paths().DeploymentRoot,
-			SettaHome:      deploymentRuntime.Paths().RuntimeRoot,
-		})
-		if err != nil {
-			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-			return nil, err
-		}
-		pluginDiscovery, err = plugins.NewDiscoveryService(plugins.DiscoveryServiceOptions{
+		},
+	)
+	if err != nil {
+		return projectServices{}, err
+	}
+	services.projectRuntime = services.deploymentRuntime.Base()
+	services.plannerFilesRoot = services.deploymentRuntime.Paths().DeploymentRoot
+	services.artifactsRoot = services.deploymentRuntime.Paths().ArtifactsRoot
+	services.shareSessions = services.deploymentRuntime
+
+	pluginStore, err := plugins.NewStore(plugins.StoreOptions{
+		WorkspaceRoot:  services.deploymentRuntime.Paths().DeploymentRoot,
+		SettaFilesRoot: services.deploymentRuntime.Paths().DeploymentRoot,
+		SettaHome:      services.deploymentRuntime.Paths().RuntimeRoot,
+	})
+	if err != nil {
+		_ = closeInitializedProjectServices(services)
+		return projectServices{}, err
+	}
+	services.pluginDiscovery, err = plugins.NewDiscoveryService(
+		plugins.DiscoveryServiceOptions{
 			Store:      pluginStore,
 			ServerMode: cfg.Server.Mode,
-		})
-		if err != nil {
-			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-			return nil, err
-		}
-		pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-			Store:            pluginStore,
-			DiscoveryService: pluginDiscovery,
-			WorkspaceRoot:    deploymentRuntime.Paths().DeploymentRoot,
-			SettaFilesRoot:   deploymentRuntime.Paths().DeploymentRoot,
-			SettaHome:        deploymentRuntime.Paths().RuntimeRoot,
-			ServerMode:       cfg.Server.Mode,
-		})
-		if err != nil {
-			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-			return nil, err
-		}
-		pluginRouteService = pluginMutationService
-	} else {
-		pythonMaterializer, err = codegen.NewPythonMaterializer(codegen.PythonMaterializerOptions{
+		},
+	)
+	if err != nil {
+		_ = closeInitializedProjectServices(services)
+		return projectServices{}, err
+	}
+	services.pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
+		Store:            pluginStore,
+		DiscoveryService: services.pluginDiscovery,
+		WorkspaceRoot:    services.deploymentRuntime.Paths().DeploymentRoot,
+		SettaFilesRoot:   services.deploymentRuntime.Paths().DeploymentRoot,
+		SettaHome:        services.deploymentRuntime.Paths().RuntimeRoot,
+		ServerMode:       cfg.Server.Mode,
+	})
+	if err != nil {
+		_ = closeInitializedProjectServices(services)
+		return projectServices{}, err
+	}
+	services.pluginRouteService = services.pluginMutationService
+	return services, nil
+}
+
+func initializeWorkspacePluginServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	services *projectServices,
+) error {
+	pythonMaterializer, err := codegen.NewPythonMaterializer(
+		codegen.PythonMaterializerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-		})
-		if err != nil {
-			return nil, err
-		}
-		pythonPackages, err = pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
-		if err != nil {
-			logger.Warn("python package inspection runtime unavailable", "error", err)
-		}
-		pluginStore, err = plugins.NewStore(plugins.StoreOptions{
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			SettaHome:      cfg.Paths.SettaHome,
-		})
-		if err != nil {
-			return nil, err
-		}
-		pluginDiscovery, err = plugins.NewDiscoveryService(plugins.DiscoveryServiceOptions{
+		},
+	)
+	if err != nil {
+		return err
+	}
+	services.pythonMaterializer = pythonMaterializer
+
+	pythonPackages, err := pythonenv.NewRuntime(pythonenv.RuntimeOptions{})
+	if err != nil {
+		logger.Warn("python package inspection runtime unavailable", "error", err)
+	}
+	services.pythonPackages = pythonPackages
+
+	pluginStore, err := plugins.NewStore(plugins.StoreOptions{
+		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		SettaHome:      cfg.Paths.SettaHome,
+	})
+	if err != nil {
+		return err
+	}
+	services.pluginDiscovery, err = plugins.NewDiscoveryService(
+		plugins.DiscoveryServiceOptions{
 			Store:                 pluginStore,
 			ServerMode:            cfg.Server.Mode,
-			PackageManagerRuntime: pythonPackages,
-		})
-		if err != nil {
-			return nil, err
-		}
-		pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
-			Store:            pluginStore,
-			DiscoveryService: pluginDiscovery,
-			WorkspaceRoot:    cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot:   cfg.Paths.SettaFilesRoot,
-			SettaHome:        cfg.Paths.SettaHome,
-			ServerMode:       cfg.Server.Mode,
-			CandidateProvider: plugins.NewProductionCandidateProvider(plugins.ProductionCandidateProviderOptions{
-				PackageManagerRuntime: pythonPackages,
+			PackageManagerRuntime: services.pythonPackages,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	services.pluginMutationService, err = plugins.NewService(plugins.ServiceOptions{
+		Store:            pluginStore,
+		DiscoveryService: services.pluginDiscovery,
+		WorkspaceRoot:    cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot:   cfg.Paths.SettaFilesRoot,
+		SettaHome:        cfg.Paths.SettaHome,
+		ServerMode:       cfg.Server.Mode,
+		CandidateProvider: plugins.NewProductionCandidateProvider(
+			plugins.ProductionCandidateProviderOptions{
+				PackageManagerRuntime: services.pythonPackages,
 				SettaFilesRoot:        cfg.Paths.SettaFilesRoot,
-			}),
-			PackageManagerRuntime: pythonPackages,
-		})
-		if err != nil {
-			return nil, err
-		}
-		pluginMaterializer, err = codegen.NewPluginMaterializer(codegen.PluginMaterializerOptions{
+			},
+		),
+		PackageManagerRuntime: services.pythonPackages,
+	})
+	if err != nil {
+		return err
+	}
+	services.pluginMaterializer, err = codegen.NewPluginMaterializer(
+		codegen.PluginMaterializerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			Generator:      pluginMutationService,
-		})
-		if err != nil {
-			return nil, err
-		}
-		codegenValidator = pluginMutationService
-		pluginRouteService = pluginMutationService
-		lspDiagnostics = projectstate.NewLSPDiagnosticsRegistry(projectstate.LSPDiagnosticsRegistryOptions{
+			Generator:      services.pluginMutationService,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	services.codegenValidator = services.pluginMutationService
+	services.pluginRouteService = services.pluginMutationService
+	return nil
+}
+
+func initializeWorkspaceLSPServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	websocketHub *realtime.WebsocketHub,
+	services *projectServices,
+) error {
+	services.lspDiagnostics = projectstate.NewLSPDiagnosticsRegistry(
+		projectstate.LSPDiagnosticsRegistryOptions{
 			Logger: logger,
 			OnChange: func(payload projectstate.LSPDiagnosticsPayload) {
 				logger.Debug(
@@ -453,85 +514,80 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					realtime.Selection{Type: realtime.ConnectionTypeFrontend},
 				)
 			},
-		})
-		lspRouter, err = lsp.NewRouter(lsp.RouterOptions{
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			LookupEnv:     os.LookupEnv,
-			Environ:       os.Environ,
-			Settings: func() map[string]any {
-				var document map[string]any
-				if settingsStateRuntime != nil {
-					cloned := settingsStateRuntime.Snapshot().Document.Clone()
-					document = map[string]any(cloned)
-				}
-				return lsp.CurrentProcessPythonSettings(document, []string{cfg.Paths.SettaFilesRoot})
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-		projectLSPSyncer, err = lsp.NewProjectSynchronizer(lsp.ProjectSynchronizerOptions{
+		},
+	)
+	lspRouter, err := lsp.NewRouter(lsp.RouterOptions{
+		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		LookupEnv:     os.LookupEnv,
+		Environ:       os.Environ,
+		Settings: func() map[string]any {
+			var document map[string]any
+			if services.settingsStateRuntime != nil {
+				cloned := services.settingsStateRuntime.Snapshot().Document.Clone()
+				document = map[string]any(cloned)
+			}
+			return lsp.CurrentProcessPythonSettings(document, []string{cfg.Paths.SettaFilesRoot})
+		},
+	})
+	if err != nil {
+		return err
+	}
+	services.lspRouter = lspRouter
+	services.projectLSPSyncer, err = lsp.NewProjectSynchronizer(
+		lsp.ProjectSynchronizerOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			Service:        lspRouter,
-			Diagnostics:    lspDiagnostics,
+			Service:        services.lspRouter,
+			Diagnostics:    services.lspDiagnostics,
 			Logger:         logger,
-		})
-		if err != nil {
-			return nil, err
-		}
-		lspCompletion, err = lspcompletion.NewService(lspcompletion.ServiceOptions{
+		},
+	)
+	if err != nil {
+		return err
+	}
+	services.lspCompletion, err = lspcompletion.NewService(
+		lspcompletion.ServiceOptions{
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			LSPService:     lspRouter,
-		})
-		if err != nil {
-			return nil, err
-		}
-		lspSignature, err = lspsignature.NewService(lspsignature.ServiceOptions{
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			RuntimeRoot:    cfg.Paths.RuntimeRoot,
-			LSPService:     lspRouter,
-		})
-		if err != nil {
-			return nil, err
-		}
-		passwordSecrets, err := projectstate.NewFilePasswordSecretStore(cfg.Paths.RuntimeRoot)
-		if err != nil {
-			return nil, err
-		}
-		projectStates, err = projectstate.OpenRegistryWithOptions(context.Background(), cfg.Paths.SettaFilesRoot, projectstate.StoreOptions{}, projectstate.RegistryOptions{
+			LSPService:     services.lspRouter,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	services.lspSignature, err = lspsignature.NewService(lspsignature.ServiceOptions{
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		RuntimeRoot:    cfg.Paths.RuntimeRoot,
+		LSPService:     services.lspRouter,
+	})
+	return err
+}
+
+func openWorkspaceProjectServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	websocketHub *realtime.WebsocketHub,
+	watchRefs *projectWatchRefs,
+	services *projectServices,
+) error {
+	passwordSecrets, err := projectstate.NewFilePasswordSecretStore(cfg.Paths.RuntimeRoot)
+	if err != nil {
+		return err
+	}
+	services.projectStates, err = projectstate.OpenRegistryWithOptions(
+		context.Background(),
+		cfg.Paths.SettaFilesRoot,
+		projectstate.StoreOptions{},
+		projectstate.RegistryOptions{
 			MainRuntime: projectstate.RuntimeOptions{
 				PasswordSecrets:                passwordSecrets,
-				PythonCodegenSectionReconciler: pythonMaterializer,
+				PythonCodegenSectionReconciler: services.pythonMaterializer,
 				WatchCodeIgnoredRoots: []string{
 					cfg.Paths.SettaFilesRoot,
 					cfg.Paths.RuntimeRoot,
 				},
 				BeforeSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
-					if err := projectstate.SaveJSONSourceFiles(snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
-						return err
-					}
-					settingsDocument := settingsstate.Document(nil)
-					if settingsStateRuntime != nil {
-						settingsDocument = settingsStateRuntime.Snapshot().Document
-					}
-					autoBackupPolicy, err := settingsstate.AutoBackupPolicyForDocument(settingsDocument)
-					if err != nil {
-						return err
-					}
-					if _, _, err := projectbackup.MaybeCreateBackup(
-						projectbackup.ProjectPath(cfg.Paths.SettaFilesRoot),
-						projectbackup.BackupDir(cfg.Paths.SettaFilesRoot),
-						projectbackup.AutoBackupOptions{
-							Enabled:          autoBackupPolicy.Enabled,
-							FrequencySeconds: autoBackupPolicy.FrequencySeconds,
-							KeepLastN:        autoBackupPolicy.KeepLastN,
-						},
-					); err != nil {
-						return err
-					}
-					return nil
+					return handleProjectMainRuntimeBeforeSave(cfg, services, snapshot)
 				},
 				PersistedTransform: func(document projectstate.Document) (projectstate.Document, error) {
 					if err := document.ClearJSONSourceValuesForPersistence(); err != nil {
@@ -540,839 +596,1779 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 					return document, nil
 				},
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
-					if watchCodeService != nil {
-						if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
-							return err
-						}
-					}
-					if err := syncJSONSourceWatchInputs(jsonSourceWatchService, snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
-						return err
-					}
-					if err := syncArtifactWatchInputs(artifactWatchService, snapshot.Document, cfg.Paths.SettaFilesRoot); err != nil {
-						return err
-					}
-					if watchCodeWarnings != nil {
-						watchCodeWarnings.ReconcileDocument(snapshot.Document)
-					}
-					if boundCodeService != nil {
-						inputs, err := projectstate.PythonBoundCodeFileInputs(snapshot.Document, cfg.Paths.WorkspaceRoot)
-						if err != nil {
-							return err
-						}
-						if err := boundCodeService.SyncInputs(boundCodeServiceInputs(inputs)); err != nil {
-							return err
-						}
-					}
-					if err := pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
-						return err
-					}
-					if pluginMaterializer != nil {
-						if err := pluginMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
-							return err
-						}
-					}
-					if err := projectLSPSyncer.MaterializeDocument(ctx, snapshot.Document); err != nil {
-						logger.Warn("project lsp sync failed after save", "error", err)
-					}
-					if err := lspDiagnostics.PruneDocument(snapshot.Document); err != nil {
-						return err
-					}
-					validationErrors, err := projectstate.CollectAllNameValidationErrors(snapshot.Document)
-					if err != nil {
-						return err
-					}
-					for _, validationError := range validationErrors {
-						if _, err := websocketHub.BroadcastJSON(
-							ctx,
-							realtime.NewNameValidationErrorsMessage(validationError),
-							realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-						); err != nil {
-							return err
-						}
-					}
-					return nil
+					return handleProjectMainRuntimeAfterSave(cfg, logger, websocketHub, watchRefs, services, ctx, snapshot)
 				},
 			},
 			SettingsRuntime: projectstate.RuntimeOptions{
 				PasswordSecrets: passwordSecrets,
 				AfterSave: func(ctx context.Context, snapshot projectstate.Snapshot) error {
-					if settingsStateRuntime == nil {
-						return errors.New("settings state runtime is not configured")
-					}
+					return handleProjectSettingsRuntimeAfterSave(services, websocketHub, ctx, snapshot)
+				},
+			},
+		},
+	)
+	if err != nil {
+		return err
+	}
+	services.projectRuntime = services.projectStates.Main()
+	if _, err := services.projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
+		if err := document.LoadAllJSONSourceVariantsFromDisk(cfg.Paths.WorkspaceRoot); err != nil {
+			return document, err
+		}
+		return document, nil
+	}); err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	settingsStateStore, err := settingsstate.NewStore(
+		filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
+		settingsstate.StoreOptions{
+			SettingsProjectPath: services.projectStates.Paths().Settings,
+		},
+	)
+	if err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	services.settingsStateRuntime, err = settingsstate.OpenRuntime(context.Background(), settingsStateStore)
+	if err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	if err := settingsstate.EnsureProjectRuntimeBootstrapped(
+		context.Background(),
+		services.settingsStateRuntime,
+		services.projectStates.Settings(),
+	); err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	services.plannerFilesRoot = cfg.Paths.SettaFilesRoot
+	services.artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
+	configureWorkspaceProjectAutoRefetchHandlers(logger, websocketHub, services)
+	services.shareSessions = services.deploymentRuntime
+	return nil
+}
 
-					currentSettings := settingsStateRuntime.Snapshot().Document
-					nextSettings, err := settingsstate.ApplySettingsProjectDocument(currentSettings, snapshot.Document)
-					if err != nil {
-						return err
-					}
-					if reflect.DeepEqual(currentSettings, nextSettings) {
-						return nil
-					}
+func handleProjectMainRuntimeBeforeSave(
+	cfg config.Config,
+	services *projectServices,
+	snapshot projectstate.Snapshot,
+) error {
+	if err := projectstate.SaveJSONSourceFiles(snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
+		return err
+	}
+	settingsDocument := settingsstate.Document(nil)
+	if services.settingsStateRuntime != nil {
+		settingsDocument = services.settingsStateRuntime.Snapshot().Document
+	}
+	autoBackupPolicy, err := settingsstate.AutoBackupPolicyForDocument(settingsDocument)
+	if err != nil {
+		return err
+	}
+	_, _, err = projectbackup.MaybeCreateBackup(
+		projectbackup.ProjectPath(cfg.Paths.SettaFilesRoot),
+		projectbackup.BackupDir(cfg.Paths.SettaFilesRoot),
+		projectbackup.AutoBackupOptions{
+			Enabled:          autoBackupPolicy.Enabled,
+			FrequencySeconds: autoBackupPolicy.FrequencySeconds,
+			KeepLastN:        autoBackupPolicy.KeepLastN,
+		},
+	)
+	return err
+}
 
-					settingsSnapshot, err := settingsStateRuntime.ReplaceAndSave(ctx, nextSettings)
-					if err != nil {
-						return err
-					}
-					if _, err := websocketHub.BroadcastJSON(
-						ctx,
-						realtime.NewSettingsUpdateMessage(settingsSnapshot.Document),
-						realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-					); err != nil {
-						return err
-					}
-					return nil
-				},
-			},
-		})
-		if err != nil {
-			return nil, err
-		}
-		projectRuntime = projectStates.Main()
-		if _, err := projectRuntime.Mutate(func(document projectstate.Document) (projectstate.Document, error) {
-			if err := document.LoadAllJSONSourceVariantsFromDisk(cfg.Paths.WorkspaceRoot); err != nil {
-				return document, err
-			}
-			return document, nil
-		}); err != nil {
-			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-			return nil, err
-		}
-		settingsStateStore, err := settingsstate.NewStore(
-			filepath.Join(cfg.Paths.SettaFilesRoot, settingsstate.DefaultFileName),
-			settingsstate.StoreOptions{
-				SettingsProjectPath: projectStates.Paths().Settings,
-			},
-		)
-		if err != nil {
-			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-			return nil, err
-		}
-		settingsStateRuntime, err = settingsstate.OpenRuntime(context.Background(), settingsStateStore)
-		if err != nil {
-			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-			return nil, err
-		}
-		if err := settingsstate.EnsureProjectRuntimeBootstrapped(context.Background(), settingsStateRuntime, projectStates.Settings()); err != nil {
-			_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-			return nil, err
-		}
-		plannerFilesRoot = cfg.Paths.SettaFilesRoot
-		artifactsRoot = filepath.Join(cfg.Paths.SettaFilesRoot, "artifacts")
-		projectLSPSyncer.SetCallableAutoRefetchHandlers(
-			func(ctx context.Context, projectID string, sectionIDs []string) {
-				if err := refetchCallableParamsAndBroadcast(
-					ctx,
-					projectStates.Main(),
-					websocketHub,
-					projectID,
-					sectionIDs,
-					lspSignature,
-				); err != nil {
-					logger.Error("lsp callable auto-refetch after symbol resolution failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
-				}
-			},
-			func(ctx context.Context, projectID string, sectionIDs []string) {
-				enabled, err := settingsstate.AutoRefetchCallableParamsOnLSPMismatchEnabled(settingsStateRuntime.Snapshot().Document)
-				if err != nil {
-					logger.Error("lsp callable mismatch refetch policy lookup failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
-					return
-				}
-				if !enabled {
-					return
-				}
-				if err := refetchCallableParamsAndBroadcast(
-					ctx,
-					projectStates.Main(),
-					websocketHub,
-					projectID,
-					sectionIDs,
-					lspSignature,
-				); err != nil {
-					logger.Error("lsp callable auto-refetch after mismatch failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
-				}
-			},
-		)
-		if modePolicy.IsIDE() {
-			watchCodeWarnings = newWatchCodeWarningTracker()
-			watchCodeService, err = watchcode.NewService(watchcode.ServiceOptions{
-				WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-				OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {
-					signatureObserver := newWatchCodeSignatureObserver(lspSignature)
-					snapshot, didUpdate, err := projectStates.Main().ApplyWatchCodeFileUpdate(
-						ctx,
-						update.ConfigID,
-						update.Path,
-						update.Raw,
-						update.BaselineOnly,
-						update.MovedFrom,
-						cfg.Paths.WorkspaceRoot,
-						signatureObserver,
-					)
-					if err != nil {
-						return err
-					}
-					for _, message := range watchCodeWarnings.ConsumeNotifications(snapshot.Document, update.ConfigID, signatureObserver.Attempts()) {
-						if _, err := websocketHub.BroadcastJSON(ctx, message, realtime.Selection{Type: realtime.ConnectionTypeFrontend}); err != nil {
-							return err
-						}
-					}
-					if didUpdate {
-						if err := broadcastFrontendProjectStateUpdate(
-							ctx,
-							projectStates.Main(),
-							websocketHub,
-							snapshot,
-							update.ConfigID,
-						); err != nil {
-							return err
-						}
-					}
-					return nil
-				},
-				OnFileDelete: func(ctx context.Context, request watchcode.DeleteRequest) error {
-					snapshot, didUpdate, err := projectStates.Main().ApplyWatchCodeFileDelete(
-						ctx,
-						request.ConfigID,
-						request.Path,
-						cfg.Paths.WorkspaceRoot,
-					)
-					if err != nil {
-						return err
-					}
-					watchCodeWarnings.ReconcileDocument(snapshot.Document)
-					if didUpdate {
-						if err := broadcastFrontendProjectStateUpdate(
-							ctx,
-							projectStates.Main(),
-							websocketHub,
-							snapshot,
-							request.ConfigID,
-						); err != nil {
-							return err
-						}
-					}
-					return nil
-				},
-				OnError: func(err error) {
-					logger.Error("watch code runtime failed", "error", err)
-				},
-			})
-			if err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-				return nil, err
-			}
-			if err := watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(projectStates.Main().Snapshot().Document)); err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-				return nil, err
-			}
-			codeUpdates, err = newCodeUpdateService(codeUpdateServiceOptions{
-				ProjectState:       projectRuntime,
-				LSPSync:            projectLSPSyncer,
-				CallableSignatures: lspSignature,
-				WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
-				WatchCodeWarnings:  watchCodeWarnings,
-				WebsocketHub:       websocketHub,
-				Logger:             logger,
-			})
-			if err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-				return nil, err
-			}
-			renameRefactors, err = newRenameRefactorService(renameRefactorServiceOptions{
-				ProjectState: projectRuntime,
-				Settings:     settingsStateRuntime,
-				WebsocketHub: websocketHub,
-			})
-			if err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-				return nil, err
-			}
-			boundCodeService, err = boundcode.NewService(boundcode.ServiceOptions{
-				OnFileUpdate: func(ctx context.Context, update boundcode.FileUpdate) error {
-					return codeUpdates.ReloadBoundCodeFile(ctx, update.Raw, update.Bindings)
-				},
-				OnError: func(err error) {
-					logger.Error("bound code file runtime failed", "error", err)
-				},
-			})
-			if err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-				return nil, err
-			}
-			inputs, err := projectstate.PythonBoundCodeFileInputs(projectStates.Main().Snapshot().Document, cfg.Paths.WorkspaceRoot)
-			if err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-				return nil, err
-			}
-			if err := boundCodeService.SyncInputs(boundCodeServiceInputs(inputs)); err != nil {
-				_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-				return nil, err
-			}
+func handleProjectMainRuntimeAfterSave(
+	cfg config.Config,
+	logger *slog.Logger,
+	websocketHub *realtime.WebsocketHub,
+	watchRefs *projectWatchRefs,
+	services *projectServices,
+	ctx context.Context,
+	snapshot projectstate.Snapshot,
+) error {
+	if err := syncProjectAfterSaveInputs(cfg, watchRefs, services, snapshot); err != nil {
+		return err
+	}
+	if err := materializeProjectAfterSave(logger, services, ctx, snapshot); err != nil {
+		return err
+	}
+	return broadcastProjectValidationErrors(websocketHub, ctx, snapshot)
+}
+
+func syncProjectAfterSaveInputs(
+	cfg config.Config,
+	watchRefs *projectWatchRefs,
+	services *projectServices,
+	snapshot projectstate.Snapshot,
+) error {
+	if services.watchCodeService != nil {
+		if err := services.watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(snapshot.Document)); err != nil {
+			return err
 		}
 	}
+	if err := syncJSONSourceWatchInputs(watchRefs.jsonSourceWatchService, snapshot.Document, cfg.Paths.WorkspaceRoot); err != nil {
+		return err
+	}
+	if err := syncArtifactWatchInputs(watchRefs.artifactWatchService, snapshot.Document, cfg.Paths.SettaFilesRoot); err != nil {
+		return err
+	}
+	if services.watchCodeWarnings != nil {
+		services.watchCodeWarnings.ReconcileDocument(snapshot.Document)
+	}
+	if services.boundCodeService != nil {
+		inputs, err := projectstate.PythonBoundCodeFileInputs(snapshot.Document, cfg.Paths.WorkspaceRoot)
+		if err != nil {
+			return err
+		}
+		if err := services.boundCodeService.SyncInputs(boundCodeServiceInputs(inputs)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	terminalService, err := terminals.New(terminals.Options{
-		Logger: logger,
+func materializeProjectAfterSave(
+	logger *slog.Logger,
+	services *projectServices,
+	ctx context.Context,
+	snapshot projectstate.Snapshot,
+) error {
+	if err := services.pythonMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+		return err
+	}
+	if services.pluginMaterializer != nil {
+		if err := services.pluginMaterializer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+			return err
+		}
+	}
+	if err := services.projectLSPSyncer.MaterializeDocument(ctx, snapshot.Document); err != nil {
+		logger.Warn("project lsp sync failed after save", "error", err)
+	}
+	if err := services.lspDiagnostics.PruneDocument(snapshot.Document); err != nil {
+		return err
+	}
+	return nil
+}
+
+func broadcastProjectValidationErrors(
+	websocketHub *realtime.WebsocketHub,
+	ctx context.Context,
+	snapshot projectstate.Snapshot,
+) error {
+	validationErrors, err := projectstate.CollectAllNameValidationErrors(snapshot.Document)
+	if err != nil {
+		return err
+	}
+	for _, validationError := range validationErrors {
+		if _, err := websocketHub.BroadcastJSON(
+			ctx,
+			realtime.NewNameValidationErrorsMessage(validationError),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func handleProjectSettingsRuntimeAfterSave(
+	services *projectServices,
+	websocketHub *realtime.WebsocketHub,
+	ctx context.Context,
+	snapshot projectstate.Snapshot,
+) error {
+	if services.settingsStateRuntime == nil {
+		return errors.New("settings state runtime is not configured")
+	}
+
+	currentSettings := services.settingsStateRuntime.Snapshot().Document
+	nextSettings, err := settingsstate.ApplySettingsProjectDocument(currentSettings, snapshot.Document)
+	if err != nil {
+		return err
+	}
+	if reflect.DeepEqual(currentSettings, nextSettings) {
+		return nil
+	}
+
+	settingsSnapshot, err := services.settingsStateRuntime.ReplaceAndSave(ctx, nextSettings)
+	if err != nil {
+		return err
+	}
+	if _, err := websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewSettingsUpdateMessage(settingsSnapshot.Document),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
+func configureWorkspaceProjectAutoRefetchHandlers(
+	logger *slog.Logger,
+	websocketHub *realtime.WebsocketHub,
+	services *projectServices,
+) {
+	services.projectLSPSyncer.SetCallableAutoRefetchHandlers(
+		func(ctx context.Context, projectID string, sectionIDs []string) {
+			if err := refetchCallableParamsAndBroadcast(
+				ctx,
+				services.projectStates.Main(),
+				websocketHub,
+				projectID,
+				sectionIDs,
+				services.lspSignature,
+			); err != nil {
+				logger.Error("lsp callable auto-refetch after symbol resolution failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
+			}
+		},
+		func(ctx context.Context, projectID string, sectionIDs []string) {
+			enabled, err := settingsstate.AutoRefetchCallableParamsOnLSPMismatchEnabled(services.settingsStateRuntime.Snapshot().Document)
+			if err != nil {
+				logger.Error("lsp callable mismatch refetch policy lookup failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
+				return
+			}
+			if !enabled {
+				return
+			}
+			if err := refetchCallableParamsAndBroadcast(
+				ctx,
+				services.projectStates.Main(),
+				websocketHub,
+				projectID,
+				sectionIDs,
+				services.lspSignature,
+			); err != nil {
+				logger.Error("lsp callable auto-refetch after mismatch failed", "projectConfigId", projectID, "sectionIds", sectionIDs, "error", err)
+			}
+		},
+	)
+}
+
+func initializeIDEProjectEditingServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	websocketHub *realtime.WebsocketHub,
+	services *projectServices,
+) error {
+	services.watchCodeWarnings = newWatchCodeWarningTracker()
+	watchCodeService, err := watchcode.NewService(watchcode.ServiceOptions{
+		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		OnFileUpdate: func(ctx context.Context, update watchcode.FileUpdate) error {
+			signatureObserver := newWatchCodeSignatureObserver(services.lspSignature)
+			snapshot, didUpdate, err := services.projectStates.Main().ApplyWatchCodeFileUpdate(
+				ctx,
+				update.ConfigID,
+				update.Path,
+				update.Raw,
+				update.BaselineOnly,
+				update.MovedFrom,
+				cfg.Paths.WorkspaceRoot,
+				signatureObserver,
+			)
+			if err != nil {
+				return err
+			}
+			for _, message := range services.watchCodeWarnings.ConsumeNotifications(snapshot.Document, update.ConfigID, signatureObserver.Attempts()) {
+				if _, err := websocketHub.BroadcastJSON(ctx, message, realtime.Selection{Type: realtime.ConnectionTypeFrontend}); err != nil {
+					return err
+				}
+			}
+			if didUpdate {
+				return broadcastFrontendProjectStateUpdate(
+					ctx,
+					services.projectStates.Main(),
+					websocketHub,
+					snapshot,
+					update.ConfigID,
+				)
+			}
+			return nil
+		},
+		OnFileDelete: func(ctx context.Context, request watchcode.DeleteRequest) error {
+			snapshot, didUpdate, err := services.projectStates.Main().ApplyWatchCodeFileDelete(
+				ctx,
+				request.ConfigID,
+				request.Path,
+				cfg.Paths.WorkspaceRoot,
+			)
+			if err != nil {
+				return err
+			}
+			services.watchCodeWarnings.ReconcileDocument(snapshot.Document)
+			if didUpdate {
+				return broadcastFrontendProjectStateUpdate(
+					ctx,
+					services.projectStates.Main(),
+					websocketHub,
+					snapshot,
+					request.ConfigID,
+				)
+			}
+			return nil
+		},
+		OnError: func(err error) {
+			logger.Error("watch code runtime failed", "error", err)
+		},
 	})
 	if err != nil {
-		_ = closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background())
-		return nil, err
+		_ = closeInitializedProjectServices(*services)
+		return err
 	}
-	binaryStore, err := binarypayload.NewStoreForRuntimeRoot(cfg.Paths.RuntimeRoot)
+	services.watchCodeService = watchCodeService
+	if err := services.watchCodeService.SyncConfigs(projectstate.WatchCodeConfigInputs(services.projectStates.Main().Snapshot().Document)); err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	if err := initializeIDECodeMutationServices(cfg, logger, websocketHub, services); err != nil {
+		_ = closeInitializedProjectServices(*services)
+		return err
+	}
+	return nil
+}
+
+func initializeIDECodeMutationServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	websocketHub *realtime.WebsocketHub,
+	services *projectServices,
+) error {
+	codeUpdates, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState:       services.projectRuntime,
+		LSPSync:            services.projectLSPSyncer,
+		CallableSignatures: services.lspSignature,
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		WatchCodeWarnings:  services.watchCodeWarnings,
+		WebsocketHub:       websocketHub,
+		Logger:             logger,
+	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
+		_ = closeInitializedProjectServices(*services)
+		return err
 	}
+	services.codeUpdates = codeUpdates
+	services.renameRefactors, err = newRenameRefactorService(renameRefactorServiceOptions{
+		ProjectState: services.projectRuntime,
+		Settings:     services.settingsStateRuntime,
+		WebsocketHub: websocketHub,
+	})
+	if err != nil {
+		return err
+	}
+	services.boundCodeService, err = boundcode.NewService(boundcode.ServiceOptions{
+		OnFileUpdate: func(ctx context.Context, update boundcode.FileUpdate) error {
+			return services.codeUpdates.ReloadBoundCodeFile(ctx, update.Raw, update.Bindings)
+		},
+		OnError: func(err error) {
+			logger.Error("bound code file runtime failed", "error", err)
+		},
+	})
+	if err != nil {
+		return err
+	}
+	inputs, err := projectstate.PythonBoundCodeFileInputs(
+		services.projectStates.Main().Snapshot().Document,
+		cfg.Paths.WorkspaceRoot,
+	)
+	if err != nil {
+		return err
+	}
+	if err := services.boundCodeService.SyncInputs(boundCodeServiceInputs(inputs)); err != nil {
+		return err
+	}
+	return nil
+}
+
+type ideAgentServices struct {
+	agentRunService       *agentruns.Service
+	engineStore           *agentruns.EngineStore
+	agentRunStore         *agentruns.RunStore
+	agentRunRuntime       *agentruns.Runtime
+	managedChatService    *managedchat.Service
+	stateMachineRuntime   *statemachineruns.Runtime
+	scriptableChatService *scriptablechat.Service
+	chatSectionChatIDs    *chatsections.Service
+	gitReadService        *gitread.Service
+	projectShellService   *projectshell.Service
+	notificationService   *notifications.Service
+	externalConfigStore   *externalagentconfigs.Store
+	externalConfigService *externalagentconfigs.Service
+	externalPreflight     externalagentconfigs.Checker
+	transcriptionProfiles *transcriptionprofiles.Service
+	transcriptionSessions *transcriptionsessions.Service
+	temporaryIDs          *mcpx.TemporaryIDStore
+	externalAgentFollow   *externalagents.FollowService
+	externalAgentRuntime  *externalagents.Runtime
+	externalAgentChats    *externalagents.Service
+	externalAgentSend     *externalagents.SendService
+	externalAgentExecutor externalagents.Executor
+	llmRuntime            *llmconfig.Runtime
+	llmService            *llmconfig.Service
+	runChainRuntime       *runchains.Runtime
+}
+
+func initializeIDEAgentServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	settaServerURL string,
+	currentSession *auth.CurrentSession,
+	authService *auth.Service,
+	websocketHub *realtime.WebsocketHub,
+	projectStates *projectstate.Registry,
+	projectRuntime *projectstate.Runtime,
+	settingsStateRuntime *settingsstate.Runtime,
+	deploymentRuntime *deployments.Runtime,
+	terminalService *terminals.Service,
+	mcpClient *mcpx.Client,
+	mcpToolRegistry *tools.Registry,
+	attachmentService *chatattachments.Service,
+	backendLogService *backendlogs.Service,
+	promptTemplateStore *prompttemplates.Store,
+	agentProfileStore *agentprofiles.Store,
+) (ideAgentServices, error) {
+	services := ideAgentServices{}
+	if !modePolicy.IsIDE() || projectRuntime == nil {
+		return services, nil
+	}
+	if err := initializeIDEAgentStoresAndConfigs(cfg, settaServerURL, websocketHub, &services); err != nil {
+		return ideAgentServices{}, err
+	}
+	if err := initializeIDELLMServices(cfg, settaServerURL, agentProfileStore, &services); err != nil {
+		return ideAgentServices{}, err
+	}
+	if err := initializeIDEManagedAgentServices(
+		cfg,
+		websocketHub,
+		projectStates,
+		projectRuntime,
+		settingsStateRuntime,
+		terminalService,
+		mcpClient,
+		attachmentService,
+		&services,
+	); err != nil {
+		return ideAgentServices{}, err
+	}
+	if err := initializeIDEExternalAgentServices(
+		cfg,
+		logger,
+		settaServerURL,
+		currentSession,
+		authService,
+		websocketHub,
+		projectRuntime,
+		deploymentRuntime,
+		mcpClient,
+		mcpToolRegistry,
+		attachmentService,
+		backendLogService,
+		promptTemplateStore,
+		agentProfileStore,
+		&services,
+	); err != nil {
+		return ideAgentServices{}, err
+	}
+	return services, nil
+}
+
+func initializeIDEAgentStoresAndConfigs(
+	cfg config.Config,
+	settaServerURL string,
+	websocketHub *realtime.WebsocketHub,
+	services *ideAgentServices,
+) error {
+	engineStore, err := agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		return err
+	}
+	services.engineStore = engineStore
+
+	agentRunStore, err := agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		return err
+	}
+	services.agentRunStore = agentRunStore
+	services.agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
+		_, _ = websocketHub.BroadcastJSON(
+			context.Background(),
+			realtime.NewAgentRunUpdatedMessage(run),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		)
+	})
+
+	externalConfigStore, err := externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		return err
+	}
+	services.externalConfigStore = externalConfigStore
+	services.externalConfigService, err = externalagentconfigs.NewService(externalagentconfigs.ServiceOptions{
+		Configs:        externalConfigStore,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+		SettaServerURL: settaServerURL,
+	})
+	if err != nil {
+		return err
+	}
+	if err := services.externalConfigService.SeedDefaultConfigsIfMissing(); err != nil {
+		return err
+	}
+	if err := services.externalConfigService.ReconcileManagedCanonicalConfigs(); err != nil {
+		return err
+	}
+	externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
+		WorkspaceRoot:          cfg.Paths.WorkspaceRoot,
+		ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,
+		ProcessEnv:             llmconfig.CurrentProcessEnv(),
+	})
+	if err != nil {
+		return err
+	}
+	services.externalPreflight = externalPreflightChecker
+	services.temporaryIDs, err = mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
+	return err
+}
+
+func initializeIDELLMServices(
+	cfg config.Config,
+	settaServerURL string,
+	agentProfileStore *agentprofiles.Store,
+	services *ideAgentServices,
+) error {
+	transcriptionStore, err := transcriptionprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		return err
+	}
+	llmConfigs, err := llmconfig.Load(
+		llmconfig.Path(cfg.Paths.SettaFilesRoot),
+		llmconfig.LoadOptions{
+			SettaServerURL: settaServerURL,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	services.llmRuntime, err = llmconfig.NewRuntime(llmConfigs)
+	if err != nil {
+		return err
+	}
+	workspaceEnv, err := llmconfig.ReadEnvFile(filepath.Join(cfg.Paths.WorkspaceRoot, ".env"))
+	if err != nil {
+		return err
+	}
+	services.llmRuntime.UpdateAPIKeys(llmconfig.ResolveRuntimeAPIKeys(
+		llmConfigs,
+		workspaceEnv,
+		llmconfig.CurrentProcessEnv(),
+	))
+	services.llmService, err = llmconfig.NewService(llmconfig.ServiceOptions{
+		ConfigPath:             llmconfig.Path(cfg.Paths.SettaFilesRoot),
+		ManagedAPIKeysPath:     llmconfig.ManagedAPIKeysPath(cfg.Paths.WorkspaceRoot),
+		ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,
+		Runtime:                services.llmRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	services.transcriptionProfiles, err = transcriptionprofiles.NewService(transcriptionprofiles.ServiceOptions{
+		Profiles: transcriptionStore,
+		LLM:      services.llmRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	services.transcriptionSessions, err = transcriptionsessions.NewService(transcriptionsessions.ServiceOptions{
+		LLM: services.llmRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	if err := agentruns.SeedDefaultEngineConfigsIfMissing(services.engineStore); err != nil {
+		return err
+	}
+	if err := agentprofiles.SeedDefaultProfilesIfMissing(agentProfileStore); err != nil {
+		return err
+	}
+	return services.transcriptionProfiles.SeedDefaultProfilesIfMissing()
+}
+
+func initializeIDEManagedAgentServices(
+	cfg config.Config,
+	websocketHub *realtime.WebsocketHub,
+	projectStates *projectstate.Registry,
+	projectRuntime *projectstate.Runtime,
+	settingsStateRuntime *settingsstate.Runtime,
+	terminalService *terminals.Service,
+	mcpClient *mcpx.Client,
+	attachmentService *chatattachments.Service,
+	services *ideAgentServices,
+) error {
+	managedLiveRuntime := managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
+		Broadcaster: websocketHub,
+	})
+	agentRunService, err := agentruns.NewService(agentruns.ServiceOptions{
+		ProjectState: projectRuntime,
+		Engines:      services.engineStore,
+		Runs:         services.agentRunStore,
+		LLM:          services.llmRuntime,
+		Executor: managedllm.NewExecutor(managedllm.ExecutorOptions{
+			Live:        managedLiveRuntime,
+			Tools:       mcpClient,
+			Attachments: attachmentService,
+			ResultFollow: managedllm.NewToolResultFollowEmitter(managedllm.ToolResultFollowEmitterOptions{
+				Broadcaster:  websocketHub,
+				TemporaryIDs: services.temporaryIDs,
+			}),
+		}),
+		TemporaryIDs: services.temporaryIDs,
+		CompletionGuardProvider: func() (bool, error) {
+			if settingsStateRuntime == nil {
+				return false, errors.New("settings state runtime is not configured")
+			}
+			return settingsstate.CompletionGuardEnabled(settingsStateRuntime.Snapshot().Document)
+		},
+	})
+	if err != nil {
+		return err
+	}
+	services.agentRunService = agentRunService
+	services.agentRunRuntime, err = agentruns.NewRuntime(agentruns.RuntimeOptions{
+		Service:        services.agentRunService,
+		LiveRunTracker: managedLiveRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	services.managedChatService, err = managedchat.NewService(managedchat.ServiceOptions{
+		ProjectState: projectRuntime,
+		Runs:         services.agentRunStore,
+		Engines:      services.engineStore,
+		LLM:          services.llmRuntime,
+		Starter:      services.agentRunRuntime,
+		Live:         managedLiveRuntime,
+		Stopper:      services.agentRunRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	services.chatSectionChatIDs, err = chatsections.NewService(chatsections.ServiceOptions{
+		ProjectState: projectRuntime,
+		Runs:         services.agentRunStore,
+	})
+	if err != nil {
+		return err
+	}
+	services.scriptableChatService, err = scriptablechat.NewService(scriptablechat.ServiceOptions{
+		Runs:        services.agentRunStore,
+		Engines:     services.engineStore,
+		LLM:         services.llmRuntime,
+		Tools:       mcpClient,
+		Broadcaster: websocketHub,
+	})
+	if err != nil {
+		return err
+	}
+	services.gitReadService, err = gitread.NewService(gitread.ServiceOptions{
+		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+	})
+	if err != nil {
+		return err
+	}
+	services.projectShellService, err = newIDEProjectShellService(
+		projectStates,
+		projectRuntime,
+		settingsStateRuntime,
+		terminalService,
+		websocketHub,
+	)
+	if err != nil {
+		return err
+	}
+	notificationStore, err := notifications.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		return err
+	}
+	services.notificationService, err = notifications.NewService(notifications.ServiceOptions{
+		Store: notificationStore,
+	})
+	return err
+}
+
+func newIDEProjectShellService(
+	projectStates *projectstate.Registry,
+	projectRuntime *projectstate.Runtime,
+	settingsStateRuntime *settingsstate.Runtime,
+	terminalService *terminals.Service,
+	websocketHub *realtime.WebsocketHub,
+) (*projectshell.Service, error) {
+	return projectshell.NewService(projectshell.ServiceOptions{
+		ProjectState:         projectRuntime,
+		SettingsState:        settingsStateRuntime,
+		SettingsProjectState: projectStates.Settings(),
+		AfterProjectSave:     newProjectSaveNotifier(websocketHub),
+		AfterProjectMetadataMutation: func(ctx context.Context, snapshot projectstate.Snapshot) error {
+			return broadcastAllProjectMetadata(websocketHub, ctx, snapshot)
+		},
+		AfterProjectsDelete: newProjectTerminalDeleteHandler(terminalService),
+		AfterProjectRename:  newProjectRenameBroadcaster(projectRuntime, websocketHub),
+	})
+}
+
+func broadcastAllProjectMetadata(
+	websocketHub *realtime.WebsocketHub,
+	ctx context.Context,
+	snapshot projectstate.Snapshot,
+) error {
+	var defaultProjectID *string
+	if trimmedDefaultProjectID := strings.TrimSpace(snapshot.Document.DefaultProjectID); trimmedDefaultProjectID != "" {
+		defaultProjectID = &trimmedDefaultProjectID
+	}
+	_, err := websocketHub.BroadcastJSON(
+		ctx,
+		realtime.NewAllProjectMetadataMessage(realtime.AllProjectMetadataContent{
+			DefaultProjectConfigID: defaultProjectID,
+			ProjectMetadata:        snapshot.Document.ProjectConfigMetadata(),
+		}),
+		realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+	)
+	return err
+}
+
+func newProjectSaveNotifier(
+	websocketHub *realtime.WebsocketHub,
+) func(context.Context, projectstate.Snapshot, string) error {
+	return func(ctx context.Context, _ projectstate.Snapshot, projectID string) error {
+		notificationID, err := newAppNotificationID()
+		if err != nil {
+			return err
+		}
+		_, err = websocketHub.BroadcastJSON(
+			ctx,
+			realtime.NewNotificationMessage(realtime.NotificationContent{
+				ID:              notificationID,
+				ProjectConfigID: projectID,
+				Type:            realtime.NotificationTypeSave,
+				Message:         "Saved!",
+				Temporary:       false,
+				Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
+				Metadata:        map[string]any{},
+				ReadStatus:      false,
+			}),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		)
+		return err
+	}
+}
+
+func newProjectTerminalDeleteHandler(
+	terminalService *terminals.Service,
+) func(context.Context, projectstate.Snapshot, []string) error {
+	return func(ctx context.Context, _ projectstate.Snapshot, deletedIDs []string) error {
+		var joined error
+		for _, projectID := range deletedIDs {
+			for _, session := range terminalService.List(projectID, "") {
+				joined = errors.Join(joined, terminalService.Delete(ctx, session.ID))
+			}
+		}
+		return joined
+	}
+}
+
+func newProjectRenameBroadcaster(
+	projectRuntime *projectstate.Runtime,
+	websocketHub *realtime.WebsocketHub,
+) func(context.Context, projectstate.Snapshot, string) error {
+	return func(ctx context.Context, snapshot projectstate.Snapshot, projectID string) error {
+		projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
+		if err != nil {
+			return err
+		}
+		status := projectRuntime.FrontendOpStatus()
+		if _, err := websocketHub.BroadcastJSON(
+			ctx,
+			realtime.NewProjectStateUpdateMessage(realtime.ProjectStateUpdateContent{
+				ProjectState:   projectStateView,
+				CompletedOpIDs: status.Completed,
+				PendingOpIDs:   status.Pending,
+			}),
+			realtime.Selection{Type: realtime.ConnectionTypeFrontend},
+		); err != nil {
+			return err
+		}
+		return broadcastAllProjectMetadata(websocketHub, ctx, snapshot)
+	}
+}
+
+func initializeIDEExternalAgentServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	settaServerURL string,
+	currentSession *auth.CurrentSession,
+	authService *auth.Service,
+	websocketHub *realtime.WebsocketHub,
+	projectRuntime *projectstate.Runtime,
+	deploymentRuntime *deployments.Runtime,
+	mcpClient *mcpx.Client,
+	mcpToolRegistry *tools.Registry,
+	attachmentService *chatattachments.Service,
+	backendLogService *backendlogs.Service,
+	promptTemplateStore *prompttemplates.Store,
+	agentProfileStore *agentprofiles.Store,
+	services *ideAgentServices,
+) error {
+	if err := initializeIDEExternalRuntimeServices(
+		cfg,
+		logger,
+		settaServerURL,
+		currentSession,
+		authService,
+		websocketHub,
+		projectRuntime,
+		mcpClient,
+		mcpToolRegistry,
+		attachmentService,
+		backendLogService,
+		agentProfileStore,
+		services,
+	); err != nil {
+		return err
+	}
+	return initializeIDEStateMachineServices(
+		logger,
+		projectRuntime,
+		deploymentRuntime,
+		attachmentService,
+		promptTemplateStore,
+		agentProfileStore,
+		services,
+	)
+}
+
+func initializeIDEExternalRuntimeServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	settaServerURL string,
+	currentSession *auth.CurrentSession,
+	authService *auth.Service,
+	websocketHub *realtime.WebsocketHub,
+	projectRuntime *projectstate.Runtime,
+	mcpClient *mcpx.Client,
+	mcpToolRegistry *tools.Registry,
+	attachmentService *chatattachments.Service,
+	backendLogService *backendlogs.Service,
+	agentProfileStore *agentprofiles.Store,
+	services *ideAgentServices,
+) error {
+	followService, err := externalagents.NewFollowService(externalagents.FollowServiceOptions{
+		Tools:        mcpClient,
+		TemporaryIDs: services.temporaryIDs,
+		Broadcaster:  websocketHub,
+	})
+	if err != nil {
+		return err
+	}
+	services.externalAgentFollow = followService
+	services.externalAgentRuntime, err = externalagents.NewRuntime(externalagents.RuntimeOptions{
+		Runs:        services.agentRunStore,
+		Follow:      services.externalAgentFollow,
+		BackendLogs: backendLogService,
+		Logger:      logger,
+	})
+	if err != nil {
+		return err
+	}
+	services.externalAgentChats, err = externalagents.NewService(externalagents.ServiceOptions{
+		Runs: services.agentRunStore,
+		Live: services.externalAgentRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	codexExecutor, err := externalagents.NewCodexExecutor(externalagents.CodexExecutorOptions{
+		Runs:               services.agentRunStore,
+		Runtime:            services.externalAgentRuntime,
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
+		SettaToolRegistry:  mcpToolRegistry,
+		CurrentSession:     currentSession,
+		AuthCookieBaseName: authService.AuthCookieBaseName(),
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		ProcessEnv:         llmconfig.CurrentProcessEnv(),
+		Logger:             logger,
+	})
+	if err != nil {
+		return err
+	}
+	claudeExecutor, err := externalagents.NewClaudeExecutor(externalagents.ClaudeExecutorOptions{
+		Runs:               services.agentRunStore,
+		Runtime:            services.externalAgentRuntime,
+		WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
+		SettaServerURL:     settaServerURL,
+		CurrentSession:     currentSession,
+		AuthCookieBaseName: authService.AuthCookieBaseName(),
+		RuntimeRoot:        cfg.Paths.RuntimeRoot,
+		ProcessEnv:         llmconfig.CurrentProcessEnv(),
+	})
+	if err != nil {
+		return err
+	}
+	externalAgentExecutor := externalagents.NewMultiExecutor(externalagents.MultiExecutorOptions{
+		Claude: claudeExecutor,
+		Codex:  codexExecutor,
+	})
+	services.externalAgentExecutor = externalAgentExecutor
+	services.externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
+		ProjectState:   projectRuntime,
+		Engines:        services.engineStore,
+		Runs:           services.agentRunStore,
+		Profiles:       agentProfileStore,
+		Configs:        services.externalConfigStore,
+		Runtime:        services.externalAgentRuntime,
+		Preflight:      services.externalPreflight,
+		Attachments:    attachmentService,
+		Executor:       externalAgentExecutor,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+	})
+	return err
+}
+
+func initializeIDEStateMachineServices(
+	logger *slog.Logger,
+	projectRuntime *projectstate.Runtime,
+	deploymentRuntime *deployments.Runtime,
+	attachmentService *chatattachments.Service,
+	promptTemplateStore *prompttemplates.Store,
+	agentProfileStore *agentprofiles.Store,
+	services *ideAgentServices,
+) error {
+	var err error
+	services.stateMachineRuntime, err = statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
+		Runs:      services.agentRunStore,
+		Engines:   services.engineStore,
+		Profiles:  agentProfileStore,
+		Templates: promptTemplateStore,
+		ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
+			if shareSessionID != nil && strings.TrimSpace(*shareSessionID) != "" {
+				if deploymentRuntime == nil {
+					return nil, fmt.Errorf("deployment runtime is required for workflow share session %s", strings.TrimSpace(*shareSessionID))
+				}
+				return deploymentRuntime.Overlay(strings.TrimSpace(*shareSessionID))
+			}
+			if projectRuntime == nil {
+				return nil, fmt.Errorf("project runtime is required")
+			}
+			return projectRuntime, nil
+		},
+		ManagedChats:  services.managedChatService,
+		ManagedRuns:   services.agentRunRuntime,
+		ExternalChats: services.externalAgentSend,
+		ExternalRuns:  services.externalAgentRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	services.agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
+		if services.stateMachineRuntime == nil {
+			return
+		}
+		switch run.Status {
+		case agentruns.RunStatusCompleted, agentruns.RunStatusFailed, agentruns.RunStatusCancelled:
+		default:
+			return
+		}
+		parentRunType, ok := run.Inputs["stateMachineParentRunType"].(string)
+		if !ok || strings.TrimSpace(parentRunType) != statemachineruns.RunTypeStateMachine {
+			return
+		}
+		savedRun := run.Clone()
+		go func() {
+			if _, err := services.stateMachineRuntime.HandleTerminalChildRunUpdate(savedRun); err != nil {
+				logger.Error("state machine runtime failed to process child run update", "runId", savedRun.ID, "error", err)
+			}
+		}()
+	})
+	externalAgentRunService, err := externalagents.NewRunService(externalagents.RunServiceOptions{
+		ProjectState: projectRuntime,
+		Engines:      services.engineStore,
+		Runs:         services.agentRunStore,
+		Configs:      services.externalConfigStore,
+		Runtime:      services.externalAgentRuntime,
+		Preflight:    services.externalPreflight,
+		Attachments:  attachmentService,
+		Executor:     services.externalAgentExecutor,
+	})
+	if err != nil {
+		return err
+	}
+	services.runChainRuntime, err = runchains.NewRuntime(runchains.RuntimeOptions{
+		Runs:         services.agentRunStore,
+		Engines:      services.engineStore,
+		Profiles:     agentProfileStore,
+		ProjectState: projectRuntime,
+		Managed:      services.agentRunRuntime,
+		External:     externalAgentRunService,
+		TemporaryIDs: services.temporaryIDs,
+	})
+	return err
+}
+
+type appHandlerDeps struct {
+	cfg                      config.Config
+	logger                   *slog.Logger
+	authService              *auth.Service
+	trustedOrigins           *frontendorigins.Service
+	modePolicy               modes.Policy
+	projectStates            *projectstate.Registry
+	projectRuntime           *projectstate.Runtime
+	settingsStateRuntime     *settingsstate.Runtime
+	deploymentRuntime        *deployments.Runtime
+	shareSessions            modes.ShareSessionStore
+	attachmentService        *chatattachments.Service
+	pluginRouteService       httpapi.PluginRouteService
+	websocketHub             *realtime.WebsocketHub
+	uiSettingRevealResults   *realtime.UISettingRevealResultHub
+	listenerBroadcaster      *realtime.ListenerBroadcaster
+	listenerBuiltInInvoker   *listenerEndpointInvoker
+	listenerProducer         *realtime.ListenerProducer
+	terminalService          *terminals.Service
+	temporaryIDs             *mcpx.TemporaryIDStore
+	mcpServer                *mcpx.Server
+	pathRevealService        *pathreveal.Service
+	authRefreshWindowSeconds int
+	worktreeName             string
+	statusReadyAt            time.Time
+	deploymentCatalog        *deployments.Catalog
+	sharePublisher           *deployments.SharePublisher
+	appPublisher             *deployments.AppPublisher
+	launcherHome             *launcher.HomeService
+	launcherManagement       *launcher.ManagementService
+	launcherOpenWorkspace    *launcher.OpenWorkspaceService
+	launchIntentService      *workspacelaunch.IntentService
+	localLaunchService       *workspacelaunch.LocalLaunchService
+	binaryStore              *binarypayload.Store
+	fileBrowserService       *filebrowser.Service
+	artifactService          *artifacts.Service
+	shareArtifactService     *shareartifacts.Service
+	runCodeService           *runs.Service
+	runPlanner               *runs.Planner
+	detachedRunManager       *detachedruns.Manager
+	projectShellService      *projectshell.Service
+	notificationService      *notifications.Service
+	gitReadService           *gitread.Service
+	promptTemplateStore      *prompttemplates.Store
+	chatSectionChatIDs       *chatsections.Service
+	codegenValidator         projectstate.CodegenTargetValidator
+	pythonMaterializer       *codegen.PythonMaterializer
+	lspSignature             *lspsignature.Service
+	codeUpdates              *codeUpdateService
+	renameRefactors          *renameRefactorService
+	managedChatService       *managedchat.Service
+	externalAgentSend        *externalagents.SendService
+	externalAgentChats       *externalagents.Service
+	externalAgentFollow      *externalagents.FollowService
+	externalAgentRuntime     *externalagents.Runtime
+	transcriptionProfiles    *transcriptionprofiles.Service
+	transcriptionSessions    *transcriptionsessions.Service
+	agentProfileStore        *agentprofiles.Store
+	promptTemplateWatcher    *prompttemplates.Watcher
+	appGenSkillService       *appgenskills.Service
+	externalConfigService    *externalagentconfigs.Service
+	externalPreflight        externalagentconfigs.Checker
+	engineStore              *agentruns.EngineStore
+	llmRuntime               *llmconfig.Runtime
+	llmService               *llmconfig.Service
+	agenticSummaryStatus     *agenticsummarycache.Service
+	agentRunStore            *agentruns.RunStore
+	agentRunRuntime          *agentruns.Runtime
+	runChainRuntime          *runchains.Runtime
+	stateMachineRuntime      *statemachineruns.Runtime
+	mcpClient                *mcpx.Client
+	lspDiagnostics           *projectstate.LSPDiagnosticsRegistry
+	lspCompletion            *lspcompletion.Service
+	projectLSPSyncer         *lsp.ProjectSynchronizer
+}
+
+func registerRootRoutes(r chi.Router, deps appHandlerDeps) error {
+	if deps.pluginRouteService != nil {
+		if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
+			Service:        deps.pluginRouteService,
+			Auth:           deps.authService,
+			TrustedOrigins: deps.trustedOrigins,
+		}); err != nil {
+			return err
+		}
+	}
+	if deps.attachmentService != nil {
+		if err := httpapi.RegisterAttachmentRootRoutes(r, httpapi.AttachmentRootRouteDependencies{
+			ModePolicy:    deps.modePolicy,
+			ShareSessions: deps.shareSessions,
+			Deployment:    deps.deploymentRuntime,
+			Service:       deps.attachmentService,
+		}); err != nil {
+			return err
+		}
+	}
+	return wsapi.RegisterRoutes(r, wsapi.RouteDependencies{
+		Transport: wsapi.Dependencies{
+			Auth:           deps.authService,
+			ModePolicy:     deps.modePolicy,
+			ShareSessions:  deps.shareSessions,
+			TrustedOrigins: deps.trustedOrigins,
+		},
+		Deployment:             deps.deploymentRuntime,
+		ProjectState:           deps.projectRuntime,
+		Artifacts:              deps.artifactService,
+		ShareArtifacts:         deps.shareArtifactService,
+		WebsocketHub:           deps.websocketHub,
+		UISettingRevealResults: deps.uiSettingRevealResults,
+		ListenerBroadcaster:    deps.listenerBroadcaster,
+		BuiltInListenerInvoker: deps.listenerBuiltInInvoker,
+		ListenerProducer:       deps.listenerProducer,
+		Terminals:              deps.terminalService,
+		TemporaryIDs:           deps.temporaryIDs,
+	})
+}
+
+func registerAuthenticatedRootRoutes(r chi.Router, deps appHandlerDeps) error {
+	if deps.mcpServer == nil {
+		return nil
+	}
+	r.Handle("/mcp", deps.mcpServer.Handler())
+	r.Handle("/mcp/", deps.mcpServer.Handler())
+	return httpapi.RegisterMCPRootRoutes(r, httpapi.MCPRootRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Server:       deps.mcpServer,
+		ProjectState: deps.projectRuntime,
+		WebsocketHub: deps.websocketHub,
+	})
+}
+
+func registerStatusAndSystemRoutes(r chi.Router, deps appHandlerDeps) error {
+	if err := httpapi.RegisterStatusRoutes(r, httpapi.StatusRouteDependencies{
+		ModePolicy:               deps.modePolicy,
+		SettaHome:                deps.cfg.Paths.SettaHome,
+		GlobalSettaFilesBase:     deps.cfg.User.GlobalSettaFilesBase,
+		ActiveSettaFilesLocation: deps.cfg.Paths.ActiveSettaFilesLocation(),
+		SettaFilesRoot:           deps.cfg.Paths.SettaFilesRoot,
+		RevealPath:               deps.pathRevealService,
+		AuthRefreshWindowSeconds: deps.authRefreshWindowSeconds,
+		WorktreeName:             deps.worktreeName,
+		ReadyAt:                  deps.statusReadyAt,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterDocstringRoutes(r, httpapi.DocstringRouteDependencies{
+		ModePolicy: deps.modePolicy,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterSettingsRoutes(r, httpapi.SettingsRouteDependencies{
+		ModePolicy:    deps.modePolicy,
+		SettingsState: deps.settingsStateRuntime,
+		WebsocketHub:  deps.websocketHub,
+	}); err != nil {
+		return err
+	}
+	if deps.pluginRouteService != nil {
+		if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
+			ModePolicy: deps.modePolicy,
+			Service:    deps.pluginRouteService,
+		}); err != nil {
+			return err
+		}
+	}
+	if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
+		ModePolicy:          deps.modePolicy,
+		ShareSessions:       deps.shareSessions,
+		ProjectState:        deps.projectRuntime,
+		Deployment:          deps.deploymentRuntime,
+		ListenerBroadcaster: deps.listenerBroadcaster,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterDeploymentRoutes(r, httpapi.DeploymentRouteDependencies{
+		ModePolicy: deps.modePolicy,
+		Deployment: deps.deploymentRuntime,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterDeploymentIDERoutes(r, httpapi.DeploymentIDERouteDependencies{
+		ModePolicy:     deps.modePolicy,
+		ProjectState:   deps.projectRuntime,
+		Catalog:        deps.deploymentCatalog,
+		SharePublisher: deps.sharePublisher,
+		AppPublisher:   deps.appPublisher,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterLauncherHomeRoutes(r, httpapi.LauncherHomeRouteDependencies{
+		ModePolicy:       deps.modePolicy,
+		Auth:             deps.authService,
+		DefaultSettaHome: deps.cfg.Paths.SettaHome,
+		Home:             deps.launcherHome,
+		OpenWorkspace:    deps.launcherOpenWorkspace,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterLauncherManagementRoutes(r, httpapi.LauncherManagementRouteDependencies{
+		ModePolicy:       deps.modePolicy,
+		DefaultSettaHome: deps.cfg.Paths.SettaHome,
+		Manager:          deps.launcherManagement,
+	}); err != nil {
+		return err
+	}
+	return httpapi.RegisterWorkspaceLaunchRoutes(r, httpapi.WorkspaceLaunchRouteDependencies{
+		ModePolicy: deps.modePolicy,
+		Auth:       deps.authService,
+		Intents:    deps.launchIntentService,
+		Launch:     deps.localLaunchService,
+	})
+}
+
+func registerWorkspaceRoutes(r chi.Router, deps appHandlerDeps) error {
+	if err := httpapi.RegisterBinaryRoutes(r, httpapi.BinaryRouteDependencies{
+		ModePolicy:    deps.modePolicy,
+		ShareSessions: deps.shareSessions,
+		Deployment:    deps.deploymentRuntime,
+		Store:         deps.binaryStore,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterAttachmentRoutes(r, httpapi.AttachmentRouteDependencies{
+		ModePolicy:    deps.modePolicy,
+		ShareSessions: deps.shareSessions,
+		Deployment:    deps.deploymentRuntime,
+		Service:       deps.attachmentService,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterFileBrowserRoutes(r, httpapi.FileBrowserRouteDependencies{
+		ModePolicy:     deps.modePolicy,
+		DeploymentRoot: deps.cfg.Paths.DeploymentRoot,
+		Browser:        deps.fileBrowserService,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterArtifactRoutes(r, httpapi.ArtifactRouteDependencies{
+		ModePolicy:     deps.modePolicy,
+		ShareSessions:  deps.shareSessions,
+		Artifacts:      deps.artifactService,
+		ShareArtifacts: deps.shareArtifactService,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
+		ModePolicy:    deps.modePolicy,
+		ShareSessions: deps.shareSessions,
+		Deployment:    deps.deploymentRuntime,
+		Terminals:     deps.terminalService,
+		RunCode:       deps.runCodeService,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterDetachedRunRoutes(r, httpapi.DetachedRunRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Planner:      deps.runPlanner,
+		Runs:         deps.detachedRunManager,
+		ProjectState: deps.projectRuntime,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterProjectShellRoutes(r, httpapi.ProjectShellRouteDependencies{
+		ModePolicy:    deps.modePolicy,
+		Shell:         deps.projectShellService,
+		Notifications: deps.notificationService,
+	}); err != nil {
+		return err
+	}
+	return httpapi.RegisterGitRoutes(r, httpapi.GitRouteDependencies{
+		ModePolicy: deps.modePolicy,
+		Git:        deps.gitReadService,
+	})
+}
+
+func registerProjectRoutes(r chi.Router, deps appHandlerDeps) error {
+	if err := httpapi.RegisterProjectRoutes(r, httpapi.ProjectRouteDependencies{
+		ModePolicy:                     deps.modePolicy,
+		WorkspaceRoot:                  deps.cfg.Paths.WorkspaceRoot,
+		ProjectState:                   deps.projectRuntime,
+		SettingsProjectState:           deps.projectStates.Settings(),
+		WebsocketHub:                   deps.websocketHub,
+		PromptTemplates:                deps.promptTemplateStore,
+		ShareSessions:                  deps.shareSessions,
+		Deployment:                     deps.deploymentRuntime,
+		SettingsState:                  deps.settingsStateRuntime,
+		ChatSectionChatIDs:             deps.chatSectionChatIDs,
+		EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
+		CodegenTargetValidator:         deps.codegenValidator,
+		PythonCodegenSectionReconciler: deps.pythonMaterializer,
+		CallableSignatures:             deps.lspSignature,
+		CodeUpdates:                    deps.codeUpdates,
+		RenameRefactors:                deps.renameRefactors,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterAppDefinitionRoutes(r, httpapi.AppDefinitionRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		ProjectState: deps.projectRuntime,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
+		ModePolicy:            deps.modePolicy,
+		Deployment:            deps.deploymentRuntime,
+		ManagedChats:          deps.managedChatService,
+		ExternalAgentSend:     deps.externalAgentSend,
+		ExternalAgentChats:    deps.externalAgentChats,
+		ExternalAgentFollow:   deps.externalAgentFollow,
+		ExternalAgentRuns:     deps.externalAgentRuntime,
+		TranscriptionProfiles: deps.transcriptionProfiles,
+		TranscriptionSessions: deps.transcriptionSessions,
+		Sessions:              deps.authService,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterAgentProfileRoutes(r, httpapi.AgentProfileRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Profiles:     deps.agentProfileStore,
+		Deployment:   deps.deploymentRuntime,
+		WebsocketHub: deps.websocketHub,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Templates:    deps.promptTemplateStore,
+		Watcher:      deps.promptTemplateWatcher,
+		ProjectState: deps.projectRuntime,
+		Deployment:   deps.deploymentRuntime,
+		WebsocketHub: deps.websocketHub,
+	}); err != nil {
+		return err
+	}
+	return httpapi.RegisterAppGenSkillRoutes(r, httpapi.AppGenSkillRouteDependencies{
+		ModePolicy: deps.modePolicy,
+		Service:    deps.appGenSkillService,
+	})
+}
+
+func registerToolingRoutes(r chi.Router, deps appHandlerDeps) error {
+	if err := httpapi.RegisterExternalAgentConfigRoutes(r, httpapi.ExternalAgentConfigRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Configs:      deps.externalConfigService,
+		Preflight:    deps.externalPreflight,
+		Deployment:   deps.deploymentRuntime,
+		WebsocketHub: deps.websocketHub,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterEngineConfigRoutes(r, httpapi.EngineConfigRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Engines:      deps.engineStore,
+		LLM:          deps.llmRuntime,
+		WebsocketHub: deps.websocketHub,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterTranscriptionProfileRoutes(r, httpapi.TranscriptionProfileRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Profiles:     deps.transcriptionProfiles,
+		Deployment:   deps.deploymentRuntime,
+		WebsocketHub: deps.websocketHub,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterLLMRoutes(r, httpapi.LLMRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		Service:      deps.llmService,
+		WebsocketHub: deps.websocketHub,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterAgenticSummaryCacheRoutes(r, httpapi.AgenticSummaryCacheRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		ProjectState: deps.projectRuntime,
+		Statuses:     deps.agenticSummaryStatus,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterAgentRunRoutes(r, httpapi.AgentRunRouteDependencies{
+		ModePolicy: deps.modePolicy,
+		Profiles:   deps.agentProfileStore,
+		Runs:       deps.agentRunStore,
+		Managed:    deps.agentRunRuntime,
+		Chains:     deps.runChainRuntime,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterStateMachineRunRoutes(r, httpapi.StateMachineRunRouteDependencies{
+		ModePolicy:    deps.modePolicy,
+		ShareSessions: deps.deploymentRuntime,
+		Runtime:       deps.stateMachineRuntime,
+	}); err != nil {
+		return err
+	}
+	if err := httpapi.RegisterMCPRoutes(r, httpapi.MCPRouteDependencies{
+		Logger:                   deps.logger,
+		ModePolicy:               deps.modePolicy,
+		LLMConfigPath:            mcpx.LLMConfigPath(deps.cfg.Paths.SettaFilesRoot),
+		ActiveSettaFilesLocation: deps.cfg.Paths.ActiveSettaFilesLocation(),
+		Client:                   deps.mcpClient,
+		ExternalStatusProvider: externalMCPStatusProvider{
+			runtime: deps.externalAgentRuntime,
+			send:    deps.externalAgentSend,
+		},
+	}); err != nil {
+		return err
+	}
+	return httpapi.RegisterLSPRoutes(r, httpapi.LSPRouteDependencies{
+		ModePolicy:   deps.modePolicy,
+		ProjectState: deps.projectRuntime,
+		Diagnostics:  deps.lspDiagnostics,
+		Completions:  deps.lspCompletion,
+		Admin:        deps.projectLSPSyncer,
+	})
+}
+
+func registerAPIRoutes(r chi.Router, deps appHandlerDeps) error {
+	if err := registerStatusAndSystemRoutes(r, deps); err != nil {
+		return err
+	}
+	if err := registerWorkspaceRoutes(r, deps); err != nil {
+		return err
+	}
+	if err := registerProjectRoutes(r, deps); err != nil {
+		return err
+	}
+	return registerToolingRoutes(r, deps)
+}
+
+func newAppHandler(deps appHandlerDeps) (http.Handler, error) {
+	return httpapi.NewHandler(httpapi.Dependencies{
+		Logger: deps.logger,
+		Info: infoService{
+			config:         deps.cfg,
+			authCookieName: deps.authService.AuthCookieBaseName(),
+		},
+		Auth:           deps.authService,
+		TrustedOrigins: deps.trustedOrigins,
+		ModePolicy:     deps.modePolicy,
+		RegisterRoot: func(r chi.Router) {
+			if err := registerRootRoutes(r, deps); err != nil {
+				panic(err)
+			}
+		},
+		RegisterAuthenticatedRoot: func(r chi.Router) {
+			if err := registerAuthenticatedRootRoutes(r, deps); err != nil {
+				panic(err)
+			}
+		},
+		Register: func(r chi.Router) {
+			if err := registerAPIRoutes(r, deps); err != nil {
+				panic(err)
+			}
+		},
+	})
+}
+
+type appBaseServices struct {
+	manager           *runtime.Manager
+	websocketHub      *realtime.WebsocketHub
+	authService       *auth.Service
+	currentSession    *auth.CurrentSession
+	settaServerURL    string
+	mcpToolRegistry   *tools.Registry
+	mcpClient         *mcpx.Client
+	backendLogService *backendlogs.Service
+}
+
+type appWorkspaceServices struct {
+	terminalService      *terminals.Service
+	binaryStore          *binarypayload.Store
+	fileBrowserService   *filebrowser.Service
+	artifactService      *artifacts.Service
+	shareArtifactService *shareartifacts.Service
+	attachmentService    *chatattachments.Service
+	agentProfileStore    *agentprofiles.Store
+	promptTemplateStore  *prompttemplates.Store
+	agenticSummaryStatus *agenticsummarycache.Service
+	appGenSkillService   *appgenskills.Service
+	pathRevealService    *pathreveal.Service
+}
+
+type appRuntimeServices struct {
+	ideAgents              ideAgentServices
+	runPlanner             *runs.Planner
+	listenerBroadcaster    *realtime.ListenerBroadcaster
+	uiSettingRevealResults *realtime.UISettingRevealResultHub
+	listenerProducer       *realtime.ListenerProducer
+	promptTemplateWatcher  *prompttemplates.Watcher
+	uiSettingRevealService uisettings.RevealService
+	runCodeService         *runs.Service
+	detachedRunManager     *detachedruns.Manager
+}
+
+type appPlatformServices struct {
+	deploymentCatalog  *deployments.Catalog
+	sharePublisher     *deployments.SharePublisher
+	appPublisher       *deployments.AppPublisher
+	pluginRuntime      *pluginBackendRuntimeRefresher
+	pluginRouteService httpapi.PluginRouteService
+	mcpServer          *mcpx.Server
+}
+
+type appHandlerServices struct {
+	handler                http.Handler
+	jsonSourceWatchService *jsonsourcewatch.Service
+	artifactWatchService   *artifactwatch.Service
+}
+
+func initializeAppBaseServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+) (appBaseServices, error) {
+	services := appBaseServices{
+		manager:         runtime.New(context.Background(), logger),
+		websocketHub:    realtime.NewWebsocketHub(realtime.WebsocketHubOptions{}),
+		mcpToolRegistry: tools.NewRegistry(),
+	}
+	authService, err := auth.NewService(auth.Options{
+		Mode:              cfg.Server.Mode,
+		RuntimeRoot:       cfg.Paths.RuntimeRoot,
+		ProfileCookieName: cfg.Paths.AuthCookieName,
+		EnvLookup:         os.LookupEnv,
+	})
+	if err != nil {
+		return appBaseServices{}, err
+	}
+	services.authService = authService
 	if modePolicy.IsIDE() {
-		fileBrowserService, err = filebrowser.NewService(filebrowser.ServiceOptions{
+		services.mcpClient, err = newInternalMCPClient(cfg, logger, authService)
+		if err != nil {
+			return appBaseServices{}, err
+		}
+	}
+	services.currentSession = authServiceCurrentSessionOrNil(services.authService)
+	services.settaServerURL = resolveSettaServerURL(cfg, services.currentSession)
+	services.backendLogService, err = backendlogs.NewService(backendlogs.ServiceOptions{
+		Logger:       logger,
+		WebsocketHub: services.websocketHub,
+		EnvLookup:    os.LookupEnv,
+	})
+	if err != nil {
+		return appBaseServices{}, err
+	}
+	return services, nil
+}
+
+func closeProjectAndTerminal(projectServices projectServices, terminalService *terminals.Service) error {
+	return errors.Join(
+		closeInitializedProjectServices(projectServices),
+		closeTerminalService(terminalService, context.Background()),
+	)
+}
+
+func closeTerminalService(service *terminals.Service, ctx context.Context) error {
+	if service == nil {
+		return nil
+	}
+	return service.Close(ctx)
+}
+
+func initializeAppWorkspaceRuntimeServices(
+	cfg config.Config,
+	modePolicy modes.Policy,
+	authService *auth.Service,
+	websocketHub *realtime.WebsocketHub,
+	projectServices projectServices,
+	services *appWorkspaceServices,
+) error {
+	var err error
+	if modePolicy.IsIDE() {
+		services.fileBrowserService, err = filebrowser.NewService(filebrowser.ServiceOptions{
 			WorkspaceRoot:        cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot:       cfg.Paths.SettaFilesRoot,
 			RuntimeRoot:          cfg.Paths.RuntimeRoot,
 			GlobalSettaFilesBase: cfg.User.GlobalSettaFilesBase,
-			BinaryStore:          binaryStore,
+			BinaryStore:          services.binaryStore,
 			Sessions:             authService,
 		})
 		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
+			return err
 		}
-		artifactService, err = artifacts.NewService(artifacts.ServiceOptions{
+		services.artifactService, err = artifacts.NewService(artifacts.ServiceOptions{
 			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
 			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			ArtifactsRoot:  artifactsRoot,
-			BinaryStore:    binaryStore,
+			ArtifactsRoot:  projectServices.artifactsRoot,
+			BinaryStore:    services.binaryStore,
 		})
 		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
+			return err
 		}
 	}
-	if deploymentRuntime != nil {
-		shareArtifactService, err = shareartifacts.NewService(shareartifacts.ServiceOptions{
-			Deployment:   deploymentRuntime,
-			BinaryStore:  binaryStore,
+	if projectServices.deploymentRuntime != nil {
+		services.shareArtifactService, err = shareartifacts.NewService(shareartifacts.ServiceOptions{
+			Deployment:   projectServices.deploymentRuntime,
+			BinaryStore:  services.binaryStore,
 			WebsocketHub: websocketHub,
 		})
 		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-	}
-	if projectRuntime != nil {
-		attachmentService, err = chatattachments.NewService(chatattachments.ServiceOptions{
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			Host:           cfg.Server.Host,
-			Port:           cfg.Server.Port,
-			ProjectState:   projectRuntime,
-			Deployment:     deploymentRuntime,
-			Sessions:       authService,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-	}
-	agentProfileStore, err := agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
-	}
-	promptTemplateStore, err = prompttemplates.NewStore(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
-	}
-	agenticSummaryStatus, err = agenticsummarycache.NewService(cfg.Paths.SettaFilesRoot)
-	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
-	}
-	if modePolicy.IsIDE() {
-		appGenSkillService, err = appgenskills.NewService(appgenskills.ServiceOptions{
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			LookupEnv:     os.LookupEnv,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		pathRevealService, err = pathreveal.NewService(pathreveal.ServiceOptions{
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			Skills:         appGenSkillService,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-	}
-	var agentRunService *agentruns.Service
-	var temporaryIDs *mcpx.TemporaryIDStore
-	if modePolicy.IsIDE() && projectRuntime != nil {
-		engineStore, err = agentruns.NewEngineStore(cfg.Paths.SettaFilesRoot)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		transcriptionStore, err = transcriptionprofiles.NewStore(cfg.Paths.SettaFilesRoot)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		agentRunStore, err = agentruns.NewRunStore(cfg.Paths.SettaFilesRoot)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
-			_, _ = websocketHub.BroadcastJSON(
-				context.Background(),
-				realtime.NewAgentRunUpdatedMessage(run),
-				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-			)
-		})
-		externalConfigStore, err = externalagentconfigs.NewStore(cfg.Paths.SettaFilesRoot)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		externalConfigService, err = externalagentconfigs.NewService(externalagentconfigs.ServiceOptions{
-			Configs:        externalConfigStore,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-			SettaServerURL: settaServerURL,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		if err := externalConfigService.SeedDefaultConfigsIfMissing(); err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		if err := externalConfigService.ReconcileManagedCanonicalConfigs(); err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		externalPreflightChecker, err := externalagentconfigs.NewSystemChecker(externalagentconfigs.SystemCheckerOptions{
-			WorkspaceRoot:          cfg.Paths.WorkspaceRoot,
-			ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,
-			ProcessEnv:             llmconfig.CurrentProcessEnv(),
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		externalPreflight = externalPreflightChecker
-		llmConfigs, err := llmconfig.Load(
-			llmconfig.Path(cfg.Paths.SettaFilesRoot),
-			llmconfig.LoadOptions{
-				SettaServerURL: settaServerURL,
-			},
-		)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		llmRuntime, err = llmconfig.NewRuntime(llmConfigs)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		workspaceEnv, err := llmconfig.ReadEnvFile(filepath.Join(cfg.Paths.WorkspaceRoot, ".env"))
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		llmRuntime.UpdateAPIKeys(llmconfig.ResolveRuntimeAPIKeys(
-			llmConfigs,
-			workspaceEnv,
-			llmconfig.CurrentProcessEnv(),
-		))
-		llmService, err = llmconfig.NewService(llmconfig.ServiceOptions{
-			ConfigPath:             llmconfig.Path(cfg.Paths.SettaFilesRoot),
-			ManagedAPIKeysPath:     llmconfig.ManagedAPIKeysPath(cfg.Paths.WorkspaceRoot),
-			ManagedAPIKeysLockRoot: cfg.Paths.RuntimeRoot,
-			Runtime:                llmRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		transcriptionProfiles, err = transcriptionprofiles.NewService(transcriptionprofiles.ServiceOptions{
-			Profiles: transcriptionStore,
-			LLM:      llmRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		transcriptionSessions, err = transcriptionsessions.NewService(transcriptionsessions.ServiceOptions{
-			LLM: llmRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		if err := agentruns.SeedDefaultEngineConfigsIfMissing(engineStore); err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		if err := agentprofiles.SeedDefaultProfilesIfMissing(agentProfileStore); err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		if err := transcriptionProfiles.SeedDefaultProfilesIfMissing(); err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		temporaryIDs, err = mcpx.NewTemporaryIDStore(mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot))
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		managedLiveRuntime = managedchat.NewLiveRuntime(managedchat.LiveRuntimeOptions{
-			Broadcaster: websocketHub,
-		})
-		agentRunService, err = agentruns.NewService(agentruns.ServiceOptions{
-			ProjectState: projectRuntime,
-			Engines:      engineStore,
-			Runs:         agentRunStore,
-			LLM:          llmRuntime,
-			Executor: managedllm.NewExecutor(managedllm.ExecutorOptions{
-				Live:        managedLiveRuntime,
-				Tools:       mcpClient,
-				Attachments: attachmentService,
-				ResultFollow: managedllm.NewToolResultFollowEmitter(managedllm.ToolResultFollowEmitterOptions{
-					Broadcaster:  websocketHub,
-					TemporaryIDs: temporaryIDs,
-				}),
-			}),
-			TemporaryIDs: temporaryIDs,
-			CompletionGuardProvider: func() (bool, error) {
-				if settingsStateRuntime == nil {
-					return false, errors.New("settings state runtime is not configured")
-				}
-				return settingsstate.CompletionGuardEnabled(settingsStateRuntime.Snapshot().Document)
-			},
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		agentRunRuntime, err = agentruns.NewRuntime(agentruns.RuntimeOptions{
-			Service:        agentRunService,
-			LiveRunTracker: managedLiveRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		managedChatService, err = managedchat.NewService(managedchat.ServiceOptions{
-			ProjectState: projectRuntime,
-			Runs:         agentRunStore,
-			Engines:      engineStore,
-			LLM:          llmRuntime,
-			Profiles:     agentProfileStore,
-			Starter:      agentRunRuntime,
-			Live:         managedLiveRuntime,
-			Stopper:      agentRunRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		chatSectionChatIDs, err = chatsections.NewService(chatsections.ServiceOptions{
-			ProjectState: projectRuntime,
-			Runs:         agentRunStore,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		scriptableChatService, err = scriptablechat.NewService(scriptablechat.ServiceOptions{
-			Runs:        agentRunStore,
-			Engines:     engineStore,
-			LLM:         llmRuntime,
-			Tools:       mcpClient,
-			Broadcaster: websocketHub,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		gitReadService, err = gitread.NewService(gitread.ServiceOptions{
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		broadcastAllProjectMetadata := func(ctx context.Context, snapshot projectstate.Snapshot) error {
-			var defaultProjectID *string
-			if trimmedDefaultProjectID := strings.TrimSpace(snapshot.Document.DefaultProjectID); trimmedDefaultProjectID != "" {
-				defaultProjectID = &trimmedDefaultProjectID
-			}
-			_, err = websocketHub.BroadcastJSON(
-				ctx,
-				realtime.NewAllProjectMetadataMessage(realtime.AllProjectMetadataContent{
-					DefaultProjectConfigID: defaultProjectID,
-					ProjectMetadata:        snapshot.Document.ProjectConfigMetadata(),
-				}),
-				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-			)
 			return err
 		}
-		broadcastSavedProjectNotification := func(ctx context.Context, _ projectstate.Snapshot, projectID string) error {
-			notificationID, err := newAppNotificationID()
-			if err != nil {
-				return err
-			}
-			_, err = websocketHub.BroadcastJSON(
-				ctx,
-				realtime.NewNotificationMessage(realtime.NotificationContent{
-					ID:              notificationID,
-					ProjectConfigID: projectID,
-					Type:            realtime.NotificationTypeSave,
-					Message:         "Saved!",
-					Temporary:       false,
-					Timestamp:       time.Now().UTC().Format(time.RFC3339Nano),
-					Metadata:        map[string]any{},
-					ReadStatus:      false,
-				}),
-				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-			)
-			return err
-		}
-		deleteProjectTerminals := func(ctx context.Context, _ projectstate.Snapshot, deletedIDs []string) error {
-			var joined error
-			for _, projectID := range deletedIDs {
-				for _, session := range terminalService.List(projectID, "") {
-					joined = errors.Join(joined, terminalService.Delete(ctx, session.ID))
-				}
-			}
-			return joined
-		}
-		projectShellService, err = projectshell.NewService(projectshell.ServiceOptions{
-			ProjectState:         projectRuntime,
-			SettingsState:        settingsStateRuntime,
-			SettingsProjectState: projectStates.Settings(),
-			AfterProjectSave:     broadcastSavedProjectNotification,
-			AfterProjectMetadataMutation: func(ctx context.Context, snapshot projectstate.Snapshot) error {
-				return broadcastAllProjectMetadata(ctx, snapshot)
-			},
-			AfterProjectsDelete: deleteProjectTerminals,
-			AfterProjectRename: func(ctx context.Context, snapshot projectstate.Snapshot, projectID string) error {
-				projectStateView, err := projectview.SingleConfigByProjectID(snapshot.Document, projectID)
-				if err != nil {
-					return err
-				}
-				status := projectRuntime.FrontendOpStatus()
-				if _, err := websocketHub.BroadcastJSON(
-					ctx,
-					realtime.NewProjectStateUpdateMessage(realtime.ProjectStateUpdateContent{
-						ProjectState:   projectStateView,
-						CompletedOpIDs: status.Completed,
-						PendingOpIDs:   status.Pending,
-					}),
-					realtime.Selection{Type: realtime.ConnectionTypeFrontend},
-				); err != nil {
-					return err
-				}
-				return broadcastAllProjectMetadata(ctx, snapshot)
-			},
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		notificationStore, err = notifications.NewStore(cfg.Paths.SettaFilesRoot)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		notificationService, err = notifications.NewService(notifications.ServiceOptions{
-			Store: notificationStore,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		externalAgentFollow, err = externalagents.NewFollowService(externalagents.FollowServiceOptions{
-			Tools:        mcpClient,
-			TemporaryIDs: temporaryIDs,
-			Broadcaster:  websocketHub,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		externalAgentRuntime, err = externalagents.NewRuntime(externalagents.RuntimeOptions{
-			Runs:        agentRunStore,
-			Follow:      externalAgentFollow,
-			BackendLogs: backendLogService,
-			Logger:      logger,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		externalAgentChats, err = externalagents.NewService(externalagents.ServiceOptions{
-			Runs: agentRunStore,
-			Live: externalAgentRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		codexExecutor, err := externalagents.NewCodexExecutor(externalagents.CodexExecutorOptions{
-			Runs:               agentRunStore,
-			Runtime:            externalAgentRuntime,
-			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
-			SettaFilesRoot:     cfg.Paths.SettaFilesRoot,
-			SettaToolRegistry:  mcpToolRegistry,
-			CurrentSession:     currentSession,
-			AuthCookieBaseName: authService.AuthCookieBaseName(),
-			RuntimeRoot:        cfg.Paths.RuntimeRoot,
-			ProcessEnv:         llmconfig.CurrentProcessEnv(),
-			Logger:             logger,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		claudeExecutor, err := externalagents.NewClaudeExecutor(externalagents.ClaudeExecutorOptions{
-			Runs:               agentRunStore,
-			Runtime:            externalAgentRuntime,
-			WorkspaceRoot:      cfg.Paths.WorkspaceRoot,
-			SettaServerURL:     settaServerURL,
-			CurrentSession:     currentSession,
-			AuthCookieBaseName: authService.AuthCookieBaseName(),
-			RuntimeRoot:        cfg.Paths.RuntimeRoot,
-			ProcessEnv:         llmconfig.CurrentProcessEnv(),
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		externalAgentExecutor = externalagents.NewMultiExecutor(externalagents.MultiExecutorOptions{
-			Claude: claudeExecutor,
-			Codex:  codexExecutor,
-		})
-		externalAgentSend, err = externalagents.NewSendService(externalagents.SendServiceOptions{
-			ProjectState:   projectRuntime,
-			Engines:        engineStore,
-			Runs:           agentRunStore,
-			Profiles:       agentProfileStore,
-			Configs:        externalConfigStore,
-			Runtime:        externalAgentRuntime,
-			Preflight:      externalPreflightChecker,
-			Attachments:    attachmentService,
-			Executor:       externalAgentExecutor,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		stateMachineRuntime, err = statemachineruns.NewRuntime(statemachineruns.RuntimeOptions{
-			Runs:      agentRunStore,
-			Engines:   engineStore,
-			Profiles:  agentProfileStore,
-			Templates: promptTemplateStore,
-			ResolveProjectRuntime: func(shareSessionID *string) (*projectstate.Runtime, error) {
-				if shareSessionID != nil && strings.TrimSpace(*shareSessionID) != "" {
-					if deploymentRuntime == nil {
-						return nil, fmt.Errorf("deployment runtime is required for workflow share session %s", strings.TrimSpace(*shareSessionID))
-					}
-					return deploymentRuntime.Overlay(strings.TrimSpace(*shareSessionID))
-				}
-				if projectRuntime == nil {
-					return nil, fmt.Errorf("project runtime is required")
-				}
-				return projectRuntime, nil
-			},
-			ManagedChats:  managedChatService,
-			ManagedRuns:   agentRunRuntime,
-			ExternalChats: externalAgentSend,
-			ExternalRuns:  externalAgentRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		agentRunStore.AddAfterSaveListener(func(run agentruns.Run) {
-			if stateMachineRuntime == nil {
-				return
-			}
-			switch run.Status {
-			case agentruns.RunStatusCompleted, agentruns.RunStatusFailed, agentruns.RunStatusCancelled:
-			default:
-				return
-			}
-			parentRunType, ok := run.Inputs["stateMachineParentRunType"].(string)
-			if !ok || strings.TrimSpace(parentRunType) != statemachineruns.RunTypeStateMachine {
-				return
-			}
-			savedRun := run.Clone()
-			go func() {
-				if _, err := stateMachineRuntime.HandleTerminalChildRunUpdate(savedRun); err != nil {
-					logger.Error("state machine runtime failed to process child run update", "runId", savedRun.ID, "error", err)
-				}
-			}()
-		})
-		externalAgentRunService, err := externalagents.NewRunService(externalagents.RunServiceOptions{
-			ProjectState: projectRuntime,
-			Engines:      engineStore,
-			Runs:         agentRunStore,
-			Configs:      externalConfigStore,
-			Runtime:      externalAgentRuntime,
-			Preflight:    externalPreflightChecker,
-			Attachments:  attachmentService,
-			Executor:     externalAgentExecutor,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		runChainRuntime, err = runchains.NewRuntime(runchains.RuntimeOptions{
-			Runs:         agentRunStore,
-			Engines:      engineStore,
-			Profiles:     agentProfileStore,
-			ProjectState: projectRuntime,
-			Managed:      agentRunRuntime,
-			External:     externalAgentRunService,
-			TemporaryIDs: temporaryIDs,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
 	}
-	runPlanner, err := runs.NewPlanner(runs.PlannerOptions{
-		ProjectState:   projectRuntime,
-		SettaFilesRoot: plannerFilesRoot,
+	if projectServices.projectRuntime == nil {
+		return nil
+	}
+	services.attachmentService, err = chatattachments.NewService(chatattachments.ServiceOptions{
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		Host:           cfg.Server.Host,
+		Port:           cfg.Server.Port,
+		ProjectState:   projectServices.projectRuntime,
+		Deployment:     projectServices.deploymentRuntime,
+		Sessions:       authService,
+	})
+	return err
+}
+
+func initializeAppWorkspaceIDEHelpers(
+	cfg config.Config,
+	modePolicy modes.Policy,
+	services *appWorkspaceServices,
+) error {
+	if !modePolicy.IsIDE() {
+		return nil
+	}
+	appGenSkillService, err := appgenskills.NewService(appgenskills.ServiceOptions{
+		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		LookupEnv:     os.LookupEnv,
+	})
+	if err != nil {
+		return err
+	}
+	services.appGenSkillService = appGenSkillService
+	services.pathRevealService, err = pathreveal.NewService(pathreveal.ServiceOptions{
+		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		Skills:         services.appGenSkillService,
+	})
+	return err
+}
+
+func initializeAppWorkspaceServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	authService *auth.Service,
+	websocketHub *realtime.WebsocketHub,
+	projectServices projectServices,
+) (appWorkspaceServices, error) {
+	services := appWorkspaceServices{}
+	var err error
+	services.terminalService, err = terminals.New(terminals.Options{
+		Logger: logger,
+	})
+	if err != nil {
+		_ = closeInitializedProjectServices(projectServices)
+		return appWorkspaceServices{}, err
+	}
+	services.binaryStore, err = binarypayload.NewStoreForRuntimeRoot(cfg.Paths.RuntimeRoot)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, services.terminalService)
+		return appWorkspaceServices{}, err
+	}
+	if err := initializeAppWorkspaceRuntimeServices(
+		cfg,
+		modePolicy,
+		authService,
+		websocketHub,
+		projectServices,
+		&services,
+	); err != nil {
+		_ = closeProjectAndTerminal(projectServices, services.terminalService)
+		return appWorkspaceServices{}, err
+	}
+	services.agentProfileStore, err = agentprofiles.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, services.terminalService)
+		return appWorkspaceServices{}, err
+	}
+	services.promptTemplateStore, err = prompttemplates.NewStore(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, services.terminalService)
+		return appWorkspaceServices{}, err
+	}
+	services.agenticSummaryStatus, err = agenticsummarycache.NewService(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, services.terminalService)
+		return appWorkspaceServices{}, err
+	}
+	if err := initializeAppWorkspaceIDEHelpers(cfg, modePolicy, &services); err != nil {
+		_ = closeProjectAndTerminal(projectServices, services.terminalService)
+		return appWorkspaceServices{}, err
+	}
+	return services, nil
+}
+
+func initializeAppRuntimeServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	base appBaseServices,
+	projectServices projectServices,
+	workspaceServices appWorkspaceServices,
+) (appRuntimeServices, error) {
+	services := appRuntimeServices{
+		uiSettingRevealResults: realtime.NewUISettingRevealResultHub(),
+	}
+	var err error
+	services.ideAgents, err = initializeIDEAgentServices(
+		cfg,
+		logger,
+		modePolicy,
+		base.settaServerURL,
+		base.currentSession,
+		base.authService,
+		base.websocketHub,
+		projectServices.projectStates,
+		projectServices.projectRuntime,
+		projectServices.settingsStateRuntime,
+		projectServices.deploymentRuntime,
+		workspaceServices.terminalService,
+		base.mcpClient,
+		base.mcpToolRegistry,
+		workspaceServices.attachmentService,
+		base.backendLogService,
+		workspaceServices.promptTemplateStore,
+		workspaceServices.agentProfileStore,
+	)
+	if err != nil {
+		return appRuntimeServices{}, err
+	}
+	services.runPlanner, err = runs.NewPlanner(runs.PlannerOptions{
+		ProjectState:   projectServices.projectRuntime,
+		SettaFilesRoot: projectServices.plannerFilesRoot,
 		RuntimeRoot:    cfg.Paths.RuntimeRoot,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
+		return appRuntimeServices{}, err
 	}
-	listenerBroadcaster := realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
-		WebsocketHub: websocketHub,
-		TemporaryIDs: temporaryIDs,
+	services.listenerBroadcaster = realtime.NewListenerBroadcaster(realtime.ListenerBroadcasterOptions{
+		WebsocketHub: base.websocketHub,
+		TemporaryIDs: services.ideAgents.temporaryIDs,
 	})
-	uiSettingRevealResults := realtime.NewUISettingRevealResultHub()
-	listenerProducer := realtime.NewListenerProducer(realtime.ListenerProducerOptions{
-		Broadcaster:  listenerBroadcaster,
-		ProjectState: projectRuntime,
-		Deployment:   deploymentRuntime,
+	services.listenerProducer = realtime.NewListenerProducer(realtime.ListenerProducerOptions{
+		Broadcaster:  services.listenerBroadcaster,
+		ProjectState: projectServices.projectRuntime,
+		Deployment:   projectServices.deploymentRuntime,
 	})
-	promptTemplateWatcher, err = prompttemplates.NewWatcher(prompttemplates.WatcherOptions{
-		Store:    promptTemplateStore,
+	services.promptTemplateWatcher, err = prompttemplates.NewWatcher(prompttemplates.WatcherOptions{
+		Store:    workspaceServices.promptTemplateStore,
 		Interval: 100 * time.Millisecond,
 		OnTemplatesUpdated: func(ctx context.Context, templates []prompttemplates.Template) error {
-			_, err := websocketHub.BroadcastJSON(
+			_, err := base.websocketHub.BroadcastJSON(
 				ctx,
 				realtime.NewPromptTemplatesUpdatedMessage(templates),
 				realtime.Selection{Type: realtime.ConnectionTypeFrontend},
@@ -1380,49 +2376,385 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return err
 		},
 		OnParseError: func(ctx context.Context, _ error) error {
-			return backendLogService.LogAndBroadcast(ctx, backendlogs.LogRequest{
+			return base.backendLogService.LogAndBroadcast(ctx, backendlogs.LogRequest{
 				Severity: backendlogs.SeverityError,
 				Message:  "Failed to parse prompt templates; keeping previous prompts",
 			})
 		},
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
+		return appRuntimeServices{}, err
 	}
-	uiSettingRevealService, err := uisettings.NewRevealService(uisettings.RevealServiceOptions{
-		Transport: websocketHub,
-		Results:   uiSettingRevealResults,
+	services.uiSettingRevealService, err = uisettings.NewRevealService(uisettings.RevealServiceOptions{
+		Transport: base.websocketHub,
+		Results:   services.uiSettingRevealResults,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
+		return appRuntimeServices{}, err
 	}
-	runCodeService, err := runs.NewService(runs.ServiceOptions{
-		Planner:           runPlanner,
-		ProjectState:      projectRuntime,
-		SettingsState:     settingsStateRuntime,
-		DeploymentRuntime: deploymentRuntime,
-		Terminals:         terminalService,
-		BackendLogs:       backendLogService,
-		BinaryStore:       binaryStore,
-		ListenerProducer:  listenerProducer,
-		ArtifactsRoot:     artifactsRoot,
+	services.runCodeService, err = runs.NewService(runs.ServiceOptions{
+		Planner:           services.runPlanner,
+		ProjectState:      projectServices.projectRuntime,
+		SettingsState:     projectServices.settingsStateRuntime,
+		DeploymentRuntime: projectServices.deploymentRuntime,
+		Terminals:         workspaceServices.terminalService,
+		BackendLogs:       base.backendLogService,
+		BinaryStore:       workspaceServices.binaryStore,
+		ListenerProducer:  services.listenerProducer,
+		ArtifactsRoot:     projectServices.artifactsRoot,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
+		return appRuntimeServices{}, err
 	}
-	detachedRunManager, err = detachedruns.NewManager(detachedruns.ManagerOptions{
+	services.detachedRunManager, err = detachedruns.NewManager(detachedruns.ManagerOptions{
 		RuntimeRoot: cfg.Paths.RuntimeRoot,
 	})
 	if err != nil {
-		_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-		return nil, err
+		return appRuntimeServices{}, err
 	}
+	return services, nil
+}
+
+func initializeAppDeploymentPublishers(
+	cfg config.Config,
+	modePolicy modes.Policy,
+	services *appPlatformServices,
+) error {
+	if !modePolicy.IsIDE() {
+		return nil
+	}
+	catalogRoot, err := deployments.DefaultCatalogRoot(cfg.Paths.SettaFilesRoot)
+	if err != nil {
+		return err
+	}
+	services.deploymentCatalog, err = deployments.NewCatalog(deployments.CatalogOptions{
+		Root: catalogRoot,
+	})
+	if err != nil {
+		return err
+	}
+	services.sharePublisher, err = deployments.NewSharePublisher(deployments.SharePublisherOptions{
+		Catalog:        services.deploymentCatalog,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+	})
+	if err != nil {
+		return err
+	}
+	services.appPublisher, err = deployments.NewAppPublisher(deployments.AppPublisherOptions{
+		Catalog:        services.deploymentCatalog,
+		SettaFilesRoot: cfg.Paths.SettaFilesRoot,
+		WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
+	})
+	return err
+}
+
+func configureAppPluginRuntime(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	projectServices projectServices,
+	services *appPlatformServices,
+) {
+	if !modePolicy.IsIDE() || projectServices.pluginDiscovery == nil {
+		return
+	}
+	services.pluginRuntime = &pluginBackendRuntimeRefresher{
+		service:     projectServices.pluginMutationService,
+		logger:      logger,
+		runtimeRoot: cfg.Paths.RuntimeRoot,
+		lspRouter:   projectServices.lspRouter,
+	}
+	projectServices.pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
+		if services.pluginRuntime == nil {
+			return false, errors.New("plugin backend runtime refresher is not configured")
+		}
+		if _, err := services.pluginRuntime.Refresh(ctx); err != nil {
+			return false, err
+		}
+		return true, nil
+	})
+	services.pluginRouteService = newPluginMutationRuntimeService(
+		projectServices.pluginMutationService,
+		services.pluginRuntime,
+	)
+}
+
+func initializeAppMCPServer(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	base appBaseServices,
+	projectServices projectServices,
+	workspaceServices appWorkspaceServices,
+	runtimeServices appRuntimeServices,
+	services *appPlatformServices,
+) error {
+	if !modePolicy.IsIDE() {
+		return nil
+	}
+	mcpServer, err := mcpx.NewServer(mcpx.ServerOptions{
+		Logger:        logger,
+		Registry:      base.mcpToolRegistry,
+		WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+		ProjectState:  projectServices.projectRuntime,
+		AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
+			return broadcastFrontendProjectStateUpdate(
+				ctx,
+				projectServices.projectStates.Main(),
+				base.websocketHub,
+				projectServices.projectStates.Main().Snapshot(),
+				projectID,
+			)
+		},
+		CodegenTargetValidator:         projectServices.codegenValidator,
+		PythonCodegenSectionReconciler: projectServices.pythonMaterializer,
+		CodeUpdates:                    projectServices.codeUpdates,
+		SettingsState:                  projectServices.settingsStateRuntime,
+		SectionNames:                   projectServices.renameRefactors,
+		CallableSignatures:             projectServices.lspSignature,
+		PluginMutations:                services.pluginRouteService,
+		PythonPackages:                 projectServices.pythonPackages,
+		LSPDiagnostics:                 projectServices.lspDiagnostics,
+		MCPStatuses:                    base.mcpClient,
+		Terminals:                      workspaceServices.terminalService,
+		DocsRoot:                       filepath.Join(cfg.Paths.WorkspaceRoot, "docs"),
+		TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
+		AgentProfiles:                  workspaceServices.agentProfileStore,
+		PromptTemplates:                workspaceServices.promptTemplateStore,
+		ExternalAgentConfigs:           runtimeServices.ideAgents.externalConfigService,
+		LLMAPIKeys:                     runtimeServices.ideAgents.llmService,
+		AgentRuns:                      runtimeServices.ideAgents.agentRunService,
+		UISettingReveals:               runtimeServices.uiSettingRevealService,
+		StateMachineRuns:               runtimeServices.ideAgents.stateMachineRuntime,
+		ToolInvocations:                runtimeServices.ideAgents.externalAgentRuntime,
+	})
+	if err != nil {
+		return err
+	}
+	services.mcpServer = mcpServer
+	if services.pluginRuntime == nil {
+		return nil
+	}
+	services.pluginRuntime.mcpServer = services.mcpServer
+	if err := services.pluginRuntime.Initialize(context.Background()); err != nil {
+		_ = errors.Join(
+			closeMCPClient(base.mcpClient, context.Background()),
+			closeSettingsState(projectServices.settingsStateRuntime),
+			services.pluginRuntime.Close(context.Background()),
+		)
+		return err
+	}
+	return nil
+}
+
+func initializeAppPlatformServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	base appBaseServices,
+	projectServices projectServices,
+	workspaceServices appWorkspaceServices,
+	runtimeServices appRuntimeServices,
+) (appPlatformServices, error) {
+	services := appPlatformServices{
+		pluginRouteService: projectServices.pluginRouteService,
+	}
+	if err := initializeAppDeploymentPublishers(cfg, modePolicy, &services); err != nil {
+		return appPlatformServices{}, err
+	}
+	configureAppPluginRuntime(cfg, logger, modePolicy, projectServices, &services)
+	if err := initializeAppMCPServer(
+		cfg,
+		logger,
+		modePolicy,
+		base,
+		projectServices,
+		workspaceServices,
+		runtimeServices,
+		&services,
+	); err != nil {
+		return appPlatformServices{}, err
+	}
+	return services, nil
+}
+
+func initializeAppHandlerAndWatchServices(
+	cfg config.Config,
+	logger *slog.Logger,
+	modePolicy modes.Policy,
+	base appBaseServices,
+	launchServices launchServices,
+	projectServices projectServices,
+	workspaceServices appWorkspaceServices,
+	runtimeServices appRuntimeServices,
+	platformServices appPlatformServices,
+	watchRefs *projectWatchRefs,
+) (appHandlerServices, error) {
+	services := appHandlerServices{}
+	authRefreshWindowSeconds := int(base.authService.AuthCookieRefreshWindow() / time.Second)
+	worktreeName := devworktree.ActiveName()
+	statusReadyAt := time.Now().UTC()
+	listenerBuiltInInvoker, err := newListenerEndpointInvoker(
+		base.authService,
+		runtimeServices.ideAgents.scriptableChatService,
+		platformServices.pluginRouteService,
+	)
+	if err != nil {
+		return appHandlerServices{}, err
+	}
+	services.handler, err = newAppHandler(appHandlerDeps{
+		cfg:                      cfg,
+		logger:                   logger,
+		authService:              base.authService,
+		trustedOrigins:           launchServices.trustedOrigins,
+		modePolicy:               modePolicy,
+		projectStates:            projectServices.projectStates,
+		projectRuntime:           projectServices.projectRuntime,
+		settingsStateRuntime:     projectServices.settingsStateRuntime,
+		deploymentRuntime:        projectServices.deploymentRuntime,
+		shareSessions:            projectServices.shareSessions,
+		attachmentService:        workspaceServices.attachmentService,
+		pluginRouteService:       platformServices.pluginRouteService,
+		websocketHub:             base.websocketHub,
+		uiSettingRevealResults:   runtimeServices.uiSettingRevealResults,
+		listenerBroadcaster:      runtimeServices.listenerBroadcaster,
+		listenerBuiltInInvoker:   listenerBuiltInInvoker,
+		listenerProducer:         runtimeServices.listenerProducer,
+		terminalService:          workspaceServices.terminalService,
+		temporaryIDs:             runtimeServices.ideAgents.temporaryIDs,
+		mcpServer:                platformServices.mcpServer,
+		pathRevealService:        workspaceServices.pathRevealService,
+		authRefreshWindowSeconds: authRefreshWindowSeconds,
+		worktreeName:             worktreeName,
+		statusReadyAt:            statusReadyAt,
+		deploymentCatalog:        platformServices.deploymentCatalog,
+		sharePublisher:           platformServices.sharePublisher,
+		appPublisher:             platformServices.appPublisher,
+		launcherHome:             launchServices.launcherHome,
+		launcherManagement:       launchServices.launcherManagement,
+		launcherOpenWorkspace:    launchServices.launcherOpenWorkspace,
+		launchIntentService:      launchServices.launchIntentService,
+		localLaunchService:       launchServices.localLaunchService,
+		binaryStore:              workspaceServices.binaryStore,
+		fileBrowserService:       workspaceServices.fileBrowserService,
+		artifactService:          workspaceServices.artifactService,
+		shareArtifactService:     workspaceServices.shareArtifactService,
+		runCodeService:           runtimeServices.runCodeService,
+		runPlanner:               runtimeServices.runPlanner,
+		detachedRunManager:       runtimeServices.detachedRunManager,
+		projectShellService:      runtimeServices.ideAgents.projectShellService,
+		notificationService:      runtimeServices.ideAgents.notificationService,
+		gitReadService:           runtimeServices.ideAgents.gitReadService,
+		promptTemplateStore:      workspaceServices.promptTemplateStore,
+		chatSectionChatIDs:       runtimeServices.ideAgents.chatSectionChatIDs,
+		codegenValidator:         projectServices.codegenValidator,
+		pythonMaterializer:       projectServices.pythonMaterializer,
+		lspSignature:             projectServices.lspSignature,
+		codeUpdates:              projectServices.codeUpdates,
+		renameRefactors:          projectServices.renameRefactors,
+		managedChatService:       runtimeServices.ideAgents.managedChatService,
+		externalAgentSend:        runtimeServices.ideAgents.externalAgentSend,
+		externalAgentChats:       runtimeServices.ideAgents.externalAgentChats,
+		externalAgentFollow:      runtimeServices.ideAgents.externalAgentFollow,
+		externalAgentRuntime:     runtimeServices.ideAgents.externalAgentRuntime,
+		transcriptionProfiles:    runtimeServices.ideAgents.transcriptionProfiles,
+		transcriptionSessions:    runtimeServices.ideAgents.transcriptionSessions,
+		agentProfileStore:        workspaceServices.agentProfileStore,
+		promptTemplateWatcher:    runtimeServices.promptTemplateWatcher,
+		appGenSkillService:       workspaceServices.appGenSkillService,
+		externalConfigService:    runtimeServices.ideAgents.externalConfigService,
+		externalPreflight:        runtimeServices.ideAgents.externalPreflight,
+		engineStore:              runtimeServices.ideAgents.engineStore,
+		llmRuntime:               runtimeServices.ideAgents.llmRuntime,
+		llmService:               runtimeServices.ideAgents.llmService,
+		agenticSummaryStatus:     workspaceServices.agenticSummaryStatus,
+		agentRunStore:            runtimeServices.ideAgents.agentRunStore,
+		agentRunRuntime:          runtimeServices.ideAgents.agentRunRuntime,
+		runChainRuntime:          runtimeServices.ideAgents.runChainRuntime,
+		stateMachineRuntime:      runtimeServices.ideAgents.stateMachineRuntime,
+		mcpClient:                base.mcpClient,
+		lspDiagnostics:           projectServices.lspDiagnostics,
+		lspCompletion:            projectServices.lspCompletion,
+		projectLSPSyncer:         projectServices.projectLSPSyncer,
+	})
+	if err != nil {
+		return appHandlerServices{}, err
+	}
+	listenerBuiltInInvoker.SetHandler(services.handler)
+	if modePolicy.IsIDE() {
+		services.jsonSourceWatchService, err = newJSONSourceWatchService(jsonSourceWatchServiceOptions{
+			ProjectState:  projectServices.projectRuntime,
+			WebsocketHub:  base.websocketHub,
+			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
+			Logger:        logger,
+		})
+		if err != nil {
+			return appHandlerServices{}, err
+		}
+		watchRefs.jsonSourceWatchService = services.jsonSourceWatchService
+		if err := syncJSONSourceWatchInputs(
+			services.jsonSourceWatchService,
+			projectServices.projectRuntime.Snapshot().Document,
+			cfg.Paths.WorkspaceRoot,
+		); err != nil {
+			_ = services.jsonSourceWatchService.Close()
+			return appHandlerServices{}, err
+		}
+		services.artifactWatchService, err = newArtifactWatchService(artifactWatchServiceOptions{
+			Artifacts:      workspaceServices.artifactService,
+			WebsocketHub:   base.websocketHub,
+			ListenerEvents: runtimeServices.listenerProducer,
+			Logger:         logger,
+		})
+		if err != nil {
+			_ = services.jsonSourceWatchService.Close()
+			return appHandlerServices{}, err
+		}
+		watchRefs.artifactWatchService = services.artifactWatchService
+		if err := syncArtifactWatchInputs(
+			services.artifactWatchService,
+			projectServices.projectRuntime.Snapshot().Document,
+			cfg.Paths.SettaFilesRoot,
+		); err != nil {
+			_ = errors.Join(
+				services.artifactWatchService.Close(),
+				services.jsonSourceWatchService.Close(),
+			)
+			return appHandlerServices{}, err
+		}
+	}
+	if err := runtimeServices.promptTemplateWatcher.Start(context.Background()); err != nil {
+		_ = errors.Join(
+			runtimeServices.promptTemplateWatcher.Close(),
+			closeArtifactWatchService(services.artifactWatchService),
+			closeJSONSourceWatchService(services.jsonSourceWatchService),
+		)
+		return appHandlerServices{}, err
+	}
+	return services, nil
+}
+
+func startAppBackgroundServices(
+	modePolicy modes.Policy,
+	manager *runtime.Manager,
+	deploymentRuntime *deployments.Runtime,
+	terminalService *terminals.Service,
+	listenerBroadcaster *realtime.ListenerBroadcaster,
+	shareArtifactService *shareartifacts.Service,
+	transcriptionSessions *transcriptionsessions.Service,
+	mcpClient *mcpx.Client,
+) {
 	if deploymentRuntime != nil {
 		manager.Go("deployment-session-cleanup", func(ctx context.Context) error {
-			return runDeploymentSessionCleanupLoop(ctx, deploymentRuntime, terminalService, listenerBroadcaster, shareArtifactService, 0)
+			return runDeploymentSessionCleanupLoop(
+				ctx,
+				deploymentRuntime,
+				terminalService,
+				listenerBroadcaster,
+				shareArtifactService,
+				0,
+			)
 		})
 	}
 	if modePolicy.IsIDE() && transcriptionSessions != nil {
@@ -1430,572 +2762,126 @@ func New(cfg config.Config, logger *slog.Logger) (*App, error) {
 			return runTranscriptionSessionCleanupLoop(ctx, transcriptionSessions, 0)
 		})
 	}
-	if modePolicy.IsIDE() {
-		catalogRoot, err := deployments.DefaultCatalogRoot(cfg.Paths.SettaFilesRoot)
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		deploymentCatalog, err = deployments.NewCatalog(deployments.CatalogOptions{
-			Root: catalogRoot,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		sharePublisher, err = deployments.NewSharePublisher(deployments.SharePublisherOptions{
-			Catalog:        deploymentCatalog,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-		appPublisher, err = deployments.NewAppPublisher(deployments.AppPublisherOptions{
-			Catalog:        deploymentCatalog,
-			SettaFilesRoot: cfg.Paths.SettaFilesRoot,
-			WorkspaceRoot:  cfg.Paths.WorkspaceRoot,
-		})
-		if err != nil {
-			_ = errors.Join(closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()), terminalService.Close(context.Background()))
-			return nil, err
-		}
-	}
-	if modePolicy.IsIDE() && pluginDiscovery != nil {
-		pluginRuntimeRefresh = &pluginBackendRuntimeRefresher{
-			service:     pluginMutationService,
-			logger:      logger,
-			runtimeRoot: cfg.Paths.RuntimeRoot,
-			lspRouter:   lspRouter,
-		}
-		pluginMutationService.SetRestartCallback(func(ctx context.Context) (bool, error) {
-			if pluginRuntimeRefresh == nil {
-				return false, errors.New("plugin backend runtime refresher is not configured")
-			}
-			if _, err := pluginRuntimeRefresh.Refresh(ctx); err != nil {
-				return false, err
-			}
-			return true, nil
-		})
-		pluginRouteService = newPluginMutationRuntimeService(pluginMutationService, pluginRuntimeRefresh)
-	}
-	if modePolicy.IsIDE() {
-		mcpServer, err = mcpx.NewServer(mcpx.ServerOptions{
-			Logger:        logger,
-			Registry:      mcpToolRegistry,
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			ProjectState:  projectRuntime,
-			AfterProjectStateMutation: func(ctx context.Context, projectID string) error {
-				return broadcastFrontendProjectStateUpdate(
-					ctx,
-					projectStates.Main(),
-					websocketHub,
-					projectStates.Main().Snapshot(),
-					projectID,
-				)
-			},
-			CodegenTargetValidator:         codegenValidator,
-			PythonCodegenSectionReconciler: pythonMaterializer,
-			CodeUpdates:                    codeUpdates,
-			SettingsState:                  settingsStateRuntime,
-			SectionNames:                   renameRefactors,
-			CallableSignatures:             lspSignature,
-			PluginMutations:                pluginRouteService,
-			PythonPackages:                 pythonPackages,
-			LSPDiagnostics:                 lspDiagnostics,
-			MCPStatuses:                    mcpClient,
-			Terminals:                      terminalService,
-			DocsRoot:                       filepath.Join(cfg.Paths.WorkspaceRoot, "docs"),
-			TemporaryIDMapPath:             mcpx.TemporaryIDMapPath(cfg.Paths.RuntimeRoot),
-			AgentProfiles:                  agentProfileStore,
-			PromptTemplates:                promptTemplateStore,
-			ExternalAgentConfigs:           externalConfigService,
-			LLMAPIKeys:                     llmService,
-			AgentRuns:                      agentRunService,
-			UISettingReveals:               uiSettingRevealService,
-			StateMachineRuns:               stateMachineRuntime,
-			ToolInvocations:                externalAgentRuntime,
-		})
-		if err != nil {
-			_ = errors.Join(
-				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-				terminalService.Close(context.Background()),
-			)
-			return nil, err
-		}
-		if pluginRuntimeRefresh != nil {
-			pluginRuntimeRefresh.mcpServer = mcpServer
-			if err := pluginRuntimeRefresh.Initialize(context.Background()); err != nil {
-				_ = errors.Join(
-					closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-					closeMCPClient(mcpClient, context.Background()),
-					closeSettingsState(settingsStateRuntime),
-					pluginRuntimeRefresh.Close(context.Background()),
-					terminalService.Close(context.Background()),
-				)
-				return nil, err
-			}
-		}
-	}
-	authRefreshWindowSeconds := int(authService.AuthCookieRefreshWindow() / time.Second)
-	worktreeName := devworktree.ActiveName()
-	statusReadyAt := time.Now().UTC()
-	listenerBuiltInInvoker, err := newListenerEndpointInvoker(authService, scriptableChatService, pluginRouteService)
-	if err != nil {
-		_ = errors.Join(
-			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-			terminalService.Close(context.Background()),
-		)
-		return nil, err
-	}
-	handler, err := httpapi.NewHandler(httpapi.Dependencies{
-		Logger: logger,
-		Info: infoService{
-			config:         cfg,
-			authCookieName: authService.AuthCookieBaseName(),
-		},
-		Auth:           authService,
-		TrustedOrigins: trustedOrigins,
-		ModePolicy:     modes.NewPolicy(cfg.Server.Mode),
-		RegisterRoot: func(r chi.Router) {
-			if pluginRouteService != nil {
-				if err := httpapi.RegisterPluginRootRoutes(r, httpapi.PluginRootRouteDependencies{
-					Service:        pluginRouteService,
-					Auth:           authService,
-					TrustedOrigins: trustedOrigins,
-				}); err != nil {
-					panic(err)
-				}
-			}
-			if attachmentService != nil {
-				if err := httpapi.RegisterAttachmentRootRoutes(r, httpapi.AttachmentRootRouteDependencies{
-					ModePolicy:    modePolicy,
-					ShareSessions: shareSessions,
-					Deployment:    deploymentRuntime,
-					Service:       attachmentService,
-				}); err != nil {
-					panic(err)
-				}
-			}
-			if err := wsapi.RegisterRoutes(r, wsapi.RouteDependencies{
-				Transport: wsapi.Dependencies{
-					Auth:           authService,
-					ModePolicy:     modePolicy,
-					ShareSessions:  shareSessions,
-					TrustedOrigins: trustedOrigins,
-				},
-				Deployment:             deploymentRuntime,
-				ProjectState:           projectRuntime,
-				Artifacts:              artifactService,
-				ShareArtifacts:         shareArtifactService,
-				WebsocketHub:           websocketHub,
-				UISettingRevealResults: uiSettingRevealResults,
-				ListenerBroadcaster:    listenerBroadcaster,
-				BuiltInListenerInvoker: listenerBuiltInInvoker,
-				ListenerProducer:       listenerProducer,
-				Terminals:              terminalService,
-				TemporaryIDs:           temporaryIDs,
-			}); err != nil {
-				panic(err)
-			}
-		},
-		RegisterAuthenticatedRoot: func(r chi.Router) {
-			if mcpServer == nil {
-				return
-			}
-			r.Handle("/mcp", mcpServer.Handler())
-			r.Handle("/mcp/", mcpServer.Handler())
-			if err := httpapi.RegisterMCPRootRoutes(r, httpapi.MCPRootRouteDependencies{
-				ModePolicy:   modePolicy,
-				Server:       mcpServer,
-				ProjectState: projectRuntime,
-				WebsocketHub: websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-		},
-		Register: func(r chi.Router) {
-			if err := httpapi.RegisterStatusRoutes(r, httpapi.StatusRouteDependencies{
-				ModePolicy:               modePolicy,
-				SettaHome:                cfg.Paths.SettaHome,
-				GlobalSettaFilesBase:     cfg.User.GlobalSettaFilesBase,
-				ActiveSettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
-				SettaFilesRoot:           cfg.Paths.SettaFilesRoot,
-				RevealPath:               pathRevealService,
-				AuthRefreshWindowSeconds: authRefreshWindowSeconds,
-				WorktreeName:             worktreeName,
-				ReadyAt:                  statusReadyAt,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterDocstringRoutes(r, httpapi.DocstringRouteDependencies{
-				ModePolicy: modePolicy,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterSettingsRoutes(r, httpapi.SettingsRouteDependencies{
-				ModePolicy:    modePolicy,
-				SettingsState: settingsStateRuntime,
-				WebsocketHub:  websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-			if pluginRouteService != nil {
-				if err := httpapi.RegisterPluginRoutes(r, httpapi.PluginRouteDependencies{
-					ModePolicy: modePolicy,
-					Service:    pluginRouteService,
-				}); err != nil {
-					panic(err)
-				}
-			}
-			if err := httpapi.RegisterListenerRoutes(r, httpapi.ListenerRouteDependencies{
-				ModePolicy:          modePolicy,
-				ShareSessions:       shareSessions,
-				ProjectState:        projectRuntime,
-				Deployment:          deploymentRuntime,
-				ListenerBroadcaster: listenerBroadcaster,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterDeploymentRoutes(r, httpapi.DeploymentRouteDependencies{
-				ModePolicy: modePolicy,
-				Deployment: deploymentRuntime,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterDeploymentIDERoutes(r, httpapi.DeploymentIDERouteDependencies{
-				ModePolicy:     modePolicy,
-				ProjectState:   projectRuntime,
-				Catalog:        deploymentCatalog,
-				SharePublisher: sharePublisher,
-				AppPublisher:   appPublisher,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterLauncherHomeRoutes(r, httpapi.LauncherHomeRouteDependencies{
-				ModePolicy:       modePolicy,
-				Auth:             authService,
-				DefaultSettaHome: cfg.Paths.SettaHome,
-				Home:             launcherHome,
-				OpenWorkspace:    launcherOpenWorkspace,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterLauncherManagementRoutes(r, httpapi.LauncherManagementRouteDependencies{
-				ModePolicy:       modePolicy,
-				DefaultSettaHome: cfg.Paths.SettaHome,
-				Manager:          launcherManagement,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterWorkspaceLaunchRoutes(r, httpapi.WorkspaceLaunchRouteDependencies{
-				ModePolicy: modePolicy,
-				Auth:       authService,
-				Intents:    launchIntentService,
-				Launch:     localLaunchService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterBinaryRoutes(r, httpapi.BinaryRouteDependencies{
-				ModePolicy:    modePolicy,
-				ShareSessions: shareSessions,
-				Deployment:    deploymentRuntime,
-				Store:         binaryStore,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterAttachmentRoutes(r, httpapi.AttachmentRouteDependencies{
-				ModePolicy:    modePolicy,
-				ShareSessions: shareSessions,
-				Deployment:    deploymentRuntime,
-				Service:       attachmentService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterFileBrowserRoutes(r, httpapi.FileBrowserRouteDependencies{
-				ModePolicy:     modePolicy,
-				DeploymentRoot: cfg.Paths.DeploymentRoot,
-				Browser:        fileBrowserService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterArtifactRoutes(r, httpapi.ArtifactRouteDependencies{
-				ModePolicy:     modePolicy,
-				ShareSessions:  shareSessions,
-				Artifacts:      artifactService,
-				ShareArtifacts: shareArtifactService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterTerminalRoutes(r, httpapi.TerminalRouteDependencies{
-				ModePolicy:    modePolicy,
-				ShareSessions: shareSessions,
-				Deployment:    deploymentRuntime,
-				Terminals:     terminalService,
-				RunCode:       runCodeService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterDetachedRunRoutes(r, httpapi.DetachedRunRouteDependencies{
-				ModePolicy:   modePolicy,
-				Planner:      runPlanner,
-				Runs:         detachedRunManager,
-				ProjectState: projectRuntime,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterProjectShellRoutes(r, httpapi.ProjectShellRouteDependencies{
-				ModePolicy:    modePolicy,
-				Shell:         projectShellService,
-				Notifications: notificationService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterGitRoutes(r, httpapi.GitRouteDependencies{
-				ModePolicy: modePolicy,
-				Git:        gitReadService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterProjectRoutes(r, httpapi.ProjectRouteDependencies{
-				ModePolicy:                     modePolicy,
-				WorkspaceRoot:                  cfg.Paths.WorkspaceRoot,
-				ProjectState:                   projectRuntime,
-				SettingsProjectState:           projectStates.Settings(),
-				WebsocketHub:                   websocketHub,
-				PromptTemplates:                promptTemplateStore,
-				ShareSessions:                  shareSessions,
-				Deployment:                     deploymentRuntime,
-				SettingsState:                  settingsStateRuntime,
-				ChatSectionChatIDs:             chatSectionChatIDs,
-				EdgeExpressionBuilder:          projectstate.EdgeExpressionBuilderFunc(codegen.BuildPythonEdgeExpression),
-				CodegenTargetValidator:         codegenValidator,
-				PythonCodegenSectionReconciler: pythonMaterializer,
-				CallableSignatures:             lspSignature,
-				CodeUpdates:                    codeUpdates,
-				RenameRefactors:                renameRefactors,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterAppDefinitionRoutes(r, httpapi.AppDefinitionRouteDependencies{
-				ModePolicy:   modePolicy,
-				ProjectState: projectRuntime,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterAIRoutes(r, httpapi.AIRouteDependencies{
-				ModePolicy:            modePolicy,
-				Deployment:            deploymentRuntime,
-				ManagedChats:          managedChatService,
-				ExternalAgentSend:     externalAgentSend,
-				ExternalAgentChats:    externalAgentChats,
-				ExternalAgentFollow:   externalAgentFollow,
-				ExternalAgentRuns:     externalAgentRuntime,
-				TranscriptionProfiles: transcriptionProfiles,
-				TranscriptionSessions: transcriptionSessions,
-				Sessions:              authService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterAgentProfileRoutes(r, httpapi.AgentProfileRouteDependencies{
-				ModePolicy:   modePolicy,
-				Profiles:     agentProfileStore,
-				Deployment:   deploymentRuntime,
-				WebsocketHub: websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterPromptTemplateRoutes(r, httpapi.PromptTemplateRouteDependencies{
-				ModePolicy:   modePolicy,
-				Templates:    promptTemplateStore,
-				Watcher:      promptTemplateWatcher,
-				ProjectState: projectRuntime,
-				Deployment:   deploymentRuntime,
-				WebsocketHub: websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterAppGenSkillRoutes(r, httpapi.AppGenSkillRouteDependencies{
-				ModePolicy: modePolicy,
-				Service:    appGenSkillService,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterExternalAgentConfigRoutes(r, httpapi.ExternalAgentConfigRouteDependencies{
-				ModePolicy:   modePolicy,
-				Configs:      externalConfigService,
-				Preflight:    externalPreflight,
-				Deployment:   deploymentRuntime,
-				WebsocketHub: websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterEngineConfigRoutes(r, httpapi.EngineConfigRouteDependencies{
-				ModePolicy:   modePolicy,
-				Engines:      engineStore,
-				LLM:          llmRuntime,
-				WebsocketHub: websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterTranscriptionProfileRoutes(r, httpapi.TranscriptionProfileRouteDependencies{
-				ModePolicy:   modePolicy,
-				Profiles:     transcriptionProfiles,
-				Deployment:   deploymentRuntime,
-				WebsocketHub: websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterLLMRoutes(r, httpapi.LLMRouteDependencies{
-				ModePolicy:   modePolicy,
-				Service:      llmService,
-				WebsocketHub: websocketHub,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterAgenticSummaryCacheRoutes(r, httpapi.AgenticSummaryCacheRouteDependencies{
-				ModePolicy:   modePolicy,
-				ProjectState: projectRuntime,
-				Statuses:     agenticSummaryStatus,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterAgentRunRoutes(r, httpapi.AgentRunRouteDependencies{
-				ModePolicy: modePolicy,
-				Profiles:   agentProfileStore,
-				Runs:       agentRunStore,
-				Managed:    agentRunRuntime,
-				Chains:     runChainRuntime,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterStateMachineRunRoutes(r, httpapi.StateMachineRunRouteDependencies{
-				ModePolicy:    modePolicy,
-				ShareSessions: deploymentRuntime,
-				Runtime:       stateMachineRuntime,
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterMCPRoutes(r, httpapi.MCPRouteDependencies{
-				Logger:                   logger,
-				ModePolicy:               modePolicy,
-				LLMConfigPath:            mcpx.LLMConfigPath(cfg.Paths.SettaFilesRoot),
-				ActiveSettaFilesLocation: cfg.Paths.ActiveSettaFilesLocation(),
-				Client:                   mcpClient,
-				ExternalStatusProvider: externalMCPStatusProvider{
-					runtime: externalAgentRuntime,
-					send:    externalAgentSend,
-				},
-			}); err != nil {
-				panic(err)
-			}
-			if err := httpapi.RegisterLSPRoutes(r, httpapi.LSPRouteDependencies{
-				ModePolicy:   modePolicy,
-				ProjectState: projectRuntime,
-				Diagnostics:  lspDiagnostics,
-				Completions:  lspCompletion,
-				Admin:        projectLSPSyncer,
-			}); err != nil {
-				panic(err)
-			}
-		},
-	})
-	if err != nil {
-		_ = errors.Join(
-			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-			terminalService.Close(context.Background()),
-		)
-		return nil, err
-	}
-	listenerBuiltInInvoker.SetHandler(handler)
-	if modePolicy.IsIDE() {
-		jsonSourceWatchService, err = newJSONSourceWatchService(jsonSourceWatchServiceOptions{
-			ProjectState:  projectRuntime,
-			WebsocketHub:  websocketHub,
-			WorkspaceRoot: cfg.Paths.WorkspaceRoot,
-			Logger:        logger,
-		})
-		if err != nil {
-			_ = errors.Join(
-				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-				terminalService.Close(context.Background()),
-			)
-			return nil, err
-		}
-		if err := syncJSONSourceWatchInputs(jsonSourceWatchService, projectRuntime.Snapshot().Document, cfg.Paths.WorkspaceRoot); err != nil {
-			_ = errors.Join(
-				jsonSourceWatchService.Close(),
-				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-				terminalService.Close(context.Background()),
-			)
-			return nil, err
-		}
-		artifactWatchService, err = newArtifactWatchService(artifactWatchServiceOptions{
-			Artifacts:      artifactService,
-			WebsocketHub:   websocketHub,
-			ListenerEvents: listenerProducer,
-			Logger:         logger,
-		})
-		if err != nil {
-			_ = errors.Join(
-				jsonSourceWatchService.Close(),
-				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-				terminalService.Close(context.Background()),
-			)
-			return nil, err
-		}
-		if err := syncArtifactWatchInputs(artifactWatchService, projectRuntime.Snapshot().Document, cfg.Paths.SettaFilesRoot); err != nil {
-			_ = errors.Join(
-				artifactWatchService.Close(),
-				jsonSourceWatchService.Close(),
-				closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-				terminalService.Close(context.Background()),
-			)
-			return nil, err
-		}
-	}
-	if err := promptTemplateWatcher.Start(context.Background()); err != nil {
-		_ = errors.Join(
-			promptTemplateWatcher.Close(),
-			closeArtifactWatchService(artifactWatchService),
-			closeJSONSourceWatchService(jsonSourceWatchService),
-			closeProjectStateServices(projectStates, deploymentRuntime, projectLSPSyncer, watchCodeService, boundCodeService, context.Background()),
-			terminalService.Close(context.Background()),
-		)
-		return nil, err
-	}
 	if mcpClient != nil {
 		mcpClient.Start(context.Background())
 	}
+}
+
+func New(cfg config.Config, logger *slog.Logger) (*App, error) {
+	if logger == nil {
+		logger = observability.NewLogger(cfg.Server.LogLevel, os.Stderr)
+	}
+
+	modePolicy := modes.NewPolicy(cfg.Server.Mode)
+	baseServices, err := initializeAppBaseServices(cfg, logger, modePolicy)
+	if err != nil {
+		return nil, err
+	}
+	watchRefs := &projectWatchRefs{}
+	launchServices, err := initializeLaunchServices(cfg, baseServices.authService, modePolicy)
+	if err != nil {
+		return nil, err
+	}
+	projectServices, err := initializeProjectServices(
+		cfg,
+		logger,
+		modePolicy,
+		baseServices.websocketHub,
+		watchRefs,
+	)
+	if err != nil {
+		return nil, err
+	}
+	workspaceServices, err := initializeAppWorkspaceServices(
+		cfg,
+		logger,
+		modePolicy,
+		baseServices.authService,
+		baseServices.websocketHub,
+		projectServices,
+	)
+	if err != nil {
+		return nil, err
+	}
+	runtimeServices, err := initializeAppRuntimeServices(
+		cfg,
+		logger,
+		modePolicy,
+		baseServices,
+		projectServices,
+		workspaceServices,
+	)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
+		return nil, err
+	}
+	platformServices, err := initializeAppPlatformServices(
+		cfg,
+		logger,
+		modePolicy,
+		baseServices,
+		projectServices,
+		workspaceServices,
+		runtimeServices,
+	)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
+		return nil, err
+	}
+	handlerServices, err := initializeAppHandlerAndWatchServices(
+		cfg,
+		logger,
+		modePolicy,
+		baseServices,
+		launchServices,
+		projectServices,
+		workspaceServices,
+		runtimeServices,
+		platformServices,
+		watchRefs,
+	)
+	if err != nil {
+		_ = closeProjectAndTerminal(projectServices, workspaceServices.terminalService)
+		return nil, err
+	}
+	startAppBackgroundServices(
+		modePolicy,
+		baseServices.manager,
+		projectServices.deploymentRuntime,
+		workspaceServices.terminalService,
+		runtimeServices.listenerBroadcaster,
+		workspaceServices.shareArtifactService,
+		runtimeServices.ideAgents.transcriptionSessions,
+		baseServices.mcpClient,
+	)
 
 	return &App{
 		config:          cfg,
 		logger:          logger,
-		authService:     authService,
-		runtime:         manager,
-		projectStates:   projectStates,
-		deployment:      deploymentRuntime,
-		shareSessions:   shareSessions,
-		terminals:       terminalService,
-		binaryStore:     binaryStore,
-		runCode:         runCodeService,
-		agentRuns:       agentRunService,
-		agentRuntime:    agentRunRuntime,
-		runChains:       runChainRuntime,
-		settingsState:   settingsStateRuntime,
-		websocketHub:    websocketHub,
-		listeners:       listenerBroadcaster,
-		lspSync:         projectLSPSyncer,
-		watchCode:       watchCodeService,
-		jsonSourceWatch: jsonSourceWatchService,
-		artifactWatch:   artifactWatchService,
-		boundCode:       boundCodeService,
-		promptWatcher:   promptTemplateWatcher,
-		mcpServer:       mcpServer,
-		mcpClient:       mcpClient,
-		pluginRuntime:   pluginRuntimeRefresh,
-		handler:         handler,
+		authService:     baseServices.authService,
+		runtime:         baseServices.manager,
+		projectStates:   projectServices.projectStates,
+		deployment:      projectServices.deploymentRuntime,
+		shareSessions:   projectServices.shareSessions,
+		terminals:       workspaceServices.terminalService,
+		binaryStore:     workspaceServices.binaryStore,
+		runCode:         runtimeServices.runCodeService,
+		agentRuns:       runtimeServices.ideAgents.agentRunService,
+		agentRuntime:    runtimeServices.ideAgents.agentRunRuntime,
+		runChains:       runtimeServices.ideAgents.runChainRuntime,
+		settingsState:   projectServices.settingsStateRuntime,
+		websocketHub:    baseServices.websocketHub,
+		listeners:       runtimeServices.listenerBroadcaster,
+		lspSync:         projectServices.projectLSPSyncer,
+		watchCode:       projectServices.watchCodeService,
+		jsonSourceWatch: handlerServices.jsonSourceWatchService,
+		artifactWatch:   handlerServices.artifactWatchService,
+		boundCode:       projectServices.boundCodeService,
+		promptWatcher:   runtimeServices.promptTemplateWatcher,
+		mcpServer:       platformServices.mcpServer,
+		mcpClient:       baseServices.mcpClient,
+		pluginRuntime:   platformServices.pluginRuntime,
+		handler:         handlerServices.handler,
 	}, nil
 }
 
