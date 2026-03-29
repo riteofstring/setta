@@ -104,38 +104,6 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
-## 2026-04-01 418
-
-- Item: Resolve the brittle focused shared-runtime compare blocker in the `All Settings` live Pixi canary.
-- Status: `done`
-- Details:
-  - Stayed on the direct blocker-support lane from item `417`; no production renderer files changed in this iteration.
-  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`:
-    - added `expectSharedPageRuntimeSectionWithoutDomContextLost()` so the shared-runtime canaries assert the target section stays managed, Pixi-backed, and free of per-section DOM fallback without depending on unrelated global `runtime.contextLost`
-    - updated every `shared page runtime without dom-context-lost` / `without fallback` check in that file to use the new helper instead of duplicated brittle string assertions
-    - relaxed `expectFocusedSectionCompareSurface()` so readiness requires the target section to be found, fully visible, non-zero sized, and near the viewport center, but not to satisfy the older fixed viewport-percentage minimum width/height
-  - Why this slice:
-    - the reverted baseline repro from item `417` showed the focused blocker was now in the harness itself:
-      - `browserSectionDefault` remained managed and had no per-section DOM fallback, but the test still failed because it expected global `runtime.contextLost` to be `true`
-      - the focused compare surface was real, centered, and visually usable, but the old readiness helper rejected it because its actual focused height was only about `68px`
-  - Verification:
-    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
-      - result: passed
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3088/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'shared page runtime without|share the same visible canvas section slice after frontend viewport clear'`
-      - result: passed (`19 passed`, about `8.7m`)
-    - Fresh-context CDP visual check via sub-agent:
-      - result: done
-      - worktree `/settings` exact `fitView({ duration: 0, nodes: [{ id: sectionId }], padding: 0.2 })` flow:
-        - `browserSectionDefault` found, fully visible, and effectively centered (`horizontalCenterOffset ~= 0`, `verticalCenterOffset = 0`)
-      - main `/settings` exact raw `fitView(...)` flow:
-        - `browserSectionDefault` found and fully visible, but still left-shifted (`horizontalCenterOffset ~= 147.5px`) with `callableSectionDefault` still visible on the right
-      - implication:
-        - the readiness helper must stay tolerant of the raw `main` fitView offset; later compare assertions still sync main to the canary viewport before judging direct bounds parity
-- Next action:
-  - Return to the product lane and use the trusted same-state compare path to pick the next concrete low-zoom tiny-card/right-column preview drift versus `main`; do not reopen this compare-surface support lane unless a new blocker appears.
-
-LOOP_TERMINAL_MARKER: none
-
 ## 2026-04-01 402
 
 - Item: Restore logical tiny-card canvas height in the live Pixi fallback measurement path.
@@ -640,5 +608,37 @@ LOOP_TERMINAL_MARKER: none
   - the next real blocker is the baseline focused shared-runtime compare lane itself, not another renderer tweak
 - Next action:
   - debug the reverted baseline with fresh-context CDP / state tracing to explain why `browserSectionDefault` disappears from `managedSceneNames` and why the focused compare surface on `main` does not become ready during that lane
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-01 418
+
+- Item: Resolve the brittle focused shared-runtime compare blocker in the `All Settings` live Pixi canary.
+- Status: `done`
+- Details:
+  - Stayed on the direct blocker-support lane from item `417`; no production renderer files changed in this iteration.
+  - In `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`:
+    - added `expectSharedPageRuntimeSectionWithoutDomContextLost()` so the shared-runtime canaries assert the target section stays managed, Pixi-backed, and free of per-section DOM fallback without depending on unrelated global `runtime.contextLost`
+    - updated every `shared page runtime without dom-context-lost` / `without fallback` check in that file to use the new helper instead of duplicated brittle string assertions
+    - relaxed `expectFocusedSectionCompareSurface()` so readiness requires the target section to be found, fully visible, non-zero sized, and near the viewport center, but not to satisfy the older fixed viewport-percentage minimum width/height
+  - Why this slice:
+    - the reverted baseline repro from item `417` showed the focused blocker was now in the harness itself:
+      - `browserSectionDefault` remained managed and had no per-section DOM fallback, but the test still failed because it expected global `runtime.contextLost` to be `true`
+      - the focused compare surface was real, centered, and visually usable, but the old readiness helper rejected it because its actual focused height was only about `68px`
+  - Verification:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> SETTA_MAIN_REFERENCE_URL=http://127.0.0.1:3088/ SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh main bootstrap url> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'shared page runtime without|share the same visible canvas section slice after frontend viewport clear'`
+      - result: passed (`19 passed`, about `8.7m`)
+    - Fresh-context CDP visual check via sub-agent:
+      - result: done
+      - worktree `/settings` exact `fitView({ duration: 0, nodes: [{ id: sectionId }], padding: 0.2 })` flow:
+        - `browserSectionDefault` found, fully visible, and effectively centered (`horizontalCenterOffset ~= 0`, `verticalCenterOffset = 0`)
+      - main `/settings` exact raw `fitView(...)` flow:
+        - `browserSectionDefault` found and fully visible, but still left-shifted (`horizontalCenterOffset ~= 147.5px`) with `callableSectionDefault` still visible on the right
+      - implication:
+        - the readiness helper must stay tolerant of the raw `main` fitView offset; later compare assertions still sync main to the canary viewport before judging direct bounds parity
+- Next action:
+  - Return to the product lane and use the trusted same-state compare path to pick the next concrete low-zoom tiny-card/right-column preview drift versus `main`; do not reopen this compare-surface support lane unless a new blocker appears.
 
 LOOP_TERMINAL_MARKER: none
