@@ -1,6 +1,6 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { StandardPopover } from "components/Utils/atoms/popover/standardpopover";
 import _ from "lodash";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -190,7 +190,6 @@ export function ColorPickerInput({
   onChange,
   onCommit,
   onEscape,
-  shouldAutoOpenOnMount = false,
   wrapperClassName,
   colorPickerChoicesClasses,
   isDisabled = false,
@@ -201,7 +200,6 @@ export function ColorPickerInput({
   onChange: (newColor: string) => void;
   onCommit?: (newColor: string) => void;
   onEscape?: () => void;
-  shouldAutoOpenOnMount?: boolean;
   wrapperClassName: string;
   colorPickerChoicesClasses: string;
   isDisabled?: boolean;
@@ -216,7 +214,6 @@ export function ColorPickerInput({
         onChange={onChange}
         onCommit={onCommit}
         onEscape={onEscape}
-        shouldAutoOpenOnMount={shouldAutoOpenOnMount}
         colorPickerChoicesClasses={colorPickerChoicesClasses}
         isDisabled={isDisabled}
         theme={theme}
@@ -239,7 +236,6 @@ type ColorPickerProps = {
   onChange: (newColor: string) => void;
   onCommit?: (newColor: string) => void;
   onEscape?: () => void;
-  shouldAutoOpenOnMount: boolean;
   colorPickerChoicesClasses: string;
   isDisabled: boolean;
   theme?: ColorPickerInputTheme;
@@ -251,7 +247,6 @@ function ColorPicker({
   onChange,
   onCommit,
   onEscape,
-  shouldAutoOpenOnMount,
   colorPickerChoicesClasses,
   isDisabled,
   theme,
@@ -294,7 +289,6 @@ function ColorPicker({
       colorPickerChoicesClasses={colorPickerChoicesClasses}
       isDisabled={isDisabled}
       onEscape={onEscape}
-      shouldAutoOpenOnMount={shouldAutoOpenOnMount}
       theme={theme}
     />
   ) : (
@@ -349,7 +343,6 @@ type ColorPickerFromColorChoicesProps = {
   colorPickerChoicesClasses: string;
   isDisabled: boolean;
   onEscape?: () => void;
-  shouldAutoOpenOnMount: boolean;
   theme?: ColorPickerInputTheme;
 };
 
@@ -361,12 +354,8 @@ function ColorPickerFromColorChoices({
   colorPickerChoicesClasses,
   isDisabled,
   onEscape,
-  shouldAutoOpenOnMount,
   theme,
 }: ColorPickerFromColorChoicesProps) {
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-  const hasAutoOpenedRef = useRef(false);
-  const [isOpen, setIsOpen] = useState(false);
   let selectedItem = colorChoices.find((c) => c.color === color);
   if (!selectedItem) {
     selectedItem = colorChoices[0];
@@ -383,75 +372,87 @@ function ColorPickerFromColorChoices({
     "!border-setta-500/20 dark:!border-setta-500/40";
   const menuContentClassName =
     theme?.menuContentClassName ??
-    "z-20 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800";
+    "z-50 flex flex-col rounded bg-white p-2 shadow-md dark:bg-setta-800";
   const menuItemClassName =
     theme?.menuItemClassName ??
     "flex cursor-pointer items-center rounded px-2 py-1 hover:bg-setta-100 dark:hover:bg-setta-700";
   const menuItemTextClassName =
     theme?.menuItemTextClassName ??
     "max-w-48 truncate text-xs text-setta-500 dark:text-setta-300";
-
-  useLayoutEffect(() => {
-    if (!shouldAutoOpenOnMount || isDisabled || hasAutoOpenedRef.current) {
-      return;
-    }
-    hasAutoOpenedRef.current = true;
-    setIsOpen(true);
-    triggerRef.current?.focus();
-  }, [isDisabled, shouldAutoOpenOnMount]);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <DropdownMenu.Root modal={false} open={isOpen} onOpenChange={setIsOpen}>
-      <DropdownMenu.Trigger
-        ref={triggerRef}
-        className={colorPickerChoicesClasses}
-        disabled={isDisabled}
-        onKeyDown={(e) => {
-          if (e.code === "Escape") {
-            // have to stop propagation to prevent section from becoming unselected
-            e.stopPropagation();
-            onEscape?.();
-          }
-        }}
-      >
-        <div
-          className={`single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid ${triggerBorderClassName}`}
-          style={{ backgroundColor: selectedItem.color }}
-        />
-        <div className="single-cell-child flex items-center justify-between overflow-hidden">
-          <p
-            className="ml-[2px] truncate pl-2.5 text-xs font-semibold @[90px]:inline-block"
-            style={style}
-          >
-            {selectedItem.description}
-          </p>
-          <i className="gg-chevron-down px-2" style={style} />
-        </div>
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content
-          className={menuContentClassName}
-          align="start"
-          style={{ minWidth: "var(--radix-dropdown-menu-trigger-width)" }}
+    <StandardPopover
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      repositionOnCanvasTransform={true}
+      contentClasses={menuContentClassName}
+      contentProps={{
+        align: "start",
+        sideOffset: 6,
+        style: { minWidth: "var(--radix-popover-trigger-width)" },
+        onEscapeKeyDown: (event) => {
+          event.stopPropagation();
+          onEscape?.();
+        },
+      }}
+      trigger={
+        <button
+          type="button"
+          className={colorPickerChoicesClasses}
+          disabled={isDisabled}
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          onKeyDown={(e) => {
+            if (e.code === "Escape") {
+              // have to stop propagation to prevent section from becoming unselected
+              e.stopPropagation();
+              onEscape?.();
+            }
+          }}
         >
-          {colorChoices.map((item, index) => (
-            <DropdownMenu.Item
-              key={index}
-              className={menuItemClassName}
-              onSelect={() => {
-                setColor(item.color);
-                onCommit?.(item.color);
-              }}
+          <div
+            className={`single-cell-child min-w-0s m-auto h-full min-h-0 w-full rounded-lg !border !border-solid ${triggerBorderClassName}`}
+            style={{ backgroundColor: selectedItem.color }}
+          />
+          <div className="single-cell-child flex items-center justify-between overflow-hidden">
+            <p
+              className="ml-[2px] truncate pl-2.5 text-xs font-semibold @[90px]:inline-block"
+              style={style}
             >
-              <div
-                className="mr-2 h-4 w-4 rounded-full"
-                style={{ backgroundColor: item.color }}
-              />
-              <p className={menuItemTextClassName}>{item.description}</p>
-            </DropdownMenu.Item>
-          ))}
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
+              {selectedItem.description}
+            </p>
+            <i className="gg-chevron-down px-2" style={style} />
+          </div>
+        </button>
+      }
+    >
+      <div
+        role="listbox"
+        aria-label="Available colors"
+        className="flex flex-col"
+      >
+        {colorChoices.map((item, index) => (
+          <button
+            key={index}
+            type="button"
+            role="option"
+            aria-selected={item.color === color}
+            className={menuItemClassName}
+            onClick={() => {
+              setColor(item.color);
+              onCommit?.(item.color);
+              setIsOpen(false);
+            }}
+          >
+            <div
+              className="mr-2 h-4 w-4 rounded-full"
+              style={{ backgroundColor: item.color }}
+            />
+            <p className={menuItemTextClassName}>{item.description}</p>
+          </button>
+        ))}
+      </div>
+    </StandardPopover>
   );
 }

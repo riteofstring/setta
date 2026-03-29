@@ -1,33 +1,68 @@
+/* @vitest-environment jsdom */
+
+import { act, createElement, useEffect } from "react";
+import { createRoot, type Root } from "react-dom/client";
 import {
   buildProjectChatEphemeralWindowInstanceKey,
   getTrackedGitPaneGraphWindowInstanceIdForProject,
 } from "state/actions/projectChatWindowingEphemeral";
 import {
   useAllProjectMetadata,
+  useLocalStorage,
   useMisc,
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
+import {
+  OverviewTabNameEnum,
+  PAGE_LOAD_TYPES,
+  pathRelativeToProject,
+} from "utils/constants";
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
+  createProjectStateSingleConfig,
+  createSettaLspDiagnosticsPayload,
+  createSettaProjectConfigDiagnostics,
   createWindowSpaceConfig,
   type ProjectStateSingleConfigInput,
 } from "utils/generatedTypes";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
+const routeCreateProjectConfigMock = vi.fn();
+const routeLoadProjectConfigMock = vi.fn();
 const routeLoadAllProjectMetadataMock = vi.fn();
+const routeGetLatestLspDiagnosticsMock = vi.fn();
 const initializeServerModeMock = vi.fn();
+const requestAIFollowSnapshotMock = vi.fn();
+const fetchListenerCoverageSnapshotMock = vi.fn();
+const processLspDiagnosticsMock = vi.fn();
+const navigateMock = vi.fn();
+
+vi.mock("react-router-dom", () => ({
+  useNavigate: () => navigateMock,
+}));
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_create_project_config: vi.fn(),
-  route_get_latest_lsp_diagnostics: vi.fn(),
+  route_create_project_config: (...args: unknown[]) =>
+    routeCreateProjectConfigMock(...args),
+  route_get_latest_lsp_diagnostics: (...args: unknown[]) =>
+    routeGetLatestLspDiagnosticsMock(...args),
   route_load_all_project_metadata: (...args: unknown[]) =>
     routeLoadAllProjectMetadataMock(...args),
-  route_load_project_config: vi.fn(),
+  route_load_project_config: (...args: unknown[]) =>
+    routeLoadProjectConfigMock(...args),
 }));
 
 vi.mock("../serverMode", () => ({
@@ -35,7 +70,80 @@ vi.mock("../serverMode", () => ({
     initializeServerModeMock(...args),
 }));
 
-import { loadAllProjectMetadata, loadProjectState } from "./loadProject";
+vi.mock("../aiFollow", () => ({
+  requestAIFollowSnapshot: (...args: unknown[]) =>
+    requestAIFollowSnapshotMock(...args),
+}));
+
+vi.mock("../listenerCoverage", () => ({
+  fetchListenerCoverageSnapshot: (...args: unknown[]) =>
+    fetchListenerCoverageSnapshotMock(...args),
+}));
+
+vi.mock("../lspDiagnostics", () => ({
+  processLspDiagnostics: (...args: unknown[]) =>
+    processLspDiagnosticsMock(...args),
+}));
+
+import {
+  loadAllProjectMetadata,
+  loadProjectConfig,
+  loadProjectState,
+  useCreateAndGoToProjectConfig,
+} from "./loadProject";
+
+const originalReactActEnvironment = (
+  globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
+).IS_REACT_ACT_ENVIRONMENT;
+
+beforeAll(() => {
+  (
+    globalThis as typeof globalThis & {
+      IS_REACT_ACT_ENVIRONMENT?: boolean;
+    }
+  ).IS_REACT_ACT_ENVIRONMENT = true;
+});
+
+afterAll(() => {
+  (
+    globalThis as typeof globalThis & {
+      IS_REACT_ACT_ENVIRONMENT?: boolean;
+    }
+  ).IS_REACT_ACT_ENVIRONMENT = originalReactActEnvironment;
+});
+
+type CreateProjectInvokerProps = {
+  onReady: (handler: () => Promise<void>) => void;
+};
+
+function CreateProjectInvoker({ onReady }: CreateProjectInvokerProps) {
+  const createAndGo = useCreateAndGoToProjectConfig();
+
+  useEffect(() => {
+    onReady(createAndGo);
+  }, [createAndGo, onReady]);
+
+  return null;
+}
+
+type RenderedProjectInvoker = {
+  host: HTMLDivElement;
+  root: Root;
+};
+
+async function renderCreateProjectInvoker(
+  onReady: (handler: () => Promise<void>) => void,
+): Promise<RenderedProjectInvoker> {
+  const host = document.createElement("div");
+  document.body.appendChild(host);
+  const root = createRoot(host);
+
+  await act(async () => {
+    root.render(createElement(CreateProjectInvoker, { onReady }));
+  });
+
+  return { host, root };
+}
 
 describe("loadAllProjectMetadata", () => {
   beforeEach(() => {
@@ -44,8 +152,15 @@ describe("loadAllProjectMetadata", () => {
       defaultProjectConfigId: null,
       projectMetadata: [],
     });
+    routeCreateProjectConfigMock.mockReset();
     routeLoadAllProjectMetadataMock.mockReset();
+    routeLoadProjectConfigMock.mockReset();
+    routeGetLatestLspDiagnosticsMock.mockReset();
     initializeServerModeMock.mockReset();
+    requestAIFollowSnapshotMock.mockReset();
+    fetchListenerCoverageSnapshotMock.mockReset();
+    processLspDiagnosticsMock.mockReset();
+    navigateMock.mockReset();
   });
 
   it("returns false and skips loading when server mode is not ide", async () => {
@@ -94,6 +209,102 @@ describe("loadAllProjectMetadata", () => {
     expect(loaded).toBe(false);
     expect(useAllProjectMetadata.getState().projectMetadata).toEqual([]);
     expect(useAllProjectMetadata.getState().defaultProjectConfigId).toBeNull();
+  });
+
+  it("hydrates a project config and triggers the Go-owned follow-up reads", async () => {
+    const loadedProjectState = createProjectStateSingleConfig({
+      projectConfig: createProjectConfig({
+        id: "project-loaded",
+        name: "Loaded Project",
+      }),
+    });
+    const diagnostics = createSettaLspDiagnosticsPayload({
+      projectConfigId: "project-loaded",
+      genCode: createSettaProjectConfigDiagnostics({
+        projectConfigId: "project-loaded",
+        isGenCode: true,
+        errors: {},
+      }),
+      codeSections: {},
+      unmappedGenCode: [],
+    });
+    routeLoadProjectConfigMock.mockResolvedValue({
+      data: loadedProjectState,
+      status: 200,
+      hasResponse: true,
+    });
+    routeGetLatestLspDiagnosticsMock.mockResolvedValue({
+      data: diagnostics,
+      status: 200,
+      hasResponse: true,
+    });
+    requestAIFollowSnapshotMock.mockResolvedValue(undefined);
+    fetchListenerCoverageSnapshotMock.mockResolvedValue(undefined);
+
+    const loaded = await loadProjectConfig({
+      projectConfigName: "Loaded Project",
+    });
+
+    expect(loaded).toBe(true);
+    expect(routeLoadProjectConfigMock).toHaveBeenCalledWith({
+      projectConfigName: "Loaded Project",
+    });
+    expect(routeGetLatestLspDiagnosticsMock).toHaveBeenCalledWith({
+      projectConfigId: "project-loaded",
+    });
+    expect(processLspDiagnosticsMock).toHaveBeenCalledWith(diagnostics);
+    expect(requestAIFollowSnapshotMock).toHaveBeenCalledWith("project-loaded");
+    expect(fetchListenerCoverageSnapshotMock).toHaveBeenCalledWith(
+      "project-loaded",
+    );
+    expect(useProjectState.getState().projectConfig.id).toBe("project-loaded");
+  });
+});
+
+describe("useCreateAndGoToProjectConfig", () => {
+  beforeEach(() => {
+    resetProjectStores();
+    routeCreateProjectConfigMock.mockReset();
+    navigateMock.mockReset();
+  });
+
+  it("navigates to the created project using the Go create-project response", async () => {
+    routeCreateProjectConfigMock.mockResolvedValue({
+      data: "Created Project",
+      status: 200,
+      hasResponse: true,
+    });
+
+    let createAndGo: (() => Promise<void>) | null = null;
+    const { host, root } = await renderCreateProjectInvoker((handler) => {
+      createAndGo = handler;
+    });
+
+    try {
+      await act(async () => {
+        await createAndGo?.();
+      });
+
+      // The hook should forward the Go-owned project name contract into the
+      // navigation target and set the Project AI overview tab.
+      expect(routeCreateProjectConfigMock).toHaveBeenCalledWith({
+        previewImgColor: expect.any(String),
+      });
+      expect(useLocalStorage.getState().overviewTab).toBe(
+        OverviewTabNameEnum.ProjectAIChat,
+      );
+      expect(navigateMock).toHaveBeenCalledWith(
+        pathRelativeToProject("Created Project"),
+        {
+          state: { pageLoadType: PAGE_LOAD_TYPES.LOAD_PROJECT_CONFIG },
+        },
+      );
+    } finally {
+      await act(async () => {
+        root.unmount();
+      });
+      host.remove();
+    }
   });
 });
 
