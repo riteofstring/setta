@@ -5,6 +5,8 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL);
 const READY_SELECTOR = ".react-flow__pane";
 const LIVE_DICT_AREA_RENDERER_STORAGE_KEY = "setta.liveDictAreaRendererMode";
+const LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM =
+  "liveDictAreaInteractionMode";
 const LIVE_PIXI_MODE = "pixi-node-body";
 
 type DragOverlayRow = {
@@ -14,7 +16,12 @@ type DragOverlayRow = {
   top: number;
 };
 
-async function openAllSettingsLivePixiCanary(page: Page) {
+async function openAllSettingsLivePixiCanary(
+  page: Page,
+  options?: {
+    interactionMode?: "param-select";
+  },
+) {
   await ensureAppReady(page);
 
   await page.addInitScript(
@@ -28,6 +35,12 @@ async function openAllSettingsLivePixiCanary(page: Page) {
   );
 
   const url = new URL(SETTINGS_URL);
+  if (options?.interactionMode) {
+    url.searchParams.set(
+      LIVE_DICT_AREA_INTERACTION_MODE_QUERY_PARAM,
+      options.interactionMode,
+    );
+  }
   await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
 
@@ -355,6 +368,56 @@ test("all settings canary can immediately open a popup color-picker row on first
   expect(colorPickerActivationResult?.editorKind).toBe("color-picker");
   expect(colorPickerActivationResult?.openPaletteItemCount).toBeGreaterThan(0);
   expect(colorPickerActivationResult?.visiblePaletteLabels).toContain("Red");
+});
+
+test("all settings canary can opt into param-select mode through the canary query param for drag-overlay inspection", async ({
+  page,
+}) => {
+  await openAllSettingsLivePixiCanary(page, {
+    interactionMode: "param-select",
+  });
+
+  const dragHandoffButton = page
+    .locator("[data-live-dict-area-drag-handoff='param-row']")
+    .first();
+  await expect(dragHandoffButton).toBeVisible();
+  const activatedBlockId = await dragHandoffButton.getAttribute(
+    "data-live-dict-area-drag-handoff-block-id",
+  );
+  expect(activatedBlockId).not.toBeNull();
+
+  await dragHandoffButton.click();
+
+  await page.waitForSelector(
+    `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${activatedBlockId}']`,
+  );
+
+  const dragOverlayMetrics = await page.waitForFunction((blockId) => {
+    const overlay = document.querySelector<HTMLElement>(
+      `[data-live-dict-area-drag-overlay='active'][data-live-dict-area-drag-overlay-block-id='${blockId}']`,
+    );
+    if (!overlay) {
+      return null;
+    }
+
+    return {
+      dragOverlayKind: overlay.getAttribute(
+        "data-live-dict-area-drag-overlay-kind",
+      ),
+      dragParamRowCount: overlay.querySelectorAll("[data-param-row='true']")
+        .length,
+      sceneCanvasCount: document.querySelectorAll(
+        "[data-live-dict-area-scene='pixi'] canvas",
+      ).length,
+    };
+  }, activatedBlockId);
+
+  const result = await dragOverlayMetrics.jsonValue();
+
+  expect(result).not.toBeNull();
+  expect(result?.dragOverlayKind).toBe("param-list");
+  expect(result?.dragParamRowCount).toBeGreaterThan(1);
+  expect(result?.sceneCanvasCount).toBeGreaterThan(0);
 });
 
 test("all settings canary can hand off from the Pixi scene into a param-list drag overlay while param select is active", async ({

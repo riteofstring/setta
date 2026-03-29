@@ -6832,3 +6832,39 @@ Record:
     - because the overlay never materialized in a trustworthy CDP-only session, the required visual gate remains deferred for this modifier-gated canary path even though Playwright automation verified the DOM contract
 - Next action:
   - Continue the retained-scene drag lane by reducing the remaining DOM dependence behind `ParamDndList`, or expose a stable CDP-triggerable param-select canary so the deferred visual gate can be closed without relying on held-modifier state.
+
+## 2026-03-29 221
+
+- Item: Expose a stable query-param param-select canary and close the deferred CDP gate for the live Pixi param-list drag overlay.
+- Status: `done`
+- Details:
+  - Added an explicit live dict-area interaction-mode query-param boundary so the canary can force param-select mode on load without relying on held-modifier input:
+    - `frontend/src/components/Section/Layouts/liveDictAreaInteractionMode.ts`
+    - `frontend/src/components/Section/Layouts/liveDictAreaInteractionMode.test.ts`
+    - `frontend/src/components/Pages/Project/UiPage.tsx`
+  - The new canary URL opt-in is source-of-truth-driven and explicit:
+    - `?liveDictAreaInteractionMode=param-select`
+    - `UIPage` now syncs that value on load through the existing `activateParamSelect` / `deactivateParamSelect` actions instead of inventing a drag-only side channel
+  - Extended the live Pixi Settings canary E2E coverage to prove the drag handoff is inspectable without held modifiers while preserving the existing real modifier-driven overlay and reorder cases:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - the new browser-level case opens `All Settings` with the query-param canary, asserts `[data-live-dict-area-drag-handoff='param-row']` is present immediately, clicks a handoff, and verifies the active overlay remains `param-list` with the scene canvas still mounted
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/liveDictAreaInteractionMode.test.ts`
+      - result: passed
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/UiPage.tsx src/components/Section/Layouts/liveDictAreaInteractionMode.ts src/components/Section/Layouts/liveDictAreaInteractionMode.test.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed
+  - Playwright:
+    - `SETTA_BACKEND_ORIGIN=http://127.0.0.1:8044 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3044 SETTA_BOOTSTRAP_TOKEN=<current token> SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-rewrite pnpm -C frontend exec playwright test tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - result: passed (`8 passed`)
+  - Chrome DevTools MCP visual check in a fresh sub-agent context on `http://127.0.0.1:3044/settings?liveDictAreaRenderer=pixi-node-body&liveDictAreaInteractionMode=param-select`:
+    - result: passed
+    - the provided bootstrap token was rejected in that browser session, but an already-authenticated `3044` Settings tab was usable as the fallback
+    - verified `[data-live-dict-area-drag-handoff='param-row']` rendered without held-modifier input (`markerCount: 760`)
+    - clicking a handoff produced `[data-live-dict-area-drag-overlay='active']` with `data-live-dict-area-drag-overlay-kind='param-list'`
+    - the Pixi scene canvas stayed mounted while the overlay was active (`canvasCount: 46`)
+    - no obvious blank, clipped, or major-overlap regression was observed in the checked viewport
+    - representative requests returned `200`, including `POST /api/loadSettings`, `GET /api/authRefreshStatus`, `POST /api/getFileBrowserRoot`, `POST /api/setViewport`, and `POST /api/toggleParamSelected`
+- Next action:
+  - Continue the retained-scene drag lane by reducing the remaining DOM dependence behind `ParamDndList` now that the live param-list overlay is CDP-verifiable on a stable canary URL.
