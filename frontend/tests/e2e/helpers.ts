@@ -335,6 +335,17 @@ export async function clearCurrentProjectViewportForRefit(
   });
 }
 
+export async function resetOverviewPaneToDefaultLayout(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(async () => {
+    const { resetOverviewPaneToDefaultLayout } = await import(
+      "/src/state/actions/localStorage.ts"
+    );
+    resetOverviewPaneToDefaultLayout();
+  });
+}
+
 export async function openProjectAiSettingsPopover(page: Page): Promise<void> {
   const accordionTrigger = page.getByTestId(
     "project-ai-settings-accordion-llm-api-keys",

@@ -1,8 +1,14 @@
+import { setPaneWidthWithLayout } from "components/Panes/paneLayout";
 import {
   type ColorModePreference,
   type HomeProjectGalleryViewMode,
   useLocalStorage,
 } from "state/definitions";
+import {
+  INITIAL_OVERVIEW_WIDTH,
+  OverviewTabNameEnum,
+  PaneNameEnum,
+} from "utils/constants";
 import { dedupeStringIds } from "utils/dedupeStringIds";
 import type { ChatSharedEdgeMode } from "./chatSharedHandleIds";
 
@@ -80,4 +86,9 @@ export function setOverviewProjectConfigOrder(orderedIds: string[]) {
   useLocalStorage.setState({
     overviewProjectConfigOrder: dedupeStringIds(orderedIds),
   });
+}
+
+export function resetOverviewPaneToDefaultLayout() {
+  useLocalStorage.setState({ overviewTab: OverviewTabNameEnum.Overview });
+  setPaneWidthWithLayout(PaneNameEnum.overview, INITIAL_OVERVIEW_WIDTH);
 }

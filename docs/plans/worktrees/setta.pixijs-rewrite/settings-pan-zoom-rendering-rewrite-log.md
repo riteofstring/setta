@@ -10432,3 +10432,39 @@ Record:
     - no visible regression was observed during the live check
 - Next action:
   - Take the next bounded live `main`-oracle viewport-parity slice on the stabilized canary workflow, using the same-tab frontend viewport clear before comparing `main`, baseline, and live Pixi canary state.
+
+## 2026-03-30 318
+
+- Item: Add a frontend-side overview-pane reset helper so live `main`-oracle viewport checks can normalize stale worktree sidebar state before refitting.
+- Status: `done`
+- Details:
+  - Took a bounded blocker-resolution slice directly from item `317` after fresh-context CDP comparison showed the remaining live main/worktree drift was session-wide and not Pixi-specific:
+    - the read-only `main` oracle was on `overviewTab: Overview` with `overviewTrueWidth: 335`
+    - the live worktree baseline/canary browser profile was still carrying `overviewTab: ProjectAIChat` with `overviewTrueWidth: 250`
+    - that stale pane state shifted the live worktree viewport even when baseline and canary otherwise matched each other
+  - Added a real frontend-side overview reset action on the persisted local-storage path:
+    - `frontend/src/state/actions/localStorage.ts`
+  - Added focused unit coverage for the reset action:
+    - `frontend/src/state/actions/localStorage.test.ts`
+  - Added a reusable Playwright helper and updated the seeded `All Settings` fit-view guard so it now normalizes the overview pane state before running the same-tab frontend refit:
+    - `frontend/tests/e2e/helpers.ts`
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - Kept the slice intentionally narrow:
+    - no Pixi renderer code changed
+    - the helper only restores the default `Overview` tab and `335px` overview pane width before the existing same-tab refit path runs
+- Verification:
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/state/actions/localStorage.test.ts`
+    - result: passed (`22 passed`)
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check src/state/actions/localStorage.ts src/state/actions/localStorage.test.ts tests/e2e/helpers.ts tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings baseline and live Pixi canary share the fit-view zoom-floor state after same-tab frontend viewport clear"`
+    - result: passed (`1 passed`)
+  - Chrome DevTools MCP visual check in fresh sub-agent contexts against the live `main` oracle and current worktree runtime:
+    - compared `main` (`http://127.0.0.1:3087/settings`) against the live worktree baseline/canary after invoking `resetOverviewPaneToDefaultLayout()` plus `clearCurrentProjectViewportForRefit()` in page context
+    - result: the original zoom-floor hypothesis is now closed (`zoom out` stayed disabled across main, baseline, and canary), but the broader visible layout/state drift still remains
+    - the worktree baseline and canary still did not line up with `main` at browser zoom `100%`; the verifier still observed the selected section at `width 250.0` on worktree baseline/canary versus `width 300.0` on `main`
+- Next action:
+  - Diagnose the remaining live `main`-vs-worktree `All Settings` layout drift beyond the now-normalized overview-pane reset; do not reopen the zoom-floor or stale-overview-width hypothesis unless a new check shows those values diverging again.

@@ -1,11 +1,13 @@
 import { useLocalStorage } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  INITIAL_OVERVIEW_WIDTH,
   OverviewNotificationsPaneTabEnum,
   OverviewTabNameEnum,
 } from "utils/constants";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
+  resetOverviewPaneToDefaultLayout,
   setChatSharedEdgeMode,
   setColorModePreference,
   setOverviewProjectConfigOrder,
@@ -53,6 +55,28 @@ describe("shared chat edge mode", () => {
 
     toggleChatSharedEdgeMode();
     expect(useLocalStorage.getState().chatSharedEdgeMode).toBe("agentic");
+  });
+});
+
+describe("resetOverviewPaneToDefaultLayout", () => {
+  beforeEach(() => {
+    useLocalStorage.setState({
+      overviewVis: true,
+      overviewTab: OverviewTabNameEnum.ProjectAIChat,
+      overviewWidth: 250,
+      overviewTrueWidth: 250,
+      uiEditorVis: false,
+    });
+  });
+
+  it("restores the default overview tab and width", () => {
+    resetOverviewPaneToDefaultLayout();
+
+    const state = useLocalStorage.getState();
+    expect(state.overviewVis).toBe(true);
+    expect(state.overviewTab).toBe(OverviewTabNameEnum.Overview);
+    expect(state.overviewWidth).toBe(INITIAL_OVERVIEW_WIDTH);
+    expect(state.overviewTrueWidth).toBe(INITIAL_OVERVIEW_WIDTH);
   });
 });
 
