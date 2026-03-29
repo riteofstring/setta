@@ -54,6 +54,11 @@ Use these first for day-to-day work.
   - Frontend: existing ESLint rules plus extra complexity/depth/parameter guards on selected files (default complexity `10`, `max-depth` `4`, `max-params` `5`).
   - Go: `go vet` on changed packages plus pinned `gocyclo` checks on changed files (default max complexity `12`).
   - Supports `--all`, `--staged`, `--files <path>...`, and per-language `--*-max` thresholds.
+- `./report_quality_hotspots.sh`
+  - Reports the highest-complexity code hotspots across the repo, grouped by Go, Python, and frontend.
+  - Defaults to the top `20` hotspots per language section and mirrors the same test/generated-file exclusions as `./check_quality.sh`.
+  - Supports `--top`, `--python-min`, `--frontend-min`, and `--go-min` to narrow the report.
+  - Intended for cleanup planning and hotspot discovery, not commit gating.
 - `./build.sh`
   - Builds the production frontend, stages built assets, and packages the backend through the shared packaged-distribution helper.
 - `./build_and_upload.sh`
