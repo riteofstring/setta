@@ -79,6 +79,76 @@ MCP_BASE_DIR="${MCP_BASE_DIR:-${TMPDIR:-/tmp}/setta-mcp}"
 DEFAULT_MCP_RUN_DIR="${MCP_BASE_DIR}/${INSTANCE_NAME}-${PROFILE_SUFFIX}"
 MCP_RUN_DIR="${MCP_RUN_DIR:-${DEFAULT_MCP_RUN_DIR}}"
 
+resolve_python_bin() {
+  if command -v python >/dev/null 2>&1; then
+    echo "python"
+    return 0
+  fi
+  if command -v python3 >/dev/null 2>&1; then
+    echo "python3"
+    return 0
+  fi
+  return 1
+}
+
+extract_port_from_command() {
+  local command_text="$1"
+  printf "%s" "${command_text}" | sed -n 's/.*--remote-debugging-port[= ]\([0-9][0-9]*\).*/\1/p'
+}
+
+probe_devtools_port() {
+  local port="$1"
+  local response=""
+  local python_bin=""
+
+  if [[ -z "${port}" ]]; then
+    return 1
+  fi
+
+  if command -v curl >/dev/null 2>&1; then
+    response="$(
+      curl \
+        --silent \
+        --show-error \
+        --fail \
+        --max-time 1 \
+        "http://127.0.0.1:${port}/json/version" 2>/dev/null || true
+    )"
+    if [[ "${response}" == *"webSocketDebuggerUrl"* ]]; then
+      return 0
+    fi
+  fi
+
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    return 1
+  fi
+
+  DEVTOOLS_PORT="${port}" "${python_bin}" - <<'PY'
+import json
+import os
+import sys
+import urllib.request
+
+port = os.environ.get("DEVTOOLS_PORT", "")
+if not port:
+    sys.exit(1)
+
+try:
+    with urllib.request.urlopen(
+        f"http://127.0.0.1:{port}/json/version", timeout=1
+    ) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+except Exception:
+    sys.exit(1)
+
+if payload.get("webSocketDebuggerUrl"):
+    sys.exit(0)
+
+sys.exit(1)
+PY
+}
+
 # If the devtools Chrome for this worktree is running, report the actual
 # remote-debugging port from its command line.
 PID_FILE="${MCP_RUN_DIR}/devtools.pid"
@@ -86,11 +156,13 @@ if [[ -f "${PID_FILE}" ]]; then
   PID="$(cat "${PID_FILE}" 2>/dev/null || true)"
   if [[ -n "${PID}" ]] && kill -0 "${PID}" 2>/dev/null; then
     CMD="$(ps -p "${PID}" -o command= 2>/dev/null || true)"
-    PORT="$(printf "%s" "${CMD}" | sed -n 's/.*--remote-debugging-port[= ]\([0-9][0-9]*\).*/\1/p')"
-    if [[ -n "${PORT}" ]]; then
+    PORT="$(extract_port_from_command "${CMD}")"
+    if [[ -n "${PORT}" ]] && probe_devtools_port "${PORT}"; then
       echo "${PORT}"
       exit 0
     fi
+  else
+    rm -f "${PID_FILE}"
   fi
 fi
 
@@ -98,20 +170,29 @@ fi
 # under the same MCP_RUN_DIR. Fall back to scanning running Chrome processes for
 # this worktree's devtools profile path.
 PROFILE_NEEDLE="setta-mcp/${INSTANCE_NAME}-${PROFILE_SUFFIX}/devtools-profile"
-PID_FROM_PS="$(
-  ps -ax -o pid= -o command= 2>/dev/null \
-    | awk -v needle="${PROFILE_NEEDLE}" '
-        index($0, needle) && index($0, "--remote-debugging-port") { print $1 }
-      '
-)"
-PID_FROM_PS="${PID_FROM_PS%%$'\n'*}"
-if [[ -n "${PID_FROM_PS}" ]] && kill -0 "${PID_FROM_PS}" 2>/dev/null; then
+while IFS= read -r PID_FROM_PS; do
+  if [[ -z "${PID_FROM_PS}" ]] || ! kill -0 "${PID_FROM_PS}" 2>/dev/null; then
+    continue
+  fi
+
   CMD="$(ps -p "${PID_FROM_PS}" -o command= 2>/dev/null || true)"
-  PORT="$(printf "%s" "${CMD}" | sed -n 's/.*--remote-debugging-port[= ]\([0-9][0-9]*\).*/\1/p')"
-  if [[ -n "${PORT}" ]]; then
+  PORT="$(extract_port_from_command "${CMD}")"
+  if [[ -n "${PORT}" ]] && probe_devtools_port "${PORT}"; then
     echo "${PORT}"
     exit 0
   fi
+done < <(
+  ps -ax -o pid= -o command= 2>/dev/null \
+    | awk -v needle="${PROFILE_NEEDLE}" '
+        index($0, needle) && index($0, "--remote-debugging-port") && index($0, "--type=") == 0 { print $1 }
+      ' \
+    | sort -nr
+)
+
+if probe_devtools_port "${DEBUG_PORT}"; then
+  echo "${DEBUG_PORT}"
+  exit 0
 fi
 
-echo "${DEBUG_PORT}"
+echo "No live devtools Chrome process found for ${WORKTREE_ROOT}." >&2
+exit 1

@@ -1,16 +1,23 @@
 import hashlib
 import json
 import os
+import subprocess
+import sys
+import time
 from pathlib import Path
 
 import pytest
+
+from setta.database.db_objs import DBE
+from setta.sessions import SessionRegistry
 from setta.sessions.utils import resolve_sessions_root
 from setta.utils.paths import (
     build_files_root_from_base,
+    clear_setta_paths_cache,
     resolve_setta_paths,
+    validate_workspace_root,
 )
 from setta.utils.setta_home import resolve_setta_home
-from tests.helpers.setta_paths import clear_setta_paths_cache, validate_workspace_root
 
 
 @pytest.fixture(autouse=True)
@@ -300,11 +307,11 @@ def test_resolve_setta_paths_auto_create_global_selects_global(tmp_path: Path) -
     assert paths.setta_files_root == expected_global_root
     assert not paths.setta_files_root.exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
 
 
-def test_resolve_setta_paths_explicit_local_can_create_root(
+def test_resolve_setta_paths_explicit_local_creates_root_with_dbe(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -316,11 +323,11 @@ def test_resolve_setta_paths_explicit_local_can_create_root(
     assert paths.setta_files_root == (workspace / "setta_files").resolve(strict=False)
     assert not paths.setta_files_root.exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
 
 
-def test_resolve_setta_paths_explicit_global_can_create_root(
+def test_resolve_setta_paths_explicit_global_creates_root_with_dbe(
     tmp_path: Path,
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -339,7 +346,7 @@ def test_resolve_setta_paths_explicit_global_can_create_root(
     assert paths.setta_files_root == expected_global_root
     assert not (workspace / "setta_files").exists()
 
-    paths.setta_files_root.mkdir(parents=True)
+    DBE(paths.setta_files_root)
     assert paths.setta_files_root.is_dir()
     assert not (workspace / "setta_files").exists()
 
@@ -550,6 +557,95 @@ def test_resolve_sessions_root_uses_setta_files_root_env(
         base_root, workspace.resolve(strict=False)
     )
     assert sessions_root == expected_root.resolve(strict=False) / "runtime" / "sessions"
+
+
+def test_resolve_sessions_root_prefers_matching_local_dev_runtime_sessions(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    (workspace / "setta_files" / "runtime" / "sessions").mkdir(parents=True)
+    dev_sessions_root = workspace / "setta_files_dev" / "runtime" / "sessions"
+    registry = SessionRegistry(sessions_root=dev_sessions_root)
+    registry.create_session(
+        workspace_path=workspace,
+        host="127.0.0.1",
+        port=61234,
+        pid=1,
+        pid_create_time=0.0,
+    )
+
+    # When the caller did not pin a files/runtime root, resolve the local dev
+    # session root that actually contains the workspace session instead of the
+    # empty default local runtime root.
+    sessions_root = resolve_sessions_root(workspace)
+
+    assert sessions_root == dev_sessions_root.resolve(strict=False)
+
+
+def test_resolve_sessions_root_prefers_live_dev_runtime_over_stale_default(
+    tmp_path: Path,
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    default_sessions_root = workspace / "setta_files" / "runtime" / "sessions"
+    default_sessions_root.mkdir(parents=True)
+    dev_sessions_root = workspace / "setta_files_dev" / "runtime" / "sessions"
+    dev_sessions_root.mkdir(parents=True)
+
+    stale_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            "import time; time.sleep(60)",
+            "unit-test",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    live_process = subprocess.Popen(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import socket, time; "
+                "sock = socket.socket(); "
+                "sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); "
+                "sock.bind(('127.0.0.1', 61234)); "
+                "sock.listen(); "
+                "time.sleep(60)"
+            ),
+            "setta.server:app",
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    time.sleep(0.05)
+
+    try:
+        SessionRegistry(sessions_root=default_sessions_root).create_session(
+            workspace_path=workspace,
+            host="127.0.0.1",
+            port=61233,
+            pid=stale_process.pid,
+        )
+        SessionRegistry(sessions_root=dev_sessions_root).create_session(
+            workspace_path=workspace,
+            host="127.0.0.1",
+            port=61234,
+            pid=live_process.pid,
+        )
+
+        sessions_root = resolve_sessions_root(workspace)
+
+        assert sessions_root == dev_sessions_root.resolve(strict=False)
+    finally:
+        if stale_process.poll() is None:
+            stale_process.terminate()
+        stale_process.wait()
+        if live_process.poll() is None:
+            live_process.terminate()
+        live_process.wait()
 
 
 def test_explicit_setta_files_root_overrides_local_root(tmp_path: Path) -> None:
