@@ -42,9 +42,16 @@ func (o *watchCodeSignatureObserver) ResolveCallableSignature(
 
 	result, ok, err := o.delegate.ResolveCallableSignature(ctx, project, sectionID, callableName)
 	if err == nil && ok {
-		o.recordAttempt(callableName, result.Status)
+		o.RecordCallableSignatureStatus(callableName, result.Status)
 	}
 	return result, ok, err
+}
+
+func (o *watchCodeSignatureObserver) RecordCallableSignatureStatus(
+	callableName string,
+	status projectstate.SignatureHelpStatus,
+) {
+	o.recordAttempt(callableName, status)
 }
 
 func (o *watchCodeSignatureObserver) recordAttempt(callableName string, status projectstate.SignatureHelpStatus) {

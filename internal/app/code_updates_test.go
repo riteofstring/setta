@@ -345,6 +345,54 @@ func TestCodeUpdateServiceSetCodePopulatesBoundWatchCodeParamsWithoutSignatureRe
 	}
 }
 
+func TestCodeUpdateServiceSetCodeReconcilesGeneratedPythonSectionForBoundWatchCode(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	project := watchCodeRootBoundProject(t, "watch_code_test.py")
+	projectRuntime, err := projectstate.OpenOverlayRuntimeWithOptions(
+		projectstate.Document{
+			SchemaVersion:    projectstate.CurrentSchemaVersion,
+			DefaultProjectID: "project-alpha",
+			Projects: map[string]projectstate.Project{
+				project.ID: project,
+			},
+		},
+		projectstate.RuntimeOptions{
+			PythonCodegenSectionReconciler: testCodeUpdateGeneratedPythonSectionReconciler(),
+		},
+	)
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close runtime: %v", err)
+		}
+	})
+
+	service, err := newCodeUpdateService(codeUpdateServiceOptions{
+		ProjectState:  projectRuntime,
+		WorkspaceRoot: workspaceRoot,
+	})
+	if err != nil {
+		t.Fatalf("new code update service: %v", err)
+	}
+
+	if err := service.SetCode(context.Background(), "project-alpha", "section-main", "def cool_fn(a, b, c):\n    return a + b + c\n"); err != nil {
+		t.Fatalf("set bound watch-code source: %v", err)
+	}
+
+	updatedProject := projectRuntime.Snapshot().Document.Projects["project-alpha"]
+	if _, ok := updatedProject.Sections[projectstate.GeneratedPythonCodeSectionID]; !ok {
+		t.Fatalf("expected reconciled generated python section, got %#v", updatedProject.Sections)
+	}
+	generatedCode := generatedSectionCode(t, updatedProject)
+	if !strings.Contains(generatedCode, "from watch_code_test import cool_fn") {
+		t.Fatalf("expected generated python import for cool_fn, got %q", generatedCode)
+	}
+}
+
 func TestCodeUpdateServiceFormatCodeFormatsPythonSection(t *testing.T) {
 	addRepoVenvRuffToPath(t)
 
@@ -829,6 +877,111 @@ func watchCodeBoundProject(t *testing.T, bindingPath string, initialCode string)
 		t.Fatalf("normalize watch code bound reload project: %v", err)
 	}
 	return project
+}
+
+func testCodeUpdateGeneratedPythonSectionReconciler() projectstate.PythonCodegenSectionReconciler {
+	return projectstate.PythonCodegenSectionReconcilerFunc(func(_ context.Context, project *projectstate.Project) error {
+		if project == nil {
+			return projectstate.ErrProjectNotFound
+		}
+		if err := project.ReconcilePythonGeneratedBindings(); err != nil {
+			return err
+		}
+
+		config, ok, err := project.PythonCodegenTarget()
+		if err != nil || !ok {
+			return err
+		}
+
+		payload := map[string]any{
+			"id":   projectstate.GeneratedPythonCodeImplID,
+			"type": "GenPythonCode",
+			"code": config.GenCodePrefix + config.GenCodeSuffix,
+		}
+		if project.GeneratedCodeBinding != nil {
+			payload["codeFileBinding"] = map[string]any{
+				"canonical_path": project.GeneratedCodeBinding.Path,
+				"access_mode":    string(project.GeneratedCodeBinding.AccessMode),
+				"autoBinding":    false,
+			}
+		}
+		encodedPayload, err := json.Marshal(payload)
+		if err != nil {
+			return err
+		}
+
+		if project.SectionVariantMap == nil {
+			project.SectionVariantMap = map[string]string{}
+		}
+		project.SectionVariantMap[projectstate.GeneratedPythonCodeSectionID] = projectstate.GeneratedPythonCodeVariantID
+
+		if project.Sections == nil {
+			project.Sections = map[string]projectstate.Section{}
+		}
+		project.Sections[projectstate.GeneratedPythonCodeSectionID] = projectstate.Section{
+			ID:               projectstate.GeneratedPythonCodeSectionID,
+			Name:             projectstate.GeneratedPythonCodeSectionName,
+			VariantIDs:       []string{projectstate.GeneratedPythonCodeVariantID},
+			DefaultVariantID: projectstate.GeneratedPythonCodeVariantID,
+		}
+
+		if project.SectionVariants == nil {
+			project.SectionVariants = map[string]projectstate.SectionVariant{}
+		}
+		project.SectionVariants[projectstate.GeneratedPythonCodeVariantID] = projectstate.SectionVariant{
+			ID:     projectstate.GeneratedPythonCodeVariantID,
+			ImplID: projectstate.GeneratedPythonCodeImplID,
+		}
+
+		if project.SectionImpls == nil {
+			project.SectionImpls = map[string]projectstate.SectionImpl{}
+		}
+		project.SectionImpls[projectstate.GeneratedPythonCodeImplID] = projectstate.SectionImpl{
+			ID:      projectstate.GeneratedPythonCodeImplID,
+			Kind:    projectstate.SectionKindGenerated,
+			Payload: projectstate.RawJSON(encodedPayload),
+			Generated: &projectstate.GeneratedSectionImpl{
+				Kind: projectstate.GeneratedSectionKindPythonCode,
+			},
+		}
+
+		if project.TopLevelSections == nil {
+			project.TopLevelSections = map[string]projectstate.TopLevelSectionLayout{}
+		}
+		project.TopLevelSections[projectstate.GeneratedPythonCodeSectionID] = projectstate.TopLevelSectionLayout{}
+		if !containsStringValue(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID) {
+			project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, projectstate.GeneratedPythonCodeSectionID)
+		}
+
+		return nil
+	})
+}
+
+func generatedSectionCode(t *testing.T, project projectstate.Project) string {
+	t.Helper()
+
+	impl, ok := project.SectionImpls[projectstate.GeneratedPythonCodeImplID]
+	if !ok {
+		t.Fatalf("expected generated python impl, got %#v", project.SectionImpls)
+	}
+	var payload map[string]any
+	if err := json.Unmarshal(impl.Payload, &payload); err != nil {
+		t.Fatalf("decode generated python payload: %v", err)
+	}
+	code, ok := payload["code"].(string)
+	if !ok {
+		t.Fatalf("expected generated python code string, got %#v", payload["code"])
+	}
+	return code
+}
+
+func containsStringValue(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func watchCodeEntryParamNames(

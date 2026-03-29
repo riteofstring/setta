@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -95,5 +96,51 @@ func TestWatchCodeSignatureObserverKeepsLatestAttemptForCallable(t *testing.T) {
 	attempts := observer.Attempts()
 	if attempts["another_fn"] != projectstate.SignatureHelpStatusMatched {
 		t.Fatalf("expected latest attempt to win, got %#v", attempts)
+	}
+}
+
+type noMatchCallableSignatureResolver struct{}
+
+func (noMatchCallableSignatureResolver) ResolveCallableSignature(
+	_ context.Context,
+	_ projectstate.Project,
+	_ string,
+	_ string,
+) (projectstate.CallableSignatureResult, bool, error) {
+	return projectstate.CallableSignatureResult{
+		Status: projectstate.SignatureHelpStatusNoMatch,
+	}, true, nil
+}
+
+func TestWatchCodeSignatureObserverRecordsFinalBoundWatchCodeStatus(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	document := projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": watchCodeRootBoundProject(t, "watch_code_test.py"),
+		},
+	}
+
+	if err := document.SetCode("project-alpha", "section-main", "def cool_fn(a, b, c):\n    return a + b + c\n"); err != nil {
+		t.Fatalf("set bound watch-code source: %v", err)
+	}
+
+	observer := newWatchCodeSignatureObserver(noMatchCallableSignatureResolver{})
+	if _, err := document.ApplyWatchCodeBoundSectionUpdate(
+		context.Background(),
+		"project-alpha",
+		"section-main",
+		workspaceRoot,
+		observer,
+	); err != nil {
+		t.Fatalf("apply bound watch-code update: %v", err)
+	}
+
+	attempts := observer.Attempts()
+	if attempts["cool_fn"] != projectstate.SignatureHelpStatusMatched {
+		t.Fatalf("expected final bound watch-code status to be matched, got %#v", attempts)
 	}
 }

@@ -44,6 +44,10 @@ type CallableSignatureResolver interface {
 	) (CallableSignatureResult, bool, error)
 }
 
+type CallableSignatureStatusRecorder interface {
+	RecordCallableSignatureStatus(callableName string, status SignatureHelpStatus)
+}
+
 type SetCallableChildCodeObj struct {
 	CodeObjID string `json:"codeObjId"`
 	Name      string `json:"name"`

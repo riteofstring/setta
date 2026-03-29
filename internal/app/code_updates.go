@@ -55,32 +55,36 @@ func (s *codeUpdateService) SetCode(ctx context.Context, projectID string, secti
 	}
 
 	signatureObserver := newWatchCodeSignatureObserver(s.callableSignatures)
-	snapshot, err := s.projectState.MutateAndSave(ctx, func(document projectstate.Document) (projectstate.Document, error) {
-		if err := document.SetCode(projectID, sectionID, code); err != nil {
-			return document, err
-		}
-
-		boundSection, ok, err := document.ResolveWatchCodeBoundSection(projectID, sectionID, s.workspaceRoot)
-		if err != nil || !ok {
-			return document, err
-		}
-
-		if s.lspSync != nil {
-			if err := s.lspSync.SyncWatchCodeBoundSection(ctx, boundSection); err != nil {
+	snapshot, err := s.projectState.MutateAndSaveReconcilePythonGeneratedSections(
+		ctx,
+		[]string{projectID},
+		func(document projectstate.Document) (projectstate.Document, error) {
+			if err := document.SetCode(projectID, sectionID, code); err != nil {
 				return document, err
 			}
-		}
-		if _, err := document.ApplyWatchCodeBoundSectionUpdate(
-			ctx,
-			projectID,
-			sectionID,
-			s.workspaceRoot,
-			signatureObserver,
-		); err != nil {
-			return document, err
-		}
-		return document, nil
-	})
+
+			boundSection, ok, err := document.ResolveWatchCodeBoundSection(projectID, sectionID, s.workspaceRoot)
+			if err != nil || !ok {
+				return document, err
+			}
+
+			if s.lspSync != nil {
+				if err := s.lspSync.SyncWatchCodeBoundSection(ctx, boundSection); err != nil {
+					return document, err
+				}
+			}
+			if _, err := document.ApplyWatchCodeBoundSectionUpdate(
+				ctx,
+				projectID,
+				sectionID,
+				s.workspaceRoot,
+				signatureObserver,
+			); err != nil {
+				return document, err
+			}
+			return document, nil
+		},
+	)
 	if err != nil {
 		return err
 	}
@@ -136,51 +140,55 @@ func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string,
 	}
 
 	signatureObserver := newWatchCodeSignatureObserver(s.callableSignatures)
-	snapshot, err := s.projectState.MutateAndSave(ctx, func(document projectstate.Document) (projectstate.Document, error) {
-		for _, binding := range orderedBindings {
-			project, ok := document.Projects[binding.ProjectID]
-			if !ok {
-				continue
-			}
-
-			if _, err := project.SetBoundCodeSectionContent(binding.SectionID, raw); err != nil {
-				return document, err
-			}
-
-			boundSection, ok, err := project.ResolveWatchCodeBoundSection(binding.SectionID, s.workspaceRoot)
-			if err != nil {
-				return document, err
-			}
-			document.Projects[project.ID] = project
-			if !ok {
-				continue
-			}
-
-			if s.lspSync != nil {
-				if err := s.lspSync.SyncWatchCodeBoundSection(ctx, boundSection); err != nil {
-					return document, err
-				}
-			}
-			if _, err := project.ApplyWatchCodeBoundSectionUpdate(
-				ctx,
-				binding.SectionID,
-				s.workspaceRoot,
-				signatureObserver,
-			); err != nil {
-				return document, err
-			}
-			document.Projects[project.ID] = project
-		}
-		return document, nil
-	})
-	if err != nil {
-		return err
-	}
-
 	projectIDs := make([]string, 0, len(orderedBindings))
 	for _, binding := range orderedBindings {
 		projectIDs = append(projectIDs, binding.ProjectID)
 	}
+	snapshot, err := s.projectState.MutateAndSaveReconcilePythonGeneratedSections(
+		ctx,
+		projectIDs,
+		func(document projectstate.Document) (projectstate.Document, error) {
+			for _, binding := range orderedBindings {
+				project, ok := document.Projects[binding.ProjectID]
+				if !ok {
+					continue
+				}
+
+				if _, err := project.SetBoundCodeSectionContent(binding.SectionID, raw); err != nil {
+					return document, err
+				}
+
+				boundSection, ok, err := project.ResolveWatchCodeBoundSection(binding.SectionID, s.workspaceRoot)
+				if err != nil {
+					return document, err
+				}
+				document.Projects[project.ID] = project
+				if !ok {
+					continue
+				}
+
+				if s.lspSync != nil {
+					if err := s.lspSync.SyncWatchCodeBoundSection(ctx, boundSection); err != nil {
+						return document, err
+					}
+				}
+				if _, err := project.ApplyWatchCodeBoundSectionUpdate(
+					ctx,
+					binding.SectionID,
+					s.workspaceRoot,
+					signatureObserver,
+				); err != nil {
+					return document, err
+				}
+				document.Projects[project.ID] = project
+			}
+			return document, nil
+		},
+	)
+	if err != nil {
+		return err
+	}
+
 	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, projectIDs, signatureObserver.Attempts())
 }
 

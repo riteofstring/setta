@@ -385,6 +385,14 @@ type watchCodeParsedSignatureResolver struct {
 	fallbackResolver CallableSignatureResolver
 }
 
+func (r watchCodeParsedSignatureResolver) recordFinalStatus(callableName string, status SignatureHelpStatus) {
+	recorder, ok := r.fallbackResolver.(CallableSignatureStatusRecorder)
+	if !ok {
+		return
+	}
+	recorder.RecordCallableSignatureStatus(callableName, status)
+}
+
 func (r watchCodeParsedSignatureResolver) ResolveCallableSignature(
 	ctx context.Context,
 	project Project,
@@ -411,6 +419,7 @@ func (r watchCodeParsedSignatureResolver) ResolveCallableSignature(
 		return CallableSignatureResult{}, false, err
 	}
 	if !ok {
+		r.recordFinalStatus(trimmedCallableName, r.parsedSignature.Status)
 		return r.parsedSignature, true, nil
 	}
 	if result.Status != SignatureHelpStatusMatched || !sameCallableParamNames(result.Params, r.parsedSignature.Params) {
@@ -418,8 +427,10 @@ func (r watchCodeParsedSignatureResolver) ResolveCallableSignature(
 		if strings.TrimSpace(result.Documentation) != "" {
 			parsedResult.Documentation = result.Documentation
 		}
+		r.recordFinalStatus(trimmedCallableName, parsedResult.Status)
 		return parsedResult, true, nil
 	}
+	r.recordFinalStatus(trimmedCallableName, result.Status)
 	return result, true, nil
 }
 
