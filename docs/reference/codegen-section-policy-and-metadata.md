@@ -82,9 +82,9 @@ The result is `include_in_codegen` plus the chosen `representation`.
 
 ## How policy affects codegen
 
-The dependency graph uses the resolved policy when exporting nodes (`internal/codegen/python_dependency_graph.go` for codegen and `backend/setta/api/listener.py` for listener-side fallback metadata work):
+The dependency graph uses the resolved policy when exporting nodes (`backend/setta/code_gen/dependency_graph.py`):
 - Each `SectionNode` and `ParamNode` carries `include_in_codegen`.
-- The Go-owned Python renderer and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`internal/codegen/python_code_renderer.go`, `internal/codegen/python_value_codec.go`).
+- The Python generator and value codec skip nodes that are excluded, so excluded sections and their params never produce assignments or arguments (`backend/setta/code_gen/python/code_generator.py`, `backend/setta/code_gen/value_codec.py`).
 - Only section types registered in `DependencyGraph.section_exporters` are considered for codegen at all (Callable, Dict, ListRoot, Group, GlobalVariables, TextBlock, Draw, Image, MetaControl, Chat, TaskBoard, Spreadsheet).
 - MetaControl sections are filtered by `metaControlAllowlist` (control code obj types not listed are excluded).
 
@@ -92,7 +92,7 @@ Code obj value policies are resolved during dependency graph export:
 - Each `ParamNode` stores `value_representation`, resolved from `codeObjValuePolicy`.
 - MetaControl sections store the control code obj id + representation so the same formatting rules apply to control values.
 
-The Python value codec formats params based on representation (`internal/codegen/python_value_codec.go`):
+The Python value codec formats params based on representation (`backend/setta/code_gen/value_codec.py`):
 - `expression` uses the existing per-type formatting (switch bools, nested dicts, etc).
 - `json_parsed` attempts `json.loads` on the stored string and emits the resulting Python literal; invalid JSON falls back to `repr(literal_value)`.
 - `string` always emits `repr(literal_value)`.
@@ -108,12 +108,12 @@ Representation determines how section payloads are encoded:
   raise loudly instead of silently exporting stale prompt content.
 - Image sections support `file_path` and `file_read`. The graph stores either a literal path or a `FileReadDependencyValue` pointing at `imagePath`; if the path is missing, the graph downgrades to `expression` with the literal `"None"`.
 - Draw sections support `file_path` and `file_read`. File modes read `renderedImagePath`; missing paths downgrade to `expression` with the literal `"None"`.
-- Chat sections support `expression`, `file_path`, and `file_read`. `expression` emits a Python dict literal from the chat state; file modes point at `setta_files/chats/<chatId>.json` when `chatId` is present, otherwise they downgrade to `expression` with the in-memory state (`internal/codegen/python_dependency_graph.go`, `backend/setta/code_gen/python/value_helpers.py`).
-- Listener-side chat dependency updates from `route_set_chat_section_state` follow the same representation rules through the Go listener route plus the Python listener cache/update path (`internal/wsapi/routes.go`, `backend/setta/api/listener.py`).
+- Chat sections support `expression`, `file_path`, and `file_read`. `expression` emits a Python dict literal from the chat state; file modes point at `setta_files/chats/<chatId>.json` when `chatId` is present, otherwise they downgrade to `expression` with the in-memory state (`backend/setta/code_gen/dependency_graph.py`, `backend/setta/code_gen/python/value_helpers.py`).
+- Local chat dependency updates from `route_set_chat_section_state` follow the same representation rules (`backend/setta/listeners/router_endpoint_local_updates.py`).
 
 ## Generated Python output
 
-When the Python target is enabled, the Go-owned materializer writes `setta_gen.py` to
+When the Python target is enabled, the backend writes `setta_gen.py` to
 `setta_files/code/sections/<project_slug>/setta_gen.py`. The generator builds
 this file as:
 
@@ -125,7 +125,7 @@ this file as:
 <genCodeSuffix>
 ```
 
-Two blank lines separate each block.
+Two blank lines separate each block (`GEN_CODE_SEPARATOR_NEWLINES = 2`).
 
 The generated body is a `SettaState` wrapper class with assignments in
 `__init__`:
@@ -138,16 +138,16 @@ The generated body is a `SettaState` wrapper class with assignments in
 The `GenPythonCode` singleton section mirrors only the generated body (not the
 prefix/suffix). The UI reconstructs the full file by stitching
 `genCodePrefix + body + genCodeSuffix`, while keeping the body read-only
-(`internal/codegen/python_materializer.go`, `internal/projectstate/python_codegen.go`).
+(`backend/setta/types/helpers_lvl2.py`, `backend/setta/project_state/project_code.py`).
 
 ## Generated metadata
 
 Python metadata output is controlled by `ProjectCodegenPythonTarget.generateMetadata` (`backend/setta/types/project_config.py`).
 
 When enabled:
-- `internal/codegen.PythonMetadataRenderer` renders `setta_gen_meta.py` using the project export and dependency graph (`internal/codegen/python_meta_renderer.go`).
-- The file is written next to `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen_meta.py` (`internal/codegen/python_materializer.go`, `internal/projectstate/python_codegen.go`).
-- The metadata binding and on-disk path are derived from the project's reconciled generated bindings (`internal/projectstate/python_codegen.go`, `internal/lsp/project_synchronizer.go`).
+- `build_python_meta_code` renders `setta_gen_meta.py` using the project state and the dependency graph (`backend/setta/code_gen/python/meta_generator.py`).
+- The file is written next to `setta_gen.py` at `setta_files/code/sections/<project_slug>/setta_gen_meta.py` (`backend/setta/project_state/project_code.py`, `backend/setta/utils/utils.py`).
+- The metadata is also written into snapshot run folders (`backend/setta/project_state/code.py`).
 
 The generated module defines:
 - `ProjectMetadata`: id, name, activeViewModeId, entryCodeBlockId, activeIds, showParamDisplayNames, previewImgColor.
@@ -159,13 +159,13 @@ Metadata entries are derived from dependency graph section nodes, so they cover 
 ## GenPythonMetadata section
 
 When metadata is enabled, a singleton `GenPythonMetadata` section is created and kept in sync:
-- `internal/codegen.PythonMaterializer.ReconcileProjectPythonGeneratedSections` creates or deletes it alongside the Python codegen target (`internal/codegen/python_materializer.go`).
-- Its `codeFileBinding` is `write_only` and points to `setta_gen_meta.py` (`internal/projectstate/python_codegen.go`).
-- The same materializer keeps the section payload synchronized with the latest rendered metadata code (`internal/codegen/python_materializer.go`).
+- It is created or deleted alongside the Python codegen target in `set_project_config_codegen_targets` (`backend/setta/project_state/base_project_manager.py`).
+- Its `codeFileBinding` is `write_only` and points to `setta_gen_meta.py` (`backend/setta/types/project_state.py`).
+- `maybe_update_gen_python_metadata_section` mirrors the latest metadata code into the section (`backend/setta/types/helpers_lvl2.py`).
 
 ## Metadata injection into generated code
 
-When `setta_gen_meta.py` exists, the Go-owned Python renderer appends a metadata assignment block (`internal/codegen/python_code_renderer.go`):
+When `setta_gen_meta.py` exists, the Python generator appends a metadata assignment block (`backend/setta/code_gen/python/code_generator.py`):
 - In packaged runtime, it adds `from . import setta_gen_meta` and sets `state.__state__ = setta_gen_meta.meta`.
 - In other modes it `exec`s the metadata code into a namespace and assigns `state.__state__` from the resulting `meta` object.
 
