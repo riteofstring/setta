@@ -13,10 +13,7 @@ import {
 import { clearCurrentProjectViewportForRefit } from "state/actions/sectionInfos";
 import { useLocalStorage } from "state/definitions";
 import { syncLiveDictAreaInteractionModeFromSearch } from "../../Section/Layouts/liveDictAreaInteractionMode";
-import {
-  readRequestedLiveDictAreaRendererMode,
-  syncLiveDictAreaRendererModeFromSearch,
-} from "../../Section/Layouts/liveDictAreaRendererMode";
+import { syncLiveDictAreaRendererModeFromSearch } from "../../Section/Layouts/liveDictAreaRendererMode";
 import "./react-flow-css.css";
 import { ResponsiveMiniMap } from "./ResponsiveMiniMap";
 import { SettingsAllSettingsBenchmarkProvider } from "./settingsAllSettingsBenchmark";
@@ -51,11 +48,12 @@ function useSyncLiveDictAreaRendererMode() {
   useEffect(() => {
     const search =
       typeof globalThis.location === "object" ? globalThis.location.search : "";
-    syncLiveDictAreaRendererModeFromSearch(search);
+    const { shouldClearViewportForRefit } =
+      syncLiveDictAreaRendererModeFromSearch(search);
 
-    // An explicit renderer query param can reopen the route under a different
-    // body-height system than the viewport saved for the DOM renderer.
-    if (readRequestedLiveDictAreaRendererMode(search) !== null) {
+    // Any live renderer-mode switch can reopen the route under a different
+    // body-height system than the viewport saved for the previous renderer.
+    if (shouldClearViewportForRefit) {
       clearCurrentProjectViewportForRefit();
     }
   }, []);

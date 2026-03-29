@@ -1,7 +1,7 @@
 /* @vitest-environment jsdom */
 
-import { act } from "react";
 import type { ReactNode } from "react";
+import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { renderToStaticMarkup } from "react-dom/server";
 import "testUtils/reactRefreshPreamble";
@@ -11,9 +11,11 @@ import { UIPage } from "./UiPage";
 const hoisted = vi.hoisted(() => ({
   attachKeyEventListenersMock: vi.fn(() => () => {}),
   clearCurrentProjectViewportForRefitMock: vi.fn(),
-  readRequestedLiveDictAreaRendererModeMock: vi.fn(() => null),
   syncLiveDictAreaInteractionModeFromSearchMock: vi.fn(),
-  syncLiveDictAreaRendererModeFromSearchMock: vi.fn(),
+  syncLiveDictAreaRendererModeFromSearchMock: vi.fn(() => ({
+    resolvedMode: "dom",
+    shouldClearViewportForRefit: false,
+  })),
 }));
 
 vi.mock("forks/dnd-kit/SectionDndContext", () => ({
@@ -81,8 +83,6 @@ vi.mock("../../Section/Layouts/liveDictAreaInteractionMode", () => ({
 }));
 
 vi.mock("../../Section/Layouts/liveDictAreaRendererMode", () => ({
-  readRequestedLiveDictAreaRendererMode:
-    hoisted.readRequestedLiveDictAreaRendererModeMock,
   syncLiveDictAreaRendererModeFromSearch:
     hoisted.syncLiveDictAreaRendererModeFromSearchMock,
 }));
@@ -94,10 +94,12 @@ describe("UIPage", () => {
   beforeEach(() => {
     hoisted.attachKeyEventListenersMock.mockClear();
     hoisted.clearCurrentProjectViewportForRefitMock.mockClear();
-    hoisted.readRequestedLiveDictAreaRendererModeMock.mockReset();
-    hoisted.readRequestedLiveDictAreaRendererModeMock.mockReturnValue(null);
     hoisted.syncLiveDictAreaInteractionModeFromSearchMock.mockClear();
-    hoisted.syncLiveDictAreaRendererModeFromSearchMock.mockClear();
+    hoisted.syncLiveDictAreaRendererModeFromSearchMock.mockReset();
+    hoisted.syncLiveDictAreaRendererModeFromSearchMock.mockReturnValue({
+      resolvedMode: "dom",
+      shouldClearViewportForRefit: false,
+    });
     host = document.createElement("div");
     document.body.appendChild(host);
     root = createRoot(host);
@@ -136,10 +138,11 @@ describe("UIPage", () => {
     expect(markup).toContain('data-testid="mock-responsive-minimap"');
   });
 
-  it("clears the saved viewport when the route explicitly opts into a renderer override", async () => {
-    hoisted.readRequestedLiveDictAreaRendererModeMock.mockReturnValue(
-      "pixi-node-body",
-    );
+  it("clears the saved viewport when the renderer sync requests a viewport refit", async () => {
+    hoisted.syncLiveDictAreaRendererModeFromSearchMock.mockReturnValue({
+      resolvedMode: "pixi-node-body",
+      shouldClearViewportForRefit: true,
+    });
     window.history.replaceState(
       {},
       "",

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getLiveDictAreaRendererViewportSyncPlan,
   LIVE_DICT_AREA_RENDERER_QUERY_PARAM,
   readRequestedLiveDictAreaRendererMode,
   resolveLiveDictAreaRendererMode,
@@ -65,5 +66,46 @@ describe("resolveLiveDictAreaRendererMode", () => {
         search: "",
       }),
     ).toBe("dom");
+  });
+});
+
+describe("getLiveDictAreaRendererViewportSyncPlan", () => {
+  it("clears the viewport on the first Pixi load when the canary only comes from persisted session state", () => {
+    expect(
+      getLiveDictAreaRendererViewportSyncPlan({
+        persistedMode: "pixi-node-body",
+        previousViewportMode: null,
+        search: "",
+      }),
+    ).toEqual({
+      resolvedMode: "pixi-node-body",
+      shouldClearViewportForRefit: true,
+    });
+  });
+
+  it("does not clear the viewport again when the current viewport already matches the resolved Pixi mode", () => {
+    expect(
+      getLiveDictAreaRendererViewportSyncPlan({
+        persistedMode: "pixi-node-body",
+        previousViewportMode: "pixi-node-body",
+        search: "",
+      }),
+    ).toEqual({
+      resolvedMode: "pixi-node-body",
+      shouldClearViewportForRefit: false,
+    });
+  });
+
+  it("clears the viewport when the explicit query switches back to the DOM renderer", () => {
+    expect(
+      getLiveDictAreaRendererViewportSyncPlan({
+        persistedMode: "pixi-node-body",
+        previousViewportMode: "pixi-node-body",
+        search: `?${LIVE_DICT_AREA_RENDERER_QUERY_PARAM}=dom`,
+      }),
+    ).toEqual({
+      resolvedMode: "dom",
+      shouldClearViewportForRefit: true,
+    });
   });
 });

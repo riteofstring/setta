@@ -1,11 +1,18 @@
 export const LIVE_DICT_AREA_RENDERER_QUERY_PARAM = "liveDictAreaRenderer";
 export const LIVE_DICT_AREA_RENDERER_STORAGE_KEY =
   "setta.liveDictAreaRendererMode";
+export const LIVE_DICT_AREA_VIEWPORT_RENDERER_STORAGE_KEY =
+  "setta.liveDictAreaViewportRendererMode";
 
 export const LIVE_DICT_AREA_RENDERER_MODES = ["dom", "pixi-node-body"] as const;
 
 export type LiveDictAreaRendererMode =
   (typeof LIVE_DICT_AREA_RENDERER_MODES)[number];
+
+export type LiveDictAreaRendererViewportSyncPlan = {
+  resolvedMode: LiveDictAreaRendererMode;
+  shouldClearViewportForRefit: boolean;
+};
 
 export function readRequestedLiveDictAreaRendererMode(
   search: string | null | undefined,
@@ -41,6 +48,30 @@ export function resolveLiveDictAreaRendererMode({
   return "dom";
 }
 
+export function getLiveDictAreaRendererViewportSyncPlan({
+  persistedMode,
+  previousViewportMode,
+  search,
+}: {
+  persistedMode?: string | null;
+  previousViewportMode?: string | null;
+  search: string | null | undefined;
+}): LiveDictAreaRendererViewportSyncPlan {
+  const resolvedMode = resolveLiveDictAreaRendererMode({
+    persistedMode,
+    search,
+  });
+  const shouldClearViewportForRefit =
+    previousViewportMode === null || previousViewportMode === undefined
+      ? resolvedMode !== "dom"
+      : previousViewportMode !== resolvedMode;
+
+  return {
+    resolvedMode,
+    shouldClearViewportForRefit,
+  };
+}
+
 export function readLiveDictAreaRendererModeFromWindow(): LiveDictAreaRendererMode {
   if (typeof globalThis.window !== "object") {
     return "dom";
@@ -59,14 +90,17 @@ export function readLiveDictAreaRendererModeFromWindow(): LiveDictAreaRendererMo
 
 export function syncLiveDictAreaRendererModeFromSearch(
   search: string | null | undefined,
-): void {
-  const requestedMode = readRequestedLiveDictAreaRendererMode(search);
+): LiveDictAreaRendererViewportSyncPlan {
+  const plan = getLiveDictAreaRendererViewportSyncPlan({
+    persistedMode: readPersistedLiveDictAreaRendererMode(),
+    previousViewportMode: readPersistedLiveDictAreaViewportRendererMode(),
+    search,
+  });
 
-  if (!isLiveDictAreaRendererMode(requestedMode)) {
-    return;
-  }
+  persistLiveDictAreaRendererMode(plan.resolvedMode);
+  persistLiveDictAreaViewportRendererMode(plan.resolvedMode);
 
-  persistLiveDictAreaRendererMode(requestedMode);
+  return plan;
 }
 
 function isLiveDictAreaRendererMode(
@@ -87,6 +121,16 @@ function readPersistedLiveDictAreaRendererMode(): string | null {
   }
 }
 
+function readPersistedLiveDictAreaViewportRendererMode(): string | null {
+  try {
+    return globalThis.window?.sessionStorage.getItem(
+      LIVE_DICT_AREA_VIEWPORT_RENDERER_STORAGE_KEY,
+    );
+  } catch {
+    return null;
+  }
+}
+
 function persistLiveDictAreaRendererMode(mode: LiveDictAreaRendererMode): void {
   try {
     globalThis.window?.sessionStorage.setItem(
@@ -95,5 +139,18 @@ function persistLiveDictAreaRendererMode(mode: LiveDictAreaRendererMode): void {
     );
   } catch {
     // Ignore storage failures; the query param remains the explicit opt-in.
+  }
+}
+
+function persistLiveDictAreaViewportRendererMode(
+  mode: LiveDictAreaRendererMode,
+): void {
+  try {
+    globalThis.window?.sessionStorage.setItem(
+      LIVE_DICT_AREA_VIEWPORT_RENDERER_STORAGE_KEY,
+      mode,
+    );
+  } catch {
+    // Ignore storage failures; viewport refit remains best-effort only.
   }
 }

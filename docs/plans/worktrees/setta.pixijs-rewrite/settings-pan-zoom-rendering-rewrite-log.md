@@ -13479,3 +13479,53 @@ Record:
         - the earlier low-zoom hollow-card failure is no longer the earliest failing gate
 - Next action:
   - Re-run the normalized live Pixi canary versus `main` and take the next real Gate 1 or Gate 2 visual mismatch now that the minimum-zoom hollow-card blocker is cleared.
+
+## 2026-04-01 390
+
+- Item: Align the session-storage live Pixi canary path with the explicit-query viewport-refit path so the default canary opening does not skip renderer-mode refit planning.
+- Status: `done`
+- Details:
+  - Took one bounded production slice after item `389` instead of extending the harness lane:
+    - fresh normalized Playwright parity checks still passed
+    - but the default opened live Pixi canary was using the session-storage renderer-mode path, while `UIPage` only cleared the saved viewport when the renderer override came from an explicit query param
+    - that left the persisted canary path and explicit-query canary path on different refit behavior even though they should follow the same renderer-mode transition rule
+  - Landed the fix at the renderer-mode sync boundary:
+    - `frontend/src/components/Section/Layouts/liveDictAreaRendererMode.ts`
+      - added a typed viewport-sync plan that resolves the active renderer mode against the previously synced viewport renderer mode
+      - persists the last renderer mode that the viewport/refit path was synced for
+      - returns `shouldClearViewportForRefit` so callers do not special-case query-param mode only
+    - `frontend/src/components/Pages/Project/UiPage.tsx`
+      - now clears the saved viewport whenever the renderer-mode sync plan says the current renderer mode changed relative to the last viewport-synced mode, not only when `?liveDictAreaRenderer=...` is present
+  - Locked the slice with focused coverage instead of broad retesting:
+    - `frontend/src/components/Section/Layouts/liveDictAreaRendererMode.test.ts`
+      - covers first Pixi load via persisted session mode, repeated Pixi loads, and switching back to DOM via explicit query param
+    - `frontend/src/components/Pages/Project/UiPage.test.tsx`
+      - now asserts `UIPage` follows the sync-plan result for viewport refit
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - added a regression that the session-storage live Pixi canary and the explicit-query live Pixi canary share the same default visible canvas section slice before any frontend viewport clear
+  - This slice improved the canary-mode consistency boundary, but it did not clear the broader `main` oracle blocker:
+    - fresh CDP after the change still shows the top-of-surface slice mismatch versus read-only `main`
+    - reference first slice stayed `textAreaParamCodeObjDefault` → `dropzoneParamCodeObjDefault` → `promptSectionDefault`
+    - worktree first slice stayed `browserSectionDefault` → `textBlockSectionDefault` → `promptSectionDefault`
+    - so the next iteration should go straight at that remaining default-open order/framing drift rather than revisiting session/query parity
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --write src/components/Section/Layouts/liveDictAreaRendererMode.ts src/components/Section/Layouts/liveDictAreaRendererMode.test.ts src/components/Pages/Project/UiPage.tsx src/components/Pages/Project/UiPage.test.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Vitest:
+    - `pnpm -C frontend exec vitest run src/components/Section/Layouts/liveDictAreaRendererMode.test.ts src/components/Pages/Project/UiPage.test.tsx`
+    - result: passed (`9 passed`)
+  - Playwright:
+    - first targeted run with stale token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<stale worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings session-storage and explicit-query live Pixi canaries share the same default visible canvas section slice before frontend viewport clear|all settings baseline and live Pixi canary share the same visible canvas section slice after frontend viewport clear"`
+      - result: failed during global setup with bootstrap `401`
+    - passing rerun with refreshed token:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<refreshed worktree bootstrap token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings session-storage and explicit-query live Pixi canaries share the same default visible canvas section slice before frontend viewport clear|all settings baseline and live Pixi canary share the same visible canvas section slice after frontend viewport clear"`
+      - result: passed (`2 passed`)
+  - Chrome DevTools MCP visual check:
+    - fresh sub-agent compared the default opened worktree live Pixi canary against the read-only `main` Settings surface after normalizing workspace chrome only
+    - result: broader visual gate still fails
+      - reference first slice: `textAreaParamCodeObjDefault` → `dropzoneParamCodeObjDefault` → `promptSectionDefault`
+      - worktree first slice: `browserSectionDefault` → `textBlockSectionDefault` → `promptSectionDefault`
+- Next action:
+  - Determine whether that remaining top-of-surface order/framing drift already exists on the worktree DOM baseline or is specific to the Pixi path, then fix that earliest production boundary instead of revisiting session/query viewport syncing.

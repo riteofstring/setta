@@ -3072,6 +3072,58 @@ test("all settings baseline and explicit-query live Pixi canary share the same v
   }
 });
 
+test("all settings session-storage and explicit-query live Pixi canaries share the same default visible canvas section slice before frontend viewport clear", async ({
+  browser,
+}) => {
+  const sessionStorageCanaryPage = await browser.newPage();
+  const explicitQueryCanaryPage = await browser.newPage();
+
+  try {
+    await openAllSettingsLivePixiCanary(sessionStorageCanaryPage);
+    await openAllSettingsLivePixiQueryParamCanary(explicitQueryCanaryPage);
+
+    await resetProjectWorkspaceChromeToDefaultLayout(sessionStorageCanaryPage);
+    await resetProjectWorkspaceChromeToDefaultLayout(explicitQueryCanaryPage);
+    await waitForVisibleSceneMetrics(sessionStorageCanaryPage);
+    await waitForVisibleSceneMetrics(explicitQueryCanaryPage);
+
+    const explicitQueryViewport = await readViewportTransform(
+      explicitQueryCanaryPage,
+    );
+    await expectViewportTransformNear(
+      sessionStorageCanaryPage,
+      explicitQueryViewport,
+    );
+
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(sessionStorageCanaryPage))
+          .length;
+      })
+      .toBeGreaterThanOrEqual(6);
+    await expect
+      .poll(async () => {
+        return (await readVisibleSectionNodeBounds(explicitQueryCanaryPage))
+          .length;
+      })
+      .toBeGreaterThanOrEqual(6);
+
+    const sessionStorageCanaryNodes = (
+      await readVisibleSectionNodeBounds(sessionStorageCanaryPage)
+    ).slice(0, 6);
+    const explicitQueryCanaryNodes = (
+      await readVisibleSectionNodeBounds(explicitQueryCanaryPage)
+    ).slice(0, 6);
+
+    expect(sessionStorageCanaryNodes.map((node) => node.sectionName)).toEqual(
+      explicitQueryCanaryNodes.map((node) => node.sectionName),
+    );
+  } finally {
+    await sessionStorageCanaryPage.close();
+    await explicitQueryCanaryPage.close();
+  }
+});
+
 test("all settings live Pixi canary keeps spreadsheetSectionDefault fully in frame after normalized viewport clear", async ({
   page,
 }) => {
