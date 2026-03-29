@@ -12,13 +12,12 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import {
   NULL_PROJECT_CONFIG_ID,
   useAIStore,
-  useMisc,
   useProjectState,
   useSettings,
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_set_project_chat_window_chat_id,
   route_set_project_chat_windowing_state,
@@ -49,7 +48,6 @@ import {
   resolveTrackedGitPaneGraphWindowInstanceId,
   setTrackedGitPaneGraphWindowInstanceId,
 } from "./projectChatWindowingEphemeral";
-import { getProjectChatBootPointerCandidates } from "./projectChatWindowingPointerTracking";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -334,8 +332,10 @@ function resolveProjectChatCanvasBootPosition(
     }
   }
   const miscState = useMisc.getState();
-  const cursorCandidates: Array<unknown> =
-    getProjectChatBootPointerCandidates();
+  const cursorCandidates: Array<unknown> = [
+    miscState.lastMouseUpLocation,
+    miscState.lastMouseDownLocation,
+  ];
   for (const candidate of cursorCandidates) {
     if (!isFinitePoint(candidate)) {
       continue;
@@ -1401,14 +1401,14 @@ type PendingProjectChatWindowingMutation = {
 };
 
 type ProjectChatWindowingWriteResponse =
-  | Awaited<ReturnType<typeof route_set_project_chat_windowing_state>>
-  | Awaited<ReturnType<typeof route_set_project_chat_window_chat_id>>;
+  ResponseDataAndStatus<ProjectChatWindowingState>;
 
-type SyntheticProjectChatWindowingWriteResponse = {
-  data: ProjectChatWindowingState;
-  hasResponse: true;
-  status: 200;
-};
+type SyntheticProjectChatWindowingWriteResponse =
+  ProjectChatWindowingWriteResponse & {
+    data: ProjectChatWindowingState;
+    hasResponse: true;
+    status: 200;
+  };
 
 type ProjectChatWindowingTrackedResponse =
   | ProjectChatWindowingWriteResponse
