@@ -1031,13 +1031,19 @@ test("all settings canary keeps visible unpinned live card anchors stable throug
   page,
 }) => {
   await openAllSettingsLivePixiCanary(page);
+  await waitForVisibleSceneMetrics(page);
+  await expect
+    .poll(async () => {
+      return (await readFitViewInitState(page)).fitViewOnInitDone;
+    })
+    .toBe(true);
+  await expectZoomOutButtonDisabled(page, true);
 
   const zoomInButton = page.getByRole("button", { name: "zoom in" });
-  const sceneCanvas = page
-    .locator("[data-live-dict-area-scene='pixi'] canvas")
-    .first();
   await expect(zoomInButton).toBeVisible();
-  await expect(sceneCanvas).toBeVisible();
+  await expect(
+    page.locator("[data-live-dict-area-scene='pixi'] canvas").first(),
+  ).toBeVisible();
 
   await expect
     .poll(async () => {
@@ -1045,9 +1051,7 @@ test("all settings canary keeps visible unpinned live card anchors stable throug
     })
     .toBeGreaterThanOrEqual(2);
 
-  const initialCanvasWidth = await sceneCanvas.evaluate(
-    (canvas) => canvas.width,
-  );
+  const initialViewport = await readViewportTransform(page);
   const initialBlocks = (await readVisibleBlockBounds(page, "pixi", "unpinned"))
     .slice(0, 4)
     .map((block) => ({
@@ -1059,10 +1063,11 @@ test("all settings canary keeps visible unpinned live card anchors stable throug
   await zoomInButton.click();
 
   await expect
-    .poll(() => sceneCanvas.evaluate((canvas) => canvas.width), {
-      message: "expected the Pixi scene canvas to redraw after zooming in",
+    .poll(async () => (await readViewportTransform(page)).zoom, {
+      message:
+        "expected the live Pixi canary viewport zoom to increase after zooming in",
     })
-    .toBeGreaterThan(initialCanvasWidth);
+    .toBeGreaterThan(initialViewport.zoom);
 
   await expect
     .poll(async () => {

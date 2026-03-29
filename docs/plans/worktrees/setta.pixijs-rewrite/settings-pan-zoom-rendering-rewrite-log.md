@@ -10976,3 +10976,45 @@ Record:
     - result: baseline and live Pixi canary loaded without obvious visual breakage in the `All Settings` surface
 - Next action:
   - Investigate the later `:1030` Playwright failure in the same canary spec; the suite-ordering parity leak is fixed, and the next real frontier is the live Pixi zoom-in canvas redraw path rather than more precondition cleanup.
+
+## 2026-03-30 334
+
+- Item: Stabilize the live Pixi zoom-in canary guard so it waits for the real fit-view floor and checks the attached viewport transform instead of a false backing-width assumption.
+- Status: `done`
+- Details:
+  - Continued directly from item `333` by reproducing the single failing spec at `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts:1030`.
+  - Narrowed the failure with a one-off Playwright probe against the current worktree runtime:
+    - before the canary settled, the test could start around `zoom=0.46959319219593193`
+    - the first click then raced against the pending fit-view init and the viewport dropped to the real floor `zoom=0.1`
+    - once settled at `zoom=0.1`, successive zoom-in clicks increased the attached React Flow transform (`0.12`, `0.144`, `0.1728`) while the Pixi backing canvas width stayed at `550`
+  - That showed the failing assertion was testing the wrong contract for this low-zoom path:
+    - the canary was assuming the backing canvas width must increase below `1x` viewport zoom
+    - but the source-of-truth signal for a real zoom interaction is the attached React Flow transform, and the visible user-facing guard is that shared unpinned anchors stay visible and grow
+  - Updated only the failing zoom-in canary slice:
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+  - The test now:
+    - waits for visible scene metrics plus `fitViewOnInitDone=true`
+    - confirms `zoom out` is disabled before taking the initial snapshot
+    - asserts that `useReactFlow.getState().transform[2]` increases after `zoom in`
+    - keeps the existing visible-anchor continuity and growth checks for the unpinned live card blocks
+  - Kept the slice intentionally narrow:
+    - no production frontend/backend renderer code changed
+    - no Pixi resolution policy changed
+    - this iteration only fixes the canary harness so it measures the attached zoom contract instead of a false low-zoom backing-width expectation
+- Verification:
+  - Prettier:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - Playwright focused:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep "all settings canary keeps visible unpinned live card anchors stable through a zoom-in interaction"`
+    - result: passed (`1 passed`)
+  - Playwright full file:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed (`22 passed`)
+  - Chrome DevTools MCP live check in a fresh sub-agent context on the current worktree runtime (`http://127.0.0.1:3043/settings` after bootstrapping through `http://127.0.0.1:8043/__setta__/bootstrap#token=...`):
+    - `All Settings` loaded with the live Pixi canary enabled and `fitViewOnInitDone=true`
+    - the attached React Flow transform read `[247.4, -467.2, 0.1]` before the interaction
+    - the headed live `zoom in` click did not change the transform or the tracked visible unpinned anchor bounds in that runtime
+    - no obvious visual breakage was observed, but the live worktree zoom-in control remained inert in this CDP check
+- Next action:
+  - Investigate why the headed worktree canary still shows an inert live `zoom in` interaction after fit-view settles even though the isolated Playwright canary now passes end-to-end; the next real frontier is that runtime divergence, not another harness rewrite.
