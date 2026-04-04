@@ -2302,6 +2302,15 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				},
 			},
 		}, true
+	case reflect.TypeOf(SectionSize{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultSectionSize(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"width":  "SectionSizeModeEnum.auto",
+				"height": "SectionSizeModeEnum.auto",
+			},
+		}, true
 	case reflect.TypeOf(TopLevelSectionLayout{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectstate.FrontendDefaultTopLevelSectionLayout(),

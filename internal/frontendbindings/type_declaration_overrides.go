@@ -112,18 +112,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"SectionSizeValue",
 			"number | SectionSizeMode",
 		),
-		reflect.TypeOf(SectionSize{}): objectDeclarationWithCreateExpr(
-			"SectionSize",
-			`mergeGeneratedOptions(
-    {
-      width: SectionSizeModeEnum.auto,
-      height: SectionSizeModeEnum.auto,
-    },
-    options,
-  )`,
-			TypeProperty{Name: "width", TypeExpr: "SectionSizeValue"},
-			TypeProperty{Name: "height", TypeExpr: "SectionSizeValue"},
-		),
 		reflect.TypeOf(SectionSizingPolicyTypeEntry{}): objectDeclaration(
 			"SectionSizingPolicyTypeEntry",
 			TypeProperty{Name: "minHeight", TypeExpr: "number"},

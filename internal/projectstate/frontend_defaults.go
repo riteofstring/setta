@@ -150,3 +150,10 @@ func FrontendDefaultWindowSpaceConfig() WindowSpaceConfig {
 func FrontendDefaultCodeParamCodeObjImpl() map[string]any {
 	return childlessParamImplBasePayload()
 }
+
+func FrontendDefaultSectionSize() SectionSize {
+	return SectionSize{
+		Width:  AutoSectionSizeValue(),
+		Height: AutoSectionSizeValue(),
+	}
+}

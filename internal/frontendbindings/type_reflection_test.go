@@ -386,6 +386,14 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "SectionSize",
+			root: reflect.TypeOf(SectionSize{}),
+			properties: []TypeProperty{
+				{Name: "width", TypeExpr: "SectionSizeValue", Optional: false},
+				{Name: "height", TypeExpr: "SectionSizeValue", Optional: false},
+			},
+		},
+		{
 			name: "UserDefaultCodeParamCodeObjImpl",
 			root: reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}),
 			properties: []TypeProperty{
@@ -768,6 +776,7 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				t.Fatalf("EngineConfig should use a structured create body")
 			}
 			if (tt.name == "BrowserSavedSearch" ||
+				tt.name == "SectionSize" ||
 				tt.name == "TaskBoardColumn" ||
 				tt.name == "TaskBoardTask" ||
 				tt.name == "UserDefaultCodeParamCodeObjImpl" ||
