@@ -1,0 +1,10 @@
+const hashIndex = address.indexOf("#");
+let withoutHash = address;
+if (hashIndex >= 0) {
+  withoutHash = address.slice(0, hashIndex);
+}
+const queryIndex = withoutHash.indexOf("?");
+if (queryIndex >= 0) {
+  return withoutHash.slice(0, queryIndex);
+}
+return withoutHash;
