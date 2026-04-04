@@ -1,6 +1,7 @@
 package frontendbindings
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -48,6 +49,24 @@ type TypeProperty struct {
 	TypeExpr     string
 	Optional     bool
 	DefaultValue string
+}
+
+//go:embed templates/converter_create_section_codegen_policy.ts.tmpl
+var createSectionCodegenPolicyTemplate string
+
+//go:embed templates/converter_create_code_obj_value_policy.ts.tmpl
+var createCodeObjValuePolicyTemplate string
+
+// setta-go-type-discovery: skip
+type sectionCodegenPolicyCreateTemplateData struct {
+	DefaultSectionCodegenAllowlistMembers     []string
+	DefaultMetaControlCodegenAllowlistMembers []string
+	FileReadSectionRepresentationMembers      []string
+}
+
+// setta-go-type-discovery: skip
+type codeObjValuePolicyCreateTemplateData struct {
+	StringCodeObjValueRepresentationMembers []string
 }
 
 func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration {
@@ -732,138 +751,26 @@ var stringCodeObjValueRepresentationMembers = []string{
 	"CodeObjTypeEnum.ColorPickerParam",
 }
 
-func writeTSArrayLiteral(builder *strings.Builder, indent string, values []string) {
-	builder.WriteString("[\n")
-	for _, value := range values {
-		builder.WriteString(indent)
-		builder.WriteString(value)
-		builder.WriteString(",\n")
-	}
-	builder.WriteString(indent[:len(indent)-2])
-	builder.WriteString("]")
-}
-
 func buildSectionCodegenPolicyCreateBodyTS() string {
-	var builder strings.Builder
-	builder.WriteString("  const defaultSectionCodegenAllowlist: Array<SectionType> = ")
-	writeTSArrayLiteral(&builder, "    ", defaultSectionCodegenAllowlistMembers)
-	builder.WriteString(";\n")
-	builder.WriteString("  const defaultMetaControlCodegenAllowlist: Array<CodeObjType> = ")
-	writeTSArrayLiteral(&builder, "    ", defaultMetaControlCodegenAllowlistMembers)
-	builder.WriteString(";\n")
-	builder.WriteString("  function defaultSectionRepresentation(\n")
-	builder.WriteString("    sectionType: SectionType,\n")
-	builder.WriteString("  ): SectionRepresentationMode {\n")
-	builder.WriteString("    switch (sectionType) {\n")
-	for _, member := range fileReadSectionRepresentationMembers {
-		builder.WriteString("      case ")
-		builder.WriteString(member)
-		builder.WriteString(":\n")
-	}
-	builder.WriteString("        return SectionRepresentationModeEnum.file_read;\n")
-	builder.WriteString("      default:\n")
-	builder.WriteString("        return SectionRepresentationModeEnum.expression;\n")
-	builder.WriteString("    }\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  const typePolicies = Object.fromEntries(\n")
-	builder.WriteString("    (Object.values(SectionTypeEnum) as Array<SectionType>).map(\n")
-	builder.WriteString("      (sectionType) => [\n")
-	builder.WriteString("        sectionType,\n")
-	builder.WriteString("        createSectionTypeCodegenPolicy({\n")
-	builder.WriteString("          representation: defaultSectionRepresentation(sectionType),\n")
-	builder.WriteString("        }),\n")
-	builder.WriteString("      ],\n")
-	builder.WriteString("    ),\n")
-	builder.WriteString("  ) as Record<SectionType, SectionTypeCodegenPolicy>;\n")
-	builder.WriteString("  for (const [sectionType, policy] of Object.entries(\n")
-	builder.WriteString("    options.typePolicies ?? {},\n")
-	builder.WriteString("  ) as Array<[SectionType, SectionTypeCodegenPolicy]>) {\n")
-	builder.WriteString("    typePolicies[sectionType] = createSectionTypeCodegenPolicy(policy);\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  const sectionOverrides = Object.fromEntries(\n")
-	builder.WriteString("    Object.entries(options.sectionOverrides ?? {}).map(([sectionId, override]) => [\n")
-	builder.WriteString("      sectionId,\n")
-	builder.WriteString("      createSectionCodegenOverride(override),\n")
-	builder.WriteString("    ]),\n")
-	builder.WriteString("  ) as Record<string, SectionCodegenOverride>;\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions(\n")
-	builder.WriteString("      {\n")
-	builder.WriteString("        allowlist: defaultSectionCodegenAllowlist,\n")
-	builder.WriteString("        metaControlAllowlist: defaultMetaControlCodegenAllowlist,\n")
-	builder.WriteString("        exclude: [],\n")
-	builder.WriteString("        typePolicies,\n")
-	builder.WriteString("        sectionOverrides,\n")
-	builder.WriteString("      },\n")
-	builder.WriteString("      options,\n")
-	builder.WriteString("    ),\n")
-	builder.WriteString("    allowlist:\n")
-	builder.WriteString("      options.allowlist === null\n")
-	builder.WriteString("        ? null\n")
-	builder.WriteString("        : [...(options.allowlist ?? defaultSectionCodegenAllowlist)],\n")
-	builder.WriteString("    metaControlAllowlist:\n")
-	builder.WriteString("      options.metaControlAllowlist === null\n")
-	builder.WriteString("        ? null\n")
-	builder.WriteString("        : [\n")
-	builder.WriteString("            ...(options.metaControlAllowlist ??\n")
-	builder.WriteString("              defaultMetaControlCodegenAllowlist),\n")
-	builder.WriteString("          ],\n")
-	builder.WriteString("    exclude: [...(options.exclude ?? [])],\n")
-	builder.WriteString("    typePolicies,\n")
-	builder.WriteString("    sectionOverrides,\n")
-	builder.WriteString("  };")
-	return builder.String()
+	return mustRenderFrontendBindingTemplate(
+		"createSectionCodegenPolicy",
+		createSectionCodegenPolicyTemplate,
+		sectionCodegenPolicyCreateTemplateData{
+			DefaultSectionCodegenAllowlistMembers:     defaultSectionCodegenAllowlistMembers,
+			DefaultMetaControlCodegenAllowlistMembers: defaultMetaControlCodegenAllowlistMembers,
+			FileReadSectionRepresentationMembers:      fileReadSectionRepresentationMembers,
+		},
+	)
 }
 
 func buildCodeObjValuePolicyCreateBodyTS() string {
-	var builder strings.Builder
-	builder.WriteString("  function defaultCodeObjValueRepresentation(\n")
-	builder.WriteString("    codeObjType: CodeObjType,\n")
-	builder.WriteString("  ): CodeObjValueRepresentationMode {\n")
-	builder.WriteString("    switch (codeObjType) {\n")
-	for _, member := range stringCodeObjValueRepresentationMembers {
-		builder.WriteString("      case ")
-		builder.WriteString(member)
-		builder.WriteString(":\n")
-	}
-	builder.WriteString("        return CodeObjValueRepresentationModeEnum.string;\n")
-	builder.WriteString("      case CodeObjTypeEnum.DropzoneParam:\n")
-	builder.WriteString("        return CodeObjValueRepresentationModeEnum.file_path;\n")
-	builder.WriteString("      default:\n")
-	builder.WriteString("        return CodeObjValueRepresentationModeEnum.expression;\n")
-	builder.WriteString("    }\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  const typePolicies = Object.fromEntries(\n")
-	builder.WriteString("    (Object.values(CodeObjTypeEnum) as Array<CodeObjType>).map((codeObjType) => [\n")
-	builder.WriteString("      codeObjType,\n")
-	builder.WriteString("      createCodeObjTypeValuePolicy({\n")
-	builder.WriteString("        representation: defaultCodeObjValueRepresentation(codeObjType),\n")
-	builder.WriteString("      }),\n")
-	builder.WriteString("    ]),\n")
-	builder.WriteString("  ) as Record<CodeObjType, CodeObjTypeValuePolicy>;\n")
-	builder.WriteString("  for (const [codeObjType, policy] of Object.entries(\n")
-	builder.WriteString("    options.typePolicies ?? {},\n")
-	builder.WriteString("  ) as Array<[CodeObjType, CodeObjTypeValuePolicy]>) {\n")
-	builder.WriteString("    typePolicies[codeObjType] = createCodeObjTypeValuePolicy(policy);\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  const codeObjOverrides = Object.fromEntries(\n")
-	builder.WriteString("    Object.entries(options.codeObjOverrides ?? {}).map(([codeObjId, override]) => [\n")
-	builder.WriteString("      codeObjId,\n")
-	builder.WriteString("      createCodeObjValueOverride(override),\n")
-	builder.WriteString("    ]),\n")
-	builder.WriteString("  ) as Record<string, CodeObjValueOverride>;\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions(\n")
-	builder.WriteString("      {\n")
-	builder.WriteString("        typePolicies,\n")
-	builder.WriteString("        codeObjOverrides,\n")
-	builder.WriteString("      },\n")
-	builder.WriteString("      options,\n")
-	builder.WriteString("    ),\n")
-	builder.WriteString("    typePolicies,\n")
-	builder.WriteString("    codeObjOverrides,\n")
-	builder.WriteString("  };")
-	return builder.String()
+	return mustRenderFrontendBindingTemplate(
+		"createCodeObjValuePolicy",
+		createCodeObjValuePolicyTemplate,
+		codeObjValuePolicyCreateTemplateData{
+			StringCodeObjValueRepresentationMembers: stringCodeObjValueRepresentationMembers,
+		},
+	)
 }
 
 func buildProjectCodegenPythonTargetCreateBodyTS() string {

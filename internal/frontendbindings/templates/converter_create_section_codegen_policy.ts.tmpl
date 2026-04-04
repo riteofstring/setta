@@ -1,0 +1,63 @@
+  const defaultSectionCodegenAllowlist: Array<SectionType> = [
+{{ range .DefaultSectionCodegenAllowlistMembers }}    {{ . }},
+{{ end }}  ];
+  const defaultMetaControlCodegenAllowlist: Array<CodeObjType> = [
+{{ range .DefaultMetaControlCodegenAllowlistMembers }}    {{ . }},
+{{ end }}  ];
+  function defaultSectionRepresentation(
+    sectionType: SectionType,
+  ): SectionRepresentationMode {
+    switch (sectionType) {
+{{ range .FileReadSectionRepresentationMembers }}      case {{ . }}:
+{{ end }}        return SectionRepresentationModeEnum.file_read;
+      default:
+        return SectionRepresentationModeEnum.expression;
+    }
+  }
+  const typePolicies = Object.fromEntries(
+    (Object.values(SectionTypeEnum) as Array<SectionType>).map(
+      (sectionType) => [
+        sectionType,
+        createSectionTypeCodegenPolicy({
+          representation: defaultSectionRepresentation(sectionType),
+        }),
+      ],
+    ),
+  ) as Record<SectionType, SectionTypeCodegenPolicy>;
+  for (const [sectionType, policy] of Object.entries(
+    options.typePolicies ?? {},
+  ) as Array<[SectionType, SectionTypeCodegenPolicy]>) {
+    typePolicies[sectionType] = createSectionTypeCodegenPolicy(policy);
+  }
+  const sectionOverrides = Object.fromEntries(
+    Object.entries(options.sectionOverrides ?? {}).map(([sectionId, override]) => [
+      sectionId,
+      createSectionCodegenOverride(override),
+    ]),
+  ) as Record<string, SectionCodegenOverride>;
+  return {
+    ...mergeGeneratedOptions(
+      {
+        allowlist: defaultSectionCodegenAllowlist,
+        metaControlAllowlist: defaultMetaControlCodegenAllowlist,
+        exclude: [],
+        typePolicies,
+        sectionOverrides,
+      },
+      options,
+    ),
+    allowlist:
+      options.allowlist === null
+        ? null
+        : [...(options.allowlist ?? defaultSectionCodegenAllowlist)],
+    metaControlAllowlist:
+      options.metaControlAllowlist === null
+        ? null
+        : [
+            ...(options.metaControlAllowlist ??
+              defaultMetaControlCodegenAllowlist),
+          ],
+    exclude: [...(options.exclude ?? [])],
+    typePolicies,
+    sectionOverrides,
+  };
