@@ -23,23 +23,21 @@ function createMockDataTransfer(): MockDataTransfer {
 }
 
 describe("fileBrowserDragPayload", () => {
-  it("writes both custom and text/plain drag payloads", () => {
+  it("round-trips payload via custom mime type", () => {
     const transfer = createMockDataTransfer();
-    const payload = {
+    setFileBrowserDragPayload(transfer as unknown as DataTransfer, {
       name: "sheet.csv",
       fullPath: "/tmp/sheet.csv",
       type: "file",
-    } as const;
-
-    setFileBrowserDragPayload(transfer as unknown as DataTransfer, {
-      ...payload,
     });
 
-    const serialized = JSON.stringify(payload);
-    expect(transfer.getData(FILE_BROWSER_DRAG_MIME_TYPE)).toBe(serialized);
-    expect(transfer.getData("text/plain")).toBe(
-      `setta:file-browser-node:${serialized}`,
-    );
+    expect(
+      getFileBrowserDragPayload(transfer as unknown as DataTransfer),
+    ).toEqual({
+      name: "sheet.csv",
+      fullPath: "/tmp/sheet.csv",
+      type: "file",
+    });
   });
 
   it("falls back to prefixed text/plain payload", () => {

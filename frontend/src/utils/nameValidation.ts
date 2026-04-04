@@ -3,6 +3,7 @@ import { C } from "utils/c";
 const CONTROL_CHAR_REGEX = /[\x00-\x1F\x7F]/;
 const SIMPLE_NAME_REGEX = /^[A-Za-z0-9 _-]+$/;
 const PYTHON_IDENTIFIER_REGEX = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const PYTHON_IDENTIFIER_INVALID_CHARS = /\W/g;
 const PYTHON_KEYWORDS = new Set([
   "False",
   "None",
@@ -206,4 +207,30 @@ export function sanitizeNameForSlug(name: string): string {
     output = output.replace("__", "_");
   }
   return output.replace(/^_+|_+$/g, "").toLowerCase();
+}
+
+export function sanitizeNameForPythonIdentifier(name: string): string {
+  let sanitized = name.replace(PYTHON_IDENTIFIER_INVALID_CHARS, "_");
+  if (!sanitized) {
+    sanitized = "_";
+  }
+  if (/^\d/.test(sanitized)) {
+    sanitized = `_${sanitized}`;
+  }
+  if (PYTHON_KEYWORDS.has(sanitized)) {
+    sanitized = `_${sanitized}`;
+  }
+  if (!PYTHON_IDENTIFIER_REGEX.test(sanitized)) {
+    sanitized = sanitized.replace(/[^A-Za-z0-9_]/g, "_");
+    if (!sanitized) {
+      sanitized = "_";
+    }
+    if (/^\d/.test(sanitized)) {
+      sanitized = `_${sanitized}`;
+    }
+    if (PYTHON_KEYWORDS.has(sanitized)) {
+      sanitized = `_${sanitized}`;
+    }
+  }
+  return sanitized;
 }
