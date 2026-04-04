@@ -2576,20 +2576,7 @@ func newTypeConverter() *typeConverter {
 			),
 			reflect.TypeOf(SharePolicy{}): objectDeclarationWithCreateExpr(
 				"SharePolicy",
-				`mergeGeneratedOptions(
-    {
-      allowParamChanges: true,
-      allowVariantChanges: true,
-      allowLayoutChanges: true,
-      allowRun: false,
-      allowLLM: false,
-      allowExternalLinks: false,
-      allowFileDownloads: false,
-      allowMultipleRuns: true,
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
-    },
-    options,
-  )`,
+				buildDefaultSharePolicyCreateExprTS(),
 				TypeProperty{Name: "allowParamChanges", TypeExpr: "boolean"},
 				TypeProperty{Name: "allowVariantChanges", TypeExpr: "boolean"},
 				TypeProperty{Name: "allowLayoutChanges", TypeExpr: "boolean"},

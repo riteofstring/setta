@@ -376,6 +376,9 @@ func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	if !strings.Contains(bindings.TypesTS, "function createGeneratedBaseSectionDefaults(): {") {
 		t.Fatalf("types output missing shared project-state base defaults helper:\n%s", bindings.TypesTS)
 	}
+	if !strings.Contains(bindings.TypesTS, "export function createDefaultAppPolicy(") {
+		t.Fatalf("types output missing generated app policy defaults helper:\n%s", bindings.TypesTS)
+	}
 	if !strings.Contains(bindings.TypesTS, "export type ImplArgsBundleMap = {") {
 		t.Fatalf("types output missing project-state impl args alias:\n%s", bindings.TypesTS)
 	}

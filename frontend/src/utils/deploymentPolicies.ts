@@ -1,17 +1,13 @@
-import { createSharePolicy, type SharePolicy } from "./generatedTypes";
+import {
+  createDefaultAppPolicy as createGeneratedDefaultAppPolicy,
+  createSharePolicy,
+  type SharePolicy,
+} from "./generatedTypes";
 
-const APP_POLICY_DEFAULT_OVERRIDES: Partial<SharePolicy> = {
-  allowVariantChanges: false,
-  allowLayoutChanges: false,
-  allowRun: true,
-};
+export const createDefaultAppPolicy = createGeneratedDefaultAppPolicy;
 
 export function createDefaultSharePolicy(): SharePolicy {
   return createSharePolicy();
-}
-
-export function createDefaultAppPolicy(): SharePolicy {
-  return createSharePolicy(APP_POLICY_DEFAULT_OVERRIDES);
 }
 
 export function resolveAppPolicy(

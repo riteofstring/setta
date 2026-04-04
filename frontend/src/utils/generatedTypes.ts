@@ -8476,6 +8476,25 @@ export type ImplArgsBundleMap = {
   };
 };
 
+export function createDefaultAppPolicy(
+  options: Partial<SharePolicy> = {},
+): SharePolicy {
+  return mergeGeneratedOptions(
+    {
+      allowParamChanges: true,
+      allowVariantChanges: false,
+      allowLayoutChanges: false,
+      allowRun: true,
+      allowLLM: false,
+      allowExternalLinks: false,
+      allowFileDownloads: false,
+      allowMultipleRuns: true,
+      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+    },
+    options,
+  );
+}
+
 const BaseChildlessCodeObjImplTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.CodeParam,
   CodeObjTypeEnum.ColorPickerParam,

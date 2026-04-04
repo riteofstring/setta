@@ -4,21 +4,18 @@ import {
   createDefaultSharePolicy,
   resolveAppPolicy,
 } from "./deploymentPolicies";
-import { createSharePolicy } from "./generatedTypes";
+import {
+  createDefaultAppPolicy as createGeneratedDefaultAppPolicy,
+  createSharePolicy,
+} from "./generatedTypes";
 
 describe("deploymentPolicies", () => {
   it("reuses generated share defaults", () => {
     expect(createDefaultSharePolicy()).toEqual(createSharePolicy());
   });
 
-  it("builds app defaults by overriding the generated share defaults", () => {
-    expect(createDefaultAppPolicy()).toEqual(
-      createSharePolicy({
-        allowVariantChanges: false,
-        allowLayoutChanges: false,
-        allowRun: true,
-      }),
-    );
+  it("reuses generated app defaults", () => {
+    expect(createDefaultAppPolicy()).toEqual(createGeneratedDefaultAppPolicy());
   });
 
   it("preserves an explicit app policy", () => {
