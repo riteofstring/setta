@@ -131,7 +131,7 @@ That means:
   - most nested project-state data models now come from `go_shared_types.py`
   - the handwritten remainder is mainly Python-side defaults and codegen-policy resolution logic
 - Go type discovery now handles selector-backed named wrappers generically, so generated registries can keep frontend-facing names while still pointing at real backend owner types.
-- `cmd/setta-gen-go-type-registries` now also generates a generic frontend wrapper-override registry, and `internal/frontendbindings/converter.go` uses that instead of a hardcoded canonical-type switch.
+- `cmd/setta-gen-go-type-registries` now also generates a generic frontend wrapper-override registry, and the frontendbindings type compiler uses that instead of a hardcoded canonical-type switch.
 - `internal/frontendbindings/project_state_support.go` now points a large part of the project-state surface at real owner structs instead of empty placeholder structs.
 - `internal/frontendbindings/project_state_support.go` has been reduced further by wrapping more real backend owners instead of repeating local contract shapes, including:
   - `RenameRefactorMode`

@@ -66,8 +66,8 @@ experience around resizing.
 
 Defaults are seeded from the Go project-state creation path in
 `internal/projectstate/top_level_section_creation.go` and mirrored into
-frontend factories in `frontend/src/utils/generatedTypes.ts` through
-`internal/frontendbindings/converter.go`.
+frontend factories in `frontend/src/utils/generatedTypes.ts` through the
+frontend bindings generation pipeline under `internal/frontendbindings/`.
 
 ## Policy bounds
 - Sizing bounds come from `SectionSizingPolicy` in
