@@ -6,18 +6,6 @@ import (
 	"setta/internal/realtime"
 )
 
-//go:embed templates/websocket_support_is_record.ts.tmpl
-var websocketSupportIsRecordTemplate string
-
-//go:embed templates/websocket_support_read_required_string.ts.tmpl
-var websocketSupportReadRequiredStringTemplate string
-
-//go:embed templates/websocket_support_read_optional_string.ts.tmpl
-var websocketSupportReadOptionalStringTemplate string
-
-//go:embed templates/websocket_support_read_duration_ms.ts.tmpl
-var websocketSupportReadDurationMsTemplate string
-
 //go:embed templates/websocket_support_read_activation_steps.ts.tmpl
 var websocketSupportReadActivationStepsTemplate string
 
@@ -230,31 +218,19 @@ func websocketSafeParseDeclarations() []TypeDeclaration {
 }
 
 func buildWebsocketSupportIsRecordBodyTS() string {
-	return mustRenderFrontendBindingTemplate("websocketSupportIsRecord", websocketSupportIsRecordTemplate, nil)
+	return "  return generatedBindingRuntime.websocketSupportIsRecord(value);"
 }
 
 func buildWebsocketSupportReadRequiredStringBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"websocketSupportReadRequiredString",
-		websocketSupportReadRequiredStringTemplate,
-		nil,
-	)
+	return "  return generatedBindingRuntime.websocketSupportReadRequiredString(value, fieldName, issues);"
 }
 
 func buildWebsocketSupportReadOptionalStringBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"websocketSupportReadOptionalString",
-		websocketSupportReadOptionalStringTemplate,
-		nil,
-	)
+	return "  return generatedBindingRuntime.websocketSupportReadOptionalString(value, fieldName, issues);"
 }
 
 func buildWebsocketSupportReadDurationMsBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"websocketSupportReadDurationMs",
-		websocketSupportReadDurationMsTemplate,
-		nil,
-	)
+	return "  return generatedBindingRuntime.websocketSupportReadDurationMs(value, issues);"
 }
 
 func buildWebsocketReadActivationStepsBodyTS() string {

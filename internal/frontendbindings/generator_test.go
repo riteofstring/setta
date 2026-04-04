@@ -84,10 +84,10 @@ func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 
 	if !strings.Contains(
 		bodies["validateGeneratedSimpleNameInput"],
-		`return label + " cannot include control characters.";`,
+		`generatedBindingRuntime.validateGeneratedSimpleNameInput(`,
 	) {
 		t.Fatalf(
-			"validateGeneratedSimpleNameInput body missing template-rendered control-character check:\n%s",
+			"validateGeneratedSimpleNameInput body missing runtime delegation:\n%s",
 			bodies["validateGeneratedSimpleNameInput"],
 		)
 	}
@@ -102,10 +102,19 @@ func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 	if !strings.Contains(
 		bodies["validateGeneratedParamNameInput"],
-		`return "Param name must be a valid Python identifier.";`,
+		`generatedBindingRuntime.validateGeneratedParamNameInput(`,
 	) {
 		t.Fatalf(
-			"validateGeneratedParamNameInput body missing template-rendered Python identifier check:\n%s",
+			"validateGeneratedParamNameInput body missing runtime delegation:\n%s",
+			bodies["validateGeneratedParamNameInput"],
+		)
+	}
+	if !strings.Contains(
+		bodies["validateGeneratedParamNameInput"],
+		`generatedBindingRuntime.isGeneratedPythonIdentifier(`,
+	) {
+		t.Fatalf(
+			"validateGeneratedParamNameInput body missing runtime Python identifier callback:\n%s",
 			bodies["validateGeneratedParamNameInput"],
 		)
 	}
@@ -140,19 +149,28 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 	if !strings.Contains(
 		interopBodies["normalizeGeneratedOrigin"],
-		`formatGeneratedOriginHost(parsedOrigin.hostname)`,
+		`generatedBindingRuntime.normalizeGeneratedOrigin(rawOrigin)`,
 	) {
 		t.Fatalf(
-			"normalizeGeneratedOrigin body missing template-rendered host formatting:\n%s",
+			"normalizeGeneratedOrigin body missing runtime delegation:\n%s",
 			interopBodies["normalizeGeneratedOrigin"],
 		)
 	}
 	if !strings.Contains(
 		interopBodies["normalizeGeneratedToolName"],
-		`return "AskUserQuestion";`,
+		`generatedBindingRuntime.normalizeGeneratedToolName(`,
 	) {
 		t.Fatalf(
-			"normalizeGeneratedToolName body missing template-rendered AskUserQuestion literal:\n%s",
+			"normalizeGeneratedToolName body missing runtime delegation:\n%s",
+			interopBodies["normalizeGeneratedToolName"],
+		)
+	}
+	if !strings.Contains(
+		interopBodies["normalizeGeneratedToolName"],
+		tsStringLiteralExpr(generatedAskUserQuestionToolName),
+	) {
+		t.Fatalf(
+			"normalizeGeneratedToolName body missing AskUserQuestion literal:\n%s",
 			interopBodies["normalizeGeneratedToolName"],
 		)
 	}
@@ -166,19 +184,28 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 	if !strings.Contains(
 		transportBodies["resolveGeneratedEndpointOriginForMode"],
-		`normalizedAddress.startsWith(`+tsStringLiteralExpr(httpapi.RouteBootstrapPage)+`)`,
+		`generatedBindingRuntime.resolveGeneratedEndpointOriginForMode(`,
 	) {
 		t.Fatalf(
-			"resolveGeneratedEndpointOriginForMode body missing template-rendered bootstrap route literal:\n%s",
+			"resolveGeneratedEndpointOriginForMode body missing runtime delegation:\n%s",
 			transportBodies["resolveGeneratedEndpointOriginForMode"],
 		)
 	}
 	if !strings.Contains(
 		transportBodies["resolveGeneratedEndpointOriginForMode"],
-		`serverMode !== `+tsStringLiteralExpr(string(config.ModeLauncher)),
+		`bootstrapPage: `+tsStringLiteralExpr(httpapi.RouteBootstrapPage),
 	) {
 		t.Fatalf(
-			"resolveGeneratedEndpointOriginForMode body missing template-rendered launcher mode literal:\n%s",
+			"resolveGeneratedEndpointOriginForMode body missing bootstrap route literal:\n%s",
+			transportBodies["resolveGeneratedEndpointOriginForMode"],
+		)
+	}
+	if !strings.Contains(
+		transportBodies["resolveGeneratedEndpointOriginForMode"],
+		`launcherMode: `+tsStringLiteralExpr(string(config.ModeLauncher)),
+	) {
+		t.Fatalf(
+			"resolveGeneratedEndpointOriginForMode body missing launcher mode literal:\n%s",
 			transportBodies["resolveGeneratedEndpointOriginForMode"],
 		)
 	}
@@ -192,19 +219,19 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 	if !strings.Contains(
 		websocketBodies["websocketSupportReadRequiredString"],
-		`issues.push(fieldName + " must be a string.");`,
+		`generatedBindingRuntime.websocketSupportReadRequiredString(value, fieldName, issues)`,
 	) {
 		t.Fatalf(
-			"websocketSupportReadRequiredString body missing template-rendered validation:\n%s",
+			"websocketSupportReadRequiredString body missing runtime delegation:\n%s",
 			websocketBodies["websocketSupportReadRequiredString"],
 		)
 	}
 	if !strings.Contains(
 		websocketBodies["websocketSupportReadDurationMs"],
-		`issues.push("durationMs must be a finite number.");`,
+		`generatedBindingRuntime.websocketSupportReadDurationMs(value, issues)`,
 	) {
 		t.Fatalf(
-			"websocketSupportReadDurationMs body missing template-rendered duration validation:\n%s",
+			"websocketSupportReadDurationMs body missing runtime delegation:\n%s",
 			websocketBodies["websocketSupportReadDurationMs"],
 		)
 	}

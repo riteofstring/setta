@@ -3469,6 +3469,7 @@ func TestBuildGeneratedBindingsTypeScriptCompile(t *testing.T) {
 
 	// Compile against the real frontend helper boundary the generated files import in production.
 	for _, repoPath := range []string{
+		"frontend/src/utils/bindingRuntime.ts",
 		"frontend/src/utils/endpointUtils.ts",
 		"frontend/src/utils/requestTransport.ts",
 		"frontend/src/utils/transportUrlCore.ts",

@@ -2,24 +2,13 @@ package frontendbindings
 
 import (
 	_ "embed"
+	"strings"
 
 	"setta/internal/projectstate"
 )
 
-//go:embed templates/name_validation_validate_simple_name_input.ts.tmpl
-var validateGeneratedSimpleNameInputTemplate string
-
-//go:embed templates/name_validation_sanitize_simple_name_slug.ts.tmpl
-var sanitizeGeneratedSimpleNameSlugTemplate string
-
-//go:embed templates/name_validation_is_python_identifier.ts.tmpl
-var isGeneratedPythonIdentifierTemplate string
-
 //go:embed templates/name_validation_validate_named_simple_name.ts.tmpl
 var validateNamedSimpleNameTemplate string
-
-//go:embed templates/name_validation_validate_param_name_input.ts.tmpl
-var validateGeneratedParamNameInputTemplate string
 
 type namedSimpleNameValidationTemplateData struct {
 	Prelude                         string
@@ -87,7 +76,7 @@ func nameValidationSupportDeclarations() []TypeDeclaration {
 			"validateGeneratedSimpleNameInput",
 			false,
 			"string | null",
-			mustRenderNameValidationTemplate(validateGeneratedSimpleNameInputTemplate, nil),
+			buildValidateGeneratedSimpleNameInputBody(),
 			TypeProperty{Name: "name", TypeExpr: "string"},
 			TypeProperty{Name: "label", TypeExpr: "string"},
 			TypeProperty{Name: "reservedNames", TypeExpr: "ReadonlySet<string>"},
@@ -97,14 +86,14 @@ func nameValidationSupportDeclarations() []TypeDeclaration {
 			"sanitizeGeneratedSimpleNameSlug",
 			false,
 			"string",
-			mustRenderNameValidationTemplate(sanitizeGeneratedSimpleNameSlugTemplate, nil),
+			buildSanitizeGeneratedSimpleNameSlugBody(),
 			TypeProperty{Name: "name", TypeExpr: "string"},
 		),
 		functionDeclaration(
 			"isGeneratedPythonIdentifier",
 			false,
 			"boolean",
-			mustRenderNameValidationTemplate(isGeneratedPythonIdentifierTemplate, nil),
+			buildIsGeneratedPythonIdentifierBody(),
 			TypeProperty{Name: "value", TypeExpr: "string"},
 		),
 		exportedFunctionDeclaration(
@@ -159,7 +148,7 @@ func nameValidationSupportDeclarations() []TypeDeclaration {
 		exportedFunctionDeclaration(
 			"validateGeneratedParamNameInput",
 			"string | null",
-			mustRenderNameValidationTemplate(validateGeneratedParamNameInputTemplate, nil),
+			buildValidateGeneratedParamNameInputBody(),
 			TypeProperty{Name: "name", TypeExpr: "string"},
 			TypeProperty{Name: "options", TypeExpr: "GeneratedParamNameValidationOptions"},
 		),
@@ -172,6 +161,48 @@ func tsStringLiteralMembers(values []string) []string {
 		members = append(members, tsStringLiteralExpr(value))
 	}
 	return members
+}
+
+func buildValidateGeneratedSimpleNameInputBody() string {
+	return strings.Join([]string{
+		"  return generatedBindingRuntime.validateGeneratedSimpleNameInput(",
+		"    name,",
+		"    label,",
+		"    reservedNames,",
+		"    generatedSimpleNameAllowedChars,",
+		"    allowReserved,",
+		"  );",
+	}, "\n")
+}
+
+func buildSanitizeGeneratedSimpleNameSlugBody() string {
+	return "  return generatedBindingRuntime.sanitizeGeneratedSimpleNameSlug(name, generatedSlugReplacementChars);"
+}
+
+func buildIsGeneratedPythonIdentifierBody() string {
+	return strings.Join([]string{
+		"  return generatedBindingRuntime.isGeneratedPythonIdentifier(",
+		"    value,",
+		"    generatedPythonIdentifierStartChars,",
+		"    generatedPythonIdentifierContinueChars,",
+		"  );",
+	}, "\n")
+}
+
+func buildValidateGeneratedParamNameInputBody() string {
+	return strings.Join([]string{
+		"  return generatedBindingRuntime.validateGeneratedParamNameInput(",
+		"    name,",
+		"    options,",
+		"    generatedPythonKeywords,",
+		"    (candidate: string) =>",
+		"      generatedBindingRuntime.isGeneratedPythonIdentifier(",
+		"        candidate,",
+		"        generatedPythonIdentifierStartChars,",
+		"        generatedPythonIdentifierContinueChars,",
+		"      ),",
+		"  );",
+	}, "\n")
 }
 
 func renderNamedSimpleNameValidationBody(data namedSimpleNameValidationTemplateData) string {
