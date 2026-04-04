@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 05:41 EDT
+Last updated: 2026-04-04 05:54 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `097` added a normalized cross-worktree modified-wheel zoom parity probe on a shared `All Settings` section and closed that bounded zoom lane without reopening the earlier pan/drag/fit-view shapes.
+  - Why this slice was needed:
+    - the plan/handoff explicitly named the modified-wheel zoom compare as the next bounded dynamic action after the fit-view-after-pan lane closed
+    - the last completed slices were probe-only parity work, so the next valid step had to answer a different renderer question instead of adding another pan/drag/viewport-reset variant
+    - a fresh-context CDP sanity check on the live `3075` and `3087` `All Settings` pages did not expose an obvious canary-only zoom artifact, so the narrowest valid next step was one deterministic main-reference Playwright probe that normalizes both surfaces and compares the actual modified-wheel zoom delta plus zoom-anchor retention on the same shared section
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - new opt-in probe: `settings graph parity probe applies the same modified-wheel zoom delta on read-only main legacy and worktree canary after normalized fit`
+      - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, fits the same shared named section on both surfaces, applies the same modified-wheel zoom gesture, and then compares zoom delta, anchored viewport behavior, and section-rect growth against read-only `main`
+    - no production renderer files changed in this slice
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - refreshed runtime/bootstrap values before the live rerun:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-016/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-016/main-ai.log`
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe applies the same modified-wheel zoom delta on read-only main legacy and worktree canary after normalized fit' --reporter=line`
+      - result: passed (`1 passed`, `28.8s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent checked the already-running live settings pages at `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+    - both pages were on `All Settings`; the graph surface was visible and settled on both pages
+    - no obvious canary-only zoom drift, clipping, over-zoom, or off-canvas placement was visible on the worktree surface versus read-only `main`
+    - CDP visual check: done (live `3075` and `3087` `/settings` on `All Settings`; graph surfaces visible and visually aligned, with no obvious canary-only zoom drift or clipping)
+  - conclusion for this slice:
+    - close the specific cross-worktree modified-wheel zoom lane as covered
+    - do not reopen this lane unless a later fresh compare shows the canary breaking zoom-anchor retention, clipping a shared section, or diverging from `main` on the same normalized path
+    - the next real frontier should be a fresh normalized live compare aimed at isolating the first remaining canary-only production artifact, with production fix work preferred over adding another new parity guard by default
 - Ralph item `096` added a normalized cross-worktree shared-section `fit view` restore probe after manual pan and closed that bounded viewport-reset lane without reopening the earlier drag/body-anchor shape.
   - Why this slice was needed:
     - the last two completed iterations were probe-only support slices, so the next bounded step had to answer one concrete renderer question instead of extending the same drag/body-anchor lane again
