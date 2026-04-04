@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 14:29 EDT
+Last updated: 2026-04-03 14:38 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,23 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `048` used the allowed bounded normalization/oracle step to probe one different dynamic wide/body-heavy lane after the recent compare-only closures.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`, non-target pane/chat chrome was minimized where possible, and one shared `fit view` was attempted before the motion probe
+    - the candidate shared wide/body-heavy section was `groupSectionDefault`, chosen specifically to avoid reopening `spreadsheetSectionDefault` or the already-cleared static card lanes
+  - Result:
+    - this lane was not yet trustworthy for a same-state motion compare
+    - on `main`, `groupSectionDefault` surfaced as a full body-heavy card at about `x=592.5 y=81.5 w=552 h=352`
+    - on the worktree, the same named section stayed a narrow chip at about `x=863.88 y=57.66 w=66.24 h=42.24`
+    - because the section did not normalize to the same expanded state on both sides, this pass could not credibly isolate a worktree-only motion or interaction artifact
+    - extra noise observed during the pass:
+      - worktree overview focus / fit-view controls behaved inconsistently while trying to surface the same lane
+      - read-only `main` briefly showed transient `Autosaved!` status text
+  - conclusion for this slice:
+    - treat this as a completed blocker-finding oracle step, not as a closed motion lane
+    - do not spend the next iteration on another wide-lane dynamic compare until the worktree can surface the same expanded body card state as `main` for the chosen section
+    - the next real frontier is to inspect and fix or normalize the worktree section-selection / body-expansion path so a trustworthy shared wide-card compare becomes possible
 - This iteration intentionally avoided a fourth static card compare.
 - Ralph item `047` closed the first bounded dynamic wide-card compare after the recent static-card closures.
   - Process:

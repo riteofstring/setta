@@ -1611,3 +1611,36 @@ LOOP_TERMINAL_MARKER: none
   - run one different bounded dynamic graph-surface compare, preferably a short pan or drag check on another shared wide/body-heavy section, to isolate the first remaining motion artifact if one still exists
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 048
+
+- Item: Probe one different dynamic wide/body-heavy graph-surface lane and determine whether the next blocker is a real motion artifact or mismatched shared state.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not add or change product code.
+  - The last two completed iterations were compare-only closures, so this pass used the allowed bounded normalization/oracle step to directly test whether another dynamic wide-card lane was comparable at all.
+  - A fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were normalized to active `All Settings`, non-target pane/chat chrome was minimized where possible, and one shared `fit view` was attempted before choosing the lane.
+  - The chosen different shared wide/body-heavy candidate was `groupSectionDefault`, explicitly avoiding `spreadsheetSectionDefault` and the already-cleared static-card lanes.
+  - The compare did not reach a trustworthy same-state dynamic lane:
+    - on `main`, `groupSectionDefault` surfaced as a full body-heavy card at about `x=592.5 y=81.5 w=552 h=352`
+    - on the worktree, `groupSectionDefault` remained a narrow chip at about `x=863.88 y=57.66 w=66.24 h=42.24`
+  - Because the same named section would not normalize to the same expanded state on both sides, this pass could not credibly classify any observed difference as a worktree-only motion or interaction artifact.
+  - Additional noise seen during the attempt:
+    - worktree overview focus / fit-view controls behaved inconsistently while trying to surface the same lane
+    - read-only `main` briefly showed transient `Autosaved!` status text
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings`
+      - one shared `fit view` was attempted before the lane selection
+      - the chosen `groupSectionDefault` lane was not comparable because the worktree and `main` surfaced materially different card states for the same section name
+- Conclusion:
+  - this completed the needed blocker-finding oracle step for the current frontier
+  - the lane is not closed, but the blocker is now concrete: the worktree cannot yet surface the same expanded wide-card state as `main` for the checked section
+  - do not spend another iteration on a fresh wide-lane dynamic compare until that shared-state mismatch is normalized or fixed
+- Next action:
+  - inspect and fix or normalize the worktree section-selection / body-expansion path so the same wide/body-heavy section can be surfaced on both worktree and `main` before the next dynamic compare
+
+LOOP_TERMINAL_MARKER: none
