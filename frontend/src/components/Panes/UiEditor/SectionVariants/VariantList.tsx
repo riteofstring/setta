@@ -9,7 +9,6 @@ import { FiFileText, FiPlus } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { openDeleteJSONSourceFileModal } from "state/actions/modal";
-import { deleteSectionVariantOrAsk } from "state/actions/project/sectionVariants";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -21,8 +20,10 @@ import {
 import { useProjectState, useShareSession } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
+import { res200 } from "utils/endpointUtils";
 import {
   route_create_new_section_variant,
+  route_delete_section_variant_or_ask,
   route_set_default_section_variant,
   route_set_section_variant,
   route_set_section_variant_name,
@@ -548,16 +549,16 @@ function OneVariantEditingContent({
     if (!allowVariantDeletion) {
       return;
     }
-    const filepath = await deleteSectionVariantOrAsk({
+    const res = await route_delete_section_variant_or_ask({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       variantId: id,
     });
-    if (filepath) {
+    if (res200(res) && res.data) {
       openDeleteJSONSourceFileModal({
         sectionId,
         variantId: id,
-        filepath,
+        filepath: res.data,
       });
     }
   }

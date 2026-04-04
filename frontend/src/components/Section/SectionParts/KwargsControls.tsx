@@ -3,7 +3,7 @@ import _ from "lodash";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplIfPresent,
+  getCurrEffectiveCodeObjImpl,
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrProjectConfigId,
   setCurrEffectiveSectionImplValue,
@@ -50,14 +50,7 @@ function getDeletableSelectedParamIds(
   selectedParams: Array<string>,
 ) {
   return selectedParams.filter((paramId) => {
-    const paramImpl = getCurrEffectiveCodeObjImplIfPresent(
-      state,
-      sectionId,
-      paramId,
-    );
-    if (!paramImpl) {
-      return false;
-    }
+    const paramImpl = getCurrEffectiveCodeObjImpl(state, sectionId, paramId);
     return isBaseParamCodeObjImpl(paramImpl) && paramImpl.coreNameEditable;
   });
 }
