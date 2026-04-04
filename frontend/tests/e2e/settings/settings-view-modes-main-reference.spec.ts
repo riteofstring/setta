@@ -266,6 +266,210 @@ test("settings graph parity probe lands the same shared section after clearing v
   }
 });
 
+test("settings graph parity probe clears the same shared active section after normalized blank-pane click on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const sharedSection = findSharedVisibleTopLevelSectionByName({
+    preferredNames: ["browserSectionDefault", "taskBoardSectionDefault"],
+    referenceState: referenceInitialState,
+    viewModeName: "All Settings",
+    worktreeState: worktreeInitialState,
+  });
+
+  async function captureBlankPaneDeselectResult(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    projectConfigId: string;
+    sectionId: string;
+    targetPage: Page;
+    tab: Locator;
+  }) {
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.tab).toBeVisible();
+    await args.tab.click();
+    await expect
+      .poll(async () => {
+        const fitApplied = await fitGraphViewportToSection(
+          args.targetPage,
+          args.sectionId,
+        );
+        const metrics = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        return {
+          fitApplied,
+          hasRect: metrics.rect !== null,
+          surfaceKind: metrics.surfaceKind,
+        };
+      })
+      .toEqual({
+        fitApplied: true,
+        hasRect: true,
+        surfaceKind: args.expectedSurfaceKind,
+      });
+
+    await setDurableActiveSectionIds(args.targetPage, [args.sectionId]);
+    await expect
+      .poll(async () =>
+        isSettingsGraphSectionActive(args.targetPage, args.sectionId),
+      )
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        return (
+          await getLatestProjectStateFromBackendOrigin(
+            args.targetPage,
+            args.backendOrigin,
+            args.frontendOrigin,
+            args.projectConfigId,
+          )
+        ).projectState.projectConfig.activeIds;
+      })
+      .toEqual([args.sectionId]);
+
+    // Lock the graph-surface deselect lane itself, not section-chrome focus.
+    const blankPanePoint = await findSettingsGraphPanePoint(args.targetPage);
+    await args.targetPage.mouse.click(blankPanePoint.x, blankPanePoint.y);
+
+    await expect
+      .poll(async () =>
+        isSettingsGraphSectionActive(args.targetPage, args.sectionId),
+      )
+      .toBe(false);
+    await expect
+      .poll(async () => {
+        return (
+          await getLatestProjectStateFromBackendOrigin(
+            args.targetPage,
+            args.backendOrigin,
+            args.frontendOrigin,
+            args.projectConfigId,
+          )
+        ).projectState.projectConfig.activeIds;
+      })
+      .toEqual([]);
+
+    return {
+      paneState: await getLocalPaneState(args.targetPage),
+    };
+  }
+
+  try {
+    const referenceDeselect = await captureBlankPaneDeselectResult({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: sharedSection.referenceSectionId,
+      tab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: referencePage,
+    });
+    const worktreeDeselect = await captureBlankPaneDeselectResult({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: sharedSection.worktreeSectionId,
+      tab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: page,
+    });
+
+    expect(referenceDeselect.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeDeselect.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe applies the same short pan delta on read-only main legacy and worktree canary after normalized fit", async ({
   context,
   page,
@@ -4348,4 +4552,20 @@ async function setDurableActiveSectionIds(
     );
     setActiveSectionIds(ids, { syncMode: "immediate" });
   }, activeIds);
+}
+
+async function isSettingsGraphSectionActive(
+  page: Page,
+  sectionId: string,
+): Promise<boolean> {
+  return page.evaluate((targetSectionId) => {
+    const section =
+      document.querySelector<HTMLElement>(
+        `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"] section`,
+      ) ??
+      document.querySelector<HTMLElement>(
+        `.react-flow__node[data-id="${targetSectionId}"] section`,
+      );
+    return section?.getAttribute("data-section-active") === "true";
+  }, sectionId);
 }

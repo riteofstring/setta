@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 08:32 EDT
+Last updated: 2026-04-04 08:42 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `108` closed the normalized blank-pane deselect lane with a deterministic main-reference probe after a fresh CDP compare found no user-visible canary-only defect there.
+  - Why this slice was needed:
+    - item `107` was a concrete production fix, so the next valid step was one different normalized dynamic Gate 1 lane instead of reopening the `.nowheel` wheel path
+    - the fresh-context CDP compare on live `http://127.0.0.1:3075/settings` and read-only `http://127.0.0.1:3087/settings` could drive blank-pane clicks end-to-end and showed no visible canary-only deselect drift
+    - blank-pane deselection was still an uncovered shared interaction contract on `All Settings`, so the narrowest useful follow-up was to lock that lane against `main` rather than speculate about the internal event-target difference the CDP compare observed
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added opt-in probe `settings graph parity probe clears the same shared active section after normalized blank-pane click on read-only main legacy and worktree canary`
+      - the probe normalizes both runtimes to `All Settings`, prefers one shared visible top-level section from `browserSectionDefault` / `taskBoardSectionDefault`, fits that section on both surfaces, activates it through the durable selection path, clicks a blank graph-surface point, and verifies both the DOM active marker plus backend `activeIds` clear on legacy and canary
+      - added local helper `isSettingsGraphSectionActive(...)` so the probe can read the shared `data-section-active` contract across canary and legacy section DOM
+    - no production renderer files changed in this slice
+  - Automated result:
+    - refreshed runtime/bootstrap values before the live rerun:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-027/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-027/main-ai.log`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe clears the same shared active section after normalized blank-pane click on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `34.2s`)
+  - Live verification result:
+    - a fresh-context CDP sub-agent normalized both live `/settings` pages to `All Settings`, aligned the lane on one shared visible top-level section, and drove the blank graph-surface click on both surfaces
+    - no user-visible canary-only deselect drift appeared there; the checked blank-pane lane matched visually between worktree canary and read-only legacy
+    - the only remaining difference was internal event targeting for the same blank-point click (`div.react-flow setta-light dark:setta-dark` on canary vs `div.react-flow__pane` on legacy), but that did not produce a visible or backend-state divergence
+    - CDP visual check: done (fresh-context normalized `All Settings` blank-pane deselect compare on live `3075` canary vs read-only `3087` legacy; no user-visible canary-only drift)
+  - conclusion for this slice:
+    - close the specific blank-pane deselect lane for the current live runtimes
+    - do not reopen this lane unless a later normalized compare shows the active marker or backend `activeIds` failing to clear on only one surface, or the current internal event-target drift becomes user-visible
+    - the next real frontier should move to one different normalized dynamic Gate 1 / Gate 2 lane that CDP can drive end-to-end, with the shared focus-shortcut restore path a good next candidate
 - Ralph item `107` fixed a real canary-only modifier-wheel regression on `.nowheel` section bodies instead of opening another probe-only lane.
   - Why this slice was needed:
     - items `105` and `106` were probe-heavy and the execution rules required the next slice to prefer a concrete production fix if a real contract divergence was available
