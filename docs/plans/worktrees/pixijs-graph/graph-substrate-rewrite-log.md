@@ -70,6 +70,32 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 028
+
+- Item: Add a deterministic normalized zoom-control canary for the first dynamic `All Settings` action.
+- Status: `done`
+- Details:
+  - The first fresh CDP zoom-control compare on the live sessions was misleading because it did not fully normalize the camera state first:
+    - the worktree reopened at `window.reactFlowZoom = 0.8333333333333334`
+    - one shared `zoom in` click then moved that live session to `1`
+    - that looked like a control-path bug until the saved live-session camera was isolated as the confounder
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph substrate canary zoom in control respects the normalized All Settings fit`.
+  - The new Playwright case explicitly sets active view mode to `All Settings`, clears the active viewport to `null`, reapplies the backend project-state update in-page, then asserts:
+    - the canary settles on the normalized fit camera (`zoom ~= 0.1`)
+    - one shared `zoom in` click advances that camera by the legacy `1.2x` step (`zoom ~= 0.12`)
+  - The new case intentionally does not wait on legacy `.react-flow__pane` readiness before normalization, because live sessions can already land on the canary path and skip the legacy pane entirely.
+- Verification:
+  - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+    - result: passed (`1 passed`, about `1.1m`)
+- Conclusion:
+  - the normalized shared zoom-control path is behaving correctly on the checked canary lane
+  - the earlier CDP zoom mismatch was an unnormalized saved-session compare, not a zoom-controller math regression
+  - future dynamic CDP compares on this lane must explicitly clear the active viewport first or they will just rediscover saved camera state
+- Next action:
+  - rerun the dynamic worktree-vs-`main` CDP compare under the same `All Settings` + `viewport: null` normalization and isolate the first true visual artifact (zoom blur/snap, pan/drag detachment, or interaction-state drift)
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 027
 
 - Item: Close the stationary normal-zoom `All Settings` parity lane after the minimap-content fix and move the frontier to dynamic canary behavior.

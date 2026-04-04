@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 23:03 EDT
+Last updated: 2026-04-02 23:40 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,21 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `028` resolved the immediate dynamic-compare blocker with a focused normalized canary test instead of another speculative production patch.
+  - a fresh-context CDP sub-agent using refreshed bootstrap tokens could reopen both live worktree and `main` sessions, but the first quick zoom-control compare was misleading because it did not fully normalize the camera state first
+  - on that unnormalized live worktree session, the canary reopened at `window.reactFlowZoom = 0.8333333333333334` and one shared `zoom in` click moved it to `1`, which looked like a control-path bug until the state source was isolated
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph substrate canary zoom in control respects the normalized All Settings fit`, which:
+    - explicitly sets active view mode to `All Settings`
+    - clears the active viewport to `null`
+    - reapplies the backend project-state update in-page
+    - asserts the canary settles on the normalized fit camera (`zoom ~= 0.1`)
+    - asserts one shared `zoom in` click advances that camera by the legacy `1.2x` step (`zoom ~= 0.12`)
+  - the new case intentionally does not wait on legacy `.react-flow__pane` readiness before normalization, because a live session can already be on the canary path and never expose the pane
+  - targeted verification passed directly against the current live worktree runtime:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+    - result: passed (`1 passed`, about `1.1m`)
+  - conclusion for this slice: the normalized zoom-control path is behaving correctly; the earlier CDP result was a saved-camera / unnormalized-session artifact, not a zoom-controller math defect
+  - do not reopen zoom-control math unless this normalized Playwright canary or an equally normalized CDP compare fails
 - Ralph item `027` closed the remaining stationary normal-zoom `All Settings` parity lane without another production patch.
   - the blocked question for this slice was whether a real graph-surface drift still remained after items `025` and `026`, or whether recent compares were still being confounded by workspace chrome / stale live-tab state
   - a saved normalized compare from the already-authenticated live worktree / `main` sessions reset both sides to active `All Settings` with `viewport: null`, then captured fresh-page screenshots plus metrics from those same sessions
@@ -430,7 +445,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - item `025` pins the canary root to the full `UIPage` bounds, and the latest fresh CDP compare now shows the same `828px` graph height plus matching minimap / controls anchoring on worktree and `main`
   - do not reopen that lane unless a later controlled compare shows the canary shrinking back to a content-height lane
 - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
+  - the first shared dynamic control now has a deterministic normalized guard:
+    - `settings graph substrate canary zoom in control respects the normalized All Settings fit` proves the canary starts at the expected `viewport: null` fit camera and that one shared `zoom in` click yields the legacy `1.2x` step
+    - do not spend another iteration on zoom-control math unless that guard or a matching normalized CDP compare fails
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
+  - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
   - focus the next compare on one shared dynamic action across worktree and `main`, preferably a short pan/zoom or drag path, and isolate the first visible canary-only artifact:
     - text/chrome snap or blur during zoom
