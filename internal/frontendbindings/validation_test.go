@@ -7571,7 +7571,7 @@ func disabledProjectStateSectionSupportContractsUseConverterDeclarations(t *test
 	}
 }
 
-func disabledPluginRuntimeContractsUseConverterObjects(t *testing.T) {
+func TestPluginRuntimeContractsUseConverterObjects(t *testing.T) {
 	tests := []struct {
 		name       string
 		root       reflect.Type

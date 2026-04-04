@@ -93,7 +93,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		}
 		return fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr), nil
 	case reflect.Struct:
-		properties, err := c.structProperties(t, nil, nil)
+		properties, err := c.structProperties(t, nil, nil, nil)
 		if err != nil {
 			return "", err
 		}
@@ -170,7 +170,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 
 	switch t.Kind() {
 	case reflect.Struct:
-		properties, err := c.structProperties(t, nil, nil)
+		properties, err := c.structProperties(t, nil, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -252,6 +252,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		t,
 		spec.PropertyTypeExprOverrides,
 		spec.PropertyOptionalOverrides,
+		spec.IgnoredProperties,
 	)
 	if err != nil {
 		return TypeDeclaration{}, err
@@ -286,6 +287,7 @@ func (c *typeConverter) structProperties(
 	t reflect.Type,
 	typeExprOverrides map[string]string,
 	optionalOverrides map[string]bool,
+	ignoredProperties map[string]struct{},
 ) ([]TypeProperty, error) {
 	properties := make([]TypeProperty, 0, t.NumField())
 	for i := range t.NumField() {
@@ -296,6 +298,11 @@ func (c *typeConverter) structProperties(
 		name, optional, skip := jsonFieldName(field)
 		if skip {
 			continue
+		}
+		if ignoredProperties != nil {
+			if _, ignored := ignoredProperties[name]; ignored {
+				continue
+			}
 		}
 		typeExprOverride := ""
 		if typeExprOverrides != nil {

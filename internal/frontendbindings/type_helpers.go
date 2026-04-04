@@ -1562,6 +1562,7 @@ type reflectedObjectDeclarationSpec struct {
 	CreateExprOverrides       map[string]string
 	PropertyTypeExprOverrides map[string]string
 	PropertyOptionalOverrides map[string]bool
+	IgnoredProperties         map[string]struct{}
 	ExtraProperties           []TypeProperty
 }
 
@@ -1573,6 +1574,14 @@ func reflectedOptionalPropertiesSpec(names ...string) reflectedObjectDeclaration
 	return reflectedObjectDeclarationSpec{
 		PropertyOptionalOverrides: overrides,
 	}
+}
+
+func reflectedIgnoredProperties(names ...string) map[string]struct{} {
+	ignored := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		ignored[name] = struct{}{}
+	}
+	return ignored
 }
 
 func specialTypeDeclaration(
@@ -2054,6 +2063,14 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			PropertyTypeExprOverrides: map[string]string{
 				"typeFilters": "BrowserSavedSearchTypeFilters",
 			},
+		}, true
+	case reflect.TypeOf(PluginListEntry{}):
+		return reflectedObjectDeclarationSpec{
+			IgnoredProperties: reflectedIgnoredProperties("components"),
+		}, true
+	case reflect.TypeOf(PluginStatusEntry{}):
+		return reflectedObjectDeclarationSpec{
+			IgnoredProperties: reflectedIgnoredProperties("components"),
 		}, true
 	case reflect.TypeOf(WatchCodeRegistryEntry{}):
 		return reflectedObjectDeclarationSpec{

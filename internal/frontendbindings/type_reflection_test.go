@@ -560,3 +560,32 @@ func TestTypeConverterReflectsRealtimeContractsWithoutManualDeclarations(t *test
 		})
 	}
 }
+
+func TestTypeConverterReflectsPluginRuntimeContractsWithoutManualDeclarations(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
+	tests := []struct {
+		name string
+		root reflect.Type
+	}{
+		{name: "PluginListEntry", root: reflect.TypeOf(PluginListEntry{})},
+		{name: "PluginStatusEntry", root: reflect.TypeOf(PluginStatusEntry{})},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want object", tt.name, declaration.Kind)
+			}
+		})
+	}
+}
