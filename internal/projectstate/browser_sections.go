@@ -29,11 +29,11 @@ const (
 )
 
 type BrowserSavedSearchTypeFilters struct {
-	Image bool `json:"image"`
-	Video bool `json:"video"`
-	Audio bool `json:"audio"`
-	Text  bool `json:"text"`
-	Data  bool `json:"data"`
+	Image bool `json:"image" py_default:"go_value"`
+	Video bool `json:"video" py_default:"go_value"`
+	Audio bool `json:"audio" py_default:"go_value"`
+	Text  bool `json:"text" py_default:"go_value"`
+	Data  bool `json:"data" py_default:"go_value"`
 }
 
 type BrowserSavedSearch struct {

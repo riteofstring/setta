@@ -58,9 +58,9 @@ func pythonValueExpr(value reflect.Value) (string, error) {
 	case reflect.Uint8:
 		return strconv.FormatUint(value.Uint(), 10), nil
 	case reflect.Float32:
-		return strconv.FormatFloat(value.Float(), 'g', -1, 32), nil
+		return pythonFloatLiteral(value.Float(), 32), nil
 	case reflect.Float64:
-		return strconv.FormatFloat(value.Float(), 'g', -1, 64), nil
+		return pythonFloatLiteral(value.Float(), 64), nil
 	case reflect.Slice, reflect.Array:
 		if value.Kind() == reflect.Slice && value.Type().Elem().Kind() == reflect.Uint8 {
 			return "", fmt.Errorf("unsupported []byte value for python literal rendering")
@@ -147,4 +147,12 @@ func pythonEnumValueExpr(enumType reflect.Type, rawValue string) (string, bool, 
 		return spec.Name + "." + pythonEnumMemberName(enumValue.Name), true, nil
 	}
 	return "", false, fmt.Errorf("python shared types: enum %s missing value %q", enumType.Name(), rawValue)
+}
+
+func pythonFloatLiteral(value float64, bitSize int) string {
+	literal := strconv.FormatFloat(value, 'f', -1, bitSize)
+	if strings.ContainsRune(literal, '.') {
+		return literal
+	}
+	return literal + ".0"
 }

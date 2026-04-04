@@ -1,14 +1,31 @@
 package projectview
 
 import (
+	"encoding/json"
 	"reflect"
 
 	"setta/internal/projectstate"
 )
 
+const pythonSharedDefaultProjectPreviewImageColor = "bg-blue-500/60 dark:bg-blue-600/30"
+
 func FrontendDefaultProjectConfig() ProjectConfig {
 	defaults := ProjectConfig{
 		RunCapabilities: ProjectRunCapabilities{},
+	}
+	initializeNilCollections(&defaults)
+	return defaults
+}
+
+func PythonSharedDefaultProjectConfig() ProjectConfig {
+	viewport := projectstate.FrontendDefaultViewport()
+	defaults := ProjectConfig{
+		AllowJSONSourceKeyEdits: true,
+		PreviewImgColor:         pythonSharedDefaultProjectPreviewImageColor,
+		Viewport:                &viewport,
+		CodegenTargets: []json.RawMessage{
+			mustMarshal(FrontendDefaultProjectCodegenPythonTarget()),
+		},
 	}
 	initializeNilCollections(&defaults)
 	return defaults

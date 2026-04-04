@@ -241,9 +241,9 @@ func buildModelSpec(
 			}
 		}
 		defaultExpr, err := pythonDefaultExpr(
+			spec.Type,
 			field,
 			typeSpec.TypeExpr,
-			spec.FieldDefaults,
 		)
 		if err != nil {
 			return modelSpec{}, fmt.Errorf(
@@ -572,17 +572,10 @@ func pythonTypeExprWithImports(
 }
 
 func pythonDefaultExpr(
+	ownerType reflect.Type,
 	field reflect.StructField,
 	typeExpr string,
-	overrides map[string]string,
 ) (string, error) {
-	jsonName, err := fieldJSONName(field)
-	if err != nil {
-		return "", err
-	}
-	if override, ok := overrides[jsonName]; ok {
-		return override, nil
-	}
 	defaultTag := strings.TrimSpace(field.Tag.Get("py_default"))
 	switch defaultTag {
 	case "":
@@ -590,12 +583,77 @@ func pythonDefaultExpr(
 			return "None", nil
 		}
 		return "", nil
+	case "go_value":
+		return pythonDefaultExprFromGoValue(ownerType, field)
 	case "factory:list":
 		return "Field(default_factory=list)", nil
 	case "factory:dict":
 		return "Field(default_factory=dict)", nil
 	default:
 		return defaultTag, nil
+	}
+}
+
+func pythonDefaultExprFromGoValue(ownerType reflect.Type, field reflect.StructField) (string, error) {
+	defaultValue, ok := pythonSharedDefaultValueForField(ownerType, field)
+	if !ok {
+		defaultValue = reflect.Zero(field.Type)
+	}
+	return pythonFieldDefaultExprFromValue(defaultValue)
+}
+
+func pythonFieldDefaultExprFromValue(value reflect.Value) (string, error) {
+	if !value.IsValid() {
+		return "None", nil
+	}
+	switch value.Kind() {
+	case reflect.Interface:
+		if value.IsNil() {
+			return "None", nil
+		}
+		return pythonFieldDefaultExprFromValue(value.Elem())
+	case reflect.Map:
+		if value.IsNil() || value.Len() == 0 {
+			return "Field(default_factory=dict)", nil
+		}
+		expr, err := pythonValueExpr(value)
+		if err != nil {
+			return "", err
+		}
+		return "Field(default_factory=lambda: " + expr + ")", nil
+	case reflect.Slice:
+		if value.Type().Elem().Kind() == reflect.Uint8 {
+			expr, err := pythonValueExpr(value)
+			if err != nil {
+				return "", err
+			}
+			return expr, nil
+		}
+		if value.IsNil() || value.Len() == 0 {
+			return "Field(default_factory=list)", nil
+		}
+		expr, err := pythonValueExpr(value)
+		if err != nil {
+			return "", err
+		}
+		return "Field(default_factory=lambda: " + expr + ")", nil
+	case reflect.Pointer:
+		if value.IsNil() {
+			return "None", nil
+		}
+		expr, err := pythonValueExpr(value)
+		if err != nil {
+			return "", err
+		}
+		return "Field(default_factory=lambda: " + expr + ")", nil
+	case reflect.Struct, reflect.Array:
+		expr, err := pythonValueExpr(value)
+		if err != nil {
+			return "", err
+		}
+		return "Field(default_factory=lambda: " + expr + ")", nil
+	default:
+		return pythonValueExpr(value)
 	}
 }
 

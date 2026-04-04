@@ -923,13 +923,21 @@ class ProjectConfig(SettaSharedTypeModel):
     showParamDisplayNames: bool = False
     allowJsonSourceKeyEdits: bool = True
     previewImgColor: str = "bg-blue-500/60 dark:bg-blue-600/30"
-    viewport: Viewport | None = Field(default_factory=Viewport)
+    viewport: Viewport | None = Field(
+        default_factory=lambda: Viewport(x=0.0, y=0.0, zoom=1.0)
+    )
     viewportInitialized: bool = False
     viewModes: dict[ID, ViewMode] = Field(default_factory=dict)
     activeViewModeId: ID | None = None
     isEditingViewMode: bool = False
-    hasPythonCodegenTarget: bool
-    runCapabilities: ProjectRunCapabilities
+    hasPythonCodegenTarget: bool = False
+    runCapabilities: ProjectRunCapabilities = Field(
+        default_factory=lambda: ProjectRunCapabilities(
+            canRunFromMain=False,
+            mainRunDisabledReason=None,
+            effectiveEntrySectionId=None,
+        )
+    )
     codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget] = (
         Field(
             default_factory=lambda: [
@@ -1131,11 +1139,11 @@ class ProjectConfig(SettaSharedTypeModel):
     watchCodeRegistry: dict[str, WatchCodeRegistryEntry] = Field(default_factory=dict)
     watchCodeBaselineByPath: dict[str, list[str]] = Field(default_factory=dict)
     entryCodeBlockId: ID | None = None
-    sectionPathSlugsById: dict[ID, str]
-    sectionIdsByPathSlug: dict[str, list[ID]]
+    sectionPathSlugsById: dict[ID, str] = Field(default_factory=dict)
+    sectionIdsByPathSlug: dict[str, list[ID]] = Field(default_factory=dict)
     topLevelSections: dict[ID, TopLevelSectionLayout] = Field(default_factory=dict)
-    windowSpaceSlugsById: dict[ID, str]
-    windowSpaceIdsBySlug: dict[str, list[ID]]
+    windowSpaceSlugsById: dict[ID, str] = Field(default_factory=dict)
+    windowSpaceIdsBySlug: dict[str, list[ID]] = Field(default_factory=dict)
     windowSpaces: dict[ID, WindowSpaceConfig] = Field(default_factory=dict)
     sectionVariantMap: dict[ID, ID] = Field(default_factory=dict)
     activeIds: list[ID] = Field(default_factory=list)

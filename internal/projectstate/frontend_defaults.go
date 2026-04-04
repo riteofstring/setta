@@ -1,5 +1,20 @@
 package projectstate
 
+func FrontendDefaultViewport() Viewport {
+	return Viewport{
+		X:    0,
+		Y:    0,
+		Zoom: 1,
+	}
+}
+
+func FrontendDefaultTypeErrorIgnoreState() TypeErrorIgnoreState {
+	return TypeErrorIgnoreState{
+		Callable: false,
+		Params:   map[string]bool{},
+	}
+}
+
 func FrontendDefaultBrowserSavedSearchTypeFilters() BrowserSavedSearchTypeFilters {
 	return BrowserSavedSearchTypeFilters{
 		Image: true,

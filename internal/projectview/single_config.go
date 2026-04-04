@@ -114,34 +114,34 @@ type SingleConfig struct {
 type ProjectConfig struct {
 	ID                      string                                         `json:"id" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id" py_default:"Field(default_factory=create_new_id)"`
 	Name                    string                                         `json:"name" py_import:"from setta.utils.generate_memorable_string import generate_memorable_string" py_default:"Field(default_factory=generate_memorable_string)"`
-	ShowParamDisplayNames   bool                                           `json:"showParamDisplayNames"`
-	AllowJSONSourceKeyEdits bool                                           `json:"allowJsonSourceKeyEdits"`
-	PreviewImgColor         string                                         `json:"previewImgColor,omitempty"`
-	Viewport                *projectstate.Viewport                         `json:"viewport"`
-	ViewportInitialized     bool                                           `json:"viewportInitialized"`
-	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes" py_type:"dict[ID, ViewMode]" py_import:"from setta.types.id import ID, create_new_id"`
+	ShowParamDisplayNames   bool                                           `json:"showParamDisplayNames" py_default:"go_value"`
+	AllowJSONSourceKeyEdits bool                                           `json:"allowJsonSourceKeyEdits" py_default:"go_value"`
+	PreviewImgColor         string                                         `json:"previewImgColor,omitempty" py_default:"go_value"`
+	Viewport                *projectstate.Viewport                         `json:"viewport" py_default:"go_value"`
+	ViewportInitialized     bool                                           `json:"viewportInitialized" py_default:"go_value"`
+	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes" py_type:"dict[ID, ViewMode]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
 	ActiveViewModeID        *string                                        `json:"activeViewModeId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
-	IsEditingViewMode       bool                                           `json:"isEditingViewMode"`
-	HasPythonCodegenTarget  bool                                           `json:"hasPythonCodegenTarget"`
-	RunCapabilities         ProjectRunCapabilities                         `json:"runCapabilities"`
-	CodegenTargets          []json.RawMessage                              `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]"`
-	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled"`
-	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders"`
-	WatchCodeFiles          []string                                       `json:"watchCodeFiles"`
-	WatchCodeRegistry       map[string]projectstate.WatchCodeRegistryEntry `json:"watchCodeRegistry"`
-	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath"`
+	IsEditingViewMode       bool                                           `json:"isEditingViewMode" py_default:"go_value"`
+	HasPythonCodegenTarget  bool                                           `json:"hasPythonCodegenTarget" py_default:"go_value"`
+	RunCapabilities         ProjectRunCapabilities                         `json:"runCapabilities" py_default:"go_value"`
+	CodegenTargets          []json.RawMessage                              `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]" py_default:"go_value"`
+	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled" py_default:"go_value"`
+	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders" py_default:"go_value"`
+	WatchCodeFiles          []string                                       `json:"watchCodeFiles" py_default:"go_value"`
+	WatchCodeRegistry       map[string]projectstate.WatchCodeRegistryEntry `json:"watchCodeRegistry" py_default:"go_value"`
+	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath" py_default:"go_value"`
 	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
-	SectionPathSlugsByID    map[string]string                              `json:"sectionPathSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id"`
-	SectionIDsByPathSlug    map[string][]string                            `json:"sectionIdsByPathSlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id"`
-	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections" py_type:"dict[ID, TopLevelSectionLayout]" py_import:"from setta.types.id import ID, create_new_id"`
-	WindowSpaceSlugsByID    map[string]string                              `json:"windowSpaceSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id"`
-	WindowSpaceIDsBySlug    map[string][]string                            `json:"windowSpaceIdsBySlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id"`
-	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces" py_type:"dict[ID, WindowSpaceConfig]" py_import:"from setta.types.id import ID, create_new_id"`
-	SectionVariantMap       map[string]string                              `json:"sectionVariantMap" py_type:"dict[ID, ID]" py_import:"from setta.types.id import ID, create_new_id"`
-	ActiveIDs               []string                                       `json:"activeIds" py_type:"list[ID]" py_import:"from setta.types.id import ID, create_new_id"`
-	Edges                   []projectstate.Edge                            `json:"edges"`
-	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges"`
-	StateMachineEdges       []projectstate.StateMachineEdge                `json:"stateMachineEdges"`
+	SectionPathSlugsByID    map[string]string                              `json:"sectionPathSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	SectionIDsByPathSlug    map[string][]string                            `json:"sectionIdsByPathSlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections" py_type:"dict[ID, TopLevelSectionLayout]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	WindowSpaceSlugsByID    map[string]string                              `json:"windowSpaceSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	WindowSpaceIDsBySlug    map[string][]string                            `json:"windowSpaceIdsBySlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces" py_type:"dict[ID, WindowSpaceConfig]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	SectionVariantMap       map[string]string                              `json:"sectionVariantMap" py_type:"dict[ID, ID]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	ActiveIDs               []string                                       `json:"activeIds" py_type:"list[ID]" py_import:"from setta.types.id import ID, create_new_id" py_default:"go_value"`
+	Edges                   []projectstate.Edge                            `json:"edges" py_default:"go_value"`
+	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges" py_default:"go_value"`
+	StateMachineEdges       []projectstate.StateMachineEdge                `json:"stateMachineEdges" py_default:"go_value"`
 }
 
 type ProjectRunCapabilities struct {

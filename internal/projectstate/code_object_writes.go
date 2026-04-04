@@ -14,8 +14,8 @@ var (
 )
 
 type TypeErrorIgnoreState struct {
-	Callable bool            `json:"callable"`
-	Params   map[string]bool `json:"params"`
+	Callable bool            `json:"callable" py_default:"go_value"`
+	Params   map[string]bool `json:"params" py_default:"go_value"`
 }
 
 func (d *Document) SetSectionCodeObjectValue(projectID string, sectionID string, codeObjID string, value string) error {

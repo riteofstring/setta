@@ -32,9 +32,9 @@ var (
 type RawJSON = json.RawMessage
 
 type Viewport struct {
-	X    float64 `json:"x"`
-	Y    float64 `json:"y"`
-	Zoom float64 `json:"zoom"`
+	X    float64 `json:"x" py_default:"go_value"`
+	Y    float64 `json:"y" py_default:"go_value"`
+	Zoom float64 `json:"zoom" py_default:"go_value"`
 }
 
 type ViewportBounds struct {

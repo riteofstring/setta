@@ -1,11 +1,11 @@
 package pythonsharedtypes
 
 import (
-	"fmt"
 	"reflect"
 
 	"setta/internal/frontendbindings"
 	"setta/internal/httpapi"
+	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/stringenumvalues"
 	"setta/internal/wsapi"
@@ -26,11 +26,10 @@ type enumValueSpec struct {
 }
 
 type contractSpec struct {
-	Name          string
-	Kind          contractKind
-	Type          reflect.Type
-	EnumValues    []enumValueSpec
-	FieldDefaults map[string]string
+	Name       string
+	Kind       contractKind
+	Type       reflect.Type
+	EnumValues []enumValueSpec
 }
 
 type pythonRouteBinding struct {
@@ -46,6 +45,45 @@ var pythonSharedEnumFallbackPackages = []string{
 }
 
 var pythonWrapperTypeOverrides = frontendbindings.DiscoveredWrapperTypeOverrides()
+
+type pythonSharedDefaultFieldKey struct {
+	OwnerType reflect.Type
+	FieldName string
+}
+
+var pythonSharedDefaultSourcesByType = map[reflect.Type]func() any{
+	reflect.TypeOf(projectstate.Viewport{}): func() any {
+		return projectstate.FrontendDefaultViewport()
+	},
+	reflect.TypeOf(projectstate.TypeErrorIgnoreState{}): func() any {
+		return projectstate.FrontendDefaultTypeErrorIgnoreState()
+	},
+	reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}): func() any {
+		return frontendbindings.TypeErrorIgnoreState(projectstate.FrontendDefaultTypeErrorIgnoreState())
+	},
+	reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}): func() any {
+		return projectstate.FrontendDefaultBrowserSavedSearchTypeFilters()
+	},
+	reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}): func() any {
+		return frontendbindings.BrowserSavedSearchTypeFilters(
+			projectstate.FrontendDefaultBrowserSavedSearchTypeFilters(),
+		)
+	},
+	reflect.TypeOf(projectview.ProjectConfig{}): func() any {
+		return projectview.PythonSharedDefaultProjectConfig()
+	},
+}
+
+var pythonSharedDefaultFieldOverrides = map[pythonSharedDefaultFieldKey]func() any{
+	{
+		OwnerType: reflect.TypeOf(projectview.ProjectConfig{}),
+		FieldName: "CodegenTargets",
+	}: func() any {
+		return []projectview.ProjectCodegenPythonTarget{
+			projectview.FrontendDefaultProjectCodegenPythonTarget(),
+		}
+	},
+}
 
 func currentContractSpecs() ([]contractSpec, error) {
 	routeSpec, err := buildRouteContractSpec()
@@ -168,10 +206,9 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 
 func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
 	spec := contractSpec{
-		Name:          t.Name(),
-		Kind:          contractKindModel,
-		Type:          t,
-		FieldDefaults: pythonSharedFieldDefaultsForType(t),
+		Name: t.Name(),
+		Kind: contractKindModel,
+		Type: t,
 	}
 	if _, err := buildModelSpec(spec, map[string]struct{}{spec.Name: {}}); err != nil {
 		return contractSpec{}, false
@@ -179,67 +216,39 @@ func modelContractSpecIfConvertible(t reflect.Type) (contractSpec, bool) {
 	return spec, true
 }
 
-func pythonSharedFieldDefaultsForType(t reflect.Type) map[string]string {
-	switch t.Name() {
-	case reflect.TypeOf(frontendbindings.Viewport{}).Name():
-		return map[string]string{
-			"x":    "0.0",
-			"y":    "0.0",
-			"zoom": "1.0",
-		}
-	case reflect.TypeOf(frontendbindings.LLMConfig{}).Name():
-		return map[string]string{
-			"temporary": "False",
-		}
-	case reflect.TypeOf(frontendbindings.TypeErrorIgnoreState{}).Name():
-		return map[string]string{
-			"callable": "False",
-			"params":   "Field(default_factory=dict)",
-		}
-	case reflect.TypeOf(frontendbindings.BrowserSavedSearchTypeFilters{}).Name():
-		return map[string]string{
-			"image": "True",
-			"video": "True",
-			"audio": "True",
-			"text":  "True",
-			"data":  "True",
-		}
-	case reflect.TypeOf(projectview.ProjectConfig{}).Name():
-		return map[string]string{
-			"showParamDisplayNames":   "False",
-			"allowJsonSourceKeyEdits": "True",
-			"previewImgColor":         fmt.Sprintf("%q", "bg-blue-500/60 dark:bg-blue-600/30"),
-			"viewport":                "Field(default_factory=Viewport)",
-			"viewportInitialized":     "False",
-			"viewModes":               "Field(default_factory=dict)",
-			"windowSpaces":            "Field(default_factory=dict)",
-			"isEditingViewMode":       "False",
-			"codegenTargets":          pythonProjectConfigDefaultCodegenTargetsExpr(),
-			"watchCodeEnabled":        "False",
-			"watchCodeFolders":        "Field(default_factory=list)",
-			"watchCodeFiles":          "Field(default_factory=list)",
-			"watchCodeRegistry":       "Field(default_factory=dict)",
-			"watchCodeBaselineByPath": "Field(default_factory=dict)",
-			"topLevelSections":        "Field(default_factory=dict)",
-			"sectionVariantMap":       "Field(default_factory=dict)",
-			"activeIds":               "Field(default_factory=list)",
-			"edges":                   "Field(default_factory=list)",
-			"agenticEdges":            "Field(default_factory=list)",
-			"stateMachineEdges":       "Field(default_factory=list)",
-		}
-	default:
-		return nil
+func pythonSharedDefaultSourceForType(t reflect.Type) (reflect.Value, bool) {
+	buildSource, ok := pythonSharedDefaultSourcesByType[t]
+	if !ok {
+		return reflect.Value{}, false
 	}
+	value := reflect.ValueOf(buildSource())
+	if !value.IsValid() {
+		return reflect.Value{}, false
+	}
+	if value.Type() == t {
+		return value, true
+	}
+	if value.Type().ConvertibleTo(t) {
+		return value.Convert(t), true
+	}
+	return reflect.Value{}, false
 }
 
-func pythonProjectConfigDefaultCodegenTargetsExpr() string {
-	defaultTargetExpr := mustPythonValueExprFromGoValue(
-		"default project codegen targets",
-		[]projectview.ProjectCodegenPythonTarget{
-			projectview.FrontendDefaultProjectCodegenPythonTarget(),
-		},
-	)
-	return "Field(default_factory=lambda: " + defaultTargetExpr + ")"
+func pythonSharedDefaultValueForField(
+	ownerType reflect.Type,
+	field reflect.StructField,
+) (reflect.Value, bool) {
+	if override, ok := pythonSharedDefaultFieldOverrides[pythonSharedDefaultFieldKey{
+		OwnerType: ownerType,
+		FieldName: field.Name,
+	}]; ok {
+		return reflect.ValueOf(override()), true
+	}
+	defaultSource, ok := pythonSharedDefaultSourceForType(ownerType)
+	if !ok {
+		return reflect.Value{}, false
+	}
+	return defaultSource.FieldByIndex(field.Index), true
 }
 
 func buildRouteContractSpec() (contractSpec, error) {

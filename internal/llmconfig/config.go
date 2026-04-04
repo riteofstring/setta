@@ -48,7 +48,7 @@ type Config struct {
 	APIKeyEnv    string         `json:"api_key_env,omitempty"`
 	OtherParams  map[string]any `json:"other_params,omitempty"`
 	MCPServerIDs []string       `json:"mcpServerIds,omitempty"`
-	Temporary    bool           `json:"temporary,omitempty"`
+	Temporary    bool           `json:"temporary,omitempty" py_default:"go_value"`
 }
 
 type AllConfigs struct {
