@@ -436,6 +436,94 @@ func TestSettingsCreateExprsUseGoDefaultSettingsDocument(t *testing.T) {
 	}
 }
 
+func TestGoBackedFactoryCreateExprsUseGoOwnedDefaults(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, root := range []reflect.Type{
+		reflect.TypeOf(MessageThinkingContent{}),
+		reflect.TypeOf(ToolCall{}),
+		reflect.TypeOf(AssistantChatMessage{}),
+		reflect.TypeOf(BrowserSavedSearch{}),
+		reflect.TypeOf(TaskBoardTask{}),
+		reflect.TypeOf(LineChartSettings{}),
+		reflect.TypeOf(WebsocketConnectionInfo{}),
+		reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}),
+	} {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+	}
+
+	messageThinking := mustFindDeclarationByName(t, converter.Declarations(), "MessageThinkingContent")
+	if !strings.Contains(messageThinking.CreateExpr, `summary: "",`) {
+		t.Fatalf("MessageThinkingContent create expr missing Go-backed summary default:\n%s", messageThinking.CreateExpr)
+	}
+	if strings.Contains(messageThinking.CreateExpr, "ChatRoleEnum.") {
+		t.Fatalf("MessageThinkingContent create expr unexpectedly embeds handwritten enum refs:\n%s", messageThinking.CreateExpr)
+	}
+
+	toolCall := mustFindDeclarationByName(t, converter.Declarations(), "ToolCall")
+	if !strings.Contains(toolCall.CreateExpr, "function: {") {
+		t.Fatalf("ToolCall create expr missing inlined Go-backed function default:\n%s", toolCall.CreateExpr)
+	}
+	if strings.Contains(toolCall.CreateExpr, "createToolCallFunction()") {
+		t.Fatalf("ToolCall create expr still calls handwritten nested factory:\n%s", toolCall.CreateExpr)
+	}
+
+	assistant := mustFindDeclarationByName(t, converter.Declarations(), "AssistantChatMessage")
+	if !strings.Contains(assistant.CreateExpr, `tool_calls: null,`) {
+		t.Fatalf("AssistantChatMessage create expr missing Go-backed null tool_calls default:\n%s", assistant.CreateExpr)
+	}
+	if strings.Contains(assistant.CreateExpr, "ChatRoleEnum.assistant") {
+		t.Fatalf("AssistantChatMessage create expr still embeds handwritten assistant enum ref:\n%s", assistant.CreateExpr)
+	}
+
+	savedSearch := mustFindDeclarationByName(t, converter.Declarations(), "BrowserSavedSearch")
+	if !strings.Contains(savedSearch.CreateExpr, `searchScope: "recursive",`) {
+		t.Fatalf("BrowserSavedSearch create expr missing Go-backed search scope default:\n%s", savedSearch.CreateExpr)
+	}
+	if strings.Contains(savedSearch.CreateExpr, "createBrowserSavedSearchTypeFilters()") {
+		t.Fatalf("BrowserSavedSearch create expr still calls handwritten type-filter factory:\n%s", savedSearch.CreateExpr)
+	}
+
+	task := mustFindDeclarationByName(t, converter.Declarations(), "TaskBoardTask")
+	if !strings.Contains(task.CreateExpr, `recurrence: "none",`) {
+		t.Fatalf("TaskBoardTask create expr missing Go-backed recurrence default:\n%s", task.CreateExpr)
+	}
+	if strings.Contains(task.CreateExpr, "TaskBoardTaskRecurrenceEnum.none") {
+		t.Fatalf("TaskBoardTask create expr still embeds handwritten recurrence enum ref:\n%s", task.CreateExpr)
+	}
+
+	lineChart := mustFindDeclarationByName(t, converter.Declarations(), "LineChartSettings")
+	if !strings.Contains(lineChart.CreateExpr, `type: "line",`) {
+		t.Fatalf("LineChartSettings create expr missing Go-backed chart type default:\n%s", lineChart.CreateExpr)
+	}
+	if strings.Contains(lineChart.CreateExpr, "ChartTypeEnum.line") {
+		t.Fatalf("LineChartSettings create expr still embeds handwritten chart type enum ref:\n%s", lineChart.CreateExpr)
+	}
+
+	connectionInfo := mustFindDeclarationByName(t, converter.Declarations(), "WebsocketConnectionInfo")
+	if !strings.Contains(connectionInfo.CreateExpr, `connectionType: "SERVER",`) {
+		t.Fatalf("WebsocketConnectionInfo create expr missing Go-backed connection type default:\n%s", connectionInfo.CreateExpr)
+	}
+	if strings.Contains(connectionInfo.CreateExpr, "WebsocketConnectionTypeEnum.SERVER") {
+		t.Fatalf("WebsocketConnectionInfo create expr still embeds handwritten websocket enum ref:\n%s", connectionInfo.CreateExpr)
+	}
+
+	currentAddressUpdate := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"WebsocketMsgCurrentAddressUpdate",
+	)
+	if !strings.Contains(currentAddressUpdate.CreateExpr, `messageType: "CurrentAddressUpdate",`) {
+		t.Fatalf("WebsocketMsgCurrentAddressUpdate create expr missing Go-backed message type default:\n%s", currentAddressUpdate.CreateExpr)
+	}
+	if strings.Contains(currentAddressUpdate.CreateExpr, "WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate") {
+		t.Fatalf("WebsocketMsgCurrentAddressUpdate create expr still embeds handwritten message type enum ref:\n%s", currentAddressUpdate.CreateExpr)
+	}
+}
+
 func mustFindDeclarationByName(t *testing.T, declarations []TypeDeclaration, name string) TypeDeclaration {
 	t.Helper()
 	for _, declaration := range declarations {

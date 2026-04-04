@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"setta/internal/projectstate"
+	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
 	"setta/internal/stringenumvalues"
 )
@@ -178,9 +179,8 @@ type tsLiteralField struct {
 }
 
 type tsObjectEntry struct {
-	Name       string
-	Value      string
-	SpreadExpr string
+	Name  string
+	Value string
 }
 
 type tsNamedLiteralObject struct {
@@ -190,10 +190,6 @@ type tsNamedLiteralObject struct {
 
 func tsObjectField(name string, value string) tsObjectEntry {
 	return tsObjectEntry{Name: name, Value: value}
-}
-
-func tsObjectSpread(expr string) tsObjectEntry {
-	return tsObjectEntry{SpreadExpr: expr}
 }
 
 func writeTSObjectFields(builder *strings.Builder, indent string, fields []tsLiteralField) {
@@ -209,14 +205,9 @@ func writeTSObjectFields(builder *strings.Builder, indent string, fields []tsLit
 func writeTSObjectEntries(builder *strings.Builder, indent string, entries []tsObjectEntry) {
 	for _, entry := range entries {
 		builder.WriteString(indent)
-		if entry.SpreadExpr != "" {
-			builder.WriteString("...")
-			builder.WriteString(entry.SpreadExpr)
-		} else {
-			builder.WriteString(entry.Name)
-			builder.WriteString(": ")
-			builder.WriteString(entry.Value)
-		}
+		builder.WriteString(entry.Name)
+		builder.WriteString(": ")
+		builder.WriteString(entry.Value)
 		builder.WriteString(",\n")
 	}
 }
@@ -279,14 +270,6 @@ func buildTSMergeGeneratedOptionsCreateBodyTS(entries []tsObjectEntry, overrides
 	builder.WriteString("  return ")
 	builder.WriteString(buildTSMergeGeneratedOptionsExprTS(entries, overridesExpr))
 	builder.WriteString(";")
-	return builder.String()
-}
-
-func buildTSObjectCreateBodyTS(entries []tsObjectEntry) string {
-	var builder strings.Builder
-	builder.WriteString("  return {\n")
-	writeTSObjectEntries(&builder, "    ", entries)
-	builder.WriteString("  };")
 	return builder.String()
 }
 
@@ -976,17 +959,36 @@ func objectDeclarationWithGoBackedSectionDefaults(
 	)
 }
 
+func objectDeclarationWithGoBackedCreateExpr(
+	name string,
+	defaultValue any,
+	properties ...TypeProperty,
+) TypeDeclaration {
+	return objectDeclarationWithCreateExpr(
+		name,
+		buildGoBackedCreateExprTS("frontend create defaults "+name, defaultValue, properties),
+		properties...,
+	)
+}
+
 func buildGoBackedSectionDefaultsCreateExprTS(implType string, properties []TypeProperty) string {
 	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(implType)
 	if err != nil {
 		panic("load frontend user default section defaults: " + err.Error())
 	}
-	filteredDefaults := filterObjectByTypeProperties(
+	return buildGoBackedCreateExprTS(
 		"frontend user default section defaults "+implType,
 		defaults,
 		properties,
 	)
+}
 
+func buildGoBackedCreateExprTS(context string, value any, properties []TypeProperty) string {
+	filteredDefaults := filterObjectByTypeProperties(
+		context,
+		mustTSLiteralObjectFromGoValue(context, value),
+		properties,
+	)
 	var builder strings.Builder
 	builder.WriteString("mergeGeneratedOptions(\n")
 	writeTSObjectLiteral(&builder, "    ", filteredDefaults, orderedTypePropertyNames(properties))
@@ -4050,15 +4052,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "mimeType", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "size", TypeExpr: "number | null", Optional: true},
 			),
-			reflect.TypeOf(MessageTextContent{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(MessageTextContent{}): objectDeclarationWithGoBackedCreateExpr(
 				"MessageTextContent",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("type", tsStringLiteralExpr("text")),
-						tsObjectField("text", tsStringLiteralExpr("")),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultMessageTextContent(),
 				TypeProperty{Name: "type", TypeExpr: `"text"`},
 				TypeProperty{Name: "text", TypeExpr: "string"},
 			),
@@ -4072,17 +4068,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "type", TypeExpr: `"image_url"`},
 				TypeProperty{Name: "image_url", TypeExpr: "MessageImageUrl"},
 			),
-			reflect.TypeOf(MessageThinkingContent{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(MessageThinkingContent{}): objectDeclarationWithGoBackedCreateExpr(
 				"MessageThinkingContent",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("type", tsStringLiteralExpr("thinking")),
-						tsObjectField("thinking", tsStringLiteralExpr("")),
-						tsObjectField("summary", tsStringLiteralExpr("")),
-						tsObjectField("signature", tsStringLiteralExpr("")),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultMessageThinkingContent(),
 				TypeProperty{Name: "type", TypeExpr: `"thinking"`},
 				TypeProperty{Name: "thinking", TypeExpr: "string"},
 				TypeProperty{Name: "summary", TypeExpr: "string | null", Optional: true},
@@ -4097,99 +4085,47 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "type", TypeExpr: `"tool_reference"`},
 				TypeProperty{Name: "tool_name", TypeExpr: "string"},
 			),
-			reflect.TypeOf(ToolCallFunction{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(ToolCallFunction{}): objectDeclarationWithGoBackedCreateExpr(
 				"ToolCallFunction",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("name", tsStringLiteralExpr("")),
-						tsObjectField("arguments", "{}"),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultToolCallFunction(),
 				TypeProperty{Name: "name", TypeExpr: "string"},
 				TypeProperty{Name: "arguments", TypeExpr: "{ [key: string]: JSONValue | undefined }"},
 			),
-			reflect.TypeOf(ToolCall{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(ToolCall{}): objectDeclarationWithGoBackedCreateExpr(
 				"ToolCall",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("type", tsStringLiteralExpr("function")),
-						tsObjectField("function", "createToolCallFunction()"),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultToolCall(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "type", TypeExpr: `"function"`},
 				TypeProperty{Name: "function", TypeExpr: "ToolCallFunction"},
 			),
-			reflect.TypeOf(SystemChatMessage{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(SystemChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
 				"SystemChatMessage",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("role", "ChatRoleEnum.system"),
-						tsObjectField("content", "[]"),
-						tsObjectField("attachments", "[]"),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultSystemChatMessage(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "content", TypeExpr: "Array<MessageContent>"},
 				TypeProperty{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>"},
 				TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.system"},
 			),
-			reflect.TypeOf(AssistantChatMessage{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(AssistantChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
 				"AssistantChatMessage",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("role", "ChatRoleEnum.assistant"),
-						tsObjectField("content", "[]"),
-						tsObjectField("attachments", "[]"),
-						tsObjectField("tool_calls", "null"),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultAssistantChatMessage(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "content", TypeExpr: "Array<MessageContent>"},
 				TypeProperty{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>"},
 				TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.assistant"},
 				TypeProperty{Name: "tool_calls", TypeExpr: "Array<ToolCall> | null", Optional: true},
 			),
-			reflect.TypeOf(UserChatMessage{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(UserChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
 				"UserChatMessage",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("role", "ChatRoleEnum.user"),
-						tsObjectField("content", "[]"),
-						tsObjectField("attachments", "[]"),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultUserChatMessage(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "content", TypeExpr: "Array<MessageContent>"},
 				TypeProperty{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>"},
 				TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.user"},
 			),
-			reflect.TypeOf(ToolChatMessage{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(ToolChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
 				"ToolChatMessage",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("role", "ChatRoleEnum.tool"),
-						tsObjectField("tool_call_id", tsStringLiteralExpr("")),
-						tsObjectField("tool_name", "null"),
-						tsObjectField("arguments", "{}"),
-						tsObjectField("result", "null"),
-						tsObjectField("content", "[]"),
-						tsObjectField("is_error", "false"),
-						tsObjectField("started_at", tsStringLiteralExpr("")),
-						tsObjectField("completed_at", "null"),
-					},
-					"options",
-				),
+				scriptablechat.FrontendDefaultToolChatMessage(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.tool"},
 				TypeProperty{Name: "tool_call_id", TypeExpr: "string"},
@@ -4262,38 +4198,18 @@ func newTypeConverter() *typeConverter {
   dictationMode: ChatDictationMode;
 }`,
 			),
-			reflect.TypeOf(BrowserSavedSearchTypeFilters{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(BrowserSavedSearchTypeFilters{}): objectDeclarationWithGoBackedCreateExpr(
 				"BrowserSavedSearchTypeFilters",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("image", "true"),
-						tsObjectField("video", "true"),
-						tsObjectField("audio", "true"),
-						tsObjectField("text", "true"),
-						tsObjectField("data", "true"),
-					},
-					"options",
-				),
+				projectstate.FrontendDefaultBrowserSavedSearchTypeFilters(),
 				TypeProperty{Name: "image", TypeExpr: "boolean"},
 				TypeProperty{Name: "video", TypeExpr: "boolean"},
 				TypeProperty{Name: "audio", TypeExpr: "boolean"},
 				TypeProperty{Name: "text", TypeExpr: "boolean"},
 				TypeProperty{Name: "data", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(BrowserSavedSearch{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(BrowserSavedSearch{}): objectDeclarationWithGoBackedCreateExpr(
 				"BrowserSavedSearch",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("name", tsStringLiteralExpr("")),
-						tsObjectField("query", tsStringLiteralExpr("")),
-						tsObjectField("searchScope", "BrowserSearchScopeEnum.recursive"),
-						tsObjectField("typeFilters", "createBrowserSavedSearchTypeFilters()"),
-						tsObjectField("color", tsStringLiteralExpr("#3b82f6")),
-						tsObjectField("quickInfo", tsStringLiteralExpr("")),
-					},
-					"options",
-				),
+				projectstate.FrontendDefaultBrowserSavedSearch(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "name", TypeExpr: "string"},
 				TypeProperty{Name: "query", TypeExpr: "string"},
@@ -4331,40 +4247,17 @@ func newTypeConverter() *typeConverter {
   savedSearches: Array<BrowserSavedSearch>;
 }`,
 			),
-			reflect.TypeOf(TaskBoardColumn{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(TaskBoardColumn{}): objectDeclarationWithGoBackedCreateExpr(
 				"TaskBoardColumn",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("name", tsStringLiteralExpr("")),
-						tsObjectField("color", tsStringLiteralExpr("#3b82f6")),
-						tsObjectField("sortIndex", "0"),
-					},
-					"options",
-				),
+				projectstate.FrontendDefaultTaskBoardColumn(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "name", TypeExpr: "string"},
 				TypeProperty{Name: "color", TypeExpr: "string"},
 				TypeProperty{Name: "sortIndex", TypeExpr: "number"},
 			),
-			reflect.TypeOf(TaskBoardTask{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(TaskBoardTask{}): objectDeclarationWithGoBackedCreateExpr(
 				"TaskBoardTask",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("id", tsStringLiteralExpr("")),
-						tsObjectField("title", tsStringLiteralExpr("")),
-						tsObjectField("description", tsStringLiteralExpr("")),
-						tsObjectField("completed", "false"),
-						tsObjectField("columnId", "null"),
-						tsObjectField("dueDateIso", tsStringLiteralExpr("")),
-						tsObjectField("recurrence", "TaskBoardTaskRecurrenceEnum.none"),
-						tsObjectField("recurrenceDays", "[]"),
-						tsObjectField("recurrenceMonths", "[]"),
-						tsObjectField("recurrenceYears", "[]"),
-						tsObjectField("sortIndex", "0"),
-					},
-					"options",
-				),
+				projectstate.FrontendDefaultTaskBoardTask(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "title", TypeExpr: "string"},
 				TypeProperty{Name: "description", TypeExpr: "string"},
@@ -4400,19 +4293,9 @@ func newTypeConverter() *typeConverter {
   tasks: Array<TaskBoardTask>;
 }`,
 			),
-			reflect.TypeOf(LineChartSettings{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(LineChartSettings{}): objectDeclarationWithGoBackedCreateExpr(
 				"LineChartSettings",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("type", "ChartTypeEnum.line"),
-						tsObjectField("xAxisColumn", "null"),
-						tsObjectField("secondYAxisColumns", "[]"),
-						tsObjectField("xAxisLog", "false"),
-						tsObjectField("y1AxisLog", "false"),
-						tsObjectField("y2AxisLog", "false"),
-					},
-					"options",
-				),
+				projectstate.FrontendDefaultLineChartSettings(),
 				TypeProperty{Name: "type", TypeExpr: "typeof ChartTypeEnum.line"},
 				TypeProperty{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "secondYAxisColumns", TypeExpr: "Array<string>"},
@@ -4420,18 +4303,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "y1AxisLog", TypeExpr: "boolean"},
 				TypeProperty{Name: "y2AxisLog", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(ScatterChartSettings{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(ScatterChartSettings{}): objectDeclarationWithGoBackedCreateExpr(
 				"ScatterChartSettings",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectField("type", "ChartTypeEnum.scatter"),
-						tsObjectField("xAxisColumn", "null"),
-						tsObjectField("categoryColumn", "null"),
-						tsObjectField("xAxisLog", "false"),
-						tsObjectField("yAxisLog", "false"),
-					},
-					"options",
-				),
+				projectstate.FrontendDefaultScatterChartSettings(),
 				TypeProperty{Name: "type", TypeExpr: "typeof ChartTypeEnum.scatter"},
 				TypeProperty{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "categoryColumn", TypeExpr: "string | null", Optional: true},
@@ -4997,28 +4871,17 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "artifacts", TypeExpr: "Array<ArtifactUnion>"},
 				TypeProperty{Name: "updateType", TypeExpr: `"update" | "delete"`},
 			),
-			reflect.TypeOf(WebsocketConnectionInfo{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(WebsocketConnectionInfo{}): objectDeclarationWithGoBackedCreateExpr(
 				"WebsocketConnectionInfo",
-				buildTSObjectCreateBodyTS([]tsObjectEntry{
-					tsObjectField("id", tsStringLiteralExpr("")),
-					tsObjectField("connectionType", "WebsocketConnectionTypeEnum.SERVER"),
-					tsObjectField("currentAddress", "null"),
-					tsObjectField("shareSessionId", "null"),
-					tsObjectSpread("options"),
-				}),
+				frontendDefaultWebsocketConnectionInfo(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "connectionType", TypeExpr: "WebsocketConnectionType"},
 				TypeProperty{Name: "currentAddress", TypeExpr: "string | null"},
 				TypeProperty{Name: "shareSessionId", TypeExpr: "string | null"},
 			),
-			reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}): objectDeclarationWithGoBackedCreateExpr(
 				"WebsocketMsgCurrentAddressUpdate",
-				buildTSObjectCreateBodyTS([]tsObjectEntry{
-					tsObjectField("id", "null"),
-					tsObjectField("messageType", "WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate"),
-					tsObjectField("content", tsStringLiteralExpr("")),
-					tsObjectSpread("options"),
-				}),
+				frontendDefaultWebsocketMsgCurrentAddressUpdate(),
 				TypeProperty{Name: "id", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate"},
 				TypeProperty{Name: "content", TypeExpr: "string"},

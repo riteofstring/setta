@@ -5480,7 +5480,7 @@ export function createLineChartSettings(
 ): LineChartSettings {
   return mergeGeneratedOptions(
     {
-      type: ChartTypeEnum.line,
+      type: "line",
       xAxisColumn: null,
       secondYAxisColumns: [],
       xAxisLog: false,
@@ -5503,7 +5503,7 @@ function createScatterChartSettings(
 ): ScatterChartSettings {
   return mergeGeneratedOptions(
     {
-      type: ChartTypeEnum.scatter,
+      type: "scatter",
       xAxisColumn: null,
       categoryColumn: null,
       xAxisLog: false,
@@ -5768,7 +5768,7 @@ export function createTaskBoardTask(
       completed: false,
       columnId: null,
       dueDateIso: "",
-      recurrence: TaskBoardTaskRecurrenceEnum.none,
+      recurrence: "none",
       recurrenceDays: [],
       recurrenceMonths: [],
       recurrenceYears: [],
@@ -6032,7 +6032,10 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
     {
       id: "",
       type: "function",
-      function: createToolCallFunction(),
+      function: {
+        arguments: {},
+        name: "",
+      },
     },
     options,
   );
@@ -6058,9 +6061,9 @@ export function createAssistantChatMessage(
   return mergeGeneratedOptions(
     {
       id: "",
-      role: ChatRoleEnum.assistant,
       content: [],
       attachments: [],
+      role: "assistant",
       tool_calls: null,
     },
     options,
@@ -6079,9 +6082,9 @@ export function createUserChatMessage(
   return mergeGeneratedOptions(
     {
       id: "",
-      role: ChatRoleEnum.user,
       content: [],
       attachments: [],
+      role: "user",
     },
     options,
   );
@@ -6105,7 +6108,7 @@ export function createToolChatMessage(
   return mergeGeneratedOptions(
     {
       id: "",
-      role: ChatRoleEnum.tool,
+      role: "tool",
       tool_call_id: "",
       tool_name: null,
       arguments: {},
@@ -8032,13 +8035,15 @@ export type WebsocketConnectionInfo = {
 export function createWebsocketConnectionInfo(
   options: Partial<WebsocketConnectionInfo> = {},
 ): WebsocketConnectionInfo {
-  return {
-    id: "",
-    connectionType: WebsocketConnectionTypeEnum.SERVER,
-    currentAddress: null,
-    shareSessionId: null,
-    ...options,
-  };
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      connectionType: "SERVER",
+      currentAddress: null,
+      shareSessionId: null,
+    },
+    options,
+  );
 }
 
 type WebsocketMsgCurrentAddressUpdate = {
@@ -8049,12 +8054,14 @@ type WebsocketMsgCurrentAddressUpdate = {
 export function createWebsocketMsgCurrentAddressUpdate(
   options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
 ): WebsocketMsgCurrentAddressUpdate {
-  return {
-    id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate,
-    content: "",
-    ...options,
-  };
+  return mergeGeneratedOptions(
+    {
+      id: null,
+      messageType: "CurrentAddressUpdate",
+      content: "",
+    },
+    options,
+  );
 }
 
 type UISettingRevealActivationStep = {
