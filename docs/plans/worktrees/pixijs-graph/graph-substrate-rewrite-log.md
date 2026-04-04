@@ -70,6 +70,40 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 009
+
+- Item: Stop stale `nodeInternals` from choosing the multi-section canary layout and add seeded coverage for the initial `All Settings` spread.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now takes canary section positions and `zIndex` from the active view-mode layout instead of preferring stale `nodeInternals` positions.
+  - The same selector still preserves live measured widths and heights from `nodeInternals`, so interaction geometry stays current without letting old route state decide where the visible `All Settings` cards render.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` now locks down that active-layout positions win over stale `nodeInternals` positions while measured dimensions still win.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes a focused initial-layout guard proving the seeded `All Settings` canary does not collapse all visible sections into one screen x-column on first render.
+  - The same E2E file now finds pan/zoom background points by probing the real canary pane background instead of assuming empty space from section bounding-box math, which keeps the drag/pan/title checks valid after the broader visible layout changed.
+- Verification:
+  - `source activate.sh && cd frontend && pnpm exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`4 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `15s`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - result: passed (`1 passed`, about `19s`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
+    - result: passed (`2 passed`, about `27s`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
+    - result: passed (`1 passed`, about `17s`)
+  - CDP visual check
+    - result: deferred for the side-by-side oracle compare
+    - note:
+      - a worktree-only probe on `http://127.0.0.1:3075/settings` confirmed `graph-substrate-canary` is present, `48` canary sections are in the DOM, the live transform is `matrix(0.1, 0, 0, 0.1, 632.4, -51.7)`, and the first visible section headers occupy multiple screen x-buckets (`shortcuts`, `gui`, `backend` around `x≈644`, `692`, `752`)
+      - a fresh-profile side-by-side compare against `main` was not trustworthy because the loop-context bootstrap tokens had expired, and a fallback existing-tab compare did not have a working DevTools bridge in that sub-agent session
+- Conclusion:
+  - the stale-position ownership fix is landed and covered in the seeded E2E path
+  - the remaining uncertainty is whether the live worktree’s saved `All Settings` viewport at `zoom 0.1` is a real Gate 1 drift versus `main`, which still needs a trustworthy authenticated oracle compare before more product churn
+- Next action:
+  - restore a trustworthy authenticated `main` oracle compare on the existing lifecycle tabs or with freshly minted bootstrap tokens, then decide whether the next product slice must change the canary’s initial/shared viewport strategy
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 008
 
 - Item: Re-check the multi-section `All Settings` canary against the read-only `main` oracle and decide whether to continue or stop for replan.

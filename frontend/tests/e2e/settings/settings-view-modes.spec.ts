@@ -5,13 +5,6 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 
-type BoundingBox = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
 test("settings view tabs filter sections and minimap", async ({ page }) => {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
@@ -52,6 +45,28 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
 
   const paramZoom = await getViewportScale(page);
   expect(coreZoom).toBeGreaterThan(paramZoom);
+});
+
+test("settings graph substrate canary preserves the All Settings multi-column spread on first render", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+
+  await expect
+    .poll(async () => (await getCanarySectionGridSpread(page)).columnCount)
+    .toBeGreaterThan(1);
+
+  const spread = await getCanarySectionGridSpread(page);
+  expect(spread.columnCount).toBeGreaterThan(1);
 });
 
 test("settings graph substrate canary drags one section and persists the top-level layout", async ({
@@ -190,14 +205,13 @@ test("settings graph substrate canary pans and zooms one section on the custom s
   const initialScale = await getCanaryViewportScale(page);
   const initialFirstBox = await firstSection.boundingBox();
   const initialSecondBox = await secondSection.boundingBox();
-  const paneBox = await canaryPane.boundingBox();
-  if (!initialFirstBox || !initialSecondBox || !paneBox) {
+  if (!initialFirstBox || !initialSecondBox) {
     throw new Error(
       "Missing multi-section canary bounds for pan and zoom test.",
     );
   }
 
-  const panStart = findCanaryPanePoint(paneBox, initialFirstBox);
+  const panStart = await findCanaryPanePoint(page);
   await page.mouse.move(panStart.x, panStart.y);
   await page.mouse.down();
   await page.mouse.move(panStart.x + 140, panStart.y + 90, { steps: 10 });
@@ -234,7 +248,7 @@ test("settings graph substrate canary pans and zooms one section on the custom s
     throw new Error("Missing moved canary section bounds.");
   }
 
-  const zoomStart = findCanaryPanePoint(paneBox, movedFirstBox);
+  const zoomStart = await findCanaryPanePoint(page);
   await page.mouse.move(zoomStart.x, zoomStart.y);
   await page.mouse.wheel(0, -240);
 
@@ -290,12 +304,11 @@ test("settings graph substrate canary keeps title editing working after pan and 
 
   const initialScale = await getCanaryViewportScale(page);
   const initialBox = await canarySection.boundingBox();
-  const paneBox = await canaryPane.boundingBox();
-  if (!initialBox || !paneBox) {
+  if (!initialBox) {
     throw new Error("Missing canary bounds for title edit test.");
   }
 
-  const panStart = findCanaryPanePoint(paneBox, initialBox);
+  const panStart = await findCanaryPanePoint(page);
   await page.mouse.move(panStart.x, panStart.y);
   await page.mouse.down();
   await page.mouse.move(panStart.x + 120, panStart.y + 80, { steps: 10 });
@@ -316,7 +329,7 @@ test("settings graph substrate canary keeps title editing working after pan and 
     throw new Error("Missing moved canary bounds for title edit test.");
   }
 
-  const zoomStart = findCanaryPanePoint(paneBox, movedBox);
+  const zoomStart = await findCanaryPanePoint(page);
   await page.mouse.move(zoomStart.x, zoomStart.y);
   await page.mouse.wheel(0, -180);
 
@@ -505,42 +518,94 @@ async function findDraggableCanarySection(page: Page): Promise<{
   return draggable;
 }
 
-function findCanaryPanePoint(
-  containerBox: BoundingBox,
-  sectionBox: BoundingBox,
-): { x: number; y: number } {
-  const containerRight = containerBox.x + containerBox.width;
-  const containerBottom = containerBox.y + containerBox.height;
-  const sectionRight = sectionBox.x + sectionBox.width;
-  const sectionBottom = sectionBox.y + sectionBox.height;
-  const candidates: Array<{ x: number; y: number } | null> = [
-    sectionBox.y - containerBox.y > 24
-      ? {
-          x: sectionBox.x + sectionBox.width / 2,
-          y: sectionBox.y - Math.min(24, (sectionBox.y - containerBox.y) / 2),
+async function getCanarySectionGridSpread(
+  page: Page,
+): Promise<{ columnCount: number; rowCount: number }> {
+  return page.evaluate(() => {
+    const tolerancePx = 40;
+    const xs: number[] = [];
+    const ys: number[] = [];
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="graph-substrate-canary-section"]',
+      ),
+    );
+
+    if (sections.length < 2) {
+      return { columnCount: 0, rowCount: 0 };
+    }
+
+    for (const section of sections) {
+      const rect = section.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        return { columnCount: 0, rowCount: 0 };
+      }
+      xs.push(rect.x);
+      ys.push(rect.y);
+    }
+
+    function countBuckets(values: number[]) {
+      const buckets: number[] = [];
+      for (const value of values) {
+        if (buckets.some((bucket) => Math.abs(bucket - value) <= tolerancePx)) {
+          continue;
         }
-      : null,
-    containerBottom - sectionBottom > 24
-      ? {
-          x: sectionBox.x + sectionBox.width / 2,
-          y:
-            sectionBottom + Math.min(24, (containerBottom - sectionBottom) / 2),
+        buckets.push(value);
+      }
+      return buckets.length;
+    }
+
+    return {
+      columnCount: countBuckets(xs),
+      rowCount: countBuckets(ys),
+    };
+  });
+}
+
+async function findCanaryPanePoint(
+  page: Page,
+): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate(() => {
+    const pane = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary"]',
+    );
+    if (!pane) {
+      return null;
+    }
+    const rect = pane.getBoundingClientRect();
+    const margin = 24;
+    const columns = 8;
+    const rows = 6;
+
+    for (let row = 0; row <= rows; row += 1) {
+      for (let column = 0; column <= columns; column += 1) {
+        const x =
+          rect.left +
+          margin +
+          ((rect.width - margin * 2) * column) / Math.max(columns, 1);
+        const y =
+          rect.top +
+          margin +
+          ((rect.height - margin * 2) * row) / Math.max(rows, 1);
+        const element = document.elementFromPoint(x, y);
+        if (!(element instanceof Element)) {
+          continue;
         }
-      : null,
-    sectionBox.x - containerBox.x > 24
-      ? {
-          x: sectionBox.x - Math.min(24, (sectionBox.x - containerBox.x) / 2),
-          y: sectionBox.y + sectionBox.height / 2,
+        const section = element.closest(
+          '[data-testid="graph-substrate-canary-section"]',
+        );
+        if (section) {
+          continue;
         }
-      : null,
-    containerRight - sectionRight > 24
-      ? {
-          x: sectionRight + Math.min(24, (containerRight - sectionRight) / 2),
-          y: sectionBox.y + sectionBox.height / 2,
+        if (element.closest('[data-testid="graph-substrate-canary"]')) {
+          return { x, y };
         }
-      : null,
-  ];
-  const point = candidates.find((candidate) => candidate !== null);
+      }
+    }
+
+    return null;
+  });
+
   if (!point) {
     throw new Error("Unable to find a pan or zoom point on the canary pane.");
   }

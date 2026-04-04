@@ -148,7 +148,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         "section-b",
         {
           id: "section-b",
-          position: { x: 120, y: 100 },
+          position: { x: 999, y: 888 },
           width: 410,
           height: 260,
           zIndex: 1,
@@ -180,7 +180,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     ]);
   });
 
-  it("keeps rendering moved sections and preserves measured geometry for them", () => {
+  it("keeps rendering moved sections from the active layout while preserving measured geometry", () => {
     const state = createProjectState();
     const nodeInternals = new Map<string, Node>([
       [
@@ -190,8 +190,8 @@ describe("settingsGraphSubstrateCanaryModel", () => {
           position: { x: 760, y: 420 },
           width: 240,
           height: 160,
-          zIndex: 2,
-          tempZIndex: 2,
+          zIndex: 8,
+          tempZIndex: 8,
           type: "Code",
         },
       ],
@@ -210,7 +210,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
       },
       {
         sectionId: "section-a",
-        position: { x: 760, y: 420 },
+        position: { x: 500, y: 200 },
         zIndex: 2,
         width: 240,
         height: 160,

@@ -9,14 +9,23 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
-- Ralph item `008` did not land product code:
-  - the current worktree app is still healthy on `http://127.0.0.1:3075/settings`
-  - `pnpm -C frontend cdp-port` still reports `9297`
-  - a fresh-context CDP sub-agent could not call the chrome-devtools-mcp tools, so the compare could not be offloaded there this pass
-  - the real blocker is the read-only `main` oracle still being down:
-    - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returns connection refused
-    - `/var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.vpSQx2/run-007/main-ai.log` still shows `main` failing during startup on a `ProjectStateSingleConfig` validation error while loading the settings project (`projectConfig` missing and `schemaVersion` / `defaultProjectId` / `projects` rejected as extras)
-  - because item `007` already ended with the same `main`-oracle failure, this is now a repeated external blocker rather than a transient missed compare
+- Ralph item `009` landed a bounded product fix for the multi-section canary layout source:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now takes section positions and `zIndex` from the active view-mode layout instead of preferring stale `nodeInternals` positions
+  - the same selector still preserves live measured widths and heights from `nodeInternals`, so drag/pan/zoom geometry stays current without letting old route state decide the canary layout
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` now locks down that active-layout positions win over stale `nodeInternals` positions
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes a focused initial-layout guard proving the canary does not collapse all visible cards into a single screen x-column on first render in the seeded E2E workspace
+  - the same E2E file now finds pan/zoom background points by probing the actual canary pane background, which keeps the drag/pan/title checks valid after the broader visible-section layout changed
+- The old `main`-oracle startup blocker is stale:
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings` now returns `200 OK`
+  - `pnpm -C frontend cdp-port` still reports `9297` for the worktree, and `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port` reports `9309` for `main`
+- The remaining visual uncertainty is now a trust issue, not an app-health issue:
+  - fresh bootstrap URLs from loop context had expired by the time the final CDP compare ran, so fresh-profile side-by-side bootstrap attempts were rejected
+  - a worktree-only CDP probe against the live `http://127.0.0.1:3075/settings` session was still able to inspect the already-rendered canary and reported:
+    - `graph-substrate-canary` present
+    - `48` `graph-substrate-canary-section` nodes in the DOM
+    - viewport transform `matrix(0.1, 0, 0, 0.1, 632.4, -51.7)`
+    - multiple visible screen x-buckets for the first visible section headers (`shortcuts`, `gui`, `backend` around `x≈644`, `692`, `752`)
+  - because the trustworthy authenticated `main` side of the compare was not re-established in the same pass, the Gate 1 oracle compare remains deferred rather than resolved
 - Ralph item `007` landed the first multi-section `All Settings` canary slice on the custom graph substrate:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now returns all visible top-level canary sections instead of a single preferred section and carries each section's `positionAndSizeLocked` state into the canary render contract
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the visible `All Settings` top-level section set on the custom surface, fits the initial viewport to the shared section bounds, and routes drag ownership to whichever section is actually grabbed instead of pinning a synthetic top-left section
@@ -60,15 +69,16 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - targeted Vitest passed for:
     - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
   - targeted Playwright passed for:
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap|settings graph substrate canary drags one section and persists the top-level layout|settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
-  - CDP visual check passed on the current worktree session for the static normal-zoom canary field:
-    - `http://127.0.0.1:3075/settings`
-    - `All Settings` active and `graph-substrate-canary` visible
-    - more than one top-level section visible on the custom surface
-    - no gross blank-card or detached-body issue in the normal visible field
-  - `main` reference comparison still cannot run:
-    - `http://127.0.0.1:3087/settings` continues to fail with connection refused
-    - `run-007/main-ai.log` shows the read-only `main` reference app still dies during startup on the same settings-project validation error, so side-by-side oracle comparison remains unavailable
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
+  - CDP visual check:
+    - worktree-only probe: done
+      - direct live `/settings` inspection confirmed the canary is rendering on the worktree session with multiple visible x-buckets, not a literal single-column DOM stack
+    - side-by-side `main` oracle compare: deferred
+      - fresh bootstrap tokens from loop context had expired
+      - an attempted fallback to existing lifecycle tabs did not have a working DevTools bridge in that sub-agent session
 
 ## Architectural stance
 
@@ -96,8 +106,13 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - drag and custom pan/zoom ownership are now in place on the canary surface
   - a representative DOM-backed interaction/editing path is now proven on the same slice after pan/zoom
   - the multi-section canary expansion is now in place on `All Settings`
-  - next use a healthy `main` oracle session to do the staged Gate 1 gross-drift compare on that multi-section surface before spending time on pixel-parity cleanup or harness polish
-  - if the next iteration still cannot obtain a healthy read-only `main` oracle, stop for plan/oracle adjustment instead of continuing unrelated canary changes
+  - the stale-position ownership fix is now landed for the canary selector and seeded E2E coverage
+  - next restore a trustworthy authenticated Gate 1 oracle compare against `main` using either:
+    - a working DevTools bridge to the already-open lifecycle tabs, or
+    - freshly minted bootstrap tokens for both live sessions
+  - use that compare to answer one concrete question before more code churn:
+    - is the live worktree’s saved `All Settings` viewport at `zoom 0.1` a genuine canary drift versus `main`, or was the earlier fresh-profile compare misleading because it was no longer on the real authenticated surfaces?
+  - only if that compare proves the `zoom 0.1` live viewport is the real Gate 1 blocker should the next product slice change the canary’s initial/shared viewport strategy
 
 ## Explicit deferrals
 
@@ -120,6 +135,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `008`
-- Latest item: `2026-04-02 008`
+- Active history window: items `001` through `009`
+- Latest item: `2026-04-02 009`
 - Older history archives: none yet

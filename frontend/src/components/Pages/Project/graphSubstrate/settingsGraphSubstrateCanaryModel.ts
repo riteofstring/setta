@@ -67,8 +67,8 @@ export function selectSettingsGraphSubstrateCanarySections(
 
     candidates.push({
       sectionId,
-      position: node?.position ?? { x: layout.x, y: layout.y },
-      zIndex: node?.zIndex ?? layout.zIndex,
+      position: { x: layout.x, y: layout.y },
+      zIndex: layout.zIndex,
       width: node?.width ?? layout.w,
       height: node?.height ?? layout.h,
       positionAndSizeLocked: impl.positionAndSizeLocked,
