@@ -89,8 +89,6 @@ stop_pid_file() {
     echo "Stopped ${label} (pid ${pid})."
   else
     echo "${label} not running (pid ${pid})."
-    rm -f "$pid_file"
-    return 1
   fi
 
   rm -f "$pid_file"

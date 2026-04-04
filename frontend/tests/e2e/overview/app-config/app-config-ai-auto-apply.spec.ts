@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test";
 
 import {
+  emitChatStreamDelta,
   ensureAppReady,
   getCurrentProjectConfigId,
-  postBackend,
   seedLocalStorage,
 } from "../../helpers";
 
@@ -49,7 +49,7 @@ test("ai tool results can update the app spec without copy/paste", async ({
     },
   };
 
-  await postBackend<null>(page, "/emitChatStreamDelta", {
+  await emitChatStreamDelta(page, {
     projectConfigId,
     sectionId: `pw-section-${Date.now()}`,
     chatId: `pw-chat-${Date.now()}`,
