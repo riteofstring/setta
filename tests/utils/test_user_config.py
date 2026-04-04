@@ -4,7 +4,27 @@ from pathlib import Path
 import pytest
 
 from setta.utils.setta_home import resolve_setta_home, resolve_setta_user_config_path
-from setta.utils.user_config import load_setta_user_config
+from setta.utils.user_config import (
+    clear_setta_user_config_cache,
+    ensure_setta_user_config_exists,
+    load_setta_user_config,
+)
+
+
+def test_ensure_setta_user_config_creates_default_file() -> None:
+    setta_home = resolve_setta_home()
+    config_path = resolve_setta_user_config_path(setta_home=setta_home)
+    assert not config_path.exists()
+
+    error = ensure_setta_user_config_exists(setta_home=setta_home)
+    assert error is None
+
+    assert config_path.is_file()
+    payload = json.loads(config_path.read_text(encoding="utf-8"))
+    assert payload["autoMode"] == "create_local"
+    assert payload["globalSettaFilesBase"] == str(
+        (setta_home / "setta_files").resolve(strict=False)
+    )
 
 
 def test_load_setta_user_config_rejects_legacy_keys() -> None:
@@ -25,9 +45,42 @@ def test_load_setta_user_config_rejects_legacy_keys() -> None:
         encoding="utf-8",
     )
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     with pytest.raises(ValueError, match=r"openWorkspaceFallback"):
         load_setta_user_config(setta_home=setta_home)
+
+
+def test_ensure_setta_user_config_noops_when_file_exists() -> None:
+    setta_home = resolve_setta_home()
+    config_path = resolve_setta_user_config_path(setta_home=setta_home)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.write_text("{\"ok\": true}\n", encoding="utf-8")
+
+    error = ensure_setta_user_config_exists(setta_home=setta_home)
+    assert error is None
+    assert config_path.read_text(encoding="utf-8") == "{\"ok\": true}\n"
+
+
+def test_ensure_setta_user_config_reports_error_when_path_is_directory() -> None:
+    setta_home = resolve_setta_home()
+    config_path = resolve_setta_user_config_path(setta_home=setta_home)
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_path.mkdir(parents=True, exist_ok=True)
+
+    error = ensure_setta_user_config_exists(setta_home=setta_home)
+    assert isinstance(error, str)
+    assert "not a file" in error
+
+
+def test_ensure_setta_user_config_reports_error_when_setta_home_is_file(
+    tmp_path: Path,
+) -> None:
+    setta_home = tmp_path / "not_a_dir"
+    setta_home.write_text("nope", encoding="utf-8")
+
+    error = ensure_setta_user_config_exists(setta_home=setta_home)
+    assert isinstance(error, str)
+    assert "Failed to create Setta home directory" in error
 
 
 def test_load_setta_user_config_uses_defaults_without_creating_file() -> None:
@@ -35,7 +88,7 @@ def test_load_setta_user_config_uses_defaults_without_creating_file() -> None:
     config_path = resolve_setta_user_config_path(setta_home=setta_home)
     assert not config_path.exists()
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     config = load_setta_user_config(setta_home=setta_home)
 
     assert config.auto_mode == "create_local"
@@ -52,7 +105,7 @@ def test_load_setta_user_config_rejects_invalid_json() -> None:
 
     config_path.write_text("{", encoding="utf-8")
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     with pytest.raises(ValueError, match=r"Invalid JSON"):
         load_setta_user_config(setta_home=setta_home)
 
@@ -64,7 +117,7 @@ def test_load_setta_user_config_rejects_non_object_payload() -> None:
 
     config_path.write_text(json.dumps(["not", "an", "object"]) + "\n", encoding="utf-8")
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     with pytest.raises(ValueError, match=r"must be a JSON object"):
         load_setta_user_config(setta_home=setta_home)
 
@@ -87,7 +140,7 @@ def test_load_setta_user_config_resolves_relative_global_base() -> None:
         encoding="utf-8",
     )
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     config = load_setta_user_config(setta_home=setta_home)
     assert config.global_setta_files_base == (setta_home / "state").resolve(strict=False)
 
@@ -115,7 +168,7 @@ def test_load_setta_user_config_expands_env_vars(
         encoding="utf-8",
     )
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     config = load_setta_user_config(setta_home=setta_home)
     assert config.global_setta_files_base == (base / "subdir").resolve(strict=False)
 
@@ -137,7 +190,7 @@ def test_load_setta_user_config_rejects_invalid_auto_mode() -> None:
         encoding="utf-8",
     )
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     with pytest.raises(ValueError, match=r"autoMode must be one of"):
         load_setta_user_config(setta_home=setta_home)
 
@@ -163,6 +216,6 @@ def test_load_setta_user_config_rejects_global_base_that_is_file() -> None:
         encoding="utf-8",
     )
 
-    load_setta_user_config.cache_clear()
+    clear_setta_user_config_cache()
     with pytest.raises(ValueError, match=r"globalSettaFilesBase is not a directory"):
         load_setta_user_config(setta_home=setta_home)

@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from setta.utils.profile_config import (
+    clear_setta_profile_config_cache,
     load_setta_profile,
     resolve_setta_profile_path,
 )
@@ -12,7 +13,7 @@ from setta.utils.profile_config import (
 
 def test_load_profile_not_found_raises() -> None:
     setta_home = Path(os.environ["SETTA_HOME"]).resolve(strict=False)
-    load_setta_profile.cache_clear()
+    clear_setta_profile_config_cache()
     with pytest.raises(ValueError, match="Unknown Setta profile"):
         load_setta_profile(profile="missing", setta_home=setta_home)
 
@@ -38,7 +39,7 @@ def test_load_profile_parses_optional_fields(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    load_setta_profile.cache_clear()
+    clear_setta_profile_config_cache()
     profile = load_setta_profile(profile="dev", setta_home=setta_home)
 
     assert profile.name == "dev"
@@ -68,7 +69,7 @@ def test_load_profile_rejects_conflicting_setta_files_fields(tmp_path: Path) -> 
         encoding="utf-8",
     )
 
-    load_setta_profile.cache_clear()
+    clear_setta_profile_config_cache()
     with pytest.raises(ValueError, match="settaFilesRoot and settaFilesLocation"):
         load_setta_profile(profile="dev", setta_home=setta_home)
 
@@ -82,7 +83,7 @@ def test_load_profile_rejects_invalid_name_in_payload() -> None:
         encoding="utf-8",
     )
 
-    load_setta_profile.cache_clear()
+    clear_setta_profile_config_cache()
     with pytest.raises(ValueError, match="Profile name mismatch"):
         load_setta_profile(profile="dev", setta_home=setta_home)
 

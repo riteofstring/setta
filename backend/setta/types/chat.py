@@ -1,89 +1,32 @@
-from typing import Annotated, Any
+from datetime import datetime
 
-from pydantic import Discriminator, Field, Tag
-from setta.types.generated.go_shared_types import (
-    AssistantChatMessage,
-    ChatRole,
-    SystemChatMessage,
-    ToolChatMessage,
-    UserChatMessage,
-)
-from setta.types.generated.go_shared_types import (
-    Chat as GoChat,
-)
-from setta.types.generated.go_shared_types import (
-    ChatSectionBranch as GoChatSectionBranch,
-)
-from setta.types.generated.go_shared_types import (
-    ChatSectionState as GoChatSectionState,
-)
-from setta.types.generated.go_shared_types import (
-    MessageDeltaEvent as GoMessageDeltaEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageFinalizedEvent as GoMessageFinalizedEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageStartEvent as GoMessageStartEvent,
-)
-from setta.types.generated.go_shared_types import (
-    MessageStopEvent as GoMessageStopEvent,
-)
-from setta.types.generated.go_shared_types import (
-    ToolArgumentPreviewDeltaEvent as GoToolArgumentPreviewDeltaEvent,
-)
-from setta.types.generated.go_shared_types import (
-    ToolCallDeltaEvent as GoToolCallDeltaEvent,
-)
-from setta.types.generated.go_shared_types import (
-    ToolResultEvent as GoToolResultEvent,
-)
+from pydantic import BaseModel, Field, field_validator
+
+from setta.database.utils import create_new_id
+from setta.types.generated.chat_messages import BaseChatMessageUnion
 from setta.types.id import ID
-
-BaseChatMessageUnion = (
-    SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage
-)
+from setta.types.llm_config import LLMConfig
+from setta.utils.timestamps import get_now_timestamp, parse_timestamp_str
 
 
-def _chat_role(value: Any) -> str | None:
-    raw_role = (
-        value.get("role") if isinstance(value, dict) else getattr(value, "role", None)
-    )
-    if isinstance(raw_role, ChatRole):
-        return raw_role.value
-    if isinstance(raw_role, str):
-        return raw_role
-    return None
+class ChatMetadata(BaseModel):
+    id: ID = Field(default_factory=create_new_id)
+    name: str
+    lastUpdated: datetime = Field(default_factory=get_now_timestamp)
+    llmConfig: LLMConfig
+    projectConfigId: ID | None = None
+
+    @field_validator("lastUpdated", mode="before")
+    @classmethod
+    def parse_last_updated(cls, v):
+        if isinstance(v, str):
+            return parse_timestamp_str(v)
+        return v
 
 
-BaseChatMessageUnionWithDiscriminator = Annotated[
-    Annotated[SystemChatMessage, Tag(ChatRole.system.value)]
-    | Annotated[AssistantChatMessage, Tag(ChatRole.assistant.value)]
-    | Annotated[UserChatMessage, Tag(ChatRole.user.value)]
-    | Annotated[ToolChatMessage, Tag(ChatRole.tool.value)],
-    Discriminator(_chat_role),
-]
-
-
-class Chat(GoChat):
+class Chat(ChatMetadata):
     messages: list[BaseChatMessageUnion]
+    systemPrompt: str | None = None
 
 
-class ChatSectionBranch(GoChatSectionBranch):
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-
-
-class ChatSectionState(GoChatSectionState):
-    messages: list[BaseChatMessageUnion] = Field(default_factory=list)
-    branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
-
-
-LLMStreamingResponseChunk = (
-    GoMessageStartEvent
-    | GoMessageDeltaEvent
-    | GoToolCallDeltaEvent
-    | GoToolResultEvent
-    | GoToolArgumentPreviewDeltaEvent
-    | GoMessageStopEvent
-    | GoMessageFinalizedEvent
-)
+APIKeys = dict[str, str]
