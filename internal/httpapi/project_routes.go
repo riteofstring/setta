@@ -2436,8 +2436,13 @@ func deleteSectionVariantOrAskHandler(deps ProjectRouteDependencies) http.Handle
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		promptPath, requiresPrompt, err := deps.ProjectState.DeleteSectionVariantPromptPath(r.Context(), projectID, sectionID, variantID)
+		promptPath, requiresPrompt, err := runtime.DeleteSectionVariantPromptPath(r.Context(), projectID, sectionID, variantID)
 		if err != nil {
 			writeDeleteSectionVariantError(w, r, err)
 			return
@@ -2452,8 +2457,13 @@ func deleteSectionVariantOrAskHandler(deps ProjectRouteDependencies) http.Handle
 			return
 		}
 
-		if _, err := deps.ProjectState.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID); err != nil {
+		snapshot, err := runtime.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID)
+		if err != nil {
 			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -2848,8 +2858,13 @@ func deleteJSONSourceFileAndVariantHandler(deps ProjectRouteDependencies) http.H
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		promptPath, requiresPrompt, err := deps.ProjectState.DeleteSectionVariantPromptPath(r.Context(), projectID, sectionID, variantID)
+		promptPath, requiresPrompt, err := runtime.DeleteSectionVariantPromptPath(r.Context(), projectID, sectionID, variantID)
 		if err != nil {
 			writeDeleteSectionVariantError(w, r, err)
 			return
@@ -2873,8 +2888,13 @@ func deleteJSONSourceFileAndVariantHandler(deps ProjectRouteDependencies) http.H
 			return
 		}
 
-		if _, err := deps.ProjectState.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID); err != nil {
+		snapshot, err := runtime.DeleteSectionVariant(r.Context(), projectID, sectionID, variantID)
+		if err != nil {
 			writeDeleteSectionVariantError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -7112,14 +7132,24 @@ func setWatchCodeEnabledHandler(deps ProjectRouteDependencies) http.HandlerFunc 
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		if _, err := deps.ProjectState.SetWatchCodeEnabled(
+		snapshot, err := runtime.SetWatchCodeEnabled(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.Enabled,
 			deps.WorkspaceRoot,
-		); err != nil {
+		)
+		if err != nil {
 			writeSetWatchCodeError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)
@@ -7143,15 +7173,25 @@ func setWatchCodeInputsHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
+		runtime, err := projectRuntimeForRequest(deps, r)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
 
-		if _, err := deps.ProjectState.SetWatchCodeInputs(
+		snapshot, err := runtime.SetWatchCodeInputs(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.WatchCodeFolders,
 			payload.WatchCodeFiles,
 			deps.WorkspaceRoot,
-		); err != nil {
+		)
+		if err != nil {
 			writeSetWatchCodeError(w, r, err)
+			return
+		}
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
 		writeJSON(w, http.StatusOK, nil)

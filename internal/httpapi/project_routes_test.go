@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 	"setta/internal/agentruns"
 	"setta/internal/chatsections"
@@ -25,6 +26,7 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/prompttemplates"
+	"setta/internal/realtime"
 	"setta/internal/settingsstate"
 )
 
@@ -995,6 +997,68 @@ func TestRegisterProjectRoutesDeleteSectionVariantOrAskDeletesNonJSONSourceVaria
 	}
 }
 
+func TestRegisterProjectRoutesDeleteSectionVariantOrAskBroadcastsProjectStateUpdate(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantDeletionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	handler := newProjectRouteTestHandlerWithWebsocketHub(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		workspaceRoot,
+		websocketHub,
+		nil,
+		nil,
+		nil,
+	)
+	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
+	defer websocketServer.Close()
+
+	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
+	defer websocketClient.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteSectionVariantOrAsk,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"source-section","variantId":"source-variant-b"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	if got := update.ProjectState.ProjectConfig.SectionVariantMap["source-section"]; got != "source-variant-a" {
+		t.Fatalf("expected websocket source-section variant source-variant-a, got %q", got)
+	}
+	if _, ok := update.ProjectState.SectionVariants["source-variant-b"]; ok {
+		t.Fatalf("expected deleted source-variant-b to be absent from websocket project state, got %#v", update.ProjectState.SectionVariants)
+	}
+}
+
 func TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantDeletesWorkspaceFileAndVariant(t *testing.T) {
 	t.Parallel()
 
@@ -1048,6 +1112,72 @@ func TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantDeletesWorkspaceFile
 	}
 	if _, ok := project.SectionVariants["json-variant-a"]; ok {
 		t.Fatal("did not expect deleted json-source variant to remain in project state")
+	}
+}
+
+func TestRegisterProjectRoutesDeleteJSONSourceFileAndVariantBroadcastsProjectStateUpdate(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := filepath.Join(t.TempDir(), "workspace")
+	targetPath := filepath.Join(workspaceRoot, "data", "source.json")
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		t.Fatalf("mkdir json-source parent: %v", err)
+	}
+	if err := os.WriteFile(targetPath, []byte(`{"ok":true}`), 0o644); err != nil {
+		t.Fatalf("seed json-source file: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion: projectstate.CurrentSchemaVersion,
+		Projects: map[string]projectstate.Project{
+			"project-alpha": sectionVariantDeletionRouteTestProject(t),
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	handler := newProjectRouteTestHandlerWithWebsocketHub(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		workspaceRoot,
+		websocketHub,
+		nil,
+		nil,
+		nil,
+	)
+	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
+	defer websocketServer.Close()
+
+	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
+	defer websocketClient.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteDeleteJSONSourceFileAndVariant,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"json-section","variantId":"json-variant-a","filepath":"`+targetPath+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	if got := update.ProjectState.ProjectConfig.SectionVariantMap["json-section"]; got != "json-variant-b" {
+		t.Fatalf("expected websocket json-section variant json-variant-b, got %q", got)
+	}
+	if _, ok := update.ProjectState.SectionVariants["json-variant-a"]; ok {
+		t.Fatalf("expected deleted json-variant-a to be absent from websocket project state, got %#v", update.ProjectState.SectionVariants)
 	}
 }
 
@@ -4044,6 +4174,79 @@ func TestRegisterProjectRoutesSetWatchCodeEnabledBaselinesExistingInputs(t *test
 	}
 }
 
+func TestRegisterProjectRoutesSetWatchCodeEnabledBroadcastsProjectStateUpdate(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	watchFile := filepath.Join(workspaceRoot, "pkg", "watch_me.py")
+	if err := os.MkdirAll(filepath.Dir(watchFile), 0o755); err != nil {
+		t.Fatalf("mkdir pkg: %v", err)
+	}
+	if err := os.WriteFile(watchFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write watch file: %v", err)
+	}
+
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:             "project-alpha",
+				Name:           "Alpha",
+				WatchCodeFiles: []string{"pkg/watch_me.py"},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	handler := newProjectRouteTestHandlerWithWebsocketHub(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		workspaceRoot,
+		websocketHub,
+		nil,
+		nil,
+		nil,
+	)
+	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
+	defer websocketServer.Close()
+
+	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
+	defer websocketClient.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWatchCodeEnabled,
+		strings.NewReader(`{"projectConfigId":"project-alpha","enabled":true}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	if !update.ProjectState.ProjectConfig.WatchCodeEnabled {
+		t.Fatal("expected websocket project state to enable watch code")
+	}
+	expectedBaselineKey := filepath.Clean(watchFile)
+	expectedIdentity := "pkg.watch_me.existing:function"
+	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[expectedBaselineKey]; !reflect.DeepEqual(got, []string{expectedIdentity}) {
+		t.Fatalf("expected websocket watch code baseline %#v, got %#v", []string{expectedIdentity}, got)
+	}
+}
+
 func TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs(t *testing.T) {
 	t.Parallel()
 
@@ -4108,6 +4311,90 @@ func TestRegisterProjectRoutesSetWatchCodeInputsBaselinesOnlyNewInputs(t *testin
 	newBaselineKey := filepath.Clean(newFile)
 	if got := project.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
 		t.Fatalf("expected new baseline, got %#v", project.WatchCodeBaselineByPath)
+	}
+}
+
+func TestRegisterProjectRoutesSetWatchCodeInputsBroadcastsProjectStateUpdate(t *testing.T) {
+	t.Parallel()
+
+	workspaceRoot := t.TempDir()
+	existingFile := filepath.Join(workspaceRoot, "pkg", "existing.py")
+	newFile := filepath.Join(workspaceRoot, "pkg", "new_watch.py")
+	if err := os.MkdirAll(filepath.Dir(existingFile), 0o755); err != nil {
+		t.Fatalf("mkdir pkg: %v", err)
+	}
+	if err := os.WriteFile(existingFile, []byte("def existing(value):\n    return value\n"), 0o644); err != nil {
+		t.Fatalf("write existing file: %v", err)
+	}
+	if err := os.WriteFile(newFile, []byte("class Added:\n    pass\n"), 0o644); err != nil {
+		t.Fatalf("write new file: %v", err)
+	}
+
+	existingBaselineKey := filepath.Clean(existingFile)
+	projectRuntime, err := projectstate.OpenOverlayRuntime(projectstate.Document{
+		SchemaVersion:    projectstate.CurrentSchemaVersion,
+		DefaultProjectID: "project-alpha",
+		Projects: map[string]projectstate.Project{
+			"project-alpha": {
+				ID:               "project-alpha",
+				Name:             "Alpha",
+				WatchCodeEnabled: true,
+				WatchCodeFiles:   []string{"pkg/existing.py"},
+				WatchCodeBaselineByPath: map[string][]string{
+					existingBaselineKey: []string{"pkg.existing.existing:function"},
+				},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("open overlay runtime: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := projectRuntime.Close(); err != nil {
+			t.Fatalf("close overlay runtime: %v", err)
+		}
+	})
+
+	websocketHub := realtime.NewWebsocketHub(realtime.WebsocketHubOptions{})
+	handler := newProjectRouteTestHandlerWithWebsocketHub(
+		t,
+		config.ModeIDE,
+		projectRuntime,
+		workspaceRoot,
+		websocketHub,
+		nil,
+		nil,
+		nil,
+	)
+	websocketServer := newTranscriptionProfileRouteTestWebsocketServer(t, websocketHub)
+	defer websocketServer.Close()
+
+	websocketClient := dialTranscriptionProfileRouteTestWebsocketClient(t, websocketServer.URL)
+	defer websocketClient.CloseNow()
+	waitForTranscriptionProfileRouteTestHubConnection(t, websocketHub, "frontend-a")
+
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteSetWatchCodeInputs,
+		strings.NewReader(`{"projectConfigId":"project-alpha","watchCodeFolders":[],"watchCodeFiles":["pkg/existing.py","pkg/new_watch.py"]}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	update := readProjectRouteTestProjectStateUpdate(t, websocketClient)
+	if !reflect.DeepEqual(update.ProjectState.ProjectConfig.WatchCodeFiles, []string{"pkg/existing.py", "pkg/new_watch.py"}) {
+		t.Fatalf("expected websocket watch files, got %#v", update.ProjectState.ProjectConfig.WatchCodeFiles)
+	}
+	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[existingBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.existing.existing:function"}) {
+		t.Fatalf("expected websocket existing baseline to stay unchanged, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
+	}
+	newBaselineKey := filepath.Clean(newFile)
+	if got := update.ProjectState.ProjectConfig.WatchCodeBaselineByPath[newBaselineKey]; !reflect.DeepEqual(got, []string{"pkg.new_watch.Added:class_init"}) {
+		t.Fatalf("expected websocket new baseline, got %#v", update.ProjectState.ProjectConfig.WatchCodeBaselineByPath)
 	}
 }
 
@@ -13092,7 +13379,7 @@ func newProjectRouteTestHandler(
 	callableResolver projectstate.CallableSignatureResolver,
 	codeUpdates ...ProjectCodeUpdateService,
 ) http.Handler {
-	return newProjectRouteTestHandlerWithRenameService(
+	return newProjectRouteTestHandlerWithRouteOptions(
 		t,
 		mode,
 		projectRuntime,
@@ -13102,6 +13389,33 @@ func newProjectRouteTestHandler(
 		callableResolver,
 		nil,
 		nil,
+		nil,
+		codeUpdates...,
+	)
+}
+
+func newProjectRouteTestHandlerWithWebsocketHub(
+	t *testing.T,
+	mode config.Mode,
+	projectRuntime *projectstate.Runtime,
+	workspaceRoot string,
+	websocketHub *realtime.WebsocketHub,
+	validator projectstate.CodegenTargetValidator,
+	pythonReconciler projectstate.PythonCodegenSectionReconciler,
+	callableResolver projectstate.CallableSignatureResolver,
+	codeUpdates ...ProjectCodeUpdateService,
+) http.Handler {
+	return newProjectRouteTestHandlerWithRouteOptions(
+		t,
+		mode,
+		projectRuntime,
+		workspaceRoot,
+		validator,
+		pythonReconciler,
+		callableResolver,
+		nil,
+		nil,
+		websocketHub,
 		codeUpdates...,
 	)
 }
@@ -13116,6 +13430,34 @@ func newProjectRouteTestHandlerWithRenameService(
 	callableResolver projectstate.CallableSignatureResolver,
 	chatSectionChatIDs ChatSectionChatIDService,
 	renameRefactors ProjectRenameRefactorService,
+	codeUpdates ...ProjectCodeUpdateService,
+) http.Handler {
+	return newProjectRouteTestHandlerWithRouteOptions(
+		t,
+		mode,
+		projectRuntime,
+		workspaceRoot,
+		validator,
+		pythonReconciler,
+		callableResolver,
+		chatSectionChatIDs,
+		renameRefactors,
+		nil,
+		codeUpdates...,
+	)
+}
+
+func newProjectRouteTestHandlerWithRouteOptions(
+	t *testing.T,
+	mode config.Mode,
+	projectRuntime *projectstate.Runtime,
+	workspaceRoot string,
+	validator projectstate.CodegenTargetValidator,
+	pythonReconciler projectstate.PythonCodegenSectionReconciler,
+	callableResolver projectstate.CallableSignatureResolver,
+	chatSectionChatIDs ChatSectionChatIDService,
+	renameRefactors ProjectRenameRefactorService,
+	websocketHub *realtime.WebsocketHub,
 	codeUpdates ...ProjectCodeUpdateService,
 ) http.Handler {
 	t.Helper()
@@ -13202,6 +13544,7 @@ func newProjectRouteTestHandlerWithRenameService(
 				ModePolicy:                     modes.NewPolicy(mode),
 				WorkspaceRoot:                  workspaceRoot,
 				ProjectState:                   projectRuntime,
+				WebsocketHub:                   websocketHub,
 				PromptTemplates:                promptTemplateStore,
 				ShareSessions:                  shareSessions,
 				Deployment:                     deploymentRuntime,
@@ -13222,6 +13565,25 @@ func newProjectRouteTestHandlerWithRenameService(
 		t.Fatalf("new handler: %v", err)
 	}
 	return handler
+}
+
+func readProjectRouteTestProjectStateUpdate(t *testing.T, conn *websocket.Conn) realtime.ProjectStateUpdateContent {
+	t.Helper()
+
+	envelope := readTranscriptionProfileRouteTestEnvelope(t, conn)
+	if envelope.MessageType != realtime.MessageTypeUpdateFrontendProjectState {
+		t.Fatalf(
+			"expected websocket message type %q, got %q",
+			realtime.MessageTypeUpdateFrontendProjectState,
+			envelope.MessageType,
+		)
+	}
+
+	var update realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &update); err != nil {
+		t.Fatalf("decode project state update: %v", err)
+	}
+	return update
 }
 
 func copyPasteRouteSourceProject(t *testing.T) projectstate.Project {

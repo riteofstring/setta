@@ -1,6 +1,6 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { closeModal, useModalData } from "state/actions/modal";
-import { deleteJSONSourceFileAndVariantAndRefreshProjectState } from "state/actions/project/sectionVariants";
+import { deleteJSONSourceFileAndVariant } from "state/actions/project/sectionVariants";
 import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { ModalTypeEnum } from "../types";
 
@@ -14,7 +14,7 @@ export function DeleteJSONSourceVariantModal() {
   };
 
   const handleConfirm = async () => {
-    await deleteJSONSourceFileAndVariantAndRefreshProjectState({
+    await deleteJSONSourceFileAndVariant({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       variantId,

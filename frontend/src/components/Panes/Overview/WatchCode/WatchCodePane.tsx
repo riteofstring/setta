@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { FiTrash2 } from "react-icons/fi";
 import { MdAdd } from "react-icons/md";
 import { RiRepeatLine } from "react-icons/ri";
-import { setWatchCodeInputsAndRefreshProjectState } from "state/actions/project/watchCode";
+import { setWatchCodeInputs } from "state/actions/project/watchCode";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import { useLocalValue } from "state/hooks/utils";
@@ -56,7 +56,7 @@ export function WatchCodePane(props: WatchCodePaneProps) {
       if (inputsDisabled) {
         return;
       }
-      void setWatchCodeInputsAndRefreshProjectState({
+      void setWatchCodeInputs({
         projectConfigId,
         watchCodeFolders,
         watchCodeFiles,

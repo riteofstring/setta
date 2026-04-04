@@ -9,7 +9,7 @@ import { FiFileText, FiPlus } from "react-icons/fi";
 import { HiHome } from "react-icons/hi";
 import { RxDragHandleDots2 } from "react-icons/rx";
 import { openDeleteJSONSourceFileModal } from "state/actions/modal";
-import { deleteSectionVariantOrAskAndRefreshProjectState } from "state/actions/project/sectionVariants";
+import { deleteSectionVariantOrAsk } from "state/actions/project/sectionVariants";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
@@ -548,7 +548,7 @@ function OneVariantEditingContent({
     if (!allowVariantDeletion) {
       return;
     }
-    const filepath = await deleteSectionVariantOrAskAndRefreshProjectState({
+    const filepath = await deleteSectionVariantOrAsk({
       projectConfigId: getCurrProjectConfigId(),
       sectionId,
       variantId: id,
