@@ -2666,3 +2666,41 @@ LOOP_TERMINAL_MARKER: none
   - do not reopen it unless a future compare shows the real filter/body handoff disappearing or detaching
 - Next frontier: move to another normalized non-drag dynamic compare that CDP can complete end-to-end, preferably the widened `drawSectionDefault` pane-pan lane or another shared named section under the graph-surface-only oracle.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 00:30 EDT - Ralph item 079
+
+- Attempted the next widened `drawSectionDefault` pane-pan live compare after one allowed lifecycle recovery and found that this exact CDP compare shape is still not a trustworthy oracle, but it did not expose a confirmed worktree-only renderer bug.
+- Why this slice was necessary:
+  - after item `078` closed the spreadsheet body-input lane, the next valid frontier was another normalized non-drag dynamic compare that could answer a renderer question instead of extending the same spreadsheet-lane normalization pattern again
+  - the widened draw-section pane-pan lane already had a focused Playwright guard, so the missing evidence was the live worktree-vs-`main` compare on that named section
+  - the first fresh-context CDP sub-agent blocked immediately because `chrome-devtools-mcp` `list_pages` timed out, so this pass had to spend its one bounded recovery on the worktree lifecycle before the compare could even begin
+- Production/test changes:
+  - none; this slice intentionally changed no production or test code because the bounded goal was to decide whether the widened draw-section pane-pan lane still exposed a real worktree-only artifact after recovery
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section attached during pane pan'`
+    - result: passed (`1 passed`, about `21.8s`)
+  - lifecycle recovery:
+    - initial fresh-context CDP sub-agent
+      - result: blocked before page inspection because `chrome-devtools-mcp` `list_pages` timed out on the pre-recovery browser
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: succeeded; fresh worktree runtime `3078/8078`, session `c4ca64`, debug port `9300`
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - result: confirmed fresh session `c4ca64` on backend `8078`
+    - `pnpm -C frontend cdp-port`
+      - result: `9300`
+  - fresh-context CDP sub-agent retry:
+    - result: worktree browser recovered and normalized on `/settings` with `All Settings` active and the graph canary present
+    - worktree details:
+      - `drawSectionDefault` id `c1bde300-a7c6-4c82-9134-e5d34f4e19dd`
+      - canary section count `46`
+      - fitted transform `matrix(1.13895, 0, 0, 1.13895, 553.151, -2713.43)`
+      - widened draw box `628.698 x 400.909`
+    - compare limitation details:
+      - the retried pass incorrectly depended on `graph-substrate-canary` mounting on the read-only `main` side, but `main` remains the legacy surface oracle rather than a canary surface
+      - the attempted worktree pan via backend/store viewport writes did not change the rendered transform, so there was no reliable short-pan motion delta to compare even after the worktree browser recovered
+    - CDP visual check: done (worktree recovered and normalized; this exact pane-pan compare remained untrustworthy because `main` is a legacy oracle and the store-driven pan produced no rendered motion delta)
+- Lane status:
+  - no confirmed worktree-only renderer or interaction bug survived this pass
+  - close the specific "CDP pane-pan compare via canary-only hooks/store-written pan" shape; do not spend another iteration repeating it
+  - do not treat missing `graph-substrate-canary` hooks on `main` as a product defect; future live compares should use shared visible section geometry or screenshots against the legacy `main` surface instead
+- Next frontier: choose another normalized non-drag dynamic compare that CDP can actually complete end-to-end, preferably a widened `drawSectionDefault` zoom/fit-view compare or another shared named section that does not depend on CDP pan via store-written transforms.
+- LOOP_TERMINAL_MARKER: none

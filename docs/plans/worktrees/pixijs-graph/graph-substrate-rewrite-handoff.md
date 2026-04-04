@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 21:29 EDT
+Last updated: 2026-04-04 00:30 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,30 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `079` attempted the next widened `drawSectionDefault` pane-pan live compare after one required lifecycle recovery and found that this exact CDP compare shape is still not a trustworthy oracle, but it did not expose a confirmed worktree-only renderer bug.
+  - Why this slice was needed:
+    - after item `078` closed the spreadsheet body-input lane, the plan-directed next frontier was another normalized non-drag dynamic compare that could answer a real renderer question instead of extending the same spreadsheet normalization pattern again
+    - the existing Playwright guard already covered the widened draw-section pane-pan behavior, so the missing evidence was the live worktree-vs-`main` compare on that named section
+    - the first fresh-context CDP sub-agent blocked immediately because `chrome-devtools-mcp` `list_pages` timed out, which matched the loop's bounded lifecycle-recovery exception rather than a product defect
+  - Production/test change:
+    - none; this slice intentionally changed no production or test code because the bounded goal was to decide whether the widened draw-section pane-pan lane still exposed a real worktree-only artifact after recovery
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section attached during pane pan'`
+      - result: passed (`1 passed`, about `21.8s`)
+  - Live verification result:
+    - first fresh-context CDP sub-agent blocked before page inspection because `chrome-devtools-mcp` `list_pages` timed out on the pre-recovery browser
+    - one bounded recovery succeeded with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - fresh worktree runtime: frontend `3078`, backend `8078`, session `c4ca64`, debug port `9300`
+    - the retried fresh-context CDP sub-agent confirmed the recovered worktree browser itself is healthy on `/settings` with `All Settings` active and the graph canary present
+    - on the worktree, the widened draw section resolved to id `c1bde300-a7c6-4c82-9134-e5d34f4e19dd`, the fitted card measured about `628.7 x 400.9`, the canary contained `46` sections, and the fitted transform was `matrix(1.13895, 0, 0, 1.13895, 553.151, -2713.43)`
+    - however, this exact CDP compare shape still did not produce a trustworthy motion oracle:
+      - the retried pass incorrectly depended on `graph-substrate-canary` mounting on the read-only `main` side, but `main` remains the legacy surface oracle rather than a canary surface
+      - the attempted worktree pan via backend/store viewport writes did not change the rendered transform, so there was no reliable short-pan motion delta to compare even after the worktree browser recovered
+    - CDP visual check: done (worktree recovered and normalized; the widened draw-section pane-pan compare itself remained untrustworthy because `main` is a legacy oracle and the store-driven pan produced no rendered motion delta)
+  - conclusion for this slice:
+    - no confirmed worktree-only renderer or interaction bug survived this pass
+    - close the specific "CDP pane-pan compare via canary-only hooks/store-written pan" shape; do not spend another iteration repeating it
+    - do not treat missing `graph-substrate-canary` hooks on `main` as a product defect; the next compare must use shared visible section geometry or screenshots against the legacy `main` surface instead of assuming canary DOM parity
 - Ralph item `078` closed the live `spreadsheetSectionDefault` body-input pan/zoom compare lane with fresh CDP evidence; no worktree-only renderer or interaction bug survived the normalized compare.
   - Why this slice was needed:
     - after items `076` and `077`, the next valid step on the spreadsheet lane was no longer another guard tweak; it was to decide whether the normalized body-input compare still exposed a real canary-only defect or could be retired as oracle noise
@@ -24,7 +48,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - CDP visual check: done (fresh-page worktree vs `main` spreadsheet lane compare on `/settings`, using fit-view + zoom-in normalization)
   - conclusion for this slice:
     - close the spreadsheet body-input pan/zoom compare lane for now; do not reopen it unless a future compare shows the real filter/body handoff disappearing or detaching
-    - the next frontier should be another normalized non-drag dynamic compare that CDP can complete end-to-end, preferably the widened `drawSectionDefault` pane-pan lane or another shared named section, not more spreadsheet-lane harness work
+    - the next frontier should be another normalized non-drag dynamic compare that CDP can complete end-to-end, preferably a widened `drawSectionDefault` zoom/fit-view compare or another shared named section that does not depend on CDP pan via store-written transforms
 - Ralph item `077` normalized the `spreadsheetSectionDefault` body-search pan/zoom guard onto the named body-heavy section and closed the placeholder-driven stale-active-state mismatch that surfaced on the first rerun.
   - Why this slice was needed:
     - after item `076`, the next bounded frontier was one different trustworthy dynamic compare on normalized `All Settings`, and the existing body-search pan/zoom guard was the narrowest body-heavy motion lane that could be rerun without CDP mouse-drop ambiguity
