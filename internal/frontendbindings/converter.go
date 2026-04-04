@@ -161,18 +161,13 @@ type tsLiteralField struct {
 	Value string
 }
 
-type tsObjectEntry struct {
-	Name  string
-	Value string
+type tsRawExpr struct {
+	Expr string
 }
 
 type tsNamedLiteralObject struct {
 	Name   string
 	Fields []tsLiteralField
-}
-
-func tsObjectField(name string, value string) tsObjectEntry {
-	return tsObjectEntry{Name: name, Value: value}
 }
 
 func writeTSObjectFields(builder *strings.Builder, indent string, fields []tsLiteralField) {
@@ -181,16 +176,6 @@ func writeTSObjectFields(builder *strings.Builder, indent string, fields []tsLit
 		builder.WriteString(field.Name)
 		builder.WriteString(": ")
 		builder.WriteString(field.Value)
-		builder.WriteString(",\n")
-	}
-}
-
-func writeTSObjectEntries(builder *strings.Builder, indent string, entries []tsObjectEntry) {
-	for _, entry := range entries {
-		builder.WriteString(indent)
-		builder.WriteString(entry.Name)
-		builder.WriteString(": ")
-		builder.WriteString(entry.Value)
 		builder.WriteString(",\n")
 	}
 }
@@ -232,27 +217,22 @@ func writeTSNamedMergeEntries(builder *strings.Builder, entryIndent string, fiel
 	}
 }
 
-func buildTSMergeGeneratedOptionsExprTS(entries []tsObjectEntry, overridesExpr string) string {
+func buildTSMergeGeneratedOptionsExprFromTSObject(
+	defaults map[string]any,
+	orderedKeys []string,
+	overridesExpr string,
+) string {
 	if strings.TrimSpace(overridesExpr) == "" {
 		overridesExpr = "options"
 	}
 	var builder strings.Builder
 	builder.WriteString("mergeGeneratedOptions(\n")
-	builder.WriteString("    {\n")
-	writeTSObjectEntries(&builder, "      ", entries)
-	builder.WriteString("    },\n")
+	writeTSObjectLiteral(&builder, "    ", defaults, orderedKeys)
+	builder.WriteString(",\n")
 	builder.WriteString("    ")
 	builder.WriteString(overridesExpr)
 	builder.WriteString(",\n")
 	builder.WriteString("  )")
-	return builder.String()
-}
-
-func buildTSMergeGeneratedOptionsCreateBodyTS(entries []tsObjectEntry, overridesExpr string) string {
-	var builder strings.Builder
-	builder.WriteString("  return ")
-	builder.WriteString(buildTSMergeGeneratedOptionsExprTS(entries, overridesExpr))
-	builder.WriteString(";")
 	return builder.String()
 }
 
@@ -272,16 +252,40 @@ func buildTSMergeGeneratedOptionsExprFromGoValueTS(
 	if len(orderedKeys) > 0 {
 		validateTSLiteralObjectKeys(context, defaults, orderedKeys)
 	}
+	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr)
+}
 
-	var builder strings.Builder
-	builder.WriteString("mergeGeneratedOptions(\n")
-	writeTSObjectLiteral(&builder, "    ", defaults, orderedKeys)
-	builder.WriteString(",\n")
-	builder.WriteString("    ")
-	builder.WriteString(overridesExpr)
-	builder.WriteString(",\n")
-	builder.WriteString("  )")
-	return builder.String()
+func buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
+	context string,
+	value any,
+	orderedKeys []string,
+	overridesExpr string,
+	exprOverrides map[string]string,
+) string {
+	defaults := mustTSLiteralObjectFromGoValue(context, value)
+	if len(orderedKeys) == 0 {
+		orderedKeys = goJSONFieldOrder(value)
+	}
+	fillMissingTSLiteralObjectKeysWithNil(defaults, orderedKeys)
+	if len(orderedKeys) > 0 {
+		validateTSLiteralObjectKeys(context, defaults, orderedKeys)
+	}
+	for key, expr := range exprOverrides {
+		if _, ok := defaults[key]; !ok {
+			panic(fmt.Sprintf("%s is missing override property %q", context, key))
+		}
+		defaults[key] = tsRawExpr{Expr: expr}
+	}
+	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr)
+}
+
+func fillMissingTSLiteralObjectKeysWithNil(object map[string]any, orderedKeys []string) {
+	for _, key := range orderedKeys {
+		if _, ok := object[key]; ok {
+			continue
+		}
+		object[key] = nil
+	}
 }
 
 func buildTSMergeGeneratedOptionsCreateBodyFromGoValueTS(
@@ -704,21 +708,7 @@ func buildSettingsStateCreateBodyTS() string {
 }
 
 func buildProjectCodegenPythonTargetCreateBodyTS() string {
-	defaultConfig, err := projectstate.DecodePythonCodegenTarget(projectstate.ProjectCodegenTarget{
-		Language: string(projectstate.CodeLanguagePython),
-	})
-	if err != nil {
-		panic("decode default project codegen python target: " + err.Error())
-	}
-	defaultLiteral := mustTSLiteralObjectFromGoValue(
-		"default project codegen python target",
-		map[string]any{
-			"language":         string(projectstate.CodeLanguagePython),
-			"genCodePrefix":    defaultConfig.GenCodePrefix,
-			"genCodeSuffix":    defaultConfig.GenCodeSuffix,
-			"generateMetadata": defaultConfig.GenerateMetadata,
-		},
-	)
+	defaultTarget := projectview.FrontendDefaultProjectCodegenPythonTarget()
 	var builder strings.Builder
 	builder.WriteString("  const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});\n")
 	builder.WriteString("  const codeObjValuePolicy = createCodeObjValuePolicy(\n")
@@ -726,17 +716,19 @@ func buildProjectCodegenPythonTargetCreateBodyTS() string {
 	builder.WriteString("  );\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...")
-	builder.WriteString(buildTSMergeGeneratedOptionsExprTS([]tsObjectEntry{
-		tsObjectField("language", renderTSLiteralExpr(defaultLiteral["language"])),
-		tsObjectField("genCodePrefix", renderTSLiteralExpr(defaultLiteral["genCodePrefix"])),
-		tsObjectField("genCodeSuffix", renderTSLiteralExpr(defaultLiteral["genCodeSuffix"])),
-		tsObjectField("generateMetadata", renderTSLiteralExpr(defaultLiteral["generateMetadata"])),
-		tsObjectField("sectionPolicy", "sectionPolicy"),
-		tsObjectField("codeObjValuePolicy", "codeObjValuePolicy"),
-	}, "options"))
+	builder.WriteString(buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
+		"default project codegen python target",
+		defaultTarget,
+		goJSONFieldOrder(defaultTarget),
+		"options",
+		map[string]string{
+			"sectionPolicy":      "sectionPolicy",
+			"codeObjValuePolicy": "codeObjValuePolicy",
+		},
+	))
 	builder.WriteString(",\n")
 	builder.WriteString("    language: ")
-	writeTSLiteralValue(&builder, "    ", defaultLiteral["language"])
+	writeTSLiteralValue(&builder, "    ", string(defaultTarget.Language))
 	builder.WriteString(",\n")
 	builder.WriteString("    sectionPolicy,\n")
 	builder.WriteString("    codeObjValuePolicy,\n")
@@ -836,6 +828,9 @@ func buildCodeObjValuePolicyCreateBodyTS() string {
 }
 
 func buildEngineConfigCreateBodyTS() string {
+	defaultConfig := agentruns.EngineConfig{
+		EngineType: agentruns.EngineTypeSettaLLM,
+	}
 	var builder strings.Builder
 	builder.WriteString("  const defaults = createEngineConfigDefaults();\n")
 	builder.WriteString("  const runtimeSupport = createEngineRuntimeSupport();\n")
@@ -846,15 +841,15 @@ func buildEngineConfigCreateBodyTS() string {
 	builder.WriteString("      : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport);\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...")
-	builder.WriteString(buildTSMergeGeneratedOptionsExprTS([]tsObjectEntry{
-		tsObjectField("id", tsStringLiteralExpr("")),
-		tsObjectField("name", tsStringLiteralExpr("")),
-		tsObjectField("engineType", "EngineTypeEnum.setta_llm"),
-		tsObjectField("settaLlmConfigId", "null"),
-		tsObjectField("externalAgentConfigId", "null"),
-		tsObjectField("defaults", "defaults"),
-		tsObjectField("runtimeSupport", "null"),
-	}, "options"))
+	builder.WriteString(buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
+		"frontend default engine config",
+		defaultConfig,
+		goJSONFieldOrder(defaultConfig),
+		"options",
+		map[string]string{
+			"defaults": "defaults",
+		},
+	))
 	builder.WriteString(",\n")
 	builder.WriteString("    defaults: mergedDefaults,\n")
 	builder.WriteString("    runtimeSupport: mergedRuntimeSupport,\n")
@@ -1196,6 +1191,8 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 		builder.WriteString(strconv.Quote(typed))
 	case float64:
 		builder.WriteString(formatTSNumberLiteral(typed))
+	case tsRawExpr:
+		builder.WriteString(typed.Expr)
 	case []any:
 		writeTSArrayLiteral(builder, indent, typed)
 	case map[string]any:

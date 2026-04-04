@@ -587,7 +587,7 @@ export function createEngineConfig(
       {
         id: "",
         name: "",
-        engineType: EngineTypeEnum.setta_llm,
+        engineType: "setta_llm",
         settaLlmConfigId: null,
         externalAgentConfigId: null,
         defaults: defaults,

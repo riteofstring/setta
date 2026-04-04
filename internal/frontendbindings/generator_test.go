@@ -269,6 +269,12 @@ func TestSupportDeclarationsRenderStructuredBodies(t *testing.T) {
 			buildProjectCodegenPythonTargetCreateBodyTS(),
 		)
 	}
+	if strings.Contains(buildProjectCodegenPythonTargetCreateBodyTS(), "ProjectCodegenLanguageEnum.") {
+		t.Fatalf(
+			"ProjectCodegenPythonTarget create body still embeds handwritten language enum refs:\n%s",
+			buildProjectCodegenPythonTargetCreateBodyTS(),
+		)
+	}
 }
 
 func TestBuildCodegenPolicyCreateBodiesUseGoBackedDefaults(t *testing.T) {
@@ -450,6 +456,9 @@ func TestEngineAndRunDeclarationsUseGoBackedDefaults(t *testing.T) {
 		if !strings.Contains(engineConfig.CreateBody, snippet) {
 			t.Fatalf("EngineConfig create body missing %q:\n%s", snippet, engineConfig.CreateBody)
 		}
+	}
+	if strings.Contains(engineConfig.CreateBody, "EngineTypeEnum.") {
+		t.Fatalf("EngineConfig create body still embeds handwritten engine-type enum refs:\n%s", engineConfig.CreateBody)
 	}
 
 	runEvent := mustFindDeclarationByName(t, converter.Declarations(), "RunEvent")
