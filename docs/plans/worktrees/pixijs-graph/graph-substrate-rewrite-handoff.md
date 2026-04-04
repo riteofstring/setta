@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 00:02 EDT
+Last updated: 2026-04-03 00:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,29 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `030` closed the next real dynamic canary parity bug instead of extending control harnesses again: the custom-substrate canary treated a plain wheel gesture as zoom, while legacy `main` treated the same `All Settings` gesture as pan-scroll.
+  - a normalized live compare on `All Settings -> fit view -> drag pan -> plain wheel` showed the real product mismatch before the fix:
+    - worktree `{ x: 1136.18, y: 43.9448, zoom: 0.139474 }`
+    - `main` `{ x: 919.9, y: 278.3, zoom: 0.1 }`
+  - the root cause was the canary wheel owner, not another camera-save artifact:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` was hard-coding wheel input to `zoomViewportAroundScreenPoint(...)`
+    - legacy `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` routes the same gesture through shared `panOnScroll` / `zoomOnScroll` / pinch / activation-key semantics, so plain wheel on this route should pan instead of zoom
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryWheelOutcome(...)`, which mirrors the legacy wheel contract for plain-wheel pan-scroll, activation-key zoom, and pinch zoom
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that shared wheel outcome and tracks pan-scroll versus wheel-zoom interaction state separately, so the canary no longer marks plain wheel input as zoom
+  - focused automation now locks the lane down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` covers both the legacy plain-wheel pan result and the remaining activation-key zoom path
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that a plain wheel gesture on the canary keeps zoom fixed and pans by the same amount as legacy instead of zooming the card surface
+    - that E2E case also no longer waits on `.react-flow__pane` before entering `All Settings`, because a live session can already reopen on the canary path and never expose the legacy pane
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`12 passed`)
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface|settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+      - result: passed (`2 passed`, about `44s`)
+  - manual oracle compare for this slice is now aligned again:
+    - after `fit view -> drag pan -> plain wheel`, worktree and `main` both reported `{ x: 919.9, y: 278.3, zoom: 0.1 }`
+    - `chrome-devtools-mcp` tooling was not available in this chat, so this iteration used a direct live Playwright compare against read-only `main` instead of claiming a CDP screenshot pass
+    - `./scripts/run-playwright-e2e.sh` hit an isolated bootstrap `401` inside its temp workspace during verification, but the direct live-runtime Playwright path with a fresh token passed; treat that launcher issue as verification harness noise for this slice, not as a reopened renderer bug
+  - conclusion for this slice: the plain-wheel interaction lane is closed; do not reopen it unless the normalized Playwright canary or a fresh live compare shows the canary zooming on plain wheel again
 - Ralph item `029` closed the first real dynamic canary parity bug instead of extending harness work: the custom-substrate toolbar zoom controls were anchoring to the visible graph center while legacy `main` still anchored zoom to the full graph surface center.
   - a normalized live compare on `All Settings -> fit view -> zoom in` showed a real product mismatch before the fix:
     - worktree `matrix(0.144, 0, 0, 0.144, 741.356, -450.108)`

@@ -1,11 +1,13 @@
+import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
-  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
+  resolveSettingsGraphSubstrateCanaryWheelOutcome,
+  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
   shouldPersistSettingsGraphSubstrateCanaryViewport,
 } from "./settingsGraphSubstrateCanaryViewport";
@@ -169,5 +171,69 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
         height: 828,
       }),
     ).toBeNull();
+  });
+
+  it("matches legacy pan-on-scroll behavior for plain wheel input", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanaryWheelOutcome(
+        { x: 919.9, y: 38.3, zoom: 0.1 },
+        { x: 240, y: 180 },
+        {
+          ctrlKey: false,
+          deltaMode: 0,
+          deltaX: 0,
+          deltaY: -240,
+          shiftKey: false,
+        },
+        {
+          isMacOs: true,
+          minZoom: 0.1,
+          maxZoom: 2,
+          panOnScroll: true,
+          panOnScrollMode: PanOnScrollModeEnum.free,
+          panOnScrollSpeed: 1,
+          zoomActivationKeyPressed: false,
+          zoomOnPinch: true,
+          zoomOnScroll: true,
+        },
+      ),
+    ).toEqual({
+      kind: "pan-scroll",
+      nextViewport: {
+        x: 919.9,
+        y: 278.3,
+        zoom: 0.1,
+      },
+    });
+  });
+
+  it("still zooms around the pointer when the zoom activation key is pressed", () => {
+    const outcome = resolveSettingsGraphSubstrateCanaryWheelOutcome(
+      { x: 919.9, y: 38.3, zoom: 0.1 },
+      { x: 240, y: 180 },
+      {
+        ctrlKey: false,
+        deltaMode: 0,
+        deltaX: 0,
+        deltaY: -240,
+        shiftKey: false,
+      },
+      {
+        isMacOs: true,
+        minZoom: 0.1,
+        maxZoom: 2,
+        panOnScroll: true,
+        panOnScrollMode: PanOnScrollModeEnum.free,
+        panOnScrollSpeed: 1,
+        zoomActivationKeyPressed: true,
+        zoomOnPinch: true,
+        zoomOnScroll: false,
+      },
+    );
+
+    expect(outcome?.kind).toBe("zoom");
+    expect(outcome?.nextViewport.x).toBeCloseTo(1188.2862, 3);
+    expect(outcome?.nextViewport.y).toBeCloseTo(-17.6352, 3);
+    expect(outcome?.nextViewport.zoom).toBeCloseTo(0.139474, 5);
   });
 });

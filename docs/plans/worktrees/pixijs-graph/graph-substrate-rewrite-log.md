@@ -70,6 +70,41 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 030
+
+- Item: Align the custom-substrate canary's plain-wheel gesture with legacy `main` pan-scroll behavior on `All Settings`.
+- Status: `done`
+- Details:
+  - A normalized live compare on `All Settings -> fit view -> drag pan -> plain wheel` showed a real canary-only interaction bug before the fix:
+    - worktree landed at `{ x: 1136.18, y: 43.9448, zoom: 0.139474 }`
+    - read-only `main` landed at `{ x: 919.9, y: 278.3, zoom: 0.1 }`
+  - The bug owner was the canary wheel path itself, not another saved-camera artifact:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` was hard-coding wheel input to zoom
+    - legacy `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` routes the same gesture through shared `panOnScroll` / `zoomOnScroll` / pinch / activation-key semantics, so plain wheel on this route should pan instead of zoom
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryWheelOutcome(...)`, which mirrors the legacy wheel contract for plain-wheel pan-scroll, activation-key zoom, and pinch zoom.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that wheel outcome and tracks pan-scroll versus wheel-zoom interaction state separately, so the canary no longer flags plain wheel as zoom.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts the corrected contract and no longer waits on `.react-flow__pane` before switching to `All Settings`, because a live session can already reopen directly on the canary path.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`12 passed`)
+  - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface|settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+    - result: passed (`2 passed`, about `44s`)
+  - manual live oracle compare
+    - result: matched
+    - note:
+      - after `fit view -> drag pan -> plain wheel`, worktree and `main` both reported `{ x: 919.9, y: 278.3, zoom: 0.1 }`
+      - `chrome-devtools-mcp` tooling was not available in this chat, so this iteration used a direct live Playwright compare against read-only `main` instead of claiming a CDP screenshot pass
+  - isolated harness note
+    - result: temp-workspace `./scripts/run-playwright-e2e.sh` verification hit a bootstrap `401`
+    - note: direct live-runtime Playwright with a fresh token passed, so treat that launcher failure as verification harness noise for this slice rather than a reopened renderer bug
+- Conclusion:
+  - the canary now matches legacy `main` for the checked plain-wheel interaction path instead of zooming on ordinary wheel input
+  - this closes the plain-wheel lane and removes the next real Gate 1 interaction mismatch from the `All Settings` canary
+- Next action:
+  - run the next normalized dynamic compare on `All Settings` and isolate the first remaining drag or edit-handoff mismatch versus read-only `main`
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 028
 
 - Item: Add a deterministic normalized zoom-control canary for the first dynamic `All Settings` action.

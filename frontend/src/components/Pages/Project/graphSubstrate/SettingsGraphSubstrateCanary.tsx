@@ -2,7 +2,6 @@ import { SectionContainer } from "components/Section/Container/SectionContainer"
 import Background from "forks/xyflow/background/Background";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { CustomViewportController } from "forks/xyflow/core/types";
-import { getWheelDelta } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
   useEffect,
@@ -35,9 +34,10 @@ import {
   fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
-  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
+  resolveSettingsGraphSubstrateCanaryWheelOutcome,
+  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
   shouldPersistSettingsGraphSubstrateCanaryViewport,
   type SettingsGraphSubstrateCanaryViewportOwnership,
@@ -97,9 +97,13 @@ export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<ActiveSectionDrag | null>(null);
   const viewportPanStateRef = useRef<ActiveViewportPan | null>(null);
+  const panScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const wheelZoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const isPanScrollingRef = useRef(false);
   const isWheelZoomingRef = useRef(false);
   const viewportOwnershipRef =
     useRef<SettingsGraphSubstrateCanaryViewportOwnership | null>(null);
@@ -136,12 +140,30 @@ export function SettingsGraphSubstrateCanary() {
     const [x, y, zoom] = state.transform;
     return { x, y, zoom };
   }, _.isEqual);
-  const { minZoom, maxZoom, defaultZoomLevel, showGridLines } = useSettings(
+  const zoomActivationKeyPressed = useReactFlow(
+    (state) => state.zoomActivationKeyPressed,
+  );
+  const {
+    minZoom,
+    maxZoom,
+    defaultZoomLevel,
+    panOnScroll,
+    panOnScrollMode,
+    panOnScrollSpeed,
+    showGridLines,
+    zoomOnPinch,
+    zoomOnScroll,
+  } = useSettings(
     (state) => ({
       minZoom: state.gui.minZoom,
       maxZoom: state.gui.maxZoom,
       defaultZoomLevel: state.gui.defaultZoomLevel,
+      panOnScroll: state.gui.panOnScroll,
+      panOnScrollMode: state.gui.panOnScrollMode,
+      panOnScrollSpeed: state.gui.panOnScrollSpeed,
       showGridLines: !!state.gui.showGridLines,
+      zoomOnPinch: state.gui.zoomOnPinch,
+      zoomOnScroll: state.gui.zoomOnScroll,
     }),
     _.isEqual,
   );
@@ -165,9 +187,13 @@ export function SettingsGraphSubstrateCanary() {
   useEffect(() => {
     return () => {
       viewportPanStateRef.current = null;
+      if (panScrollTimeoutRef.current) {
+        clearTimeout(panScrollTimeoutRef.current);
+      }
       if (wheelZoomTimeoutRef.current) {
         clearTimeout(wheelZoomTimeoutRef.current);
       }
+      isPanScrollingRef.current = false;
       isWheelZoomingRef.current = false;
       useMisc.setState({ isPanScrolling: false });
       useReactFlow.setState({
@@ -641,6 +667,7 @@ export function SettingsGraphSubstrateCanary() {
     setIsViewportPanning(true);
     syncCanaryViewportInteractionState({
       isViewportPanning: true,
+      isPanScrolling: isPanScrollingRef.current,
       isWheelZooming: isWheelZoomingRef.current,
     });
     event.preventDefault();
@@ -673,6 +700,7 @@ export function SettingsGraphSubstrateCanary() {
     setIsViewportPanning(false);
     syncCanaryViewportInteractionState({
       isViewportPanning: false,
+      isPanScrolling: isPanScrollingRef.current,
       isWheelZooming: isWheelZoomingRef.current,
     });
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -689,43 +717,84 @@ export function SettingsGraphSubstrateCanary() {
     }
 
     const rootBounds = rootRef.current.getBoundingClientRect();
-    const wheelFactor = event.ctrlKey && isMacOs() ? 10 : 1;
-    const nextZoom =
-      resolvedViewport.zoom *
-      Math.pow(2, getWheelDelta(event.nativeEvent, wheelFactor));
-    const clampedZoom = Math.min(maxZoom, Math.max(minZoom, nextZoom));
-    if (clampedZoom === resolvedViewport.zoom) {
-      event.preventDefault();
-      event.stopPropagation();
+    const anchorScreenPoint = {
+      x: event.clientX - rootBounds.left,
+      y: event.clientY - rootBounds.top,
+    };
+    const wheelEvent = {
+      ctrlKey: event.ctrlKey,
+      deltaMode: event.deltaMode,
+      deltaX: event.deltaX,
+      deltaY: event.deltaY,
+      shiftKey: event.shiftKey,
+    };
+    const wheelBehavior = {
+      isMacOs: isMacOs(),
+      maxZoom,
+      minZoom,
+      panOnScroll,
+      panOnScrollMode,
+      panOnScrollSpeed,
+      zoomActivationKeyPressed,
+      zoomOnPinch,
+      zoomOnScroll,
+    };
+    const wheelOutcome = resolveSettingsGraphSubstrateCanaryWheelOutcome(
+      resolvedViewport,
+      anchorScreenPoint,
+      wheelEvent,
+      wheelBehavior,
+    );
+    if (!wheelOutcome) {
       return;
     }
 
-    if (wheelZoomTimeoutRef.current) {
-      clearTimeout(wheelZoomTimeoutRef.current);
-    }
-    isWheelZoomingRef.current = true;
-    syncCanaryViewportInteractionState({
-      isViewportPanning: viewportPanStateRef.current !== null,
-      isWheelZooming: true,
-    });
-    wheelZoomTimeoutRef.current = setTimeout(() => {
-      isWheelZoomingRef.current = false;
+    if (wheelOutcome.kind === "pan-scroll") {
+      if (panScrollTimeoutRef.current) {
+        clearTimeout(panScrollTimeoutRef.current);
+      }
+      isPanScrollingRef.current = true;
       syncCanaryViewportInteractionState({
         isViewportPanning: viewportPanStateRef.current !== null,
-        isWheelZooming: false,
+        isPanScrolling: true,
+        isWheelZooming: isWheelZoomingRef.current,
       });
-    }, WHEEL_ZOOM_IDLE_TIMEOUT_MS);
+      panScrollTimeoutRef.current = setTimeout(() => {
+        isPanScrollingRef.current = false;
+        syncCanaryViewportInteractionState({
+          isViewportPanning: viewportPanStateRef.current !== null,
+          isPanScrolling: false,
+          isWheelZooming: isWheelZoomingRef.current,
+        });
+      }, 150);
+    } else {
+      if (wheelZoomTimeoutRef.current) {
+        clearTimeout(wheelZoomTimeoutRef.current);
+      }
+      isWheelZoomingRef.current = true;
+      syncCanaryViewportInteractionState({
+        isViewportPanning: viewportPanStateRef.current !== null,
+        isPanScrolling: isPanScrollingRef.current,
+        isWheelZooming: true,
+      });
+      wheelZoomTimeoutRef.current = setTimeout(() => {
+        isWheelZoomingRef.current = false;
+        syncCanaryViewportInteractionState({
+          isViewportPanning: viewportPanStateRef.current !== null,
+          isPanScrolling: isPanScrollingRef.current,
+          isWheelZooming: false,
+        });
+      }, WHEEL_ZOOM_IDLE_TIMEOUT_MS);
+    }
 
-    setViewport((currentViewport) => {
-      const baseViewport = currentViewport ?? resolvedViewport;
-      viewportOwnershipRef.current = "local";
-      return zoomViewportAroundScreenPoint(
-        baseViewport,
-        {
-          x: event.clientX - rootBounds.left,
-          y: event.clientY - rootBounds.top,
-        },
-        clampedZoom,
+    applyControlledViewportChange((currentViewport) => {
+      return (
+        resolveSettingsGraphSubstrateCanaryWheelOutcome(
+          currentViewport,
+          anchorScreenPoint,
+          wheelEvent,
+          wheelBehavior,
+        )?.nextViewport ?? currentViewport
       );
     });
     event.preventDefault();
@@ -900,15 +969,18 @@ function getRenderedSectionPosition(
 
 function syncCanaryViewportInteractionState({
   isViewportPanning,
+  isPanScrolling,
   isWheelZooming,
 }: {
   isViewportPanning: boolean;
+  isPanScrolling: boolean;
   isWheelZooming: boolean;
 }) {
-  useMisc.setState({ isPanScrolling: isViewportPanning });
+  useMisc.setState({ isPanScrolling: isViewportPanning || isPanScrolling });
   useReactFlow.setState({
     paneDragging: isViewportPanning,
-    viewportInteractionActive: isViewportPanning || isWheelZooming,
+    viewportInteractionActive:
+      isViewportPanning || isPanScrolling || isWheelZooming,
   });
 }
 

@@ -169,11 +169,10 @@ test("settings graph substrate canary zoom in control respects the normalized Al
     if (!initialTransform) {
       throw new Error("Missing canary viewport transform before zoom in.");
     }
-    const expectedZoomInTransform =
-      await getCanaryExpectedToolbarZoomTransform(
-        page,
-        initialTransform.zoom * 1.2,
-      );
+    const expectedZoomInTransform = await getCanaryExpectedToolbarZoomTransform(
+      page,
+      initialTransform.zoom * 1.2,
+    );
     expect(expectedZoomInTransform).not.toBeNull();
     if (!expectedZoomInTransform) {
       throw new Error("Missing expected canary zoom-in transform.");
@@ -582,12 +581,11 @@ test("settings graph substrate canary drags one section and persists the top-lev
   }
 });
 
-test("settings graph substrate canary pans and zooms one section on the custom surface", async ({
+test("settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface", async ({
   page,
 }) => {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector(READY_SELECTOR);
 
   const allTab = page.getByRole("button", {
     name: "All Settings",
@@ -648,8 +646,16 @@ test("settings graph substrate canary pans and zooms one section on the custom s
     .toBeGreaterThan(80);
 
   const movedFirstBox = await firstSection.boundingBox();
+  const movedSecondBox = await secondSection.boundingBox();
   if (!movedFirstBox) {
     throw new Error("Missing moved canary section bounds.");
+  }
+  if (!movedSecondBox) {
+    throw new Error("Missing moved canary section bounds.");
+  }
+  const viewportAfterDrag = await getCanaryViewportTransform(page);
+  if (!viewportAfterDrag) {
+    throw new Error("Missing dragged canary viewport.");
   }
 
   const zoomStart = await findCanaryPanePoint(page);
@@ -657,20 +663,38 @@ test("settings graph substrate canary pans and zooms one section on the custom s
   await page.mouse.wheel(0, -240);
 
   await expect
-    .poll(() => getCanaryViewportScale(page))
-    .toBeGreaterThan(initialScale * 1.15);
+    .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+    .toBeCloseTo(initialScale, 2);
   await expect
     .poll(async () => {
-      const zoomedBox = await firstSection.boundingBox();
-      return zoomedBox?.width ?? 0;
+      const scrolledBox = await firstSection.boundingBox();
+      if (!scrolledBox) {
+        return 0;
+      }
+      return Math.hypot(
+        scrolledBox.x - movedFirstBox.x,
+        scrolledBox.y - movedFirstBox.y,
+      );
     })
-    .toBeGreaterThan(initialFirstBox.width * 1.05);
+    .toBeGreaterThan(150);
   await expect
     .poll(async () => {
-      const zoomedBox = await secondSection.boundingBox();
-      return zoomedBox?.width ?? 0;
+      const scrolledBox = await secondSection.boundingBox();
+      if (!scrolledBox) {
+        return 0;
+      }
+      return Math.hypot(
+        scrolledBox.x - movedSecondBox.x,
+        scrolledBox.y - movedSecondBox.y,
+      );
     })
-    .toBeGreaterThan(initialSecondBox.width * 1.05);
+    .toBeGreaterThan(150);
+  await expect
+    .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+    .toBeCloseTo(viewportAfterDrag.x, 0);
+  await expect
+    .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+    .toBeCloseTo(viewportAfterDrag.y + 240, 0);
 });
 
 test("settings graph substrate canary keeps title editing working after pan and zoom", async ({

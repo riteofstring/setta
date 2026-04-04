@@ -1,10 +1,12 @@
-import type { Position } from "utils/generatedTypes";
+import { PanOnScrollModeEnum, type Position } from "utils/generatedTypes";
 import {
   centerViewportOnWorldPoint,
   fitViewportToWorldRect,
   type GraphRect,
   type GraphViewport,
   type GraphViewportSize,
+  translateViewport,
+  zoomViewportAroundScreenPoint,
 } from "./viewportTransform";
 
 const INITIAL_SCREEN_PADDING_PX = 48;
@@ -14,6 +16,31 @@ export type SettingsGraphSubstrateCanaryViewportOwnership =
   | "auto-fit"
   | "local"
   | "shared";
+
+export type SettingsGraphSubstrateCanaryWheelEvent = {
+  ctrlKey: boolean;
+  deltaMode: number;
+  deltaX: number;
+  deltaY: number;
+  shiftKey: boolean;
+};
+
+export type SettingsGraphSubstrateCanaryWheelBehavior = {
+  isMacOs: boolean;
+  maxZoom: number;
+  minZoom: number;
+  panOnScroll: boolean;
+  panOnScrollMode: PanOnScrollModeEnum;
+  panOnScrollSpeed: number;
+  zoomActivationKeyPressed: boolean;
+  zoomOnPinch: boolean;
+  zoomOnScroll: boolean;
+};
+
+export type SettingsGraphSubstrateCanaryWheelOutcome =
+  | { kind: "pan-scroll"; nextViewport: GraphViewport }
+  | { kind: "zoom"; nextViewport: GraphViewport }
+  | null;
 
 export function resolveSettingsGraphSubstrateCanaryFallbackViewport(
   defaultZoomLevel: number,
@@ -139,4 +166,112 @@ export function resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
     x: viewportSize.width / 2,
     y: viewportSize.height / 2,
   };
+}
+
+export function resolveSettingsGraphSubstrateCanaryWheelOutcome(
+  viewport: GraphViewport,
+  anchorScreenPoint: Position,
+  wheelEvent: SettingsGraphSubstrateCanaryWheelEvent,
+  behavior: SettingsGraphSubstrateCanaryWheelBehavior,
+): SettingsGraphSubstrateCanaryWheelOutcome {
+  const isPinchZoom =
+    wheelEvent.ctrlKey && behavior.zoomOnPinch && behavior.isMacOs;
+
+  if (
+    behavior.panOnScroll &&
+    !behavior.zoomActivationKeyPressed &&
+    !isPinchZoom
+  ) {
+    const nextViewport = resolvePanScrollViewport(
+      viewport,
+      wheelEvent,
+      behavior,
+    );
+    if (!nextViewport) {
+      return null;
+    }
+    return {
+      kind: "pan-scroll",
+      nextViewport,
+    };
+  }
+
+  if (
+    !behavior.zoomActivationKeyPressed &&
+    !behavior.zoomOnScroll &&
+    !isPinchZoom
+  ) {
+    return null;
+  }
+
+  const wheelFactor = wheelEvent.ctrlKey && behavior.isMacOs ? 10 : 1;
+  const nextZoom = Math.min(
+    behavior.maxZoom,
+    Math.max(
+      behavior.minZoom,
+      viewport.zoom *
+        Math.pow(
+          2,
+          -wheelEvent.deltaY *
+            resolveWheelDeltaModeFactor(wheelEvent.deltaMode) *
+            wheelFactor,
+        ),
+    ),
+  );
+  if (nextZoom === viewport.zoom) {
+    return null;
+  }
+
+  return {
+    kind: "zoom",
+    nextViewport: zoomViewportAroundScreenPoint(
+      viewport,
+      anchorScreenPoint,
+      nextZoom,
+    ),
+  };
+}
+
+function resolvePanScrollViewport(
+  viewport: GraphViewport,
+  wheelEvent: SettingsGraphSubstrateCanaryWheelEvent,
+  behavior: SettingsGraphSubstrateCanaryWheelBehavior,
+): GraphViewport | null {
+  const deltaNormalize = wheelEvent.deltaMode === 1 ? 20 : 1;
+  let deltaX =
+    behavior.panOnScrollMode === PanOnScrollModeEnum.vertical
+      ? 0
+      : wheelEvent.deltaX * deltaNormalize;
+  let deltaY =
+    behavior.panOnScrollMode === PanOnScrollModeEnum.horizontal
+      ? 0
+      : wheelEvent.deltaY * deltaNormalize;
+
+  if (
+    !behavior.isMacOs &&
+    wheelEvent.shiftKey &&
+    behavior.panOnScrollMode !== PanOnScrollModeEnum.vertical
+  ) {
+    deltaX = wheelEvent.deltaY * deltaNormalize;
+    deltaY = 0;
+  }
+
+  if (deltaX === 0 && deltaY === 0) {
+    return null;
+  }
+
+  return translateViewport(viewport, {
+    x: -deltaX * behavior.panOnScrollSpeed,
+    y: -deltaY * behavior.panOnScrollSpeed,
+  });
+}
+
+function resolveWheelDeltaModeFactor(deltaMode: number): number {
+  if (deltaMode === 1) {
+    return 0.05;
+  }
+  if (deltaMode === 0) {
+    return 0.002;
+  }
+  return 1;
 }
