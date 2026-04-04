@@ -1,5 +1,6 @@
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import Background from "forks/xyflow/background/Background";
+import { screenToFlowPosition } from "forks/xyflow/core/hooks/useViewportHelper";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { CustomViewportController } from "forks/xyflow/core/types";
 import _ from "lodash";
@@ -9,10 +10,12 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type WheelEvent as ReactWheelEvent,
   type RefObject,
 } from "react";
+import { applyActiveSectionChange } from "state/actions/activeSectionController";
 import { addNodes, moveNodes } from "state/actions/nodeInternals";
 import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos";
 import {
@@ -808,6 +811,25 @@ export function SettingsGraphSubstrateCanary() {
     event.stopPropagation();
   }
 
+  function handlePaneClick(event: ReactMouseEvent<HTMLDivElement>) {
+    if (!rootRef.current || event.target !== rootRef.current) {
+      return;
+    }
+    if (useMisc.getState().mouseDownDrawArea) {
+      useMisc.setState({ mouseDownDrawArea: false });
+      return;
+    }
+
+    applyActiveSectionChange({ interaction: "pane-click" });
+    useMisc.setState({
+      lastPaneClickLocation: screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      }),
+    });
+    useReactFlow.setState({ nodesSelectionDims: null });
+  }
+
   return (
     <div
       ref={rootRef}
@@ -818,6 +840,7 @@ export function SettingsGraphSubstrateCanary() {
       className="react-flow setta-light dark:setta-dark"
       data-tab-scope="canvas"
       data-testid="graph-substrate-canary"
+      onClick={handlePaneClick}
       onPointerDown={handlePanePointerDown}
       onPointerMove={handlePanePointerMove}
       onPointerUp={finishPanePan}

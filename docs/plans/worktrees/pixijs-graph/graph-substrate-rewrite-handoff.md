@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 13:10 EDT
+Last updated: 2026-04-03 13:28 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,26 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `040` closed the normalized `All Settings` selection-state drift lane with a small production fix instead of another oracle-only pass.
+  - Root cause:
+    - a fresh-context CDP compare on normalized `All Settings -> fit view -> short pan` still showed a worktree-only blue-selected card on the graph surface
+    - repo inspection showed the live worktree and read-only `main` store different durable `projectConfig.activeIds` (`spreadsheetSectionDefault` on the worktree, `genPythonCodeSectionDefault` on `main`), so part of that delta was persisted oracle state rather than a renderer defect
+    - the remaining product gap was that `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` did not implement the legacy blank-pane deselect contract from `Pane.tsx`, so the canary path had no way to clear active section chrome on a true blank-surface click
+  - Production change:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now mirrors legacy blank-pane click behavior on the canary root
+    - a true blank-surface click now clears active section ids through `applyActiveSectionChange({ interaction: "pane-click" })`, records `lastPaneClickLocation` via `screenToFlowPosition(...)`, and clears `nodesSelectionDims`
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary blank pane click clears the active section durably`
+    - the case normalizes `All Settings`, seeds one visible canary section as active, clicks a real blank point on the canary surface, and asserts both live active chrome and durable backend `activeIds` clear
+  - Verification:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary blank pane click clears the active section durably'`
+      - result: passed (`1 passed`, about `19.5s`)
+      - note: the first attempt used a stale copied token and failed in Playwright global setup with `401`; the rerun with the refreshed `setta status --connect-info --latest --json` token passed
+    - fresh-context CDP sub-agent reran the checked lane after the patch
+      - result: no canary-only selected-card drift remained; after a blank-surface click and short shared pan pulse, `.react-flow__node.selected` count was `0` on both worktree and `main`
+  - conclusion for this slice:
+    - the blank-pane deselect / selected-card drift lane is closed for the checked normalized `All Settings` path
+    - when selection chrome is not the target of a compare, treat differing stored `activeIds` as oracle state and normalize them away with one shared blank-surface click before judging renderer drift
 - Ralph item `039` closed the deeper post-motion DOM body-editor lane with one targeted canary regression instead of another production patch.
   - Process:
     - the first fresh-context CDP sub-agent could not answer the lane because the old worktree `/settings` tab was on `Unable to load app` / `Failed to check server mode (network error)`, so the blocker was local lifecycle state rather than a renderer defect
@@ -631,12 +651,13 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- The next bounded slice should leave the canvas-focus shortcut lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
+- The next bounded slice should leave the canvas-focus shortcut lane and the blank-pane deselect lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
 - Use the same graph-surface-only normalization on worktree and read-only `main`:
   - close or minimize non-target pane/chat chrome
   - normalize to active `All Settings`
   - clear viewport to `null`
   - trigger one shared `fit view`
+  - if selection chrome is visible and not the target of the compare, clear it on both sides with one shared blank-surface click before judging the graph surface
 - Prefer one short shared dynamic action on the normalized graph surface, such as:
   - a small drag-pan pulse
   - one short top-level section drag
@@ -674,10 +695,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
+  - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
-  - focus the next compare on one shared dynamic action across worktree and `main`, preferably a short pan/zoom or drag path, and isolate the first visible canary-only artifact:
+  - focus the next compare on one shared dynamic action across worktree and `main`, preferably one zoom step, and isolate the first visible canary-only artifact:
     - text/chrome snap or blur during zoom
-    - interaction-state drift during pan/drag
+    - any remaining interaction-state drift during pan/drag after the blank-surface selection normalization
     - any dynamic body/chrome detachment that only appears once the camera moves
   - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
 - Lifecycle/bootstrap debugging is no longer the default frontier:
@@ -705,6 +727,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `036`
-- Latest item: `2026-04-03 036`
+- Active history window: items `001` through `040`
+- Latest item: `2026-04-03 040`
 - Older history archives: none yet

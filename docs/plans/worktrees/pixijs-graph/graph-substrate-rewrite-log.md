@@ -1333,3 +1333,39 @@ LOOP_TERMINAL_MARKER: none
   - probe a deeper DOM body-editor handoff on a shared named `All Settings` section, or move to the next distinct interaction lane that still lacks normalized worktree-vs-`main` evidence
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 040
+
+- Item: Restore legacy blank-pane deselect on the `All Settings` canary and close the selected-card drift lane.
+- Status: `done`
+- Details:
+  - A fresh-context CDP compare on normalized `All Settings -> fit view -> short pan` still showed a worktree-only blue-selected card on the graph surface.
+  - Repo inspection showed the worktree and read-only `main` already persist different durable `projectConfig.activeIds`:
+    - worktree: `spreadsheetSectionDefault`
+    - `main`: `genPythonCodeSectionDefault`
+  - That means the selected-card delta was partly oracle state, but the canary still had a real behavior gap:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` did not implement the legacy blank-pane deselect contract from `Pane.tsx`
+    - on the canary path, a true blank-surface click could not clear active section chrome, so active selection could linger even after the compare normalized the rest of the graph surface
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now mirrors legacy blank-pane click handling:
+    - blank-surface clicks clear active ids through `applyActiveSectionChange({ interaction: "pane-click" })`
+    - the canary also records `lastPaneClickLocation` through `screenToFlowPosition(...)`
+    - `nodesSelectionDims` are cleared on the same path, matching legacy pane behavior
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary blank pane click clears the active section durably`.
+  - That focused case normalizes `All Settings`, seeds a visible canary section as active, clicks a real blank point on the canary surface, and asserts both visible active chrome and durable backend `activeIds` clear.
+- Verification:
+  - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary blank pane click clears the active section durably'`
+    - result: passed (`1 passed`, about `19.5s`)
+    - note: the first attempt used a stale copied token and failed in Playwright global setup with `401`; the rerun with the refreshed `setta status --connect-info --latest --json` token passed
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to active `All Settings`
+      - after a blank-surface click and short shared pan pulse, `.react-flow__node.selected` count was `0` on both sides
+      - no canary-only blue-selected card remained on the checked graph surface
+- Conclusion:
+  - the blank-pane deselect / selected-card drift lane is closed for the checked normalized `All Settings` path
+  - when selection chrome is not the target of a compare, differing stored `activeIds` should be treated as oracle state and normalized away with one shared blank-surface click before judging renderer drift
+- Next action:
+  - run the next normalized dynamic compare on `All Settings` with selection cleared on both sides and isolate the first remaining zoom-time blur/snap or other true graph-surface motion artifact
+
+LOOP_TERMINAL_MARKER: none

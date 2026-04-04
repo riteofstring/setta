@@ -829,6 +829,106 @@ test("settings graph substrate canary matches legacy plain-wheel pan behavior on
     .toBeCloseTo(viewportAfterDrag.y + 240, 0);
 });
 
+test("settings graph substrate canary blank pane click clears the active section durably", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const initialActiveIds = [
+    ...initialState.projectState.projectConfig.activeIds,
+  ];
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canarySections = page.getByTestId("graph-substrate-canary-section");
+    await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+    const targetSection = canarySections.first();
+    const sectionId = await targetSection.getAttribute("data-section-id");
+    if (!sectionId) {
+      throw new Error(
+        "Missing canary section id for blank-pane deselect test.",
+      );
+    }
+
+    await setDurableActiveSectionIds(page, [sectionId]);
+    await expect
+      .poll(async () => isCanarySectionActive(page, sectionId))
+      .toBe(true);
+    await expect
+      .poll(async () => {
+        return (await getLatestProjectState(page, projectConfigId)).projectState
+          .projectConfig.activeIds;
+      })
+      .toEqual([sectionId]);
+
+    const blankPanePoint = await findCanaryPanePoint(page);
+    await page.mouse.click(blankPanePoint.x, blankPanePoint.y);
+
+    await expect
+      .poll(async () => isCanarySectionActive(page, sectionId))
+      .toBe(false);
+    await expect
+      .poll(async () => {
+        return (await getLatestProjectState(page, projectConfigId)).projectState
+          .projectConfig.activeIds;
+      })
+      .toEqual([]);
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    await setDurableActiveSectionIds(page, initialActiveIds);
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary keeps title editing working after pan and zoom", async ({
   page,
 }) => {
@@ -1627,10 +1727,38 @@ async function getFocusedCanvasSectionId(page: Page): Promise<string | null> {
   });
 }
 
+async function setDurableActiveSectionIds(
+  page: Page,
+  activeIds: string[],
+): Promise<void> {
+  await page.evaluate(async (ids) => {
+    const { setActiveSectionIds } = await import(
+      "/src/state/actions/activeSections.ts"
+    );
+    setActiveSectionIds(ids, { syncMode: "immediate" });
+  }, activeIds);
+}
+
+async function isCanarySectionActive(
+  page: Page,
+  sectionId: string,
+): Promise<boolean> {
+  return page.evaluate((id) => {
+    const section = document.querySelector<HTMLElement>(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${id}"] section`,
+    );
+    if (!section) {
+      return false;
+    }
+    return section.getAttribute("data-section-active") === "true";
+  }, sectionId);
+}
+
 type ProjectStateSingleConfigWithCompletedOpIds = {
   projectState: {
     parentSectionMap: Record<string, string | null | undefined>;
     projectConfig: {
+      activeIds: Array<string>;
       activeViewModeId: string | null;
       topLevelSections: Record<string, { x: number; y: number }>;
       viewModes: Record<
