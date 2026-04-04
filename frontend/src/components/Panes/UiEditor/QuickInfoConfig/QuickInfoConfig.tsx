@@ -4,7 +4,7 @@ import _ from "lodash";
 import React from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
-  getCurrEffectiveCodeObjImplIfPresent,
+  getCurrEffectiveCodeObjImpl,
   getCurrProjectConfigId,
   setCurrEffectiveCodeObjImplValue,
 } from "state/actions/sectionInfos";
@@ -115,30 +115,18 @@ function _UIElement({
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams, canEditStructure } = useShareCapabilities();
   const { id, name } = paramInfo;
-  const { description, displayName, trueName, isKwarg, codeObjType, present } =
+  const { description, displayName, trueName, isKwarg, codeObjType } =
     useProjectState((x) => {
       const codeObj = x.codeObjs[id];
-      const impl = getCurrEffectiveCodeObjImplIfPresent(x, sectionId, id);
-      if (!codeObj || !impl) {
-        return {
-          description: "",
-          displayName: "",
-          trueName: name,
-          isKwarg: false,
-          codeObjType: null,
-          present: false,
-        };
-      }
+      const impl = getCurrEffectiveCodeObjImpl(x, sectionId, id);
       return {
         description: impl.description,
         displayName: codeObj.displayName,
         trueName: codeObj.name,
         isKwarg: isBaseParamCodeObjImpl(impl) && impl.coreNameEditable,
         codeObjType: impl.type,
-        present: true,
       };
     }, _.isEqual);
-  const hasParamDetails = present && codeObjType !== null;
   const isCodeParam = codeObjType === CodeObjTypeEnum.CodeParam;
   const canEditDescription =
     canEditStructure && canEditParams && (!isDeploymentMode || !isCodeParam);
@@ -153,7 +141,6 @@ function _UIElement({
         codeObj.displayName = pendingValue;
       });
     },
-    id,
   );
   const [localDescription, setLocalDescription] = useLocalValue(description);
   const debouncedSetParamDisplayName = React.useMemo(
@@ -235,10 +222,6 @@ function _UIElement({
   let displayNameValue = localDisplayName;
   if (displayNameValue.trim().length === 0) {
     displayNameValue = "";
-  }
-
-  if (!hasParamDetails) {
-    return null;
   }
 
   return (
