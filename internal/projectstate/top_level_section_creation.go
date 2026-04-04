@@ -715,6 +715,7 @@ func createdBaseParentSectionDefaults(implType string) map[string]any {
 func createdBaseCodeSectionLikeDefaults(implType string) map[string]any {
 	defaults := createdBaseParentSectionDefaults(implType)
 	defaults["code"] = ""
+	defaults["codeFileBinding"] = nil
 	defaults["attachedTerminalSectionId"] = nil
 	return defaults
 }
@@ -809,6 +810,13 @@ func createdChartSectionDefaults() map[string]any {
 	defaults := createdBaseSectionDefaults("Chart")
 	defaults["dataPath"] = ""
 	defaults["chartSettings"] = chartSettingsObject(defaultChartSettingsState(ChartTypeLine))
+	return defaults
+}
+
+func createdFrontendChartSectionDefaults() map[string]any {
+	defaults := createdBaseSectionDefaults("Chart")
+	defaults["dataPath"] = ""
+	defaults["chartSettings"] = frontendChartSettingsObject(defaultChartSettingsState(ChartTypeLine))
 	return defaults
 }
 
@@ -981,6 +989,47 @@ func createdSpreadsheetSectionDefaults() map[string]any {
 	defaults["density"] = string(SpreadsheetGridDensityCompact)
 	defaults["autoReloadOnExternalChange"] = false
 	return defaults
+}
+
+// FrontendUserDefaultSectionDefaults exposes the Go-owned default payload used
+// when generating frontend user-default section factories.
+func FrontendUserDefaultSectionDefaults(implType string) (map[string]any, error) {
+	switch strings.TrimSpace(implType) {
+	case "Browser":
+		return createdBrowserSectionDefaults(), nil
+	case "Callable":
+		return createdCallableSectionDefaults(), nil
+	case "Chart":
+		return createdFrontendChartSectionDefaults(), nil
+	case "Chat":
+		return createdChatSectionDefaults(), nil
+	case "Code":
+		return createdCodeSectionDefaults(), nil
+	case "Dict":
+		return createdDictSectionDefaults(), nil
+	case "Group":
+		return createdGroupSectionDefaults(), nil
+	case "ListRoot":
+		return createdListRootSectionDefaults(), nil
+	case "Prompt":
+		return createdPromptSectionDefaults(), nil
+	case "Spreadsheet":
+		return createdSpreadsheetSectionDefaults(), nil
+	case "StateMachineEnd":
+		return createdStateMachineEndSectionDefaults(""), nil
+	case "StateMachineGate":
+		return createdStateMachineGateSectionDefaults(""), nil
+	case "StateMachineStart":
+		return createdStateMachineStartSectionDefaults(""), nil
+	case "TaskBoard":
+		return createdTaskBoardSectionDefaults(), nil
+	case "Terminal":
+		return createdTerminalSectionDefaults(), nil
+	case "TextBlock":
+		return createdTextBlockSectionDefaults(), nil
+	default:
+		return nil, fmt.Errorf("%w: %q", ErrTopLevelSectionImplTypeUnsupported, implType)
+	}
 }
 
 func newMetaControlParam(controlType string) (CodeObject, CodeObjectVariant, CodeObjectImpl, error) {

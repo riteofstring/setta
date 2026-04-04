@@ -1023,6 +1023,55 @@ func TestProjectCreateTopLevelSectionRejectsUnsupportedImplType(t *testing.T) {
 	}
 }
 
+func TestFrontendUserDefaultSectionDefaultsExposeGoOwnedCodeSectionDefaults(t *testing.T) {
+	t.Parallel()
+
+	defaults, err := FrontendUserDefaultSectionDefaults("Code")
+	if err != nil {
+		t.Fatalf("FrontendUserDefaultSectionDefaults(Code) error = %v", err)
+	}
+	if got := defaults["code"]; got != "" {
+		t.Fatalf("expected empty code default, got %#v", got)
+	}
+	if got, ok := defaults["codeFileBinding"]; !ok || got != nil {
+		t.Fatalf("expected nil codeFileBinding default, got present=%t value=%#v", ok, got)
+	}
+	if got := defaults["codeLanguage"]; got != "python" {
+		t.Fatalf("expected python code language default, got %#v", got)
+	}
+
+	_, err = FrontendUserDefaultSectionDefaults("UnsupportedSection")
+	if !errors.Is(err, ErrTopLevelSectionImplTypeUnsupported) {
+		t.Fatalf("expected unsupported impl type error, got %v", err)
+	}
+}
+
+func TestFrontendUserDefaultSectionDefaultsProjectChartUnionDefaults(t *testing.T) {
+	t.Parallel()
+
+	defaults, err := FrontendUserDefaultSectionDefaults("Chart")
+	if err != nil {
+		t.Fatalf("FrontendUserDefaultSectionDefaults(Chart) error = %v", err)
+	}
+	chartSettings, ok := defaults["chartSettings"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected chartSettings object, got %#v", defaults["chartSettings"])
+	}
+	if got := chartSettings["type"]; got != string(ChartTypeLine) {
+		t.Fatalf("expected chart type %q, got %#v", ChartTypeLine, got)
+	}
+	if _, exists := chartSettings["categoryColumn"]; exists {
+		t.Fatalf("did not expect scatter-only categoryColumn in frontend defaults, got %#v", chartSettings["categoryColumn"])
+	}
+	values, ok := chartSettings["secondYAxisColumns"].([]any)
+	if !ok {
+		t.Fatalf("expected secondYAxisColumns array, got %#v", chartSettings["secondYAxisColumns"])
+	}
+	if len(values) != 0 {
+		t.Fatalf("expected empty secondYAxisColumns array, got %#v", values)
+	}
+}
+
 func TestProjectCreateTopLevelSectionAcceptsPluginCodeLanguage(t *testing.T) {
 	t.Parallel()
 

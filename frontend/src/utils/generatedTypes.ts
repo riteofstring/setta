@@ -93,79 +93,6 @@ function resolveGeneratedFactoryInputs<
   };
 }
 
-function createGeneratedBaseSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-} {
-  return {
-    isFrozen: false,
-    tagColor: null,
-    styleColor: null,
-    size: {
-      width: 250,
-      height: 150,
-    },
-    aspectRatio: false,
-    isMinimized: false,
-    positionAndSizeLocked: false,
-  };
-}
-
-function createGeneratedBaseSectionWithParamsDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    hideUnpinnedParams: false,
-    paramFilter: "",
-    columnWidth: null,
-    configLanguage: ConfigLanguageEnum.python,
-    edgeInputParams: [],
-    edgeOutputPorts: [],
-  };
-}
-
-function createGeneratedBaseCodeSectionDefaults(): {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  code: string;
-  codeFileBinding: CodeFileBinding | null;
-  attachedTerminalSectionId: string | null;
-} {
-  return {
-    ...createGeneratedBaseSectionDefaults(),
-    code: "",
-    size: {
-      width: 500,
-      height: 150,
-    },
-    codeFileBinding: null,
-    attachedTerminalSectionId: null,
-  };
-}
-
 export const SettaNotificationTypeEnum = {
   error: "error",
   warning: "warning",
@@ -6243,17 +6170,25 @@ export function createUserDefaultChatSectionImpl(
 ): UserDefaultChatSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
-      size: { width: 400, height: 200 },
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 200,
+        width: 400,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       managed: false,
       engineConfigId: null,
       transcriptionProfileId: null,
       agentProfileId: null,
       chatId: null,
       thinking: true,
-      permissionMode: ChatPermissionModeEnum.minimal,
+      permissionMode: "minimal",
       searchEnabled: true,
-      dictationMode: ChatDictationModeEnum.auto,
+      dictationMode: "auto",
       messages: [],
       inputText: "",
       waitingForResponse: false,
@@ -6414,9 +6349,18 @@ export function createUserDefaultListRootSectionImpl(
 ): UserDefaultListRootSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
-      defaultChildSectionType: SectionTypeEnum.Callable,
-      viewMode: ListRootViewModeEnum.default,
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      defaultChildSectionType: "Callable",
+      viewMode: "default",
     },
     options,
   );
@@ -6480,10 +6424,19 @@ export function createUserDefaultGroupSectionImpl(
 ): UserDefaultGroupSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       isHorizontalOrientation: false,
       overflowMode: false,
-      defaultChildSectionType: SectionTypeEnum.Callable,
+      defaultChildSectionType: "Callable",
     },
     options,
   );
@@ -6549,11 +6502,16 @@ function createUserDefaultStateMachineStartSectionImpl(
 ): UserDefaultStateMachineStartSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
       size: {
-        width: 240,
         height: 96,
+        width: 240,
       },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       machineGroupId: "",
       label: "Start",
       maxIterations: null,
@@ -6641,16 +6599,21 @@ export function createUserDefaultTextBlockSectionImpl(
 ): UserDefaultTextBlockSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
       size: {
-        width: 500,
         height: 150,
+        width: 500,
       },
-      format: TextBlockFormatEnum.Plaintext,
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      format: "Plaintext",
       masterFontSizePx: 14,
       headingAsSectionName: false,
       metaControlStyle: false,
-      textDisplayMode: TextBlockDisplayModeEnum.Render,
+      textDisplayMode: "Render",
       text: "",
     },
     options,
@@ -6724,13 +6687,18 @@ export function createUserDefaultPromptSectionImpl(
 ): UserDefaultPromptSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
       size: {
-        width: 300,
         height: 150,
+        width: 300,
       },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       template: "",
-      format: PromptFormatEnum.Jinja,
+      format: "Jinja",
       inputs: {},
       renderedText: "",
       missingVariables: [],
@@ -6813,8 +6781,20 @@ export function createUserDefaultCodeSectionImpl(
 ): UserDefaultCodeSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseCodeSectionDefaults(),
-      codeLanguage: CodeLanguageEnum.python,
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 500,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      code: "",
+      codeFileBinding: null,
+      attachedTerminalSectionId: null,
+      codeLanguage: "python",
       diagnosticsIgnoreState: {
         muted: false,
         suppressedCodes: [],
@@ -6887,7 +6867,16 @@ function createUserDefaultTerminalSectionImpl(
 ): UserDefaultTerminalSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
     },
     options,
   );
@@ -7098,7 +7087,22 @@ export function createUserDefaultCallableSectionImpl(
 ): UserDefaultCallableSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: "python",
+      edgeInputParams: [],
+      edgeOutputPorts: [],
       hideParams: false,
     },
     options,
@@ -7127,7 +7131,22 @@ export function createUserDefaultDictSectionImpl(
 ): UserDefaultDictSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 150,
+        width: 250,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      hideUnpinnedParams: false,
+      paramFilter: "",
+      columnWidth: null,
+      configLanguage: "python",
+      edgeInputParams: [],
+      edgeOutputPorts: [],
       isJsonSource: false,
       jsonSourceKeys: [],
     },
@@ -7467,9 +7486,17 @@ export function createUserDefaultTaskBoardSectionImpl(
 ): UserDefaultTaskBoardSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
-      size: { width: 720, height: 430 },
-      viewMode: TaskBoardViewModeEnum.kanban,
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 430,
+        width: 720,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
+      viewMode: "kanban",
       columns: null,
       tasks: [],
     },
@@ -7547,10 +7574,24 @@ export function createUserDefaultChartSectionImpl(
 ): UserDefaultChartSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
-      size: { width: 300, height: 300 },
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 300,
+        width: 300,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       dataPath: "",
-      chartSettings: createLineChartSettings(),
+      chartSettings: {
+        secondYAxisColumns: [],
+        type: "line",
+        xAxisLog: false,
+        y1AxisLog: false,
+        y2AxisLog: false,
+      },
     },
     options,
   );
@@ -7615,13 +7656,21 @@ export function createUserDefaultSpreadsheetSectionImpl(
 ): UserDefaultSpreadsheetSectionImpl {
   return mergeGeneratedOptions(
     {
-      ...createGeneratedBaseSectionDefaults(),
-      size: { width: 760, height: 500 },
+      isFrozen: false,
+      tagColor: null,
+      styleColor: null,
+      size: {
+        height: 500,
+        width: 760,
+      },
+      aspectRatio: false,
+      isMinimized: false,
+      positionAndSizeLocked: false,
       filePath: "",
       activeSheet: null,
       readOnly: false,
       showRowNumbers: true,
-      density: SpreadsheetGridDensityEnum.compact,
+      density: "compact",
       autoReloadOnExternalChange: false,
     },
     options,

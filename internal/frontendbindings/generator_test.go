@@ -753,17 +753,82 @@ func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	if !strings.Contains(bindings.TypesTS, "function resolveGeneratedFactoryInputs<") {
 		t.Fatalf("types output missing shared factory-resolution helper:\n%s", bindings.TypesTS)
 	}
-	if !strings.Contains(bindings.TypesTS, "function createGeneratedBaseSectionDefaults(): {") {
-		t.Fatalf("types output missing shared project-state base defaults helper:\n%s", bindings.TypesTS)
-	}
 	if !strings.Contains(bindings.TypesTS, "export function createDefaultAppPolicy(") {
 		t.Fatalf("types output missing generated app policy defaults helper:\n%s", bindings.TypesTS)
 	}
 	if !strings.Contains(bindings.TypesTS, "export type ImplArgsBundleMap = {") {
 		t.Fatalf("types output missing project-state impl args alias:\n%s", bindings.TypesTS)
 	}
+	if strings.Contains(bindings.TypesTS, "function createGeneratedBaseSectionDefaults(): {") {
+		t.Fatalf("types output still emits handwritten project-state base defaults helper:\n%s", bindings.TypesTS)
+	}
 	if strings.Contains(bindings.TypesTS, "type ImplArgsBundleWithUpdaters<") {
 		t.Fatalf("types output still emits raw impl args helper alias:\n%s", bindings.TypesTS)
+	}
+}
+
+func TestUserDefaultSectionCreateExprsUseGoOwnedSectionDefaults(t *testing.T) {
+	t.Helper()
+
+	lookup := func(root reflect.Type, name string) TypeDeclaration {
+		t.Helper()
+
+		converter := newTypeConverter()
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+		return mustFindDeclarationByName(t, converter.Declarations(), name)
+	}
+
+	callable := lookup(reflect.TypeOf(UserDefaultCallableSectionImpl{}), "UserDefaultCallableSectionImpl")
+	if !strings.Contains(callable.CreateExpr, `configLanguage: "python",`) {
+		t.Fatalf("callable create expr missing Go-backed config language default:\n%s", callable.CreateExpr)
+	}
+	if strings.Contains(callable.CreateExpr, "createGeneratedBaseSectionWithParamsDefaults()") {
+		t.Fatalf("callable create expr still depends on handwritten base helper:\n%s", callable.CreateExpr)
+	}
+
+	prompt := lookup(reflect.TypeOf(UserDefaultPromptSectionImpl{}), "UserDefaultPromptSectionImpl")
+	if !strings.Contains(prompt.CreateExpr, `format: "Jinja",`) {
+		t.Fatalf("prompt create expr missing Go-backed format default:\n%s", prompt.CreateExpr)
+	}
+	if strings.Contains(prompt.CreateExpr, "PromptFormatEnum.") {
+		t.Fatalf("prompt create expr still embeds handwritten enum refs:\n%s", prompt.CreateExpr)
+	}
+
+	chat := lookup(reflect.TypeOf(UserDefaultChatSectionImpl{}), "UserDefaultChatSectionImpl")
+	for _, snippet := range []string{
+		`permissionMode: "minimal",`,
+		`dictationMode: "auto",`,
+		`toolCallArguments: {`,
+	} {
+		if !strings.Contains(chat.CreateExpr, snippet) {
+			t.Fatalf("chat create expr missing %q:\n%s", snippet, chat.CreateExpr)
+		}
+	}
+	if strings.Contains(chat.CreateExpr, "createGeneratedBaseSectionDefaults()") {
+		t.Fatalf("chat create expr still depends on handwritten base helper:\n%s", chat.CreateExpr)
+	}
+
+	chart := lookup(reflect.TypeOf(UserDefaultChartSectionImpl{}), "UserDefaultChartSectionImpl")
+	for _, snippet := range []string{
+		`chartSettings: {`,
+		`type: "line",`,
+	} {
+		if !strings.Contains(chart.CreateExpr, snippet) {
+			t.Fatalf("chart create expr missing %q:\n%s", snippet, chart.CreateExpr)
+		}
+	}
+	if strings.Contains(chart.CreateExpr, "createLineChartSettings()") {
+		t.Fatalf("chart create expr still calls handwritten chart helper:\n%s", chart.CreateExpr)
+	}
+
+	spreadsheet := lookup(reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}), "UserDefaultSpreadsheetSectionImpl")
+	if !strings.Contains(spreadsheet.CreateExpr, `density: "compact",`) {
+		t.Fatalf("spreadsheet create expr missing Go-backed density default:\n%s", spreadsheet.CreateExpr)
+	}
+	if strings.Contains(spreadsheet.CreateExpr, "SpreadsheetGridDensityEnum.") {
+		t.Fatalf("spreadsheet create expr still embeds handwritten enum refs:\n%s", spreadsheet.CreateExpr)
 	}
 }
 

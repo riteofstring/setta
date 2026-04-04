@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/projectstate"
 	"setta/internal/settingsstate"
 	"setta/internal/stringenumvalues"
 )
@@ -1003,6 +1004,54 @@ func buildResolvedGeneratedFactoryBodyTS(
 
 func buildDirectGeneratedFactoryBodyTS(fields []tsLiteralField, overridesExpr string) string {
 	return buildGeneratedFactoryReturnBodyTS(fields, overridesExpr, "")
+}
+
+func objectDeclarationWithGoBackedSectionDefaults(
+	name string,
+	implType string,
+	properties ...TypeProperty,
+) TypeDeclaration {
+	return objectDeclarationWithCreateExpr(
+		name,
+		buildGoBackedSectionDefaultsCreateExprTS(implType, properties),
+		properties...,
+	)
+}
+
+func buildGoBackedSectionDefaultsCreateExprTS(implType string, properties []TypeProperty) string {
+	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(implType)
+	if err != nil {
+		panic("load frontend user default section defaults: " + err.Error())
+	}
+	filteredDefaults := filterObjectByTypeProperties(
+		"frontend user default section defaults "+implType,
+		defaults,
+		properties,
+	)
+
+	var builder strings.Builder
+	builder.WriteString("mergeGeneratedOptions(\n")
+	writeTSObjectLiteral(&builder, "    ", filteredDefaults, orderedTypePropertyNames(properties))
+	builder.WriteString(",\n")
+	builder.WriteString("    options,\n")
+	builder.WriteString("  )")
+	return builder.String()
+}
+
+func filterObjectByTypeProperties(
+	context string,
+	object map[string]any,
+	properties []TypeProperty,
+) map[string]any {
+	filtered := make(map[string]any, len(properties))
+	for _, property := range properties {
+		value, ok := object[property.Name]
+		if !ok {
+			panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
+		}
+		filtered[property.Name] = value
+	}
+	return filtered
 }
 
 func defaultsOrOverridesTypeProperty(defaultType string, implType string) TypeProperty {
@@ -3462,15 +3511,9 @@ func newTypeConverter() *typeConverter {
   jsonSourceMissing: boolean;
 }`,
 			),
-			reflect.TypeOf(UserDefaultCallableSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultCallableSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultCallableSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
-      hideParams: false,
-    },
-    options,
-  )`,
+				"Callable",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -3486,16 +3529,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>"},
 				TypeProperty{Name: "hideParams", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(UserDefaultDictSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultDictSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultDictSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionWithParamsDefaults(),
-      isJsonSource: false,
-      jsonSourceKeys: [],
-    },
-    options,
-  )`,
+				"Dict",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -3833,16 +3869,9 @@ func newTypeConverter() *typeConverter {
   placeholder: string;
 }`,
 			),
-			reflect.TypeOf(UserDefaultListRootSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultListRootSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultListRootSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      defaultChildSectionType: SectionTypeEnum.Callable,
-      viewMode: ListRootViewModeEnum.default,
-    },
-    options,
-  )`,
+				"ListRoot",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -3862,17 +3891,9 @@ func newTypeConverter() *typeConverter {
   viewMode: ListRootViewMode;
 }`,
 			),
-			reflect.TypeOf(UserDefaultGroupSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultGroupSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultGroupSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      isHorizontalOrientation: false,
-      overflowMode: false,
-      defaultChildSectionType: SectionTypeEnum.Callable,
-    },
-    options,
-  )`,
+				"Group",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -3894,21 +3915,9 @@ func newTypeConverter() *typeConverter {
   defaultChildSectionType: SectionType;
 }`,
 			),
-			reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultStateMachineStartSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 240,
-        height: 96,
-      },
-      machineGroupId: "",
-      label: "Start",
-      maxIterations: null,
-    },
-    options,
-  )`,
+				"StateMachineStart",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -3929,22 +3938,9 @@ func newTypeConverter() *typeConverter {
   maxIterations?: number | null;
 }`,
 			),
-			reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultStateMachineGateSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 240,
-        height: 120,
-      },
-      machineGroupId: "",
-      gateType: StateMachineGateTypeEnum.AND,
-      label: "",
-      ui: createStateMachineGateUIState(),
-    },
-    options,
-  )`,
+				"StateMachineGate",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -3967,20 +3963,9 @@ func newTypeConverter() *typeConverter {
   ui: StateMachineGateUIState;
 }`,
 			),
-			reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultStateMachineEndSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 240,
-        height: 96,
-      },
-      machineGroupId: "",
-      label: "End",
-    },
-    options,
-  )`,
+				"StateMachineEnd",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -3999,24 +3984,9 @@ func newTypeConverter() *typeConverter {
   label: string;
 }`,
 			),
-			reflect.TypeOf(UserDefaultTextBlockSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultTextBlockSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultTextBlockSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 500,
-        height: 150,
-      },
-      format: TextBlockFormatEnum.Plaintext,
-      masterFontSizePx: 14,
-      headingAsSectionName: false,
-      metaControlStyle: false,
-      textDisplayMode: TextBlockDisplayModeEnum.Render,
-      text: "",
-    },
-    options,
-  )`,
+				"TextBlock",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4043,24 +4013,9 @@ func newTypeConverter() *typeConverter {
   text: string;
 }`,
 			),
-			reflect.TypeOf(UserDefaultPromptSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultPromptSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultPromptSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 300,
-        height: 150,
-      },
-      template: "",
-      format: PromptFormatEnum.Jinja,
-      inputs: {},
-      renderedText: "",
-      missingVariables: [],
-      renderError: null,
-    },
-    options,
-  )`,
+				"Prompt",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4093,19 +4048,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "muted", TypeExpr: "boolean"},
 				TypeProperty{Name: "suppressedCodes", TypeExpr: "Array<string | number>"},
 			),
-			reflect.TypeOf(UserDefaultCodeSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultCodeSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultCodeSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseCodeSectionDefaults(),
-      codeLanguage: CodeLanguageEnum.python,
-      diagnosticsIgnoreState: {
-        muted: false,
-        suppressedCodes: [],
-      },
-    },
-    options,
-  )`,
+				"Code",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4131,14 +4076,9 @@ func newTypeConverter() *typeConverter {
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 }`,
 			),
-			reflect.TypeOf(UserDefaultTerminalSectionImpl{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(UserDefaultTerminalSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultTerminalSectionImpl",
-				`mergeGeneratedOptions(
-    {
-      ...createGeneratedBaseSectionDefaults(),
-    },
-    options,
-  )`,
+				"Terminal",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4355,30 +4295,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "activeBranchId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>"},
 			),
-			reflect.TypeOf(UserDefaultChatSectionImpl{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(UserDefaultChatSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultChatSectionImpl",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectSpread("createGeneratedBaseSectionDefaults()"),
-						tsObjectField("size", "{ width: 400, height: 200 }"),
-						tsObjectField("managed", "false"),
-						tsObjectField("engineConfigId", "null"),
-						tsObjectField("transcriptionProfileId", "null"),
-						tsObjectField("agentProfileId", "null"),
-						tsObjectField("chatId", "null"),
-						tsObjectField("thinking", "true"),
-						tsObjectField("permissionMode", "ChatPermissionModeEnum.minimal"),
-						tsObjectField("searchEnabled", "true"),
-						tsObjectField("dictationMode", "ChatDictationModeEnum.auto"),
-						tsObjectField("messages", "[]"),
-						tsObjectField("inputText", tsStringLiteralExpr("")),
-						tsObjectField("waitingForResponse", "false"),
-						tsObjectField("toolCallArguments", "{}"),
-						tsObjectField("activeBranchId", "null"),
-						tsObjectField("branches", "{}"),
-					},
-					"options",
-				),
+				"Chat",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4457,21 +4376,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "color", TypeExpr: "string"},
 				TypeProperty{Name: "quickInfo", TypeExpr: "string"},
 			),
-			reflect.TypeOf(UserDefaultBrowserSectionImpl{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(UserDefaultBrowserSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultBrowserSectionImpl",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectSpread("createGeneratedBaseSectionDefaults()"),
-						tsObjectField("size", "{ width: 720, height: 460 }"),
-						tsObjectField("folder", tsStringLiteralExpr("")),
-						tsObjectField("hideColumn", "false"),
-						tsObjectField("columnWidth", "null"),
-						tsObjectField("typesColumnWidth", "null"),
-						tsObjectField("viewMode", "BrowserAreaViewModeEnum.list"),
-						tsObjectField("savedSearches", "[]"),
-					},
-					"options",
-				),
+				"Browser",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4544,18 +4451,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "recurrenceYears", TypeExpr: "Array<number>"},
 				TypeProperty{Name: "sortIndex", TypeExpr: "number"},
 			),
-			reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultTaskBoardSectionImpl",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectSpread("createGeneratedBaseSectionDefaults()"),
-						tsObjectField("size", "{ width: 720, height: 430 }"),
-						tsObjectField("viewMode", "TaskBoardViewModeEnum.kanban"),
-						tsObjectField("columns", "null"),
-						tsObjectField("tasks", "[]"),
-					},
-					"options",
-				),
+				"TaskBoard",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4618,17 +4516,9 @@ func newTypeConverter() *typeConverter {
 				"BaseChartSettingsUnion",
 				"LineChartSettings | ScatterChartSettings",
 			),
-			reflect.TypeOf(UserDefaultChartSectionImpl{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(UserDefaultChartSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultChartSectionImpl",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectSpread("createGeneratedBaseSectionDefaults()"),
-						tsObjectField("size", "{ width: 300, height: 300 }"),
-						tsObjectField("dataPath", tsStringLiteralExpr("")),
-						tsObjectField("chartSettings", "createLineChartSettings()"),
-					},
-					"options",
-				),
+				"Chart",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
@@ -4647,21 +4537,9 @@ func newTypeConverter() *typeConverter {
   chartSettings: BaseChartSettingsUnion;
 }`,
 			),
-			reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 				"UserDefaultSpreadsheetSectionImpl",
-				buildTSMergeGeneratedOptionsCreateBodyTS(
-					[]tsObjectEntry{
-						tsObjectSpread("createGeneratedBaseSectionDefaults()"),
-						tsObjectField("size", "{ width: 760, height: 500 }"),
-						tsObjectField("filePath", tsStringLiteralExpr("")),
-						tsObjectField("activeSheet", "null"),
-						tsObjectField("readOnly", "false"),
-						tsObjectField("showRowNumbers", "true"),
-						tsObjectField("density", "SpreadsheetGridDensityEnum.compact"),
-						tsObjectField("autoReloadOnExternalChange", "false"),
-					},
-					"options",
-				),
+				"Spreadsheet",
 				TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
 				TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
 				TypeProperty{Name: "styleColor", TypeExpr: "string | null"},

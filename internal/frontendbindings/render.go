@@ -558,13 +558,10 @@ func validateTypeDeclarations(declarations []TypeDeclaration) error {
 		"GeneratedFactoryResolution": "shared helper type alias",
 	}
 	valueSymbols := map[string]string{
-		"cloneGeneratedValue":                          "shared helper function",
-		"mergeGeneratedOptions":                        "shared helper function",
-		"isGeneratedImplOverrideCandidate":             "shared helper function",
-		"resolveGeneratedFactoryInputs":                "shared helper function",
-		"createGeneratedBaseSectionDefaults":           "shared helper function",
-		"createGeneratedBaseSectionWithParamsDefaults": "shared helper function",
-		"createGeneratedBaseCodeSectionDefaults":       "shared helper function",
+		"cloneGeneratedValue":              "shared helper function",
+		"mergeGeneratedOptions":            "shared helper function",
+		"isGeneratedImplOverrideCandidate": "shared helper function",
+		"resolveGeneratedFactoryInputs":    "shared helper function",
 	}
 	for index, declaration := range declarations {
 		if declaration.Name == "" {

@@ -128,6 +128,19 @@ func TestRuntimeChartMutationsUpdateEffectivePayload(t *testing.T) {
 	}
 }
 
+func TestChartSettingsObjectPreservesEmptyLineSeriesArray(t *testing.T) {
+	t.Parallel()
+
+	object := chartSettingsObject(defaultChartSettingsState(ChartTypeLine))
+	values, ok := object["secondYAxisColumns"].([]any)
+	if !ok {
+		t.Fatalf("expected secondYAxisColumns array, got %#v", object["secondYAxisColumns"])
+	}
+	if len(values) != 0 {
+		t.Fatalf("expected empty secondYAxisColumns array, got %#v", values)
+	}
+}
+
 func TestRuntimeChartMutationsRejectInvalidTargetsAndValues(t *testing.T) {
 	t.Parallel()
 
