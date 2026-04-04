@@ -667,7 +667,7 @@ export function createAgentRun(options: Partial<AgentRun> = {}): AgentRun {
     {
       id: "",
       profileId: null,
-      status: AgentRunStatusEnum.queued,
+      status: "queued",
       startedAt: null,
       finishedAt: null,
       inputs: null,

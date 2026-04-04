@@ -270,7 +270,7 @@ func TestBuildCodegenPolicyCreateBodiesUseGoBackedDefaults(t *testing.T) {
 	}
 }
 
-func TestEngineAndRunDeclarationsUseStructuredCreateBodies(t *testing.T) {
+func TestEngineAndRunDeclarationsUseGoBackedDefaults(t *testing.T) {
 	t.Helper()
 
 	converter := newTypeConverter()
@@ -287,19 +287,19 @@ func TestEngineAndRunDeclarationsUseStructuredCreateBodies(t *testing.T) {
 	}
 
 	engineDefaults := mustFindDeclarationByName(t, converter.Declarations(), "EngineConfigDefaults")
-	if engineDefaults.CreateExpr != "" {
-		t.Fatalf("EngineConfigDefaults should use a structured create body, got create expr:\n%s", engineDefaults.CreateExpr)
+	if engineDefaults.CreateBody != "" {
+		t.Fatalf("EngineConfigDefaults should use a Go-backed create expr, got create body:\n%s", engineDefaults.CreateBody)
 	}
-	if !strings.Contains(engineDefaults.CreateBody, `thinking: null,`) {
-		t.Fatalf("EngineConfigDefaults create body missing thinking default:\n%s", engineDefaults.CreateBody)
+	if !strings.Contains(engineDefaults.CreateExpr, `thinking: null,`) {
+		t.Fatalf("EngineConfigDefaults create expr missing Go-backed thinking default:\n%s", engineDefaults.CreateExpr)
 	}
 
 	engineRuntimeSupport := mustFindDeclarationByName(t, converter.Declarations(), "EngineRuntimeSupport")
-	if engineRuntimeSupport.CreateExpr != "" {
-		t.Fatalf("EngineRuntimeSupport should use a structured create body, got create expr:\n%s", engineRuntimeSupport.CreateExpr)
+	if engineRuntimeSupport.CreateBody != "" {
+		t.Fatalf("EngineRuntimeSupport should use a Go-backed create expr, got create body:\n%s", engineRuntimeSupport.CreateBody)
 	}
-	if !strings.Contains(engineRuntimeSupport.CreateBody, `thinking: false,`) {
-		t.Fatalf("EngineRuntimeSupport create body missing thinking default:\n%s", engineRuntimeSupport.CreateBody)
+	if !strings.Contains(engineRuntimeSupport.CreateExpr, `thinking: false,`) {
+		t.Fatalf("EngineRuntimeSupport create expr missing Go-backed thinking default:\n%s", engineRuntimeSupport.CreateExpr)
 	}
 
 	engineConfig := mustFindDeclarationByName(t, converter.Declarations(), "EngineConfig")
@@ -322,29 +322,32 @@ func TestEngineAndRunDeclarationsUseStructuredCreateBodies(t *testing.T) {
 	}
 
 	runEvent := mustFindDeclarationByName(t, converter.Declarations(), "RunEvent")
-	if runEvent.CreateExpr != "" {
-		t.Fatalf("RunEvent should use a structured create body, got create expr:\n%s", runEvent.CreateExpr)
+	if runEvent.CreateBody != "" {
+		t.Fatalf("RunEvent should use a Go-backed create expr, got create body:\n%s", runEvent.CreateBody)
 	}
-	if !strings.Contains(runEvent.CreateBody, `payload: {},`) {
-		t.Fatalf("RunEvent create body missing payload default:\n%s", runEvent.CreateBody)
+	if !strings.Contains(runEvent.CreateExpr, `timestamp: "",`) {
+		t.Fatalf("RunEvent create expr missing empty-string timestamp default:\n%s", runEvent.CreateExpr)
+	}
+	if !strings.Contains(runEvent.CreateExpr, "payload: {\n") {
+		t.Fatalf("RunEvent create expr missing Go-backed payload default:\n%s", runEvent.CreateExpr)
 	}
 
 	agentRun := mustFindDeclarationByName(t, converter.Declarations(), "AgentRun")
-	if agentRun.CreateExpr != "" {
-		t.Fatalf("AgentRun should use a structured create body, got create expr:\n%s", agentRun.CreateExpr)
+	if agentRun.CreateBody != "" {
+		t.Fatalf("AgentRun should use a Go-backed create expr, got create body:\n%s", agentRun.CreateBody)
 	}
 	for _, snippet := range []string{
-		`status: AgentRunStatusEnum.queued,`,
+		`status: "queued",`,
 		`toolCalls: [],`,
 		`events: [],`,
 	} {
-		if !strings.Contains(agentRun.CreateBody, snippet) {
-			t.Fatalf("AgentRun create body missing %q:\n%s", snippet, agentRun.CreateBody)
+		if !strings.Contains(agentRun.CreateExpr, snippet) {
+			t.Fatalf("AgentRun create expr missing %q:\n%s", snippet, agentRun.CreateExpr)
 		}
 	}
 }
 
-func TestProjectStateDeclarationsUseStructuredCreateBodies(t *testing.T) {
+func TestProjectStateDeclarationsUseGoBackedCapabilityDefaults(t *testing.T) {
 	t.Helper()
 
 	converter := newTypeConverter()
@@ -362,16 +365,16 @@ func TestProjectStateDeclarationsUseStructuredCreateBodies(t *testing.T) {
 		converter.Declarations(),
 		"ProjectRunCapabilities",
 	)
-	if projectRunCapabilities.CreateExpr != "" {
-		t.Fatalf("ProjectRunCapabilities should use a structured create body, got create expr:\n%s", projectRunCapabilities.CreateExpr)
+	if projectRunCapabilities.CreateBody != "" {
+		t.Fatalf("ProjectRunCapabilities should use a Go-backed create expr, got create body:\n%s", projectRunCapabilities.CreateBody)
 	}
 	for _, snippet := range []string{
 		`canRunFromMain: false,`,
 		`mainRunDisabledReason: null,`,
 		`effectiveEntrySectionId: null,`,
 	} {
-		if !strings.Contains(projectRunCapabilities.CreateBody, snippet) {
-			t.Fatalf("ProjectRunCapabilities create body missing %q:\n%s", snippet, projectRunCapabilities.CreateBody)
+		if !strings.Contains(projectRunCapabilities.CreateExpr, snippet) {
+			t.Fatalf("ProjectRunCapabilities create expr missing %q:\n%s", snippet, projectRunCapabilities.CreateExpr)
 		}
 	}
 
@@ -380,16 +383,16 @@ func TestProjectStateDeclarationsUseStructuredCreateBodies(t *testing.T) {
 		converter.Declarations(),
 		"SectionCapabilities",
 	)
-	if sectionCapabilities.CreateExpr != "" {
-		t.Fatalf("SectionCapabilities should use a structured create body, got create expr:\n%s", sectionCapabilities.CreateExpr)
+	if sectionCapabilities.CreateBody != "" {
+		t.Fatalf("SectionCapabilities should use a Go-backed create expr, got create body:\n%s", sectionCapabilities.CreateBody)
 	}
 	for _, snippet := range []string{
 		`canRun: false,`,
 		`canSelectAsEntryCodeBlock: false,`,
 		`entryCodeBlockValue: null,`,
 	} {
-		if !strings.Contains(sectionCapabilities.CreateBody, snippet) {
-			t.Fatalf("SectionCapabilities create body missing %q:\n%s", snippet, sectionCapabilities.CreateBody)
+		if !strings.Contains(sectionCapabilities.CreateExpr, snippet) {
+			t.Fatalf("SectionCapabilities create expr missing %q:\n%s", snippet, sectionCapabilities.CreateExpr)
 		}
 	}
 

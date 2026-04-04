@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/agentruns"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
@@ -786,18 +787,6 @@ func buildCodeObjValuePolicyCreateBodyTS() string {
 	return builder.String()
 }
 
-func buildEngineConfigDefaultsCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("thinking", "null"),
-	}, "options")
-}
-
-func buildEngineRuntimeSupportCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("thinking", "false"),
-	}, "options")
-}
-
 func buildEngineConfigCreateBodyTS() string {
 	var builder strings.Builder
 	builder.WriteString("  const defaults = createEngineConfigDefaults();\n")
@@ -823,30 +812,6 @@ func buildEngineConfigCreateBodyTS() string {
 	builder.WriteString("    runtimeSupport: mergedRuntimeSupport,\n")
 	builder.WriteString("  };")
 	return builder.String()
-}
-
-func buildRunEventCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("id", tsStringLiteralExpr("")),
-		tsObjectField("timestamp", tsStringLiteralExpr("")),
-		tsObjectField("type", tsStringLiteralExpr("")),
-		tsObjectField("payload", "{}"),
-	}, "options")
-}
-
-func buildAgentRunCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("id", tsStringLiteralExpr("")),
-		tsObjectField("profileId", "null"),
-		tsObjectField("status", "AgentRunStatusEnum.queued"),
-		tsObjectField("startedAt", "null"),
-		tsObjectField("finishedAt", "null"),
-		tsObjectField("inputs", "null"),
-		tsObjectField("outputs", "null"),
-		tsObjectField("toolCalls", "[]"),
-		tsObjectField("cost", "null"),
-		tsObjectField("events", "[]"),
-	}, "options")
 }
 
 type generatedFactoryDeclarationData struct {
@@ -1411,24 +1376,6 @@ func buildTaskBoardOverridesPreludeTS() string {
 	return builder.String()
 }
 
-func buildProjectRunCapabilitiesCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("canRunFromMain", "false"),
-		tsObjectField("mainRunDisabledReason", "null"),
-		tsObjectField("effectiveEntrySectionId", "null"),
-	}, "options")
-}
-
-func buildSectionCapabilitiesCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("canRun", "false"),
-		tsObjectField("runDisabledReason", "null"),
-		tsObjectField("runRequestSectionId", "null"),
-		tsObjectField("canSelectAsEntryCodeBlock", "false"),
-		tsObjectField("entryCodeBlockValue", "null"),
-	}, "options")
-}
-
 func buildProjectConfigCreateBodyTS() string {
 	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
 		tsObjectField("id", tsStringLiteralExpr("")),
@@ -1487,18 +1434,18 @@ func buildProjectStateSingleConfigCreateBodyTS() string {
 func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 	return map[reflect.Type][]TypeDeclaration{
 		reflect.TypeOf(ProjectConfig{}): {
-			objectDeclarationWithCreateBody(
+			objectDeclarationWithGoBackedCreateExpr(
 				"ProjectRunCapabilities",
-				buildProjectRunCapabilitiesCreateBodyTS(),
+				projectview.ProjectRunCapabilities{},
 				TypeProperty{Name: "canRunFromMain", TypeExpr: "boolean"},
 				TypeProperty{Name: "mainRunDisabledReason", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "effectiveEntrySectionId", TypeExpr: "string | null", Optional: true},
 			),
 		},
 		reflect.TypeOf(ProjectStateSingleConfig{}): {
-			objectDeclarationWithCreateBody(
+			objectDeclarationWithGoBackedCreateExpr(
 				"SectionCapabilities",
-				buildSectionCapabilitiesCreateBodyTS(),
+				projectview.SectionCapabilities{},
 				TypeProperty{Name: "canRun", TypeExpr: "boolean"},
 				TypeProperty{Name: "runDisabledReason", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "runRequestSectionId", TypeExpr: "string | null", Optional: true},
@@ -2413,14 +2360,14 @@ func newTypeConverter() *typeConverter {
 					{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
 				},
 			},
-			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithGoBackedCreateExpr(
 				"EngineConfigDefaults",
-				buildEngineConfigDefaultsCreateBodyTS(),
+				agentruns.FrontendDefaultEngineConfigDefaults(),
 				TypeProperty{Name: "thinking", TypeExpr: "boolean | null", Optional: true},
 			),
-			reflect.TypeOf(EngineRuntimeSupport{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(EngineRuntimeSupport{}): objectDeclarationWithGoBackedCreateExpr(
 				"EngineRuntimeSupport",
-				buildEngineRuntimeSupportCreateBodyTS(),
+				agentruns.EngineRuntimeSupport{},
 				TypeProperty{Name: "thinking", TypeExpr: "boolean"},
 			),
 			reflect.TypeOf(EngineConfig{}): objectDeclarationWithCreateBody(
@@ -2456,17 +2403,17 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "supportsRealtimeTranscription", TypeExpr: "boolean"},
 				TypeProperty{Name: "language", TypeExpr: "string | null", Optional: true},
 			),
-			reflect.TypeOf(RunEvent{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(RunEvent{}): objectDeclarationWithGoBackedCreateExpr(
 				"RunEvent",
-				buildRunEventCreateBodyTS(),
+				agentruns.FrontendDefaultRunEvent(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "timestamp", TypeExpr: "string"},
 				TypeProperty{Name: "type", TypeExpr: "string"},
 				TypeProperty{Name: "payload", TypeExpr: "Record<string, unknown>", Optional: true},
 			),
-			reflect.TypeOf(AgentRun{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(AgentRun{}): objectDeclarationWithGoBackedCreateExpr(
 				"AgentRun",
-				buildAgentRunCreateBodyTS(),
+				agentruns.FrontendDefaultRun(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "profileId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "status", TypeExpr: "AgentRunStatus"},
