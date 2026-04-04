@@ -1,139 +1,110 @@
 # Repository Guidelines
 
-## Current Ownership Model
+## Highest Priority
 
-- Treat the code under `cmd/` and `internal/` as the backend runtime.
-- Treat `backend/setta/` as the Python package surface for CLI dispatch, source SDKs, packaging, and shipped assets.
-- If a Python file outside that package surface looks unused, prove the surviving caller or replacement owner before deleting it.
+- Treat `cmd/` and `internal/` as the backend runtime. Treat `backend/setta/` as the Python package surface.
+- Go is the default source of truth for canonical behavior, validation, derived metadata, and shared contracts unless the developer explicitly says otherwise.
+- Prefer solutions in this order: `1.` Go-owned logic, `2.` Go as the source of truth with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with a concrete justification.
+- Regenerate endpoints and generated types instead of hand-syncing them.
+- Add tests beside the owning code, use temporary directories instead of `setta_files`, and run `./check_quality.sh` before committing.
+- Prefer explicit, typed, robust implementations over heuristics, silent fallbacks, or broad exception handling.
 
-## Project Structure & Module Organization
+## Ownership & Layout
 
 - `cmd/` contains the active Go entrypoints (`setta`, `setta-server`, generators, test seeders).
 - `internal/` contains the backend runtime, transports, services, project state, frontend binding generation, and related tests.
-- `backend/setta/` is the Python package surface: thin wheel entrypoint wrappers, repo/sdist Python SDK files under `backend/setta/api/`, generated Python types/codegen helpers, and packaged assets/binaries.
-- `frontend/` contains the React/Vite UI; place components and stores in `src/`, shared templates in `generation/`, and static assets under `public/`.
-- `setta_files/` stores runtime metadata created by the app; it is gitignored and should not be committed. Keep only canonical fixtures under version control elsewhere and wipe local noise before committing.
-- Root scripts such as `build.sh`, `build_and_upload.sh`, and `format_code.sh` orchestrate packaging, publishing, and formatting; keep them executable after edits.
-- Go tests live alongside the packages they cover under `cmd/*` and `internal/*`. The `tests/` directory is for Python/package pytest coverage; do not nest suites under `tests/setta`.
+- `backend/setta/` contains the Python package surface: CLI dispatch, source SDK files, generated Python types/codegen helpers, packaged assets, and binaries.
+- `frontend/` contains the React/Vite UI; keep app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
+- `setta_files/` is local runtime state and must not be committed; keep canonical fixtures elsewhere.
+- Go tests live with the packages they cover under `cmd/*` and `internal/*`. Python/package pytest coverage lives under `tests/`, not `tests/setta`.
+- If a Python file outside `backend/setta/` looks unused, prove the surviving caller or replacement owner before deleting it.
 
 ## Go-Backed Python
 
-- Distinguish `Go-owned Python types` from `Go-backed Python`:
+- Distinguish `Go-owned Python types` from `Go-backed Python`.
 - `Go-owned Python types` means Python consumes generated Go-owned contracts/models instead of handwritten Python schema mirrors.
-- `Go-backed Python` means that when the retained Python SDK needs canonical Setta behavior locally, Python should delegate that work to Go, either through the running backend or through the `setta sdk-local-core` subprocess path.
-- Do not treat “the Python model is generated from Go” as proof that the behavior is already Go-backed.
-- Canonical validation, derived metadata, and correctness-sensitive local runtime behavior should not stay implemented in handwritten Python just because Python has the data locally.
-- Python should keep ergonomic helper behavior: transport/session glue, context managers, callback scheduling, iterators, friendly lookup/builders, and other read-only convenience layers over authoritative Go-owned contracts.
-- If Python is only parsing backend-authored payloads or using generated contracts as DTOs, that does not by itself require a local Go subprocess call.
+- `Go-backed Python` means canonical local Setta behavior is delegated back to Go, either through the running backend or through `setta sdk-local-core`.
+- Generated Python models are not, by themselves, proof that behavior is already Go-backed.
+- Canonical validation, derived metadata, and correctness-sensitive local runtime behavior should not remain handwritten in Python just because Python has the data locally.
+- Python should keep ergonomic helper behavior such as transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders over authoritative Go-owned contracts.
+- Parsing backend-authored payloads or using generated contracts as DTOs does not, by itself, require a local Go subprocess call.
 
-## Cross-Language Source of Truth
+## Generation & Cross-Language Contracts
 
-- Minimize code and logic duplication across Go, Python, and TypeScript.
-- Go is the authoritative source of truth for canonical business logic, validation, derived metadata, and shared contract definitions unless the developer explicitly states otherwise.
-- Prefer solutions in this order: `1.` entirely Go-owned logic, `2.` Go as the source of truth with Python or TypeScript generated from that source, `3.` duplicated Python or TypeScript logic only when strongly justified.
-- Any duplicated non-trivial logic in Python or TypeScript must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
-- When duplication is unavoidable, keep the duplicated surface minimal and document the reason near the implementation or in the relevant design notes.
-
-## Code Generation Design
-
+- Minimize duplicated logic across Go, Python, and TypeScript.
 - Go-to-TypeScript and Go-to-Python generation should be generic and discovery-driven whenever a programmatic source of truth exists.
-- Do not rely on hand-maintained allowlists of type or endpoint names in generation scripts when the generator can discover the relevant structures directly from Go packages, metadata, or typed registration points.
-- Do not over-engineer discovery just to avoid generating some unused types or functions. We already run a pruning step after generation, so broad correct discovery is usually better than brittle hyper-selective discovery.
-- Keep hardcoded special cases in generators to the absolute minimum and require a concrete reason when they cannot be removed.
-- Do not embed large blocks of Python or TypeScript source as raw strings inside generation scripts. If substantial handwritten language-specific code is required, keep it in real `.py` or `.ts` files and have generation compose with that code instead of recreating it as string literals.
-- The point of generation is to remove duplicated ownership, so generation code should describe structure and mapping rules rather than acting as a second handwritten implementation of the generated language.
+- Do not rely on hand-maintained allowlists when generators can discover types, endpoints, or registrations directly.
+- Do not over-optimize generator selectivity just to avoid some unused outputs; broad correct discovery plus pruning is preferred to brittle special cases.
+- Keep hardcoded generator special cases to the absolute minimum and require a concrete reason when they remain.
+- Do not embed large blocks of Python or TypeScript source as raw strings inside generation scripts; keep substantial handwritten code in real `.py` or `.ts` files.
+- Backend and frontend endpoint functions must have the exact same name.
+- On the frontend, always use route functions from `generatedEndpoints`.
+- Regenerate whenever you edit `frontend/generation/` or when a backend endpoint or type is missing on the frontend.
+- If you need new generated outputs, run generation first and import or use those outputs before cleanup, or cleanup can delete them as unused.
+- Use `./gcf.sh` when you need the full generate/cleanup/format wrapper.
+- Large diffs after generation or cleanup are often expected; do not assume they are wrong.
+- Do not manually edit `backend/setta/types/generated`; those files are generated outputs.
 
 ## Dev Workflow
 
-- Prefer `./start.sh`, `./reset.sh`, and `./ai.sh` for the high-level source-checkout dev loop. For exact script behavior, use `docs/guides/dev-scripts.md`.
+- Prefer `./start.sh`, `./reset.sh`, and `./ai.sh` for the high-level source-checkout dev loop. Use `docs/guides/dev-scripts.md` for exact script behavior.
 - `dev_install.sh` is the default Go-first local setup. `dev_install_python.sh` is opt-in for Python/package tooling, packaging flows, and Python tests/formatting/generation.
-- `dev_install.sh` and `dev_install_python.sh` must not rewrite dependency lockfiles; use `./update_dependencies.sh` for explicit Python/pnpm lock refreshes.
+- `dev_install.sh` and `dev_install_python.sh` must not rewrite dependency lockfiles; use `./update_dependencies.sh` for explicit Python or pnpm lock refreshes.
 - The default source-checkout dev loop does not require Python activation. For Python/package tooling, use `source activate.sh && <command>`.
-- Pin all checked-in direct dependency versions exactly. Do not use floating version ranges like `^`, `~`, `>=`, `>`, `*`, or `latest` in dependency manifests. Keep the corresponding lockfiles committed and current so Python and Node transitive resolutions stay pinned.
+- Pin all checked-in direct dependency versions exactly. Do not use floating ranges such as `^`, `~`, `>=`, `>`, `*`, or `latest`.
 - Run Go through `./scripts/go.sh`; do not assume the pinned toolchain is on `PATH`.
 - Format Go with `GOROOT="$(./scripts/go.sh env GOROOT)" && "$GOROOT/bin/gofmt" -w <files>`.
 - Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh`, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
 - `./scripts/run_backend_tests.sh` is a legacy-named Python/package pytest runner, not the Go backend test runner.
-- `./gcf.sh` is the standard generate/cleanup/format wrapper; see Generation & Cleanup for when to use it.
-
-## Dependency Audits
-
-- Follow `docs/guides/dependency-audits.md` for the full auditing and remediation policy.
-- Start with `./audit_supply_chain.sh`.
-- Default to fixing critical/high findings only unless the developer explicitly asks for broader cleanup.
+- Root scripts such as `build.sh`, `build_and_upload.sh`, and `format_code.sh` should remain executable after edits.
+- For dependency audits, follow `docs/guides/dependency-audits.md`, start with `./audit_supply_chain.sh`, and default to critical/high fixes unless asked for broader cleanup.
 - Do not use obscure forks, republished packages, or unofficial mirrors just to silence audit findings.
 - Every kept dependency upgrade must satisfy the repo minimum release-age policy.
 
-## Coding Style & Naming Conventions
+## Coding Conventions
 
-- Python follows Ruff defaults (see `ruff.toml`); use 4-space indents, snake_case for functions/modules, and PascalCase for classes.
-- Keep Go HTTP routes thin under `internal/httpapi`, websocket transports under `internal/wsapi`, and push business logic into focused `internal/*` service packages.
+- Keep Go HTTP routes thin under `internal/httpapi`, websocket transports thin under `internal/wsapi`, and move business logic into focused `internal/*` service packages.
 - Python API files under `backend/setta/api/` should stay thin client/SDK surfaces rather than growing backend runtime behavior.
-- Always prefer low cyclomatic complexity. Split branching or stateful logic into smaller helpers before a function becomes hard to reason about.
-- TypeScript/JS naming stays conventional: components in PascalCase, hooks in camelCase prefixed with `use`.
-- Prefer inlining Tailwind class strings in JSX/TSX unless reuse has a clear benefit.
-- Avoid div soup, prefer semantic elements, avoid nested ternary expressions, avoid `any` unless necessary, and remove unused parameters instead of silencing them.
+- Keep complexity low; split branching or stateful logic into smaller helpers before functions become hard to reason about.
+- Avoid div soup, nested ternaries, and `any` unless necessary. Remove unused parameters instead of silencing them.
 - Frontend code must prioritize performance for very large DOMs.
-- Default dropdown/selection UIs to the shared combobox system (`IdNameCombobox`/Combobox) unless there is a clear documented reason not to.
+- Default dropdown and selection UIs to the shared combobox system (`IdNameCombobox`/Combobox`) unless there is a clear documented reason not to.
 - Use `TYPE_CHECKING` blocks when possible, keep imports at the top of the file, and never import annotations from `__future__`.
+- Use `docs/reference/ui-style-consistency.md` as the canonical UI style anchor map.
+- Do not default to adding borders around every UI container or row; add borders only when they convey real structure or affordance.
 
-## UI Style Consistency
-
-- Use `docs/reference/ui-style-consistency.md` as the canonical style anchor map for UI work.
-- Do not default to adding borders around every UI container or row. Add borders only when they convey clear structure, hierarchy, or interaction affordance.
-
-## Endpoints
-
-- Backend and frontend endpoint functions should have the exact same name.
-- On the frontend, always use route functions from `generatedEndpoints`.
-- If a function exists on the backend but not on the frontend, run the generation workflow in Generation & Cleanup to sync endpoint definitions.
-
-## Realtime Updates
+## Realtime
 
 - Prefer push-based updates over polling when the backend already knows when state changes.
 - For frontend/backend synchronization, default to backend-initiated websocket updates rather than periodic frontend polling unless push is impractical.
-- Polling must be justified by a concrete constraint such as third-party limitations, infrastructure limitations, or a deliberately simplified non-critical path.
-
-## Generation & Cleanup
-
-- Use `docs/guides/dev-scripts.md` for the generation/cleanup command map.
-- Regenerate before relying on new generated endpoints/types, and use `./gcf.sh` when you need the full wrapper.
-- Large diffs after generation or cleanup are often expected; do not assume they are incorrect.
-- If you need new generated outputs, run generation first and import/use those outputs before cleanup, or cleanup can delete them as unused.
-- Regenerate whenever editing files under `frontend/generation/`.
-- Don't manually edit files in `backend/setta/types/generated`; they are generated outputs.
+- Polling must have a concrete justification such as third-party limits, infrastructure limits, or a deliberately simplified non-critical path.
 
 ## Testing & Verification
 
 - Default workflow: think, plan, write tests, implement, then run tests. Update tests as the approach evolves.
-- Use `docs/guides/dev-scripts.md`, `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for the detailed test and browser-verification workflows.
-- Run `./check_quality.sh` before committing. Treat it as the maintainability pre-commit gate for changed files unless the developer explicitly asks for a different verification scope.
-- Do not skip tests broadly. Missing deps/capabilities should usually fail loudly; any skip should be narrow, documented, and justified.
+- Use `docs/guides/dev-scripts.md`, `docs/guides/browser-mcp-quickstart.md`, `docs/guides/verification-checklist.md`, and `docs/guides/chrome-repro-recording.md` for detailed test and browser-verification workflows.
+- Run `./check_quality.sh` before committing unless the developer explicitly asks for a different verification scope.
+- Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly; any skip should be narrow, documented, and justified.
 - UI changes require chrome-devtools-mcp visual verification when relevant.
-- A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`, and `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
+- A `Chrome recording` means a bundle produced by `./scripts/record-chrome-repro.sh`; `see the latest Chrome recording` means `./scripts/latest-chrome-recording.sh --json`.
 - Never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself; if CDP access is needed, the developer starts it.
 - Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
-- Add Go tests beside the backend owner when changing runtime behavior; add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.
-- Treat frontend performance testing as first-class. Prefer automated guardrails, and use chrome-devtools-mcp for deeper profiling when needed.
-- Do not add generator drift tests that only rerun generators/formatters and compare checked-in artifacts against current output.
+- Add Go tests beside the backend owner when changing runtime behavior. Add focused pytest coverage under `tests/` when changing Python SDK/package boundaries.
+- Treat frontend performance testing as first-class; prefer automated guardrails and use chrome-devtools-mcp for deeper profiling when needed.
+- Do not add generator drift tests that only rerun generators or formatters and compare checked-in artifacts against current output.
 - Tests must not rely on existing files in `setta_files`; use temporary directories instead.
 - Tests must never mutate real git history in this repo or any non-disposable developer worktree.
-- Tests should reflect production behavior. Do not add mocks, fakes, dummy classes, cast tricks, tautological tests, or production-only code paths added solely to ease tests.
+- Default to production-path tests. Do not add mocks, fakes, dummy classes, cast tricks, tautological tests, or production-only code paths added solely to ease tests.
 
-## Safety & Robustness
+## Safety & Refactoring
 
 - Do not add `try/except` or `try/catch` blocks unless absolutely necessary.
-- Prefer failing loudly and specifically over failing silently or mysteriously. From a UX perspective, it is better to know that something failed and what the actual failure was than to hide it behind broad exception handling or fallback behavior.
+- Prefer failing loudly and specifically over failing silently or mysteriously.
 - Avoid over-defensive code and endless safety checks.
-- Solutions must not rely on fake estimates or brittle keyword matching when a standardized source-of-truth pathway exists.
+- Do not rely on fake estimates or brittle keyword matching when a standardized source-of-truth path exists.
 - Prefer provider/runtime metadata, typed APIs, deterministic parsing, or explicit protocol fields over heuristics.
 - If a robust solution is not currently possible, say so explicitly, explain why, and present the implementation options with tradeoffs.
 - Heuristic fallbacks may be suggested as options, but must not be implemented without explicit approval.
-
-## Refactoring
-
 - We do not need backward compatibility unless the developer explicitly asks for it.
-- Refactors should preserve the current intended behavior for supported workflows unless the developer asks for a behavior change. Do not keep legacy behavior solely for backward compatibility.
-- If the current intended behavior is unclear, stop and ask instead of guessing.
-- Performance-relevant refactors must baseline first, re-measure after, and add or update automated coverage where feasible.
-- Record before/after performance results in `perf/` as append-only reports.
+- Refactors should preserve the current intended behavior for supported workflows unless the developer asks for a behavior change. If that behavior is unclear, stop and ask instead of guessing.
+- Performance-relevant refactors must baseline first, re-measure after, and record before/after results in `perf/` as append-only reports.
