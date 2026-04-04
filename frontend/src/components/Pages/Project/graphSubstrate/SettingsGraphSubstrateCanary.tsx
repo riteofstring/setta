@@ -1,4 +1,5 @@
 import { SectionContainer } from "components/Section/Container/SectionContainer";
+import Background from "forks/xyflow/background/Background";
 import { useReactFlow } from "forks/xyflow/core/store";
 import type { CustomViewportController } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
@@ -134,18 +135,20 @@ export function SettingsGraphSubstrateCanary() {
     const [x, y, zoom] = state.transform;
     return { x, y, zoom };
   }, _.isEqual);
-  const { minZoom, maxZoom, defaultZoomLevel } = useSettings(
+  const { minZoom, maxZoom, defaultZoomLevel, showGridLines } = useSettings(
     (state) => ({
       minZoom: state.gui.minZoom,
       maxZoom: state.gui.maxZoom,
       defaultZoomLevel: state.gui.defaultZoomLevel,
+      showGridLines: !!state.gui.showGridLines,
     }),
     _.isEqual,
   );
-  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
+  const { overviewTrueWidth, uiEditorTrueWidth, snapToGrid } = useLocalStorage(
     (state) => ({
       overviewTrueWidth: state.overviewTrueWidth,
       uiEditorTrueWidth: state.uiEditorTrueWidth,
+      snapToGrid: state.snapToGrid,
     }),
     _.isEqual,
   );
@@ -726,6 +729,7 @@ export function SettingsGraphSubstrateCanary() {
       onPointerCancel={finishPanePan}
       onWheel={handlePaneWheel}
     >
+      {snapToGrid && showGridLines && <Background />}
       <div
         className="react-flow__viewport"
         data-testid="graph-substrate-canary-viewport"

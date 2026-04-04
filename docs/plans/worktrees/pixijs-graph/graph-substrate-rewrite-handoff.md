@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 21:31 EDT
+Last updated: 2026-04-02 21:44 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,23 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `024` closed the next stable `All Settings` renderer drift after the viewport/minimap lanes: the custom substrate was dropping the graph background grid entirely while `main` still rendered it.
+  - a controlled normal-zoom compare explicitly reset both the worktree and read-only `main` `All Settings` viewports to `null`, then applied the backend state update in-page before inspecting the graph surface
+  - the normalized compare showed the same graph transform, surface bounds, section/node count, and minimap on both sides, but the worktree alone had `backgroundCount = 0` while `main` had `backgroundCount = 1`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the shared `Background` layer whenever `snapToGrid` and `showGridLines` are enabled, matching the legacy `ReactFlow` path
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that the initial `All Settings` canary render keeps the shared background visible on the same path that already checks the multi-column spread
+  - targeted verification passed in this iteration:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: passed (`1 passed`, about `18s`)
+  - CDP visual verification passed for the targeted fix:
+    - the fresh sub-agent path still could not call browser tools in this chat context, so the compare used direct fresh pages in the current chrome-devtools session as a fallback
+    - after reloading the worktree page, re-normalizing both sides to active `All Settings` with `viewport: null`, and reapplying backend state in-page, both surfaces reported:
+      - transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - `46` visible sections/nodes
+      - minimap present
+      - matching graph rect `{ x: 0, y: 36, width: 1440, height: 441 }`
+    - the worktree now also reports `backgroundCount = 1`, matching `main`, and the viewport screenshots show the same dotted grid behind the `All Settings` cards
+  - this background lane is now complete; do not spend another iteration on graph-background parity unless a later controlled compare shows the grid missing again
 - Ralph item `023` landed a bounded fix for provisional `All Settings` viewport persistence on the custom substrate path:
   - the next stable drift after the minimap lane was not more fit math; the live worktree had started saving the canary's provisional fallback viewport `{ x: 48, y: 48, zoom: 1 }` into the `All Settings` view-mode state, which later reopened the old oversized single-card / partial-`gui` presentation
   - the canary now marks only restored backend viewports and user-owned local canary viewport changes as persistable through a new shared ReactFlow `viewportPersistenceEnabled` store flag
@@ -351,9 +368,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The provisional-viewport persistence lane is also complete for the checked `viewport: null` canary entry:
   - item `023` stopped the canary from saving its fallback/auto-fit seed back into `All Settings` before the user owns the camera
   - do not reopen that lane unless a controlled null-viewport compare shows the debounce path still reintroducing a provisional transform
+- The graph-background parity lane is also complete:
+  - item `024` restored the shared dotted grid on the canary path, and the latest normalized compare shows `backgroundCount = 1` on both worktree and `main`
+  - do not reopen that lane unless a later controlled compare shows the background layer missing again
 - The next real frontier is the next earliest stable product drift on the same canary path:
-  - start from a controlled normal-zoom worktree-vs-`main` compare on `All Settings` with both sides' active `All Settings` viewports explicitly reset to `null`, then isolate the next earliest stable Gate 1 / Gate 2 drift
-  - the latest post-item-023 CDP run proved the worktree no longer re-persists the provisional camera, but the live read-only `main` page was still showing the old single-card presentation; treat that current `main` session as state-contaminated until the next compare normalizes it too
+  - start from the same controlled normal-zoom worktree-vs-`main` compare on `All Settings` with both sides' active `All Settings` viewports explicitly reset to `null`, then isolate the next earliest stable Gate 1 / Gate 2 drift after the now-closed background lane
+  - the latest compare successfully normalized both sides again, so do not treat the current `main` runtime as contaminated by the old single-card state unless a fresh compare reproduces it
   - prioritize a concrete renderer or interaction defect on the checked canary path, especially text/chrome drift, interaction-state mismatch, or zoom artifacts, over more support-lane churn
   - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
 - Lifecycle/bootstrap debugging is no longer the default frontier:
@@ -381,6 +401,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `023`
-- Latest item: `2026-04-02 023`
+- Active history window: items `001` through `024`
+- Latest item: `2026-04-02 024`
 - Older history archives: none yet

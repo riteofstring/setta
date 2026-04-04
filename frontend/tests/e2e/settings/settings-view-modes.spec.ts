@@ -75,6 +75,8 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
 
     await allTab.click();
 
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect(page.getByTestId("rf__background")).toBeVisible();
     await expect
       .poll(async () => (await getCanarySectionGridSpread(page)).columnCount)
       .toBeGreaterThan(1);

@@ -70,6 +70,34 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 024
+
+- Item: Restore the shared graph background grid on the `All Settings` custom substrate path.
+- Status: `done`
+- Details:
+  - The next stable product drift after the viewport/minimap lanes was a concrete renderer gap, not more support churn:
+    - after explicitly resetting both worktree and read-only `main` `All Settings` viewports to `null`, both sides landed on the same transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` with the same graph rect, `46` visible sections/nodes, and minimap presence
+    - the normalized compare still showed `backgroundCount = 0` on the worktree canary while `main` reported `backgroundCount = 1`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the shared `Background` layer when `snapToGrid` and `showGridLines` are enabled, matching the legacy `ReactFlow` surface contract.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts background visibility on the stable initial `All Settings` canary render path alongside the existing multi-column spread check.
+  - The first local test rerun caught an immediate mistake in the new render path (`showGridLines` was added to the selector but not destructured); that was fixed in the same iteration before final verification.
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `18s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - the fresh sub-agent path could not call browser tools in this chat context, so the compare used direct fresh pages in the current chrome-devtools session as a fallback
+      - after reloading the worktree page and re-normalizing both sides to active `All Settings` with `viewport: null`, the worktree now reports `backgroundCount = 1`, matching `main`
+      - viewport screenshots on both sides show the same dotted grid behind the `All Settings` cards
+- Conclusion:
+  - the custom substrate no longer drops the shared graph background on the checked `All Settings` canary path
+  - this closes the next stable renderer drift exposed by the normalized compare instead of reopening viewport or minimap churn
+- Next action:
+  - rerun the same controlled normal-zoom worktree-vs-`main` compare and isolate the next earliest stable Gate 1 / Gate 2 drift now that background parity is closed
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 022
 
 - Item: Restore minimap visibility on the `All Settings` graph-substrate canary so the worktree matches `main` for that chrome element.
