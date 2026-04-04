@@ -1,8 +1,0 @@
-  if (value === undefined) {
-    return 3000;
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  issues.push("durationMs must be a finite number.");
-  return 3000;
