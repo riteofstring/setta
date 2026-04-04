@@ -3933,7 +3933,11 @@ type SectionSizingPolicyTypeEntry = {
   maxWidth: number;
 };
 
-type SectionSizingPolicyCallableTypeEntry = SectionSizingPolicyTypeEntry & {
+type SectionSizingPolicyCallableTypeEntry = {
+  minHeight: number;
+  maxHeight: number;
+  minWidth: number;
+  maxWidth: number;
   hideSearchMinHeight: number;
   hideParamsMinHeight: number;
 };

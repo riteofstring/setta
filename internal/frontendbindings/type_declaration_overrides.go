@@ -32,13 +32,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"SectionSizeValue",
 			"number | SectionSizeMode",
 		),
-		reflect.TypeOf(SectionSizingPolicyCallableTypeEntry{}): aliasDeclaration(
-			"SectionSizingPolicyCallableTypeEntry",
-			`SectionSizingPolicyTypeEntry & {
-  hideSearchMinHeight: number;
-  hideParamsMinHeight: number;
-}`,
-		),
 		reflect.TypeOf(ProjectCodegenTarget{}): aliasDeclaration(
 			"ProjectCodegenTarget",
 			"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",

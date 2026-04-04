@@ -164,6 +164,18 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "SectionSizingPolicyCallableTypeEntry",
+			root: reflect.TypeOf(SectionSizingPolicyCallableTypeEntry{}),
+			properties: []TypeProperty{
+				{Name: "minHeight", TypeExpr: "number", Optional: false},
+				{Name: "maxHeight", TypeExpr: "number", Optional: false},
+				{Name: "minWidth", TypeExpr: "number", Optional: false},
+				{Name: "maxWidth", TypeExpr: "number", Optional: false},
+				{Name: "hideSearchMinHeight", TypeExpr: "number", Optional: false},
+				{Name: "hideParamsMinHeight", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
 			name: "MetaControlSizingPolicyTypeEntry",
 			root: reflect.TypeOf(MetaControlSizingPolicyTypeEntry{}),
 			properties: []TypeProperty{

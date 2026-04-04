@@ -307,6 +307,31 @@ func (c *typeConverter) structProperties(
 		if !field.IsExported() {
 			continue
 		}
+		if field.Anonymous {
+			embeddedType := field.Type
+			for embeddedType.Kind() == reflect.Pointer {
+				embeddedType = embeddedType.Elem()
+			}
+			if embeddedType.Kind() != reflect.Struct {
+				return nil, fmt.Errorf(
+					"%s.%s: anonymous field must be a struct, got %s",
+					t.Name(),
+					field.Name,
+					field.Type.String(),
+				)
+			}
+			embeddedProperties, err := c.structProperties(
+				embeddedType,
+				typeExprOverrides,
+				optionalOverrides,
+				ignoredProperties,
+			)
+			if err != nil {
+				return nil, err
+			}
+			properties = append(properties, embeddedProperties...)
+			continue
+		}
 		name, optional, skip := jsonFieldName(field)
 		if skip {
 			continue

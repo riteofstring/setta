@@ -5783,10 +5783,17 @@ func disabledSettingsSizingContractsUseConverterDeclarations(t *testing.T) {
 			},
 		},
 		{
-			name:  "SectionSizingPolicyCallableTypeEntry",
-			root:  reflect.TypeOf(SectionSizingPolicyCallableTypeEntry{}),
-			kind:  "alias",
-			alias: "SectionSizingPolicyTypeEntry & {\n  hideSearchMinHeight: number;\n  hideParamsMinHeight: number;\n}",
+			name: "SectionSizingPolicyCallableTypeEntry",
+			root: reflect.TypeOf(SectionSizingPolicyCallableTypeEntry{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "minHeight", TypeExpr: "number", Optional: false},
+				{Name: "maxHeight", TypeExpr: "number", Optional: false},
+				{Name: "minWidth", TypeExpr: "number", Optional: false},
+				{Name: "maxWidth", TypeExpr: "number", Optional: false},
+				{Name: "hideSearchMinHeight", TypeExpr: "number", Optional: false},
+				{Name: "hideParamsMinHeight", TypeExpr: "number", Optional: false},
+			},
 		},
 		{
 			name: "MetaControlSizingPolicyTypeEntry",

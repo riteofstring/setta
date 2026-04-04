@@ -2176,6 +2176,8 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 		}, true
 	case reflect.TypeOf(SectionSizingPolicyTypeEntry{}):
 		return reflectedObjectDeclarationSpec{}, true
+	case reflect.TypeOf(SectionSizingPolicyCallableTypeEntry{}):
+		return reflectedObjectDeclarationSpec{}, true
 	case reflect.TypeOf(MetaControlSizingPolicyTypeEntry{}):
 		return reflectedObjectDeclarationSpec{
 			PropertyTypeExprOverrides: map[string]string{
