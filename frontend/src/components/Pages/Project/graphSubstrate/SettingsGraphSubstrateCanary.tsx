@@ -27,13 +27,16 @@ import {
   type GraphSubstrateCanarySection,
 } from "./settingsGraphSubstrateCanaryModel";
 import {
-  centerViewportOnWorldPoint,
   fitViewportToWorldRect,
   screenDeltaToWorldDelta,
   translateViewport,
   zoomViewportAroundScreenPoint,
   type GraphViewport,
 } from "./viewportTransform";
+import {
+  resolveSettingsGraphSubstrateCanaryViewport,
+  shouldAutoFitSettingsGraphSubstrateCanaryViewport,
+} from "./settingsGraphSubstrateCanaryViewport";
 
 const ROOT_STYLE: CSSProperties = {
   width: "100%",
@@ -44,7 +47,6 @@ const ROOT_STYLE: CSSProperties = {
   overflowAnchor: "none",
 };
 
-const INITIAL_SCREEN_PADDING_PX = 48;
 const WHEEL_ZOOM_IDLE_TIMEOUT_MS = 180;
 const DRAG_BLOCKING_SELECTOR =
   ".nodrag,input,textarea,select,option,a,[contenteditable='true']";
@@ -69,26 +71,7 @@ type SectionPositionOverride = {
   position: Position;
 };
 
-function buildInitialViewport(
-  viewport: GraphViewport | null,
-  defaultZoomLevel: number,
-  sectionPosition: { x: number; y: number },
-): GraphViewport {
-  if (viewport) {
-    return viewport;
-  }
-  return centerViewportOnWorldPoint(
-    { x: 0, y: 0, zoom: defaultZoomLevel },
-    {
-      worldPoint: sectionPosition,
-      screenPoint: {
-        x: INITIAL_SCREEN_PADDING_PX,
-        y: INITIAL_SCREEN_PADDING_PX,
-      },
-      zoom: defaultZoomLevel,
-    },
-  );
-}
+type ViewportOwnership = "auto-fit" | "local" | "shared";
 
 export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -98,7 +81,7 @@ export function SettingsGraphSubstrateCanary() {
     null,
   );
   const isWheelZoomingRef = useRef(false);
-  const lastFittedSceneKeyRef = useRef<string | null>(null);
+  const viewportOwnershipRef = useRef<ViewportOwnership | null>(null);
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
     null,
@@ -114,6 +97,31 @@ export function SettingsGraphSubstrateCanary() {
     (state) => selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
     _.isEqual,
   );
+  const sharedProjectViewport = useProjectState(
+    (state) => {
+      const { viewport, viewportInitialized } = state.projectConfig;
+      if (!viewportInitialized || !viewport) {
+        return null;
+      }
+      return {
+        x: viewport.x,
+        y: viewport.y,
+        zoom: viewport.zoom,
+      };
+    },
+    _.isEqual,
+  );
+  const sharedReactFlowViewport = useReactFlow(
+    (state) => {
+      if (state.fitViewOnInit || !state.fitViewOnInitDone) {
+        return null;
+      }
+      const [x, y, zoom] = state.transform;
+      return { x, y, zoom };
+    },
+    _.isEqual,
+  );
+  const sharedViewport = sharedReactFlowViewport ?? sharedProjectViewport;
   const { minZoom, maxZoom, defaultZoomLevel } = useSettings(
     (state) => ({
       minZoom: state.gui.minZoom,
@@ -167,16 +175,33 @@ export function SettingsGraphSubstrateCanary() {
     );
   }, [observedElementSizes, sectionPositionOverride, sections]);
 
-  const sceneKey = useMemo(() => {
-    return sections.map((section) => section.sectionId).join("|");
-  }, [sections]);
+  useEffect(() => {
+    if (!sharedViewport || viewportOwnershipRef.current === "local") {
+      return;
+    }
+    viewportOwnershipRef.current = "shared";
+    setViewport((current) => {
+      if (
+        current &&
+        current.x === sharedViewport.x &&
+        current.y === sharedViewport.y &&
+        current.zoom === sharedViewport.zoom
+      ) {
+        return current;
+      }
+      return sharedViewport;
+    });
+  }, [sharedViewport]);
 
   useEffect(() => {
     if (
       !sceneBounds ||
       wrapperDimensions.width <= 0 ||
       wrapperDimensions.height <= 0 ||
-      (viewport !== null && lastFittedSceneKeyRef.current === sceneKey)
+      !shouldAutoFitSettingsGraphSubstrateCanaryViewport(
+        viewport,
+        sharedViewport,
+      )
     ) {
       return;
     }
@@ -190,8 +215,6 @@ export function SettingsGraphSubstrateCanary() {
         padding: 0.12,
       },
     );
-    lastFittedSceneKeyRef.current = sceneKey;
-
     setViewport((current) => {
       if (
         current &&
@@ -201,20 +224,32 @@ export function SettingsGraphSubstrateCanary() {
       ) {
         return current;
       }
+      viewportOwnershipRef.current = "auto-fit";
       return nextViewport;
     });
-  }, [maxZoom, minZoom, sceneBounds, sceneKey, viewport, wrapperDimensions]);
+  }, [
+    maxZoom,
+    minZoom,
+    sceneBounds,
+    sharedViewport,
+    viewport,
+    wrapperDimensions,
+  ]);
 
   const resolvedViewport = useMemo(() => {
     const initialSection = sections[0];
-    if (!initialSection) {
-      return viewport;
-    }
-    return buildInitialViewport(viewport, defaultZoomLevel, {
-      x: initialSection.position.x,
-      y: initialSection.position.y,
-    });
-  }, [defaultZoomLevel, sections, viewport]);
+    return resolveSettingsGraphSubstrateCanaryViewport(
+      viewport,
+      sharedViewport,
+      defaultZoomLevel,
+      initialSection
+        ? {
+            x: initialSection.position.x,
+            y: initialSection.position.y,
+          }
+        : null,
+    );
+  }, [defaultZoomLevel, sections, sharedViewport, viewport]);
 
   useEffect(() => {
     if (!rootRef.current || !resolvedViewport) {
@@ -359,6 +394,7 @@ export function SettingsGraphSubstrateCanary() {
       return;
     }
 
+    viewportOwnershipRef.current = "local";
     setViewport(
       translateViewport(activePan.originViewport, {
         x: event.clientX - activePan.originScreenPoint.x,
@@ -423,6 +459,7 @@ export function SettingsGraphSubstrateCanary() {
 
     setViewport((currentViewport) => {
       const baseViewport = currentViewport ?? resolvedViewport;
+      viewportOwnershipRef.current = "local";
       return zoomViewportAroundScreenPoint(
         baseViewport,
         {

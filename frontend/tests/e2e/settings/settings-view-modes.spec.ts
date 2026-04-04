@@ -69,6 +69,85 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
   expect(spread.columnCount).toBeGreaterThan(1);
 });
 
+test("settings graph substrate canary restores the persisted shared viewport on All Settings", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const targetViewport = { x: 320, y: -180, zoom: 0.42 };
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  const coreTab = page.getByRole("button", { name: "Core", exact: true });
+  let allSettingsInitialViewport:
+    | { x: number; y: number; zoom: number }
+    | null = null;
+
+  try {
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    const allSettingsInitialState = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    allSettingsInitialViewport =
+      allSettingsInitialState.projectState.projectConfig.viewport;
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: targetViewport,
+    });
+    const stateWithViewport = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, stateWithViewport);
+
+    await expect(coreTab).toBeVisible();
+    await coreTab.click();
+    await page.waitForSelector(READY_SELECTOR);
+
+    await allTab.click();
+
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+      .toBeCloseTo(targetViewport.x, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+      .toBeCloseTo(targetViewport.y, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeCloseTo(targetViewport.zoom, 2);
+  } finally {
+    await allTab.click().catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: allSettingsInitialViewport,
+    });
+    const initialActiveViewModeId =
+      initialState.projectState.projectConfig.activeViewModeId;
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary drags one section and persists the top-level layout", async ({
   page,
 }) => {
@@ -472,6 +551,38 @@ async function getCanaryViewportScale(page: Page): Promise<number> {
   });
 }
 
+async function getCanaryViewportTransform(page: Page): Promise<{
+  x: number;
+  y: number;
+  zoom: number;
+} | null> {
+  return page.evaluate(() => {
+    const viewport = document.querySelector(
+      '[data-testid="graph-substrate-canary-viewport"]',
+    );
+    if (!viewport) {
+      return null;
+    }
+    const transform = window.getComputedStyle(viewport).transform;
+    if (!transform || transform === "none") {
+      return { x: 0, y: 0, zoom: 1 };
+    }
+    const matrix = new DOMMatrixReadOnly(transform);
+    if (
+      !Number.isFinite(matrix.a) ||
+      !Number.isFinite(matrix.e) ||
+      !Number.isFinite(matrix.f)
+    ) {
+      return null;
+    }
+    return {
+      x: matrix.e,
+      y: matrix.f,
+      zoom: matrix.a,
+    };
+  });
+}
+
 async function findDraggableCanarySection(page: Page): Promise<{
   index: number;
   point: { x: number; y: number };
@@ -617,6 +728,8 @@ type ProjectStateSingleConfigWithCompletedOpIds = {
     projectConfig: {
       topLevelSections: Record<string, { x: number; y: number }>;
       viewModes: Record<string, { id: string; name: string }>;
+      viewport: { x: number; y: number; zoom: number } | null;
+      viewportInitialized: boolean;
     };
     sections: Record<string, { name: string }>;
   };

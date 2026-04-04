@@ -9,6 +9,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `010` landed the bounded `All Settings` saved-viewport restore fix inside the custom canary:
+  - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` plus focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now resolves its initial viewport from the shared saved camera state before falling back to a fresh fit seed
+  - the same canary now also treats the first auto-fit as provisional and yields to the authoritative shared `useReactFlow` / project viewport when that saved state arrives during view-mode handoff, while preserving user-owned pan/zoom afterward
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now proves that `All Settings` restores a persisted viewport after `All Settings -> Core -> All Settings`
+- The viewport-restore bug is narrower now:
+  - the canary no longer always re-fits on remount for the checked restore path
+  - CDP verified that the worktree now restores a non-fit `All Settings` camera state after `Core -> All Settings`
+  - however the restored framing still visibly drifts from `main`, so the remaining blocker is final viewport/oracle alignment rather than persistence itself
 - Ralph item `009` landed a bounded product fix for the multi-section canary layout source:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now takes section positions and `zIndex` from the active view-mode layout instead of preferring stale `nodeInternals` positions
   - the same selector still preserves live measured widths and heights from `nodeInternals`, so drag/pan/zoom geometry stays current without letting old route state decide the canary layout
@@ -18,14 +27,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The old `main`-oracle startup blocker is stale:
   - `curl -I --max-time 5 http://127.0.0.1:3087/settings` now returns `200 OK`
   - `pnpm -C frontend cdp-port` still reports `9297` for the worktree, and `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port` reports `9309` for `main`
-- The remaining visual uncertainty is now a trust issue, not an app-health issue:
-  - fresh bootstrap URLs from loop context had expired by the time the final CDP compare ran, so fresh-profile side-by-side bootstrap attempts were rejected
-  - a worktree-only CDP probe against the live `http://127.0.0.1:3075/settings` session was still able to inspect the already-rendered canary and reported:
-    - `graph-substrate-canary` present
-    - `48` `graph-substrate-canary-section` nodes in the DOM
-    - viewport transform `matrix(0.1, 0, 0, 0.1, 632.4, -51.7)`
-    - multiple visible screen x-buckets for the first visible section headers (`shortcuts`, `gui`, `backend` around `x≈644`, `692`, `752`)
-  - because the trustworthy authenticated `main` side of the compare was not re-established in the same pass, the Gate 1 oracle compare remains deferred rather than resolved
 - Ralph item `007` landed the first multi-section `All Settings` canary slice on the custom graph substrate:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now returns all visible top-level canary sections instead of a single preferred section and carries each section's `positionAndSizeLocked` state into the canary render contract
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the visible `All Settings` top-level section set on the custom surface, fits the initial viewport to the shared section bounds, and routes drag ownership to whichever section is actually grabbed instead of pinning a synthetic top-left section
@@ -67,18 +68,20 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
 - Current live verification state:
   - targeted Vitest passed for:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - targeted Vitest passed for:
     - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
   - targeted Playwright passed for:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
   - CDP visual check:
-    - worktree-only probe: done
-      - direct live `/settings` inspection confirmed the canary is rendering on the worktree session with multiple visible x-buckets, not a literal single-column DOM stack
-    - side-by-side `main` oracle compare: deferred
-      - fresh bootstrap tokens from loop context had expired
-      - an attempted fallback to existing lifecycle tabs did not have a working DevTools bridge in that sub-agent session
+    - worktree vs `main`: done
+      - direct live `/settings` inspection on the current worktree session after `Core -> All Settings` showed a restored non-fit camera state with viewport transform `translate(435.661px, 104.839px) scale(0.187602)`
+      - the same tab sequence on `main` restored a more zoomed-out camera state with viewport transform `translate(779.9px, -51.7px) scale(0.1)`
+      - this closes the old "is the canary always re-fitting?" question for the checked path, but it leaves an explicit Gate 1 blocker: the worktree framing still drifts visibly from `main`
 
 ## Architectural stance
 
@@ -107,12 +110,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - a representative DOM-backed interaction/editing path is now proven on the same slice after pan/zoom
   - the multi-section canary expansion is now in place on `All Settings`
   - the stale-position ownership fix is now landed for the canary selector and seeded E2E coverage
-  - next restore a trustworthy authenticated Gate 1 oracle compare against `main` using either:
-    - a working DevTools bridge to the already-open lifecycle tabs, or
-    - freshly minted bootstrap tokens for both live sessions
-  - use that compare to answer one concrete question before more code churn:
-    - is the live worktree’s saved `All Settings` viewport at `zoom 0.1` a genuine canary drift versus `main`, or was the earlier fresh-profile compare misleading because it was no longer on the real authenticated surfaces?
-  - only if that compare proves the `zoom 0.1` live viewport is the real Gate 1 blocker should the next product slice change the canary’s initial/shared viewport strategy
+  - the trusted oracle compare is now restored and it answered the earlier question:
+    - the canary is no longer just re-fitting on remount for the checked restore path
+    - the remaining blocker is that the worktree’s restored `All Settings` framing is still materially different from `main`
+  - next target the real product frontier this compare exposed:
+    - determine why the saved/restored `All Settings` camera state still differs between the worktree canary and `main`
+    - only after that should another viewport-strategy code change land
 
 ## Explicit deferrals
 
@@ -135,6 +138,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `009`
-- Latest item: `2026-04-02 009`
+- Active history window: items `001` through `010`
+- Latest item: `2026-04-02 010`
 - Older history archives: none yet

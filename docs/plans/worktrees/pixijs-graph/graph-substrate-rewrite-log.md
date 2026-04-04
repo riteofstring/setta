@@ -104,6 +104,7 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+
 ## 2026-04-02 008
 
 - Item: Re-check the multi-section `All Settings` canary against the read-only `main` oracle and decide whether to continue or stop for replan.
@@ -317,5 +318,33 @@ LOOP_TERMINAL_MARKER: none
   - the active Gate 0 interaction/editing gap on the checked slice is closed
 - Next action:
   - expand the custom substrate beyond one top-level `All Settings` section while keeping DOM-backed bodies attached, interactive, and not obviously worse than the DOM baseline
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 010
+
+- Item: Restore saved `All Settings` viewport handoff on the graph-substrate canary instead of always falling back to a fresh fit during view-mode remount.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` with focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now resolves its initial viewport from the authoritative shared camera state before using the top-left fallback seed.
+  - The canary now also adopts the shared `useReactFlow` / project viewport when that saved state arrives after an initial auto-fit during view-mode handoff, while still preserving user-owned pan and wheel zoom once interaction begins.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now proves the checked restore path by saving an `All Settings` viewport, switching `All Settings -> Core -> All Settings`, and asserting that the canary restores the persisted transform.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`3 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings'`
+    - result: passed (`1 passed`, about `41s`)
+  - CDP visual check
+    - result: passed for the viewport-restore question, with remaining drift explicitly noted
+    - note:
+      - worktree after `Core -> All Settings`: restored non-fit camera state with viewport transform `translate(435.661px, 104.839px) scale(0.187602)`
+      - `main` after `Core -> All Settings`: restored a more zoomed-out camera state with viewport transform `translate(779.9px, -51.7px) scale(0.1)`
+      - the canary no longer appears to be blindly re-fitting on this path, but the restored framing still does not match `main`
+- Conclusion:
+  - this closes the bounded persistence bug where the canary could lose the saved `All Settings` camera state during remount handoff
+  - the next blocker is no longer "restore is broken"; it is the remaining Gate 1 framing drift versus `main`
+- Next action:
+  - inspect why the worktree’s saved/restored `All Settings` camera state still differs from `main`, then land the narrowest viewport-alignment fix rather than more restore plumbing
 
 LOOP_TERMINAL_MARKER: none
