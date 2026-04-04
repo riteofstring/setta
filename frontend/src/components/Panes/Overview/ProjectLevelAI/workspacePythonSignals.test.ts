@@ -14,20 +14,6 @@ vi.mock("utils/generatedEndpoints", () => ({
 
 const mockedGetFolderContents = vi.mocked(route_get_folder_contents);
 
-function buildFolderContentsResponse(
-  folderPath: string,
-  items: Array<{ name: string; type: string; fullPath: string }>,
-) {
-  return {
-    data: {
-      folderPath,
-      items,
-    },
-    status: 200,
-    hasResponse: true,
-  };
-}
-
 describe("workspacePythonSignals", () => {
   beforeEach(() => {
     mockedGetFolderContents.mockReset();
@@ -123,16 +109,11 @@ describe("workspacePythonSignals", () => {
 
   it("dedupes in-flight root scans for the same workspace path", async () => {
     const cache: WorkspacePythonSignalCache = new Map();
-    let resolveRequest:
-      | ((value: {
-          data: {
-            folderPath: string;
-            items: Array<{ name: string; type: string; fullPath: string }>;
-          };
-          status: number;
-          hasResponse: boolean;
-        }) => void)
-      | null = null;
+    let resolveRequest: ((value: {
+      data: Array<{ name: string; type: string; fullPath: string }>;
+      status: number;
+      hasResponse: boolean;
+    }) => void) | null = null;
 
     mockedGetFolderContents.mockImplementation(
       () =>
@@ -164,13 +145,15 @@ describe("workspacePythonSignals", () => {
       throw new Error("Expected root scan request to remain in flight.");
     }
     resolveRequest({
-      ...buildFolderContentsResponse("/workspace/python-app", [
+      data: [
         {
           name: "pyproject.toml",
           type: "file",
           fullPath: "/workspace/python-app/pyproject.toml",
         },
-      ]),
+      ],
+      status: 200,
+      hasResponse: true,
     });
 
     await expect(firstLoad).resolves.toBe(true);
