@@ -149,7 +149,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     expect(selectSettingsGraphSubstrateCanaryLayoutSections(state)).toEqual([]);
   });
 
-  it("selects all visible canary sections in top-left order and prefers measured dimensions", () => {
+  it("selects all visible canary sections in legacy display order and prefers measured dimensions", () => {
     const state = createProjectState();
     const nodeInternals = new Map<string, Node>([
       [
@@ -170,19 +170,19 @@ describe("settingsGraphSubstrateCanaryModel", () => {
       selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
     ).toEqual([
       {
-        sectionId: "section-b",
-        position: { x: 120, y: 100 },
-        zIndex: 1,
-        width: 410,
-        height: 260,
-        positionAndSizeLocked: false,
-      },
-      {
         sectionId: "section-a",
         position: { x: 500, y: 200 },
         zIndex: 2,
         width: 240,
         height: 160,
+        positionAndSizeLocked: false,
+      },
+      {
+        sectionId: "section-b",
+        position: { x: 120, y: 100 },
+        zIndex: 1,
+        width: 410,
+        height: 260,
         positionAndSizeLocked: false,
       },
     ]);
@@ -209,19 +209,19 @@ describe("settingsGraphSubstrateCanaryModel", () => {
       selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
     ).toEqual([
       {
-        sectionId: "section-b",
-        position: { x: 120, y: 100 },
-        zIndex: 1,
-        width: 320,
-        height: 240,
-        positionAndSizeLocked: false,
-      },
-      {
         sectionId: "section-a",
         position: { x: 500, y: 200 },
         zIndex: 2,
         width: 240,
         height: 160,
+        positionAndSizeLocked: false,
+      },
+      {
+        sectionId: "section-b",
+        position: { x: 120, y: 100 },
+        zIndex: 1,
+        width: 320,
+        height: 240,
         positionAndSizeLocked: false,
       },
     ]);

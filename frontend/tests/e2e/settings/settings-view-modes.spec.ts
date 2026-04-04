@@ -56,6 +56,11 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
   await page.waitForSelector(READY_SELECTOR);
   const projectConfigId = await getProjectConfigIdFromBackend(page);
   const initialState = await getLatestProjectState(page, projectConfigId);
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const expectedSectionOrder = getExpectedCanarySectionOrder(
+    initialState,
+    allSettingsViewModeId,
+  );
 
   const allTab = page.getByRole("button", {
     name: "All Settings",
@@ -86,6 +91,9 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
         return minimapNodeCount - canarySectionCount;
       })
       .toBe(0);
+    await expect
+      .poll(async () => (await getCanarySectionOrder(page)).join(","))
+      .toBe(expectedSectionOrder.join(","));
     await expect
       .poll(async () => (await getCanaryPaneViewportGaps(page))?.bottom ?? 9999)
       .toBeLessThan(80);
@@ -866,6 +874,18 @@ async function getCanarySectionCount(page: Page): Promise<number> {
   return page.getByTestId("graph-substrate-canary-section").count();
 }
 
+async function getCanarySectionOrder(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    return Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="graph-substrate-canary-section"]',
+      ),
+    )
+      .map((section) => section.dataset.sectionId ?? "")
+      .filter((sectionId) => sectionId !== "");
+  });
+}
+
 async function getViewportScale(page: Page): Promise<number> {
   return page.evaluate(() => {
     const viewport = document.querySelector(".react-flow__viewport");
@@ -1260,6 +1280,7 @@ async function getCanaryPaneViewportGaps(page: Page): Promise<{
 
 type ProjectStateSingleConfigWithCompletedOpIds = {
   projectState: {
+    parentSectionMap: Record<string, string | null | undefined>;
     projectConfig: {
       activeViewModeId: string | null;
       topLevelSections: Record<string, { x: number; y: number }>;
@@ -1268,6 +1289,8 @@ type ProjectStateSingleConfigWithCompletedOpIds = {
         {
           id: string;
           name: string;
+          topLevelSections: Record<string, { x: number; y: number }>;
+          visibilityBySectionId: Record<string, boolean>;
           viewport: { x: number; y: number; zoom: number } | null;
           viewportInitialized: boolean;
         }
@@ -1308,6 +1331,43 @@ function findViewModeId(
     }
   }
   throw new Error(`Missing view mode ${name}`);
+}
+
+function getExpectedCanarySectionOrder(
+  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  viewModeId: string,
+): string[] {
+  const { parentSectionMap, projectConfig, sections } = payload.projectState;
+  const viewMode = projectConfig.viewModes[viewModeId];
+  if (!viewMode) {
+    throw new Error(`Missing active view mode ${viewModeId}`);
+  }
+  const topLevelSections = resolveActiveViewModeTopLevelSections(
+    projectConfig.topLevelSections,
+    viewMode.topLevelSections,
+  );
+  return Object.keys(topLevelSections).filter((sectionId) => {
+    if (parentSectionMap[sectionId]) {
+      return false;
+    }
+    if (!(sectionId in sections)) {
+      return false;
+    }
+    return viewMode.visibilityBySectionId[sectionId] === true;
+  });
+}
+
+function resolveActiveViewModeTopLevelSections(
+  topLevelSections: Record<string, { x: number; y: number }>,
+  viewModeTopLevelSections: Record<string, { x: number; y: number }>,
+): Record<string, { x: number; y: number }> {
+  if (Object.keys(viewModeTopLevelSections).length === 0) {
+    return topLevelSections;
+  }
+  if (Object.keys(topLevelSections).length === 0) {
+    return viewModeTopLevelSections;
+  }
+  return { ...topLevelSections, ...viewModeTopLevelSections };
 }
 
 function buildLayoutSubset(

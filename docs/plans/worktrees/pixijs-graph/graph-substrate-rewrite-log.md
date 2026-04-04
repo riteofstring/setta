@@ -70,6 +70,38 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 031
+
+- Item: Remove the canary-only positional section sort so the `All Settings` graph-substrate path preserves the same top-level section order as legacy graph consumers.
+- Status: `done`
+- Details:
+  - The next suspected live mismatch after items `029` and `030` looked like section-order drift, but code inspection showed a concrete canary-only divergence before another viewport patch was justified:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` was iterating the active layout and then re-sorting sections by `y/x/sectionId`
+    - legacy graph consumers use `getTopLevelSectionIdsForDisplay(...)` / active top-level-section key order instead of a positional re-sort
+  - The canary model now iterates `getTopLevelSectionIdsForDisplay(projectState)` and reads layout data from `getActiveViewModeTopLevelSections(projectState)`, so the canary follows the same display-order source of truth as legacy React Flow.
+  - Focused coverage now locks that contract down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` now expects legacy display order instead of top-left sort order
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that the rendered `All Settings` canary section order matches the active view-mode top-level-section order on first render
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `37s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - a fresh-context sub-agent still could not invoke browser MCP in this chat, so the final browser check used the main-context `chrome-devtools-mcp` fallback
+      - after reloading the live worktree page, the worktree canary reported `46` rendered sections and its rendered header order matched the `Overview` pane order exactly (`firstMismatchIndex = -1`)
+      - the read-only `main` page likewise still had `46` visible React Flow nodes whose rendered header order matched its own `Overview` pane order exactly (`firstMismatchIndex = -1`)
+      - the remaining worktree-vs-`main` ordering difference is upstream saved state / overview ordering, not another canary-only ordering path
+- Conclusion:
+  - the `All Settings` canary no longer applies a separate positional sort that can drift from the active top-level section order
+  - this closes the canary-only ordering lane instead of opening another speculative viewport-control patch
+- Next action:
+  - run the next controlled `All Settings` compare with matched upstream view-mode state and isolate the next real renderer or interaction mismatch, rather than treating the current cross-worktree ordering difference as a remaining canary bug
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 030
 
 - Item: Align the custom-substrate canary's plain-wheel gesture with legacy `main` pan-scroll behavior on `All Settings`.

@@ -4,6 +4,7 @@ import {
   getCurrEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewModeVisibility,
+  getTopLevelSectionIdsForDisplay,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
 import type { Position } from "utils/generatedTypes";
@@ -60,8 +61,9 @@ export function selectSettingsGraphSubstrateCanaryLayoutSections(
   const layouts = getActiveViewModeTopLevelSections(projectState);
   const candidates: Array<GraphSubstrateCanaryLayoutSection> = [];
 
-  for (const [sectionId, layout] of Object.entries(layouts)) {
-    if (!(sectionId in projectState.sections)) {
+  for (const sectionId of getTopLevelSectionIdsForDisplay(projectState)) {
+    const layout = layouts[sectionId];
+    if (!layout) {
       continue;
     }
     const { visibility, isEditingViewMode } = getSectionViewModeVisibility(
@@ -82,16 +84,6 @@ export function selectSettingsGraphSubstrateCanaryLayoutSections(
       positionAndSizeLocked: impl.positionAndSizeLocked,
     });
   }
-
-  candidates.sort((a, b) => {
-    if (a.position.y !== b.position.y) {
-      return a.position.y - b.position.y;
-    }
-    if (a.position.x !== b.position.x) {
-      return a.position.x - b.position.x;
-    }
-    return a.sectionId.localeCompare(b.sectionId);
-  });
 
   return candidates;
 }
