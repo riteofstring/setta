@@ -57,7 +57,6 @@ describe("BackendInitStatusProvider", () => {
   });
 
   afterEach(async () => {
-    vi.useRealTimers();
     document.body.innerHTML = "";
   });
 
@@ -94,25 +93,12 @@ describe("BackendInitStatusProvider", () => {
     }
   });
 
-  it("retries failed loads until the Go-owned backend init snapshot succeeds", async () => {
-    vi.useFakeTimers();
-    routeGetBackendInitStatusMock
-      .mockResolvedValueOnce({
-        status: 503,
-        hasResponse: true,
-        data: null,
-      })
-      .mockResolvedValueOnce({
-        status: 200,
-        hasResponse: true,
-        data: {
-          events: [],
-          isReady: true,
-          error: null,
-          authCookieRefreshWindowSeconds: 300,
-          worktreeName: "retry-ready",
-        },
-      });
+  it("surfaces a load failure without polling for another backend init snapshot", async () => {
+    routeGetBackendInitStatusMock.mockResolvedValue({
+      status: 503,
+      hasResponse: true,
+      data: null,
+    });
 
     const { host, root } = await renderBackendInitStatusConsumers();
 
@@ -123,19 +109,9 @@ describe("BackendInitStatusProvider", () => {
       expect(
         host.querySelector('[data-testid="consumer-a"]')?.textContent,
       ).toBe("missing");
-
-      await act(async () => {
-        vi.advanceTimersByTime(500);
-      });
-      await flushEffects();
-
-      expect(routeGetBackendInitStatusMock).toHaveBeenCalledTimes(2);
-      expect(
-        host.querySelector('[data-testid="consumer-a"]')?.textContent,
-      ).toBe("retry-ready");
       expect(
         host.querySelector('[data-testid="consumer-b"]')?.textContent,
-      ).toBe("retry-ready");
+      ).toBe("missing");
     } finally {
       await act(async () => {
         root.unmount();

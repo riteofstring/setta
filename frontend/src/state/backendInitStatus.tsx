@@ -5,17 +5,22 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import { route_get_backend_init_status } from "utils/generatedEndpoints";
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 
-const BACKEND_INIT_STATUS_RETRY_DELAY_MS = 500;
-
-type BackendInitStatusRouteResponse =
-  ResponseDataAndStatus<BackendInitStatusResponse>;
-
 const BackendInitStatusContext =
   createContext<BackendInitStatusResponse | null>(null);
+
+function buildBackendInitStatusLoadError(): BackendInitStatusResponse {
+  return {
+    events: [],
+    isReady: false,
+    error: "Failed to load backend init status.",
+    authCookieRefreshWindowSeconds: 0,
+    worktreeName: null,
+  };
+}
 
 export function BackendInitStatusProvider({
   children,
@@ -25,41 +30,22 @@ export function BackendInitStatusProvider({
   const [status, setStatus] = useState<BackendInitStatusResponse | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    let retryTimeout: number | undefined;
+    let cancelled = false;
 
-    async function loadBackendInitStatus() {
-      const res: BackendInitStatusRouteResponse =
-        await route_get_backend_init_status();
-
-      if (!isMounted) {
+    void (async () => {
+      const res = await route_get_backend_init_status();
+      if (cancelled) {
         return;
       }
-
       if (!res200(res)) {
-        retryTimeout = window.setTimeout(() => {
-          retryTimeout = undefined;
-          void loadBackendInitStatus();
-        }, BACKEND_INIT_STATUS_RETRY_DELAY_MS);
+        setStatus(buildBackendInitStatusLoadError());
         return;
       }
-
       setStatus(res.data);
-      if (!res.data.isReady) {
-        retryTimeout = window.setTimeout(() => {
-          retryTimeout = undefined;
-          void loadBackendInitStatus();
-        }, BACKEND_INIT_STATUS_RETRY_DELAY_MS);
-      }
-    }
-
-    void loadBackendInitStatus();
+    })();
 
     return () => {
-      isMounted = false;
-      if (retryTimeout !== undefined) {
-        window.clearTimeout(retryTimeout);
-      }
+      cancelled = true;
     };
   }, []);
 
