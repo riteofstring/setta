@@ -3217,3 +3217,33 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - rerun a fresh normalized live Gate 1 / Gate 2 compare on `All Settings` and isolate the next remaining canary-only dynamic artifact, if any, rather than adding more fit-view or landing-oracle support work
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 05:14 EDT - Ralph item 094
+
+- Tightened the shared normalized graph-surface pane helper so parity compares wait for visible pane chrome to disappear before measuring the graph surface.
+- Why this slice was necessary:
+  - the first fresh-context CDP compare on this pass did not reveal a concrete canary-only renderer defect on normalized `All Settings`; the live graph surface still looked stable against read-only `main`
+  - the next draft fast-switch main-reference parity probe exposed a support gap instead: the shared normalization helper only wrote local pane state, so compares could proceed before the actual pane chrome had visually collapsed
+  - this was the narrowest valid support slice because it improved one shared normalization contract that directly unblocks future graph-surface parity probes without reopening seam-lift churn or speculating about a new production bug
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - `normalizeSettingsGraphComparePaneState(...)` now waits for `overview-pane-fullscreen-button` and `uiEditor-pane-fullscreen-button` to disappear after setting the local pane state
+    - this keeps graph-surface comparisons gated on the visible pane chrome matching the hidden-pane normalization contract
+  - no production renderer files changed in this slice
+  - the draft cross-worktree fast-switch `fit view` parity probe was reverted before the final commit set; it was not bounded enough for this iteration
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun with fresh runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `26.1s`)
+  - fresh-context CDP sub-agent:
+    - checked `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+    - normalized both to `All Settings`; used the available minimap toggle to reduce extra chrome where possible
+    - no obvious graph-surface drift, offsetting, or clipping was visible on the cleared landing state; the main container filled the viewport and body scroll size matched the viewport on both pages
+  - CDP visual check: done (fresh-context normalized `All Settings` landing sanity check on live `3075` and `3087` settings pages)
+- Lane status:
+  - keep the visible-pane-chrome wait inside the shared compare normalization helper
+  - do not treat local pane store state alone as sufficient normalization evidence for graph-surface parity lanes
+- Next frontier:
+  - return to one bounded renderer-facing dynamic compare on normalized `All Settings`; if the fast-switch `fit view` main-reference lane is retried, first define the exact authoritative reference surface/metric instead of landing another half-bounded draft probe
+- LOOP_TERMINAL_MARKER: none

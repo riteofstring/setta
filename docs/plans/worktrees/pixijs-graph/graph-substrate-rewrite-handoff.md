@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 04:48 EDT
+Last updated: 2026-04-04 05:14 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,31 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `094` tightened the shared normalized graph-surface pane helper so parity compares wait for visible pane chrome to disappear before measuring the graph surface.
+  - Why this slice was needed:
+    - the first fresh-context CDP compare on this pass did not expose a concrete canary-only renderer defect on normalized `All Settings`; the live graph surface still looked stable against read-only `main`
+    - the next draft fast-switch main-reference parity probe immediately ran into an oracle problem instead: the shared normalization helper only updated local pane state, so compares could proceed before the actual pane chrome had visually collapsed
+    - this was the narrowest valid support slice because it tightened one shared normalization guarantee that directly unblocks future graph-surface parity probes without reopening seam-lift churn or inventing a new production bug
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      - `normalizeSettingsGraphComparePaneState(...)` now waits for both `overview-pane-fullscreen-button` and `uiEditor-pane-fullscreen-button` to disappear after setting the local pane state, so graph-surface comparisons only continue once the visible pane chrome matches the hidden-pane normalization contract
+    - no production renderer files changed in this slice
+    - the draft cross-worktree fast-switch `fit view` parity probe was intentionally not kept; it proved unready for a bounded commit on this pass and was reverted before the final verification/commit set
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun with fresh runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `26.1s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent checked the already-running live settings pages at `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+    - both were normalized to `All Settings`; the minimap toggle was used to reduce extra chrome where available, and no obvious graph-surface drift, offsetting, or clipping was visible on the cleared landing state
+    - the main container started at `x=0, y=0`, filled the viewport, and body scroll size matched the viewport size on both pages
+    - CDP visual check: done (fresh-context normalized `All Settings` landing sanity check on worktree `3075` vs read-only `main` `3087`; no obvious graph-surface drift visible)
+  - conclusion for this slice:
+    - keep the visible-pane-chrome wait inside the shared compare normalization helper
+    - do not treat local pane store state alone as sufficient normalization evidence for graph-surface parity lanes
+    - the next real frontier should return to one bounded renderer-facing dynamic compare; if the fast-switch `fit view` lane is retried, first decide the exact authoritative surface/metric for the read-only `main` side instead of committing another half-bounded draft probe
 - Ralph item `093` fixed a concrete canary-only fast-switch `fit view` defect on `All Settings` instead of opening another parity-only probe lane.
   - Why this slice was needed:
     - the first fresh-context CDP compare on this pass finally exposed a concrete production bug rather than more oracle noise: after switching into `All Settings` and triggering `fit view`, the worktree canary over-zoomed and left `drawSectionDefault` off-canvas while read-only `main` landed the same section on the normal full-graph fit

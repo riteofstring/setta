@@ -217,6 +217,7 @@ export async function normalizeSettingsGraphComparePaneState(
   page: Page,
 ): Promise<void> {
   await setLocalPaneState(page, SETTINGS_GRAPH_COMPARE_PANE_STATE);
+  await waitForSettingsGraphComparePaneChrome(page);
 }
 
 export async function fitGraphViewportToSection(
@@ -407,6 +408,17 @@ export async function captureSettingsGraphSectionMetrics(
     surfaceKind,
     transform,
   };
+}
+
+async function waitForSettingsGraphComparePaneChrome(
+  page: Page,
+): Promise<void> {
+  await expect(page.getByTestId("overview-pane-fullscreen-button")).toHaveCount(
+    0,
+  );
+  await expect(page.getByTestId("uiEditor-pane-fullscreen-button")).toHaveCount(
+    0,
+  );
 }
 
 export async function findSettingsGraphPanePoint(
