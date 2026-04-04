@@ -3,10 +3,10 @@
 ## Core Priorities
 
 - Treat `cmd/` and `internal/` as the backend runtime. Treat `backend/setta/` as the Python package surface.
-- Go is the default source of truth for canonical behavior, validation, derived metadata, and shared contracts unless the developer explicitly says otherwise.
+- Go is the default source of truth for canonical behavior, validation, derived metadata, correctness-sensitive local runtime behavior, and shared contracts unless the developer explicitly says otherwise.
 - Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with a concrete justification.
 - Regenerate endpoints and generated types instead of hand-syncing them.
-- Prefer explicit, typed implementations over heuristics, silent fallbacks, or broad exception handling.
+- Prefer explicit, typed implementations.
 
 ## Ownership
 
@@ -16,7 +16,7 @@
 - `frontend/` contains the React/Vite UI; keep app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
 - `setta_files/` is local runtime state, not a fixture source, and must not be committed.
 - Go tests belong with packages under `cmd/*` and `internal/*`. Python/package pytest coverage belongs under `tests/`.
-- Before deleting a Python file outside `backend/setta/`, prove the surviving caller or replacement owner.
+- Before deleting a Python file outside `backend/setta/`, identify the surviving caller or replacement owner in the diff or final summary.
 
 ## Go-Backed Python
 
@@ -24,7 +24,6 @@
 - `Go-owned Python types` means Python uses generated Go-owned contracts/models instead of handwritten schema mirrors.
 - `Go-backed Python` means canonical local Setta behavior delegates to Go, either through the running backend or through `setta sdk-local-core`.
 - Generated Python models alone do not make behavior Go-backed.
-- Keep canonical validation, derived metadata, and correctness-sensitive local runtime behavior in Go unless the developer explicitly wants otherwise.
 - Python should keep ergonomic helper behavior such as transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders over authoritative contracts.
 - Parsing backend-authored payloads or using generated DTOs does not, by itself, require a local Go subprocess call.
 
@@ -43,7 +42,6 @@
 
 ## Workflow & Verification
 
-- Prefer `./start.sh`, `./reset.sh`, and `./ai.sh` for the source-checkout dev loop. Use `docs/guides/dev-scripts.md` for details.
 - Use `dev_install.sh` for the default Go-first setup and `dev_install_python.sh` only when you need Python/package tooling. Neither install script should rewrite lockfiles; use `./update_dependencies.sh` for that.
 - For Python/package tooling, use `source activate.sh && <command>`.
 - Pin checked-in direct dependency versions exactly. For dependency audit or upgrade work, follow `docs/guides/dependency-audits.md`, prefer critical/high fixes by default, and use official sources instead of obscure forks or mirrors.
@@ -64,7 +62,6 @@
 - Use `TYPE_CHECKING` blocks when possible, keep imports at the top of the file, and do not import annotations from `__future__`.
 - Use `docs/reference/ui-style-consistency.md` as the UI style anchor map, and do not add borders by default unless they convey structure.
 - Prefer backend-initiated websocket updates over polling when the backend already knows when state changes.
-- Prefer failing loudly and specifically over silent fallbacks, broad catch-all handling, fake estimates, or brittle keyword heuristics.
-- If a robust solution is not possible, say so explicitly and present the real tradeoffs. Do not implement heuristic fallbacks without explicit approval.
+- If a robust solution is not possible, say so explicitly and present the real tradeoffs. Prefer failing loudly and specifically over silent fallbacks, fake estimates, brittle keyword heuristics, or broad catch-all handling, and do not implement heuristic fallbacks without explicit approval.
 - Preserve intended behavior for supported workflows during refactors. Do not add backward-compatibility shims unless the developer explicitly asks for them. If behavior is unclear, stop and ask.
 - Performance-relevant refactors must baseline first, re-measure after, and record before/after results in `perf/` as append-only reports.
