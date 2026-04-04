@@ -1034,6 +1034,23 @@ func FrontendDefaultPythonCodeObjValuePolicy() CodeObjValuePolicy {
 	return frontendPythonCodeObjValuePolicy(nil, projectstate.DefaultPythonCodeObjValuePolicy())
 }
 
+func FrontendDefaultProjectCodegenPythonTarget() ProjectCodegenPythonTarget {
+	config, err := projectstate.DecodePythonCodegenTarget(projectstate.ProjectCodegenTarget{
+		Language: string(projectstate.CodeLanguagePython),
+	})
+	if err != nil {
+		panic("decode default project codegen python target: " + err.Error())
+	}
+	return ProjectCodegenPythonTarget{
+		Language:           ProjectCodegenLanguagePython,
+		GenCodePrefix:      config.GenCodePrefix,
+		GenCodeSuffix:      config.GenCodeSuffix,
+		GenerateMetadata:   config.GenerateMetadata,
+		SectionPolicy:      FrontendDefaultPythonSectionCodegenPolicy(),
+		CodeObjValuePolicy: FrontendDefaultPythonCodeObjValuePolicy(),
+	}
+}
+
 func frontendPythonSectionPolicy(
 	raw projectstate.RawJSON,
 	policy projectstate.PythonSectionCodegenPolicy,

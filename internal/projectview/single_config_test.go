@@ -194,6 +194,35 @@ func TestFrontendDefaultPythonCodeObjValuePolicyUsesCanonicalDefaults(t *testing
 	}
 }
 
+func TestFrontendDefaultProjectCodegenPythonTargetUsesCanonicalDefaults(t *testing.T) {
+	target := FrontendDefaultProjectCodegenPythonTarget()
+	config, err := projectstate.DecodePythonCodegenTarget(projectstate.ProjectCodegenTarget{
+		Language: string(projectstate.CodeLanguagePython),
+	})
+	if err != nil {
+		t.Fatalf("DecodePythonCodegenTarget returned error: %v", err)
+	}
+
+	if target.Language != ProjectCodegenLanguagePython {
+		t.Fatalf("expected language %q, got %q", ProjectCodegenLanguagePython, target.Language)
+	}
+	if target.GenCodePrefix != config.GenCodePrefix {
+		t.Fatalf("expected prefix %q, got %q", config.GenCodePrefix, target.GenCodePrefix)
+	}
+	if target.GenCodeSuffix != config.GenCodeSuffix {
+		t.Fatalf("expected suffix %q, got %q", config.GenCodeSuffix, target.GenCodeSuffix)
+	}
+	if target.GenerateMetadata != config.GenerateMetadata {
+		t.Fatalf("expected generateMetadata %v, got %v", config.GenerateMetadata, target.GenerateMetadata)
+	}
+	if !reflect.DeepEqual(target.SectionPolicy, FrontendDefaultPythonSectionCodegenPolicy()) {
+		t.Fatalf("expected canonical section policy defaults, got %#v", target.SectionPolicy)
+	}
+	if !reflect.DeepEqual(target.CodeObjValuePolicy, FrontendDefaultPythonCodeObjValuePolicy()) {
+		t.Fatalf("expected canonical code object defaults, got %#v", target.CodeObjValuePolicy)
+	}
+}
+
 func TestSingleConfigByProjectIDDisablesMainRunForNonRunnableEntrySection(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]

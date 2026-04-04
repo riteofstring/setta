@@ -3,12 +3,9 @@ package pythonsharedtypes
 import (
 	"fmt"
 	"reflect"
-	"sort"
-	"strings"
 
 	"setta/internal/frontendbindings"
 	"setta/internal/httpapi"
-	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/stringenumvalues"
 	"setta/internal/wsapi"
@@ -236,123 +233,13 @@ func pythonSharedFieldDefaultsForType(t reflect.Type) map[string]string {
 }
 
 func pythonProjectConfigDefaultCodegenTargetsExpr() string {
-	return "Field(default_factory=lambda: [" + pythonDefaultPythonCodegenTargetExpr() + "])"
-}
-
-func pythonDefaultPythonCodegenTargetExpr() string {
-	sectionPolicy := projectstate.DefaultPythonSectionCodegenPolicy()
-	codeObjValuePolicy := projectstate.DefaultPythonCodeObjValuePolicy()
-	return strings.Join(
-		[]string{
-			"ProjectCodegenPythonTarget(",
-			"language=ProjectCodegenLanguage.python, ",
-			"genCodePrefix=\"\", ",
-			"genCodeSuffix=" + fmt.Sprintf("%q", projectstate.DefaultPythonCodegenSuffix) + ", ",
-			"generateMetadata=False, ",
-			"sectionPolicy=" + pythonSectionCodegenPolicyExpr(sectionPolicy) + ", ",
-			"codeObjValuePolicy=" + pythonCodeObjValuePolicyExpr(codeObjValuePolicy),
-			")",
+	defaultTargetExpr := mustPythonValueExprFromGoValue(
+		"default project codegen targets",
+		[]projectview.ProjectCodegenPythonTarget{
+			projectview.FrontendDefaultProjectCodegenPythonTarget(),
 		},
-		"",
 	)
-}
-
-func pythonSectionCodegenPolicyExpr(policy projectstate.PythonSectionCodegenPolicy) string {
-	return strings.Join(
-		[]string{
-			"SectionCodegenPolicy(",
-			"allowlist=" + pythonStringListExpr(defaultOrderedPolicyList(policy.Allowlist, false)) + ", ",
-			"metaControlAllowlist=" + pythonStringListExpr(defaultOrderedPolicyList(policy.MetaControlAllowlist, false)) + ", ",
-			"exclude=" + pythonStringListExpr(sortedPolicyKeys(policy.Exclude)) + ", ",
-			"typePolicies=" + pythonSectionTypePoliciesExpr(policy.TypePolicies) + ", ",
-			"sectionOverrides={}",
-			")",
-		},
-		"",
-	)
-}
-
-func pythonCodeObjValuePolicyExpr(policy projectstate.PythonCodeObjValuePolicy) string {
-	return strings.Join(
-		[]string{
-			"CodeObjValuePolicy(",
-			"typePolicies=" + pythonCodeObjTypePoliciesExpr(policy.TypePolicies) + ", ",
-			"codeObjOverrides={}",
-			")",
-		},
-		"",
-	)
-}
-
-func pythonSectionTypePoliciesExpr(
-	policies map[string]projectstate.PythonSectionTypeCodegenPolicy,
-) string {
-	keys := make([]string, 0, len(policies))
-	for key := range policies {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		policy := policies[key]
-		parts = append(
-			parts,
-			fmt.Sprintf(
-				"%q: SectionTypeCodegenPolicy(mode=SectionCodegenMode.%s, representation=SectionRepresentationMode.%s)",
-				key,
-				string(policy.Mode),
-				string(policy.Representation),
-			),
-		)
-	}
-	return "{" + strings.Join(parts, ", ") + "}"
-}
-
-func pythonCodeObjTypePoliciesExpr(
-	policies map[string]projectstate.PythonCodeObjTypeValuePolicy,
-) string {
-	keys := make([]string, 0, len(policies))
-	for key := range policies {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(keys))
-	for _, key := range keys {
-		policy := policies[key]
-		parts = append(
-			parts,
-			fmt.Sprintf(
-				"%q: CodeObjTypeValuePolicy(representation=CodeObjValueRepresentationMode.%s)",
-				key,
-				string(policy.Representation),
-			),
-		)
-	}
-	return "{" + strings.Join(parts, ", ") + "}"
-}
-
-func defaultOrderedPolicyList(values map[string]struct{}, allowAll bool) []string {
-	if allowAll {
-		return []string{"*"}
-	}
-	return sortedPolicyKeys(values)
-}
-
-func sortedPolicyKeys(values map[string]struct{}) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
-}
-
-func pythonStringListExpr(values []string) string {
-	parts := make([]string, 0, len(values))
-	for _, value := range values {
-		parts = append(parts, fmt.Sprintf("%q", value))
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
+	return "Field(default_factory=lambda: " + defaultTargetExpr + ")"
 }
 
 func buildRouteContractSpec() (contractSpec, error) {

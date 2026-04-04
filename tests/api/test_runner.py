@@ -123,6 +123,52 @@ def test_resolve_project_config_id_raises_on_unknown() -> None:
         runner._resolve_project_config_id("Missing")
 
 
+def test_project_config_defaults_use_canonical_codegen_target_defaults() -> None:
+    config = ProjectConfig(
+        hasPythonCodegenTarget=False,
+        runCapabilities={"canRunFromMain": False},
+        sectionPathSlugsById={},
+        sectionIdsByPathSlug={},
+        windowSpaceSlugsById={},
+        windowSpaceIdsBySlug={},
+    )
+
+    assert len(config.codegenTargets) == 1
+    target = config.codegenTargets[0]
+    assert target.language.value == "python"
+    assert target.genCodePrefix == ""
+    assert target.genCodeSuffix == "state = SettaState()"
+    assert target.generateMetadata is False
+    assert target.sectionPolicy.allowlist == [
+        "Callable",
+        "Dict",
+        "ListRoot",
+        "Group",
+        "GlobalVariables",
+        "TextBlock",
+        "Draw",
+        "MetaControl",
+        "TaskBoard",
+        "Spreadsheet",
+    ]
+    assert target.sectionPolicy.metaControlAllowlist == [
+        "CodeParam",
+        "TextParam",
+        "DateParam",
+        "TimeParam",
+        "TextAreaParam",
+        "SliderParam",
+        "RotaryParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "ButtonParam",
+        "DropzoneParam",
+    ]
+    assert target.codeObjValuePolicy.typePolicies["DropzoneParam"].representation.value == "file_path"
+
+
 def test_summary_loads_latest_project_state_for_default_config(
     monkeypatch,
 ) -> None:
