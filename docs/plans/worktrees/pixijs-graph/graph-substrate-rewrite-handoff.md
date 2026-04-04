@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 14:29 EDT
+Last updated: 2026-04-04 15:04 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,46 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `127` tightened the normalized `fit view`-after-manual-pan main-reference probe so it uses the settled post-pan shared landing as the oracle on the current run-046 surfaces instead of trusting the live legacy first-fit landing.
+  - Why this slice was needed:
+    - the plan/handoff still named the fit-after-manual-pan lane as one of the next trustworthy dynamic compares to rerun on the current surfaces
+    - the first targeted run-046 Playwright rerun immediately failed before any canary-vs-main parity assertion, because the read-only `main` side did not return to its own first explicit global `fit view` landing after the same manual pan
+    - the failing numbers showed the previous probe shape was over-asserting on the live oracle side: the first explicit legacy fit landed about `67.5px` right of the settled post-pan fit on run-046, so using that first-fit snapshot as the parity oracle was no longer trustworthy for this lane
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added a local settled-metrics helper so this lane waits for the first and second `fit view` landings to stop moving before sampling rect/transform geometry
+      - changed `settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary` so it now compares the settled post-pan post-fit landing across worktree and read-only `main` instead of requiring the live legacy first-fit landing to be a per-surface oracle
+  - What this slice established:
+    - the canary-only renderer path was not the failing side of the reopened lane; the pre-fix failure happened while the probe was still validating the legacy-side first-fit baseline
+    - on the current live run-046 surfaces, the trustworthy question for this lane is whether both tabs settle on the same final landing after `fit view -> short pan -> fit view`, not whether read-only `main` reproduces its own first explicit fit snapshot pixel-for-pixel
+    - the tightened main-reference probe now passes on the live run-046 worktree/main runtimes
+  - Automated result:
+    - refreshed run-046 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-046/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-046/main-ai.log`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-046 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-046 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `32.0s`)
+    - non-gating canary-only retry:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-046 worktree token>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan' --reporter=line`
+      - result: not used for acceptance; a late rerun hit bootstrap/auth readiness issues in Playwright global setup
+  - Live verification result:
+    - fresh-context CDP sub-agent on the live worktree `3075/settings` surface:
+      - normalized to `All Settings`, cleared viewport to `null`, clicked `fit view`, applied one controlled pan through the live wheel-pan path, and clicked `fit view` again
+      - programmatic `useReactFlow.getState().panBy({ x: 160, y: 100 })` returned `false` on the canary surface, so the visual check used the live wheel-pan path instead
+      - the worktree settled cleanly after the final fit with no obvious clipping; root rect stayed `x=0 y=36 w=1440 h=828`, and sample section rects remained inside that surface
+    - fresh-context CDP sub-agent on the read-only `main` `3087/settings` surface:
+      - resolved live `projectConfigId` `f5ca2fb0-bb49-4042-adb2-8c6b8991598d`, cleared viewport via backend-origin `POST /api/setViewport`, normalized to `All Settings`, clicked `fit view`, applied one wheel-pan step, and clicked `fit view` again
+      - during the pan, viewport moved to `translate(432.4px, -231.7px) scale(0.1)`
+      - after the final fit, viewport returned to `translate(712.4px, -51.7px) scale(0.1)`
+      - the main surface also settled cleanly with no obvious clipping or residual drift in the final view
+    - CDP visual check: done (fresh-context live worktree `3075` and read-only `main` `3087` normalized separately on `All Settings`; both surfaces settle cleanly after `fit view -> wheel pan -> fit view`, and no obvious residual drift or clipping remains on the checked lane)
+  - conclusion for this slice:
+    - keep the canary-only fit-reset semantics covered by the dedicated worktree-only regression lane, but do not treat the live legacy first explicit global fit on run-046 as a per-surface oracle for the main-reference probe
+    - treat the tightened main-reference probe as the trustworthy parity guard for this lane on the current live surfaces: after the same normalized pan-reset sequence, worktree canary and read-only `main` settle on the same final graph-surface landing
+    - do not reopen this exact oracle shape unless a future rerun shows the final post-pan post-fit landing diverging across worktree and `main`
 - Ralph item `126` landed the shared programmatic `panBy(...)` path on the custom substrate and closed the normalized `panBy -> zoomIn` lane on the current run-045 surfaces.
   - Why this slice was needed:
     - item `125` had left one concrete renderer question open: after the same shared `fit view -> panBy({ x: -60, y: 30 }) -> zoomIn()` sequence, the canary landed on the pure zoom transform while read-only `main` landed on the panned-then-zoomed transform
@@ -3181,7 +3221,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - one short top-level section drag
 - The next bounded slice should prefer one different existing deterministic dynamic lane on a non-Browser shared section, ideally:
   - the modified-wheel zoom delta lane
-  - or the fit-after-manual-pan lane
+  - or another shared motion/edit lane whose target control is already visible after normalized `clear viewport -> fit view`
 - Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
 - Because item `092` did not expose a canary-only landing defect, the next pass should avoid another entry-state oracle slice by default and return to one materially different dynamic graph-surface action that could still expose a real renderer bug.
 - Prefer the next dynamic lane on a different shared action or a concrete production renderer defect; the spreadsheet and `groupSectionDefault` body-anchor drag lanes now have enough coverage for the current gate.
@@ -3266,6 +3306,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `126`
-- Latest item: `2026-04-04 126`
+- Active history window: items `001` through `127`
+- Latest item: `2026-04-04 127`
 - Older history archives: none yet

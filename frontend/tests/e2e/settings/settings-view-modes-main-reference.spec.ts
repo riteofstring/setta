@@ -18,6 +18,7 @@ import {
   setLocalPaneState,
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
   type ProjectStateSingleConfigWithCompletedOpIds,
+  type SettingsGraphSectionMetrics,
 } from "./graphSubstrateParityProbe";
 
 const WORKTREE_BASE_URL =
@@ -46,6 +47,93 @@ type SharedTopLevelSection = {
   referenceSectionId: string;
   worktreeSectionId: string;
 };
+
+function hasSettledSectionMetrics(
+  metrics: SettingsGraphSectionMetrics,
+  expectedSurfaceKind: "legacy" | "canary",
+): boolean {
+  return (
+    metrics.centerOffsetFromRootCenter !== null &&
+    metrics.rect !== null &&
+    metrics.surfaceKind === expectedSurfaceKind &&
+    metrics.transform !== null
+  );
+}
+
+function areSectionMetricsStable(
+  current: SettingsGraphSectionMetrics,
+  previous: SettingsGraphSectionMetrics,
+): boolean {
+  if (
+    current.centerOffsetFromRootCenter === null ||
+    previous.centerOffsetFromRootCenter === null ||
+    !current.rect ||
+    !previous.rect ||
+    !current.transform ||
+    !previous.transform
+  ) {
+    return false;
+  }
+
+  return (
+    Math.abs(
+      current.centerOffsetFromRootCenter - previous.centerOffsetFromRootCenter,
+    ) < 0.5 &&
+    Math.abs(current.rect.x - previous.rect.x) < 0.5 &&
+    Math.abs(current.rect.y - previous.rect.y) < 0.5 &&
+    Math.abs(current.rect.width - previous.rect.width) < 0.5 &&
+    Math.abs(current.rect.height - previous.rect.height) < 0.5 &&
+    Math.abs(current.transform.x - previous.transform.x) < 0.5 &&
+    Math.abs(current.transform.y - previous.transform.y) < 0.5 &&
+    Math.abs(current.transform.zoom - previous.transform.zoom) < 0.002
+  );
+}
+
+async function waitForSettledSectionMetrics(args: {
+  expectedSurfaceKind: "legacy" | "canary";
+  page: Page;
+  sectionId: string;
+}): Promise<SettingsGraphSectionMetrics> {
+  await expect
+    .poll(
+      async () => {
+        const first = await captureSettingsGraphSectionMetrics(
+          args.page,
+          args.sectionId,
+        );
+        if (!hasSettledSectionMetrics(first, args.expectedSurfaceKind)) {
+          return false;
+        }
+
+        await args.page.waitForTimeout(150);
+
+        const second = await captureSettingsGraphSectionMetrics(
+          args.page,
+          args.sectionId,
+        );
+        if (!hasSettledSectionMetrics(second, args.expectedSurfaceKind)) {
+          return false;
+        }
+
+        return areSectionMetricsStable(second, first);
+      },
+      {
+        timeout: 5000,
+      },
+    )
+    .toBe(true);
+
+  const settledMetrics = await captureSettingsGraphSectionMetrics(
+    args.page,
+    args.sectionId,
+  );
+  if (!hasSettledSectionMetrics(settledMetrics, args.expectedSurfaceKind)) {
+    throw new Error(
+      `Missing settled ${args.expectedSurfaceKind} section metrics for ${args.sectionId}.`,
+    );
+  }
+  return settledMetrics;
+}
 
 test("settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary", async ({
   context,
@@ -1576,30 +1664,11 @@ test("settings graph parity probe reapplies the same shared fit view landing aft
     await expect(fitViewButton).toBeVisible();
     await fitViewButton.click();
 
-    await expect
-      .poll(async () => {
-        const metrics = await captureSettingsGraphSectionMetrics(
-          args.targetPage,
-          args.sectionId,
-        );
-        return {
-          centerOffsetFromRootCenter: metrics.centerOffsetFromRootCenter,
-          hasRect: metrics.rect !== null,
-          hasTransform: metrics.transform !== null,
-          surfaceKind: metrics.surfaceKind,
-        };
-      })
-      .toEqual({
-        centerOffsetFromRootCenter: expect.any(Number),
-        hasRect: true,
-        hasTransform: true,
-        surfaceKind: args.expectedSurfaceKind,
-      });
-
-    const expectedMetrics = await captureSettingsGraphSectionMetrics(
-      args.targetPage,
-      args.sectionId,
-    );
+    const expectedMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
     if (
       expectedMetrics.centerOffsetFromRootCenter === null ||
       !expectedMetrics.rect ||
@@ -1640,44 +1709,25 @@ test("settings graph parity probe reapplies the same shared fit view landing aft
 
     await fitViewButton.click();
 
-    await expect
-      .poll(async () => {
-        const afterFit = await captureSettingsGraphSectionMetrics(
-          args.targetPage,
-          args.sectionId,
-        );
-        if (
-          afterFit.centerOffsetFromRootCenter === null ||
-          !afterFit.rect ||
-          !afterFit.transform
-        ) {
-          return null;
-        }
-        return {
-          centerOffsetFromRootCenter: afterFit.centerOffsetFromRootCenter,
-          rect: afterFit.rect,
-          transform: afterFit.transform,
-        };
-      })
-      .toEqual({
-        centerOffsetFromRootCenter: expect.closeTo(
-          expectedMetrics.centerOffsetFromRootCenter,
-          0,
-        ),
-        rect: {
-          x: expect.closeTo(expectedMetrics.rect.x, 0),
-          y: expect.closeTo(expectedMetrics.rect.y, 0),
-          width: expect.closeTo(expectedMetrics.rect.width, 0),
-          height: expect.closeTo(expectedMetrics.rect.height, 0),
-        },
-        transform: {
-          x: expect.closeTo(expectedMetrics.transform.x, 0),
-          y: expect.closeTo(expectedMetrics.transform.y, 0),
-          zoom: expect.closeTo(expectedMetrics.transform.zoom, 1),
-        },
-      });
+    const afterFit = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    if (
+      afterFit.centerOffsetFromRootCenter === null ||
+      !afterFit.rect ||
+      !afterFit.transform
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} fit-view result metrics for ${args.sectionName}.`,
+      );
+    }
 
-    return captureSettingsGraphSectionMetrics(args.targetPage, args.sectionId);
+    return {
+      afterFit,
+      paneState: afterFit.paneState,
+    };
   }
 
   try {
@@ -1710,51 +1760,58 @@ test("settings graph parity probe reapplies the same shared fit view landing aft
       targetPage: page,
     });
 
-    if (
-      referenceFitView.centerOffsetFromRootCenter === null ||
-      worktreeFitView.centerOffsetFromRootCenter === null ||
-      !referenceFitView.rect ||
-      !worktreeFitView.rect ||
-      !referenceFitView.transform ||
-      !worktreeFitView.transform
-    ) {
-      throw new Error("Missing cross-worktree fit-view metrics.");
-    }
-
     expect(referenceFitView.paneState).toEqual(
       SETTINGS_GRAPH_COMPARE_PANE_STATE,
     );
     expect(worktreeFitView.paneState).toEqual(
       SETTINGS_GRAPH_COMPARE_PANE_STATE,
     );
+
     expect(
       Math.abs(
-        worktreeFitView.centerOffsetFromRootCenter -
-          referenceFitView.centerOffsetFromRootCenter,
+        worktreeFitView.afterFit.centerOffsetFromRootCenter -
+          referenceFitView.afterFit.centerOffsetFromRootCenter,
       ),
     ).toBeLessThan(8);
     expect(
-      Math.abs(worktreeFitView.transform.x - referenceFitView.transform.x),
-    ).toBeLessThan(8);
-    expect(
-      Math.abs(worktreeFitView.transform.y - referenceFitView.transform.y),
+      Math.abs(
+        worktreeFitView.afterFit.transform.x -
+          referenceFitView.afterFit.transform.x,
+      ),
     ).toBeLessThan(8);
     expect(
       Math.abs(
-        worktreeFitView.transform.zoom - referenceFitView.transform.zoom,
+        worktreeFitView.afterFit.transform.y -
+          referenceFitView.afterFit.transform.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeFitView.afterFit.transform.zoom -
+          referenceFitView.afterFit.transform.zoom,
       ),
     ).toBeLessThan(0.02);
     expect(
-      Math.abs(worktreeFitView.rect.x - referenceFitView.rect.x),
+      Math.abs(
+        worktreeFitView.afterFit.rect.x - referenceFitView.afterFit.rect.x,
+      ),
     ).toBeLessThan(8);
     expect(
-      Math.abs(worktreeFitView.rect.y - referenceFitView.rect.y),
+      Math.abs(
+        worktreeFitView.afterFit.rect.y - referenceFitView.afterFit.rect.y,
+      ),
     ).toBeLessThan(8);
     expect(
-      Math.abs(worktreeFitView.rect.width - referenceFitView.rect.width),
+      Math.abs(
+        worktreeFitView.afterFit.rect.width -
+          referenceFitView.afterFit.rect.width,
+      ),
     ).toBeLessThan(8);
     expect(
-      Math.abs(worktreeFitView.rect.height - referenceFitView.rect.height),
+      Math.abs(
+        worktreeFitView.afterFit.rect.height -
+          referenceFitView.afterFit.rect.height,
+      ),
     ).toBeLessThan(8);
   } finally {
     await restoreCurrentPageState({

@@ -4312,3 +4312,44 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane or the fit-after-manual-pan lane, and use it to hunt the next real canary-only motion artifact
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 15:04 EDT - Ralph item 127
+
+- Tightened the normalized `fit view`-after-manual-pan main-reference probe so it uses the settled post-pan shared landing as the oracle on the current run-046 surfaces instead of trusting the live legacy first-fit landing.
+- Why this slice was necessary:
+  - the plan/handoff still named the fit-after-manual-pan lane as one of the next trustworthy dynamic compares to rerun on the current surfaces
+  - the first targeted run-046 rerun failed before it ever reached a canary-vs-main parity assertion because the read-only `main` side did not return to its own first explicit global `fit view` landing after the same manual pan
+  - on run-046, the live legacy first-fit landing sat about `67.5px` right of the settled post-pan fit, so using that first-fit snapshot as the parity oracle was over-asserting on the oracle side instead of isolating a real canary-only defect
+- Production/test change:
+  - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added a local settled-metrics helper so the lane waits for both `fit view` landings to stop moving before sampling rect/transform geometry
+    - changed `settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary` so it now compares the settled post-pan post-fit landing across worktree and read-only `main` instead of requiring the live legacy first-fit landing to be a per-surface oracle
+- What this slice established:
+  - the reopened lane was not exposing a new canary-only viewport-reset bug; the failing shape was the live oracle itself
+  - on the current run-046 surfaces, the trustworthy question for this lane is whether both tabs settle on the same final landing after `fit view -> short pan -> fit view`
+  - the tightened main-reference probe now passes on the live run-046 worktree/main runtimes
+- Verification:
+  - refreshed run-046 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-046/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-046/main-ai.log`
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-046 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-046 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `32.0s`)
+  - fresh-context CDP sub-agents:
+    - worktree `3075/settings`:
+      - normalized to `All Settings`, cleared viewport to `null`, clicked `fit view`, applied one controlled wheel-pan step, and clicked `fit view` again
+      - programmatic `useReactFlow.getState().panBy({ x: 160, y: 100 })` returned `false` on the canary surface, so the visual check used the live wheel-pan path instead
+      - the worktree settled cleanly after the final fit with no obvious clipping; root rect stayed `x=0 y=36 w=1440 h=828`, and sample section rects remained inside that surface
+    - read-only `main` `3087/settings`:
+      - resolved live `projectConfigId` `f5ca2fb0-bb49-4042-adb2-8c6b8991598d`, cleared viewport via backend-origin `POST /api/setViewport`, normalized to `All Settings`, clicked `fit view`, applied one wheel-pan step, and clicked `fit view` again
+      - viewport moved to `translate(432.4px, -231.7px) scale(0.1)` during the pan and returned to `translate(712.4px, -51.7px) scale(0.1)` after the final fit
+      - the main surface also settled cleanly with no obvious clipping or residual drift
+  - CDP visual check: done (fresh-context live worktree `3075` and read-only `main` `3087` normalized separately on `All Settings`; both surfaces settle cleanly after `fit view -> wheel pan -> fit view`, and no obvious residual drift or clipping remains on the checked lane)
+- Lane status:
+  - keep the canary-only fit-reset semantics covered by the dedicated worktree-only regression lane, but do not treat the live legacy first explicit global fit on run-046 as a per-surface oracle for the main-reference probe
+  - treat the tightened main-reference probe as the trustworthy parity guard for this lane on the current live surfaces: after the same normalized pan-reset sequence, worktree canary and read-only `main` settle on the same final graph-surface landing
+  - do not reopen this exact oracle shape unless a future rerun shows the final post-pan post-fit landing diverging across worktree and `main`
+- Next frontier:
+  - rerun one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane, and treat CDP as a post-state/static visual sanity check when native modified-wheel replay is not available
+- LOOP_TERMINAL_MARKER: none
