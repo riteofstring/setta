@@ -12,6 +12,8 @@ branch Python -> TypeScript converters, adapted to Go.
 Defaults:
 - Maximum iterations: 1000
 - New Codex session every iteration
+- Model: `gpt-5.4`
+- Reasoning effort: `xhigh`
 - Yolo mode: on
 - Stop when Codex explicitly reports the frontendbindings rebuild is complete
 - Require every non-stop iteration to leave a clean worktree and advance HEAD
@@ -22,13 +24,15 @@ Options:
                          Default: mktemp dir under TMPDIR
   --state-dir PATH       Directory for checklist and loop state.
                          Default: <output-dir>/state
-  --model NAME           Optional model override passed to codex exec
+  --model NAME           Model override passed to codex exec.
+                         Default: gpt-5.4
   --no-yolo              Disable --dangerously-bypass-approvals-and-sandbox
   --help                 Show this help text
 
 Examples:
   ./scripts/run-codex-frontendbindings-rebuild-loop.sh
-  ./scripts/run-codex-frontendbindings-rebuild-loop.sh --model gpt-5.4 -- --config reasoning_effort=\"high\"
+  ./scripts/run-codex-frontendbindings-rebuild-loop.sh --model gpt-5.4
+  ./scripts/run-codex-frontendbindings-rebuild-loop.sh -- --config reasoning_effort=\"high\"
 EOF
 }
 
@@ -38,11 +42,15 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 iterations="1000"
 output_dir=""
 state_dir=""
-model=""
+model="gpt-5.4"
 yolo_mode="1"
 complete_exit_code="42"
 stop_sentinel="CODEX_LOOP_STOP: FRONTENDBINDINGS_REBUILT"
 codex_extra_args=()
+default_codex_extra_args=(
+  --config
+  'reasoning_effort="xhigh"'
+)
 
 require_value() {
   local flag="$1"
@@ -319,13 +327,20 @@ if [[ "${yolo_mode}" == "1" ]]; then
   loop_args+=(--yolo)
 fi
 
+combined_codex_extra_args=("${default_codex_extra_args[@]}")
 if [[ ${#codex_extra_args[@]} -gt 0 ]]; then
-  loop_args+=(-- "${codex_extra_args[@]}")
+  combined_codex_extra_args+=("${codex_extra_args[@]}")
+fi
+
+if [[ ${#combined_codex_extra_args[@]} -gt 0 ]]; then
+  loop_args+=(-- "${combined_codex_extra_args[@]}")
 fi
 
 echo "Checklist: ${checklist_file}"
 echo "Loop output directory: ${output_dir}"
 echo "Iterations: ${iterations}"
 echo "New session every: 1"
+echo "Model: ${model}"
+echo 'Reasoning effort: xhigh'
 
 exec "${loop_args[@]}"
