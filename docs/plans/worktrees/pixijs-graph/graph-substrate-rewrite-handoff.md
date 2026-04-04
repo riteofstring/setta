@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 15:42 EDT
+Last updated: 2026-04-03 15:58 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,36 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `053` closed the normalized `groupSectionDefault` wide-card pan lane with one bounded graph-surface compare instead of reopening the drag-workaround lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface'`
+    - result: passed (`1 passed`, about `15.6s`)
+    - what it still proves: the isolated canary still takes the expected plain-wheel pan path on the custom surface
+  - Live verification result:
+    - a fresh-context CDP sub-agent was spawned first, but browser-MCP tools were not callable inside that sub-agent session, so the same bounded Chrome DevTools MCP compare was completed directly in the main thread instead
+    - both sides were normalized through production state/actions, not brittle UI ordering:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared
+      - shared viewport reset to `null`
+    - the compare then reused the already-closed `groupSectionDefault` wide-card state from item `051` by applying the same shared viewport before the motion step:
+      - before pan, worktree viewport `matrix(1, 0, 0, 1, -7.5, -2954.5)` and `groupSectionDefault` `x=592.5 y=81.5 w=552 h=352`
+      - before pan, `main` viewport `matrix(1, 0, 0, 1, -7.5, -2954.5)` and `groupSectionDefault` `x=592.5 y=81.5 w=552 h=352`
+    - one shared short pan pulse was then applied via the production `route_set_viewport(...)` path with delta `(+120, +80)`:
+      - after pan, worktree viewport `matrix(1, 0, 0, 1, 112.5, -2874.5)` and `groupSectionDefault` `x=712.5 y=161.5 w=552 h=352`
+      - after pan, `main` viewport `matrix(1, 0, 0, 1, 112.5, -2874.5)` and `groupSectionDefault` `x=712.5 y=161.5 w=552 h=352`
+    - screenshot evidence for the checked panned wide-card state was captured to:
+      - `/tmp/setta-worktree-groupSectionDefault-wide-pan.png`
+      - `/tmp/setta-main-groupSectionDefault-wide-pan.png`
+    - ignored oracle noise:
+      - worktree/main label chrome only
+  - conclusion for this slice:
+    - the normalized `groupSectionDefault` wide-card pan lane is clean
+    - do not reopen this exact wide-card pan pulse unless a later fresh compare reintroduces drift
+    - the next real frontier should move to one different trustworthy dynamic motion lane instead of repeating `groupSectionDefault` zoom/pan/keyboard-workaround coverage
 - Ralph item `052` completed one bounded post-wide-card motion probe on the same normalized `groupSectionDefault` graph surface without reopening the helper lane.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code
@@ -949,11 +979,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
   - the exact `groupSectionDefault` targeted-fit plus shared `zoom in` lane is now closed; do not reopen it unless a fresh compare reintroduces drift
+  - the exact `groupSectionDefault` shared wide-card pan pulse is also now closed; do not reopen it unless a fresh compare reintroduces drift
   - the keyboard-accessible `groupSectionDefault` motion probe is also clean; do not spend another iteration repeating that exact workaround just because true CDP mouse drag was untrustworthy
-  - focus the next compare on one different trustworthy dynamic action across worktree and `main`, preferably a small shared pan pulse on the same normalized wide-card state, and isolate the first visible canary-only artifact:
-    - any remaining interaction-state drift during pan/drag after the blank-surface selection normalization
-    - any dynamic body/chrome detachment that only appears once the camera moves
-    - return to drag-specific work only if a fresh product clue or a narrower trustworthy drag oracle makes that lane materially actionable again
+  - focus the next compare on one different trustworthy dynamic action across worktree and `main`, not more `groupSectionDefault` pan/zoom repetition:
+    - a true top-level section drag on a shared wide/body-heavy card if a trustworthy motion oracle is available
+    - or a different shared body-heavy dynamic pulse if physical drag is still not trustworthy in CDP
+    - isolate any remaining interaction-state drift or body/chrome detachment that only appears once motion starts
   - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
 - Lifecycle/bootstrap debugging is no longer the default frontier:
   - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect

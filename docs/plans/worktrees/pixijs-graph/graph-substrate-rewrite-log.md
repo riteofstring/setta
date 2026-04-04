@@ -33,6 +33,48 @@ Record:
 - drag/pan/zoom regressions
 - DOM overlay ownership decisions
 
+## 2026-04-03 053
+
+- Item: Run one bounded normalized wide-card pan compare on `groupSectionDefault` and decide whether a concrete worktree-only pan-time motion artifact still remains.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not change production renderer or test code.
+  - The last two completed iterations (`051`, `052`) had already closed the same-card zoom lane and the keyboard-accessible drag-workaround lane, so the only justified next step was one different dynamic action on the same normalized wide-card state.
+  - The intended fresh-context CDP sub-agent could not invoke browser-MCP tools in its own session, so the same bounded Chrome DevTools compare was completed directly in the main thread instead; this was a tool-availability issue, not a product blocker.
+  - Both sides were normalized through production state/actions rather than click-order heuristics:
+    - active `All Settings`
+    - `overviewVis=false`
+    - `uiEditorVis=false`
+    - active section ids cleared
+    - shared viewport reset to `null`
+  - The compare then reused the already-closed `groupSectionDefault` wide-card state from `051` by applying the same shared viewport on worktree and `main`:
+    - viewport `matrix(1, 0, 0, 1, -7.5, -2954.5)`
+    - `groupSectionDefault` `x=592.5 y=81.5 w=552 h=352`
+  - One shared short pan pulse was then applied via the production `route_set_viewport(...)` path with delta `(+120, +80)`.
+  - After that pan pulse, both sides still matched exactly:
+    - viewport `matrix(1, 0, 0, 1, 112.5, -2874.5)`
+    - `groupSectionDefault` `x=712.5 y=161.5 w=552 h=352`
+  - Screenshot evidence for the checked panned wide-card state was captured to:
+    - `/tmp/setta-worktree-groupSectionDefault-wide-pan.png`
+    - `/tmp/setta-main-groupSectionDefault-wide-pan.png`
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface'`
+    - result: passed (`1 passed`, about `15.6s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - the fresh-context sub-agent failed only at browser-MCP tool availability, so the equivalent Chrome DevTools normalization and compare were completed directly in the main thread
+      - both `/settings` sessions were normalized to active `All Settings` with overview/ui-editor chrome closed and active selection cleared
+      - the checked `groupSectionDefault` wide-card state matched exactly before and after the shared pan pulse on worktree and `main`
+- Conclusion:
+  - the normalized `groupSectionDefault` wide-card pan lane is clean and closed
+  - there is no production fix to take from this evidence alone
+  - do not spend another iteration reopening this exact pan pulse or rechecking the same zoom/pan lane on the same card unless fresh drift appears
+- Next action:
+  - move to one different trustworthy dynamic graph-surface lane, preferably a true top-level section drag on a shared wide/body-heavy card or another materially different body-heavy motion probe, and isolate the first remaining canary-only artifact if one still exists
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 001
 
 - Item: Initialize the `pixijs-graph` worktree with the latest Ralph loop files and a fresh graph-substrate rewrite plan.
