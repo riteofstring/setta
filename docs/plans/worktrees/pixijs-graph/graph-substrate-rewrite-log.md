@@ -70,6 +70,46 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 051
+
+- Item: Re-run the normalized `groupSectionDefault` wide-card dynamic compare with script-driven pane/camera normalization and decide whether a concrete worktree-only zoom artifact still remains.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not change production renderer or test code.
+  - The last two completed iterations (`049`, `050`) were helper/normalization slices around the same `groupSectionDefault` blocker, so the only justified next step was the bounded live compare itself instead of a third helper pass.
+  - A first fresh-context CDP attempt kept the lane noisy and did not preserve the intended wide-card state cleanly, so it was not treated as the final answer for this slice.
+  - A second fresh-context CDP sub-agent reran the same lane with script-driven normalization on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were normalized to:
+    - active `All Settings`
+    - `overviewVis=false`
+    - `uiEditorVis=false`
+    - no visible selected section chrome needing a clear step
+  - The sub-agent then used the live viewport hook to target `groupSectionDefault` directly instead of poking additional controls.
+  - Before targeted fit, the worktree still held a stale off-screen camera while `main` already showed the wide card:
+    - worktree viewport `matrix(1, 0, 0, 1, -156, -4436.5)`
+    - `main` viewport `matrix(1, 0, 0, 1, -7.5, -2954.5)`
+  - After targeted fit, both sides matched exactly at the intended wide-card compare state:
+    - viewport `matrix(1, 0, 0, 1, -7.5, -2954.5)`
+    - `groupSectionDefault` outer section `x=592.5 y=81.5 w=552 h=352`
+  - After one shared `zoom in` step, both sides still matched exactly:
+    - viewport `matrix(1.2, 0, 0, 1.2, -153, -3589.5)`
+    - `groupSectionDefault` outer section `x=567 y=46.5002 w=662.4 h=422.3999`
+  - No concrete worktree-only renderer artifact was isolated on this checked wide-card zoom lane; the earlier mismatch was camera/state noise rather than paint or geometry drift.
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - first fresh-context pass was rejected as noisy because it did not preserve the intended normalized compare state cleanly
+      - second fresh-context pass used script-driven pane visibility plus targeted fit and produced exact post-fit and post-zoom viewport/geometry matches between worktree and `main`
+- Conclusion:
+  - the normalized `groupSectionDefault` wide-card zoom lane is clean and closed
+  - do not reopen this exact zoom compare unless a later fresh normalized compare reintroduces drift
+  - the earlier blocker is now explicitly classified as oracle/state noise, not a renderer defect
+- Next action:
+  - run one different bounded dynamic action on the same normalized graph surface, preferably a small drag-pan pulse or one short top-level section drag, and isolate the first real canary-only motion artifact if one still exists
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 050
 
 - Item: Normalize non-target pane chrome in the targeted wide-card fit regression, then verify the live worktree canary widens `groupSectionDefault` under the same closed-pane state.

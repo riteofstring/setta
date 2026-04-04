@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 15:18 EDT
+Last updated: 2026-04-03 15:33 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,32 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `051` closed the normalized `groupSectionDefault` wide-card zoom lane with a fresh CDP-only compare instead of reopening the helper lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Live verification result:
+    - a fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - normalization that mattered:
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - targeted `groupSectionDefault` fit was driven through the live viewport hook instead of noisy UI pokes
+      - no visible section selection needed clearing on either side
+    - before targeted fit, the worktree was still on a stale off-screen camera while `main` already showed the wide card:
+      - worktree viewport: `matrix(1, 0, 0, 1, -156, -4436.5)`
+      - worktree `groupSectionDefault`: `x=592.5 y=81.5 w=552 h=352` after fit, matching `main`
+      - `main` viewport before fit: `matrix(1, 0, 0, 1, -7.5, -2954.5)`
+      - `main` `groupSectionDefault`: `x=592.5 y=81.5 w=552 h=352`
+    - after the shared targeted fit, both sides matched exactly at the same wide-card state:
+      - viewport: `matrix(1, 0, 0, 1, -7.5, -2954.5)`
+      - `groupSectionDefault`: `x=592.5 y=81.5 w=552 h=352`
+    - after one shared `zoom in` step, both sides still matched exactly:
+      - viewport: `matrix(1.2, 0, 0, 1.2, -153, -3589.5)`
+      - `groupSectionDefault`: `x=567 y=46.5002 w=662.4 h=422.3999`
+    - treat this result as authoritative for the checked lane: the earlier mismatch was camera/state noise, not a worktree-only renderer defect
+  - conclusion for this slice:
+    - the normalized `groupSectionDefault` wide-card zoom compare is clean
+    - do not reopen this exact wide-card zoom lane unless a later fresh compare shows drift again
+    - the next real frontier should move to a different dynamic action on the same normalized graph surface, preferably a short drag-pan pulse or one short top-level section drag
 - Ralph item `050` closed the live targeted-fit normalization blocker for `groupSectionDefault` instead of adding another generic compare helper.
   - Production/test change:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now forces the wide-card targeted-fit regression through an explicit closed-pane graph-surface state before calling `viewportController.fitView(...)`
@@ -860,7 +886,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - Prefer one short shared dynamic action on the normalized graph surface, such as:
   - a small drag-pan pulse
   - one short top-level section drag
-  - one zoom step if a fresh compare shows canary-only blur/snap/chrome motion
 - Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
 - Keep using the graph-surface-only normalization when you need live CDP context:
   - close or minimize non-target pane/chat chrome
@@ -896,8 +921,8 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
   - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
-  - focus the next compare on one shared dynamic action across worktree and `main`, preferably one zoom step, and isolate the first visible canary-only artifact:
-    - text/chrome snap or blur during zoom
+  - the exact `groupSectionDefault` targeted-fit plus shared `zoom in` lane is now closed; do not reopen it unless a fresh compare reintroduces drift
+  - focus the next compare on one different shared dynamic action across worktree and `main`, preferably a small drag-pan pulse or one short top-level section drag, and isolate the first visible canary-only artifact:
     - any remaining interaction-state drift during pan/drag after the blank-surface selection normalization
     - any dynamic body/chrome detachment that only appears once the camera moves
   - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
@@ -926,6 +951,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `042`
-- Latest item: `2026-04-03 042`
+- Active history window: items `001` through `051`
+- Latest item: `2026-04-03 051`
 - Older history archives: none yet
