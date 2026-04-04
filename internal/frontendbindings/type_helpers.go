@@ -625,36 +625,6 @@ func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
 	return registry, propertyOrder, options.IgnoredProperties, nil
 }
 
-func generatedUserDefaultSectionOrderedProperties(
-	properties []TypeProperty,
-	order []string,
-) []TypeProperty {
-	if len(order) == 0 {
-		return properties
-	}
-	byName := make(map[string]TypeProperty, len(properties))
-	for _, property := range properties {
-		byName[property.Name] = property
-	}
-	ordered := make([]TypeProperty, 0, len(properties))
-	seen := make(map[string]struct{}, len(properties))
-	for _, name := range order {
-		property, ok := byName[name]
-		if !ok {
-			continue
-		}
-		ordered = append(ordered, property)
-		seen[name] = struct{}{}
-	}
-	for _, property := range properties {
-		if _, ok := seen[property.Name]; ok {
-			continue
-		}
-		ordered = append(ordered, property)
-	}
-	return ordered
-}
-
 func appendUniqueGeneratedUserDefaultSectionProperties(
 	order *[]string,
 	registry map[string]TypeProperty,

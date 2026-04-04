@@ -455,15 +455,12 @@ func generatedSectionImplAliasProperties(
 		}
 		filtered = append(filtered, property)
 	}
-	return generatedUserDefaultSectionOrderedProperties(
-		filtered,
-		generatedSectionImplAliasPropertyOrder(sectionName),
-	)
+	return filtered
 }
 
 func generatedCodeObjImplAliasProperties(
 	t reflect.Type,
-	codeObjName string,
+	_ string,
 ) []TypeProperty {
 	properties := mustGeneratedReflectedProperties(t)
 	baseNames := generatedPropertyNameSet(mustGeneratedCodeObjBaseCoreProperties())
@@ -477,10 +474,7 @@ func generatedCodeObjImplAliasProperties(
 		}
 		filtered = append(filtered, property)
 	}
-	return generatedUserDefaultSectionOrderedProperties(
-		filtered,
-		generatedCodeObjImplAliasPropertyOrder(codeObjName),
-	)
+	return filtered
 }
 
 func generatedBaseSectionOptionalProperties(coreProperties []TypeProperty) []TypeProperty {
@@ -604,61 +598,6 @@ func generatedPropertyNameSet(properties []TypeProperty) map[string]struct{} {
 		names[property.Name] = struct{}{}
 	}
 	return names
-}
-
-func generatedSectionImplAliasPropertyOrder(sectionName string) []string {
-	switch sectionName {
-	case "Callable":
-		return []string{
-			"type",
-			"codeObjVariantMap",
-			"hideUnpinnedParams",
-			"paramFilter",
-			"columnWidth",
-			"configLanguage",
-			"pinnedParams",
-			"selectedParams",
-			"ignoreTypeErrors",
-			"edgeInputParams",
-			"edgeOutputPorts",
-			"callable",
-			"hideParams",
-		}
-	case "Dict":
-		return []string{
-			"type",
-			"codeObjVariantMap",
-			"hideUnpinnedParams",
-			"paramFilter",
-			"columnWidth",
-			"configLanguage",
-			"pinnedParams",
-			"selectedParams",
-			"ignoreTypeErrors",
-			"edgeInputParams",
-			"edgeOutputPorts",
-			"topLevelParamId",
-			"isJsonSource",
-			"jsonSourceKeys",
-			"jsonSourceMissing",
-		}
-	default:
-		return nil
-	}
-}
-
-func generatedCodeObjImplAliasPropertyOrder(codeObjName string) []string {
-	if codeObjName == "NestedParam" {
-		return []string{
-			"type",
-			"children",
-			"coreNameType",
-			"coreNameEditable",
-			"passingStyle",
-			"typeAnnotation",
-		}
-	}
-	return nil
 }
 
 func generatedCodeObjImplTypeForCodeObjName(codeObjName string) (reflect.Type, bool) {

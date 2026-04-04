@@ -226,16 +226,24 @@ type FrontendBaseSectionImpl struct {
 	IsPreset                bool                `json:"isPreset"`
 }
 
+type FrontendSectionWithParamsLeadingFields struct {
+	CodeObjVariantMap  map[string]string `json:"codeObjVariantMap"`
+	HideUnpinnedParams bool              `json:"hideUnpinnedParams"`
+	ParamFilter        string            `json:"paramFilter"`
+	ColumnWidth        *float64          `json:"columnWidth"`
+}
+
+type FrontendSectionWithParamsTrailingFields struct {
+	PinnedParams     []string             `json:"pinnedParams"`
+	SelectedParams   []string             `json:"selectedParams"`
+	IgnoreTypeErrors TypeErrorIgnoreState `json:"ignoreTypeErrors"`
+	EdgeInputParams  []string             `json:"edgeInputParams"`
+	EdgeOutputPorts  []EdgePort           `json:"edgeOutputPorts"`
+}
+
 type FrontendSectionWithParamsCommon struct {
-	CodeObjVariantMap  map[string]string    `json:"codeObjVariantMap"`
-	HideUnpinnedParams bool                 `json:"hideUnpinnedParams"`
-	ParamFilter        string               `json:"paramFilter"`
-	ColumnWidth        *float64             `json:"columnWidth"`
-	PinnedParams       []string             `json:"pinnedParams"`
-	SelectedParams     []string             `json:"selectedParams"`
-	IgnoreTypeErrors   TypeErrorIgnoreState `json:"ignoreTypeErrors"`
-	EdgeInputParams    []string             `json:"edgeInputParams"`
-	EdgeOutputPorts    []EdgePort           `json:"edgeOutputPorts"`
+	FrontendSectionWithParamsLeadingFields
+	FrontendSectionWithParamsTrailingFields
 }
 
 type FrontendChatSectionBranch = ChatSectionBranch
@@ -244,7 +252,6 @@ type FrontendChatSectionState = ChatSectionState
 
 type FrontendChatSectionImpl struct {
 	FrontendBaseSectionImpl
-	FrontendChatSectionState
 	Managed                bool               `json:"managed"`
 	EngineConfigID         *string            `json:"engineConfigId,omitempty"`
 	TranscriptionProfileID *string            `json:"transcriptionProfileId,omitempty"`
@@ -254,6 +261,7 @@ type FrontendChatSectionImpl struct {
 	PermissionMode         ChatPermissionMode `json:"permissionMode"`
 	SearchEnabled          bool               `json:"searchEnabled"`
 	DictationMode          ChatDictationMode  `json:"dictationMode"`
+	FrontendChatSectionState
 }
 
 type FrontendBrowserSectionImpl struct {
@@ -327,9 +335,9 @@ type FrontendCodeSectionImpl struct {
 	FrontendBaseSectionImpl
 	Children                  []string                          `json:"children"`
 	Code                      string                            `json:"code"`
-	CodeLanguage              string                            `json:"codeLanguage"`
 	CodeFileBinding           *FrontendCodeFileBinding          `json:"codeFileBinding,omitempty"`
 	AttachedTerminalSectionID *string                           `json:"attachedTerminalSectionId,omitempty"`
+	CodeLanguage              string                            `json:"codeLanguage"`
 	DiagnosticsIgnoreState    CodeSectionDiagnosticsIgnoreState `json:"diagnosticsIgnoreState"`
 }
 
@@ -339,16 +347,18 @@ type FrontendTerminalSectionImpl struct {
 
 type FrontendCallableSectionImpl struct {
 	FrontendBaseSectionImpl
-	FrontendSectionWithParamsCommon
+	FrontendSectionWithParamsLeadingFields
 	ConfigLanguage FrontendConfigLanguage `json:"configLanguage"`
-	Callable       *string                `json:"callable,omitempty"`
-	HideParams     bool                   `json:"hideParams"`
+	FrontendSectionWithParamsTrailingFields
+	Callable   *string `json:"callable,omitempty"`
+	HideParams bool    `json:"hideParams"`
 }
 
 type FrontendDictSectionImpl struct {
 	FrontendBaseSectionImpl
-	FrontendSectionWithParamsCommon
-	ConfigLanguage    string   `json:"configLanguage"`
+	FrontendSectionWithParamsLeadingFields
+	ConfigLanguage string `json:"configLanguage"`
+	FrontendSectionWithParamsTrailingFields
 	TopLevelParamID   *string  `json:"topLevelParamId"`
 	IsJSONSource      bool     `json:"isJsonSource"`
 	JSONSourceKeys    []string `json:"jsonSourceKeys"`
@@ -390,6 +400,10 @@ type FrontendBaseCodeObjImpl struct {
 
 type FrontendBaseParamCodeObjImpl struct {
 	FrontendBaseCodeObjImpl
+	FrontendParamCodeObjFields
+}
+
+type FrontendParamCodeObjFields struct {
 	CoreNameType     FrontendParamNameType         `json:"coreNameType"`
 	CoreNameEditable bool                          `json:"coreNameEditable"`
 	PassingStyle     FrontendParameterPassingStyle `json:"passingStyle"`
@@ -412,8 +426,9 @@ type FrontendCodeCallableCodeObjImpl struct {
 }
 
 type FrontendNestedParamCodeObjImpl struct {
-	FrontendBaseParamCodeObjImpl
+	FrontendBaseCodeObjImpl
 	Children []string `json:"children"`
+	FrontendParamCodeObjFields
 }
 
 type FrontendTextParamCodeObjImpl struct {

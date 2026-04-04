@@ -6408,12 +6408,6 @@ type UserDefaultChatSectionImpl = {
   aspectRatio: boolean | number;
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId: string | null;
-  branches: Record<string, ChatSectionBranch>;
   managed: boolean;
   engineConfigId: string | null;
   transcriptionProfileId: string | null;
@@ -6423,6 +6417,12 @@ type UserDefaultChatSectionImpl = {
   permissionMode: ChatPermissionMode;
   searchEnabled: boolean;
   dictationMode: ChatDictationMode;
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId: string | null;
+  branches: Record<string, ChatSectionBranch>;
 };
 export function createUserDefaultChatSectionImpl(
   options: Partial<UserDefaultChatSectionImpl> = {},
@@ -6439,12 +6439,6 @@ export function createUserDefaultChatSectionImpl(
       aspectRatio: false,
       isMinimized: false,
       positionAndSizeLocked: false,
-      messages: [],
-      inputText: "",
-      waitingForResponse: false,
-      toolCallArguments: {},
-      activeBranchId: null,
-      branches: {},
       managed: false,
       engineConfigId: null,
       transcriptionProfileId: null,
@@ -6454,6 +6448,12 @@ export function createUserDefaultChatSectionImpl(
       permissionMode: "minimal",
       searchEnabled: true,
       dictationMode: "auto",
+      messages: [],
+      inputText: "",
+      waitingForResponse: false,
+      toolCallArguments: {},
+      activeBranchId: null,
+      branches: {},
     },
     options,
   );
@@ -6959,9 +6959,9 @@ type UserDefaultCodeSectionImpl = {
   isMinimized: boolean;
   positionAndSizeLocked: boolean;
   code: string;
-  codeLanguage: string;
   codeFileBinding: CodeFileBinding | null;
   attachedTerminalSectionId: string | null;
+  codeLanguage: string;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
 export function createUserDefaultCodeSectionImpl(
@@ -6980,9 +6980,9 @@ export function createUserDefaultCodeSectionImpl(
       isMinimized: false,
       positionAndSizeLocked: false,
       code: "",
-      codeLanguage: "python",
       codeFileBinding: null,
       attachedTerminalSectionId: null,
+      codeLanguage: "python",
       diagnosticsIgnoreState: {
         muted: false,
         suppressedCodes: [],
@@ -6996,9 +6996,9 @@ type CodeSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Code;
   children: Array<string>;
   code: string;
-  codeLanguage: string;
   codeFileBinding?: CodeFileBinding | null;
   attachedTerminalSectionId?: string | null;
+  codeLanguage: string;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 };
 
@@ -7200,9 +7200,9 @@ type UserDefaultCallableSectionImpl = {
   hideUnpinnedParams: boolean;
   paramFilter: string;
   columnWidth: number | null;
+  configLanguage: ConfigLanguage;
   edgeInputParams: Array<string>;
   edgeOutputPorts: Array<EdgePort>;
-  configLanguage: ConfigLanguage;
   hideParams: boolean;
 };
 export function createUserDefaultCallableSectionImpl(
@@ -7223,9 +7223,9 @@ export function createUserDefaultCallableSectionImpl(
       hideUnpinnedParams: false,
       paramFilter: "",
       columnWidth: null,
+      configLanguage: "python",
       edgeInputParams: [],
       edgeOutputPorts: [],
-      configLanguage: "python",
       hideParams: false,
     },
     options,
@@ -7243,9 +7243,9 @@ type UserDefaultDictSectionImpl = {
   hideUnpinnedParams: boolean;
   paramFilter: string;
   columnWidth: number | null;
+  configLanguage: string;
   edgeInputParams: Array<string>;
   edgeOutputPorts: Array<EdgePort>;
-  configLanguage: string;
   isJsonSource: boolean;
   jsonSourceKeys: Array<string>;
 };
@@ -7267,9 +7267,9 @@ export function createUserDefaultDictSectionImpl(
       hideUnpinnedParams: false,
       paramFilter: "",
       columnWidth: null,
+      configLanguage: "python",
       edgeInputParams: [],
       edgeOutputPorts: [],
-      configLanguage: "python",
       isJsonSource: false,
       jsonSourceKeys: [],
     },
