@@ -1894,6 +1894,45 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 056
+
+- Item: Probe one different shared non-`group`/non-`spreadsheet` live dynamic lane and stop on the first trustworthy widening blocker instead of adding another motion helper.
+- Status: `done`
+- Details:
+  - The last two completed iterations were test-only motion helpers for `groupSectionDefault` and `spreadsheetSectionDefault`, so this slice deliberately used the allowed bounded normalization/oracle step instead of a third helper-shaped change.
+  - A fresh-context CDP sub-agent compared the live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` after normalizing both to active `All Settings`.
+  - The chosen shared non-`group`/non-`spreadsheet` candidate was `drawSectionDefault`.
+  - The live graph-surface node ids observed on this pass were:
+    - worktree node id `a5efa896-d045-4d50-8afc-cd748d2c0fcd` / visible section wrapper `a5efa896-d045-4d50-8afc-cd748d2c0fcd-CustomResizable`
+    - `main` node id `3b30fc00-c471-4376-ac50-f3643a240183` / visible section wrapper `3b30fc00-c471-4376-ac50-f3643a240183-CustomResizable`
+  - Before fit, both sides showed a comparable widened card state:
+    - worktree viewport `matrix(1.13895, 0, 0, 1.13895, 295.651, -5366.9)` and section rect `x=297 y=-2596 w=626 h=399`
+    - `main` viewport `matrix(1.13895, 0, 0, 1.13895, 613.151, -5406.9)` and section rect `x=614 y=-2636 w=626 h=399`
+  - The blocker was that the only reliable fit call exercised in the live session was the toolbar/global `fit view` route, which collapsed both tabs back to the global zoom-out state instead of preserving or recreating a comparable widened one-section lane:
+    - worktree after fit: viewport `matrix(0.1, 0, 0, 0.1, 402.4, -245.2)` and section rect `x=403 y=31 w=55 h=35`
+    - `main` after fit: viewport `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` and section rect `x=780 y=31 w=55 h=35`
+  - Screenshot evidence:
+    - `/tmp/worktree-settings-draw-fit.png`
+    - `/tmp/reference-settings-draw-fit.png`
+    - `/tmp/worktree-settings-snapshot.png`
+  - Treat this result as a live-oracle blocker, not a renderer verdict: this pass did not yet use the authoritative targeted one-section fit path for the new lane.
+- Verification:
+  - Playwright
+    - command: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.7s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - a fresh-context CDP sub-agent ran the compare on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - normalization stayed graph-surface-only on active `All Settings`
+      - `drawSectionDefault` was the chosen shared non-`group`/non-`spreadsheet` lane
+      - the live toolbar/global `fit view` route was observed to collapse both tabs to the global zoom-out state rather than exposing a trustworthy widened one-section compare state
+- Conclusion:
+  - this iteration completed one useful blocker-finding oracle step without reopening the recent `groupSectionDefault` / `spreadsheetSectionDefault` motion-helper pattern
+  - the next bounded frontier is to resolve a non-`group`/non-`spreadsheet` section by authoritative project-state name/id inside the live CDP session and invoke the production targeted `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path directly before attempting another dynamic probe
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 054
 
 - Item: Add one trustworthy wide-card top-level drag oracle for `groupSectionDefault` instead of reopening another compare-only helper lane.

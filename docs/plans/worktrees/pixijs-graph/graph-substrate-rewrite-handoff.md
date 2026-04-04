@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 16:29 EDT
+Last updated: 2026-04-03 16:37 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `056` used the allowed bounded normalization/oracle step to probe one different shared non-`group`/non-`spreadsheet` dynamic lane before reopening more motion helpers.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.7s`)
+    - what it still proves: the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path remains green in the isolated Playwright runtime
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - the shared non-`group`/non-`spreadsheet` candidate was `drawSectionDefault`
+    - the sub-agent resolved the visible runtime node ids from the live graph surface:
+      - worktree node id `a5efa896-d045-4d50-8afc-cd748d2c0fcd` / visible section wrapper `a5efa896-d045-4d50-8afc-cd748d2c0fcd-CustomResizable`
+      - `main` node id `3b30fc00-c471-4376-ac50-f3643a240183` / visible section wrapper `3b30fc00-c471-4376-ac50-f3643a240183-CustomResizable`
+    - before fit:
+      - worktree viewport `matrix(1.13895, 0, 0, 1.13895, 295.651, -5366.9)` and section rect `x=297 y=-2596 w=626 h=399`
+      - `main` viewport `matrix(1.13895, 0, 0, 1.13895, 613.151, -5406.9)` and section rect `x=614 y=-2636 w=626 h=399`
+    - the only reliable fit call the sub-agent could exercise from the live session was the toolbar/global `fit view` route, and that collapsed both sides back to the global zoom-out state instead of producing a comparable widened one-section lane:
+      - worktree after fit: viewport `matrix(0.1, 0, 0, 0.1, 402.4, -245.2)` and section rect `x=403 y=31 w=55 h=35`
+      - `main` after fit: viewport `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` and section rect `x=780 y=31 w=55 h=35`
+    - screenshots saved to:
+      - `/tmp/worktree-settings-draw-fit.png`
+      - `/tmp/reference-settings-draw-fit.png`
+      - `/tmp/worktree-settings-snapshot.png`
+  - conclusion for this slice:
+    - this is a completed blocker-finding oracle step, not a closed renderer lane
+    - do not reopen `groupSectionDefault` / `spreadsheetSectionDefault` pan or drag churn just because this new lane blocked
+    - the current blocker is specifically that this live `drawSectionDefault` compare did not yet use the authoritative targeted one-section fit path; the toolbar/global fit route is not a trustworthy oracle for the widened lane
+    - the next real frontier is one bounded live normalization step that resolves a non-`group`/non-`spreadsheet` section by authoritative project-state name/id and calls the production targeted `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path directly before rerunning the dynamic probe
 - Ralph item `055` closed one different normalized wide-card pan lane on `spreadsheetSectionDefault` instead of reopening the recent `groupSectionDefault` support work.
   - Production/test change:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened body-heavy section attached during pane pan`
