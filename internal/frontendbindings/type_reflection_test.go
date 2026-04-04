@@ -351,6 +351,41 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "TaskBoardColumn",
+			root: reflect.TypeOf(TaskBoardColumn{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "color", TypeExpr: "string", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "TaskBoardTask",
+			root: reflect.TypeOf(TaskBoardTask{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "title", TypeExpr: "string", Optional: false},
+				{Name: "description", TypeExpr: "string", Optional: false},
+				{Name: "completed", TypeExpr: "boolean", Optional: false},
+				{Name: "columnId", TypeExpr: "string | null", Optional: true},
+				{Name: "dueDateIso", TypeExpr: "string", Optional: false},
+				{Name: "recurrence", TypeExpr: "TaskBoardTaskRecurrence", Optional: false},
+				{Name: "recurrenceDays", TypeExpr: "Array<TaskBoardRecurringWeekday>", Optional: false},
+				{Name: "recurrenceMonths", TypeExpr: "Array<TaskBoardRecurringMonth>", Optional: false},
+				{Name: "recurrenceYears", TypeExpr: "Array<number>", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "CodeSectionDiagnosticsIgnoreState",
+			root: reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}),
+			properties: []TypeProperty{
+				{Name: "muted", TypeExpr: "boolean", Optional: false},
+				{Name: "suppressedCodes", TypeExpr: "Array<string | number>", Optional: false},
+			},
+		},
+		{
 			name: "UpdateAgentProfileRequestInput",
 			root: reflect.TypeOf(UpdateAgentProfileRequestInput{}),
 			properties: []TypeProperty{
@@ -436,6 +471,8 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				t.Fatalf("EngineConfig should use a structured create body")
 			}
 			if (tt.name == "BrowserSavedSearch" ||
+				tt.name == "TaskBoardColumn" ||
+				tt.name == "TaskBoardTask" ||
 				tt.name == "ProjectRunCapabilities" ||
 				tt.name == "ProjectConfig" ||
 				tt.name == "SectionCapabilities" ||

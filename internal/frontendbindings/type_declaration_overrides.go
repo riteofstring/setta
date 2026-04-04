@@ -2,8 +2,6 @@ package frontendbindings
 
 import (
 	"reflect"
-
-	"setta/internal/projectstate"
 )
 
 func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
@@ -1087,11 +1085,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   renderError?: string | null;
 }`,
 		),
-		reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}): objectDeclaration(
-			"CodeSectionDiagnosticsIgnoreState",
-			TypeProperty{Name: "muted", TypeExpr: "boolean"},
-			TypeProperty{Name: "suppressedCodes", TypeExpr: "Array<string | number>"},
-		),
 		reflect.TypeOf(UserDefaultCodeSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 			"UserDefaultCodeSectionImpl",
 			"Code",
@@ -1238,21 +1231,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
 }`,
-		),
-		reflect.TypeOf(TaskBoardTask{}): objectDeclarationWithGoBackedCreateExpr(
-			"TaskBoardTask",
-			projectstate.FrontendDefaultTaskBoardTask(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "title", TypeExpr: "string"},
-			TypeProperty{Name: "description", TypeExpr: "string"},
-			TypeProperty{Name: "completed", TypeExpr: "boolean"},
-			TypeProperty{Name: "columnId", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "dueDateIso", TypeExpr: "string"},
-			TypeProperty{Name: "recurrence", TypeExpr: "TaskBoardTaskRecurrence"},
-			TypeProperty{Name: "recurrenceDays", TypeExpr: "Array<TaskBoardRecurringWeekday>"},
-			TypeProperty{Name: "recurrenceMonths", TypeExpr: "Array<TaskBoardRecurringMonth>"},
-			TypeProperty{Name: "recurrenceYears", TypeExpr: "Array<number>"},
-			TypeProperty{Name: "sortIndex", TypeExpr: "number"},
 		),
 		reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 			"UserDefaultTaskBoardSectionImpl",

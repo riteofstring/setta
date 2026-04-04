@@ -2091,6 +2091,25 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			DefaultValue:  projectstate.FrontendDefaultTaskBoardColumn(),
 			HasCreateExpr: true,
 		}, true
+	case reflect.TypeOf(TaskBoardTask{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultTaskBoardTask(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"recurrence":       "TaskBoardTaskRecurrence",
+				"recurrenceDays":   "Array<TaskBoardRecurringWeekday>",
+				"recurrenceMonths": "Array<TaskBoardRecurringMonth>",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"columnId": true,
+			},
+		}, true
+	case reflect.TypeOf(CodeSectionDiagnosticsIgnoreState{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"suppressedCodes": "Array<string | number>",
+			},
+		}, true
 	case reflect.TypeOf(ChatFileAttachment{}):
 		return reflectedObjectDeclarationSpec{}, true
 	case reflect.TypeOf(MessageTextContent{}):

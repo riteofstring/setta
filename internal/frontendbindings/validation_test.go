@@ -7823,6 +7823,65 @@ func TestPluginRuntimeContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestTaskBoardSupportContractsUseConverterObjects(t *testing.T) {
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		properties    []TypeProperty
+		hasCreateExpr bool
+	}{
+		{
+			name: "TaskBoardColumn",
+			root: reflect.TypeOf(TaskBoardColumn{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "color", TypeExpr: "string", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+		{
+			name: "TaskBoardTask",
+			root: reflect.TypeOf(TaskBoardTask{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "title", TypeExpr: "string", Optional: false},
+				{Name: "description", TypeExpr: "string", Optional: false},
+				{Name: "completed", TypeExpr: "boolean", Optional: false},
+				{Name: "columnId", TypeExpr: "string | null", Optional: true},
+				{Name: "dueDateIso", TypeExpr: "string", Optional: false},
+				{Name: "recurrence", TypeExpr: "TaskBoardTaskRecurrence", Optional: false},
+				{Name: "recurrenceDays", TypeExpr: "Array<TaskBoardRecurringWeekday>", Optional: false},
+				{Name: "recurrenceMonths", TypeExpr: "Array<TaskBoardRecurringMonth>", Optional: false},
+				{Name: "recurrenceYears", TypeExpr: "Array<number>", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: false},
+			},
+			hasCreateExpr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "object")
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+		})
+	}
+}
+
 func disabledGetLLMResponseRequestTreatsAppSpecStreamingEnabledAsOptional(t *testing.T) {
 	t.Parallel()
 
