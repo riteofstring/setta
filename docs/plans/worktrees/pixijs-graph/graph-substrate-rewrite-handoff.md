@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 11:40 EDT
+Last updated: 2026-04-04 12:12 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,46 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `119` closed the Browser authoritative-move-plus-fit compression lane by fixing the canary fit/state paths that were masking live backend layout updates and overfitting to stale section bounds.
+  - Why this slice was needed:
+    - item `118` had already isolated the first real production frontier on the shared Browser lane: after the same authoritative `+120,+80` move and targeted fit, the canary looked visibly compressed while read-only `main` did not
+    - on the current run-038 surfaces, the first rerun also exposed a separate worktree-only blocker: `processProjectStateUpdateFromBackend(...)` was replaying an old acknowledged optimistic top-level-layout snapshot over the backend move, so the worktree page store stayed at the old Browser layout even though the backend state had moved
+    - the narrowest valid product slice was therefore two linked production fixes on the exact checked lane: prefer live observed canary section size during fit-bounds calculation, and stop stale acknowledged top-level-layout optimism from overriding a newer authoritative backend layout
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts`
+      - `getRenderedSectionSize(...)` now prefers the live observed section size whenever a positive DOM measurement exists instead of keeping the larger stale stored layout size during fit-bounds calculation
+    - updated `frontend/src/state/actions/sectionInfos.ts`
+      - `reconcilePendingTopLevelLayout(...)` now drops an acknowledged stale top-level-layout snapshot when the backend no longer reports that op as pending/completed, so the next authoritative backend layout wins instead of being overwritten on the worktree canary
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+      - replaced the older max-size expectations with regression coverage proving fit bounds prefer live observed size and still fall back to stored layout size when no live measurement exists
+    - updated `frontend/src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+      - added regression coverage proving an acknowledged stale optimistic top-level-layout snapshot is dropped when a newer backend layout arrives
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - tightened `settings graph parity probe keeps shared title editing working after authoritative top-level move and targeted fit on read-only main legacy and worktree canary` so it now also asserts section rect width/height and title rect width/height parity, not just position/zoom/title-edit state
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-038/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-038/main-ai.log`
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/state/actions/sectionInfos.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/state/actions/sections/topLevelLayoutPersistence.test.ts`
+      - result: passed (`2 files`, `6 tests`)
+    - targeted direct live-runtime Playwright rerun with fresh run-038 bootstrap URLs minted inline immediately before launch from `./scripts/dev-runtime-info.sh` for both worktree and main:
+      - `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after authoritative top-level move and targeted fit on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `45.4s`)
+  - Live verification result:
+    - a fresh-context CDP sub-agent read the browser MCP quickstart, then compared live worktree `3075` against read-only `3087` on the shared Browser lane only
+    - after normalizing both tabs to active `All Settings` and applying the same Browser authoritative move plus targeted fit, the Browser card/title geometry matched on both sides
+    - concrete CDP readout from the shared fit landing:
+      - `sectionRect 1180x753 at (130,74)` on both worktree and main
+      - the title proxy box matched the same geometry on both sides
+    - the earlier canary-only compression did not reproduce after this slice
+    - CDP visual check: done (fresh-context Browser authoritative-move-plus-fit compare on live `3075` canary vs read-only `3087` legacy; the prior compression mismatch is resolved)
+  - conclusion for this slice:
+    - close the Browser authoritative-move-plus-fit compression lane for the current run-038 surfaces
+    - keep the widened authoritative-move probe; it now covers the section/title size parity that the earlier CDP pass exposed visually
+    - do not reopen this Browser lane unless a fresh normalized compare again shows canary-only size compression or stale layout replay on the same path
+    - the next iteration should move off this now-closed Browser lane and pick the next shared normalized Gate 1 / Gate 2 motion lane on `All Settings`
 - Ralph item `118` added a deterministic surrogate move-plus-fit title-edit parity probe so the live Browser drag lane can be judged without relying on untrustworthy CDP mouse drag.
   - Why this slice was needed:
     - item `117` already proved the direct drag-plus-title-edit probe in Playwright, but the required live CDP compare was still blocked by post-move normalization because the reference title row could end up off-screen before the edit check

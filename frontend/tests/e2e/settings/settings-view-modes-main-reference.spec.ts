@@ -2809,6 +2809,30 @@ test("settings graph parity probe keeps shared title editing working after autho
           referenceResult.afterFit.titleRect.y,
       ),
     ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.rect.width -
+          referenceResult.afterFit.rect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.rect.height -
+          referenceResult.afterFit.rect.height,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.titleRect.width -
+          referenceResult.afterFit.titleRect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.titleRect.height -
+          referenceResult.afterFit.titleRect.height,
+      ),
+    ).toBeLessThan(8);
   } finally {
     await restoreSectionNameForPage({
       backendOrigin: WORKTREE_BACKEND_ORIGIN,

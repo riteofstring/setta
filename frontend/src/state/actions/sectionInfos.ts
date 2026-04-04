@@ -1039,7 +1039,7 @@ export function processProjectStateUpdateFromBackend(
     },
     [],
   );
-  reconcilePendingTopLevelLayout(nextPending);
+  reconcilePendingTopLevelLayout(nextPending, backendPendingIds, completedIds);
   for (const opInfo of nextPending) {
     opInfo.apply(x.projectState);
   }
@@ -1639,9 +1639,32 @@ const sendTopLevelLayoutToBackend = _.debounce(() => {
   }
 }, 500);
 
-function reconcilePendingTopLevelLayout(nextPending: PendingOperation[]) {
+function reconcilePendingTopLevelLayout(
+  nextPending: PendingOperation[],
+  backendPendingIds: Set<string>,
+  completedIds: Set<string>,
+) {
   const currentOpId = pendingTopLevelLayoutRef.opId;
   if (!currentOpId) {
+    return;
+  }
+  const currentPendingOp = nextPending.find((op) => op.opId === currentOpId);
+  const backendStillTracksCurrentOp =
+    backendPendingIds.has(currentOpId) || completedIds.has(currentOpId);
+  if (
+    currentPendingOp?.acknowledged &&
+    !pendingTopLevelLayoutRef.hasQueuedSend &&
+    !backendStillTracksCurrentOp
+  ) {
+    pendingTopLevelLayoutRef.opId = null;
+    pendingTopLevelLayoutRef.snapshot = null;
+    pendingTopLevelLayoutRef.hasQueuedSend = false;
+    const nextPendingIndex = nextPending.findIndex(
+      (op) => op.opId === currentOpId,
+    );
+    if (nextPendingIndex >= 0) {
+      nextPending.splice(nextPendingIndex, 1);
+    }
     return;
   }
   const stillPending = nextPending.some((op) => op.opId === currentOpId);

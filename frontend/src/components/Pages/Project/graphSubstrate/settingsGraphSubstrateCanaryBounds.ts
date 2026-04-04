@@ -24,8 +24,17 @@ function getRenderedSectionSize(
   observedElementSizes: ObservedElementSizes,
 ) {
   const observedSize = observedElementSizes[section.sectionId];
-  const width = Math.max(section.width ?? 0, observedSize?.width ?? 0);
-  const height = Math.max(section.height ?? 0, observedSize?.height ?? 0);
+  if (
+    typeof observedSize?.width === "number" &&
+    observedSize.width > 0 &&
+    typeof observedSize.height === "number" &&
+    observedSize.height > 0
+  ) {
+    return observedSize;
+  }
+
+  const width = section.width ?? 0;
+  const height = section.height ?? 0;
 
   if (width <= 0 || height <= 0) {
     return null;
