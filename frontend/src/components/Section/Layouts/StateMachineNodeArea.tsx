@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import { getCurrEffectiveSectionImpl } from "state/actions/sectionInfos";
 import { getStateMachineDraftWarning } from "state/actions/stateMachineDraftValidation";
 import {
+  loadStateMachineRuns,
   resetStateMachineRun,
   startStateMachineRun,
   stopStateMachineRun,
-  subscribeStateMachineRunPolling,
 } from "state/actions/stateMachineRuns";
 import {
   useAIStore,
@@ -127,7 +127,7 @@ export function StateMachineNodeArea({ sectionId }: StateMachineNodeAreaProps) {
     if (!showMachineStatus || machineGroupId === "") {
       return;
     }
-    return subscribeStateMachineRunPolling();
+    loadStateMachineRuns();
   }, [machineGroupId, showMachineStatus]);
 
   async function handleStartClick(): Promise<void> {
