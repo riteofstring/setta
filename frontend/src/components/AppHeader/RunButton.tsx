@@ -22,17 +22,23 @@ import {
   useProjectState,
   useRunControl,
 } from "state/definitions";
+import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { OverviewTabNameEnum } from "utils/constants";
 
 export function RunButton() {
   const runMode = useRunControl((x) => x.runMode);
   const continuousRunStarted = useRunControl((x) => x.continuousRunStarted);
   const projectConfig = useProjectState((x) => x.projectConfig);
-  const runCapabilities = useProjectState(
-    (x) => x.projectConfig.runCapabilities,
+  const genPythonSectionId = useProjectState(
+    (x) => x.singletonSections.GenPythonCode,
   );
   const projectConfigId = projectConfig.id;
-  const canRunFromMain = runCapabilities.canRunFromMain;
+  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
+  const entryCodeBlockId = projectConfig.entryCodeBlockId;
+  const entryIsGenPython =
+    entryCodeBlockId !== null && entryCodeBlockId === genPythonSectionId;
+  const canRunFromMain =
+    pythonCodegenEnabled || (Boolean(entryCodeBlockId) && !entryIsGenPython);
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
   );
@@ -94,7 +100,7 @@ export function RunButton() {
           {...getFloatingBoxHandlers({
             content: canRunFromMain
               ? "Run your code."
-              : runCapabilities.mainRunDisabledReason ?? "Run is unavailable.",
+              : "Select a manual entry code block to run.",
           })}
         >
           {mainIcon}
