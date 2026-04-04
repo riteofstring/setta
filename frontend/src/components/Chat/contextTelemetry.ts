@@ -11,6 +11,7 @@ export type ChatContextTelemetry = {
   contextWindowTokens: number | null;
   contextUsedTokens: number | null;
   contextUsageIsEstimated: boolean;
+  contextUsageUnavailable: boolean;
 };
 
 export function normalizeContextTokenCount(
@@ -41,5 +42,7 @@ export function resolveAuthoritativeContextTelemetry(
     contextWindowTokens,
     contextUsedTokens,
     contextUsageIsEstimated: Boolean(contextUsage?.estimated),
+    contextUsageUnavailable:
+      contextWindowTokens === null || contextUsedTokens === null,
   };
 }
