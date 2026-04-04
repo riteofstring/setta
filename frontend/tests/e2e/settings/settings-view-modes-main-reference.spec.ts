@@ -4186,7 +4186,10 @@ test("settings graph parity probe keeps shared title editing working after norma
       );
     }
 
-    const panStart = await findSettingsGraphPanePoint(args.targetPage);
+    const panStart = await findSettingsGraphPanePoint(args.targetPage, {
+      panDelta,
+      sectionId: args.sectionId,
+    });
     await args.targetPage.mouse.move(panStart.x, panStart.y);
     await args.targetPage.mouse.down();
     await args.targetPage.mouse.move(

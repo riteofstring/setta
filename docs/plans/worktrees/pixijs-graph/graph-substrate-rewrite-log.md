@@ -3793,3 +3793,37 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one different normalized dynamic Gate 1 / Gate 2 lane, with production-fix work preferred immediately if that next compare exposes a concrete renderer defect
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 09:54 EDT - Ralph item 112
+
+- Tightened the shared title-edit-after-pan parity helper so the live compare could use one verified blank graph-surface pan path instead of another loose replay.
+- Why this slice was necessary:
+  - items `110` and `111` were both oracle-only passes, so this iteration needed one bounded normalization/oracle step that directly unblocked the concrete title-edit-after-pan renderer question
+  - item `111` had already isolated the blocker: the CDP replay was not trustworthy because the attempted pan missed blank graph surface and hit side chrome
+  - the narrowest valid step was to make the existing helper prove the exact `120 x 80` drag starts and ends on graph surface for the checked lane, then rerun the same parity probe and one fresh-context CDP compare
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - widened `findSettingsGraphPanePoint(...)` with optional `sectionId` plus `panDelta` arguments
+    - when those options are present, the helper now prefers blank points around the target section and rejects candidates unless the start point plus sampled end-of-drag path stay inside graph root and outside sections/minimap/controls
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - changed only `settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary` to request the verified section-aware blank pan path
+  - no production renderer files changed in this slice
+- Verification:
+  - refreshed runtime/bootstrap values for the current run:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-031/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-031/main-ai.log`
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `43.4s`)
+  - fresh-context CDP sub-agent:
+    - verified a blank graph-surface pan path on both live pages before dragging; the chosen start/end points stayed inside graph root and outside visible cards/controls for the exact `120 x 80` drag
+    - after that now-trustworthy pan, the visible landing still diverged: worktree centered `browserSectionDefault` while read-only `main` centered `sectionSizingPolicy`
+    - double-clicking the visible header text opened the inline title editor on both surfaces, so title editing itself is not the active mismatch on this lane
+  - CDP visual check: done (fresh-context exact title-edit-after-pan compare on live `3075` canary vs read-only `3087` legacy through worktree CDP `9300`; verified blank-surface pan succeeded on both sides and the remaining mismatch is the post-pan landing/subject)
+- Lane status:
+  - close the blank-pane-target support blocker on the shared title-edit-after-pan lane; the replay is now trustworthy enough to drive a product investigation
+  - do not spend another iteration re-polishing blank-pane pan targeting for this lane unless the verified helper stops finding a graph-surface-only path
+- Next frontier:
+  - investigate/fix why the canary and legacy land on different visible sections (`browserSectionDefault` vs `sectionSizingPolicy`) after the same verified normalized pane pan on the shared Browser lane
+- LOOP_TERMINAL_MARKER: none

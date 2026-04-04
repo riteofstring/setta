@@ -451,6 +451,10 @@ async function waitForSettingsGraphCompareTransientChrome(
 
 export async function findSettingsGraphPanePoint(
   page: Page,
+  options?: {
+    panDelta?: { x: number; y: number };
+    sectionId?: string;
+  },
 ): Promise<{ x: number; y: number }> {
   const point = await page.evaluate(
     ({
@@ -458,11 +462,15 @@ export async function findSettingsGraphPanePoint(
       canarySectionSelector,
       legacyRootSelector,
       legacySectionSelector,
+      panDelta,
+      targetSectionId,
     }: {
       canaryRootSelector: string;
       canarySectionSelector: string;
       legacyRootSelector: string;
       legacySectionSelector: string;
+      panDelta?: { x: number; y: number };
+      targetSectionId?: string;
     }) => {
       const root =
         document.querySelector<HTMLElement>(canaryRootSelector) ??
@@ -471,10 +479,122 @@ export async function findSettingsGraphPanePoint(
         return null;
       }
 
+      const usingCanary = root.matches(canaryRootSelector);
+      const resolvedRootSelector = usingCanary
+        ? canaryRootSelector
+        : legacyRootSelector;
+      const resolvedSectionSelector = usingCanary
+        ? canarySectionSelector
+        : legacySectionSelector;
+      const resolvedSectionIdAttribute = usingCanary
+        ? "data-section-id"
+        : "data-id";
       const rect = root.getBoundingClientRect();
       const margin = 24;
       const columns = 8;
       const rows = 6;
+      const targetSection = targetSectionId
+        ? document.querySelector<HTMLElement>(
+            `${resolvedSectionSelector}[${resolvedSectionIdAttribute}="${targetSectionId}"]`,
+          )
+        : null;
+      const targetSectionRect = targetSection?.getBoundingClientRect() ?? null;
+      const candidatePoints: Array<{ x: number; y: number }> = [];
+
+      const addCandidatePoint = (x: number, y: number) => {
+        candidatePoints.push({ x, y });
+      };
+
+      if (targetSectionRect) {
+        for (const xOffset of [-96, -72, -48]) {
+          for (const yFraction of [0.3, 0.5, 0.7]) {
+            addCandidatePoint(
+              targetSectionRect.left + xOffset,
+              targetSectionRect.top + targetSectionRect.height * yFraction,
+            );
+          }
+        }
+        for (const yOffset of [-72, -48, 48, 72]) {
+          for (const xFraction of [0.2, 0.35, 0.5]) {
+            addCandidatePoint(
+              targetSectionRect.left + targetSectionRect.width * xFraction,
+              targetSectionRect.top + yOffset,
+            );
+          }
+        }
+      }
+
+      const pointTargetsGraphSurface = (
+        x: number,
+        y: number,
+        allowSectionContent: boolean,
+      ) => {
+        if (
+          x < rect.left + margin ||
+          x > rect.right - margin ||
+          y < rect.top + margin ||
+          y > rect.bottom - margin
+        ) {
+          return false;
+        }
+
+        const element = document.elementFromPoint(x, y);
+        if (!(element instanceof Element)) {
+          return false;
+        }
+        if (
+          element.closest('[data-testid="rf__minimap"]') ||
+          element.closest(".react-flow__controls")
+        ) {
+          return false;
+        }
+        if (
+          !allowSectionContent &&
+          element.closest(canarySectionSelector) &&
+          element.closest(resolvedRootSelector) === root
+        ) {
+          return false;
+        }
+        if (
+          !allowSectionContent &&
+          element.closest(legacySectionSelector) &&
+          element.closest(resolvedRootSelector) === root
+        ) {
+          return false;
+        }
+
+        return element.closest(resolvedRootSelector) === root;
+      };
+
+      const pointSupportsPanPath = (x: number, y: number) => {
+        if (!pointTargetsGraphSurface(x, y, false)) {
+          return false;
+        }
+        if (!panDelta) {
+          return true;
+        }
+
+        const steps = 6;
+        for (let step = 1; step <= steps; step += 1) {
+          const progress = step / steps;
+          const sampleX = x + panDelta.x * progress;
+          const sampleY = y + panDelta.y * progress;
+          const allowSectionContent = step < steps;
+          if (
+            !pointTargetsGraphSurface(sampleX, sampleY, allowSectionContent)
+          ) {
+            return false;
+          }
+        }
+
+        return true;
+      };
+
+      for (const candidate of candidatePoints) {
+        if (pointSupportsPanPath(candidate.x, candidate.y)) {
+          return candidate;
+        }
+      }
 
       for (let row = 0; row <= rows; row += 1) {
         for (let column = 0; column <= columns; column += 1) {
@@ -486,22 +606,7 @@ export async function findSettingsGraphPanePoint(
             rect.top +
             margin +
             ((rect.height - margin * 2) * row) / Math.max(rows, 1);
-          const element = document.elementFromPoint(x, y);
-          if (!(element instanceof Element)) {
-            continue;
-          }
-          if (
-            element.closest(canarySectionSelector) ||
-            element.closest(legacySectionSelector) ||
-            element.closest('[data-testid="rf__minimap"]') ||
-            element.closest(".react-flow__controls")
-          ) {
-            continue;
-          }
-          if (
-            element.closest(canaryRootSelector) ||
-            element.closest(legacyRootSelector)
-          ) {
+          if (pointSupportsPanPath(x, y)) {
             return { x, y };
           }
         }
@@ -514,6 +619,8 @@ export async function findSettingsGraphPanePoint(
       canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
       legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
       legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      panDelta: options?.panDelta,
+      targetSectionId: options?.sectionId,
     },
   );
 
