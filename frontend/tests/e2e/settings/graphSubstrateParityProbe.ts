@@ -70,6 +70,7 @@ const CANARY_SETTINGS_GRAPH_SECTION_SELECTOR =
 const CANARY_SETTINGS_GRAPH_VIEWPORT_SELECTOR =
   '[data-testid="graph-substrate-canary-viewport"]';
 const LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR = ".react-flow";
+const LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR = ".react-flow__node";
 const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
 
 export async function getLatestProjectState(
@@ -406,4 +407,81 @@ export async function captureSettingsGraphSectionMetrics(
     surfaceKind,
     transform,
   };
+}
+
+export async function findSettingsGraphPanePoint(
+  page: Page,
+): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate(
+    ({
+      canaryRootSelector,
+      canarySectionSelector,
+      legacyRootSelector,
+      legacySectionSelector,
+    }: {
+      canaryRootSelector: string;
+      canarySectionSelector: string;
+      legacyRootSelector: string;
+      legacySectionSelector: string;
+    }) => {
+      const root =
+        document.querySelector<HTMLElement>(canaryRootSelector) ??
+        document.querySelector<HTMLElement>(legacyRootSelector);
+      if (!root) {
+        return null;
+      }
+
+      const rect = root.getBoundingClientRect();
+      const margin = 24;
+      const columns = 8;
+      const rows = 6;
+
+      for (let row = 0; row <= rows; row += 1) {
+        for (let column = 0; column <= columns; column += 1) {
+          const x =
+            rect.left +
+            margin +
+            ((rect.width - margin * 2) * column) / Math.max(columns, 1);
+          const y =
+            rect.top +
+            margin +
+            ((rect.height - margin * 2) * row) / Math.max(rows, 1);
+          const element = document.elementFromPoint(x, y);
+          if (!(element instanceof Element)) {
+            continue;
+          }
+          if (
+            element.closest(canarySectionSelector) ||
+            element.closest(legacySectionSelector) ||
+            element.closest('[data-testid="rf__minimap"]') ||
+            element.closest(".react-flow__controls")
+          ) {
+            continue;
+          }
+          if (
+            element.closest(canaryRootSelector) ||
+            element.closest(legacyRootSelector)
+          ) {
+            return { x, y };
+          }
+        }
+      }
+
+      return null;
+    },
+    {
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+    },
+  );
+
+  if (!point) {
+    throw new Error(
+      "Unable to find a blank pan point on the settings graph surface.",
+    );
+  }
+
+  return point;
 }

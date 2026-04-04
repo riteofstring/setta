@@ -2891,3 +2891,41 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - reuse the normalized pane-state helper on a short shared-section pan or drag compare so the next iteration isolates the first real post-fit motion/interactions artifact instead of reopening pane-state noise
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 02:23 EDT - Ralph item 084
+
+- Added a normalized worktree legacy-vs-canary short-pan parity guard on the shared `shortcuts` lane and closed that specific post-fit motion slice without reopening pane-state normalization.
+- Why this slice was necessary:
+  - item `083` had already closed the `shortcuts` fit/centering gap as remembered-pane oracle noise, so the next valid move was one real post-fit motion lane instead of another compare-state cleanup pass
+  - the fresh-context CDP attempts on this pass showed the live `main` short-pan shape still was not a trustworthy apples-to-apples motion oracle, so one bounded worktree-only parity guard was the narrowest support step that could lock down the renderer question
+  - existing coverage already proved canary-only pan attachment; the missing guard was whether the same shared named section moved by the same short pan delta on worktree `Core` legacy and worktree `All Settings` canary
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `findSettingsGraphPanePoint(page)` so shared parity probes can locate one blank graph-surface pan point without hitting sections, minimap chrome, or controls
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added `settings graph parity probe applies the same short pan delta on legacy and canary surfaces after normalized fit`
+    - the new guard resolves one shared visible top-level section across `Core` and `All Settings`, normalizes the remembered compare pane state, fits that same section on each surface, applies the same `+140/+90` mouse pan, and compares the resulting viewport-transform and section-rect deltas
+- Verification:
+  - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit|settings graph parity probe applies the same short pan delta on legacy and canary surfaces after normalized fit'`
+    - result: passed (`2 passed`, about `37.4s`)
+  - fresh-context CDP sub-agents:
+    - result: inconclusive for the live motion half; they reached the correct worktree runtime but did not finish a trustworthy worktree `Core` vs `All Settings` pan compare end-to-end in this environment
+  - direct main-session `chrome-devtools-mcp` fallback:
+    - result: passed for the static fit/surface half
+    - normalized pane state `{ overviewVis: false, overviewTrueWidth: 420, uiEditorVis: false, uiEditorTrueWidth: 260 }`
+    - shared logical section `shortcuts` id `6814a2da-deee-4a60-9af5-233f59523967`
+    - worktree `Core` legacy `fitView` baseline:
+      - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+      - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+    - worktree `All Settings` canary normalized `fitView` baseline:
+      - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+      - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+    - the direct DevTools/evaluate fallback could confirm mode switching and normalized fit parity, but it still could not drive a trustworthy live legacy pan delta because the available legacy `useReactFlow` state hooks changed store values without moving the rendered legacy viewport
+  - CDP visual check: done (direct main-session fallback; normalized `shortcuts` fit matched `1:1` between worktree `Core` legacy and worktree `All Settings` canary, while live legacy pan delta remained DevTools-limited)
+- Lane status:
+  - close the specific worktree shared-section short-pan parity lane as covered by the new guard
+  - do not reopen pane-state normalization on this lane; the remaining limitation is the DevTools legacy-pan driver, not a newly observed renderer mismatch
+- Next frontier:
+  - attempt another shared-section motion lane that DevTools can drive more trustworthily end-to-end, most likely a bounded top-level drag/frontmost compare if CDP mouse-drop proves usable
+- LOOP_TERMINAL_MARKER: none

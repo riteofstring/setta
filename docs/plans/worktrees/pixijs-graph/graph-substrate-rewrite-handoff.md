@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 02:02 EDT
+Last updated: 2026-04-04 02:23 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,38 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `084` added a normalized worktree legacy-vs-canary short-pan parity guard on the shared `shortcuts` lane and used it to close the next worktree motion slice without reopening the now-closed pane-width oracle work.
+  - Why this slice was needed:
+    - item `083` had already closed the `shortcuts` fit-centering gap as remembered-pane oracle noise, so the next valid step was one concrete post-fit motion lane rather than more compare-state cleanup
+    - the fresh-context CDP compares on this pass showed the live `main` short-pan shape still was not a trustworthy apples-to-apples motion oracle, so one bounded in-worktree parity guard was the narrowest support step that could lock down the actual renderer question
+    - previous iterations already had canary-only pan coverage; the missing guard was whether the same shared named section moves by the same short pan delta on worktree `Core` legacy and worktree `All Settings` canary after normalized fit
+  - Production/test change:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` now exports `findSettingsGraphPanePoint(page)` so shared legacy/canary parity probes can locate one blank graph-surface pan point without hitting sections, minimap chrome, or controls
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph parity probe applies the same short pan delta on legacy and canary surfaces after normalized fit`
+      - the new guard resolves one shared visible top-level section across `Core` and `All Settings`
+      - it normalizes the remembered compare pane state, fits that same section on each surface, applies the same `+140/+90` mouse pan, and asserts the resulting viewport-transform and section-rect deltas match between legacy and canary
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit|settings graph parity probe applies the same short pan delta on legacy and canary surfaces after normalized fit'`
+      - result: passed (`2 passed`, about `37.4s`)
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+  - Live verification result:
+    - fresh-context CDP sub-agents repeatedly reached the correct worktree runtime but did not finish a trustworthy worktree `Core` vs `All Settings` live pan compare end-to-end in this environment, so this pass used the documented direct main-session fallback and records that tool limitation explicitly
+    - direct main-session `chrome-devtools-mcp` fallback on worktree `3075/settings`:
+      - normalized pane state to `{ overviewVis: false, overviewTrueWidth: 420, uiEditorVis: false, uiEditorTrueWidth: 260 }`
+      - resolved the shared logical section `shortcuts` with id `6814a2da-deee-4a60-9af5-233f59523967`
+      - confirmed worktree `Core` legacy `fitView` baseline on `shortcuts`:
+        - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+        - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+      - confirmed worktree `All Settings` canary switched active surface correctly and matched the same normalized `shortcuts` fit baseline:
+        - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+        - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+      - the direct DevTools/evaluate fallback could verify mode switching and normalized fit parity, but it still could not produce a trustworthy live legacy pan delta: the available legacy `useReactFlow` state hooks mutated store values without moving the rendered legacy viewport in-page
+    - CDP visual check: done (direct main-session fallback; normalized `shortcuts` fit matched `1:1` between worktree `Core` legacy and worktree `All Settings` canary, while live legacy pan delta remained DevTools-limited)
+  - conclusion for this slice:
+    - close the specific worktree shared-section short-pan parity lane as covered: the new Playwright guard now proves the short mouse-pan delta matches between legacy and canary after normalized fit
+    - do not reopen pane-state normalization on this lane; the remaining limitation is the live DevTools pan-driving shape on legacy, not a newly observed renderer mismatch
+    - future live motion checks should prefer lanes that DevTools can drive end-to-end, or continue using direct-session fallback only for static fit/surface confirmation
 - Ralph item `083` normalized the shared remembered-pane compare state inside the parity probe and closed the remaining cross-session `~80px` gap on the `shortcuts` fit lane.
   - Why this slice was needed:
     - item `082` had already narrowed the remaining `main` mismatch to unnormalized remembered `overviewTrueWidth` / `uiEditorTrueWidth` state across sessions, so the next valid step was one bounded normalization slice rather than another viewport-math change
@@ -45,6 +77,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - conclusion for this slice:
     - close the specific "remaining `main`-only `~80px` fit gap on `shortcuts`" blocker as pane-state oracle noise, not renderer drift
     - future live cross-worktree compares on this lane should start from the same explicit remembered pane-state normalization before judging renderer differences
+    - the next real frontier after the short-pan closure is another shared-section motion lane that can produce a trustworthy live compare, most likely a bounded top-level drag/frontmost check if CDP mouse-drop proves usable
 - Ralph item `082` closed the live worktree canary-vs-legacy `fitView` centering blocker on the shared `shortcuts` lane and reduced the remaining `main` mismatch to remembered-pane normalization noise across sessions.
   - Why this slice was needed:
     - item `081` had already proven the compare lane was trustworthy by logical section name, so the next valid step was a production/debug slice on the `~80px` left offset rather than another harness-only pass
