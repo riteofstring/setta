@@ -2749,3 +2749,62 @@ LOOP_TERMINAL_MARKER: none
   - backend/store viewport writes are trustworthy again for future normalized compare steps on the worktree side
 - Next frontier: return to a normalized non-drag live compare on `drawSectionDefault`, but use shared visible section geometry or screenshots against legacy `main` instead of assuming `graph-substrate-canary` exists on the read-only oracle.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 01:18 EDT - Ralph item 081
+
+- Added a shared legacy/canary section-geometry probe for normalized `settings` compares and used it to verify one logical-section lane end-to-end against read-only `main`.
+- Why this slice was necessary:
+  - after item `080`, the next valid step was not another canary-only compare or more pane-pan churn; it was one bounded probe that could finally measure the same logical section on worktree legacy, worktree canary, and `main` legacy
+  - the first draft hard-coded `groupSectionDefault`, but that section is not visible on the legacy `Core` lane, so the probe needed to resolve a top-level section that is actually shared across both view modes before it could be trusted
+  - recent iterations had already spent enough time on canary-only oracle wiring; this slice had to either unblock a real `main` compare or stop, and the missing piece was a shared visible-section probe that no longer assumed identical raw ids or canary hooks on `main`
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `findSharedVisibleSettingsGraphSection(...)` to resolve a top-level section visible across the requested view modes
+    - generalized section bounds, root-center offset, viewport transform, and surface-kind capture so the same helper works on both the legacy React Flow surface and the `graph-substrate-canary`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added `settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit`
+    - the guard now resolves a shared visible section across `Core` and `All Settings`, reapplies hidden overview/ui-editor pane state after each view-mode change, and proves the section keeps the same size/zoom across legacy and canary after `fitView`
+- Verification:
+  - initial draft:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit'`
+      - result: failed because the initial hard-coded `groupSectionDefault` target was not visible on the legacy `Core` surface, so `fitView(...)` returned `false`
+  - final rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit'`
+      - result: passed (`1 passed`, about `17.6s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - first fresh-context CDP sub-agent:
+    - result: blocked because CDP was inaccessible from the current session before page inspection
+  - one bounded lifecycle recovery:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - result: succeeded; fresh worktree runtime `3076/8076`, session `86215a`
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - result: confirmed backend `8076`, session `86215a`
+    - `pnpm -C frontend cdp-port`
+      - result: `9300`
+    - `curl -sf http://127.0.0.1:9300/json/version`
+      - result: passed; confirmed the live headless Chrome endpoint on `9300` after recovery
+  - retried fresh-context CDP sub-agent:
+    - result: passed; the shared logical-section lane can now be compared end-to-end against read-only `main`
+    - chosen section name:
+      - `shortcuts`
+    - worktree `Core` legacy:
+      - id `6814a2da-deee-4a60-9af5-233f59523967`
+      - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+      - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+    - worktree `All Settings` canary:
+      - id `6814a2da-deee-4a60-9af5-233f59523967`
+      - rect `{ x: 405.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+      - transform `{ x: 405.651, y: 20.0455, zoom: 1.13895 }`
+    - read-only `main` `All Settings` legacy:
+      - logical `shortcuts` id `02c6b722-89e0-4e43-a63c-24d8fd8a1078`
+      - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+      - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+    - compare takeaway:
+      - the lane is trustworthy when aligned by logical section name instead of raw section id
+      - at matched zoom and matched section size, worktree `All Settings` canary still lands `shortcuts` about `80px` left of both worktree `Core` legacy and read-only `main` `All Settings` legacy
+    - CDP visual check: done (after one worktree lifecycle recovery, live legacy/canary/main section-fit compare on logical section name `shortcuts`)
+- Lane status:
+  - close the specific "raw ids must match across worktree and `main`" blocker for this compare lane
+  - the remaining frontier is now a real renderer/layout question, not another oracle-support gap
+- Next frontier: investigate why normalized `All Settings` canary fit/centering math lands the logical `shortcuts` card about `80px` left of legacy/main at the same zoom and size, likely by comparing canary visible-width/root-center calculations against legacy React Flow with panes hidden.
+- LOOP_TERMINAL_MARKER: none

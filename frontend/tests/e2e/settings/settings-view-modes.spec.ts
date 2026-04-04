@@ -2,7 +2,9 @@ import { expect, test, type Page } from "@playwright/test";
 import { ensureAppReady, postBackend } from "../helpers";
 import {
   applyAuthoritativeViewportFromBackend,
+  captureSettingsGraphSectionMetrics,
   findSectionIdByName,
+  findSharedVisibleSettingsGraphSection,
   findViewModeId,
   fitGraphViewportToSection,
   getCanarySectionCenterOffsetFromRootCenter,
@@ -408,6 +410,172 @@ test("settings graph substrate canary applies an explicit shared viewport write 
     await expect
       .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
       .toBeCloseTo(targetViewport.zoom, 2);
+  } finally {
+    await setLocalPaneState(page, initialPaneState).catch(() => {});
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
+test("settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const coreViewModeId = findViewModeId(initialState, "Core");
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const initialPaneState = await getLocalPaneState(page);
+  const sharedSection = findSharedVisibleSettingsGraphSection(initialState, [
+    "Core",
+    "All Settings",
+  ]);
+  const sectionId = sharedSection.sectionId;
+  const sectionName = sharedSection.name;
+  const coreTab = page.getByRole("button", { name: "Core", exact: true });
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: coreViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const legacyStateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, legacyStateWithoutViewport);
+
+    await expect(coreTab).toBeVisible();
+    await coreTab.click();
+    await page.waitForSelector(READY_SELECTOR);
+    await expect(page.getByTestId("graph-substrate-canary")).toHaveCount(0);
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitGraphViewportToSection(page, sectionId)).toBe(true);
+
+    await expect
+      .poll(async () => {
+        return (await captureSettingsGraphSectionMetrics(page, sectionId))
+          .surfaceKind;
+      })
+      .toBe("legacy");
+    await expect
+      .poll(async () => {
+        return Math.abs(
+          (await captureSettingsGraphSectionMetrics(page, sectionId))
+            .centerOffsetFromRootCenter ?? Number.POSITIVE_INFINITY,
+        );
+      })
+      .toBeLessThan(40);
+
+    const legacyMetrics = await captureSettingsGraphSectionMetrics(
+      page,
+      sectionId,
+    );
+    if (!legacyMetrics.rect || !legacyMetrics.transform) {
+      throw new Error(`Missing legacy metrics for ${sectionName}.`);
+    }
+
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const canaryStateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, canaryStateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitGraphViewportToSection(page, sectionId)).toBe(true);
+
+    await expect
+      .poll(async () => {
+        return (await captureSettingsGraphSectionMetrics(page, sectionId))
+          .surfaceKind;
+      })
+      .toBe("canary");
+    await expect
+      .poll(async () => {
+        return Math.abs(
+          (await captureSettingsGraphSectionMetrics(page, sectionId))
+            .centerOffsetFromRootCenter ?? Number.POSITIVE_INFINITY,
+        );
+      })
+      .toBeLessThan(40);
+
+    const canaryMetrics = await captureSettingsGraphSectionMetrics(
+      page,
+      sectionId,
+    );
+    if (!canaryMetrics.rect || !canaryMetrics.transform) {
+      throw new Error(`Missing canary metrics for ${sectionName}.`);
+    }
+
+    expect(
+      Math.abs(canaryMetrics.rect.width - legacyMetrics.rect.width),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(canaryMetrics.rect.height - legacyMetrics.rect.height),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(canaryMetrics.transform.zoom - legacyMetrics.transform.zoom),
+    ).toBeLessThan(0.02);
   } finally {
     await setLocalPaneState(page, initialPaneState).catch(() => {});
     await postBackend(page, "/setActiveViewMode", {

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 00:56 EDT
+Last updated: 2026-04-04 01:18 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,55 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `081` added a shared legacy/canary section-geometry probe for normalized `settings` compares and used it to prove the next live compare lane is trustworthy by logical section name, not by raw section id.
+  - Why this slice was needed:
+    - after item `080`, the next useful step was not another canary-only compare or more pane-pan churn; it was one bounded support slice that could finally measure the same logical section on worktree legacy, worktree canary, and read-only `main` legacy
+    - the first draft hard-coded `groupSectionDefault`, but that section is not visible on the legacy `Core` lane, so the probe needed to resolve a top-level section that is actually shared across both view modes before it could be trusted
+    - recent iterations had already spent enough time on canary-only oracle plumbing; this slice had to either unblock a real `main` compare or stop, and the missing piece was a shared visible-section probe that no longer assumed identical raw ids or canary hooks on `main`
+  - Production/test change:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` now exports:
+      - `findSharedVisibleSettingsGraphSection(...)` to pick a top-level section visible across the requested view modes
+      - shared graph-surface helpers that capture section bounds, root-center offset, viewport transform, and surface kind from either the legacy React Flow surface or the `graph-substrate-canary`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit`
+      - the guard resolves one shared visible section across `Core` and `All Settings`, hides overview/ui-editor panes after each view-mode change, fits that section on legacy and canary, and proves the section keeps the same size/zoom across both surfaces
+  - Automated result:
+    - first draft:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit'`
+        - result: failed because the initial hard-coded `groupSectionDefault` target was not visible on the legacy `Core` surface, so `fitView(...)` returned `false`
+    - final rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit'`
+        - result: passed (`1 passed`, about `17.6s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+  - Live verification result:
+    - the first fresh-context CDP sub-agent reported CDP inaccessible for this session, so this pass used the one allowed bounded lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+        - result: succeeded; fresh worktree runtime `3076/8076`, session `86215a`
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+        - result: confirmed backend `8076`, session `86215a`
+      - `pnpm -C frontend cdp-port`
+        - result: `9300`
+      - `curl -sf http://127.0.0.1:9300/json/version`
+        - result: passed; confirmed the live headless Chrome endpoint on `9300` after recovery
+    - the retried fresh-context CDP sub-agent then compared the same logical section name on all three normalized surfaces with overview/ui-editor panes hidden:
+      - chosen section name: `shortcuts`
+      - worktree `Core` legacy:
+        - section id `6814a2da-deee-4a60-9af5-233f59523967`
+        - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+        - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+      - worktree `All Settings` canary:
+        - same logical section id `6814a2da-deee-4a60-9af5-233f59523967`
+        - rect `{ x: 405.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+        - transform `{ x: 405.651, y: 20.0455, zoom: 1.13895 }`
+      - read-only `main` `All Settings` legacy:
+        - logical `shortcuts` id `02c6b722-89e0-4e43-a63c-24d8fd8a1078`
+        - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+        - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+      - CDP visual check: done (after one worktree lifecycle recovery, the live compare succeeded on logical section name `shortcuts`; raw ids differ between worktree and `main`)
+  - conclusion for this slice:
+    - close the specific "raw section ids or canary-only hooks must match between worktree and `main`" assumption; future live compares should align by logical section name and then resolve ids locally on each side
+    - the normalized cross-surface lane is now trustworthy enough to expose a real renderer/layout question: at matched zoom and matched section size, worktree `All Settings` canary lands `shortcuts` about `80px` left of both worktree `Core` legacy and read-only `main` `All Settings` legacy
+    - this means the next useful frontier is a production/debug slice on canary fit/centering math or visible-width calculation, not another harness-only iteration
 - Ralph item `080` restored the mounted authoritative viewport override path on the `All Settings` canary, closing the exact "store-written viewport update produces no rendered motion delta" blocker that made item `079`'s pane-pan compare untrustworthy.
   - Why this slice was needed:
     - after item `079`, the next useful step was not another pane-pan compare on the same broken path; it was to make one authoritative shared viewport override survive a prior local `fitView` so future live compares can trust that camera-write lane again
