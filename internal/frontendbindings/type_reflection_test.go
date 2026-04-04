@@ -1398,6 +1398,130 @@ func TestTypeConverterUsesMetadataDeclarationsWithoutManualOverrides(t *testing.
 	}
 }
 
+func TestTypeConverterUsesCodeObjAliasMetadataWithoutManualOverrides(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
+	tests := []struct {
+		name  string
+		root  reflect.Type
+		kind  string
+		alias string
+	}{
+		{
+			name: "BaseCodeObjImpl",
+			root: reflect.TypeOf(BaseCodeObjImpl{}),
+			kind: "alias",
+			alias: `{
+  type: CodeObjType;
+  id: string;
+  name: string;
+  description: string;
+  isPreset: boolean;
+  children?: Array<string>;
+  coreNameType?: ParamNameType;
+  coreNameEditable?: boolean;
+  passingStyle?: ParameterPassingStyle;
+  typeAnnotation?: string;
+  defaultVal?: string;
+  value?: string;
+  [key: string]: unknown;
+}`,
+		},
+		{
+			name: "CodeParamCodeObjImpl",
+			root: reflect.TypeOf(CodeParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.CodeParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+}`,
+		},
+		{
+			name: "NestedParamCodeObjImpl",
+			root: reflect.TypeOf(NestedParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.NestedParam;
+  children: Array<string>;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+}`,
+		},
+		{
+			name: "DropzoneParamCodeObjImpl",
+			root: reflect.TypeOf(DropzoneParamCodeObjImpl{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl & {
+  type: typeof CodeObjTypeEnum.DropzoneParam;
+  coreNameType: ParamNameType;
+  coreNameEditable: boolean;
+  passingStyle: ParameterPassingStyle;
+  typeAnnotation: string;
+  defaultVal: string;
+  value: string;
+  mode: DropzoneMode;
+  maxAttachments?: number | null;
+  placeholder: string;
+}`,
+		},
+		{
+			name: "BaseCodeObjImplUnion",
+			root: reflect.TypeOf(BaseCodeObjImplUnion{}),
+			kind: "alias",
+			alias: `BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl`,
+		},
+		{
+			name: "BaseParentCodeObjImplUnion",
+			root: reflect.TypeOf(BaseParentCodeObjImplUnion{}),
+			kind: "alias",
+			alias: `CodeCallableCodeObjImpl
+  | NestedParamCodeObjImpl`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+		})
+	}
+}
+
 func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarations(t *testing.T) {
 	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {

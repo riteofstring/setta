@@ -81,6 +81,55 @@ func objectDeclarationWithCreateBody(name string, createBody string, properties 
 	return declaration
 }
 
+func renderInlineAliasObject(properties []TypeProperty, extraLines ...string) string {
+	if len(properties) == 0 && len(extraLines) == 0 {
+		return "Record<string, never>"
+	}
+	lines := make([]string, 0, len(properties)+len(extraLines)+2)
+	lines = append(lines, "{")
+	for _, property := range properties {
+		optional := ""
+		if property.Optional {
+			optional = "?"
+		}
+		lines = append(lines, fmt.Sprintf("  %s%s: %s;", property.Name, optional, property.TypeExpr))
+	}
+	for _, line := range extraLines {
+		lines = append(lines, "  "+line)
+	}
+	lines = append(lines, "}")
+	return strings.Join(lines, "\n")
+}
+
+func aliasObjectDeclarationFromProperties(name string, properties []TypeProperty, extraLines ...string) TypeDeclaration {
+	return aliasDeclaration(name, renderInlineAliasObject(properties, extraLines...))
+}
+
+func aliasIntersectionDeclarationFromProperties(
+	name string,
+	baseExpr string,
+	properties []TypeProperty,
+	extraLines ...string,
+) TypeDeclaration {
+	return aliasDeclaration(name, baseExpr+" & "+renderInlineAliasObject(properties, extraLines...))
+}
+
+func aliasUnionDeclaration(name string, members ...string) TypeDeclaration {
+	if len(members) == 0 {
+		return aliasDeclaration(name, "never")
+	}
+	if len(members) == 1 {
+		return aliasDeclaration(name, members[0])
+	}
+	var builder strings.Builder
+	builder.WriteString(members[0])
+	for _, member := range members[1:] {
+		builder.WriteString("\n  | ")
+		builder.WriteString(member)
+	}
+	return aliasDeclaration(name, builder.String())
+}
+
 func aliasDeclaration(name string, alias string) TypeDeclaration {
 	return TypeDeclaration{
 		Name:  name,
@@ -1500,8 +1549,287 @@ func specialMetadataTypeDeclaration(t reflect.Type) (TypeDeclaration, bool) {
 			TypeProperty{Name: "content", TypeExpr: "any"},
 		), true
 	default:
+		return generatedCodeObjAliasDeclaration(t)
+	}
+}
+
+var baseCodeObjImplBaseProperties = []TypeProperty{
+	{Name: "type", TypeExpr: "CodeObjType"},
+	{Name: "id", TypeExpr: "string"},
+	{Name: "name", TypeExpr: "string"},
+	{Name: "description", TypeExpr: "string"},
+	{Name: "isPreset", TypeExpr: "boolean"},
+	{Name: "children", TypeExpr: "Array<string>", Optional: true},
+	{Name: "coreNameType", TypeExpr: "ParamNameType", Optional: true},
+	{Name: "coreNameEditable", TypeExpr: "boolean", Optional: true},
+	{Name: "passingStyle", TypeExpr: "ParameterPassingStyle", Optional: true},
+	{Name: "typeAnnotation", TypeExpr: "string", Optional: true},
+	{Name: "defaultVal", TypeExpr: "string", Optional: true},
+	{Name: "value", TypeExpr: "string", Optional: true},
+}
+
+var codeObjImplParamBaseProperties = []TypeProperty{
+	{Name: "coreNameType", TypeExpr: "ParamNameType"},
+	{Name: "coreNameEditable", TypeExpr: "boolean"},
+	{Name: "passingStyle", TypeExpr: "ParameterPassingStyle"},
+	{Name: "typeAnnotation", TypeExpr: "string"},
+}
+
+var codeObjImplParamValueProperties = []TypeProperty{
+	{Name: "defaultVal", TypeExpr: "string"},
+	{Name: "value", TypeExpr: "string"},
+}
+
+type generatedCodeObjAliasSpec struct {
+	Name                 string
+	TypeExpr             string
+	IncludeChildren      bool
+	IncludeParamBase     bool
+	IncludeParamValues   bool
+	AdditionalProperties []TypeProperty
+}
+
+func generatedCodeObjAliasDeclaration(t reflect.Type) (TypeDeclaration, bool) {
+	switch t {
+	case reflect.TypeOf(BaseCodeObjImpl{}):
+		return aliasObjectDeclarationFromProperties(
+			"BaseCodeObjImpl",
+			baseCodeObjImplBaseProperties,
+			"[key: string]: unknown;",
+		), true
+	case reflect.TypeOf(CodeParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "CodeParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.CodeParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+		}), true
+	case reflect.TypeOf(CodeCallableCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:            "CodeCallableCodeObjImpl",
+			TypeExpr:        "typeof CodeObjTypeEnum.CodeCallable",
+			IncludeChildren: true,
+		}), true
+	case reflect.TypeOf(NestedParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:             "NestedParamCodeObjImpl",
+			TypeExpr:         "typeof CodeObjTypeEnum.NestedParam",
+			IncludeChildren:  true,
+			IncludeParamBase: true,
+		}), true
+	case reflect.TypeOf(TextParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "TextParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.TextParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "uiType", TypeExpr: "TextParamInputUIType"},
+			},
+		}), true
+	case reflect.TypeOf(DateParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "DateParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.DateParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "dateDisplayFormat", TypeExpr: "DateDisplayFormat"},
+				{Name: "dateControlMode", TypeExpr: "DateControlMode"},
+				{Name: "dateSelectionMode", TypeExpr: "DateSelectionMode"},
+				{Name: "dateCalendarWeekStart", TypeExpr: "DateCalendarWeekStart"},
+				{Name: "dateIncludesTime", TypeExpr: "boolean"},
+			},
+		}), true
+	case reflect.TypeOf(TimeParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "TimeParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.TimeParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "timeControlMode", TypeExpr: "TimeControlMode"},
+				{Name: "timeDisplayFormat", TypeExpr: "TimeDisplayFormat"},
+				{Name: "timeDisplayTransparent", TypeExpr: "boolean"},
+				{Name: "timeDisplayScale", TypeExpr: "number"},
+				{Name: "timeDisplayFont", TypeExpr: "TimeDisplayFont"},
+			},
+		}), true
+	case reflect.TypeOf(ButtonParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:             "ButtonParamCodeObjImpl",
+			TypeExpr:         "typeof CodeObjTypeEnum.ButtonParam",
+			IncludeParamBase: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "label", TypeExpr: "string"},
+				{Name: "actionMode", TypeExpr: "ButtonActionMode"},
+				{Name: "requestMethod", TypeExpr: "HttpRequestMethod"},
+				{Name: "requestUrl", TypeExpr: "string"},
+				{Name: "requestHeaderKey", TypeExpr: "string"},
+				{Name: "requestHeaderValue", TypeExpr: "string"},
+				{Name: "requestBody", TypeExpr: "string"},
+			},
+		}), true
+	case reflect.TypeOf(SliderParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "SliderParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.SliderParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "min", TypeExpr: "number"},
+				{Name: "max", TypeExpr: "number"},
+				{Name: "step", TypeExpr: "number"},
+			},
+		}), true
+	case reflect.TypeOf(RotaryParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "RotaryParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.RotaryParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "min", TypeExpr: "number"},
+				{Name: "max", TypeExpr: "number"},
+				{Name: "step", TypeExpr: "number"},
+			},
+		}), true
+	case reflect.TypeOf(SwitchParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "SwitchParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.SwitchParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+		}), true
+	case reflect.TypeOf(ColorPickerParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "ColorPickerParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.ColorPickerParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "colorChoices", TypeExpr: "Array<ColorPickerChoice>"},
+			},
+		}), true
+	case reflect.TypeOf(DropdownParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "DropdownParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.DropdownParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "choices", TypeExpr: "Array<string>"},
+			},
+		}), true
+	case reflect.TypeOf(PasswordParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "PasswordParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.PasswordParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "hasSecret", TypeExpr: "boolean"},
+			},
+		}), true
+	case reflect.TypeOf(TextAreaParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "TextAreaParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.TextAreaParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+		}), true
+	case reflect.TypeOf(DropzoneParamCodeObjImpl{}):
+		return generatedConcreteCodeObjAliasDeclaration(generatedCodeObjAliasSpec{
+			Name:               "DropzoneParamCodeObjImpl",
+			TypeExpr:           "typeof CodeObjTypeEnum.DropzoneParam",
+			IncludeParamBase:   true,
+			IncludeParamValues: true,
+			AdditionalProperties: []TypeProperty{
+				{Name: "mode", TypeExpr: "DropzoneMode"},
+				{Name: "maxAttachments", TypeExpr: "number | null", Optional: true},
+				{Name: "placeholder", TypeExpr: "string"},
+			},
+		}), true
+	case reflect.TypeOf(BaseCodeObjImplUnion{}):
+		return aliasUnionDeclaration(
+			"BaseCodeObjImplUnion",
+			"BaseCodeObjImpl",
+			"CodeCallableCodeObjImpl",
+			"CodeParamCodeObjImpl",
+			"TextParamCodeObjImpl",
+			"DateParamCodeObjImpl",
+			"TimeParamCodeObjImpl",
+			"ButtonParamCodeObjImpl",
+			"SliderParamCodeObjImpl",
+			"RotaryParamCodeObjImpl",
+			"SwitchParamCodeObjImpl",
+			"ColorPickerParamCodeObjImpl",
+			"DropdownParamCodeObjImpl",
+			"PasswordParamCodeObjImpl",
+			"TextAreaParamCodeObjImpl",
+			"DropzoneParamCodeObjImpl",
+			"NestedParamCodeObjImpl",
+		), true
+	case reflect.TypeOf(BaseChildlessCodeObjImplUnion{}):
+		return aliasUnionDeclaration(
+			"BaseChildlessCodeObjImplUnion",
+			"BaseCodeObjImpl",
+			"CodeParamCodeObjImpl",
+			"TextParamCodeObjImpl",
+			"DateParamCodeObjImpl",
+			"TimeParamCodeObjImpl",
+			"SliderParamCodeObjImpl",
+			"RotaryParamCodeObjImpl",
+			"SwitchParamCodeObjImpl",
+			"ColorPickerParamCodeObjImpl",
+			"DropdownParamCodeObjImpl",
+			"PasswordParamCodeObjImpl",
+			"TextAreaParamCodeObjImpl",
+			"DropzoneParamCodeObjImpl",
+		), true
+	case reflect.TypeOf(BaseParamCodeObjImplUnion{}):
+		return aliasUnionDeclaration(
+			"BaseParamCodeObjImplUnion",
+			"BaseCodeObjImpl",
+			"CodeParamCodeObjImpl",
+			"TextParamCodeObjImpl",
+			"DateParamCodeObjImpl",
+			"TimeParamCodeObjImpl",
+			"ButtonParamCodeObjImpl",
+			"SliderParamCodeObjImpl",
+			"RotaryParamCodeObjImpl",
+			"SwitchParamCodeObjImpl",
+			"ColorPickerParamCodeObjImpl",
+			"DropdownParamCodeObjImpl",
+			"PasswordParamCodeObjImpl",
+			"TextAreaParamCodeObjImpl",
+			"DropzoneParamCodeObjImpl",
+			"NestedParamCodeObjImpl",
+		), true
+	case reflect.TypeOf(BaseParentCodeObjImplUnion{}):
+		return aliasUnionDeclaration(
+			"BaseParentCodeObjImplUnion",
+			"CodeCallableCodeObjImpl",
+			"NestedParamCodeObjImpl",
+		), true
+	default:
 		return TypeDeclaration{}, false
 	}
+}
+
+func generatedConcreteCodeObjAliasDeclaration(spec generatedCodeObjAliasSpec) TypeDeclaration {
+	properties := []TypeProperty{{Name: "type", TypeExpr: spec.TypeExpr}}
+	if spec.IncludeChildren {
+		properties = append(properties, TypeProperty{Name: "children", TypeExpr: "Array<string>"})
+	}
+	if spec.IncludeParamBase {
+		properties = append(properties, codeObjImplParamBaseProperties...)
+	}
+	if spec.IncludeParamValues {
+		properties = append(properties, codeObjImplParamValueProperties...)
+	}
+	properties = append(properties, spec.AdditionalProperties...)
+	return aliasIntersectionDeclarationFromProperties(spec.Name, "BaseCodeObjImpl", properties)
 }
 
 func generatedUserDefaultCodeParamCodeObjDeclaration(
