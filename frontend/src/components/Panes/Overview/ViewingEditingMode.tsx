@@ -4,6 +4,7 @@ import {
 } from "components/Pages/Project/ViewModeDnd";
 import _ from "lodash";
 import { Resizable } from "re-resizable";
+import type { ChangeEvent } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
   FiBookmark,
@@ -17,14 +18,17 @@ import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbUser } from "react-icons/tb";
 import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
-import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
-import { persistViewModeSortOrder } from "state/actions/viewModes";
+import { dispatchOptimisticProjectStateUpdateWithResult } from "state/actions/sectionInfos";
+import {
+  deleteViewMode,
+  persistViewModeSortOrder,
+} from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
   route_create_view_mode,
-  route_delete_view_mode,
   route_set_active_view_mode,
   route_set_view_mode_name,
   route_toggle_is_editing_view_mode,
@@ -32,10 +36,7 @@ import {
   route_toggle_view_mode_user_facing,
 } from "utils/generatedEndpoints";
 import { ViewModeConfig } from "utils/generatedTypes";
-import {
-  sanitizeNameForSlug,
-  validateViewModeNameInput,
-} from "utils/nameValidation";
+import { validateViewModeNameInput } from "utils/nameValidation";
 import { sortViewModes } from "utils/viewModeOrdering";
 import { ProjectConfigs } from "./ProjectConfigs";
 import { WindowSpacesPane } from "./WindowSpacesPane";
@@ -43,20 +44,6 @@ import { WindowSpacesPane } from "./WindowSpacesPane";
 const PROJECT_CONFIGS_MIN_HEIGHT = 140;
 const VIEW_MODES_MIN_HEIGHT = 120;
 const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
-
-export function compactViewModeSortIndices(
-  viewModes: Record<string, ViewModeConfig>,
-): Array<ViewModeConfig> {
-  const sortedViewModes = sortViewModes(Object.values(viewModes));
-  for (let index = 0; index < sortedViewModes.length; index += 1) {
-    const sortedViewMode = sortedViewModes[index];
-    if (!sortedViewMode) {
-      continue;
-    }
-    sortedViewMode.sortIndex = index;
-  }
-  return sortedViewModes;
-}
 
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
@@ -603,27 +590,34 @@ function ViewModeEditingRowContent({
 }: Omit<ViewModeEditingRowProps, "sortableEnabled"> & {
   sortable: ViewModeSortableItem | null;
 }) {
+  const [serverError, setServerError] = useState<string | null>(null);
   const normalizeName = (value: string) => value.trim();
 
-  function onSetName(name: string) {
+  async function conditionToSetName(name: string) {
     if (!canEditStructure) {
-      return;
+      return false;
+    }
+    const normalized = normalizeName(name);
+    const validationError = validateViewModeNameInput(normalized);
+    if (validationError) {
+      setServerError(null);
+      return false;
     }
     const previousName =
       useProjectState.getState().projectConfig.viewModes[mode.id]?.name ??
       mode.name;
-    dispatchOptimisticProjectStateUpdate({
+    const { result } = dispatchOptimisticProjectStateUpdateWithResult({
       apply: (state) => {
         if (!(mode.id in state.projectConfig.viewModes)) {
           throw new Error(`View mode ${mode.id} not found`);
         }
-        state.projectConfig.viewModes[mode.id].name = name;
+        state.projectConfig.viewModes[mode.id].name = normalized;
       },
       send: (frontendOpId) =>
         route_set_view_mode_name({
           projectConfigId,
           viewModeId: mode.id,
-          name,
+          name: normalized,
           frontendOpId,
         }),
       rollback: (state) => {
@@ -633,34 +627,30 @@ function ViewModeEditingRowContent({
         state.projectConfig.viewModes[mode.id].name = previousName;
       },
     });
+    const response = await result;
+    if (res200(response)) {
+      setServerError(null);
+      return true;
+    }
+    setServerError(
+      getErrorDetail(response.data) ?? "Unable to rename view mode.",
+    );
+    return false;
   }
 
-  function conditionToSetName(name: string) {
-    const normalized = normalizeName(name);
-    const validationError = validateViewModeNameInput(normalized);
-    if (validationError) {
-      return false;
-    }
-    const nextSlug = sanitizeNameForSlug(normalized);
-    const state = useProjectState.getState();
-    for (const viewMode of Object.values(state.projectConfig.viewModes)) {
-      if (viewMode.id === mode.id) {
-        continue;
-      }
-      if (sanitizeNameForSlug(viewMode.name) === nextSlug) {
-        return false;
-      }
-    }
-    return true;
-  }
-
-  const { inputValue, onChange, onBlur, onKeyDown } = useEditableOnSubmit(
+  const editable = useEditableOnSubmit(
     mode.name,
-    onSetName,
+    () => {},
     conditionToSetName,
     false,
     normalizeName,
   );
+  function onChange(event: ChangeEvent<HTMLInputElement> | string) {
+    setServerError(null);
+    editable.onChange(event);
+  }
+  const { inputValue, onBlur, onKeyDown } = editable;
+  const validationError = validateViewModeNameInput(inputValue) ?? serverError;
 
   const handleToggleUserFacing = (
     event: React.MouseEvent<HTMLButtonElement>,
@@ -685,46 +675,7 @@ function ViewModeEditingRowContent({
     if (!canEditStructure) {
       return;
     }
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        const { viewModes } = state.projectConfig;
-        if (!(mode.id in viewModes)) {
-          throw new Error(`View mode ${mode.id} not found`);
-        }
-        if (Object.keys(viewModes).length < 2) {
-          return;
-        }
-        delete viewModes[mode.id];
-        const sortedViewModes = compactViewModeSortIndices(viewModes);
-        if (state.projectConfig.activeViewModeId === mode.id) {
-          const nextViewMode = sortedViewModes[0] ?? null;
-          state.projectConfig.activeViewModeId = nextViewMode?.id ?? null;
-          if (nextViewMode) {
-            if (Object.keys(nextViewMode.topLevelSections).length === 0) {
-              const clonedTopLevelSections: typeof state.projectConfig.topLevelSections =
-                {};
-              for (const sectionId in state.projectConfig.topLevelSections) {
-                clonedTopLevelSections[sectionId] = {
-                  ...state.projectConfig.topLevelSections[sectionId],
-                };
-              }
-              nextViewMode.topLevelSections = clonedTopLevelSections;
-            }
-            state.projectConfig.topLevelSections =
-              nextViewMode.topLevelSections;
-            state.projectConfig.viewport = nextViewMode.viewport;
-            state.projectConfig.viewportInitialized =
-              nextViewMode.viewportInitialized;
-          }
-        }
-      },
-      send: (frontendOpId) =>
-        route_delete_view_mode({
-          projectConfigId,
-          viewModeId: mode.id,
-          frontendOpId,
-        }),
-    });
+    deleteViewMode(projectConfigId, mode.id);
   };
 
   const handleInputClick = (event: React.MouseEvent<HTMLInputElement>) => {
@@ -765,68 +716,75 @@ function ViewModeEditingRowContent({
 
   const rowClick = canEditVariants ? () => onSelect(mode.id) : undefined;
   return (
-    <div
-      ref={sortable?.setNodeRef}
-      data-testid="overview-view-mode-edit-row"
-      data-view-mode-id={mode.id}
-      style={sortable?.style}
-      className={`${rowClasses} ${
-        canEditVariants ? "" : "cursor-not-allowed opacity-60"
-      }`}
-      onClick={rowClick}
-    >
-      {sortable && (
-        <span
-          ref={sortable.setActivatorNodeRef}
-          data-testid="overview-view-mode-edit-drag-handle"
-          className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
-          {...sortable.attributes}
-          {...sortable.listeners}
-          onClick={(event) => event.stopPropagation()}
-        >
-          <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
-        </span>
-      )}
-      <input
-        value={inputValue}
-        onChange={onChange}
-        onBlur={onBlur}
-        onKeyDown={onKeyDown}
-        onClick={handleInputClick}
-        onPointerDown={stopDragPointerDown}
-        placeholder="View mode name"
-        className={inputClasses}
-        disabled={!canEditStructure}
-      />
-      <button
-        className={`cursor-pointer bg-transparent ${tabClasses}`}
-        onClick={handleToggleTab}
-        onPointerDown={stopDragPointerDown}
-        title={tabTitle}
-        disabled={!canEditStructure}
+    <div className="flex min-w-0 flex-col gap-1">
+      <div
+        ref={sortable?.setNodeRef}
+        data-testid="overview-view-mode-edit-row"
+        data-view-mode-id={mode.id}
+        style={sortable?.style}
+        className={`${rowClasses} ${
+          canEditVariants ? "" : "cursor-not-allowed opacity-60"
+        } ${validationError ? "border-red-400/80 text-red-700 dark:text-red-300" : ""}`}
+        onClick={rowClick}
       >
-        <FiBookmark size={16} />
-      </button>
-      <button
-        className={`cursor-pointer bg-transparent ${userFacingClasses}`}
-        onClick={handleToggleUserFacing}
-        onPointerDown={stopDragPointerDown}
-        title={userFacingTitle}
-        disabled={!canEditStructure}
-      >
-        {userFacingIcon}
-      </button>
-      {isDeletable && (
-        <button
-          className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
-          onClick={handleDelete}
+        {sortable && (
+          <span
+            ref={sortable.setActivatorNodeRef}
+            data-testid="overview-view-mode-edit-drag-handle"
+            className="inline-flex h-full w-4 shrink-0 cursor-grab touch-none items-center justify-center text-setta-400 active:cursor-grabbing dark:text-setta-500"
+            {...sortable.attributes}
+            {...sortable.listeners}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <RxDragHandleDots2 className="h-3.5 w-3.5 shrink-0" />
+          </span>
+        )}
+        <input
+          value={inputValue}
+          onChange={onChange}
+          onBlur={onBlur}
+          onKeyDown={onKeyDown}
+          onClick={handleInputClick}
           onPointerDown={stopDragPointerDown}
-          title="Delete view mode"
+          placeholder="View mode name"
+          className={`${inputClasses} ${validationError ? "text-red-700 focus:text-red-700 dark:text-red-300 dark:focus:text-red-200" : ""}`}
+          disabled={!canEditStructure}
+        />
+        <button
+          className={`cursor-pointer bg-transparent ${tabClasses}`}
+          onClick={handleToggleTab}
+          onPointerDown={stopDragPointerDown}
+          title={tabTitle}
           disabled={!canEditStructure}
         >
-          <i className="gg-trash" />
+          <FiBookmark size={16} />
         </button>
-      )}
+        <button
+          className={`cursor-pointer bg-transparent ${userFacingClasses}`}
+          onClick={handleToggleUserFacing}
+          onPointerDown={stopDragPointerDown}
+          title={userFacingTitle}
+          disabled={!canEditStructure}
+        >
+          {userFacingIcon}
+        </button>
+        {isDeletable && (
+          <button
+            className="cursor-pointer bg-transparent text-transparent hover:!text-red-500 active:!text-red-700 group-hover/viewmode:text-setta-400/50"
+            onClick={handleDelete}
+            onPointerDown={stopDragPointerDown}
+            title="Delete view mode"
+            disabled={!canEditStructure}
+          >
+            <i className="gg-trash" />
+          </button>
+        )}
+      </div>
+      {validationError ? (
+        <p className="px-2 text-[10px] font-medium text-red-500 dark:text-red-300">
+          {validationError}
+        </p>
+      ) : null}
     </div>
   );
 }

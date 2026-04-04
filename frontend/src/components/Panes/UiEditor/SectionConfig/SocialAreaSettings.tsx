@@ -3,6 +3,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -13,21 +14,27 @@ import { SectionTypeEnum } from "utils/generatedTypes";
 
 export function SocialAreaSettings({ sectionId }) {
   const { canEditStructure } = useShareCapabilities();
-  const url = useProjectState((p) => {
+  const { url, sectionVariantId } = useProjectState((p) => {
     const impl = getCurrEffectiveSectionImplOfType(
       p,
       sectionId,
       SectionTypeEnum.Social,
     );
-    return impl.url;
+    return {
+      url: impl.url,
+      sectionVariantId: getCurrSectionVariantId(p, sectionId),
+    };
   });
 
-  const [value, setPendingValue] = useLocalPendingValue(url, (x) =>
-    useProjectState.setState((state) => {
-      setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
-        url: x,
-      });
-    }),
+  const [value, setPendingValue] = useLocalPendingValue(
+    url,
+    (x) =>
+      useProjectState.setState((state) => {
+        setCurrEffectiveSectionImplValue<"SocialSection">(state, sectionId, {
+          url: x,
+        });
+      }),
+    sectionVariantId,
   );
 
   function onChange(e: React.ChangeEvent<HTMLInputElement>) {
