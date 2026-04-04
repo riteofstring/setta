@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 17:07 EDT
+Last updated: 2026-04-03 17:16 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,48 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `059` closed the normalized widened `drawSectionDefault` short-pan compare lane, so the current named wide-card pan churn is complete and the next frontier should move to a different interaction lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production renderer or test code because the existing shared targeted-fit and canary pan guards were already the right support coverage for the live compare
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings legacy graph surface can fit a named param-default section into a wide-card compare state|settings graph substrate canary keeps a widened draw section attached during pane pan'`
+    - result: passed (`2 passed`, about `32.5s`)
+    - what it still proves:
+      - the shared targeted-fit helper remains green on the legacy reference path
+      - the widened `drawSectionDefault` canary pan guard remains green on the custom-surface path
+  - Live verification result:
+    - the intended fresh-context CDP sub-agent again could not invoke browser-MCP tools in its own session, so the same bounded Chrome DevTools compare was completed directly in the main thread; this was a tool-surface limitation, not a product blocker
+    - both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` were normalized through production state/actions:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared
+    - authoritative runtime section ids resolved by project-state name:
+      - worktree `drawSectionDefault`: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+      - `main` `drawSectionDefault`: `3b30fc00-c471-4376-ac50-f3643a240183`
+    - shared targeted-fit path on both sides:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })`
+      - worktree before fit: viewport `matrix(1.13895, 0, 0, 1.13895, 355.651, -2593.43)`, rect `{ x: 355.651, y: 176.046, width: 628.698, height: 400.909 }`
+      - worktree after fit: viewport `matrix(1.13895, 0, 0, 1.13895, 175.651, -2713.43)`, rect `{ x: 175.651, y: 56.046, width: 628.698, height: 400.909 }`
+      - `main` before fit: viewport `matrix(1.13895, 0, 0, 1.13895, 553.151, -2713.43)`, rect `{ x: 554.290, y: 57.185, width: 626.420, height: 398.631 }`
+      - `main` after fit: viewport `matrix(1.13895, 0, 0, 1.13895, 553.151, -2713.43)`, rect `{ x: 554.290, y: 57.185, width: 626.420, height: 398.631 }`
+    - shared short pan pulse on the same wide-card state:
+      - implementation path:
+        - if D3 viewport resources were present, call `useReactFlow.getState().d3Zoom.translateBy(d3Selection, dx / zoom, dy / zoom)`
+        - otherwise call `viewportController.setViewport({ x + dx, y + dy, zoom })`
+      - shared delta: `(+60, +40)`
+      - worktree after pan: viewport `matrix(1.13895, 0, 0, 1.13895, 235.651, -2673.43)`, rect `{ x: 235.651, y: 96.046, width: 628.698, height: 400.909 }`
+      - `main` after pan: viewport `matrix(1.13895, 0, 0, 1.13895, 613.151, -2673.43)`, rect `{ x: 614.290, y: 97.185, width: 626.420, height: 398.631 }`
+    - screenshot evidence for the widened post-pan state was captured to:
+      - `/tmp/setta-worktree-drawSectionDefault-wide-pan.png`
+      - `/tmp/setta-main-drawSectionDefault-wide-pan.png`
+    - interpretation:
+      - the worktree and `main` both took the same targeted-fit path and the same pan delta cleanly
+      - the small legacy-vs-canary width/offset difference already existed before the pan and did not widen during motion, so this slice does not expose a worktree-only pan-time artifact
+  - conclusion for this slice:
+    - the normalized widened `drawSectionDefault` short-pan lane is clean and closed
+    - do not spend another iteration on a fourth named wide-card pan pass unless fresh motion drift appears
+    - the current pan-lane support work is sufficient; the next iteration should move to a different interaction or motion frontier rather than extending the same harness shape
 - Ralph item `058` closed the reference-side targeted-fit blocker for the normalized `drawSectionDefault` lane by proving the shared `fitView(...)` path works on both canary and legacy graph surfaces.
   - Production/test change:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now replaces the canary-only `fitCanaryViewportToSection(...)` helper with shared `fitGraphViewportToSection(...)`, which imports `/src/forks/xyflow/core/store/utils.ts` and calls `fitView({ nodes: [{ id }], padding: 0.1 })`
