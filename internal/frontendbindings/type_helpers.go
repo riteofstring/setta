@@ -12,6 +12,7 @@ import (
 
 	"setta/internal/agentruns"
 	"setta/internal/artifacts"
+	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
@@ -2300,6 +2301,62 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 					TypeExpr: "Record<string, unknown>",
 					Optional: true,
 				},
+			},
+		}, true
+	case reflect.TypeOf(SharePolicy{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  deployments.DefaultPolicy(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(StateMachineGateUIState{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultStateMachineGateUIState(),
+			HasCreateExpr: true,
+			PropertyOptionalOverrides: map[string]bool{
+				"showDetails": true,
+			},
+		}, true
+	case reflect.TypeOf(StateMachineSourceFilter{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultStateMachineSourceFilter(),
+			HasCreateExpr: true,
+			PropertyOptionalOverrides: map[string]bool{
+				"type": true,
+			},
+		}, true
+	case reflect.TypeOf(StateMachineSourceActivationCountCondition{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultStateMachineSourceActivationCountCondition(),
+			HasCreateExpr: true,
+			PropertyOptionalOverrides: map[string]bool{
+				"operator": true,
+			},
+		}, true
+	case reflect.TypeOf(StateMachineTargetAction{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultStateMachineTargetAction(),
+			HasCreateExpr: true,
+			PropertyOptionalOverrides: map[string]bool{
+				"type":           true,
+				"threadStrategy": true,
+			},
+		}, true
+	case reflect.TypeOf(StateMachineEdge{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultStateMachineEdge(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"style": "Record<string, unknown> | null",
+			},
+		}, true
+	case reflect.TypeOf(AgenticEdge{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultAgenticEdge(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"kind":        "AgenticEdgeKind",
+				"contextMode": "AgenticEdgeContextMode | null",
+				"style":       "Record<string, unknown>",
 			},
 		}, true
 	case reflect.TypeOf(SectionSize{}):

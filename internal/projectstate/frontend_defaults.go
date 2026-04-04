@@ -157,3 +157,73 @@ func FrontendDefaultSectionSize() SectionSize {
 		Height: AutoSectionSizeValue(),
 	}
 }
+
+func FrontendDefaultStateMachineGateUIState() map[string]any {
+	return map[string]any{
+		"showDetails": false,
+	}
+}
+
+func FrontendDefaultStateMachineSourceFilter() map[string]any {
+	return map[string]any{
+		"type":         StateMachineSourceFilterTypeRunCompleted,
+		"signalName":   nil,
+		"payloadField": nil,
+		"equals":       nil,
+	}
+}
+
+func FrontendDefaultStateMachineSourceActivationCountCondition() map[string]any {
+	return map[string]any{
+		"operator": StateMachineCountOperatorEQ,
+		"value":    0,
+	}
+}
+
+func FrontendDefaultStateMachineTargetAction() map[string]any {
+	return map[string]any{
+		"type":             StateMachineTargetActionTypeSendPrompt,
+		"promptTemplateId": nil,
+		"promptSectionId":  nil,
+		"inlinePrompt":     nil,
+		"promptInputs":     map[string]string{},
+		"threadStrategy":   StateMachineThreadStrategyContinueCurrentThread,
+		"stopIfRunning":    false,
+		"engineConfigId":   nil,
+		"agentProfileId":   nil,
+		"permissionMode":   nil,
+		"searchEnabled":    nil,
+	}
+}
+
+func FrontendDefaultStateMachineEdge() map[string]any {
+	return map[string]any{
+		"id":                             "",
+		"machineGroupId":                 "",
+		"sourceSectionId":                "",
+		"sourcePortId":                   StateMachineEdgeSourcePortID,
+		"targetSectionId":                "",
+		"targetPortId":                   StateMachineEdgeTargetPortID,
+		"sourceFilter":                   nil,
+		"sourceActivationCountCondition": nil,
+		"targetAction":                   nil,
+		"style":                          nil,
+		"hidden":                         false,
+		"zIndex":                         0,
+		"selected":                       false,
+	}
+}
+
+func FrontendDefaultAgenticEdge() map[string]any {
+	return map[string]any{
+		"id":              "",
+		"sourceSectionId": "",
+		"targetSectionId": "",
+		"kind":            "section_chat",
+		"contextMode":     nil,
+		"style":           map[string]any{},
+		"hidden":          false,
+		"zIndex":          0,
+		"selected":        false,
+	}
+}

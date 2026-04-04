@@ -2799,7 +2799,7 @@ export function createAgenticEdge(
       id: "",
       sourceSectionId: "",
       targetSectionId: "",
-      kind: AgenticEdgeKindEnum.section_chat,
+      kind: "section_chat",
       contextMode: null,
       style: {},
       hidden: false,
@@ -2809,6 +2809,68 @@ export function createAgenticEdge(
     options,
   );
 }
+
+const StateMachineSourceFilterTypeEnum = {
+  run_completed: "run_completed",
+  run_failed: "run_failed",
+  signal: "signal",
+} as const;
+type StateMachineSourceFilterType = ObjectValues<
+  typeof StateMachineSourceFilterTypeEnum
+>;
+
+type StateMachineSourceFilter = {
+  type?: StateMachineSourceFilterType;
+  signalName?: string | null;
+  payloadField?: string | null;
+  equals?: string | null;
+};
+
+export const StateMachineCountOperatorEnum = {
+  lt: "lt",
+  lte: "lte",
+  eq: "eq",
+  gte: "gte",
+  gt: "gt",
+} as const;
+export type StateMachineCountOperator = ObjectValues<
+  typeof StateMachineCountOperatorEnum
+>;
+
+type StateMachineSourceActivationCountCondition = {
+  operator?: StateMachineCountOperator;
+  value: number;
+};
+
+const StateMachineTargetActionTypeEnum = {
+  send_prompt: "send_prompt",
+  reset_thread: "reset_thread",
+} as const;
+type StateMachineTargetActionType = ObjectValues<
+  typeof StateMachineTargetActionTypeEnum
+>;
+
+const StateMachineThreadStrategyEnum = {
+  continue_current_thread: "continue_current_thread",
+  new_thread_before_send: "new_thread_before_send",
+} as const;
+type StateMachineThreadStrategy = ObjectValues<
+  typeof StateMachineThreadStrategyEnum
+>;
+
+type StateMachineTargetAction = {
+  type?: StateMachineTargetActionType;
+  promptTemplateId?: string | null;
+  promptSectionId?: string | null;
+  inlinePrompt?: string | null;
+  promptInputs?: Record<string, string>;
+  threadStrategy?: StateMachineThreadStrategy;
+  stopIfRunning?: boolean;
+  engineConfigId?: string | null;
+  agentProfileId?: string | null;
+  permissionMode?: string | null;
+  searchEnabled?: boolean | null;
+};
 
 type StateMachineEdge = {
   id: string;
@@ -3588,32 +3650,6 @@ export type SetEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edges: Array<Edge>;
-};
-
-type StateMachineSourceFilter = {
-  type?: StateMachineSourceFilterType;
-  signalName?: string | null;
-  payloadField?: string | null;
-  equals?: string | null;
-};
-
-type StateMachineSourceActivationCountCondition = {
-  operator?: StateMachineCountOperator;
-  value: number;
-};
-
-type StateMachineTargetAction = {
-  type?: StateMachineTargetActionType;
-  promptTemplateId?: string | null;
-  promptSectionId?: string | null;
-  inlinePrompt?: string | null;
-  promptInputs?: Record<string, string>;
-  threadStrategy?: StateMachineThreadStrategy;
-  stopIfRunning?: boolean;
-  engineConfigId?: string | null;
-  agentProfileId?: string | null;
-  permissionMode?: string | null;
-  searchEnabled?: boolean | null;
 };
 
 export type CreateStateMachineEdgeRequestInput = {
@@ -5922,42 +5958,6 @@ export const TaskBoardRecurringMonthEnum = {
 } as const;
 export type TaskBoardRecurringMonth = ObjectValues<
   typeof TaskBoardRecurringMonthEnum
->;
-
-const StateMachineTargetActionTypeEnum = {
-  send_prompt: "send_prompt",
-  reset_thread: "reset_thread",
-} as const;
-type StateMachineTargetActionType = ObjectValues<
-  typeof StateMachineTargetActionTypeEnum
->;
-
-const StateMachineThreadStrategyEnum = {
-  continue_current_thread: "continue_current_thread",
-  new_thread_before_send: "new_thread_before_send",
-} as const;
-type StateMachineThreadStrategy = ObjectValues<
-  typeof StateMachineThreadStrategyEnum
->;
-
-const StateMachineSourceFilterTypeEnum = {
-  run_completed: "run_completed",
-  run_failed: "run_failed",
-  signal: "signal",
-} as const;
-type StateMachineSourceFilterType = ObjectValues<
-  typeof StateMachineSourceFilterTypeEnum
->;
-
-export const StateMachineCountOperatorEnum = {
-  lt: "lt",
-  lte: "lte",
-  eq: "eq",
-  gte: "gte",
-  gt: "gt",
-} as const;
-export type StateMachineCountOperator = ObjectValues<
-  typeof StateMachineCountOperatorEnum
 >;
 
 type StateMachineGateUIState = {

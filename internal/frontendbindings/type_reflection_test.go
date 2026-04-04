@@ -15,6 +15,97 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 		properties []TypeProperty
 	}{
 		{
+			name: "SharePolicy",
+			root: reflect.TypeOf(SharePolicy{}),
+			properties: []TypeProperty{
+				{Name: "allowParamChanges", TypeExpr: "boolean", Optional: false},
+				{Name: "allowVariantChanges", TypeExpr: "boolean", Optional: false},
+				{Name: "allowLayoutChanges", TypeExpr: "boolean", Optional: false},
+				{Name: "allowRun", TypeExpr: "boolean", Optional: false},
+				{Name: "allowLLM", TypeExpr: "boolean", Optional: false},
+				{Name: "allowExternalLinks", TypeExpr: "boolean", Optional: false},
+				{Name: "allowFileDownloads", TypeExpr: "boolean", Optional: false},
+				{Name: "allowMultipleRuns", TypeExpr: "boolean", Optional: false},
+				{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode", Optional: false},
+			},
+		},
+		{
+			name: "StateMachineGateUIState",
+			root: reflect.TypeOf(StateMachineGateUIState{}),
+			properties: []TypeProperty{
+				{Name: "showDetails", TypeExpr: "boolean", Optional: true},
+			},
+		},
+		{
+			name: "StateMachineSourceFilter",
+			root: reflect.TypeOf(StateMachineSourceFilter{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "StateMachineSourceFilterType", Optional: true},
+				{Name: "signalName", TypeExpr: "string | null", Optional: true},
+				{Name: "payloadField", TypeExpr: "string | null", Optional: true},
+				{Name: "equals", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "StateMachineSourceActivationCountCondition",
+			root: reflect.TypeOf(StateMachineSourceActivationCountCondition{}),
+			properties: []TypeProperty{
+				{Name: "operator", TypeExpr: "StateMachineCountOperator", Optional: true},
+				{Name: "value", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "StateMachineTargetAction",
+			root: reflect.TypeOf(StateMachineTargetAction{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "StateMachineTargetActionType", Optional: true},
+				{Name: "promptTemplateId", TypeExpr: "string | null", Optional: true},
+				{Name: "promptSectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "inlinePrompt", TypeExpr: "string | null", Optional: true},
+				{Name: "promptInputs", TypeExpr: "Record<string, string>", Optional: true},
+				{Name: "threadStrategy", TypeExpr: "StateMachineThreadStrategy", Optional: true},
+				{Name: "stopIfRunning", TypeExpr: "boolean", Optional: true},
+				{Name: "engineConfigId", TypeExpr: "string | null", Optional: true},
+				{Name: "agentProfileId", TypeExpr: "string | null", Optional: true},
+				{Name: "permissionMode", TypeExpr: "string | null", Optional: true},
+				{Name: "searchEnabled", TypeExpr: "boolean | null", Optional: true},
+			},
+		},
+		{
+			name: "StateMachineEdge",
+			root: reflect.TypeOf(StateMachineEdge{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "machineGroupId", TypeExpr: "string", Optional: false},
+				{Name: "sourceSectionId", TypeExpr: "string", Optional: false},
+				{Name: "sourcePortId", TypeExpr: "string", Optional: false},
+				{Name: "targetSectionId", TypeExpr: "string", Optional: false},
+				{Name: "targetPortId", TypeExpr: "string", Optional: false},
+				{Name: "sourceFilter", TypeExpr: "StateMachineSourceFilter | null", Optional: true},
+				{Name: "sourceActivationCountCondition", TypeExpr: "StateMachineSourceActivationCountCondition | null", Optional: true},
+				{Name: "targetAction", TypeExpr: "StateMachineTargetAction | null", Optional: true},
+				{Name: "style", TypeExpr: "Record<string, unknown> | null", Optional: true},
+				{Name: "hidden", TypeExpr: "boolean", Optional: true},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "selected", TypeExpr: "boolean", Optional: true},
+			},
+		},
+		{
+			name: "AgenticEdge",
+			root: reflect.TypeOf(AgenticEdge{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "sourceSectionId", TypeExpr: "string", Optional: false},
+				{Name: "targetSectionId", TypeExpr: "string", Optional: false},
+				{Name: "kind", TypeExpr: "AgenticEdgeKind", Optional: false},
+				{Name: "contextMode", TypeExpr: "AgenticEdgeContextMode | null", Optional: true},
+				{Name: "style", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "hidden", TypeExpr: "boolean", Optional: true},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "selected", TypeExpr: "boolean", Optional: true},
+			},
+		},
+		{
 			name: "Viewport",
 			root: reflect.TypeOf(Viewport{}),
 			properties: []TypeProperty{
@@ -775,7 +866,14 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			if tt.name == "EngineConfig" && declaration.CreateBody == "" {
 				t.Fatalf("EngineConfig should use a structured create body")
 			}
-			if (tt.name == "BrowserSavedSearch" ||
+			if (tt.name == "SharePolicy" ||
+				tt.name == "StateMachineGateUIState" ||
+				tt.name == "StateMachineSourceFilter" ||
+				tt.name == "StateMachineSourceActivationCountCondition" ||
+				tt.name == "StateMachineTargetAction" ||
+				tt.name == "StateMachineEdge" ||
+				tt.name == "AgenticEdge" ||
+				tt.name == "BrowserSavedSearch" ||
 				tt.name == "SectionSize" ||
 				tt.name == "TaskBoardColumn" ||
 				tt.name == "TaskBoardTask" ||
