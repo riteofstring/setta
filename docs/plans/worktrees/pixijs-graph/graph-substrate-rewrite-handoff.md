@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 14:22 EDT
+Last updated: 2026-04-03 14:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,22 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- This iteration intentionally avoided a fourth static card compare.
+- Ralph item `047` closed the first bounded dynamic wide-card compare after the recent static-card closures.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - one shared toolbar `fit view` was applied
+    - the shared wide body-heavy target was `spreadsheetSectionDefault`
+    - the sub-agent then performed one shared `zoom in` step on the graph surface
+  - Result:
+    - after the zoom, `spreadsheetSectionDefault` remained visible on both sides at the same placement and size, about `x=792 y=274 w=66 h=42`
+    - the viewport screenshots showed the same enlarged graph-card layout on worktree and `main`
+    - no worktree-only motion or interaction artifact appeared on the checked lane
+  - conclusion for this slice:
+    - treat this bounded dynamic zoom-time wide-card lane as clean
+    - do not reopen this exact `spreadsheetSectionDefault` zoom check unless a fresh compare starts showing drift
+    - the next real frontier should move to one different bounded dynamic graph-surface lane, preferably a short pan or drag compare on another shared wide/body-heavy section, not back to static card compares
 - This is a fresh worktree from `main`.
 - Ralph item `046` closed the first materially different graph-surface section-level Gate 2 compare beyond the two already-cleared same-column cards.
   - Process:

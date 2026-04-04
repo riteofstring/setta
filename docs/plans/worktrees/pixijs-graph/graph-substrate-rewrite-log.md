@@ -1578,3 +1578,36 @@ LOOP_TERMINAL_MARKER: none
   - move to the next remaining normalized `All Settings` interaction or visual parity lane, with focus on the first true zoom-time blur/snap or other graph-surface artifact that still reproduces in fresh CDP rather than more wheel-input churn
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 047
+
+- Item: Run one bounded dynamic wide-card compare on normalized `All Settings` instead of repeating another static graph-surface card pass.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not add or change product code.
+  - The last four completed slices (`043` through `046`) were all compare-only closures, and the last three of those were static card-level compares.
+  - The bounded question for this slice was whether a materially different dynamic graph-surface check on a wide body-heavy card still exposed a canary-only motion or interaction artifact.
+  - A fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were normalized to active `All Settings`.
+  - One shared toolbar `fit view` was applied before the dynamic action.
+  - The chosen shared wide body-heavy target was `spreadsheetSectionDefault`.
+  - The sub-agent then performed one shared `zoom in` step on the graph surface.
+  - After the zoom, `spreadsheetSectionDefault` remained visible on both sides at the same placement and size, about `x=792 y=274 w=66 h=42`.
+  - The viewport screenshots showed the same enlarged graph-card layout on worktree and `main`.
+  - No worktree-only motion or interaction artifact was isolated on the checked lane.
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings`
+      - one shared `fit view` was applied before the action
+      - one shared `zoom in` step was performed on the graph surface
+      - `spreadsheetSectionDefault` matched between worktree and `main` after the zoom, including the checked placement and visible enlarged card layout
+- Conclusion:
+  - this bounded dynamic zoom-time wide-card compare is clean
+  - there is no production fix to take from this evidence alone
+  - do not reopen this exact `spreadsheetSectionDefault` zoom check unless a later fresh compare starts showing drift
+- Next action:
+  - run one different bounded dynamic graph-surface compare, preferably a short pan or drag check on another shared wide/body-heavy section, to isolate the first remaining motion artifact if one still exists
+
+LOOP_TERMINAL_MARKER: none
