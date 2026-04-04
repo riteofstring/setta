@@ -3,6 +3,7 @@ import {
   captureSettingsGraphSectionMetrics,
   findSectionIdByName,
   findSettingsGraphPanePoint,
+  findSettingsGraphSectionDragPoint,
   findViewModeId,
   fitGraphViewportToSection,
   getLocalPaneState,
@@ -282,6 +283,296 @@ test("settings graph parity probe applies the same short pan delta on read-only 
   }
 });
 
+test("settings graph parity probe applies the same short top-level drag delta on read-only main legacy and worktree canary after normalized fit", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const sharedSection = findSharedVisibleTopLevelSectionByName({
+    referenceState: referenceInitialState,
+    viewModeName: "All Settings",
+    worktreeState: worktreeInitialState,
+  });
+  const dragDelta = { x: 120, y: 80 };
+
+  async function captureNamedSectionDragDelta(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
+    projectConfigId: string;
+    sectionId: string;
+    sectionName: string;
+    targetPage: Page;
+    tab: Locator;
+  }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.tab).toBeVisible();
+    await args.tab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    const beforeMetrics = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    const beforeLayout = await getActiveTopLevelSectionLayout(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!beforeMetrics.rect || !beforeMetrics.transform || !beforeLayout) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} drag baseline metrics for ${args.sectionName}.`,
+      );
+    }
+
+    const dragPoint = await findSettingsGraphSectionDragPoint(
+      args.targetPage,
+      args.sectionId,
+    );
+    await args.targetPage.mouse.move(dragPoint.x, dragPoint.y);
+    await args.targetPage.mouse.down();
+    await args.targetPage.mouse.move(
+      dragPoint.x + dragDelta.x,
+      dragPoint.y + dragDelta.y,
+      {
+        steps: 10,
+      },
+    );
+    await args.targetPage.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const after = await getActiveTopLevelSectionLayout(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!after) {
+          return 0;
+        }
+        return Math.hypot(after.x - beforeLayout.x, after.y - beforeLayout.y);
+      })
+      .toBeGreaterThan(80);
+
+    const afterMetrics = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    const afterLayout = await getActiveTopLevelSectionLayout(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!afterMetrics.rect || !afterMetrics.transform || !afterLayout) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} drag result metrics for ${args.sectionName}.`,
+      );
+    }
+
+    return {
+      layoutDelta: {
+        x: afterLayout.x - beforeLayout.x,
+        y: afterLayout.y - beforeLayout.y,
+      },
+      paneState: afterMetrics.paneState,
+      rectDelta: {
+        x: afterMetrics.rect.x - beforeMetrics.rect.x,
+        y: afterMetrics.rect.y - beforeMetrics.rect.y,
+      },
+      transformDelta: {
+        x: afterMetrics.transform.x - beforeMetrics.transform.x,
+        y: afterMetrics.transform.y - beforeMetrics.transform.y,
+        zoom: afterMetrics.transform.zoom - beforeMetrics.transform.zoom,
+      },
+    };
+  }
+
+  try {
+    // Live CDP could not honestly drive this cross-worktree motion lane, so
+    // this probe normalizes both pages first and uses Playwright as the shared
+    // motion driver before later CDP post-state inspection.
+    const referenceDrag = await captureNamedSectionDragDelta({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: sharedSection.referenceSectionId,
+      sectionName: sharedSection.name,
+      tab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: referencePage,
+    });
+    const worktreeDrag = await captureNamedSectionDragDelta({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: sharedSection.worktreeSectionId,
+      sectionName: sharedSection.name,
+      tab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: page,
+    });
+
+    expect(referenceDrag.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(worktreeDrag.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(Math.abs(referenceDrag.transformDelta.x)).toBeLessThan(8);
+    expect(Math.abs(referenceDrag.transformDelta.y)).toBeLessThan(8);
+    expect(Math.abs(referenceDrag.transformDelta.zoom)).toBeLessThan(0.02);
+    expect(Math.abs(worktreeDrag.transformDelta.x)).toBeLessThan(8);
+    expect(Math.abs(worktreeDrag.transformDelta.y)).toBeLessThan(8);
+    expect(Math.abs(worktreeDrag.transformDelta.zoom)).toBeLessThan(0.02);
+    expect(
+      Math.abs(worktreeDrag.layoutDelta.x - referenceDrag.layoutDelta.x),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(worktreeDrag.layoutDelta.y - referenceDrag.layoutDelta.y),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(worktreeDrag.rectDelta.x - referenceDrag.rectDelta.x),
+    ).toBeLessThan(16);
+    expect(
+      Math.abs(worktreeDrag.rectDelta.y - referenceDrag.rectDelta.y),
+    ).toBeLessThan(16);
+  } finally {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreInitialViewModeLayout({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
   await page.goto(MAIN_REFERENCE_BOOTSTRAP_URL, {
     waitUntil: "domcontentloaded",
@@ -417,6 +708,65 @@ async function setPageViewModeAndClearViewport(
   }
 }
 
+async function restoreInitialViewModeLayout(args: {
+  activeViewModeId: string;
+  backendOrigin: string;
+  frontendOrigin: string;
+  initialState: ProjectStateSingleConfigWithCompletedOpIds;
+  page: Page;
+  projectConfigId: string;
+}): Promise<void> {
+  const initialViewMode =
+    args.initialState.projectState.projectConfig.viewModes[
+      args.activeViewModeId
+    ];
+  if (!initialViewMode) {
+    throw new Error(`Missing initial view mode ${args.activeViewModeId}.`);
+  }
+
+  const initialLayout =
+    Object.keys(initialViewMode.topLevelSections).length > 0
+      ? initialViewMode.topLevelSections
+      : args.initialState.projectState.projectConfig.topLevelSections;
+  await postBackendForPage(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    "/setActiveViewMode",
+    {
+      activeViewModeId: args.activeViewModeId,
+      projectConfigId: args.projectConfigId,
+    },
+  );
+  await postBackendForPage(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    "/setTopLevelSectionLayout",
+    {
+      projectConfigId: args.projectConfigId,
+      topLevelSections: initialLayout,
+    },
+  );
+  await postBackendForPage(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    "/setViewport",
+    {
+      projectConfigId: args.projectConfigId,
+      viewport: initialViewMode.viewport ?? null,
+    },
+  );
+  const restoredState = await getLatestProjectStateFromBackendOrigin(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    args.projectConfigId,
+  );
+  await applyProjectStateUpdate(args.page, restoredState);
+}
+
 async function restoreCurrentPageState(args: {
   backendOrigin: string;
   frontendOrigin: string;
@@ -494,6 +844,29 @@ async function restoreCurrentPageState(args: {
     args.projectConfigId,
   );
   await applyProjectStateUpdate(args.page, restoredState);
+}
+
+async function getActiveTopLevelSectionLayout(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number; zIndex: number } | null> {
+  return page.evaluate(async (targetSectionId) => {
+    const { getActiveViewModeTopLevelSections } = await import(
+      "/src/state/actions/sectionInfos"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const layout = getActiveViewModeTopLevelSections(
+      useProjectState.getState(),
+    )[targetSectionId];
+    if (!layout) {
+      return null;
+    }
+    return {
+      x: layout.x,
+      y: layout.y,
+      zIndex: layout.zIndex,
+    };
+  }, sectionId);
 }
 
 function findSharedVisibleTopLevelSectionByName(args: {

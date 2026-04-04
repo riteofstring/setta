@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 03:43 EDT
+Last updated: 2026-04-04 03:51 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,32 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `089` added an opt-in cross-worktree short top-level drag parity probe for worktree `All Settings` canary vs read-only `main` `All Settings` legacy and closed that bounded motion lane without reopening another short-pan-only compare.
+  - Why this slice was needed:
+    - item `088` had already closed the cross-worktree short-pan lane, so the next plan-aligned frontier was the remaining top-level short-drag question on the same normalized `All Settings` compare, not another seam lift or another pan-only oracle tweak
+    - the existing drag guard only covered worktree `Core` legacy vs worktree `All Settings` canary; it did not answer whether the same short drag stayed aligned against the read-only `main` legacy oracle
+    - this was still a bounded renderer-facing question, but it needed the same Playwright-motion-plus-CDP-post-state pattern as item `088` because the live cross-worktree lane is more trustworthy when both runtimes are normalized against their real backends first
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - new opt-in probe: `settings graph parity probe applies the same short top-level drag delta on read-only main legacy and worktree canary after normalized fit`
+      - the probe boots both live runtimes with fresh bootstrap URLs, restores the initial `All Settings` top-level layout before each capture, uses explicit backend origins for the worktree and read-only `main`, clears pane/selection noise, fits one shared visible top-level section by name, and compares layout/rect deltas while keeping viewport transforms stable
+      - added minimal file-local helpers to restore the initial `All Settings` layout and read the active top-level section layout; no shared parity helper surface changed in this slice
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun with fresh one-shot bootstrap values:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe applies the same short top-level drag delta on read-only main legacy and worktree canary after normalized fit' --reporter=line`
+      - result: passed (`1 passed`, `33.4s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent confirmed the graph-surface post-state lane stayed sane on both live runtimes after `All Settings`:
+      - worktree `3075` exposed the `graph-substrate-canary` root plus visible canary section children on `/settings`
+      - read-only `main` `3087` exposed the legacy `react-flow` root plus visible legacy node children on `/settings`
+    - the same shared named graph section was not reliably extracted from CDP DOM inspection on this pass, so the actual drag delta remained Playwright-driven by design and the CDP evidence stayed graph-root/static
+    - CDP visual check: done (fresh-context graph-surface sanity check on worktree `3075` canary vs read-only `main` `3087` legacy after `All Settings`; expected graph roots and visible graph children were present on both pages)
+  - conclusion for this slice:
+    - close the specific cross-worktree short top-level drag lane as covered by the new probe
+    - do not spend the next iteration on a third near-identical cross-worktree motion guard unless a concrete renderer defect appears there; this drag lane answered the remaining bounded question
+    - the next real frontier should pivot to a body-heavy motion or interaction-state drift compare on normalized `All Settings`, using the same Playwright-motion-plus-CDP-post-state pattern only when it directly answers that renderer question
 - Ralph item `088` added an opt-in cross-worktree short-pan parity probe for worktree `All Settings` canary vs read-only `main` `All Settings` legacy and used it to close the live normalization blocker that CDP alone could not drive honestly.
   - Why this slice was needed:
     - the fresh-context CDP probe on this pass did not expose a renderer defect; it exposed a tool/oracle limit where live UI-only normalization and motion on the cross-worktree lane were not trustworthy enough to judge
