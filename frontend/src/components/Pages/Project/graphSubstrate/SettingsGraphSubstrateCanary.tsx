@@ -51,10 +51,9 @@ import {
 } from "./viewportTransform";
 
 const ROOT_STYLE: CSSProperties = {
-  width: "100%",
-  height: "100%",
+  inset: 0,
   overflow: "hidden",
-  position: "relative",
+  position: "absolute",
   userSelect: "none",
   overflowAnchor: "none",
 };

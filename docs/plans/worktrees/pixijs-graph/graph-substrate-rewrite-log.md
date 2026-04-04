@@ -823,3 +823,31 @@ LOOP_TERMINAL_MARKER: none
   - run a controlled worktree-vs-`main` CDP compare with both sides' active `All Settings` viewports explicitly reset to `null`, then isolate the next stable Gate 1 / Gate 2 renderer or interaction drift
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 025
+
+- Item: Pin the `All Settings` graph-substrate canary to the full `UIPage` bounds so the live surface no longer collapses into a content-height lane.
+- Status: `done`
+- Details:
+  - The next stable normal-zoom drift after the background lane was a real mount-contract bug, not more fit math:
+    - a fresh-context CDP compare reported worktree graph surface rect `{ x: 0, y: 36, width: 1440, height: 441 }` while read-only `main` still filled `{ x: 0, y: 36, width: 1440, height: 828 }`
+    - that same compare showed the worktree minimap and controls packed upward with the collapsed lane, even though the viewport transform itself was already aligned
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now mounts the canary root as an absolute `inset: 0` surface, which forces the graph substrate to fill the `UIPage` lane instead of sizing from visible section content.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds a focused regression on the first-render canary path that fails if the canary leaves a large dead bottom gap (`bottom gap < 80px`).
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `19s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent compared live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - both pages now reported the same `All Settings` graph surface rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`
+      - both pages also matched on viewport transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`, minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`, and controls rect `{ x: 3.5, y: 477, width: 32, height: 339, bottom: 816 }`
+      - no floating chat window was visible on either page during the final compare
+- Conclusion:
+  - the old half-height canary surface is no longer reproducing on the checked live `All Settings` path
+  - this closes the graph-surface height / bottom-anchor lane instead of spending another iteration on more fit or background churn
+- Next action:
+  - run the next fresh controlled worktree-vs-`main` compare on normal-zoom `All Settings` and isolate the next distinct stable Gate 1 / Gate 2 drift; if minimap content under-rendering still appears, confirm it again under that fresh compare before landing code
+
+LOOP_TERMINAL_MARKER: none

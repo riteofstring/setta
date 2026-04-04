@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 21:44 EDT
+Last updated: 2026-04-02 22:05 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,23 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `025` closed the next stable normal-zoom `All Settings` renderer drift after the background lane: the custom substrate could still collapse into a content-height graph lane, which packed the cards upward and pulled the minimap / controls too high compared with `main`.
+  - the fresh-context CDP compare that chose this slice reported a worktree graph surface rect `{ x: 0, y: 36, width: 1440, height: 441 }` while read-only `main` still filled `{ x: 0, y: 36, width: 1440, height: 828 }`
+  - the likely owner was the canary mount contract itself rather than more bounds math: `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` was still letting the surface size from content instead of pinning it to the `UIPage` bounds
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now mounts the canary root as an absolute `inset: 0` surface, so the graph substrate fills the full `UIPage` lane instead of shrinking around visible section content
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds a focused first-render regression that fails when the canary leaves a large dead bottom gap (`bottom gap < 80px` on the seeded `All Settings` route)
+  - targeted verification passed in this iteration:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: passed (`1 passed`, about `19s`)
+  - fresh-context CDP visual verification passed for the targeted fix:
+    - live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` both reported the same normalized `All Settings` surface after the patch
+    - both pages now report:
+      - graph surface rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`
+      - viewport transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`
+      - controls rect `{ x: 3.5, y: 477, width: 32, height: 339, bottom: 816 }`
+    - no floating chat window was visible on either page during the final compare, so this result is not explained by extra chat chrome
+  - this graph-surface height / bottom-anchor lane is now complete; do not spend another iteration on it unless a fresh controlled compare reproduces the old half-height canary surface again
 - Ralph item `024` closed the next stable `All Settings` renderer drift after the viewport/minimap lanes: the custom substrate was dropping the graph background grid entirely while `main` still rendered it.
   - a controlled normal-zoom compare explicitly reset both the worktree and read-only `main` `All Settings` viewports to `null`, then applied the backend state update in-page before inspecting the graph surface
   - the normalized compare showed the same graph transform, surface bounds, section/node count, and minimap on both sides, but the worktree alone had `backgroundCount = 0` while `main` had `backgroundCount = 1`
@@ -371,10 +388,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The graph-background parity lane is also complete:
   - item `024` restored the shared dotted grid on the canary path, and the latest normalized compare shows `backgroundCount = 1` on both worktree and `main`
   - do not reopen that lane unless a later controlled compare shows the background layer missing again
+- The graph-surface height / bottom-anchor lane is also complete:
+  - item `025` pins the canary root to the full `UIPage` bounds, and the latest fresh CDP compare now shows the same `828px` graph height plus matching minimap / controls anchoring on worktree and `main`
+  - do not reopen that lane unless a later controlled compare shows the canary shrinking back to a content-height lane
 - The next real frontier is the next earliest stable product drift on the same canary path:
   - start from the same controlled normal-zoom worktree-vs-`main` compare on `All Settings` with both sides' active `All Settings` viewports explicitly reset to `null`, then isolate the next earliest stable Gate 1 / Gate 2 drift after the now-closed background lane
   - the latest compare successfully normalized both sides again, so do not treat the current `main` runtime as contaminated by the old single-card state unless a fresh compare reproduces it
   - prioritize a concrete renderer or interaction defect on the checked canary path, especially text/chrome drift, interaction-state mismatch, or zoom artifacts, over more support-lane churn
+  - one older existing-session CDP pass hinted that the worktree minimap content might still under-render (`5` minimap node rects vs `46` on `main`), but that observation was not the fresh final oracle for item `025`; re-check that on a fresh normalized compare before landing any minimap-content code
   - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
 - Lifecycle/bootstrap debugging is no longer the default frontier:
   - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
@@ -401,6 +422,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `024`
-- Latest item: `2026-04-02 024`
+- Active history window: items `001` through `025`
+- Latest item: `2026-04-02 025`
 - Older history archives: none yet

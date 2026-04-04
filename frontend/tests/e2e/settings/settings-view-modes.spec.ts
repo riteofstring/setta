@@ -78,6 +78,9 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
     await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
     await expect(page.getByTestId("rf__background")).toBeVisible();
     await expect
+      .poll(async () => (await getCanaryPaneViewportGaps(page))?.bottom ?? 9999)
+      .toBeLessThan(80);
+    await expect
       .poll(async () => (await getCanarySectionGridSpread(page)).columnCount)
       .toBeGreaterThan(1);
 
@@ -1060,6 +1063,27 @@ async function findCanaryPanePoint(
     throw new Error("Unable to find a pan or zoom point on the canary pane.");
   }
   return point;
+}
+
+async function getCanaryPaneViewportGaps(page: Page): Promise<{
+  top: number;
+  bottom: number;
+  height: number;
+} | null> {
+  return page.evaluate(() => {
+    const pane = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary"]',
+    );
+    if (!pane) {
+      return null;
+    }
+    const rect = pane.getBoundingClientRect();
+    return {
+      top: rect.top,
+      bottom: window.innerHeight - rect.bottom,
+      height: rect.height,
+    };
+  });
 }
 
 type ProjectStateSingleConfigWithCompletedOpIds = {
