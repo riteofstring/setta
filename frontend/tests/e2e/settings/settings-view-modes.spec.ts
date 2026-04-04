@@ -205,6 +205,106 @@ test("settings graph substrate canary pans and zooms one section on the custom s
     .toBeGreaterThan(initialBox.width * 1.05);
 });
 
+test("settings graph substrate canary keeps title editing working after pan and zoom", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+
+  const canaryPane = page.getByTestId("graph-substrate-canary");
+  const canarySection = page.getByTestId("graph-substrate-canary-section");
+  await expect(canaryPane).toBeVisible();
+  await expect(canarySection).toBeVisible();
+  await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+  const sectionId = await canarySection.getAttribute("data-section-id");
+  if (!sectionId) {
+    throw new Error("Missing canary section id.");
+  }
+
+  const title = canarySection.locator("header p").first();
+  const originalTitle = (await title.textContent())?.trim();
+  if (!originalTitle) {
+    throw new Error("Missing original canary section title.");
+  }
+
+  const initialScale = await getCanaryViewportScale(page);
+  const initialBox = await canarySection.boundingBox();
+  const paneBox = await canaryPane.boundingBox();
+  if (!initialBox || !paneBox) {
+    throw new Error("Missing canary bounds for title edit test.");
+  }
+
+  const panStart = findCanaryPanePoint(paneBox, initialBox);
+  await page.mouse.move(panStart.x, panStart.y);
+  await page.mouse.down();
+  await page.mouse.move(panStart.x + 120, panStart.y + 80, { steps: 10 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => {
+      const movedBox = await canarySection.boundingBox();
+      if (!movedBox) {
+        return 0;
+      }
+      return Math.hypot(movedBox.x - initialBox.x, movedBox.y - initialBox.y);
+    })
+    .toBeGreaterThan(60);
+
+  const movedBox = await canarySection.boundingBox();
+  if (!movedBox) {
+    throw new Error("Missing moved canary bounds for title edit test.");
+  }
+
+  const zoomStart = findCanaryPanePoint(paneBox, movedBox);
+  await page.mouse.move(zoomStart.x, zoomStart.y);
+  await page.mouse.wheel(0, -180);
+
+  await expect
+    .poll(() => getCanaryViewportScale(page))
+    .toBeGreaterThan(initialScale * 1.08);
+
+  const renamedTitle = `${originalTitle} canary title`;
+
+  try {
+    // The canary must preserve DOM title editing after custom viewport motion.
+    await title.dblclick();
+
+    const titleInput = canarySection.locator("header input").first();
+    await expect(titleInput).toBeVisible();
+    await expect(titleInput).toBeFocused();
+    await titleInput.fill(renamedTitle);
+    await titleInput.press("Enter");
+
+    await expect
+      .poll(async () => {
+        const latestState = await getLatestProjectState(page, projectConfigId);
+        return latestState.projectState.sections[sectionId]?.name ?? null;
+      })
+      .toBe(renamedTitle);
+
+    await expect(canarySection.locator("header p").first()).toHaveText(
+      renamedTitle,
+    );
+  } finally {
+    await postBackend(page, "/setSectionName", {
+      projectConfigId,
+      sectionId,
+      name: originalTitle,
+    });
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings view modes keep visible sections when layout payload is partial", async ({
   page,
 }) => {

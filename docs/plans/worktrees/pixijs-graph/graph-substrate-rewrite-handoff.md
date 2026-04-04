@@ -9,6 +9,10 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `006` landed the first representative DOM interaction/editing handoff proof on the `settings` graph-substrate canary:
+  - `frontend/src/components/Section/Header/SectionTitle.tsx` now marks editable section titles as both `nodrag` and `setta-prevent-section-on-click-trigger`
+  - this keeps the canary-local drag capture and parent section activation from swallowing title double-clicks on the checked `All Settings` slice
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` with a focused canary proof that pans and zooms the custom surface, renames the visible section title through the DOM header editor, and restores the original section name afterward
 - Ralph item `005` landed the first real custom pan/zoom ownership inside the `settings` graph-substrate canary:
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns background pan on the canary root instead of relying on legacy `xyflow` pane ownership
   - the same canary root now owns anchored wheel zoom for the checked `All Settings` slice
@@ -44,14 +48,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
     - `src/components/Pages/Project/graphSubstrate/viewportTransform.test.ts`
   - targeted Playwright passed for:
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary (drags one section and persists the top-level layout|pans and zooms one section on the custom surface)'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary (drags one section and persists the top-level layout|pans and zooms one section on the custom surface|keeps title editing working after pan and zoom)'`
   - CDP visual check passed on the current worktree session:
     - `http://127.0.0.1:3075/settings`
     - `graph-substrate-canary` visible
     - `.react-flow__pane` absent on `All Settings`
     - background pan moved the canary viewport on the live surface while the DOM-backed section body stayed attached to its shell/header
     - wheel zoom changed the live canary viewport scale while the section stayed visible/attached
-    - no route crash or error boundary after pan/zoom verification
+    - the visible `gui` section title now double-clicks into a focused header `input` on the live canary
+    - no route crash or error boundary after pan/zoom/title-edit verification
 
 ## Architectural stance
 
@@ -69,13 +74,16 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The next production frontier is inside the new canary itself:
   - one normal-zoom section on `All Settings`
   - existing DOM body
-  - custom drag/pan/zoom ownership is now in place for the checked slice
-  - the remaining Gate 0 gap is proving a representative DOM interaction/editing handoff still works correctly on that same canary after the substrate takes viewport ownership
+  - custom drag/pan/zoom ownership plus one representative DOM edit handoff are now in place for the checked slice
+- The next real frontier is no longer seam lifting or single-control handoff proof:
+  - expand the custom substrate beyond one top-level section on `All Settings`
+  - keep DOM-backed section bodies/editors attached and interactive while more than one section is present on the custom surface
+  - treat any new detached-body, wrong-surface, or obvious perf regression during that expansion as the next blocker
 - Required order from here:
   - keep the current custom viewport state model and `UIPage` seam
   - drag and custom pan/zoom ownership are now in place on the canary surface
-  - next prove at least one real DOM-backed interaction/editing path still works on the same slice after pan/zoom, rather than jumping ahead to more seam lifts or broad harness work
-  - only after that should the canary expand beyond one section or move toward broader Gate 1 parity/perf work
+  - a representative DOM-backed interaction/editing path is now proven on the same slice after pan/zoom
+  - next broaden the canary beyond one section before spending more time on harness polish or pixel-parity cleanup
 
 ## Explicit deferrals
 
@@ -93,10 +101,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - a `settings`/`All Settings` `UIPage` canary seam that swaps out `ReactFlow`
   - a first custom graph-surface canary that renders one DOM-backed top-level section through the shared transform contract
   - the first custom canary drag ownership slice plus a null-safe shared viewport helper path for non-`xyflow` routes
+  - a first proven DOM-backed title edit path on that same canary after custom pan/zoom ownership
 - See `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-completed.md` for maintained milestones once product slices start landing.
 
 ## History pointers
 
-- Active history window: items `001` through `005`
-- Latest item: `2026-04-02 005`
+- Active history window: items `001` through `006`
+- Latest item: `2026-04-02 006`
 - Older history archives: none yet

@@ -192,3 +192,30 @@ LOOP_TERMINAL_MARKER: none
   - implement custom pan/zoom on `SettingsGraphSubstrateCanary` and prove the DOM-backed section stays attached and visually stable during pan/zoom as well
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 006
+
+- Item: Fix and prove section-title editing on the `settings` graph-substrate canary after custom pan/zoom ownership.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Section/Header/SectionTitle.tsx` now wraps editable section titles in both `nodrag` and `setta-prevent-section-on-click-trigger`.
+  - This stops the custom canary section container from treating title double-clicks as drag starts and also avoids parent section activation consuming the same interaction.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes a focused canary test that:
+    - opens `All Settings`
+    - pans and zooms the custom surface
+    - double-clicks the visible section title into edit mode
+    - renames the section through the DOM header input
+    - restores the original section name afterward
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary (drags one section and persists the top-level layout|pans and zooms one section on the custom surface|keeps title editing working after pan and zoom)'`
+    - result: passed (`3 passed`, about `37s`)
+  - CDP visual check
+    - result: passed
+    - note: on `http://127.0.0.1:3075/settings`, `All Settings` showed the `gui` canary section title inside a `nodrag setta-prevent-section-on-click-trigger` wrapper, and double-clicking that title converted it into a focused header `input` on the live custom surface
+- Conclusion:
+  - the one-section `settings` graph-substrate canary now has a proven DOM-backed editing handoff after custom drag/pan/zoom ownership
+  - the active Gate 0 interaction/editing gap on the checked slice is closed
+- Next action:
+  - expand the custom substrate beyond one top-level `All Settings` section while keeping DOM-backed bodies attached, interactive, and not obviously worse than the DOM baseline
+
+LOOP_TERMINAL_MARKER: none
