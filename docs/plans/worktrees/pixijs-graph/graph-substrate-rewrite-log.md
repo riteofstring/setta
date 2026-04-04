@@ -761,3 +761,37 @@ LOOP_TERMINAL_MARKER: none
   - rerun a fresh-storage, no-control CDP compare on initial `All Settings` entry to confirm the long-lived worktree no longer opens off-screen before any viewport interaction; if that path is clean, move to the next earliest normal-zoom visual or interaction defect
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 023
+
+- Item: Stop the `All Settings` canary from persisting its provisional fallback camera before the user owns the viewport.
+- Status: `done`
+- Details:
+  - The next visible `All Settings` drift after the minimap lane was a real product bug in the canary persistence path, not more fit-width churn:
+    - the live worktree had started saving the canary's provisional fallback viewport `{ x: 48, y: 48, zoom: 1 }` into the `All Settings` view-mode state
+    - once that happened, later `All Settings` entries could reopen on the oversized single-card / partial-`gui` surface even though the fresh-storage fit lane had already been closed
+  - `frontend/src/forks/xyflow/core/types/general.ts` and `frontend/src/forks/xyflow/core/store/initialState.ts` now expose `viewportPersistenceEnabled` on the shared ReactFlow store.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now defines the canary-specific persistence rule: only backend-restored viewports and user-owned local viewport changes are persistable.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now disables viewport persistence while the canary is still on its provisional fallback/auto-fit camera, and re-enables it for restored saved cameras plus explicit local pan/zoom/fit actions.
+  - `frontend/src/state/actions/sectionInfos.ts` now treats `viewportPersistenceEnabled === false` as a null viewport write source, so the debounced sender no longer stores provisional canary transforms.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now proves that entering `All Settings` from `viewport: null` leaves both the active project viewport and the active `All Settings` view-mode viewport `null` after the debounce window.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`9 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary does not persist a provisional initial viewport'`
+    - result: passed (`1 passed`, about `30s`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings|settings graph substrate canary preserves a recent viewport change across a fast view-mode switch'`
+    - result: passed (`2 passed`, about `1m`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent cleared the live worktree `All Settings` viewport to `null`, reloaded `/settings`, and waited about `1.4s`
+      - follow-up runtime checks still showed `projectConfig.viewport === null` and active `All Settings` view-mode `viewport === null`, so the old debounce re-persist did not fire
+      - the old oversized single-card / partial-`gui` worktree presentation disappeared after that controlled reset
+- Conclusion:
+  - the canary no longer leaks its provisional fallback/auto-fit seed back into the `All Settings` viewport state on the checked null-viewport entry path
+  - the remaining side-by-side oracle work now needs a controlled compare that normalizes the `main` reference state too, because the latest live `main` page was still showing the old single-card presentation while the fixed worktree showed the full auto-fit layout
+- Next action:
+  - run a controlled worktree-vs-`main` CDP compare with both sides' active `All Settings` viewports explicitly reset to `null`, then isolate the next stable Gate 1 / Gate 2 renderer or interaction drift
+
+LOOP_TERMINAL_MARKER: none

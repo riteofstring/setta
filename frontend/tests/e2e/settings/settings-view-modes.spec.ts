@@ -31,9 +31,7 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
     .toBeGreaterThan(1);
   await expect(page.locator(".react-flow__pane")).toHaveCount(0);
   await expect(page.getByTestId("rf__minimap")).toBeVisible();
-  await expect
-    .poll(async () => getMiniMapNodeCount(page))
-    .toBeGreaterThan(1);
+  await expect.poll(async () => getMiniMapNodeCount(page)).toBeGreaterThan(1);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",
@@ -185,6 +183,87 @@ test("settings graph substrate canary restores the persisted shared viewport on 
         projectConfigId,
         activeViewModeId: initialActiveViewModeId,
       });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
+test("settings graph substrate canary does not persist a provisional initial viewport", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    // Wait past the viewport debounce to catch accidental persistence of the
+    // provisional fallback camera.
+    await page.waitForTimeout(1200);
+
+    const latestState = await getLatestProjectState(page, projectConfigId);
+    const allSettingsViewMode =
+      latestState.projectState.projectConfig.viewModes[allSettingsViewModeId];
+    expect(latestState.projectState.projectConfig.viewport).toBeNull();
+    expect(latestState.projectState.projectConfig.viewportInitialized).toBe(
+      false,
+    );
+    expect(allSettingsViewMode?.viewport).toBeNull();
+    expect(allSettingsViewMode?.viewportInitialized).toBe(false);
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
     }
     const restoredState = await getLatestProjectState(page, projectConfigId);
     await applyProjectStateUpdate(page, restoredState);
@@ -986,7 +1065,15 @@ type ProjectStateSingleConfigWithCompletedOpIds = {
     projectConfig: {
       activeViewModeId: string | null;
       topLevelSections: Record<string, { x: number; y: number }>;
-      viewModes: Record<string, { id: string; name: string }>;
+      viewModes: Record<
+        string,
+        {
+          id: string;
+          name: string;
+          viewport: { x: number; y: number; zoom: number } | null;
+          viewportInitialized: boolean;
+        }
+      >;
       viewport: { x: number; y: number; zoom: number } | null;
       viewportInitialized: boolean;
     };

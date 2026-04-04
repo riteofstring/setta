@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 17:56 EDT
+Last updated: 2026-04-02 21:31 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,24 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `023` landed a bounded fix for provisional `All Settings` viewport persistence on the custom substrate path:
+  - the next stable drift after the minimap lane was not more fit math; the live worktree had started saving the canary's provisional fallback viewport `{ x: 48, y: 48, zoom: 1 }` into the `All Settings` view-mode state, which later reopened the old oversized single-card / partial-`gui` presentation
+  - the canary now marks only restored backend viewports and user-owned local canary viewport changes as persistable through a new shared ReactFlow `viewportPersistenceEnabled` store flag
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now keeps provisional fallback/auto-fit viewports non-persistable while still allowing restored saved cameras and explicit user pan/zoom/fit actions to persist
+  - `frontend/src/state/actions/sectionInfos.ts` now treats `viewportPersistenceEnabled === false` the same as `fitViewOnInit` for viewport writes, so the debounced sender no longer stores provisional canary transforms
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now covers the direct bug: starting `All Settings` from `viewport: null` must still leave both the active project viewport and the active `All Settings` view-mode viewport `null` after the debounce window
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`9 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary does not persist a provisional initial viewport'`
+      - result: passed (`1 passed`, about `30s`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings|settings graph substrate canary preserves a recent viewport change across a fast view-mode switch'`
+      - result: passed (`2 passed`, about `1m`)
+  - fresh-context CDP verification passed for the targeted fix:
+    - the worktree `All Settings` viewport was explicitly cleared to `null` through in-page backend calls, `/settings` was reloaded, and the compare waited about `1.4s`
+    - a follow-up runtime check still showed `projectConfig.viewport === null` and active `All Settings` view-mode `viewport === null`, so the old debounce re-persist did not fire
+    - visually, the worktree no longer reopened on the oversized single-card / partial-`gui` surface after that controlled reset
+  - do not spend another iteration on this persistence lane unless a new controlled `viewport: null` compare shows the canary still re-persists a provisional camera
 - A fresh-storage, no-extra-controls CDP compare closed the previous viewport-fit lane:
   - a fresh-context CDP sub-agent compared the live worktree and read-only `main` `All Settings` surfaces before any viewport-control interaction
   - both sides landed on the same initial canary transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` with the same visible graph bounds (`46` visible nodes; bounds `minX=780 minY=-209 maxX=955 maxY=722`)
@@ -330,8 +348,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The fast-switch viewport-persistence lane is complete:
   - item `019` closed the race where a recent canary pan/zoom could be lost if the user switched modes before the debounced viewport write reached the backend
   - do not spend another iteration on more view-mode switch plumbing unless a new controlled repro shows the current canary camera still gets dropped
+- The provisional-viewport persistence lane is also complete for the checked `viewport: null` canary entry:
+  - item `023` stopped the canary from saving its fallback/auto-fit seed back into `All Settings` before the user owns the camera
+  - do not reopen that lane unless a controlled null-viewport compare shows the debounce path still reintroducing a provisional transform
 - The next real frontier is the next earliest stable product drift on the same canary path:
-  - start from a fresh normal-zoom worktree-vs-`main` compare on `All Settings` and isolate the next earliest stable Gate 1 / Gate 2 drift now that both the initial-entry fit lane and minimap lane are closed
+  - start from a controlled normal-zoom worktree-vs-`main` compare on `All Settings` with both sides' active `All Settings` viewports explicitly reset to `null`, then isolate the next earliest stable Gate 1 / Gate 2 drift
+  - the latest post-item-023 CDP run proved the worktree no longer re-persists the provisional camera, but the live read-only `main` page was still showing the old single-card presentation; treat that current `main` session as state-contaminated until the next compare normalizes it too
   - prioritize a concrete renderer or interaction defect on the checked canary path, especially text/chrome drift, interaction-state mismatch, or zoom artifacts, over more support-lane churn
   - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
 - Lifecycle/bootstrap debugging is no longer the default frontier:
@@ -359,6 +381,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `020`
-- Latest item: `2026-04-02 020`
+- Active history window: items `001` through `023`
+- Latest item: `2026-04-02 023`
 - Older history archives: none yet

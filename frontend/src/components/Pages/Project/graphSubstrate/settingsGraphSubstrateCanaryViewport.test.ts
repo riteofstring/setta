@@ -6,6 +6,7 @@ import {
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
+  shouldPersistSettingsGraphSubstrateCanaryViewport,
 } from "./settingsGraphSubstrateCanaryViewport";
 
 describe("settingsGraphSubstrateCanaryViewport", () => {
@@ -95,6 +96,27 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
       y: -180,
       zoom: 0.42,
     });
+  });
+
+  it("does not persist a provisional canary viewport before the user owns it", () => {
+    expect(
+      shouldPersistSettingsGraphSubstrateCanaryViewport(null, "auto-fit"),
+    ).toBe(false);
+    expect(
+      shouldPersistSettingsGraphSubstrateCanaryViewport(null, "shared"),
+    ).toBe(false);
+  });
+
+  it("persists restored or user-owned canary viewports", () => {
+    expect(
+      shouldPersistSettingsGraphSubstrateCanaryViewport(
+        { x: 320, y: -180, zoom: 0.42 },
+        "shared",
+      ),
+    ).toBe(true);
+    expect(
+      shouldPersistSettingsGraphSubstrateCanaryViewport(null, "local"),
+    ).toBe(true);
   });
 
   it("fits the canary to the legacy visible center and caps the initial zoom", () => {

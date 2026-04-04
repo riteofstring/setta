@@ -36,6 +36,8 @@ import {
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
+  shouldPersistSettingsGraphSubstrateCanaryViewport,
+  type SettingsGraphSubstrateCanaryViewportOwnership,
 } from "./settingsGraphSubstrateCanaryViewport";
 import {
   centerViewportOnWorldPoint,
@@ -80,8 +82,6 @@ type SectionPositionOverride = {
   position: Position;
 };
 
-type ViewportOwnership = "auto-fit" | "local" | "shared";
-
 type CanaryViewportState = {
   observedElementSizes: Record<string, { width: number; height: number }>;
   resolvedViewport: GraphViewport | null;
@@ -99,7 +99,8 @@ export function SettingsGraphSubstrateCanary() {
     null,
   );
   const isWheelZoomingRef = useRef(false);
-  const viewportOwnershipRef = useRef<ViewportOwnership | null>(null);
+  const viewportOwnershipRef =
+    useRef<SettingsGraphSubstrateCanaryViewportOwnership | null>(null);
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
     null,
@@ -168,6 +169,7 @@ export function SettingsGraphSubstrateCanary() {
       useReactFlow.setState({
         paneDragging: false,
         viewportInteractionActive: false,
+        viewportPersistenceEnabled: true,
       });
     };
   }, []);
@@ -228,6 +230,11 @@ export function SettingsGraphSubstrateCanary() {
       uiEditorTrueWidth,
     );
   }, [overviewTrueWidth, uiEditorTrueWidth, wrapperDimensions]);
+  const shouldPersistResolvedViewport =
+    shouldPersistSettingsGraphSubstrateCanaryViewport(
+      sharedProjectViewport,
+      viewportOwnershipRef.current,
+    );
 
   useEffect(() => {
     if (!sharedViewport || viewportOwnershipRef.current === "local") {
@@ -491,9 +498,15 @@ export function SettingsGraphSubstrateCanary() {
         resolvedViewport.y,
         resolvedViewport.zoom,
       ],
+      viewportPersistenceEnabled: shouldPersistResolvedViewport,
       width: visibleViewportSize.width,
     });
-  }, [resolvedViewport, visibleViewportSize.width, wrapperDimensions.height]);
+  }, [
+    resolvedViewport,
+    shouldPersistResolvedViewport,
+    visibleViewportSize.width,
+    wrapperDimensions.height,
+  ]);
 
   function handleSectionPointerDown(
     section: GraphSubstrateCanarySection,

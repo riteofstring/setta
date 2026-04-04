@@ -10,6 +10,11 @@ import {
 const INITIAL_SCREEN_PADDING_PX = 48;
 const AUTO_FIT_PADDING = 0.12;
 
+export type SettingsGraphSubstrateCanaryViewportOwnership =
+  | "auto-fit"
+  | "local"
+  | "shared";
+
 export function resolveSettingsGraphSubstrateCanaryFallbackViewport(
   defaultZoomLevel: number,
   sectionPosition: Position | null,
@@ -71,6 +76,13 @@ export function shouldAutoFitSettingsGraphSubstrateCanaryViewport(
   sharedViewport: GraphViewport | null,
 ): boolean {
   return currentViewport === null && sharedViewport === null;
+}
+
+export function shouldPersistSettingsGraphSubstrateCanaryViewport(
+  sharedProjectViewport: GraphViewport | null,
+  viewportOwnership: SettingsGraphSubstrateCanaryViewportOwnership | null,
+): boolean {
+  return sharedProjectViewport !== null || viewportOwnership === "local";
 }
 
 export function fitSettingsGraphSubstrateCanaryViewport(

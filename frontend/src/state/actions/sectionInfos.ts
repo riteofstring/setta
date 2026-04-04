@@ -1726,7 +1726,11 @@ export function getCurrProjectConfigId() {
 }
 
 function getCurrProjectConfigViewport() {
-  return useReactFlow.getState().fitViewOnInit ? null : getViewport();
+  const reactFlowState = useReactFlow.getState();
+  return reactFlowState.fitViewOnInit ||
+    !reactFlowState.viewportPersistenceEnabled
+    ? null
+    : getViewport();
 }
 
 export function getSectionChildren(

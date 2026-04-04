@@ -43,14 +43,8 @@ export type CustomViewportController = {
     transform: Partial<Viewport>,
     options?: ViewportTransitionOptions,
   ) => void;
-  setCenter: (
-    x: number,
-    y: number,
-    options?: ViewportZoomOptions,
-  ) => void;
-  fitView: (
-    options?: ({ initial?: boolean } & FitViewOptions),
-  ) => boolean;
+  setCenter: (x: number, y: number, options?: ViewportZoomOptions) => void;
+  fitView: (options?: { initial?: boolean } & FitViewOptions) => boolean;
 };
 
 export type ReactFlowStore = {
@@ -61,6 +55,7 @@ export type ReactFlowStore = {
   paneDragging: boolean;
   viewportInteractionActive: boolean;
   viewportController: CustomViewportController | null;
+  viewportPersistenceEnabled: boolean;
 
   d3Zoom: ZoomBehavior<Element, unknown> | null;
   d3Selection: D3Selection<Element, unknown, null, undefined> | null;
