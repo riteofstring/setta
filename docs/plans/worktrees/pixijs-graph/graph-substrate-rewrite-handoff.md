@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 07:05 EDT
+Last updated: 2026-04-04 07:13 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `102` added a normalized cross-worktree section-chrome plain-wheel-pan parity probe and closed that bounded dynamic lane without inventing a production fix.
+  - Why this slice was needed:
+    - item `101` was a normalization-only helper change, so the next iteration had to return to a different live dynamic path instead of extending the same support lane again
+    - the fresh-context CDP compare on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings` found no trustworthy canary-only defect on this section-chrome wheel-pan path; both pages could pan from visible section chrome after normalized `All Settings` setup
+    - because the remaining mismatch was selected-section chrome/content near the top of the viewport rather than a stable renderer failure, the narrowest valid step was one deterministic main-reference probe that locks down this exact lane against read-only `main`
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - imported `findSettingsGraphSectionWheelPanPoint(...)`
+      - added opt-in probe `settings graph parity probe applies the same section-chrome plain-wheel pan delta on read-only main legacy and worktree canary after normalized fit`
+      - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, fits the same shared named section on both surfaces, dispatches the same plain wheel gesture from section chrome, and compares the resulting pan delta plus section movement against read-only `main`
+    - no production renderer files changed in this slice
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - refreshed runtime/bootstrap values before the live rerun:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-021/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-021/main-ai.log`
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe applies the same section-chrome plain-wheel pan delta on read-only main legacy and worktree canary after normalized fit' --reporter=line`
+      - result: passed (`1 passed`, `29.2s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent normalized both live `/settings` pages to active `All Settings`, used the available fit-view landing, and dispatched a plain wheel-pan gesture from visible section chrome on both sides
+    - no concrete canary-only visual or interaction defect was visible on this lane
+    - the only remaining mismatch was selected-section chrome/content near the top of the viewport, which looked like selection/state oracle noise rather than a stable renderer regression
+    - CDP visual check: done (fresh-context normalized `All Settings` section-chrome wheel-pan compare on live `3075` canary vs read-only `3087` legacy; both sides panned successfully and no canary-only drift was visible)
+  - conclusion for this slice:
+    - close the specific section-chrome plain-wheel-pan lane as covered by the new deterministic main-reference probe
+    - do not reopen this lane unless a later fresh compare shows the canary suppressing section-chrome wheel pan, changing zoom unexpectedly, or diverging visually from `main` on the same normalized path
+    - the next real frontier should return to one fresh normalized live compare on a different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - Ralph item `101` tightened the shared normalized graph-surface compare helper so parity probes wait out transient autosave/loading/focus chrome before taking graph-surface measurements.
   - Why this slice was needed:
     - because items `099` and `100` were both probe-only, the next iteration first had to pivot back to a fresh normalized live compare instead of opening another speculative parity lane
@@ -2511,6 +2540,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `098`
-- Latest item: `2026-04-04 098`
+- Active history window: items `001` through `102`
+- Latest item: `2026-04-04 102`
 - Older history archives: none yet

@@ -4,6 +4,7 @@ import {
   findSectionIdByName,
   findSettingsGraphPanePoint,
   findSettingsGraphSectionDragPoint,
+  findSettingsGraphSectionWheelPanPoint,
   findViewModeId,
   fitGraphViewportToSection,
   getLocalPaneState,
@@ -482,6 +483,249 @@ test("settings graph parity probe applies the same short pan delta on read-only 
     ).toBeLessThan(8);
     expect(
       Math.abs(worktreePan.rectDelta.y - referencePan.rectDelta.y),
+    ).toBeLessThan(8);
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
+test("settings graph parity probe applies the same section-chrome plain-wheel pan delta on read-only main legacy and worktree canary after normalized fit", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const sharedSection = findSharedVisibleTopLevelSectionByName({
+    referenceState: referenceInitialState,
+    viewModeName: "All Settings",
+    worktreeState: worktreeInitialState,
+  });
+
+  async function captureNamedSectionWheelPanDelta(args: {
+    activeViewModeId: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    sectionId: string;
+    sectionName: string;
+    targetPage: Page;
+    tab: Locator;
+  }) {
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.targetPage === page
+        ? WORKTREE_BACKEND_ORIGIN
+        : MAIN_REFERENCE_BACKEND_ORIGIN,
+      args.targetPage === page
+        ? WORKTREE_BASE_URL
+        : MAIN_REFERENCE_FRONTEND_URL,
+      args.targetPage === page
+        ? worktreeProjectConfigId
+        : referenceProjectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.tab).toBeVisible();
+    await args.tab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    const before = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!before.rect || !before.transform) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} wheel-pan baseline metrics for ${args.sectionName}.`,
+      );
+    }
+
+    const wheelPoint = await findSettingsGraphSectionWheelPanPoint(
+      args.targetPage,
+      args.sectionId,
+    );
+    await args.targetPage.mouse.move(wheelPoint.x, wheelPoint.y);
+    await args.targetPage.mouse.wheel(0, -240);
+
+    await expect
+      .poll(async () => {
+        const after = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!after.transform) {
+          return 0;
+        }
+        return Math.hypot(
+          after.transform.x - before.transform.x,
+          after.transform.y - before.transform.y,
+        );
+      })
+      .toBeGreaterThan(120);
+
+    const after = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!after.rect || !after.transform) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} wheel-pan result metrics for ${args.sectionName}.`,
+      );
+    }
+
+    return {
+      paneState: after.paneState,
+      rectDelta: {
+        x: after.rect.x - before.rect.x,
+        y: after.rect.y - before.rect.y,
+      },
+      transformDelta: {
+        x: after.transform.x - before.transform.x,
+        y: after.transform.y - before.transform.y,
+        zoom: after.transform.zoom - before.transform.zoom,
+      },
+    };
+  }
+
+  try {
+    const referenceWheelPan = await captureNamedSectionWheelPanDelta({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      expectedSurfaceKind: "legacy",
+      sectionId: sharedSection.referenceSectionId,
+      sectionName: sharedSection.name,
+      tab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: referencePage,
+    });
+    const worktreeWheelPan = await captureNamedSectionWheelPanDelta({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      expectedSurfaceKind: "canary",
+      sectionId: sharedSection.worktreeSectionId,
+      sectionName: sharedSection.name,
+      tab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: page,
+    });
+
+    expect(referenceWheelPan.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeWheelPan.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(Math.abs(referenceWheelPan.transformDelta.zoom)).toBeLessThan(0.02);
+    expect(Math.abs(worktreeWheelPan.transformDelta.zoom)).toBeLessThan(0.02);
+    expect(
+      Math.abs(
+        worktreeWheelPan.transformDelta.x - referenceWheelPan.transformDelta.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeWheelPan.transformDelta.y - referenceWheelPan.transformDelta.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeWheelPan.rectDelta.x - referenceWheelPan.rectDelta.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeWheelPan.rectDelta.y - referenceWheelPan.rectDelta.y),
     ).toBeLessThan(8);
   } finally {
     await restoreCurrentPageState({
