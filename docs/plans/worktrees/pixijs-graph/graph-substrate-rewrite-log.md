@@ -70,6 +70,41 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 045
+
+- Item: Run one bounded neighboring-card compare on the normalized `All Settings` Gate 2 lane and decide whether the same-column section-compare micro-lane still hides a renderer defect.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not add a regression or take a production patch first.
+  - The last two completed slices (`043`, `044`) were both compare-only closures, so the only justified next step was one bounded oracle check that directly answered whether the neighboring same-column visible card exposed a concrete renderer question.
+  - A fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were kept on active `All Settings`.
+  - Non-target worktree-label chrome was closed, and one shared toolbar `fit view` was applied.
+  - The sub-agent explicitly skipped the already-cleared first same-column visible card and compared the next shared visible card in that column at normal zoom.
+  - The checked card was `timeParamCodeObjDefault`, below the already-cleared same-column `passwordParamCodeObjDefault` core card.
+  - The visible text matched on both sides:
+    - `timeParamCodeObjDefault ARGS Core Name Editable Core Name Type defaultVal "" Time Control Mode Time Display Font Time Display Format timeDisplayScale 1.0 Time Display Transparent typeAnnotation "" value ""`
+  - The rendered placement also matched exactly on both sides for the checked lane:
+    - `top=691`
+    - `left=780`
+    - `bottom=722`
+  - No concrete worktree-only renderer, text, chrome, or layout drift was isolated from this neighboring-card compare.
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings`
+      - one shared `fit view` was applied after closing non-target worktree-label chrome
+      - `timeParamCodeObjDefault` matched `main` by visible text and placement on the checked graph-surface lane
+- Conclusion:
+  - the neighboring same-column section-level compare is clean, so this same-column micro-lane should be treated as closed
+  - there is no production fix to take from this evidence alone
+  - the next frontier should pivot to a materially different shared visible card at normal zoom rather than repeating same-column core-card compares
+- Next action:
+  - compare one shared visible `All Settings` card with materially different chrome/body than the already-cleared same-column core cards, and only patch code if that fresh compare isolates real worktree-only drift
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 044
 
 - Item: Run the first bounded shared-section Gate 2 compare on normalized `All Settings` to see whether a concrete section-level chrome/text defect is already visible.

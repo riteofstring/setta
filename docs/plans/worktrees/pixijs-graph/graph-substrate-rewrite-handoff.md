@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 14:10 EDT
+Last updated: 2026-04-03 14:15 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,25 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `045` closed the neighboring same-column section-level Gate 2 compare that item `044` handed off.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were kept on active `All Settings`, non-target worktree-label chrome was closed, and one shared toolbar `fit view` was applied
+    - the sub-agent skipped the already-cleared first visible same-column card and compared the next shared visible card in that column at normal zoom
+  - Result:
+    - no concrete renderer defect showed up on the neighboring shared visible card either
+    - the checked card was `timeParamCodeObjDefault`, below the already-cleared same-column `passwordParamCodeObjDefault` core card
+    - the visible text matched between worktree and `main`:
+      - `ARGS Core Name Editable Core Name Type defaultVal "" Time Control Mode Time Display Font Time Display Format timeDisplayScale 1.0 Time Display Transparent typeAnnotation "" value ""`
+    - the rendered placement also matched exactly on the checked lane:
+      - `top=691`
+      - `left=780`
+      - `bottom=722`
+    - no worktree-only text, chrome, or layout drift was isolated from this neighboring-card compare, so there is no production fix to take from this evidence alone
+  - conclusion for this slice:
+    - treat the second same-column section-level compare as clean and close that micro-lane
+    - do not reopen either of the already-checked same-column cards unless a later fresh compare or regression shows drift there
+    - the next real frontier should move to one materially different shared visible card at normal zoom, not another same-column core-card compare or a reopened whole-surface geometry pass
 - Ralph item `044` completed the first bounded section-level Gate 2 compare that item `043` handed off.
   - Process:
     - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
