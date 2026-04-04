@@ -275,16 +275,6 @@ func generatedCodeObjAliasNameFromTypeSetMember(member string) string {
 	return name + "CodeObjImpl"
 }
 
-var generatedUserDefaultSectionBasePropertyOrder = []string{
-	"isFrozen",
-	"tagColor",
-	"styleColor",
-	"size",
-	"aspectRatio",
-	"isMinimized",
-	"positionAndSizeLocked",
-}
-
 var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
 	"name":                    {},
 	"isInOtherProjectConfigs": {},
@@ -616,17 +606,6 @@ func generatedPropertyNameSet(properties []TypeProperty) map[string]struct{} {
 	return names
 }
 
-func generatedCodeObjImplTypeForCodeObjName(codeObjName string) (reflect.Type, bool) {
-	implName := codeObjName + "CodeObjImpl"
-	for _, t := range DiscoveredConvertibleTypes() {
-		name, ok := generatedCodeObjImplName(t)
-		if ok && name == implName {
-			return t, true
-		}
-	}
-	return nil, false
-}
-
 func generatedSectionImplAliasPropertyOrder(sectionName string) []string {
 	switch sectionName {
 	case "Callable":
@@ -680,4 +659,15 @@ func generatedCodeObjImplAliasPropertyOrder(codeObjName string) []string {
 		}
 	}
 	return nil
+}
+
+func generatedCodeObjImplTypeForCodeObjName(codeObjName string) (reflect.Type, bool) {
+	implName := codeObjName + "CodeObjImpl"
+	for _, t := range DiscoveredConvertibleTypes() {
+		name, ok := generatedCodeObjImplName(t)
+		if ok && name == implName {
+			return t, true
+		}
+	}
+	return nil, false
 }

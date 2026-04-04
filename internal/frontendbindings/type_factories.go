@@ -821,6 +821,25 @@ func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bo
 	), true
 }
 
+func generatedCodeParamCodeObjFactoryEntries() []string {
+	properties, err := generatedUserDefaultCodeParamCodeObjProperties()
+	if err != nil {
+		panic("load generated user default code param properties: " + err.Error())
+	}
+	entries := []string{
+		"type: CodeObjTypeEnum.CodeParam",
+		`id: ""`,
+		`name: ""`,
+		`description: ""`,
+		"isPreset: false",
+		"passingStyle: ParameterPassingStyleEnum.DEFAULT",
+	}
+	for _, property := range properties {
+		entries = append(entries, property.Name+": resolved.defaults."+property.Name)
+	}
+	return entries
+}
+
 func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
 	return exportedFunctionDeclaration(
 		"createCodeParamCodeObjImpl",
@@ -828,15 +847,7 @@ func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
 		buildResolvedGeneratedFactoryBodyTS(
 			"UserDefaultCodeParamCodeObjImpl",
 			"CodeParamCodeObjImpl",
-			[]string{
-				"...resolved.defaults",
-				"type: CodeObjTypeEnum.CodeParam",
-				`id: ""`,
-				`name: ""`,
-				`description: ""`,
-				"isPreset: false",
-				"passingStyle: ParameterPassingStyleEnum.DEFAULT",
-			},
+			generatedCodeParamCodeObjFactoryEntries(),
 			"",
 			"",
 		),

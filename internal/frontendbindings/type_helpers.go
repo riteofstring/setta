@@ -619,11 +619,8 @@ func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
 		return nil, nil, nil, err
 	}
 	registry := make(map[string]TypeProperty, len(properties))
-	propertyOrder := append([]string(nil), generatedUserDefaultSectionBasePropertyOrder...)
+	propertyOrder := []string{}
 	options := generatedUserDefaultSectionMetadata(sectionName)
-	if len(options.PropertyOrder) > 0 {
-		properties = generatedUserDefaultSectionOrderedProperties(properties, options.PropertyOrder)
-	}
 	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, properties)
 	return registry, propertyOrder, options.IgnoredProperties, nil
 }
@@ -740,7 +737,6 @@ func generatedUserDefaultSectionPropertyTypeExpr(typeExpr string, defaultValue a
 }
 
 type generatedUserDefaultSectionMetadataOptions struct {
-	PropertyOrder     []string
 	IgnoredProperties map[string]struct{}
 }
 
@@ -748,15 +744,6 @@ func generatedUserDefaultSectionMetadata(sectionName string) generatedUserDefaul
 	switch sectionName {
 	case "Callable":
 		return generatedUserDefaultSectionMetadataOptions{
-			PropertyOrder: []string{
-				"hideUnpinnedParams",
-				"paramFilter",
-				"columnWidth",
-				"configLanguage",
-				"edgeInputParams",
-				"edgeOutputPorts",
-				"hideParams",
-			},
 			IgnoredProperties: reflectedIgnoredProperties(
 				"callable",
 				"codeObjVariantMap",
@@ -767,16 +754,6 @@ func generatedUserDefaultSectionMetadata(sectionName string) generatedUserDefaul
 		}
 	case "Dict":
 		return generatedUserDefaultSectionMetadataOptions{
-			PropertyOrder: []string{
-				"hideUnpinnedParams",
-				"paramFilter",
-				"columnWidth",
-				"configLanguage",
-				"edgeInputParams",
-				"edgeOutputPorts",
-				"isJsonSource",
-				"jsonSourceKeys",
-			},
 			IgnoredProperties: reflectedIgnoredProperties(
 				"codeObjVariantMap",
 				"pinnedParams",
@@ -788,34 +765,10 @@ func generatedUserDefaultSectionMetadata(sectionName string) generatedUserDefaul
 		}
 	case "Code":
 		return generatedUserDefaultSectionMetadataOptions{
-			PropertyOrder: []string{
-				"code",
-				"codeFileBinding",
-				"attachedTerminalSectionId",
-				"codeLanguage",
-				"diagnosticsIgnoreState",
-			},
 			IgnoredProperties: map[string]struct{}{},
 		}
 	case "Chat":
 		return generatedUserDefaultSectionMetadataOptions{
-			PropertyOrder: []string{
-				"managed",
-				"engineConfigId",
-				"transcriptionProfileId",
-				"agentProfileId",
-				"chatId",
-				"thinking",
-				"permissionMode",
-				"searchEnabled",
-				"dictationMode",
-				"messages",
-				"inputText",
-				"waitingForResponse",
-				"toolCallArguments",
-				"activeBranchId",
-				"branches",
-			},
 			IgnoredProperties: map[string]struct{}{},
 		}
 	default:
@@ -841,19 +794,15 @@ func generatedUserDefaultCodeParamCodeObjPropertyRegistry() (map[string]TypeProp
 		return nil, nil, err
 	}
 	registry := make(map[string]TypeProperty, len(properties))
-	order := []string{
-		"coreNameType",
-		"coreNameEditable",
-		"typeAnnotation",
-		"defaultVal",
-		"value",
-	}
+	order := []string{}
 	for _, property := range properties {
-		if property.Name == "type" || property.Name == "id" || property.Name == "name" || property.Name == "description" || property.Name == "isPreset" || property.Name == "passingStyle" {
+		switch property.Name {
+		case "type", "id", "name", "description", "isPreset", "passingStyle":
 			continue
 		}
 		property.Optional = false
 		registry[property.Name] = property
+		order = append(order, property.Name)
 	}
 	return registry, order, nil
 }
