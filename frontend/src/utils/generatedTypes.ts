@@ -2554,13 +2554,13 @@ export type BaseSectionImplUnion =
   | StateMachineStartSectionImpl
   | StateMachineGateSectionImpl
   | StateMachineEndSectionImpl
+  | ChartSectionImpl
   | TextBlockSectionImpl
   | PromptSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl
   | ChatSectionImpl
   | BrowserSectionImpl
-  | ChartSectionImpl
   | TaskBoardSectionImpl
   | SpreadsheetSectionImpl
   | BaseSectionImpl;
@@ -6524,6 +6524,8 @@ type BaseSectionImpl = {
   positionAndSizeLocked: boolean;
   isPreset: boolean;
   children?: Array<string>;
+  defaultChildSectionType?: SectionType;
+  viewMode?: ListRootViewMode;
   codeObjVariantMap?: Record<string, string>;
   hideUnpinnedParams?: boolean;
   paramFilter?: string;
@@ -6538,37 +6540,35 @@ type BaseSectionImpl = {
   isJsonSource?: boolean;
   jsonSourceKeys?: Array<string>;
   jsonSourceMissing?: boolean;
-  metaControlParamId?: string | null;
-  showSectionTitle?: boolean;
-  attachedTerminalSectionId?: string | null;
-  code?: string;
-  codeLanguage?: string;
-  codeFileBinding?: CodeFileBinding | null;
   messages?: Array<BaseChatMessageUnion>;
   inputText?: string;
   waitingForResponse?: boolean;
   toolCallArguments?: Record<string, string>;
-  pluginId?: string;
-  kind?: string;
-  data?: Record<string, unknown>;
-  schemaVersion?: number | null;
-  viewMode?: ListRootViewMode;
-  defaultChildSectionType?: SectionType;
+  code?: string;
+  codeFileBinding?: CodeFileBinding | null;
+  attachedTerminalSectionId?: string | null;
+  codeLanguage?: string;
+  folder?: string;
+  hideColumn?: boolean;
   isHorizontalOrientation?: boolean;
   overflowMode?: boolean;
-  hideColumn?: boolean;
-  folder?: string;
   filePath?: string;
   activeSheet?: string | null;
   readOnly?: boolean;
   showRowNumbers?: boolean;
   density?: string;
   autoReloadOnExternalChange?: boolean;
-  text?: string;
   metaControlStyle?: boolean;
-  imagePath?: string;
+  text?: string;
   dataPath?: string;
   chartSettings?: BaseChartSettingsUnion;
+  metaControlParamId?: string | null;
+  showSectionTitle?: boolean;
+  pluginId?: string;
+  kind?: string;
+  data?: Record<string, unknown>;
+  schemaVersion?: number | null;
+  imagePath?: string;
 };
 
 type UserDefaultListRootSectionImpl = {

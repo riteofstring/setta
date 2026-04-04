@@ -146,26 +146,20 @@ func generatedBaseSectionWithParamsImplUnionDeclaration() TypeDeclaration {
 }
 
 func generatedBaseDictSectionImplUnionDeclaration() TypeDeclaration {
+	properties := append(
+		[]TypeProperty(nil),
+		generatedSectionImplAliasProperties(reflect.TypeOf(DictSectionImpl{}), "Dict")...,
+	)
+	for index := range properties {
+		if properties[index].Name == "type" {
+			properties[index].TypeExpr = "typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables"
+			break
+		}
+	}
 	return aliasIntersectionDeclarationFromProperties(
 		"BaseDictSectionImplUnion",
 		"BaseSectionImpl",
-		[]TypeProperty{
-			{Name: "type", TypeExpr: "typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables"},
-			{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>"},
-			{Name: "hideUnpinnedParams", TypeExpr: "boolean"},
-			{Name: "paramFilter", TypeExpr: "string"},
-			{Name: "columnWidth", TypeExpr: "number | null"},
-			{Name: "configLanguage", TypeExpr: "string"},
-			{Name: "pinnedParams", TypeExpr: "Array<string>"},
-			{Name: "selectedParams", TypeExpr: "Array<string>"},
-			{Name: "ignoreTypeErrors", TypeExpr: "TypeErrorIgnoreState"},
-			{Name: "edgeInputParams", TypeExpr: "Array<string>"},
-			{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>"},
-			{Name: "topLevelParamId", TypeExpr: "string | null"},
-			{Name: "isJsonSource", TypeExpr: "boolean"},
-			{Name: "jsonSourceKeys", TypeExpr: "Array<string>"},
-			{Name: "jsonSourceMissing", TypeExpr: "boolean"},
-		},
+		properties,
 	)
 }
 
@@ -174,28 +168,9 @@ func generatedBaseSectionImplUnionDeclaration() TypeDeclaration {
 	return aliasUnionDeclaration("BaseSectionImplUnion", members...)
 }
 
-var generatedSectionImplOrder = []string{
-	"Callable",
-	"Dict",
-	"ListRoot",
-	"Group",
-	"StateMachineStart",
-	"StateMachineGate",
-	"StateMachineEnd",
-	"TextBlock",
-	"Prompt",
-	"Code",
-	"Terminal",
-	"Chat",
-	"Browser",
-	"Chart",
-	"TaskBoard",
-	"Spreadsheet",
-}
-
 func generatedSectionImplTypeNames() []string {
-	names := make([]string, 0, len(generatedSectionImplOrder))
-	for _, sectionName := range generatedSectionImplOrder {
+	names := []string{}
+	for _, sectionName := range mustGeneratedEnumValues(reflect.TypeOf(SectionType(""))) {
 		if t, ok := generatedSectionImplTypeForSectionName(sectionName); ok {
 			names = append(names, t.Name())
 		}
@@ -225,27 +200,9 @@ func generatedCodeObjUnionDeclaration(
 	return aliasUnionDeclaration(name, members...)
 }
 
-var generatedCodeObjImplOrder = []string{
-	"CodeCallable",
-	"CodeParam",
-	"TextParam",
-	"DateParam",
-	"TimeParam",
-	"ButtonParam",
-	"SliderParam",
-	"RotaryParam",
-	"SwitchParam",
-	"ColorPickerParam",
-	"DropdownParam",
-	"PasswordParam",
-	"TextAreaParam",
-	"DropzoneParam",
-	"NestedParam",
-}
-
 func generatedCodeObjImplTypeNames() []string {
-	names := make([]string, 0, len(generatedCodeObjImplOrder))
-	for _, codeObjName := range generatedCodeObjImplOrder {
+	names := []string{}
+	for _, codeObjName := range mustGeneratedEnumValues(reflect.TypeOf(CodeObjType(""))) {
 		if t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName); ok {
 			names = append(names, t.Name())
 		}
@@ -285,75 +242,41 @@ var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
 	"promptTemplateId":        {},
 }
 
-var generatedBaseSectionOptionalPropertyOrder = []string{
-	"children",
-	"codeObjVariantMap",
-	"hideUnpinnedParams",
-	"paramFilter",
-	"columnWidth",
-	"configLanguage",
-	"pinnedParams",
-	"selectedParams",
-	"ignoreTypeErrors",
-	"edgeInputParams",
-	"edgeOutputPorts",
-	"topLevelParamId",
-	"isJsonSource",
-	"jsonSourceKeys",
-	"jsonSourceMissing",
-	"metaControlParamId",
-	"showSectionTitle",
-	"attachedTerminalSectionId",
-	"code",
-	"codeLanguage",
-	"codeFileBinding",
-	"messages",
-	"inputText",
-	"waitingForResponse",
-	"toolCallArguments",
-	"pluginId",
-	"kind",
-	"data",
-	"schemaVersion",
-	"viewMode",
-	"defaultChildSectionType",
-	"isHorizontalOrientation",
-	"overflowMode",
-	"hideColumn",
-	"folder",
-	"filePath",
-	"activeSheet",
-	"readOnly",
-	"showRowNumbers",
-	"density",
-	"autoReloadOnExternalChange",
-	"text",
-	"metaControlStyle",
-	"imagePath",
-	"dataPath",
-	"chartSettings",
+var generatedBaseSectionOptionalPropertySeeds = []reflect.Type{
+	reflect.TypeOf(ListRootSectionImpl{}),
+	reflect.TypeOf(CallableSectionImpl{}),
+	reflect.TypeOf(DictSectionImpl{}),
+	reflect.TypeOf(ChatSectionState{}),
+	reflect.TypeOf(CodeSectionImpl{}),
+	reflect.TypeOf(BrowserSectionImpl{}),
+	reflect.TypeOf(GroupSectionImpl{}),
+	reflect.TypeOf(SpreadsheetSectionImpl{}),
+	reflect.TypeOf(TextBlockSectionImpl{}),
+	reflect.TypeOf(ChartSectionImpl{}),
+}
+
+var generatedBaseSectionOptionalIgnoredProperties = map[string]struct{}{
+	"callable":               {},
+	"hideParams":             {},
+	"activeBranchId":         {},
+	"branches":               {},
+	"diagnosticsIgnoreState": {},
+	"typesColumnWidth":       {},
+	"savedSearches":          {},
+	"format":                 {},
+	"masterFontSizePx":       {},
+	"headingAsSectionName":   {},
+	"textDisplayMode":        {},
 }
 
 var generatedBaseSectionOptionalPropertyTypeOverrides = map[string]string{
-	"configLanguage":     "string",
-	"metaControlParamId": "string | null",
-	"showSectionTitle":   "boolean",
-	"pluginId":           "string",
-	"kind":               "string",
-	"data":               "Record<string, unknown>",
-	"schemaVersion":      "number | null",
-	"density":            "string",
-	"imagePath":          "string",
+	"configLanguage": "string",
+	"density":        "string",
 }
 
-var generatedBaseCodeObjOptionalPropertyOrder = []string{
-	"children",
-	"coreNameType",
-	"coreNameEditable",
-	"passingStyle",
-	"typeAnnotation",
-	"defaultVal",
-	"value",
+var generatedBaseCodeObjOptionalPropertySeeds = []reflect.Type{
+	reflect.TypeOf(CodeCallableCodeObjImpl{}),
+	reflect.TypeOf(CodeParamCodeObjImpl{}),
 }
 
 func generatedConcreteSectionMetadataDeclaration(t reflect.Type) (TypeDeclaration, bool) {
@@ -478,77 +401,22 @@ func generatedCodeObjImplAliasProperties(
 }
 
 func generatedBaseSectionOptionalProperties(coreProperties []TypeProperty) []TypeProperty {
-	coreNames := generatedPropertyNameSet(coreProperties)
-	registry := make(map[string]TypeProperty, len(generatedBaseSectionOptionalPropertyOrder))
-
-	for _, sectionName := range generatedSectionImplOrder {
-		t, ok := generatedSectionImplTypeForSectionName(sectionName)
-		if !ok {
-			continue
-		}
-		for _, property := range mustGeneratedReflectedProperties(t) {
-			if _, ok := coreNames[property.Name]; ok {
-				continue
-			}
-			if _, exists := registry[property.Name]; exists {
-				continue
-			}
-			property.Optional = true
-			if override, ok := generatedBaseSectionOptionalPropertyTypeOverrides[property.Name]; ok {
-				property.TypeExpr = override
-			}
-			registry[property.Name] = property
-		}
-	}
-
-	for name, typeExpr := range generatedBaseSectionOptionalPropertyTypeOverrides {
-		if _, ok := registry[name]; ok {
-			continue
-		}
-		registry[name] = TypeProperty{Name: name, TypeExpr: typeExpr, Optional: true}
-	}
-
-	properties := make([]TypeProperty, 0, len(generatedBaseSectionOptionalPropertyOrder))
-	for _, name := range generatedBaseSectionOptionalPropertyOrder {
-		property, ok := registry[name]
-		if !ok {
-			continue
-		}
-		properties = append(properties, property)
-	}
-	return properties
+	properties := generatedSeedOptionalProperties(
+		coreProperties,
+		generatedBaseSectionOptionalPropertySeeds,
+		generatedBaseSectionOptionalIgnoredProperties,
+		generatedBaseSectionOptionalPropertyTypeOverrides,
+	)
+	return append(properties, generatedBaseSectionSyntheticOptionalProperties()...)
 }
 
 func generatedBaseCodeObjOptionalProperties(coreProperties []TypeProperty) []TypeProperty {
-	coreNames := generatedPropertyNameSet(coreProperties)
-	registry := make(map[string]TypeProperty, len(generatedBaseCodeObjOptionalPropertyOrder))
-
-	for _, codeObjName := range generatedCodeObjImplOrder {
-		t, ok := generatedCodeObjImplTypeForCodeObjName(codeObjName)
-		if !ok {
-			continue
-		}
-		for _, property := range mustGeneratedReflectedProperties(t) {
-			if _, ok := coreNames[property.Name]; ok {
-				continue
-			}
-			if _, exists := registry[property.Name]; exists {
-				continue
-			}
-			property.Optional = true
-			registry[property.Name] = property
-		}
-	}
-
-	properties := make([]TypeProperty, 0, len(generatedBaseCodeObjOptionalPropertyOrder))
-	for _, name := range generatedBaseCodeObjOptionalPropertyOrder {
-		property, ok := registry[name]
-		if !ok {
-			continue
-		}
-		properties = append(properties, property)
-	}
-	return properties
+	return generatedSeedOptionalProperties(
+		coreProperties,
+		generatedBaseCodeObjOptionalPropertySeeds,
+		nil,
+		nil,
+	)
 }
 
 func mustGeneratedSectionBaseCoreProperties() []TypeProperty {
@@ -596,6 +464,65 @@ func generatedPropertyNameSet(properties []TypeProperty) map[string]struct{} {
 	names := make(map[string]struct{}, len(properties))
 	for _, property := range properties {
 		names[property.Name] = struct{}{}
+	}
+	return names
+}
+
+func generatedSeedOptionalProperties(
+	coreProperties []TypeProperty,
+	seeds []reflect.Type,
+	ignoredNames map[string]struct{},
+	typeOverrides map[string]string,
+) []TypeProperty {
+	coreNames := generatedPropertyNameSet(coreProperties)
+	properties := make([]TypeProperty, 0, len(seeds)*4)
+	seen := make(map[string]struct{}, len(coreNames))
+
+	for name := range coreNames {
+		seen[name] = struct{}{}
+	}
+	for _, seed := range seeds {
+		for _, property := range mustGeneratedReflectedProperties(seed) {
+			if _, ok := seen[property.Name]; ok {
+				continue
+			}
+			if _, ok := ignoredNames[property.Name]; ok {
+				continue
+			}
+			property.Optional = true
+			if override, ok := typeOverrides[property.Name]; ok {
+				property.TypeExpr = override
+			}
+			properties = append(properties, property)
+			seen[property.Name] = struct{}{}
+		}
+	}
+	return properties
+}
+
+func generatedBaseSectionSyntheticOptionalProperties() []TypeProperty {
+	return []TypeProperty{
+		{Name: "metaControlParamId", TypeExpr: "string | null", Optional: true},
+		{Name: "showSectionTitle", TypeExpr: "boolean", Optional: true},
+		{Name: "pluginId", TypeExpr: "string", Optional: true},
+		{Name: "kind", TypeExpr: "string", Optional: true},
+		{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
+		{Name: "schemaVersion", TypeExpr: "number | null", Optional: true},
+		{Name: "imagePath", TypeExpr: "string", Optional: true},
+	}
+}
+
+func mustGeneratedEnumValues(t reflect.Type) []string {
+	values, ok, err := frontendBindingEnumValues(t)
+	if err != nil {
+		panic("resolve enum values for " + t.String() + ": " + err.Error())
+	}
+	if !ok {
+		panic("enum values unavailable for " + t.String())
+	}
+	names := make([]string, 0, len(values))
+	for _, value := range values {
+		names = append(names, value.Value)
 	}
 	return names
 }

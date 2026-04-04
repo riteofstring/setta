@@ -1535,6 +1535,8 @@ func TestTypeConverterUsesSectionAliasMetadataWithoutManualOverrides(t *testing.
 				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
 				{Name: "isPreset", TypeExpr: "boolean", Optional: false},
 				{Name: "children", TypeExpr: "Array<string>", Optional: true},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: true},
+				{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: true},
 				{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>", Optional: true},
 				{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: true},
 				{Name: "paramFilter", TypeExpr: "string", Optional: true},
@@ -1549,37 +1551,35 @@ func TestTypeConverterUsesSectionAliasMetadataWithoutManualOverrides(t *testing.
 				{Name: "isJsonSource", TypeExpr: "boolean", Optional: true},
 				{Name: "jsonSourceKeys", TypeExpr: "Array<string>", Optional: true},
 				{Name: "jsonSourceMissing", TypeExpr: "boolean", Optional: true},
-				{Name: "metaControlParamId", TypeExpr: "string | null", Optional: true},
-				{Name: "showSectionTitle", TypeExpr: "boolean", Optional: true},
-				{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: true},
-				{Name: "code", TypeExpr: "string", Optional: true},
-				{Name: "codeLanguage", TypeExpr: "string", Optional: true},
-				{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
 				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: true},
 				{Name: "inputText", TypeExpr: "string", Optional: true},
 				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: true},
 				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: true},
-				{Name: "pluginId", TypeExpr: "string", Optional: true},
-				{Name: "kind", TypeExpr: "string", Optional: true},
-				{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
-				{Name: "schemaVersion", TypeExpr: "number | null", Optional: true},
-				{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: true},
-				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: true},
+				{Name: "code", TypeExpr: "string", Optional: true},
+				{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
+				{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "codeLanguage", TypeExpr: "string", Optional: true},
+				{Name: "folder", TypeExpr: "string", Optional: true},
+				{Name: "hideColumn", TypeExpr: "boolean", Optional: true},
 				{Name: "isHorizontalOrientation", TypeExpr: "boolean", Optional: true},
 				{Name: "overflowMode", TypeExpr: "boolean", Optional: true},
-				{Name: "hideColumn", TypeExpr: "boolean", Optional: true},
-				{Name: "folder", TypeExpr: "string", Optional: true},
 				{Name: "filePath", TypeExpr: "string", Optional: true},
 				{Name: "activeSheet", TypeExpr: "string | null", Optional: true},
 				{Name: "readOnly", TypeExpr: "boolean", Optional: true},
 				{Name: "showRowNumbers", TypeExpr: "boolean", Optional: true},
 				{Name: "density", TypeExpr: "string", Optional: true},
 				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: true},
-				{Name: "text", TypeExpr: "string", Optional: true},
 				{Name: "metaControlStyle", TypeExpr: "boolean", Optional: true},
-				{Name: "imagePath", TypeExpr: "string", Optional: true},
+				{Name: "text", TypeExpr: "string", Optional: true},
 				{Name: "dataPath", TypeExpr: "string", Optional: true},
 				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: true},
+				{Name: "metaControlParamId", TypeExpr: "string | null", Optional: true},
+				{Name: "showSectionTitle", TypeExpr: "boolean", Optional: true},
+				{Name: "pluginId", TypeExpr: "string", Optional: true},
+				{Name: "kind", TypeExpr: "string", Optional: true},
+				{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "schemaVersion", TypeExpr: "number | null", Optional: true},
+				{Name: "imagePath", TypeExpr: "string", Optional: true},
 			},
 		},
 		{
@@ -1627,13 +1627,13 @@ func TestTypeConverterUsesSectionAliasMetadataWithoutManualOverrides(t *testing.
   | StateMachineStartSectionImpl
   | StateMachineGateSectionImpl
   | StateMachineEndSectionImpl
+  | ChartSectionImpl
   | TextBlockSectionImpl
   | PromptSectionImpl
   | CodeSectionImpl
   | TerminalSectionImpl
   | ChatSectionImpl
   | BrowserSectionImpl
-  | ChartSectionImpl
   | TaskBoardSectionImpl
   | SpreadsheetSectionImpl
   | BaseSectionImpl`,
