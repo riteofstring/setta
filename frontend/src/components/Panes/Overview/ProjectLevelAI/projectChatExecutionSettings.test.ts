@@ -1,4 +1,4 @@
-import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
+import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
   createAgentRun,
@@ -27,9 +27,10 @@ import {
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityDetails,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
+  resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
-} from "./projectChatCoreUtils";
+} from "./ProjectChatCore";
 import {
   resolveProjectChatHydrationAuthority,
   resolveProjectChatRunTypeForEngine,
@@ -393,6 +394,18 @@ describe("getProjectChatBlockedReasonMessage", () => {
     expect(
       getProjectChatBlockedReasonMessage("terminal_hydration_failure"),
     ).toContain("terminal hydration error");
+  });
+});
+
+describe("resolveWorkspaceRootPollDelayMs", () => {
+  it("keeps fast polling before stability threshold", () => {
+    expect(resolveWorkspaceRootPollDelayMs(0)).toBe(5000);
+    expect(resolveWorkspaceRootPollDelayMs(1)).toBe(5000);
+  });
+
+  it("backs off polling once the root is stable", () => {
+    expect(resolveWorkspaceRootPollDelayMs(2)).toBe(30000);
+    expect(resolveWorkspaceRootPollDelayMs(5)).toBe(30000);
   });
 });
 
@@ -843,20 +856,22 @@ describe("resolveProjectChatContextTelemetry", () => {
       contextWindowTokens: 200,
       contextUsedTokens: 150,
       contextUsageIsEstimated: true,
+      contextUsageUnavailable: false,
     });
   });
 
-  it("returns null telemetry without frontend estimates", () => {
+  it("marks context usage unavailable without frontend estimates", () => {
     const telemetry = resolveProjectChatContextTelemetry(null);
 
     expect(telemetry).toEqual({
       contextWindowTokens: null,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
     });
   });
 
-  it("returns partial telemetry when backend omits either field", () => {
+  it("marks context usage unavailable when backend omits either field", () => {
     const telemetry = resolveProjectChatContextTelemetry({
       contextWindowTokens: 4000,
       contextUsedTokens: null,
@@ -867,6 +882,7 @@ describe("resolveProjectChatContextTelemetry", () => {
       contextWindowTokens: 4000,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
     });
   });
 });

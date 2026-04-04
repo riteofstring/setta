@@ -41,4 +41,15 @@ describe("resolveEdgeStripHeight", () => {
       }),
     ).toBe(132);
   });
+
+  it("falls back to estimated height when measured is missing", () => {
+    const expected = getEdgeStripEstimatedHeight(1, 2);
+    expect(
+      resolveEdgeStripHeight({
+        measuredHeight: null,
+        inputPortCount: 1,
+        outputPortCount: 2,
+      }),
+    ).toBe(expected);
+  });
 });
