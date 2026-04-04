@@ -5068,10 +5068,13 @@ test("settings graph parity probe keeps the chart data path row attached after f
       child: dataPathRow,
       section: sectionLocator,
     });
+    const beforeDataPathRowBox = await dataPathRow.boundingBox();
     if (
       !beforeMetrics.transform ||
       !beforeMetrics.rect ||
-      !beforeAnchorPosition
+      !beforeMetrics.titleRect ||
+      !beforeAnchorPosition ||
+      !beforeDataPathRowBox
     ) {
       throw new Error(
         `Missing ${args.expectedSurfaceKind} chart toolbar zoom baseline metrics.`,
@@ -5120,7 +5123,14 @@ test("settings graph parity probe keeps the chart data path row attached after f
       child: dataPathRow,
       section: sectionLocator,
     });
-    if (!afterMetrics.transform || !afterMetrics.rect || !afterAnchorPosition) {
+    const afterDataPathRowBox = await dataPathRow.boundingBox();
+    if (
+      !afterMetrics.transform ||
+      !afterMetrics.rect ||
+      !afterMetrics.titleRect ||
+      !afterAnchorPosition ||
+      !afterDataPathRowBox
+    ) {
       throw new Error(
         `Missing ${args.expectedSurfaceKind} chart toolbar zoom result metrics.`,
       );
@@ -5130,12 +5140,14 @@ test("settings graph parity probe keeps the chart data path row attached after f
       afterMetrics: {
         centerOffsetFromRootCenter: afterMetrics.centerOffsetFromRootCenter,
         rect: afterMetrics.rect,
+        titleRect: afterMetrics.titleRect,
         transform: afterMetrics.transform,
       },
       anchorDrift: {
         x: Math.abs(afterAnchorPosition.x - beforeAnchorPosition.x),
         y: Math.abs(afterAnchorPosition.y - beforeAnchorPosition.y),
       },
+      dataPathRowBox: afterDataPathRowBox,
       paneState: await getLocalPaneState(args.targetPage),
       zoomDelta: afterMetrics.transform.zoom - beforeMetrics.transform.zoom,
     };
@@ -5228,6 +5240,30 @@ test("settings graph parity probe keeps the chart data path row attached after f
           referenceResult.afterMetrics.rect.height,
       ),
     ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.titleRect.width -
+          referenceResult.afterMetrics.titleRect.width,
+      ),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.titleRect.height -
+          referenceResult.afterMetrics.titleRect.height,
+      ),
+    ).toBeLessThan(6);
+    expect(
+      Math.abs(
+        worktreeResult.dataPathRowBox.width -
+          referenceResult.dataPathRowBox.width,
+      ),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(
+        worktreeResult.dataPathRowBox.height -
+          referenceResult.dataPathRowBox.height,
+      ),
+    ).toBeLessThan(6);
   } finally {
     await restoreCurrentPageState({
       backendOrigin: WORKTREE_BACKEND_ORIGIN,
