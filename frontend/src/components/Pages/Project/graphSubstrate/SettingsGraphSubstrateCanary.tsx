@@ -452,6 +452,32 @@ export function SettingsGraphSubstrateCanary() {
 
   useEffect(() => {
     const viewportController: CustomViewportController = {
+      panBy: (delta) => {
+        if (!delta.x && !delta.y) {
+          return false;
+        }
+        const baseViewport = canaryViewportStateRef.current.resolvedViewport;
+        if (!baseViewport) {
+          return false;
+        }
+        const nextViewport = translateViewport(baseViewport, delta);
+        if (
+          nextViewport.x === baseViewport.x &&
+          nextViewport.y === baseViewport.y
+        ) {
+          return false;
+        }
+        viewportOwnershipRef.current = "local";
+        setViewport((currentViewport) => {
+          const effectiveViewport =
+            currentViewport ?? canaryViewportStateRef.current.resolvedViewport;
+          if (!effectiveViewport) {
+            return currentViewport;
+          }
+          return translateViewport(effectiveViewport, delta);
+        });
+        return true;
+      },
       zoomBy: (factor: number) => {
         const { resolvedViewport, wrapperDimensions } =
           canaryViewportStateRef.current;

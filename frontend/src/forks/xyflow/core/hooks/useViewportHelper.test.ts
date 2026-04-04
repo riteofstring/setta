@@ -52,6 +52,7 @@ describe("useViewportHelper", () => {
 
     useReactFlow.setState({
       viewportController: {
+        panBy: vi.fn(() => true),
         zoomBy: vi.fn(),
         zoomTo,
         setViewport: setViewportSpy,
@@ -95,6 +96,7 @@ describe("useViewportHelper", () => {
         d3Zoom: { scaleBy } as never,
         domNode: new FakeElement() as never,
         viewportController: {
+          panBy: vi.fn(() => true),
           zoomBy,
           zoomTo: vi.fn(),
           setViewport: vi.fn(),

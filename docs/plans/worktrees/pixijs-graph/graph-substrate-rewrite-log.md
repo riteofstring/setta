@@ -4268,3 +4268,47 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pick one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane or the fit-after-manual-pan lane, and use it to hunt the next real canary-only motion artifact
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 14:29 EDT - Ralph item 126
+
+- Landed the shared programmatic `panBy(...)` path on the custom substrate and closed the normalized `panBy -> zoomIn` lane on the current run-045 surfaces.
+- Why this slice was necessary:
+  - item `125` had left one concrete renderer question open: after the same shared `fit view -> panBy({ x: -60, y: 30 }) -> zoomIn()` sequence, the canary landed on the pure-zoom transform while read-only `main` landed on the panned-then-zoomed transform
+  - the last two completed iterations were oracle-only, so the next valid step had to be a production fix or a tightly bounded normalization that directly answered that motion defect question
+- Production/test change:
+  - updated `frontend/src/forks/xyflow/core/types/general.ts`
+    - `CustomViewportController` now includes `panBy(delta)`
+  - updated `frontend/src/forks/xyflow/core/store/index.ts`
+    - `useReactFlow.getState().panBy(...)` now falls back to `viewportController.panBy(...)` when legacy d3 state is absent or stale instead of returning `false`
+  - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - the canary viewport controller now applies shared programmatic pan deltas through its local viewport owner so a follow-on `zoomIn()` composes against the panned transform
+  - added `frontend/src/forks/xyflow/core/store/index.test.ts`
+    - regression coverage for the shared store `panBy(...)` fallback
+  - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added opt-in probe `settings graph parity probe composes shared programmatic panBy and zoom in on read-only main legacy and worktree canary`
+  - updated existing typed viewport-controller mocks in the xyflow unit tests to include `panBy`
+- Verification:
+  - refreshed run-045 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-045/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-045/main-ai.log`
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/store/index.test.ts src/forks/xyflow/core/store/utils.test.ts src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/forks/xyflow/core/utils/graph.test.ts`
+    - result: passed (`4 files`, `21 tests`)
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-045 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-045 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe composes shared programmatic panBy and zoom in on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `36.2s`)
+  - fresh-context CDP sub-agent:
+    - the first pass surfaced a normalization trap: relative frontend `/api/...` fetches 404 on the live settings pages, so backend-origin `POST /api/setViewport` must be used for viewport-null resets during CDP work
+    - a corrected rerun reused the already-live `3075/settings` canary tab and `3087/settings` main tab, sourced each live `projectConfigId` from page state, cleared viewport to `null` via the backend origins, then ran one shared `fit view`, `panBy({ x: -60, y: 30 })`, and one `zoomIn()`
+    - chosen shared section: `browserSectionDefault`
+    - worktree transforms: before `638.88, -108.84, 0.12`; after fit `712.4, -51.7, 0.1`; after pan `652.4, -21.7, 0.1`; after zoom `638.88, -108.84, 0.12`
+    - main transforms: before `638.88, -108.84, 0.12`; after fit `712.4, -51.7, 0.1`; after pan `652.4, -21.7, 0.1`; after zoom `638.88, -108.84, 0.12`
+    - final body rect on both: `653.28, 80.76, 66.24 x 42.24`
+    - final title rect on both: `656.76, 81.36, 52.08 x 2.64`
+    - body/title stayed attached on both sides and no remaining canary-only drift was visible on this lane
+  - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; backend-origin viewport-null reset plus shared `fit view -> panBy -> zoomIn` now lands identically on `browserSectionDefault`)
+- Lane status:
+  - close the shared programmatic `panBy -> zoomIn` lane for the current run-045 surfaces
+  - treat the item `125` post-motion viewport offset as resolved by the new store/controller `panBy(...)` path rather than as lingering oracle noise
+  - do not reopen this lane unless a future normalized compare or deterministic probe reintroduces transform drift after shared programmatic viewport commands
+- Next frontier:
+  - move to one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane or the fit-after-manual-pan lane, and use it to hunt the next real canary-only motion artifact
+- LOOP_TERMINAL_MARKER: none

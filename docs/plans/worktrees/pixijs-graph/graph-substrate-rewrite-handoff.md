@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 13:56 EDT
+Last updated: 2026-04-04 14:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,47 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `126` landed the shared programmatic `panBy(...)` path on the custom substrate and closed the normalized `panBy -> zoomIn` lane on the current run-045 surfaces.
+  - Why this slice was needed:
+    - item `125` had left one concrete renderer question open: after the same shared `fit view -> panBy({ x: -60, y: 30 }) -> zoomIn()` sequence, the canary landed on the pure zoom transform while read-only `main` landed on the panned-then-zoomed transform
+    - the last two iterations had been oracle-only, so the next slice needed to resolve that concrete motion question with production code rather than another support-only compare
+  - What this slice established:
+    - `CustomViewportController` now exposes `panBy(...)`
+    - the shared `useReactFlow` store now falls back to `viewportController.panBy(...)` whenever the legacy d3 viewport is absent or stale
+    - `SettingsGraphSubstrateCanary` now applies programmatic pan deltas through its local viewport owner, so a shared `panBy(...)` composes correctly with a follow-on `zoomIn()` on the same live canary path
+    - the new targeted Playwright parity probe `settings graph parity probe composes shared programmatic panBy and zoom in on read-only main legacy and worktree canary` passed on the live run-045 worktree/main runtimes
+    - a corrected fresh-context CDP compare normalized both live tabs via backend-origin `POST /api/setViewport { viewport: null }`, ran one shared `fit view`, then ran the same programmatic `panBy({ x: -60, y: 30 }) -> zoomIn()` sequence on `browserSectionDefault`; both sides landed on the same viewport transform and identical body/title geometry
+  - Production/test change:
+    - updated `frontend/src/forks/xyflow/core/types/general.ts`
+    - updated `frontend/src/forks/xyflow/core/store/index.ts`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - added `frontend/src/forks/xyflow/core/store/index.test.ts`
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - updated existing typed viewport-controller mocks in the xyflow unit tests
+  - Automated result:
+    - refreshed run-045 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-045/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-045/main-ai.log`
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/store/index.test.ts src/forks/xyflow/core/store/utils.test.ts src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/forks/xyflow/core/utils/graph.test.ts`
+      - result: passed (`4 files`, `21 tests`)
+    - targeted direct live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-045 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-045 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe composes shared programmatic panBy and zoom in on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `36.2s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent:
+      - reused the already-live `3075/settings` canary tab and `3087/settings` main tab because the bootstrap URLs had expired by the time CDP reran
+      - sourced each live `projectConfigId` from page state, then cleared viewport via backend-origin `POST /api/setViewport { viewport: null }`
+      - after shared fit on both: viewport `x=712.4 y=-51.7 zoom=0.1`
+      - after shared `panBy({ x: -60, y: 30 })` on both: viewport `x=652.4 y=-21.7 zoom=0.1`
+      - after one shared `zoomIn()` on both: viewport `x=638.88 y=-108.84 zoom=0.12`
+      - final body geometry on both: `653.28, 80.76, 66.24 x 42.24`
+      - final title geometry on both: `656.76, 81.36, 52.08 x 2.64`
+      - body/title stayed attached on both sides with no remaining canary-only drift
+    - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; backend-origin viewport-null reset plus shared `fit view -> panBy -> zoomIn` now lands identically on `browserSectionDefault`)
+  - conclusion for this slice:
+    - close the shared programmatic `panBy -> zoomIn` lane for the current run-045 surfaces
+    - treat the item `125` post-motion viewport offset as resolved by the new store/controller `panBy(...)` path rather than as lingering oracle noise
+    - when future CDP work needs viewport-null normalization on live tabs, use backend-origin `POST /api/setViewport` rather than relative frontend `/api/...` routes, which 404 on these live settings pages
 - Ralph item `125` closed the shared title-edit-after-pan-and-zoom lane as clean on the current run-044 surfaces, without adding another probe or product change.
   - Why this slice was needed:
     - the last few iterations had been live-oracle-only, and this existing Playwright-backed motion/editing lane had not yet been explicitly closed in the handoff
@@ -3225,6 +3266,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `125`
-- Latest item: `2026-04-04 125`
+- Active history window: items `001` through `126`
+- Latest item: `2026-04-04 126`
 - Older history archives: none yet

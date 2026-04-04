@@ -141,6 +141,7 @@ describe("movePaneToIncludeElement", () => {
       height: 800,
       transform: [0, 0, 0.1],
       viewportController: {
+        panBy: vi.fn(() => true),
         zoomBy: vi.fn(),
         zoomTo: vi.fn(),
         setViewport: setViewportSpy,
@@ -181,6 +182,7 @@ describe("movePaneToIncludeElement", () => {
       height: 800,
       transform: [0, 0, 0.1],
       viewportController: {
+        panBy: vi.fn(() => true),
         zoomBy: vi.fn(),
         zoomTo: vi.fn(),
         setViewport: setViewportSpy,

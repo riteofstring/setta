@@ -5970,6 +5970,302 @@ test("settings graph parity probe keeps shared title editing working after norma
   }
 });
 
+test("settings graph parity probe composes shared programmatic panBy and zoom in on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const sharedSection = findSharedVisibleTopLevelSectionByName({
+    preferredNames: ["browserSectionDefault", "taskBoardSectionDefault"],
+    referenceState: referenceInitialState,
+    viewModeName: "All Settings",
+    worktreeState: worktreeInitialState,
+  });
+  const panDelta = { x: -60, y: 30 };
+
+  async function captureProgrammaticPanByAndZoom(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    targetPage: Page;
+  }) {
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    const sectionLocator = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const titleText = sectionLocator.locator("header p").first();
+
+    await expect(sectionLocator).toBeVisible();
+    await expect(titleText).toBeVisible();
+
+    const beforeMotion = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (
+      !beforeMotion.rect ||
+      !beforeMotion.titleRect ||
+      !beforeMotion.transform
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} programmatic pan baseline metrics.`,
+      );
+    }
+
+    await args.targetPage.evaluate(async (delta) => {
+      const { zoomIn } = await import(
+        "/src/forks/xyflow/core/hooks/useViewportHelper.ts"
+      );
+      const { useReactFlow } = await import("/src/forks/xyflow/core/store");
+      zoomIn.cancel();
+      useReactFlow.getState().panBy(delta);
+      zoomIn();
+      if (typeof zoomIn.flush === "function") {
+        zoomIn.flush();
+      }
+    }, panDelta);
+
+    await expect
+      .poll(async () => {
+        const transform = (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).transform;
+        if (!transform) {
+          return 0;
+        }
+        return Math.hypot(
+          transform.x - beforeMotion.transform.x,
+          transform.y - beforeMotion.transform.y,
+        );
+      })
+      .toBeGreaterThan(20);
+
+    await expect
+      .poll(async () => {
+        return (
+          (
+            await captureSettingsGraphSectionMetrics(
+              args.targetPage,
+              args.sectionId,
+            )
+          ).transform?.zoom ?? 0
+        );
+      })
+      .toBeGreaterThan(beforeMotion.transform.zoom * 1.08);
+
+    const afterMotion = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!afterMotion.rect || !afterMotion.titleRect || !afterMotion.transform) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} programmatic pan result metrics.`,
+      );
+    }
+
+    await expect(titleText).toBeVisible();
+
+    return {
+      paneState: await getLocalPaneState(args.targetPage),
+      rect: afterMotion.rect,
+      titleRect: afterMotion.titleRect,
+      transform: afterMotion.transform,
+      zoomDelta: afterMotion.transform.zoom - beforeMotion.transform.zoom,
+    };
+  }
+
+  try {
+    const referenceResult = await captureProgrammaticPanByAndZoom({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      pageTab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: referenceProjectConfigId,
+      sectionId: sharedSection.referenceSectionId,
+      targetPage: referencePage,
+    });
+    const worktreeResult = await captureProgrammaticPanByAndZoom({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      pageTab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: sharedSection.worktreeSectionId,
+      targetPage: page,
+    });
+
+    expect(referenceResult.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(
+      Math.abs(worktreeResult.transform.x - referenceResult.transform.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeResult.transform.y - referenceResult.transform.y),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeResult.transform.zoom - referenceResult.transform.zoom),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(worktreeResult.zoomDelta - referenceResult.zoomDelta),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(worktreeResult.rect.x - referenceResult.rect.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeResult.rect.y - referenceResult.rect.y),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeResult.rect.width - referenceResult.rect.width),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeResult.rect.height - referenceResult.rect.height),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeResult.titleRect.x - referenceResult.titleRect.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeResult.titleRect.y - referenceResult.titleRect.y),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.titleRect.width - referenceResult.titleRect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.titleRect.height - referenceResult.titleRect.height,
+      ),
+    ).toBeLessThan(8);
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 async function bootstrapReferenceSettingsPage(page: Page): Promise<void> {
   await page.goto(MAIN_REFERENCE_BOOTSTRAP_URL, {
     waitUntil: "domcontentloaded",

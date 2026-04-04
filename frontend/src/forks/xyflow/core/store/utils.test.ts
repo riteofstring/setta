@@ -30,6 +30,7 @@ describe("store utils", () => {
 
     useReactFlow.setState({
       viewportController: {
+        panBy: vi.fn(() => true),
         zoomBy: vi.fn(),
         zoomTo: vi.fn(),
         setViewport: vi.fn(),
@@ -50,6 +51,7 @@ describe("store utils", () => {
       d3Zoom: { transform: vi.fn() } as never,
       d3Selection: { node: () => null } as never,
       viewportController: {
+        panBy: vi.fn(() => true),
         zoomBy: vi.fn(),
         zoomTo: vi.fn(),
         setViewport: vi.fn(),
@@ -71,6 +73,7 @@ describe("store utils", () => {
       fitViewOnInit: true,
       fitViewOnInitDone: true,
       viewportController: {
+        panBy: vi.fn(() => true),
         zoomBy: vi.fn(),
         zoomTo: vi.fn(),
         setViewport: vi.fn(),

@@ -37,6 +37,7 @@ export type ViewportZoomOptions = ViewportTransitionOptions & {
 };
 
 export type CustomViewportController = {
+  panBy: (delta: Position) => boolean;
   zoomBy: (factor: number, options?: ViewportTransitionOptions) => void;
   zoomTo: (zoomLevel: number, options?: ViewportTransitionOptions) => void;
   setViewport: (
