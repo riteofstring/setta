@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 13:00 EDT
+Last updated: 2026-04-04 13:20 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `123` closed the bounded live `taskBoardSectionDefault` fit-plus-zoom lane as clean on the current run-042 surfaces, without adding another probe.
+  - Why this slice was needed:
+    - item `122` had already closed the task-board short blank-pane pan lane, but the recent task-board work still lacked one direct live readout for the same visible section after a shared `fit view` plus one `zoom in`
+    - the narrowest valid next step was therefore one bounded live oracle check that could decide whether the small pre-fit task-board offset was a real zoom artifact or just normalization noise, without opening another harness-only lane
+  - What this slice established:
+    - a fresh-context CDP sub-agent read the browser MCP quickstart, then opened fresh live tabs for worktree `3075` and read-only `3087`
+    - both surfaces were normalized to active `All Settings`, fit to the shared `taskBoardSectionDefault` baseline, and then given one `zoom in` click
+    - before the shared fit, the task-board card still showed the same small static absolute offset as the prior short-pan lane (`3075`: `712.4, 524.3`; `3087`: `721.4, 530.3`)
+    - after the shared fit, both surfaces matched on viewport `translate(712.4px, -51.7px) scale(0.1)` and the task-board rect matched
+    - after one `zoom in`, both surfaces matched again on viewport `translate(710.88px, -144.84px) scale(0.12)`, task-board rect `793.68, 546.36, 66.24 x 42.24`, and task-board args/filter strip offsets (`args dx/dy = 0.12 / 3.72`, `filter dx/dy = 20.23 / 3.72`)
+    - there was no canary-only detachment, disappearance, or drift on this lane
+  - Automated result:
+    - no production or test files changed in this slice
+    - no Playwright rerun was added because this was intentionally one bounded live-oracle follow-up on the already-covered task-board default lane family, and the compare did not expose a concrete renderer question that needed new automated coverage
+  - Live verification result:
+    - refreshed run-042 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-042/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-042/main-ai.log`
+    - fresh-context CDP sub-agent readout on the normalized task-board fit-plus-zoom lane:
+      - before fit on both: viewport `translate(652.4px, -51.7px) scale(0.1)` with the same small static task-board rect offset (`3075`: `712.4, 524.3`; `3087`: `721.4, 530.3`)
+      - after fit on both: viewport `translate(712.4px, -51.7px) scale(0.1)`
+      - after one `zoom in` on both: viewport `translate(710.88px, -144.84px) scale(0.12)` with identical task-board rect `793.68, 546.36, 66.24 x 42.24`
+      - args/filter strip internal offsets matched after zoom on both sides (`args dx/dy = 0.12 / 3.72`, `filter dx/dy = 20.23 / 3.72`)
+    - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; `taskBoardSectionDefault` fit-plus-zoom lane is clean, and the small pre-fit task-board offset disappears after the shared fit)
+  - conclusion for this slice:
+    - close the `taskBoardSectionDefault` fit-plus-zoom lane for the current run-042 surfaces
+    - treat the small pre-fit task-board rect offset as normalization noise that vanishes after the shared fit, not as a zoom-path renderer bug
+    - do not reopen the default task-board motion lane family unless a future compare shows post-fit or post-zoom drift
+    - the next iteration should pivot away from task-board default motion lanes and hunt the first concrete production renderer question on a truly new visible lane, with production-fix work preferred over another harness-only pass
 - Ralph item `122` closed the bounded live `taskBoardSectionDefault` short blank-pane pan lane as clean on the current run-041 surfaces, without adding another probe.
   - Why this slice was needed:
     - items `120` and `121` had already closed Browser anchor guesswork and the task-board top-level drag lane, but the last two iterations were still harness-only
