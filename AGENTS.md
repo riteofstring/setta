@@ -1,43 +1,32 @@
 # Repository Guidelines
 
-## Core Priorities
+## Remember This First
 
-- Treat `cmd/` and `internal/` as the backend runtime. Treat `backend/setta/` as the Python package surface.
+- Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package surface, and `frontend/` as the React/Vite UI.
 - Go is the default source of truth for canonical behavior, validation, derived metadata, correctness-sensitive local runtime behavior, and shared contracts unless the developer explicitly says otherwise.
-- Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with a concrete justification.
-- Regenerate endpoints and generated types instead of hand-syncing them.
-- Prefer explicit, typed implementations.
+- Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with concrete justification.
+- Regenerate endpoints and generated types instead of hand-syncing them. Prefer explicit, typed implementations.
+- `setta_files/` is local runtime state, not fixtures, and must not be committed.
 
-## Ownership
+## Ownership & Source Of Truth
 
-- `cmd/` contains the active Go entrypoints.
-- `internal/` contains the backend runtime, transports, services, project state, generators, and related tests.
-- `backend/setta/` contains the Python package surface, SDK glue, generated Python types/helpers, packaged assets, and binaries.
-- `frontend/` contains the React/Vite UI; keep app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
-- `setta_files/` is local runtime state, not a fixture source, and must not be committed.
+- `cmd/` contains the active Go entrypoints. `internal/` contains the backend runtime, transports, services, project state, generators, and related tests.
+- `backend/setta/` contains the Python package surface, SDK glue, generated Python types/helpers, packaged assets, and binaries. Keep `backend/setta/api/` as a thin client/SDK surface, not a second backend runtime.
+- `frontend/` contains the UI; keep app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
 - Go tests belong with packages under `cmd/*` and `internal/*`. Python/package pytest coverage belongs under `tests/`.
+- Distinguish `Go-owned Python types` from `Go-backed Python`: generated Go-owned contracts/models replace handwritten schema mirrors, while canonical local Setta behavior is only Go-backed when it delegates to Go through the running backend or `setta sdk-local-core`.
+- Generated Python models or parsing backend-authored DTOs do not, by themselves, make behavior Go-backed or require a local Go subprocess call.
+- Python may keep ergonomic helper behavior such as transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders over authoritative contracts.
 - Before deleting a Python file outside `backend/setta/`, identify the surviving caller or replacement owner in the diff or final summary.
-
-## Go-Backed Python
-
-- Distinguish `Go-owned Python types` from `Go-backed Python`.
-- `Go-owned Python types` means Python uses generated Go-owned contracts/models instead of handwritten schema mirrors.
-- `Go-backed Python` means canonical local Setta behavior delegates to Go, either through the running backend or through `setta sdk-local-core`.
-- Generated Python models alone do not make behavior Go-backed.
-- Python should keep ergonomic helper behavior such as transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders over authoritative contracts.
-- Parsing backend-authored payloads or using generated DTOs does not, by itself, require a local Go subprocess call.
 
 ## Generation & Contracts
 
-- Minimize duplicated logic across Go, Python, and TypeScript.
-- Prefer generic, discovery-driven generation over hand-maintained allowlists or brittle special cases.
+- Minimize duplicated logic across Go, Python, and TypeScript. Prefer generic, discovery-driven generation over hand-maintained allowlists or brittle special cases.
 - Do not embed substantial Python or TypeScript source as raw strings inside generation scripts.
-- Backend and frontend endpoint functions must have the exact same name.
-- On the frontend, use route functions from `generatedEndpoints`.
+- Backend and frontend endpoint functions must have the exact same name, and frontend code should use route functions from `generatedEndpoints`.
 - Regenerate after editing `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface.
-- If you need new generated outputs, generate them before cleanup, or cleanup can remove them as unused.
-- Use `./gcf.sh` for the full generate/cleanup/format wrapper when needed.
-- Large diffs after generation or cleanup can be expected.
+- If you need new generated outputs, generate them before cleanup or cleanup can remove them as unused.
+- Use `./gcf.sh` for the full generate/cleanup/format wrapper when needed. Large diffs after generation or cleanup are normal.
 - Do not manually edit `backend/setta/types/generated`.
 
 ## Workflow & Verification
@@ -49,14 +38,13 @@
 - Default test entrypoints are `./scripts/run_go_tests.sh`, `./scripts/run_backend_tests.sh`, `pnpm -C frontend exec vitest run <path>`, and `./scripts/run-playwright-e2e.sh`.
 - Run `./check_quality.sh` before committing unless the developer explicitly scopes verification differently.
 - Do not skip tests broadly. Missing dependencies or capabilities should usually fail loudly, and any skip should be narrow and justified.
+- Tests must use temporary directories instead of `setta_files`, must not mutate real git history, and should exercise production paths rather than mocks or test-only code paths.
 - UI changes require chrome-devtools visual verification when relevant. Never start `./ai.sh`, `./aireset.sh`, `pnpm ai`, `pnpm -C frontend ai`, or `pnpm -C frontend aireset` yourself; the developer starts CDP sessions.
 - Final responses for UI work must include `CDP visual check: done (...)` or `CDP visual check: not run (reason)`.
-- Tests must use temporary directories instead of `setta_files`, must not mutate real git history, and should exercise production paths rather than mocks or test-only code paths.
 
 ## Coding & Safety
 
 - Keep Go HTTP routes thin under `internal/httpapi`, websocket transports thin under `internal/wsapi`, and business logic in focused `internal/*` services.
-- Keep `backend/setta/api/` as a thin client/SDK surface rather than a second backend runtime.
 - Keep code explicit and low-complexity. Avoid unnecessary `any`, nested ternaries, div soup, and unused parameters.
 - Frontend code must handle very large DOMs efficiently. Default dropdown and selection UIs to the shared combobox system unless there is a documented reason not to.
 - Use `TYPE_CHECKING` blocks when possible, keep imports at the top of the file, and do not import annotations from `__future__`.
