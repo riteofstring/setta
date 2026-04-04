@@ -154,6 +154,110 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "SectionSizingPolicyTypeEntry",
+			root: reflect.TypeOf(SectionSizingPolicyTypeEntry{}),
+			properties: []TypeProperty{
+				{Name: "minHeight", TypeExpr: "number", Optional: false},
+				{Name: "maxHeight", TypeExpr: "number", Optional: false},
+				{Name: "minWidth", TypeExpr: "number", Optional: false},
+				{Name: "maxWidth", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "MetaControlSizingPolicyTypeEntry",
+			root: reflect.TypeOf(MetaControlSizingPolicyTypeEntry{}),
+			properties: []TypeProperty{
+				{Name: "minHeight", TypeExpr: "number", Optional: false},
+				{Name: "minWidth", TypeExpr: "number", Optional: false},
+				{Name: "sizeModeHeight", TypeExpr: "MetaControlSizeMode", Optional: false},
+				{Name: "sizeModeWidth", TypeExpr: "MetaControlSizeMode", Optional: false},
+			},
+		},
+		{
+			name: "MetaControlSizingPolicyByType",
+			root: reflect.TypeOf(MetaControlSizingPolicyByType{}),
+			properties: []TypeProperty{
+				{Name: "CodeCallable", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "CodeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "TextParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "DateParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "TimeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "ButtonParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "SliderParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "RotaryParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "SwitchParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "ColorPickerParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "DropdownParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "PasswordParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "TextAreaParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "DropzoneParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+				{Name: "NestedParam", TypeExpr: "MetaControlSizingPolicyTypeEntry", Optional: false},
+			},
+		},
+		{
+			name: "SectionSizingPolicyGlobals",
+			root: reflect.TypeOf(SectionSizingPolicyGlobals{}),
+			properties: []TypeProperty{
+				{Name: "pinnedParamsAreaMinHeight", TypeExpr: "number", Optional: false},
+				{Name: "unpinnedParamsAreaMinHeight", TypeExpr: "number", Optional: false},
+				{Name: "minimizedHeight", TypeExpr: "number", Optional: false},
+				{Name: "infiniteMaxHeight", TypeExpr: "number", Optional: false},
+				{Name: "infiniteMaxWidth", TypeExpr: "number", Optional: false},
+				{Name: "autoMaxHeight", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "SectionSizingPolicyByType",
+			root: reflect.TypeOf(SectionSizingPolicyByType{}),
+			properties: []TypeProperty{
+				{Name: "Callable", TypeExpr: "SectionSizingPolicyCallableTypeEntry", Optional: false},
+				{Name: "Dict", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "ListRoot", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Group", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "StateMachineStart", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "StateMachineGate", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "StateMachineEnd", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Image", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Chart", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Draw", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Prompt", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "TextBlock", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "MetaControl", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Social", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "GlobalVariables", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Code", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "GenPythonCode", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "GenPythonMetadata", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Terminal", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "IFrame", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Chat", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Browser", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Plugin", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "TaskBoard", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+				{Name: "Spreadsheet", TypeExpr: "SectionSizingPolicyTypeEntry", Optional: false},
+			},
+		},
+		{
+			name: "SectionSizingPolicy",
+			root: reflect.TypeOf(SectionSizingPolicy{}),
+			properties: []TypeProperty{
+				{Name: "byType", TypeExpr: "SectionSizingPolicyByType", Optional: false},
+				{Name: "metaControlByType", TypeExpr: "MetaControlSizingPolicyByType", Optional: false},
+				{Name: "globals", TypeExpr: "SectionSizingPolicyGlobals", Optional: false},
+			},
+		},
+		{
+			name: "SettingsState",
+			root: reflect.TypeOf(SettingsState{}),
+			properties: []TypeProperty{
+				{Name: "shortcuts", TypeExpr: "SettingsShortcuts", Optional: false},
+				{Name: "gui", TypeExpr: "SettingsGUI", Optional: false},
+				{Name: "backend", TypeExpr: "SettingsBackend", Optional: false},
+				{Name: "sectionSizingPolicy", TypeExpr: "SectionSizingPolicy", Optional: false},
+				{Name: "languageServer", TypeExpr: "Record<string, unknown>", Optional: false},
+			},
+		},
+		{
 			name: "RunCodeRequestInput",
 			root: reflect.TypeOf(RunCodeRequestInput{}),
 			properties: []TypeProperty{
@@ -1067,6 +1171,7 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "SettingsShortcuts" ||
 				tt.name == "SettingsGUI" ||
 				tt.name == "SettingsBackend" ||
+				tt.name == "SectionSizingPolicyGlobals" ||
 				tt.name == "StateMachineSourceFilter" ||
 				tt.name == "StateMachineSourceActivationCountCondition" ||
 				tt.name == "StateMachineTargetAction" ||
@@ -1117,6 +1222,12 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "WindowSpaceState" ||
 				tt.name == "WindowSpaceConfig") && declaration.CreateExpr == "" {
 				t.Fatalf("%s should use a Go-backed create expr", tt.name)
+			}
+			if (tt.name == "MetaControlSizingPolicyByType" ||
+				tt.name == "SectionSizingPolicyByType" ||
+				tt.name == "SectionSizingPolicy" ||
+				tt.name == "SettingsState") && declaration.CreateBody == "" {
+				t.Fatalf("%s should use a structured create body", tt.name)
 			}
 		})
 	}

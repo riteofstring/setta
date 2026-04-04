@@ -364,72 +364,6 @@ func EnumValuesForType(t reflect.Type) ([]EnumValue, bool, error) {
 	return enumValues, true, nil
 }
 
-type metaControlSizingPolicyTypeEntryDefault struct {
-	MinHeight      float64 `json:"minHeight"`
-	MinWidth       float64 `json:"minWidth"`
-	SizeModeHeight string  `json:"sizeModeHeight"`
-	SizeModeWidth  string  `json:"sizeModeWidth"`
-}
-
-type sectionSizingPolicyTypeEntryDefault struct {
-	MinHeight float64 `json:"minHeight"`
-	MaxHeight float64 `json:"maxHeight"`
-	MinWidth  float64 `json:"minWidth"`
-	MaxWidth  float64 `json:"maxWidth"`
-}
-
-type sectionSizingPolicyCallableTypeEntryDefault struct {
-	sectionSizingPolicyTypeEntryDefault
-	HideSearchMinHeight float64 `json:"hideSearchMinHeight"`
-	HideParamsMinHeight float64 `json:"hideParamsMinHeight"`
-}
-
-var defaultMetaControlSizingPolicyByType = map[string]metaControlSizingPolicyTypeEntryDefault{
-	"ButtonParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"CodeCallable":     {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"CodeParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"ColorPickerParam": {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"DateParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"DropdownParam":    {MinHeight: 32, MinWidth: 200, SizeModeHeight: "auto_only", SizeModeWidth: "any"},
-	"DropzoneParam":    {MinHeight: 120, MinWidth: 240, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"NestedParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"PasswordParam":    {MinHeight: 32, MinWidth: 200, SizeModeHeight: "auto_only", SizeModeWidth: "any"},
-	"RotaryParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"SliderParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "auto_only", SizeModeWidth: "any"},
-	"SwitchParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"TextAreaParam":    {MinHeight: 80, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"TextParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-	"TimeParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
-}
-
-var defaultSectionSizingPolicyByType = map[string]any{
-	"Browser":           sectionSizingPolicyTypeEntryDefault{MinHeight: 250, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"Callable":          sectionSizingPolicyCallableTypeEntryDefault{sectionSizingPolicyTypeEntryDefault: sectionSizingPolicyTypeEntryDefault{MinHeight: 104, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000}, HideSearchMinHeight: 42, HideParamsMinHeight: 90},
-	"Chart":             sectionSizingPolicyTypeEntryDefault{MinHeight: 300, MaxHeight: 100000, MinWidth: 300, MaxWidth: 100000},
-	"Chat":              sectionSizingPolicyTypeEntryDefault{MinHeight: 200, MaxHeight: 100000, MinWidth: 400, MaxWidth: 100000},
-	"Code":              sectionSizingPolicyTypeEntryDefault{MinHeight: 58.2, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"Dict":              sectionSizingPolicyTypeEntryDefault{MinHeight: 78, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"Draw":              sectionSizingPolicyTypeEntryDefault{MinHeight: 100, MaxHeight: 100000, MinWidth: 402, MaxWidth: 100000},
-	"GenPythonCode":     sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"GenPythonMetadata": sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"GlobalVariables":   sectionSizingPolicyTypeEntryDefault{MinHeight: 78, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"Group":             sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"IFrame":            sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"Image":             sectionSizingPolicyTypeEntryDefault{MinHeight: 100, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"ListRoot":          sectionSizingPolicyTypeEntryDefault{MinHeight: 50, MaxHeight: 50, MinWidth: 200, MaxWidth: 100000},
-	"MetaControl":       sectionSizingPolicyTypeEntryDefault{MinHeight: 10, MaxHeight: 100000, MinWidth: 100, MaxWidth: 100000},
-	"Plugin":            sectionSizingPolicyTypeEntryDefault{MinHeight: 80, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"Prompt":            sectionSizingPolicyTypeEntryDefault{MinHeight: 150, MaxHeight: 100000, MinWidth: 300, MaxWidth: 100000},
-	"Social":            sectionSizingPolicyTypeEntryDefault{MinHeight: 50, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"Spreadsheet":       sectionSizingPolicyTypeEntryDefault{MinHeight: 260, MaxHeight: 100000, MinWidth: 420, MaxWidth: 100000},
-	"StateMachineEnd":   sectionSizingPolicyTypeEntryDefault{MinHeight: 96, MaxHeight: 100000, MinWidth: 240, MaxWidth: 100000},
-	"StateMachineGate":  sectionSizingPolicyTypeEntryDefault{MinHeight: 120, MaxHeight: 100000, MinWidth: 240, MaxWidth: 100000},
-	"StateMachineStart": sectionSizingPolicyTypeEntryDefault{MinHeight: 96, MaxHeight: 100000, MinWidth: 240, MaxWidth: 100000},
-	"TaskBoard":         sectionSizingPolicyTypeEntryDefault{MinHeight: 240, MaxHeight: 100000, MinWidth: 360, MaxWidth: 100000},
-	"Terminal":          sectionSizingPolicyTypeEntryDefault{MinHeight: 100, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
-	"TextBlock":         sectionSizingPolicyTypeEntryDefault{MinHeight: 49, MaxHeight: 100000, MinWidth: 100, MaxWidth: 100000},
-}
-
 func mustTSLiteralValueFromGoValue(context string, value any) any {
 	payload, err := json.Marshal(value)
 	if err != nil {
@@ -619,28 +553,72 @@ func buildTSNestedObjectMergeCreateBodyTS(
 }
 
 func buildMetaControlSizingPolicyByTypeCreateBodyTS() string {
+	defaults := projectstate.FrontendDefaultMetaControlSizingPolicyByType()
 	return buildTSNestedObjectMergeCreateBodyTS(
 		"MetaControlSizingPolicyByType",
 		"MetaControlSizingPolicyTypeEntry",
 		mustTSLiteralObjectFromGoValue(
 			"meta control sizing policy defaults",
-			defaultMetaControlSizingPolicyByType,
+			defaults,
 		),
 		orderedTypePropertyNames(metaControlSizingPolicyByTypeProperties()),
-		goJSONFieldOrderMap(defaultMetaControlSizingPolicyByType),
+		goJSONFieldOrderMap(map[string]projectstate.FrontendMetaControlSizingPolicyTypeEntry{
+			"CodeCallable":     defaults.CodeCallable,
+			"CodeParam":        defaults.CodeParam,
+			"TextParam":        defaults.TextParam,
+			"DateParam":        defaults.DateParam,
+			"TimeParam":        defaults.TimeParam,
+			"ButtonParam":      defaults.ButtonParam,
+			"SliderParam":      defaults.SliderParam,
+			"RotaryParam":      defaults.RotaryParam,
+			"SwitchParam":      defaults.SwitchParam,
+			"ColorPickerParam": defaults.ColorPickerParam,
+			"DropdownParam":    defaults.DropdownParam,
+			"PasswordParam":    defaults.PasswordParam,
+			"TextAreaParam":    defaults.TextAreaParam,
+			"DropzoneParam":    defaults.DropzoneParam,
+			"NestedParam":      defaults.NestedParam,
+		}),
 	)
 }
 
 func buildSectionSizingPolicyByTypeCreateBodyTS() string {
+	defaults := projectstate.FrontendDefaultSectionSizingPolicyByType()
 	return buildTSNestedObjectMergeCreateBodyTS(
 		"",
 		"",
 		mustTSLiteralObjectFromGoValue(
 			"section sizing policy defaults",
-			defaultSectionSizingPolicyByType,
+			defaults,
 		),
 		orderedTypePropertyNames(sectionSizingPolicyByTypeProperties()),
-		goJSONFieldOrderMapAny(defaultSectionSizingPolicyByType),
+		map[string][]string{
+			"Callable":          goJSONFieldOrder(defaults.Callable),
+			"Dict":              goJSONFieldOrder(defaults.Dict),
+			"ListRoot":          goJSONFieldOrder(defaults.ListRoot),
+			"Group":             goJSONFieldOrder(defaults.Group),
+			"StateMachineStart": goJSONFieldOrder(defaults.StateMachineStart),
+			"StateMachineGate":  goJSONFieldOrder(defaults.StateMachineGate),
+			"StateMachineEnd":   goJSONFieldOrder(defaults.StateMachineEnd),
+			"Image":             goJSONFieldOrder(defaults.Image),
+			"Chart":             goJSONFieldOrder(defaults.Chart),
+			"Draw":              goJSONFieldOrder(defaults.Draw),
+			"Prompt":            goJSONFieldOrder(defaults.Prompt),
+			"TextBlock":         goJSONFieldOrder(defaults.TextBlock),
+			"MetaControl":       goJSONFieldOrder(defaults.MetaControl),
+			"Social":            goJSONFieldOrder(defaults.Social),
+			"GlobalVariables":   goJSONFieldOrder(defaults.GlobalVariables),
+			"Code":              goJSONFieldOrder(defaults.Code),
+			"GenPythonCode":     goJSONFieldOrder(defaults.GenPythonCode),
+			"GenPythonMetadata": goJSONFieldOrder(defaults.GenPythonMetadata),
+			"Terminal":          goJSONFieldOrder(defaults.Terminal),
+			"IFrame":            goJSONFieldOrder(defaults.IFrame),
+			"Chat":              goJSONFieldOrder(defaults.Chat),
+			"Browser":           goJSONFieldOrder(defaults.Browser),
+			"Plugin":            goJSONFieldOrder(defaults.Plugin),
+			"TaskBoard":         goJSONFieldOrder(defaults.TaskBoard),
+			"Spreadsheet":       goJSONFieldOrder(defaults.Spreadsheet),
+		},
 	)
 }
 
@@ -2194,6 +2172,92 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			HasCreateExpr: true,
 			CreateExprOverrides: map[string]string{
 				"defaultTerminalShell": "null",
+			},
+		}, true
+	case reflect.TypeOf(SectionSizingPolicyTypeEntry{}):
+		return reflectedObjectDeclarationSpec{}, true
+	case reflect.TypeOf(MetaControlSizingPolicyTypeEntry{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"sizeModeHeight": "MetaControlSizeMode",
+				"sizeModeWidth":  "MetaControlSizeMode",
+			},
+		}, true
+	case reflect.TypeOf(MetaControlSizingPolicyByType{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildMetaControlSizingPolicyByTypeCreateBodyTS(),
+			PropertyTypeExprOverrides: map[string]string{
+				"CodeCallable":     "MetaControlSizingPolicyTypeEntry",
+				"CodeParam":        "MetaControlSizingPolicyTypeEntry",
+				"TextParam":        "MetaControlSizingPolicyTypeEntry",
+				"DateParam":        "MetaControlSizingPolicyTypeEntry",
+				"TimeParam":        "MetaControlSizingPolicyTypeEntry",
+				"ButtonParam":      "MetaControlSizingPolicyTypeEntry",
+				"SliderParam":      "MetaControlSizingPolicyTypeEntry",
+				"RotaryParam":      "MetaControlSizingPolicyTypeEntry",
+				"SwitchParam":      "MetaControlSizingPolicyTypeEntry",
+				"ColorPickerParam": "MetaControlSizingPolicyTypeEntry",
+				"DropdownParam":    "MetaControlSizingPolicyTypeEntry",
+				"PasswordParam":    "MetaControlSizingPolicyTypeEntry",
+				"TextAreaParam":    "MetaControlSizingPolicyTypeEntry",
+				"DropzoneParam":    "MetaControlSizingPolicyTypeEntry",
+				"NestedParam":      "MetaControlSizingPolicyTypeEntry",
+			},
+		}, true
+	case reflect.TypeOf(SectionSizingPolicyGlobals{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultSectionSizingPolicyGlobals(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(SectionSizingPolicyByType{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildSectionSizingPolicyByTypeCreateBodyTS(),
+			PropertyTypeExprOverrides: map[string]string{
+				"Callable":          "SectionSizingPolicyCallableTypeEntry",
+				"Dict":              "SectionSizingPolicyTypeEntry",
+				"ListRoot":          "SectionSizingPolicyTypeEntry",
+				"Group":             "SectionSizingPolicyTypeEntry",
+				"StateMachineStart": "SectionSizingPolicyTypeEntry",
+				"StateMachineGate":  "SectionSizingPolicyTypeEntry",
+				"StateMachineEnd":   "SectionSizingPolicyTypeEntry",
+				"Image":             "SectionSizingPolicyTypeEntry",
+				"Chart":             "SectionSizingPolicyTypeEntry",
+				"Draw":              "SectionSizingPolicyTypeEntry",
+				"Prompt":            "SectionSizingPolicyTypeEntry",
+				"TextBlock":         "SectionSizingPolicyTypeEntry",
+				"MetaControl":       "SectionSizingPolicyTypeEntry",
+				"Social":            "SectionSizingPolicyTypeEntry",
+				"GlobalVariables":   "SectionSizingPolicyTypeEntry",
+				"Code":              "SectionSizingPolicyTypeEntry",
+				"GenPythonCode":     "SectionSizingPolicyTypeEntry",
+				"GenPythonMetadata": "SectionSizingPolicyTypeEntry",
+				"Terminal":          "SectionSizingPolicyTypeEntry",
+				"IFrame":            "SectionSizingPolicyTypeEntry",
+				"Chat":              "SectionSizingPolicyTypeEntry",
+				"Browser":           "SectionSizingPolicyTypeEntry",
+				"Plugin":            "SectionSizingPolicyTypeEntry",
+				"TaskBoard":         "SectionSizingPolicyTypeEntry",
+				"Spreadsheet":       "SectionSizingPolicyTypeEntry",
+			},
+		}, true
+	case reflect.TypeOf(SectionSizingPolicy{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildSectionSizingPolicyCreateBodyTS(),
+			PropertyTypeExprOverrides: map[string]string{
+				"byType":            "SectionSizingPolicyByType",
+				"metaControlByType": "MetaControlSizingPolicyByType",
+				"globals":           "SectionSizingPolicyGlobals",
+			},
+		}, true
+	case reflect.TypeOf(SettingsState{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildSettingsStateCreateBodyTS(),
+			PropertyTypeExprOverrides: map[string]string{
+				"shortcuts":           "SettingsShortcuts",
+				"gui":                 "SettingsGUI",
+				"backend":             "SettingsBackend",
+				"sectionSizingPolicy": "SectionSizingPolicy",
+				"languageServer":      "Record<string, unknown>",
 			},
 		}, true
 	case reflect.TypeOf(projectview.SectionCapabilities{}):

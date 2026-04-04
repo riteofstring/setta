@@ -331,19 +331,19 @@ type SectionSizeValue projectstate.SectionSizeValue
 
 type SectionSize projectstate.SectionSize
 
-type SectionSizingPolicyTypeEntry struct{}
+type SectionSizingPolicyTypeEntry projectstate.FrontendSectionSizingPolicyTypeEntry
 
-type SectionSizingPolicyCallableTypeEntry struct{}
+type SectionSizingPolicyCallableTypeEntry projectstate.FrontendSectionSizingPolicyCallableTypeEntry
 
-type MetaControlSizingPolicyTypeEntry struct{}
+type MetaControlSizingPolicyTypeEntry projectstate.FrontendMetaControlSizingPolicyTypeEntry
 
-type MetaControlSizingPolicyByType struct{}
+type MetaControlSizingPolicyByType projectstate.FrontendMetaControlSizingPolicyByType
 
-type SectionSizingPolicyGlobals struct{}
+type SectionSizingPolicyGlobals projectstate.FrontendSectionSizingPolicyGlobals
 
-type SectionSizingPolicyByType struct{}
+type SectionSizingPolicyByType projectstate.FrontendSectionSizingPolicyByType
 
-type SectionSizingPolicy struct{}
+type SectionSizingPolicy projectstate.FrontendSectionSizingPolicy
 
 type SharePolicy deployments.Policy
 

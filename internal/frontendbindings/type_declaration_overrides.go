@@ -32,72 +32,12 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"SectionSizeValue",
 			"number | SectionSizeMode",
 		),
-		reflect.TypeOf(SectionSizingPolicyTypeEntry{}): objectDeclaration(
-			"SectionSizingPolicyTypeEntry",
-			TypeProperty{Name: "minHeight", TypeExpr: "number"},
-			TypeProperty{Name: "maxHeight", TypeExpr: "number"},
-			TypeProperty{Name: "minWidth", TypeExpr: "number"},
-			TypeProperty{Name: "maxWidth", TypeExpr: "number"},
-		),
 		reflect.TypeOf(SectionSizingPolicyCallableTypeEntry{}): aliasDeclaration(
 			"SectionSizingPolicyCallableTypeEntry",
 			`SectionSizingPolicyTypeEntry & {
   hideSearchMinHeight: number;
   hideParamsMinHeight: number;
 }`,
-		),
-		reflect.TypeOf(MetaControlSizingPolicyTypeEntry{}): objectDeclaration(
-			"MetaControlSizingPolicyTypeEntry",
-			TypeProperty{Name: "minHeight", TypeExpr: "number"},
-			TypeProperty{Name: "minWidth", TypeExpr: "number"},
-			TypeProperty{Name: "sizeModeHeight", TypeExpr: "MetaControlSizeMode"},
-			TypeProperty{Name: "sizeModeWidth", TypeExpr: "MetaControlSizeMode"},
-		),
-		reflect.TypeOf(MetaControlSizingPolicyByType{}): objectDeclarationWithCreateBody(
-			"MetaControlSizingPolicyByType",
-			buildMetaControlSizingPolicyByTypeCreateBodyTS(),
-			metaControlSizingPolicyByTypeProperties()...,
-		),
-		reflect.TypeOf(SectionSizingPolicyGlobals{}): objectDeclarationWithCreateExpr(
-			"SectionSizingPolicyGlobals",
-			`mergeGeneratedOptions(
-    {
-      pinnedParamsAreaMinHeight: 64,
-      unpinnedParamsAreaMinHeight: 36,
-      minimizedHeight: 32,
-      infiniteMaxHeight: 100000,
-      infiniteMaxWidth: 100000,
-      autoMaxHeight: 350,
-    },
-    options,
-  )`,
-			TypeProperty{Name: "pinnedParamsAreaMinHeight", TypeExpr: "number"},
-			TypeProperty{Name: "unpinnedParamsAreaMinHeight", TypeExpr: "number"},
-			TypeProperty{Name: "minimizedHeight", TypeExpr: "number"},
-			TypeProperty{Name: "infiniteMaxHeight", TypeExpr: "number"},
-			TypeProperty{Name: "infiniteMaxWidth", TypeExpr: "number"},
-			TypeProperty{Name: "autoMaxHeight", TypeExpr: "number"},
-		),
-		reflect.TypeOf(SectionSizingPolicyByType{}): objectDeclarationWithCreateBody(
-			"SectionSizingPolicyByType",
-			buildSectionSizingPolicyByTypeCreateBodyTS(),
-			sectionSizingPolicyByTypeProperties()...,
-		),
-		reflect.TypeOf(SectionSizingPolicy{}): objectDeclarationWithCreateBody(
-			"SectionSizingPolicy",
-			buildSectionSizingPolicyCreateBodyTS(),
-			TypeProperty{Name: "byType", TypeExpr: "SectionSizingPolicyByType"},
-			TypeProperty{Name: "metaControlByType", TypeExpr: "MetaControlSizingPolicyByType"},
-			TypeProperty{Name: "globals", TypeExpr: "SectionSizingPolicyGlobals"},
-		),
-		reflect.TypeOf(SettingsState{}): objectDeclarationWithCreateBody(
-			"SettingsState",
-			buildSettingsStateCreateBodyTS(),
-			TypeProperty{Name: "shortcuts", TypeExpr: "SettingsShortcuts"},
-			TypeProperty{Name: "gui", TypeExpr: "SettingsGUI"},
-			TypeProperty{Name: "backend", TypeExpr: "SettingsBackend"},
-			TypeProperty{Name: "sectionSizingPolicy", TypeExpr: "SectionSizingPolicy"},
-			TypeProperty{Name: "languageServer", TypeExpr: "Record<string, unknown>"},
 		),
 		reflect.TypeOf(ProjectCodegenTarget{}): aliasDeclaration(
 			"ProjectCodegenTarget",

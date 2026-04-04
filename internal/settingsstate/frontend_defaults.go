@@ -120,11 +120,11 @@ type FrontendSettingsBackend struct {
 }
 
 type FrontendSettingsState struct {
-	Shortcuts           FrontendSettingsShortcuts `json:"shortcuts"`
-	GUI                 FrontendSettingsGUI       `json:"gui"`
-	Backend             FrontendSettingsBackend   `json:"backend"`
-	SectionSizingPolicy map[string]any            `json:"sectionSizingPolicy"`
-	LanguageServer      map[string]any            `json:"languageServer"`
+	Shortcuts           FrontendSettingsShortcuts                `json:"shortcuts"`
+	GUI                 FrontendSettingsGUI                      `json:"gui"`
+	Backend             FrontendSettingsBackend                  `json:"backend"`
+	SectionSizingPolicy projectstate.FrontendSectionSizingPolicy `json:"sectionSizingPolicy"`
+	LanguageServer      map[string]any                           `json:"languageServer"`
 }
 
 func FrontendDefaultSettingsShortcuts() FrontendSettingsShortcuts {

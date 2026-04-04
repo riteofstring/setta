@@ -4413,12 +4413,12 @@ function createSectionSizingPolicyByType(
     ),
     Callable: mergeGeneratedOptions(
       {
+        minHeight: 104,
+        maxHeight: 100000,
+        minWidth: 200,
+        maxWidth: 100000,
         hideSearchMinHeight: 42,
         hideParamsMinHeight: 90,
-        maxHeight: 100000,
-        maxWidth: 100000,
-        minHeight: 104,
-        minWidth: 200,
       },
       options.Callable ?? {},
     ),
