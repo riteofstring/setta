@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02
+Last updated: 2026-04-02 14:51 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,21 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `013` landed a bounded bounds-readiness fix inside the custom canary:
+  - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` plus focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now waits for measured DOM sizes from every visible canary section before computing the first auto-fit scene bounds, instead of fitting against partial layout fallback sizes
+  - the same canary now records observed section sizes with `offsetWidth` / `offsetHeight`, matching legacy `fitView`'s box model instead of `ResizeObserver.contentRect`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now tightens the cleared-viewport `All Settings` check to compare the live canary zoom against the measured visible-section fit, instead of only asserting a loose `zoom < 0.95`
+- Targeted automation for item `013` passed:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+- The required post-fix CDP oracle compare is now the only blocker:
+  - one allowed local self-recovery ran after the first CDP sub-agent reported `chrome-devtools-mcp` unavailable:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - restarted worktree runtime from terminal output: frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, bootstrap token session `e5ff30`
+  - after that restart, a second fresh CDP sub-agent still could not access `chrome-devtools-mcp`
+  - `pnpm -C frontend cdp-port` after restart reported `9298`, while the restart terminal printed Chrome remote debugging on `9299`; treat the worktree runtime as restarted but the CDP bridge itself as still unavailable in this Codex session
+  - because the post-item-013 side-by-side compare against `main` did not run, we do not yet know whether the tighter `All Settings` framing blocker is closed or whether a smaller remaining vertical-fit mismatch is still present
 - Ralph item `012` landed a bounded initial-fit alignment fix inside the custom canary:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `fitSettingsGraphSubstrateCanaryViewport(...)` so the canary's first fit can follow the same visible-center and max-zoom rules as legacy `ReactFlow`
   - that helper now:
@@ -99,6 +114,10 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
 - Current live verification state:
   - targeted Vitest passed for:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - targeted Playwright passed for:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+  - targeted Vitest passed for:
     - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
   - targeted Vitest passed for:
     - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
@@ -127,6 +146,10 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
         - worktree: a few larger cards centered in the canvas
         - `main`: more zoomed-out framing with a denser vertical field of smaller cards
       - this closes the tool-availability blocker from item `011` and leaves a product blocker: the canary fit bounds still differ from the legacy oracle
+    - post-item-013 compare after worktree restart: not run
+      - two fresh CDP sub-agents both reported that `chrome-devtools-mcp` was inaccessible in this Codex session
+      - one bounded local self-recovery already ran via `./aireset.sh`
+      - do not spend another iteration on more fit/bounds code until the cleared-viewport side-by-side compare against `main` is retried from a fresh loop session or the CDP bridge becomes reachable again
 
 ## Architectural stance
 
@@ -162,9 +185,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - with no saved viewport, the canary was previously locking itself to the fallback `{48,48,1}` seed instead of auto-fitting
     - automated coverage now proves the canary no longer does that in the checked browser path
   - item `012` aligned the canary's initial visible-center and initial max-zoom semantics with legacy `ReactFlow`
-  - next target the real product frontier this compare still exposes:
-    - inspect the remaining bounds / fit source mismatch on the cleared-viewport `All Settings` path
-    - prefer checking canary scene bounds, observed section sizes, and any missing visible sections before adding more viewport-state plumbing
+  - item `013` then moved the canary fit to measured DOM bounds and aligned the size box model with legacy `fitView`
+  - before doing more bounds work, re-run the blocked cleared-viewport CDP compare on `All Settings`
+  - if the restarted worktree still looks tighter than `main`, the next production frontier is the remaining vertical framing mismatch on the measured-bounds path rather than more saved-viewport or seam plumbing
 
 ## Explicit deferrals
 
@@ -187,6 +210,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `012`
-- Latest item: `2026-04-02 012`
+- Active history window: items `001` through `013`
+- Latest item: `2026-04-02 013`
 - Older history archives: none yet

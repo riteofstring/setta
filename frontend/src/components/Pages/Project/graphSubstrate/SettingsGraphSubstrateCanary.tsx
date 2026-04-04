@@ -23,6 +23,7 @@ import {
 } from "state/definitions";
 import type { Position } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
+import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
 import {
   selectSettingsGraphSubstrateCanarySections,
   type GraphSubstrateCanarySection,
@@ -186,7 +187,7 @@ export function SettingsGraphSubstrateCanary() {
   }, [fallbackViewport, sharedProjectViewport, sharedReactFlowViewport]);
 
   const sceneBounds = useMemo(() => {
-    return getViewportBoundsForSections(
+    return getSettingsGraphSubstrateCanarySceneBounds(
       sections,
       observedElementSizes,
       sectionPositionOverride,
@@ -620,45 +621,6 @@ function getRenderedSectionPosition(
   return section.position;
 }
 
-function getViewportBoundsForSections(
-  sections: Array<GraphSubstrateCanarySection>,
-  observedElementSizes: Record<string, { width: number; height: number }>,
-  sectionPositionOverride: SectionPositionOverride | null,
-) {
-  if (sections.length === 0) {
-    return null;
-  }
-
-  let minX = Number.POSITIVE_INFINITY;
-  let minY = Number.POSITIVE_INFINITY;
-  let maxX = Number.NEGATIVE_INFINITY;
-  let maxY = Number.NEGATIVE_INFINITY;
-
-  for (const section of sections) {
-    const size = observedElementSizes[section.sectionId];
-    const width = size?.width ?? section.width;
-    const height = size?.height ?? section.height;
-    if (!width || !height) {
-      return null;
-    }
-    const position = getRenderedSectionPosition(
-      section,
-      sectionPositionOverride,
-    );
-    minX = Math.min(minX, position.x);
-    minY = Math.min(minY, position.y);
-    maxX = Math.max(maxX, position.x + width);
-    maxY = Math.max(maxY, position.y + height);
-  }
-
-  return {
-    x: minX,
-    y: minY,
-    width: maxX - minX,
-    height: maxY - minY,
-  };
-}
-
 function syncCanaryViewportInteractionState({
   isViewportPanning,
   isWheelZooming,
@@ -730,8 +692,11 @@ function useObservedElementSizes() {
           if (!sectionId) {
             continue;
           }
-          const width = Math.round(entry.contentRect.width);
-          const height = Math.round(entry.contentRect.height);
+          if (!(entry.target instanceof HTMLElement)) {
+            continue;
+          }
+          const width = entry.target.offsetWidth;
+          const height = entry.target.offsetHeight;
           if (width <= 0 || height <= 0) {
             continue;
           }

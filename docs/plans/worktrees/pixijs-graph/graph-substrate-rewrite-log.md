@@ -70,6 +70,38 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 013
+
+- Item: Move the `All Settings` canary auto-fit onto measured DOM bounds and retry the cleared-viewport oracle compare.
+- Status: `blocked_on_cdp`
+- Details:
+  - Added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now waits for measured DOM sizes from every visible canary section before computing the first auto-fit scene bounds.
+  - The same canary now records observed section sizes with `offsetWidth` / `offsetHeight`, matching legacy `fitView` instead of using `ResizeObserver.contentRect`.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now checks the cleared-viewport `All Settings` fit by comparing the live canary zoom against the measured visible-section fit instead of relying on a loose zoom threshold.
+  - One allowed local CDP recovery ran after the first fresh sub-agent reported `chrome-devtools-mcp` unavailable:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - restarted runtime from terminal output: frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, bootstrap session `e5ff30`
+  - After that restart, a second fresh CDP sub-agent still reported that `chrome-devtools-mcp` was inaccessible in this Codex session, so the side-by-side `main` oracle compare could not run.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`8 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `18s`)
+  - CDP visual check
+    - result: blocked
+    - note:
+      - first fresh sub-agent: `chrome-devtools-mcp` inaccessible before the restart
+      - second fresh sub-agent after `./aireset.sh`: `chrome-devtools-mcp` still inaccessible
+      - no visual verdict yet on whether the tighter worktree framing versus `main` is resolved
+- Conclusion:
+  - the canary fit now uses measured DOM size readiness and the same box model as legacy `fitView`
+  - the remaining blocker for this slice is tool access, not another identified product-code change
+- Next action:
+  - start the next Ralph iteration with a fresh worktree/bootstrap session and retry the cleared-viewport `All Settings` CDP compare against read-only `main` before landing more bounds or viewport tweaks
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 011
 
 - Item: Stop the `All Settings` canary from treating its own `{48,48,1}` fallback seed as an authoritative shared viewport when no saved camera exists.

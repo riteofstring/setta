@@ -80,7 +80,12 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
 
     const spread = await getCanarySectionGridSpread(page);
     expect(spread.columnCount).toBeGreaterThan(1);
-    await expect.poll(() => getCanaryViewportScale(page)).toBeLessThan(0.95);
+    await expect
+      .poll(async () => {
+        const drift = await getCanaryAutoFitDrift(page);
+        return drift?.zoom ?? Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThan(0.03);
   } finally {
     await postBackend(page, "/setViewport", {
       projectConfigId,
@@ -616,6 +621,104 @@ async function getCanaryViewportTransform(page: Page): Promise<{
       zoom: matrix.a,
     };
   });
+}
+
+async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
+  x: number;
+  y: number;
+  zoom: number;
+} | null> {
+  return page.evaluate(() => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary"]',
+    );
+    if (!root) {
+      return null;
+    }
+
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="graph-substrate-canary-section"]',
+      ),
+    );
+    if (sections.length < 2) {
+      return null;
+    }
+
+    const persistedLocalState = localStorage.getItem("setta_data");
+    let overviewTrueWidth = 0;
+    if (persistedLocalState) {
+      const parsed = JSON.parse(persistedLocalState) as
+        | { state?: { overviewTrueWidth?: unknown } }
+        | { overviewTrueWidth?: unknown };
+      const persistedState =
+        "state" in parsed && parsed.state ? parsed.state : parsed;
+      if (typeof persistedState.overviewTrueWidth === "number") {
+        overviewTrueWidth = persistedState.overviewTrueWidth;
+      }
+    }
+
+    let minX = Number.POSITIVE_INFINITY;
+    let minY = Number.POSITIVE_INFINITY;
+    let maxX = Number.NEGATIVE_INFINITY;
+    let maxY = Number.NEGATIVE_INFINITY;
+
+    for (const section of sections) {
+      const rectWidth = section.offsetWidth;
+      const rectHeight = section.offsetHeight;
+      if (rectWidth <= 0 || rectHeight <= 0) {
+        return null;
+      }
+      const transform = getComputedStyle(section).transform;
+      const matrix =
+        !transform || transform === "none"
+          ? new DOMMatrixReadOnly()
+          : new DOMMatrixReadOnly(transform);
+      minX = Math.min(minX, matrix.e);
+      minY = Math.min(minY, matrix.f);
+      maxX = Math.max(maxX, matrix.e + rectWidth);
+      maxY = Math.max(maxY, matrix.f + rectHeight);
+    }
+
+    const padding = 0.12;
+    const boundsWidth = maxX - minX;
+    const boundsHeight = maxY - minY;
+    if (boundsWidth <= 0 || boundsHeight <= 0) {
+      return null;
+    }
+
+    const zoom = Math.min(
+      root.clientWidth / (boundsWidth * (1 + padding)),
+      root.clientHeight / (boundsHeight * (1 + padding)),
+    );
+    const centerX = root.clientWidth / 2 + overviewTrueWidth;
+    const centerY = root.clientHeight / 2;
+
+    return {
+      x: centerX - (minX + boundsWidth / 2) * zoom,
+      y: centerY - (minY + boundsHeight / 2) * zoom,
+      zoom,
+    };
+  });
+}
+
+async function getCanaryAutoFitDrift(page: Page): Promise<{
+  x: number;
+  y: number;
+  zoom: number;
+} | null> {
+  const [current, expected] = await Promise.all([
+    getCanaryViewportTransform(page),
+    getCanaryExpectedAutoFitTransform(page),
+  ]);
+  if (!current || !expected) {
+    return null;
+  }
+  return {
+    x: Math.abs(current.x - expected.x),
+    y: Math.abs(current.y - expected.y),
+    zoom: Math.abs(current.zoom - expected.zoom),
+  };
 }
 
 async function findDraggableCanarySection(page: Page): Promise<{
