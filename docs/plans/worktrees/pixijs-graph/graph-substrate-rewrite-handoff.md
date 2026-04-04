@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 04:05 EDT
+Last updated: 2026-04-04 04:18 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `091` added an opt-in cross-worktree spreadsheet body-anchor top-level drag probe for normalized `All Settings` and closed that bounded body-heavy drag-attachment lane without reopening another generic drag-delta compare.
+  - Why this slice was needed:
+    - items `089` and `090` had already covered the plain top-level drag delta and the spreadsheet body-search pan/zoom interaction-state lane, so the next plan-aligned frontier was the actual body-attachment question during top-level drag on the same normalized cross-worktree compare
+    - the spreadsheet args-filter input already had a stable section-scoped id on both surfaces, which made it a better body anchor than another pure section-rect delta assertion
+    - this kept the lane renderer-facing: after the same short top-level drag, does the body-heavy spreadsheet input remain visually attached and still accept input on both worktree canary and read-only `main` legacy
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - new opt-in probe: `settings graph parity probe keeps the spreadsheet body search input attached during normalized top-level drag on read-only main legacy and worktree canary`
+      - the probe boots both live runtimes with fresh bootstrap values, restores the initial `All Settings` top-level layout before each capture, normalizes pane/selection noise, fits `spreadsheetSectionDefault` on both surfaces, applies the same short top-level drag, and then verifies the section-scoped spreadsheet filter input keeps the same relative center inside the section, stays focusable/editable, and does not drag the viewport with it
+      - no shared parity helper surface changed in this slice; the file-local relative child-position helper added in item `090` was reused
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - first targeted direct live-runtime Playwright rerun:
+      - result: failed once because the first draft still duplicated the prior generic drag-delta parity assertion; the new lane needed to stay focused on body-anchor attachment rather than exact cross-surface drag-delta matching
+    - second targeted Playwright rerun:
+      - result: failed once during global setup because the worktree bootstrap token had already expired (`401 Unauthorized`)
+    - final targeted direct live-runtime Playwright rerun after refreshing runtime info/bootstrap values inline with the test launch:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the spreadsheet body search input attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `32.4s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent verified the already-running live `/settings` pages rather than trying to replay the Playwright drag itself
+    - worktree `3075`:
+      - `All Settings` selected
+      - canary root present (`[data-testid="graph-substrate-canary"]`)
+      - legacy pane absent
+      - spreadsheet filter input visible (`#00f31491-48f8-4c48-91c1-70167b9f8874-args-filter`)
+    - read-only `main` `3087`:
+      - `All Settings` selected
+      - legacy pane present (`.react-flow__pane`)
+      - canary root absent
+      - spreadsheet filter input visible (`#02c6b722-89e0-4e43-a63c-24d8fd8a1078-args-filter`)
+    - the sub-agent could confirm the live surface split and visible filter inputs on both pages, but it could not reliably extract the spreadsheet parent section rect on both surfaces from CDP DOM inspection alone, so the exact “inside parent rect” geometry stayed Playwright-covered by the new attachment oracle
+    - CDP visual check: done (fresh-context post-state sanity check on worktree `3075` canary vs read-only `main` `3087` legacy; `All Settings` selected on both and spreadsheet filter input visible on both surfaces)
+  - conclusion for this slice:
+    - close the specific spreadsheet top-level drag body-anchor lane as covered
+    - do not reopen this lane with another generic drag-delta assertion or another spreadsheet filter placeholder/search-state check unless a future compare shows the actual body anchor disappearing or drifting
+    - the next real frontier should be one different body-heavy motion path or a concrete production renderer defect investigation, not more spreadsheet-specific guard polishing by default
 - Ralph item `090` added an opt-in cross-worktree spreadsheet body-search interaction-state probe for normalized `All Settings` and closed that bounded lane without reopening another plain rect-delta motion compare.
   - Why this slice was needed:
     - items `088` and `089` had already closed the cross-worktree short-pan and short-drag lanes, so the next plan-aligned frontier was the first body-heavy interaction-state question on the same normalized `All Settings` compare
@@ -2086,6 +2124,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Immediate next frontier
 
 - The next bounded slice should leave the canvas-focus shortcut lane and the blank-pane deselect lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
+- The spreadsheet top-level drag body-anchor lane is now closed:
+  - item `091` already proves `spreadsheetSectionDefault` keeps its stable args-filter body anchor attached and editable through one normalized short top-level drag on worktree canary and read-only `main` legacy
+  - do not spend another iteration on more spreadsheet-specific drag/search guard tightening unless a fresh compare shows the actual input disappearing, drifting, or becoming non-interactive
 - The `spreadsheetSectionDefault` body-search pan/zoom guard is now normalized and closed for the current stale-active-state question:
   - it targets the section-scoped args filter by stable id after a named-section fit
   - do not reopen that lane with `⌘ + K` placeholder assertions unless a future compare proves the actual input disappears
@@ -2099,6 +2140,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - a small drag-pan pulse
   - one short top-level section drag
 - Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
+- Prefer the next dynamic lane on a different body-heavy shared section or a concrete production renderer defect; the spreadsheet body anchor now has enough coverage for the current gate.
 - Keep using the graph-surface-only normalization when you need live CDP context:
   - close or minimize non-target pane/chat chrome
   - normalize to `All Settings`

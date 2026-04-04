@@ -3120,3 +3120,36 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pivot to a body-heavy motion or interaction-state drift compare on normalized `All Settings`, using the same Playwright-motion-plus-CDP-post-state pattern only when it directly answers that renderer question
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 04:18 EDT - Ralph item 091
+
+- Added an opt-in cross-worktree spreadsheet body-anchor top-level drag probe for normalized `All Settings` and closed that bounded body-heavy drag-attachment lane without reopening another generic drag-delta compare.
+- Why this slice was necessary:
+  - items `089` and `090` had already covered the plain top-level drag delta and the spreadsheet body-search pan/zoom interaction-state lane, so the next plan-aligned frontier was the actual body-attachment question during top-level drag on the same normalized cross-worktree compare
+  - the spreadsheet args-filter input already had a stable section-scoped id on both surfaces, which made it a better body anchor than another pure section-rect delta assertion
+  - this remained a renderer-facing question: after the same short top-level drag, does the body-heavy spreadsheet input remain visually attached and still accept input on both worktree canary and read-only `main` legacy
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `settings graph parity probe keeps the spreadsheet body search input attached during normalized top-level drag on read-only main legacy and worktree canary`
+    - the probe restores the initial `All Settings` layout on both runtimes, normalizes pane/selection state, fits `spreadsheetSectionDefault`, applies the same short top-level drag, and then verifies the section-scoped spreadsheet filter input keeps the same relative center inside the section, stays focusable/editable, and does not drag the viewport with it
+    - no shared parity helper surface changed in this slice; it reuses the file-local relative child-position helper from item `090`
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - first targeted direct live-runtime Playwright rerun:
+    - result: failed once because the first draft still duplicated the prior generic drag-delta parity assertion; the new lane needed to stay focused on body-anchor attachment rather than exact cross-surface drag-delta matching
+  - second targeted Playwright rerun:
+    - result: failed once during global setup because the worktree bootstrap token had already expired (`401 Unauthorized`)
+  - final targeted direct live-runtime Playwright rerun after refreshing runtime info/bootstrap values inline with the test launch:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the spreadsheet body search input attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `32.4s`)
+  - fresh-context CDP sub-agent:
+    - worktree `3075`: `All Settings` selected, canary root present, legacy pane absent, spreadsheet filter input visible (`#00f31491-48f8-4c48-91c1-70167b9f8874-args-filter`)
+    - read-only `main` `3087`: `All Settings` selected, legacy pane present, canary root absent, spreadsheet filter input visible (`#02c6b722-89e0-4e43-a63c-24d8fd8a1078-args-filter`)
+    - the sub-agent could confirm the live surface split and visible filter inputs, but not a trustworthy spreadsheet parent-section rect on both pages via CDP DOM inspection alone
+  - CDP visual check: done (fresh-context post-state sanity check on worktree `3075` canary vs read-only `main` `3087` legacy; `All Settings` selected on both and spreadsheet filter input visible on both surfaces)
+- Lane status:
+  - close the specific spreadsheet top-level drag body-anchor lane as covered
+  - do not reopen this lane with another generic drag-delta assertion or another spreadsheet filter placeholder/search-state check unless a future compare shows the actual body anchor disappearing or drifting
+- Next frontier:
+  - move to one different body-heavy motion path or a concrete production renderer defect investigation, not more spreadsheet-specific guard tightening by default
+- LOOP_TERMINAL_MARKER: none
