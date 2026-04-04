@@ -125,6 +125,86 @@ write_pid() {
   printf "%s\n" "$2" > "$1"
 }
 
+find_active_devtools_pid() {
+  local profile_needle="setta-mcp/${INSTANCE_NAME}-${PROFILE_SUFFIX}/devtools-profile"
+
+  ps -ax -o pid= -o command= 2>/dev/null \
+    | awk -v needle="${profile_needle}" -v port="${DEBUG_PORT}" '
+        index($0, needle) && index($0, "--remote-debugging-port=" port) {
+          print $1
+          next
+        }
+        index($0, needle) && index($0, "--remote-debugging-port " port) {
+          print $1
+        }
+      ' \
+    | sed '/^[[:space:]]*$/d' \
+    | sort -n \
+    | tail -n 1
+}
+
+write_runtime_manifest() {
+  local pid=""
+  local python_bin=""
+  local manifest_path="${MCP_RUN_DIR}/devtools-runtime.json"
+
+  mkdir -p "${MCP_RUN_DIR}"
+  if [[ -f "${MCP_RUN_DIR}/devtools.pid" ]]; then
+    pid="$(cat "${MCP_RUN_DIR}/devtools.pid" 2>/dev/null || true)"
+  fi
+
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    cat > "${manifest_path}" <<EOF
+{"workspaceRoot":"${WORKTREE_ROOT}","debugPort":${DEBUG_PORT},"pid":${pid:-null},"profileDir":"${PROFILE_DIR}","mcpRunDir":"${MCP_RUN_DIR}"}
+EOF
+    return 0
+  fi
+
+  WORKTREE_ROOT="${WORKTREE_ROOT}" \
+  DEBUG_PORT="${DEBUG_PORT}" \
+  DEVTOOLS_PID="${pid}" \
+  PROFILE_DIR="${PROFILE_DIR}" \
+  MCP_RUN_DIR="${MCP_RUN_DIR}" \
+  MANIFEST_PATH="${manifest_path}" \
+  "${python_bin}" - <<'PY'
+import json
+import os
+from datetime import datetime, timezone
+
+manifest_path = os.environ["MANIFEST_PATH"]
+pid_raw = os.environ.get("DEVTOOLS_PID", "").strip()
+
+payload = {
+    "workspaceRoot": os.environ["WORKTREE_ROOT"],
+    "debugPort": int(os.environ["DEBUG_PORT"]),
+    "pid": int(pid_raw) if pid_raw else None,
+    "profileDir": os.environ["PROFILE_DIR"],
+    "mcpRunDir": os.environ["MCP_RUN_DIR"],
+    "updatedAt": datetime.now(timezone.utc).isoformat(),
+}
+
+with open(manifest_path, "w", encoding="utf-8") as handle:
+    json.dump(payload, handle, indent=2, sort_keys=True)
+    handle.write("\n")
+PY
+}
+
+record_active_devtools_browser() {
+  local detected_pid=""
+
+  for _ in {1..20}; do
+    detected_pid="$(find_active_devtools_pid || true)"
+    if [[ -n "${detected_pid}" ]] && kill -0 "${detected_pid}" 2>/dev/null; then
+      write_pid "${MCP_RUN_DIR}/devtools.pid" "${detected_pid}"
+      break
+    fi
+    sleep 0.25
+  done
+
+  write_runtime_manifest
+}
+
 launch_background_browser() {
   local python_bin=""
   local pid=""
@@ -545,6 +625,7 @@ OPEN_CHROME_ARGS+=(about:blank)
 echo "Starting Chrome with remote debugging on port $DEBUG_PORT..."
 if [[ "$FOREGROUND" == "1" ]]; then
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$$"
+  write_runtime_manifest
   open_bootstrap_in_devtools
   exec "$CHROME_BIN" "${BACKGROUND_CHROME_ARGS[@]}"
 else
@@ -567,7 +648,9 @@ else
       launch_background_browser "$CHROME_BIN" "${OPEN_CHROME_ARGS[@]}"
     fi
   fi
+  record_active_devtools_browser
   open_bootstrap_in_devtools
+  write_runtime_manifest
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"
   if [[ "${DEVTOOLS_HEADLESS}" == "1" ]]; then
     echo "To stop the debug browser, kill its process."

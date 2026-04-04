@@ -49,10 +49,11 @@ Execution rules:
 - Make changes only in the current non-main worktree.
 - If the current iteration is otherwise on track and the only blocker is local lifecycle availability (for example CDP/debug Chrome, bootstrap session, or the worktree app session died), attempt one bounded self-recovery before returning `BLOCKED`.
 - Prefer restarting the current worktree with the browser env prefix shown in the loop context and `./aireset.sh`; if that fails, retry once with the same prefix and `./ai.sh`.
-- After any restart, refresh runtime values with `setta status --connect-info --latest --json --workspace .` and `pnpm -C frontend cdp-port`, then retry the blocked verification using the refreshed values instead of stale ports or URLs.
+- After any restart, refresh runtime values with `./scripts/dev-runtime-info.sh --workspace . --runtime-log <current lifecycle log>`; if that helper fails, fall back to `setta status --connect-info --latest --json --workspace .` plus `./scripts/cdp-port.sh --workspace . --json`. Retry the blocked verification using the refreshed values instead of stale ports or URLs.
 - Return `BLOCKED` only if that recovery attempt fails or the retried verification still cannot run.
 - If the code subtask is complete but the required visual/CDP gate is temporarily not trustworthy because the rewrite phase has not produced a stable live canary yet, record that state in the handoff/history and return `LOOP_STATUS: SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate`.
 - If the only remaining diffs after normalized graph-surface comparison are oracle-noise classes, do not return `REPLAN_REQUIRED`; record the noise and return `SUBTASK_DONE` with the next bounded normalization or graph-surface probe step.
+- For settings graph exact-fit / centering lanes, reuse the shared helpers in `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` for pane-state normalization, section lookup, targeted `fitView(...)`, and center-offset capture instead of rebuilding those snippets ad hoc inside the browser tool.
 - Use `LOOP_TERMINAL_MARKER: none` for `SUBTASK_DONE` and `BLOCKED`.
 - Use `LOOP_TERMINAL_MARKER: task_done` only when the overall plan is actually complete, and append the exact line `LOOP_TERMINAL_MARKER: task_done` to the history file in the same iteration.
 - Use `LOOP_TERMINAL_MARKER: replan_required` only when the correct outcome is to stop the loop for a real human replan/review, and append the exact line `LOOP_TERMINAL_MARKER: replan_required` to the history file in the same iteration.

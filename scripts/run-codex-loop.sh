@@ -1120,6 +1120,51 @@ extract_bootstrap_url_from_log() {
   ' "${log_path}"
 }
 
+runtime_info_shell_assignments() {
+  local target_root="$1"
+  local runtime_log_path="${2:-}"
+  local helper_path="${ROOT_DIR}/scripts/dev-runtime-info.sh"
+  local helper_json=""
+  local restore_errexit="0"
+
+  [[ -x "${helper_path}" ]] || return 1
+
+  if [[ $- == *e* ]]; then
+    restore_errexit="1"
+    set +e
+  fi
+  if [[ -n "${runtime_log_path}" ]]; then
+    helper_json="$("${helper_path}" --workspace "${target_root}" --runtime-log "${runtime_log_path}" 2>/dev/null)"
+  else
+    helper_json="$("${helper_path}" --workspace "${target_root}" 2>/dev/null)"
+  fi
+  local helper_exit_code="$?"
+  if [[ "${restore_errexit}" == "1" ]]; then
+    set -e
+  fi
+
+  if [[ "${helper_exit_code}" -ne 0 || -z "${helper_json}" ]]; then
+    return 1
+  fi
+
+  RUNTIME_INFO_JSON="${helper_json}" python - <<'PY'
+import json
+import os
+import shlex
+
+data = json.loads(os.environ["RUNTIME_INFO_JSON"])
+mapping = {
+    "frontend_url": data.get("frontendUrl") or "",
+    "backend_url": data.get("backendUrl") or "",
+    "bootstrap_url": data.get("bootstrapUrl") or "",
+    "debug_port": str(data.get("debugPort") or ""),
+    "runtime_log_path": data.get("runtimeLogPath") or "",
+}
+for key, value in mapping.items():
+    print(f"{key}={shlex.quote(value)}")
+PY
+}
+
 lifecycle_log_label() {
   local lifecycle_mode="$1"
 
@@ -1200,6 +1245,27 @@ refresh_main_runtime_values() {
     main_backend_url="$(extract_backend_url_from_log "${main_runtime_log_path}" || true)"
     main_bootstrap_url="$(extract_bootstrap_url_from_log "${main_runtime_log_path}" || true)"
     main_debug_port="$(extract_debug_port_from_log "${main_runtime_log_path}" || true)"
+  fi
+
+  if runtime_info_assignments="$(runtime_info_shell_assignments "${main_worktree_root}" "${main_runtime_log_path}" 2>/dev/null || true)"; then
+    if [[ -n "${runtime_info_assignments}" ]]; then
+      eval "${runtime_info_assignments}"
+      if [[ -n "${frontend_url:-}" ]]; then
+        main_frontend_url="${frontend_url}"
+      fi
+      if [[ -n "${backend_url:-}" ]]; then
+        main_backend_url="${backend_url}"
+      fi
+      if [[ -n "${bootstrap_url:-}" ]]; then
+        main_bootstrap_url="${bootstrap_url}"
+      fi
+      if [[ -n "${debug_port:-}" ]]; then
+        main_debug_port="${debug_port}"
+      fi
+      if [[ -n "${runtime_log_path:-}" ]]; then
+        main_runtime_log_path="${runtime_log_path}"
+      fi
+    fi
   fi
 }
 
@@ -1417,6 +1483,8 @@ render_prompt() {
   local mode_label="$3"
   local worktree_connect_info_command=""
   local main_connect_info_command=""
+  local worktree_runtime_info_command=""
+  local main_runtime_info_command=""
 
   worktree_connect_info_command="setta status --connect-info --latest --json --workspace ${workdir}"
   if worktree_connect_info_command="$(
@@ -1436,6 +1504,16 @@ render_prompt() {
     else
       main_connect_info_command="setta status --connect-info --latest --json --workspace ${main_worktree_root}"
     fi
+  fi
+
+  worktree_runtime_info_command="./scripts/dev-runtime-info.sh --workspace ${workdir}"
+  if [[ -n "${worktree_runtime_log_path:-}" ]]; then
+    worktree_runtime_info_command+=" --runtime-log ${worktree_runtime_log_path}"
+  fi
+
+  main_runtime_info_command="./scripts/dev-runtime-info.sh --workspace ${main_worktree_root:-<main-worktree>}"
+  if [[ -n "${main_runtime_log_path:-}" ]]; then
+    main_runtime_info_command+=" --runtime-log ${main_runtime_log_path}"
   fi
 
   cat > "${destination}" <<EOF
@@ -1474,12 +1552,11 @@ Loop context:
 - only use headed browser sessions when browser automation mode is headed
 - use these current runtime values instead of guessing old ports if defaults were reassigned during startup
 - if you restart the current worktree lifecycle inside the iteration, refresh runtime values before continuing:
-  - connect info: \`${worktree_connect_info_command}\`
-  - debug port: \`pnpm -C frontend cdp-port\`
+  - canonical runtime info: \`${worktree_runtime_info_command}\`
+  - connect info fallback: \`${worktree_connect_info_command}\`
 - if you need to refresh the current main reference runtime values before a side-by-side check:
-  - connect info: \`${main_connect_info_command}\`
-  - debug port: \`cd ${main_worktree_root:-<main-worktree>} && pnpm -C frontend cdp-port\`
-  - frontend url: read the latest \`Local:\` entry from \`${main_runtime_log_path:-the main lifecycle log}\` instead of guessing \`http://127.0.0.1:3000\`
+  - canonical runtime info: \`${main_runtime_info_command}\`
+  - connect info fallback: \`${main_connect_info_command}\`
 
 After reading the files, continue the current effort by selecting exactly one bounded next subtask that can be completed, verified, logged, and committed within this iteration.
 
@@ -2328,6 +2405,26 @@ for ((iteration = 1; ; iteration += 1)); do
     worktree_backend_url="$(extract_backend_url_from_log "${worktree_runtime_log_path}" || true)"
     worktree_bootstrap_url="$(extract_bootstrap_url_from_log "${worktree_runtime_log_path}" || true)"
     worktree_debug_port="$(extract_debug_port_from_log "${worktree_runtime_log_path}" || true)"
+  fi
+  if runtime_info_assignments="$(runtime_info_shell_assignments "${workdir}" "${worktree_runtime_log_path}" 2>/dev/null || true)"; then
+    if [[ -n "${runtime_info_assignments}" ]]; then
+      eval "${runtime_info_assignments}"
+      if [[ -n "${frontend_url:-}" ]]; then
+        worktree_frontend_url="${frontend_url}"
+      fi
+      if [[ -n "${backend_url:-}" ]]; then
+        worktree_backend_url="${backend_url}"
+      fi
+      if [[ -n "${bootstrap_url:-}" ]]; then
+        worktree_bootstrap_url="${bootstrap_url}"
+      fi
+      if [[ -n "${debug_port:-}" ]]; then
+        worktree_debug_port="${debug_port}"
+      fi
+      if [[ -n "${runtime_log_path:-}" ]]; then
+        worktree_runtime_log_path="${runtime_log_path}"
+      fi
+    fi
   fi
   refresh_main_runtime_values "${run_dir}"
 

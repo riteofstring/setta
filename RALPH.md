@@ -107,12 +107,13 @@ This file is the reusable loop entrypoint for this worktree.
   - prefer `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 ./aireset.sh`
   - if that fails, retry once with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 ./ai.sh`
 - After any self-recovery restart, refresh the current runtime values before continuing:
-  - `setta status --connect-info --latest --json --workspace <worktree>`
-  - `pnpm -C frontend cdp-port`
+  - `./scripts/dev-runtime-info.sh --workspace <worktree> --runtime-log <current lifecycle log>`
+  - if that helper fails, fall back to `setta status --connect-info --latest --json --workspace <worktree>` plus `./scripts/cdp-port.sh --workspace <worktree> --json`
 - Retry the blocked verification after the restart using the refreshed runtime values instead of stale ports or URLs.
 - If the recovery attempt still does not restore CDP/app access, return `BLOCKED`.
 - Do not claim CDP visual verification when CDP access is unavailable.
 - If a rewrite phase temporarily leaves no trustworthy live CDP canary for the gate you need, mark the slice as `SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate` so the loop can keep moving while the pending visual gate stays explicit in the handoff/history.
+- For settings graph exact-fit / centering probes, prefer the shared Playwright parity helpers under `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` over one-off browser snippets so pane normalization, section lookup, targeted `fitView(...)`, and center-offset capture stay consistent across iterations.
 
 ## Lifecycle bootstrap
 
