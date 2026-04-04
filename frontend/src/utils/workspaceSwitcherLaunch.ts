@@ -1,6 +1,5 @@
 import { HOME_ROUTER_PATH } from "utils/constants";
 import type { LaunchRequestInput } from "utils/generatedTypes";
-import { GENERATED_BOOTSTRAP_PROTOCOL } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
 export type PendingWorkspaceLaunch = {
@@ -14,8 +13,7 @@ export type PendingWorkspaceLaunch = {
 const PENDING_LAUNCH_STORAGE_KEY = "setta.pendingWorkspaceLaunch";
 const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
-const OPEN_SWITCHER_QUERY_PARAM =
-  GENERATED_BOOTSTRAP_PROTOCOL.openWorkspaceSwitcherQueryParam;
+const OPEN_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
 const LEGACY_PENDING_LAUNCH_PAYLOAD_HASH_KEY = "pl";
 const LEGACY_PENDING_LAUNCH_RETURN_URL_HASH_KEY = "plr";
 const PENDING_LAUNCH_INTENT_HASH_KEY = "plt";

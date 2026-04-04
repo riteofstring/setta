@@ -4,7 +4,7 @@ import _ from "lodash";
 import React from "react";
 import { BiError } from "react-icons/bi";
 import { openTypeErrorContextMenu } from "state/actions/contextMenus";
-import { getCurrEffectiveCodeObjImplIfPresent } from "state/actions/sectionInfos";
+import { getCurrEffectiveCodeObjImpl } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import { useParamDndChildrenForParent } from "./ParamDndContext";
@@ -38,26 +38,18 @@ function _ParamContainer({
   listKey,
 }) {
   const codeObjImpl = useProjectState((x) =>
-    getCurrEffectiveCodeObjImplIfPresent(x, sectionId, paramInfoId),
+    getCurrEffectiveCodeObjImpl(x, sectionId, paramInfoId),
   );
   const paramCore = useProjectState((x) => x.codeObjs[paramInfoId]);
-  const hasParamState = codeObjImpl !== null && paramCore !== undefined;
   const showParamDisplayNames = useProjectState(
     (x) => x.projectConfig.showParamDisplayNames,
   );
-  const paramDescription = codeObjImpl?.description ?? "";
+  const paramDescription = codeObjImpl.description;
   const paramName = React.useMemo(() => {
-    if (!paramCore) {
-      return paramInfoId;
-    }
     if (!showParamDisplayNames) {
       return paramCore.name;
     }
-    if (
-      codeObjImpl &&
-      isBaseParamCodeObjImpl(codeObjImpl) &&
-      codeObjImpl.coreNameEditable
-    ) {
+    if (isBaseParamCodeObjImpl(codeObjImpl) && codeObjImpl.coreNameEditable) {
       return paramCore.name;
     }
     const trimmedDisplayName = paramCore.displayName.trim();
@@ -67,9 +59,8 @@ function _ParamContainer({
     return paramCore.name;
   }, [
     codeObjImpl,
-    paramCore?.displayName,
-    paramCore?.name,
-    paramInfoId,
+    paramCore.displayName,
+    paramCore.name,
     showParamDisplayNames,
   ]);
 
@@ -105,10 +96,6 @@ function _ParamContainer({
     ? "hover:bg-[color:var(--setta-section-style-border)]"
     : "hover:bg-setta-100/50 hover:dark:bg-setta-800/70";
   const floatingBoxHandlers = getFloatingBoxHandlers(...tooltipContentArray);
-
-  if (!hasParamState) {
-    return null;
-  }
 
   if (useExplicitLeafGrid) {
     return (
