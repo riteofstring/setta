@@ -2115,6 +2115,124 @@ test("settings graph substrate canary matches legacy modified-wheel zoom behavio
   }
 });
 
+test("settings graph substrate canary allows modified-wheel zoom from a nowheel section body on the custom surface", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const spreadsheetSectionId = findSectionIdByName(
+    initialState,
+    "spreadsheetSectionDefault",
+  );
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const canarySections = page.getByTestId("graph-substrate-canary-section");
+    await expect(canaryPane).toBeVisible();
+    await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+    expect(await fitGraphViewportToSection(page, spreadsheetSectionId)).toBe(
+      true,
+    );
+
+    const zoomPoint = await findCanarySectionNoWheelPoint(
+      page,
+      spreadsheetSectionId,
+    );
+    const rootRelativeZoomPoint = await getCanaryRootRelativePoint(
+      page,
+      zoomPoint,
+    );
+    const initialTransform = await getCanaryViewportTransform(page);
+    if (!initialTransform) {
+      throw new Error(
+        "Missing canary viewport transform before nowheel modified-wheel zoom.",
+      );
+    }
+
+    await page.mouse.move(zoomPoint.x, zoomPoint.y);
+    await page.keyboard.down(MOD_KEY);
+    await page.mouse.wheel(0, -240);
+    await page.keyboard.up(MOD_KEY);
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeGreaterThan(initialTransform.zoom);
+    await expect
+      .poll(async () => {
+        const currentTransform = await getCanaryViewportTransform(page);
+        if (!currentTransform) {
+          return Number.POSITIVE_INFINITY;
+        }
+        const expectedTransform = resolveScreenPointAnchoredViewport(
+          initialTransform,
+          rootRelativeZoomPoint,
+          currentTransform.zoom,
+        );
+        return Math.abs(currentTransform.x - expectedTransform.x);
+      })
+      .toBeLessThan(1);
+    await expect
+      .poll(async () => {
+        const currentTransform = await getCanaryViewportTransform(page);
+        if (!currentTransform) {
+          return Number.POSITIVE_INFINITY;
+        }
+        const expectedTransform = resolveScreenPointAnchoredViewport(
+          initialTransform,
+          rootRelativeZoomPoint,
+          currentTransform.zoom,
+        );
+        return Math.abs(currentTransform.y - expectedTransform.y);
+      })
+      .toBeLessThan(1);
+  } finally {
+    await allTab.click().catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary blank pane click clears the active section durably", async ({
   page,
 }) => {
@@ -4317,6 +4435,54 @@ async function getCanaryRootRelativePoint(
   }
 
   return rootRelativePoint;
+}
+
+async function findCanarySectionNoWheelPoint(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate((targetSectionId: string) => {
+    const section = document.querySelector<HTMLElement>(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
+    );
+    if (!section) {
+      return null;
+    }
+
+    const xs = [0.2, 0.35, 0.5, 0.65, 0.8];
+    const ys = [0.2, 0.35, 0.5, 0.65, 0.8];
+    const bounds = section.getBoundingClientRect();
+    for (const yPct of ys) {
+      for (const xPct of xs) {
+        const x = bounds.x + bounds.width * xPct;
+        const y = bounds.y + bounds.height * yPct;
+        const element = document.elementFromPoint(x, y);
+        if (!(element instanceof Element)) {
+          continue;
+        }
+        if (!element.closest(".nowheel")) {
+          continue;
+        }
+        if (
+          element.closest('[data-testid="graph-substrate-canary-section"]') !==
+          section
+        ) {
+          continue;
+        }
+        return { x, y };
+      }
+    }
+
+    return null;
+  }, sectionId);
+
+  if (!point) {
+    throw new Error(
+      `Unable to find a visible nowheel point for canary section ${sectionId}.`,
+    );
+  }
+
+  return point;
 }
 
 async function getCanaryPaneViewportGaps(page: Page): Promise<{

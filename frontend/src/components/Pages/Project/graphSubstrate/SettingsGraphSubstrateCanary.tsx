@@ -778,9 +778,6 @@ export function SettingsGraphSubstrateCanary() {
     if (!resolvedViewport || !rootRef.current) {
       return;
     }
-    if (shouldBlockSettingsGraphSubstrateCanaryWheelTarget(event.target)) {
-      return;
-    }
 
     const rootBounds = rootRef.current.getBoundingClientRect();
     const anchorScreenPoint = {
@@ -805,6 +802,14 @@ export function SettingsGraphSubstrateCanary() {
       zoomOnPinch,
       zoomOnScroll,
     };
+    if (
+      shouldBlockSettingsGraphSubstrateCanaryWheelTarget(
+        event.target,
+        wheelBehavior,
+      )
+    ) {
+      return;
+    }
     const wheelOutcome = resolveSettingsGraphSubstrateCanaryWheelOutcome(
       resolvedViewport,
       anchorScreenPoint,

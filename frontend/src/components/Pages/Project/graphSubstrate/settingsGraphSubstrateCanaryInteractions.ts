@@ -6,6 +6,13 @@ export const SETTINGS_GRAPH_SUBSTRATE_CANARY_SECTION_SELECTOR =
 const SETTINGS_GRAPH_SUBSTRATE_CANARY_DRAG_BLOCKING_SELECTOR =
   ".nodrag,input,textarea,select,option,a,[contenteditable='true']";
 
+type SettingsGraphSubstrateCanaryWheelTargetBehavior = {
+  ctrlKey: boolean;
+  isMacOs: boolean;
+  zoomActivationKeyPressed: boolean;
+  zoomOnPinch: boolean;
+};
+
 export function shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget(
   target: EventTarget | null,
 ): boolean {
@@ -32,10 +39,23 @@ export function shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget(
 
 export function shouldBlockSettingsGraphSubstrateCanaryWheelTarget(
   target: EventTarget | null,
+  behavior: SettingsGraphSubstrateCanaryWheelTargetBehavior,
 ): boolean {
   if (!(target instanceof Element)) {
     return false;
   }
 
-  return target.closest(`.${NO_WHEEL_CLASS_NAME}`) !== null;
+  if (target.closest(`.${NO_WHEEL_CLASS_NAME}`) === null) {
+    return false;
+  }
+
+  if (behavior.zoomActivationKeyPressed) {
+    return false;
+  }
+
+  if (behavior.ctrlKey && behavior.zoomOnPinch && behavior.isMacOs) {
+    return false;
+  }
+
+  return true;
 }

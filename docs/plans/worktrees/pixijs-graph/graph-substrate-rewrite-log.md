@@ -3563,6 +3563,42 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a materially different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 08:32 EDT - Ralph item 107
+
+- Fixed the canary `.nowheel` wheel gate so modifier-wheel zoom/pinch now matches legacy instead of being suppressed at the body boundary.
+- Why this slice was necessary:
+  - items `105` and `106` were probe-heavy, so this iteration needed to prefer a real production fix if a concrete contract divergence was available
+  - item `106` closed the plain-wheel ownership question on spreadsheet `.nowheel` content, but the legacy `ZoomPane` contract still allows modifier-key zoom and macOS pinch-style wheel input inside `.nowheel`
+  - the canary helper was blocking every wheel event inside `.nowheel`, which made modifier-wheel zoom on body-heavy sections a real canary-only interaction regression
+- Production/test changes:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts`
+    - updated `shouldBlockSettingsGraphSubstrateCanaryWheelTarget(...)` so `.nowheel` blocks plain wheel pan only, while modifier-key zoom and macOS pinch-style wheel input continue through
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - moved the wheel-target block check behind wheel-behavior construction so the handler can decide with the same contract inputs legacy uses
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+    - added regression coverage for modifier-key zoom and pinch-style wheel input inside `.nowheel`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added regression `settings graph substrate canary allows modified-wheel zoom from a nowheel section body on the custom surface`
+    - the test normalizes `All Settings`, fits `spreadsheetSectionDefault`, finds a real visible `.nowheel` body point, performs modifier-wheel zoom, and verifies zoom plus anchored transform stability
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+    - result: passed (`4 passed`)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary allows modified-wheel zoom from a nowheel section body on the custom surface'`
+    - result: passed (`1 passed`, `20.9s`)
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - fresh-context CDP sub-agent:
+    - could not deliver an authoritative modified-wheel replay because chrome-devtools-mcp does not expose a wheel primitive
+  - second fresh-context CDP sub-agent:
+    - inspected the normalized `All Settings` nowheel-heavy lane around `Mode` / `Config Language` / `Aspect Ratio` on live canary and read-only legacy
+    - confirmed the target lane was visible on both surfaces with no obvious canary-only static visual drift
+  - CDP visual check: done (All Settings nowheel lane is visible on both canary and legacy, with no obvious canary-only static visual drift)
+- Lane status:
+  - close the specific canary regression where modifier-wheel zoom/pinch was suppressed inside `.nowheel` section bodies
+  - do not reopen this lane unless a later normalized compare or automated regression shows modified-wheel zoom failing again or the anchored zoom result drifting visually
+- Next frontier:
+  - return to one different normalized dynamic Gate 1 / Gate 2 path that CDP can drive end-to-end, not more `.nowheel` modifier-wheel churn
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-04 07:52 EDT - Ralph item 104
 
 - Narrowed the remaining normalized top-level drag oracle so the main-reference drag parity probe no longer lands back inside section filter/input focus before the actual drag question.

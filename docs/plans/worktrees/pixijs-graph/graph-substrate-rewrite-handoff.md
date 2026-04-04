@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 08:20 EDT
+Last updated: 2026-04-04 08:32 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,37 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `107` fixed a real canary-only modifier-wheel regression on `.nowheel` section bodies instead of opening another probe-only lane.
+  - Why this slice was needed:
+    - items `105` and `106` were probe-heavy and the execution rules required the next slice to prefer a concrete production fix if a real contract divergence was available
+    - item `106` closed the plain-wheel ownership question on spreadsheet `.nowheel` body content, but reviewing the canary wheel guard against the legacy `ZoomPane` contract exposed a different bug: legacy still allows modifier-key zoom and macOS pinch-style wheel input inside `.nowheel`, while the canary was dropping every wheel event at that boundary
+    - this was a real Gate 1 interaction gap on the current custom substrate path, so another helper/probe slice would have been churn
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts`
+      - `shouldBlockSettingsGraphSubstrateCanaryWheelTarget(...)` now mirrors the legacy contract: `.nowheel` still blocks plain wheel pan, but it no longer suppresses modifier-key zoom or macOS pinch-style wheel input
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - moved the canary wheel-target gate behind wheel-behavior construction so the handler can distinguish plain wheel pan from modifier-based zoom before deciding to block
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - added regression coverage for modifier-key zoom and macOS pinch-style wheel input inside `.nowheel` islands
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added regression `settings graph substrate canary allows modified-wheel zoom from a nowheel section body on the custom surface`
+      - the test normalizes `All Settings`, fits `spreadsheetSectionDefault`, targets a real visible `.nowheel` body point, performs modifier-wheel zoom, and verifies zoom increases while the pointer anchor remains stable
+  - Automated result:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - result: passed (`4 passed`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary allows modified-wheel zoom from a nowheel section body on the custom surface'`
+      - result: passed (`1 passed`, `20.9s`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+  - Live verification result:
+    - a fresh-context CDP sub-agent attempted the exact modified-wheel lane on live `http://127.0.0.1:3075/settings` and read-only `http://127.0.0.1:3087/settings`, but chrome-devtools-mcp does not expose a wheel primitive, so the agent could not produce an authoritative gesture replay through CDP itself
+    - a second fresh-context CDP sub-agent then performed the required static visual check on the same normalized `All Settings` nowheel-heavy lane around `Mode` / `Config Language` / `Aspect Ratio`
+    - the target nowheel lane was visible on both canary and legacy, and no obvious canary-only static visual drift was visible there
+    - CDP visual check: done (All Settings nowheel lane is visible on both canary and legacy, with no obvious canary-only static visual drift)
+  - conclusion for this slice:
+    - close the specific canary regression where modifier-wheel zoom/pinch was suppressed inside `.nowheel` section bodies
+    - do not reopen this lane unless a later normalized compare or automated regression shows modified-wheel zoom failing again or the anchored zoom result drifting visually
+    - the next real frontier should return to a different normalized dynamic Gate 1 / Gate 2 path that CDP can drive end-to-end, not more `.nowheel` modifier-wheel churn
 - Ralph item `106` spent the one bounded post-probe oracle step on a fresh-context live compare of the spreadsheet `.nowheel` wheel-ownership lane and closed it without landing a production or harness change.
   - Why this slice was needed:
     - items `104` and `105` were both support/probe-heavy slices, so this iteration had to use its allowed oracle step on one different live dynamic lane instead of extending the same helper shape again
