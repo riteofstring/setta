@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 10:50 EDT
+Last updated: 2026-04-04 11:04 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,41 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `116` fixed a real canary toolbar regression on the shared pan-and-zoom title-edit lane instead of extending the probe again.
+  - Why this slice was needed:
+    - item `115` had already added the right main-reference parity probe, and this fresh iteration reran that exact lane first rather than inventing another support pass
+    - the first rerun on the current run-035 runtimes failed before title editing because the worktree canary `zoom in` click dropped from the live post-pan zoom (`1.2806`) to a smaller stale zoom (`0.6382`)
+    - source inspection showed the shared viewport helper still trusted any connected D3 selection for zoom controls, even when that D3 target was outside the active graph root on the custom substrate path
+  - Production/test change:
+    - updated `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts`
+      - `getViewportTransitionResources(...)` now requires `hasActiveD3ViewportTarget(...)` before delegating zoom/viewport commands to legacy D3 state, so the canary toolbar falls back to the custom viewport controller when stale D3 state belongs to another mounted surface
+    - updated `frontend/src/forks/xyflow/core/hooks/useViewportHelper.test.ts`
+      - added regression coverage proving `zoomIn()` ignores a stale connected D3 pane outside the active graph root and delegates to the custom viewport controller instead
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-035/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-035/main-ai.log`
+    - first targeted probe rerun on fresh runtimes:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<run-035 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-035 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed before the title-edit step because the worktree canary zoom-in action moved from `1.2806316` to `0.638232` instead of increasing zoom
+    - `pnpm -C frontend exec prettier --check src/forks/xyflow/core/hooks/useViewportHelper.ts src/forks/xyflow/core/hooks/useViewportHelper.test.ts`
+      - result: passed
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/hooks/useViewportHelper.test.ts`
+      - result: passed (`4 passed`)
+    - refreshed runtime/bootstrap values again after the failed rerun expired the previous token
+    - second targeted probe rerun on fresh tokens:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-035 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-035 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `42.4s`)
+  - Live verification result:
+    - a fresh-context CDP sub-agent confirmed chrome-devtools-mcp access was healthy again on the worktree browser
+    - the sub-agent normalized the live `3075` canary and read-only `3087` legacy settings pages on shared `backend`, replayed the short blank graph-surface pan, then clicked `zoom in` once on each side
+    - captured viewport transforms showed the worktree canary scale increased from `0.394354` to `0.473225` after zoom, while read-only `main` increased from `0.1` to `0.12`; the worktree no longer zoomed the wrong direction or snapped back to an older viewport
+    - CDP visual check: done (fresh-context `backend` pan-and-zoom title-edit lane on live `3075` canary vs read-only `3087` legacy; zoom-in increased on both sides and no canary-only snapback was visible)
+  - conclusion for this slice:
+    - close the stale-D3 toolbar delegation blocker on the shared pan-and-zoom title-edit lane
+    - keep the new main-reference pan-and-zoom title-edit probe; it now passes again on the current live run-035 runtimes after the production fix
+    - do not reopen this exact lane unless a fresh normalized compare again shows canary-only zoom-direction or snapback drift
+    - the next iteration should move to a different normalized dynamic Gate 1 / Gate 2 lane now that CDP access is restored and this motion/editing blocker is closed
 - Ralph item `115` added the missing main-reference pan-and-zoom title-edit parity probe, then hit a post-recovery CDP access blocker before the required live visual gate could be rerun on the exact new lane.
   - Why this slice was needed:
     - items `113` and `114` were both tightening the older shared title-edit-after-pan lane, and item `114` closed that exact `backend` path as oracle noise

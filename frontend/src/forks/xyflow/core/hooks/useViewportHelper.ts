@@ -9,13 +9,21 @@ import type {
   ViewportTransitionOptions,
   ViewportZoomOptions,
 } from "../types";
-import { getD3Transition, pointToRendererPoint } from "../utils/graph";
+import {
+  getD3Transition,
+  hasActiveD3ViewportTarget,
+  pointToRendererPoint,
+} from "../utils/graph";
 
 type ViewportTransform = Partial<Viewport>;
 
 function getViewportTransitionResources(options?: ViewportTransitionOptions) {
-  const { d3Zoom, d3Selection } = useReactFlow.getState();
-  if (!d3Zoom || !d3Selection) {
+  const { d3Zoom, d3Selection, domNode } = useReactFlow.getState();
+  if (
+    !d3Zoom ||
+    !d3Selection ||
+    !hasActiveD3ViewportTarget(d3Selection, domNode)
+  ) {
     return null;
   }
   return {

@@ -2,7 +2,12 @@ import { useReactFlow } from "forks/xyflow/core/store";
 import { useSettings } from "state/definitions";
 import { createSettingsState } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetZoom, setCenter, updateMapPosition } from "./useViewportHelper";
+import {
+  resetZoom,
+  setCenter,
+  updateMapPosition,
+  zoomIn,
+} from "./useViewportHelper";
 
 describe("useViewportHelper", () => {
   const initialState = useReactFlow.getState();
@@ -20,6 +25,7 @@ describe("useViewportHelper", () => {
   });
 
   afterEach(() => {
+    zoomIn.cancel();
     useReactFlow.setState({ ...initialState });
   });
 
@@ -64,5 +70,45 @@ describe("useViewportHelper", () => {
       { x: 130, y: 20, zoom: 1.5 },
       { duration: 100 },
     );
+  });
+
+  it("ignores a stale connected d3 viewport target outside the active graph root", () => {
+    // Validates canary toolbar zoom does not replay a legacy viewport from a
+    // different mounted surface.
+    class FakeElement {
+      isConnected = true;
+
+      contains() {
+        return false;
+      }
+    }
+
+    const previousElement = globalThis.Element;
+    globalThis.Element = FakeElement as typeof Element;
+
+    const scaleBy = vi.fn();
+    const zoomBy = vi.fn();
+
+    try {
+      useReactFlow.setState({
+        d3Selection: { node: () => new FakeElement() } as never,
+        d3Zoom: { scaleBy } as never,
+        domNode: new FakeElement() as never,
+        viewportController: {
+          zoomBy,
+          zoomTo: vi.fn(),
+          setViewport: vi.fn(),
+          setCenter: vi.fn(),
+          fitView: vi.fn(() => true),
+        },
+      });
+
+      zoomIn();
+
+      expect(scaleBy).not.toHaveBeenCalled();
+      expect(zoomBy).toHaveBeenCalledWith(1.2, undefined);
+    } finally {
+      globalThis.Element = previousElement;
+    }
   });
 });
