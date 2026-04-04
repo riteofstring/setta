@@ -256,6 +256,54 @@ func buildTSMergeGeneratedOptionsCreateBodyTS(entries []tsObjectEntry, overrides
 	return builder.String()
 }
 
+func buildTSMergeGeneratedOptionsExprFromGoValueTS(
+	context string,
+	value any,
+	orderedKeys []string,
+	overridesExpr string,
+) string {
+	if strings.TrimSpace(overridesExpr) == "" {
+		overridesExpr = "options"
+	}
+	if len(orderedKeys) == 0 {
+		orderedKeys = goJSONFieldOrder(value)
+	}
+	defaults := mustTSLiteralObjectFromGoValue(context, value)
+	if len(orderedKeys) > 0 {
+		validateTSLiteralObjectKeys(context, defaults, orderedKeys)
+	}
+
+	var builder strings.Builder
+	builder.WriteString("mergeGeneratedOptions(\n")
+	writeTSObjectLiteral(&builder, "    ", defaults, orderedKeys)
+	builder.WriteString(",\n")
+	builder.WriteString("    ")
+	builder.WriteString(overridesExpr)
+	builder.WriteString(",\n")
+	builder.WriteString("  )")
+	return builder.String()
+}
+
+func buildTSMergeGeneratedOptionsCreateBodyFromGoValueTS(
+	context string,
+	value any,
+	orderedKeys []string,
+	overridesExpr string,
+) string {
+	var builder strings.Builder
+	builder.WriteString("  return ")
+	builder.WriteString(
+		buildTSMergeGeneratedOptionsExprFromGoValueTS(
+			context,
+			value,
+			orderedKeys,
+			overridesExpr,
+		),
+	)
+	builder.WriteString(";")
+	return builder.String()
+}
+
 func renderTSObjectLiteralFromGoValue(context string, value any, orderedKeys []string) string {
 	object := mustTSLiteralObjectFromGoValue(context, value)
 	validateTSLiteralObjectKeys(context, object, orderedKeys)

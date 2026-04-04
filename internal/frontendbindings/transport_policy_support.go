@@ -36,13 +36,6 @@ func transportPolicySupportDeclarations() []TypeDeclaration {
 			false,
 			buildGeneratedModeScopedLauncherRoutesExprTS(),
 		),
-		functionDeclaration(
-			"stripGeneratedTransportAddressQueryAndHash",
-			false,
-			"string",
-			buildStripGeneratedTransportAddressQueryAndHashBodyTS(),
-			TypeProperty{Name: "address", TypeExpr: "string"},
-		),
 		exportedFunctionDeclaration(
 			"resolveGeneratedServerModeCapabilities",
 			"GeneratedServerModeCapabilities",
@@ -63,10 +56,6 @@ func transportPolicySupportDeclarations() []TypeDeclaration {
 			TypeProperty{Name: "serverMode", TypeExpr: `ServerModeResponse["mode"] | null`},
 		),
 	}
-}
-
-func buildStripGeneratedTransportAddressQueryAndHashBodyTS() string {
-	return "  return generatedBindingRuntime.stripGeneratedTransportAddressQueryAndHash(address);"
 }
 
 func buildResolveGeneratedServerModeCapabilitiesBodyTS() string {

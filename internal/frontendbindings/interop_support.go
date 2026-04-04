@@ -16,13 +16,6 @@ func interopSupportDeclarations() []TypeDeclaration {
 			buildNormalizeGeneratedOriginBody(),
 			TypeProperty{Name: "rawOrigin", TypeExpr: "string | null | undefined"},
 		),
-		functionDeclaration(
-			"formatGeneratedOriginHost",
-			false,
-			"string",
-			buildFormatGeneratedOriginHostBody(),
-			TypeProperty{Name: "hostname", TypeExpr: "string"},
-		),
 		exportedFunctionDeclaration(
 			"normalizeGeneratedToolName",
 			"string | null",
@@ -34,10 +27,6 @@ func interopSupportDeclarations() []TypeDeclaration {
 
 func buildNormalizeGeneratedOriginBody() string {
 	return "  return generatedBindingRuntime.normalizeGeneratedOrigin(rawOrigin);"
-}
-
-func buildFormatGeneratedOriginHostBody() string {
-	return "  return generatedBindingRuntime.formatGeneratedOriginHost(hostname);"
 }
 
 func buildNormalizeGeneratedToolNameBody() string {

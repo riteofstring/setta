@@ -2985,7 +2985,7 @@ export function createSharePolicy(
       allowExternalLinks: false,
       allowFileDownloads: false,
       allowMultipleRuns: true,
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+      runSnapshotMode: "ephemeral",
     },
     options,
   );
@@ -9111,7 +9111,7 @@ export function createDefaultAppPolicy(
       allowExternalLinks: false,
       allowFileDownloads: false,
       allowMultipleRuns: true,
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
+      runSnapshotMode: "ephemeral",
     },
     options,
   );

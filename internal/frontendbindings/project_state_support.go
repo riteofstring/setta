@@ -9,7 +9,6 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/realtime"
 	"setta/internal/scriptablechat"
-	"strings"
 )
 
 type ProjectStateSingleConfig projectview.SingleConfig
@@ -1044,14 +1043,12 @@ func buildDefaultSharePolicyCreateExprTS() string {
 }
 
 func buildSharePolicyCreateExprTS(policy deployments.Policy) string {
-	var builder strings.Builder
-	builder.WriteString("mergeGeneratedOptions(\n")
-	builder.WriteString("    {\n")
-	writeTSObjectFields(&builder, "      ", sharePolicyLiteralFields(policy))
-	builder.WriteString("    },\n")
-	builder.WriteString("    options,\n")
-	builder.WriteString("  )")
-	return builder.String()
+	return buildTSMergeGeneratedOptionsExprFromGoValueTS(
+		"frontend share policy defaults",
+		policy,
+		goJSONFieldOrder(policy),
+		"options",
+	)
 }
 
 func defaultAppPolicyDeclaration() TypeDeclaration {
@@ -1064,39 +1061,12 @@ func defaultAppPolicyDeclaration() TypeDeclaration {
 }
 
 func buildDefaultAppPolicyFunctionBodyTS() string {
-	var builder strings.Builder
-	builder.WriteString("  return mergeGeneratedOptions(\n")
-	builder.WriteString("    {\n")
-	writeTSObjectFields(&builder, "      ", sharePolicyLiteralFields(deployments.DefaultAppPolicy()))
-	builder.WriteString("    },\n")
-	builder.WriteString("    options,\n")
-	builder.WriteString("  );")
-	return builder.String()
-}
-
-func sharePolicyLiteralFields(policy deployments.Policy) []tsLiteralField {
-	return []tsLiteralField{
-		{Name: "allowParamChanges", Value: boolLiteralExpr(policy.AllowParamChanges)},
-		{Name: "allowVariantChanges", Value: boolLiteralExpr(policy.AllowVariantChanges)},
-		{Name: "allowLayoutChanges", Value: boolLiteralExpr(policy.AllowLayoutChanges)},
-		{Name: "allowRun", Value: boolLiteralExpr(policy.AllowRun)},
-		{Name: "allowLLM", Value: boolLiteralExpr(policy.AllowLLM)},
-		{Name: "allowExternalLinks", Value: boolLiteralExpr(policy.AllowExternalLinks)},
-		{Name: "allowFileDownloads", Value: boolLiteralExpr(policy.AllowFileDownloads)},
-		{Name: "allowMultipleRuns", Value: boolLiteralExpr(policy.AllowMultipleRuns)},
-		{Name: "runSnapshotMode", Value: runSnapshotModeLiteralExpr(policy.RunSnapshotMode)},
-	}
-}
-
-func boolLiteralExpr(value bool) string {
-	if value {
-		return "true"
-	}
-	return "false"
-}
-
-func runSnapshotModeLiteralExpr(mode deployments.RunSnapshotMode) string {
-	return "RunSnapshotModeEnum." + string(mode)
+	return buildTSMergeGeneratedOptionsCreateBodyFromGoValueTS(
+		"frontend default app policy",
+		deployments.DefaultAppPolicy(),
+		goJSONFieldOrder(deployments.Policy{}),
+		"options",
+	)
 }
 
 func projectStateSupportDeclarations() []TypeDeclaration {

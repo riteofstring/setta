@@ -174,6 +174,9 @@ func TestSupportDeclarationsRenderStructuredBodies(t *testing.T) {
 			interopBodies["normalizeGeneratedToolName"],
 		)
 	}
+	if _, ok := interopBodies["formatGeneratedOriginHost"]; ok {
+		t.Fatalf("formatGeneratedOriginHost should not be emitted as a generated helper")
+	}
 
 	transportBodies := map[string]string{}
 	for _, declaration := range transportPolicySupportDeclarations() {
@@ -208,6 +211,9 @@ func TestSupportDeclarationsRenderStructuredBodies(t *testing.T) {
 			"resolveGeneratedEndpointOriginForMode body missing launcher mode literal:\n%s",
 			transportBodies["resolveGeneratedEndpointOriginForMode"],
 		)
+	}
+	if _, ok := transportBodies["stripGeneratedTransportAddressQueryAndHash"]; ok {
+		t.Fatalf("stripGeneratedTransportAddressQueryAndHash should not be emitted as a generated helper")
 	}
 
 	websocketBodies := map[string]string{}
@@ -915,6 +921,37 @@ func TestBuildBindingsIncludesSharedFactoryHelpers(t *testing.T) {
 	}
 	if strings.Contains(bindings.TypesTS, "type ImplArgsBundleWithUpdaters<") {
 		t.Fatalf("types output still emits raw impl args helper alias:\n%s", bindings.TypesTS)
+	}
+}
+
+func TestSharePolicyDefaultsUseGoOwnedValues(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	if err := converter.AddRootType(reflect.TypeOf(SharePolicy{})); err != nil {
+		t.Fatalf("AddRootType(SharePolicy) error = %v", err)
+	}
+
+	sharePolicy := mustFindDeclarationByName(t, converter.Declarations(), "SharePolicy")
+	if !strings.Contains(sharePolicy.CreateExpr, `runSnapshotMode: "ephemeral",`) {
+		t.Fatalf("SharePolicy create expr missing Go-backed run snapshot mode:\n%s", sharePolicy.CreateExpr)
+	}
+	if strings.Contains(sharePolicy.CreateExpr, "RunSnapshotModeEnum.") {
+		t.Fatalf("SharePolicy create expr still embeds handwritten run snapshot enum refs:\n%s", sharePolicy.CreateExpr)
+	}
+
+	defaultAppPolicy := mustFindDeclarationByName(t, CurrentAdditionalDeclarations(), "createDefaultAppPolicy")
+	if !strings.Contains(defaultAppPolicy.FunctionBody, `allowVariantChanges: false,`) {
+		t.Fatalf("createDefaultAppPolicy body missing Go-backed variant default:\n%s", defaultAppPolicy.FunctionBody)
+	}
+	if !strings.Contains(defaultAppPolicy.FunctionBody, `allowRun: true,`) {
+		t.Fatalf("createDefaultAppPolicy body missing Go-backed allowRun default:\n%s", defaultAppPolicy.FunctionBody)
+	}
+	if !strings.Contains(defaultAppPolicy.FunctionBody, `runSnapshotMode: "ephemeral",`) {
+		t.Fatalf("createDefaultAppPolicy body missing Go-backed run snapshot mode:\n%s", defaultAppPolicy.FunctionBody)
+	}
+	if strings.Contains(defaultAppPolicy.FunctionBody, "RunSnapshotModeEnum.") {
+		t.Fatalf("createDefaultAppPolicy body still embeds handwritten run snapshot enum refs:\n%s", defaultAppPolicy.FunctionBody)
 	}
 }
 
