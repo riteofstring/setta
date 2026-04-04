@@ -3506,6 +3506,30 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 08:20 EDT - Ralph item 106
+
+- Spent the one bounded post-probe oracle step on a fresh-context live compare of the spreadsheet `.nowheel` wheel-ownership lane and closed it without landing a production or harness change.
+- Why this slice was necessary:
+  - items `104` and `105` were both support/probe-heavy slices, so this iteration had to spend its allowed oracle step on one different live dynamic lane instead of extending the same helper shape again
+  - the recent canary wheel fix only re-proved section-chrome pan ownership; it had not yet rechecked the opposite contract inside a real body-heavy `.nowheel` island on normalized `All Settings`
+  - `spreadsheetSectionDefault` exposes a stable section-scoped args lane inside a real `.nowheel` body, so it was the narrowest trustworthy way to ask whether the canary still leaked canvas motion where legacy would suppress it
+- Production/test changes:
+  - no production or test files changed in this slice
+  - this iteration intentionally used the existing live compare flow only
+- Verification:
+  - fresh-context CDP sub-agent:
+    - compared worktree page `3` at `http://127.0.0.1:3075/settings` and read-only `main` page `4` at `http://127.0.0.1:3087/settings`
+    - normalized both pages to active `All Settings`, then targeted `spreadsheetSectionDefault > section.section-args`
+    - synthetic wheel input over that body lane left the viewport transform unchanged and the inspected body lane `scrollTop` unchanged on both surfaces
+    - no concrete canary-only pan/zoom drift was visible
+    - the only remaining difference was wheel-event bookkeeping (`defaultPrevented=false` on canary vs `true` on legacy), but with no canvas motion or body-scroll regression this is not enough evidence to justify a renderer change
+  - CDP visual check: done (fresh-context live `3075` canary vs read-only `3087` legacy; spreadsheet `.nowheel` body wheel lane produced no canary-only motion drift)
+- Lane status:
+  - close the specific spreadsheet `.nowheel` wheel-ownership lane for the current live runtimes
+  - do not reopen this lane unless a later normalized compare shows actual canvas movement, zoom, or broken inner-body wheel/scroll behavior on the same section-body path
+- Next frontier:
+  - move to one different normalized live dynamic lane that can still expose a product defect, not more spreadsheet wheel bookkeeping
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-04 07:33 EDT - Ralph item 103
 
 - Added a normalized cross-worktree widened `drawSectionDefault` pane-pan parity probe and closed that bounded non-group/non-spreadsheet wide-card motion lane without inventing a production fix.
