@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 18:04 EDT
+Last updated: 2026-04-04 18:30 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -41,6 +41,60 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `137` landed deterministic `dictSectionDefault` toolbar-zoom parity coverage, anchored on the shared `Config Language` body row, and closed the checked dict toolbar-zoom motion lane as clean on the current run-056 surfaces.
+  - Why this slice was needed:
+    - item `136` had already established `dictSectionDefault` as the active canonical lane and named toolbar zoom as the next trusted motion family beyond authoritative viewport
+    - the lane-budget rules still allowed one more bounded probe on this named lane, but not another ad hoc CDP-only replay or another anchor-discovery pass
+    - adding one deterministic toolbar-zoom probe was the narrowest way to answer a real renderer-facing motion question without reopening the unsupported dropzone lane
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `settings graph parity probe keeps the dict config language row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary`
+  - What this slice established:
+    - `dictSectionDefault` remains present on normalized `All Settings` on both sides with the current live ids:
+      - worktree canary: `dbfc70a1-889c-454b-88ef-88fbe9b38c46`
+      - read-only main legacy: `396dc985-0533-4b59-ad70-5e68a6e01c3d`
+    - after exact targeted fit and one toolbar `zoom in`, both sides still matched on:
+      - section title `dictSectionDefault`
+      - visible shared body anchor `Config Language`
+      - row-relative anchor position `x≈0.50000007`, `y≈0.34943157`
+      - viewport transform `x≈-1400.92`, `y≈-2553.91`, `zoom≈1.50198`
+      - section rect `x≈401.454`, `y≈185.652`, `w≈829.091`, `h≈528.696`
+    - the targeted Playwright rerun passed directly against the current run-056 worktree/main runtimes
+    - two fresh-context CDP verification sub-agents failed for tooling/session reasons before the visual gate:
+      - one hit stale/expired token state on the reference path
+      - one could not reach the `chrome-devtools-mcp` surface from that sub-agent session
+    - the required visual gate still completed by falling back to the main-session Chrome DevTools MCP tools with fresh run-056 bootstrap URLs and exact live dict ids; treat that as a tooling-path fallback, not product drift
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-056 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-056/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-056/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-056 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-056 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the dict config language row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `1.0m`)
+    - live dict-id cross-check:
+      - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:\"POST\",headers:{\"Content-Type\":\"application/json\",Origin:origin,Referer:origin+\"/\"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin)=>{const load=await postJson(baseUrl+\"/api/loadProjectConfig\",origin,{projectConfigName:\"settings\"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+\"/api/getLatestProjectState\",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===\"dictSectionDefault\"); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection(\"http://127.0.0.1:8075\",\"http://127.0.0.1:3075\"), reference:await getSection(\"http://127.0.0.1:8087\",\"http://127.0.0.1:3087\")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+      - result: worktree `dbfc70a1-889c-454b-88ef-88fbe9b38c46`, reference `396dc985-0533-4b59-ad70-5e68a6e01c3d`
+    - fresh-context CDP sub-agents:
+      - both started from fresh context and read `docs/guides/browser-mcp-quickstart.md`
+      - first sub-agent blocked on stale/expired-token page state before it could complete the shared compare
+      - second sub-agent could not reach the `chrome-devtools-mcp` tool surface from that session and direct CDP attach hung
+    - main-session Chrome DevTools MCP fallback:
+      - opened fresh run-056 bootstrap pages for live worktree `3075` and read-only main `3087`
+      - navigated both to `/settings` and confirmed `All Settings`
+      - applied shared targeted `fitView(...)` to the exact dict ids above
+      - captured matching baseline metrics on both sides:
+        - section rect `x≈454.545`, `y≈229.710`, `w≈690.909`, `h≈440.580`
+        - row-relative anchor `x≈0.50000017`, `y≈0.34943160`
+        - transform `x≈-1047.43`, `y≈-2059.25`, `zoom≈1.25165`
+      - clicked toolbar `zoom in` once on both pages and confirmed matching post-zoom metrics plus visible `Config Language` rows on both screenshots
+    - CDP visual check: done (main-session fallback after fresh-context sub-agent failures; fresh `3075`/`3087` pages, exact `dictSectionDefault` ids, shared targeted fit plus one toolbar zoom in, and `Config Language` stayed visible/attached with matching post-zoom geometry)
+  - conclusion for this slice:
+    - keep `dictSectionDefault` as the canonical named lane, now with both authoritative-viewport and toolbar-zoom guards anchored on `Config Language`
+    - close the checked dict toolbar-zoom lane as clean for the current run-056 surfaces
+    - because items `136` and `137` are now two probe-only passes on the same named dict lane, the next iteration must either land product code on a remaining concrete dict-lane artifact or move to a different renderer-facing named lane instead of spending a third probe-only pass on `dictSectionDefault`
 - Ralph item `136` landed deterministic `dictSectionDefault` authoritative-viewport parity coverage, anchored on the shared `Config Language` body row, and kept the lane on a trusted motion path instead of reopening ad hoc CDP drag/pan.
   - Why this slice was needed:
     - item `135` had closed `dropzoneParamCodeObjDefault` as unsupported for the current tool stack, and the handoff explicitly named `dictSectionDefault` as the next canonical `All Settings` lane
