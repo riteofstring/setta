@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 08:42 EDT
+Last updated: 2026-04-04 09:11 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `109` added a deterministic main-reference probe for the shared canvas-focus shortcut lane and turned that lane into the next concrete production blocker instead of another speculative compare.
+  - Why this slice was needed:
+    - item `108` closed the blank-pane deselect lane, and the handoff explicitly named the shared focus-shortcut restore path as the next good dynamic candidate
+    - the first cross-worktree probe attempt showed the stronger "focused control is visibly inside the pane" oracle was not shared with read-only `main`, so the bounded support step was to narrow the probe to the durable shared contract both surfaces actually expose: return canvas focus to the same section target and move the viewport
+    - this kept the iteration inside one exact dynamic lane instead of inventing another harness-only frontier
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added opt-in probe `settings graph parity probe restores the same shared offscreen section target with the canvas focus shortcut on read-only main legacy and worktree canary`
+      - the probe normalizes both runtimes to `All Settings`, prefers one shared visible top-level section from `browserSectionDefault` / `taskBoardSectionDefault`, focuses a small header control inside that section, pushes the section offscreen, moves focus to `Core`, then presses `Control+Shift+3`
+      - the probe verifies both surfaces return canvas focus to the same section id and move the viewport away from the offscreen transform
+      - widened `getSettingsGraphSectionLocator(...)` so the probe can target the shared section container across canary and legacy, and added local helpers for offscreen viewport setup plus section/canvas focus inspection
+    - no production renderer files changed in this slice
+  - Automated result:
+    - refreshed runtime/bootstrap values before the passing rerun:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-028/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-028/main-ai.log`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe restores the same shared offscreen section target with the canvas focus shortcut on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `31.0s`)
+  - Live verification result:
+    - one fresh-context CDP sub-agent checked the raw baseline shortcut surface and found a canary-only shortcut-help overlay/modal (`focusCanvasShortcut "Ctrl + Shift + 3"`) that did not appear on read-only `main`
+    - a second fresh-context CDP sub-agent then followed the exact section-targeted lane on shared `browserSectionDefault`
+    - on that exact lane, the canary visibly restored `browserSectionDefault` after `Control+Shift+3`, while read-only `main` ended on an effectively blank/offscreen canvas with the section not visible
+    - this means the checked focus-shortcut lane is still not visually aligned between canary and `main`, even though the narrowed automated probe now captures the shared focus-target-plus-viewport-move contract
+    - CDP visual check: done (exact `browserSectionDefault` focus-shortcut lane still not aligned; canary visibly restores the section while read-only `main` ends blank/offscreen, and the raw baseline shortcut path also shows a canary-only overlay)
+  - conclusion for this slice:
+    - keep the new parity probe as the blocker-finding support slice for the shared canvas-focus shortcut lane
+    - do not spend another iteration polishing this probe with more support-only visibility heuristics; the next slice should investigate/fix the actual production shortcut parity mismatch
 - Ralph item `108` closed the normalized blank-pane deselect lane with a deterministic main-reference probe after a fresh CDP compare found no user-visible canary-only defect there.
   - Why this slice was needed:
     - item `107` was a concrete production fix, so the next valid step was one different normalized dynamic Gate 1 lane instead of reopening the `.nowheel` wheel path
@@ -2605,7 +2634,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- The next bounded slice should leave the canvas-focus shortcut lane and the blank-pane deselect lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
+- The next bounded slice should be a production investigation/fix of the shared canvas-focus shortcut parity on normalized `All Settings`, not another harness-only focus lane.
+- Item `109` already provides the deterministic main-reference probe for the stored-target focus shortcut path:
+  - keep using the normalized `All Settings` setup, prefer `browserSectionDefault` when it is visible on both surfaces, focus a small header control inside that section, push it offscreen, move focus to `Core`, then trigger `Control+Shift+3`
+  - do not reopen this lane with the older whole-section wrapper focus target or more support-only visibility heuristics unless a production change truly alters the surface contract
+- Known live mismatch on the current exact focus-shortcut lane:
+  - the exact `browserSectionDefault` CDP compare left the canary with the section visibly restored after `Control+Shift+3`, while read-only `main` ended on an effectively blank/offscreen canvas
+  - the raw baseline shortcut path on the canary also surfaced a shortcut-help overlay/modal that did not appear on read-only `main`
+- Treat read-only `main` as the oracle even if the canary currently looks more helpful on this lane; the next product slice needs to explain and resolve why the canary and legacy diverge here.
 - The cleared-viewport `All Settings` landing lane is now closed for the current live runtimes:
   - item `092` shows that after clearing the authoritative viewport on both worktree canary and read-only `main` legacy, one shared named top-level section lands with matching transform/rect/center-offset metrics
   - do not reopen this lane with DOM order or “first visible card” assertions unless a future compare shows an actual shared named section mismatch after clearing viewport
@@ -2711,6 +2747,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `106`
-- Latest item: `2026-04-04 106`
+- Active history window: items `001` through `109`
+- Latest item: `2026-04-04 109`
 - Older history archives: none yet

@@ -470,6 +470,258 @@ test("settings graph parity probe clears the same shared active section after no
   }
 });
 
+test("settings graph parity probe restores the same shared offscreen section target with the canvas focus shortcut on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const sharedSection = findSharedVisibleTopLevelSectionByName({
+    preferredNames: ["browserSectionDefault", "taskBoardSectionDefault"],
+    referenceState: referenceInitialState,
+    viewModeName: "All Settings",
+    worktreeState: worktreeInitialState,
+  });
+
+  async function captureFocusShortcutRestore(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    projectConfigId: string;
+    sectionId: string;
+    sectionName: string;
+    targetPage: Page;
+    tab: Locator;
+  }) {
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.tab).toBeVisible();
+    await args.tab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    const targetSection = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const targetFocusable = targetSection.locator("header button").first();
+
+    await expect(targetSection).toBeVisible();
+    await expect(targetFocusable).toBeVisible();
+    await targetFocusable.focus();
+    await expect(targetFocusable).toBeFocused();
+
+    const offscreenViewport =
+      await getSettingsGraphViewportWithSectionMovedOffscreen(
+        args.targetPage,
+        args.sectionId,
+      );
+    if (!offscreenViewport) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} offscreen viewport for ${args.sectionName}.`,
+      );
+    }
+
+    await postBackendForPage(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      "/setViewport",
+      {
+        projectConfigId: args.projectConfigId,
+        viewport: offscreenViewport,
+      },
+    );
+    const stateWithOffscreenViewport =
+      await getLatestProjectStateFromBackendOrigin(
+        args.targetPage,
+        args.backendOrigin,
+        args.frontendOrigin,
+        args.projectConfigId,
+      );
+    await applyProjectStateUpdate(args.targetPage, stateWithOffscreenViewport);
+
+    await expect
+      .poll(async () =>
+        isSettingsGraphSectionCenterInsidePane(args.targetPage, args.sectionId),
+      )
+      .toBe(false);
+    await args.targetPage
+      .getByRole("button", { exact: true, name: "Core" })
+      .focus();
+    await expect.poll(() => isCanvasScopeFocused(args.targetPage)).toBe(false);
+
+    // The shared canvas-focus shortcut should restore the stored canvas target
+    // on both surfaces, not just on the canary path.
+    await args.targetPage.keyboard.press("Control+Shift+3");
+
+    await expect.poll(() => isCanvasScopeFocused(args.targetPage)).toBe(true);
+    await expect
+      .poll(async () => getFocusedCanvasSectionId(args.targetPage))
+      .toBe(args.sectionId);
+    await expect
+      .poll(async () => {
+        const restoredMetrics = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!restoredMetrics.transform) {
+          return 0;
+        }
+        return Math.hypot(
+          restoredMetrics.transform.x - offscreenViewport.x,
+          restoredMetrics.transform.y - offscreenViewport.y,
+        );
+      })
+      .toBeGreaterThan(20);
+
+    return {
+      paneState: await getLocalPaneState(args.targetPage),
+    };
+  }
+
+  try {
+    const referenceRestore = await captureFocusShortcutRestore({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: sharedSection.referenceSectionId,
+      sectionName: sharedSection.name,
+      tab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: referencePage,
+    });
+    const worktreeRestore = await captureFocusShortcutRestore({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: sharedSection.worktreeSectionId,
+      sectionName: sharedSection.name,
+      tab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: page,
+    });
+
+    expect(referenceRestore.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeRestore.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe applies the same short pan delta on read-only main legacy and worktree canary after normalized fit", async ({
   context,
   page,
@@ -4432,7 +4684,11 @@ function getSettingsGraphSectionLocator(
   page: Page,
   sectionId: string,
 ): Locator {
-  return page.locator(`.react-flow__node[data-id="${sectionId}"]`).first();
+  return page
+    .locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${sectionId}"], .react-flow__node[data-id="${sectionId}"]`,
+    )
+    .first();
 }
 
 async function getSectionChildRelativeCenterPosition(
@@ -4568,4 +4824,143 @@ async function isSettingsGraphSectionActive(
       );
     return section?.getAttribute("data-section-active") === "true";
   }, sectionId);
+}
+
+async function getSettingsGraphViewportWithSectionMovedOffscreen(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number; zoom: number } | null> {
+  return page.evaluate(
+    async ({ extraMargin, targetSectionId }) => {
+      const pane =
+        document.querySelector<HTMLElement>(
+          '[data-testid="graph-substrate-canary"]',
+        ) ?? document.querySelector<HTMLElement>(".react-flow");
+      const viewport =
+        document.querySelector<HTMLElement>(
+          '[data-testid="graph-substrate-canary-viewport"]',
+        ) ?? document.querySelector<HTMLElement>(".react-flow__viewport");
+      const section =
+        document.querySelector<HTMLElement>(
+          `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
+        ) ??
+        document.querySelector<HTMLElement>(
+          `.react-flow__node[data-id="${targetSectionId}"]`,
+        );
+      if (!pane || !viewport || !section) {
+        return null;
+      }
+
+      const { useLocalStorage } = await import("/src/state/definitions.ts");
+      const paneBounds = pane.getBoundingClientRect();
+      const { overviewTrueWidth, uiEditorTrueWidth } =
+        useLocalStorage.getState();
+      const paneRect = {
+        bottom: paneBounds.bottom,
+        left: paneBounds.left + overviewTrueWidth,
+        right: paneBounds.right - uiEditorTrueWidth,
+        top: paneBounds.top,
+      };
+      const sectionRect = section.getBoundingClientRect();
+      const transform = window.getComputedStyle(viewport).transform;
+      const matrix =
+        !transform || transform === "none"
+          ? new DOMMatrixReadOnly()
+          : new DOMMatrixReadOnly(transform);
+      if (
+        !Number.isFinite(matrix.a) ||
+        !Number.isFinite(matrix.e) ||
+        !Number.isFinite(matrix.f) ||
+        matrix.a <= 0
+      ) {
+        return null;
+      }
+
+      return {
+        x:
+          matrix.e -
+          (sectionRect.left - paneRect.left + sectionRect.width + extraMargin),
+        y:
+          matrix.f -
+          (sectionRect.top - paneRect.top + sectionRect.height + extraMargin),
+        zoom: matrix.a,
+      };
+    },
+    {
+      extraMargin: 140,
+      targetSectionId: sectionId,
+    },
+  );
+}
+
+async function isSettingsGraphSectionCenterInsidePane(
+  page: Page,
+  sectionId: string,
+): Promise<boolean | null> {
+  return page.evaluate(async (targetSectionId) => {
+    const pane =
+      document.querySelector<HTMLElement>(
+        '[data-testid="graph-substrate-canary"]',
+      ) ?? document.querySelector<HTMLElement>(".react-flow");
+    const section =
+      document.querySelector<HTMLElement>(
+        `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
+      ) ??
+      document.querySelector<HTMLElement>(
+        `.react-flow__node[data-id="${targetSectionId}"]`,
+      );
+    if (!pane || !section) {
+      return null;
+    }
+
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    const paneBounds = pane.getBoundingClientRect();
+    const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage.getState();
+    const paneRect = {
+      bottom: paneBounds.bottom,
+      left: paneBounds.left + overviewTrueWidth,
+      right: paneBounds.right - uiEditorTrueWidth,
+      top: paneBounds.top,
+    };
+    const sectionRect = section.getBoundingClientRect();
+    const centerX = sectionRect.left + sectionRect.width / 2;
+    const centerY = sectionRect.top + sectionRect.height / 2;
+    return (
+      centerX >= paneRect.left &&
+      centerX <= paneRect.right &&
+      centerY >= paneRect.top &&
+      centerY <= paneRect.bottom
+    );
+  }, sectionId);
+}
+
+async function isCanvasScopeFocused(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      activeElement.closest('[data-tab-scope="canvas"]') instanceof HTMLElement
+    );
+  });
+}
+
+async function getFocusedCanvasSectionId(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement)) {
+      return null;
+    }
+    const sectionNode = activeElement.closest(
+      "[data-section-id], .react-flow__node[data-id]",
+    );
+    if (!(sectionNode instanceof HTMLElement)) {
+      return null;
+    }
+    return (
+      sectionNode.getAttribute("data-section-id") ??
+      sectionNode.getAttribute("data-id")
+    );
+  });
 }
