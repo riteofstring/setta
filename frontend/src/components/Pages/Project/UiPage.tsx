@@ -39,7 +39,7 @@ export function UIPage() {
         <PaneContextMenu />
         <SelectionContextMenu />
         <TypeErrorContextMenu />
-        {!shouldUseGraphSubstrateCanary && showMiniMap && <ResponsiveMiniMap />}
+        {showMiniMap && <ResponsiveMiniMap />}
       </div>
     </SectionDndContext>
   );

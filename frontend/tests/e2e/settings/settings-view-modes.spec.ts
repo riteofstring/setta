@@ -30,7 +30,10 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
     .poll(() => page.getByTestId("graph-substrate-canary-section").count())
     .toBeGreaterThan(1);
   await expect(page.locator(".react-flow__pane")).toHaveCount(0);
-  await expect(page.locator(".react-flow__minimap-node")).toHaveCount(0);
+  await expect(page.getByTestId("rf__minimap")).toBeVisible();
+  await expect
+    .poll(async () => getMiniMapNodeCount(page))
+    .toBeGreaterThan(1);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 17:33 EDT
+Last updated: 2026-04-02 17:56 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,23 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- A fresh-storage, no-extra-controls CDP compare closed the previous viewport-fit lane:
+  - a fresh-context CDP sub-agent compared the live worktree and read-only `main` `All Settings` surfaces before any viewport-control interaction
+  - both sides landed on the same initial canary transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` with the same visible graph bounds (`46` visible nodes; bounds `minX=780 minY=-209 maxX=955 maxY=722`)
+  - do not spend another iteration on the initial-entry fit lane unless a new controlled compare reopens it
+- Ralph item `022` closed the `All Settings` minimap parity lane:
+  - the next visible `main` delta after the fit compare was minimap parity: `main` still showed the responsive minimap panel on `All Settings`, while the worktree hid it entirely
+  - `frontend/src/components/Pages/Project/UiPage.tsx` now renders `ResponsiveMiniMap` whenever `showMinimap` is enabled, including the settings graph-substrate canary path
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that `All Settings` keeps the minimap visible on the canary path and that it renders more than one minimap node
+  - targeted Playwright verification passed in this iteration:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
+      - result: passed (`1 passed`, about `17s`)
+  - fresh-context CDP visual verification passed in this iteration:
+    - strict `chrome-devtools-mcp` compare on live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - worktree `All Settings`: minimap visible after clearing extra chat chrome
+    - `main` `All Settings`: minimap visible in the same bottom-left location
+    - no other blocking visual mismatch was called out on this minimap-focused compare
+  - this lane is now complete; do not spend another iteration on minimap visibility unless a later compare shows a regression
 - Ralph item `021` landed the visible-viewport-width fix for the `All Settings` custom substrate fit math:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now derives a canary-visible viewport size by subtracting `overviewTrueWidth` and `uiEditorTrueWidth` before fitting bounds, matching legacy `ReactFlow`'s width contract instead of fitting against the full root width and then adding the overview offset again.
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that visible viewport size for initial auto-fit, shared `useReactFlow.width`, fit-view controller commands, and viewport centering, so the canary no longer over-shifts horizontally when panes are open.
@@ -234,9 +251,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - Current priority is Gate 0 basic viability on a new custom graph substrate, not polishing the old shared-page-runtime path.
 - The first-order product requirement is:
   - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
-- The next real frontier after item `021` is narrower than the previous fit-view lane:
-  - rerun a fresh-storage, no-extra-controls CDP compare on initial `All Settings` entry to confirm the long-lived worktree no longer opens off-screen before any viewport-control interaction
-  - only keep working this lane if that initial-entry drift still reproduces; otherwise move to the next earliest normal-zoom visual or interaction defect instead of doing more viewport-fit churn
+- The previous post-item-021 frontier is now closed:
+  - the fresh-storage, no-extra-controls CDP compare no longer shows the worktree opening off-screen before any viewport interaction
+  - the follow-on minimap parity lane is also closed; do not reopen viewport-fit churn or minimap work unless a later compare regresses
 - Current live verification state:
   - targeted Vitest passed for:
     - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
@@ -254,10 +271,18 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
   - CDP visual check:
+    - fresh-storage initial-entry compare after item `021`: done
+      - worktree and `main` matched before any viewport controls: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` with the same visible graph bounds
+      - the old initial off-screen / blank-entry Gate 1 defect no longer reproduced
+      - the next visible delta from that compare was minimap parity: `main` showed a visible minimap panel while the worktree did not
     - worktree vs `main`: done
       - direct live `/settings` inspection on the current worktree session after `Core -> All Settings` showed a restored non-fit camera state with viewport transform `translate(435.661px, 104.839px) scale(0.187602)`
       - the same tab sequence on `main` restored a more zoomed-out camera state with viewport transform `translate(779.9px, -51.7px) scale(0.1)`
       - this closes the old "is the canary always re-fitting?" question for the checked path, but it leaves an explicit Gate 1 blocker: the worktree framing still drifts visibly from `main`
+    - minimap parity compare after item `022`: done
+      - fresh-context `chrome-devtools-mcp` compare on live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - both sides showed the minimap on `All Settings`
+      - no other blocking visual mismatch was called out on this minimap-focused compare
     - controlled cleared-viewport compare before item `011`: done
       - after forcing `viewport: null` and re-entering `All Settings`, the worktree stayed at the fallback transform `matrix(1, 0, 0, 1, 48, 48)` while `main` fit to `matrix(0.428082, 0, 0, 0.428082, 1458.36, 774.733)`
       - this is the evidence that drove the fallback-echo fix
@@ -299,15 +324,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The initial-fit / bounds-input lane is complete for the current normal-zoom `All Settings` gate:
   - item `018` reused the selector’s size contract in the bounds helper and the latest CDP compare no longer shows a material “too tight” framing difference versus `main`
   - do not spend another iteration on pure bounds math unless a new controlled compare reopens that specific defect
+- The fresh-storage initial-entry fit lane is also complete:
+  - the latest controlled CDP compare showed identical initial transforms and visible graph bounds on worktree and `main`
+  - do not reopen that lane unless a future fresh-storage compare shows the canary blank/off-screen again
 - The fast-switch viewport-persistence lane is complete:
   - item `019` closed the race where a recent canary pan/zoom could be lost if the user switched modes before the debounced viewport write reached the backend
   - do not spend another iteration on more view-mode switch plumbing unless a new controlled repro shows the current canary camera still gets dropped
 - The next real frontier is the next earliest stable product drift on the same canary path:
-  - fix the fresh-state initial `All Settings` framing defect on the worktree canary before doing more control or harness work:
-    - after clearing browser storage, worktree still opens `All Settings` at `translate(1592.67px, 88.9545px) scale(0.191013)` with `visibleNodeCount = 0`
-    - `main` opens the same fresh-state path at `translate(779.9px, -21.7px) scale(0.1)` with `visibleNodeCount = 46`
-    - this is now the earliest real gate failure because the user still lands on a blank/off-screen canvas until they manually hit `fit view`
-  - once that initial framing bug is fixed, rerun the same fresh-state compare and then inspect the next stable Gate 1 / Gate 2 issue after it, especially the remaining fitted `x` offset, text/chrome drift, or zoom artifacts
+  - start from a fresh normal-zoom worktree-vs-`main` compare on `All Settings` and isolate the next earliest stable Gate 1 / Gate 2 drift now that both the initial-entry fit lane and minimap lane are closed
+  - prioritize a concrete renderer or interaction defect on the checked canary path, especially text/chrome drift, interaction-state mismatch, or zoom artifacts, over more support-lane churn
   - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
 - Lifecycle/bootstrap debugging is no longer the default frontier:
   - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect

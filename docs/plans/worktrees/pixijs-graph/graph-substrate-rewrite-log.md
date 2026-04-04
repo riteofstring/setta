@@ -70,6 +70,33 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 022
+
+- Item: Restore minimap visibility on the `All Settings` graph-substrate canary so the worktree matches `main` for that chrome element.
+- Status: `done`
+- Details:
+  - The next stable parity delta after the fit-width lane was the minimap itself, not another viewport seam:
+    - `main` still showed the responsive minimap on `All Settings`
+    - the worktree hid it entirely whenever the settings graph-substrate canary path was active
+  - `frontend/src/components/Pages/Project/UiPage.tsx` now renders `ResponsiveMiniMap` whenever `showMiniMap` is enabled, including the canary path.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now proves that `All Settings` keeps the minimap visible on the canary route and that the minimap renders more than one node.
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
+    - result: passed (`1 passed`, about `17s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent used `chrome-devtools-mcp` to compare live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - both sides showed the minimap on `All Settings`
+      - no other blocking visual mismatch was called out on this minimap-focused compare
+- Conclusion:
+  - the worktree no longer drops the minimap on the checked canary path
+  - this closes the bounded minimap parity lane instead of reopening more viewport-fit churn
+- Next action:
+  - use a fresh normal-zoom worktree-vs-`main` compare on `All Settings` to isolate the next earliest Gate 1 / Gate 2 visual or interaction drift now that minimap parity is restored
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 020
 
 - Item: Wire the shared viewport controls into the `All Settings` custom substrate so `fit view` is no longer a no-op on the canary path.
