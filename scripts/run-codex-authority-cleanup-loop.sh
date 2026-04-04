@@ -192,21 +192,19 @@ status_file="${state_dir}/status.txt"
 head_file="${state_dir}/last-observed-head.txt"
 
 cat > "${prompt_file}" <<EOF
-You are running inside an automated Codex cleanup loop for this repository.
-
 Primary goals, in priority order:
 - Find unjustified duplication across Go, Python, and TypeScript, and remove it. Go is authoritative.
 - Find large Python or TypeScript source blocks embedded as strings in Go->Python and Go->TypeScript generation scripts, and replace them with structural generation or external templates.
 - Find unjustified polling that can be replaced by websocket pushes when the backend already knows when state changes, and make that replacement.
 
 Execution constraints:
-- This loop starts a brand-new Codex session every iteration. Do not rely on follow-up prompts.
-- Start each iteration by reading:
+- Treat this session as standalone. Do not rely on follow-up prompts.
+- Start by reading:
   - ${ROOT_DIR}/AGENTS.md
   - recent commits: \`git log --oneline --decorate -n 15\`
-  - the most recent loop response under \`${output_dir}/run-*/last-message.txt\`, if any exist
+  - the most recent prior session response under \`${output_dir}/run-*/last-message.txt\`, if any exist
 - Start with a fresh targeted audit of the three goal areas.
-- Fix any actionable issue or set of tightly-related issues that you can complete confidently within this iteration.
+- Fix any actionable issue or set of tightly-related issues that you can complete confidently in this session.
 - Prefer Go-owned logic and generated downstream surfaces over duplicated Python or TypeScript logic.
 - Do not leave duplicated non-trivial Python or TypeScript logic in place without an explicit concrete justification.
 - Do not leave large Python or TypeScript source blocks embedded as raw strings in generation scripts when a structured or template-backed approach is practical.
@@ -214,18 +212,16 @@ Execution constraints:
 - Do not introduce heuristic fallbacks or broad exception handling.
 - Before every commit, run \`./gcf.sh\`. If \`./gcf.sh\` fails, fix the failure or stop and report it instead of committing.
 - Run focused verification for the behavior you changed.
-- If you make repo changes, end the iteration with a clean worktree and a commit. Use a commit message that starts with \`codex-loop:\`.
+- If you make repo changes, end the session with a clean worktree and a commit. Use a commit message that starts with \`codex-cleanup:\`.
 - Do not create a commit if you made no repo changes.
 - Do not ask for follow-up.
 
-Stop condition:
-- Stop only after a fresh targeted audit pass finds no remaining actionable issues in any of the three goal areas.
-- When stopping, make no repo changes, leave the worktree clean, and end your final response with this exact line:
+If a fresh targeted audit pass finds no remaining actionable issues in any of the three goal areas, make no repo changes, leave the worktree clean, and end your final response with this exact line:
   ${stop_sentinel}
 
 Completion discipline:
-- Any non-stop iteration must produce a new commit and leave the worktree clean.
-- Never end an iteration with uncommitted, unstaged, or untracked repo changes.
+- Any session that does not emit the stop sentinel must produce a new commit and leave the worktree clean.
+- Never end the session with uncommitted, unstaged, or untracked repo changes.
 EOF
 
 if [[ ! -f "${status_file}" ]]; then
