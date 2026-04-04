@@ -386,6 +386,75 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "UserDefaultBrowserSectionImpl",
+			root: reflect.TypeOf(UserDefaultBrowserSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "folder", TypeExpr: "string", Optional: false},
+				{Name: "hideColumn", TypeExpr: "boolean", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "typesColumnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "viewMode", TypeExpr: "BrowserAreaViewMode", Optional: false},
+				{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultTaskBoardSectionImpl",
+			root: reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "viewMode", TypeExpr: "TaskBoardViewMode", Optional: false},
+				{Name: "columns", TypeExpr: "Array<TaskBoardColumn> | null", Optional: false},
+				{Name: "tasks", TypeExpr: "Array<TaskBoardTask>", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultChartSectionImpl",
+			root: reflect.TypeOf(UserDefaultChartSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "dataPath", TypeExpr: "string", Optional: false},
+				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultSpreadsheetSectionImpl",
+			root: reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "filePath", TypeExpr: "string", Optional: false},
+				{Name: "activeSheet", TypeExpr: "string | null", Optional: false},
+				{Name: "readOnly", TypeExpr: "boolean", Optional: false},
+				{Name: "showRowNumbers", TypeExpr: "boolean", Optional: false},
+				{Name: "density", TypeExpr: "SpreadsheetGridDensity", Optional: false},
+				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
 			name: "UpdateAgentProfileRequestInput",
 			root: reflect.TypeOf(UpdateAgentProfileRequestInput{}),
 			properties: []TypeProperty{
@@ -473,6 +542,10 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			if (tt.name == "BrowserSavedSearch" ||
 				tt.name == "TaskBoardColumn" ||
 				tt.name == "TaskBoardTask" ||
+				tt.name == "UserDefaultBrowserSectionImpl" ||
+				tt.name == "UserDefaultTaskBoardSectionImpl" ||
+				tt.name == "UserDefaultChartSectionImpl" ||
+				tt.name == "UserDefaultSpreadsheetSectionImpl" ||
 				tt.name == "ProjectRunCapabilities" ||
 				tt.name == "ProjectConfig" ||
 				tt.name == "SectionCapabilities" ||

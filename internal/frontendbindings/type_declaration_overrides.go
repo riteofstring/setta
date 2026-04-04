@@ -1203,23 +1203,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   dictationMode: ChatDictationMode;
 }`,
 		),
-		reflect.TypeOf(UserDefaultBrowserSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultBrowserSectionImpl",
-			"Browser",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "folder", TypeExpr: "string"},
-			TypeProperty{Name: "hideColumn", TypeExpr: "boolean"},
-			TypeProperty{Name: "columnWidth", TypeExpr: "number | null"},
-			TypeProperty{Name: "typesColumnWidth", TypeExpr: "number | null"},
-			TypeProperty{Name: "viewMode", TypeExpr: "BrowserAreaViewMode"},
-			TypeProperty{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>"},
-		),
 		reflect.TypeOf(BrowserSectionImpl{}): aliasDeclaration(
 			"BrowserSectionImpl",
 			`Omit<BaseSectionImpl, "viewMode"> & {
@@ -1231,20 +1214,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   viewMode: BrowserAreaViewMode;
   savedSearches: Array<BrowserSavedSearch>;
 }`,
-		),
-		reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultTaskBoardSectionImpl",
-			"TaskBoard",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "viewMode", TypeExpr: "TaskBoardViewMode"},
-			TypeProperty{Name: "columns", TypeExpr: "Array<TaskBoardColumn> | null"},
-			TypeProperty{Name: "tasks", TypeExpr: "Array<TaskBoardTask>"},
 		),
 		reflect.TypeOf(TaskBoardSectionImpl{}): aliasDeclaration(
 			"TaskBoardSectionImpl",
@@ -1259,19 +1228,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"BaseChartSettingsUnion",
 			"LineChartSettings | ScatterChartSettings",
 		),
-		reflect.TypeOf(UserDefaultChartSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultChartSectionImpl",
-			"Chart",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "dataPath", TypeExpr: "string"},
-			TypeProperty{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion"},
-		),
 		reflect.TypeOf(ChartSectionImpl{}): aliasDeclaration(
 			"ChartSectionImpl",
 			`BaseSectionImpl & {
@@ -1279,23 +1235,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   dataPath: string;
   chartSettings: BaseChartSettingsUnion;
 }`,
-		),
-		reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultSpreadsheetSectionImpl",
-			"Spreadsheet",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "filePath", TypeExpr: "string"},
-			TypeProperty{Name: "activeSheet", TypeExpr: "string | null"},
-			TypeProperty{Name: "readOnly", TypeExpr: "boolean"},
-			TypeProperty{Name: "showRowNumbers", TypeExpr: "boolean"},
-			TypeProperty{Name: "density", TypeExpr: "SpreadsheetGridDensity"},
-			TypeProperty{Name: "autoReloadOnExternalChange", TypeExpr: "boolean"},
 		),
 		reflect.TypeOf(SpreadsheetSectionImpl{}): aliasDeclaration(
 			"SpreadsheetSectionImpl",

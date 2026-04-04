@@ -7882,6 +7882,104 @@ func TestTaskBoardSupportContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
+func TestSectionDataUserDefaultDeclarationsUseConverterObjects(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		properties []TypeProperty
+	}{
+		{
+			name: "UserDefaultBrowserSectionImpl",
+			root: reflect.TypeOf(UserDefaultBrowserSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "folder", TypeExpr: "string", Optional: false},
+				{Name: "hideColumn", TypeExpr: "boolean", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "typesColumnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "viewMode", TypeExpr: "BrowserAreaViewMode", Optional: false},
+				{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultTaskBoardSectionImpl",
+			root: reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "viewMode", TypeExpr: "TaskBoardViewMode", Optional: false},
+				{Name: "columns", TypeExpr: "Array<TaskBoardColumn> | null", Optional: false},
+				{Name: "tasks", TypeExpr: "Array<TaskBoardTask>", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultChartSectionImpl",
+			root: reflect.TypeOf(UserDefaultChartSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "dataPath", TypeExpr: "string", Optional: false},
+				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultSpreadsheetSectionImpl",
+			root: reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "filePath", TypeExpr: "string", Optional: false},
+				{Name: "activeSheet", TypeExpr: "string | null", Optional: false},
+				{Name: "readOnly", TypeExpr: "boolean", Optional: false},
+				{Name: "showRowNumbers", TypeExpr: "boolean", Optional: false},
+				{Name: "density", TypeExpr: "SpreadsheetGridDensity", Optional: false},
+				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "object")
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if declaration.CreateExpr == "" {
+				t.Fatalf("%s should use a Go-backed create expr", tt.name)
+			}
+		})
+	}
+}
+
 func disabledGetLLMResponseRequestTreatsAppSpecStreamingEnabledAsOptional(t *testing.T) {
 	t.Parallel()
 

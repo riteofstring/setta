@@ -1590,10 +1590,200 @@ func specialTypeDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
+	if declaration, ok, err := generatedUserDefaultSectionDeclaration(t); ok || err != nil {
+		return declaration, ok, err
+	}
 	if declaration, ok, err := artifactTypeDeclaration(converter, t); ok || err != nil {
 		return declaration, ok, err
 	}
 	return TypeDeclaration{}, false, nil
+}
+
+type generatedUserDefaultSectionSpec struct {
+	SectionName               string
+	AdditionalPropertyOrder   []string
+	PropertyTypeExprOverrides map[string]string
+}
+
+var generatedUserDefaultSectionBasePropertyOrder = []string{
+	"isFrozen",
+	"tagColor",
+	"styleColor",
+	"size",
+	"aspectRatio",
+	"isMinimized",
+	"positionAndSizeLocked",
+}
+
+var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
+	"name":                    {},
+	"isInOtherProjectConfigs": {},
+	"aspectRatioExtraHeight":  {},
+	"aspectRatioExtraWidth":   {},
+	"isPreset":                {},
+}
+
+func generatedUserDefaultSectionDeclaration(
+	t reflect.Type,
+) (TypeDeclaration, bool, error) {
+	spec, ok := generatedUserDefaultSectionSpecForType(t)
+	if !ok {
+		return TypeDeclaration{}, false, nil
+	}
+	properties, err := generatedUserDefaultSectionProperties(spec)
+	if err != nil {
+		return TypeDeclaration{}, false, err
+	}
+	return objectDeclarationWithGoBackedSectionDefaults(
+		t.Name(),
+		spec.SectionName,
+		properties...,
+	), true, nil
+}
+
+func generatedUserDefaultSectionSpecForType(
+	t reflect.Type,
+) (generatedUserDefaultSectionSpec, bool) {
+	switch t {
+	case reflect.TypeOf(UserDefaultBrowserSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Browser",
+			AdditionalPropertyOrder: []string{
+				"folder",
+				"hideColumn",
+				"columnWidth",
+				"typesColumnWidth",
+				"viewMode",
+				"savedSearches",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"typesColumnWidth": "number | null",
+				"viewMode":         "BrowserAreaViewMode",
+				"savedSearches":    "Array<BrowserSavedSearch>",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "TaskBoard",
+			AdditionalPropertyOrder: []string{
+				"viewMode",
+				"columns",
+				"tasks",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"viewMode": "TaskBoardViewMode",
+				"columns":  "Array<TaskBoardColumn> | null",
+				"tasks":    "Array<TaskBoardTask>",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultChartSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Chart",
+			AdditionalPropertyOrder: []string{
+				"dataPath",
+				"chartSettings",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Spreadsheet",
+			AdditionalPropertyOrder: []string{
+				"filePath",
+				"activeSheet",
+				"readOnly",
+				"showRowNumbers",
+				"density",
+				"autoReloadOnExternalChange",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"density": "SpreadsheetGridDensity",
+			},
+		}, true
+	default:
+		return generatedUserDefaultSectionSpec{}, false
+	}
+}
+
+func generatedUserDefaultSectionProperties(
+	spec generatedUserDefaultSectionSpec,
+) ([]TypeProperty, error) {
+	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(spec.SectionName)
+	if err != nil {
+		return nil, err
+	}
+	registry, err := generatedUserDefaultSectionPropertyRegistry()
+	if err != nil {
+		return nil, err
+	}
+	propertyOrder := append(
+		append([]string(nil), generatedUserDefaultSectionBasePropertyOrder...),
+		spec.AdditionalPropertyOrder...,
+	)
+	remaining := make(map[string]struct{}, len(defaults))
+	for name := range defaults {
+		if _, ignored := generatedUserDefaultSectionIgnoredDefaultProperties[name]; ignored {
+			continue
+		}
+		remaining[name] = struct{}{}
+	}
+	properties := make([]TypeProperty, 0, len(propertyOrder))
+	for _, name := range propertyOrder {
+		if _, ok := defaults[name]; !ok {
+			continue
+		}
+		property, err := generatedUserDefaultSectionProperty(name, registry, spec.PropertyTypeExprOverrides)
+		if err != nil {
+			return nil, fmt.Errorf("%s defaults %q: %w", spec.SectionName, name, err)
+		}
+		properties = append(properties, property)
+		delete(remaining, name)
+	}
+	if len(remaining) > 0 {
+		unhandled := make([]string, 0, len(remaining))
+		for name := range remaining {
+			unhandled = append(unhandled, name)
+		}
+		sort.Strings(unhandled)
+		return nil, fmt.Errorf(
+			"frontend user default section %s has unhandled properties: %s",
+			spec.SectionName,
+			strings.Join(unhandled, ", "),
+		)
+	}
+	return properties, nil
+}
+
+func generatedUserDefaultSectionPropertyRegistry() (map[string]TypeProperty, error) {
+	baseSectionDeclaration, ok := frontendBindingDeclarationOverrides()[reflect.TypeOf(BaseSectionImpl{})]
+	if !ok {
+		return nil, fmt.Errorf("BaseSectionImpl declaration not found")
+	}
+	registry := make(map[string]TypeProperty, len(baseSectionDeclaration.Properties))
+	for _, property := range baseSectionDeclaration.Properties {
+		property.Optional = false
+		registry[property.Name] = property
+	}
+	return registry, nil
+}
+
+func generatedUserDefaultSectionProperty(
+	name string,
+	registry map[string]TypeProperty,
+	typeExprOverrides map[string]string,
+) (TypeProperty, error) {
+	property, ok := registry[name]
+	if !ok {
+		property = TypeProperty{Name: name}
+	}
+	if override, ok := typeExprOverrides[name]; ok {
+		property.TypeExpr = override
+	}
+	if property.TypeExpr == "" {
+		return TypeProperty{}, fmt.Errorf("missing TypeScript type metadata")
+	}
+	property.Name = name
+	property.Optional = false
+	return property, nil
 }
 
 func artifactTypeDeclaration(
