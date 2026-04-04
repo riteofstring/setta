@@ -4623,91 +4623,172 @@ type SectionCodegenPolicy = {
 export function createSectionCodegenPolicy(
   options: Partial<SectionCodegenPolicy> = {},
 ): SectionCodegenPolicy {
-  const defaultSectionCodegenAllowlist: Array<SectionType> = [
-    SectionTypeEnum.Callable,
-    SectionTypeEnum.Dict,
-    SectionTypeEnum.ListRoot,
-    SectionTypeEnum.Group,
-    SectionTypeEnum.GlobalVariables,
-    SectionTypeEnum.TextBlock,
-    SectionTypeEnum.Draw,
-    SectionTypeEnum.MetaControl,
-    SectionTypeEnum.TaskBoard,
-    SectionTypeEnum.Spreadsheet,
-  ];
-  const defaultMetaControlCodegenAllowlist: Array<CodeObjType> = [
-    CodeObjTypeEnum.CodeParam,
-    CodeObjTypeEnum.TextParam,
-    CodeObjTypeEnum.DateParam,
-    CodeObjTypeEnum.TimeParam,
-    CodeObjTypeEnum.TextAreaParam,
-    CodeObjTypeEnum.SliderParam,
-    CodeObjTypeEnum.RotaryParam,
-    CodeObjTypeEnum.SwitchParam,
-    CodeObjTypeEnum.ColorPickerParam,
-    CodeObjTypeEnum.DropdownParam,
-    CodeObjTypeEnum.PasswordParam,
-    CodeObjTypeEnum.ButtonParam,
-    CodeObjTypeEnum.DropzoneParam,
-  ];
-  function defaultSectionRepresentation(
-    sectionType: SectionType,
-  ): SectionRepresentationMode {
-    switch (sectionType) {
-      case SectionTypeEnum.Chat:
-      case SectionTypeEnum.Draw:
-      case SectionTypeEnum.Image:
-        return SectionRepresentationModeEnum.file_read;
-      default:
-        return SectionRepresentationModeEnum.expression;
-    }
-  }
+  const defaults: SectionCodegenPolicy = {
+    allowlist: [
+      "Callable",
+      "Dict",
+      "ListRoot",
+      "Group",
+      "GlobalVariables",
+      "TextBlock",
+      "Draw",
+      "MetaControl",
+      "TaskBoard",
+      "Spreadsheet",
+    ],
+    metaControlAllowlist: [
+      "CodeParam",
+      "TextParam",
+      "DateParam",
+      "TimeParam",
+      "TextAreaParam",
+      "SliderParam",
+      "RotaryParam",
+      "SwitchParam",
+      "ColorPickerParam",
+      "DropdownParam",
+      "PasswordParam",
+      "ButtonParam",
+      "DropzoneParam",
+    ],
+    exclude: [],
+    typePolicies: {
+      Browser: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Callable: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Chart: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Chat: {
+        mode: "inherit",
+        representation: "file_read",
+      },
+      Code: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Dict: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Draw: {
+        mode: "inherit",
+        representation: "file_read",
+      },
+      GenPythonCode: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      GenPythonMetadata: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      GlobalVariables: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Group: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      IFrame: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Image: {
+        mode: "inherit",
+        representation: "file_read",
+      },
+      ListRoot: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      MetaControl: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Plugin: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Prompt: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Social: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Spreadsheet: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      StateMachineEnd: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      StateMachineGate: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      StateMachineStart: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      TaskBoard: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      Terminal: {
+        mode: "inherit",
+        representation: "expression",
+      },
+      TextBlock: {
+        mode: "inherit",
+        representation: "expression",
+      },
+    },
+    sectionOverrides: {},
+  };
   const typePolicies = Object.fromEntries(
-    (Object.values(SectionTypeEnum) as Array<SectionType>).map(
-      (sectionType) => [
-        sectionType,
-        createSectionTypeCodegenPolicy({
-          representation: defaultSectionRepresentation(sectionType),
-        }),
-      ],
-    ),
+    Object.entries({
+      ...defaults.typePolicies,
+      ...(options.typePolicies ?? {}),
+    }).map(([sectionType, policy]) => [
+      sectionType,
+      createSectionTypeCodegenPolicy(policy),
+    ]),
   ) as Record<SectionType, SectionTypeCodegenPolicy>;
-  for (const [sectionType, policy] of Object.entries(
-    options.typePolicies ?? {},
-  ) as Array<[SectionType, SectionTypeCodegenPolicy]>) {
-    typePolicies[sectionType] = createSectionTypeCodegenPolicy(policy);
-  }
   const sectionOverrides = Object.fromEntries(
-    Object.entries(options.sectionOverrides ?? {}).map(
-      ([sectionId, override]) => [
-        sectionId,
-        createSectionCodegenOverride(override),
-      ],
-    ),
+    Object.entries({
+      ...defaults.sectionOverrides,
+      ...(options.sectionOverrides ?? {}),
+    }).map(([sectionId, override]) => [
+      sectionId,
+      createSectionCodegenOverride(override),
+    ]),
   ) as Record<string, SectionCodegenOverride>;
   return {
-    ...mergeGeneratedOptions(
-      {
-        allowlist: defaultSectionCodegenAllowlist,
-        metaControlAllowlist: defaultMetaControlCodegenAllowlist,
-        exclude: [],
-        typePolicies,
-        sectionOverrides,
-      },
-      options,
-    ),
+    ...mergeGeneratedOptions(defaults, options),
     allowlist:
       options.allowlist === null
         ? null
-        : [...(options.allowlist ?? defaultSectionCodegenAllowlist)],
+        : [...(options.allowlist ?? defaults.allowlist ?? [])],
     metaControlAllowlist:
       options.metaControlAllowlist === null
         ? null
         : [
             ...(options.metaControlAllowlist ??
-              defaultMetaControlCodegenAllowlist),
+              defaults.metaControlAllowlist ??
+              []),
           ],
-    exclude: [...(options.exclude ?? [])],
+    exclude: [...(options.exclude ?? defaults.exclude)],
     typePolicies,
     sectionOverrides,
   };
@@ -4748,54 +4829,76 @@ type CodeObjValuePolicy = {
 export function createCodeObjValuePolicy(
   options: Partial<CodeObjValuePolicy> = {},
 ): CodeObjValuePolicy {
-  function defaultCodeObjValueRepresentation(
-    codeObjType: CodeObjType,
-  ): CodeObjValueRepresentationMode {
-    switch (codeObjType) {
-      case CodeObjTypeEnum.TextParam:
-      case CodeObjTypeEnum.DateParam:
-      case CodeObjTypeEnum.TimeParam:
-      case CodeObjTypeEnum.TextAreaParam:
-      case CodeObjTypeEnum.PasswordParam:
-      case CodeObjTypeEnum.ColorPickerParam:
-        return CodeObjValueRepresentationModeEnum.string;
-      case CodeObjTypeEnum.DropzoneParam:
-        return CodeObjValueRepresentationModeEnum.file_path;
-      default:
-        return CodeObjValueRepresentationModeEnum.expression;
-    }
-  }
+  const defaults: CodeObjValuePolicy = {
+    typePolicies: {
+      ButtonParam: {
+        representation: "expression",
+      },
+      CodeCallable: {
+        representation: "expression",
+      },
+      CodeParam: {
+        representation: "expression",
+      },
+      ColorPickerParam: {
+        representation: "string",
+      },
+      DateParam: {
+        representation: "string",
+      },
+      DropdownParam: {
+        representation: "expression",
+      },
+      DropzoneParam: {
+        representation: "file_path",
+      },
+      NestedParam: {
+        representation: "expression",
+      },
+      PasswordParam: {
+        representation: "string",
+      },
+      RotaryParam: {
+        representation: "expression",
+      },
+      SliderParam: {
+        representation: "expression",
+      },
+      SwitchParam: {
+        representation: "expression",
+      },
+      TextAreaParam: {
+        representation: "string",
+      },
+      TextParam: {
+        representation: "string",
+      },
+      TimeParam: {
+        representation: "string",
+      },
+    },
+    codeObjOverrides: {},
+  };
   const typePolicies = Object.fromEntries(
-    (Object.values(CodeObjTypeEnum) as Array<CodeObjType>).map(
-      (codeObjType) => [
-        codeObjType,
-        createCodeObjTypeValuePolicy({
-          representation: defaultCodeObjValueRepresentation(codeObjType),
-        }),
-      ],
-    ),
+    Object.entries({
+      ...defaults.typePolicies,
+      ...(options.typePolicies ?? {}),
+    }).map(([codeObjType, policy]) => [
+      codeObjType,
+      createCodeObjTypeValuePolicy(policy),
+    ]),
   ) as Record<CodeObjType, CodeObjTypeValuePolicy>;
-  for (const [codeObjType, policy] of Object.entries(
-    options.typePolicies ?? {},
-  ) as Array<[CodeObjType, CodeObjTypeValuePolicy]>) {
-    typePolicies[codeObjType] = createCodeObjTypeValuePolicy(policy);
-  }
   const codeObjOverrides = Object.fromEntries(
-    Object.entries(options.codeObjOverrides ?? {}).map(
-      ([codeObjId, override]) => [
-        codeObjId,
-        createCodeObjValueOverride(override),
-      ],
-    ),
+    Object.entries({
+      ...defaults.codeObjOverrides,
+      ...(options.codeObjOverrides ?? {}),
+    }).map(([codeObjId, override]) => [
+      codeObjId,
+      createCodeObjValueOverride(override),
+    ]),
   ) as Record<string, CodeObjValueOverride>;
   return {
-    ...mergeGeneratedOptions(
-      {
-        typePolicies,
-        codeObjOverrides,
-      },
-      options,
-    ),
+    ...mergeGeneratedOptions(defaults, options),
     typePolicies,
     codeObjOverrides,
   };

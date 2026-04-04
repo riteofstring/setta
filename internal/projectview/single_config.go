@@ -1026,6 +1026,14 @@ func pluginCodegenTargetPayload(target projectstate.ProjectCodegenTarget) json.R
 	return mustMarshal(payload)
 }
 
+func FrontendDefaultPythonSectionCodegenPolicy() SectionCodegenPolicy {
+	return frontendPythonSectionPolicy(nil, projectstate.DefaultPythonSectionCodegenPolicy())
+}
+
+func FrontendDefaultPythonCodeObjValuePolicy() CodeObjValuePolicy {
+	return frontendPythonCodeObjValuePolicy(nil, projectstate.DefaultPythonCodeObjValuePolicy())
+}
+
 func frontendPythonSectionPolicy(
 	raw projectstate.RawJSON,
 	policy projectstate.PythonSectionCodegenPolicy,

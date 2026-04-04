@@ -238,6 +238,38 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 }
 
+func TestBuildCodegenPolicyCreateBodiesUseGoBackedDefaults(t *testing.T) {
+	t.Helper()
+
+	sectionBody := buildSectionCodegenPolicyCreateBodyTS()
+	if !strings.Contains(sectionBody, `const defaults: SectionCodegenPolicy = {`) {
+		t.Fatalf("SectionCodegenPolicy create body missing Go-backed defaults literal:\n%s", sectionBody)
+	}
+	if strings.Contains(sectionBody, `defaultSectionRepresentation(`) {
+		t.Fatalf("SectionCodegenPolicy create body still contains handwritten representation switch:\n%s", sectionBody)
+	}
+	if strings.Contains(sectionBody, `Object.values(SectionTypeEnum)`) {
+		t.Fatalf("SectionCodegenPolicy create body still seeds defaults from frontend enum iteration:\n%s", sectionBody)
+	}
+	if !strings.Contains(sectionBody, `Chat: {`) || !strings.Contains(sectionBody, `representation: "file_read"`) {
+		t.Fatalf("SectionCodegenPolicy create body missing Go-backed Chat file_read default:\n%s", sectionBody)
+	}
+
+	codeObjBody := buildCodeObjValuePolicyCreateBodyTS()
+	if !strings.Contains(codeObjBody, `const defaults: CodeObjValuePolicy = {`) {
+		t.Fatalf("CodeObjValuePolicy create body missing Go-backed defaults literal:\n%s", codeObjBody)
+	}
+	if strings.Contains(codeObjBody, `defaultCodeObjValueRepresentation(`) {
+		t.Fatalf("CodeObjValuePolicy create body still contains handwritten representation switch:\n%s", codeObjBody)
+	}
+	if strings.Contains(codeObjBody, `Object.values(CodeObjTypeEnum)`) {
+		t.Fatalf("CodeObjValuePolicy create body still seeds defaults from frontend enum iteration:\n%s", codeObjBody)
+	}
+	if !strings.Contains(codeObjBody, `DropzoneParam: {`) || !strings.Contains(codeObjBody, `representation: "file_path"`) {
+		t.Fatalf("CodeObjValuePolicy create body missing Go-backed DropzoneParam file_path default:\n%s", codeObjBody)
+	}
+}
+
 func TestEngineAndRunDeclarationsUseStructuredCreateBodies(t *testing.T) {
 	t.Helper()
 

@@ -143,6 +143,57 @@ func TestSingleConfigByProjectIDDerivesRunCapabilities(t *testing.T) {
 	}
 }
 
+func TestFrontendDefaultPythonSectionCodegenPolicyUsesCanonicalDefaults(t *testing.T) {
+	policy := FrontendDefaultPythonSectionCodegenPolicy()
+	defaultPolicy := projectstate.DefaultPythonSectionCodegenPolicy()
+
+	if !reflect.DeepEqual(policy.Allowlist, defaultPythonSectionAllowlistOrder) {
+		t.Fatalf("unexpected section allowlist order: %#v", policy.Allowlist)
+	}
+	if !reflect.DeepEqual(policy.MetaControlAllowlist, defaultPythonMetaControlAllowlistOrder) {
+		t.Fatalf("unexpected meta control allowlist order: %#v", policy.MetaControlAllowlist)
+	}
+	if len(policy.Exclude) != 0 {
+		t.Fatalf("expected empty exclude list, got %#v", policy.Exclude)
+	}
+	if len(policy.TypePolicies) != len(defaultPolicy.TypePolicies) {
+		t.Fatalf("expected %d section type policies, got %d", len(defaultPolicy.TypePolicies), len(policy.TypePolicies))
+	}
+	if got := policy.TypePolicies["Chat"].Representation; got != SectionRepresentationMode(projectstate.PythonSectionRepresentationFileRead) {
+		t.Fatalf("expected Chat representation file_read, got %q", got)
+	}
+	if got := policy.TypePolicies["Callable"].Representation; got != SectionRepresentationMode(projectstate.PythonSectionRepresentationExpression) {
+		t.Fatalf("expected Callable representation expression, got %q", got)
+	}
+	if got := policy.TypePolicies["Chat"].Mode; got != SectionCodegenMode(projectstate.PythonSectionCodegenModeInherit) {
+		t.Fatalf("expected Chat mode inherit, got %q", got)
+	}
+	if len(policy.SectionOverrides) != 0 {
+		t.Fatalf("expected no default section overrides, got %#v", policy.SectionOverrides)
+	}
+}
+
+func TestFrontendDefaultPythonCodeObjValuePolicyUsesCanonicalDefaults(t *testing.T) {
+	policy := FrontendDefaultPythonCodeObjValuePolicy()
+	defaultPolicy := projectstate.DefaultPythonCodeObjValuePolicy()
+
+	if len(policy.TypePolicies) != len(defaultPolicy.TypePolicies) {
+		t.Fatalf("expected %d code object policies, got %d", len(defaultPolicy.TypePolicies), len(policy.TypePolicies))
+	}
+	if got := policy.TypePolicies["TextParam"].Representation; got != CodeObjValueRepresentationMode(projectstate.PythonCodeObjValueRepresentationString) {
+		t.Fatalf("expected TextParam representation string, got %q", got)
+	}
+	if got := policy.TypePolicies["DropzoneParam"].Representation; got != CodeObjValueRepresentationMode(projectstate.PythonCodeObjValueRepresentationFilePath) {
+		t.Fatalf("expected DropzoneParam representation file_path, got %q", got)
+	}
+	if got := policy.TypePolicies["ButtonParam"].Representation; got != CodeObjValueRepresentationMode(projectstate.PythonCodeObjValueRepresentationExpression) {
+		t.Fatalf("expected ButtonParam representation expression, got %q", got)
+	}
+	if len(policy.CodeObjOverrides) != 0 {
+		t.Fatalf("expected no default code object overrides, got %#v", policy.CodeObjOverrides)
+	}
+}
+
 func TestSingleConfigByProjectIDDisablesMainRunForNonRunnableEntrySection(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]

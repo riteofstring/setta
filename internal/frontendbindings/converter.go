@@ -1,7 +1,6 @@
 package frontendbindings
 
 import (
-	_ "embed"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
 	"setta/internal/stringenumvalues"
@@ -55,24 +55,6 @@ type TypeProperty struct {
 	TypeExpr     string
 	Optional     bool
 	DefaultValue string
-}
-
-//go:embed templates/converter_create_section_codegen_policy.ts.tmpl
-var createSectionCodegenPolicyTemplate string
-
-//go:embed templates/converter_create_code_obj_value_policy.ts.tmpl
-var createCodeObjValuePolicyTemplate string
-
-// setta-go-type-discovery: skip
-type sectionCodegenPolicyCreateTemplateData struct {
-	DefaultSectionCodegenAllowlistMembers     []string
-	DefaultMetaControlCodegenAllowlistMembers []string
-	FileReadSectionRepresentationMembers      []string
-}
-
-// setta-go-type-discovery: skip
-type codeObjValuePolicyCreateTemplateData struct {
-	StringCodeObjValueRepresentationMembers []string
 }
 
 func objectDeclaration(name string, properties ...TypeProperty) TypeDeclaration {
@@ -271,6 +253,30 @@ func buildTSMergeGeneratedOptionsCreateBodyTS(entries []tsObjectEntry, overrides
 	builder.WriteString(buildTSMergeGeneratedOptionsExprTS(entries, overridesExpr))
 	builder.WriteString(";")
 	return builder.String()
+}
+
+func renderTSObjectLiteralFromGoValue(context string, value any, orderedKeys []string) string {
+	object := mustTSLiteralObjectFromGoValue(context, value)
+	validateTSLiteralObjectKeys(context, object, orderedKeys)
+	var builder strings.Builder
+	writeTSObjectLiteral(&builder, "  ", object, orderedKeys)
+	return builder.String()
+}
+
+func validateTSLiteralObjectKeys(context string, object map[string]any, orderedKeys []string) {
+	expected := make(map[string]struct{}, len(orderedKeys))
+	for _, key := range orderedKeys {
+		expected[key] = struct{}{}
+		if _, ok := object[key]; !ok {
+			panic(fmt.Sprintf("%s is missing property %q", context, key))
+		}
+	}
+	for key := range object {
+		if _, ok := expected[key]; ok {
+			continue
+		}
+		panic(fmt.Sprintf("%s has unexpected property %q", context, key))
+	}
 }
 
 func EnumValuesForType(t reflect.Type) ([]EnumValue, bool, error) {
@@ -689,70 +695,95 @@ func buildProjectCodegenPythonTargetCreateBodyTS() string {
 	return builder.String()
 }
 
-var defaultSectionCodegenAllowlistMembers = []string{
-	"SectionTypeEnum.Callable",
-	"SectionTypeEnum.Dict",
-	"SectionTypeEnum.ListRoot",
-	"SectionTypeEnum.Group",
-	"SectionTypeEnum.GlobalVariables",
-	"SectionTypeEnum.TextBlock",
-	"SectionTypeEnum.Draw",
-	"SectionTypeEnum.MetaControl",
-	"SectionTypeEnum.TaskBoard",
-	"SectionTypeEnum.Spreadsheet",
-}
-
-var defaultMetaControlCodegenAllowlistMembers = []string{
-	"CodeObjTypeEnum.CodeParam",
-	"CodeObjTypeEnum.TextParam",
-	"CodeObjTypeEnum.DateParam",
-	"CodeObjTypeEnum.TimeParam",
-	"CodeObjTypeEnum.TextAreaParam",
-	"CodeObjTypeEnum.SliderParam",
-	"CodeObjTypeEnum.RotaryParam",
-	"CodeObjTypeEnum.SwitchParam",
-	"CodeObjTypeEnum.ColorPickerParam",
-	"CodeObjTypeEnum.DropdownParam",
-	"CodeObjTypeEnum.PasswordParam",
-	"CodeObjTypeEnum.ButtonParam",
-	"CodeObjTypeEnum.DropzoneParam",
-}
-
-var fileReadSectionRepresentationMembers = []string{
-	"SectionTypeEnum.Chat",
-	"SectionTypeEnum.Draw",
-	"SectionTypeEnum.Image",
-}
-
-var stringCodeObjValueRepresentationMembers = []string{
-	"CodeObjTypeEnum.TextParam",
-	"CodeObjTypeEnum.DateParam",
-	"CodeObjTypeEnum.TimeParam",
-	"CodeObjTypeEnum.TextAreaParam",
-	"CodeObjTypeEnum.PasswordParam",
-	"CodeObjTypeEnum.ColorPickerParam",
-}
-
 func buildSectionCodegenPolicyCreateBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"createSectionCodegenPolicy",
-		createSectionCodegenPolicyTemplate,
-		sectionCodegenPolicyCreateTemplateData{
-			DefaultSectionCodegenAllowlistMembers:     defaultSectionCodegenAllowlistMembers,
-			DefaultMetaControlCodegenAllowlistMembers: defaultMetaControlCodegenAllowlistMembers,
-			FileReadSectionRepresentationMembers:      fileReadSectionRepresentationMembers,
+	defaultsLiteral := renderTSObjectLiteralFromGoValue(
+		"frontend default python section codegen policy",
+		projectview.FrontendDefaultPythonSectionCodegenPolicy(),
+		[]string{
+			"allowlist",
+			"metaControlAllowlist",
+			"exclude",
+			"typePolicies",
+			"sectionOverrides",
 		},
 	)
+	var builder strings.Builder
+	builder.WriteString("  const defaults: SectionCodegenPolicy = ")
+	builder.WriteString(defaultsLiteral)
+	builder.WriteString(";\n")
+	builder.WriteString("  const typePolicies = Object.fromEntries(\n")
+	builder.WriteString("    Object.entries({\n")
+	builder.WriteString("      ...defaults.typePolicies,\n")
+	builder.WriteString("      ...(options.typePolicies ?? {}),\n")
+	builder.WriteString("    }).map(([sectionType, policy]) => [\n")
+	builder.WriteString("      sectionType,\n")
+	builder.WriteString("      createSectionTypeCodegenPolicy(policy),\n")
+	builder.WriteString("    ]),\n")
+	builder.WriteString("  ) as Record<SectionType, SectionTypeCodegenPolicy>;\n")
+	builder.WriteString("  const sectionOverrides = Object.fromEntries(\n")
+	builder.WriteString("    Object.entries({\n")
+	builder.WriteString("      ...defaults.sectionOverrides,\n")
+	builder.WriteString("      ...(options.sectionOverrides ?? {}),\n")
+	builder.WriteString("    }).map(([sectionId, override]) => [\n")
+	builder.WriteString("      sectionId,\n")
+	builder.WriteString("      createSectionCodegenOverride(override),\n")
+	builder.WriteString("    ]),\n")
+	builder.WriteString("  ) as Record<string, SectionCodegenOverride>;\n")
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
+	builder.WriteString("    allowlist:\n")
+	builder.WriteString("      options.allowlist === null\n")
+	builder.WriteString("        ? null\n")
+	builder.WriteString("        : [...(options.allowlist ?? defaults.allowlist ?? [])],\n")
+	builder.WriteString("    metaControlAllowlist:\n")
+	builder.WriteString("      options.metaControlAllowlist === null\n")
+	builder.WriteString("        ? null\n")
+	builder.WriteString("        : [\n")
+	builder.WriteString("            ...(options.metaControlAllowlist ??\n")
+	builder.WriteString("              defaults.metaControlAllowlist ??\n")
+	builder.WriteString("              []),\n")
+	builder.WriteString("          ],\n")
+	builder.WriteString("    exclude: [...(options.exclude ?? defaults.exclude)],\n")
+	builder.WriteString("    typePolicies,\n")
+	builder.WriteString("    sectionOverrides,\n")
+	builder.WriteString("  };")
+	return builder.String()
 }
 
 func buildCodeObjValuePolicyCreateBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"createCodeObjValuePolicy",
-		createCodeObjValuePolicyTemplate,
-		codeObjValuePolicyCreateTemplateData{
-			StringCodeObjValueRepresentationMembers: stringCodeObjValueRepresentationMembers,
-		},
+	defaultsLiteral := renderTSObjectLiteralFromGoValue(
+		"frontend default python code object value policy",
+		projectview.FrontendDefaultPythonCodeObjValuePolicy(),
+		[]string{"typePolicies", "codeObjOverrides"},
 	)
+	var builder strings.Builder
+	builder.WriteString("  const defaults: CodeObjValuePolicy = ")
+	builder.WriteString(defaultsLiteral)
+	builder.WriteString(";\n")
+	builder.WriteString("  const typePolicies = Object.fromEntries(\n")
+	builder.WriteString("    Object.entries({\n")
+	builder.WriteString("      ...defaults.typePolicies,\n")
+	builder.WriteString("      ...(options.typePolicies ?? {}),\n")
+	builder.WriteString("    }).map(([codeObjType, policy]) => [\n")
+	builder.WriteString("      codeObjType,\n")
+	builder.WriteString("      createCodeObjTypeValuePolicy(policy),\n")
+	builder.WriteString("    ]),\n")
+	builder.WriteString("  ) as Record<CodeObjType, CodeObjTypeValuePolicy>;\n")
+	builder.WriteString("  const codeObjOverrides = Object.fromEntries(\n")
+	builder.WriteString("    Object.entries({\n")
+	builder.WriteString("      ...defaults.codeObjOverrides,\n")
+	builder.WriteString("      ...(options.codeObjOverrides ?? {}),\n")
+	builder.WriteString("    }).map(([codeObjId, override]) => [\n")
+	builder.WriteString("      codeObjId,\n")
+	builder.WriteString("      createCodeObjValueOverride(override),\n")
+	builder.WriteString("    ]),\n")
+	builder.WriteString("  ) as Record<string, CodeObjValueOverride>;\n")
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
+	builder.WriteString("    typePolicies,\n")
+	builder.WriteString("    codeObjOverrides,\n")
+	builder.WriteString("  };")
+	return builder.String()
 }
 
 func buildEngineConfigDefaultsCreateBodyTS() string {
