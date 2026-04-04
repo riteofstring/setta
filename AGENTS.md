@@ -31,6 +31,9 @@
 - Do not rely on hand-maintained allowlists of type or endpoint names when generators can discover the relevant structures from Go packages, metadata, or typed registration points.
 - Do not over-engineer discovery just to avoid generating some unused outputs. Broad correct discovery plus pruning is usually better than brittle hyper-selective discovery.
 - Keep hardcoded generator special cases to the absolute minimum and require a concrete reason when they cannot be removed.
+- Do not treat helper-wrapped field lists or per-type create builders as generic generation. A generator that enumerates downstream Python or TypeScript fields or defaults one by one is still a handwritten mirror even if it uses helpers like `tsObjectField(...)`, `pyObjectField(...)`, small templates, or builder functions.
+- Replacing one large embedded source blob with many small hardcoded fragments is not an improvement by itself. Moving duplicated downstream structure into helper calls, template parameters, or per-type render functions still counts as duplicated logic unless the output is derived from Go type information or explicit authoritative metadata.
+- Prefer generators that interpret Go-owned schema, zero values, tags, enum metadata, typed registration metadata, or other authoritative Go-side descriptors. If a downstream default cannot be derived generically, attach the exception to Go-owned metadata with a concrete reason instead of restating the object shape inside the generator.
 - Do not embed substantial Python or TypeScript source as raw strings inside generation scripts.
 - Generation code should describe structure and mapping rules rather than acting as a second handwritten implementation.
 - Backend and frontend endpoint functions must have the exact same name. Frontend code must use route functions from `generatedEndpoints`.

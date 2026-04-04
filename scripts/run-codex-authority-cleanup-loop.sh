@@ -6,8 +6,9 @@ usage() {
 Usage: ./scripts/run-codex-authority-cleanup-loop.sh [options] [-- <extra codex exec args>]
 
 Run Codex in a fresh-session loop to remove unjustified Go/Python/TypeScript
-duplication, eliminate generator source blobs, and replace unjustified polling
-with websocket pushes where the backend already knows when state changes.
+duplication, eliminate handwritten generator mirrors including helper-wrapped
+field-by-field output construction, and replace unjustified polling with
+websocket pushes where the backend already knows when state changes.
 
 Defaults:
 - Maximum iterations: 1000
@@ -194,6 +195,8 @@ head_file="${state_dir}/last-observed-head.txt"
 cat > "${prompt_file}" <<EOF
 Primary goals, in priority order:
 - Find unjustified duplication across Go, Python, and TypeScript, and remove it. Go is authoritative.
+- Find handwritten Go->Python and Go->TypeScript generator logic that mirrors downstream structure or defaults field by field, and replace it with generic generation driven by Go-owned type information or explicit authoritative metadata.
+- Specifically audit for hardcoded downstream constructions such as `tsObjectField(...)`, `pyObjectField(...)`, object-literal builder calls, per-type create bodies, template parameter lists, and similar patterns that restate Python or TypeScript structure/defaults in the generator, and replace them with a programmatic approach.
 - Find large Python or TypeScript source blocks embedded as strings in Go->Python and Go->TypeScript generation scripts, and replace them with structural generation or external templates.
 - Find unjustified polling that can be replaced by websocket pushes when the backend already knows when state changes, and make that replacement.
 
@@ -207,6 +210,10 @@ Execution constraints:
 - Fix any actionable issue or set of tightly-related issues that you can complete confidently in this session.
 - Prefer Go-owned logic and generated downstream surfaces over duplicated Python or TypeScript logic.
 - Do not leave duplicated non-trivial Python or TypeScript logic in place without an explicit concrete justification.
+- Do not count a cleanup as successful if it only rewrites handwritten downstream mirrors into helper calls, tiny templates, or per-type builder functions. Patterns like field-by-field `tsObjectField(...)` or `pyObjectField(...)` lists are still hardcoded duplication unless they are derived from Go-owned schema or explicit authoritative metadata.
+- Prefer generators that interpret Go reflection data, zero values, tags, enum metadata, typed registration metadata, or other Go-owned descriptors. If a custom downstream default or exception is unavoidable, encode it as narrow Go-owned metadata with a concrete reason instead of restating the whole downstream object shape in the generator.
+- Assume a programmatic solution is expected here. Do not stop at moving hardcoded constructions behind helpers or templates. Keep pushing until the downstream fields/defaults are derived from Go-owned schema or metadata unless you hit a concrete repo-specific blocker that you can name precisely.
+- Do not make a cosmetic commit that merely moves hardcoded downstream structure between raw strings, helper calls, and templates. If you cannot produce a materially more generic result for that issue in this session, leave it unchanged and continue auditing for another actionable issue.
 - Do not leave large Python or TypeScript source blocks embedded as raw strings in generation scripts when a structured or template-backed approach is practical.
 - Prefer websocket pushes over polling when the backend already knows when data changed.
 - Do not introduce heuristic fallbacks or broad exception handling.
