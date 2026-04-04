@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 20:19 EDT
+Last updated: 2026-04-03 20:34 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `074` fixed the DevTools browser stop path so stale `devtools.pid` files no longer leave orphaned Chrome running across lifecycle resets and CDP retries.
+  - Why this slice was needed:
+    - the one allowed lifecycle recovery for the blocked CDP compare still left the old worktree Chrome alive on `9298` while `./aireset.sh` reported a fresh debug port `9299`, which made the CDP wrapper look broken even though the underlying browser state was split across stale and fresh launches
+    - direct inspection showed the worktree DevTools cookie jar was already clean after the restart (`0` loopback `setta_auth*` cookies), and there was no separate `/tmp/setta-mcp/setta-<hash>` reference profile on this run, so the previous “clean the main reference profile next” instruction was not actionable on the current runtime
+    - `scripts/stop-browser-mcp.sh` treated a stale `devtools.pid` as success, so it never fell back to the profile-based `ps` scan that would actually kill the still-running browser for this worktree
+  - Production/test change:
+    - `scripts/stop-browser-mcp.sh` now returns failure when the recorded `devtools.pid` is stale, which lets the existing profile-based fallback stop the live browser instead of silently accepting the dead pid file
+    - added `tests/start/test_stop_browser_mcp_script.py` to prove the stop script falls back to the profile scan when `devtools.pid` points at a dead process
+  - Automated result:
+    - `source activate.sh && pytest tests/start/test_stop_browser_mcp_script.py tests/start/test_start_browser_mcp_script.py`
+      - result: passed (`4 passed`, about `1.99s`)
+    - `bash -n scripts/stop-browser-mcp.sh`
+      - result: passed
+  - Live verification result:
+    - with the stale pid file still pointing at dead pid `4169` and the orphaned worktree Chrome still listening on `9298`, `./scripts/stop-browser-mcp.sh --devtools` now reported:
+      - `devtools Chrome not running (pid 4169).`
+      - `Stopped devtools Chrome (profile /tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-profile).`
+    - `lsof -nP -iTCP:9298 -sTCP:LISTEN` then returned nothing, confirming the orphaned browser was actually gone
+    - starting a fresh browser with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_HEADLESS=1 DEVTOOLS_OPEN_WITH_CHROME=0 ./scripts/start-browser-mcp.sh --devtools --browser-mode headless` produced a single live browser on `9297`
+      - `pnpm -C frontend cdp-port` now reports `9297`
+      - `curl http://127.0.0.1:9297/json/version` succeeds
+      - `/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools.pid` now points at live Chrome pid `5868`
+    - a fresh-context CDP sub-agent then verified the wrapper itself is usable again:
+      - `chrome-devtools-mcp` sanity check succeeded
+      - page count: `1`
+  - conclusion for this slice:
+    - the blocked recovery path was a stale-browser lifecycle bug, not another auth-cookie or reference-profile cleanup issue
+    - the worktree now has a fresh, trustworthy CDP endpoint again on `9297`, so the next iteration should return to the normalized `All Settings` graph-surface compare instead of spending another slice on lifecycle/auth cleanup
 - Ralph item `073` cleared the worktree DevTools-profile auth-cookie buildup before Chrome bootstrap, which restored a clean worktree websocket handshake instead of extending the backend auth-prune lane again.
   - Why this slice was needed:
     - fresh inspection of the dedicated worktree browser profile showed the remaining websocket blocker was still live inside the profile itself, not just in backend request handling
@@ -1624,8 +1652,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - item `029` aligned canary `zoomBy(...)` / `zoomTo(...)` with the legacy full-surface center, and the latest normalized compare now matches after `All Settings -> fit view -> zoom in`
   - do not reopen that lane unless the normalized Playwright canary or a fresh normalized CDP compare shows the `x` anchor drifting again
 - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
-  - before reopening the normalized `All Settings` parity lane, use the next fresh worktree lifecycle to verify the new workspace-scoped auth-cookie base name is active and that the worktree websocket no longer fails with the shared `line too long` transport error
-  - if the fresh worktree session is clean but the read-only `main` reference still shows websocket noise, treat that as old-reference debt rather than a reopened worktree renderer regression
+  - the stale-browser lifecycle blocker is closed: the current worktree runtime is on frontend `3077`, backend `8077`, and the recovered CDP browser is on `9297` with a passing fresh-context MCP sanity check
+  - use the next iteration for the normalized `All Settings` graph-surface-only compare itself, not more lifecycle/auth cleanup
+  - if the read-only `main` reference still shows websocket or oracle noise during that fresh `9297` compare, treat it as reference/oracle debt rather than a reopened worktree renderer regression unless the clean worktree surface regresses too
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
   - the widened `drawSectionDefault` post-drop frontmost lane now has a production fix plus a passing Playwright guard; the next fresh session should rerun that exact live CDP compare before reopening the lane
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
@@ -1665,6 +1694,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `070`
-- Latest item: `2026-04-03 070`
+- Active history window: items `001` through `074`
+- Latest item: `2026-04-03 074`
 - Older history archives: none yet

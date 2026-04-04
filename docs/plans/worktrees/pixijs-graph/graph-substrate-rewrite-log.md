@@ -2524,3 +2524,37 @@ LOOP_TERMINAL_MARKER: none
   - this slice did not reopen the normalized `All Settings` compare yet; the default settings-page probe still lacked `[data-testid="graph-substrate-canary"]`, so the compare lane still needs explicit `All Settings` normalization
 - Next frontier: use the same cleanup helper manually against the read-only `main` reference DevTools profile, then rerun the normalized `All Settings` graph-surface compare instead of reopening the worktree auth lane.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 20:34 EDT - Ralph item 074
+
+- Fixed the DevTools browser stop path so stale `devtools.pid` files no longer leave orphaned Chrome running across lifecycle resets, which restores a trustworthy CDP recovery path for the next normalized compare.
+- Why this slice was necessary:
+  - the one allowed lifecycle recovery on this pass still left the old worktree Chrome alive on `9298` while `./aireset.sh` announced a fresh debug port `9299`, so the live blocker had shifted from auth-cookie cleanup to stale browser ownership
+  - direct inspection showed the worktree DevTools cookie jar was already clean after the restart and there was no separate `/tmp/setta-mcp/setta-<hash>` reference profile on this run, so more profile-cleanup work would have been churn instead of progress
+  - `scripts/stop-browser-mcp.sh` treated a stale `devtools.pid` as success and never fell back to the profile-based process scan, which is why the orphaned Chrome survived the reset
+- Production/test changes:
+  - `scripts/stop-browser-mcp.sh` now returns failure when the pid file points at a dead process so the existing profile-scan fallback still runs
+  - added `tests/start/test_stop_browser_mcp_script.py` to lock that stale pid files still stop the live browser via the profile path
+- Verification:
+  - `source activate.sh && pytest tests/start/test_stop_browser_mcp_script.py tests/start/test_start_browser_mcp_script.py`
+    - result: passed (`4 passed`, about `1.99s`)
+  - `bash -n scripts/stop-browser-mcp.sh`
+    - result: passed
+  - live lifecycle verification:
+    - before the fix was exercised live, the worktree pid file contained dead pid `4169` while Chrome still listened on `9298`
+    - `./scripts/stop-browser-mcp.sh --devtools`
+      - result: reported the stale pid and successfully stopped `devtools Chrome (profile /tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-profile)`
+    - `lsof -nP -iTCP:9298 -sTCP:LISTEN`
+      - result: no listener remained
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_HEADLESS=1 DEVTOOLS_OPEN_WITH_CHROME=0 ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
+      - result: started a fresh browser on `9297`
+    - `pnpm -C frontend cdp-port`
+      - result: `9297`
+    - `curl http://127.0.0.1:9297/json/version`
+      - result: passed
+    - fresh-context CDP sub-agent sanity check:
+      - result: passed, wrapper usable again, page count `1`
+- Lane status:
+  - the blocked recovery path was caused by stale browser ownership, not another auth-cookie or reference-profile cleanup defect
+  - the worktree now has a fresh, trustworthy CDP endpoint again on `9297`
+- Next frontier: return to the normalized `All Settings` graph-surface compare on worktree `3077/8077` versus read-only `main`, using the recovered `9297` browser instead of spending another iteration on lifecycle/auth cleanup.
+- LOOP_TERMINAL_MARKER: none
