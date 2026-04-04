@@ -6241,10 +6241,7 @@ export function createUserDefaultChatSectionImpl(
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 400,
-        height: 200,
-      },
+      size: { width: 400, height: 200 },
       managed: false,
       engineConfigId: null,
       transcriptionProfileId: null,
@@ -7468,10 +7465,7 @@ export function createUserDefaultTaskBoardSectionImpl(
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 720,
-        height: 430,
-      },
+      size: { width: 720, height: 430 },
       viewMode: TaskBoardViewModeEnum.kanban,
       columns: null,
       tasks: [],
@@ -7551,10 +7545,7 @@ export function createUserDefaultChartSectionImpl(
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 300,
-        height: 300,
-      },
+      size: { width: 300, height: 300 },
       dataPath: "",
       chartSettings: createLineChartSettings(),
     },
@@ -7622,10 +7613,7 @@ export function createUserDefaultSpreadsheetSectionImpl(
   return mergeGeneratedOptions(
     {
       ...createGeneratedBaseSectionDefaults(),
-      size: {
-        width: 760,
-        height: 500,
-      },
+      size: { width: 760, height: 500 },
       filePath: "",
       activeSheet: null,
       readOnly: false,
