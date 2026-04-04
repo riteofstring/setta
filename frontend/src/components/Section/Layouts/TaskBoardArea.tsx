@@ -69,6 +69,7 @@ import {
   TaskBoardViewMode,
   TaskBoardViewModeEnum,
 } from "utils/generatedTypes";
+import { createNewId } from "utils/idNameCreation";
 import {
   applyTaskBoardMutation,
   buildTaskBoardLanes,
@@ -952,6 +953,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
         return;
       }
       const task = createTaskBoardTask({
+        id: createNewId(),
         title: title.length > 0 ? title : "New Task",
         columnId: defaultColumnId,
         completed: shouldAutoCompleteColumnTask(
@@ -985,6 +987,7 @@ export function TaskBoardArea({ sectionId }: { sectionId: string }) {
       columns: [
         ...current.columns,
         createTaskBoardColumn({
+          id: createNewId(),
           name: `Column ${current.columns.length + 1}`,
           color: "#3b82f6",
           sortIndex: getNextColumnSortIndex(current.columns),

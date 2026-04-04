@@ -1,8 +1,11 @@
 import os
 from pathlib import Path
 
-from setta.sessions import SessionMetadata, SessionRegistry
-from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.sessions.registry import SessionMetadata, SessionRegistry
+from setta.types.generated.go_shared_constants import (
+    SESSION_ID_ENV_VAR,
+    SESSIONS_ROOT_ENV_VAR,
+)
 
 _cached_metadata: SessionMetadata | None = None
 _cached_secret: bytes | None = None
