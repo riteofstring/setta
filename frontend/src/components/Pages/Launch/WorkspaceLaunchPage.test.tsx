@@ -1,13 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  resolveWorkspaceLaunchBackNavigation,
-  resolveWorkspaceLaunchReturnUrl,
-} from "utils/workspaceLaunchNavigation";
-
-import {
-  resolveLaunchedWorkspaceRoot,
   resolveWorkspaceLaunchErrorMessage,
+  resolveWorkspaceLaunchReturnUrl,
 } from "./WorkspaceLaunchPage";
 
 describe("WorkspaceLaunchPage return URL helpers", () => {
@@ -33,46 +28,6 @@ describe("WorkspaceLaunchPage return URL helpers", () => {
       "http://launcher.local/launching",
     );
     expect(resolved).toBe("http://launcher.local/home");
-  });
-});
-
-describe("WorkspaceLaunchPage back navigation helpers", () => {
-  it("keeps same-origin return URLs in app navigation", () => {
-    const resolved = resolveWorkspaceLaunchBackNavigation(
-      "/projects/demo?tab=recent#pane",
-      "http://launcher.local/launching",
-    );
-
-    expect(resolved).toEqual({
-      kind: "navigate",
-      target:
-        "/projects/demo?tab=recent&__setta_open_workspace_switcher=1#pane",
-    });
-  });
-
-  it("preserves cross-origin returns as full redirects", () => {
-    const resolved = resolveWorkspaceLaunchBackNavigation(
-      "https://trusted.example/home?foo=1#top",
-      "https://current.example/launching",
-    );
-
-    expect(resolved).toEqual({
-      kind: "assign",
-      target:
-        "https://trusted.example/home?foo=1&__setta_open_workspace_switcher=1#top",
-    });
-  });
-
-  it("falls back to local home navigation for invalid schemes", () => {
-    const resolved = resolveWorkspaceLaunchBackNavigation(
-      "javascript:alert('xss')",
-      "http://launcher.local/launching",
-    );
-
-    expect(resolved).toEqual({
-      kind: "navigate",
-      target: "/home?__setta_open_workspace_switcher=1",
-    });
   });
 });
 
@@ -112,47 +67,5 @@ describe("WorkspaceLaunchPage launch error helpers", () => {
     expect(
       resolveWorkspaceLaunchErrorMessage({ code: null, message: "   " }),
     ).toBe("Launch failed.");
-  });
-});
-
-describe("WorkspaceLaunchPage workspace root helpers", () => {
-  it("prefers the canonical launched session workspace root", () => {
-    const resolved = resolveLaunchedWorkspaceRoot(
-      {
-        workspaceRoot: "/tmp/requested-workspace",
-        session: {
-          workspacePathCanonical: "/private/tmp/canonical-workspace",
-        },
-      },
-      "/tmp/pending-workspace",
-    );
-
-    expect(resolved).toBe("/private/tmp/canonical-workspace");
-  });
-
-  it("falls back to the launch response workspace root when needed", () => {
-    const resolved = resolveLaunchedWorkspaceRoot(
-      {
-        workspaceRoot: "/tmp/response-workspace",
-        session: {
-          workspacePathCanonical: "   ",
-        },
-      },
-      "/tmp/pending-workspace",
-    );
-
-    expect(resolved).toBe("/tmp/response-workspace");
-  });
-
-  it("falls back to the pending request workspace root when the response omits both", () => {
-    const resolved = resolveLaunchedWorkspaceRoot(
-      {
-        workspaceRoot: null,
-        session: null,
-      },
-      "/tmp/pending-workspace",
-    );
-
-    expect(resolved).toBe("/tmp/pending-workspace");
   });
 });

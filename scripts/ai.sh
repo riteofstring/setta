@@ -94,10 +94,11 @@ if [[ "${DEBUG_PORT_WAS_SET}" -eq 0 ]]; then
 fi
 
 RUN_MODE="start"
+BROWSER_MODE=""
 
 usage() {
   cat <<'EOF'
-Usage: ai.sh [--reload] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
+Usage: ai.sh [--reload] [--browser-mode headed|headless] [--profile name] [--setta-home path] [--setta-files-root path] [--setta-files-location mode] [--runtime-root path]
 
 Starts the backend + frontend plus a CDP-enabled Chrome for Chrome DevTools MCP.
 Uses per-worktree ports and dev paths by default:
@@ -105,7 +106,8 @@ Uses per-worktree ports and dev paths by default:
   SETTA_FILES_ROOT=<worktree>/setta_files_dev
 
 Flags:
-  --reload   Use backend reload mode (pnpm startr)
+  --reload               Use backend reload mode (pnpm startr)
+  --browser-mode MODE    headed or headless for the devtools browser
 EOF
 }
 
@@ -122,6 +124,24 @@ while [[ $# -gt 0 ]]; do
       RUN_MODE="startr"
       shift
       ;;
+    --browser-mode)
+      if [[ $# -lt 2 ]]; then
+        echo "Missing value for --browser-mode" >&2
+        usage >&2
+        exit 1
+      fi
+      BROWSER_MODE="$2"
+      shift 2
+      ;;
+    --browser-mode=*)
+      BROWSER_MODE="${1#*=}"
+      if [[ -z "${BROWSER_MODE}" ]]; then
+        echo "Missing value for --browser-mode" >&2
+        usage >&2
+        exit 1
+      fi
+      shift
+      ;;
     -h|--help)
       usage
       exit 0
@@ -136,6 +156,21 @@ done
 
 setta_path_flags_validate
 
+if [[ -n "${BROWSER_MODE}" ]]; then
+  case "${BROWSER_MODE}" in
+    headed)
+      export DEVTOOLS_HEADLESS="0"
+      ;;
+    headless)
+      export DEVTOOLS_HEADLESS="1"
+      ;;
+    *)
+      echo "Invalid value for --browser-mode: ${BROWSER_MODE}. Expected headed or headless." >&2
+      exit 1
+      ;;
+  esac
+fi
+
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT
@@ -148,15 +183,15 @@ export SETTA_BACKEND_LOG_FILE="${ROOT_DIR}/chrome_mcp_backend.log"
 setta_path_flags_apply_env
 
 NEEDS_DEV_INSTALL=0
+if [ ! -d "${ROOT_DIR}/.venv" ] || [ ! -f "${ROOT_DIR}/.venv/bin/activate" ]; then
+  NEEDS_DEV_INSTALL=1
+fi
 if [ ! -d "${ROOT_DIR}/frontend/node_modules" ]; then
   NEEDS_DEV_INSTALL=1
 fi
-if ! "${ROOT_DIR}/scripts/go.sh" version >/dev/null 2>&1; then
-  NEEDS_DEV_INSTALL=1
-fi
 if [ "${NEEDS_DEV_INSTALL}" -eq 1 ]; then
-  echo "Missing default dev dependencies; running ./dev_install.sh" >&2
-  (cd "${ROOT_DIR}" && ./dev_install.sh)
+  echo "Missing dev dependencies; running . ./dev_install.sh" >&2
+  (cd "${ROOT_DIR}" && . ./dev_install.sh)
 fi
 
 if [ "${RUN_MODE}" = "startr" ]; then
@@ -172,6 +207,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-"${ROOT_DIR}/scripts/start-browser-mcp.sh" --devtools
+browser_mcp_args=(--devtools)
+if [[ -n "${BROWSER_MODE}" ]]; then
+  browser_mcp_args+=(--browser-mode "${BROWSER_MODE}")
+fi
+"${ROOT_DIR}/scripts/start-browser-mcp.sh" "${browser_mcp_args[@]}"
 
 wait "${DEV_PID}"
