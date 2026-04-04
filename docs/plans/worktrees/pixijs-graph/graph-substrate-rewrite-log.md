@@ -2162,3 +2162,24 @@ LOOP_TERMINAL_MARKER: none
   - the next bounded frontier is to normalize an equivalent widened `drawSectionDefault` compare state on the legacy `main` surface before rerunning the cross-surface pan compare
 
 LOOP_TERMINAL_MARKER: none
+## 2026-04-03 17:48 EDT - Ralph item 061
+
+- Closed item `060`'s deferred live worktree gate for widened `drawSectionDefault` post-drop frontmost ordering; no production or test files changed this iteration.
+- Re-ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'`; result: passed (`1 passed`, about `20.0s`).
+- Fresh-context CDP sub-agent normalized worktree `http://127.0.0.1:3075/settings` to active `All Settings` with `overviewVis=false`, `uiEditorVis=false`, and active ids cleared after drop.
+- Authoritative runtime ids on worktree:
+  - `drawSectionDefault`: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+  - overlap target `globalVariablesSectionDefault`: `16789d60-9a19-46d3-b0e8-20cee80b66e7`
+- Recreated overlap state via screen delta `(+48, +731.36767578125)` / world delta `(+42.14408007375214, +642.1420394058124)` at zoom `1.13895`.
+- Before drop:
+  - target top-level layout `{ x: 0, y: 2400, zIndex: 0, w: 552, h: 352 }`
+  - target rendered box `{ x: 235.6508, y: 96.0457, width: 628.6984, height: 400.9089 }`
+  - overlap rendered box `{ x: 235.6508, y: 779.4133, width: 628.6984, height: 400.9092 }`
+- After drop with selection cleared:
+  - target top-level layout `{ x: 42.14408007375214, y: 3042.1420394058123, zIndex: 45, w: 552, h: 352 }`
+  - overlap top-level layout `{ x: 0, y: 3000, zIndex: 4, w: 552, h: 352 }`
+  - rendered z-order stayed frontmost: target `45`, overlap `4`, margin `+41`
+- Screenshot evidence: `/tmp/setta-worktree-drawSectionDefault-post-drop-overlap.png`
+- Read-only `main` normalized to `All Settings` too, but that session did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`); treated as oracle limitation rather than remaining worktree drift.
+- Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
+- LOOP_TERMINAL_MARKER: none

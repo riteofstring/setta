@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 17:33 EDT
+Last updated: 2026-04-03 17:48 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `061` closed item `060`'s deferred live worktree gate for widened `drawSectionDefault` post-drop frontmost ordering.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because item `060`'s implementation and guard already covered the product path
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'`
+    - result: passed (`1 passed`, about `20.0s`)
+    - what it still proves:
+      - the targeted canary guard from item `060` remains green in a fresh isolated runtime
+  - Live verification result:
+    - a fresh-context CDP sub-agent recreated the worktree canary overlap state on `http://127.0.0.1:3075/settings`
+    - worktree normalization:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared after the drop before judging frontmost order
+    - authoritative runtime ids resolved by project state:
+      - worktree `drawSectionDefault`: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+      - overlap target `globalVariablesSectionDefault`: `16789d60-9a19-46d3-b0e8-20cee80b66e7`
+    - exact recreated overlap lane on worktree:
+      - screen delta `(+48, +731.36767578125)`
+      - world delta `(+42.14408007375214, +642.1420394058124)` at zoom `1.13895`
+    - before drop:
+      - target top-level layout `{ x: 0, y: 2400, zIndex: 0, w: 552, h: 352 }`
+      - target rendered box `{ x: 235.6508, y: 96.0457, width: 628.6984, height: 400.9089 }`
+      - overlap rendered box `{ x: 235.6508, y: 779.4133, width: 628.6984, height: 400.9092 }`
+    - after drop with active selection cleared:
+      - target top-level layout `{ x: 42.14408007375214, y: 3042.1420394058123, zIndex: 45, w: 552, h: 352 }`
+      - overlap top-level layout `{ x: 0, y: 3000, zIndex: 4, w: 552, h: 352 }`
+      - target rendered z-index `45`
+      - overlap rendered z-index `4`
+      - rendered frontmost margin stayed `+41`
+    - screenshot evidence:
+      - `/tmp/setta-worktree-drawSectionDefault-post-drop-overlap.png`
+    - read-only `main` was normalized to active `All Settings` too, but that session still did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`), so there was no like-for-like canary oracle there on this pass
+  - conclusion for this slice:
+    - item `060`'s deferred live worktree gate is now closed
+    - the widened `drawSectionDefault` post-drop frontmost lane is complete; do not spend another iteration recreating this same overlap state unless a later regression appears
+    - the missing `main` canary surface on this pass is oracle limitation, not a remaining worktree blocker
+    - the next real frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane, not more `drawSectionDefault` overlap churn
 - Ralph item `060` landed the canary-side post-drop frontmost fix for `drawSectionDefault` and closed the production half of that drag-state lane; the exact live CDP recreation is deferred to the next fresh session.
   - Production/test change:
     - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now raises the shared temp z-index when a canary top-level drag starts, renders the canary wrapper from the shared `tempZIndex`, resets temp z-order on canceled drags, and persists `setZIndices([sectionId], true)` when a moved drag drops instead of only writing the new position.
