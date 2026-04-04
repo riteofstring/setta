@@ -1,13 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  changeParamImplFromFrontend,
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   openIsolatedProject,
   postBackend,
-  setParamEnteredValueFromFrontend,
-  updateParamImplConfigFromFrontend,
 } from "../helpers";
 
 type LatestProjectStateResponse = {
@@ -31,10 +27,14 @@ async function createMetaControlSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const response = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType: "MetaControl",
-  });
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "MetaControl",
+    },
+  );
   const sectionId = response?.sectionId;
   if (!sectionId) {
     throw new Error("Missing sectionId for MetaControl creation.");
@@ -119,14 +119,14 @@ test("meta control time defaults to display and can switch to input mode", async
       sectionId,
     );
 
-    await changeParamImplFromFrontend(page, {
+    await postBackend(page, "/changeParamImpl", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
       selectedId: "TimeParam",
     });
 
-    await updateParamImplConfigFromFrontend(page, {
+    await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
@@ -135,19 +135,21 @@ test("meta control time defaults to display and can switch to input mode", async
         timeDisplayFormat: "twelve_hour",
       },
     });
-    await setParamEnteredValueFromFrontend(page, {
+    await postBackend(page, "/setParamEnteredValue", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
       value: "13:45",
     });
 
-    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
     await expect(sectionNode).toBeVisible();
     await expect(sectionNode.getByText("1:45 PM")).toBeVisible();
     await expect(sectionNode.locator('input[type="time"]')).toHaveCount(0);
 
-    await updateParamImplConfigFromFrontend(page, {
+    await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
@@ -161,7 +163,7 @@ test("meta control time defaults to display and can switch to input mode", async
     await expect(timeInput).toBeVisible();
     await expect(timeInput).toHaveValue("13:45");
 
-    await updateParamImplConfigFromFrontend(page, {
+    await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
@@ -173,7 +175,7 @@ test("meta control time defaults to display and can switch to input mode", async
     await expect(sectionNode.getByText("1:45 PM")).toBeVisible();
     await expect(sectionNode.locator('input[type="time"]')).toHaveCount(0);
 
-    await updateParamImplConfigFromFrontend(page, {
+    await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
@@ -212,14 +214,14 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
       sectionId,
     );
 
-    await changeParamImplFromFrontend(page, {
+    await postBackend(page, "/changeParamImpl", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
       selectedId: "DateParam",
     });
 
-    await updateParamImplConfigFromFrontend(page, {
+    await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
@@ -229,14 +231,16 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
         dateCalendarWeekStart: "monday",
       },
     });
-    await setParamEnteredValueFromFrontend(page, {
+    await postBackend(page, "/setParamEnteredValue", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
       value: '["2026-02-01","2026-02-03"]',
     });
 
-    const sectionNode = page.getByTestId(`rf__node-${sectionId}`);
+    const sectionNode = page.locator(
+      `.react-flow__node[data-id="${sectionId}"]`,
+    );
     await expect(sectionNode).toBeVisible();
     await expect(
       sectionNode.getByRole("button", { name: "Prev", exact: true }),
@@ -247,7 +251,7 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
     await expect(sectionNode.getByText("2 selected")).toBeVisible();
     await expect(sectionNode.locator('input[type="date"]')).toHaveCount(0);
 
-    await updateParamImplConfigFromFrontend(page, {
+    await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
@@ -262,7 +266,7 @@ test("meta control calendar renders calendar UI", async ({ page }) => {
       sectionNode.getByRole("button", { name: "Prev", exact: true }),
     ).toHaveCount(0);
 
-    await updateParamImplConfigFromFrontend(page, {
+    await postBackend(page, "/updateParamImplConfig", {
       projectConfigId: context.projectConfigId,
       sectionId,
       paramInfoId,
