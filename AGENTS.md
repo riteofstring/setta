@@ -3,7 +3,8 @@
 ## Remember This First
 
 - Treat `cmd/` and `internal/` as the backend runtime, `backend/setta/` as the Python package surface, and `frontend/` as the React/Vite UI.
-- Go is the default source of truth for canonical behavior, validation, derived metadata, correctness-sensitive local runtime behavior, and shared contracts unless the developer explicitly says otherwise.
+- If instructions conflict, follow the active developer request first, then this file, then referenced docs.
+- If a change affects canonical behavior, validation, derived metadata, correctness-sensitive local runtime behavior, or shared contracts, implement it in Go first unless the developer explicitly says otherwise.
 - Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with concrete justification.
 - Regenerate endpoints and generated types instead of hand-syncing them. Prefer explicit, typed implementations.
 - `setta_files/` is local runtime state, not fixtures, and must not be committed.
@@ -14,9 +15,10 @@
 - `backend/setta/` contains the Python package surface, SDK glue, generated Python types/helpers, packaged assets, and binaries. Keep `backend/setta/api/` as a thin client/SDK surface, not a second backend runtime.
 - `frontend/` contains the UI; keep app code in `src/`, shared templates in `generation/`, and static assets in `public/`.
 - Go tests belong with packages under `cmd/*` and `internal/*`. Python/package pytest coverage belongs under `tests/`.
-- Distinguish `Go-owned Python types` from `Go-backed Python`: generated Go-owned contracts/models replace handwritten schema mirrors, while canonical local Setta behavior is only Go-backed when it delegates to Go through the running backend or `setta sdk-local-core`.
-- Generated Python models or parsing backend-authored DTOs do not, by themselves, make behavior Go-backed or require a local Go subprocess call.
-- Python may keep ergonomic helper behavior such as transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders over authoritative contracts.
+- Treat generated Python contracts/models as Go-owned types, not as a second backend runtime.
+- Treat Python behavior as Go-backed only when it delegates to the running backend or `setta sdk-local-core`.
+- Do not treat generated models or backend-authored DTO parsing, by themselves, as a reason to require a local Go subprocess call.
+- Keep Python ergonomic helpers such as transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders when they sit on top of authoritative contracts.
 - Before deleting a Python file outside `backend/setta/`, identify the surviving caller or replacement owner in the diff or final summary.
 
 ## Generation & Contracts
