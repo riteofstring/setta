@@ -1,8 +1,6 @@
 package frontendbindings
 
 import (
-	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -1509,25 +1507,5 @@ func TestBuildUsesStructuredDeclarationsForCurrentInputs(t *testing.T) {
 		if strings.Contains(bindings.TypesTS, marker) {
 			t.Fatalf("types output still emits legacy marker %q:\n%s", marker, bindings.TypesTS)
 		}
-	}
-}
-
-func assertGoldenFile(t *testing.T, name string, actual string) {
-	t.Helper()
-
-	path := filepath.Join("testdata", name)
-	if os.Getenv("SETTA_UPDATE_FRONTENDBINDING_GOLDENS") == "1" {
-		if err := os.WriteFile(path, []byte(strings.TrimSpace(actual)+"\n"), 0o644); err != nil {
-			t.Fatalf("write %s: %v", path, err)
-		}
-		return
-	}
-	expectedBytes, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatalf("read %s: %v", path, err)
-	}
-	expected := strings.TrimSpace(string(expectedBytes))
-	if strings.TrimSpace(actual) != expected {
-		t.Fatalf("unexpected generated output for %s:\n%s", name, actual)
 	}
 }

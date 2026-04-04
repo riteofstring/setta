@@ -9,6 +9,7 @@ import (
 	"reflect"
 	"runtime"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -43,6 +44,11 @@ type DiscoveredType struct {
 
 type DiscoveredFunction struct {
 	Name string
+}
+
+type DiscoveredStringConstant struct {
+	Name  string
+	Value string
 }
 
 type DiscoverOptions struct {
@@ -81,6 +87,17 @@ func DiscoverPackageZeroArgFunctionsWithPrefix(
 		return nil, err
 	}
 	return DiscoverPackageZeroArgFunctionsWithPrefixInDir(dir, prefix)
+}
+
+func DiscoverPackageStringConstantsWithPrefix(
+	pkgPath string,
+	prefix string,
+) ([]DiscoveredStringConstant, error) {
+	dir, err := packageDir(pkgPath)
+	if err != nil {
+		return nil, err
+	}
+	return DiscoverPackageStringConstantsWithPrefixInDir(dir, prefix)
 }
 
 func DiscoverPackageTypesInDir(dir string) ([]DiscoveredType, error) {
@@ -196,6 +213,78 @@ func DiscoverPackageZeroArgFunctionsWithPrefixInDir(
 	return discovered, nil
 }
 
+func DiscoverPackageStringConstantsWithPrefixInDir(
+	dir string,
+	prefix string,
+) ([]DiscoveredStringConstant, error) {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		return nil, fmt.Errorf("glob %s: %w", dir, err)
+	}
+	slices.Sort(matches)
+
+	constExprs := map[string]ast.Expr{}
+	fileSet := token.NewFileSet()
+	for _, match := range matches {
+		if strings.HasSuffix(match, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fileSet, match, nil, 0)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", match, err)
+		}
+		for _, decl := range file.Decls {
+			genDecl, ok := decl.(*ast.GenDecl)
+			if !ok || genDecl.Tok != token.CONST {
+				continue
+			}
+			for _, spec := range genDecl.Specs {
+				valueSpec, ok := spec.(*ast.ValueSpec)
+				if !ok {
+					continue
+				}
+				for index, name := range valueSpec.Names {
+					if name == nil || strings.TrimSpace(name.Name) == "" {
+						continue
+					}
+					expr, ok := constValueExpr(valueSpec, index)
+					if !ok {
+						continue
+					}
+					constExprs[name.Name] = expr
+				}
+			}
+		}
+	}
+
+	cache := map[string]string{}
+	resolving := map[string]bool{}
+	names := []string{}
+	for name := range constExprs {
+		if strings.HasPrefix(name, prefix) {
+			names = append(names, name)
+		}
+	}
+	slices.Sort(names)
+
+	discovered := make([]DiscoveredStringConstant, 0, len(names))
+	for _, name := range names {
+		value, ok, err := resolveStringConstant(name, constExprs, cache, resolving)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, fmt.Errorf("resolve string constant %s in %s", name, dir)
+		}
+		discovered = append(discovered, DiscoveredStringConstant{
+			Name:  name,
+			Value: value,
+		})
+	}
+
+	return discovered, nil
+}
+
 func importAliasPaths(file *ast.File) map[string]string {
 	paths := map[string]string{}
 	if file == nil {
@@ -269,6 +358,87 @@ func hasSkipDirective(commentGroup *ast.CommentGroup) bool {
 		return false
 	}
 	return strings.Contains(commentGroup.Text(), skipDirective)
+}
+
+func constValueExpr(valueSpec *ast.ValueSpec, index int) (ast.Expr, bool) {
+	if valueSpec == nil {
+		return nil, false
+	}
+	switch {
+	case len(valueSpec.Values) == len(valueSpec.Names) && index < len(valueSpec.Values):
+		return valueSpec.Values[index], true
+	case len(valueSpec.Values) == 1:
+		return valueSpec.Values[0], true
+	default:
+		return nil, false
+	}
+}
+
+func resolveStringConstant(
+	name string,
+	constExprs map[string]ast.Expr,
+	cache map[string]string,
+	resolving map[string]bool,
+) (string, bool, error) {
+	if value, ok := cache[name]; ok {
+		return value, true, nil
+	}
+	expr, ok := constExprs[name]
+	if !ok {
+		return "", false, nil
+	}
+	if resolving[name] {
+		return "", false, fmt.Errorf("cyclic string constant %s", name)
+	}
+	resolving[name] = true
+	defer delete(resolving, name)
+
+	value, ok, err := evalStringConstExpr(expr, constExprs, cache, resolving)
+	if err != nil {
+		return "", false, err
+	}
+	if ok {
+		cache[name] = value
+	}
+	return value, ok, nil
+}
+
+func evalStringConstExpr(
+	expr ast.Expr,
+	constExprs map[string]ast.Expr,
+	cache map[string]string,
+	resolving map[string]bool,
+) (string, bool, error) {
+	switch typed := expr.(type) {
+	case *ast.BasicLit:
+		if typed.Kind != token.STRING {
+			return "", false, nil
+		}
+		value, err := strconv.Unquote(typed.Value)
+		if err != nil {
+			return "", false, fmt.Errorf("unquote %s: %w", typed.Value, err)
+		}
+		return value, true, nil
+	case *ast.BinaryExpr:
+		if typed.Op != token.ADD {
+			return "", false, nil
+		}
+		left, ok, err := evalStringConstExpr(typed.X, constExprs, cache, resolving)
+		if err != nil || !ok {
+			return "", ok, err
+		}
+		right, ok, err := evalStringConstExpr(typed.Y, constExprs, cache, resolving)
+		if err != nil || !ok {
+			return "", ok, err
+		}
+		return left + right, true, nil
+	case *ast.Ident:
+		return resolveStringConstant(typed.Name, constExprs, cache, resolving)
+	case *ast.ParenExpr:
+		return evalStringConstExpr(typed.X, constExprs, cache, resolving)
+	default:
+		return "", false, nil
+	}
 }
 
 func classifyType(expr ast.Expr, options DiscoverOptions) (TypeKind, bool) {

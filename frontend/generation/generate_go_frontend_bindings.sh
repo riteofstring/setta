@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 cd "${ROOT_DIR}"
 ./scripts/go.sh run ./cmd/setta-gen-go-type-registries
+./scripts/go.sh run ./cmd/setta-gen-go-route-registries
 ./scripts/go.sh run ./cmd/setta-gen-frontend-bindings \
   -routes-out frontend/src/utils/generatedRoutes.ts \
   -types-out frontend/src/utils/generatedTypes.ts \

@@ -122,3 +122,29 @@ func TestDiscoverPackageZeroArgFunctionsWithPrefixInDir(t *testing.T) {
 		)
 	}
 }
+
+func TestDiscoverPackageStringConstantsWithPrefixInDir(t *testing.T) {
+	t.Helper()
+
+	discovered, err := DiscoverPackageStringConstantsWithPrefixInDir(
+		filepath.Join("testdata", "constpkg"),
+		"Route",
+	)
+	if err != nil {
+		t.Fatalf("DiscoverPackageStringConstantsWithPrefixInDir(...) error = %v", err)
+	}
+
+	want := []DiscoveredStringConstant{
+		{Name: "RouteAPIPrefix", Value: "/api"},
+		{Name: "RouteBootstrapPage", Value: "/__setta__/bootstrap"},
+		{Name: "RouteSDKRuntimeHandshake", Value: "/sdkRuntimeHandshake"},
+		{Name: "RouteToolsCall", Value: "/api/tools/call"},
+	}
+	if !reflect.DeepEqual(discovered, want) {
+		t.Fatalf(
+			"DiscoverPackageStringConstantsWithPrefixInDir(...) = %#v, want %#v",
+			discovered,
+			want,
+		)
+	}
+}
