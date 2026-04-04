@@ -3,6 +3,8 @@ package settacmd
 import (
 	"bytes"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -123,5 +125,40 @@ func TestRunPathsRejectsConflictingOutputModes(t *testing.T) {
 	}
 	if err.Error() != "paths accepts at most one output mode flag" {
 		t.Fatalf("unexpected error %q", err.Error())
+	}
+}
+
+func TestRunPathsCWDOverrideControlsDefaultWorkspaceResolution(t *testing.T) {
+	t.Parallel()
+
+	processCWD := t.TempDir()
+	resolvedCWD := filepath.Join(t.TempDir(), "workspace")
+	settaHome := settaHomeForTest(t)
+	if err := os.MkdirAll(resolvedCWD, 0o755); err != nil {
+		t.Fatalf("mkdir workspace: %v", err)
+	}
+
+	var stdout bytes.Buffer
+	err := runPaths(
+		[]string{"--cwd", resolvedCWD},
+		globalFlags{
+			settaHome:          settaHome,
+			settaFilesLocation: "local",
+		},
+		&stdout,
+		&bytes.Buffer{},
+		func(string) (string, bool) { return "", false },
+		processCWD,
+	)
+	if err != nil {
+		t.Fatalf("run paths with cwd override: %v", err)
+	}
+
+	var payload pathsPayload
+	if err := json.Unmarshal(stdout.Bytes(), &payload); err != nil {
+		t.Fatalf("decode paths payload: %v", err)
+	}
+	if payload.WorkspaceRoot != resolvedCWD {
+		t.Fatalf("expected workspace root %q, got %q", resolvedCWD, payload.WorkspaceRoot)
 	}
 }

@@ -37,6 +37,18 @@ def test_resolve_setta_paths_defaults(tmp_path: Path) -> None:
     assert paths.runtime_root == paths.setta_files_root / "runtime"
 
 
+def test_resolve_setta_paths_defaults_to_current_working_directory(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    monkeypatch.chdir(workspace)
+
+    paths = resolve_setta_paths()
+
+    assert paths.workspace_root == workspace.resolve()
+
+
 def test_resolve_setta_paths_strips_workspace_root_env(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -108,7 +120,7 @@ def test_resolve_setta_paths_rejects_invalid_files_location_env(
 
     monkeypatch.setenv("SETTA_FILES_LOCATION", "nope")
 
-    with pytest.raises(ValueError, match=r"Invalid setta files location"):
+    with pytest.raises(ValueError, match=r"invalid setta files location"):
         resolve_setta_paths(workspace_root=workspace)
 
 
@@ -118,7 +130,7 @@ def test_resolve_setta_paths_rejects_invalid_files_location_override(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    with pytest.raises(ValueError, match=r"Invalid setta files location"):
+    with pytest.raises(ValueError, match=r"invalid setta files location"):
         resolve_setta_paths(workspace_root=workspace, setta_files_location="nope")
 
 
@@ -147,7 +159,7 @@ def test_resolve_setta_paths_rejects_local_root_that_is_file(tmp_path: Path) -> 
 
     (workspace / "setta_files").write_text("nope", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"Local setta_files path is not a directory"):
+    with pytest.raises(ValueError, match=r"local setta_files path is not a directory"):
         resolve_setta_paths(workspace_root=workspace)
 
 
@@ -175,7 +187,7 @@ def test_resolve_setta_paths_rejects_setta_files_root_without_allowed_folder_nam
     workspace.mkdir()
 
     with pytest.raises(
-        ValueError, match=r"Setta files root must include one of these folder names"
+        ValueError, match=r"setta files root must include one of these folder names"
     ):
         resolve_setta_paths(
             workspace_root=workspace,
@@ -195,7 +207,7 @@ def test_resolve_setta_paths_rejects_global_root_that_is_file(tmp_path: Path) ->
     global_root.parent.mkdir(parents=True, exist_ok=True)
     global_root.write_text("nope", encoding="utf-8")
 
-    with pytest.raises(ValueError, match=r"Global setta_files path is not a directory"):
+    with pytest.raises(ValueError, match=r"global setta_files path is not a directory"):
         resolve_setta_paths(workspace_root=workspace, setta_files_location="global")
 
 
@@ -523,7 +535,7 @@ def test_resolve_setta_paths_rejects_runtime_root_matching_workspace(
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    with pytest.raises(ValueError, match=r"Runtime root cannot be the workspace root"):
+    with pytest.raises(ValueError, match=r"runtime root cannot be the workspace root"):
         resolve_setta_paths(
             workspace_root=workspace,
             runtime_root=workspace,
@@ -868,5 +880,5 @@ def test_unknown_profile_raises(tmp_path: Path) -> None:
     workspace = tmp_path / "workspace"
     workspace.mkdir()
 
-    with pytest.raises(ValueError, match="Unknown Setta profile"):
+    with pytest.raises(ValueError, match="unknown setta profile"):
         resolve_setta_paths(workspace_root=workspace, profile="missing")

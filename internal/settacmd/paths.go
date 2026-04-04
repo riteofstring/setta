@@ -11,8 +11,9 @@ import (
 )
 
 type pathsFlags struct {
-	envOutput  bool
-	jsonOutput bool
+	envOutput   bool
+	jsonOutput  bool
+	cwdOverride string
 }
 
 type pathsPayload struct {
@@ -26,6 +27,7 @@ type pathsPayload struct {
 	UsesExplicitSettaFiles bool   `json:"usesExplicitSettaFiles"`
 	RuntimeRoot            string `json:"runtimeRoot"`
 	RuntimeWithinSettaRoot bool   `json:"runtimeWithinSettaRoot"`
+	AuthCookieName         string `json:"authCookieName,omitempty"`
 }
 
 func runPaths(args []string, global globalFlags, stdout io.Writer, stderr io.Writer, envLookup func(string) (string, bool), cwd string) error {
@@ -34,6 +36,7 @@ func runPaths(args []string, global globalFlags, stdout io.Writer, stderr io.Wri
 	var parsed pathsFlags
 	flags.BoolVar(&parsed.envOutput, "env", false, "Emit KEY=value lines for shell/script consumption.")
 	flags.BoolVar(&parsed.jsonOutput, "json", false, "Emit JSON payload.")
+	flags.StringVar(&parsed.cwdOverride, "cwd", "", "Resolve paths as if Setta were started from this working directory.")
 	if err := flags.Parse(args); err != nil {
 		return err
 	}
@@ -44,8 +47,20 @@ func runPaths(args []string, global globalFlags, stdout io.Writer, stderr io.Wri
 		return fmt.Errorf("paths accepts at most one output mode flag")
 	}
 
+	effectiveCWD := cwd
+	if value := strings.TrimSpace(parsed.cwdOverride); value != "" {
+		if !filepath.IsAbs(value) {
+			value = filepath.Join(cwd, value)
+		}
+		resolvedCWD, err := filepath.Abs(value)
+		if err != nil {
+			return fmt.Errorf("resolve --cwd: %w", err)
+		}
+		effectiveCWD = filepath.Clean(resolvedCWD)
+	}
+
 	cfg, err := config.Load(config.LoadOptions{
-		CWD:       cwd,
+		CWD:       effectiveCWD,
 		EnvLookup: envLookup,
 		CLI: config.CLIOptions{
 			WorkspaceRoot:      strings.TrimSpace(global.workspaceRoot),
@@ -82,6 +97,7 @@ func buildPathsPayload(paths config.Paths) pathsPayload {
 		UsesExplicitSettaFiles: paths.UsesExplicitSettaFiles,
 		RuntimeRoot:            paths.RuntimeRoot,
 		RuntimeWithinSettaRoot: runtimeWithinSettaRoot(paths),
+		AuthCookieName:         paths.AuthCookieName,
 	}
 }
 
