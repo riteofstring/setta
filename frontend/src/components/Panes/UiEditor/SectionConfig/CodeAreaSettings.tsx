@@ -7,10 +7,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import {
-  dispatchOptimisticProjectStateUpdate,
   getCurrEffectiveSectionImplOfType,
   getCurrProjectConfigId,
-  setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
@@ -68,35 +66,19 @@ export function CodeAreaSettings({ sectionId }: { sectionId: string }) {
         setLocalCanonicalPath(canonicalPath);
         return;
       }
-      if (trimmedPath === canonicalPath && nextAccessMode === accessMode) {
-        return;
-      }
 
-      dispatchOptimisticProjectStateUpdate({
-        apply: (state) => {
-          setCurrEffectiveSectionImplValue<"CodeSection">(state, sectionId, {
-            codeFileBinding: {
-              canonical_path: trimmedPath,
-              access_mode: nextAccessMode,
-              autoBinding: false,
-            },
-          });
+      void route_set_code_file_binding({
+        projectConfigId: getCurrProjectConfigId(),
+        sectionId,
+        binding: {
+          canonical_path: trimmedPath,
+          access_mode: nextAccessMode,
         },
-        send: (frontendOpId) =>
-          route_set_code_file_binding({
-            projectConfigId: getCurrProjectConfigId(),
-            sectionId,
-            frontendOpId,
-            binding: {
-              canonical_path: trimmedPath,
-              access_mode: nextAccessMode,
-            },
-          }),
       });
 
       setLocalCanonicalPath(trimmedPath);
     },
-    [accessMode, canEditStructure, canonicalPath, sectionId],
+    [canEditStructure, canonicalPath, sectionId],
   );
 
   const onCanonicalPathBlur = useCallback(() => {

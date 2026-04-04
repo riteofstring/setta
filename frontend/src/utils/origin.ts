@@ -1,17 +1,29 @@
-import { normalizeGeneratedOrigin } from "./generatedTypes";
+const PROTOCOL_RE = /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//;
 
 export function normalizeOrigin(
   origin: string,
   label: string = "backend origin",
 ): string | undefined {
-  const trimmedOrigin = origin.trim();
-  if (!trimmedOrigin) {
+  let normalizedOrigin = origin.trim();
+  if (!normalizedOrigin) {
     return undefined;
   }
-  const normalized = normalizeGeneratedOrigin(trimmedOrigin);
-  if (normalized) {
-    return normalized;
+  const hasProtocol = PROTOCOL_RE.test(normalizedOrigin);
+  if (!hasProtocol) {
+    normalizedOrigin = `http://${normalizedOrigin}`;
   }
-  console.error(`Invalid ${label} "${origin}".`);
-  return undefined;
+  let url: URL;
+  try {
+    url = new URL(normalizedOrigin);
+  } catch (error) {
+    console.error(`Invalid ${label} "${origin}".`, error);
+    return undefined;
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    console.error(
+      `Invalid ${label} "${origin}". Expected an http(s) origin, got "${url.protocol}".`,
+    );
+    return undefined;
+  }
+  return url.origin;
 }
