@@ -48,6 +48,12 @@ type SharedTopLevelSection = {
   worktreeSectionId: string;
 };
 
+type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex: number;
+};
+
 function hasSettledSectionMetrics(
   metrics: SettingsGraphSectionMetrics,
   expectedSurfaceKind: "legacy" | "canary",
@@ -133,6 +139,60 @@ async function waitForSettledSectionMetrics(args: {
     );
   }
   return settledMetrics;
+}
+
+function areTopLevelSectionLayoutsStable(
+  current: TopLevelSectionLayout,
+  previous: TopLevelSectionLayout,
+): boolean {
+  return (
+    Math.abs(current.x - previous.x) < 0.5 &&
+    Math.abs(current.y - previous.y) < 0.5 &&
+    current.zIndex === previous.zIndex
+  );
+}
+
+async function waitForSettledTopLevelSectionLayout(args: {
+  page: Page;
+  sectionId: string;
+}): Promise<TopLevelSectionLayout> {
+  await expect
+    .poll(
+      async () => {
+        const first = await getActiveTopLevelSectionLayout(
+          args.page,
+          args.sectionId,
+        );
+        if (!first) {
+          return false;
+        }
+
+        await args.page.waitForTimeout(150);
+
+        const second = await getActiveTopLevelSectionLayout(
+          args.page,
+          args.sectionId,
+        );
+        if (!second) {
+          return false;
+        }
+
+        return areTopLevelSectionLayoutsStable(second, first);
+      },
+      {
+        timeout: 5000,
+      },
+    )
+    .toBe(true);
+
+  const settledLayout = await getActiveTopLevelSectionLayout(
+    args.page,
+    args.sectionId,
+  );
+  if (!settledLayout) {
+    throw new Error(`Missing settled top-level layout for ${args.sectionId}.`);
+  }
+  return settledLayout;
 }
 
 test("settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary", async ({
@@ -2321,14 +2381,15 @@ test("settings graph parity probe keeps shared title editing working after norma
       })
       .toBeGreaterThan(80);
 
-    const afterDrag = await captureSettingsGraphSectionMetrics(
-      args.targetPage,
-      args.sectionId,
-    );
-    const afterLayout = await getActiveTopLevelSectionLayout(
-      args.targetPage,
-      args.sectionId,
-    );
+    const afterDrag = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const afterLayout = await waitForSettledTopLevelSectionLayout({
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
     if (
       afterDrag.centerOffsetFromRootCenter === null ||
       !afterDrag.rect ||

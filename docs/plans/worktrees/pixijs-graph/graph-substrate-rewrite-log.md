@@ -4353,3 +4353,43 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - rerun one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane, and treat CDP as a post-state/static visual sanity check when native modified-wheel replay is not available
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 15:24 EDT - Ralph item 128
+
+- Fixed a false-negative on the normalized top-level drag plus title-edit main-reference probe by waiting for settled post-drag section/layout state before comparing deltas on the current run-047 surfaces.
+- Why this slice was necessary:
+  - this existing drag/edit lane was the next bounded dynamic compare that could still expose a real canary-only motion or interaction defect without reopening another stationary oracle lane
+  - the first targeted run-047 Playwright rerun failed only narrowly on `layoutDelta.y` (`12.47px` vs `<12px`), so the actual question was whether that was a real renderer regression or transient post-drag oracle noise
+- Production/test change:
+  - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `TopLevelSectionLayout`, `areTopLevelSectionLayoutsStable(...)`, and `waitForSettledTopLevelSectionLayout(...)`
+    - changed `settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary` so it now waits for settled post-drag section metrics and settled top-level layout before asserting cross-worktree drag deltas
+- Verification:
+  - refreshed run-047 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-047/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-047/main-ai.log`
+  - first targeted direct live-runtime Playwright rerun before the fix:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-047 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-047 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed on `layoutDelta.y` tolerance (`12.47px` vs `<12px`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun after the settled-state fix:
+    - same command shape as above with refreshed run-047 bootstrap values
+      - result: passed (`1 passed`, `1.1m`)
+  - final immediate rerun on the formatted file with refreshed run-047 bootstrap values:
+    - same command shape as above with refreshed tokens
+      - result: passed (`1 passed`, `1.2m`)
+  - fresh-context CDP sub-agent:
+    - compared `http://127.0.0.1:3075/settings` against read-only `http://127.0.0.1:3087/settings` on the exact normalized drag/edit lane
+    - chosen shared section: `browserSectionDefault`
+    - both pages accepted the same short top-level move and then opened the browser title row into inline edit
+    - top-level state moved identically on both sides: `(120,1280) -> (180,1300)`
+    - section rect matched on both sides: `(730,114,55,35)`
+    - title rect matched on both sides: `(733,115,43,2)`
+    - no real canary-only visual or interaction artifact remained on this lane
+  - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; `browserSectionDefault` short top-level drag plus title edit matches, so the earlier Playwright miss was oracle noise)
+- Lane status:
+  - close the exact normalized top-level drag plus title-edit lane again for the current run-047 surfaces with the settled-state probe shape
+  - do not reopen this lane unless a future deterministic rerun or fresh normalized CDP compare shows a real canary-only drag/edit artifact rather than another transient post-drag sampling mismatch
+- Next frontier:
+  - move to a different normalized dynamic lane on `All Settings` instead of spending another iteration on Browser title-drag oracle churn; prefer a non-Browser shared section with a visibly present body/control anchor or the first concrete renderer defect surfaced by a fresh graph-surface compare
+- LOOP_TERMINAL_MARKER: none

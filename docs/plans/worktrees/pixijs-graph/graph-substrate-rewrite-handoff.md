@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 15:04 EDT
+Last updated: 2026-04-04 15:24 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,50 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `128` fixed a false-negative on the normalized top-level drag plus title-edit main-reference probe by waiting for settled post-drag section/layout state before comparing deltas on the current run-047 surfaces.
+  - Why this slice was needed:
+    - the current plan/handoff still requires dynamic Gate 1 / Gate 2 comparisons on normalized `All Settings`, and this existing drag/edit lane was a valid bounded next step because it checks one real motion plus interaction path instead of another stationary oracle
+    - the first targeted run-047 Playwright rerun failed narrowly on `settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary`
+    - the failure was only `0.47px` beyond the current `layoutDelta.y` tolerance (`12.47px` vs `<12px`), so the key question was whether that reflected a real canary-only drag/edit defect or transient oracle noise
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `TopLevelSectionLayout`, `areTopLevelSectionLayoutsStable(...)`, and `waitForSettledTopLevelSectionLayout(...)`
+      - changed `settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary` so it now samples settled post-drag section metrics plus settled top-level layout before asserting cross-worktree drag deltas
+  - What this slice established:
+    - the live product lane is clean on the current run-047 surfaces; the earlier failure was not a trustworthy canary-only renderer or interaction regression
+    - the flaky point was the probe sampling transient post-drag state too early, not the canary surface drifting away from read-only `main`
+    - with settled sampling in place, the same deterministic lane passes again on the current live runtimes
+  - Automated result:
+    - refreshed run-047 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-047/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-047/main-ai.log`
+    - first targeted direct live-runtime Playwright rerun before the fix:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-047 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-047 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed on `layoutDelta.y` tolerance (`12.47px` vs `<12px`)
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun after the settled-state fix:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-047 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-047 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `1.1m`)
+    - final immediate rerun on the formatted file with refreshed run-047 bootstrap values:
+      - same command shape as above with refreshed tokens
+      - result: passed (`1 passed`, `1.2m`)
+  - Live verification result:
+    - fresh-context CDP sub-agent compared `http://127.0.0.1:3075/settings` against read-only `http://127.0.0.1:3087/settings` on the exact normalized drag/edit lane
+    - chosen shared section: `browserSectionDefault`
+    - both pages accepted the same short top-level move and then opened the browser title row into inline edit
+    - top-level state delta matched exactly on both sides: `(120,1280) -> (180,1300)`
+    - post-move DOM rects matched on both sides:
+      - section rect: `(730,114,55,35)`
+      - title rect: `(733,115,43,2)`
+    - no real canary-only visual drift, title/body detachment, or title-edit interaction gap remained on this lane
+    - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; `browserSectionDefault` short top-level drag plus title edit matches, so the earlier Playwright miss was oracle noise rather than a product defect)
+  - conclusion for this slice:
+    - close the exact normalized top-level drag plus title-edit lane again for the current run-047 surfaces with the settled-state probe shape
+    - do not reopen this lane unless a future deterministic rerun or fresh normalized CDP compare shows an actual canary-only drag/edit artifact rather than another transient post-drag sampling mismatch
+    - treat narrow post-drag delta misses on this lane as probe-shape questions first; verify the live lane before assuming a renderer regression
 - Ralph item `127` tightened the normalized `fit view`-after-manual-pan main-reference probe so it uses the settled post-pan shared landing as the oracle on the current run-046 surfaces instead of trusting the live legacy first-fit landing.
   - Why this slice was needed:
     - the plan/handoff still named the fit-after-manual-pan lane as one of the next trustworthy dynamic compares to rerun on the current surfaces
@@ -3306,6 +3350,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `127`
-- Latest item: `2026-04-04 127`
+- Active history window: items `001` through `128`
+- Latest item: `2026-04-04 128`
 - Older history archives: none yet
