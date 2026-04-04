@@ -10,6 +10,7 @@ import React, { useCallback, useRef } from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
+  getCurrSectionVariantId,
   setCurrEffectiveSectionImplValue,
 } from "state/actions/sectionInfos";
 import { useProjectState } from "state/definitions";
@@ -55,6 +56,9 @@ function _MarkdownEditorCore({
   ref,
 }) {
   const { format, text, isFrozen } = useTextBlockTextAndEditability(sectionId);
+  const sectionVariantId = useProjectState((state) =>
+    getCurrSectionVariantId(state, sectionId),
+  );
   const { canEditParams } = useShareCapabilities();
   const isReadOnly = isFrozen || !canEditParams;
 
@@ -67,6 +71,7 @@ function _MarkdownEditorCore({
         });
       });
     },
+    sectionVariantId,
   );
 
   const debouncedSetText = useCallback(
