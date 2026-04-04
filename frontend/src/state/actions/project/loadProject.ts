@@ -31,7 +31,7 @@ import {
 import {
   type AllProjectMetadata,
   type CreateProjectConfigResponse,
-  type SettaLspDiagnosticsPayload,
+  type LSPDiagnosticsPayload,
   type SingleConfig,
 } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
@@ -47,7 +47,7 @@ import { initializeServerMode } from "../serverMode";
 
 type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
 type LatestLspDiagnosticsRouteResponse =
-  ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
+  ResponseDataAndStatus<LSPDiagnosticsPayload>;
 type LoadAllProjectMetadataRouteResponse =
   ResponseDataAndStatus<AllProjectMetadata>;
 type CreateProjectConfigRouteResponse =

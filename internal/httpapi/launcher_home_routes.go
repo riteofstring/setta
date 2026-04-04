@@ -42,6 +42,10 @@ type LauncherRecentWorkspacesResponse struct {
 	Error      *LauncherHomeErrorPayload       `json:"error"`
 }
 
+type GetLauncherRecentWorkspacesRequest struct {
+	SettaHome *string `json:"setta_home,omitempty"`
+}
+
 type LauncherRecentWorkspaceRequest struct {
 	SettaHome     *string `json:"settaHome"`
 	WorkspaceRoot string  `json:"workspaceRoot"`
@@ -162,7 +166,10 @@ func RegisterLauncherHomeRoutes(router chi.Router, deps LauncherHomeRouteDepende
 
 func getLauncherRecentWorkspacesHandler(defaultSettaHome string, home *launcher.HomeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		settaHome, err := launcher.ResolveScopedSettaHome(defaultSettaHome, r.URL.Query().Get("setta_home"))
+		request := GetLauncherRecentWorkspacesRequest{
+			SettaHome: launcherStringPointer(r.URL.Query().Get("setta_home")),
+		}
+		settaHome, err := launcher.ResolveScopedSettaHome(defaultSettaHome, launcherStringOrEmpty(request.SettaHome))
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return

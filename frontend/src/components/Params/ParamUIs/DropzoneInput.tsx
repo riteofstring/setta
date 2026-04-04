@@ -53,7 +53,7 @@ import {
   DropzoneModeEnum,
   FileArtifact,
   SettaNotificationTypeEnum,
-  type BinaryContentRef,
+  type ContentRef,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import type { ParamValueChange } from "./ConfiguredParamInputs";
@@ -98,7 +98,7 @@ type DropzoneStatelessDisplayAttachment =
 const DROPZONE_STATEFUL_POLICY = getAttachmentPolicy("dropzone_stateful");
 const DROPZONE_STATELESS_POLICY = getAttachmentPolicy("dropzone_stateless");
 const DROPZONE_STATELESS_DISPLAY_LIMIT = 5;
-type BinaryUploadRouteResponse = ResponseDataAndStatus<BinaryContentRef>;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
 function resolveDropzonePolicy(mode: DropzoneModeEnum) {
   if (mode === DropzoneModeEnum.STATELESS) {

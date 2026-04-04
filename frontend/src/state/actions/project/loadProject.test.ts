@@ -21,11 +21,11 @@ import {
 import {
   ChatWindowModeEnum,
   ChatWindowPlacementEnum,
+  createLSPDiagnosticsPayload,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
-  createSettaLspDiagnosticsPayload,
-  createSettaProjectConfigDiagnostics,
+  createProjectConfigDiagnostics,
   createSingleConfig,
   createWindowSpaceConfig,
   type SingleConfig,
@@ -218,9 +218,9 @@ describe("loadAllProjectMetadata", () => {
         name: "Loaded Project",
       }),
     });
-    const diagnostics = createSettaLspDiagnosticsPayload({
+    const diagnostics = createLSPDiagnosticsPayload({
       projectConfigId: "project-loaded",
-      genCode: createSettaProjectConfigDiagnostics({
+      genCode: createProjectConfigDiagnostics({
         projectConfigId: "project-loaded",
         isGenCode: true,
         errors: {},

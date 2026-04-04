@@ -13,8 +13,8 @@ import "testUtils/reactRefreshPreamble";
 import {
   ArtifactTypeEnum,
   SectionTypeEnum,
-  createBinaryContentRef,
   createChartDataArtifact,
+  createContentRef,
   createCore,
   createImageArtifact,
   createLineChartSettings,
@@ -230,7 +230,7 @@ describe("artifact hooks", () => {
         createImageArtifact({
           type: ArtifactTypeEnum.Image,
           id: imageArtifactId,
-          value: createBinaryContentRef({
+          value: createContentRef({
             contentId: "image-content-id",
             byteLength: 4,
             mimeType: "image/png",
@@ -319,7 +319,7 @@ describe("artifact hooks", () => {
         ...state.x,
         [imageArtifactId]: createImageArtifact({
           id: imageArtifactId,
-          value: createBinaryContentRef({
+          value: createContentRef({
             contentId: "decode-content-id",
             byteLength: 4,
             mimeType: "image/png",

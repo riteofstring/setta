@@ -5,6 +5,7 @@ package pythonsharedtypes
 import (
 	"reflect"
 	artifacts "setta/internal/artifacts"
+	binary "setta/internal/binary"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
 	pythonsdkcontracts "setta/internal/pythonsdkcontracts"
@@ -14,6 +15,7 @@ import (
 
 func discoveredSharedTypes() []reflect.Type {
 	return []reflect.Type{
+		reflect.TypeOf(binary.ContentRef{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),

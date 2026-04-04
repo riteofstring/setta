@@ -11,7 +11,7 @@ import {
   route_binary_upload,
   route_update_artifacts,
 } from "utils/generatedEndpoints";
-import { ArtifactTypeEnum, createBinaryContentRef } from "utils/generatedTypes";
+import { ArtifactTypeEnum, createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DropzoneInput } from "./DropzoneInput";
 
@@ -92,7 +92,7 @@ describe("DropzoneInput attachment display", () => {
 
   it("uploads local files through the Go binary route before updating artifacts", async () => {
     vi.mocked(route_binary_upload).mockResolvedValue({
-      data: createBinaryContentRef({
+      data: createContentRef({
         contentId: "uploaded-dropzone-ref",
         byteLength: 4,
         mimeType: "image/png",
@@ -141,7 +141,7 @@ describe("DropzoneInput attachment display", () => {
       const parsedValue = parseDropzoneValue(serializedValue);
 
       expect(uploadedArtifact?.value).toEqual(
-        createBinaryContentRef({
+        createContentRef({
           contentId: "uploaded-dropzone-ref",
           byteLength: 4,
           mimeType: "image/png",

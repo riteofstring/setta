@@ -28,7 +28,7 @@ from setta.sdk_contracts.generated import (
 )
 from setta.types.artifact import BaseArtifactTypeAdapter
 from setta.types.generated.go_shared_types import (
-    BinaryContentRef,
+    ContentRef,
     BinaryDependencyValue,
     CodeObjValueRepresentationMode,
     CodeObjType,
@@ -65,7 +65,7 @@ def _literal_dependency_value(payload: str) -> LiteralDependencyValue:
     )
 
 
-def _binary_dependency_value(payload: BinaryContentRef) -> BinaryDependencyValue:
+def _binary_dependency_value(payload: ContentRef) -> BinaryDependencyValue:
     return BinaryDependencyValue(
         type=DependencyValueType.Binary,
         payload=payload,
@@ -1899,7 +1899,7 @@ class TestSettaListenerBinaryParsing:
         listener = SettaListener(project_name="Binary Parse")
         dependency_one = create_dep_key(sectionId=ID("section-1"))
         dependency_two = create_dep_key(sectionId=ID("section-2"))
-        ref = BinaryContentRef(
+        ref = ContentRef(
             contentId="binary-1",
             byteLength=3,
             mimeType="image/png",
@@ -1935,7 +1935,7 @@ class TestSettaListenerBinaryParsing:
         listener = SettaListener(project_name="Binary Parse")
         dependency_one = create_dep_key(sectionId=ID("section-1"))
         dependency_two = create_dep_key(sectionId=ID("section-2"))
-        ref = BinaryContentRef(
+        ref = ContentRef(
             contentId="binary-2",
             byteLength=5,
             mimeType="application/octet-stream",

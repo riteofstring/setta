@@ -1,4 +1,4 @@
-import { createBinaryContentRef } from "utils/generatedTypes";
+import { createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   collectDrawSnapshotPayloads,
@@ -30,7 +30,7 @@ describe("collectDrawSnapshotPayloads", () => {
     // section-to-content-id mapping in the returned payload object.
     vi.mocked(route_binary_upload)
       .mockResolvedValueOnce({
-        data: createBinaryContentRef({
+        data: createContentRef({
           contentId: "content-a",
           byteLength: 4,
           mimeType: "image/png",
@@ -40,7 +40,7 @@ describe("collectDrawSnapshotPayloads", () => {
         hasResponse: true,
       })
       .mockResolvedValueOnce({
-        data: createBinaryContentRef({
+        data: createContentRef({
           contentId: "content-b",
           byteLength: 6,
           mimeType: "image/png",
@@ -61,13 +61,13 @@ describe("collectDrawSnapshotPayloads", () => {
 
     expect(route_binary_upload).toHaveBeenCalledTimes(2);
     expect(payloads).toEqual({
-      "draw-a": createBinaryContentRef({
+      "draw-a": createContentRef({
         contentId: "content-a",
         byteLength: 4,
         mimeType: "image/png",
         sha256: null,
       }),
-      "draw-b": createBinaryContentRef({
+      "draw-b": createContentRef({
         contentId: "content-b",
         byteLength: 6,
         mimeType: "image/png",

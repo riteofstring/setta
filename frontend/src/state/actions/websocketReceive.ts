@@ -63,9 +63,9 @@ import {
   createWebsocketConnectionInfo,
   createWebsocketMsgCurrentAddressUpdate,
   type AuthRefreshStatusResponse,
-  type BinaryContentRef,
+  type ContentRef,
+  type LSPDiagnosticsPayload,
   type ProjectStateSingleConfigWithCompletedOpIDs,
-  type SettaLspDiagnosticsPayload,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -150,11 +150,11 @@ type PendingUISettingRevealMessage = {
 
 type AuthRefreshStatusRouteResponse =
   ResponseDataAndStatus<AuthRefreshStatusResponse>;
-type BinaryUploadRouteResponse = ResponseDataAndStatus<BinaryContentRef>;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 type LatestProjectStateRouteResponse =
   ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 type LatestLSPDiagnosticsRouteResponse =
-  ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
+  ResponseDataAndStatus<LSPDiagnosticsPayload>;
 
 function beginWebsocketGeneration(): number {
   activeWebsocketGeneration += 1;

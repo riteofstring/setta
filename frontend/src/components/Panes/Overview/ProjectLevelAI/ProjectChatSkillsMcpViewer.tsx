@@ -42,13 +42,13 @@ import {
   route_upsert_app_gen_custom_skill,
 } from "utils/generatedEndpoints";
 import {
-  type AppGenSkillContent,
-  type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
   EngineTypeEnum,
   GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
   GeneratedAppGenerationModeEnum,
+  type SkillContent,
+  type SkillEntry,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
@@ -225,8 +225,8 @@ type CodeMirrorTheme = ReturnType<typeof useCodeMirrorStyle>;
 type CodeMirrorExtensions = ReturnType<typeof getExtensions>;
 
 function compareAppGenSkillEntries(
-  first: AppGenSkillEntry,
-  second: AppGenSkillEntry,
+  first: SkillEntry,
+  second: SkillEntry,
 ): number {
   const rootLabelComparison = first.rootLabel.localeCompare(second.rootLabel);
   if (rootLabelComparison !== 0) {
@@ -242,9 +242,9 @@ function compareAppGenSkillEntries(
 }
 
 export function upsertAppGenSkillEntry(
-  skills: AppGenSkillEntry[],
-  nextSkill: AppGenSkillEntry,
-): AppGenSkillEntry[] {
+  skills: SkillEntry[],
+  nextSkill: SkillEntry,
+): SkillEntry[] {
   const existingIndex = skills.findIndex(
     (skill) => skill.skillId === nextSkill.skillId,
   );
@@ -324,8 +324,8 @@ export function resolveSelectedSkillViewStateAfterUpsertedSkillResponse({
   currentSelectedSkillId: string | null;
   requestSkillId: string | null;
   selectUpdatedSkill: boolean;
-  skill: AppGenSkillEntry;
-  skillContent: AppGenSkillContent;
+  skill: SkillEntry;
+  skillContent: SkillContent;
 }): SelectedSkillViewState | null {
   if (!selectUpdatedSkill && currentSelectedSkillId !== requestSkillId) {
     return null;
@@ -765,9 +765,9 @@ function resolveSelectedAgentNativeSlashStatus(args: {
 }
 
 function resolveSelectedSkill(
-  skills: AppGenSkillEntry[],
+  skills: SkillEntry[],
   selectedSkillId: string | null,
-): AppGenSkillEntry | null {
+): SkillEntry | null {
   if (!selectedSkillId) {
     return null;
   }
@@ -1071,7 +1071,7 @@ function PathGroupHeader({
 type SkillListItemProps = {
   onSelectSkill: (skillId: string) => void;
   selectedSkillId: string | null;
-  skill: AppGenSkillEntry;
+  skill: SkillEntry;
   status: SkillStatusEntry;
 };
 
@@ -2242,7 +2242,7 @@ export function ProjectChatSkillsMcpViewer({
     (state) => state.allLLMConfigsInitialLoadComplete,
   );
   const codeMirrorTheme = useCodeMirrorStyle();
-  const [skills, setSkills] = useState<AppGenSkillEntry[]>([]);
+  const [skills, setSkills] = useState<SkillEntry[]>([]);
   const [skillsLoading, setSkillsLoading] = useState(true);
   const [skillsError, setSkillsError] = useState<string | null>(null);
   const [skillFilter, setSkillFilter] = useState("");
@@ -3141,8 +3141,8 @@ export function ProjectChatSkillsMcpViewer({
     }: {
       requestSkillId: string | null;
       selectUpdatedSkill: boolean;
-      skill: AppGenSkillEntry;
-      skillContent: AppGenSkillContent;
+      skill: SkillEntry;
+      skillContent: SkillContent;
     }) => {
       const cacheEntry: SkillContentCacheEntry = {
         content: skillContent.content,

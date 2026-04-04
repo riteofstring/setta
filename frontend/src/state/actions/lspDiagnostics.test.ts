@@ -10,10 +10,10 @@ import {
 } from "utils/generatedEndpoints";
 import {
   createProjectConfig,
+  LSPDiagnosticsPayload,
   SectionTypeEnum,
-  SettaLspDiagnosticsPayload,
   type Core,
-  type SettaLspDiagnostic,
+  type LSPDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -194,7 +194,7 @@ describe("lspDiagnostics actions", () => {
 });
 
 describe("processLspDiagnostics", () => {
-  const baseDiagnostic: SettaLspDiagnostic = {
+  const baseDiagnostic: LSPDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",
@@ -205,7 +205,7 @@ describe("processLspDiagnostics", () => {
     },
     uri: "file:///tmp/section.py",
   };
-  const formatterDiagnostic: SettaLspDiagnostic = {
+  const formatterDiagnostic: LSPDiagnostic = {
     message: "Formatter failed.",
     severity: 1,
     code: null,
@@ -232,7 +232,7 @@ describe("processLspDiagnostics", () => {
   });
 
   it("updates diagnostics state and forwards gen-code errors", () => {
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -260,14 +260,14 @@ describe("processLspDiagnostics", () => {
     });
     const prevState = useLspDiagnostics.getState();
     const prevArray = prevState.codeSections["section-1"];
-    const nextDiagnostic: SettaLspDiagnostic = {
+    const nextDiagnostic: LSPDiagnostic = {
       ...baseDiagnostic,
       range: {
         start: { ...baseDiagnostic.range.start },
         end: { ...baseDiagnostic.range.end },
       },
     };
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -291,7 +291,7 @@ describe("processLspDiagnostics", () => {
       codeSections: { "section-1": [formatterDiagnostic] },
       unmappedGenCode: [],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -311,7 +311,7 @@ describe("processLspDiagnostics", () => {
   });
 
   it("keeps incoming formatter diagnostics without duplicating previous ones", () => {
-    const incomingFormatter: SettaLspDiagnostic = {
+    const incomingFormatter: LSPDiagnostic = {
       ...formatterDiagnostic,
       message: "Fresh formatter error",
     };
@@ -319,7 +319,7 @@ describe("processLspDiagnostics", () => {
       codeSections: { "section-1": [formatterDiagnostic] },
       unmappedGenCode: [],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -343,7 +343,7 @@ describe("processLspDiagnostics", () => {
       codeSections: { "section-1": [formatterDiagnostic] },
       unmappedGenCode: [],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -366,7 +366,7 @@ describe("processLspDiagnostics", () => {
       codeSections: {},
       unmappedGenCode: [formatterDiagnostic],
     });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -388,7 +388,7 @@ describe("processLspDiagnostics", () => {
         codeSections: { "section-1": [baseDiagnostic] },
         unmappedGenCode: [],
       });
-      const payload: SettaLspDiagnosticsPayload = {
+      const payload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -411,7 +411,7 @@ describe("processLspDiagnostics", () => {
         codeSections: { "section-1": [baseDiagnostic] },
         unmappedGenCode: [],
       });
-      const payload: SettaLspDiagnosticsPayload = {
+      const payload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -436,7 +436,7 @@ describe("processLspDiagnostics", () => {
         codeSections: { "section-1": [formatterDiagnostic] },
         unmappedGenCode: [],
       });
-      const payload: SettaLspDiagnosticsPayload = {
+      const payload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -461,7 +461,7 @@ describe("processLspDiagnostics", () => {
         codeSections: {},
         unmappedGenCode: [baseDiagnostic],
       });
-      const emptyPayload: SettaLspDiagnosticsPayload = {
+      const emptyPayload: LSPDiagnosticsPayload = {
         projectConfigId: "project-1",
         genCode: {
           projectConfigId: "project-1",
@@ -480,7 +480,7 @@ describe("processLspDiagnostics", () => {
 
   it("ignores diagnostics in share mode", () => {
     useShareSession.setState({ isDeploymentMode: true });
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-1",
       genCode: {
         projectConfigId: "project-1",
@@ -502,7 +502,7 @@ describe("processLspDiagnostics", () => {
   });
 
   it("ignores diagnostics for other project configs", () => {
-    const payload: SettaLspDiagnosticsPayload = {
+    const payload: LSPDiagnosticsPayload = {
       projectConfigId: "project-2",
       genCode: {
         projectConfigId: "project-2",

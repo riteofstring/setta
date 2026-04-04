@@ -16,11 +16,11 @@ import {
   WebsocketConnectionTypeEnum,
   WebsocketMsgTypeForFrontendEnum,
   createAgentRun,
-  createBinaryContentRef,
+  createContentRef,
+  createLSPDiagnosticsPayload,
   createListenerCoverageSnapshot,
   createProjectConfig,
-  createSettaLspDiagnosticsPayload,
-  createSettaProjectConfigDiagnostics,
+  createProjectConfigDiagnostics,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -245,9 +245,9 @@ describe("openWebSocket", () => {
     const { requestAIFollowSnapshot } = await import("state/actions/aiFollow");
     const { openWebSocket } = await import("state/actions/websocketReceive");
 
-    const diagnosticsPayload = createSettaLspDiagnosticsPayload({
+    const diagnosticsPayload = createLSPDiagnosticsPayload({
       projectConfigId: "project-1",
-      genCode: createSettaProjectConfigDiagnostics({
+      genCode: createProjectConfigDiagnostics({
         projectConfigId: "project-1",
         errors: {},
         isGenCode: true,
@@ -594,7 +594,7 @@ describe("openWebSocket", () => {
     );
     const { route_binary_upload } = await import("utils/generatedEndpoints");
     vi.mocked(route_binary_upload).mockResolvedValue({
-      data: createBinaryContentRef({
+      data: createContentRef({
         contentId: "uploaded-realtime-ref",
         byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
         mimeType: "image/png",

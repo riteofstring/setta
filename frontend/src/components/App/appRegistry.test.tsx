@@ -8,7 +8,7 @@ import { useDecodedImages, useImages } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import "testUtils/reactRefreshPreamble";
 import {
-  createBinaryContentRef,
+  createContentRef,
   createImageArtifact,
   createSharePolicy,
 } from "utils/generatedTypes";
@@ -123,7 +123,7 @@ describe("appRegistry", () => {
   it("hydrates image outputs through the Go cached-image contract", async () => {
     const artifact = createImageArtifact({
       id: "artifacts/output.png",
-      value: createBinaryContentRef({
+      value: createContentRef({
         contentId: "content-1",
         mimeType: "image/png",
       }),

@@ -13,7 +13,7 @@ import {
   route_run_code,
 } from "utils/generatedEndpoints";
 import {
-  BinaryContentRef,
+  ContentRef,
   type ProjectStateSingleConfigWithCompletedOpIDs,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -122,7 +122,7 @@ export async function stopCode() {
 
 async function collectDrawSnapshotsForRun(): Promise<Record<
   string,
-  BinaryContentRef
+  ContentRef
 > | null> {
   const state = useProjectState.getState();
   const sectionIds = Object.keys(state.projectConfig.sectionVariantMap);

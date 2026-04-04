@@ -113,7 +113,7 @@ var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDe
 	reflect.TypeOf(ImageArtifact{}): {
 		CreateExprOverrides: map[string]string{
 			"id":    "createPngArtifactId()",
-			"value": "createBinaryContentRef()",
+			"value": "createContentRef()",
 		},
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof ArtifactTypeEnum.Image",
@@ -148,7 +148,7 @@ var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDe
 	reflect.TypeOf(FileArtifact{}): {
 		CreateExprOverrides: map[string]string{
 			"id":    "createFileArtifactId()",
-			"value": "createBinaryContentRef()",
+			"value": "createContentRef()",
 		},
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof ArtifactTypeEnum.File",
@@ -195,7 +195,7 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	},
 	reflect.TypeOf(realtime.BinaryDependencyValue{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"payload": "BinaryContentRef",
+			"payload": "ContentRef",
 			"type":    "typeof DependencyValueTypeEnum.Binary",
 		},
 	},

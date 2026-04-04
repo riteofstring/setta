@@ -25,8 +25,8 @@ import { useIsSeriesElement } from "state/hooks/uiTypes";
 import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   CodeLanguageEnum,
+  LSPDiagnostic,
   SectionTypeEnum,
-  SettaLspDiagnostic,
   TextBlockFormatEnum,
   type SectionType,
 } from "utils/generatedTypes";
@@ -355,13 +355,13 @@ function DiagnosticsPopover({
   onSetSuppressedCode,
   inlineSuppressionHint,
 }: {
-  diagnostics: Array<SettaLspDiagnostic>;
+  diagnostics: Array<LSPDiagnostic>;
   label: string;
   title: string;
-  suppressedCodes?: Array<NonNullable<SettaLspDiagnostic["code"]>>;
+  suppressedCodes?: Array<NonNullable<LSPDiagnostic["code"]>>;
   isMuted?: boolean;
   onSetSuppressedCode?: (
-    code: NonNullable<SettaLspDiagnostic["code"]>,
+    code: NonNullable<LSPDiagnostic["code"]>,
     suppress: boolean,
   ) => void;
   inlineSuppressionHint?: string | null;
@@ -442,7 +442,7 @@ function DiagnosticsPopover({
                           className="ml-auto rounded-full border border-slate-200/80 bg-white/90 px-2 py-0.5 text-[8px] font-semibold uppercase tracking-wide text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:border-slate-600"
                           onClick={() =>
                             void suppressHandler?.(
-                              code as NonNullable<SettaLspDiagnostic["code"]>,
+                              code as NonNullable<LSPDiagnostic["code"]>,
                               true,
                             )
                           }
@@ -495,7 +495,7 @@ function DiagnosticsPopover({
   );
 }
 
-function getBadgeClassName(diagnostics: Array<SettaLspDiagnostic>) {
+function getBadgeClassName(diagnostics: Array<LSPDiagnostic>) {
   let hasError = false;
   let hasWarning = false;
   for (const diagnostic of diagnostics) {

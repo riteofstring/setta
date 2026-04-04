@@ -49,10 +49,10 @@ import {
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
+  LSPDiagnostic,
   PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
-  SettaLspDiagnostic,
   SettaNotification,
   SettingsState,
   SharePolicy,
@@ -787,8 +787,8 @@ export const useTypeErrors = withProjectState(
 );
 
 type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
+  codeSections: Record<string, Array<LSPDiagnostic>>;
+  unmappedGenCode: Array<LSPDiagnostic>;
 };
 
 export const useLspDiagnostics = withProjectState(

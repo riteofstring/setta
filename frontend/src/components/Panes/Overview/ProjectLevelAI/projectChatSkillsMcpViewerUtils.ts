@@ -17,10 +17,10 @@ import {
   type APIKeys,
   type AgentRun,
   type AllLLMConfigs,
-  type AppGenSkillEntry,
   type BaseChatMessageUnion,
   type EngineConfig,
   type ExternalAgentPreflightStatus,
+  type SkillEntry,
 } from "utils/generatedTypes";
 
 export const EMPTY_AGENT_NATIVE_COMMANDS: string[] = [];
@@ -57,9 +57,9 @@ export function isAgentRunsAuthorityReady(
 }
 
 export function filterSkills(
-  skills: AppGenSkillEntry[],
+  skills: SkillEntry[],
   query: string,
-): AppGenSkillEntry[] {
+): SkillEntry[] {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) {
     return skills;
@@ -97,7 +97,7 @@ const CLAUDE_APPLICABLE_ROOT_IDS = [
 ];
 
 type SkillStatusContext = {
-  skills: AppGenSkillEntry[];
+  skills: SkillEntry[];
   engineType: EngineConfig["engineType"] | null;
   externalAgentToolType: string | null;
   messages: BaseChatMessageUnion[] | null;
@@ -305,7 +305,7 @@ function collectActiveSkillNames({
   return { activeByName, hasStructuredMetadata };
 }
 
-function buildSkillIdentifierSet(skill: AppGenSkillEntry): Set<string> {
+function buildSkillIdentifierSet(skill: SkillEntry): Set<string> {
   const identifiers = new Set<string>();
   identifiers.add(normalizeSkillToken(skill.name));
   const normalizedRelativePath = normalizeSkillToken(skill.relativePath);
@@ -319,9 +319,9 @@ function buildSkillIdentifierSet(skill: AppGenSkillEntry): Set<string> {
 }
 
 function buildSkillIdentifierIndex(
-  skills: AppGenSkillEntry[],
-): Map<string, AppGenSkillEntry[]> {
-  const index = new Map<string, AppGenSkillEntry[]>();
+  skills: SkillEntry[],
+): Map<string, SkillEntry[]> {
+  const index = new Map<string, SkillEntry[]>();
   for (const skill of skills) {
     const identifiers = buildSkillIdentifierSet(skill);
     for (const identifier of identifiers) {
@@ -342,7 +342,7 @@ function mapActiveSkillNamesToSkillIds({
   activeSkillNames,
 }: {
   applicableRootIds: string[];
-  skills: AppGenSkillEntry[];
+  skills: SkillEntry[];
   activeSkillNames: Map<string, string>;
 }): {
   activeSkillSourcesBySkillId: Map<string, string>;
@@ -441,11 +441,11 @@ export function buildSkillStatusBySkillId({
 type SkillsByRootPath = {
   rootPath: string;
   rootLabel: string;
-  skills: AppGenSkillEntry[];
+  skills: SkillEntry[];
 };
 
 export function groupSkillsByRootPath(
-  skills: AppGenSkillEntry[],
+  skills: SkillEntry[],
 ): SkillsByRootPath[] {
   const grouped = new Map<string, SkillsByRootPath>();
   for (const skill of skills) {

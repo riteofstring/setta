@@ -14,7 +14,7 @@ import {
   CodeFileAccessModeEnum,
   CodeLanguageEnum,
   SectionTypeEnum,
-  type SettaLspDiagnostic,
+  type LSPDiagnostic,
 } from "utils/generatedTypes";
 import {
   flushPendingCodeUpdate,
@@ -55,7 +55,7 @@ function parseFormatterLocation(detail: string) {
   return { line: 0, character: 0 };
 }
 
-function buildFormatterDiagnostic(detail: string): SettaLspDiagnostic {
+function buildFormatterDiagnostic(detail: string): LSPDiagnostic {
   const message = detail.trim() || "Formatter failed.";
   const { line, character } = parseFormatterLocation(message);
   return {
@@ -73,7 +73,7 @@ function buildFormatterDiagnostic(detail: string): SettaLspDiagnostic {
 
 function updateFormatterDiagnosticsForSection(
   sectionId: string,
-  diagnostic: SettaLspDiagnostic,
+  diagnostic: LSPDiagnostic,
 ) {
   useLspDiagnostics.setState((state) => {
     const existing = state.codeSections[sectionId] ?? [];
@@ -101,7 +101,7 @@ function clearFormatterDiagnosticsForSection(sectionId: string) {
   });
 }
 
-function updateFormatterDiagnosticsForGenCode(diagnostic: SettaLspDiagnostic) {
+function updateFormatterDiagnosticsForGenCode(diagnostic: LSPDiagnostic) {
   useLspDiagnostics.setState((state) => {
     const filtered = state.unmappedGenCode.filter(
       (entry) => entry.source !== FORMATTER_DIAGNOSTIC_SOURCE,

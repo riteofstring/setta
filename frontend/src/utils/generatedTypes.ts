@@ -113,16 +113,16 @@ export type PluginConfigWriteResponse = {
 };
 
 const PluginScopeEnum = {
-  workspace: "workspace",
-  setta_files: "setta_files",
-  global: "global",
+  Workspace: "workspace",
+  SettaFiles: "setta_files",
+  Global: "global",
 } as const;
 type PluginScope = ObjectValues<typeof PluginScopeEnum>;
 
 const PluginInstallerBackendEnum = {
-  auto: "auto",
-  pip: "pip",
-  uv: "uv",
+  Auto: "auto",
+  Pip: "pip",
+  UV: "uv",
 } as const;
 type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
 
@@ -138,7 +138,7 @@ export type PluginLockApplyResponse = {
 };
 
 const PluginSourceTrustStatusEnum = {
-  unverified: "unverified",
+  Unverified: "unverified",
 } as const;
 type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
 
@@ -208,16 +208,16 @@ type PluginConfigDescriptor = {
 };
 
 const PluginSourceManagerEnum = {
-  setta: "setta",
-  package_manager: "package_manager",
+  Setta: "setta",
+  PackageManager: "package_manager",
 } as const;
 type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
 
 const PluginEnablementSourceEnum = {
-  workspace_disabled: "workspace_disabled",
-  workspace_enabled: "workspace_enabled",
-  global_auto_enabled: "global_auto_enabled",
-  manifest_default: "manifest_default",
+  WorkspaceDisabled: "workspace_disabled",
+  WorkspaceEnabled: "workspace_enabled",
+  GlobalAutoEnabled: "global_auto_enabled",
+  ManifestDefault: "manifest_default",
 } as const;
 type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
 
@@ -266,9 +266,9 @@ export type PluginListResponse = {
 };
 
 const PluginBlockedCapabilityReasonEnum = {
-  mode_policy: "mode_policy",
-  host_policy: "host_policy",
-  manifest_invalid: "manifest_invalid",
+  ModePolicy: "mode_policy",
+  HostPolicy: "host_policy",
+  ManifestInvalid: "manifest_invalid",
 } as const;
 type PluginBlockedCapabilityReason = ObjectValues<
   typeof PluginBlockedCapabilityReasonEnum
@@ -1103,6 +1103,12 @@ export function createAllLLMConfigs(
   return options as AllLLMConfigs;
 }
 
+export type BinaryUploadRequestInput = FormData;
+
+export type BinaryDownloadRequestInput = {
+  contentId: string;
+};
+
 export type BinaryDownloadResponse = Uint8Array;
 
 const UploadScopeEnum = {
@@ -1239,22 +1245,22 @@ export function createDrawAreaLayer(
   );
 }
 
-export type BinaryContentRef = {
+export type ContentRef = {
   contentId: string;
   byteLength: number;
   mimeType?: string;
   sha256?: string;
 };
-export function createBinaryContentRef(
-  options: Partial<BinaryContentRef> = {},
-): BinaryContentRef {
-  return options as BinaryContentRef;
+export function createContentRef(
+  options: Partial<ContentRef> = {},
+): ContentRef {
+  return options as ContentRef;
 }
 
 export type ImageArtifact = {
   type: typeof ArtifactTypeEnum.Image;
   id: string;
-  value: BinaryContentRef;
+  value: ContentRef;
 };
 export function createImageArtifact(
   options: Partial<ImageArtifact> = {},
@@ -1263,7 +1269,7 @@ export function createImageArtifact(
     {
       type: "Image",
       id: createPngArtifactId(),
-      value: createBinaryContentRef(),
+      value: createContentRef(),
     },
     options,
   );
@@ -1328,7 +1334,7 @@ export function createChartDataArtifact(
 export type FileArtifact = {
   type: typeof ArtifactTypeEnum.File;
   id: string;
-  value: BinaryContentRef;
+  value: ContentRef;
 };
 
 type ArtifactUnion =
@@ -1385,360 +1391,6 @@ export type LoadCachedDrawAreaLayerItemTransformResponse =
 export type UpdateArtifactMsgContent = {
   artifacts: Array<ArtifactUnion>;
   updateType: "update" | "delete";
-};
-
-const LauncherInstallSourceEnum = {
-  UVTool: "uv_tool",
-  InstallerManaged: "installer_managed",
-  Unsupported: "unsupported",
-} as const;
-type LauncherInstallSource = ObjectValues<typeof LauncherInstallSourceEnum>;
-
-const LauncherOpenModeEnum = {
-  Browser: "browser",
-  ChromeApp: "chrome-app",
-} as const;
-type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
-
-const LauncherWorkspaceBehaviorEnum = {
-  LastUsedOrPrompt: "last_used_or_prompt",
-  AlwaysPrompt: "always_prompt",
-} as const;
-type LauncherWorkspaceBehavior = ObjectValues<
-  typeof LauncherWorkspaceBehaviorEnum
->;
-
-export type SetupLauncherRequestInput = {
-  settaHome?: string | null;
-  channel?: string | null;
-  installSource?: LauncherInstallSource | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  installArtifacts?: boolean | null;
-  artifactOptions?: Record<string, string>;
-};
-
-export type AppRoute = {
-  path: string;
-  name?: string;
-  rootKey?: string;
-};
-
-export type AppDefinition = {
-  appSpecVersion?: string;
-  catalogId?: string;
-  appSpecPath?: string;
-  routes?: Array<AppRoute>;
-  dataBindings?: JSONValue;
-  actions?: JSONValue;
-  theme?: JSONValue;
-  assets?: JSONValue;
-};
-export function createAppDefinition(
-  options: Partial<AppDefinition> = {},
-): AppDefinition {
-  return options as AppDefinition;
-}
-
-export type GetAppDefinitionRequestInput = {
-  frontendOpId?: string | null;
-};
-
-export type AppDefinitionReadResponse = {
-  appSpec: unknown;
-  appDefinition?: AppDefinition | null;
-};
-
-export type SetAppDefinitionRequestInput = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecPath?: string | null;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-
-export type ValidateAppDefinitionRequestInput = {
-  frontendOpId?: string | null;
-  appSpec: unknown;
-  appSpecVersion?: string | null;
-  catalogId?: string | null;
-  routes?: Array<AppRoute> | null;
-  dataBindings?: Record<string, unknown> | null;
-  actions?: Record<string, unknown> | null;
-  theme?: Record<string, unknown> | null;
-  assets?: Array<unknown> | null;
-};
-
-type AppValidationIssue = {
-  message: string;
-  elementKey?: string;
-  elementType?: string;
-};
-
-type AppCapabilities = {
-  catalogId: string;
-  catalogVersion: string;
-  appSpecVersion: string;
-  themeSchemaVersion: string;
-  features: Record<string, boolean>;
-};
-
-export type AppDefinitionValidationResponse = {
-  errors: Array<AppValidationIssue>;
-  warnings: Array<AppValidationIssue>;
-  capabilities: AppCapabilities;
-};
-
-type SettaLspDiagnosticPosition = {
-  line: number;
-  character: number;
-};
-
-type SettaLspDiagnosticRange = {
-  start: SettaLspDiagnosticPosition;
-  end: SettaLspDiagnosticPosition;
-};
-
-export type SettaLspDiagnostic = {
-  message: string;
-  severity: number | null;
-  code: unknown;
-  source: string | null;
-  range: SettaLspDiagnosticRange;
-  uri: string | null;
-};
-
-type SettaSectionTypeErrors = {
-  callable: Array<string>;
-  params: Record<string, Array<string>>;
-};
-
-export type SettaProjectConfigDiagnostics = {
-  projectConfigId: string;
-  errors: Record<string, SettaSectionTypeErrors>;
-  isGenCode: boolean;
-};
-export function createSettaProjectConfigDiagnostics(
-  options: Partial<SettaProjectConfigDiagnostics> = {},
-): SettaProjectConfigDiagnostics {
-  return options as SettaProjectConfigDiagnostics;
-}
-
-export type SettaLspDiagnosticsPayload = {
-  projectConfigId: string;
-  genCode: SettaProjectConfigDiagnostics;
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
-};
-export function createSettaLspDiagnosticsPayload(
-  options: Partial<SettaLspDiagnosticsPayload> = {},
-): SettaLspDiagnosticsPayload {
-  return options as SettaLspDiagnosticsPayload;
-}
-
-export type SetTypeErrorIgnoreRequestInput = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-  ignoreTypeErrors: boolean;
-};
-
-export type AppGenSkillEntry = {
-  skillId: string;
-  name: string;
-  rootLabel: string;
-  rootPath: string;
-  relativePath: string;
-  isEditable: boolean;
-  editabilityReason: string | null;
-  description: string;
-};
-
-export type GetAppGenSkillsResponse = {
-  skills: Array<AppGenSkillEntry>;
-  customSkillCreateRootPath: string | null;
-  customSkillCreateRootActionable: boolean;
-};
-
-export type GetAppGenSkillContentRequestInput = {
-  skillId: string;
-};
-
-export type AppGenSkillContent = {
-  skillId: string;
-  content: string;
-  truncated: boolean;
-  originalSizeBytes: number;
-};
-
-export type UpsertAppGenCustomSkillRequestInput = {
-  skillId: string | null;
-  relativePath: string | null;
-  content: string;
-};
-
-export type UpsertAppGenCustomSkillResponse = {
-  skillId: string;
-  created: boolean;
-  rootPath: string;
-  skillDocPath: string;
-  skill: AppGenSkillEntry;
-  skillContent: AppGenSkillContent;
-};
-
-const MCPTransportEnum = {
-  sse: "sse",
-  streamable_http: "streamable_http",
-  stdio: "stdio",
-} as const;
-type MCPTransport = ObjectValues<typeof MCPTransportEnum>;
-
-const MCPRuntimeStateEnum = {
-  connected: "connected",
-  connecting: "connecting",
-  retrying: "retrying",
-  error: "error",
-  disabled: "disabled",
-  unknown: "unknown",
-} as const;
-type MCPRuntimeState = ObjectValues<typeof MCPRuntimeStateEnum>;
-
-type MCPServerRuntimeStatus = {
-  serverId: string;
-  source: string;
-  transport: MCPTransport;
-  endpoint: string;
-  state: MCPRuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-};
-
-export type MCPRuntimeStatusRequestInput = {
-  chatId: string | null;
-  engineConfigId: string | null;
-};
-
-type MCPResolvedRuntimeServer = {
-  serverId: string;
-  transport: MCPTransport;
-  endpoint: string;
-  state: MCPRuntimeState;
-  lastAttemptAt: string | null;
-  lastConnectedAt: string | null;
-  lastFailureAt: string | null;
-  consecutiveFailures: number;
-  lastError: string | null;
-  missingEnvVar: string | null;
-  toolCount: number;
-  quickInfo: string;
-};
-
-export type MCPRuntimeStatusResponse = {
-  llmConfigPath: string;
-  activeSettaFilesLocation: string;
-  servers: Array<MCPServerRuntimeStatus>;
-  externalServers: Array<MCPServerRuntimeStatus>;
-  resolvedServers: Array<MCPResolvedRuntimeServer>;
-};
-
-export type GetPasswordParamValueRequestInput = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string;
-};
-
-export type GetPasswordParamValueResponse = {
-  value: string;
-};
-
-export type GetAttachmentDownloadURLRequestInput = {
-  artifactId: string;
-  projectConfigId: string | null;
-};
-
-export type GetAttachmentDownloadURLResponse = {
-  url: string;
-  expiresAt: number;
-};
-
-export type GetAttachmentDownloadURLsRequestInput = {
-  artifactIds: Array<string>;
-  projectConfigId: string | null;
-};
-
-export type AttachmentDownloadURLEntry = {
-  artifactId: string;
-  url: string;
-  expiresAt: number;
-};
-
-export type ForceRefreshListenerRequestInput = {
-  projectConfigId: string;
-};
-
-export type ListenerCoverageRequestInput = {
-  projectConfigId: string;
-};
-
-export type PluginRescanResponse = {
-  schemaVersion: number;
-  serverMode: Mode;
-  installedPlugins: number;
-  activePlugins: number;
-};
-
-export type PluginEnableDisableRequestInput = {
-  pluginId: string;
-};
-
-export type PluginInstallRequestInput = {
-  sourceSpec: string;
-  scope: PluginScope | null;
-  installer: PluginInstallerBackend | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-
-export type PluginLinkRequestInput = {
-  localPluginRoot: string;
-  scope: PluginScope | null;
-  enable: boolean | null;
-  force: boolean | null;
-};
-
-export type PluginUninstallRequestInput = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-
-export type PluginUpdateRequestInput = {
-  pluginId: string;
-  scope: PluginScope | null;
-  to: string | null;
-};
-
-export type PluginRollbackRequestInput = {
-  pluginId: string;
-  scope: PluginScope | null;
-};
-
-export type PluginConfigWriteRequestInput = {
-  pluginId: string;
-  config: Record<string, unknown>;
-};
-
-export type PluginLockApplyRequestInput = {
-  check: boolean;
 };
 
 export type CreateFileRequestInput = {
@@ -2849,6 +2501,28 @@ export function createSingleConfig(
     },
     options,
   );
+}
+
+export type AppRoute = {
+  path: string;
+  name?: string;
+  rootKey?: string;
+};
+
+export type AppDefinition = {
+  appSpecVersion?: string;
+  catalogId?: string;
+  appSpecPath?: string;
+  routes?: Array<AppRoute>;
+  dataBindings?: JSONValue;
+  actions?: JSONValue;
+  theme?: JSONValue;
+  assets?: JSONValue;
+};
+export function createAppDefinition(
+  options: Partial<AppDefinition> = {},
+): AppDefinition {
+  return options as AppDefinition;
 }
 
 export type AppDeploymentStateResponse = {
@@ -8225,7 +7899,7 @@ type FileReadDependencyValue = {
 
 export type BinaryDependencyValue = {
   type: typeof DependencyValueTypeEnum.Binary;
-  payload: BinaryContentRef;
+  payload: ContentRef;
 };
 
 export type BaseDependencyValueUnion =
@@ -8324,6 +7998,19 @@ export type ChangeParamImplRequest = {
   sectionId: string;
   paramInfoId: string;
   selectedId: string;
+};
+
+export type ClearTextFieldCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+};
+
+export type CodeAreaCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  fullText: string;
+  position: number;
 };
 
 export type CreateAgenticEdgeRequest = {
@@ -8471,6 +8158,22 @@ export type DocstringToMarkdownRequest = {
   docstring: string;
 };
 
+export type ForceRefreshProjectRequest = {
+  projectConfigId: string;
+};
+
+export type GenCodePrefixCompletionRequest = {
+  projectConfigId: string;
+  fullText: string;
+  position: number;
+};
+
+export type GenCodeSuffixCompletionRequest = {
+  projectConfigId: string;
+  fullText: string;
+  position: number;
+};
+
 export type GetAgenticSummaryCacheStatusRequest = {
   projectConfigId: string;
   chatSectionId: string;
@@ -8478,6 +8181,58 @@ export type GetAgenticSummaryCacheStatusRequest = {
 
 export type GetAIFollowSnapshotRequest = {
   projectConfigId: string;
+};
+
+export type GetAppDefinitionRequest = {
+  frontendOpId?: string | null;
+};
+
+export type AppDefinitionReadResult = {
+  appSpec: unknown;
+  appDefinition?: AppDefinition | null;
+};
+
+export type GetAppGenSkillContentRequest = {
+  skillId: string;
+};
+
+export type SkillContent = {
+  skillId: string;
+  content: string;
+  truncated: boolean;
+  originalSizeBytes: number;
+};
+
+export type SkillEntry = {
+  skillId: string;
+  name: string;
+  rootLabel: string;
+  rootPath: string;
+  relativePath: string;
+  isEditable: boolean;
+  editabilityReason: string | null;
+  description: string;
+};
+
+export type GetSkillsResponse = {
+  skills: Array<SkillEntry>;
+  customSkillCreateRootPath: string | null;
+  customSkillCreateRootActionable: boolean;
+};
+
+export type GetAttachmentDownloadURLRequest = {
+  artifactId: string;
+  projectConfigId: string | null;
+};
+
+export type GetAttachmentDownloadURLResponse = {
+  url: string;
+  expiresAt: number;
+};
+
+export type GetAttachmentDownloadURLsRequest = {
+  artifactIds: Array<string>;
+  projectConfigId: string | null;
 };
 
 export type AuthRefreshStatusResponse = {
@@ -8502,6 +8257,11 @@ export type GetChatSectionChatIDRequest = {
   sectionId: string;
 };
 
+export type GetExternalAgentChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
+
 export type GetExternalAgentChatResponse = {
   messages: Array<Record<string, unknown>>;
   waitingForResponse: boolean;
@@ -8509,6 +8269,53 @@ export type GetExternalAgentChatResponse = {
   contextUsage: ChatContextUsage | null;
   appGenerationByMessageId: Record<string, string>;
 };
+
+type SectionTypeErrors = {
+  callable: Array<string>;
+  params: Record<string, Array<string>>;
+};
+
+export type ProjectConfigDiagnostics = {
+  projectConfigId: string;
+  errors: Record<string, SectionTypeErrors>;
+  isGenCode: boolean;
+};
+export function createProjectConfigDiagnostics(
+  options: Partial<ProjectConfigDiagnostics> = {},
+): ProjectConfigDiagnostics {
+  return options as ProjectConfigDiagnostics;
+}
+
+type LSPDiagnosticPosition = {
+  line: number;
+  character: number;
+};
+
+type LSPDiagnosticRange = {
+  start: LSPDiagnosticPosition;
+  end: LSPDiagnosticPosition;
+};
+
+export type LSPDiagnostic = {
+  message: string;
+  severity: number | null;
+  code: unknown;
+  source: string | null;
+  range: LSPDiagnosticRange;
+  uri: string | null;
+};
+
+export type LSPDiagnosticsPayload = {
+  projectConfigId: string;
+  genCode: ProjectConfigDiagnostics;
+  codeSections: Record<string, Array<LSPDiagnostic>>;
+  unmappedGenCode: Array<LSPDiagnostic>;
+};
+export function createLSPDiagnosticsPayload(
+  options: Partial<LSPDiagnosticsPayload> = {},
+): LSPDiagnosticsPayload {
+  return options as LSPDiagnosticsPayload;
+}
 
 export type ProjectStateSingleConfigWithCompletedOpIDs = {
   projectState: SingleConfig;
@@ -8590,6 +8397,28 @@ export type LauncherFilesystemRootsResponse = {
   roots: Array<string>;
 };
 
+export type GetLauncherRecentWorkspacesRequest = {
+  setta_home?: string | null;
+};
+
+export type GetLauncherStatusRequest = {
+  setta_home?: string | null;
+};
+
+const LauncherOpenModeEnum = {
+  Browser: "browser",
+  ChromeApp: "chrome-app",
+} as const;
+type LauncherOpenMode = ObjectValues<typeof LauncherOpenModeEnum>;
+
+const LauncherWorkspaceBehaviorEnum = {
+  LastUsedOrPrompt: "last_used_or_prompt",
+  AlwaysPrompt: "always_prompt",
+} as const;
+type LauncherWorkspaceBehavior = ObjectValues<
+  typeof LauncherWorkspaceBehaviorEnum
+>;
+
 const LauncherUpdateCapabilityEnum = {
   InApp: "in_app",
   InstallerManaged: "installer_managed",
@@ -8632,6 +8461,10 @@ export function createLauncherStatusResponse(
   return options as LauncherStatusResponse;
 }
 
+export type ListenerCoverageRequest = {
+  projectConfigId: string;
+};
+
 export type ListenerCoverageSnapshot = {
   projectConfigId: string;
   dependencies: Array<BaseDependencyKeyUnion>;
@@ -8642,6 +8475,11 @@ export function createListenerCoverageSnapshot(
 ): ListenerCoverageSnapshot {
   return options as ListenerCoverageSnapshot;
 }
+
+export type GetLLMChatRequest = {
+  chatId: string;
+  projectConfigId: string | null;
+};
 
 export type GetLLMResponseRequest = {
   chatId: string | null;
@@ -8663,6 +8501,76 @@ export type GetLLMResponseRequest = {
   appGenerationByMessageId: Record<string, string>;
   appGenerationReferenceImageUrl: string | null;
   appGenerationReferenceImageNotes: string | null;
+};
+
+export type MCPRuntimeStatusRequest = {
+  chatId: string | null;
+  engineConfigId: string | null;
+};
+
+const TransportEnum = {
+  sse: "sse",
+  streamable_http: "streamable_http",
+  stdio: "stdio",
+} as const;
+type Transport = ObjectValues<typeof TransportEnum>;
+
+const RuntimeStateEnum = {
+  connected: "connected",
+  connecting: "connecting",
+  retrying: "retrying",
+  error: "error",
+  disabled: "disabled",
+  unknown: "unknown",
+} as const;
+type RuntimeState = ObjectValues<typeof RuntimeStateEnum>;
+
+type ServerRuntimeStatus = {
+  serverId: string;
+  source: string;
+  transport: Transport;
+  endpoint: string;
+  state: RuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+};
+
+type MCPResolvedRuntimeServer = {
+  serverId: string;
+  transport: Transport;
+  endpoint: string;
+  state: RuntimeState;
+  lastAttemptAt: string | null;
+  lastConnectedAt: string | null;
+  lastFailureAt: string | null;
+  consecutiveFailures: number;
+  lastError: string | null;
+  missingEnvVar: string | null;
+  toolCount: number;
+  quickInfo: string;
+};
+
+export type MCPRuntimeStatusResponse = {
+  llmConfigPath: string;
+  activeSettaFilesLocation: string;
+  servers: Array<ServerRuntimeStatus>;
+  externalServers: Array<ServerRuntimeStatus>;
+  resolvedServers: Array<MCPResolvedRuntimeServer>;
+};
+
+export type GetPasswordParamValueRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string;
+};
+
+export type GetPasswordParamValueResponse = {
+  value: string;
 };
 
 type RunnerSummaryVariant = {
@@ -8797,10 +8705,68 @@ export type LauncherOpenWorkspaceResponse = {
   error: LauncherHomeErrorPayload | null;
 };
 
+export type OutputAccessorCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  fullText: string;
+  position: number;
+};
+
 export type PinLauncherRecentWorkspaceRequest = {
   settaHome: string | null;
   workspaceRoot: string;
   pinned: boolean;
+};
+
+export type PluginConfigWriteRequest = {
+  pluginId: string;
+  config: Record<string, unknown>;
+};
+
+export type PluginEnableDisableRequest = {
+  pluginId: string;
+};
+
+export type PluginInstallRequest = {
+  sourceSpec: string;
+  scope: PluginScope | null;
+  installer: PluginInstallerBackend | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+
+export type PluginLinkRequest = {
+  localPluginRoot: string;
+  scope: PluginScope | null;
+  enable: boolean | null;
+  force: boolean | null;
+};
+
+export type PluginLockApplyRequest = {
+  check: boolean;
+};
+
+export type PluginsRescanResponse = {
+  schemaVersion: number;
+  serverMode: Mode;
+  installedPlugins: number;
+  activePlugins: number;
+};
+
+export type PluginRollbackRequest = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+
+export type PluginUninstallRequest = {
+  pluginId: string;
+  scope: PluginScope | null;
+};
+
+export type PluginUpdateRequest = {
+  pluginId: string;
+  scope: PluginScope | null;
+  to: string | null;
 };
 
 export type LauncherRequestBase = {
@@ -8827,7 +8793,7 @@ export type RunCodeRequest = {
   terminalSectionId: string;
   cliId: string;
   runSnapshotMode: RunSnapshotMode;
-  drawSnapshotsBySectionId: Record<string, BinaryContentRef>;
+  drawSnapshotsBySectionId: Record<string, ContentRef>;
   sectionVariantOverrides: Record<string, string>;
   paramOverrides: Record<string, string>;
 };
@@ -8840,6 +8806,24 @@ export type RunningBackendVersionHandshake = {
   sdkVersion: string;
   coreVersion: string;
   sdkContractVersion: number;
+};
+
+export type SetAppDefinitionRequest = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecPath?: string | null;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+
+export type AppDefinitionMutationResult = {
+  appSpec: unknown;
+  appDefinition?: AppDefinition | null;
 };
 
 type ChartSettingsUpdate = {
@@ -8866,6 +8850,19 @@ export type SetChatSectionChatIDRequest = {
   projectConfigId: string;
   sectionId: string;
   chatId: string | null;
+};
+
+export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  code: unknown;
+  suppress: boolean;
+};
+
+export type SetCodeSectionDiagnosticsMuteRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  mute: boolean;
 };
 
 export type SetParentDefaultChildSectionTypeRequest = {
@@ -8938,6 +8935,13 @@ export type SetSectionSizesRequest = {
   sectionSizes: Record<string, sectionSizeRequest>;
 };
 
+export type SetTypeErrorIgnoreRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  ignoreTypeErrors: boolean;
+};
+
 export type SetWindowSpaceNameRequest = {
   frontendOpId: string | null;
   projectConfigId: string;
@@ -8949,6 +8953,16 @@ export type SetWindowSpaceSortOrderRequest = {
   frontendOpId: string | null;
   projectConfigId: string;
   orderedWindowSpaceIds: Array<string>;
+};
+
+export type SetupLauncherRequest = {
+  settaHome?: string | null;
+  channel?: string | null;
+  installSource?: string | null;
+  openMode?: string | null;
+  workspaceBehavior?: string | null;
+  installArtifacts?: boolean | null;
+  artifactOptions?: Record<string, string> | null;
 };
 
 export type StartTranscriptionSessionRequest = {
@@ -8972,6 +8986,18 @@ export type StopLLMChatRequest = {
 
 export type StopTranscriptionSessionRequest = {
   sessionId: string;
+};
+
+export type TextFieldCompletionRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  paramInfoId: string | null;
+  fullText: string;
+  position: number;
+};
+
+export type TypeCheckRequest = {
+  projectConfigId: string;
 };
 
 export type UpdateLauncherRequest = {
@@ -9003,6 +9029,53 @@ export type LauncherUpdateResponse = {
   packageSpec?: string | null;
   fromVersion?: string | null;
   toVersion?: string | null;
+};
+
+export type UpsertAppGenCustomSkillRequest = {
+  skillId: string | null;
+  relativePath: string | null;
+  content: string;
+};
+
+export type UpsertCustomSkillResponse = {
+  skillId: string;
+  created: boolean;
+  rootPath: string;
+  skillDocPath: string;
+  skill: SkillEntry;
+  skillContent: SkillContent;
+};
+
+export type ValidateAppDefinitionRequest = {
+  frontendOpId?: string | null;
+  appSpec: unknown;
+  appSpecVersion?: string | null;
+  catalogId?: string | null;
+  routes?: Array<AppRoute> | null;
+  dataBindings?: Record<string, unknown> | null;
+  actions?: Record<string, unknown> | null;
+  theme?: Record<string, unknown> | null;
+  assets?: Array<unknown> | null;
+};
+
+type AppValidationIssue = {
+  message: string;
+  elementKey?: string;
+  elementType?: string;
+};
+
+type AppCapabilities = {
+  catalogId: string;
+  catalogVersion: string;
+  appSpecVersion: string;
+  themeSchemaVersion: string;
+  features: Record<string, boolean>;
+};
+
+export type AppDefinitionValidationResult = {
+  errors: Array<AppValidationIssue>;
+  warnings: Array<AppValidationIssue>;
+  capabilities: AppCapabilities;
 };
 
 export type GeneratedAppGenerationMode =

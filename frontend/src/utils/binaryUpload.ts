@@ -4,7 +4,7 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import { route_binary_upload } from "utils/generatedEndpoints";
-import type { BinaryContentRef } from "utils/generatedTypes";
+import type { ContentRef } from "utils/generatedTypes";
 
 type UploadBinaryPayloadResult =
   | {
@@ -15,7 +15,7 @@ type UploadBinaryPayloadResult =
       status: "failed";
       error: string;
     };
-type BinaryUploadRouteResponse = ResponseDataAndStatus<BinaryContentRef>;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
 export async function uploadBinaryPayload({
   bytes,

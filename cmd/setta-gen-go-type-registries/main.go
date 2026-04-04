@@ -119,6 +119,10 @@ func main() {
 			FuncName:   "discoveredSharedTypes",
 			Sources: []registrySource{
 				{
+					PkgPath:                  "setta/internal/binary",
+					RequireJSONTaggedStructs: true,
+				},
+				{
 					PkgPath:                  "setta/internal/projectstate",
 					RequireJSONTaggedStructs: true,
 				},

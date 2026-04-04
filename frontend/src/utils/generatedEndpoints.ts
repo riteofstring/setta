@@ -70,15 +70,18 @@ export async function route_auto_layout_top_level_sections(
 }
 
 export async function route_binary_download(
-  contentId: string,
+  x: gt.BinaryDownloadRequestInput,
 ): Promise<ResponseDataAndStatus<gt.BinaryDownloadResponse>> {
-  return await getBinary(GoHTTPRouteHelpers.binaryDownload(contentId));
+  return await getBinary(
+    GoHTTPRouteHelpers.binaryDownload(x.contentId),
+    omitGeneratedRouteParams(x, ["contentId"]),
+  );
 }
 
-export async function route_binary_upload(): Promise<
-  ResponseDataAndStatus<gt.BinaryContentRef>
-> {
-  return await post(GoHTTPRouteHelpers.binaryUpload(), null);
+export async function route_binary_upload(
+  x: gt.BinaryUploadRequestInput,
+): Promise<ResponseDataAndStatus<gt.ContentRef>> {
+  return await post(GoHTTPRouteHelpers.binaryUpload(), x);
 }
 
 export async function route_cancel_run(
@@ -111,16 +114,16 @@ export async function route_check_workspace_initialized(
   return await post(GoHTTPRouteHelpers.checkWorkspaceInitialized(), x);
 }
 
-export async function route_clear_text_field_completion(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.clearTextFieldCompletion(), null);
+export async function route_clear_text_field_completion(
+  x: gt.ClearTextFieldCompletionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.clearTextFieldCompletion(), x);
 }
 
-export async function route_code_area_completion(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.codeAreaCompletion(), null);
+export async function route_code_area_completion(
+  x: gt.CodeAreaCompletionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.codeAreaCompletion(), x);
 }
 
 export async function route_create_agent_profile(
@@ -376,7 +379,7 @@ export async function route_file_browser_download(
 }
 
 export async function route_force_refresh_listener(
-  x: gt.ForceRefreshListenerRequestInput,
+  x: gt.ForceRefreshProjectRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.forceRefreshListener(), x);
 }
@@ -387,16 +390,16 @@ export async function route_format_code(
   return await post(GoHTTPRouteHelpers.formatCode(), x);
 }
 
-export async function route_gen_code_prefix_completion(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.genCodePrefixCompletion(), null);
+export async function route_gen_code_prefix_completion(
+  x: gt.GenCodePrefixCompletionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.genCodePrefixCompletion(), x);
 }
 
-export async function route_gen_code_suffix_completion(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.genCodeSuffixCompletion(), null);
+export async function route_gen_code_suffix_completion(
+  x: gt.GenCodeSuffixCompletionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.genCodeSuffixCompletion(), x);
 }
 
 export async function route_get_agent_profile(
@@ -442,8 +445,8 @@ export async function route_get_app_catalog(): Promise<
 }
 
 export async function route_get_app_definition(
-  x: gt.GetAppDefinitionRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppDefinitionReadResponse>> {
+  x: gt.GetAppDefinitionRequest,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionReadResult>> {
   return await post(GoHTTPRouteHelpers.getAppDefinition(), x);
 }
 
@@ -463,25 +466,25 @@ export async function route_get_app_deployment_state(
 }
 
 export async function route_get_app_gen_skill_content(
-  x: gt.GetAppGenSkillContentRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppGenSkillContent>> {
+  x: gt.GetAppGenSkillContentRequest,
+): Promise<ResponseDataAndStatus<gt.SkillContent>> {
   return await post(GoHTTPRouteHelpers.getAppGenSkillContent(), x);
 }
 
 export async function route_get_app_gen_skills(): Promise<
-  ResponseDataAndStatus<gt.GetAppGenSkillsResponse>
+  ResponseDataAndStatus<gt.GetSkillsResponse>
 > {
   return await get(GoHTTPRouteHelpers.getAppGenSkills());
 }
 
 export async function route_get_attachment_download_url(
-  x: gt.GetAttachmentDownloadURLRequestInput,
+  x: gt.GetAttachmentDownloadURLRequest,
 ): Promise<ResponseDataAndStatus<gt.GetAttachmentDownloadURLResponse>> {
   return await post(GoHTTPRouteHelpers.getAttachmentDownloadUrl(), x);
 }
 
 export async function route_get_attachment_download_urls(
-  x: gt.GetAttachmentDownloadURLsRequestInput,
+  x: gt.GetAttachmentDownloadURLsRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.getAttachmentDownloadUrls(), x);
 }
@@ -516,10 +519,10 @@ export async function route_get_engine_configs(): Promise<
   return await get(GoHTTPRouteHelpers.getEngineConfigs());
 }
 
-export async function route_get_external_agent_chat(): Promise<
-  ResponseDataAndStatus<gt.GetExternalAgentChatResponse>
-> {
-  return await post(GoHTTPRouteHelpers.getExternalAgentChat(), null);
+export async function route_get_external_agent_chat(
+  x: gt.GetExternalAgentChatRequest,
+): Promise<ResponseDataAndStatus<gt.GetExternalAgentChatResponse>> {
+  return await post(GoHTTPRouteHelpers.getExternalAgentChat(), x);
 }
 
 export async function route_get_external_agent_config(
@@ -601,7 +604,7 @@ export async function route_get_git_status(): Promise<
 }
 
 export async function route_get_latest_lsp_diagnostics(): Promise<
-  ResponseDataAndStatus<null>
+  ResponseDataAndStatus<gt.LSPDiagnosticsPayload>
 > {
   return await post(GoHTTPRouteHelpers.getLatestLspDiagnostics(), null);
 }
@@ -620,28 +623,28 @@ export async function route_get_launcher_filesystem_roots(): Promise<
   return await get(GoHTTPRouteHelpers.getLauncherFilesystemRoots());
 }
 
-export async function route_get_launcher_recent_workspaces(): Promise<
-  ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>
-> {
-  return await get(GoHTTPRouteHelpers.getLauncherRecentWorkspaces());
+export async function route_get_launcher_recent_workspaces(
+  x: gt.GetLauncherRecentWorkspacesRequest,
+): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
+  return await get(GoHTTPRouteHelpers.getLauncherRecentWorkspaces(), x);
 }
 
-export async function route_get_launcher_status(): Promise<
-  ResponseDataAndStatus<gt.LauncherStatusResponse>
-> {
-  return await get(GoHTTPRouteHelpers.getLauncherStatus());
+export async function route_get_launcher_status(
+  x: gt.GetLauncherStatusRequest,
+): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
+  return await get(GoHTTPRouteHelpers.getLauncherStatus(), x);
 }
 
 export async function route_get_listener_coverage(
-  x: gt.ListenerCoverageRequestInput,
+  x: gt.ListenerCoverageRequest,
 ): Promise<ResponseDataAndStatus<gt.ListenerCoverageSnapshot>> {
   return await post(GoHTTPRouteHelpers.getListenerCoverage(), x);
 }
 
-export async function route_get_llm_chat(): Promise<
-  ResponseDataAndStatus<gt.GetLLMChatResponse>
-> {
-  return await post(GoHTTPRouteHelpers.getLLMChat(), null);
+export async function route_get_llm_chat(
+  x: gt.GetLLMChatRequest,
+): Promise<ResponseDataAndStatus<gt.GetLLMChatResponse>> {
+  return await post(GoHTTPRouteHelpers.getLLMChat(), x);
 }
 
 export async function route_get_llm_config(): Promise<
@@ -663,7 +666,7 @@ export async function route_get_llmapi_keys(): Promise<
 }
 
 export async function route_get_mcp_server_runtime_status(
-  x: gt.MCPRuntimeStatusRequestInput,
+  x: gt.MCPRuntimeStatusRequest,
 ): Promise<ResponseDataAndStatus<gt.MCPRuntimeStatusResponse>> {
   return await post(GoHTTPRouteHelpers.getMCPServerRuntimeStatus(), x);
 }
@@ -675,7 +678,7 @@ export async function route_get_notifications(
 }
 
 export async function route_get_password_param_value(
-  x: gt.GetPasswordParamValueRequestInput,
+  x: gt.GetPasswordParamValueRequest,
 ): Promise<ResponseDataAndStatus<gt.GetPasswordParamValueResponse>> {
   return await post(GoHTTPRouteHelpers.getPasswordParamValue(), x);
 }
@@ -904,10 +907,10 @@ export async function route_open_launcher_workspace(
   return await post(GoHTTPRouteHelpers.openLauncherWorkspace(), x);
 }
 
-export async function route_output_accessor_completion(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.outputAccessorCompletion(), null);
+export async function route_output_accessor_completion(
+  x: gt.OutputAccessorCompletionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.outputAccessorCompletion(), x);
 }
 
 export async function route_paste_sections(
@@ -923,37 +926,37 @@ export async function route_pin_launcher_recent_workspace(
 }
 
 export async function route_plugins_config(
-  x: gt.PluginConfigWriteRequestInput,
+  x: gt.PluginConfigWriteRequest,
 ): Promise<ResponseDataAndStatus<gt.PluginConfigWriteResponse>> {
   return await post(GoHTTPRouteHelpers.pluginsConfig(), x);
 }
 
 export async function route_plugins_disable(
-  x: gt.PluginEnableDisableRequestInput,
+  x: gt.PluginEnableDisableRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.pluginsDisable(), x);
 }
 
 export async function route_plugins_enable(
-  x: gt.PluginEnableDisableRequestInput,
+  x: gt.PluginEnableDisableRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.pluginsEnable(), x);
 }
 
 export async function route_plugins_install(
-  x: gt.PluginInstallRequestInput,
+  x: gt.PluginInstallRequest,
 ): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
   return await post(GoHTTPRouteHelpers.pluginsInstall(), x);
 }
 
 export async function route_plugins_link(
-  x: gt.PluginLinkRequestInput,
+  x: gt.PluginLinkRequest,
 ): Promise<ResponseDataAndStatus<gt.PluginInstallResponse>> {
   return await post(GoHTTPRouteHelpers.pluginsLink(), x);
 }
 
 export async function route_plugins_lock_apply(
-  x: gt.PluginLockApplyRequestInput,
+  x: gt.PluginLockApplyRequest,
 ): Promise<ResponseDataAndStatus<gt.PluginLockApplyResponse>> {
   return await post(GoHTTPRouteHelpers.pluginsLockApply(), x);
 }
@@ -965,7 +968,7 @@ export async function route_plugins_lock_write(): Promise<
 }
 
 export async function route_plugins_rescan(): Promise<
-  ResponseDataAndStatus<gt.PluginRescanResponse>
+  ResponseDataAndStatus<gt.PluginsRescanResponse>
 > {
   return await post(GoHTTPRouteHelpers.pluginsRescan(), null);
 }
@@ -977,7 +980,7 @@ export async function route_plugins_restart(): Promise<
 }
 
 export async function route_plugins_rollback(
-  x: gt.PluginRollbackRequestInput,
+  x: gt.PluginRollbackRequest,
 ): Promise<ResponseDataAndStatus<gt.PluginRollbackResponse>> {
   return await post(GoHTTPRouteHelpers.pluginsRollback(), x);
 }
@@ -989,13 +992,13 @@ export async function route_plugins_runtime(): Promise<
 }
 
 export async function route_plugins_uninstall(
-  x: gt.PluginUninstallRequestInput,
+  x: gt.PluginUninstallRequest,
 ): Promise<ResponseDataAndStatus<gt.PluginUninstallResponse>> {
   return await post(GoHTTPRouteHelpers.pluginsUninstall(), x);
 }
 
 export async function route_plugins_update(
-  x: gt.PluginUpdateRequestInput,
+  x: gt.PluginUpdateRequest,
 ): Promise<ResponseDataAndStatus<gt.PluginUpdateResponse>> {
   return await post(GoHTTPRouteHelpers.pluginsUpdate(), x);
 }
@@ -1135,8 +1138,8 @@ export async function route_set_agentic_edges(
 }
 
 export async function route_set_app_definition(
-  x: gt.SetAppDefinitionRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+  x: gt.SetAppDefinitionRequest,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionMutationResult>> {
   return await post(GoHTTPRouteHelpers.setAppDefinition(), x);
 }
 
@@ -1248,19 +1251,19 @@ export async function route_set_code_section_attached_terminal(
   return await post(GoHTTPRouteHelpers.setCodeSectionAttachedTerminal(), x);
 }
 
-export async function route_set_code_section_diagnostic_code_suppression(): Promise<
-  ResponseDataAndStatus<null>
-> {
+export async function route_set_code_section_diagnostic_code_suppression(
+  x: gt.SetCodeSectionDiagnosticCodeSuppressionRequest,
+): Promise<ResponseDataAndStatus<null>> {
   return await post(
     GoHTTPRouteHelpers.setCodeSectionDiagnosticCodeSuppression(),
-    null,
+    x,
   );
 }
 
-export async function route_set_code_section_diagnostics_mute(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.setCodeSectionDiagnosticsMute(), null);
+export async function route_set_code_section_diagnostics_mute(
+  x: gt.SetCodeSectionDiagnosticsMuteRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.setCodeSectionDiagnosticsMute(), x);
 }
 
 export async function route_set_default_section_variant(
@@ -1546,7 +1549,7 @@ export async function route_set_top_level_section_layout(
 }
 
 export async function route_set_type_error_ignore(
-  x: gt.SetTypeErrorIgnoreRequestInput,
+  x: gt.SetTypeErrorIgnoreRequest,
 ): Promise<ResponseDataAndStatus<null>> {
   return await post(GoHTTPRouteHelpers.setTypeErrorIgnore(), x);
 }
@@ -1600,7 +1603,7 @@ export async function route_set_window_space_sort_order(
 }
 
 export async function route_setup_launcher(
-  x: gt.SetupLauncherRequestInput,
+  x: gt.SetupLauncherRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
   return await post(GoHTTPRouteHelpers.setupLauncher(), x);
 }
@@ -1665,10 +1668,10 @@ export async function route_stop_transcription_session(
   return await post(GoHTTPRouteHelpers.stopTranscriptionSession(), x);
 }
 
-export async function route_text_field_completion(): Promise<
-  ResponseDataAndStatus<null>
-> {
-  return await post(GoHTTPRouteHelpers.textFieldCompletion(), null);
+export async function route_text_field_completion(
+  x: gt.TextFieldCompletionRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.textFieldCompletion(), x);
 }
 
 export async function route_toggle_group_orientation(
@@ -1737,8 +1740,10 @@ export async function route_transfer_file_browser_entry(
   return await post(GoHTTPRouteHelpers.transferFileBrowserEntry(), x);
 }
 
-export async function route_type_check(): Promise<ResponseDataAndStatus<null>> {
-  return await post(GoHTTPRouteHelpers.typeCheck(), null);
+export async function route_type_check(
+  x: gt.TypeCheckRequest,
+): Promise<ResponseDataAndStatus<null>> {
+  return await post(GoHTTPRouteHelpers.typeCheck(), x);
 }
 
 export async function route_undo(
@@ -1834,14 +1839,14 @@ export async function route_update_transcription_profile(
 }
 
 export async function route_upsert_app_gen_custom_skill(
-  x: gt.UpsertAppGenCustomSkillRequestInput,
-): Promise<ResponseDataAndStatus<gt.UpsertAppGenCustomSkillResponse>> {
+  x: gt.UpsertAppGenCustomSkillRequest,
+): Promise<ResponseDataAndStatus<gt.UpsertCustomSkillResponse>> {
   return await post(GoHTTPRouteHelpers.upsertAppGenCustomSkill(), x);
 }
 
 export async function route_validate_app_definition(
-  x: gt.ValidateAppDefinitionRequestInput,
-): Promise<ResponseDataAndStatus<gt.AppDefinitionValidationResponse>> {
+  x: gt.ValidateAppDefinitionRequest,
+): Promise<ResponseDataAndStatus<gt.AppDefinitionValidationResult>> {
   return await post(GoHTTPRouteHelpers.validateAppDefinition(), x);
 }
 

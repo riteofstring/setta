@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { SettaProjectConfigDiagnostics } from "utils/generatedTypes";
+import type { ProjectConfigDiagnostics } from "utils/generatedTypes";
 
 const { useProjectState, useTypeErrors } = vi.hoisted(() => {
   function createStore<T extends Record<string, unknown>>(initial: T) {
@@ -55,7 +55,7 @@ describe("typeCheck", () => {
   });
 
   it("does not clear existing errors before applying identical payloads", () => {
-    const existingErrors: SettaProjectConfigDiagnostics["errors"] = {
+    const existingErrors: ProjectConfigDiagnostics["errors"] = {
       "section-1": {
         callable: ["Callable error"],
         params: { "param-1": ["Param error"] },
@@ -63,12 +63,12 @@ describe("typeCheck", () => {
     };
     useTypeErrors.setState({ errors: existingErrors });
 
-    const updates: Array<SettaProjectConfigDiagnostics["errors"]> = [];
+    const updates: Array<ProjectConfigDiagnostics["errors"]> = [];
     const unsubscribe = useTypeErrors.subscribe((state) => {
-      updates.push(state.errors as SettaProjectConfigDiagnostics["errors"]);
+      updates.push(state.errors as ProjectConfigDiagnostics["errors"]);
     });
 
-    const incoming: SettaProjectConfigDiagnostics = {
+    const incoming: ProjectConfigDiagnostics = {
       projectConfigId: "project-1",
       isGenCode: true,
       errors: {
@@ -99,7 +99,7 @@ describe("typeCheck", () => {
         },
       });
 
-      const emptyPayload: SettaProjectConfigDiagnostics = {
+      const emptyPayload: ProjectConfigDiagnostics = {
         projectConfigId: "project-1",
         isGenCode: true,
         errors: {},
@@ -136,7 +136,7 @@ describe("typeCheck", () => {
       });
 
       const stateErrors = useTypeErrors.getState()
-        .errors as SettaProjectConfigDiagnostics["errors"];
+        .errors as ProjectConfigDiagnostics["errors"];
       expect(stateErrors["section-1"]).toBeUndefined();
       expect(stateErrors["section-2"]).toEqual({
         callable: ["Other error"],
@@ -174,7 +174,7 @@ describe("typeCheck", () => {
       });
 
       const stateErrors = useTypeErrors.getState()
-        .errors as SettaProjectConfigDiagnostics["errors"];
+        .errors as ProjectConfigDiagnostics["errors"];
       expect(stateErrors["section-1"]).toBeUndefined();
       expect(stateErrors["section-2"]).toEqual({
         callable: ["Other error"],
@@ -198,7 +198,7 @@ describe("typeCheck", () => {
             }
           }
         }
-      }`) as SettaProjectConfigDiagnostics;
+      }`) as ProjectConfigDiagnostics;
 
       processTypeErrors(malformedPayload);
 

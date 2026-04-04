@@ -12,7 +12,7 @@ import {
   type LauncherRequestBase,
   type LauncherStatusResponse,
   type LauncherUpdateResponse,
-  type SetupLauncherRequestInput,
+  type SetupLauncherRequest,
   type UpdateLauncherRequest,
 } from "utils/generatedTypes";
 
@@ -73,8 +73,8 @@ function buildLauncherRequestBase(
 export function buildSetupLauncherRequest(
   settaHome: string | null,
   launcherStatus: LauncherStatusResponse | null,
-): SetupLauncherRequestInput {
-  const request: SetupLauncherRequestInput = { settaHome };
+): SetupLauncherRequest {
+  const request: SetupLauncherRequest = { settaHome };
   if (!launcherStatus || launcherStatus.installed !== true) {
     return request;
   }

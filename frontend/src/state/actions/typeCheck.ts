@@ -4,11 +4,11 @@ import {
   useTypeErrors,
 } from "state/definitions";
 import { route_type_check } from "utils/generatedEndpoints";
-import { SettaProjectConfigDiagnostics } from "utils/generatedTypes";
+import { ProjectConfigDiagnostics } from "utils/generatedTypes";
 import { addTemporaryNotification } from "./notifications";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
-type TypeErrors = SettaProjectConfigDiagnostics["errors"];
+type TypeErrors = ProjectConfigDiagnostics["errors"];
 type SectionTypeErrors = TypeErrors[string];
 
 function normalizeStringArray(value: unknown): string[] {
@@ -167,7 +167,7 @@ export async function requestTypeCheck(userRequested: boolean = false) {
   route_type_check({ projectConfigId });
 }
 
-export function processTypeErrors(content: SettaProjectConfigDiagnostics) {
+export function processTypeErrors(content: ProjectConfigDiagnostics) {
   const p = useProjectState.getState();
   const { projectConfigId } = content;
   if (projectConfigId !== p.projectConfig.id) {

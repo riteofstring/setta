@@ -373,6 +373,13 @@ class DateCalendarWeekStart(str, Enum):
     monday = "monday"
 
 
+class ContentRef(SettaSharedTypeModel):
+    contentId: str
+    byteLength: int
+    mimeType: str | None = None
+    sha256: str | None = None
+
+
 class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
     image: bool = True
     video: bool = True
@@ -570,6 +577,11 @@ class FileReadDependencyValue(SettaSharedTypeModel):
     payload: str
 
 
+class BinaryDependencyValue(SettaSharedTypeModel):
+    type: DependencyValueType
+    payload: ContentRef
+
+
 class ListenerInitContent(SettaSharedTypeModel):
     projectConfigId: str | None = None
     projectName: str | None = None
@@ -750,10 +762,22 @@ class ListenerFrontendEmitMessage(SettaSharedTypeModel):
     content: ListenerFrontendEmitContent
 
 
+class ImageArtifact(SettaSharedTypeModel):
+    type: ArtifactType
+    id: str
+    value: ContentRef
+
+
 class ChartDataArtifact(SettaSharedTypeModel):
     type: ArtifactType
     id: str
     value: dict[str, list[Any]]
+
+
+class FileArtifact(SettaSharedTypeModel):
+    type: ArtifactType
+    id: str
+    value: ContentRef
 
 
 class ChatFileAttachment(SettaSharedTypeModel):
@@ -1179,27 +1203,3 @@ class ChatMetadata(SettaSharedTypeModel):
     lastUpdated: datetime
     llmConfig: LLMConfig
     projectConfigId: ID | None = None
-
-
-class BinaryContentRef(SettaSharedTypeModel):
-    contentId: str
-    byteLength: int
-    mimeType: str | None = None
-    sha256: str | None = None
-
-
-class BinaryDependencyValue(SettaSharedTypeModel):
-    type: DependencyValueType
-    payload: BinaryContentRef
-
-
-class ImageArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: BinaryContentRef
-
-
-class FileArtifact(SettaSharedTypeModel):
-    type: ArtifactType
-    id: str
-    value: BinaryContentRef

@@ -12,8 +12,10 @@ import (
 	"slices"
 	"strings"
 
+	"setta/internal/appgenskills"
 	binarypayload "setta/internal/binary"
 	"setta/internal/httpapi"
+	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
 )
@@ -106,8 +108,15 @@ var endpointRequestTypeOverrides = map[string]reflect.Type{
 
 var endpointResponseTypeOverrides = map[string]reflect.Type{
 	"POST RouteBinaryUpload":                   reflect.TypeOf(binarypayload.ContentRef{}),
+	"POST RouteGetAppDefinition":               reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
+	"POST RouteValidateAppDefinition":          reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
+	"POST RouteSetAppDefinition":               reflect.TypeOf(projectstate.AppDefinitionMutationResult{}),
+	"GET RouteGetAppGenSkills":                 reflect.TypeOf(appgenskills.GetSkillsResponse{}),
+	"POST RouteGetAppGenSkillContent":          reflect.TypeOf(appgenskills.SkillContent{}),
+	"POST RouteUpsertAppGenCustomSkill":        reflect.TypeOf(appgenskills.UpsertCustomSkillResponse{}),
 	"POST RouteGetListenerCoverage":            reflect.TypeOf(realtime.ListenerCoverageSnapshot{}),
 	"GET RouteGetServerMode":                   reflect.TypeOf(httpapi.ServerModeResponse{}),
+	"POST RouteGetLatestLSPDiagnostics":        reflect.TypeOf(projectstate.LSPDiagnosticsPayload{}),
 	"POST RouteLoadProjectConfig":              reflect.TypeOf(projectview.SingleConfig{}),
 	"POST RouteSetProjectConfigCodegenTargets": reflect.TypeOf(projectview.SingleConfig{}),
 	"POST RouteShareDeploymentCurrentSession":  reflect.TypeOf(ShareDeploymentSessionResponse{}),
@@ -374,9 +383,6 @@ func resolveDiscoveredEndpointRequestType(
 			return nil, nil
 		}
 		return t, nil
-	}
-	if discovered.Builtin == "" && discovered.Name == "" {
-		return nil, nil
 	}
 
 	for _, candidate := range endpointRequestCandidateNames(semanticBase, handlerBase) {

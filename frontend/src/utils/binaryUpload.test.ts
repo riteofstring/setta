@@ -1,4 +1,4 @@
-import { createBinaryContentRef } from "utils/generatedTypes";
+import { createContentRef } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { uploadBinaryPayload } from "./binaryUpload";
 
@@ -18,7 +18,7 @@ describe("uploadBinaryPayload", () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify(
-          createBinaryContentRef({
+          createContentRef({
             contentId: "payload-123",
             byteLength: 3,
             mimeType: "text/plain",

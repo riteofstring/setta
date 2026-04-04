@@ -10,9 +10,9 @@ import {
   route_set_code_section_diagnostics_mute,
 } from "utils/generatedEndpoints";
 import {
+  LSPDiagnosticsPayload,
   SectionTypeEnum,
-  SettaLspDiagnosticsPayload,
-  type SettaLspDiagnostic,
+  type LSPDiagnostic,
 } from "utils/generatedTypes";
 import { postChromeReproEvent } from "./chromeRepro";
 import {
@@ -24,11 +24,11 @@ import { processTypeErrors } from "./typeCheck";
 
 export const FORMATTER_DIAGNOSTIC_SOURCE = "Formatter";
 
-function getFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
+function getFormatterDiagnostics(diagnostics: Array<LSPDiagnostic>) {
   if (diagnostics.length === 0) {
     return [];
   }
-  const formatter: Array<SettaLspDiagnostic> = [];
+  const formatter: Array<LSPDiagnostic> = [];
   for (const diagnostic of diagnostics) {
     if (diagnostic.source === FORMATTER_DIAGNOSTIC_SOURCE) {
       formatter.push(diagnostic);
@@ -38,8 +38,8 @@ function getFormatterDiagnostics(diagnostics: Array<SettaLspDiagnostic>) {
 }
 
 function areDiagnosticRangesEqual(
-  left: SettaLspDiagnostic["range"],
-  right: SettaLspDiagnostic["range"],
+  left: LSPDiagnostic["range"],
+  right: LSPDiagnostic["range"],
 ) {
   return (
     left.start.line === right.start.line &&
@@ -49,10 +49,7 @@ function areDiagnosticRangesEqual(
   );
 }
 
-function areDiagnosticsEqual(
-  left: SettaLspDiagnostic,
-  right: SettaLspDiagnostic,
-) {
+function areDiagnosticsEqual(left: LSPDiagnostic, right: LSPDiagnostic) {
   if (left === right) {
     return true;
   }
@@ -67,8 +64,8 @@ function areDiagnosticsEqual(
 }
 
 function areDiagnosticsListEqual(
-  left: Array<SettaLspDiagnostic>,
-  right: Array<SettaLspDiagnostic>,
+  left: Array<LSPDiagnostic>,
+  right: Array<LSPDiagnostic>,
 ) {
   if (left === right) {
     return true;
@@ -85,11 +82,11 @@ function areDiagnosticsListEqual(
 }
 
 function mergeDiagnosticsBySection(
-  previous: Record<string, Array<SettaLspDiagnostic>>,
-  incoming: Record<string, Array<SettaLspDiagnostic>>,
+  previous: Record<string, Array<LSPDiagnostic>>,
+  incoming: Record<string, Array<LSPDiagnostic>>,
 ) {
   let changed = false;
-  const merged: Record<string, Array<SettaLspDiagnostic>> = {};
+  const merged: Record<string, Array<LSPDiagnostic>> = {};
   const seen = new Set<string>();
 
   for (const [sectionId, nextDiagnostics] of Object.entries(incoming)) {
@@ -97,7 +94,7 @@ function mergeDiagnosticsBySection(
     const prevDiagnostics = previous[sectionId];
     const prevFormatter = getFormatterDiagnostics(prevDiagnostics ?? []);
     const incomingFormatter = getFormatterDiagnostics(nextDiagnostics);
-    let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+    let mergedDiagnostics: Array<LSPDiagnostic> = [];
     if (nextDiagnostics.length > 0) {
       if (incomingFormatter.length > 0) {
         mergedDiagnostics = nextDiagnostics;
@@ -139,12 +136,12 @@ function mergeDiagnosticsBySection(
 }
 
 function mergeUnmappedGenCode(
-  previous: Array<SettaLspDiagnostic>,
-  incoming: Array<SettaLspDiagnostic>,
+  previous: Array<LSPDiagnostic>,
+  incoming: Array<LSPDiagnostic>,
 ) {
   const prevFormatter = getFormatterDiagnostics(previous);
   const incomingFormatter = getFormatterDiagnostics(incoming);
-  let mergedDiagnostics: Array<SettaLspDiagnostic> = [];
+  let mergedDiagnostics: Array<LSPDiagnostic> = [];
   if (incoming.length > 0) {
     if (incomingFormatter.length > 0) {
       mergedDiagnostics = incoming;
@@ -158,7 +155,7 @@ function mergeUnmappedGenCode(
   return { unmappedGenCode: mergedDiagnostics, changed: true };
 }
 
-export function processLspDiagnostics(payload: SettaLspDiagnosticsPayload) {
+export function processLspDiagnostics(payload: LSPDiagnosticsPayload) {
   if (useShareSession.getState().isDeploymentMode) {
     return;
   }
@@ -223,7 +220,7 @@ export function setCodeSectionDiagnosticsMuted(
 
 export function setCodeSectionDiagnosticCodeSuppression(
   sectionId: string,
-  code: SettaLspDiagnostic["code"],
+  code: LSPDiagnostic["code"],
   suppress: boolean,
 ) {
   if (useShareSession.getState().isDeploymentMode) {

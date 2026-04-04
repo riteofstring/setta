@@ -18,7 +18,7 @@ type ProjectMetadataResponse = {
   projectMetadata: ProjectMetadataEntry[];
 };
 type CreateTopLevelSectionResponse = { sectionId: string };
-type BinaryContentRef = {
+type ContentRef = {
   contentId: string;
   byteLength: number;
   mimeType: string | null;
@@ -106,7 +106,7 @@ async function setImagePath(
   });
 }
 
-async function uploadTestPng(page: Page): Promise<BinaryContentRef> {
+async function uploadTestPng(page: Page): Promise<ContentRef> {
   const buffer = Buffer.from(ONE_BY_ONE_PNG_BASE64, "base64");
   const response = await page.request.post(`${BACKEND_ORIGIN}/api/binary/upload`, {
     multipart: {
@@ -120,13 +120,13 @@ async function uploadTestPng(page: Page): Promise<BinaryContentRef> {
   if (!response.ok()) {
     throw new Error(`Binary upload failed: ${response.status()}`);
   }
-  return (await response.json()) as BinaryContentRef;
+  return (await response.json()) as ContentRef;
 }
 
 async function updateImageArtifact(
   page: Page,
   imagePath: string,
-  binaryRef: BinaryContentRef,
+  binaryRef: ContentRef,
 ): Promise<void> {
   await postBackend(page, "/updateArtifacts", {
     artifacts: [

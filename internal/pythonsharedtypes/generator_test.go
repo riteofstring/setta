@@ -87,8 +87,8 @@ func TestPythonTypeExprUsesWrapperOverrideNamesForNestedOwnerFields(t *testing.T
 	if err != nil {
 		t.Fatalf("pythonTypeExpr(...) error = %v", err)
 	}
-	if typeExpr != "BinaryContentRef" {
-		t.Fatalf("typeExpr = %q, want %q", typeExpr, "BinaryContentRef")
+	if typeExpr != "ContentRef" {
+		t.Fatalf("typeExpr = %q, want %q", typeExpr, "ContentRef")
 	}
 }
 

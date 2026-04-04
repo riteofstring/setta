@@ -85,14 +85,18 @@ type LauncherRequestBase struct {
 	SettaHome *string `json:"settaHome"`
 }
 
-type setupLauncherRequest struct {
-	SettaHome         *string            `json:"settaHome"`
-	Channel           *string            `json:"channel"`
-	InstallSource     *string            `json:"installSource"`
-	OpenMode          *string            `json:"openMode"`
-	WorkspaceBehavior *string            `json:"workspaceBehavior"`
-	InstallArtifacts  *bool              `json:"installArtifacts"`
-	ArtifactOptions   *map[string]string `json:"artifactOptions"`
+type GetLauncherStatusRequest struct {
+	SettaHome *string `json:"setta_home,omitempty"`
+}
+
+type SetupLauncherRequest struct {
+	SettaHome         *string            `json:"settaHome,omitempty"`
+	Channel           *string            `json:"channel,omitempty"`
+	InstallSource     *string            `json:"installSource,omitempty"`
+	OpenMode          *string            `json:"openMode,omitempty"`
+	WorkspaceBehavior *string            `json:"workspaceBehavior,omitempty"`
+	InstallArtifacts  *bool              `json:"installArtifacts,omitempty"`
+	ArtifactOptions   *map[string]string `json:"artifactOptions,omitempty"`
 }
 
 type UpdateLauncherRequest struct {
@@ -124,7 +128,10 @@ func RegisterLauncherManagementRoutes(router chi.Router, deps LauncherManagement
 
 func getLauncherStatusHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		settaHome, err := launcher.ResolveScopedSettaHome(defaultSettaHome, r.URL.Query().Get("setta_home"))
+		request := GetLauncherStatusRequest{
+			SettaHome: stringPointer(r.URL.Query().Get("setta_home")),
+		}
+		settaHome, err := launcher.ResolveScopedSettaHome(defaultSettaHome, stringPointerValue(request.SettaHome))
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
@@ -140,7 +147,7 @@ func getLauncherStatusHandler(defaultSettaHome string, manager *launcher.Managem
 
 func setupLauncherHandler(defaultSettaHome string, manager *launcher.ManagementService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		payload, err := decodeStrictJSONBody[setupLauncherRequest](r)
+		payload, err := decodeStrictJSONBody[SetupLauncherRequest](r)
 		if err != nil {
 			var unknownFieldErr *strictJSONUnknownFieldError
 			if errors.As(err, &unknownFieldErr) {
@@ -246,7 +253,7 @@ func updateLauncherHandler(defaultSettaHome string, manager *launcher.Management
 	}
 }
 
-func normalizeSetupLauncherInput(payload setupLauncherRequest) (launcher.LauncherSetupInput, error) {
+func normalizeSetupLauncherInput(payload SetupLauncherRequest) (launcher.LauncherSetupInput, error) {
 	installSource, err := normalizeLauncherInstallSourceForSetup(payload.InstallSource)
 	if err != nil {
 		return launcher.LauncherSetupInput{}, err
