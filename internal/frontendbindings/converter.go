@@ -266,19 +266,27 @@ func writeTSNamedMergeEntries(builder *strings.Builder, entryIndent string, fiel
 	}
 }
 
-func buildTSMergeGeneratedOptionsCreateBodyTS(entries []tsObjectEntry, overridesExpr string) string {
+func buildTSMergeGeneratedOptionsExprTS(entries []tsObjectEntry, overridesExpr string) string {
 	if strings.TrimSpace(overridesExpr) == "" {
 		overridesExpr = "options"
 	}
 	var builder strings.Builder
-	builder.WriteString("  return mergeGeneratedOptions(\n")
+	builder.WriteString("mergeGeneratedOptions(\n")
 	builder.WriteString("    {\n")
 	writeTSObjectEntries(&builder, "      ", entries)
 	builder.WriteString("    },\n")
 	builder.WriteString("    ")
 	builder.WriteString(overridesExpr)
 	builder.WriteString(",\n")
-	builder.WriteString("  );")
+	builder.WriteString("  )")
+	return builder.String()
+}
+
+func buildTSMergeGeneratedOptionsCreateBodyTS(entries []tsObjectEntry, overridesExpr string) string {
+	var builder strings.Builder
+	builder.WriteString("  return ")
+	builder.WriteString(buildTSMergeGeneratedOptionsExprTS(entries, overridesExpr))
+	builder.WriteString(";")
 	return builder.String()
 }
 
@@ -803,6 +811,69 @@ func buildProjectCodegenPythonTargetCreateBodyTS() string {
 		createProjectCodegenPythonTargetTemplate,
 		nil,
 	)
+}
+
+func buildEngineConfigDefaultsCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("thinking", "null"),
+	}, "options")
+}
+
+func buildEngineRuntimeSupportCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("thinking", "false"),
+	}, "options")
+}
+
+func buildEngineConfigCreateBodyTS() string {
+	var builder strings.Builder
+	builder.WriteString("  const defaults = createEngineConfigDefaults();\n")
+	builder.WriteString("  const runtimeSupport = createEngineRuntimeSupport();\n")
+	builder.WriteString("  const mergedDefaults = mergeGeneratedOptions(defaults, options.defaults ?? {});\n")
+	builder.WriteString("  const mergedRuntimeSupport =\n")
+	builder.WriteString("    options.runtimeSupport === undefined || options.runtimeSupport === null\n")
+	builder.WriteString("      ? null\n")
+	builder.WriteString("      : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport);\n")
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...")
+	builder.WriteString(buildTSMergeGeneratedOptionsExprTS([]tsObjectEntry{
+		tsObjectField("id", tsStringLiteralExpr("")),
+		tsObjectField("name", tsStringLiteralExpr("")),
+		tsObjectField("engineType", "EngineTypeEnum.setta_llm"),
+		tsObjectField("settaLlmConfigId", "null"),
+		tsObjectField("externalAgentConfigId", "null"),
+		tsObjectField("defaults", "defaults"),
+		tsObjectField("runtimeSupport", "null"),
+	}, "options"))
+	builder.WriteString(",\n")
+	builder.WriteString("    defaults: mergedDefaults,\n")
+	builder.WriteString("    runtimeSupport: mergedRuntimeSupport,\n")
+	builder.WriteString("  };")
+	return builder.String()
+}
+
+func buildRunEventCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("id", tsStringLiteralExpr("")),
+		tsObjectField("timestamp", tsStringLiteralExpr("")),
+		tsObjectField("type", tsStringLiteralExpr("")),
+		tsObjectField("payload", "{}"),
+	}, "options")
+}
+
+func buildAgentRunCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("id", tsStringLiteralExpr("")),
+		tsObjectField("profileId", "null"),
+		tsObjectField("status", "AgentRunStatusEnum.queued"),
+		tsObjectField("startedAt", "null"),
+		tsObjectField("finishedAt", "null"),
+		tsObjectField("inputs", "null"),
+		tsObjectField("outputs", "null"),
+		tsObjectField("toolCalls", "[]"),
+		tsObjectField("cost", "null"),
+		tsObjectField("events", "[]"),
+	}, "options")
 }
 
 type generatedFactoryDeclarationData struct {
@@ -2239,51 +2310,19 @@ func newTypeConverter() *typeConverter {
 					{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
 				},
 			},
-			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithCreateBody(
 				"EngineConfigDefaults",
-				`mergeGeneratedOptions(
-    {
-      thinking: null,
-    },
-    options,
-  )`,
+				buildEngineConfigDefaultsCreateBodyTS(),
 				TypeProperty{Name: "thinking", TypeExpr: "boolean | null", Optional: true},
 			),
-			reflect.TypeOf(EngineRuntimeSupport{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(EngineRuntimeSupport{}): objectDeclarationWithCreateBody(
 				"EngineRuntimeSupport",
-				`mergeGeneratedOptions(
-    {
-      thinking: false,
-    },
-    options,
-  )`,
+				buildEngineRuntimeSupportCreateBodyTS(),
 				TypeProperty{Name: "thinking", TypeExpr: "boolean"},
 			),
-			reflect.TypeOf(EngineConfig{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(EngineConfig{}): objectDeclarationWithCreateBody(
 				"EngineConfig",
-				`(() => {
-    const defaults = createEngineConfigDefaults();
-    const runtimeSupport = createEngineRuntimeSupport();
-    return {
-      ...mergeGeneratedOptions(
-        {
-          id: "",
-          name: "",
-          engineType: EngineTypeEnum.setta_llm,
-          settaLlmConfigId: null,
-          externalAgentConfigId: null,
-          defaults,
-          runtimeSupport: null,
-        },
-        options,
-      ),
-      defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
-      runtimeSupport:
-        options.runtimeSupport === undefined || options.runtimeSupport === null
-          ? null
-          : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport),
-    };
-  })()`,
+				buildEngineConfigCreateBodyTS(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "name", TypeExpr: "string"},
 				TypeProperty{Name: "engineType", TypeExpr: "EngineType"},
@@ -2314,39 +2353,17 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "supportsRealtimeTranscription", TypeExpr: "boolean"},
 				TypeProperty{Name: "language", TypeExpr: "string | null", Optional: true},
 			),
-			reflect.TypeOf(RunEvent{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(RunEvent{}): objectDeclarationWithCreateBody(
 				"RunEvent",
-				`mergeGeneratedOptions(
-    {
-      id: "",
-      timestamp: "",
-      type: "",
-      payload: {},
-    },
-    options,
-  )`,
+				buildRunEventCreateBodyTS(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "timestamp", TypeExpr: "string"},
 				TypeProperty{Name: "type", TypeExpr: "string"},
 				TypeProperty{Name: "payload", TypeExpr: "Record<string, unknown>", Optional: true},
 			),
-			reflect.TypeOf(AgentRun{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(AgentRun{}): objectDeclarationWithCreateBody(
 				"AgentRun",
-				`mergeGeneratedOptions(
-    {
-      id: "",
-      profileId: null,
-      status: AgentRunStatusEnum.queued,
-      startedAt: null,
-      finishedAt: null,
-      inputs: null,
-      outputs: null,
-      toolCalls: [],
-      cost: null,
-      events: [],
-    },
-    options,
-  )`,
+				buildAgentRunCreateBodyTS(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "profileId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "status", TypeExpr: "AgentRunStatus"},

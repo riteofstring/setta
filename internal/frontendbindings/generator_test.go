@@ -238,6 +238,80 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 }
 
+func TestEngineAndRunDeclarationsUseStructuredCreateBodies(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, root := range []reflect.Type{
+		reflect.TypeOf(EngineConfigDefaults{}),
+		reflect.TypeOf(EngineRuntimeSupport{}),
+		reflect.TypeOf(EngineConfig{}),
+		reflect.TypeOf(RunEvent{}),
+		reflect.TypeOf(AgentRun{}),
+	} {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+	}
+
+	engineDefaults := mustFindDeclarationByName(t, converter.Declarations(), "EngineConfigDefaults")
+	if engineDefaults.CreateExpr != "" {
+		t.Fatalf("EngineConfigDefaults should use a structured create body, got create expr:\n%s", engineDefaults.CreateExpr)
+	}
+	if !strings.Contains(engineDefaults.CreateBody, `thinking: null,`) {
+		t.Fatalf("EngineConfigDefaults create body missing thinking default:\n%s", engineDefaults.CreateBody)
+	}
+
+	engineRuntimeSupport := mustFindDeclarationByName(t, converter.Declarations(), "EngineRuntimeSupport")
+	if engineRuntimeSupport.CreateExpr != "" {
+		t.Fatalf("EngineRuntimeSupport should use a structured create body, got create expr:\n%s", engineRuntimeSupport.CreateExpr)
+	}
+	if !strings.Contains(engineRuntimeSupport.CreateBody, `thinking: false,`) {
+		t.Fatalf("EngineRuntimeSupport create body missing thinking default:\n%s", engineRuntimeSupport.CreateBody)
+	}
+
+	engineConfig := mustFindDeclarationByName(t, converter.Declarations(), "EngineConfig")
+	if engineConfig.CreateExpr != "" {
+		t.Fatalf("EngineConfig should use a structured create body, got create expr:\n%s", engineConfig.CreateExpr)
+	}
+	if strings.Contains(engineConfig.CreateBody, "(() => {") {
+		t.Fatalf("EngineConfig create body should not embed a handwritten IIFE:\n%s", engineConfig.CreateBody)
+	}
+	for _, snippet := range []string{
+		`const defaults = createEngineConfigDefaults();`,
+		`const mergedDefaults = mergeGeneratedOptions(defaults, options.defaults ?? {});`,
+		`const mergedRuntimeSupport =`,
+		`defaults: mergedDefaults,`,
+		`runtimeSupport: mergedRuntimeSupport,`,
+	} {
+		if !strings.Contains(engineConfig.CreateBody, snippet) {
+			t.Fatalf("EngineConfig create body missing %q:\n%s", snippet, engineConfig.CreateBody)
+		}
+	}
+
+	runEvent := mustFindDeclarationByName(t, converter.Declarations(), "RunEvent")
+	if runEvent.CreateExpr != "" {
+		t.Fatalf("RunEvent should use a structured create body, got create expr:\n%s", runEvent.CreateExpr)
+	}
+	if !strings.Contains(runEvent.CreateBody, `payload: {},`) {
+		t.Fatalf("RunEvent create body missing payload default:\n%s", runEvent.CreateBody)
+	}
+
+	agentRun := mustFindDeclarationByName(t, converter.Declarations(), "AgentRun")
+	if agentRun.CreateExpr != "" {
+		t.Fatalf("AgentRun should use a structured create body, got create expr:\n%s", agentRun.CreateExpr)
+	}
+	for _, snippet := range []string{
+		`status: AgentRunStatusEnum.queued,`,
+		`toolCalls: [],`,
+		`events: [],`,
+	} {
+		if !strings.Contains(agentRun.CreateBody, snippet) {
+			t.Fatalf("AgentRun create body missing %q:\n%s", snippet, agentRun.CreateBody)
+		}
+	}
+}
+
 func TestSettingsCreateExprsUseGoDefaultSettingsDocument(t *testing.T) {
 	t.Helper()
 

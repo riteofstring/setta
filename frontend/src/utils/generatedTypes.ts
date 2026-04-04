@@ -644,29 +644,32 @@ export type EngineConfig = {
 export function createEngineConfig(
   options: Partial<EngineConfig> = {},
 ): EngineConfig {
-  return (() => {
-    const defaults = createEngineConfigDefaults();
-    const runtimeSupport = createEngineRuntimeSupport();
-    return {
-      ...mergeGeneratedOptions(
-        {
-          id: "",
-          name: "",
-          engineType: EngineTypeEnum.setta_llm,
-          settaLlmConfigId: null,
-          externalAgentConfigId: null,
-          defaults,
-          runtimeSupport: null,
-        },
-        options,
-      ),
-      defaults: mergeGeneratedOptions(defaults, options.defaults ?? {}),
-      runtimeSupport:
-        options.runtimeSupport === undefined || options.runtimeSupport === null
-          ? null
-          : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport),
-    };
-  })();
+  const defaults = createEngineConfigDefaults();
+  const runtimeSupport = createEngineRuntimeSupport();
+  const mergedDefaults = mergeGeneratedOptions(
+    defaults,
+    options.defaults ?? {},
+  );
+  const mergedRuntimeSupport =
+    options.runtimeSupport === undefined || options.runtimeSupport === null
+      ? null
+      : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport);
+  return {
+    ...mergeGeneratedOptions(
+      {
+        id: "",
+        name: "",
+        engineType: EngineTypeEnum.setta_llm,
+        settaLlmConfigId: null,
+        externalAgentConfigId: null,
+        defaults: defaults,
+        runtimeSupport: null,
+      },
+      options,
+    ),
+    defaults: mergedDefaults,
+    runtimeSupport: mergedRuntimeSupport,
+  };
 }
 
 export type AgentProfile = {
