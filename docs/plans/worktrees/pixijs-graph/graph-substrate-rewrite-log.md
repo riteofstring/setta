@@ -4232,3 +4232,39 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to a non-Browser shared visible lane or a concrete production renderer question instead of spending another pass on Browser visibility normalization
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 13:56 EDT - Ralph item 125
+
+- Closed the shared title-edit-after-normalized-pan-and-zoom lane as clean on the current run-044 surfaces, without changing production or test code.
+- Why this slice was necessary:
+  - the last few iterations had been live-oracle-only, and this existing deterministic motion/editing lane had not yet been explicitly closed in the durable handoff
+  - the narrowest valid next step was to rerun the already-landed Playwright parity probe on fresh run-044 runtimes and pair it with one fresh-context CDP compare on the same shared motion sequence
+- What this slice established:
+  - refreshed run-044 runtime info confirmed the live compare still targets worktree `3075` / backend `8075` / CDP `9300` and read-only `3087` / backend `8087`
+  - the targeted Playwright rerun for `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on the live runtimes
+  - a fresh-context CDP sub-agent normalized both live `/settings` tabs to active `All Settings`, cleared viewport to `null`, applied one shared `fit view`, then ran `panBy({ x: -60, y: 30 })` plus one `zoomIn()` on both sides
+  - the chosen shared section was `browserSectionDefault`
+  - before motion, both tabs matched on viewport `x=712.4 y=-51.7 zoom=0.1` with the same body/title geometry
+  - after motion, both tabs still kept the title anchored inside the section body and inline title editing opened cleanly on both sides; no canary-only detached header, ghost title layer, or body/title drift appeared
+  - the only remaining live difference was the absolute post-motion viewport landing (`3075`: `x=710.88 y=-144.84 zoom=0.12`; `3087`: `x=638.88 y=-108.84 zoom=0.12`), but that did not pair with section-local geometry drift and the deterministic Playwright parity probe still passed
+- Verification:
+  - refreshed run-044 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-044/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-044/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-044 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-044 main bootstrap url>' pnpm -C frontend exec playwright test frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `49.9s`)
+  - fresh-context CDP sub-agent:
+    - bootstrap tokens had expired by the time CDP ran, so it reused the existing authenticated `3075/settings` canary tab and `3087/settings` main tab already open in the debug Chrome session
+    - after shared fit on both: viewport `x=712.4 y=-51.7 zoom=0.1`
+    - after shared `panBy({ x: -60, y: 30 })` plus one `zoomIn()`:
+      - canary `3075`: body `725.28, 44.76, 66.24 x 42.24`; title `728.76, 45.36, 52.08 x 2.64`; viewport `x=710.88 y=-144.84 zoom=0.12`
+      - read-only `3087`: body `653.28, 80.76, 66.24 x 42.24`; title `656.76, 81.36, 52.08 x 2.64`; viewport `x=638.88 y=-108.84 zoom=0.12`
+    - both tabs kept the same section-local title anchor and opened inline title editing on `browserSectionDefault`
+  - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; shared fit + pan + zoom keeps `browserSectionDefault` title/body attached and editable on both, and the remaining absolute post-motion viewport offset did not produce a canary-only visual artifact)
+- Lane status:
+  - close the shared title-edit-after-normalized-pan-and-zoom lane for the current run-044 surfaces
+  - do not treat the current existing-tab absolute post-motion viewport offset by itself as a renderer blocker while the deterministic Playwright parity probe passes and section-local title/body geometry stays attached
+  - only reopen this lane if a future deterministic rerun or fresh normalized CDP compare shows actual title/body detachment, edit failure, or the same transform offset paired with section-local geometry drift
+- Next frontier:
+  - pick one different existing deterministic dynamic lane on a non-Browser shared section, preferably the modified-wheel zoom delta lane or the fit-after-manual-pan lane, and use it to hunt the next real canary-only motion artifact
+- LOOP_TERMINAL_MARKER: none

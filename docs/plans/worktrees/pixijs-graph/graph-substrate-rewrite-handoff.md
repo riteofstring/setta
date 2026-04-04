@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 13:38 EDT
+Last updated: 2026-04-04 13:56 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,39 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `125` closed the shared title-edit-after-pan-and-zoom lane as clean on the current run-044 surfaces, without adding another probe or product change.
+  - Why this slice was needed:
+    - the last few iterations had been live-oracle-only, and this existing Playwright-backed motion/editing lane had not yet been explicitly closed in the handoff
+    - the narrowest valid next step was to rerun that deterministic lane on the fresh run-044 worktree/main runtimes and pair it with one fresh-context CDP compare on the same shared motion sequence
+  - What this slice established:
+    - refreshed run-044 runtime info confirmed the live comparison targets worktree `3075` / backend `8075` / CDP `9300` and read-only `3087` / backend `8087`
+    - the targeted Playwright rerun for `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary` passed on the live runtimes
+    - a fresh-context CDP sub-agent normalized the already-authenticated live `/settings` tabs to active `All Settings`, cleared viewport to `null`, applied one shared `fit view`, then ran the same short motion shape on both surfaces: `panBy({ x: -60, y: 30 })` plus one `zoomIn()`
+    - the chosen shared section was `browserSectionDefault`
+    - before motion, both surfaces matched at viewport `x=712.4 y=-51.7 zoom=0.1` with the same body/title geometry
+    - after motion, both surfaces still kept the title anchored inside the card body and inline title editing opened cleanly on both sides; no canary-only ghosting, detached header, or orphaned title layer appeared
+    - the only remaining difference in the live CDP compare was the absolute post-motion viewport landing (`3075`: `x=710.88 y=-144.84 zoom=0.12`; `3087`: `x=638.88 y=-108.84 zoom=0.12`), but the section-local title/body geometry stayed attached and the deterministic Playwright parity probe still passed
+  - Automated result:
+    - no production or test files changed in this slice
+  - Live verification result:
+    - refreshed run-044 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-044/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-044/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-044 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-044 main bootstrap url>' pnpm -C frontend exec playwright test frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `49.9s`)
+    - fresh-context CDP sub-agent:
+      - bootstrap tokens had expired by the time CDP ran, so it used the existing authenticated live `3075/settings` canary tab and `3087/settings` main tab already open in the debug Chrome session
+      - after shared fit on both: viewport `x=712.4 y=-51.7 zoom=0.1`
+      - after shared `panBy({ x: -60, y: 30 })` plus one `zoomIn()`:
+        - canary `3075`: body `725.28, 44.76, 66.24 x 42.24`; title `728.76, 45.36, 52.08 x 2.64`; viewport `x=710.88 y=-144.84 zoom=0.12`
+        - read-only `3087`: body `653.28, 80.76, 66.24 x 42.24`; title `656.76, 81.36, 52.08 x 2.64`; viewport `x=638.88 y=-108.84 zoom=0.12`
+      - both sides kept the same section-local title anchor and opened inline title editing on `browserSectionDefault`
+    - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; shared fit + pan + zoom keeps `browserSectionDefault` title/body attached and editable on both, and the remaining absolute post-motion viewport offset did not produce a canary-only visual artifact)
+  - conclusion for this slice:
+    - close the shared title-edit-after-normalized-pan-and-zoom lane for the current run-044 surfaces
+    - do not treat the current existing-tab absolute post-motion viewport offset by itself as a renderer blocker while the deterministic Playwright parity probe passes and section-local title/body geometry stays attached
+    - only reopen this lane if a future deterministic rerun or fresh normalized CDP compare shows actual title/body detachment, edit failure, or the same transform offset paired with section-local geometry drift
 - Ralph item `124` closed the explicit Browser control-surface normalization experiment as non-viable on the current run-043 surfaces, without adding another speculative probe.
   - Why this slice was needed:
     - item `120` had already blocked the Browser body-motion lane unless one explicit normalization step could surface a real Browser body/control anchor on both worktree canary and read-only `main`
@@ -3071,6 +3104,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
+- The shared title-edit-after-normalized-pan-and-zoom lane is now closed for the current run-044 surfaces:
+  - item `125` reran the existing deterministic Playwright parity probe and paired it with a fresh-context CDP compare on the same shared fit -> pan -> zoom motion shape
+  - the remaining absolute post-motion viewport offset from the existing authenticated tabs did not produce canary-only title/body drift or edit failure, so do not reopen this exact lane unless a future deterministic rerun reproduces a real section-local mismatch
 - The Browser authoritative-move compression lane is closed by item `119`; do not reopen it unless a fresh normalized compare reproduces the old size/layout mismatch.
 - The attempted Browser body-motion lane remains closed after item `124`:
   - item `120` already showed that the assumed Browser path-field and fallback view-toggle anchors were absent after the baseline normalized compare
@@ -3102,6 +3138,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - Prefer one short shared dynamic action on the normalized graph surface, such as:
   - a small drag-pan pulse
   - one short top-level section drag
+- The next bounded slice should prefer one different existing deterministic dynamic lane on a non-Browser shared section, ideally:
+  - the modified-wheel zoom delta lane
+  - or the fit-after-manual-pan lane
 - Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
 - Because item `092` did not expose a canary-only landing defect, the next pass should avoid another entry-state oracle slice by default and return to one materially different dynamic graph-surface action that could still expose a real renderer bug.
 - Prefer the next dynamic lane on a different shared action or a concrete production renderer defect; the spreadsheet and `groupSectionDefault` body-anchor drag lanes now have enough coverage for the current gate.
@@ -3186,6 +3225,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `124`
-- Latest item: `2026-04-04 124`
+- Active history window: items `001` through `125`
+- Latest item: `2026-04-04 125`
 - Older history archives: none yet
