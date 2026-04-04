@@ -432,7 +432,7 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
     expect(snapshot.windowsById["minimized-chat"]).toBeUndefined();
   });
 
-  it("collapses duplicate floating section bindings to one authoritative saved window", () => {
+  it("does not locally arbitrate duplicate floating section bindings when snapshotting", () => {
     const snapshot = snapshotFloatingWindowsForWindowSpace({
       ...buildChatSectionState("section-1", "section-thread"),
       projectChatWindowing: createProjectChatWindowingState({
@@ -476,8 +476,17 @@ describe("snapshotFloatingWindowsForWindowSpace", () => {
       }),
     });
 
-    expect(snapshot.order).toEqual(["floating-section-b"]);
-    expect(Object.keys(snapshot.windowsById)).toEqual(["floating-section-b"]);
+    expect(snapshot.order).toEqual([
+      "floating-section-a",
+      "floating-section-b",
+    ]);
+    expect(Object.keys(snapshot.windowsById)).toEqual([
+      "floating-section-a",
+      "floating-section-b",
+    ]);
+    expect(snapshot.windowsById["floating-section-a"]?.mode).toBe(
+      ChatWindowModeEnum.section_mode,
+    );
     expect(snapshot.windowsById["floating-section-b"]?.mode).toBe(
       ChatWindowModeEnum.project_ai_mode,
     );
