@@ -1511,18 +1511,6 @@ func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
 
 func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
 	switch t {
-	case reflect.TypeOf(ProjectStateSingleConfig{}):
-		return []TypeDeclaration{
-			objectDeclarationWithGoBackedCreateExpr(
-				"SectionCapabilities",
-				projectview.SectionCapabilities{},
-				TypeProperty{Name: "canRun", TypeExpr: "boolean"},
-				TypeProperty{Name: "runDisabledReason", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "runRequestSectionId", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "canSelectAsEntryCodeBlock", TypeExpr: "boolean"},
-				TypeProperty{Name: "entryCodeBlockValue", TypeExpr: "string | null", Optional: true},
-			),
-		}, true
 	case reflect.TypeOf(CodeParamCodeObjImpl{}):
 		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration()}, true
 	case reflect.TypeOf(BaseChartSettingsUnion{}):
@@ -1559,6 +1547,7 @@ type reflectedObjectDeclarationSpec struct {
 	CreateExprOverrides       map[string]string
 	PropertyTypeExprOverrides map[string]string
 	PropertyOptionalOverrides map[string]bool
+	ExtraProperties           []TypeProperty
 }
 
 func specialTypeDeclaration(
@@ -1796,6 +1785,16 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				"effectiveEntrySectionId": true,
 			},
 		}, true
+	case reflect.TypeOf(projectview.SectionCapabilities{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.SectionCapabilities{},
+			HasCreateExpr: true,
+			PropertyOptionalOverrides: map[string]bool{
+				"runDisabledReason":   true,
+				"runRequestSectionId": true,
+				"entryCodeBlockValue": true,
+			},
+		}, true
 	case reflect.TypeOf(ProjectConfig{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.FrontendDefaultProjectConfig(),
@@ -1807,6 +1806,28 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				"viewport":         true,
 				"activeViewModeId": true,
 				"entryCodeBlockId": true,
+			},
+		}, true
+	case reflect.TypeOf(ProjectStateSingleConfig{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultSingleConfig(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"artifactGroups": "{}",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"sectionImpls": "Record<string, BaseSectionImplUnion>",
+				"codeObjImpls": "Record<string, BaseCodeObjImplUnion>",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"genCodeBinding": true,
+			},
+			ExtraProperties: []TypeProperty{
+				{
+					Name:     "artifactGroups",
+					TypeExpr: "Record<string, unknown>",
+					Optional: true,
+				},
 			},
 		}, true
 	case reflect.TypeOf(SectionTypeCodegenPolicy{}):

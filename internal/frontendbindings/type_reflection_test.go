@@ -122,6 +122,38 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "SectionCapabilities",
+			root: reflect.TypeOf(projectview.SectionCapabilities{}),
+			properties: []TypeProperty{
+				{Name: "canRun", TypeExpr: "boolean", Optional: false},
+				{Name: "runDisabledReason", TypeExpr: "string | null", Optional: true},
+				{Name: "runRequestSectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "canSelectAsEntryCodeBlock", TypeExpr: "boolean", Optional: false},
+				{Name: "entryCodeBlockValue", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "ProjectStateSingleConfig",
+			root: reflect.TypeOf(ProjectStateSingleConfig{}),
+			properties: []TypeProperty{
+				{Name: "sections", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>", Optional: false},
+				{Name: "sectionCapabilities", TypeExpr: "Record<string, SectionCapabilities>", Optional: false},
+				{Name: "sectionVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+				{Name: "codeObjs", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>", Optional: false},
+				{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+				{Name: "projectConfig", TypeExpr: "ProjectConfig", Optional: false},
+				{Name: "singletonSections", TypeExpr: "SingletonSections", Optional: false},
+				{Name: "parentSectionMap", TypeExpr: "Record<string, string | null>", Optional: false},
+				{Name: "shownParamIds", TypeExpr: "Record<string, ShownParamIds>", Optional: false},
+				{Name: "requiredDecodedImages", TypeExpr: "Array<string>", Optional: false},
+				{Name: "genCodeBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
+				{Name: "projectChatWindowing", TypeExpr: "ProjectChatWindowingState", Optional: false},
+				{Name: "artifactGroups", TypeExpr: "Record<string, unknown>", Optional: true},
+			},
+		},
+		{
 			name: "WatchCodeFolder",
 			root: reflect.TypeOf(WatchCodeFolder{}),
 			properties: []TypeProperty{
@@ -232,7 +264,11 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			if tt.name == "EngineConfig" && declaration.CreateBody == "" {
 				t.Fatalf("EngineConfig should use a structured create body")
 			}
-			if (tt.name == "BrowserSavedSearch" || tt.name == "ProjectRunCapabilities" || tt.name == "ProjectConfig") && declaration.CreateExpr == "" {
+			if (tt.name == "BrowserSavedSearch" ||
+				tt.name == "ProjectRunCapabilities" ||
+				tt.name == "ProjectConfig" ||
+				tt.name == "SectionCapabilities" ||
+				tt.name == "ProjectStateSingleConfig") && declaration.CreateExpr == "" {
 				t.Fatalf("%s should use a Go-backed create expr", tt.name)
 			}
 		})

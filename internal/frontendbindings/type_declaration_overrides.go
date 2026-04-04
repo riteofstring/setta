@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	"setta/internal/projectstate"
-	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
 )
 
@@ -715,25 +714,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 		reflect.TypeOf(SectionsClipboardDataResponse{}): aliasDeclaration(
 			"SectionsClipboardDataResponse",
 			"SectionsClipboardData",
-		),
-		reflect.TypeOf(ProjectStateSingleConfig{}): objectDeclarationWithGoBackedCreateExpr(
-			"ProjectStateSingleConfig",
-			projectview.FrontendDefaultSingleConfig(),
-			TypeProperty{Name: "projectConfig", TypeExpr: "ProjectConfig"},
-			TypeProperty{Name: "sections", TypeExpr: "Record<string, Core>"},
-			TypeProperty{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>"},
-			TypeProperty{Name: "sectionCapabilities", TypeExpr: "Record<string, SectionCapabilities>"},
-			TypeProperty{Name: "sectionVariants", TypeExpr: "Record<string, Variant>"},
-			TypeProperty{Name: "codeObjs", TypeExpr: "Record<string, Core>"},
-			TypeProperty{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>"},
-			TypeProperty{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>"},
-			TypeProperty{Name: "artifactGroups", TypeExpr: "Record<string, unknown>", Optional: true},
-			TypeProperty{Name: "singletonSections", TypeExpr: "SingletonSections"},
-			TypeProperty{Name: "parentSectionMap", TypeExpr: "Record<string, string | null>"},
-			TypeProperty{Name: "shownParamIds", TypeExpr: "Record<string, ShownParamIds>"},
-			TypeProperty{Name: "requiredDecodedImages", TypeExpr: "Array<string>"},
-			TypeProperty{Name: "genCodeBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
-			TypeProperty{Name: "projectChatWindowing", TypeExpr: "ProjectChatWindowingState"},
 		),
 		reflect.TypeOf(BaseSectionImpl{}): objectDeclaration(
 			"BaseSectionImpl",

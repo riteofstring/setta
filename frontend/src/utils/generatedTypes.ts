@@ -2509,8 +2509,372 @@ export type GetGitCommitFileDiffResponse = {
   isTruncated: boolean;
 };
 
+export type Core = {
+  id: string;
+  name: string;
+  displayName: string;
+  variants: Array<string>;
+  defaultVariant: string | null;
+  sharedModifier: Record<string, unknown>;
+  unsharedKeys: Array<string>;
+};
+export function createCore(options: Partial<Core> = {}): Core {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      displayName: "",
+      variants: [],
+      defaultVariant: null,
+      sharedModifier: {},
+      unsharedKeys: [],
+    },
+    options,
+  );
+}
+
+export type SectionCapabilities = {
+  canRun: boolean;
+  runDisabledReason?: string | null;
+  runRequestSectionId?: string | null;
+  canSelectAsEntryCodeBlock: boolean;
+  entryCodeBlockValue?: string | null;
+};
+export function createSectionCapabilities(
+  options: Partial<SectionCapabilities> = {},
+): SectionCapabilities {
+  return mergeGeneratedOptions(
+    {
+      canRun: false,
+      runDisabledReason: null,
+      runRequestSectionId: null,
+      canSelectAsEntryCodeBlock: false,
+      entryCodeBlockValue: null,
+    },
+    options,
+  );
+}
+
+export type Variant = {
+  id: string;
+  name: string;
+  impl: string;
+  nonPresetImpls: Array<string>;
+  modifier: Record<string, unknown>;
+  isFrozen: boolean;
+};
+export function createVariant(options: Partial<Variant> = {}): Variant {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      impl: "",
+      nonPresetImpls: [],
+      modifier: {},
+      isFrozen: false,
+    },
+    options,
+  );
+}
+
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
+type ViewMode = {
+  id: string;
+  name: string;
+  sortIndex?: number;
+  isUserFacing?: boolean;
+  isTab?: boolean;
+  visibilityBySectionId?: Record<string, boolean>;
+  viewport?: Viewport | null;
+  viewportInitialized?: boolean;
+  topLevelSections?: Record<string, TopLevelSectionLayout>;
+};
+function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: false,
+      visibilityBySectionId: {},
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {},
+    },
+    options,
+  );
+}
+
+type ProjectRunCapabilities = {
+  canRunFromMain: boolean;
+  mainRunDisabledReason?: string | null;
+  effectiveEntrySectionId?: string | null;
+};
+export function createProjectRunCapabilities(
+  options: Partial<ProjectRunCapabilities> = {},
+): ProjectRunCapabilities {
+  return mergeGeneratedOptions(
+    {
+      canRunFromMain: false,
+      mainRunDisabledReason: null,
+      effectiveEntrySectionId: null,
+    },
+    options,
+  );
+}
+
+export type WatchCodeFolder = {
+  path: string;
+  recursive: boolean;
+};
+
+type WatchCodeRegistryEntry = {
+  callableName: string;
+  kind: string;
+  signatureHash: string;
+  bodyHash: string;
+  sourcePath: string;
+  sectionIds?: Array<string>;
+  sectionsCount?: number;
+};
+
+export type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return mergeGeneratedOptions(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
+}
+
+export type WindowSpaceConfig = {
+  windowsById: Record<string, WindowSpaceWindow>;
+  order: Array<string>;
+  id: string;
+  name: string;
+  sortIndex?: number;
+};
+export function createWindowSpaceConfig(
+  options: Partial<WindowSpaceConfig> = {},
+): WindowSpaceConfig {
+  return mergeGeneratedOptions(
+    {
+      windowsById: {},
+      order: [],
+      id: "",
+      name: "",
+      sortIndex: 0,
+    },
+    options,
+  );
+}
+
+export type Edge = {
+  id: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type?: string;
+  label?: string | null;
+  style?: Record<string, unknown>;
+  animated?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+  data?: Record<string, unknown>;
+  selected?: boolean;
+};
+
+export type AgenticEdge = {
+  id: string;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode | null;
+  style?: Record<string, unknown>;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      sourceSectionId: "",
+      targetSectionId: "",
+      kind: AgenticEdgeKindEnum.section_chat,
+      contextMode: null,
+      style: {},
+      hidden: false,
+      zIndex: 0,
+      selected: false,
+    },
+    options,
+  );
+}
+
+type StateMachineEdge = {
+  id: string;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter?: StateMachineSourceFilter | null;
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  targetAction?: StateMachineTargetAction | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+
+export type ProjectConfig = {
+  id: string;
+  name: string;
+  showParamDisplayNames: boolean;
+  allowJsonSourceKeyEdits: boolean;
+  previewImgColor?: string;
+  viewport?: Viewport | null;
+  viewportInitialized: boolean;
+  viewModes: Record<string, ViewMode>;
+  activeViewModeId?: string | null;
+  isEditingViewMode: boolean;
+  hasPythonCodegenTarget: boolean;
+  runCapabilities: ProjectRunCapabilities;
+  codegenTargets: Array<ProjectCodegenTarget>;
+  watchCodeEnabled: boolean;
+  watchCodeFolders: Array<WatchCodeFolder>;
+  watchCodeFiles: Array<string>;
+  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
+  watchCodeBaselineByPath: Record<string, Array<string>>;
+  entryCodeBlockId?: string | null;
+  sectionPathSlugsById: Record<string, string>;
+  sectionIdsByPathSlug: Record<string, Array<string>>;
+  topLevelSections: Record<string, TopLevelSectionLayout>;
+  windowSpaceSlugsById: Record<string, string>;
+  windowSpaceIdsBySlug: Record<string, Array<string>>;
+  windowSpaces: Record<string, WindowSpaceConfig>;
+  sectionVariantMap: Record<string, string>;
+  activeIds: Array<string>;
+  edges: Array<Edge>;
+  agenticEdges: Array<AgenticEdge>;
+  stateMachineEdges: Array<StateMachineEdge>;
+};
+export function createProjectConfig(
+  options: Partial<ProjectConfig> = {},
+): ProjectConfig {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      showParamDisplayNames: false,
+      allowJsonSourceKeyEdits: false,
+      viewport: null,
+      viewportInitialized: false,
+      viewModes: {},
+      activeViewModeId: null,
+      isEditingViewMode: false,
+      hasPythonCodegenTarget: false,
+      runCapabilities: {
+        canRunFromMain: false,
+        effectiveEntrySectionId: null,
+        mainRunDisabledReason: null,
+      },
+      codegenTargets: [],
+      watchCodeEnabled: false,
+      watchCodeFolders: [],
+      watchCodeFiles: [],
+      watchCodeRegistry: {},
+      watchCodeBaselineByPath: {},
+      entryCodeBlockId: null,
+      sectionPathSlugsById: {},
+      sectionIdsByPathSlug: {},
+      topLevelSections: {},
+      windowSpaceSlugsById: {},
+      windowSpaceIdsBySlug: {},
+      windowSpaces: {},
+      sectionVariantMap: {},
+      activeIds: [],
+      edges: [],
+      agenticEdges: [],
+      stateMachineEdges: [],
+    },
+    options,
+  );
+}
+
+type SingletonSections = {
+  GlobalVariables: string | null;
+  GenPythonCode: string | null;
+  GenPythonMetadata: string | null;
+};
+export function createSingletonSections(
+  options: Partial<SingletonSections> = {},
+): SingletonSections {
+  return mergeGeneratedOptions(
+    {
+      GlobalVariables: null,
+      GenPythonCode: null,
+      GenPythonMetadata: null,
+    },
+    options,
+  );
+}
+
+export type ShownParamIds = {
+  pinned: ShownParamIdDetails;
+  unpinned: ShownParamIdDetails;
+};
+
+export type CodeFileBinding = {
+  canonical_path: string;
+  access_mode: CodeFileAccessMode;
+  autoBinding: boolean;
+};
+
+export type ProjectChatWindowingState = {
+  instancesById: Record<string, ProjectChatWindowInstance>;
+  order: Array<string>;
+  nextInstanceNumber: number;
+};
+export function createProjectChatWindowingState(
+  options: Partial<ProjectChatWindowingState> = {},
+): ProjectChatWindowingState {
+  return mergeGeneratedOptions(
+    {
+      instancesById: {},
+      order: [],
+      nextInstanceNumber: 1,
+    },
+    options,
+  );
+}
+
 export type ProjectStateSingleConfig = {
-  projectConfig: ProjectConfig;
   sections: Record<string, Core>;
   sectionImpls: Record<string, BaseSectionImplUnion>;
   sectionCapabilities: Record<string, SectionCapabilities>;
@@ -2518,19 +2882,27 @@ export type ProjectStateSingleConfig = {
   codeObjs: Record<string, Core>;
   codeObjImpls: Record<string, BaseCodeObjImplUnion>;
   codeObjVariants: Record<string, Variant>;
-  artifactGroups?: Record<string, unknown>;
+  projectConfig: ProjectConfig;
   singletonSections: SingletonSections;
   parentSectionMap: Record<string, string | null>;
   shownParamIds: Record<string, ShownParamIds>;
   requiredDecodedImages: Array<string>;
   genCodeBinding?: CodeFileBinding | null;
   projectChatWindowing: ProjectChatWindowingState;
+  artifactGroups?: Record<string, unknown>;
 };
 export function createProjectStateSingleConfig(
   options: Partial<ProjectStateSingleConfig> = {},
 ): ProjectStateSingleConfig {
   return mergeGeneratedOptions(
     {
+      sections: {},
+      sectionImpls: {},
+      sectionCapabilities: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
       projectConfig: {
         activeIds: [],
         activeViewModeId: null,
@@ -2566,13 +2938,6 @@ export function createProjectStateSingleConfig(
         windowSpaceSlugsById: {},
         windowSpaces: {},
       },
-      sections: {},
-      sectionImpls: {},
-      sectionCapabilities: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
       singletonSections: {
         GenPythonCode: null,
         GenPythonMetadata: null,
@@ -2587,28 +2952,7 @@ export function createProjectStateSingleConfig(
         nextInstanceNumber: 1,
         order: [],
       },
-    },
-    options,
-  );
-}
-
-export type SectionCapabilities = {
-  canRun: boolean;
-  runDisabledReason?: string | null;
-  runRequestSectionId?: string | null;
-  canSelectAsEntryCodeBlock: boolean;
-  entryCodeBlockValue?: string | null;
-};
-export function createSectionCapabilities(
-  options: Partial<SectionCapabilities> = {},
-): SectionCapabilities {
-  return mergeGeneratedOptions(
-    {
-      canRun: false,
-      runDisabledReason: null,
-      runRequestSectionId: null,
-      canSelectAsEntryCodeBlock: false,
-      entryCodeBlockValue: null,
+      artifactGroups: {},
     },
     options,
   );
@@ -2645,78 +2989,9 @@ type ClipboardProjectStateCore = {
   codeObjVariants: Record<string, Variant>;
 };
 
-export type Core = {
-  id: string;
-  name: string;
-  displayName: string;
-  variants: Array<string>;
-  defaultVariant: string | null;
-  sharedModifier: Record<string, unknown>;
-  unsharedKeys: Array<string>;
-};
-export function createCore(options: Partial<Core> = {}): Core {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      displayName: "",
-      variants: [],
-      defaultVariant: null,
-      sharedModifier: {},
-      unsharedKeys: [],
-    },
-    options,
-  );
-}
-
-export type Variant = {
-  id: string;
-  name: string;
-  impl: string;
-  nonPresetImpls: Array<string>;
-  modifier: Record<string, unknown>;
-  isFrozen: boolean;
-};
-export function createVariant(options: Partial<Variant> = {}): Variant {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      impl: "",
-      nonPresetImpls: [],
-      modifier: {},
-      isFrozen: false,
-    },
-    options,
-  );
-}
-
-type SingletonSections = {
-  GlobalVariables: string | null;
-  GenPythonCode: string | null;
-  GenPythonMetadata: string | null;
-};
-export function createSingletonSections(
-  options: Partial<SingletonSections> = {},
-): SingletonSections {
-  return mergeGeneratedOptions(
-    {
-      GlobalVariables: null,
-      GenPythonCode: null,
-      GenPythonMetadata: null,
-    },
-    options,
-  );
-}
-
 type ShownParamIdDetails = {
   requiredParamIdsToPaths: Record<string, Array<string>>;
   topLevelParamIds: Array<string>;
-};
-
-export type ShownParamIds = {
-  pinned: ShownParamIdDetails;
-  unpinned: ShownParamIdDetails;
 };
 
 export const ChatWindowPlacementEnum = {
@@ -2810,24 +3085,6 @@ export function createProjectChatWindowInstance(
   );
 }
 
-export type ProjectChatWindowingState = {
-  instancesById: Record<string, ProjectChatWindowInstance>;
-  order: Array<string>;
-  nextInstanceNumber: number;
-};
-export function createProjectChatWindowingState(
-  options: Partial<ProjectChatWindowingState> = {},
-): ProjectChatWindowingState {
-  return mergeGeneratedOptions(
-    {
-      instancesById: {},
-      order: [],
-      nextInstanceNumber: 1,
-    },
-    options,
-  );
-}
-
 export const WindowSpaceSurfaceKindEnum = {
   project_chat: "project_chat",
   section: "section",
@@ -2893,28 +3150,6 @@ export function createWindowSpaceState(
     {
       windowsById: {},
       order: [],
-    },
-    options,
-  );
-}
-
-export type WindowSpaceConfig = {
-  windowsById: Record<string, WindowSpaceWindow>;
-  order: Array<string>;
-  id: string;
-  name: string;
-  sortIndex?: number;
-};
-export function createWindowSpaceConfig(
-  options: Partial<WindowSpaceConfig> = {},
-): WindowSpaceConfig {
-  return mergeGeneratedOptions(
-    {
-      windowsById: {},
-      order: [],
-      id: "",
-      name: "",
-      sortIndex: 0,
     },
     options,
   );
@@ -5008,234 +5243,6 @@ export type ProjectCodegenTarget =
   | ProjectCodegenPythonTarget
   | ProjectCodegenPluginTarget;
 
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
-type ViewMode = {
-  id: string;
-  name: string;
-  sortIndex?: number;
-  isUserFacing?: boolean;
-  isTab?: boolean;
-  visibilityBySectionId?: Record<string, boolean>;
-  viewport?: Viewport | null;
-  viewportInitialized?: boolean;
-  topLevelSections?: Record<string, TopLevelSectionLayout>;
-};
-function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
-    },
-    options,
-  );
-}
-
-type ProjectRunCapabilities = {
-  canRunFromMain: boolean;
-  mainRunDisabledReason?: string | null;
-  effectiveEntrySectionId?: string | null;
-};
-export function createProjectRunCapabilities(
-  options: Partial<ProjectRunCapabilities> = {},
-): ProjectRunCapabilities {
-  return mergeGeneratedOptions(
-    {
-      canRunFromMain: false,
-      mainRunDisabledReason: null,
-      effectiveEntrySectionId: null,
-    },
-    options,
-  );
-}
-
-export type WatchCodeFolder = {
-  path: string;
-  recursive: boolean;
-};
-
-type WatchCodeRegistryEntry = {
-  callableName: string;
-  kind: string;
-  signatureHash: string;
-  bodyHash: string;
-  sourcePath: string;
-  sectionIds?: Array<string>;
-  sectionsCount?: number;
-};
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  return mergeGeneratedOptions(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
-}
-
-export type Edge = {
-  id: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown>;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown>;
-  selected?: boolean;
-};
-
-export type AgenticEdge = {
-  id: string;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode | null;
-  style?: Record<string, unknown>;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-export function createAgenticEdge(
-  options: Partial<AgenticEdge> = {},
-): AgenticEdge {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      sourceSectionId: "",
-      targetSectionId: "",
-      kind: AgenticEdgeKindEnum.section_chat,
-      contextMode: null,
-      style: {},
-      hidden: false,
-      zIndex: 0,
-      selected: false,
-    },
-    options,
-  );
-}
-
-type StateMachineEdge = {
-  id: string;
-  machineGroupId: string;
-  sourceSectionId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetPortId: string;
-  sourceFilter?: StateMachineSourceFilter | null;
-  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
-  targetAction?: StateMachineTargetAction | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-
-export type ProjectConfig = {
-  id: string;
-  name: string;
-  showParamDisplayNames: boolean;
-  allowJsonSourceKeyEdits: boolean;
-  previewImgColor?: string;
-  viewport?: Viewport | null;
-  viewportInitialized: boolean;
-  viewModes: Record<string, ViewMode>;
-  activeViewModeId?: string | null;
-  isEditingViewMode: boolean;
-  hasPythonCodegenTarget: boolean;
-  runCapabilities: ProjectRunCapabilities;
-  codegenTargets: Array<ProjectCodegenTarget>;
-  watchCodeEnabled: boolean;
-  watchCodeFolders: Array<WatchCodeFolder>;
-  watchCodeFiles: Array<string>;
-  watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
-  watchCodeBaselineByPath: Record<string, Array<string>>;
-  entryCodeBlockId?: string | null;
-  sectionPathSlugsById: Record<string, string>;
-  sectionIdsByPathSlug: Record<string, Array<string>>;
-  topLevelSections: Record<string, TopLevelSectionLayout>;
-  windowSpaceSlugsById: Record<string, string>;
-  windowSpaceIdsBySlug: Record<string, Array<string>>;
-  windowSpaces: Record<string, WindowSpaceConfig>;
-  sectionVariantMap: Record<string, string>;
-  activeIds: Array<string>;
-  edges: Array<Edge>;
-  agenticEdges: Array<AgenticEdge>;
-  stateMachineEdges: Array<StateMachineEdge>;
-};
-export function createProjectConfig(
-  options: Partial<ProjectConfig> = {},
-): ProjectConfig {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      showParamDisplayNames: false,
-      allowJsonSourceKeyEdits: false,
-      viewport: null,
-      viewportInitialized: false,
-      viewModes: {},
-      activeViewModeId: null,
-      isEditingViewMode: false,
-      hasPythonCodegenTarget: false,
-      runCapabilities: {
-        canRunFromMain: false,
-        effectiveEntrySectionId: null,
-        mainRunDisabledReason: null,
-      },
-      codegenTargets: [],
-      watchCodeEnabled: false,
-      watchCodeFolders: [],
-      watchCodeFiles: [],
-      watchCodeRegistry: {},
-      watchCodeBaselineByPath: {},
-      entryCodeBlockId: null,
-      sectionPathSlugsById: {},
-      sectionIdsByPathSlug: {},
-      topLevelSections: {},
-      windowSpaceSlugsById: {},
-      windowSpaceIdsBySlug: {},
-      windowSpaces: {},
-      sectionVariantMap: {},
-      activeIds: [],
-      edges: [],
-      agenticEdges: [],
-      stateMachineEdges: [],
-    },
-    options,
-  );
-}
-
 type ClipboardProjectStateCoreWithSectionVariantMap = {
   core: ClipboardProjectStateCore;
   sectionVariantMap: Record<string, string>;
@@ -6049,12 +6056,6 @@ export function createViewModeConfig(
 ): ViewModeConfig {
   return createViewMode(options);
 }
-
-export type CodeFileBinding = {
-  canonical_path: string;
-  access_mode: CodeFileAccessMode;
-  autoBinding: boolean;
-};
 
 export const ChatRoleEnum = {
   system: "system",

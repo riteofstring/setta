@@ -256,6 +256,9 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
+	if len(spec.ExtraProperties) > 0 {
+		properties = append(properties, spec.ExtraProperties...)
+	}
 	declaration := objectDeclaration(t.Name(), properties...)
 	if spec.CreateBody != "" {
 		declaration.CreateBody = spec.CreateBody
