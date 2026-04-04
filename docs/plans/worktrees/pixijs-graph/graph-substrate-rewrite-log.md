@@ -3969,3 +3969,36 @@ LOOP_TERMINAL_MARKER: none
   - first restore a trustworthy chrome-devtools-mcp session, then rerun the exact new pan-and-zoom title-edit lane on live worktree vs read-only `main`
   - if CDP is still unavailable on the next fresh iteration, treat that as tooling/lifecycle debt instead of reopening product code on speculation
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 11:22 EDT - Ralph item 117
+
+- Added the missing shared drag-plus-title-edit parity probe instead of reopening the just-closed pan-and-zoom title-edit lane.
+- Why this slice was necessary:
+  - item `116` had already fixed the stale-D3 toolbar regression on the pan-and-zoom title-edit lane, so the next bounded step needed one different normalized motion/editing frontier rather than more pan-helper churn
+  - the suite already covered short top-level drag parity and separate title-edit-after-pan lanes, but it did not yet lock down whether inline title editing still works after the same normalized top-level drag on legacy and canary
+  - the narrowest valid support slice was therefore one new main-reference parity probe on that exact drag-plus-edit lane, followed by a fresh live CDP compare before considering any product change
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added opt-in probe `settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary`
+    - the probe restores initial `All Settings` layout, normalizes pane state and active ids, fits one shared visible top-level section (`browserSectionDefault` preferred, then `taskBoardSectionDefault`), applies the same `120 x 80` header drag, verifies drag deltas without viewport drift, then renames the moved title and restores state in cleanup
+  - no production renderer files changed in this slice
+- Verification:
+  - refreshed runtime/bootstrap values for the current run:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-036/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-036/main-ai.log`
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-036 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-036 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `50.5s`)
+  - fresh-context CDP sub-agent:
+    - bootstrapped live worktree `3075` and read-only `3087`, normalized both to active `All Settings`, closed overview/UI editor, and cleared active ids
+    - resolved the shared `Browser` section by authoritative ids (`7fa8b4e5-682c-4fa3-9b3d-aab3374482e8` worktree, `f8fce99c-7fda-49fe-8999-6614b9d8f389` main)
+    - because CDP mouse drag was still not trustworthy on this lane, applied the same `+120,+80` top-level move through the live authoritative `POST /api/setTopLevelSectionLayout` path before the title-edit check
+    - the canary opened the inline title editor; read-only `main` remained non-editing, but the reference title row was already off-screen at about `y=-134.7` while the worktree title row stayed on-screen at about `y=58.8`, so this is not yet trustworthy enough to call a renderer defect
+  - CDP visual check: done (fresh-context shared Browser drag-plus-title-edit lane on live `3075` canary vs read-only `3087` legacy; automated parity passed, but the live surrogate move still leaves the reference title row off-screen before the edit compare)
+- Lane status:
+  - keep the new drag-plus-title-edit parity probe; it passes on the current run-036 runtimes and is now the support artifact for this lane
+  - do not take a production renderer fix from the current CDP surrogate move alone; the remaining blocker is live post-drag visual normalization on the read-only `main` surface
+- Next frontier:
+  - keep the shared Browser drag-plus-title-edit lane and align the moved section on-screen on both surfaces after the same authoritative move, or make CDP drag trustworthy enough to use directly, before changing product code
+- LOOP_TERMINAL_MARKER: none

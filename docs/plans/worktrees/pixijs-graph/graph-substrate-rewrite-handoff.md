@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 11:04 EDT
+Last updated: 2026-04-04 11:22 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `117` added the missing shared drag-plus-title-edit parity probe instead of reopening the just-closed pan-and-zoom title-edit lane.
+  - Why this slice was needed:
+    - item `116` closed a real toolbar regression on the shared pan-and-zoom title-edit lane, so the next bounded step had to move to one different normalized motion/editing frontier rather than another pass on the same pan helper shape
+    - the existing suite already covered short top-level drag parity and separate title-edit-after-pan lanes, but it did not yet lock down the direct question "does inline title editing still work after the same normalized top-level drag on legacy and canary?"
+    - the narrowest valid support slice was therefore one opt-in main-reference parity probe on that exact drag-plus-edit lane, plus a fresh live CDP compare to decide whether a renderer bug was actually exposed
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added opt-in probe `settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary`
+      - the probe restores each runtime's initial `All Settings` layout, normalizes pane state and active ids, fits one shared visible top-level section (`browserSectionDefault` preferred, then `taskBoardSectionDefault`), applies the same `120 x 80` header drag, verifies matching drag deltas without viewport drift, then renames the moved title and restores layout/title state in cleanup
+    - no production renderer files changed in this slice
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-036/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-036/main-ai.log`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-036 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-036 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `50.5s`)
+  - Live verification result:
+    - a fresh-context CDP sub-agent bootstrapped live worktree `3075` and read-only `3087`, normalized both pages to active `All Settings` with overview/UI editor closed and active ids cleared, and resolved the shared `Browser` top-level section by authoritative ids (`7fa8b4e5-682c-4fa3-9b3d-aab3374482e8` on worktree, `f8fce99c-7fda-49fe-8999-6614b9d8f389` on `main`)
+    - because CDP mouse drag is still not a trustworthy driver on this canvas lane, the sub-agent applied the same `+120,+80` top-level move through the live authoritative `POST /api/setTopLevelSectionLayout` path on both surfaces before checking title editing
+    - on the canary surface, double-clicking the moved browser title opened the inline editor and focused the input; on read-only `main`, the title remained non-editing after the same interaction
+    - however, the post-move geometry was not yet normalized enough to treat that as a confirmed renderer defect: the worktree title row stayed on-screen at about `y=58.8`, while the reference title row had already moved off-screen at about `y=-134.7`
+    - CDP visual check: done (fresh-context shared Browser drag-plus-title-edit lane on live `3075` canary vs read-only `3087` legacy; automated parity passed, but the live surrogate move still leaves the reference title row off-screen before the edit compare)
+  - conclusion for this slice:
+    - keep the new drag-plus-title-edit parity probe; it passes on the current run-036 runtimes and is now the support artifact for this motion/editing lane
+    - do not take a production renderer fix from the current CDP surrogate move alone; the remaining blocker is live post-drag visual normalization on the read-only `main` surface, not a confirmed canary-only title-edit defect
+    - the next iteration should keep this shared Browser lane, align the moved section on-screen on both surfaces after the same authoritative move (or make CDP drag trustworthy enough to use directly), then rerun the inline title-edit visual compare before changing product code
 - Ralph item `116` fixed a real canary toolbar regression on the shared pan-and-zoom title-edit lane instead of extending the probe again.
   - Why this slice was needed:
     - item `115` had already added the right main-reference parity probe, and this fresh iteration reran that exact lane first rather than inventing another support pass
