@@ -12,6 +12,7 @@ vi.mock("utils/generatedEndpoints", () => ({
     routeGetBackendInitStatusMock(...args),
 }));
 
+import { BackendInitStatusProvider } from "state/backendInitStatus";
 import { WorktreeHint } from "./WorktreeHint";
 
 type RenderedWorktreeHint = {
@@ -25,7 +26,11 @@ async function renderWorktreeHint(): Promise<RenderedWorktreeHint> {
   const root = createRoot(host);
 
   await act(async () => {
-    root.render(<WorktreeHint />);
+    root.render(
+      <BackendInitStatusProvider>
+        <WorktreeHint />
+      </BackendInitStatusProvider>,
+    );
   });
   await act(async () => {
     await Promise.resolve();

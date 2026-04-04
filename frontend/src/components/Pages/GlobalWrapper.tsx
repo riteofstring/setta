@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import { loadAllProjectMetadata } from "state/actions/project/loadProject";
 import { useLoadSettings } from "state/actions/settings";
 import { openWebSocket } from "state/actions/websocketReceive";
+import {
+  BackendInitStatusProvider,
+  useBackendInitStatus,
+} from "state/backendInitStatus";
 import {
   useAllProjectMetadata,
   useLocalStorage,
@@ -11,8 +15,6 @@ import {
   useShareSession,
 } from "state/definitions";
 import { HOME_ROUTER_PATH, SETTINGS_ROUTER_PATH } from "utils/constants";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
-import { route_get_backend_init_status } from "utils/generatedEndpoints";
 import type { BackendInitStatusResponse } from "utils/generatedTypes";
 import { AppShell } from "./AppShell";
 import {
@@ -23,14 +25,28 @@ import {
 const THEME_COLOR_LIGHT = "#dce1ea";
 const THEME_COLOR_DARK = "#0b0e13";
 
-type BackendInitStatusRouteResponse =
-  ResponseDataAndStatus<BackendInitStatusResponse>;
-
 export function GlobalWrapper({ children }) {
   useOpenCloseWebsocket();
   useSetHTMLTitle();
   useColorModePreference();
   const settingsLoaded = useLoadSettings();
+
+  return (
+    <BackendInitStatusProvider>
+      <GlobalWrapperContent settingsLoaded={settingsLoaded}>
+        {children}
+      </GlobalWrapperContent>
+    </BackendInitStatusProvider>
+  );
+}
+
+function GlobalWrapperContent({
+  children,
+  settingsLoaded,
+}: {
+  children: ReactNode;
+  settingsLoaded: boolean;
+}) {
   const initStatus = useBackendInitStatus();
   const backendReady = initStatus?.isReady ?? false;
   const shouldShowLoading = !settingsLoaded || !backendReady;
@@ -193,42 +209,6 @@ function useDefaultProjectConfigName(enabled: boolean) {
   }, [enabled, hasAttemptedMetadataLoad, projectMetadata.length]);
 
   return defaultProjectConfigName;
-}
-
-function useBackendInitStatus() {
-  const [status, setStatus] = useState<BackendInitStatusResponse | null>(null);
-
-  useEffect(() => {
-    let isMounted = true;
-    let intervalId: number | undefined;
-
-    async function poll() {
-      const res: BackendInitStatusRouteResponse =
-        await route_get_backend_init_status();
-      if (!isMounted || !res200(res)) {
-        return;
-      }
-      setStatus(res.data);
-      if (res.data.isReady && intervalId !== undefined) {
-        clearInterval(intervalId);
-        intervalId = undefined;
-      }
-    }
-
-    poll();
-    intervalId = window.setInterval(() => {
-      void poll();
-    }, 500);
-
-    return () => {
-      isMounted = false;
-      if (intervalId !== undefined) {
-        clearInterval(intervalId);
-      }
-    };
-  }, []);
-
-  return status;
 }
 
 type LoadingScreenProps = {

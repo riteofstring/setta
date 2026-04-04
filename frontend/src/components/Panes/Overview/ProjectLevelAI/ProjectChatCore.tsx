@@ -9,11 +9,11 @@ import {
 import { getChatEditDisabledReason } from "components/Chat/chatEditUtils";
 import {
   ChatInput,
-  resolveSlashCommandRequest,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
   type ChatSubmitOptions,
 } from "components/Chat/ChatInput";
+import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
 import { ChatMessageList } from "components/Chat/ChatMessages";
 import {
   resolveEffectiveThinking,
