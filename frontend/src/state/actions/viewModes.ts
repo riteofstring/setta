@@ -15,6 +15,19 @@ type ProjectConfigMutationPayload = {
 type ProjectConfigMutationRouteResponse =
   ResponseDataAndStatus<ProjectConfigMutationPayload>;
 
+function applyAcknowledgedViewModeProjectConfig(
+  state: ZustandProjectState,
+  acknowledgedProjectConfig: ZustandProjectState["projectConfig"],
+): void {
+  const snapshot = createProjectConfig(acknowledgedProjectConfig);
+  state.projectConfig.viewModes = snapshot.viewModes;
+  state.projectConfig.activeViewModeId = snapshot.activeViewModeId;
+  state.projectConfig.isEditingViewMode = snapshot.isEditingViewMode;
+  state.projectConfig.topLevelSections = snapshot.topLevelSections;
+  state.projectConfig.viewport = snapshot.viewport;
+  state.projectConfig.viewportInitialized = snapshot.viewportInitialized;
+}
+
 function dispatchOptimisticViewModeMutation({
   apply,
   projectConfigId,
@@ -39,7 +52,10 @@ function dispatchOptimisticViewModeMutation({
     apply,
     reapply: (state) => {
       if (acknowledgedProjectConfig) {
-        state.projectConfig = acknowledgedProjectConfig;
+        applyAcknowledgedViewModeProjectConfig(
+          state,
+          acknowledgedProjectConfig,
+        );
         return;
       }
       apply(state);
@@ -53,10 +69,12 @@ function dispatchOptimisticViewModeMutation({
         projectConfigId,
       });
       if (res200(response)) {
-        acknowledgedProjectConfig = response.data.projectConfig;
+        acknowledgedProjectConfig = createProjectConfig(
+          response.data.projectConfig,
+        );
         publishProjectConfigSnapshot(
           projectConfigId,
-          response.data.projectConfig,
+          createProjectConfig(acknowledgedProjectConfig),
         );
       }
       return response;

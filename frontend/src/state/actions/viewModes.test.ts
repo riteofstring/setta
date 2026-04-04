@@ -2,6 +2,7 @@ import { usePendingOperations, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,
+  createProjectStateSingleConfig,
   createViewModeConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -16,6 +17,7 @@ vi.mock("utils/generatedEndpoints", () => ({
     routeSetViewModeSortOrderMock(...args),
 }));
 
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 import { deleteViewMode, persistViewModeSortOrder } from "./viewModes";
 
 function createStateWithViewModes() {
@@ -187,6 +189,58 @@ describe("view mode canonical mutations", () => {
     });
     expect(projectConfig.viewport).toEqual({ x: 4, y: 5, zoom: 6 });
     expect(projectConfig.viewportInitialized).toBe(false);
+  });
+
+  it("preserves newer unrelated backend project config fields after an acknowledged reorder", async () => {
+    useProjectState.setState({
+      projectConfig: createStateWithViewModes(),
+    });
+    routeSetViewModeSortOrderMock.mockResolvedValue({
+      data: {
+        projectConfig: createProjectConfig({
+          ...createStateWithViewModes(),
+          viewModes: {
+            "alpha-id": createViewModeConfig({
+              ...createStateWithViewModes().viewModes["alpha-id"],
+              sortIndex: 1,
+            }),
+            "beta-id": createViewModeConfig({
+              ...createStateWithViewModes().viewModes["beta-id"],
+              sortIndex: 2,
+            }),
+            "gamma-id": createViewModeConfig({
+              ...createStateWithViewModes().viewModes["gamma-id"],
+              sortIndex: 0,
+            }),
+          },
+        }),
+      },
+      status: 200,
+      hasResponse: true,
+    });
+
+    persistViewModeSortOrder("project-id", ["gamma-id", "alpha-id", "beta-id"]);
+    await flushOptimisticMutation();
+
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
+
+    processProjectStateUpdateFromBackend({
+      projectState: createProjectStateSingleConfig({
+        projectConfig: createProjectConfig({
+          ...useProjectState.getState().projectConfig,
+          watchCodeEnabled: true,
+        }),
+      }),
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    const projectConfig = useProjectState.getState().projectConfig;
+    expect(projectConfig.watchCodeEnabled).toBe(true);
+    expect(projectConfig.viewModes["gamma-id"]?.sortIndex).toBe(0);
+    expect(projectConfig.viewModes["alpha-id"]?.sortIndex).toBe(1);
+    expect(projectConfig.viewModes["beta-id"]?.sortIndex).toBe(2);
   });
 
   it("rolls back a rejected delete without changing the current project config", async () => {

@@ -20,6 +20,7 @@ import {
   createCore,
   createProjectChatWindowingState,
   createProjectConfig,
+  createProjectStateSingleConfig,
   createUserDefaultChatSectionImpl,
   createVariant,
   createWindowSpaceConfig,
@@ -60,6 +61,7 @@ import {
   replaceProjectChatWindowingState,
   setProjectChatWindowBounds,
 } from "./projectChatWindowing";
+import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 import {
   createProjectChatWindowingStateFromWindowSpace,
   createWindowSpaceFromCurrentFloatingWindows,
@@ -1159,6 +1161,71 @@ describe("window-space optimistic rollback", () => {
     ]);
     expect(usePendingOperations.getState().pending).toHaveLength(1);
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
+  });
+
+  it("preserves newer unrelated backend project config fields after an acknowledged window-space mutation", async () => {
+    useProjectState.setState({
+      projectConfig: createProjectConfig({
+        id: "project-id",
+        name: "demo",
+        windowSpaces: {
+          "alpha-id": createWindowSpaceConfig({
+            id: "alpha-id",
+            name: "Alpha",
+            sortIndex: 0,
+            windowsById: {},
+            order: [],
+          }),
+          "beta-id": createWindowSpaceConfig({
+            id: "beta-id",
+            name: "Beta",
+            sortIndex: 1,
+            windowsById: {},
+            order: [],
+          }),
+        },
+      }),
+    });
+    routeSetWindowSpaceSortOrderMock.mockResolvedValue(
+      buildProjectConfigMutationResponse({
+        "alpha-id": createWindowSpaceConfig({
+          id: "alpha-id",
+          name: "Alpha",
+          sortIndex: 1,
+          windowsById: {},
+          order: [],
+        }),
+        "beta-id": createWindowSpaceConfig({
+          id: "beta-id",
+          name: "Beta",
+          sortIndex: 0,
+          windowsById: {},
+          order: [],
+        }),
+      }),
+    );
+
+    persistWindowSpaceSortOrder("project-id", ["beta-id", "alpha-id"]);
+    await flushOptimisticMutation();
+
+    expect(usePendingOperations.getState().pending).toHaveLength(1);
+    expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
+
+    processProjectStateUpdateFromBackend({
+      projectState: createProjectStateSingleConfig({
+        projectConfig: createProjectConfig({
+          ...useProjectState.getState().projectConfig,
+          watchCodeEnabled: true,
+        }),
+      }),
+      completedOpIds: [],
+      pendingOpIds: [],
+    });
+
+    const projectConfig = useProjectState.getState().projectConfig;
+    expect(projectConfig.watchCodeEnabled).toBe(true);
+    expect(projectConfig.windowSpaces["beta-id"]?.sortIndex).toBe(0);
+    expect(projectConfig.windowSpaces["alpha-id"]?.sortIndex).toBe(1);
   });
 });
 

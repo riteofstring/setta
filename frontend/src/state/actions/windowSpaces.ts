@@ -39,6 +39,7 @@ import {
   WindowSpaceSurfaceKindEnum,
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
+  createProjectConfig,
   createWindowSpaceState,
   createWindowSpaceWindow,
   type ProjectChatWindowInstance,
@@ -81,6 +82,16 @@ type CreateWindowSpaceRouteResponse =
   ResponseDataAndStatus<WindowSpaceMutationPayload>;
 type ProjectConfigMutationRouteResponse =
   ResponseDataAndStatus<ProjectConfigMutationPayload>;
+
+function applyAcknowledgedWindowSpaceProjectConfig(
+  state: ZustandProjectState,
+  acknowledgedProjectConfig: ZustandProjectState["projectConfig"],
+): void {
+  const snapshot = createProjectConfig(acknowledgedProjectConfig);
+  state.projectConfig.windowSpaces = snapshot.windowSpaces;
+  state.projectConfig.windowSpaceSlugsById = snapshot.windowSpaceSlugsById;
+  state.projectConfig.windowSpaceIdsBySlug = snapshot.windowSpaceIdsBySlug;
+}
 
 function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
   return resolveProjectChatFloatingViewport();
@@ -163,7 +174,10 @@ function dispatchOptimisticWindowSpaceMutation({
     apply,
     reapply: (state) => {
       if (acknowledgedProjectConfig) {
-        state.projectConfig = acknowledgedProjectConfig;
+        applyAcknowledgedWindowSpaceProjectConfig(
+          state,
+          acknowledgedProjectConfig,
+        );
         return;
       }
       apply(state);
@@ -178,10 +192,12 @@ function dispatchOptimisticWindowSpaceMutation({
         projectConfigId,
       });
       if (res200(response)) {
-        acknowledgedProjectConfig = response.data.projectConfig;
+        acknowledgedProjectConfig = createProjectConfig(
+          response.data.projectConfig,
+        );
         publishProjectConfigSnapshot(
           projectConfigId,
-          response.data.projectConfig,
+          createProjectConfig(acknowledgedProjectConfig),
         );
       }
       return response;
