@@ -1,0 +1,13 @@
+if (typeof value !== "string") {
+  return null;
+}
+const trimmed = value.trim();
+if (!trimmed) {
+  return null;
+}
+switch (trimmed) {
+{{ range .ModeLiterals }}  case {{ . }}:
+{{ end }}    return trimmed;
+  default:
+    return null;
+}

@@ -1,0 +1,37 @@
+if (typeof rawOrigin !== "string") {
+  return null;
+}
+const trimmedOrigin = rawOrigin.trim();
+if (!trimmedOrigin) {
+  return null;
+}
+let parsedOrigin: URL;
+try {
+  parsedOrigin = new URL(trimmedOrigin);
+} catch {
+  return null;
+}
+if (parsedOrigin.protocol !== "http:" && parsedOrigin.protocol !== "https:") {
+  return null;
+}
+if (!parsedOrigin.hostname) {
+  return null;
+}
+if (parsedOrigin.username || parsedOrigin.password) {
+  return null;
+}
+const port = parsedOrigin.port.trim();
+if (!port) {
+  return (
+    parsedOrigin.protocol +
+    "//" +
+    formatGeneratedOriginHost(parsedOrigin.hostname)
+  );
+}
+return (
+  parsedOrigin.protocol +
+  "//" +
+  formatGeneratedOriginHost(parsedOrigin.hostname) +
+  ":" +
+  port
+);
