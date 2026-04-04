@@ -2851,3 +2851,43 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - normalize remembered `overviewTrueWidth` / `uiEditorTrueWidth` across the live worktree and read-only `main` sessions before the next cross-worktree fit compare so the remaining `~80px` main-only gap is judged on a shared pane-state oracle
 - LOOP_TERMINAL_MARKER: none
+- Ralph item `083` normalized the shared remembered-pane compare state inside the parity probe and closed the remaining cross-session `~80px` gap on the `shortcuts` fit lane.
+- Why this slice was necessary:
+  - item `082` had already narrowed the remaining `main` mismatch to unnormalized remembered pane-width state across sessions, so the next valid move was one bounded normalization slice rather than another viewport-math change
+  - the shared parity probe still only hid panes, leaving remembered widths implicit and allowing the live cross-worktree compare to keep drifting by the same `~80px`
+  - the first rerun of the updated Playwright probe showed the harness still assumed raw-root centering instead of the legacy effective center under hidden remembered widths
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `SETTINGS_GRAPH_COMPARE_PANE_STATE` plus `normalizeSettingsGraphComparePaneState(page)` for the shared compare state `{ overviewVisible: false, overviewTrueWidth: 420, uiEditorVisible: false, uiEditorTrueWidth: 260 }`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - switched the normalized `shortcuts` parity lane and the hidden-pane-width fit assertion to the shared compare-state helper
+    - updated the normalized parity expectations so both legacy and canary land on the effective `+80px` center offset under the shared hidden-pane widths
+- Verification:
+  - initial rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit|settings graph substrate canary fit view mirrors legacy hidden pane widths'`
+      - result: failed because the updated parity probe still expected raw-root centering; legacy reported center offset `80.000061` instead of `<40`
+  - final rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit|settings graph substrate canary fit view mirrors legacy hidden pane widths'`
+      - result: passed (`2 passed`, about `38.9s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - live CDP compare:
+    - fresh-context CDP sub-agent could not access `chrome-devtools-mcp` controls in this environment, so the pass used a direct main-session fallback and recorded that limitation
+    - worktree `All Settings` canary `shortcuts` after explicit pane-state normalization and targeted fit:
+      - pane state `{ overviewVis: false, overviewTrueWidth: 420, uiEditorVis: false, uiEditorTrueWidth: 260 }`
+      - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+      - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+      - center offset `~80px`
+    - read-only `main` `All Settings` legacy after the same normalization and targeted fit on logical section `shortcuts`:
+      - pane state `{ overviewVis: false, overviewTrueWidth: 420, uiEditorVis: false, uiEditorTrueWidth: 260 }`
+      - rect `{ x: 485.6508, y: 56.0455, width: 628.6983, height: 400.9091 }`
+      - transform `{ x: 485.651, y: 20.0455, zoom: 1.13895 }`
+      - center offset `~80px`
+    - the prior cross-session `~80px` gap disappeared once both sessions used the same remembered pane widths
+  - CDP visual check: done (direct main-session fallback after sub-agent tool limitation; normalized `shortcuts` fit matched `1:1` between worktree canary and read-only `main` legacy)
+- Lane status:
+  - close the specific remaining `main`-only `~80px` fit gap on `shortcuts` as pane-state oracle noise, not renderer drift
+  - future live cross-worktree compares on this lane should start from the same explicit remembered pane-state normalization before judging renderer differences
+- Next frontier:
+  - reuse the normalized pane-state helper on a short shared-section pan or drag compare so the next iteration isolates the first real post-fit motion/interactions artifact instead of reopening pane-state noise
+- LOOP_TERMINAL_MARKER: none

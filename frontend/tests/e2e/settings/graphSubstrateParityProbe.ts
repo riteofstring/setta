@@ -56,6 +56,13 @@ export type SharedVisibleSettingsGraphSection = {
   sectionId: string;
 };
 
+export const SETTINGS_GRAPH_COMPARE_PANE_STATE: SettingsGraphLocalPaneState = {
+  overviewVisible: false,
+  overviewTrueWidth: 420,
+  uiEditorVisible: false,
+  uiEditorTrueWidth: 260,
+};
+
 const CANARY_SETTINGS_GRAPH_ROOT_SELECTOR =
   '[data-testid="graph-substrate-canary"]';
 const CANARY_SETTINGS_GRAPH_SECTION_SELECTOR =
@@ -203,6 +210,12 @@ export async function setLocalPaneState(
   }, paneState);
 
   await expect.poll(async () => getLocalPaneState(page)).toEqual(paneState);
+}
+
+export async function normalizeSettingsGraphComparePaneState(
+  page: Page,
+): Promise<void> {
+  await setLocalPaneState(page, SETTINGS_GRAPH_COMPARE_PANE_STATE);
 }
 
 export async function fitGraphViewportToSection(

@@ -10,7 +10,9 @@ import {
   getCanarySectionCenterOffsetFromRootCenter,
   getLatestProjectState,
   getLocalPaneState,
+  normalizeSettingsGraphComparePaneState,
   setLocalPaneState,
+  SETTINGS_GRAPH_COMPARE_PANE_STATE,
   type ProjectStateSingleConfigWithCompletedOpIds,
 } from "./graphSubstrateParityProbe";
 
@@ -459,6 +461,10 @@ test("settings graph parity probe captures the same named section on legacy and 
   ]);
   const sectionId = sharedSection.sectionId;
   const sectionName = sharedSection.name;
+  const expectedCenterOffset =
+    (SETTINGS_GRAPH_COMPARE_PANE_STATE.overviewTrueWidth -
+      SETTINGS_GRAPH_COMPARE_PANE_STATE.uiEditorTrueWidth) /
+    2;
   const coreTab = page.getByRole("button", { name: "Core", exact: true });
   const allTab = page.getByRole("button", {
     name: "All Settings",
@@ -466,10 +472,7 @@ test("settings graph parity probe captures the same named section on legacy and 
   });
 
   try {
-    await setComparePaneVisibility(page, {
-      overviewVisible: false,
-      uiEditorVisible: false,
-    });
+    await normalizeSettingsGraphComparePaneState(page);
 
     await postBackend(page, "/setActiveViewMode", {
       projectConfigId,
@@ -489,10 +492,7 @@ test("settings graph parity probe captures the same named section on legacy and 
     await coreTab.click();
     await page.waitForSelector(READY_SELECTOR);
     await expect(page.getByTestId("graph-substrate-canary")).toHaveCount(0);
-    await setComparePaneVisibility(page, {
-      overviewVisible: false,
-      uiEditorVisible: false,
-    });
+    await normalizeSettingsGraphComparePaneState(page);
     expect(await fitGraphViewportToSection(page, sectionId)).toBe(true);
 
     await expect
@@ -504,11 +504,12 @@ test("settings graph parity probe captures the same named section on legacy and 
     await expect
       .poll(async () => {
         return Math.abs(
-          (await captureSettingsGraphSectionMetrics(page, sectionId))
-            .centerOffsetFromRootCenter ?? Number.POSITIVE_INFINITY,
+          ((await captureSettingsGraphSectionMetrics(page, sectionId))
+            .centerOffsetFromRootCenter ?? Number.POSITIVE_INFINITY) -
+            expectedCenterOffset,
         );
       })
-      .toBeLessThan(40);
+      .toBeLessThan(8);
 
     const legacyMetrics = await captureSettingsGraphSectionMetrics(
       page,
@@ -517,6 +518,7 @@ test("settings graph parity probe captures the same named section on legacy and 
     if (!legacyMetrics.rect || !legacyMetrics.transform) {
       throw new Error(`Missing legacy metrics for ${sectionName}.`);
     }
+    expect(legacyMetrics.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
 
     await postBackend(page, "/setActiveViewMode", {
       projectConfigId,
@@ -538,10 +540,7 @@ test("settings graph parity probe captures the same named section on legacy and 
     await expect
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
-    await setComparePaneVisibility(page, {
-      overviewVisible: false,
-      uiEditorVisible: false,
-    });
+    await normalizeSettingsGraphComparePaneState(page);
     expect(await fitGraphViewportToSection(page, sectionId)).toBe(true);
 
     await expect
@@ -553,11 +552,12 @@ test("settings graph parity probe captures the same named section on legacy and 
     await expect
       .poll(async () => {
         return Math.abs(
-          (await captureSettingsGraphSectionMetrics(page, sectionId))
-            .centerOffsetFromRootCenter ?? Number.POSITIVE_INFINITY,
+          ((await captureSettingsGraphSectionMetrics(page, sectionId))
+            .centerOffsetFromRootCenter ?? Number.POSITIVE_INFINITY) -
+            expectedCenterOffset,
         );
       })
-      .toBeLessThan(40);
+      .toBeLessThan(8);
 
     const canaryMetrics = await captureSettingsGraphSectionMetrics(
       page,
@@ -566,6 +566,7 @@ test("settings graph parity probe captures the same named section on legacy and 
     if (!canaryMetrics.rect || !canaryMetrics.transform) {
       throw new Error(`Missing canary metrics for ${sectionName}.`);
     }
+    expect(canaryMetrics.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
 
     expect(
       Math.abs(canaryMetrics.rect.width - legacyMetrics.rect.width),
@@ -1949,16 +1950,14 @@ test("settings graph substrate canary fit view mirrors legacy hidden pane widths
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
 
-    await setLocalPaneState(page, {
-      overviewVisible: false,
-      overviewTrueWidth: 420,
-      uiEditorVisible: false,
-      uiEditorTrueWidth: 260,
-    });
+    await normalizeSettingsGraphComparePaneState(page);
 
     expect(await fitGraphViewportToSection(page, groupSectionId)).toBe(true);
 
-    const expectedCenterOffset = (420 - 260) / 2;
+    const expectedCenterOffset =
+      (SETTINGS_GRAPH_COMPARE_PANE_STATE.overviewTrueWidth -
+        SETTINGS_GRAPH_COMPARE_PANE_STATE.uiEditorTrueWidth) /
+      2;
 
     await expect
       .poll(async () => {
