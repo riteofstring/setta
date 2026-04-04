@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_get_launcher_status,
   route_remove_launcher,
@@ -39,11 +39,6 @@ type LauncherControlsState = {
   launcherActionsDisabled: boolean;
   launcherSetupButtonLabel: string;
 };
-
-type LauncherStatusRouteResponse =
-  ResponseDataAndStatus<LauncherStatusResponse>;
-type LauncherUpdateRouteResponse =
-  ResponseDataAndStatus<LauncherUpdateResponse>;
 
 type DesktopLauncherSettingsSectionProps = {
   settaHome?: string | null;
@@ -268,10 +263,7 @@ export function DesktopLauncherSettingsSection({
       if (missingRequiredSettaHome) {
         return null;
       }
-      const response: LauncherStatusRouteResponse =
-        await route_get_launcher_status({
-          setta_home: normalizedSettaHome,
-        });
+      const response = await route_get_launcher_status(normalizedSettaHome);
       if (!res200(response) || !response.data) {
         return null;
       }
@@ -337,7 +329,7 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response: LauncherStatusRouteResponse = await route_setup_launcher(
+    const response = await route_setup_launcher(
       buildSetupLauncherRequest(normalizedSettaHome, launcherStatus),
     );
     setLauncherActionInFlight(null);
@@ -366,7 +358,7 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response: LauncherStatusRouteResponse = await route_repair_launcher(
+    const response = await route_repair_launcher(
       buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
@@ -395,7 +387,7 @@ export function DesktopLauncherSettingsSection({
     setLauncherActionError(null);
     setLauncherActionMessage(null);
     setUpdateStage("idle");
-    const response: LauncherStatusRouteResponse = await route_remove_launcher(
+    const response = await route_remove_launcher(
       buildLauncherRequestBase(normalizedSettaHome),
     );
     setLauncherActionInFlight(null);
@@ -462,7 +454,7 @@ export function DesktopLauncherSettingsSection({
     }
 
     setUpdateStage("downloading");
-    const response: LauncherUpdateRouteResponse = await route_update_launcher(
+    const response = await route_update_launcher(
       buildUpdateLauncherRequest(normalizedSettaHome),
     );
     if (!res200(response) || !response.data) {

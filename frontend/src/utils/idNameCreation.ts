@@ -26,7 +26,7 @@ export function createPngArtifactId() {
   return createArtifactId(".png");
 }
 
-function createFileArtifactId(extension: string = ".bin") {
+export function createFileArtifactId(extension: string = ".bin") {
   return createArtifactId(extension);
 }
 
