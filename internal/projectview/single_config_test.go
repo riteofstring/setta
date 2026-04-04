@@ -223,6 +223,43 @@ func TestFrontendDefaultProjectCodegenPythonTargetUsesCanonicalDefaults(t *testi
 	}
 }
 
+func TestFrontendDefaultProjectConfigUsesCanonicalFactoryDefaults(t *testing.T) {
+	config := FrontendDefaultProjectConfig()
+
+	if config.ViewModes == nil || len(config.ViewModes) != 0 {
+		t.Fatalf("expected empty view modes map, got %#v", config.ViewModes)
+	}
+	if config.WindowSpaces == nil || len(config.WindowSpaces) != 0 {
+		t.Fatalf("expected empty window spaces map, got %#v", config.WindowSpaces)
+	}
+	if config.ActiveIDs == nil || len(config.ActiveIDs) != 0 {
+		t.Fatalf("expected empty active ids slice, got %#v", config.ActiveIDs)
+	}
+	if config.CodegenTargets == nil || len(config.CodegenTargets) != 0 {
+		t.Fatalf("expected empty codegen targets slice, got %#v", config.CodegenTargets)
+	}
+	if !reflect.DeepEqual(config.RunCapabilities, ProjectRunCapabilities{}) {
+		t.Fatalf("expected zero-value run capabilities, got %#v", config.RunCapabilities)
+	}
+}
+
+func TestFrontendDefaultSingleConfigUsesCanonicalFactoryDefaults(t *testing.T) {
+	defaults := FrontendDefaultSingleConfig()
+
+	if !reflect.DeepEqual(defaults.ProjectConfig, FrontendDefaultProjectConfig()) {
+		t.Fatalf("expected canonical project config defaults, got %#v", defaults.ProjectConfig)
+	}
+	if defaults.Sections == nil || len(defaults.Sections) != 0 {
+		t.Fatalf("expected empty sections map, got %#v", defaults.Sections)
+	}
+	if defaults.RequiredDecodedImages == nil || len(defaults.RequiredDecodedImages) != 0 {
+		t.Fatalf("expected empty required decoded images, got %#v", defaults.RequiredDecodedImages)
+	}
+	if !reflect.DeepEqual(defaults.ProjectChatWindowing, projectstate.DefaultProjectChatWindowingState()) {
+		t.Fatalf("expected canonical project chat windowing defaults, got %#v", defaults.ProjectChatWindowing)
+	}
+}
+
 func TestSingleConfigByProjectIDDisablesMainRunForNonRunnableEntrySection(t *testing.T) {
 	document := testProjectViewDocument(t)
 	project := document.Projects["project-alpha"]

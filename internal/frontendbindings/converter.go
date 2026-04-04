@@ -1003,6 +1003,9 @@ func filterObjectByTypeProperties(
 	for _, property := range properties {
 		value, ok := object[property.Name]
 		if !ok {
+			if property.Optional {
+				continue
+			}
 			panic(fmt.Sprintf("%s is missing property %q", context, property.Name))
 		}
 		filtered[property.Name] = value
@@ -1374,61 +1377,6 @@ func buildTaskBoardOverridesPreludeTS() string {
 	builder.WriteString("    delete normalizedOverrides.tasks;\n")
 	builder.WriteString("  }")
 	return builder.String()
-}
-
-func buildProjectConfigCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("id", tsStringLiteralExpr("")),
-		tsObjectField("name", tsStringLiteralExpr("")),
-		tsObjectField("showParamDisplayNames", "false"),
-		tsObjectField("allowJsonSourceKeyEdits", "false"),
-		tsObjectField("previewImgColor", tsStringLiteralExpr("")),
-		tsObjectField("viewport", "null"),
-		tsObjectField("viewportInitialized", "false"),
-		tsObjectField("viewModes", "{}"),
-		tsObjectField("activeViewModeId", "null"),
-		tsObjectField("isEditingViewMode", "false"),
-		tsObjectField("hasPythonCodegenTarget", "false"),
-		tsObjectField("runCapabilities", "createProjectRunCapabilities()"),
-		tsObjectField("codegenTargets", "[]"),
-		tsObjectField("watchCodeEnabled", "false"),
-		tsObjectField("watchCodeFolders", "[]"),
-		tsObjectField("watchCodeFiles", "[]"),
-		tsObjectField("watchCodeRegistry", "{}"),
-		tsObjectField("watchCodeBaselineByPath", "{}"),
-		tsObjectField("entryCodeBlockId", "null"),
-		tsObjectField("sectionPathSlugsById", "{}"),
-		tsObjectField("sectionIdsByPathSlug", "{}"),
-		tsObjectField("topLevelSections", "{}"),
-		tsObjectField("windowSpaceSlugsById", "{}"),
-		tsObjectField("windowSpaceIdsBySlug", "{}"),
-		tsObjectField("windowSpaces", "{}"),
-		tsObjectField("sectionVariantMap", "{}"),
-		tsObjectField("activeIds", "[]"),
-		tsObjectField("edges", "[]"),
-		tsObjectField("agenticEdges", "[]"),
-		tsObjectField("stateMachineEdges", "[]"),
-	}, "options")
-}
-
-func buildProjectStateSingleConfigCreateBodyTS() string {
-	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
-		tsObjectField("projectConfig", "createProjectConfig()"),
-		tsObjectField("sections", "{}"),
-		tsObjectField("sectionImpls", "{}"),
-		tsObjectField("sectionCapabilities", "{}"),
-		tsObjectField("sectionVariants", "{}"),
-		tsObjectField("codeObjs", "{}"),
-		tsObjectField("codeObjImpls", "{}"),
-		tsObjectField("codeObjVariants", "{}"),
-		tsObjectField("artifactGroups", "{}"),
-		tsObjectField("singletonSections", "createSingletonSections()"),
-		tsObjectField("parentSectionMap", "{}"),
-		tsObjectField("shownParamIds", "{}"),
-		tsObjectField("requiredDecodedImages", "[]"),
-		tsObjectField("genCodeBinding", "null"),
-		tsObjectField("projectChatWindowing", "createProjectChatWindowingState()"),
-	}, "options")
 }
 
 func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
@@ -3251,9 +3199,9 @@ func newTypeConverter() *typeConverter {
 				"SectionsClipboardDataResponse",
 				"SectionsClipboardData",
 			),
-			reflect.TypeOf(ProjectConfig{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(ProjectConfig{}): objectDeclarationWithGoBackedCreateExpr(
 				"ProjectConfig",
-				buildProjectConfigCreateBodyTS(),
+				projectview.FrontendDefaultProjectConfig(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "name", TypeExpr: "string"},
 				TypeProperty{Name: "showParamDisplayNames", TypeExpr: "boolean"},
@@ -3285,9 +3233,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "agenticEdges", TypeExpr: "Array<AgenticEdge>"},
 				TypeProperty{Name: "stateMachineEdges", TypeExpr: "Array<StateMachineEdge>"},
 			),
-			reflect.TypeOf(ProjectStateSingleConfig{}): objectDeclarationWithCreateBody(
+			reflect.TypeOf(ProjectStateSingleConfig{}): objectDeclarationWithGoBackedCreateExpr(
 				"ProjectStateSingleConfig",
-				buildProjectStateSingleConfigCreateBodyTS(),
+				projectview.FrontendDefaultSingleConfig(),
 				TypeProperty{Name: "projectConfig", TypeExpr: "ProjectConfig"},
 				TypeProperty{Name: "sections", TypeExpr: "Record<string, Core>"},
 				TypeProperty{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>"},

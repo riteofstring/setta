@@ -424,17 +424,18 @@ func TestProjectStateDeclarationsUseGoBackedCapabilityDefaults(t *testing.T) {
 	}
 
 	projectConfig := mustFindDeclarationByName(t, converter.Declarations(), "ProjectConfig")
-	if projectConfig.CreateExpr != "" {
-		t.Fatalf("ProjectConfig should use a structured create body, got create expr:\n%s", projectConfig.CreateExpr)
+	if projectConfig.CreateBody != "" {
+		t.Fatalf("ProjectConfig should use a Go-backed create expr, got create body:\n%s", projectConfig.CreateBody)
 	}
 	for _, snippet := range []string{
-		`runCapabilities: createProjectRunCapabilities(),`,
-		`watchCodeRegistry: {},`,
-		`windowSpaces: {},`,
+		`runCapabilities: {`,
+		`codegenTargets: [],`,
+		`watchCodeRegistry: {`,
+		`windowSpaces: {`,
 		`stateMachineEdges: [],`,
 	} {
-		if !strings.Contains(projectConfig.CreateBody, snippet) {
-			t.Fatalf("ProjectConfig create body missing %q:\n%s", snippet, projectConfig.CreateBody)
+		if !strings.Contains(projectConfig.CreateExpr, snippet) {
+			t.Fatalf("ProjectConfig create expr missing %q:\n%s", snippet, projectConfig.CreateExpr)
 		}
 	}
 
@@ -443,17 +444,17 @@ func TestProjectStateDeclarationsUseGoBackedCapabilityDefaults(t *testing.T) {
 		converter.Declarations(),
 		"ProjectStateSingleConfig",
 	)
-	if projectStateSingleConfig.CreateExpr != "" {
-		t.Fatalf("ProjectStateSingleConfig should use a structured create body, got create expr:\n%s", projectStateSingleConfig.CreateExpr)
+	if projectStateSingleConfig.CreateBody != "" {
+		t.Fatalf("ProjectStateSingleConfig should use a Go-backed create expr, got create body:\n%s", projectStateSingleConfig.CreateBody)
 	}
 	for _, snippet := range []string{
-		`projectConfig: createProjectConfig(),`,
-		`sectionCapabilities: {},`,
-		`singletonSections: createSingletonSections(),`,
-		`projectChatWindowing: createProjectChatWindowingState(),`,
+		`projectConfig: {`,
+		`sectionCapabilities: {`,
+		`singletonSections: {`,
+		`projectChatWindowing: {`,
 	} {
-		if !strings.Contains(projectStateSingleConfig.CreateBody, snippet) {
-			t.Fatalf("ProjectStateSingleConfig create body missing %q:\n%s", snippet, projectStateSingleConfig.CreateBody)
+		if !strings.Contains(projectStateSingleConfig.CreateExpr, snippet) {
+			t.Fatalf("ProjectStateSingleConfig create expr missing %q:\n%s", snippet, projectStateSingleConfig.CreateExpr)
 		}
 	}
 }
