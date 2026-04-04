@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 12:52 EDT
+Last updated: 2026-04-03 13:10 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,29 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `039` closed the deeper post-motion DOM body-editor lane with one targeted canary regression instead of another production patch.
+  - Process:
+    - the first fresh-context CDP sub-agent could not answer the lane because the old worktree `/settings` tab was on `Unable to load app` / `Failed to check server mode (network error)`, so the blocker was local lifecycle state rather than a renderer defect
+    - per loop recovery rules, the worktree lifecycle was restarted once with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - after the restart, the refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, and `setta status --connect-info --latest --json` returned a fresh bootstrap URL for the retried checks
+  - Fresh-context CDP verification after recovery:
+    - a new sub-agent bootstrapped fresh worktree and read-only `main` `/settings` sessions, normalized both to active `All Settings`, applied one shared `fit view`, and closed non-target chat chrome
+    - the shared body control `Density` behaved the same on both sides: its combobox focus opened the same vertical listbox on the worktree canary and legacy `main`
+    - result: no worktree-only body-editor handoff defect was isolated on the checked lane; remaining differences looked like oracle noise rather than renderer drift
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a body search input working after pan and zoom`
+    - the case normalizes `All Settings`, pans, zooms via the shared `zoom in` control, and verifies that a section-body search input can still focus and accept typing without flipping the enclosing canary section into drag state
+    - note: the first draft tried to drive a disabled density-widget shell inside `spreadsheetSectionDefault`; that timed out and was replaced with the editable body search input instead of treating the disabled shell as a product bug
+  - Verification:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a body search input working after pan and zoom'`
+      - result: passed (`1 passed`, about `15s`)
+      - note: the first direct run after CDP consumed an older bootstrap token failed in Playwright global setup with `401`; treat that as one-time bootstrap-token noise, not a reopened renderer issue
+    - fresh-context CDP sub-agent reran the normalized `All Settings` compare after the lifecycle recovery
+      - result: no worktree-only body-editor defect observed; the checked `Density` control opened equally on worktree and `main`
+  - conclusion for this slice:
+    - the deeper post-motion DOM body-editor lane is closed for the checked canary path
+    - do not spend another iteration on title/body editor handoff unless a fresh normalized CDP compare or the new direct live-runtime Playwright guard fails
+    - the next bounded frontier should move to the next remaining interaction or visual parity lane on normalized `All Settings`, not more editor-handoff churn
 - Ralph item `038` closed the post-motion title-edit handoff lane with a targeted test-only patch instead of another product change.
   - Root cause:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` still tried to prove the title-edit lane by zooming with a plain wheel gesture after pan

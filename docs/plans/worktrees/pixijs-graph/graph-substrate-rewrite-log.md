@@ -70,6 +70,38 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 039
+
+- Item: Close the deeper post-motion DOM body-editor lane on normalized `All Settings` and lock it down with one focused canary regression.
+- Status: `done`
+- Details:
+  - The first fresh-context CDP sub-agent could not answer the lane because the old worktree `/settings` tab was already dead on `Unable to load app` / `Failed to check server mode (network error)`.
+  - Per the loop recovery rules, the worktree lifecycle was restarted once with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`.
+  - After recovery, the refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077/`; `setta status --connect-info --latest --json` supplied a fresh bootstrap URL for the retried checks.
+  - A second fresh-context CDP sub-agent then bootstrapped fresh worktree and read-only `main` `/settings` sessions, normalized both to active `All Settings`, applied one shared `fit view`, and removed non-target chat chrome.
+  - That CDP compare did not isolate a worktree-only body-editor defect:
+    - the shared `Density` body control opened the same vertical listbox on both worktree and `main`
+    - the remaining page-local differences looked like oracle noise rather than graph-surface drift
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a body search input working after pan and zoom`, which normalizes `All Settings`, pans, zooms via the shared `zoom in` control, and verifies a section-body search input can still focus and accept typing without putting the canary section into drag state.
+  - The first draft of that test tried to drive a disabled density-widget shell inside `spreadsheetSectionDefault`; it timed out and was replaced with the editable body search input instead of treating the disabled shell as a product bug.
+- Verification:
+  - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a body search input working after pan and zoom'`
+    - result: passed (`1 passed`, about `15s`)
+    - note: the first direct run after CDP used an already-consumed bootstrap token and failed in Playwright global setup with `401`; treat that as one-time token noise, not as a renderer regression
+  - CDP visual check
+    - result: done
+    - note:
+      - after lifecycle recovery, fresh-context CDP bootstrapped new worktree and `main` sessions on `/settings`
+      - both sides were normalized to `All Settings` with one shared `fit view`
+      - the checked shared `Density` control behaved the same on worktree and `main`
+- Conclusion:
+  - the deeper post-motion DOM body-editor lane is closed for the checked canary path
+  - do not reopen this editor-handoff lane unless the new direct live-runtime Playwright guard or a fresh normalized CDP compare fails
+- Next action:
+  - move to the next distinct normalized `All Settings` interaction or visual parity lane instead of spending another iteration on title/body editor handoff
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 037
 
 - Item: Close the normalized shared-section `All Settings` pan/drag compare lane or isolate the first remaining canary-only motion artifact.

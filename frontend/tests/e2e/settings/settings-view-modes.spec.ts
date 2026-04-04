@@ -930,6 +930,118 @@ test("settings graph substrate canary keeps title editing working after pan and 
   }
 });
 
+test("settings graph substrate canary keeps a body search input working after pan and zoom", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const canarySections = page.getByTestId("graph-substrate-canary-section");
+    await expect(canaryPane).toBeVisible();
+    await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+
+    const searchableSection = canarySections
+      .filter({ hasText: "spreadsheetSectionDefault" })
+      .first();
+    await expect(searchableSection).toBeVisible();
+    const sectionSearchInput = searchableSection.getByPlaceholder("⌘ + K");
+    await expect(sectionSearchInput).toBeVisible();
+    await expect(searchableSection).toHaveAttribute("data-dragging", "false");
+
+    const initialScale = await getCanaryViewportScale(page);
+    const initialBox = await searchableSection.boundingBox();
+    if (!initialBox) {
+      throw new Error("Missing canary bounds for body search test.");
+    }
+
+    const panStart = await findCanaryPanePoint(page);
+    await page.mouse.move(panStart.x, panStart.y);
+    await page.mouse.down();
+    await page.mouse.move(panStart.x + 120, panStart.y + 80, { steps: 10 });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const movedBox = await searchableSection.boundingBox();
+        if (!movedBox) {
+          return 0;
+        }
+        return Math.hypot(movedBox.x - initialBox.x, movedBox.y - initialBox.y);
+      })
+      .toBeGreaterThan(60);
+
+    await page.getByRole("button", { name: "zoom in" }).click();
+    await expect
+      .poll(() => getCanaryViewportScale(page))
+      .toBeGreaterThan(initialScale * 1.08);
+
+    // The canary must preserve body-input focus and typing handoff
+    // after custom viewport motion.
+    await sectionSearchInput.click();
+    await expect(sectionSearchInput).toBeFocused();
+    await sectionSearchInput.fill("density");
+    await expect(sectionSearchInput).toHaveValue("density");
+    await expect(searchableSection).toHaveAttribute("data-dragging", "false");
+    await sectionSearchInput.fill("");
+    await expect(sectionSearchInput).toHaveValue("");
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings view modes keep visible sections when layout payload is partial", async ({
   page,
 }) => {
