@@ -14,6 +14,7 @@ import {
   useAppDefinition,
   useProjectState,
 } from "state/definitions";
+import { createDefaultAppPolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_check_if_file_exists,
@@ -24,32 +25,15 @@ import type {
   CheckIfFileExistsResponse,
   DeploymentMetadata,
   PublishAppDeploymentRequestInput,
-  SharePolicy,
+  RunSnapshotMode,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 type AppPolicyOverridesInput = NonNullable<
   PublishAppDeploymentRequestInput["appPolicyOverrides"]
 >;
-type RunSnapshotMode = SharePolicy["runSnapshotMode"];
 type CheckIfFileExistsRouteResponse =
   ResponseDataAndStatus<CheckIfFileExistsResponse>;
-
-const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
-
-function createDefaultPolicyOverrides(): AppPolicyOverridesInput {
-  return {
-    allowParamChanges: true,
-    allowVariantChanges: false,
-    allowLayoutChanges: false,
-    allowRun: true,
-    allowLLM: false,
-    allowExternalLinks: false,
-    allowFileDownloads: false,
-    allowMultipleRuns: true,
-    runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
-  };
-}
 
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
@@ -105,7 +89,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   const appSpec = useAppDefinition((x) => x.appSpec);
   const appDefinition = useAppDefinition((x) => x.appDefinition);
   const [policyOverrides, setPolicyOverrides] =
-    useState<AppPolicyOverridesInput>(createDefaultPolicyOverrides);
+    useState<AppPolicyOverridesInput>(createDefaultAppPolicy);
   const [listenerEntrypoint, setListenerEntrypoint] = useState(
     loadStoredListenerEntrypoint,
   );
@@ -162,7 +146,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
   }
 
   function resetForm(): void {
-    setPolicyOverrides(createDefaultPolicyOverrides());
+    setPolicyOverrides(createDefaultAppPolicy());
     setListenerEntrypoint(loadStoredListenerEntrypoint());
     setListenerEnabled(true);
     setDeploymentName(createDefaultDeploymentName());
@@ -357,7 +341,7 @@ export function PublishAppDeploymentModal({ open }: { open: boolean }) {
           <SelectRow
             label="Run snapshot mode"
             description="How run output should be stored."
-            value={policyOverrides.runSnapshotMode ?? DEFAULT_RUN_SNAPSHOT_MODE}
+            value={policyOverrides.runSnapshotMode}
             options={[
               { value: "ephemeral", label: "ephemeral" },
               { value: "always", label: "always" },

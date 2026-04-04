@@ -14,6 +14,7 @@ import {
 } from "state/actions/app";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { useAppConfigs, useShareSession } from "state/definitions";
+import { resolveAppPolicy } from "utils/deploymentPolicies";
 import { res200 } from "utils/endpointUtils";
 import {
   route_get_attachment_download_url,
@@ -181,25 +182,6 @@ function normalizeAppSpec(
   return null;
 }
 
-function resolvePolicyOverrides(
-  appPolicy: SharePolicy | null | undefined,
-): SharePolicy {
-  if (appPolicy) {
-    return appPolicy;
-  }
-  return {
-    allowParamChanges: true,
-    allowVariantChanges: false,
-    allowLayoutChanges: false,
-    allowRun: true,
-    allowLLM: false,
-    allowExternalLinks: false,
-    allowFileDownloads: false,
-    allowMultipleRuns: true,
-    runSnapshotMode: "ephemeral",
-  };
-}
-
 export function AppRenderer({
   appSpec,
   appDefinition,
@@ -210,7 +192,7 @@ export function AppRenderer({
   const fallbackConfigId = defaultConfigId ?? null;
   const sharePolicy = useShareSession((x) => x.sharePolicy);
   const shareSessionId = useShareSession((x) => x.shareSessionId);
-  const resolvedPolicy = resolvePolicyOverrides(appPolicy ?? sharePolicy);
+  const resolvedPolicy = resolveAppPolicy(appPolicy ?? sharePolicy);
   const resolvedTheme = useMemo(
     () => resolveAppTheme(appDefinition?.theme),
     [appDefinition?.theme],

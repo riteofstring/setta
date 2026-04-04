@@ -6,6 +6,7 @@ import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { buildSharePath } from "utils/constants";
+import { createDefaultSharePolicy } from "utils/deploymentPolicies";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_check_if_file_exists,
@@ -16,32 +17,15 @@ import type {
   CheckIfFileExistsResponse,
   DeploymentMetadata,
   PublishShareDeploymentRequestInput,
-  SharePolicy,
+  RunSnapshotMode,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 type SharePolicyOverridesInput = NonNullable<
   PublishShareDeploymentRequestInput["sharePolicyOverrides"]
 >;
-type RunSnapshotMode = SharePolicy["runSnapshotMode"];
 type CheckIfFileExistsRouteResponse =
   ResponseDataAndStatus<CheckIfFileExistsResponse>;
-
-const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
-
-function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
-  return {
-    allowParamChanges: true,
-    allowVariantChanges: true,
-    allowLayoutChanges: true,
-    allowRun: false,
-    allowLLM: false,
-    allowExternalLinks: false,
-    allowFileDownloads: false,
-    allowMultipleRuns: true,
-    runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
-  };
-}
 
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
@@ -69,7 +53,7 @@ function storeListenerEntrypoint(value: string): void {
 export function PublishShareDeploymentModal({ open }: { open: boolean }) {
   const projectConfig = useProjectState((x) => x.projectConfig);
   const [policyOverrides, setPolicyOverrides] =
-    useState<SharePolicyOverridesInput>(createDefaultPolicyOverrides);
+    useState<SharePolicyOverridesInput>(createDefaultSharePolicy);
   const [listenerEntrypoint, setListenerEntrypoint] = useState(
     loadStoredListenerEntrypoint,
   );
@@ -133,7 +117,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
   }
 
   function resetForm(): void {
-    setPolicyOverrides(createDefaultPolicyOverrides());
+    setPolicyOverrides(createDefaultSharePolicy());
     setListenerEntrypoint(loadStoredListenerEntrypoint());
     setListenerEnabled(true);
     setDeploymentName(createDefaultDeploymentName());
@@ -285,7 +269,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
           <SelectRow
             label="Run snapshot mode"
             description="How run output should be stored."
-            value={policyOverrides.runSnapshotMode ?? DEFAULT_RUN_SNAPSHOT_MODE}
+            value={policyOverrides.runSnapshotMode}
             options={[
               { value: "ephemeral", label: "ephemeral" },
               { value: "always", label: "always" },
