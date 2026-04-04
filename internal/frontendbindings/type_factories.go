@@ -81,6 +81,8 @@ type generatedCompositeCreateClonedFieldSpec struct {
 	Nullable bool
 }
 
+type generatedFactoryPropertyExprBuilder func(defaultsExpr string) string
+
 type generatedCompositeCreateMapFieldSpec struct {
 	Name       string
 	KeyName    string
@@ -649,38 +651,6 @@ func buildTaskBoardOverridesPreludeTS() string {
 	return builder.String()
 }
 
-func generatedSectionTypeSetContains(setName string, sectionName string) bool {
-	member := "SectionTypeEnum." + sectionName
-	for _, spec := range projectStateTypeGuardTypeSets {
-		if spec.Name != setName {
-			continue
-		}
-		for _, candidate := range spec.Members {
-			if candidate == member {
-				return true
-			}
-		}
-		return false
-	}
-	return false
-}
-
-func generatedCodeObjTypeSetContains(setName string, codeObjName string) bool {
-	member := "CodeObjTypeEnum." + codeObjName
-	for _, spec := range projectStateTypeGuardTypeSets {
-		if spec.Name != setName {
-			continue
-		}
-		for _, candidate := range spec.Members {
-			if candidate == member {
-				return true
-			}
-		}
-		return false
-	}
-	return false
-}
-
 func generatedSectionImplName(t reflect.Type) (string, bool) {
 	if t == nil || t.Kind() != reflect.Struct {
 		return "", false
@@ -721,66 +691,139 @@ func generatedSectionImplDefaultTypeName(sectionName string) string {
 	return "UserDefault" + sectionName + "SectionImpl"
 }
 
-func generatedSectionImplFactoryUsesDirectDefaults(sectionName string) bool {
-	return sectionName == "Dict"
-}
-
-func generatedSectionImplFactoryOverridesExpr(sectionName string) string {
-	if sectionName == "TaskBoard" {
-		return "normalizedOverrides"
-	}
-	return "resolved.overrides"
-}
-
-func generatedSectionImplFactoryPreludeTS(sectionName string) string {
-	if sectionName == "TaskBoard" {
-		return buildTaskBoardOverridesPreludeTS()
-	}
-	return ""
-}
-
-func generatedSectionImplFactoryEntries(sectionName string, defaultsExpr string) []string {
-	entries := []string{
-		"..." + defaultsExpr,
-		"type: " + generatedSectionImplTypeExpr(sectionName),
-		`id: ""`,
-		`name: ""`,
-		"isInOtherProjectConfigs: false",
-		"aspectRatioExtraHeight: 0",
-		"aspectRatioExtraWidth: 0",
-		"isPreset: false",
-	}
-	if generatedSectionTypeSetContains("BaseSectionWithParamsImplTypeSet", sectionName) {
-		entries = append(
-			entries,
-			"codeObjVariantMap: {}",
-			"pinnedParams: []",
-			"selectedParams: []",
-			`ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      }`,
+func generatedOrdinaryFactoryEntries(
+	properties []TypeProperty,
+	defaults map[string]any,
+	defaultsExpr string,
+	userDefaultPropertyNames map[string]struct{},
+	exprOverrides map[string]generatedFactoryPropertyExprBuilder,
+) []string {
+	entries := make([]string, 0, len(properties))
+	for _, property := range properties {
+		expr := generatedOrdinaryFactoryPropertyExpr(
+			property,
+			defaults,
+			defaultsExpr,
+			userDefaultPropertyNames,
+			exprOverrides,
 		)
-	}
-	if generatedSectionTypeSetContains("BaseParentSectionImplTypeSet", sectionName) {
-		entries = append(entries, "children: []")
-	}
-	switch sectionName {
-	case "Callable":
-		entries = append(entries, "callable: null")
-	case "Dict":
-		entries = append(entries, "topLevelParamId: null", "jsonSourceMissing: false")
-	case "Prompt":
-		entries = append(entries, "promptTemplateId: null")
-	case "TaskBoard":
-		entries = append(
-			entries,
-			`columns: `+defaultsExpr+`.columns === null || `+defaultsExpr+`.columns === undefined
-        ? []
-        : cloneGeneratedValue(`+defaultsExpr+`.columns)`,
-		)
+		entries = append(entries, property.Name+": "+expr)
 	}
 	return entries
+}
+
+func generatedOrdinaryFactoryPropertyExpr(
+	property TypeProperty,
+	defaults map[string]any,
+	defaultsExpr string,
+	userDefaultPropertyNames map[string]struct{},
+	exprOverrides map[string]generatedFactoryPropertyExprBuilder,
+) string {
+	if builder, ok := exprOverrides[property.Name]; ok {
+		return builder(defaultsExpr)
+	}
+	if _, ok := userDefaultPropertyNames[property.Name]; ok {
+		return defaultsExpr + "." + property.Name
+	}
+	if value, ok := defaults[property.Name]; ok {
+		return renderTSLiteralExpr(value)
+	}
+	if fallback, ok := generatedOrdinaryFactoryFallbackExpr(property); ok {
+		return fallback
+	}
+	panic(
+		fmt.Sprintf(
+			"missing generated factory default for %s (%s)",
+			property.Name,
+			property.TypeExpr,
+		),
+	)
+}
+
+func generatedOrdinaryFactoryFallbackExpr(property TypeProperty) (string, bool) {
+	switch {
+	case property.TypeExpr == "string":
+		return `""`, true
+	case property.TypeExpr == "boolean":
+		return "false", true
+	case property.TypeExpr == "number":
+		return "0", true
+	case strings.Contains(property.TypeExpr, " | null"):
+		return "null", true
+	case strings.HasPrefix(property.TypeExpr, "Array<"):
+		return "[]", true
+	case strings.HasPrefix(property.TypeExpr, "Record<"):
+		return "{}", true
+	default:
+		return "", false
+	}
+}
+
+func mustGeneratedSectionImplFactoryProperties(t reflect.Type) []TypeProperty {
+	properties, err := generatedUserDefaultReflectedProperties(t)
+	if err != nil {
+		panic("load generated section impl properties: " + err.Error())
+	}
+	return properties
+}
+
+func generatedSectionImplFactoryDefaultValues(sectionName string) map[string]any {
+	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName)
+	if err != nil {
+		panic("load generated section factory defaults: " + err.Error())
+	}
+	return defaults
+}
+
+func generatedSectionImplFactoryUserDefaultPropertyNames(sectionName string) map[string]struct{} {
+	properties, err := generatedUserDefaultSectionProperties(sectionName)
+	if err != nil {
+		panic("load generated user default section properties: " + err.Error())
+	}
+	return generatedPropertyNameSet(properties)
+}
+
+func generatedSectionImplFactoryExprOverrides(
+	sectionName string,
+) map[string]generatedFactoryPropertyExprBuilder {
+	overrides := map[string]generatedFactoryPropertyExprBuilder{
+		"type": func(string) string {
+			return generatedSectionImplTypeExpr(sectionName)
+		},
+	}
+	switch sectionName {
+	case "TaskBoard":
+		overrides["columns"] = func(defaultsExpr string) string {
+			return defaultsExpr + `.columns === null || ` + defaultsExpr + `.columns === undefined
+        ? []
+        : cloneGeneratedValue(` + defaultsExpr + `.columns)`
+		}
+	}
+	return overrides
+}
+
+func generatedSectionImplFactoryOptions(
+	sectionName string,
+) (useDirectDefaults bool, defaultsExpr string, overridesExpr string, prelude string) {
+	if sectionName == "Dict" {
+		return true, "defaults", "overrides", ""
+	}
+	overridesExpr = "resolved.overrides"
+	if sectionName == "TaskBoard" {
+		overridesExpr = "normalizedOverrides"
+		prelude = buildTaskBoardOverridesPreludeTS()
+	}
+	return false, "resolved.defaults", overridesExpr, prelude
+}
+
+func generatedSectionImplFactoryEntries(t reflect.Type, sectionName string, defaultsExpr string) []string {
+	return generatedOrdinaryFactoryEntries(
+		mustGeneratedSectionImplFactoryProperties(t),
+		generatedSectionImplFactoryDefaultValues(sectionName),
+		defaultsExpr,
+		generatedSectionImplFactoryUserDefaultPropertyNames(sectionName),
+		generatedSectionImplFactoryExprOverrides(sectionName),
+	)
 }
 
 func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bool) {
@@ -791,13 +834,15 @@ func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bo
 	implType := t.Name()
 	defaultType := generatedSectionImplDefaultTypeName(sectionName)
 	name := "create" + implType
+	useDirectDefaults, defaultsExpr, overridesExpr, prelude := generatedSectionImplFactoryOptions(sectionName)
+	entries := generatedSectionImplFactoryEntries(t, sectionName, defaultsExpr)
 
-	if generatedSectionImplFactoryUsesDirectDefaults(sectionName) {
+	if useDirectDefaults {
 		return exportedFunctionDeclaration(
 			name,
 			implType,
 			buildDirectGeneratedFactoryBodyTS(
-				generatedSectionImplFactoryEntries(sectionName, "defaults"),
+				entries,
 				"overrides",
 				"",
 			),
@@ -812,32 +857,35 @@ func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bo
 		buildResolvedGeneratedFactoryBodyTS(
 			defaultType,
 			implType,
-			generatedSectionImplFactoryEntries(sectionName, "resolved.defaults"),
-			generatedSectionImplFactoryPreludeTS(sectionName),
-			generatedSectionImplFactoryOverridesExpr(sectionName),
+			entries,
+			prelude,
+			overridesExpr,
 		),
 		defaultsOrOverridesTypeProperty(defaultType, implType),
 		optionalOverrideTypeProperty(implType),
 	), true
 }
 
-func generatedCodeParamCodeObjFactoryEntries() []string {
-	properties, err := generatedUserDefaultCodeParamCodeObjProperties()
+func generatedCodeParamCodeObjFactoryEntries(defaultsExpr string) []string {
+	userDefaultProperties, err := generatedUserDefaultCodeParamCodeObjProperties()
 	if err != nil {
 		panic("load generated user default code param properties: " + err.Error())
 	}
-	entries := []string{
-		"type: CodeObjTypeEnum.CodeParam",
-		`id: ""`,
-		`name: ""`,
-		`description: ""`,
-		"isPreset: false",
-		"passingStyle: ParameterPassingStyleEnum.DEFAULT",
+	properties, err := generatedUserDefaultReflectedProperties(reflect.TypeOf(CodeParamCodeObjImpl{}))
+	if err != nil {
+		panic("load generated code param impl properties: " + err.Error())
 	}
-	for _, property := range properties {
-		entries = append(entries, property.Name+": resolved.defaults."+property.Name)
-	}
-	return entries
+	return generatedOrdinaryFactoryEntries(
+		properties,
+		projectstate.FrontendDefaultCodeParamCodeObjImpl(),
+		defaultsExpr,
+		generatedPropertyNameSet(userDefaultProperties),
+		map[string]generatedFactoryPropertyExprBuilder{
+			"type": func(string) string {
+				return "CodeObjTypeEnum.CodeParam"
+			},
+		},
+	)
 }
 
 func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
@@ -847,7 +895,7 @@ func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
 		buildResolvedGeneratedFactoryBodyTS(
 			"UserDefaultCodeParamCodeObjImpl",
 			"CodeParamCodeObjImpl",
-			generatedCodeParamCodeObjFactoryEntries(),
+			generatedCodeParamCodeObjFactoryEntries("resolved.defaults"),
 			"",
 			"",
 		),

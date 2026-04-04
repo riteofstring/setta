@@ -1235,6 +1235,68 @@ func TestUserDefaultSectionCreateExprsUseGoOwnedSectionDefaults(t *testing.T) {
 	}
 }
 
+func TestOrdinaryImplFactoriesUseReflectedPropertiesAndGoOwnedDefaults(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, root := range []reflect.Type{
+		reflect.TypeOf(ChatSectionImpl{}),
+		reflect.TypeOf(DictSectionImpl{}),
+		reflect.TypeOf(TaskBoardSectionImpl{}),
+		reflect.TypeOf(CodeParamCodeObjImpl{}),
+	} {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+	}
+
+	chatFactory := mustFindDeclarationByName(t, converter.Declarations(), "createChatSectionImpl")
+	if strings.Contains(chatFactory.FunctionBody, "...resolved.defaults,") {
+		t.Fatalf("chat factory still spreads defaults instead of reflecting explicit properties:\n%s", chatFactory.FunctionBody)
+	}
+	for _, snippet := range []string{
+		`isFrozen: resolved.defaults.isFrozen,`,
+		`toolCallArguments: resolved.defaults.toolCallArguments,`,
+		`branches: resolved.defaults.branches,`,
+	} {
+		if !strings.Contains(chatFactory.FunctionBody, snippet) {
+			t.Fatalf("chat factory missing reflected Go-backed property %q:\n%s", snippet, chatFactory.FunctionBody)
+		}
+	}
+
+	dictFactory := mustFindDeclarationByName(t, converter.Declarations(), "createDictSectionImpl")
+	if strings.Contains(dictFactory.FunctionBody, "...defaults,") {
+		t.Fatalf("dict factory still spreads defaults instead of reflecting explicit properties:\n%s", dictFactory.FunctionBody)
+	}
+	for _, snippet := range []string{
+		`codeObjVariantMap: {`,
+		`isJsonSource: defaults.isJsonSource,`,
+		`jsonSourceMissing: false,`,
+	} {
+		if !strings.Contains(dictFactory.FunctionBody, snippet) {
+			t.Fatalf("dict factory missing Go-backed/default-derived property %q:\n%s", snippet, dictFactory.FunctionBody)
+		}
+	}
+
+	taskBoardFactory := mustFindDeclarationByName(t, converter.Declarations(), "createTaskBoardSectionImpl")
+	for _, snippet := range []string{
+		`resolved.defaults.columns === null ||`,
+		`tasks: resolved.defaults.tasks,`,
+	} {
+		if !strings.Contains(taskBoardFactory.FunctionBody, snippet) {
+			t.Fatalf("task board factory missing reflected/default hook %q:\n%s", snippet, taskBoardFactory.FunctionBody)
+		}
+	}
+
+	codeParamFactory := mustFindDeclarationByName(t, converter.Declarations(), "createCodeParamCodeObjImpl")
+	if strings.Contains(codeParamFactory.FunctionBody, "ParameterPassingStyleEnum.DEFAULT") {
+		t.Fatalf("code param factory still embeds handwritten passing style enum ref:\n%s", codeParamFactory.FunctionBody)
+	}
+	if !strings.Contains(codeParamFactory.FunctionBody, `passingStyle: "DEFAULT",`) {
+		t.Fatalf("code param factory missing Go-backed passing style default:\n%s", codeParamFactory.FunctionBody)
+	}
+}
+
 func TestClipboardDefaultsUseGoOwnedValues(t *testing.T) {
 	t.Helper()
 
