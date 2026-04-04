@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 11:35 EDT
+Last updated: 2026-04-03 12:26 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,52 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `036` closed the temp-workspace `Ctrl+Shift+3` canvas-focus mismatch on the canary path.
+  - Root cause:
+    - `movePaneToIncludeElement(...)` still preferred any populated `d3Zoom` / `d3Selection` pair, even when the live surface had already switched to the custom canary viewport controller and the old React Flow pane selection was stale
+    - on the canary path that meant focus could return to the correct stored section while viewport motion still targeted the wrong owner, leaving the section offscreen
+  - Production change:
+    - `frontend/src/forks/xyflow/core/utils/graph.ts` now computes focus-pan inclusion from the full element screen rect instead of a single point, so the restored target is brought visibly back into the canvas lane instead of only nudging an anchor point
+    - the same helper now ignores stale/disconnected `d3` viewport state and falls back to the live `viewportController` when the active pane owner is the canary surface
+  - Focused automation now locks the lane down:
+    - `frontend/src/forks/xyflow/core/utils/graph.test.ts` covers both the rect-based controller translation and the stale-`d3` fallback
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now explicitly stores a deterministic canary target, moves focus out of the canvas, invokes `Ctrl+Shift+3`, and asserts both target-section focus restoration and visible in-pane recovery
+  - Targeted verification in this iteration:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`25 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+      - result: passed (`1 passed`, about `27s`)
+  - fresh-context CDP verification is usable again in this loop:
+    - a fresh-context sub-agent opened new DevTools tabs on worktree and read-only `main`, normalized both to `/settings` + `All Settings`, exercised `Ctrl+Shift+3`, and confirmed the target graph content stayed in-frame instead of remaining offscreen
+    - remaining differences were limited to oracle-noise classes such as small pan/zoom or minimap-thumbnail variance, not the checked shortcut-restore behavior
+  - conclusion for this slice:
+    - the canvas-focus shortcut lane is closed for the checked `All Settings` canary path
+    - do not spend another iteration on this shortcut unless a fresh normalized Playwright or CDP compare shows the target section going offscreen again
+- Ralph item `035` did not land a code patch; it narrowed the canvas-focus shortcut blocker and left the worktree clean for the next iteration.
+  - in that iteration, fresh-context CDP sub-agents were not usable: both returned without `chrome-devtools-mcp` access even though the worktree runtime and Chrome debug endpoint were live
+  - main-context CDP fallback was usable and changed the interpretation of the stale live-tab evidence:
+    - normalized live worktree `/settings` to active `All Settings` with `viewport: null`
+    - pre-shortcut canary transform: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - after `Ctrl+Shift+3`, the active canvas target became the `shortcuts` section and the canary transform moved to `matrix(0.1, 0, 0, 0.1, 779.9, 10)`
+    - this means the live shortcut is restoring the stored canvas focus target, not blindly the first section
+  - a tighter Playwright variant then exposed the unresolved blocker on the temp-workspace path:
+    - explicitly focus a deterministic canary section
+    - seed an offscreen viewport for that same target
+    - wait for the offscreen viewport to settle
+    - press `Ctrl+Shift+3`
+    - result: the target section id regains focus, but the target still does not return into the visible canary pane within the test timeout
+  - multiple production hypotheses were tried and reverted in this iteration:
+    - panning the canvas focus path to the enclosing section shell instead of the nested focused control
+    - translating the no-`d3` viewport-controller fallback in screen space instead of world space
+    - neither cleared the focused Playwright failure, so no production change was kept
+  - targeted verification in this iteration:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts`
+      - result: passed while the experimental no-`d3` translation patch was under test, but that patch was reverted after the E2E still failed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+      - result: failed repeatedly once the oracle was tightened to a deterministic offscreen focus target
+  - conclusion for this slice:
+    - the current blocker is no longer stale-tab oracle ambiguity
+    - the next iteration should treat the temp-workspace `Ctrl+Shift+3` focus-pan mismatch as the active product frontier and instrument it directly instead of trying more speculative pan-target math
 - Ralph item `034` landed the canary canvas-focus wiring slice, but it did not fully close the live visual gate.
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now participates in the shared canvas focus scope via `useTabScope(...)` and `data-tab-scope="canvas"`.
   - `frontend/src/forks/xyflow/core/utils/graph.ts` `movePaneToIncludeElement(...)` now falls back to the canary `viewportController.setViewport(...)` path when the legacy `d3Zoom` viewport is absent.
@@ -528,15 +574,22 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- The dynamic Gate 1 / Gate 2 lane is no longer blocked on a human replan.
-- Use the graph-surface-only oracle strategy for the next live compare:
+- The next bounded slice should leave the canvas-focus shortcut lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
+- Use the same graph-surface-only normalization on worktree and read-only `main`:
   - close or minimize non-target pane/chat chrome
-  - normalize both sides to `All Settings`
+  - normalize to active `All Settings`
   - clear viewport to `null`
   - trigger one shared `fit view`
-  - ignore overview ordering, whole-page scroll, and other non-target workspace chrome while judging renderer drift
-- The next bounded slice should run a short pan or drag compare on one shared named section and compare graph-surface metrics only.
-- If that slice still sees only oracle-noise diffs, record them and continue with `SUBTASK_DONE`; do not stop the loop with `REPLAN_REQUIRED` again unless no bounded graph-surface oracle step remains.
+- Prefer one short shared dynamic action on the normalized graph surface, such as:
+  - a small drag-pan pulse
+  - one short top-level section drag
+  - one zoom step if a fresh compare shows canary-only blur/snap/chrome motion
+- Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
+- Keep using the graph-surface-only normalization when you need live CDP context:
+  - close or minimize non-target pane/chat chrome
+  - normalize to `All Settings`
+  - clear viewport to `null`
+  - trigger one shared `fit view`
 - The `UIPage` seam-lift lane is complete:
   - `UIPage` is now the first real implementation selector between legacy `xyflow` and the new custom substrate canary
   - do not spend another iteration pushing this seam through more pure-forwarding layers
@@ -595,6 +648,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `029`
-- Latest item: `2026-04-03 029`
+- Active history window: items `001` through `036`
+- Latest item: `2026-04-03 036`
 - Older history archives: none yet

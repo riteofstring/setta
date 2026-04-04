@@ -119,14 +119,27 @@ describe("movePaneToIncludeElement", () => {
 
   it("delegates focus panning to the custom viewport controller when d3 is absent", () => {
     const setViewportSpy = vi.fn();
+    const domNode = {
+      getBoundingClientRect: () => ({
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: 1000,
+        bottom: 800,
+        width: 1000,
+        height: 800,
+        toJSON: () => "",
+      }),
+    } as HTMLDivElement;
 
     useReactFlow.setState({
       ...initialReactFlowState,
       d3Selection: null,
       d3Zoom: null,
-      domNode: null,
+      domNode,
       height: 800,
-      transform: [0, 0, 2],
+      transform: [0, 0, 0.1],
       viewportController: {
         zoomBy: vi.fn(),
         zoomTo: vi.fn(),
@@ -139,16 +152,57 @@ describe("movePaneToIncludeElement", () => {
 
     movePaneToIncludeElement(
       createSectionElement({
-        x: 450,
-        y: 350,
-        width: 120,
-        height: 80,
+        x: -340,
+        y: -260,
+        width: 200,
+        height: 160,
       }),
     );
 
     expect(setViewportSpy).toHaveBeenCalledWith({
-      x: -100,
-      y: -100,
+      x: 440,
+      y: 360,
+    });
+  });
+
+  it("ignores stale d3 viewport state when the pane is no longer inside the live dom node", () => {
+    const setViewportSpy = vi.fn();
+    const translateBySpy = vi.fn();
+
+    useReactFlow.setState({
+      ...initialReactFlowState,
+      d3Selection: {
+        node: () => null,
+      } as never,
+      d3Zoom: {
+        translateBy: translateBySpy,
+      } as never,
+      domNode: null,
+      height: 800,
+      transform: [0, 0, 0.1],
+      viewportController: {
+        zoomBy: vi.fn(),
+        zoomTo: vi.fn(),
+        setViewport: setViewportSpy,
+        setCenter: vi.fn(),
+        fitView: vi.fn(() => true),
+      },
+      width: 1000,
+    });
+
+    movePaneToIncludeElement(
+      createSectionElement({
+        x: -340,
+        y: -260,
+        width: 200,
+        height: 160,
+      }),
+    );
+
+    expect(translateBySpy).not.toHaveBeenCalled();
+    expect(setViewportSpy).toHaveBeenCalledWith({
+      x: 440,
+      y: 360,
     });
   });
 });

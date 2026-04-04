@@ -70,6 +70,90 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 036
+
+- Item: Fix the canary `Ctrl+Shift+3` focus-restore path so an offscreen stored section comes back into the visible canvas lane.
+- Status: `done`
+- Details:
+  - The tighter temp-workspace Playwright probe confirmed the active blocker was a real product bug, not stale oracle noise:
+    - explicitly focus a deterministic canary section
+    - seed an offscreen viewport for that same target
+    - move focus out of the canvas
+    - press `Ctrl+Shift+3`
+    - before the fix, the target section regained focus but the canary viewport stayed offscreen
+  - Root cause:
+    - `frontend/src/forks/xyflow/core/utils/graph.ts` `movePaneToIncludeElement(...)` still trusted any populated `d3Zoom` / `d3Selection` pair even after the live surface had switched to the custom canary viewport owner
+    - on the canary path this stale legacy pane state swallowed the focus-pan request, so the correct stored section could refocus without moving the actual canary viewport
+    - the helper also only translated a single point instead of the full element rect, which was too weak for the tightened visible-recovery assertion
+  - Production fix:
+    - `movePaneToIncludeElement(...)` now computes inclusion from the full element screen rect and translates in screen space when using the live viewport owner
+    - the helper now ignores stale/disconnected `d3` viewport targets and falls back to the active `viewportController` instead of sending focus-pan movement to a dead React Flow pane
+  - Focused tests now lock the lane down:
+    - `frontend/src/forks/xyflow/core/utils/graph.test.ts` covers the rect-based controller translation and the stale-`d3` fallback
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now stores a deterministic target section, moves focus outside the canvas, invokes `Ctrl+Shift+3`, and asserts both target focus restoration and visible in-pane recovery
+- Verification:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`25 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+    - result: passed (`1 passed`, about `27s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent opened new DevTools tabs on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - both sides were checked on `All Settings`
+      - after `Ctrl+Shift+3`, the target graph section stayed visible in-frame instead of remaining offscreen
+      - remaining differences were limited to small pan/zoom or minimap-thumbnail oracle noise, not the checked shortcut-restore behavior
+- Conclusion:
+  - the canvas-focus shortcut lane is closed for the checked `All Settings` canary path
+  - do not reopen this lane unless a fresh normalized Playwright or CDP compare shows the stored section returning offscreen again
+- Next action:
+  - resume the broader normalized dynamic Gate 1 / Gate 2 compare on `All Settings` and isolate the first remaining canary-only pan/drag/zoom artifact
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 035
+
+- Item: Re-run the `Ctrl+Shift+3` canary focus-shortcut lane on a trustworthy live/offscreen target and determine whether the remaining mismatch is product behavior or oracle noise.
+- Status: `blocked`
+- Details:
+  - Fresh-context CDP sub-agents were still unusable in this loop even though the worktree runtime and debug Chrome endpoint were live:
+    - both sub-agents returned without `chrome-devtools-mcp` access
+    - `pnpm -C frontend cdp-port` returned `9298`
+    - `curl http://127.0.0.1:9297/json/version` still returned a live headless Chrome endpoint
+  - Main-context CDP fallback was available and changed the interpretation of the stale live-tab evidence:
+    - fresh bootstrap to worktree `/settings`
+    - normalize to active `All Settings`
+    - clear viewport to `null`
+    - pre-shortcut transform: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - after `Ctrl+Shift+3`, the active canvas target became the `shortcuts` section and the canary transform moved to `matrix(0.1, 0, 0, 0.1, 779.9, 10)`
+    - this indicates the live shortcut restores the stored canvas focus target; it is not simply a “first section” shortcut
+  - A tighter temp-workspace Playwright probe then exposed the unresolved blocker:
+    - explicitly focus a deterministic canary section
+    - seed an offscreen viewport for that same target
+    - wait for the offscreen viewport to settle
+    - press `Ctrl+Shift+3`
+    - result: the target section id regains focus, but the target still does not return into the visible canary pane within the timeout
+  - Experimental production changes were tried and reverted in the same iteration because they did not clear the focused failure:
+    - pan to the enclosing section shell instead of the nested focused control
+    - translate the no-`d3` viewport-controller fallback in screen space instead of world space
+    - neither changed the failing temp-workspace outcome
+  - The worktree was returned to a clean state after those failed attempts; no code patch landed.
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+    - result: failed repeatedly once the oracle was tightened to a deterministic offscreen focus target
+  - CDP visual check
+    - result: done
+    - note:
+      - used main-context `chrome-devtools-mcp` fallback because fresh-context sub-agents still could not access browser tools
+      - normalized live worktree session showed `Ctrl+Shift+3` restoring the stored `shortcuts` canvas target into view, so the blocker is narrower than the original stale-tab reading
+- Conclusion:
+  - the active blocker is now the temp-workspace no-`d3` focus-pan mismatch for an explicitly offscreen stored canvas target
+  - this is no longer blocked on stale live-tab oracle ambiguity, but it is also not solved
+- Next action:
+  - instrument the failing temp-workspace shortcut path directly: capture focused element rect, enclosing section rect, pane rect, DOM canary transform, and `useReactFlow.getState().transform` immediately before and after `Ctrl+Shift+3` to isolate whether the bug is stale store transform, wrong pan target, or a post-focus side effect
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 031
 
 - Item: Remove the canary-only positional section sort so the `All Settings` graph-substrate path preserves the same top-level section order as legacy graph consumers.

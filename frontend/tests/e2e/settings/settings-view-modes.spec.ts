@@ -631,6 +631,14 @@ test("settings graph substrate canary focus shortcut restores an offscreen secti
     const canarySections = page.getByTestId("graph-substrate-canary-section");
     await expect(canaryPane).toHaveAttribute("data-tab-scope", "canvas");
     await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+    const targetSection = canarySections.first();
+    const targetSectionId = await targetSection.getAttribute("data-section-id");
+    if (!targetSectionId) {
+      throw new Error("Missing focus target section id.");
+    }
+    const targetFocusable = targetSection.locator("button").first();
+    await targetFocusable.focus();
+    await expect(targetFocusable).toBeFocused();
 
     const offscreenViewport = await getCanaryViewportWithSectionMovedOffscreen(
       page,
@@ -653,12 +661,20 @@ test("settings graph substrate canary focus shortcut restores an offscreen secti
     await expect
       .poll(async () => isCanarySectionCenterInsidePane(page, 0))
       .toBe(false);
+    await page.getByRole("button", { name: "Core", exact: true }).focus();
+    await expect.poll(() => isCanvasScopeFocused(page)).toBe(false);
 
     // The shared canvas-focus shortcut should use the canary viewport
     // controller and pull the first section back into the visible pane.
     await page.keyboard.press("Control+Shift+3");
 
     await expect.poll(() => isCanvasScopeFocused(page)).toBe(true);
+    await expect
+      .poll(async () => getFocusedCanvasSectionId(page))
+      .toBe(targetSectionId);
+    await expect
+      .poll(async () => isCanarySectionCenterInsidePane(page, 0))
+      .toBe(true);
     await expect
       .poll(async () => {
         const viewport = await getCanaryViewportTransform(page);
@@ -1482,6 +1498,20 @@ async function isCanvasScopeFocused(page: Page): Promise<boolean> {
     return (
       activeElement.closest('[data-tab-scope="canvas"]') instanceof HTMLElement
     );
+  });
+}
+
+async function getFocusedCanvasSectionId(page: Page): Promise<string | null> {
+  return page.evaluate(() => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement)) {
+      return null;
+    }
+    const sectionNode = activeElement.closest("[data-section-id]");
+    if (!(sectionNode instanceof HTMLElement)) {
+      return null;
+    }
+    return sectionNode.getAttribute("data-section-id");
   });
 }
 
