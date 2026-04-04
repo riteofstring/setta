@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 14:51 EDT
+Last updated: 2026-04-02 15:15 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,26 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `015` stayed on blocker resolution only; no product-code changes landed.
+- The required post-item-013 cleared-viewport compare is now blocked by lifecycle/bootstrap availability rather than another bounds hypothesis:
+  - fresh-context CDP sub-agent could not connect because `http://127.0.0.1:9297/json/version` was unreachable
+  - one allowed local self-recovery ran with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - terminal output reported frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, debug port `9298`, bootstrap session `c80b97`
+    - follow-up checks still found no reachable Chrome target and no live Setta connect info:
+      - `curl -fsS --max-time 3 http://127.0.0.1:9298/json/version` failed with connection refused
+      - `lsof -nP -iTCP:9298 -sTCP:LISTEN` returned no listener
+      - `pnpm -C frontend cdp-port` still reported stale port `9297`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph` returned `Error: No matching Setta sessions found.`
+  - the allowed fallback retry also failed: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./ai.sh`
+    - terminal output reported frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, debug port `9299`, bootstrap session `752acc`
+    - `curl -fsS --max-time 3 http://127.0.0.1:9299/json/version` failed with connection refused
+    - `lsof -nP -iTCP:9299 -sTCP:LISTEN` returned no listener
+    - `pnpm -C frontend cdp-port` still reported `9297`
+    - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph` still returned `Error: No matching Setta sessions found.`
+- The read-only `main` oracle is still not trustworthy:
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` returned `Error: No matching Setta sessions found.`
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returned `200 OK`, so the shell serves while the actual bootstrap/app session remains unavailable
+- Because both allowed worktree recovery launches failed to restore a reachable debug Chrome or a valid Setta session, do not land more fit/bounds code yet; the next iteration must restore lifecycle/CDP health first, then retry the bootstrap-first compare.
 - Ralph item `013` landed a bounded bounds-readiness fix inside the custom canary:
   - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` plus focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now waits for measured DOM sizes from every visible canary section before computing the first auto-fit scene bounds, instead of fitting against partial layout fallback sizes
@@ -24,6 +44,17 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - after that restart, a second fresh CDP sub-agent still could not access `chrome-devtools-mcp`
   - `pnpm -C frontend cdp-port` after restart reported `9298`, while the restart terminal printed Chrome remote debugging on `9299`; treat the worktree runtime as restarted but the CDP bridge itself as still unavailable in this Codex session
   - because the post-item-013 side-by-side compare against `main` did not run, we do not yet know whether the tighter `All Settings` framing blocker is closed or whether a smaller remaining vertical-fit mismatch is still present
+- A fresh-loop retry of that deferred compare is now blocked on the read-only `main` oracle session instead of the worktree:
+  - a fresh CDP sub-agent verified the worktree on `http://127.0.0.1:3075/settings` with `All Settings` active, `graph-substrate-canary` present, and `.react-flow__pane` absent
+  - a second stricter fresh CDP sub-agent could not validate `main` on `http://127.0.0.1:3087/settings` because the app never mounted the settings UI:
+    - `All Settings` control absent
+    - `canaryCount = 0`
+    - `paneCount = 0`
+    - `rootChildren = 0`
+    - reload surfaced `Error: Search engine null is not supported.`
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` returned `Error: No matching Setta sessions found.`
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returns `200 OK`, so the main frontend shell is serving but the reference app/bootstrap session is not currently trustworthy as a visual oracle
+  - do not land more fit/bounds code until a fresh iteration restores a healthy `main` reference session and re-runs the strict cleared-viewport compare
 - Ralph item `012` landed a bounded initial-fit alignment fix inside the custom canary:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `fitSettingsGraphSubstrateCanaryViewport(...)` so the canary's first fit can follow the same visible-center and max-zoom rules as legacy `ReactFlow`
   - that helper now:
@@ -146,10 +177,17 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
         - worktree: a few larger cards centered in the canvas
         - `main`: more zoomed-out framing with a denser vertical field of smaller cards
       - this closes the tool-availability blocker from item `011` and leaves a product blocker: the canary fit bounds still differ from the legacy oracle
-    - post-item-013 compare after worktree restart: not run
-      - two fresh CDP sub-agents both reported that `chrome-devtools-mcp` was inaccessible in this Codex session
-      - one bounded local self-recovery already ran via `./aireset.sh`
-      - do not spend another iteration on more fit/bounds code until the cleared-viewport side-by-side compare against `main` is retried from a fresh loop session or the CDP bridge becomes reachable again
+    - post-item-013 compare retried from a fresh loop session: invalid
+      - fresh CDP reached the worktree successfully and confirmed the canary `All Settings` surface
+      - the read-only `main` reference on `http://127.0.0.1:3087/settings` did not mount the settings graph at all (`All Settings` control absent, `canaryCount = 0`, `paneCount = 0`, `rootChildren = 0`)
+      - reloading the blank `main` page surfaced `Error: Search engine null is not supported.`
+      - repo-side status check also found no active Setta session for `/Users/jeff/Documents/_projects/setta`
+      - the compare must be retried only after the next iteration restores a healthy `main` reference lifecycle; do not treat the current `main` runtime as a valid oracle
+    - post-item-013 compare after the allowed worktree recovery retry: blocked
+      - a fresh CDP sub-agent failed immediately because `http://127.0.0.1:9297/json/version` was unreachable
+      - the one allowed self-recovery sequence (`./aireset.sh`, then fallback `./ai.sh`) brought frontend/backend back on new ports but never produced a reachable Chrome debug target at `9298` or `9299`
+      - after both launches, `setta status --connect-info` still reported no live worktree session, so there was no trustworthy bootstrap-first browser state to compare against `main`
+      - this is now a lifecycle/bootstrap blocker, not new evidence about canary fit bounds
 
 ## Architectural stance
 
@@ -186,8 +224,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - automated coverage now proves the canary no longer does that in the checked browser path
   - item `012` aligned the canary's initial visible-center and initial max-zoom semantics with legacy `ReactFlow`
   - item `013` then moved the canary fit to measured DOM bounds and aligned the size box model with legacy `fitView`
-  - before doing more bounds work, re-run the blocked cleared-viewport CDP compare on `All Settings`
-  - if the restarted worktree still looks tighter than `main`, the next production frontier is the remaining vertical framing mismatch on the measured-bounds path rather than more saved-viewport or seam plumbing
+  - before doing more bounds work, restore a healthy worktree CDP target plus a healthy read-only `main` reference session and re-run the strict cleared-viewport CDP compare on `All Settings`
+  - only after that compare is valid should the next iteration decide whether the remaining frontier is still the measured-bounds vertical framing mismatch or a different oracle/state issue
+  - if the next fresh lifecycle bootstrap still leaves `json/version` unreachable or `setta status --connect-info` empty, stop debugging canary math and inspect the loop/browser lifecycle wiring instead
 
 ## Explicit deferrals
 
@@ -210,6 +249,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `013`
-- Latest item: `2026-04-02 013`
+- Active history window: items `001` through `015`
+- Latest item: `2026-04-02 015`
 - Older history archives: none yet

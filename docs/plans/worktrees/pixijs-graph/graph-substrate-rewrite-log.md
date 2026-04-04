@@ -70,6 +70,102 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 015
+
+- Item: Retry the deferred post-item-013 bootstrap-first cleared-viewport `All Settings` compare after the one allowed local lifecycle recovery.
+- Status: `blocked`
+- Details:
+  - No product-code changes landed in this pass; the iteration stayed on blocker resolution because the handoff explicitly said not to continue the fit/bounds lane until the compare could run against a trustworthy oracle.
+  - Fresh-context CDP verification failed immediately before any browser actions:
+    - sub-agent report: `Chrome DevTools MCP could not connect to Chrome; http://127.0.0.1:9297/json/version was unreachable`
+  - One allowed local worktree self-recovery ran with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`:
+    - terminal output reported frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, debug port `9298`, bootstrap session `c80b97`
+    - follow-up checks still showed no reachable debug Chrome and no live Setta connect info:
+      - `curl -fsS --max-time 3 http://127.0.0.1:9298/json/version` failed with connection refused
+      - `lsof -nP -iTCP:9298 -sTCP:LISTEN` returned no listener
+      - `pnpm -C frontend cdp-port` still reported stale port `9297`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph` returned `Error: No matching Setta sessions found.`
+  - The allowed fallback retry also failed: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./ai.sh`
+    - terminal output reported frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, debug port `9299`, bootstrap session `752acc`
+    - `curl -fsS --max-time 3 http://127.0.0.1:9299/json/version` failed with connection refused
+    - `lsof -nP -iTCP:9299 -sTCP:LISTEN` returned no listener
+    - `pnpm -C frontend cdp-port` still reported `9297`
+    - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph` still returned `Error: No matching Setta sessions found.`
+  - The read-only `main` reference remained untrustworthy too:
+    - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` returned `Error: No matching Setta sessions found.`
+    - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returned `200 OK`
+  - That leaves the actual blocker as lifecycle/bootstrap availability, not a newly observed renderer mismatch.
+- Verification:
+  - CDP visual check
+    - result: blocked
+    - note:
+      - fresh sub-agent could not reach the worktree debug Chrome at `9297`
+      - both allowed local recovery launches (`./aireset.sh`, then fallback `./ai.sh`) still failed to produce a reachable Chrome listener or a live Setta connect-info session
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - result: launched frontend/backend but did not restore a reachable debug Chrome
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./ai.sh`
+    - result: launched frontend/backend but did not restore a reachable debug Chrome
+  - `curl -fsS --max-time 3 http://127.0.0.1:9298/json/version`
+    - result: failed (`connection refused`)
+  - `curl -fsS --max-time 3 http://127.0.0.1:9299/json/version`
+    - result: failed (`connection refused`)
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph`
+    - result: failed (`Error: No matching Setta sessions found.`)
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+    - result: failed (`Error: No matching Setta sessions found.`)
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings`
+    - result: passed (`200 OK`)
+- Conclusion:
+  - the blocked compare is now clearly a lifecycle/debug-browser problem, not another reason to keep changing canary bounds code
+  - do not continue the `All Settings` fit/bounds lane until a fresh iteration restores a reachable CDP target and a valid bootstrap/connect-info session
+- Next action:
+  - start the next Ralph iteration from a fresh lifecycle bootstrap; if `json/version` or `setta status --connect-info` are still missing afterward, inspect the loop/browser launcher wiring instead of the graph canary
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 014
+
+- Item: Retry the deferred post-item-013 cleared-viewport `All Settings` CDP oracle compare from a fresh loop session before landing any more fit/bounds changes.
+- Status: `blocked`
+- Details:
+  - No product-code changes landed in this iteration; the work stayed on verification because the handoff explicitly said not to continue the fit/bounds lane until the compare was retried from a fresh session.
+  - Fresh CDP sub-agent attempt `1` reached the worktree and produced measurements, but the run was not trustworthy because the `main` side reported `5` visible nodes, which matches `Core` rather than `All Settings`, and the sub-agent also mentioned the wrong main port.
+  - Fresh CDP sub-agent attempt `2` re-ran the compare with stricter guardrails and validated the worktree side successfully:
+    - URL `http://127.0.0.1:3075/settings`
+    - `All Settings` tab active
+    - `graph-substrate-canary` present
+    - `.react-flow__pane` absent
+  - The same strict run could not validate the read-only `main` side:
+    - URL `http://127.0.0.1:3087/settings`
+    - `All Settings` control absent
+    - `canaryCount = 0`
+    - `paneCount = 0`
+    - `rootChildren = 0`
+    - reload surfaced `Error: Search engine null is not supported.`
+  - Repo-side runtime checks agree that the `main` reference app is not healthy enough to use as an oracle right now:
+    - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+      - result: `Error: No matching Setta sessions found.`
+    - `curl -I --max-time 5 http://127.0.0.1:3087/settings`
+      - result: `200 OK`
+  - That leaves the reference frontend shell up but the actual `main` app/bootstrap session unavailable or broken, so the side-by-side compare is invalid.
+- Verification:
+  - CDP visual check
+    - result: blocked / invalid
+    - note:
+      - worktree side validated on the canary `All Settings` surface
+      - read-only `main` never mounted the comparable settings graph, so no trusted visual verdict was possible
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta`
+    - result: failed (`Error: No matching Setta sessions found.`)
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings`
+    - result: passed (`200 OK`)
+- Conclusion:
+  - the active blocker is the unhealthy read-only `main` oracle session, not a newly identified product-code defect in the worktree
+  - do not continue the `All Settings` fit/bounds lane until the next iteration restores a valid `main` reference runtime and reruns the strict compare
+- Next action:
+  - start the next Ralph iteration with a fresh reference lifecycle/bootstrap, then rerun the strict cleared-viewport `All Settings` CDP compare before changing more viewport or bounds code
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 013
 
 - Item: Move the `All Settings` canary auto-fit onto measured DOM bounds and retry the cleared-viewport oracle compare.
@@ -175,7 +271,6 @@ LOOP_TERMINAL_MARKER: none
   - restore a trustworthy authenticated `main` oracle compare on the existing lifecycle tabs or with freshly minted bootstrap tokens, then decide whether the next product slice must change the canary’s initial/shared viewport strategy
 
 LOOP_TERMINAL_MARKER: none
-
 
 ## 2026-04-02 008
 
