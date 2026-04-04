@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 12:53 EDT
+Last updated: 2026-04-04 13:00 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,33 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `122` closed the bounded live `taskBoardSectionDefault` short blank-pane pan lane as clean on the current run-041 surfaces, without adding another probe.
+  - Why this slice was needed:
+    - items `120` and `121` had already closed Browser anchor guesswork and the task-board top-level drag lane, but the last two iterations were still harness-only
+    - the next valid step had to be one bounded live oracle check on a different shared visible motion lane, not a third support-only probe
+    - `taskBoardSectionDefault` already had a proven shared args/filter anchor, so it was the narrowest non-hidden lane that could answer a real renderer question without more test scaffolding
+  - What this slice established:
+    - a fresh-context CDP sub-agent read the browser MCP quickstart, then normalized live worktree `3075` and read-only `3087` to active `All Settings` at `1440x900`
+    - both surfaces were fit to the same graph baseline, then given one short blank-pane pan
+    - `taskBoardSectionDefault` stayed visible on both surfaces and shifted by the same `-60px` horizontal delta with no `y` drift
+    - the task-board args/filter strip stayed visible and attached on both surfaces; there was no canary-only detachment, disappearance, or wrong-surface/state signal
+    - the only remaining difference was static, not motion-induced: read-only `main` sat about `+9px` right and `+6px` lower than the worktree both before and after pan
+  - Automated result:
+    - no production or test files changed in this slice
+    - no Playwright rerun was added because this was intentionally a bounded live-oracle step on a lane without an existing dedicated short-pan probe, and the loop rules explicitly disallowed another harness-only iteration unless the live compare exposed a concrete renderer question
+  - Live verification result:
+    - refreshed run-041 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-041/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-041/main-ai.log`
+    - fresh-context CDP sub-agent readout on the normalized task-board short-pan lane:
+      - before pan on both: viewport `translate(712.4px, -51.7px) scale(0.1)`
+      - after pan on both: viewport `translate(652.4px, -51.7px) scale(0.1)`
+      - args/filter strip internal offsets stayed unchanged on both sides (`args dx/dy = 1.70 / 3.55`, `filter dx/dy = 16.85 / 3.10`)
+    - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; `taskBoardSectionDefault` short blank-pane pan is clean, with only a small static `+9px/+6px` rect offset on `main`)
+  - conclusion for this slice:
+    - close the `taskBoardSectionDefault` short blank-pane pan lane for the current run-041 surfaces
+    - treat the small static `+9px/+6px` rect offset as non-pan oracle noise unless a later compare shows that delta growing under motion
+    - the next iteration should stop repeating already-closed shared default pan/drag lanes and either pick a truly new trustworthy visible lane or pivot to the first concrete production renderer question
 - Ralph item `121` added a deterministic shared `taskBoardSectionDefault` top-level drag lane on the actual visible task-board anchor and closed that bounded non-Browser body/control probe.
   - Why this slice was needed:
     - item `120` explicitly said to stop spending passes on Browser-specific body/control guesses and instead pick one shared normalized Gate 1 / Gate 2 lane whose anchor is visibly present on both live surfaces

@@ -4035,6 +4035,36 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - investigate why the canary `fitGraphViewportToSection(...)` path leaves moved `browserSectionDefault` visually compressed after the authoritative move while read-only `main` does not
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 13:00 EDT - Ralph item 122
+
+- Closed one bounded live `taskBoardSectionDefault` short blank-pane pan lane as clean on the current run-041 surfaces, without adding another probe.
+- Why this slice was necessary:
+  - items `120` and `121` had already closed Browser anchor guesswork and the task-board top-level drag lane, but the last two iterations were still harness-only
+  - the next valid step had to be one bounded live oracle check on a different shared visible motion lane, not a third support-only probe
+  - `taskBoardSectionDefault` already had a proven shared args/filter anchor, so it was the narrowest non-hidden lane that could answer a real renderer question without more harness work
+- Production/test changes:
+  - no production or test files changed in this slice
+  - no Playwright probe was added because the goal was to use one fresh live compare to decide whether this lane hid a real canary-only artifact before spending another iteration on support code
+- Verification:
+  - refreshed run-041 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-041/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-041/main-ai.log`
+  - fresh-context CDP sub-agent:
+    - normalized live `3075` canary and read-only `3087` legacy to active `All Settings` at `1440x900`
+    - fit both surfaces to the same graph baseline, then applied one short blank-pane pan on each side
+    - before pan on both: viewport `translate(712.4px, -51.7px) scale(0.1)`
+    - after pan on both: viewport `translate(652.4px, -51.7px) scale(0.1)`
+    - `taskBoardSectionDefault` stayed visible on both and shifted exactly `-60px` on `x`, `0px` on `y`
+    - the task-board args/filter strip stayed visible and attached on both sides, with unchanged internal offsets before/after pan (`args dx/dy = 1.70 / 3.55`, `filter dx/dy = 16.85 / 3.10`)
+    - the only remaining difference was static, not motion-induced: read-only `main` sat about `+9px` right and `+6px` lower than the worktree both before and after pan
+  - CDP visual check: done (fresh-context normalized task-board short blank-pane pan compare on live `3075` canary vs read-only `3087` legacy; no canary-only artifact reproduced)
+- Lane status:
+  - close the `taskBoardSectionDefault` short blank-pane pan lane for the current run-041 surfaces
+  - treat the small static `+9px/+6px` rect offset as non-pan oracle noise unless a later compare shows it growing under motion
+  - do not spend the next iteration repeating another already-closed shared default pan/drag lane just to accumulate more support evidence
+- Next frontier:
+  - either pick a truly new trustworthy visible live lane that is not already covered by the existing shared default probes, or pivot to the first concrete production renderer question instead of extending default-lane harness churn
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-04 12:12 EDT - Ralph item 119
 
 - Closed the Browser authoritative-move-plus-fit compression lane by fixing both the stale canary fit-bounds source and the stale acknowledged top-level-layout replay that was masking backend layout moves on the worktree canary.
