@@ -15,6 +15,7 @@ import {
   getSettingsGraphSectionIntersectionPoint,
   getSettingsGraphSectionRenderedZIndex,
   normalizeSettingsGraphComparePaneState,
+  runSettingsGraphComparePreflight,
   setLocalPaneState,
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
   type ProjectStateSingleConfigWithCompletedOpIds,
@@ -5943,6 +5944,9 @@ test("settings graph parity probe keeps the widened draw section attached during
   context,
   page,
 }) => {
+  const drawSectionName = "drawSectionDefault";
+  test.slow();
+
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||
@@ -5990,11 +5994,11 @@ test("settings graph parity probe keeps the widened draw section attached during
   );
   const worktreeDrawSectionId = findSectionIdByName(
     worktreeInitialState,
-    "drawSectionDefault",
+    drawSectionName,
   );
   const referenceDrawSectionId = findSectionIdByName(
     referenceInitialState,
-    "drawSectionDefault",
+    drawSectionName,
   );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
@@ -6008,6 +6012,7 @@ test("settings graph parity probe keeps the widened draw section attached during
     pageTab: Locator;
     projectConfigId: string;
     sectionId: string;
+    side: "reference" | "worktree";
     targetPage: Page;
   }) {
     await normalizeSettingsGraphComparePaneState(args.targetPage);
@@ -6041,9 +6046,20 @@ test("settings graph parity probe keeps the widened draw section attached during
 
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
-    expect(
-      await fitGraphViewportToSection(args.targetPage, args.sectionId),
-    ).toBe(true);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: drawSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
 
     await expect
       .poll(async () => {
@@ -6204,6 +6220,7 @@ test("settings graph parity probe keeps the widened draw section attached during
       }),
       projectConfigId: referenceProjectConfigId,
       sectionId: referenceDrawSectionId,
+      side: "reference",
       targetPage: referencePage,
     });
     const worktreeResult = await captureDrawSectionAfterPan({
@@ -6217,6 +6234,7 @@ test("settings graph parity probe keeps the widened draw section attached during
       }),
       projectConfigId: worktreeProjectConfigId,
       sectionId: worktreeDrawSectionId,
+      side: "worktree",
       targetPage: page,
     });
 

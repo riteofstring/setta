@@ -84,6 +84,11 @@ export type SharedVisibleSettingsGraphSection = {
   sectionId: string;
 };
 
+type SettingsGraphBackendRequestOptions = {
+  backendOrigin: string;
+  frontendOrigin: string;
+};
+
 export const SETTINGS_GRAPH_COMPARE_PANE_STATE: SettingsGraphLocalPaneState = {
   overviewVisible: false,
   overviewTrueWidth: 420,
@@ -101,15 +106,51 @@ const LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR = ".react-flow";
 const LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR = ".react-flow__node";
 const LEGACY_SETTINGS_GRAPH_VIEWPORT_SELECTOR = ".react-flow__viewport";
 
+async function postSettingsGraphBackend<T>(
+  page: Page,
+  path: string,
+  payload: Record<string, unknown> | null,
+  requestOptions?: SettingsGraphBackendRequestOptions,
+): Promise<T | null> {
+  if (!requestOptions) {
+    return postBackend<T>(page, path, payload);
+  }
+
+  const response = await page.request.post(
+    `${requestOptions.backendOrigin}/api${path}`,
+    {
+      data: payload,
+      headers: {
+        Origin: requestOptions.frontendOrigin,
+        Referer: `${requestOptions.frontendOrigin}/`,
+      },
+    },
+  );
+  const text = await response.text();
+  if (!response.ok()) {
+    const detail = text ? ` ${text}` : "";
+    throw new Error(
+      `Backend request failed (${response.status()}): ${path}${detail}`,
+    );
+  }
+  if (!text) {
+    return null;
+  }
+  return JSON.parse(text) as T;
+}
+
 export async function getLatestProjectState(
   page: Page,
   projectConfigId: string,
+  requestOptions?: SettingsGraphBackendRequestOptions,
 ): Promise<ProjectStateSingleConfigWithCompletedOpIds> {
-  const payload = await postBackend<ProjectStateSingleConfigWithCompletedOpIds>(
-    page,
-    "/getLatestProjectState",
-    { projectConfigId },
-  );
+  const payload =
+    await postSettingsGraphBackend<ProjectStateSingleConfigWithCompletedOpIds>(
+      page,
+      "/getLatestProjectState",
+      { projectConfigId },
+      requestOptions,
+    );
   if (!payload) {
     throw new Error("Missing project state payload.");
   }
@@ -120,6 +161,7 @@ export async function applyAuthoritativeViewportFromBackend(
   page: Page,
   projectConfigId: string,
   viewport: SettingsGraphViewportTransform | null,
+  requestOptions?: SettingsGraphBackendRequestOptions,
 ): Promise<ProjectStateSingleConfigWithCompletedOpIds> {
   await page.evaluate(async () => {
     const { debouncedDispatchViewportUpdate } = await import(
@@ -127,11 +169,20 @@ export async function applyAuthoritativeViewportFromBackend(
     );
     debouncedDispatchViewportUpdate.cancel();
   });
-  await postBackend(page, "/setViewport", {
+  await postSettingsGraphBackend(
+    page,
+    "/setViewport",
+    {
+      projectConfigId,
+      viewport,
+    },
+    requestOptions,
+  );
+  const stateUpdate = await getLatestProjectState(
+    page,
     projectConfigId,
-    viewport,
-  });
-  const stateUpdate = await getLatestProjectState(page, projectConfigId);
+    requestOptions,
+  );
   await page.evaluate(
     async (nextState: ProjectStateSingleConfigWithCompletedOpIds) => {
       const {
@@ -220,9 +271,11 @@ function formatSettingsGraphPaneState(
 
 // Separate unhealthy runtime/setup state from renderer drift before a parity lane acts.
 export async function runSettingsGraphComparePreflight(args: {
+  backendOrigin?: string;
   expectedPaneState?: SettingsGraphLocalPaneState;
   expectedSurfaceKind: SettingsGraphSurfaceKind;
   expectedViewModeName: string;
+  frontendOrigin?: string;
   page: Page;
   projectConfigId: string;
   requireFitView?: boolean;
@@ -230,8 +283,15 @@ export async function runSettingsGraphComparePreflight(args: {
   targetSectionId?: string;
   targetSectionName?: string;
 }): Promise<SettingsGraphComparePreflightResult> {
+  const requestOptions =
+    args.backendOrigin && args.frontendOrigin
+      ? {
+          backendOrigin: args.backendOrigin,
+          frontendOrigin: args.frontendOrigin,
+        }
+      : undefined;
   const [payload, paneState, surfaceKind] = await Promise.all([
-    getLatestProjectState(args.page, args.projectConfigId),
+    getLatestProjectState(args.page, args.projectConfigId, requestOptions),
     getLocalPaneState(args.page),
     getSettingsGraphSurfaceKind(args.page),
   ]);

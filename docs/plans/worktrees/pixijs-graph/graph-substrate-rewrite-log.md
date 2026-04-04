@@ -4830,3 +4830,50 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - because items `138` and `139` are now two support/probe passes on the same named chart lane, the next iteration must move to a different renderer-facing lane or land product code on a real remaining artifact instead of spending a third chart probe on `chartSectionDefault`
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 19:46 EDT - Ralph item 140
+
+- Item: Fix two-runtime settings-graph preflight backend routing and rerun the named `drawSectionDefault` pane-pan lane on the live run-059 worktree/main surfaces.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - items `138` and `139` had already spent the chart lane budget, so the next valid step had to move to a different renderer-facing named lane instead of opening another chart probe
+    - the bounded `drawSectionDefault` lane-hardening plan immediately exposed a real helper bug: `runSettingsGraphComparePreflight(...)` always read project state through the default worktree backend, so the reference-side preflight sent the main project config id to the wrong backend and raised a false `500 Unknown project config`
+    - fixing that helper was the narrowest support change that directly unblocked one trustworthy Gate 1 / Gate 2 compare on a new named section
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      - added explicit backend/frontend request options for shared settings-graph backend reads
+      - routed `getLatestProjectState(...)`, `applyAuthoritativeViewportFromBackend(...)`, and `runSettingsGraphComparePreflight(...)` through that per-origin request path when a two-runtime lane provides explicit origins
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - wired the named `drawSectionDefault` pane-pan lane through the new origin-aware preflight
+      - kept the canonical target section name explicit
+      - marked the live two-runtime draw lane `test.slow()` after the first rerun exceeded the default 120s budget while still making forward progress
+  - What this slice established:
+    - the first draw-lane rerun with preflight failed for a real helper reason, not renderer drift:
+      - the old preflight path sent read-only main project config id `f5ca2fb0-bb49-4042-adb2-8c6b8991598d` to the worktree backend
+      - the worktree runtime responded `500 Unknown project config`, proving the old shared helper path was not trustworthy for two-runtime reference compares
+    - after the helper fix, the lane no longer failed on a mismatched backend path
+    - the next rerun then hit expired bootstrap state (`401 Unauthorized` during Playwright global setup); minting fresh bootstrap data inline at execution time fixed that tooling issue and should not be treated as renderer evidence
+    - with the helper fix, inline-minted fresh bootstrap state, and `test.slow()`, the targeted live two-runtime Playwright rerun passed on run-059 (`1 passed`, `2.1m`)
+    - a fresh-context CDP sub-agent then opened fresh bootstrap pages, normalized both sides to `/settings` + `All Settings`, fit the named draw section, applied one shared deterministic post-fit pan setup, and found no visible drift between worktree canary and read-only main legacy
+    - the CDP sub-agent captured matching post-pan geometry on both sides:
+      - canvas transform `translate(703.554px, 51.2727px) scale(0.110098)`
+      - draw section box about `61x39` at `(770, 682)`
+      - args body under the draw header about `61x33` at `(770, 687)`
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - refreshed run-059 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the widened draw section attached during normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `2.1m`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - opened fresh run-059 bootstrap pages for live worktree `3075` and read-only main `3087`
+    - moved both to `/settings`, normalized to `All Settings`, fit the canonical draw ids (`4643e6f3-6be8-437f-8dbd-7b39ad0a8310` worktree, `3b30fc00-c471-4376-ac50-f3643a240183` reference), and applied one shared deterministic post-fit pan setup before comparing screenshots/geometry
+  - CDP visual check: done (fresh-context run-059 compare on `drawSectionDefault`; after the shared fit/pan setup, the widened draw body stayed visibly attached and the screenshots/geometry matched worktree canary vs read-only main legacy)
+- Next action:
+  - move to a different renderer-facing named lane that still needs current run-059 evidence, preferably a body-heavy `spreadsheetSectionDefault` motion lane, reusing the new origin-aware preflight instead of reopening `chartSectionDefault` or repeating `drawSectionDefault`
+- LOOP_TERMINAL_MARKER: none

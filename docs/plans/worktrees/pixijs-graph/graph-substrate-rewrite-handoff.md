@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 19:25 EDT
+Last updated: 2026-04-04 19:46 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -41,6 +41,51 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `140` made `runSettingsGraphComparePreflight(...)` safe for two-runtime main-reference lanes by letting it read from explicit backend/frontend origins, then used that fix to recheck the named `drawSectionDefault` pane-pan lane on the live run-059 surfaces.
+  - Why this slice was needed:
+    - after items `138` and `139`, the next allowed step had to move to a different renderer-facing named lane instead of spending a third probe pass on `chartSectionDefault`
+    - the bounded lane-hardening plan for `drawSectionDefault` immediately exposed a helper bug: the shared preflight read project state through the default worktree backend even when the page under test was the read-only `main` reference, which turned a reference-side preflight into a false `500 Unknown project config`
+    - fixing that helper was the narrowest support change that directly unblocked one trustworthy Gate 1 / Gate 2 compare on a new named lane
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      - added explicit backend/frontend request options for shared settings-graph backend reads
+      - routed `getLatestProjectState(...)`, `applyAuthoritativeViewportFromBackend(...)`, and `runSettingsGraphComparePreflight(...)` through that per-origin request path when a two-runtime lane provides explicit origins
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - wired the named `drawSectionDefault` pane-pan lane through the new origin-aware preflight
+      - fixed the lane to keep the canonical target section name explicit
+      - marked the live two-runtime draw lane `test.slow()` after the first rerun exceeded the default 120s budget even though it was progressing normally
+  - What this slice established:
+    - the first draw-lane rerun with preflight failed for a real helper reason, not renderer drift:
+      - `runSettingsGraphComparePreflight(...)` sent the read-only main project config id `f5ca2fb0-bb49-4042-adb2-8c6b8991598d` to the worktree backend
+      - the worktree runtime responded with `500 Unknown project config`, proving the old shared helper path was not trustworthy for two-runtime reference compares
+    - after the helper fix, the lane no longer failed on a mismatched backend path
+    - the next rerun then hit the known live-token problem (`401 Unauthorized` during Playwright global setup) once the previously copied bootstrap token expired; minting fresh bootstrap data inline at execution time fixed that tooling issue
+    - with the helper fix, inline-minted fresh bootstrap state, and `test.slow()`, the targeted live two-runtime Playwright rerun passed on run-059 (`1 passed`, `2.1m`)
+    - a fresh-context CDP sub-agent then opened fresh bootstrap pages, normalized both sides to `/settings` + `All Settings`, fit the named draw section, applied one shared deterministic post-fit pan setup, and found no visible drift between worktree canary and read-only main legacy
+    - the CDP sub-agent captured matching post-pan geometry on both sides:
+      - canvas transform `translate(703.554px, 51.2727px) scale(0.110098)`
+      - draw section box about `61x39` at `(770, 682)`
+      - args body under the draw header about `61x33` at `(770, 687)`
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-059 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-059/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the widened draw section attached during normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `2.1m`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - opened fresh run-059 bootstrap pages for live worktree `3075` and read-only main `3087`
+      - moved both to `/settings`, normalized to `All Settings`, fit the canonical draw ids (`4643e6f3-6be8-437f-8dbd-7b39ad0a8310` worktree, `3b30fc00-c471-4376-ac50-f3643a240183` reference), and applied one shared deterministic post-fit pan setup before comparing screenshots/geometry
+    - CDP visual check: done (fresh-context run-059 compare on `drawSectionDefault`; after the shared fit/pan setup, the widened draw body stayed visibly attached and the screenshots/geometry matched worktree canary vs read-only main legacy)
+  - Lane status:
+    - close the checked `drawSectionDefault` pane-pan lane as clean on the current run-059 surfaces
+    - the origin-aware preflight helper is now trustworthy for future two-runtime named-lane checks instead of silently routing reference reads through the worktree backend
+  - Next frontier:
+    - move to a different renderer-facing named lane that still needs current run-059 evidence, preferably a body-heavy `spreadsheetSectionDefault` motion lane, reusing the new origin-aware preflight instead of reopening `chartSectionDefault` or repeating `drawSectionDefault`
 - Ralph item `139` tightened the `chartSectionDefault` toolbar-zoom parity lane by asserting absolute chart title and `dataPath` row geometry, then reran the lane on refreshed run-058 sessions to decide whether the item `138` collapse was still a real blocker.
   - Why this slice was needed:
     - item `138` had a concrete CDP-only chart collapse report while the first deterministic Playwright lane still passed, so the narrowest honest next step was to strengthen that exact lane instead of opening another support-only probe elsewhere
@@ -3817,6 +3862,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `129`
-- Latest item: `2026-04-04 129`
+- Active history window: items `001` through `140`
+- Latest item: `2026-04-04 140`
 - Older history archives: none yet
