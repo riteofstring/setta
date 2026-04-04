@@ -9,6 +9,7 @@ import (
 	"setta/internal/projectview"
 	"setta/internal/realtime"
 	"setta/internal/scriptablechat"
+	"setta/internal/settingsstate"
 )
 
 type ProjectStateSingleConfig projectview.SingleConfig
@@ -346,13 +347,13 @@ type SectionSizingPolicy struct{}
 
 type SharePolicy deployments.Policy
 
-type SettingsShortcuts struct{}
+type SettingsShortcuts settingsstate.FrontendSettingsShortcuts
 
-type SettingsGUI struct{}
+type SettingsGUI settingsstate.FrontendSettingsGUI
 
-type SettingsBackend struct{}
+type SettingsBackend settingsstate.FrontendSettingsBackend
 
-type SettingsState struct{}
+type SettingsState settingsstate.FrontendSettingsState
 
 type SaveSettingsRequestInput struct {
 	Settings SettingsState `json:"settings"`
@@ -730,7 +731,7 @@ type BaseParentCodeObjImplUnion struct{}
 
 type UserDefaultCodeParamCodeObjImpl struct{}
 
-type ColorPickerChoice struct{}
+type ColorPickerChoice settingsstate.FrontendColorPickerChoice
 
 type TextParamCodeObjImpl struct{}
 

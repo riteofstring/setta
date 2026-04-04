@@ -4827,7 +4827,7 @@ type SettingsGUI = {
   selectionMode: SelectionMode;
   leftSidePaneShiftsMap: boolean;
   transitionDuration: number;
-  sectionTagColorChoices: Array<{ color: string; description: string }>;
+  sectionTagColorChoices: Array<ColorPickerChoice>;
 };
 function createSettingsGUI(options: Partial<SettingsGUI> = {}): SettingsGUI {
   return mergeGeneratedOptions(

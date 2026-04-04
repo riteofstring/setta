@@ -668,18 +668,7 @@ func buildSectionSizingPolicyCreateBodyTS() string {
 }
 
 func buildSettingsStateCreateBodyTS() string {
-	defaults, err := settingsstate.DefaultDocument()
-	if err != nil {
-		panic("load settings defaults: " + err.Error())
-	}
-	rawLanguageServer, ok := defaults["languageServer"]
-	if !ok {
-		panic("settings defaults missing languageServer")
-	}
-	languageServerDefaults, ok := rawLanguageServer.(map[string]any)
-	if !ok {
-		panic("settings defaults languageServer is not an object")
-	}
+	defaults := settingsstate.FrontendDefaultSettingsState()
 
 	var builder strings.Builder
 	builder.WriteString("  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});\n")
@@ -694,7 +683,7 @@ func buildSettingsStateCreateBodyTS() string {
 	builder.WriteString("    backend,\n")
 	builder.WriteString("    sectionSizingPolicy,\n")
 	builder.WriteString("    languageServer: ")
-	writeTSObjectLiteral(&builder, "    ", languageServerDefaults, nil)
+	writeTSObjectLiteral(&builder, "    ", defaults.LanguageServer, nil)
 	builder.WriteString(",\n")
 	builder.WriteString("  };\n")
 	builder.WriteString("  return {\n")
@@ -1044,57 +1033,6 @@ func overrideTypeProperty(implType string) TypeProperty {
 	return TypeProperty{Name: "overrides", TypeExpr: "Partial<" + implType + ">", DefaultValue: "{}"}
 }
 
-func buildSettingsSectionCreateExprTS(sectionName string, properties []TypeProperty) string {
-	defaults, err := settingsstate.DefaultDocument()
-	if err != nil {
-		panic("load settings defaults: " + err.Error())
-	}
-	rawSection, ok := defaults[sectionName]
-	if !ok {
-		panic("missing settings defaults section: " + sectionName)
-	}
-	sectionObject, ok := rawSection.(map[string]any)
-	if !ok {
-		panic("settings defaults section is not an object: " + sectionName)
-	}
-	if err := validateRenderedSettingsSection(sectionName, sectionObject, properties); err != nil {
-		panic(err.Error())
-	}
-
-	var builder strings.Builder
-	builder.WriteString("mergeGeneratedOptions(\n")
-	writeTSObjectLiteral(&builder, "    ", sectionObject, orderedTypePropertyNames(properties))
-	builder.WriteString(",\n")
-	builder.WriteString("    options,\n")
-	builder.WriteString("  )")
-	return builder.String()
-}
-
-func validateRenderedSettingsSection(sectionName string, object map[string]any, properties []TypeProperty) error {
-	expected := map[string]struct{}{}
-	for _, property := range properties {
-		expected[property.Name] = struct{}{}
-		if _, ok := object[property.Name]; !ok {
-			return fmt.Errorf(
-				"settings defaults section %q is missing property %q",
-				sectionName,
-				property.Name,
-			)
-		}
-	}
-	for key := range object {
-		if _, ok := expected[key]; ok {
-			continue
-		}
-		return fmt.Errorf(
-			"settings defaults section %q has unexpected property %q",
-			sectionName,
-			key,
-		)
-	}
-	return nil
-}
-
 func orderedTypePropertyNames(properties []TypeProperty) []string {
 	names := make([]string, 0, len(properties))
 	for _, property := range properties {
@@ -1232,119 +1170,6 @@ func formatTSNumberLiteral(value float64) string {
 		panic("settings defaults contained a non-finite numeric literal")
 	}
 	return strconv.FormatFloat(value, 'f', -1, 64)
-}
-
-func settingsShortcutsTypeProperties() []TypeProperty {
-	return []TypeProperty{
-		{Name: "newCardShortcut", TypeExpr: "string"},
-		{Name: "newGroupShortcut", TypeExpr: "string"},
-		{Name: "typeCheckShortcut", TypeExpr: "string"},
-		{Name: "newProjectConfigShortcut", TypeExpr: "string"},
-		{Name: "undoShortcut", TypeExpr: "string"},
-		{Name: "redoShortcut", TypeExpr: "string"},
-		{Name: "groupShortcut", TypeExpr: "string"},
-		{Name: "ungroupShortcut", TypeExpr: "string"},
-		{Name: "saveShortcut", TypeExpr: "string"},
-		{Name: "saveAsShortcut", TypeExpr: "string"},
-		{Name: "loadShortcut", TypeExpr: "string"},
-		{Name: "searchShortcut", TypeExpr: "string"},
-		{Name: "advancedSearchShortcut", TypeExpr: "string"},
-		{Name: "commandPaletteShortcut", TypeExpr: "string"},
-		{Name: "resetZoomShortcut", TypeExpr: "string"},
-		{Name: "copyShortcut", TypeExpr: "string"},
-		{Name: "pasteShortcut", TypeExpr: "string"},
-		{Name: "pasteAsRefShortcut", TypeExpr: "string"},
-		{Name: "sortingShortcut", TypeExpr: "string"},
-		{Name: "movingFreeShortcut", TypeExpr: "string"},
-		{Name: "showTooltipShortcut", TypeExpr: "string"},
-		{Name: "tooltipToPlaintextShortcut", TypeExpr: "string"},
-		{Name: "tooltipToMarkdownShortcut", TypeExpr: "string"},
-		{Name: "freezeTooltipShortcut", TypeExpr: "string"},
-		{Name: "frozenTooltipToPlaintextShortcut", TypeExpr: "string"},
-		{Name: "frozenTooltipToMarkdownShortcut", TypeExpr: "string"},
-		{Name: "incrementTooltipPageShortcut", TypeExpr: "string"},
-		{Name: "decrementTooltipPageShortcut", TypeExpr: "string"},
-		{Name: "copyTooltipTextShortcut", TypeExpr: "string"},
-		{Name: "frozenTooltipIncrementShortcut", TypeExpr: "string"},
-		{Name: "frozenTooltipDecrementShortcut", TypeExpr: "string"},
-		{Name: "frozenTooltipCopyShortcut", TypeExpr: "string"},
-		{Name: "newTerminalShortcut", TypeExpr: "string"},
-		{Name: "fitViewShortcut", TypeExpr: "string"},
-		{Name: "zoomToMouseShortcut", TypeExpr: "string"},
-		{Name: "deleteSectionShortcut", TypeExpr: "string"},
-		{Name: "selectAll", TypeExpr: "string"},
-		{Name: "selectTopLevelNonGroupSections", TypeExpr: "string"},
-		{Name: "showVersionsTabShortcut", TypeExpr: "string"},
-		{Name: "showParamUITypeTabShortcut", TypeExpr: "string"},
-		{Name: "showProjectOverviewTabShortcut", TypeExpr: "string"},
-		{Name: "focusHeaderShortcut", TypeExpr: "string"},
-		{Name: "focusOverviewShortcut", TypeExpr: "string"},
-		{Name: "focusCanvasShortcut", TypeExpr: "string"},
-		{Name: "focusUiEditorShortcut", TypeExpr: "string"},
-		{Name: "nextTopLevelSectionShortcut", TypeExpr: "string"},
-		{Name: "prevTopLevelSectionShortcut", TypeExpr: "string"},
-		{Name: "runCodeShortcut", TypeExpr: "string"},
-		{Name: "runEntryCodeBlockShortcut", TypeExpr: "string"},
-		{Name: "paramSelect", TypeExpr: "string"},
-		{Name: "paramIndentShortcut", TypeExpr: "string"},
-		{Name: "paramUnindentShortcut", TypeExpr: "string"},
-		{Name: "paramMoveUpShortcut", TypeExpr: "string"},
-		{Name: "paramMoveDownShortcut", TypeExpr: "string"},
-		{Name: "formatCode", TypeExpr: "string"},
-		{Name: "selectionKeyCode", TypeExpr: "string"},
-		{Name: "multiSelectionKeyCode", TypeExpr: "string"},
-		{Name: "panActivationKeyCode", TypeExpr: "string"},
-		{Name: "zoomActivationKeyCode", TypeExpr: "string"},
-		{Name: "zoomInShortcut", TypeExpr: "string"},
-		{Name: "zoomOutShortcut", TypeExpr: "string"},
-		{Name: "restartLanguageServerShortcut", TypeExpr: "string"},
-	}
-}
-
-func settingsGUITypeProperties() []TypeProperty {
-	return []TypeProperty{
-		{Name: "snapGrid", TypeExpr: "[number, number]"},
-		{Name: "showGridLines", TypeExpr: "boolean"},
-		{Name: "gridPattern", TypeExpr: "BackgroundVariant"},
-		{Name: "gridPatternSize", TypeExpr: "number"},
-		{Name: "gridColor", TypeExpr: "string"},
-		{Name: "gridColorDarkMode", TypeExpr: "string"},
-		{Name: "wireColor", TypeExpr: "string"},
-		{Name: "wireColorDarkMode", TypeExpr: "string"},
-		{Name: "defaultZoomLevel", TypeExpr: "number"},
-		{Name: "minZoom", TypeExpr: "number"},
-		{Name: "maxZoom", TypeExpr: "number"},
-		{Name: "panOnDrag", TypeExpr: "boolean"},
-		{Name: "panOnScroll", TypeExpr: "boolean"},
-		{Name: "panOnScrollSpeed", TypeExpr: "number"},
-		{Name: "panOnScrollMode", TypeExpr: "PanOnScrollMode"},
-		{Name: "zoomOnScroll", TypeExpr: "boolean"},
-		{Name: "zoomOnPinch", TypeExpr: "boolean"},
-		{Name: "zoomOnDoubleClick", TypeExpr: "boolean"},
-		{Name: "selectionMode", TypeExpr: "SelectionMode"},
-		{Name: "leftSidePaneShiftsMap", TypeExpr: "boolean"},
-		{Name: "transitionDuration", TypeExpr: "number"},
-		{Name: "sectionTagColorChoices", TypeExpr: "Array<{ color: string; description: string; }>"},
-	}
-}
-
-func settingsBackendTypeProperties() []TypeProperty {
-	return []TypeProperty{
-		{Name: "showDefaultConfigOnLoad", TypeExpr: "boolean"},
-		{Name: "autosave", TypeExpr: "boolean"},
-		{Name: "autobackup", TypeExpr: "boolean"},
-		{Name: "autobackupFreq", TypeExpr: "number"},
-		{Name: "autobackupKeepLastN", TypeExpr: "number"},
-		{Name: "clearTerminalBeforeMarkingAsReady", TypeExpr: "boolean"},
-		{Name: "defaultTerminalShell", TypeExpr: "string | null", Optional: true},
-		{Name: "exportDbReadableOnSave", TypeExpr: "boolean"},
-		{Name: "exportDbReadableWithVariantsOnSave", TypeExpr: "boolean"},
-		{Name: "autoRefetchCallableParamsOnLspMismatch", TypeExpr: "boolean"},
-		{Name: "renameRefactorMode", TypeExpr: "RenameRefactorMode"},
-		{Name: "saveRenderedValues", TypeExpr: "boolean"},
-		{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode"},
-		{Name: "completionGuardEnabled", TypeExpr: "boolean"},
-	}
 }
 
 func buildTaskBoardOverridesPreludeTS() string {
@@ -2342,6 +2167,33 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			PropertyOptionalOverrides: map[string]bool{
 				"mainRunDisabledReason":   true,
 				"effectiveEntrySectionId": true,
+			},
+		}, true
+	case reflect.TypeOf(ColorPickerChoice{}):
+		return reflectedObjectDeclarationSpec{}, true
+	case reflect.TypeOf(SettingsShortcuts{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  settingsstate.FrontendDefaultSettingsShortcuts(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(SettingsGUI{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  settingsstate.FrontendDefaultSettingsGUI(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"snapGrid":               "[number, number]",
+				"gridPattern":            "BackgroundVariant",
+				"panOnScrollMode":        "PanOnScrollMode",
+				"selectionMode":          "SelectionMode",
+				"sectionTagColorChoices": "Array<ColorPickerChoice>",
+			},
+		}, true
+	case reflect.TypeOf(SettingsBackend{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  settingsstate.FrontendDefaultSettingsBackend(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"defaultTerminalShell": "null",
 			},
 		}, true
 	case reflect.TypeOf(projectview.SectionCapabilities{}):

@@ -90,21 +90,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			TypeProperty{Name: "metaControlByType", TypeExpr: "MetaControlSizingPolicyByType"},
 			TypeProperty{Name: "globals", TypeExpr: "SectionSizingPolicyGlobals"},
 		),
-		reflect.TypeOf(SettingsShortcuts{}): objectDeclarationWithCreateExpr(
-			"SettingsShortcuts",
-			buildSettingsSectionCreateExprTS("shortcuts", settingsShortcutsTypeProperties()),
-			settingsShortcutsTypeProperties()...,
-		),
-		reflect.TypeOf(SettingsGUI{}): objectDeclarationWithCreateExpr(
-			"SettingsGUI",
-			buildSettingsSectionCreateExprTS("gui", settingsGUITypeProperties()),
-			settingsGUITypeProperties()...,
-		),
-		reflect.TypeOf(SettingsBackend{}): objectDeclarationWithCreateExpr(
-			"SettingsBackend",
-			buildSettingsSectionCreateExprTS("backend", settingsBackendTypeProperties()),
-			settingsBackendTypeProperties()...,
-		),
 		reflect.TypeOf(SettingsState{}): objectDeclarationWithCreateBody(
 			"SettingsState",
 			buildSettingsStateCreateBodyTS(),
@@ -369,11 +354,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"BaseParentCodeObjImplUnion",
 			`CodeCallableCodeObjImpl
   | NestedParamCodeObjImpl`,
-		),
-		reflect.TypeOf(ColorPickerChoice{}): objectDeclaration(
-			"ColorPickerChoice",
-			TypeProperty{Name: "color", TypeExpr: "string"},
-			TypeProperty{Name: "description", TypeExpr: "string"},
 		),
 		reflect.TypeOf(TextParamCodeObjImpl{}): aliasDeclaration(
 			"TextParamCodeObjImpl",

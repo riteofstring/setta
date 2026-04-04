@@ -30,6 +30,7 @@ import (
 	prompttemplates "setta/internal/prompttemplates"
 	realtime "setta/internal/realtime"
 	runchains "setta/internal/runchains"
+	settingsstate "setta/internal/settingsstate"
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
 )
 
@@ -480,10 +481,10 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(SectionSizingPolicyByType{}),
 		reflect.TypeOf(SectionSizingPolicy{}),
 		reflect.TypeOf((*SharePolicy)(nil)).Elem(),
-		reflect.TypeOf(SettingsShortcuts{}),
-		reflect.TypeOf(SettingsGUI{}),
-		reflect.TypeOf(SettingsBackend{}),
-		reflect.TypeOf(SettingsState{}),
+		reflect.TypeOf((*SettingsShortcuts)(nil)).Elem(),
+		reflect.TypeOf((*SettingsGUI)(nil)).Elem(),
+		reflect.TypeOf((*SettingsBackend)(nil)).Elem(),
+		reflect.TypeOf((*SettingsState)(nil)).Elem(),
 		reflect.TypeOf(SaveSettingsRequestInput{}),
 		reflect.TypeOf((*SectionTypeCodegenPolicy)(nil)).Elem(),
 		reflect.TypeOf((*SectionCodegenOverride)(nil)).Elem(),
@@ -667,7 +668,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(BaseParamCodeObjImplUnion{}),
 		reflect.TypeOf(BaseParentCodeObjImplUnion{}),
 		reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}),
-		reflect.TypeOf(ColorPickerChoice{}),
+		reflect.TypeOf((*ColorPickerChoice)(nil)).Elem(),
 		reflect.TypeOf(TextParamCodeObjImpl{}),
 		reflect.TypeOf(DateParamCodeObjImpl{}),
 		reflect.TypeOf(TimeParamCodeObjImpl{}),
@@ -1049,6 +1050,10 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*projectstate.SectionSizeValue)(nil)).Elem():                    reflect.TypeOf((*SectionSizeValue)(nil)).Elem(),
 		reflect.TypeOf((*projectstate.SectionSize)(nil)).Elem():                         reflect.TypeOf((*SectionSize)(nil)).Elem(),
 		reflect.TypeOf((*deployments.Policy)(nil)).Elem():                               reflect.TypeOf((*SharePolicy)(nil)).Elem(),
+		reflect.TypeOf((*settingsstate.FrontendSettingsShortcuts)(nil)).Elem():          reflect.TypeOf((*SettingsShortcuts)(nil)).Elem(),
+		reflect.TypeOf((*settingsstate.FrontendSettingsGUI)(nil)).Elem():                reflect.TypeOf((*SettingsGUI)(nil)).Elem(),
+		reflect.TypeOf((*settingsstate.FrontendSettingsBackend)(nil)).Elem():            reflect.TypeOf((*SettingsBackend)(nil)).Elem(),
+		reflect.TypeOf((*settingsstate.FrontendSettingsState)(nil)).Elem():              reflect.TypeOf((*SettingsState)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.CreateTopLevelSectionRequest)(nil)).Elem():             reflect.TypeOf((*CreateTopLevelSectionRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*projectstate.CreateTopLevelSectionResult)(nil)).Elem():         reflect.TypeOf((*CreateTopLevelSectionResponse)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.CreateViewModeRequest)(nil)).Elem():                    reflect.TypeOf((*CreateViewModeRequestInput)(nil)).Elem(),
@@ -1108,6 +1113,7 @@ func DiscoveredWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*projectstate.CodeSectionDiagnosticsIgnoreState)(nil)).Elem():   reflect.TypeOf((*CodeSectionDiagnosticsIgnoreState)(nil)).Elem(),
 		reflect.TypeOf((*projectstate.CodeSectionImpl)(nil)).Elem():                     reflect.TypeOf((*CodeSectionImpl)(nil)).Elem(),
 		reflect.TypeOf((*projectstate.TerminalSectionImpl)(nil)).Elem():                 reflect.TypeOf((*TerminalSectionImpl)(nil)).Elem(),
+		reflect.TypeOf((*settingsstate.FrontendColorPickerChoice)(nil)).Elem():          reflect.TypeOf((*ColorPickerChoice)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.SetSectionParamFilterRequest)(nil)).Elem():             reflect.TypeOf((*SetSectionParamFilterRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.SetMetaControlShowSectionTitleRequest)(nil)).Elem():    reflect.TypeOf((*SetMetaControlShowSectionTitleRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*httpapi.SetSectionColumnWidthRequest)(nil)).Elem():             reflect.TypeOf((*SetSectionColumnWidthRequestInput)(nil)).Elem(),

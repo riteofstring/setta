@@ -6102,7 +6102,7 @@ func disabledSettingsSupportContractsUseConverterDeclarations(t *testing.T) {
 				{Name: "selectionMode", TypeExpr: "SelectionMode", Optional: false},
 				{Name: "leftSidePaneShiftsMap", TypeExpr: "boolean", Optional: false},
 				{Name: "transitionDuration", TypeExpr: "number", Optional: false},
-				{Name: "sectionTagColorChoices", TypeExpr: "Array<{ color: string; description: string; }>", Optional: false},
+				{Name: "sectionTagColorChoices", TypeExpr: "Array<ColorPickerChoice>", Optional: false},
 			},
 			hasCreateExpr: true,
 		},
