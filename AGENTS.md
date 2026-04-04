@@ -9,6 +9,7 @@
 
 ## Source Of Truth
 
+- This section defines ownership boundaries for behavior and logic.
 - Go owns canonical behavior, validation, derived metadata, shared contracts, endpoint shapes, and correctness-sensitive local runtime behavior unless the developer explicitly says otherwise.
 - Prefer solutions in this order: `1.` Go-owned logic, `2.` Go-owned contracts with generated Python/TypeScript surfaces, `3.` duplicated Python/TypeScript logic only with explicit justification.
 - Any duplicated non-trivial Python or TypeScript logic must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
@@ -21,16 +22,17 @@
 - Call Python behavior Go-backed only when it delegates to the running backend or `setta sdk-local-core`.
 - Not enough to justify a local Go subprocess call: generated models or backend-authored DTO parsing alone.
 - Allowed in Python when they sit on top of authoritative contracts: transport/session glue, context managers, callback scheduling, iterators, and read-only convenience builders.
-- Before deleting a Python file outside `backend/setta/`, identify the surviving caller or replacement owner in the diff or final summary.
 
 ## Generation & Contracts
 
-- Minimize duplicated logic across Go, Python, and TypeScript. Prefer generic, discovery-driven generation over hand-maintained allowlists or brittle special cases.
+- This section defines how Go-owned contracts should be exposed to Python and TypeScript.
+- When Go-owned contracts need downstream Python or TypeScript surfaces, prefer generation over hand-maintained mirrors.
+- Prefer generic, discovery-driven generation over hand-maintained allowlists or brittle special cases.
 - Do not rely on hand-maintained allowlists of type or endpoint names when generators can discover the relevant structures from Go packages, metadata, or typed registration points.
 - Do not over-engineer discovery just to avoid generating some unused outputs. Broad correct discovery plus pruning is usually better than brittle hyper-selective discovery.
 - Keep hardcoded generator special cases to the absolute minimum and require a concrete reason when they cannot be removed.
 - Do not embed substantial Python or TypeScript source as raw strings inside generation scripts.
-- The point of generation is to remove duplicated ownership. Generation code should describe structure and mapping rules rather than acting as a second handwritten implementation.
+- Generation code should describe structure and mapping rules rather than acting as a second handwritten implementation.
 - Backend and frontend endpoint functions must have the exact same name. Frontend code must use route functions from `generatedEndpoints`.
 - If you edit `frontend/generation/`, backend endpoints, or Go-owned types used by the frontend or Python surface, regenerate before finishing the task.
 - If you need new generated outputs, generate them before cleanup.
