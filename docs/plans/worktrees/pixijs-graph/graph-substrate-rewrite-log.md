@@ -1369,3 +1369,36 @@ LOOP_TERMINAL_MARKER: none
   - run the next normalized dynamic compare on `All Settings` with selection cleared on both sides and isolate the first remaining zoom-time blur/snap or other true graph-surface motion artifact
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 041
+
+- Item: Lock the normalized `All Settings` modified-wheel zoom lane with a live regression now that the shared graph-surface compare is clean.
+- Status: `done`
+- Details:
+  - A fresh-context CDP sub-agent first reran the normalized graph-surface compare on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - That compare did not isolate a new canary-only renderer defect on the checked surface; visible differences were non-target chrome only.
+  - The next bounded interaction lane chosen from that clean compare was modified-wheel zoom:
+    - plain-wheel pan already had live coverage from item `030`
+    - modified-wheel zoom still only had helper-level coverage in `settingsGraphSubstrateCanaryViewport.test.ts`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface`.
+  - The new case normalizes `All Settings`, holds the default `Mod` zoom activation key, performs a wheel gesture on a blank canary point, and asserts that the canary takes the zoom path while keeping the pointer anchor stable in canary-root coordinates.
+  - The first draft of the regression incorrectly compared root-local viewport math against page-space pointer coordinates and failed by about the canary root offset; that expectation was corrected by resolving the chosen wheel point into canary-root coordinates before checking the anchored transform.
+- Verification:
+  - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+    - result: failed in Playwright global setup with the known live-runtime bootstrap `401`; treat as harness noise, not a product failure on this lane
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+    - result: passed (`1 passed`, about `21.8s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings` and applied one shared `fit view`
+      - both sides started from `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - after one modified-wheel zoom gesture, both sides ended at `matrix(0.527803, 0, 0, 0.527803, 1036.15, -2235.34)`
+      - no worktree-only zoom-path drift was observed on the checked graph surface
+- Conclusion:
+  - the modified-wheel zoom interaction lane is closed for the checked normalized `All Settings` path
+  - do not reopen it unless the new targeted E2E or a fresh normalized CDP compare starts showing worktree-vs-`main` drift again
+- Next action:
+  - move to the next remaining normalized `All Settings` interaction or visual parity lane, with focus on the first true zoom-time blur/snap or other graph-surface artifact that still reproduces in fresh CDP rather than more wheel-input churn
+
+LOOP_TERMINAL_MARKER: none

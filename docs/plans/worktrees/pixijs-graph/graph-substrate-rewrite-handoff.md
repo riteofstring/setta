@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 13:28 EDT
+Last updated: 2026-04-03 13:43 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,29 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `041` closed the modified-wheel zoom interaction lane with a targeted regression instead of another production patch.
+  - Process:
+    - a fresh-context CDP sub-agent first reran the normalized `All Settings` graph-surface compare and did not isolate a new canary-only renderer defect on the checked surface; visible differences were non-target chrome only
+    - the next bounded lane chosen from that clean compare was the still-unlocked `Mod+wheel` zoom path, because plain-wheel pan was already covered live while modified-wheel zoom only had helper-level unit coverage
+    - a second fresh-context CDP sub-agent then normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`, applied one shared `fit view`, and performed one modified-wheel zoom gesture on the graph surface
+  - Result:
+    - both sides started from the same normalized transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - both sides ended at the same post-wheel transform `matrix(0.527803, 0, 0, 0.527803, 1036.15, -2235.34)`
+    - no worktree-only zoom-path drift was isolated on the checked lane, so the useful slice here was to lock the live interaction down instead of forcing a speculative product patch
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface`
+    - the case normalizes `All Settings`, holds the default `Mod` zoom activation key, performs a wheel gesture on a blank canary point, and asserts that the canary takes the zoom path while keeping the pointer anchor stable in the canary root coordinate space
+    - the first draft incorrectly compared root-local viewport math against page-space coordinates; the final test fixes that by resolving the pointer into canary-root coordinates before checking the anchored transform
+  - Verification:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+      - result: failed in Playwright global setup with the known live-runtime bootstrap `401`; treat this as harness noise, not as a product failure on the checked lane
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+      - result: passed (`1 passed`, about `21.8s`)
+    - fresh-context CDP sub-agent reran the same normalized modified-wheel zoom lane
+      - result: done; worktree and `main` produced the same post-wheel viewport matrix on the checked graph surface
+  - conclusion for this slice:
+    - the modified-wheel zoom interaction lane is closed for the checked normalized `All Settings` path
+    - do not reopen it unless the new targeted E2E or a fresh normalized CDP compare starts showing worktree-vs-`main` drift again
 - Ralph item `040` closed the normalized `All Settings` selection-state drift lane with a small production fix instead of another oracle-only pass.
   - Root cause:
     - a fresh-context CDP compare on normalized `All Settings -> fit view -> short pan` still showed a worktree-only blue-selected card on the graph surface

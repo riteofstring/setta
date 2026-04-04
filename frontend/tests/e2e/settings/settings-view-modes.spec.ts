@@ -4,6 +4,7 @@ import { ensureAppReady, postBackend } from "../helpers";
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
+const MOD_KEY = process.platform === "darwin" ? "Meta" : "Control";
 
 test("settings view tabs filter sections and minimap", async ({ page }) => {
   await ensureAppReady(page);
@@ -829,6 +830,111 @@ test("settings graph substrate canary matches legacy plain-wheel pan behavior on
     .toBeCloseTo(viewportAfterDrag.y + 240, 0);
 });
 
+test("settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const canarySections = page.getByTestId("graph-substrate-canary-section");
+    await expect(canaryPane).toBeVisible();
+    await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+    await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+    const zoomPoint = await findCanaryPanePoint(page);
+    const rootRelativeZoomPoint = await getCanaryRootRelativePoint(
+      page,
+      zoomPoint,
+    );
+    const initialTransform = await getCanaryViewportTransform(page);
+    if (!initialTransform) {
+      throw new Error("Missing canary viewport transform before modified-wheel zoom.");
+    }
+    await page.mouse.move(zoomPoint.x, zoomPoint.y);
+    await page.keyboard.down(MOD_KEY);
+    await page.mouse.wheel(0, -240);
+    await page.keyboard.up(MOD_KEY);
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeGreaterThan(initialTransform.zoom);
+    await expect
+      .poll(async () => {
+        const currentTransform = await getCanaryViewportTransform(page);
+        if (!currentTransform) {
+          return Number.POSITIVE_INFINITY;
+        }
+        const expectedTransform = resolveScreenPointAnchoredViewport(
+          initialTransform,
+          rootRelativeZoomPoint,
+          currentTransform.zoom,
+        );
+        return Math.abs(currentTransform.x - expectedTransform.x);
+      })
+      .toBeLessThan(1);
+    await expect
+      .poll(async () => {
+        const currentTransform = await getCanaryViewportTransform(page);
+        if (!currentTransform) {
+          return Number.POSITIVE_INFINITY;
+        }
+        const expectedTransform = resolveScreenPointAnchoredViewport(
+          initialTransform,
+          rootRelativeZoomPoint,
+          currentTransform.zoom,
+        );
+        return Math.abs(currentTransform.y - expectedTransform.y);
+      })
+      .toBeLessThan(1);
+  } finally {
+    await allTab.click().catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary blank pane click clears the active section durably", async ({
   page,
 }) => {
@@ -1339,6 +1445,30 @@ async function getCanaryExpectedToolbarZoomTransform(
   }, nextZoom);
 }
 
+function resolveScreenPointAnchoredViewport(
+  viewport: {
+    x: number;
+    y: number;
+    zoom: number;
+  },
+  screenPoint: { x: number; y: number },
+  nextZoom: number,
+): {
+  x: number;
+  y: number;
+  zoom: number;
+} {
+  const anchorWorldPoint = {
+    x: (screenPoint.x - viewport.x) / viewport.zoom,
+    y: (screenPoint.y - viewport.y) / viewport.zoom,
+  };
+  return {
+    x: screenPoint.x - anchorWorldPoint.x * nextZoom,
+    y: screenPoint.y - anchorWorldPoint.y * nextZoom,
+    zoom: nextZoom,
+  };
+}
+
 async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
   x: number;
   y: number;
@@ -1591,6 +1721,31 @@ async function findCanaryPanePoint(
     throw new Error("Unable to find a pan or zoom point on the canary pane.");
   }
   return point;
+}
+
+async function getCanaryRootRelativePoint(
+  page: Page,
+  point: { x: number; y: number },
+): Promise<{ x: number; y: number }> {
+  const rootRelativePoint = await page.evaluate((screenPoint) => {
+    const pane = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary"]',
+    );
+    if (!pane) {
+      return null;
+    }
+    const rect = pane.getBoundingClientRect();
+    return {
+      x: screenPoint.x - rect.left,
+      y: screenPoint.y - rect.top,
+    };
+  }, point);
+
+  if (!rootRelativePoint) {
+    throw new Error("Unable to resolve a root-relative canary point.");
+  }
+
+  return rootRelativePoint;
 }
 
 async function getCanaryPaneViewportGaps(page: Page): Promise<{
