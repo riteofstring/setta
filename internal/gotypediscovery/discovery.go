@@ -41,6 +41,10 @@ type DiscoveredType struct {
 	TargetTypeName    string
 }
 
+type DiscoveredFunction struct {
+	Name string
+}
+
 type DiscoverOptions struct {
 	RequireJSONTaggedStructs bool
 	IncludeZeroFieldStructs  bool
@@ -66,6 +70,17 @@ func DiscoverPackageTypesWithOptions(
 		return nil, err
 	}
 	return DiscoverPackageTypesInDirWithOptions(dir, options)
+}
+
+func DiscoverPackageZeroArgFunctionsWithPrefix(
+	pkgPath string,
+	prefix string,
+) ([]DiscoveredFunction, error) {
+	dir, err := packageDir(pkgPath)
+	if err != nil {
+		return nil, err
+	}
+	return DiscoverPackageZeroArgFunctionsWithPrefixInDir(dir, prefix)
 }
 
 func DiscoverPackageTypesInDir(dir string) ([]DiscoveredType, error) {
@@ -136,6 +151,51 @@ func DiscoverPackageTypesInDirWithOptions(
 	return discovered, nil
 }
 
+func DiscoverPackageZeroArgFunctionsWithPrefixInDir(
+	dir string,
+	prefix string,
+) ([]DiscoveredFunction, error) {
+	matches, err := filepath.Glob(filepath.Join(dir, "*.go"))
+	if err != nil {
+		return nil, fmt.Errorf("glob %s: %w", dir, err)
+	}
+	slices.Sort(matches)
+
+	discovered := make([]DiscoveredFunction, 0, len(matches))
+	fileSet := token.NewFileSet()
+	for _, match := range matches {
+		if strings.HasSuffix(match, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(fileSet, match, nil, parser.ParseComments)
+		if err != nil {
+			return nil, fmt.Errorf("parse %s: %w", match, err)
+		}
+		for _, decl := range file.Decls {
+			funcDecl, ok := decl.(*ast.FuncDecl)
+			if !ok || funcDecl.Recv != nil || funcDecl.Type == nil {
+				continue
+			}
+			if funcDecl.Name == nil ||
+				!funcDecl.Name.IsExported() ||
+				!strings.HasPrefix(funcDecl.Name.Name, prefix) ||
+				shouldSkipFunc(funcDecl) {
+				continue
+			}
+			if funcDecl.Type.TypeParams != nil ||
+				funcDecl.Type.Params == nil ||
+				len(funcDecl.Type.Params.List) != 0 ||
+				funcDecl.Type.Results == nil ||
+				len(funcDecl.Type.Results.List) != 1 ||
+				len(funcDecl.Type.Results.List[0].Names) != 0 {
+				continue
+			}
+			discovered = append(discovered, DiscoveredFunction{Name: funcDecl.Name.Name})
+		}
+	}
+	return discovered, nil
+}
+
 func importAliasPaths(file *ast.File) map[string]string {
 	paths := map[string]string{}
 	if file == nil {
@@ -195,6 +255,13 @@ func shouldSkipType(genDecl *ast.GenDecl, typeSpec *ast.TypeSpec) bool {
 	return hasSkipDirective(typeSpec.Doc) ||
 		hasSkipDirective(typeSpec.Comment) ||
 		hasSkipDirective(genDecl.Doc)
+}
+
+func shouldSkipFunc(funcDecl *ast.FuncDecl) bool {
+	if funcDecl == nil {
+		return false
+	}
+	return hasSkipDirective(funcDecl.Doc)
 }
 
 func hasSkipDirective(commentGroup *ast.CommentGroup) bool {

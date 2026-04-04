@@ -99,3 +99,26 @@ func TestDiscoverPackageTypesInDirIncludesSelectorBackedNamedTypes(t *testing.T)
 		t.Fatalf("DiscoverPackageTypesInDir(...) = %#v, want %#v", discovered, want)
 	}
 }
+
+func TestDiscoverPackageZeroArgFunctionsWithPrefixInDir(t *testing.T) {
+	t.Helper()
+
+	discovered, err := DiscoverPackageZeroArgFunctionsWithPrefixInDir(
+		filepath.Join("testdata", "functionpkg"),
+		"FrontendDefault",
+	)
+	if err != nil {
+		t.Fatalf("DiscoverPackageZeroArgFunctionsWithPrefixInDir(...) error = %v", err)
+	}
+
+	want := []DiscoveredFunction{
+		{Name: "FrontendDefaultWidget"},
+	}
+	if !reflect.DeepEqual(discovered, want) {
+		t.Fatalf(
+			"DiscoverPackageZeroArgFunctionsWithPrefixInDir(...) = %#v, want %#v",
+			discovered,
+			want,
+		)
+	}
+}

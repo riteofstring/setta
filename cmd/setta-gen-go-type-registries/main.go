@@ -11,6 +11,8 @@ import (
 	"setta/internal/gotypediscovery"
 )
 
+const frontendDefaultProviderOutputPath = "internal/frontendbindings/discovered_default_providers_gen.go"
+
 type registrySource struct {
 	PkgPath                  string
 	RequireJSONTaggedStructs bool
@@ -32,6 +34,21 @@ type registryTarget struct {
 type registryEntry struct {
 	Type    gotypediscovery.DiscoveredType
 	PkgPath string
+}
+
+type defaultProviderEntry struct {
+	Target              registryEntry
+	ProviderPackagePath string
+	ProviderFuncName    string
+}
+
+type frontendTypeIndexes struct {
+	LocalNames  map[string]registryEntry
+	TargetNames map[string]map[string]registryEntry
+}
+
+var skippedFrontendDefaultProviderTypes = map[string]struct{}{
+	"CodeParamCodeObjImpl": {},
 }
 
 func main() {
@@ -100,10 +117,14 @@ func main() {
 		},
 	}
 
+	var frontendEntries []registryEntry
 	for _, target := range targets {
 		entries, err := discoverRegistryEntries(target)
 		if err != nil {
 			fail("discover %s: %v", target.OutputPath, err)
+		}
+		if target.OutputPath == "internal/frontendbindings/discovered_type_roots_gen.go" {
+			frontendEntries = append([]registryEntry(nil), entries...)
 		}
 		contents := renderRegistry(target, entries)
 		if !*write {
@@ -113,6 +134,10 @@ func main() {
 		if err := os.WriteFile(target.OutputPath, []byte(contents), 0o644); err != nil {
 			fail("write %s: %v", target.OutputPath, err)
 		}
+	}
+
+	if err := writeFrontendDefaultProviderRegistry(frontendEntries, *write); err != nil {
+		fail("write %s: %v", frontendDefaultProviderOutputPath, err)
 	}
 }
 
@@ -201,6 +226,252 @@ func renderRegistry(target registryTarget, entries []registryEntry) string {
 		builder.WriteString("}\n")
 	}
 	return builder.String()
+}
+
+func writeFrontendDefaultProviderRegistry(
+	frontendEntries []registryEntry,
+	write bool,
+) error {
+	if len(frontendEntries) == 0 {
+		return fmt.Errorf("missing frontend registry entries")
+	}
+	providers, err := discoverFrontendDefaultProviderEntries(frontendEntries)
+	if err != nil {
+		return err
+	}
+	contents := renderFrontendDefaultProviderRegistry(providers)
+	if !write {
+		fmt.Printf("== %s ==\n%s\n", frontendDefaultProviderOutputPath, contents)
+		return nil
+	}
+	return os.WriteFile(frontendDefaultProviderOutputPath, []byte(contents), 0o644)
+}
+
+func discoverFrontendDefaultProviderEntries(
+	frontendEntries []registryEntry,
+) ([]defaultProviderEntry, error) {
+	indexes, err := normalizedFrontendTypeIndex(frontendEntries)
+	if err != nil {
+		return nil, err
+	}
+
+	providersByTarget := map[string]defaultProviderEntry{}
+	for _, pkgPath := range frontendDefaultProviderSourcePackages(frontendEntries) {
+		functions, err := gotypediscovery.DiscoverPackageZeroArgFunctionsWithPrefix(
+			pkgPath,
+			"FrontendDefault",
+		)
+		if err != nil {
+			return nil, fmt.Errorf("discover default providers in %s: %w", pkgPath, err)
+		}
+		for _, function := range functions {
+			suffix := strings.TrimPrefix(function.Name, "FrontendDefault")
+			key := normalizedRegistryName(suffix)
+			target, ok := indexes.LocalNames[key]
+			if !ok {
+				targetsByPackage := indexes.TargetNames[pkgPath]
+				target, ok = targetsByPackage[key]
+			}
+			if !ok {
+				continue
+			}
+			if _, skipped := skippedFrontendDefaultProviderTypes[target.Type.Name]; skipped {
+				continue
+			}
+			entry := defaultProviderEntry{
+				Target:              target,
+				ProviderPackagePath: pkgPath,
+				ProviderFuncName:    function.Name,
+			}
+			if existing, ok := providersByTarget[target.Type.Name]; ok &&
+				(existing.ProviderPackagePath != entry.ProviderPackagePath ||
+					existing.ProviderFuncName != entry.ProviderFuncName) {
+				return nil, fmt.Errorf(
+					"multiple default providers discovered for %s: %s.%s and %s.%s",
+					target.Type.Name,
+					existing.ProviderPackagePath,
+					existing.ProviderFuncName,
+					entry.ProviderPackagePath,
+					entry.ProviderFuncName,
+				)
+			}
+			providersByTarget[target.Type.Name] = entry
+		}
+	}
+
+	providers := make([]defaultProviderEntry, 0, len(providersByTarget))
+	for _, entry := range providersByTarget {
+		providers = append(providers, entry)
+	}
+	sort.Slice(providers, func(i, j int) bool {
+		return providers[i].Target.Type.Name < providers[j].Target.Type.Name
+	})
+	return providers, nil
+}
+
+func normalizedFrontendTypeIndex(
+	frontendEntries []registryEntry,
+) (frontendTypeIndexes, error) {
+	indexes := frontendTypeIndexes{
+		LocalNames:  map[string]registryEntry{},
+		TargetNames: map[string]map[string]registryEntry{},
+	}
+	ambiguousTargetNames := map[string]map[string]struct{}{}
+	for _, entry := range frontendEntries {
+		key := normalizedRegistryName(entry.Type.Name)
+		if existing, ok := indexes.LocalNames[key]; ok && existing.Type.Name != entry.Type.Name {
+			return frontendTypeIndexes{}, fmt.Errorf(
+				"ambiguous normalized frontend type name %q between %s and %s",
+				key,
+				existing.Type.Name,
+				entry.Type.Name,
+			)
+		}
+		indexes.LocalNames[key] = entry
+
+		targetPkgPath := strings.TrimSpace(entry.Type.TargetPackagePath)
+		targetTypeName := normalizedRegistryName(entry.Type.TargetTypeName)
+		if targetPkgPath == "" || targetTypeName == "" {
+			continue
+		}
+		targetsByPackage, ok := indexes.TargetNames[targetPkgPath]
+		if !ok {
+			targetsByPackage = map[string]registryEntry{}
+			indexes.TargetNames[targetPkgPath] = targetsByPackage
+		}
+		ambiguousKeys, ok := ambiguousTargetNames[targetPkgPath]
+		if !ok {
+			ambiguousKeys = map[string]struct{}{}
+			ambiguousTargetNames[targetPkgPath] = ambiguousKeys
+		}
+		if _, ambiguous := ambiguousKeys[targetTypeName]; ambiguous {
+			continue
+		}
+		if existing, ok := targetsByPackage[targetTypeName]; ok && existing.Type.Name != entry.Type.Name {
+			delete(targetsByPackage, targetTypeName)
+			ambiguousKeys[targetTypeName] = struct{}{}
+			continue
+		}
+		targetsByPackage[targetTypeName] = entry
+	}
+	return indexes, nil
+}
+
+func frontendDefaultProviderSourcePackages(frontendEntries []registryEntry) []string {
+	packages := []string{"setta/internal/frontendbindings"}
+	seen := map[string]struct{}{
+		"setta/internal/frontendbindings": {},
+	}
+	for _, entry := range frontendEntries {
+		targetPkg := strings.TrimSpace(entry.Type.TargetPackagePath)
+		if targetPkg == "" {
+			continue
+		}
+		if _, ok := seen[targetPkg]; ok {
+			continue
+		}
+		seen[targetPkg] = struct{}{}
+		packages = append(packages, targetPkg)
+	}
+	sort.Strings(packages)
+	return packages
+}
+
+func normalizedRegistryName(name string) string {
+	return strings.ToLower(strings.TrimSpace(name))
+}
+
+func renderFrontendDefaultProviderRegistry(entries []defaultProviderEntry) string {
+	var builder strings.Builder
+	builder.WriteString("// Code generated by ./scripts/go.sh run ./cmd/setta-gen-go-type-registries; DO NOT EDIT.\n\n")
+	builder.WriteString("package frontendbindings\n\n")
+
+	importPaths := frontendDefaultProviderImportPaths(entries)
+	if len(importPaths) == 0 {
+		builder.WriteString("import \"reflect\"\n\n")
+	} else {
+		builder.WriteString("import (\n")
+		builder.WriteString("\t\"reflect\"\n")
+		importAliases := buildImportAliasesForPaths("frontendbindings", importPaths)
+		for _, importPath := range importPaths {
+			builder.WriteString("\t")
+			builder.WriteString(importAliases[importPath])
+			builder.WriteString(" ")
+			builder.WriteString(fmt.Sprintf("%q", importPath))
+			builder.WriteString("\n")
+		}
+		builder.WriteString(")\n\n")
+	}
+
+	builder.WriteString("func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {\n")
+	builder.WriteString("\treturn map[reflect.Type]func() any{\n")
+	importAliases := buildImportAliasesForPaths("frontendbindings", importPaths)
+	for _, entry := range entries {
+		builder.WriteString("\t\t")
+		builder.WriteString(renderReflectExpr(entry.Target, nil))
+		builder.WriteString(": func() any {\n")
+		builder.WriteString("\t\t\treturn ")
+		builder.WriteString(renderDefaultProviderCall(entry, importAliases))
+		builder.WriteString("\n")
+		builder.WriteString("\t\t},\n")
+	}
+	builder.WriteString("\t}\n")
+	builder.WriteString("}\n")
+	return builder.String()
+}
+
+func frontendDefaultProviderImportPaths(entries []defaultProviderEntry) []string {
+	imports := []string{}
+	seen := map[string]struct{}{}
+	for _, entry := range entries {
+		if entry.ProviderPackagePath == "setta/internal/frontendbindings" {
+			continue
+		}
+		if _, ok := seen[entry.ProviderPackagePath]; ok {
+			continue
+		}
+		seen[entry.ProviderPackagePath] = struct{}{}
+		imports = append(imports, entry.ProviderPackagePath)
+	}
+	sort.Strings(imports)
+	return imports
+}
+
+func buildImportAliasesForPaths(targetPackage string, importPaths []string) map[string]string {
+	aliases := map[string]string{}
+	used := map[string]struct{}{
+		targetPackage: {},
+	}
+	for _, importPath := range importPaths {
+		base := strings.TrimSpace(path.Base(importPath))
+		alias := sanitizeAlias(base)
+		if alias == "" {
+			alias = "pkg"
+		}
+		candidate := alias
+		suffix := 2
+		for {
+			if _, exists := used[candidate]; !exists {
+				break
+			}
+			candidate = fmt.Sprintf("%s%d", alias, suffix)
+			suffix++
+		}
+		used[candidate] = struct{}{}
+		aliases[importPath] = candidate
+	}
+	return aliases
+}
+
+func renderDefaultProviderCall(
+	entry defaultProviderEntry,
+	importAliases map[string]string,
+) string {
+	qualifiedName := entry.ProviderFuncName
+	if alias := importAliases[entry.ProviderPackagePath]; alias != "" {
+		qualifiedName = alias + "." + qualifiedName
+	}
+	return qualifiedName + "()"
 }
 
 func renderReflectExpr(entry registryEntry, importAliases map[string]string) string {

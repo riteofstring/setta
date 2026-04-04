@@ -2,6 +2,7 @@ package frontendbindings
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"setta/internal/projectview"
@@ -1385,6 +1386,32 @@ func TestTypeConverterUsesMetadataDeclarationsWithoutManualOverrides(t *testing.
 				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
 			}
 		})
+	}
+}
+
+func TestDiscoveredDefaultProvidersReplaceDefaultOnlyMetadataEntries(t *testing.T) {
+	t.Helper()
+
+	if _, ok := ownerBackedReflectedObjectDeclarationSpecs[reflect.TypeOf(ProjectConfig{})]; ok {
+		t.Fatalf("ProjectConfig should no longer require an explicit default-only reflected metadata entry")
+	}
+
+	spec, ok := ownerBackedReflectedObjectDeclarationSpec(reflect.TypeOf(ProjectConfig{}))
+	if !ok {
+		t.Fatalf("ProjectConfig should still resolve reflected metadata through discovered defaults")
+	}
+	if !spec.HasCreateExpr || spec.DefaultValue == nil {
+		t.Fatalf("ProjectConfig reflected metadata is missing discovered default-backed create support: %#v", spec)
+	}
+
+	converter := newTypeConverter()
+	if err := converter.AddRootType(reflect.TypeOf(ProjectConfig{})); err != nil {
+		t.Fatalf("AddRootType(ProjectConfig) error = %v", err)
+	}
+
+	projectConfig := mustFindDeclarationByName(t, converter.Declarations(), "ProjectConfig")
+	if !strings.Contains(projectConfig.CreateExpr, "codegenTargets: [],") {
+		t.Fatalf("ProjectConfig create expr missing discovered Go-backed defaults:\n%s", projectConfig.CreateExpr)
 	}
 }
 
