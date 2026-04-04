@@ -640,6 +640,104 @@ export async function findSettingsGraphSectionDragPoint(
   return point;
 }
 
+export async function clearSettingsGraphFocusedEditableTarget(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(() => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement)) {
+      return;
+    }
+    activeElement.blur();
+  });
+
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const activeElement = document.activeElement;
+        if (!(activeElement instanceof Element)) {
+          return false;
+        }
+        return activeElement.matches(
+          "input,textarea,select,[contenteditable='true']",
+        );
+      }),
+    )
+    .toBe(false);
+}
+
+export async function findSettingsGraphSectionHeaderDragPoint(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate(
+    ({
+      targetSectionId,
+      canaryRootSelector,
+      canarySectionSelector,
+      legacySectionSelector,
+    }: {
+      targetSectionId: string;
+      canaryRootSelector: string;
+      canarySectionSelector: string;
+      legacySectionSelector: string;
+    }) => {
+      const blockingSelector =
+        ".nodrag,input,textarea,select,option,a,button,[role='button'],summary,[contenteditable='true']";
+      const xs = [0.16, 0.24, 0.32, 0.4, 0.48];
+      const ys = [0.3, 0.45, 0.6];
+      const usingCanary = Boolean(document.querySelector(canaryRootSelector));
+      const sectionSelector = usingCanary
+        ? `${canarySectionSelector}[data-section-id="${targetSectionId}"]`
+        : `${legacySectionSelector}[data-id="${targetSectionId}"]`;
+      const resolvedSectionSelector = usingCanary
+        ? canarySectionSelector
+        : legacySectionSelector;
+      const section = document.querySelector<HTMLElement>(sectionSelector);
+      const header = section?.querySelector<HTMLElement>("header");
+      if (!section || !header) {
+        return null;
+      }
+
+      const bounds = header.getBoundingClientRect();
+      for (const yPct of ys) {
+        for (const xPct of xs) {
+          const x = bounds.x + bounds.width * xPct;
+          const y = bounds.y + bounds.height * yPct;
+          const element = document.elementFromPoint(x, y);
+          if (!(element instanceof Element)) {
+            continue;
+          }
+          if (element.closest(blockingSelector)) {
+            continue;
+          }
+          const resolvedSection = element.closest<HTMLElement>(
+            resolvedSectionSelector,
+          );
+          if (!resolvedSection || resolvedSection !== section) {
+            continue;
+          }
+          return { x, y };
+        }
+      }
+
+      return null;
+    },
+    {
+      targetSectionId: sectionId,
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+    },
+  );
+
+  if (!point) {
+    return findSettingsGraphSectionDragPoint(page, sectionId);
+  }
+
+  return point;
+}
+
 export async function findSettingsGraphSectionWheelPanPoint(
   page: Page,
   sectionId: string,

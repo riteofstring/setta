@@ -1,9 +1,11 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   captureSettingsGraphSectionMetrics,
+  clearSettingsGraphFocusedEditableTarget,
   findSectionIdByName,
   findSettingsGraphPanePoint,
   findSettingsGraphSectionDragPoint,
+  findSettingsGraphSectionHeaderDragPoint,
   findSettingsGraphSectionWheelPanPoint,
   findViewModeId,
   fitGraphViewportToSection,
@@ -1368,6 +1370,7 @@ test("settings graph parity probe applies the same short top-level drag delta on
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
   const sharedSection = findSharedVisibleTopLevelSectionByName({
+    preferredNames: ["browserSectionDefault", "taskBoardSectionDefault"],
     referenceState: referenceInitialState,
     viewModeName: "All Settings",
     worktreeState: worktreeInitialState,
@@ -1428,6 +1431,7 @@ test("settings graph parity probe applies the same short top-level drag delta on
     expect(
       await fitGraphViewportToSection(args.targetPage, args.sectionId),
     ).toBe(true);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
 
     await expect
       .poll(async () => {
@@ -1454,7 +1458,7 @@ test("settings graph parity probe applies the same short top-level drag delta on
       );
     }
 
-    const dragPoint = await findSettingsGraphSectionDragPoint(
+    const dragPoint = await findSettingsGraphSectionHeaderDragPoint(
       args.targetPage,
       args.sectionId,
     );
@@ -3957,6 +3961,7 @@ async function getSectionChildRelativeCenterBySelector(
 }
 
 function findSharedVisibleTopLevelSectionByName(args: {
+  preferredNames?: string[];
   referenceState: ProjectStateSingleConfigWithCompletedOpIds;
   viewModeName: string;
   worktreeState: ProjectStateSingleConfigWithCompletedOpIds;
@@ -3976,7 +3981,12 @@ function findSharedVisibleTopLevelSectionByName(args: {
   const referenceNames = new Set(
     getVisibleTopLevelSectionNames(args.referenceState, referenceViewModeId),
   );
-  const sharedName = worktreeNames.find((name) => referenceNames.has(name));
+  const preferredSharedName = args.preferredNames?.find((name) => {
+    return worktreeNames.includes(name) && referenceNames.has(name);
+  });
+  const sharedName =
+    preferredSharedName ??
+    worktreeNames.find((name) => referenceNames.has(name));
   if (!sharedName) {
     throw new Error(
       `Missing shared visible top-level section across worktree and reference ${args.viewModeName}.`,

@@ -3539,3 +3539,38 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a materially different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 07:52 EDT - Ralph item 104
+
+- Narrowed the remaining normalized top-level drag oracle so the main-reference drag parity probe no longer lands back inside section filter/input focus before the actual drag question.
+- Why this slice was necessary:
+  - items `102` and `103` were both probe-only slices, so this iteration first had to try a fresh normalized live compare instead of extending the same harness shape again
+  - a fresh-context CDP compare earlier in the iteration normalized `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`, then checked the next top-section selection/focus lane without finding a trustworthy canary-only renderer defect
+  - that same fresh compare showed the next top-level drag question was still being polluted by the probe itself collapsing into section filter/input focus on both surfaces, so one bounded drag-oracle change was the narrowest justified support slice
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `clearSettingsGraphFocusedEditableTarget(...)` so the drag probe can explicitly blur focused inputs/editors before measuring the next motion step
+    - added `findSettingsGraphSectionHeaderDragPoint(...)`, which scans section header chrome first and falls back to the older whole-section drag point helper only if the header path cannot produce a safe inert drag target
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - tightened the existing top-level drag parity probe so it prefers a stable shared section from `browserSectionDefault` / `taskBoardSectionDefault` when available
+    - the probe now clears focused editable targets after normalized fit and starts the drag from header chrome instead of the older generic section-body sampling path
+  - no production renderer files changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - refreshed runtime/bootstrap values before the final live rerun:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-023/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-023/main-ai.log`
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe applies the same short top-level drag delta on read-only main legacy and worktree canary after normalized fit' --reporter=line`
+    - result: passed (`1 passed`, `37.4s`)
+  - fresh-context CDP sub-agent:
+    - normalized both live `/settings` pages to active `All Settings`, closed non-target pane/chat chrome, and checked the next selection/focus lane on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+    - found no trustworthy canary-only renderer defect on that live compare; the checked selection/focus path matched on both surfaces
+    - identified the remaining blocker as the drag oracle itself landing back in filter/input focus rather than a product-side renderer divergence
+  - CDP visual check: done (fresh-context normalized `All Settings` live compare on `3075` canary vs read-only `3087` legacy; selection/focus parity matched and no concrete canary-only defect was visible)
+- Lane status:
+  - close the specific drag-oracle blocker that kept the main-reference top-level drag lane from asking a clean question
+  - do not reopen this helper change unless the updated top-level drag probe still lands inside editable/filter chrome on the same preferred shared-section lane
+- Next frontier:
+  - return to one fresh normalized live compare on the now-stable top-level drag/reorder path, with production-fix work preferred immediately if that compare finally exposes a concrete canary-only defect
+- LOOP_TERMINAL_MARKER: none
