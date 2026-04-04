@@ -85,7 +85,7 @@ function getSectionChildrenForSlugPath(
   if (!isBaseParentSectionImpl(impl)) {
     throw new Error(`Section ${parentId} is not a parent section.`);
   }
-  return impl.children;
+  return Array.isArray(impl.children) ? impl.children : [];
 }
 
 export function resolveSectionFullPathName(
@@ -173,7 +173,8 @@ export function resolveStandaloneSectionSlug(
   state: SectionSlugProjectState,
   sectionSlug: string,
 ): StandaloneSectionSlugResolution {
-  const matchingIds = getSectionSlugIndex(state).slugToIds[sectionSlug] ?? [];
+  const matchingIds =
+    state.projectConfig.sectionIdsByPathSlug?.[sectionSlug] ?? [];
 
   if (matchingIds.length === 0) {
     return {

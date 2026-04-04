@@ -18,13 +18,15 @@ import { TbUser } from "react-icons/tb";
 import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
-import { persistViewModeSortOrder } from "state/actions/viewModes";
+import {
+  deleteViewMode,
+  persistViewModeSortOrder,
+} from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
 import {
   route_create_view_mode,
-  route_delete_view_mode,
   route_set_active_view_mode,
   route_set_view_mode_name,
   route_toggle_is_editing_view_mode,
@@ -43,20 +45,6 @@ import { WindowSpacesPane } from "./WindowSpacesPane";
 const PROJECT_CONFIGS_MIN_HEIGHT = 140;
 const VIEW_MODES_MIN_HEIGHT = 120;
 const PROJECT_CONFIGS_RESIZE_HANDLE_HEIGHT = 12;
-
-export function compactViewModeSortIndices(
-  viewModes: Record<string, ViewModeConfig>,
-): Array<ViewModeConfig> {
-  const sortedViewModes = sortViewModes(Object.values(viewModes));
-  for (let index = 0; index < sortedViewModes.length; index += 1) {
-    const sortedViewMode = sortedViewModes[index];
-    if (!sortedViewMode) {
-      continue;
-    }
-    sortedViewMode.sortIndex = index;
-  }
-  return sortedViewModes;
-}
 
 export function ViewingEditingMode() {
   const { projectConfigId, viewModeList, activeViewModeId, isEditingViewMode } =
@@ -685,46 +673,7 @@ function ViewModeEditingRowContent({
     if (!canEditStructure) {
       return;
     }
-    dispatchOptimisticProjectStateUpdate({
-      apply: (state) => {
-        const { viewModes } = state.projectConfig;
-        if (!(mode.id in viewModes)) {
-          throw new Error(`View mode ${mode.id} not found`);
-        }
-        if (Object.keys(viewModes).length < 2) {
-          return;
-        }
-        delete viewModes[mode.id];
-        const sortedViewModes = compactViewModeSortIndices(viewModes);
-        if (state.projectConfig.activeViewModeId === mode.id) {
-          const nextViewMode = sortedViewModes[0] ?? null;
-          state.projectConfig.activeViewModeId = nextViewMode?.id ?? null;
-          if (nextViewMode) {
-            if (Object.keys(nextViewMode.topLevelSections).length === 0) {
-              const clonedTopLevelSections: typeof state.projectConfig.topLevelSections =
-                {};
-              for (const sectionId in state.projectConfig.topLevelSections) {
-                clonedTopLevelSections[sectionId] = {
-                  ...state.projectConfig.topLevelSections[sectionId],
-                };
-              }
-              nextViewMode.topLevelSections = clonedTopLevelSections;
-            }
-            state.projectConfig.topLevelSections =
-              nextViewMode.topLevelSections;
-            state.projectConfig.viewport = nextViewMode.viewport;
-            state.projectConfig.viewportInitialized =
-              nextViewMode.viewportInitialized;
-          }
-        }
-      },
-      send: (frontendOpId) =>
-        route_delete_view_mode({
-          projectConfigId,
-          viewModeId: mode.id,
-          frontendOpId,
-        }),
-    });
+    deleteViewMode(projectConfigId, mode.id);
   };
 
   const handleInputClick = (event: React.MouseEvent<HTMLInputElement>) => {
