@@ -2,10 +2,12 @@ import { ViewModeConfig } from "utils/generatedTypes";
 
 export function sortViewModes(viewModes: Array<ViewModeConfig>) {
   return [...viewModes].sort((a, b) => {
+    const aSortIndex = a.sortIndex ?? 0;
+    const bSortIndex = b.sortIndex ?? 0;
     const aName = a.name.trim();
     const bName = b.name.trim();
-    if (a.sortIndex !== b.sortIndex) {
-      return a.sortIndex - b.sortIndex;
+    if (aSortIndex !== bSortIndex) {
+      return aSortIndex - bSortIndex;
     }
     const byName = aName.localeCompare(bName, undefined, {
       sensitivity: "base",
