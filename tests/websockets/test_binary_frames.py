@@ -1,7 +1,6 @@
 import pytest
 
-from setta.websockets.binary_frames import decode_binary_frame
-from tests.helpers.binary_frames import encode_binary_frame
+from setta.websockets.binary_frames import decode_binary_frame, encode_binary_frame
 
 
 def test_binary_frame_roundtrip() -> None:
