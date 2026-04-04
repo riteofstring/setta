@@ -891,6 +891,42 @@ func buildProjectCodegenPythonTargetCreateBodyTS() string {
 
 func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 	return map[reflect.Type][]TypeDeclaration{
+		reflect.TypeOf(ProjectConfig{}): {
+			objectDeclarationWithCreateExpr(
+				"ProjectRunCapabilities",
+				`mergeGeneratedOptions(
+    {
+      canRunFromMain: false,
+      mainRunDisabledReason: null,
+      effectiveEntrySectionId: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "canRunFromMain", TypeExpr: "boolean"},
+				TypeProperty{Name: "mainRunDisabledReason", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "effectiveEntrySectionId", TypeExpr: "string | null", Optional: true},
+			),
+		},
+		reflect.TypeOf(ProjectStateSingleConfig{}): {
+			objectDeclarationWithCreateExpr(
+				"SectionCapabilities",
+				`mergeGeneratedOptions(
+    {
+      canRun: false,
+      runDisabledReason: null,
+      runRequestSectionId: null,
+      canSelectAsEntryCodeBlock: false,
+      entryCodeBlockValue: null,
+    },
+    options,
+  )`,
+				TypeProperty{Name: "canRun", TypeExpr: "boolean"},
+				TypeProperty{Name: "runDisabledReason", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "runRequestSectionId", TypeExpr: "string | null", Optional: true},
+				TypeProperty{Name: "canSelectAsEntryCodeBlock", TypeExpr: "boolean"},
+				TypeProperty{Name: "entryCodeBlockValue", TypeExpr: "string | null", Optional: true},
+			),
+		},
 		reflect.TypeOf(CallableSectionImpl{}): {
 			exportedFunctionDeclaration(
 				"createCallableSectionImpl",
@@ -3417,6 +3453,8 @@ func newTypeConverter() *typeConverter {
       viewModes: {},
       activeViewModeId: null,
       isEditingViewMode: false,
+      hasPythonCodegenTarget: false,
+      runCapabilities: createProjectRunCapabilities(),
       codegenTargets: [],
       watchCodeEnabled: false,
       watchCodeFolders: [],
@@ -3448,6 +3486,8 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "viewModes", TypeExpr: "Record<string, ViewMode>"},
 				TypeProperty{Name: "activeViewModeId", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "isEditingViewMode", TypeExpr: "boolean"},
+				TypeProperty{Name: "hasPythonCodegenTarget", TypeExpr: "boolean"},
+				TypeProperty{Name: "runCapabilities", TypeExpr: "ProjectRunCapabilities"},
 				TypeProperty{Name: "codegenTargets", TypeExpr: "Array<ProjectCodegenTarget>"},
 				TypeProperty{Name: "watchCodeEnabled", TypeExpr: "boolean"},
 				TypeProperty{Name: "watchCodeFolders", TypeExpr: "Array<WatchCodeFolder>"},
@@ -3474,6 +3514,7 @@ func newTypeConverter() *typeConverter {
       projectConfig: createProjectConfig(),
       sections: {},
       sectionImpls: {},
+      sectionCapabilities: {},
       sectionVariants: {},
       codeObjs: {},
       codeObjImpls: {},
@@ -3491,6 +3532,7 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "projectConfig", TypeExpr: "ProjectConfig"},
 				TypeProperty{Name: "sections", TypeExpr: "Record<string, Core>"},
 				TypeProperty{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>"},
+				TypeProperty{Name: "sectionCapabilities", TypeExpr: "Record<string, SectionCapabilities>"},
 				TypeProperty{Name: "sectionVariants", TypeExpr: "Record<string, Variant>"},
 				TypeProperty{Name: "codeObjs", TypeExpr: "Record<string, Core>"},
 				TypeProperty{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>"},

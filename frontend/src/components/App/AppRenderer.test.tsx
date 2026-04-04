@@ -11,6 +11,7 @@ import type { SharePolicy } from "utils/generatedTypes";
 import {
   createAppDefinition,
   createProjectConfig,
+  createSectionCapabilities,
   createSharePolicy,
   createSingletonSections,
 } from "utils/generatedTypes";
@@ -172,6 +173,12 @@ describe("AppRenderer", () => {
           sections: {},
           sectionVariants: {},
           sectionImpls: {},
+          sectionCapabilities: {
+            [sectionId]: createSectionCapabilities({
+              canRun: true,
+              runRequestSectionId: sectionId,
+            }),
+          },
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},
@@ -241,6 +248,12 @@ describe("AppRenderer", () => {
           sections: {},
           sectionVariants: {},
           sectionImpls: {},
+          sectionCapabilities: {
+            [sectionId]: createSectionCapabilities({
+              canRun: true,
+              runRequestSectionId: sectionId,
+            }),
+          },
           codeObjs: {},
           codeObjVariants: {},
           codeObjImpls: {},

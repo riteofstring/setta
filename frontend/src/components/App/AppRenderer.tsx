@@ -21,6 +21,10 @@ import {
   route_run_code,
 } from "utils/generatedEndpoints";
 import type { AppDefinition, SharePolicy } from "utils/generatedTypes";
+import {
+  resolveMainRunRequest,
+  resolveRunRequest,
+} from "utils/runCapabilities";
 import { normalizeActionDefinitions, resolveActionType } from "./appBindings";
 import { AppActionContext, AppRuntimeContext } from "./appContext";
 import "./appMotion.css";
@@ -207,8 +211,20 @@ export function AppRenderer({
   const [isRunning, setIsRunning] = useState(false);
   const allowMultipleRuns = resolvedPolicy.allowMultipleRuns ?? true;
   const effectiveRunCount = deploymentMode ? sessionRunCount : localRunCount;
+  const loadedDefaultRunRequest = useAppConfigs((state) => {
+    if (!fallbackConfigId) {
+      return null;
+    }
+    const configState = state.configs[fallbackConfigId] ?? null;
+    if (!configState) {
+      return null;
+    }
+    return resolveMainRunRequest(configState);
+  });
   const canRun =
-    resolvedPolicy.allowRun && (allowMultipleRuns || effectiveRunCount === 0);
+    resolvedPolicy.allowRun &&
+    (allowMultipleRuns || effectiveRunCount === 0) &&
+    (loadedDefaultRunRequest?.canRun ?? true);
   const canEditParams = resolvedPolicy.allowParamChanges ?? true;
   const allowExternalLinks = resolvedPolicy.allowExternalLinks ?? false;
   const allowFileDownloads = resolvedPolicy.allowFileDownloads ?? false;
@@ -217,6 +233,9 @@ export function AppRenderer({
     runDisabledReason = "Runs are disabled by policy.";
   } else if (!allowMultipleRuns && effectiveRunCount > 0) {
     runDisabledReason = "This app is limited to one run.";
+  } else if (loadedDefaultRunRequest && !loadedDefaultRunRequest.canRun) {
+    runDisabledReason =
+      loadedDefaultRunRequest.disabledReason ?? "Run is unavailable.";
   }
 
   const handleRun = useCallback(
@@ -284,15 +303,18 @@ export function AppRenderer({
         return;
       }
       const configState = useAppConfigs.getState().configs[configId] ?? null;
-      const sectionId =
+      if (!configState) {
+        addTemporaryNotification("Failed to load project config.");
+        return;
+      }
+      const requestedSectionId =
         params && typeof params.sectionId === "string"
           ? params.sectionId
           : null;
-      const entryCodeBlockId =
-        configState?.projectConfig.entryCodeBlockId ?? null;
-      if (!sectionId && !entryCodeBlockId) {
+      const runRequest = resolveRunRequest(configState, requestedSectionId);
+      if (!runRequest.canRun) {
         addTemporaryNotification(
-          "Missing run target. Set the Run button sectionId (or configure an entry code block).",
+          runRequest.disabledReason ?? "Run is unavailable.",
         );
         return;
       }
@@ -300,7 +322,7 @@ export function AppRenderer({
       try {
         const res = await route_run_code({
           projectConfigId: configId,
-          sectionId,
+          sectionId: runRequest.executionSectionId,
           ...(hasSectionVariantOverrides ? { sectionVariantOverrides } : {}),
           ...(hasParamOverrides ? { paramOverrides } : {}),
         });

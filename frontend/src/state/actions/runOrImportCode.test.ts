@@ -6,8 +6,10 @@ import {
   createCore,
   createProjectCodegenPythonTarget,
   createProjectConfig,
+  createProjectRunCapabilities,
   createProjectStateSingleConfig,
   createProjectStateSingleConfigWithCompletedOpIds,
+  createSectionCapabilities,
   createSingletonSections,
   createTerminalSectionImpl,
   createVariant,
@@ -56,6 +58,7 @@ import { runCodeBlock, stopCode } from "./runOrImportCode";
 const codeSectionId = "code-section";
 const codeVariantId = "code-variant";
 const codeImplId = "code-impl";
+const genPythonSectionId = "gen-python-section";
 const terminalSectionId = "terminal-section";
 const terminalVariantId = "terminal-variant";
 const terminalImplId = "terminal-impl";
@@ -118,6 +121,19 @@ function buildProjectState({
     projectConfig: createProjectConfig({
       id: "project-1",
       sectionVariantMap,
+      entryCodeBlockId: pythonCodegenEnabled ? null : codeSectionId,
+      hasPythonCodegenTarget: pythonCodegenEnabled,
+      runCapabilities: createProjectRunCapabilities(
+        pythonCodegenEnabled
+          ? {
+              canRunFromMain: true,
+              effectiveEntrySectionId: genPythonSectionId,
+            }
+          : {
+              canRunFromMain: true,
+              effectiveEntrySectionId: codeSectionId,
+            },
+      ),
       codegenTargets: pythonCodegenEnabled
         ? [createProjectCodegenPythonTarget()]
         : [],
@@ -125,7 +141,25 @@ function buildProjectState({
     sections,
     sectionVariants,
     sectionImpls,
-    singletonSections: createSingletonSections(),
+    sectionCapabilities: {
+      [codeSectionId]: createSectionCapabilities({
+        canRun: true,
+        runRequestSectionId: codeSectionId,
+        canSelectAsEntryCodeBlock: true,
+        entryCodeBlockValue: codeSectionId,
+      }),
+      ...(pythonCodegenEnabled
+        ? {
+            [genPythonSectionId]: createSectionCapabilities({
+              canRun: true,
+              canSelectAsEntryCodeBlock: true,
+            }),
+          }
+        : {}),
+    },
+    singletonSections: createSingletonSections({
+      GenPythonCode: pythonCodegenEnabled ? genPythonSectionId : null,
+    }),
   });
 }
 

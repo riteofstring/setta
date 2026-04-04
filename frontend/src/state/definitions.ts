@@ -158,6 +158,7 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
+          sectionCapabilities: {},
           sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},

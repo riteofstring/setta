@@ -305,6 +305,8 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(projectview.ProjectCodegenPluginTarget{}),
 		reflect.TypeOf(projectview.SingleConfig{}),
 		reflect.TypeOf(projectview.ProjectConfig{}),
+		reflect.TypeOf(projectview.ProjectRunCapabilities{}),
+		reflect.TypeOf(projectview.SectionCapabilities{}),
 		reflect.TypeOf(projectview.Core{}),
 		reflect.TypeOf(projectview.Variant{}),
 		reflect.TypeOf(projectview.SingletonSections{}),

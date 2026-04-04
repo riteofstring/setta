@@ -16,6 +16,13 @@ var (
 	ErrFrontendObjectRequired  = errors.New("frontend payload must be a JSON object")
 )
 
+const (
+	runDisabledReasonManualSectionRequired = "Select a manual code section to run."
+	runDisabledReasonManualEntryRequired   = "Select a manual entry code block to run."
+	runDisabledReasonNotRunnable           = "Run is only available for Python and Bash."
+	runDisabledReasonPluginCodegen         = "Plugin-codegen entry runs are not supported in Go yet."
+)
+
 var (
 	pythonSectionTypeOrder = []string{
 		"Callable",
@@ -90,6 +97,7 @@ var (
 type SingleConfig struct {
 	Sections              map[string]Core                        `json:"sections"`
 	SectionImpls          map[string]json.RawMessage             `json:"sectionImpls"`
+	SectionCapabilities   map[string]SectionCapabilities         `json:"sectionCapabilities"`
 	SectionVariants       map[string]Variant                     `json:"sectionVariants"`
 	CodeObjs              map[string]Core                        `json:"codeObjs"`
 	CodeObjImpls          map[string]json.RawMessage             `json:"codeObjImpls"`
@@ -114,6 +122,8 @@ type ProjectConfig struct {
 	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes" py_type:"dict[ID, ViewMode]" py_import:"from setta.types.id import ID, create_new_id"`
 	ActiveViewModeID        *string                                        `json:"activeViewModeId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 	IsEditingViewMode       bool                                           `json:"isEditingViewMode"`
+	HasPythonCodegenTarget  bool                                           `json:"hasPythonCodegenTarget"`
+	RunCapabilities         ProjectRunCapabilities                         `json:"runCapabilities"`
 	CodegenTargets          []json.RawMessage                              `json:"codegenTargets" py_type:"list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget]"`
 	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled"`
 	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders"`
@@ -132,6 +142,20 @@ type ProjectConfig struct {
 	Edges                   []projectstate.Edge                            `json:"edges"`
 	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges"`
 	StateMachineEdges       []projectstate.StateMachineEdge                `json:"stateMachineEdges"`
+}
+
+type ProjectRunCapabilities struct {
+	CanRunFromMain          bool    `json:"canRunFromMain"`
+	MainRunDisabledReason   *string `json:"mainRunDisabledReason"`
+	EffectiveEntrySectionID *string `json:"effectiveEntrySectionId"`
+}
+
+type SectionCapabilities struct {
+	CanRun                    bool    `json:"canRun"`
+	RunDisabledReason         *string `json:"runDisabledReason"`
+	RunRequestSectionID       *string `json:"runRequestSectionId"`
+	CanSelectAsEntryCodeBlock bool    `json:"canSelectAsEntryCodeBlock"`
+	EntryCodeBlockValue       *string `json:"entryCodeBlockValue"`
 }
 
 type Core struct {
@@ -197,6 +221,7 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 	view := SingleConfig{
 		Sections:              make(map[string]Core, len(project.Sections)),
 		SectionImpls:          make(map[string]json.RawMessage, len(project.SectionImpls)),
+		SectionCapabilities:   make(map[string]SectionCapabilities, len(project.Sections)),
 		SectionVariants:       make(map[string]Variant, len(project.SectionVariants)),
 		CodeObjs:              make(map[string]Core, len(project.CodeObjs)),
 		CodeObjImpls:          make(map[string]json.RawMessage, len(project.CodeObjImpls)),
@@ -215,6 +240,12 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		return SingleConfig{}, err
 	}
 	view.ProjectConfig = projectConfig
+	view.SectionCapabilities = deriveSectionCapabilities(project)
+	view.ProjectConfig.RunCapabilities = deriveProjectRunCapabilities(
+		project,
+		view.SingletonSections,
+		view.SectionCapabilities,
+	)
 
 	for sectionID, section := range project.Sections {
 		view.Sections[sectionID] = coreFromSection(section)
@@ -324,6 +355,8 @@ func projectConfigFromProject(project projectstate.Project) (ProjectConfig, erro
 		ViewModes:               viewModes,
 		ActiveViewModeID:        activeViewModeID,
 		IsEditingViewMode:       project.IsEditingViewMode,
+		HasPythonCodegenTarget:  project.HasPythonCodegenTarget(),
+		RunCapabilities:         ProjectRunCapabilities{},
 		CodegenTargets:          codegenTargets,
 		WatchCodeEnabled:        project.WatchCodeEnabled,
 		WatchCodeFolders:        cloneWatchCodeFolders(project.WatchCodeFolders),
@@ -418,6 +451,96 @@ func deriveSingletonSections(project projectstate.Project) SingletonSections {
 		}
 	}
 	return singletons
+}
+
+func deriveSectionCapabilities(project projectstate.Project) map[string]SectionCapabilities {
+	output := make(map[string]SectionCapabilities, len(project.Sections))
+	for _, sectionID := range sortedSectionIDs(project.Sections) {
+		output[sectionID] = deriveSectionCapability(project, sectionID)
+	}
+	return output
+}
+
+func deriveSectionCapability(project projectstate.Project, sectionID string) SectionCapabilities {
+	_, _, impl, err := project.ResolveSection(sectionID)
+	if err != nil {
+		return SectionCapabilities{
+			RunDisabledReason: stringPointer(runDisabledReasonManualSectionRequired),
+		}
+	}
+
+	capabilities := SectionCapabilities{}
+	switch {
+	case impl.IsGeneratedEntrySection():
+		capabilities.CanSelectAsEntryCodeBlock = true
+		if impl.UsesPluginCodegen() {
+			capabilities.RunDisabledReason = stringPointer(runDisabledReasonPluginCodegen)
+			return capabilities
+		}
+		capabilities.CanRun = true
+		return capabilities
+	case impl.IsCode():
+		capabilities.CanSelectAsEntryCodeBlock = true
+		capabilities.EntryCodeBlockValue = stringPointer(sectionID)
+		if impl.IsRunnableCode() {
+			capabilities.CanRun = true
+			capabilities.RunRequestSectionID = stringPointer(sectionID)
+			return capabilities
+		}
+		capabilities.RunDisabledReason = stringPointer(runDisabledReasonNotRunnable)
+		return capabilities
+	default:
+		capabilities.RunDisabledReason = stringPointer(runDisabledReasonManualSectionRequired)
+		return capabilities
+	}
+}
+
+func deriveProjectRunCapabilities(
+	project projectstate.Project,
+	singletons SingletonSections,
+	sectionCapabilities map[string]SectionCapabilities,
+) ProjectRunCapabilities {
+	effectiveEntrySectionID := deriveEffectiveEntrySectionID(project, singletons)
+	if effectiveEntrySectionID == nil {
+		return ProjectRunCapabilities{
+			CanRunFromMain:          false,
+			MainRunDisabledReason:   stringPointer(runDisabledReasonManualEntryRequired),
+			EffectiveEntrySectionID: nil,
+		}
+	}
+
+	capabilities, ok := sectionCapabilities[*effectiveEntrySectionID]
+	if ok && capabilities.CanRun {
+		return ProjectRunCapabilities{
+			CanRunFromMain:          true,
+			MainRunDisabledReason:   nil,
+			EffectiveEntrySectionID: stringPointer(*effectiveEntrySectionID),
+		}
+	}
+
+	reason := stringPointer(runDisabledReasonManualEntryRequired)
+	if ok && capabilities.RunDisabledReason != nil {
+		reason = stringPointer(*capabilities.RunDisabledReason)
+	}
+	return ProjectRunCapabilities{
+		CanRunFromMain:          false,
+		MainRunDisabledReason:   reason,
+		EffectiveEntrySectionID: stringPointer(*effectiveEntrySectionID),
+	}
+}
+
+func deriveEffectiveEntrySectionID(
+	project projectstate.Project,
+	singletons SingletonSections,
+) *string {
+	entryCodeBlockID := strings.TrimSpace(project.EntryCodeBlockID)
+	if entryCodeBlockID != "" {
+		return stringPointer(entryCodeBlockID)
+	}
+	if !project.HasPythonCodegenTarget() || singletons.GenPythonCode == nil {
+		return nil
+	}
+	return stringPointer(*singletons.GenPythonCode)
 }
 
 func deriveParentSectionMap(project projectstate.Project) map[string]*string {

@@ -3608,6 +3608,7 @@ export type ProjectStateSingleConfig = {
   projectConfig: ProjectConfig;
   sections: Record<string, Core>;
   sectionImpls: Record<string, BaseSectionImplUnion>;
+  sectionCapabilities: Record<string, SectionCapabilities>;
   sectionVariants: Record<string, Variant>;
   codeObjs: Record<string, Core>;
   codeObjImpls: Record<string, BaseCodeObjImplUnion>;
@@ -3628,6 +3629,7 @@ export function createProjectStateSingleConfig(
       projectConfig: createProjectConfig(),
       sections: {},
       sectionImpls: {},
+      sectionCapabilities: {},
       sectionVariants: {},
       codeObjs: {},
       codeObjImpls: {},
@@ -3639,6 +3641,28 @@ export function createProjectStateSingleConfig(
       requiredDecodedImages: [],
       genCodeBinding: null,
       projectChatWindowing: createProjectChatWindowingState(),
+    },
+    options,
+  );
+}
+
+export type SectionCapabilities = {
+  canRun: boolean;
+  runDisabledReason?: string | null;
+  runRequestSectionId?: string | null;
+  canSelectAsEntryCodeBlock: boolean;
+  entryCodeBlockValue?: string | null;
+};
+export function createSectionCapabilities(
+  options: Partial<SectionCapabilities> = {},
+): SectionCapabilities {
+  return mergeGeneratedOptions(
+    {
+      canRun: false,
+      runDisabledReason: null,
+      runRequestSectionId: null,
+      canSelectAsEntryCodeBlock: false,
+      entryCodeBlockValue: null,
     },
     options,
   );
@@ -6361,6 +6385,8 @@ export type ProjectConfig = {
   viewModes: Record<string, ViewMode>;
   activeViewModeId?: string | null;
   isEditingViewMode: boolean;
+  hasPythonCodegenTarget: boolean;
+  runCapabilities: ProjectRunCapabilities;
   codegenTargets: Array<ProjectCodegenTarget>;
   watchCodeEnabled: boolean;
   watchCodeFolders: Array<WatchCodeFolder>;
@@ -6395,6 +6421,8 @@ export function createProjectConfig(
       viewModes: {},
       activeViewModeId: null,
       isEditingViewMode: false,
+      hasPythonCodegenTarget: false,
+      runCapabilities: createProjectRunCapabilities(),
       codegenTargets: [],
       watchCodeEnabled: false,
       watchCodeFolders: [],
@@ -6413,6 +6441,24 @@ export function createProjectConfig(
       edges: [],
       agenticEdges: [],
       stateMachineEdges: [],
+    },
+    options,
+  );
+}
+
+export type ProjectRunCapabilities = {
+  canRunFromMain: boolean;
+  mainRunDisabledReason?: string | null;
+  effectiveEntrySectionId?: string | null;
+};
+export function createProjectRunCapabilities(
+  options: Partial<ProjectRunCapabilities> = {},
+): ProjectRunCapabilities {
+  return mergeGeneratedOptions(
+    {
+      canRunFromMain: false,
+      mainRunDisabledReason: null,
+      effectiveEntrySectionId: null,
     },
     options,
   );

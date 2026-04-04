@@ -74,6 +74,145 @@ func TestDefaultSingleConfigDerivesFrontendFieldsFromSnapshot(t *testing.T) {
 	}
 }
 
+func TestSingleConfigByProjectIDDerivesRunCapabilities(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.Sections["code-section"] = projectstate.Section{
+		ID:               "code-section",
+		Name:             "Code Section",
+		VariantIDs:       []string{"code-variant"},
+		DefaultVariantID: "code-variant",
+	}
+	project.SectionVariants["code-variant"] = projectstate.SectionVariant{
+		ID:     "code-variant",
+		Name:   "Code Variant",
+		ImplID: "code-impl",
+	}
+	project.SectionImpls["code-impl"] = projectstate.SectionImpl{
+		ID:   "code-impl",
+		Kind: projectstate.SectionKindCode,
+		Code: &projectstate.CodeSectionImpl{
+			Language: projectstate.CodeLanguagePython,
+		},
+	}
+	project.SectionVariantMap["code-section"] = "code-variant"
+	project.TopLevelSectionIDs = append(project.TopLevelSectionIDs, "code-section")
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	if !view.ProjectConfig.HasPythonCodegenTarget {
+		t.Fatal("expected python codegen target flag")
+	}
+	if !view.ProjectConfig.RunCapabilities.CanRunFromMain {
+		t.Fatalf("expected main run to be enabled, got %#v", view.ProjectConfig.RunCapabilities)
+	}
+	if got := derefString(view.ProjectConfig.RunCapabilities.EffectiveEntrySectionID); got != "gen-section" {
+		t.Fatalf("expected generated section to be the effective entry target, got %q", got)
+	}
+
+	genCapabilities := view.SectionCapabilities["gen-section"]
+	if !genCapabilities.CanRun {
+		t.Fatalf("expected generated section to be runnable, got %#v", genCapabilities)
+	}
+	if genCapabilities.RunRequestSectionID != nil {
+		t.Fatalf("expected generated section to use default run target, got %#v", genCapabilities.RunRequestSectionID)
+	}
+	if !genCapabilities.CanSelectAsEntryCodeBlock {
+		t.Fatalf("expected generated section to be selectable as entry, got %#v", genCapabilities)
+	}
+	if genCapabilities.EntryCodeBlockValue != nil {
+		t.Fatalf("expected generated section entry value to stay nil, got %#v", genCapabilities.EntryCodeBlockValue)
+	}
+
+	codeCapabilities := view.SectionCapabilities["code-section"]
+	if !codeCapabilities.CanRun {
+		t.Fatalf("expected python code section to be runnable, got %#v", codeCapabilities)
+	}
+	if got := derefString(codeCapabilities.RunRequestSectionID); got != "code-section" {
+		t.Fatalf("expected manual code section run request id code-section, got %q", got)
+	}
+	if !codeCapabilities.CanSelectAsEntryCodeBlock {
+		t.Fatalf("expected manual code section to be selectable as entry, got %#v", codeCapabilities)
+	}
+	if got := derefString(codeCapabilities.EntryCodeBlockValue); got != "code-section" {
+		t.Fatalf("expected manual code section entry value code-section, got %q", got)
+	}
+}
+
+func TestSingleConfigByProjectIDDisablesMainRunForNonRunnableEntrySection(t *testing.T) {
+	document := testProjectViewDocument(t)
+	project := document.Projects["project-alpha"]
+	project.CodegenTargets = nil
+	project.GeneratedCodeBinding = nil
+	project.GeneratedMetadataBinding = nil
+	project.EntryCodeBlockID = "code-section"
+	project.TopLevelSectionIDs = []string{"code-section"}
+	project.Sections = map[string]projectstate.Section{
+		"code-section": {
+			ID:               "code-section",
+			Name:             "Code Section",
+			VariantIDs:       []string{"code-variant"},
+			DefaultVariantID: "code-variant",
+		},
+	}
+	project.SectionVariants = map[string]projectstate.SectionVariant{
+		"code-variant": {
+			ID:     "code-variant",
+			Name:   "Code Variant",
+			ImplID: "code-impl",
+		},
+	}
+	project.SectionImpls = map[string]projectstate.SectionImpl{
+		"code-impl": {
+			ID:   "code-impl",
+			Kind: projectstate.SectionKindCode,
+			Code: &projectstate.CodeSectionImpl{
+				Language: projectstate.CodeLanguage("javascript"),
+			},
+		},
+	}
+	project.SectionVariantMap = map[string]string{
+		"code-section": "code-variant",
+	}
+	document.Projects["project-alpha"] = project
+
+	view, err := SingleConfigByProjectID(document, "project-alpha")
+	if err != nil {
+		t.Fatalf("SingleConfigByProjectID returned error: %v", err)
+	}
+
+	if view.ProjectConfig.HasPythonCodegenTarget {
+		t.Fatal("did not expect python codegen target flag")
+	}
+	if view.ProjectConfig.RunCapabilities.CanRunFromMain {
+		t.Fatalf("expected main run to be disabled, got %#v", view.ProjectConfig.RunCapabilities)
+	}
+	if got := derefString(view.ProjectConfig.RunCapabilities.MainRunDisabledReason); got != runDisabledReasonNotRunnable {
+		t.Fatalf("expected non-runnable main run reason %q, got %q", runDisabledReasonNotRunnable, got)
+	}
+	if got := derefString(view.ProjectConfig.RunCapabilities.EffectiveEntrySectionID); got != "code-section" {
+		t.Fatalf("expected effective entry section code-section, got %q", got)
+	}
+
+	codeCapabilities := view.SectionCapabilities["code-section"]
+	if codeCapabilities.CanRun {
+		t.Fatalf("expected javascript code section to be non-runnable, got %#v", codeCapabilities)
+	}
+	if got := derefString(codeCapabilities.RunDisabledReason); got != runDisabledReasonNotRunnable {
+		t.Fatalf("expected non-runnable reason %q, got %q", runDisabledReasonNotRunnable, got)
+	}
+	if !codeCapabilities.CanSelectAsEntryCodeBlock {
+		t.Fatalf("expected non-runnable code section to remain selectable as entry, got %#v", codeCapabilities)
+	}
+	if got := derefString(codeCapabilities.EntryCodeBlockValue); got != "code-section" {
+		t.Fatalf("expected entry value code-section, got %q", got)
+	}
+}
+
 func TestSingleConfigByProjectIDKeepsCanvasArtifactPathsDeploymentRelative(t *testing.T) {
 	document := projectstate.Document{
 		SchemaVersion:    projectstate.CurrentSchemaVersion,

@@ -6,8 +6,6 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
-import { isRunnableCodeLanguage } from "utils/codeLanguage";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_get_latest_project_state,
@@ -19,6 +17,7 @@ import {
   type ProjectStateSingleConfigWithCompletedOpIds,
   SectionTypeEnum,
 } from "utils/generatedTypes";
+import { resolveRunRequest } from "utils/runCapabilities";
 import { collectDrawSnapshotPayloads } from "./drawSnapshots";
 import { triggerListenerForceRefresh } from "./listeners";
 import { addTemporaryNotification } from "./notifications";
@@ -34,53 +33,16 @@ type LatestProjectStateRouteResponse =
 type RunCodeRouteResponse = ResponseDataAndStatus<null>;
 
 export async function runCodeBlock(sectionId: string | null) {
-  const { projectConfig, singletonSections } = useProjectState.getState();
-  if (sectionId) {
-    const impl = getCurrEffectiveSectionImpl(
-      useProjectState.getState(),
-      sectionId,
+  const state = useProjectState.getState();
+  const { projectConfig } = state;
+  const runRequest = resolveRunRequest(state, sectionId);
+  if (!runRequest.canRun) {
+    addTemporaryNotification(
+      runRequest.disabledReason ?? "Run is unavailable.",
     );
-    if (
-      impl.type === SectionTypeEnum.Code &&
-      !isRunnableCodeLanguage(impl.codeLanguage)
-    ) {
-      addTemporaryNotification("Run is only available for Python and Bash.");
-      return;
-    }
-  } else if (projectConfig.entryCodeBlockId) {
-    const entryImpl = getCurrEffectiveSectionImpl(
-      useProjectState.getState(),
-      projectConfig.entryCodeBlockId,
-    );
-    if (
-      entryImpl.type === SectionTypeEnum.Code &&
-      !isRunnableCodeLanguage(entryImpl.codeLanguage)
-    ) {
-      addTemporaryNotification("Run is only available for Python and Bash.");
-      return;
-    }
+    return;
   }
-
-  const pythonCodegenEnabled = projectConfigHasPythonCodegen(projectConfig);
-  if (!pythonCodegenEnabled) {
-    const gen_section_id = singletonSections.GenPythonCode;
-    if (sectionId !== null && sectionId === gen_section_id) {
-      addTemporaryNotification("Select a manual code section to run.");
-      return;
-    }
-    if (
-      sectionId === null &&
-      (!projectConfig.entryCodeBlockId ||
-        projectConfig.entryCodeBlockId === gen_section_id)
-    ) {
-      addTemporaryNotification("Select a manual entry code block to run.");
-      return;
-    }
-  }
-  const executionSectionId =
-    pythonCodegenEnabled && sectionId === singletonSections.GenPythonCode
-      ? null
-      : sectionId;
+  const executionSectionId = runRequest.executionSectionId;
   const shareSession = useShareSession.getState();
   let runSnapshotMode = null;
   if (!shareSession.isDeploymentMode) {
@@ -93,17 +55,11 @@ export async function runCodeBlock(sectionId: string | null) {
       runSnapshotMode = useSettings.getState().backend.runSnapshotMode;
     }
   }
-  const terminalSectionId = await ensureAttachedTerminalForRun({
-    sectionId: executionSectionId,
-    projectConfig,
-  });
+  const terminalSectionId =
+    await ensureAttachedTerminalForRun(executionSectionId);
   const shouldRefreshProjectState =
     terminalSectionId === null &&
-    shouldRefreshProjectStateAfterRun({
-      executionSectionId,
-      projectConfig,
-      pythonCodegenEnabled,
-    });
+    shouldRefreshProjectStateAfterRun(executionSectionId);
   const drawSnapshotsBySectionId = await collectDrawSnapshotsForRun();
   const runResponse: RunCodeRouteResponse = await route_run_code({
     projectConfigId: projectConfig.id,
@@ -181,70 +137,33 @@ async function collectDrawSnapshotsForRun(): Promise<Record<
   return await collectDrawSnapshotPayloads(drawSectionIds);
 }
 
-async function ensureAttachedTerminalForRun({
-  sectionId,
-  projectConfig,
-}: {
-  sectionId: string | null;
-  projectConfig: ZustandProjectState["projectConfig"];
-}): Promise<string | null> {
-  const resolvedSectionId = resolveAttachmentSectionId(
-    sectionId,
-    projectConfig,
-  );
-  if (!resolvedSectionId) {
+async function ensureAttachedTerminalForRun(
+  sectionId: string | null,
+): Promise<string | null> {
+  if (!sectionId) {
     return null;
   }
   const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
+  const impl = getCurrEffectiveSectionImpl(state, sectionId);
   if (!isBaseCodeSectionType(impl.type)) {
     return null;
   }
-  const existingTerminalId = resolveAttachedTerminalId(
-    state,
-    resolvedSectionId,
-  );
+  const existingTerminalId = resolveAttachedTerminalId(state, sectionId);
   if (existingTerminalId) {
     return existingTerminalId;
   }
   return null;
 }
 
-function shouldRefreshProjectStateAfterRun({
-  executionSectionId,
-  projectConfig,
-  pythonCodegenEnabled,
-}: {
-  executionSectionId: string | null;
-  projectConfig: ZustandProjectState["projectConfig"];
-  pythonCodegenEnabled: boolean;
-}): boolean {
-  if (pythonCodegenEnabled && executionSectionId === null) {
+function shouldRefreshProjectStateAfterRun(
+  executionSectionId: string | null,
+): boolean {
+  if (executionSectionId === null) {
     return true;
   }
-  const resolvedSectionId = resolveAttachmentSectionId(
-    executionSectionId,
-    projectConfig,
-  );
-  if (!resolvedSectionId) {
-    return false;
-  }
   const state = useProjectState.getState();
-  const impl = getCurrEffectiveSectionImpl(state, resolvedSectionId);
+  const impl = getCurrEffectiveSectionImpl(state, executionSectionId);
   return isBaseCodeSectionType(impl.type);
-}
-
-function resolveAttachmentSectionId(
-  sectionId: string | null,
-  projectConfig: ZustandProjectState["projectConfig"],
-): string | null {
-  if (sectionId) {
-    return sectionId;
-  }
-  if (!projectConfig.entryCodeBlockId) {
-    return null;
-  }
-  return projectConfig.entryCodeBlockId;
 }
 
 function resolveAttachedTerminalId(

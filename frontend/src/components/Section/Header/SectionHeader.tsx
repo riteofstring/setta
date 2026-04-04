@@ -22,7 +22,6 @@ import {
   useTemporaryMiscState,
 } from "state/definitions";
 import { useIsSeriesElement } from "state/hooks/uiTypes";
-import { projectConfigHasPythonCodegen } from "utils/codegenTargets";
 import { getSectionHeaderHeightKey } from "utils/constants";
 import {
   CodeLanguageEnum,
@@ -115,9 +114,12 @@ function _SectionHeader({
     return getCurrEffectiveSectionImpl(x, sectionId).tagColor ?? null;
   });
   const isSeriesElement = useIsSeriesElement(sectionId) && !isRoot;
-  const pythonCodegenEnabled = useProjectState((x) =>
-    projectConfigHasPythonCodegen(x.projectConfig),
-  );
+  const showRunControls = useProjectState((state) => {
+    const capabilities = state.sectionCapabilities[sectionId];
+    return Boolean(
+      capabilities?.canRun || capabilities?.canSelectAsEntryCodeBlock,
+    );
+  });
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const selectedSectionIds = useAIFollow(
     (state) => state.selectedSectionIdsByProjectConfigId[projectConfigId] ?? [],
@@ -270,15 +272,10 @@ function _SectionHeader({
             <Incrementer sectionId={sectionId} isRoot={isRoot} popover={true} />
           </StandardPopover>
         )}
-        {(sectionTypeName === SectionTypeEnum.Code ||
-          (pythonCodegenEnabled &&
-            sectionTypeName === SectionTypeEnum.GenPythonCode)) && (
+        {showRunControls && (
           <>
             <RunButton sectionId={sectionId} />
-            <ToggleEntryCodeBlockButton
-              sectionId={sectionId}
-              sectionTypeName={sectionTypeName}
-            />
+            <ToggleEntryCodeBlockButton sectionId={sectionId} />
           </>
         )}
         {isBaseCodeSectionType(sectionTypeName) && (
