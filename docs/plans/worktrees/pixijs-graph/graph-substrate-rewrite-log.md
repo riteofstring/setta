@@ -4495,3 +4495,40 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - use `chatWindowing` for the next renderer-facing compare; prefer one short top-level drag or another trustworthy live compare that does not depend on the unavailable read-only-main programmatic pan path
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 16:57 EDT - Ralph item 132
+
+- Added deterministic top-level drag coverage for the corrected `chatWindowing` lane and closed the checked chat pan/drag motion family as clean on the current run-051 surfaces.
+- Why this slice was necessary:
+  - item `131` had corrected the lane identity and closed the normalized pane-pan path, but the handoff still named one short top-level drag as the next trustworthy renderer-facing compare on the real `Auto Create Initial Chat` surface
+  - the last two completed iterations were support-heavy, so this bounded slice needed to answer a concrete motion question on the corrected lane instead of opening another harness-only family
+- Production/test change:
+  - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `settings graph parity probe keeps the chat windowing auto-create control attached during normalized top-level drag on read-only main legacy and worktree canary`
+    - restored the dragged top-level layout in that new probe's cleanup via `restoreInitialViewModeLayout(...)`
+- Verification:
+  - refreshed run-051 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-051/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-051/main-ai.log`
+  - formatting:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-051 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-051 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the chat windowing auto-create control attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `2.0m`)
+      - note: one intermediate rerun hit expired bootstrap tokens (`401 Unauthorized`) after the file changed; refreshing run-051 runtime info and rerunning with fresh tokens fixed it, so do not treat that miss as renderer evidence
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - normalized both live tabs to active `All Settings` with compare-pane state `overviewVisible=false`, `uiEditorVisible=false`, and `activeIds=[]`
+    - confirmed shared `chatWindowing` ids:
+      - worktree canary: `37d4f866-e5f5-40cb-8902-c38611e96695`
+      - read-only main legacy: `9bcd4502-3d92-4136-a050-57d2f89f8119`
+    - after shared targeted fit on both: viewport `{ x: 454.545, y: -536, zoom: 1.25165 }`, section rect `454.545, 250.988, 690.909 x 398.024`
+    - after the same controlled top-level section delta on both: viewport unchanged at `{ x: 454.545, y: -536, zoom: 1.25165 }`, section rect `604.743, 351.120, 690.909 x 398.024`, and anchor-local drift `x=0`, `y=0`
+    - cross-origin in-page writes to `/setTopLevelSectionLayout` intermittently failed with `Failed to fetch`, so the sub-agent used backend `curl` POSTs for the actual layout move/restore and then re-synced both tabs through CDP before measuring
+  - CDP visual check: done (fresh-context normalized `chatWindowing` compare on live `3075` canary vs read-only `3087` legacy; baseline and controlled top-level move matched exactly with zero `Auto Create Initial Chat` anchor drift on both sides)
+- Lane status:
+  - close the checked `chatWindowing` pan/drag motion family for the current run-051 surfaces
+  - do not reopen `chatWindowing` for more support-only polish unless a future deterministic rerun or fresh normalized compare shows a real canary-only motion or interaction artifact on this card
+- Next frontier:
+  - move to the next distinct normalized `All Settings` renderer-facing lane or the first fresh graph-surface artifact beyond the now-closed `chatWindowing` pan/drag family
+- LOOP_TERMINAL_MARKER: none

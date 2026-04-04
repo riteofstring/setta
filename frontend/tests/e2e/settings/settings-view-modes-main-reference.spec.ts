@@ -5290,6 +5290,348 @@ test("settings graph parity probe keeps the widened draw section attached during
   }
 });
 
+test("settings graph parity probe keeps the chat windowing auto-create control attached during normalized top-level drag on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const worktreeChatWindowingSectionId = findSectionIdByName(
+    worktreeInitialState,
+    "chatWindowing",
+  );
+  const referenceChatWindowingSectionId = findSectionIdByName(
+    referenceInitialState,
+    "chatWindowing",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const dragDelta = { x: 120, y: 80 };
+
+  async function captureChatWindowingDragAttachment(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    targetPage: Page;
+  }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    const sectionLocator = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const autoCreateAnchor = sectionLocator
+      .getByRole("button", { name: /Auto Create Initial Chat/i })
+      .first();
+
+    await expect(sectionLocator).toBeVisible();
+    await expect(autoCreateAnchor).toBeVisible();
+
+    const beforeMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const beforeLayout = await waitForSettledTopLevelSectionLayout({
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const beforeAnchorPosition = await getLocatorRelativeCenterPosition({
+      child: autoCreateAnchor,
+      section: sectionLocator,
+    });
+    if (
+      !beforeMetrics.rect ||
+      !beforeMetrics.transform ||
+      !beforeAnchorPosition
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} chat drag baseline metrics.`,
+      );
+    }
+
+    const dragPoint = await findSettingsGraphSectionHeaderDragPoint(
+      args.targetPage,
+      args.sectionId,
+    );
+    await args.targetPage.mouse.move(dragPoint.x, dragPoint.y);
+    await args.targetPage.mouse.down();
+    await args.targetPage.mouse.move(
+      dragPoint.x + dragDelta.x,
+      dragPoint.y + dragDelta.y,
+      {
+        steps: 10,
+      },
+    );
+    await args.targetPage.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const afterLayout = await getActiveTopLevelSectionLayout(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!afterLayout) {
+          return 0;
+        }
+        return Math.hypot(
+          afterLayout.x - beforeLayout.x,
+          afterLayout.y - beforeLayout.y,
+        );
+      })
+      .toBeGreaterThan(80);
+
+    await expect
+      .poll(async () => {
+        const latestAnchorPosition = await getLocatorRelativeCenterPosition({
+          child: autoCreateAnchor,
+          section: sectionLocator,
+        });
+        if (!latestAnchorPosition) {
+          return Number.POSITIVE_INFINITY;
+        }
+        return Math.max(
+          Math.abs(latestAnchorPosition.x - beforeAnchorPosition.x),
+          Math.abs(latestAnchorPosition.y - beforeAnchorPosition.y),
+        );
+      })
+      .toBeLessThan(0.03);
+
+    const afterMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const afterLayout = await waitForSettledTopLevelSectionLayout({
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const afterAnchorPosition = await getLocatorRelativeCenterPosition({
+      child: autoCreateAnchor,
+      section: sectionLocator,
+    });
+    if (!afterMetrics.rect || !afterMetrics.transform || !afterAnchorPosition) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} chat drag result metrics.`,
+      );
+    }
+
+    return {
+      anchorPositionDrift: {
+        x: Math.abs(afterAnchorPosition.x - beforeAnchorPosition.x),
+        y: Math.abs(afterAnchorPosition.y - beforeAnchorPosition.y),
+      },
+      layoutDelta: {
+        x: afterLayout.x - beforeLayout.x,
+        y: afterLayout.y - beforeLayout.y,
+      },
+      paneState: afterMetrics.paneState,
+      rectDelta: {
+        x: afterMetrics.rect.x - beforeMetrics.rect.x,
+        y: afterMetrics.rect.y - beforeMetrics.rect.y,
+      },
+      transformDelta: {
+        x: afterMetrics.transform.x - beforeMetrics.transform.x,
+        y: afterMetrics.transform.y - beforeMetrics.transform.y,
+        zoom: afterMetrics.transform.zoom - beforeMetrics.transform.zoom,
+      },
+    };
+  }
+
+  try {
+    const referenceResult = await captureChatWindowingDragAttachment({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      pageTab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceChatWindowingSectionId,
+      targetPage: referencePage,
+    });
+    const worktreeResult = await captureChatWindowingDragAttachment({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      pageTab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeChatWindowingSectionId,
+      targetPage: page,
+    });
+
+    expect(referenceResult.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(referenceResult.anchorPositionDrift.x).toBeLessThan(0.03);
+    expect(referenceResult.anchorPositionDrift.y).toBeLessThan(0.03);
+    expect(worktreeResult.anchorPositionDrift.x).toBeLessThan(0.03);
+    expect(worktreeResult.anchorPositionDrift.y).toBeLessThan(0.03);
+    expect(Math.abs(referenceResult.transformDelta.x)).toBeLessThan(2);
+    expect(Math.abs(referenceResult.transformDelta.y)).toBeLessThan(2);
+    expect(Math.abs(referenceResult.transformDelta.zoom)).toBeLessThan(0.02);
+    expect(Math.abs(worktreeResult.transformDelta.x)).toBeLessThan(2);
+    expect(Math.abs(worktreeResult.transformDelta.y)).toBeLessThan(2);
+    expect(Math.abs(worktreeResult.transformDelta.zoom)).toBeLessThan(0.02);
+    expect(
+      Math.abs(worktreeResult.layoutDelta.x - referenceResult.layoutDelta.x),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(worktreeResult.layoutDelta.y - referenceResult.layoutDelta.y),
+    ).toBeLessThan(12);
+    expect(
+      Math.abs(worktreeResult.rectDelta.x - referenceResult.rectDelta.x),
+    ).toBeLessThan(16);
+    expect(
+      Math.abs(worktreeResult.rectDelta.y - referenceResult.rectDelta.y),
+    ).toBeLessThan(16);
+  } finally {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreInitialViewModeLayout({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe keeps the chat windowing auto-create control attached during normalized pane pan on read-only main legacy and worktree canary", async ({
   context,
   page,
