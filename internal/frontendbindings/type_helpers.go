@@ -1565,6 +1565,16 @@ type reflectedObjectDeclarationSpec struct {
 	ExtraProperties           []TypeProperty
 }
 
+func reflectedOptionalPropertiesSpec(names ...string) reflectedObjectDeclarationSpec {
+	overrides := make(map[string]bool, len(names))
+	for _, name := range names {
+		overrides[name] = true
+	}
+	return reflectedObjectDeclarationSpec{
+		PropertyOptionalOverrides: overrides,
+	}
+}
+
 func specialTypeDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
@@ -2062,19 +2072,123 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			DefaultValue:  projectstate.FrontendDefaultTaskBoardColumn(),
 			HasCreateExpr: true,
 		}, true
+	case reflect.TypeOf(SetSectionParamFilterRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetMetaControlShowSectionTitleRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetSectionColumnWidthRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetSectionEdgeInputsRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(ToggleGroupOrientationRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetGroupOverflowModeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetBrowserColumnWidthsRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetBrowserHideColumnRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetSpreadsheetFilePathRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetImageAreaImagePathRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetSocialURLRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetChartAreaDataPathRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetTextBlockTextRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetTextBlockHeadingAsSectionNameRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetTextBlockMetaControlStyleRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetTextBlockMasterFontSizeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(CreateEdgeRequestInput{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type":     "string",
+				"style":    "Record<string, unknown> | null",
+				"animated": "boolean",
+				"hidden":   "boolean",
+				"zIndex":   "number",
+				"data":     "Record<string, unknown> | null",
+			},
+		}, true
+	case reflect.TypeOf(CreateStateMachineEdgeRequestInput{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"style":    "Record<string, unknown> | null",
+				"hidden":   "boolean",
+				"zIndex":   "number",
+				"selected": "boolean",
+			},
+		}, true
+	case reflect.TypeOf(CreateAgenticEdgeRequestInput{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"style":  "Record<string, unknown> | null",
+				"hidden": "boolean",
+				"zIndex": "number",
+			},
+		}, true
 	case reflect.TypeOf(SetChatSectionStateRequestInput{}):
-		return reflectedObjectDeclarationSpec{
-			PropertyOptionalOverrides: map[string]bool{
-				"frontendOpId": true,
-			},
-		}, true
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
 	case reflect.TypeOf(SetStateMachineSectionSettingsRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId", "gateType"), true
+	case reflect.TypeOf(DeleteChildSectionsViaDecrementerRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(UpdateEdgeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(DeleteEdgesRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(ReconnectEdgeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetEdgesRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(UpdateStateMachineEdgeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(DeleteStateMachineEdgesRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetStateMachineEdgesRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(UpdateAgenticEdgeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(DeleteAgenticEdgesRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetAgenticEdgesRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(MoveSectionsRequestInput{}):
 		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"positionsById": "Record<string, Position> | null",
+			},
 			PropertyOptionalOverrides: map[string]bool{
 				"frontendOpId": true,
-				"gateType":     true,
 			},
 		}, true
+	case reflect.TypeOf(SetSectionEdgeOutputsRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetListRootViewModeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetBrowserAreaViewModeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetBrowserSavedSearchesRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetSpreadsheetSectionSettingsRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetTaskBoardSectionStateRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetChartTypeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetTextBlockDisplayModeRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetTextBlockFormatRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(SetCodeFileBindingRequestInput{}):
+		return reflectedOptionalPropertiesSpec("frontendOpId"), true
 	case reflect.TypeOf(LineChartSettings{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectstate.FrontendDefaultLineChartSettings(),

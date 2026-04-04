@@ -8,6 +8,7 @@ import (
 )
 
 func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name       string
 		root       reflect.Type
@@ -415,6 +416,10 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -451,6 +456,66 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "WindowSpaceState" ||
 				tt.name == "WindowSpaceConfig") && declaration.CreateExpr == "" {
 				t.Fatalf("%s should use a Go-backed create expr", tt.name)
+			}
+		})
+	}
+}
+
+func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarations(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
+	tests := []struct {
+		name string
+		root reflect.Type
+	}{
+		{name: "PrepareSectionsForCopyRequestInput", root: reflect.TypeOf(PrepareSectionsForCopyRequestInput{})},
+		{name: "PasteSectionsRequestInput", root: reflect.TypeOf(PasteSectionsRequestInput{})},
+		{name: "CreateChildSectionsRequestInput", root: reflect.TypeOf(CreateChildSectionsRequestInput{})},
+		{name: "CreateChildSectionsViaIncrementerRequestInput", root: reflect.TypeOf(CreateChildSectionsViaIncrementerRequestInput{})},
+		{name: "DeleteChildSectionsViaDecrementerRequestInput", root: reflect.TypeOf(DeleteChildSectionsViaDecrementerRequestInput{})},
+		{name: "CreateEdgeRequestInput", root: reflect.TypeOf(CreateEdgeRequestInput{})},
+		{name: "UpdateEdgeRequestInput", root: reflect.TypeOf(UpdateEdgeRequestInput{})},
+		{name: "DeleteEdgesRequestInput", root: reflect.TypeOf(DeleteEdgesRequestInput{})},
+		{name: "ReconnectEdgeRequestInput", root: reflect.TypeOf(ReconnectEdgeRequestInput{})},
+		{name: "SetEdgesRequestInput", root: reflect.TypeOf(SetEdgesRequestInput{})},
+		{name: "CreateStateMachineEdgeRequestInput", root: reflect.TypeOf(CreateStateMachineEdgeRequestInput{})},
+		{name: "UpdateStateMachineEdgeRequestInput", root: reflect.TypeOf(UpdateStateMachineEdgeRequestInput{})},
+		{name: "DeleteStateMachineEdgesRequestInput", root: reflect.TypeOf(DeleteStateMachineEdgesRequestInput{})},
+		{name: "SetStateMachineEdgesRequestInput", root: reflect.TypeOf(SetStateMachineEdgesRequestInput{})},
+		{name: "CreateAgenticEdgeRequestInput", root: reflect.TypeOf(CreateAgenticEdgeRequestInput{})},
+		{name: "UpdateAgenticEdgeRequestInput", root: reflect.TypeOf(UpdateAgenticEdgeRequestInput{})},
+		{name: "DeleteAgenticEdgesRequestInput", root: reflect.TypeOf(DeleteAgenticEdgesRequestInput{})},
+		{name: "SetAgenticEdgesRequestInput", root: reflect.TypeOf(SetAgenticEdgesRequestInput{})},
+		{name: "MoveSectionsRequestInput", root: reflect.TypeOf(MoveSectionsRequestInput{})},
+		{name: "SetSectionSizesRequestInput", root: reflect.TypeOf(SetSectionSizesRequestInput{})},
+		{name: "SetSectionEdgeOutputsRequestInput", root: reflect.TypeOf(SetSectionEdgeOutputsRequestInput{})},
+		{name: "SetParentDefaultChildSectionTypeRequestInput", root: reflect.TypeOf(SetParentDefaultChildSectionTypeRequestInput{})},
+		{name: "SetListRootViewModeRequestInput", root: reflect.TypeOf(SetListRootViewModeRequestInput{})},
+		{name: "SetBrowserAreaViewModeRequestInput", root: reflect.TypeOf(SetBrowserAreaViewModeRequestInput{})},
+		{name: "SetBrowserSavedSearchesRequestInput", root: reflect.TypeOf(SetBrowserSavedSearchesRequestInput{})},
+		{name: "SetSpreadsheetSectionSettingsRequestInput", root: reflect.TypeOf(SetSpreadsheetSectionSettingsRequestInput{})},
+		{name: "SetTaskBoardSectionStateRequestInput", root: reflect.TypeOf(SetTaskBoardSectionStateRequestInput{})},
+		{name: "AppendDrawAreaLayerItemRequestInput", root: reflect.TypeOf(AppendDrawAreaLayerItemRequestInput{})},
+		{name: "SetChartTypeRequestInput", root: reflect.TypeOf(SetChartTypeRequestInput{})},
+		{name: "SetChartSettingsRequestInput", root: reflect.TypeOf(SetChartSettingsRequestInput{})},
+		{name: "SetTextBlockDisplayModeRequestInput", root: reflect.TypeOf(SetTextBlockDisplayModeRequestInput{})},
+		{name: "SetTextBlockFormatRequestInput", root: reflect.TypeOf(SetTextBlockFormatRequestInput{})},
+		{name: "SetCodeFileBindingRequestInput", root: reflect.TypeOf(SetCodeFileBindingRequestInput{})},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want object", tt.name, declaration.Kind)
 			}
 		})
 	}

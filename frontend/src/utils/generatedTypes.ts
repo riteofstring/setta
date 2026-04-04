@@ -3431,6 +3431,35 @@ export type SetSectionVariantNameRequestInput = {
 
 export type DeleteSectionVariantOrAskResponse = string;
 
+export const SectionTypeEnum = {
+  Callable: "Callable",
+  Dict: "Dict",
+  ListRoot: "ListRoot",
+  Group: "Group",
+  StateMachineStart: "StateMachineStart",
+  StateMachineGate: "StateMachineGate",
+  StateMachineEnd: "StateMachineEnd",
+  Image: "Image",
+  Chart: "Chart",
+  Draw: "Draw",
+  TextBlock: "TextBlock",
+  Prompt: "Prompt",
+  MetaControl: "MetaControl",
+  Social: "Social",
+  GlobalVariables: "GlobalVariables",
+  Code: "Code",
+  GenPythonCode: "GenPythonCode",
+  GenPythonMetadata: "GenPythonMetadata",
+  Terminal: "Terminal",
+  IFrame: "IFrame",
+  Chat: "Chat",
+  Browser: "Browser",
+  Plugin: "Plugin",
+  TaskBoard: "TaskBoard",
+  Spreadsheet: "Spreadsheet",
+} as const;
+export type SectionType = ObjectValues<typeof SectionTypeEnum>;
+
 export type CreateChildSectionsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -3479,6 +3508,16 @@ export type DeleteSelectedParamsRequestInput = {
 export type PrepareSectionsForCopyRequestInput = {
   projectConfigId: string;
   sectionIds: Array<string>;
+};
+
+type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+
+export type Position = {
+  x: number;
+  y: number;
 };
 
 export type PasteSectionsRequestInput = {
@@ -3538,6 +3577,32 @@ export type SetEdgesRequestInput = {
   edges: Array<Edge>;
 };
 
+type StateMachineSourceFilter = {
+  type?: StateMachineSourceFilterType;
+  signalName?: string | null;
+  payloadField?: string | null;
+  equals?: string | null;
+};
+
+type StateMachineSourceActivationCountCondition = {
+  operator?: StateMachineCountOperator;
+  value: number;
+};
+
+type StateMachineTargetAction = {
+  type?: StateMachineTargetActionType;
+  promptTemplateId?: string | null;
+  promptSectionId?: string | null;
+  inlinePrompt?: string | null;
+  promptInputs?: Record<string, string>;
+  threadStrategy?: StateMachineThreadStrategy;
+  stopIfRunning?: boolean;
+  engineConfigId?: string | null;
+  agentProfileId?: string | null;
+  permissionMode?: string | null;
+  searchEnabled?: boolean | null;
+};
+
 export type CreateStateMachineEdgeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -3573,6 +3638,20 @@ export type SetStateMachineEdgesRequestInput = {
   projectConfigId: string;
   edges: Array<StateMachineEdge>;
 };
+
+export const AgenticEdgeKindEnum = {
+  chat_chat: "chat_chat",
+  section_chat: "section_chat",
+  chat_section: "chat_section",
+} as const;
+type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
+
+export const AgenticEdgeContextModeEnum = {
+  reference_only: "reference_only",
+  inline_text: "inline_text",
+  summary: "summary",
+} as const;
+type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
 
 export type CreateAgenticEdgeRequestInput = {
   frontendOpId?: string | null;
@@ -3708,11 +3787,6 @@ export type SetCodeObjDisplayNameRequestInput = {
   projectConfigId: string;
   codeObjId: string;
   displayName: string;
-};
-
-export type Position = {
-  x: number;
-  y: number;
 };
 
 export const RenameRefactorModeEnum = {
@@ -5235,11 +5309,6 @@ export type ProjectCodegenTarget =
   | ProjectCodegenPythonTarget
   | ProjectCodegenPluginTarget;
 
-type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: ClipboardProjectStateCore;
-  sectionVariantMap: Record<string, string>;
-};
-
 type ViewportBoundsInput = {
   x: number;
   y: number;
@@ -5544,35 +5613,6 @@ export type UnselectAllParamsRequestInput = {
   frontendOpId: string | null;
   projectConfigId: string;
 };
-
-export const SectionTypeEnum = {
-  Callable: "Callable",
-  Dict: "Dict",
-  ListRoot: "ListRoot",
-  Group: "Group",
-  StateMachineStart: "StateMachineStart",
-  StateMachineGate: "StateMachineGate",
-  StateMachineEnd: "StateMachineEnd",
-  Image: "Image",
-  Chart: "Chart",
-  Draw: "Draw",
-  TextBlock: "TextBlock",
-  Prompt: "Prompt",
-  MetaControl: "MetaControl",
-  Social: "Social",
-  GlobalVariables: "GlobalVariables",
-  Code: "Code",
-  GenPythonCode: "GenPythonCode",
-  GenPythonMetadata: "GenPythonMetadata",
-  Terminal: "Terminal",
-  IFrame: "IFrame",
-  Chat: "Chat",
-  Browser: "Browser",
-  Plugin: "Plugin",
-  TaskBoard: "TaskBoard",
-  Spreadsheet: "Spreadsheet",
-} as const;
-export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
 export const CodeObjTypeEnum = {
   CodeCallable: "CodeCallable",
@@ -5907,48 +5947,8 @@ export type StateMachineCountOperator = ObjectValues<
   typeof StateMachineCountOperatorEnum
 >;
 
-export const AgenticEdgeKindEnum = {
-  chat_chat: "chat_chat",
-  section_chat: "section_chat",
-  chat_section: "chat_section",
-} as const;
-type AgenticEdgeKind = ObjectValues<typeof AgenticEdgeKindEnum>;
-
-export const AgenticEdgeContextModeEnum = {
-  reference_only: "reference_only",
-  inline_text: "inline_text",
-  summary: "summary",
-} as const;
-type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
-
 type StateMachineGateUIState = {
   showDetails?: boolean;
-};
-
-type StateMachineSourceFilter = {
-  type?: StateMachineSourceFilterType;
-  signalName?: string | null;
-  payloadField?: string | null;
-  equals?: string | null;
-};
-
-type StateMachineSourceActivationCountCondition = {
-  operator?: StateMachineCountOperator;
-  value: number;
-};
-
-type StateMachineTargetAction = {
-  type?: StateMachineTargetActionType;
-  promptTemplateId?: string | null;
-  promptSectionId?: string | null;
-  inlinePrompt?: string | null;
-  promptInputs?: Record<string, string>;
-  threadStrategy?: StateMachineThreadStrategy;
-  stopIfRunning?: boolean;
-  engineConfigId?: string | null;
-  agentProfileId?: string | null;
-  permissionMode?: string | null;
-  searchEnabled?: boolean | null;
 };
 
 type EdgePort = {
@@ -7720,28 +7720,28 @@ export function createSpreadsheetSectionImpl(
 }
 
 export type SetSectionParamFilterRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   value: string;
 };
 
 export type SetMetaControlShowSectionTitleRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   showSectionTitle: boolean;
 };
 
 export type SetSectionColumnWidthRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
 };
 
 export type SetSectionEdgeInputsRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   edgeInputParams: Array<string>;
@@ -7769,20 +7769,20 @@ export type SetListRootViewModeRequestInput = {
 };
 
 export type ToggleGroupOrientationRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
 };
 
 export type SetGroupOverflowModeRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   overflowMode: boolean;
 };
 
 export type SetBrowserColumnWidthsRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   columnWidth: number | null;
@@ -7797,7 +7797,7 @@ export type SetBrowserAreaViewModeRequestInput = {
 };
 
 export type SetBrowserHideColumnRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   hideColumn: boolean;
@@ -7811,7 +7811,7 @@ export type SetBrowserSavedSearchesRequestInput = {
 };
 
 export type SetSpreadsheetFilePathRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   filePath: string;
@@ -7838,14 +7838,14 @@ export type SetTaskBoardSectionStateRequestInput = {
 };
 
 export type SetImageAreaImagePathRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   imagePath: string;
 };
 
 export type SetSocialURLRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   url: string;
@@ -7860,7 +7860,7 @@ export type AppendDrawAreaLayerItemRequestInput = {
 };
 
 export type SetChartAreaDataPathRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   dataPath: string;
@@ -7882,7 +7882,7 @@ export type SetChartSettingsRequestInput = {
 };
 
 export type SetTextBlockTextRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   text: string;
@@ -7903,21 +7903,21 @@ export type SetTextBlockFormatRequestInput = {
 };
 
 export type SetTextBlockHeadingAsSectionNameRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   headingAsSectionName: boolean;
 };
 
 export type SetTextBlockMetaControlStyleRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   metaControlStyle: boolean;
 };
 
 export type SetTextBlockMasterFontSizeRequestInput = {
-  frontendOpId: string | null;
+  frontendOpId?: string | null;
   projectConfigId: string;
   sectionId: string;
   masterFontSizePx: number;

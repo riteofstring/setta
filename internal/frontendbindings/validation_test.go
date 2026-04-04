@@ -3621,7 +3621,7 @@ func TestTypeConverterRendersOptionalFieldsMapsAndTime(t *testing.T) {
 	}
 }
 
-func disabledProjectStateRequestContractsUseConverterObjects(t *testing.T) {
+func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 	tests := []struct {
 		name       string
 		root       reflect.Type
