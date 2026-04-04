@@ -257,7 +257,9 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		return TypeDeclaration{}, err
 	}
 	declaration := objectDeclaration(t.Name(), properties...)
-	if spec.HasCreateExpr {
+	if spec.CreateBody != "" {
+		declaration.CreateBody = spec.CreateBody
+	} else if spec.HasCreateExpr {
 		context := "frontend create defaults " + t.Name()
 		if len(spec.CreateExprOverrides) > 0 {
 			declaration.CreateExpr = buildGoBackedCreateExprWithExprOverridesTS(

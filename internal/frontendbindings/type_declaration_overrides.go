@@ -38,17 +38,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 				{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
 			},
 		},
-		reflect.TypeOf(EngineConfig{}): objectDeclarationWithCreateBody(
-			"EngineConfig",
-			buildEngineConfigCreateBodyTS(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "name", TypeExpr: "string"},
-			TypeProperty{Name: "engineType", TypeExpr: "EngineType"},
-			TypeProperty{Name: "settaLlmConfigId", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "externalAgentConfigId", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "defaults", TypeExpr: "EngineConfigDefaults"},
-			TypeProperty{Name: "runtimeSupport", TypeExpr: "EngineRuntimeSupport | null", Optional: true},
-		),
 		reflect.TypeOf(MessageTextDelta{}): objectDeclaration(
 			"MessageTextDelta",
 			TypeProperty{Name: "type", TypeExpr: `"text_delta"`},

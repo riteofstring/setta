@@ -1565,6 +1565,7 @@ func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
 type reflectedObjectDeclarationSpec struct {
 	DefaultValue              any
 	HasCreateExpr             bool
+	CreateBody                string
 	CreateExprOverrides       map[string]string
 	PropertyTypeExprOverrides map[string]string
 	PropertyOptionalOverrides map[string]bool
@@ -1758,6 +1759,16 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  agentruns.EngineRuntimeSupport{},
 			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(EngineConfig{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildEngineConfigCreateBodyTS(),
+			PropertyOptionalOverrides: map[string]bool{
+				"defaults":              false,
+				"externalAgentConfigId": true,
+				"runtimeSupport":        true,
+				"settaLlmConfigId":      true,
+			},
 		}, true
 	case reflect.TypeOf(AgentProfile{}):
 		return reflectedObjectDeclarationSpec{

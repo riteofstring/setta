@@ -12,6 +12,19 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 		properties []TypeProperty
 	}{
 		{
+			name: "EngineConfig",
+			root: reflect.TypeOf(EngineConfig{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "engineType", TypeExpr: "EngineType", Optional: false},
+				{Name: "settaLlmConfigId", TypeExpr: "string | null", Optional: true},
+				{Name: "externalAgentConfigId", TypeExpr: "string | null", Optional: true},
+				{Name: "defaults", TypeExpr: "EngineConfigDefaults", Optional: false},
+				{Name: "runtimeSupport", TypeExpr: "EngineRuntimeSupport | null", Optional: true},
+			},
+		},
+		{
 			name: "AgentProfile",
 			root: reflect.TypeOf(AgentProfile{}),
 			properties: []TypeProperty{
@@ -116,6 +129,9 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			}
 			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
 				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if tt.name == "EngineConfig" && declaration.CreateBody == "" {
+				t.Fatalf("EngineConfig should use a structured create body")
 			}
 		})
 	}

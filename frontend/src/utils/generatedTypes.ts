@@ -519,6 +519,20 @@ export type UpdateAgentProfileRequestInput = {
   profile: AgentProfile;
 };
 
+type EngineRuntimeSupport = {
+  thinking: boolean;
+};
+function createEngineRuntimeSupport(
+  options: Partial<EngineRuntimeSupport> = {},
+): EngineRuntimeSupport {
+  return mergeGeneratedOptions(
+    {
+      thinking: false,
+    },
+    options,
+  );
+}
+
 export type EngineConfig = {
   id: string;
   name: string;
@@ -625,20 +639,6 @@ export type ExternalAgentChatResponse = {
   toolCallArguments: Record<string, string>;
   contextUsage?: ChatContextUsage | null;
 };
-
-type EngineRuntimeSupport = {
-  thinking: boolean;
-};
-function createEngineRuntimeSupport(
-  options: Partial<EngineRuntimeSupport> = {},
-): EngineRuntimeSupport {
-  return mergeGeneratedOptions(
-    {
-      thinking: false,
-    },
-    options,
-  );
-}
 
 export type AgentProfileList = Array<AgentProfile>;
 
