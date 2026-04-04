@@ -4105,3 +4105,41 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pick a different shared normalized Gate 1 / Gate 2 motion lane whose control/body anchor is visibly present on both surfaces after `clear viewport -> fit view`, instead of spending another iteration on Browser-anchor guesswork
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 12:53 EDT - Ralph item 121
+
+- Added one deterministic shared `taskBoardSectionDefault` top-level drag probe on the actual visible task-board anchor instead of reopening Browser body/control guesswork.
+- Why this slice was necessary:
+  - item `120` had already closed Browser body/control work as non-viable on the current normalized live surfaces
+  - the next valid step had to pick a different shared section with a visibly present anchor on both worktree canary and read-only `main`
+  - a fresh-context CDP sub-agent normalized live `3075` and `3087` and confirmed the shared visible candidates are `groupSectionDefault`, `spreadsheetSectionDefault`, `drawSectionDefault`, and `taskBoardSectionDefault`, while `browserSectionDefault` is only visibly present on the worktree side
+- What this slice established:
+  - the first draft tried task-board inner view controls after normalized fit, but the targeted Playwright rerun failed because `task-board-view-task-list` was not visible on the shared fitted lane
+  - that failure narrowed the lane rather than blocking it: the reliable shared task-board anchor after normalized fit is the section args/filter strip, not the hidden inner view-toggle controls
+  - the landed probe therefore uses the real shared anchor:
+    - `settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary`
+    - it restores each runtime's initial `All Settings` layout, normalizes pane/selection noise, fits `taskBoardSectionDefault`, drags from header chrome by `120 x 80`, and then verifies the section-scoped args filter stays attached, remains editable, and does not drag the viewport with it
+- Verification:
+  - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - refreshed run-040 runtime/bootstrap values before the final rerun:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-040/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-040/main-ai.log`
+  - first discarded draft rerun:
+    - `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the task board view controls working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: failed because the view-control buttons were not visible on the shared fitted lane
+  - final landed probe rerun:
+    - `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `38.3s`)
+  - CDP visual check:
+    - result: done
+    - note:
+      - the fresh-context sub-agent normalized live `3075` canary vs read-only `3087` legacy and inspected the exact shared candidate headers/anchors
+      - `taskBoardSectionDefault` is visibly present on both surfaces
+      - the shared visible anchor is the args/filter strip, not the hidden inner task-board view controls
+      - Browser is still not a safe shared default lane
+- Lane status:
+  - close the deterministic non-Browser `taskBoardSectionDefault` drag lane on the args/filter anchor
+  - do not spend another iteration on Browser body/control guesswork or on hidden task-board inner controls unless a future normalization step first makes them visible on both surfaces
+- Next frontier:
+  - pick the next shared normalized live motion lane from the remaining visibly present sections (`drawSectionDefault` is the clearest default) and use that compare to hunt the next real canary-only artifact instead of reopening Browser or another hidden-control lane
+- LOOP_TERMINAL_MARKER: none

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 12:36 EDT
+Last updated: 2026-04-04 12:53 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,39 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `121` added a deterministic shared `taskBoardSectionDefault` top-level drag lane on the actual visible task-board anchor and closed that bounded non-Browser body/control probe.
+  - Why this slice was needed:
+    - item `120` explicitly said to stop spending passes on Browser-specific body/control guesses and instead pick one shared normalized Gate 1 / Gate 2 lane whose anchor is visibly present on both live surfaces
+    - a fresh-context CDP sub-agent normalized live worktree `3075` and read-only `3087` and confirmed the shared visible candidates are `groupSectionDefault`, `spreadsheetSectionDefault`, `drawSectionDefault`, and `taskBoardSectionDefault`; `browserSectionDefault` is not a safe shared lane because it is only visibly present on the worktree side
+    - the first draft for this iteration tried task-board inner view controls, but the targeted Playwright rerun immediately proved those controls are not visible on the shared fitted lane, so the real shared anchor had to be the task-board args/filter strip that CDP had already identified
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added opt-in probe `settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary`
+      - the probe restores each runtime's initial `All Settings` layout, normalizes pane state and active ids, fits `taskBoardSectionDefault`, drags from section header chrome by `120 x 80`, verifies the section-scoped args filter keeps the same relative center inside the section, remains focusable/editable, and does not drag the viewport with it
+    - no production renderer files changed in this slice
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-040/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-040/main-ai.log`
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - first targeted direct live-runtime Playwright rerun on the discarded task-board view-controls draft:
+      - `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the task board view controls working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed because `task-board-view-task-list` was not visible on the normalized fitted lane, so that speculative draft was not kept
+    - final targeted direct live-runtime Playwright rerun with refreshed run-040 bootstrap values inline:
+      - `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the task board args filter attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `38.3s`)
+  - Live verification result:
+    - a fresh-context CDP sub-agent normalized the live worktree `3075` and read-only `3087` settings pages and checked exact shared candidate headers/anchors instead of guessing from DOM ids alone
+    - shared visible lanes on the normalized live surfaces are `groupSectionDefault`, `spreadsheetSectionDefault`, `drawSectionDefault`, and `taskBoardSectionDefault`
+    - `browserSectionDefault` is only visibly present on the worktree surface, not on read-only `main`, and the backend title row is not visibly present on either side
+    - for `taskBoardSectionDefault`, the reliable shared anchor after normalized fit is the section header plus args/filter strip, not the hidden inner view-toggle controls
+    - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; `taskBoardSectionDefault` is visible on both surfaces, and Browser is not a valid shared default lane)
+  - conclusion for this slice:
+    - close the specific `taskBoardSectionDefault` args-filter-after-drag lane as covered by the new deterministic main-reference probe
+    - do not reopen task-board comparisons with hidden inner body controls unless an explicit normalization step first makes those controls visible on both live surfaces
+    - keep Browser off the default shared body/control lane list unless a future iteration intentionally normalizes it into view on both sides
+    - the next iteration should return to one different shared normalized Gate 1 / Gate 2 motion lane with a visibly present anchor, with production-fix work preferred if that compare finally exposes a real canary-only artifact
 - Ralph item `120` closed the attempted Browser body-motion probe as a non-viable lane for the current normalized live surfaces and reverted the speculative test before commit.
   - Why this slice was needed:
     - item `119` explicitly said to move off the now-closed Browser compression lane and pick the next shared normalized Gate 1 / Gate 2 motion lane instead of spending another pass on Browser-only churn
