@@ -485,7 +485,7 @@ func generatedUserDefaultSectionNameForType(t reflect.Type) (string, bool) {
 	if _, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName); err != nil {
 		return "", false
 	}
-	if _, ok := generatedSectionAliasSpecForSectionName(sectionName); !ok {
+	if _, ok := generatedSectionImplTypeForSectionName(sectionName); !ok {
 		return "", false
 	}
 	return sectionName, true
@@ -550,30 +550,22 @@ func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
 	map[string]struct{},
 	error,
 ) {
-	spec, ok := generatedSectionAliasSpecForSectionName(sectionName)
+	implType, ok := generatedSectionImplTypeForSectionName(sectionName)
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("unsupported generated user default section: %s", sectionName)
 	}
-	baseSectionDeclaration := generatedBaseSectionImplDeclaration()
-	registry := make(map[string]TypeProperty, len(baseSectionDeclaration.Properties))
-	for _, property := range baseSectionDeclaration.Properties {
-		property.Optional = false
-		registry[property.Name] = property
+	properties, err := generatedUserDefaultReflectedProperties(implType)
+	if err != nil {
+		return nil, nil, nil, err
 	}
+	registry := make(map[string]TypeProperty, len(properties))
 	propertyOrder := append([]string(nil), generatedUserDefaultSectionBasePropertyOrder...)
-	sectionProperties := generatedSectionAliasProperties(spec)
-	if len(spec.UserDefaultPropertyOrder) > 0 {
-		sectionProperties = generatedUserDefaultSectionOrderedProperties(sectionProperties, spec.UserDefaultPropertyOrder)
+	options := generatedUserDefaultSectionMetadata(sectionName)
+	if len(options.PropertyOrder) > 0 {
+		properties = generatedUserDefaultSectionOrderedProperties(properties, options.PropertyOrder)
 	}
-	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, sectionProperties)
-	for _, source := range spec.UserDefaultReflectedSources {
-		properties, err := generatedUserDefaultReflectedProperties(source)
-		if err != nil {
-			return nil, nil, nil, err
-		}
-		appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, properties)
-	}
-	return registry, propertyOrder, spec.UserDefaultIgnoredProperties, nil
+	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, properties)
+	return registry, propertyOrder, options.IgnoredProperties, nil
 }
 
 func generatedUserDefaultSectionOrderedProperties(
@@ -630,26 +622,36 @@ func appendUniqueGeneratedUserDefaultSectionProperties(
 }
 
 func generatedUserDefaultReflectedProperties(t reflect.Type) ([]TypeProperty, error) {
-	spec, ok := ownerBackedReflectedObjectDeclarationSpec(t)
-	if !ok {
-		return nil, fmt.Errorf("missing reflected object declaration spec for %s", t)
-	}
 	converter := newTypeConverter()
-	declaration, err := converter.reflectedObjectDeclaration(t, spec)
-	if err != nil {
-		return nil, err
+	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
+		declaration, err := converter.reflectedObjectDeclaration(t, spec)
+		if err != nil {
+			return nil, err
+		}
+		return declaration.Properties, nil
 	}
-	return declaration.Properties, nil
+	return converter.structProperties(t, nil, nil, nil)
 }
 
 func generatedUserDefaultCodeParamCodeObjProperties() ([]TypeProperty, error) {
-	return []TypeProperty{
-		{Name: "coreNameType", TypeExpr: "ParamNameType"},
-		{Name: "coreNameEditable", TypeExpr: "boolean"},
-		{Name: "typeAnnotation", TypeExpr: "string"},
-		{Name: "defaultVal", TypeExpr: "string"},
-		{Name: "value", TypeExpr: "string"},
-	}, nil
+	defaults := projectstate.FrontendDefaultCodeParamCodeObjImpl()
+	registry, order, err := generatedUserDefaultCodeParamCodeObjPropertyRegistry()
+	if err != nil {
+		return nil, err
+	}
+	properties := make([]TypeProperty, 0, len(order))
+	for _, name := range order {
+		value, ok := defaults[name]
+		if !ok {
+			continue
+		}
+		property, err := generatedUserDefaultSectionProperty(name, value, registry)
+		if err != nil {
+			return nil, err
+		}
+		properties = append(properties, property)
+	}
+	return properties, nil
 }
 
 func generatedUserDefaultSectionProperty(
@@ -675,4 +677,123 @@ func generatedUserDefaultSectionPropertyTypeExpr(typeExpr string, defaultValue a
 		return typeExpr
 	}
 	return typeExpr + " | null"
+}
+
+type generatedUserDefaultSectionMetadataOptions struct {
+	PropertyOrder     []string
+	IgnoredProperties map[string]struct{}
+}
+
+func generatedUserDefaultSectionMetadata(sectionName string) generatedUserDefaultSectionMetadataOptions {
+	switch sectionName {
+	case "Callable":
+		return generatedUserDefaultSectionMetadataOptions{
+			PropertyOrder: []string{
+				"hideUnpinnedParams",
+				"paramFilter",
+				"columnWidth",
+				"configLanguage",
+				"edgeInputParams",
+				"edgeOutputPorts",
+				"hideParams",
+			},
+			IgnoredProperties: reflectedIgnoredProperties(
+				"callable",
+				"codeObjVariantMap",
+				"pinnedParams",
+				"selectedParams",
+				"ignoreTypeErrors",
+			),
+		}
+	case "Dict":
+		return generatedUserDefaultSectionMetadataOptions{
+			PropertyOrder: []string{
+				"hideUnpinnedParams",
+				"paramFilter",
+				"columnWidth",
+				"configLanguage",
+				"edgeInputParams",
+				"edgeOutputPorts",
+				"isJsonSource",
+				"jsonSourceKeys",
+			},
+			IgnoredProperties: reflectedIgnoredProperties(
+				"codeObjVariantMap",
+				"pinnedParams",
+				"selectedParams",
+				"ignoreTypeErrors",
+				"topLevelParamId",
+				"jsonSourceMissing",
+			),
+		}
+	case "Code":
+		return generatedUserDefaultSectionMetadataOptions{
+			PropertyOrder: []string{
+				"code",
+				"codeFileBinding",
+				"attachedTerminalSectionId",
+				"codeLanguage",
+				"diagnosticsIgnoreState",
+			},
+			IgnoredProperties: map[string]struct{}{},
+		}
+	case "Chat":
+		return generatedUserDefaultSectionMetadataOptions{
+			PropertyOrder: []string{
+				"managed",
+				"engineConfigId",
+				"transcriptionProfileId",
+				"agentProfileId",
+				"chatId",
+				"thinking",
+				"permissionMode",
+				"searchEnabled",
+				"dictationMode",
+				"messages",
+				"inputText",
+				"waitingForResponse",
+				"toolCallArguments",
+				"activeBranchId",
+				"branches",
+			},
+			IgnoredProperties: map[string]struct{}{},
+		}
+	default:
+		return generatedUserDefaultSectionMetadataOptions{
+			IgnoredProperties: map[string]struct{}{},
+		}
+	}
+}
+
+func generatedSectionImplTypeForSectionName(sectionName string) (reflect.Type, bool) {
+	for _, t := range DiscoveredConvertibleTypes() {
+		name, ok := generatedSectionImplName(t)
+		if ok && name == sectionName {
+			return t, true
+		}
+	}
+	return nil, false
+}
+
+func generatedUserDefaultCodeParamCodeObjPropertyRegistry() (map[string]TypeProperty, []string, error) {
+	properties, err := generatedUserDefaultReflectedProperties(reflect.TypeOf(CodeParamCodeObjImpl{}))
+	if err != nil {
+		return nil, nil, err
+	}
+	registry := make(map[string]TypeProperty, len(properties))
+	order := []string{
+		"coreNameType",
+		"coreNameEditable",
+		"typeAnnotation",
+		"defaultVal",
+		"value",
+	}
+	for _, property := range properties {
+		if property.Name == "type" || property.Name == "id" || property.Name == "name" || property.Name == "description" || property.Name == "isPreset" || property.Name == "passingStyle" {
+			continue
+		}
+		property.Optional = false
+		registry[property.Name] = property
+	}
+	return registry, order, nil
 }

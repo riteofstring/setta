@@ -475,41 +475,41 @@ type ToggleParamSelectedRequestInput httpapi.ToggleParamSelectedRequest
 
 type UnselectAllParamsRequestInput httpapi.UnselectAllParamsRequest
 
-type SectionType string
+type SectionType projectstate.FrontendSectionType
 
-type CodeObjType string
+type CodeObjType projectstate.FrontendCodeObjType
 
 type CodeLanguage projectstate.CodeLanguage
 
 type BuiltinCodeLanguage struct{}
 
-type ConfigLanguage string
+type ConfigLanguage projectstate.FrontendConfigLanguage
 
-type ParameterPassingStyle string
+type ParameterPassingStyle projectstate.FrontendParameterPassingStyle
 
-type ParamNameType string
+type ParamNameType projectstate.FrontendParamNameType
 
-type ButtonActionMode string
+type ButtonActionMode projectstate.FrontendButtonActionMode
 
-type HttpRequestMethod string
+type HttpRequestMethod projectstate.FrontendHTTPRequestMethod
 
-type DropzoneMode string
+type DropzoneMode projectstate.FrontendDropzoneMode
 
-type TextParamInputUIType string
+type TextParamInputUIType projectstate.FrontendTextParamInputUIType
 
-type TimeDisplayFormat string
+type TimeDisplayFormat projectstate.FrontendTimeDisplayFormat
 
-type TimeControlMode string
+type TimeControlMode projectstate.FrontendTimeControlMode
 
-type TimeDisplayFont string
+type TimeDisplayFont projectstate.FrontendTimeDisplayFont
 
-type DateDisplayFormat string
+type DateDisplayFormat projectstate.FrontendDateDisplayFormat
 
-type DateControlMode string
+type DateControlMode projectstate.FrontendDateControlMode
 
-type DateSelectionMode string
+type DateSelectionMode projectstate.FrontendDateSelectionMode
 
-type DateCalendarWeekStart string
+type DateCalendarWeekStart projectstate.FrontendDateCalendarWeekStart
 
 type ListRootViewMode projectstate.ListRootViewMode
 
@@ -535,11 +535,11 @@ type CodeFileAccessMode projectstate.CodeFileAccessMode
 
 type TaskBoardViewMode projectstate.TaskBoardViewMode
 
-type TaskBoardTaskRecurrence string
+type TaskBoardTaskRecurrence projectstate.FrontendTaskBoardTaskRecurrence
 
-type TaskBoardRecurringWeekday string
+type TaskBoardRecurringWeekday projectstate.FrontendTaskBoardRecurringWeekday
 
-type TaskBoardRecurringMonth string
+type TaskBoardRecurringMonth projectstate.FrontendTaskBoardRecurringMonth
 
 type StateMachineGateType = projectstate.StateMachineGateType
 
@@ -599,7 +599,7 @@ type WatchCodeFolder = projectstate.WatchCodeFolder
 
 type WatchCodeRegistryEntry = projectstate.WatchCodeRegistryEntry
 
-type CodeFileBinding = projectview.CodeFileBinding
+type CodeFileBinding projectstate.FrontendCodeFileBinding
 
 type ChatRole = scriptablechat.ChatRole
 
@@ -645,67 +645,67 @@ type ToolChatMessage = scriptablechat.ToolChatMessage
 
 type BaseChatMessageUnion struct{}
 
-type ChatSectionBranch = projectstate.ChatSectionBranch
+type ChatSectionBranch projectstate.ChatSectionBranch
 
-type ChatSectionState = projectstate.ChatSectionState
+type ChatSectionState projectstate.ChatSectionState
 
 type UserDefaultChatSectionImpl struct{}
 
-type ChatSectionImpl struct{}
+type ChatSectionImpl projectstate.FrontendChatSectionImpl
 
 type UserDefaultBrowserSectionImpl struct{}
 
-type BrowserSectionImpl struct{}
+type BrowserSectionImpl projectstate.FrontendBrowserSectionImpl
 
-type BaseSectionImpl struct{}
+type BaseSectionImpl projectstate.FrontendBaseSectionImpl
 
 type UserDefaultListRootSectionImpl struct{}
 
-type ListRootSectionImpl struct{}
+type ListRootSectionImpl projectstate.FrontendListRootSectionImpl
 
 type UserDefaultGroupSectionImpl struct{}
 
-type GroupSectionImpl struct{}
+type GroupSectionImpl projectstate.FrontendGroupSectionImpl
 
 type UserDefaultStateMachineStartSectionImpl struct{}
 
-type StateMachineStartSectionImpl struct{}
+type StateMachineStartSectionImpl projectstate.FrontendStateMachineStartSectionImpl
 
 type UserDefaultStateMachineGateSectionImpl struct{}
 
-type StateMachineGateSectionImpl struct{}
+type StateMachineGateSectionImpl projectstate.FrontendStateMachineGateSectionImpl
 
 type UserDefaultStateMachineEndSectionImpl struct{}
 
-type StateMachineEndSectionImpl struct{}
+type StateMachineEndSectionImpl projectstate.FrontendStateMachineEndSectionImpl
 
 type UserDefaultTextBlockSectionImpl struct{}
 
-type TextBlockSectionImpl struct{}
+type TextBlockSectionImpl projectstate.FrontendTextBlockSectionImpl
 
 type UserDefaultPromptSectionImpl struct{}
 
-type PromptSectionImpl struct{}
+type PromptSectionImpl projectstate.FrontendPromptSectionImpl
 
 type CodeSectionDiagnosticsIgnoreState projectstate.CodeSectionDiagnosticsIgnoreState
 
 type UserDefaultCodeSectionImpl struct{}
 
-type CodeSectionImpl projectstate.CodeSectionImpl
+type CodeSectionImpl projectstate.FrontendCodeSectionImpl
 
 type UserDefaultTerminalSectionImpl struct{}
 
-type TerminalSectionImpl projectstate.TerminalSectionImpl
+type TerminalSectionImpl projectstate.FrontendTerminalSectionImpl
 
 type BaseSectionImplUnion struct{}
 
-type CallableSectionImpl struct{}
+type CallableSectionImpl projectstate.FrontendCallableSectionImpl
 
 type BaseParentSectionImplUnion struct{}
 
 type BaseSectionWithParamsImplUnion struct{}
 
-type DictSectionImpl struct{}
+type DictSectionImpl projectstate.FrontendDictSectionImpl
 
 type UserDefaultCallableSectionImpl struct{}
 
@@ -713,13 +713,13 @@ type UserDefaultDictSectionImpl struct{}
 
 type BaseDictSectionImplUnion struct{}
 
-type BaseCodeObjImpl struct{}
+type BaseCodeObjImpl projectstate.FrontendBaseCodeObjImpl
 
-type CodeParamCodeObjImpl struct{}
+type CodeParamCodeObjImpl projectstate.FrontendCodeParamCodeObjImpl
 
-type CodeCallableCodeObjImpl struct{}
+type CodeCallableCodeObjImpl projectstate.FrontendCodeCallableCodeObjImpl
 
-type NestedParamCodeObjImpl struct{}
+type NestedParamCodeObjImpl projectstate.FrontendNestedParamCodeObjImpl
 
 type BaseCodeObjImplUnion struct{}
 
@@ -733,41 +733,41 @@ type UserDefaultCodeParamCodeObjImpl struct{}
 
 type ColorPickerChoice settingsstate.FrontendColorPickerChoice
 
-type TextParamCodeObjImpl struct{}
+type TextParamCodeObjImpl projectstate.FrontendTextParamCodeObjImpl
 
-type DateParamCodeObjImpl struct{}
+type DateParamCodeObjImpl projectstate.FrontendDateParamCodeObjImpl
 
-type TimeParamCodeObjImpl struct{}
+type TimeParamCodeObjImpl projectstate.FrontendTimeParamCodeObjImpl
 
-type ButtonParamCodeObjImpl struct{}
+type ButtonParamCodeObjImpl projectstate.FrontendButtonParamCodeObjImpl
 
-type SliderParamCodeObjImpl struct{}
+type SliderParamCodeObjImpl projectstate.FrontendSliderParamCodeObjImpl
 
-type RotaryParamCodeObjImpl struct{}
+type RotaryParamCodeObjImpl projectstate.FrontendRotaryParamCodeObjImpl
 
-type SwitchParamCodeObjImpl struct{}
+type SwitchParamCodeObjImpl projectstate.FrontendSwitchParamCodeObjImpl
 
-type ColorPickerParamCodeObjImpl struct{}
+type ColorPickerParamCodeObjImpl projectstate.FrontendColorPickerParamCodeObjImpl
 
-type DropdownParamCodeObjImpl struct{}
+type DropdownParamCodeObjImpl projectstate.FrontendDropdownParamCodeObjImpl
 
-type PasswordParamCodeObjImpl struct{}
+type PasswordParamCodeObjImpl projectstate.FrontendPasswordParamCodeObjImpl
 
-type TextAreaParamCodeObjImpl struct{}
+type TextAreaParamCodeObjImpl projectstate.FrontendTextAreaParamCodeObjImpl
 
-type DropzoneParamCodeObjImpl struct{}
+type DropzoneParamCodeObjImpl projectstate.FrontendDropzoneParamCodeObjImpl
 
 type UserDefaultTaskBoardSectionImpl struct{}
 
-type TaskBoardSectionImpl struct{}
+type TaskBoardSectionImpl projectstate.FrontendTaskBoardSectionImpl
 
 type UserDefaultChartSectionImpl struct{}
 
-type ChartSectionImpl struct{}
+type ChartSectionImpl projectstate.FrontendChartSectionImpl
 
 type UserDefaultSpreadsheetSectionImpl struct{}
 
-type SpreadsheetSectionImpl struct{}
+type SpreadsheetSectionImpl projectstate.FrontendSpreadsheetSectionImpl
 
 type SetSectionParamFilterRequestInput httpapi.SetSectionParamFilterRequest
 

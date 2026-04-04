@@ -612,6 +612,22 @@ func generatedSectionTypeSetContains(setName string, sectionName string) bool {
 	return false
 }
 
+func generatedCodeObjTypeSetContains(setName string, codeObjName string) bool {
+	member := "CodeObjTypeEnum." + codeObjName
+	for _, spec := range projectStateTypeGuardTypeSets {
+		if spec.Name != setName {
+			continue
+		}
+		for _, candidate := range spec.Members {
+			if candidate == member {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
 func generatedSectionImplName(t reflect.Type) (string, bool) {
 	if t == nil || t.Kind() != reflect.Struct {
 		return "", false
@@ -628,6 +644,20 @@ func generatedSectionImplName(t reflect.Type) (string, bool) {
 		return "", false
 	}
 	return sectionName, true
+}
+
+func generatedCodeObjImplName(t reflect.Type) (string, bool) {
+	if t == nil || t.Kind() != reflect.Struct {
+		return "", false
+	}
+	name := t.Name()
+	if name == "" || strings.HasPrefix(name, "Base") || strings.HasPrefix(name, "UserDefault") {
+		return "", false
+	}
+	if !strings.HasSuffix(name, "CodeObjImpl") {
+		return "", false
+	}
+	return name, true
 }
 
 func generatedSectionImplTypeExpr(sectionName string) string {

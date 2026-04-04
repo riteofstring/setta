@@ -193,11 +193,7 @@ type ShownParamIDDetails struct {
 	TopLevelParamIDs        []string            `json:"topLevelParamIds"`
 }
 
-type CodeFileBinding struct {
-	CanonicalPath string `json:"canonical_path"`
-	AccessMode    string `json:"access_mode"`
-	AutoBinding   bool   `json:"autoBinding"`
-}
+type CodeFileBinding = projectstate.FrontendCodeFileBinding
 
 func DefaultSingleConfig(document projectstate.Document) (SingleConfig, error) {
 	projectID := strings.TrimSpace(document.DefaultProjectID)
@@ -1360,7 +1356,7 @@ func decodeFrontendBinding(payload map[string]any) (*CodeFileBinding, error) {
 	}
 	return &CodeFileBinding{
 		CanonicalPath: canonicalPath,
-		AccessMode:    stringField(payload, "access_mode"),
+		AccessMode:    projectstate.CodeFileAccessMode(stringField(payload, "access_mode")),
 		AutoBinding:   boolField(payload, "autoBinding"),
 	}, nil
 }
@@ -1373,11 +1369,11 @@ func bindingObject(binding *projectstate.CodeFileBinding) map[string]any {
 	}
 }
 
-func bindingAccessMode(mode projectstate.CodeFileAccessMode) string {
+func bindingAccessMode(mode projectstate.CodeFileAccessMode) projectstate.CodeFileAccessMode {
 	if strings.TrimSpace(string(mode)) == "" {
-		return string(projectstate.CodeFileAccessModeReadWrite)
+		return projectstate.CodeFileAccessModeReadWrite
 	}
-	return string(mode)
+	return mode
 }
 
 func rawObjectFromModifier(raw json.RawMessage) (map[string]any, error) {

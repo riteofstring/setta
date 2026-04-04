@@ -160,23 +160,25 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 		return contractSpec{}, false, err
 	}
 	if ok && len(values) > 0 {
-		return stringEnumContractSpec(t), true, nil
-	}
-	values, ok, err = stringenumvalues.Default().ValuesByTypeName(
-		pythonSharedEnumFallbackPackages,
-		t.Name(),
-	)
-	if err != nil {
-		return contractSpec{}, false, err
-	}
-	if !ok || len(values) == 0 {
-		enumValues, enumOK, enumErr := frontendbindings.EnumValuesForType(t)
-		if enumErr != nil {
-			return contractSpec{}, false, enumErr
+		discoveredEnumValues := make([]enumValueSpec, 0, len(values))
+		for _, value := range values {
+			discoveredEnumValues = append(discoveredEnumValues, enumValueSpec{
+				Name:  value.Name,
+				Value: value.Value,
+			})
 		}
-		if !enumOK || len(enumValues) == 0 {
-			return contractSpec{}, false, nil
-		}
+		return contractSpec{
+			Name:       t.Name(),
+			Kind:       contractKindEnum,
+			Type:       t,
+			EnumValues: discoveredEnumValues,
+		}, true, nil
+	}
+	enumValues, enumOK, enumErr := frontendbindings.EnumValuesForType(t)
+	if enumErr != nil {
+		return contractSpec{}, false, enumErr
+	}
+	if enumOK && len(enumValues) > 0 {
 		fallbackValues := make([]enumValueSpec, 0, len(enumValues))
 		for _, value := range enumValues {
 			fallbackValues = append(fallbackValues, enumValueSpec{
@@ -190,9 +192,19 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 			EnumValues: fallbackValues,
 		}, true, nil
 	}
-	enumValues := make([]enumValueSpec, 0, len(values))
+	values, ok, err = stringenumvalues.Default().ValuesByTypeName(
+		pythonSharedEnumFallbackPackages,
+		t.Name(),
+	)
+	if err != nil {
+		return contractSpec{}, false, err
+	}
+	if !ok || len(values) == 0 {
+		return contractSpec{}, false, nil
+	}
+	discoveredEnumValues := make([]enumValueSpec, 0, len(values))
 	for _, value := range values {
-		enumValues = append(enumValues, enumValueSpec{
+		discoveredEnumValues = append(discoveredEnumValues, enumValueSpec{
 			Name:  value.Name,
 			Value: value.Value,
 		})
@@ -200,7 +212,7 @@ func enumContractSpecIfConvertible(t reflect.Type) (contractSpec, bool, error) {
 	return contractSpec{
 		Name:       t.Name(),
 		Kind:       contractKindEnum,
-		EnumValues: enumValues,
+		EnumValues: discoveredEnumValues,
 	}, true, nil
 }
 
