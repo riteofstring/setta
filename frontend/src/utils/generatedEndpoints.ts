@@ -871,6 +871,12 @@ export async function route_get_file_browser_root(): Promise<
   return await post(GoHTTPRouteHelpers.getFileBrowserRoot(), null);
 }
 
+export async function route_get_workspace_python_signal(
+  x: gt.GetWorkspacePythonSignalRequestInput,
+): Promise<ResponseDataAndStatus<gt.WorkspacePythonSignalResponse>> {
+  return await post(GoHTTPRouteHelpers.getWorkspacePythonSignal(), x);
+}
+
 export async function route_get_folder_contents(
   x: gt.GetFolderContentsRequestInput,
 ): Promise<ResponseDataAndStatus<gt.GetFolderContentsResponse>> {

@@ -263,6 +263,52 @@ func TestServiceListFolderResolvesRelativePathsAgainstBaseFolder(t *testing.T) {
 	}
 }
 
+func TestServiceWorkspacePythonSignalUsesGoOwnedRootDetection(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "README.md"), []byte("docs"), 0o644); err != nil {
+		t.Fatalf("write readme: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "pyproject.toml"), []byte("[project]\nname = \"demo\"\n"), 0o644); err != nil {
+		t.Fatalf("write pyproject: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(workspaceRoot, ".venv"), 0o755); err != nil {
+		t.Fatalf("mkdir .venv: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(workspaceRoot, ".venv", "ignored.py"), []byte("print('ignored')\n"), 0o644); err != nil {
+		t.Fatalf("write ignored venv file: %v", err)
+	}
+
+	response, err := service.WorkspacePythonSignal(context.Background(), workspaceRoot)
+	if err != nil {
+		t.Fatalf("workspace python signal: %v", err)
+	}
+	if response.FolderPath != workspaceRoot {
+		t.Fatalf("expected normalized folder path %q, got %q", workspaceRoot, response.FolderPath)
+	}
+	if !response.HasPython {
+		t.Fatal("expected pyproject.toml to mark the workspace as Python-backed")
+	}
+
+	nonPythonRoot := filepath.Join(workspaceRoot, "frontend-only")
+	if err := os.MkdirAll(nonPythonRoot, 0o755); err != nil {
+		t.Fatalf("mkdir non-python root: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(nonPythonRoot, "package.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+
+	nonPythonResponse, err := service.WorkspacePythonSignal(context.Background(), nonPythonRoot)
+	if err != nil {
+		t.Fatalf("workspace python signal for non-python root: %v", err)
+	}
+	if nonPythonResponse.HasPython {
+		t.Fatal("expected non-python root to stay false")
+	}
+}
+
 func TestServiceReadWriteAndDownloadFlow(t *testing.T) {
 	t.Parallel()
 

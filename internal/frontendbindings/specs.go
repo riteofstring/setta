@@ -752,6 +752,11 @@ func CurrentRouteGroups() []RouteGroup {
 					EnumName: "GET_FILE_BROWSER_ROOT",
 				},
 				{
+					Name:     "getWorkspacePythonSignal",
+					Path:     httpapi.RouteGetWorkspacePythonSignal,
+					EnumName: "GET_WORKSPACE_PYTHON_SIGNAL",
+				},
+				{
 					Name:     "getFolderContents",
 					Path:     httpapi.RouteGetFolderContents,
 					EnumName: "GET_FOLDER_CONTENTS",
@@ -2615,6 +2620,14 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "getFileBrowserRoot",
 			ResponseType:    reflect.TypeOf(FileBrowserRootResponse{}),
+		},
+		{
+			FunctionName:    "route_get_workspace_python_signal",
+			Method:          "POST",
+			RouteCollection: "GoHTTPRoutes",
+			RouteName:       "getWorkspacePythonSignal",
+			RequestType:     reflect.TypeOf(GetWorkspacePythonSignalRequestInput{}),
+			ResponseType:    reflect.TypeOf(WorkspacePythonSignalResponse{}),
 		},
 		{
 			FunctionName:    "route_get_folder_contents",

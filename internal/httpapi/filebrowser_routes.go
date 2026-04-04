@@ -20,6 +20,7 @@ const (
 	RouteCheckIfFileExists         = "/checkIfFileExists"
 	RouteCheckWorkspaceInitialized = "/checkWorkspaceInitialized"
 	RouteGetFileBrowserRoot        = "/getFileBrowserRoot"
+	RouteGetWorkspacePythonSignal  = "/getWorkspacePythonSignal"
 	RouteGetFolderContents         = "/getFolderContents"
 	RouteGetFileBrowserDownloadURL = "/getFileBrowserDownloadUrls"
 	RouteGetFileBrowserFileContent = "/getFileBrowserFileContent"
@@ -41,6 +42,7 @@ type FileBrowserService interface {
 	CheckIfFileExists(ctx context.Context, rawPath string) (bool, error)
 	CheckWorkspaceInitialized(ctx context.Context, request filebrowser.CheckWorkspaceInitializedRequest) (bool, error)
 	ListFolder(ctx context.Context, request filebrowser.ListFolderRequest) (filebrowser.ListFolderResponse, error)
+	WorkspacePythonSignal(ctx context.Context, rawPath string) (filebrowser.WorkspacePythonSignalResponse, error)
 	BuildDownloadURLs(ctx context.Context, request filebrowser.FileBrowserDownloadURLRequest, buildURL func(token string) string) ([]filebrowser.FileBrowserDownloadURLEntry, error)
 	ReadFileContent(ctx context.Context, request filebrowser.FileContentRequest) (filebrowser.FileContentResponse, error)
 	StatFile(ctx context.Context, rawPath string) (filebrowser.FileStatResponse, error)
@@ -116,6 +118,10 @@ type GetFileBrowserDownloadURLsRequest struct {
 	Paths []string `json:"paths"`
 }
 
+type GetWorkspacePythonSignalRequest struct {
+	FolderPath string `json:"folderPath"`
+}
+
 func (r GetFileBrowserDownloadURLsRequest) toServiceRequest() filebrowser.FileBrowserDownloadURLRequest {
 	return filebrowser.FileBrowserDownloadURLRequest{Paths: r.Paths}
 }
@@ -188,6 +194,7 @@ func RegisterFileBrowserRoutes(router chi.Router, deps FileBrowserRouteDependenc
 	router.With(guard).Post(RouteCheckIfFileExists, checkIfFileExistsHandler(deps))
 	router.With(guard).Post(RouteCheckWorkspaceInitialized, checkWorkspaceInitializedHandler(deps))
 	router.With(guard).Post(RouteGetFileBrowserRoot, getFileBrowserRootHandler(deps))
+	router.With(guard).Post(RouteGetWorkspacePythonSignal, getWorkspacePythonSignalHandler(deps))
 	router.With(guard).Post(RouteGetFolderContents, getFolderContentsHandler(deps))
 	router.With(guard).Post(RouteGetFileBrowserDownloadURL, getFileBrowserDownloadURLsHandler(deps))
 	router.With(guard).Post(RouteGetFileBrowserFileContent, getFileBrowserFileContentHandler(deps))
@@ -320,6 +327,29 @@ func getFolderContentsHandler(deps FileBrowserRouteDependencies) http.HandlerFun
 			return
 		}
 		writeJSON(w, http.StatusOK, items)
+	}
+}
+
+func getWorkspacePythonSignalHandler(deps FileBrowserRouteDependencies) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !ensureFileBrowsingAllowed(w, r) || deps.Browser == nil {
+			if deps.Browser == nil {
+				writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			}
+			return
+		}
+		payload, err := decodeJSONBody[GetWorkspacePythonSignalRequest](r)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid_json", "Invalid JSON payload.")
+			return
+		}
+
+		response, err := deps.Browser.WorkspacePythonSignal(r.Context(), payload.FolderPath)
+		if err != nil {
+			writeFileBrowserRouteError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, response)
 	}
 }
 

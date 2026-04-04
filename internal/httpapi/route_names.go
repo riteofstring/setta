@@ -34,6 +34,7 @@ var bareRouteNames = map[string]struct{}{
 	bareRouteName(RouteCheckIfFileExists):                       {},
 	bareRouteName(RouteCheckWorkspaceInitialized):               {},
 	bareRouteName(RouteGetFileBrowserRoot):                      {},
+	bareRouteName(RouteGetWorkspacePythonSignal):                {},
 	bareRouteName(RouteGetFolderContents):                       {},
 	bareRouteName(RouteGetFileBrowserDownloadURL):               {},
 	bareRouteName(RouteGetFileBrowserFileContent):               {},

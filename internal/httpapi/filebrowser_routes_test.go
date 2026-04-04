@@ -85,6 +85,42 @@ func TestRegisterFileBrowserRoutesReturnsRootAndServesDownloads(t *testing.T) {
 	}
 }
 
+func TestRegisterFileBrowserRoutesReturnsWorkspacePythonSignal(t *testing.T) {
+	t.Parallel()
+
+	authService := newTestAuthService(t)
+	service, workspaceRoot, _, err := newFileBrowserRouteService(t, authService)
+	if err != nil {
+		t.Fatalf("new file browser route service: %v", err)
+	}
+	handler := newFileBrowserRouteTestHandler(t, config.ModeIDE, authService, service)
+
+	if err := os.WriteFile(filepath.Join(workspaceRoot, "pyproject.toml"), []byte("[project]\nname = \"demo\"\n"), 0o644); err != nil {
+		t.Fatalf("write pyproject: %v", err)
+	}
+
+	request := httptest.NewRequest(http.MethodPost, "/api"+RouteGetWorkspacePythonSignal, strings.NewReader(`{"folderPath":"`+workspaceRoot+`"}`))
+	request.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, request, authService)
+
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload filebrowser.WorkspacePythonSignalResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode workspace python payload: %v", err)
+	}
+	if payload.FolderPath != workspaceRoot {
+		t.Fatalf("expected workspace folder path %q, got %q", workspaceRoot, payload.FolderPath)
+	}
+	if !payload.HasPython {
+		t.Fatal("expected workspace python signal to be true")
+	}
+}
+
 func TestRegisterFileBrowserRoutesCreatesWorkspaceFiles(t *testing.T) {
 	t.Parallel()
 

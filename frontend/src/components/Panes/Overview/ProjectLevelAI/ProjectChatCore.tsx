@@ -55,6 +55,7 @@ import {
 } from "state/utils/chatAppGeneration";
 import { hasPendingToolInteraction } from "utils/claudeTools";
 import { tokenizeConversationSearchQuery } from "utils/conversationSearch";
+import { res200 } from "utils/endpointUtils";
 import { route_get_file_browser_root } from "utils/generatedEndpoints";
 import {
   AgentRun,
@@ -132,21 +133,12 @@ function useWorkspaceRootIdentity(
     setWorkspaceRootIdentity(null);
     let cancelled = false;
     void (async () => {
-      try {
-        const rootResponse = await route_get_file_browser_root();
-        if (
-          cancelled ||
-          !rootResponse ||
-          rootResponse.status !== 200 ||
-          !rootResponse.data
-        ) {
-          return;
-        }
-        const rootPath = rootResponse.data.rootPath.trim();
-        setWorkspaceRootIdentity(rootPath || null);
-      } catch {
-        // Leave the root unresolved when the one-shot fetch fails.
+      const rootResponse = await route_get_file_browser_root();
+      if (cancelled || !res200(rootResponse) || !rootResponse.data) {
+        return;
       }
+      const rootPath = rootResponse.data.rootPath.trim();
+      setWorkspaceRootIdentity(rootPath || null);
     })();
 
     return () => {

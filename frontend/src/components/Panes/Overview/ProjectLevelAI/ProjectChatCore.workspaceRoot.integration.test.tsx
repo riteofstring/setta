@@ -22,7 +22,7 @@ vi.mock("utils/generatedEndpoints", async () => {
   return {
     ...actual,
     route_get_file_browser_root: vi.fn(),
-    route_get_folder_contents: vi.fn(),
+    route_get_workspace_python_signal: vi.fn(),
   };
 });
 
@@ -34,19 +34,19 @@ import {
 import { resetProjectStores } from "state/utils";
 import {
   route_get_file_browser_root,
-  route_get_folder_contents,
+  route_get_workspace_python_signal,
 } from "utils/generatedEndpoints";
 import { EngineTypeEnum, createProjectConfig } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 
-function buildFolderContentsResponse(
+function buildWorkspacePythonSignalResponse(
   folderPath: string,
-  items: Array<{ name: string; type: string; fullPath: string }>,
+  hasPython: boolean,
 ) {
   return {
     data: {
       folderPath,
-      items,
+      hasPython,
     },
     status: 200,
     hasResponse: true,
@@ -152,14 +152,14 @@ describe("ProjectChatCore workspace root scans", () => {
       | ((value: {
           data: {
             folderPath: string;
-            items: Array<{ name: string; type: string; fullPath: string }>;
+            hasPython: boolean;
           };
           status: number;
           hasResponse: boolean;
         }) => void)
       | null = null;
 
-    vi.mocked(route_get_folder_contents).mockImplementation(
+    vi.mocked(route_get_workspace_python_signal).mockImplementation(
       () =>
         new Promise((resolve) => {
           resolveFolderScan = resolve;
@@ -169,14 +169,14 @@ describe("ProjectChatCore workspace root scans", () => {
     await renderProjectChatCore();
 
     await vi.waitFor(() => {
-      expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
+      expect(route_get_workspace_python_signal).toHaveBeenCalledTimes(1);
     });
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(6200);
     });
 
-    expect(route_get_folder_contents).toHaveBeenCalledTimes(1);
+    expect(route_get_workspace_python_signal).toHaveBeenCalledTimes(1);
 
     if (!resolveFolderScan) {
       throw new Error(
@@ -184,13 +184,13 @@ describe("ProjectChatCore workspace root scans", () => {
       );
     }
     resolveFolderScan({
-      ...buildFolderContentsResponse("/workspace", []),
+      ...buildWorkspacePythonSignalResponse("/workspace", false),
     });
   });
 
   it("does not schedule repeated workspace root fetches after the initial resolution", async () => {
-    vi.mocked(route_get_folder_contents).mockResolvedValue(
-      buildFolderContentsResponse("/workspace", []),
+    vi.mocked(route_get_workspace_python_signal).mockResolvedValue(
+      buildWorkspacePythonSignalResponse("/workspace", false),
     );
 
     await renderProjectChatCore({ strictMode: true });

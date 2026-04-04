@@ -2279,6 +2279,15 @@ export function createFileBrowserRootResponse(
   return options as FileBrowserRootResponse;
 }
 
+export type GetWorkspacePythonSignalRequestInput = {
+  folderPath: string;
+};
+
+export type WorkspacePythonSignalResponse = {
+  folderPath: string;
+  hasPython: boolean;
+};
+
 const MissingFolderBehaviorEnum = {
   error: "error",
   empty: "empty",

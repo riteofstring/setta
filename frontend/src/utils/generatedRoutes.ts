@@ -147,6 +147,7 @@ export const GoHTTPRoutes = {
   checkIfFileExists: "/checkIfFileExists",
   checkWorkspaceInitialized: "/checkWorkspaceInitialized",
   getFileBrowserRoot: "/getFileBrowserRoot",
+  getWorkspacePythonSignal: "/getWorkspacePythonSignal",
   getFolderContents: "/getFolderContents",
   getFileBrowserDownloadUrls: "/getFileBrowserDownloadUrls",
   fileBrowserDownload: "/fileBrowser/{token}",
@@ -767,6 +768,9 @@ export const GoHTTPRouteHelpers = {
   },
   getFileBrowserRoot(): string {
     return GoHTTPRoutes.getFileBrowserRoot;
+  },
+  getWorkspacePythonSignal(): string {
+    return GoHTTPRoutes.getWorkspacePythonSignal;
   },
   getFolderContents(): string {
     return GoHTTPRoutes.getFolderContents;
@@ -1411,6 +1415,7 @@ export const RouteEnum = {
   CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
   CHECK_WORKSPACE_INITIALIZED: "/checkWorkspaceInitialized",
   GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
+  GET_WORKSPACE_PYTHON_SIGNAL: "/getWorkspacePythonSignal",
   GET_FOLDER_CONTENTS: "/getFolderContents",
   GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
   FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",

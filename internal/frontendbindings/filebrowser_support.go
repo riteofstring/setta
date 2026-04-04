@@ -17,6 +17,10 @@ type CheckWorkspaceInitializedResponse bool
 
 type FileBrowserRootResponse filebrowser.RootResponse
 
+type GetWorkspacePythonSignalRequestInput httpapi.GetWorkspacePythonSignalRequest
+
+type WorkspacePythonSignalResponse filebrowser.WorkspacePythonSignalResponse
+
 type MissingFolderBehavior httpapi.MissingFolderBehavior
 
 const (

@@ -38,6 +38,18 @@ var DefaultIgnorePatterns = []string{
 	"__pycache__",
 }
 
+var workspacePythonMarkerFiles = map[string]struct{}{
+	"pyproject.toml":       {},
+	"requirements.txt":     {},
+	"requirements-dev.txt": {},
+	"setup.py":             {},
+	"setup.cfg":            {},
+	"pipfile":              {},
+	"tox.ini":              {},
+	"poetry.lock":          {},
+	"uv.lock":              {},
+}
+
 var localSettaFolderNames = []string{"setta_files", "setta_files_dev"}
 
 type ErrorKind string
@@ -135,6 +147,11 @@ type FolderContentItem struct {
 type ListFolderResponse struct {
 	FolderPath string              `json:"folderPath"`
 	Items      []FolderContentItem `json:"items"`
+}
+
+type WorkspacePythonSignalResponse struct {
+	FolderPath string `json:"folderPath"`
+	HasPython  bool   `json:"hasPython"`
 }
 
 type FileBrowserDownloadURLRequest struct {
@@ -453,6 +470,37 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) (List
 	}
 	response.Items = items
 	return response, nil
+}
+
+func (s *Service) WorkspacePythonSignal(_ context.Context, rawPath string) (WorkspacePythonSignalResponse, error) {
+	resolved, err := s.resolveFolderPath(rawPath, "", false)
+	if err != nil {
+		return WorkspacePythonSignalResponse{}, err
+	}
+	info, statErr := os.Stat(resolved)
+	if statErr != nil {
+		if errors.Is(statErr, os.ErrNotExist) {
+			return WorkspacePythonSignalResponse{}, &Error{
+				Kind:    ErrorPathNotFound,
+				Message: fmt.Sprintf("Path does not exist: %s", rawPath),
+			}
+		}
+		return WorkspacePythonSignalResponse{}, &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: fmt.Sprintf("Failed to stat folder: %s", rawPath),
+		}
+	}
+	if !info.IsDir() {
+		return WorkspacePythonSignalResponse{}, &Error{
+			Kind:    ErrorPathNotDirectory,
+			Message: fmt.Sprintf("Path is not a directory: %s", rawPath),
+		}
+	}
+
+	return WorkspacePythonSignalResponse{
+		FolderPath: s.formatBrowserPath(resolved),
+		HasPython:  s.folderHasPythonSignals(resolved),
+	}, nil
 }
 
 func (s *Service) BuildDownloadURLs(_ context.Context, request FileBrowserDownloadURLRequest, buildURL func(token string) string) ([]FileBrowserDownloadURLEntry, error) {
@@ -1030,6 +1078,41 @@ func (s *Service) requireSessionSecret() ([]byte, error) {
 		}
 	}
 	return currentSession.Secret, nil
+}
+
+func (s *Service) folderHasPythonSignals(folderPath string) bool {
+	internalIgnoreRoots := s.internalIgnoreRoots()
+	entries, err := os.ReadDir(folderPath)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		entryPath := filepath.Join(folderPath, entry.Name())
+		if s.isUnderIgnoredRoot(entryPath, internalIgnoreRoots) {
+			continue
+		}
+		if shouldIgnoreName(entry.Name(), DefaultIgnorePatterns) {
+			continue
+		}
+
+		info, statErr := os.Stat(entryPath)
+		if statErr != nil || info.IsDir() {
+			continue
+		}
+		if fileHasPythonSignal(entry.Name()) {
+			return true
+		}
+	}
+	return false
+}
+
+func fileHasPythonSignal(name string) bool {
+	lowerName := strings.ToLower(strings.TrimSpace(name))
+	if strings.HasSuffix(lowerName, ".py") {
+		return true
+	}
+	_, ok := workspacePythonMarkerFiles[lowerName]
+	return ok
 }
 
 func shouldIgnoreName(name string, patterns []string) bool {
