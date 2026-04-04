@@ -699,3 +699,38 @@ LOOP_TERMINAL_MARKER: none
   - rerun a controlled, settled worktree-vs-`main` normal-zoom compare on `All Settings` to identify the next stable Gate 1 / Gate 2 drift now that the fast-switch stale-camera lane is closed
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 021
+
+- Item: Align the `All Settings` canary fit math with the legacy visible graph width so fit view and initial auto-fit stop overshifting horizontally when panes are open.
+- Status: `done`
+- Details:
+  - The remaining post-item-020 drift was a real product bug, not more control plumbing:
+    - legacy `ReactFlow` fits against the visible graph width after subtracting `overviewTrueWidth` and `uiEditorTrueWidth`
+    - the canary was fitting against the full root width and then adding the overview offset again, which produced the residual fit-view `x` drift
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryVisibleViewportSize(...)` and uses that visible size for the canary's initial fit helper.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now applies the same visible-width contract to:
+    - initial auto-fit
+    - the shared `useReactFlow.width` mirror
+    - canary viewport centering for zoom/reset/set-center
+    - the local fit-view controller path
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now computes the canary auto-fit oracle from the visible graph width instead of the full root width, so the regression check no longer repeats the old bug.
+  - Added focused unit coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` for the visible-width helper and corrected initial-fit center.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`7 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `18s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent compared live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - after triggering fit view on both sides, worktree and `main` landed on the same transform: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - the previous horizontal fit-view drift no longer reproduced; visible spread and centering matched closely
+- Conclusion:
+  - the visible-width mismatch was the root cause of the remaining fit-view `x` drift on the checked `All Settings` canary path
+  - this closes the meaningful fit-view parity lane instead of continuing more viewport-control seam work
+- Next action:
+  - rerun a fresh-storage, no-control CDP compare on initial `All Settings` entry to confirm the long-lived worktree no longer opens off-screen before any viewport interaction; if that path is clean, move to the next earliest normal-zoom visual or interaction defect
+
+LOOP_TERMINAL_MARKER: none

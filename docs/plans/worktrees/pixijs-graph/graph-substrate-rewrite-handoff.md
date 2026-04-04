@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 17:22 EDT
+Last updated: 2026-04-02 17:33 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,21 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `021` landed the visible-viewport-width fix for the `All Settings` custom substrate fit math:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now derives a canary-visible viewport size by subtracting `overviewTrueWidth` and `uiEditorTrueWidth` before fitting bounds, matching legacy `ReactFlow`'s width contract instead of fitting against the full root width and then adding the overview offset again.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that visible viewport size for initial auto-fit, shared `useReactFlow.width`, fit-view controller commands, and viewport centering, so the canary no longer over-shifts horizontally when panes are open.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now covers the visible-width helper and the corrected initial-fit center result.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now computes the canary auto-fit oracle from the visible graph width instead of the full root width, so the regression guard no longer mirrors the old bug.
+- Targeted verification passed for item `021`:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`7 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `18s`)
+- Fresh CDP verification for item `021`:
+  - a fresh-context CDP sub-agent compared the live worktree and read-only `main` `All Settings` surfaces after triggering fit view on both sides
+  - worktree canary transform after fit view: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+  - `main` legacy transform after fit view: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+  - visual result: the earlier horizontal fit-view drift no longer reproduced; node spread and centering matched closely enough to treat that slice as fixed
 - Ralph item `020` landed the bounded viewport-controls fix for the `All Settings` custom substrate path:
   - `frontend/src/forks/xyflow/core/types/general.ts` and `frontend/src/forks/xyflow/core/store/initialState.ts` now expose a typed `viewportController` slot on the shared ReactFlow store.
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now registers a canary-local controller that maps shared zoom/reset/fit/set-center/set-viewport commands onto the canary viewport state and current scene bounds instead of dead-ending when `d3Zoom` is absent.
@@ -219,6 +234,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - Current priority is Gate 0 basic viability on a new custom graph substrate, not polishing the old shared-page-runtime path.
 - The first-order product requirement is:
   - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
+- The next real frontier after item `021` is narrower than the previous fit-view lane:
+  - rerun a fresh-storage, no-extra-controls CDP compare on initial `All Settings` entry to confirm the long-lived worktree no longer opens off-screen before any viewport-control interaction
+  - only keep working this lane if that initial-entry drift still reproduces; otherwise move to the next earliest normal-zoom visual or interaction defect instead of doing more viewport-fit churn
 - Current live verification state:
   - targeted Vitest passed for:
     - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`

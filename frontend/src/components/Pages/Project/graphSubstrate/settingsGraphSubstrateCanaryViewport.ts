@@ -81,20 +81,38 @@ export function fitSettingsGraphSubstrateCanaryViewport(
     maxZoom: number;
     defaultZoomLevel: number;
     overviewWidth: number;
+    uiEditorWidth: number;
   },
 ): GraphViewport {
   const maxInitialZoom = Math.max(
     options.minZoom,
     Math.min(options.maxZoom, options.defaultZoomLevel),
   );
+  const visibleViewportSize =
+    resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
+      viewportSize,
+      options.overviewWidth,
+      options.uiEditorWidth,
+    );
 
-  return fitViewportToWorldRect(bounds, viewportSize, {
+  return fitViewportToWorldRect(bounds, visibleViewportSize, {
     minZoom: options.minZoom,
     maxZoom: maxInitialZoom,
     padding: AUTO_FIT_PADDING,
     centerScreenPoint: {
-      x: viewportSize.width / 2 + options.overviewWidth,
-      y: viewportSize.height / 2,
+      x: options.overviewWidth + visibleViewportSize.width / 2,
+      y: visibleViewportSize.height / 2,
     },
   });
+}
+
+export function resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
+  viewportSize: GraphViewportSize,
+  overviewWidth: number,
+  uiEditorWidth: number,
+): GraphViewportSize {
+  return {
+    width: Math.max(viewportSize.width - overviewWidth - uiEditorWidth, 0),
+    height: Math.max(viewportSize.height, 0),
+  };
 }

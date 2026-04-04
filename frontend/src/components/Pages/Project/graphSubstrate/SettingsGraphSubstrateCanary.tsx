@@ -34,6 +34,7 @@ import {
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
+  resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
 } from "./settingsGraphSubstrateCanaryViewport";
 import {
@@ -140,7 +141,13 @@ export function SettingsGraphSubstrateCanary() {
     }),
     _.isEqual,
   );
-  const overviewTrueWidth = useLocalStorage((state) => state.overviewTrueWidth);
+  const { overviewTrueWidth, uiEditorTrueWidth } = useLocalStorage(
+    (state) => ({
+      overviewTrueWidth: state.overviewTrueWidth,
+      uiEditorTrueWidth: state.uiEditorTrueWidth,
+    }),
+    _.isEqual,
+  );
   const canaryViewportStateRef = useRef<CanaryViewportState>({
     observedElementSizes: {},
     resolvedViewport: null,
@@ -214,6 +221,13 @@ export function SettingsGraphSubstrateCanary() {
       sectionPositionOverride,
     );
   }, [observedElementSizes, sectionPositionOverride, sections]);
+  const visibleViewportSize = useMemo(() => {
+    return resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
+      wrapperDimensions,
+      overviewTrueWidth,
+      uiEditorTrueWidth,
+    );
+  }, [overviewTrueWidth, uiEditorTrueWidth, wrapperDimensions]);
 
   useEffect(() => {
     if (!sharedViewport || viewportOwnershipRef.current === "local") {
@@ -254,6 +268,7 @@ export function SettingsGraphSubstrateCanary() {
         maxZoom,
         defaultZoomLevel,
         overviewWidth: overviewTrueWidth,
+        uiEditorWidth: uiEditorTrueWidth,
       },
     );
     setViewport((current) => {
@@ -273,6 +288,7 @@ export function SettingsGraphSubstrateCanary() {
     maxZoom,
     minZoom,
     overviewTrueWidth,
+    uiEditorTrueWidth,
     sceneBounds,
     sharedViewport,
     viewport,
@@ -435,7 +451,11 @@ export function SettingsGraphSubstrateCanary() {
         applyControlledViewportChange(() =>
           fitViewportToWorldRect(
             bounds,
-            canaryViewportStateRef.current.wrapperDimensions,
+            resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
+              canaryViewportStateRef.current.wrapperDimensions,
+              useLocalStorage.getState().overviewTrueWidth,
+              useLocalStorage.getState().uiEditorTrueWidth,
+            ),
             {
               minZoom: resolvedMinZoom,
               maxZoom: resolvedMaxZoom,
@@ -471,9 +491,9 @@ export function SettingsGraphSubstrateCanary() {
         resolvedViewport.y,
         resolvedViewport.zoom,
       ],
-      width: wrapperDimensions.width,
+      width: visibleViewportSize.width,
     });
-  }, [resolvedViewport, wrapperDimensions.height, wrapperDimensions.width]);
+  }, [resolvedViewport, visibleViewportSize.width, wrapperDimensions.height]);
 
   function handleSectionPointerDown(
     section: GraphSubstrateCanarySection,
@@ -775,14 +795,20 @@ function getCanaryViewportCenterScreenPoint(wrapperDimensions: {
   width: number;
   height: number;
 }) {
-  if (wrapperDimensions.width <= 0 || wrapperDimensions.height <= 0) {
+  const visibleViewportSize =
+    resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
+      wrapperDimensions,
+      useLocalStorage.getState().overviewTrueWidth,
+      useLocalStorage.getState().uiEditorTrueWidth,
+    );
+  if (visibleViewportSize.width <= 0 || visibleViewportSize.height <= 0) {
     return null;
   }
   return {
     x:
-      wrapperDimensions.width / 2 +
-      useLocalStorage.getState().overviewTrueWidth,
-    y: wrapperDimensions.height / 2,
+      useLocalStorage.getState().overviewTrueWidth +
+      visibleViewportSize.width / 2,
+    y: visibleViewportSize.height / 2,
   };
 }
 

@@ -748,14 +748,26 @@ async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
 
     const persistedLocalState = localStorage.getItem("setta_data");
     let overviewTrueWidth = 0;
+    let uiEditorTrueWidth = 0;
     if (persistedLocalState) {
       const parsed = JSON.parse(persistedLocalState) as
-        | { state?: { overviewTrueWidth?: unknown } }
-        | { overviewTrueWidth?: unknown };
+        | {
+            state?: {
+              overviewTrueWidth?: unknown;
+              uiEditorTrueWidth?: unknown;
+            };
+          }
+        | {
+            overviewTrueWidth?: unknown;
+            uiEditorTrueWidth?: unknown;
+          };
       const persistedState =
         "state" in parsed && parsed.state ? parsed.state : parsed;
       if (typeof persistedState.overviewTrueWidth === "number") {
         overviewTrueWidth = persistedState.overviewTrueWidth;
+      }
+      if (typeof persistedState.uiEditorTrueWidth === "number") {
+        uiEditorTrueWidth = persistedState.uiEditorTrueWidth;
       }
     }
 
@@ -784,15 +796,19 @@ async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
     const padding = 0.12;
     const boundsWidth = maxX - minX;
     const boundsHeight = maxY - minY;
+    const visibleWidth = Math.max(
+      root.clientWidth - overviewTrueWidth - uiEditorTrueWidth,
+      0,
+    );
     if (boundsWidth <= 0 || boundsHeight <= 0) {
       return null;
     }
 
     const zoom = Math.min(
-      root.clientWidth / (boundsWidth * (1 + padding)),
+      visibleWidth / (boundsWidth * (1 + padding)),
       root.clientHeight / (boundsHeight * (1 + padding)),
     );
-    const centerX = root.clientWidth / 2 + overviewTrueWidth;
+    const centerX = overviewTrueWidth + visibleWidth / 2;
     const centerY = root.clientHeight / 2;
 
     return {

@@ -4,6 +4,7 @@ import {
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
+  resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
 } from "./settingsGraphSubstrateCanaryViewport";
 
@@ -106,12 +107,26 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
           maxZoom: 10,
           defaultZoomLevel: 1,
           overviewWidth: 320,
+          uiEditorWidth: 0,
         },
       ),
     ).toEqual({
-      x: 720,
+      x: 560,
       y: 250,
       zoom: 1,
+    });
+  });
+
+  it("uses the same visible graph width as legacy ReactFlow when panes are open", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
+        { width: 1000, height: 600 },
+        320,
+        180,
+      ),
+    ).toEqual({
+      width: 500,
+      height: 600,
     });
   });
 });
