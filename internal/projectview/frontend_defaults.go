@@ -104,6 +104,39 @@ func FrontendDefaultSingleConfig() SingleConfig {
 	return defaults
 }
 
+func FrontendDefaultCore() Core {
+	defaults := Core{
+		SharedModifier: json.RawMessage("{}"),
+	}
+	initializeNilCollections(&defaults)
+	return defaults
+}
+
+func FrontendDefaultVariant() Variant {
+	defaults := Variant{
+		Modifier: json.RawMessage("{}"),
+	}
+	initializeNilCollections(&defaults)
+	return defaults
+}
+
+func FrontendDefaultSingletonSections() SingletonSections {
+	return SingletonSections{}
+}
+
+func FrontendDefaultShownParamIDDetails() ShownParamIDDetails {
+	defaults := ShownParamIDDetails{}
+	initializeNilCollections(&defaults)
+	return defaults
+}
+
+func FrontendDefaultShownParamIDs() ShownParamIDs {
+	return ShownParamIDs{
+		Pinned:   FrontendDefaultShownParamIDDetails(),
+		Unpinned: FrontendDefaultShownParamIDDetails(),
+	}
+}
+
 func initializeNilCollections(target any) {
 	value := reflect.ValueOf(target)
 	if !value.IsValid() || value.Kind() != reflect.Pointer || value.IsNil() {

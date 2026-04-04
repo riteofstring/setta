@@ -1830,6 +1830,37 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				},
 			},
 		}, true
+	case reflect.TypeOf(Core{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultCore(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"sharedModifier": "Record<string, unknown>",
+			},
+		}, true
+	case reflect.TypeOf(Variant{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultVariant(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"modifier": "Record<string, unknown>",
+			},
+		}, true
+	case reflect.TypeOf(SingletonSections{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultSingletonSections(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(ShownParamIdDetails{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultShownParamIDDetails(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(ShownParamIds{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultShownParamIDs(),
+			HasCreateExpr: true,
+		}, true
 	case reflect.TypeOf(SectionTypeCodegenPolicy{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.FrontendDefaultSectionTypeCodegenPolicy(),

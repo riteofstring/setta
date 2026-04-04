@@ -2845,6 +2845,11 @@ export function createSingletonSections(
   );
 }
 
+type ShownParamIdDetails = {
+  requiredParamIdsToPaths: Record<string, Array<string>>;
+  topLevelParamIds: Array<string>;
+};
+
 export type ShownParamIds = {
   pinned: ShownParamIdDetails;
   unpinned: ShownParamIdDetails;
@@ -2987,11 +2992,6 @@ type ClipboardProjectStateCore = {
   codeObjs: Record<string, Core>;
   codeObjImpls: Record<string, BaseCodeObjImplUnion>;
   codeObjVariants: Record<string, Variant>;
-};
-
-type ShownParamIdDetails = {
-  requiredParamIdsToPaths: Record<string, Array<string>>;
-  topLevelParamIds: Array<string>;
 };
 
 export const ChatWindowPlacementEnum = {

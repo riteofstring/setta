@@ -154,6 +154,56 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "Core",
+			root: reflect.TypeOf(Core{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "displayName", TypeExpr: "string", Optional: false},
+				{Name: "variants", TypeExpr: "Array<string>", Optional: false},
+				{Name: "defaultVariant", TypeExpr: "string | null", Optional: false},
+				{Name: "sharedModifier", TypeExpr: "Record<string, unknown>", Optional: false},
+				{Name: "unsharedKeys", TypeExpr: "Array<string>", Optional: false},
+			},
+		},
+		{
+			name: "Variant",
+			root: reflect.TypeOf(Variant{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "impl", TypeExpr: "string", Optional: false},
+				{Name: "nonPresetImpls", TypeExpr: "Array<string>", Optional: false},
+				{Name: "modifier", TypeExpr: "Record<string, unknown>", Optional: false},
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "SingletonSections",
+			root: reflect.TypeOf(SingletonSections{}),
+			properties: []TypeProperty{
+				{Name: "GlobalVariables", TypeExpr: "string | null", Optional: false},
+				{Name: "GenPythonCode", TypeExpr: "string | null", Optional: false},
+				{Name: "GenPythonMetadata", TypeExpr: "string | null", Optional: false},
+			},
+		},
+		{
+			name: "ShownParamIdDetails",
+			root: reflect.TypeOf(ShownParamIdDetails{}),
+			properties: []TypeProperty{
+				{Name: "requiredParamIdsToPaths", TypeExpr: "Record<string, Array<string>>", Optional: false},
+				{Name: "topLevelParamIds", TypeExpr: "Array<string>", Optional: false},
+			},
+		},
+		{
+			name: "ShownParamIds",
+			root: reflect.TypeOf(ShownParamIds{}),
+			properties: []TypeProperty{
+				{Name: "pinned", TypeExpr: "ShownParamIdDetails", Optional: false},
+				{Name: "unpinned", TypeExpr: "ShownParamIdDetails", Optional: false},
+			},
+		},
+		{
 			name: "WatchCodeFolder",
 			root: reflect.TypeOf(WatchCodeFolder{}),
 			properties: []TypeProperty{
@@ -268,7 +318,12 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "ProjectRunCapabilities" ||
 				tt.name == "ProjectConfig" ||
 				tt.name == "SectionCapabilities" ||
-				tt.name == "ProjectStateSingleConfig") && declaration.CreateExpr == "" {
+				tt.name == "ProjectStateSingleConfig" ||
+				tt.name == "Core" ||
+				tt.name == "Variant" ||
+				tt.name == "SingletonSections" ||
+				tt.name == "ShownParamIdDetails" ||
+				tt.name == "ShownParamIds") && declaration.CreateExpr == "" {
 				t.Fatalf("%s should use a Go-backed create expr", tt.name)
 			}
 		})
