@@ -35,7 +35,7 @@ const (
 
 type FolderContentItem filebrowser.FolderContentItem
 
-type GetFolderContentsResponse []FolderContentItem
+type GetFolderContentsResponse filebrowser.ListFolderResponse
 
 type GetFileBrowserDownloadURLsRequestInput httpapi.GetFileBrowserDownloadURLsRequest
 

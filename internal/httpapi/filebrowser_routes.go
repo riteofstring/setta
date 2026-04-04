@@ -40,7 +40,7 @@ type FileBrowserService interface {
 	CreateFile(ctx context.Context, rawPath string) error
 	CheckIfFileExists(ctx context.Context, rawPath string) (bool, error)
 	CheckWorkspaceInitialized(ctx context.Context, request filebrowser.CheckWorkspaceInitializedRequest) (bool, error)
-	ListFolder(ctx context.Context, request filebrowser.ListFolderRequest) ([]filebrowser.FolderContentItem, error)
+	ListFolder(ctx context.Context, request filebrowser.ListFolderRequest) (filebrowser.ListFolderResponse, error)
 	BuildDownloadURLs(ctx context.Context, request filebrowser.FileBrowserDownloadURLRequest, buildURL func(token string) string) ([]filebrowser.FileBrowserDownloadURLEntry, error)
 	ReadFileContent(ctx context.Context, request filebrowser.FileContentRequest) (filebrowser.FileContentResponse, error)
 	StatFile(ctx context.Context, rawPath string) (filebrowser.FileStatResponse, error)
@@ -77,6 +77,7 @@ const (
 )
 
 type GetFolderContentsRequest struct {
+	BaseFolderPath            *string                `json:"baseFolderPath,omitempty"`
 	FolderPath                string                 `json:"folderPath"`
 	AllowOutsideWorkspaceRoot *bool                  `json:"allowOutsideWorkspaceRoot,omitempty"`
 	IncludeMtime              *bool                  `json:"includeMtime,omitempty"`
@@ -93,7 +94,12 @@ func (r GetFolderContentsRequest) toServiceRequest() filebrowser.ListFolderReque
 	if r.IgnorePatterns != nil {
 		ignorePatterns = *r.IgnorePatterns
 	}
+	baseFolderPath := ""
+	if r.BaseFolderPath != nil {
+		baseFolderPath = *r.BaseFolderPath
+	}
 	return filebrowser.ListFolderRequest{
+		BaseFolderPath:            baseFolderPath,
 		FolderPath:                r.FolderPath,
 		AllowOutsideWorkspaceRoot: r.AllowOutsideWorkspaceRoot != nil && *r.AllowOutsideWorkspaceRoot,
 		IncludeMtime:              r.IncludeMtime != nil && *r.IncludeMtime,

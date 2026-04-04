@@ -104,6 +104,7 @@ type CheckWorkspaceInitializedRequest struct {
 }
 
 type ListFolderRequest struct {
+	BaseFolderPath            string
 	FolderPath                string
 	AllowOutsideWorkspaceRoot bool
 	IncludeMtime              bool
@@ -129,6 +130,11 @@ type FolderContentItem struct {
 	Mtime              *float64              `json:"mtime,omitempty"`
 	Size               *int64                `json:"size,omitempty"`
 	IsSettaInitialized *bool                 `json:"isSettaInitialized,omitempty"`
+}
+
+type ListFolderResponse struct {
+	FolderPath string              `json:"folderPath"`
+	Items      []FolderContentItem `json:"items"`
 }
 
 type FileBrowserDownloadURLRequest struct {
@@ -319,7 +325,11 @@ func (s *Service) CheckIfFileExists(_ context.Context, rawPath string) (bool, er
 }
 
 func (s *Service) CheckWorkspaceInitialized(_ context.Context, request CheckWorkspaceInitializedRequest) (bool, error) {
-	resolved, err := s.resolveFolderPath(request.FolderPath, request.AllowOutsideWorkspaceRoot)
+	resolved, err := s.resolveFolderPath(
+		request.FolderPath,
+		"",
+		request.AllowOutsideWorkspaceRoot,
+	)
 	if err != nil {
 		return false, err
 	}
@@ -339,29 +349,37 @@ func (s *Service) CheckWorkspaceInitialized(_ context.Context, request CheckWork
 	return s.isInitializedWorkspaceFolder(resolved), nil
 }
 
-func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]FolderContentItem, error) {
-	resolved, err := s.resolveFolderPath(request.FolderPath, request.AllowOutsideWorkspaceRoot)
+func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) (ListFolderResponse, error) {
+	resolved, err := s.resolveFolderPath(
+		request.FolderPath,
+		request.BaseFolderPath,
+		request.AllowOutsideWorkspaceRoot,
+	)
 	if err != nil {
-		return nil, err
+		return ListFolderResponse{}, err
+	}
+	response := ListFolderResponse{
+		FolderPath: s.formatBrowserPath(resolved),
 	}
 	info, statErr := os.Stat(resolved)
 	if statErr != nil {
 		if errors.Is(statErr, os.ErrNotExist) {
 			if strings.TrimSpace(request.MissingFolderBehavior) == "empty" {
-				return []FolderContentItem{}, nil
+				response.Items = []FolderContentItem{}
+				return response, nil
 			}
-			return nil, &Error{
+			return ListFolderResponse{}, &Error{
 				Kind:    ErrorPathNotFound,
 				Message: fmt.Sprintf("Path does not exist: %s", request.FolderPath),
 			}
 		}
-		return nil, &Error{
+		return ListFolderResponse{}, &Error{
 			Kind:    ErrorInvalidRequest,
 			Message: fmt.Sprintf("Failed to stat folder: %s", request.FolderPath),
 		}
 	}
 	if !info.IsDir() {
-		return nil, &Error{
+		return ListFolderResponse{}, &Error{
 			Kind:    ErrorPathNotDirectory,
 			Message: fmt.Sprintf("Path is not a directory: %s", request.FolderPath),
 		}
@@ -378,7 +396,7 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]Fo
 	internalIgnoreRoots := s.internalIgnoreRoots()
 	entries, err := os.ReadDir(resolved)
 	if err != nil {
-		return nil, &Error{
+		return ListFolderResponse{}, &Error{
 			Kind:    ErrorInvalidRequest,
 			Message: fmt.Sprintf("Failed to read folder: %s", request.FolderPath),
 		}
@@ -433,7 +451,8 @@ func (s *Service) ListFolder(_ context.Context, request ListFolderRequest) ([]Fo
 	if len(items) > maxEntries {
 		items = append([]FolderContentItem(nil), items[:maxEntries]...)
 	}
-	return items, nil
+	response.Items = items
+	return response, nil
 }
 
 func (s *Service) BuildDownloadURLs(_ context.Context, request FileBrowserDownloadURLRequest, buildURL func(token string) string) ([]FileBrowserDownloadURLEntry, error) {
@@ -650,7 +669,11 @@ func (s *Service) Transfer(_ context.Context, request TransferRequest) (Transfer
 	if err != nil {
 		return TransferResponse{}, err
 	}
-	destinationFolder, err := s.resolveFolderPath(request.DestinationFolderPath, false)
+	destinationFolder, err := s.resolveFolderPath(
+		request.DestinationFolderPath,
+		"",
+		false,
+	)
 	if err != nil {
 		return TransferResponse{}, err
 	}
@@ -793,8 +816,33 @@ func (s *Service) Download(_ context.Context, token string) (DownloadResult, err
 	}, nil
 }
 
-func (s *Service) resolveFolderPath(raw string, allowOutsideWorkspaceRoot bool) (string, error) {
-	resolved, err := statefs.NormalizePath(raw, s.workspaceRoot)
+func (s *Service) resolveFolderPath(
+	raw string,
+	baseFolderPath string,
+	allowOutsideWorkspaceRoot bool,
+) (string, error) {
+	resolvedBase, err := s.resolveFolderBasePath(
+		baseFolderPath,
+		allowOutsideWorkspaceRoot,
+	)
+	if err != nil {
+		return "", err
+	}
+	base := s.workspaceRoot
+	if resolvedBase != "" {
+		base = resolvedBase
+	}
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		if resolvedBase == "" {
+			return "", &Error{
+				Kind:    ErrorInvalidRequest,
+				Message: "Missing folder path.",
+			}
+		}
+		return resolvedBase, nil
+	}
+	resolved, err := statefs.NormalizePath(trimmed, base)
 	if err != nil {
 		return "", &Error{
 			Kind:    ErrorInvalidRequest,
@@ -805,6 +853,27 @@ func (s *Service) resolveFolderPath(raw string, allowOutsideWorkspaceRoot bool) 
 		return resolved, nil
 	}
 	return s.ensureWithinWorkspaceRoot(resolved, "Folder path")
+}
+
+func (s *Service) resolveFolderBasePath(
+	raw string,
+	allowOutsideWorkspaceRoot bool,
+) (string, error) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", nil
+	}
+	resolved, err := statefs.NormalizePath(trimmed, s.workspaceRoot)
+	if err != nil {
+		return "", &Error{
+			Kind:    ErrorInvalidRequest,
+			Message: "Invalid base folder path.",
+		}
+	}
+	if allowOutsideWorkspaceRoot {
+		return resolved, nil
+	}
+	return s.ensureWithinWorkspaceRoot(resolved, "Base folder path")
 }
 
 func (s *Service) resolvePathWithinWorkspace(raw string, label string) (string, error) {

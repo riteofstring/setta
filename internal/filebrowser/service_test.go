@@ -99,13 +99,14 @@ func TestServiceListFolderFiltersAndIncludesSettaInitialization(t *testing.T) {
 		linkPath = ""
 	}
 
-	items, err := service.ListFolder(context.Background(), ListFolderRequest{
+	response, err := service.ListFolder(context.Background(), ListFolderRequest{
 		FolderPath:              workspaceRoot,
 		IncludeSettaInitialized: true,
 	})
 	if err != nil {
 		t.Fatalf("list folder: %v", err)
 	}
+	items := response.Items
 
 	names := make(map[string]FolderContentItem, len(items))
 	for _, item := range items {
@@ -164,7 +165,7 @@ func TestServiceListFolderAppliesEntryCapAfterFolderFirstCaseInsensitiveSortAndI
 	}
 
 	maxEntries := 2
-	items, err := service.ListFolder(context.Background(), ListFolderRequest{
+	response, err := service.ListFolder(context.Background(), ListFolderRequest{
 		FolderPath:     workspaceRoot,
 		MaxEntries:     &maxEntries,
 		IncludeMtime:   true,
@@ -174,6 +175,7 @@ func TestServiceListFolderAppliesEntryCapAfterFolderFirstCaseInsensitiveSortAndI
 	if err != nil {
 		t.Fatalf("list folder: %v", err)
 	}
+	items := response.Items
 	if len(items) != 2 {
 		t.Fatalf("expected two listed items, got %#v", items)
 	}
@@ -206,15 +208,58 @@ func TestServiceListFolderReturnsEmptyListForMissingFolderWhenRequested(t *testi
 	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
 	missingFolder := filepath.Join(workspaceRoot, "missing-folder")
 
-	items, err := service.ListFolder(context.Background(), ListFolderRequest{
+	response, err := service.ListFolder(context.Background(), ListFolderRequest{
 		FolderPath:            missingFolder,
 		MissingFolderBehavior: "empty",
 	})
 	if err != nil {
 		t.Fatalf("list missing folder with empty behavior: %v", err)
 	}
+	if response.FolderPath != missingFolder {
+		t.Fatalf("expected resolved missing folder path %q, got %q", missingFolder, response.FolderPath)
+	}
+	items := response.Items
 	if len(items) != 0 {
 		t.Fatalf("expected empty list for missing folder, got %#v", items)
+	}
+}
+
+func TestServiceListFolderResolvesRelativePathsAgainstBaseFolder(t *testing.T) {
+	t.Parallel()
+
+	service, workspaceRoot, _, _ := newTestFileBrowserService(t, nil)
+
+	baseFolder := filepath.Join(workspaceRoot, "nested")
+	childFolder := filepath.Join(baseFolder, "child")
+	if err := os.MkdirAll(childFolder, 0o755); err != nil {
+		t.Fatalf("mkdir child folder: %v", err)
+	}
+
+	response, err := service.ListFolder(context.Background(), ListFolderRequest{
+		BaseFolderPath:        workspaceRoot,
+		FolderPath:            "nested",
+		MissingFolderBehavior: "empty",
+	})
+	if err != nil {
+		t.Fatalf("list folder relative to base: %v", err)
+	}
+	if response.FolderPath != baseFolder {
+		t.Fatalf("expected resolved folder path %q, got %q", baseFolder, response.FolderPath)
+	}
+	if len(response.Items) != 1 || response.Items[0].FullPath != childFolder {
+		t.Fatalf("expected child folder listing under %q, got %#v", baseFolder, response.Items)
+	}
+
+	baseResponse, err := service.ListFolder(context.Background(), ListFolderRequest{
+		BaseFolderPath:        baseFolder,
+		FolderPath:            "",
+		MissingFolderBehavior: "empty",
+	})
+	if err != nil {
+		t.Fatalf("list base folder with empty input: %v", err)
+	}
+	if baseResponse.FolderPath != baseFolder {
+		t.Fatalf("expected empty input to resolve to base folder %q, got %q", baseFolder, baseResponse.FolderPath)
 	}
 }
 
@@ -364,25 +409,27 @@ func TestServiceListFolderExplicitEmptyIgnorePatternsOverridesDefaultIgnoreSet(t
 		t.Fatalf("mkdir node_modules: %v", err)
 	}
 
-	defaultItems, err := service.ListFolder(context.Background(), ListFolderRequest{
+	defaultResponse, err := service.ListFolder(context.Background(), ListFolderRequest{
 		FolderPath: workspaceRoot,
 	})
 	if err != nil {
 		t.Fatalf("list folder with default ignore patterns: %v", err)
 	}
+	defaultItems := defaultResponse.Items
 	for _, item := range defaultItems {
 		if item.Name == "node_modules" {
 			t.Fatalf("expected default ignore patterns to hide node_modules, got %#v", defaultItems)
 		}
 	}
 
-	overrideItems, err := service.ListFolder(context.Background(), ListFolderRequest{
+	overrideResponse, err := service.ListFolder(context.Background(), ListFolderRequest{
 		FolderPath:     workspaceRoot,
 		IgnorePatterns: []string{},
 	})
 	if err != nil {
 		t.Fatalf("list folder with explicit empty ignore patterns: %v", err)
 	}
+	overrideItems := overrideResponse.Items
 	foundNodeModules := false
 	for _, item := range overrideItems {
 		if item.Name == "node_modules" {

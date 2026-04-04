@@ -125,6 +125,12 @@ export type FileNode = {
   isSettaInitialized?: boolean;
 };
 
+type FileBrowserRootStateSnapshot = {
+  rootPath: string | null;
+  selectedPath: string | null;
+  expandedPaths: Record<string, boolean>;
+};
+
 type FlattenedNode = FileNode & {
   depth: number;
 };
@@ -199,6 +205,32 @@ export function shouldLoadRootWorkspaceInitializationMetadata({
     includeSettaInitializedFolders &&
     shouldCheckRootWorkspaceInitialization({ folderPath, rootPath })
   );
+}
+
+export function getResolvedFileBrowserRootState({
+  state,
+  requestedRootPath,
+  resolvedRootPath,
+}: {
+  state: FileBrowserRootStateSnapshot;
+  requestedRootPath: string;
+  resolvedRootPath: string;
+}): FileBrowserRootStateSnapshot {
+  if (requestedRootPath === resolvedRootPath) {
+    return state;
+  }
+  const nextExpandedPaths = { ...state.expandedPaths };
+  const requestedExpanded = nextExpandedPaths[requestedRootPath];
+  delete nextExpandedPaths[requestedRootPath];
+  nextExpandedPaths[resolvedRootPath] = requestedExpanded ?? true;
+  return {
+    rootPath: resolvedRootPath,
+    selectedPath:
+      state.selectedPath === requestedRootPath
+        ? resolvedRootPath
+        : state.selectedPath,
+    expandedPaths: nextExpandedPaths,
+  };
 }
 
 export function buildFileBrowserLoadingPathOwner({
@@ -738,12 +770,13 @@ export function FileBrowserPane({
         }
         let loadedNodes: FileNode[] | null = null;
         if (res200(res)) {
-          const items = res.data;
+          const resolvedFolderPath = res.data.folderPath;
+          const items = res.data.items;
           loadedNodes = items.map((item) => ({
             name: item.name,
             fullPath: item.fullPath,
             type: item.type,
-            parentPath: folderPath,
+            parentPath: resolvedFolderPath,
             mtime: item.mtime ?? null,
             isSettaInitialized: item.isSettaInitialized ?? false,
           }));
@@ -757,31 +790,63 @@ export function FileBrowserPane({
           });
           setChildrenByPath((prev) => ({
             ...prev,
-            [folderPath]: childPaths,
+            [resolvedFolderPath]: childPaths,
           }));
           setErrorByPath((prev) => {
-            if (!(folderPath in prev)) {
+            if (!(resolvedFolderPath in prev) && !(folderPath in prev)) {
               return prev;
             }
             const next = { ...prev };
+            delete next[resolvedFolderPath];
             delete next[folderPath];
             return next;
           });
           const activeRootPath = fileBrowserState.getState().rootPath;
-          if (activeRootPath === folderPath) {
+          let effectiveRootPath = activeRootPath;
+          if (
+            activeRootPath === folderPath &&
+            resolvedFolderPath !== folderPath
+          ) {
+            appliedRootRef.current = resolvedFolderPath;
+            fileBrowserState.setState((state) =>
+              getResolvedFileBrowserRootState({
+                state,
+                requestedRootPath: folderPath,
+                resolvedRootPath,
+              }),
+            );
+            setNodesByPath((prev) => {
+              const rootNode = prev[folderPath];
+              if (!rootNode || rootNode.type !== "folder") {
+                return prev;
+              }
+              const next = { ...prev };
+              delete next[folderPath];
+              next[resolvedFolderPath] = {
+                ...rootNode,
+                fullPath: resolvedFolderPath,
+              };
+              return next;
+            });
+            effectiveRootPath = resolvedFolderPath;
+          }
+          if (
+            effectiveRootPath === resolvedFolderPath ||
+            effectiveRootPath === folderPath
+          ) {
             setRootError(null);
           }
           if (
             shouldLoadRootWorkspaceInitializationMetadata({
               includeSettaInitializedFolders:
                 includeSettaInitializedRef.current,
-              folderPath,
-              rootPath: activeRootPath,
+              folderPath: resolvedFolderPath,
+              rootPath: effectiveRootPath,
             })
           ) {
             const initializationRes: CheckWorkspaceInitializedRouteResponse =
               await route_check_workspace_initialized({
-                folderPath,
+                folderPath: resolvedFolderPath,
                 allowOutsideWorkspaceRoot,
               });
             if (rootRequestIdRef.current !== activeRootRequestId) {
@@ -793,7 +858,7 @@ export function FileBrowserPane({
             if (res200(initializationRes)) {
               const isSettaInitialized = initializationRes.data === true;
               setNodesByPath((prev) => {
-                const folderNode = prev[folderPath];
+                const folderNode = prev[resolvedFolderPath];
                 if (!folderNode || folderNode.type !== "folder") {
                   return prev;
                 }
@@ -802,7 +867,7 @@ export function FileBrowserPane({
                 }
                 return {
                   ...prev,
-                  [folderPath]: {
+                  [resolvedFolderPath]: {
                     ...folderNode,
                     isSettaInitialized,
                   },

@@ -39,6 +39,20 @@ import {
 import { EngineTypeEnum, createProjectConfig } from "utils/generatedTypes";
 import { ProjectChatCore } from "./ProjectChatCore";
 
+function buildFolderContentsResponse(
+  folderPath: string,
+  items: Array<{ name: string; type: string; fullPath: string }>,
+) {
+  return {
+    data: {
+      folderPath,
+      items,
+    },
+    status: 200,
+    hasResponse: true,
+  };
+}
+
 describe("ProjectChatCore workspace root scans", () => {
   let host: HTMLDivElement;
   let root: Root;
@@ -136,7 +150,10 @@ describe("ProjectChatCore workspace root scans", () => {
   it("does not start a second workspace root scan while the first scan is still in flight", async () => {
     let resolveFolderScan:
       | ((value: {
-          data: Array<{ name: string; type: string; fullPath: string }>;
+          data: {
+            folderPath: string;
+            items: Array<{ name: string; type: string; fullPath: string }>;
+          };
           status: number;
           hasResponse: boolean;
         }) => void)
@@ -167,18 +184,14 @@ describe("ProjectChatCore workspace root scans", () => {
       );
     }
     resolveFolderScan({
-      data: [],
-      status: 200,
-      hasResponse: true,
+      ...buildFolderContentsResponse("/workspace", []),
     });
   });
 
   it("backs off stable root polling under StrictMode after repeated identical roots", async () => {
-    vi.mocked(route_get_folder_contents).mockResolvedValue({
-      data: [],
-      status: 200,
-      hasResponse: true,
-    });
+    vi.mocked(route_get_folder_contents).mockResolvedValue(
+      buildFolderContentsResponse("/workspace", []),
+    );
 
     await renderProjectChatCore({ strictMode: true });
 

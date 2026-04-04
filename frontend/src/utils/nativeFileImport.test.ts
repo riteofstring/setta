@@ -19,6 +19,16 @@ function matchesGoHTTPRoute(input: unknown, routePath: string): boolean {
   return url.pathname === `${GoRoutePrefixes.api}${routePath}`;
 }
 
+function buildFolderContentsResponse(
+  folderPath: string,
+  items: ReturnType<typeof createFolderContentItem>[],
+) {
+  return {
+    folderPath,
+    items,
+  };
+}
+
 describe("importNativeFileToWorkspace", () => {
   const fetchMock = vi.fn();
 
@@ -46,7 +56,7 @@ describe("importNativeFileToWorkspace", () => {
         );
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
-        return jsonResponse([]);
+        return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
         if (!(init?.body instanceof FormData)) {
@@ -107,7 +117,7 @@ describe("importNativeFileToWorkspace", () => {
         );
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
-        return jsonResponse([]);
+        return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
         return jsonResponse({ detail: "Upload denied." }, 400);
@@ -143,13 +153,15 @@ describe("importNativeFileToWorkspace", () => {
         );
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
-        return jsonResponse([
-          createFolderContentItem({
-            name: "drop.csv",
-            fullPath: "/workspace/drop.csv",
-            type: "file",
-          }),
-        ]);
+        return jsonResponse(
+          buildFolderContentsResponse("/workspace", [
+            createFolderContentItem({
+              name: "drop.csv",
+              fullPath: "/workspace/drop.csv",
+              type: "file",
+            }),
+          ]),
+        );
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
         return jsonResponse({
@@ -216,7 +228,7 @@ describe("importNativeFileToWorkspace", () => {
         );
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.getFolderContents)) {
-        return jsonResponse([]);
+        return jsonResponse(buildFolderContentsResponse("/workspace", []));
       }
       if (matchesGoHTTPRoute(url, GoHTTPRoutes.binaryUpload)) {
         return jsonResponse({

@@ -69,6 +69,20 @@ type RenderedBrowserArea = {
   root: Root;
 };
 
+function buildFolderContentsResponse(
+  folderPath: string,
+  items: ReturnType<typeof createFolderContentItem>[],
+) {
+  return {
+    data: {
+      folderPath,
+      items,
+    },
+    status: 200,
+    hasResponse: true,
+  };
+}
+
 function syncStoreInitialState(store: {
   getState: () => Record<string, unknown>;
   getInitialState?: () => Record<string, unknown>;
@@ -237,8 +251,8 @@ describe("BrowserArea list view", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_get_folder_contents).mockResolvedValue({
-      data: [
+    vi.mocked(route_get_folder_contents).mockResolvedValue(
+      buildFolderContentsResponse("/workspace", [
         createFolderContentItem({
           name: "assets",
           fullPath: "/workspace/assets",
@@ -250,10 +264,8 @@ describe("BrowserArea list view", () => {
           type: "file",
           size: 12,
         }),
-      ],
-      status: 200,
-      hasResponse: true,
-    });
+      ]),
+    );
 
     const { host, root } = await renderBrowserArea();
 
@@ -262,6 +274,7 @@ describe("BrowserArea list view", () => {
 
       expect(route_get_file_browser_root).toHaveBeenCalledTimes(1);
       expect(route_get_folder_contents).toHaveBeenCalledWith({
+        baseFolderPath: "/workspace",
         folderPath: "/workspace",
         ignorePatterns: ["node_modules"],
         includeSize: true,
@@ -288,17 +301,15 @@ describe("BrowserArea list view", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_get_folder_contents).mockResolvedValue({
-      data: [
+    vi.mocked(route_get_folder_contents).mockResolvedValue(
+      buildFolderContentsResponse("/workspace", [
         createFolderContentItem({
           name: "assets",
           fullPath: "/workspace/assets",
           type: "folder",
         }),
-      ],
-      status: 200,
-      hasResponse: true,
-    });
+      ]),
+    );
 
     const { host, root } = await renderBrowserArea();
 

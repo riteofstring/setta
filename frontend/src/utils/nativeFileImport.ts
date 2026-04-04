@@ -109,7 +109,7 @@ export async function importNativeFileToWorkspace(
       missingFolderBehavior: "error",
     });
   if (res200(folderRes)) {
-    for (const item of folderRes.data) {
+    for (const item of folderRes.data.items) {
       existingNames.add(item.name);
     }
   }

@@ -19,6 +19,7 @@ import {
   FileBrowserPane,
   flattenFileBrowserTree,
   forEachWithConcurrencyLimit,
+  getResolvedFileBrowserRootState,
   getSettaBadgeRefreshFolderPaths,
   isEditableFileBrowserTarget,
   isOwnedFileBrowserLoadingPath,
@@ -124,6 +125,20 @@ type RenderedFileBrowserPane = {
   host: HTMLDivElement;
   root: Root;
 };
+
+function buildFolderContentsResponse(
+  folderPath: string,
+  items: ReturnType<typeof createFolderContentItem>[],
+) {
+  return {
+    data: {
+      folderPath,
+      items,
+    },
+    status: 200,
+    hasResponse: true,
+  };
+}
 
 async function renderFileBrowserPane() {
   const host = document.createElement("div");
@@ -288,8 +303,8 @@ describe("sortChildPaths", () => {
       status: 200,
       hasResponse: true,
     });
-    vi.mocked(route_get_folder_contents).mockResolvedValue({
-      data: [
+    vi.mocked(route_get_folder_contents).mockResolvedValue(
+      buildFolderContentsResponse("/workspace", [
         createFolderContentItem({
           name: "src",
           type: "folder",
@@ -301,10 +316,8 @@ describe("sortChildPaths", () => {
           fullPath: "/workspace/notes.txt",
           mtime: 123,
         }),
-      ],
-      status: 200,
-      hasResponse: true,
-    });
+      ]),
+    );
 
     const { host, root } = await renderFileBrowserPane();
 
@@ -331,6 +344,27 @@ describe("sortChildPaths", () => {
       });
       host.remove();
     }
+  });
+
+  it("canonicalizes root state when the backend resolves a different folder path", () => {
+    expect(
+      getResolvedFileBrowserRootState({
+        state: {
+          rootPath: "src",
+          selectedPath: "src",
+          expandedPaths: { src: true, "/workspace/other": true },
+        },
+        requestedRootPath: "src",
+        resolvedRootPath: "/workspace/src",
+      }),
+    ).toEqual({
+      rootPath: "/workspace/src",
+      selectedPath: "/workspace/src",
+      expandedPaths: {
+        "/workspace/src": true,
+        "/workspace/other": true,
+      },
+    });
   });
 });
 

@@ -3248,6 +3248,7 @@ export type MissingFolderBehavior = ObjectValues<
 >;
 
 export type GetFolderContentsRequestInput = {
+  baseFolderPath?: string | null;
   folderPath: string;
   allowOutsideWorkspaceRoot?: boolean | null;
   includeMtime?: boolean | null;
@@ -3286,7 +3287,15 @@ export function createFolderContentItem(
   return options as FolderContentItem;
 }
 
-export type GetFolderContentsResponse = Array<FolderContentItem>;
+export type GetFolderContentsResponse = {
+  folderPath: string;
+  items: Array<FolderContentItem>;
+};
+export function createGetFolderContentsResponse(
+  options: Partial<GetFolderContentsResponse> = {},
+): GetFolderContentsResponse {
+  return options as GetFolderContentsResponse;
+}
 
 export type GetFileBrowserDownloadURLsRequestInput = {
   paths: Array<string>;

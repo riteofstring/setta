@@ -350,19 +350,44 @@ func TestRegisterFileBrowserRoutesAllowOutsideWorkspaceFolderListingWhenEnabled(
 		t.Fatalf("expected 200, got %d with body %q", allowedResponse.Code, allowedResponse.Body.String())
 	}
 
-	var payload []filebrowser.FolderContentItem
+	var payload filebrowser.ListFolderResponse
 	if err := json.Unmarshal(allowedResponse.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode folder listing payload: %v", err)
 	}
-	names := make(map[string]filebrowser.FolderContentItem, len(payload))
-	for _, item := range payload {
+	names := make(map[string]filebrowser.FolderContentItem, len(payload.Items))
+	for _, item := range payload.Items {
 		names[item.Name] = item
 	}
 	if _, ok := names["outside-folder"]; !ok {
-		t.Fatalf("expected outside-folder entry, got %#v", payload)
+		t.Fatalf("expected outside-folder entry, got %#v", payload.Items)
 	}
 	if _, ok := names["outside-file.txt"]; !ok {
-		t.Fatalf("expected outside-file.txt entry, got %#v", payload)
+		t.Fatalf("expected outside-file.txt entry, got %#v", payload.Items)
+	}
+
+	relativeRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteGetFolderContents,
+		strings.NewReader(
+			`{"baseFolderPath":"`+outsideRoot+`","folderPath":"outside-folder","allowOutsideWorkspaceRoot":true}`,
+		),
+	)
+	relativeRequest.Header.Set("Content-Type", "application/json")
+	addHTTPTestAuthCookie(t, relativeRequest, authService)
+
+	relativeResponse := httptest.NewRecorder()
+	handler.ServeHTTP(relativeResponse, relativeRequest)
+	if relativeResponse.Code != http.StatusOK {
+		t.Fatalf("expected 200 for relative outside-root listing, got %d with body %q", relativeResponse.Code, relativeResponse.Body.String())
+	}
+
+	var relativePayload filebrowser.ListFolderResponse
+	if err := json.Unmarshal(relativeResponse.Body.Bytes(), &relativePayload); err != nil {
+		t.Fatalf("decode relative folder payload: %v", err)
+	}
+	expectedResolvedFolder := filepath.Join(outsideRoot, "outside-folder")
+	if relativePayload.FolderPath != expectedResolvedFolder {
+		t.Fatalf("expected resolved relative folder path %q, got %q", expectedResolvedFolder, relativePayload.FolderPath)
 	}
 }
 
@@ -447,22 +472,22 @@ func TestRegisterFileBrowserRoutesDefaultFolderContentsShowDotfilesButHideIgnore
 		t.Fatalf("expected 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload []filebrowser.FolderContentItem
+	var payload filebrowser.ListFolderResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode folder payload: %v", err)
 	}
-	names := make(map[string]filebrowser.FolderContentItem, len(payload))
-	for _, item := range payload {
+	names := make(map[string]filebrowser.FolderContentItem, len(payload.Items))
+	for _, item := range payload.Items {
 		names[item.Name] = item
 	}
 	for _, name := range []string{".env", ".gitignore"} {
 		if _, ok := names[name]; !ok {
-			t.Fatalf("expected default listing to include %q, got %#v", name, payload)
+			t.Fatalf("expected default listing to include %q, got %#v", name, payload.Items)
 		}
 	}
 	for _, name := range []string{".git", ".venv", "node_modules", "setta_files"} {
 		if _, ok := names[name]; ok {
-			t.Fatalf("expected default listing to hide %q, got %#v", name, payload)
+			t.Fatalf("expected default listing to hide %q, got %#v", name, payload.Items)
 		}
 	}
 }

@@ -129,11 +129,11 @@ export function loadWorkspacePythonSignal({
         if (
           !contentsResponse ||
           contentsResponse.status !== 200 ||
-          !Array.isArray(contentsResponse.data)
+          !Array.isArray(contentsResponse.data?.items)
         ) {
           return null;
         }
-        return hasPythonSignalsInRoot(contentsResponse.data);
+        return hasPythonSignalsInRoot(contentsResponse.data.items);
       } catch {
         return null;
       }
