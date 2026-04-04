@@ -2357,3 +2357,32 @@ LOOP_TERMINAL_MARKER: none
   - the exact worktree targeted-fit path is centered, so the remaining blocker is a fresh, trustworthy reference-session canary for the same exact compare
 - Next frontier: retry the exact targeted `groupSectionDefault` compare on a fresh reference session before doing more production centering work.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 19:23 EDT - Ralph item 068
+
+- Re-ran the exact normalized `groupSectionDefault` targeted-fit compare on the fresh loop session without changing production or test code; after two oracle-only passes, this was the one remaining bounded step that could either reopen centering work or close it.
+- Narrow verification for this no-code slice was live-session sanity checks plus one fresh-context CDP compare:
+  - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` still reported worktree session `f6451a` on backend `8075`
+  - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` still reported read-only `main` session `76d188` on backend `8087`
+  - `pnpm -C frontend cdp-port` still reported worktree CDP port `9298`
+  - `rg -n "Local:" /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.eunRtq/run-035/main-ai.log | tail -n 5` still pointed at `http://127.0.0.1:3087/`
+- Fresh-context CDP sub-agent result:
+  - normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to active `All Settings`
+  - resolved `groupSectionDefault` by project-state name:
+    - worktree `206b4718-1fc5-4846-99e8-8f4335ae40a7`
+    - `main` `a92931c4-a389-4276-96e1-31816bd21c57`
+  - normalized pane state to `overviewVis=false`, `overviewTrueWidth=420`, `uiEditorVis=false`, `uiEditorTrueWidth=260`
+  - ran the exact page-context helper `fitView({ nodes: [{ id: targetSectionId }], padding: 0.1 })`
+  - worktree exact-fit metrics:
+    - transform `{ x: -277.71694214876027, y: -3396.7933884297518, zoom: 1.1389462809917354 }`
+    - section rect `{ x: 405.6508483886719, y: 56.04541015625, width: 628.6983642578125, height: 400.9091796875 }`
+    - visible-surface center offset `dx=0.000030517578125`, `dy=0`
+  - read-only `main` exact-fit probe blocked again before any centering measurement:
+    - `[data-testid="graph-substrate-canary"]` was absent
+    - `[data-testid="graph-substrate-canary-section"]` count stayed `0`
+    - `.react-flow__pane` was present
+    - console showed repeated `WebSocket connection to 'ws://127.0.0.1:8087/api/frontend' failed` errors
+- Lane status:
+  - the exact worktree targeted-fit path remains centered, so there is no new worktree centering regression to fix from this evidence
+  - the blocker has repeated: the read-only `main` session is failing to render the canary root on the exact compare path, which prevents a trustworthy parity oracle
+- Next frontier: pivot to resolving or explaining the repeated read-only `main` missing-canary/websocket blocker before reopening any more `groupSectionDefault` centering/parity work.
+- LOOP_TERMINAL_MARKER: none

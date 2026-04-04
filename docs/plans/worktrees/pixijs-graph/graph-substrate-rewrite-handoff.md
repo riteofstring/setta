@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 19:14 EDT
+Last updated: 2026-04-03 19:23 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,38 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `068` reran the exact normalized `groupSectionDefault` targeted-fit compare on a fresh loop session to decide whether item `067`'s remaining centering question was a worktree bug or a repeated reference-session blocker.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the only justified next step after two oracle-only passes was one final bounded compare that could either reopen centering work or close it
+  - Automated result:
+    - none; no production code changed, so this slice used runtime sanity checks plus fresh-context CDP verification as the narrowest relevant verification
+  - Live verification result:
+    - runtime sanity checks confirmed both sessions were live before the compare:
+      - worktree `setta status --connect-info --latest --json --workspace .` still reported session `f6451a` on backend `8075`
+      - read-only `main` `setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` still reported session `76d188` on backend `8087`
+      - `pnpm -C frontend cdp-port` still reported worktree CDP port `9298`
+      - the latest `Local:` entry in `/var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.eunRtq/run-035/main-ai.log` still pointed at `http://127.0.0.1:3087/`
+    - fresh-context CDP sub-agent reran the exact targeted-fit lane:
+      - opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - normalized both pages to active `All Settings`
+      - resolved `groupSectionDefault` by project-state name:
+        - worktree `206b4718-1fc5-4846-99e8-8f4335ae40a7`
+        - `main` `a92931c4-a389-4276-96e1-31816bd21c57`
+      - normalized pane state to `overviewVis=false`, `overviewTrueWidth=420`, `uiEditorVis=false`, `uiEditorTrueWidth=260`
+      - ran the exact page-context helper `fitView({ nodes: [{ id: targetSectionId }], padding: 0.1 })`
+      - worktree exact-fit metrics:
+        - transform `{ x: -277.71694214876027, y: -3396.7933884297518, zoom: 1.1389462809917354 }`
+        - section rect `{ x: 405.6508483886719, y: 56.04541015625, width: 628.6983642578125, height: 400.9091796875 }`
+        - visible-surface center offset `dx=0.000030517578125`, `dy=0`
+      - read-only `main` exact-fit probe blocked again before centering could be measured:
+        - `[data-testid="graph-substrate-canary"]` was absent
+        - `[data-testid="graph-substrate-canary-section"]` count stayed `0`
+        - `.react-flow__pane` was present, so the page itself had loaded
+        - console showed repeated `WebSocket connection to 'ws://127.0.0.1:8087/api/frontend' failed` errors
+  - conclusion for this slice:
+    - do not reopen worktree centering code from the weaker whole-surface `+80px` delta or the older `main`-right `96px` screenshot alone
+    - the exact worktree targeted-fit path remains centered, so the repeated blocker is now clearly reference-session availability on `main`, not an already-proven worktree centering bug
+    - because the same `main` missing-canary/websocket blocker has now repeated across two exact targeted-fit passes, the next iteration should pivot to resolving or explaining that reference-session blocker before any more `groupSectionDefault` centering/parity work
 - Ralph item `067` reran the blocked normalized `groupSectionDefault` centering probe on the fresh loop session, then tightened it to the exact per-section fit path before deciding whether the remaining horizontal delta was product evidence or oracle noise.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code because the goal was to finish the delayed parity question from item `066` before reopening the centering implementation
