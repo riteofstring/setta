@@ -15,6 +15,7 @@ import {
 import { addNodes, moveNodes } from "state/actions/nodeInternals";
 import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos";
 import {
+  useLocalStorage,
   useMisc,
   useNodeInternals,
   useProjectState,
@@ -27,13 +28,13 @@ import {
   type GraphSubstrateCanarySection,
 } from "./settingsGraphSubstrateCanaryModel";
 import {
+  fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
 } from "./settingsGraphSubstrateCanaryViewport";
 import {
-  fitViewportToWorldRect,
   screenDeltaToWorldDelta,
   translateViewport,
   zoomViewportAroundScreenPoint,
@@ -125,6 +126,7 @@ export function SettingsGraphSubstrateCanary() {
     }),
     _.isEqual,
   );
+  const overviewTrueWidth = useLocalStorage((state) => state.overviewTrueWidth);
 
   useEffect(() => {
     return () => {
@@ -222,13 +224,14 @@ export function SettingsGraphSubstrateCanary() {
       return;
     }
 
-    const nextViewport = fitViewportToWorldRect(
+    const nextViewport = fitSettingsGraphSubstrateCanaryViewport(
       sceneBounds,
       wrapperDimensions,
       {
         minZoom,
         maxZoom,
-        padding: 0.12,
+        defaultZoomLevel,
+        overviewWidth: overviewTrueWidth,
       },
     );
     setViewport((current) => {
@@ -244,8 +247,10 @@ export function SettingsGraphSubstrateCanary() {
       return nextViewport;
     });
   }, [
+    defaultZoomLevel,
     maxZoom,
     minZoom,
+    overviewTrueWidth,
     sceneBounds,
     sharedViewport,
     viewport,

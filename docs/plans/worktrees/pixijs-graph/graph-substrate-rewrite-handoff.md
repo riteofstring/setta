@@ -9,6 +9,25 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `012` landed a bounded initial-fit alignment fix inside the custom canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `fitSettingsGraphSubstrateCanaryViewport(...)` so the canary's first fit can follow the same visible-center and max-zoom rules as legacy `ReactFlow`
+  - that helper now:
+    - shifts the fit center by `overviewTrueWidth` instead of centering in the raw wrapper
+    - caps the initial fit zoom to `defaultZoomLevel` the same way legacy `fitView({ initial: true })` does
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now routes its first auto-fit through that helper instead of calling `fitViewportToWorldRect(...)` directly
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now locks down the overview-offset + initial-zoom-cap behavior
+- The blocked post-`011` oracle compare is now resolved:
+  - one allowed local self-recovery ran successfully: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - the restarted worktree came up on frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077`
+  - a fresh CDP sub-agent could then inspect both the restarted worktree and read-only `main`
+- Fresh CDP after item `012` shows the remaining blocker explicitly:
+  - the worktree `All Settings` cleared-viewport fit is still framed much tighter than `main`
+  - visually, the worktree shows only a few larger cards centered in the canvas while `main` is more zoomed out and shows a denser vertical field of smaller cards
+  - that means the remaining drift is no longer explained by:
+    - the old fallback `{48,48,1}` seed suppressing auto-fit
+    - a missing overview-width center offset
+    - a missing initial max-zoom cap
+  - the remaining frontier is therefore a bounds / measured-size mismatch in the canary fit inputs rather than more saved-viewport plumbing
 - Ralph item `011` landed the bounded initial-fit ownership fix inside the custom canary:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now separates three concepts explicitly:
     - the top-left fallback viewport seed
@@ -102,6 +121,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
       - after one allowed local self-recovery (`BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`), the worktree restarted on frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077`
       - fresh CDP sub-agents still could not invoke browser page actions; one run reported canceled `navigate_page` / `evaluate_script` / `take_snapshot` actions, and the retry reported the browser tools were not invokable at all
       - the post-fix live compare therefore remains unverified and is the current blocker
+    - controlled cleared-viewport compare after item `012`: done
+      - after the restarted worktree became CDP-reachable, a fresh side-by-side compare against `main` showed the worktree still framed `All Settings` much tighter
+      - visual summary:
+        - worktree: a few larger cards centered in the canvas
+        - `main`: more zoomed-out framing with a denser vertical field of smaller cards
+      - this closes the tool-availability blocker from item `011` and leaves a product blocker: the canary fit bounds still differ from the legacy oracle
 
 ## Architectural stance
 
@@ -136,9 +161,10 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - item `011` identified and fixed one more concrete ownership bug underneath that drift:
     - with no saved viewport, the canary was previously locking itself to the fallback `{48,48,1}` seed instead of auto-fitting
     - automated coverage now proves the canary no longer does that in the checked browser path
-  - next target the real product frontier this compare exposed:
-    - first retry the post-fix controlled cleared-viewport CDP compare on a fresh outer-loop bootstrap so the new live transform can be observed
-    - if that compare still shows drift versus `main`, inspect the remaining bounds/fit source mismatch rather than adding more saved-viewport plumbing
+  - item `012` aligned the canary's initial visible-center and initial max-zoom semantics with legacy `ReactFlow`
+  - next target the real product frontier this compare still exposes:
+    - inspect the remaining bounds / fit source mismatch on the cleared-viewport `All Settings` path
+    - prefer checking canary scene bounds, observed section sizes, and any missing visible sections before adding more viewport-state plumbing
 
 ## Explicit deferrals
 
@@ -161,6 +187,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `011`
-- Latest item: `2026-04-02 011`
+- Active history window: items `001` through `012`
+- Latest item: `2026-04-02 012`
 - Older history archives: none yet

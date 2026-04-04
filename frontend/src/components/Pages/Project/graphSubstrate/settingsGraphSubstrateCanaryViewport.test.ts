@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
   resolveSettingsGraphSubstrateCanaryViewport,
@@ -92,6 +93,25 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
       x: 320,
       y: -180,
       zoom: 0.42,
+    });
+  });
+
+  it("fits the canary to the legacy visible center and caps the initial zoom", () => {
+    expect(
+      fitSettingsGraphSubstrateCanaryViewport(
+        { x: 0, y: 0, width: 200, height: 100 },
+        { width: 1000, height: 600 },
+        {
+          minZoom: 0.1,
+          maxZoom: 10,
+          defaultZoomLevel: 1,
+          overviewWidth: 320,
+        },
+      ),
+    ).toEqual({
+      x: 720,
+      y: 250,
+      zoom: 1,
     });
   });
 });

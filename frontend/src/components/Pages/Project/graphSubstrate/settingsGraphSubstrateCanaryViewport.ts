@@ -1,10 +1,14 @@
 import type { Position } from "utils/generatedTypes";
 import {
   centerViewportOnWorldPoint,
+  fitViewportToWorldRect,
+  type GraphRect,
   type GraphViewport,
+  type GraphViewportSize,
 } from "./viewportTransform";
 
 const INITIAL_SCREEN_PADDING_PX = 48;
+const AUTO_FIT_PADDING = 0.12;
 
 export function resolveSettingsGraphSubstrateCanaryFallbackViewport(
   defaultZoomLevel: number,
@@ -67,4 +71,30 @@ export function shouldAutoFitSettingsGraphSubstrateCanaryViewport(
   sharedViewport: GraphViewport | null,
 ): boolean {
   return currentViewport === null && sharedViewport === null;
+}
+
+export function fitSettingsGraphSubstrateCanaryViewport(
+  bounds: GraphRect,
+  viewportSize: GraphViewportSize,
+  options: {
+    minZoom: number;
+    maxZoom: number;
+    defaultZoomLevel: number;
+    overviewWidth: number;
+  },
+): GraphViewport {
+  const maxInitialZoom = Math.max(
+    options.minZoom,
+    Math.min(options.maxZoom, options.defaultZoomLevel),
+  );
+
+  return fitViewportToWorldRect(bounds, viewportSize, {
+    minZoom: options.minZoom,
+    maxZoom: maxInitialZoom,
+    padding: AUTO_FIT_PADDING,
+    centerScreenPoint: {
+      x: viewportSize.width / 2 + options.overviewWidth,
+      y: viewportSize.height / 2,
+    },
+  });
 }

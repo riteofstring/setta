@@ -388,3 +388,39 @@ LOOP_TERMINAL_MARKER: none
   - inspect why the worktree’s saved/restored `All Settings` camera state still differs from `main`, then land the narrowest viewport-alignment fix rather than more restore plumbing
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 012
+
+- Item: Align the `All Settings` canary's first auto-fit with legacy visible-center and initial max-zoom semantics, then re-run the cleared-viewport oracle compare.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `fitSettingsGraphSubstrateCanaryViewport(...)` to keep the canary's first fit rules explicit and testable.
+  - That helper now:
+    - shifts the fit center by `overviewTrueWidth` instead of centering inside the raw wrapper
+    - caps the initial fit zoom to `defaultZoomLevel`, matching legacy `fitView({ initial: true })`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that helper for its initial `All Settings` auto-fit.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now locks down the overview-offset + initial-zoom-cap behavior.
+  - Because CDP was still inaccessible at the start of this iteration, one allowed local self-recovery ran:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - the restarted worktree came back on frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077`
+  - A fresh CDP compare after that restart showed the remaining product blocker clearly:
+    - worktree `All Settings`: still framed much tighter, with only a few larger cards centered in the canvas
+    - `main` `All Settings`: more zoomed out, with a denser vertical field of smaller cards
+  - This means the remaining drift is not explained by the old fallback echo, the missing overview offset, or the missing initial zoom cap.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`6 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render|settings graph substrate canary restores the persisted shared viewport on All Settings'`
+    - result: passed (`2 passed`, about `50s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - after the restart, a fresh side-by-side compare against read-only `main` succeeded
+      - the worktree still fits `All Settings` noticeably tighter than `main`, so the Gate 1 drift remains active
+- Conclusion:
+  - the canary now matches legacy visible-center and initial max-zoom semantics for its first fit
+  - the remaining mismatch is now more likely in scene bounds / measured section sizes than in raw viewport-center math or saved-viewport ownership
+- Next action:
+  - inspect the canary's cleared-viewport bounds inputs versus the legacy visible-section fit inputs on `All Settings`, and fix whichever size/source mismatch is undercounting the visible field
+
+LOOP_TERMINAL_MARKER: none
