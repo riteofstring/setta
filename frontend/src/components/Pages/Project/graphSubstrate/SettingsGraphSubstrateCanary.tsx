@@ -6,6 +6,7 @@ import type { CustomViewportController } from "forks/xyflow/core/types";
 import _ from "lodash";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -296,6 +297,25 @@ export function SettingsGraphSubstrateCanary() {
       sharedProjectViewport,
       viewportOwnershipRef.current,
     );
+
+  useLayoutEffect(() => {
+    if (sharedProjectViewport === null) {
+      if (viewportOwnershipRef.current !== "shared") {
+        return;
+      }
+      viewportOwnershipRef.current = null;
+      setViewport(null);
+      return;
+    }
+
+    viewportOwnershipRef.current = "shared";
+    setViewport((current) => {
+      if (current === null) {
+        return current;
+      }
+      return null;
+    });
+  }, [sharedProjectViewport]);
 
   useEffect(() => {
     if (!sharedViewport || viewportOwnershipRef.current === "local") {

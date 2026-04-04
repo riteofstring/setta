@@ -1,5 +1,16 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ensureAppReady, postBackend } from "../helpers";
+import {
+  applyAuthoritativeViewportFromBackend,
+  findSectionIdByName,
+  findViewModeId,
+  fitGraphViewportToSection,
+  getCanarySectionCenterOffsetFromRootCenter,
+  getLatestProjectState,
+  getLocalPaneState,
+  setLocalPaneState,
+  type ProjectStateSingleConfigWithCompletedOpIds,
+} from "./graphSubstrateParityProbe";
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
@@ -308,6 +319,116 @@ test("settings graph substrate canary fit view reapplies the same All Settings b
         projectConfigId,
         activeViewModeId: initialActiveViewModeId,
       });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
+test("settings graph substrate canary applies an explicit shared viewport write after a local targeted fit", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const drawSectionId = findSectionIdByName(initialState, "drawSectionDefault");
+  const initialPaneState = await getLocalPaneState(page);
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitGraphViewportToSection(page, drawSectionId)).toBe(true);
+
+    const fittedTransform = await getCanaryViewportTransform(page);
+    if (!fittedTransform) {
+      throw new Error("Missing canary viewport transform after local fit.");
+    }
+
+    const targetViewport = {
+      x: fittedTransform.x - 180,
+      y: fittedTransform.y + 120,
+      zoom: fittedTransform.zoom,
+    };
+
+    const stateWithSharedViewport = await applyAuthoritativeViewportFromBackend(
+      page,
+      projectConfigId,
+      targetViewport,
+    );
+    await expect
+      .poll(async () => {
+        return page.evaluate(async () => {
+          const { useProjectState } = await import("/src/state/definitions.ts");
+          return useProjectState.getState().projectConfig.viewport;
+        });
+      })
+      .toEqual(targetViewport);
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+      .toBeCloseTo(targetViewport.x, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+      .toBeCloseTo(targetViewport.y, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeCloseTo(targetViewport.zoom, 2);
+  } finally {
+    await setLocalPaneState(page, initialPaneState).catch(() => {});
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
     }
     const restoredState = await getLatestProjectState(page, projectConfigId);
     await applyProjectStateUpdate(page, restoredState);
@@ -3086,78 +3207,6 @@ async function getCanaryAutoFitDrift(page: Page): Promise<{
   };
 }
 
-async function getCanarySectionCenterOffsetFromRootCenter(
-  page: Page,
-  sectionId: string,
-): Promise<number | null> {
-  return page.evaluate((targetSectionId) => {
-    const root = document.querySelector<HTMLElement>(
-      '[data-testid="graph-substrate-canary"]',
-    );
-    const section = document.querySelector<HTMLElement>(
-      `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
-    );
-    if (!root || !section) {
-      return null;
-    }
-    const rootRect = root.getBoundingClientRect();
-    const sectionRect = section.getBoundingClientRect();
-    return (
-      sectionRect.left +
-      sectionRect.width / 2 -
-      (rootRect.left + rootRect.width / 2)
-    );
-  }, sectionId);
-}
-
-async function getLocalPaneState(page: Page): Promise<{
-  overviewVisible: boolean;
-  overviewTrueWidth: number;
-  uiEditorVisible: boolean;
-  uiEditorTrueWidth: number;
-}> {
-  return page.evaluate(async () => {
-    const { useLocalStorage } = await import("/src/state/definitions.ts");
-    const state = useLocalStorage.getState();
-    return {
-      overviewVisible: state.overviewVis,
-      overviewTrueWidth: state.overviewTrueWidth,
-      uiEditorVisible: state.uiEditorVis,
-      uiEditorTrueWidth: state.uiEditorTrueWidth,
-    };
-  });
-}
-
-async function setLocalPaneState(
-  page: Page,
-  paneState: {
-    overviewVisible: boolean;
-    overviewTrueWidth: number;
-    uiEditorVisible: boolean;
-    uiEditorTrueWidth: number;
-  },
-): Promise<void> {
-  await page.evaluate(
-    async (nextPaneState: {
-      overviewVisible: boolean;
-      overviewTrueWidth: number;
-      uiEditorVisible: boolean;
-      uiEditorTrueWidth: number;
-    }) => {
-      const { useLocalStorage } = await import("/src/state/definitions.ts");
-      useLocalStorage.setState({
-        overviewVis: nextPaneState.overviewVisible,
-        overviewTrueWidth: nextPaneState.overviewTrueWidth,
-        uiEditorVis: nextPaneState.uiEditorVisible,
-        uiEditorTrueWidth: nextPaneState.uiEditorTrueWidth,
-      });
-    },
-    paneState,
-  );
-
-  await expect.poll(async () => getLocalPaneState(page)).toEqual(paneState);
-}
-
 async function findDraggableCanarySection(
   page: Page,
   targetSectionId?: string,
@@ -3693,19 +3742,6 @@ async function getCanarySectionRenderedZIndex(
   }, sectionId);
 }
 
-async function fitGraphViewportToSection(
-  page: Page,
-  sectionId: string,
-): Promise<boolean> {
-  return page.evaluate(async (targetSectionId) => {
-    const { fitView } = await import("/src/forks/xyflow/core/store/utils.ts");
-    return fitView({
-      nodes: [{ id: targetSectionId }],
-      padding: 0.1,
-    });
-  }, sectionId);
-}
-
 async function setDurableActiveSectionIds(
   page: Page,
   activeIds: string[],
@@ -3754,76 +3790,6 @@ async function getActiveTopLevelSectionLayout(
       zIndex: layout.zIndex,
     };
   }, sectionId);
-}
-
-type ProjectStateSingleConfigWithCompletedOpIds = {
-  projectState: {
-    parentSectionMap: Record<string, string | null | undefined>;
-    projectConfig: {
-      activeIds: Array<string>;
-      activeViewModeId: string | null;
-      topLevelSections: Record<string, { x: number; y: number }>;
-      viewModes: Record<
-        string,
-        {
-          id: string;
-          name: string;
-          topLevelSections: Record<string, { x: number; y: number }>;
-          visibilityBySectionId: Record<string, boolean>;
-          viewport: { x: number; y: number; zoom: number } | null;
-          viewportInitialized: boolean;
-        }
-      >;
-      viewport: { x: number; y: number; zoom: number } | null;
-      viewportInitialized: boolean;
-    };
-    sections: Record<string, { name: string }>;
-  };
-  completedOpIds: Array<string>;
-  pendingOpIds: Array<string>;
-};
-
-async function getLatestProjectState(
-  page: Page,
-  projectConfigId: string,
-): Promise<ProjectStateSingleConfigWithCompletedOpIds> {
-  const payload = await postBackend<ProjectStateSingleConfigWithCompletedOpIds>(
-    page,
-    "/getLatestProjectState",
-    { projectConfigId },
-  );
-  if (!payload) {
-    throw new Error("Missing project state payload.");
-  }
-  return payload;
-}
-
-function findViewModeId(
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
-  name: string,
-): string {
-  for (const viewMode of Object.values(
-    payload.projectState.projectConfig.viewModes,
-  )) {
-    if (viewMode.name === name) {
-      return viewMode.id;
-    }
-  }
-  throw new Error(`Missing view mode ${name}`);
-}
-
-function findSectionIdByName(
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
-  name: string,
-): string {
-  for (const [sectionId, section] of Object.entries(
-    payload.projectState.sections,
-  )) {
-    if (section.name === name) {
-      return sectionId;
-    }
-  }
-  throw new Error(`Missing section ${name}`);
 }
 
 function getExpectedCanarySectionOrder(

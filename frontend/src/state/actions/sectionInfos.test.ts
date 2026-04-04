@@ -3,6 +3,7 @@ import * as chatMergeUtils from "state/actions/chatMergeUtils";
 import {
   createNodesMapFromProjectConfigChildren,
   createTopLevelSectionLayoutDict,
+  debouncedDispatchViewportUpdate,
   getAttachedTerminalParentIdForTerminalSection,
   getCurrEffectiveSectionImpl,
   getCurrShownParamIds,
@@ -1194,6 +1195,91 @@ describe("processProjectStateUpdateFromBackend", () => {
     expect(reactFlowState.transform).toEqual([10, -20, 1.5]);
     expect(reactFlowState.fitViewOnInit).toBe(false);
     expect(reactFlowState.fitViewOnInitDone).toBe(true);
+  });
+
+  it("cancels queued viewport persistence before applying an authoritative backend viewport", () => {
+    const sectionId = "section-1";
+    const viewModeId = "view-1";
+    const layout = { x: 0, y: 0, zIndex: 0, w: 200, h: 160 };
+    const viewMode: ViewModeConfig = {
+      id: viewModeId,
+      name: "View A",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: true,
+      visibilityBySectionId: { [sectionId]: true },
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportInitialized: true,
+      topLevelSections: { [sectionId]: { ...layout } },
+    };
+
+    const initialConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: { [sectionId]: { ...layout } },
+      viewModes: { [viewModeId]: viewMode },
+      activeViewModeId: viewModeId,
+      viewport: { x: 0, y: 0, zoom: 1 },
+      viewportInitialized: true,
+    });
+
+    useProjectState.setState({
+      projectConfig: initialConfig,
+      sections: {},
+      sectionImpls: {},
+      sectionVariants: {},
+      codeObjs: {},
+      codeObjImpls: {},
+      codeObjVariants: {},
+      artifactGroups: {},
+      singletonSections: createSingletonSections(),
+      parentSectionMap: {},
+      shownParamIds: {},
+      previewSectionVariantMap: {},
+      requiredDecodedImages: [],
+    });
+    usePendingOperations.setState({ pending: [] });
+    useNodeInternals.setState({ x: new Map() });
+    useReactFlow.setState({
+      transform: [40, -10, 1.2],
+      fitViewOnInit: false,
+      fitViewOnInitDone: true,
+    });
+
+    const nextConfig = createProjectConfig({
+      id: "project-1",
+      topLevelSections: { [sectionId]: { ...layout } },
+      viewModes: { [viewModeId]: viewMode },
+      activeViewModeId: viewModeId,
+      viewport: { x: 10, y: -20, zoom: 1.5 },
+      viewportInitialized: true,
+    });
+
+    const update: ProjectStateSingleConfigWithCompletedOpIds = {
+      projectState: {
+        projectConfig: nextConfig,
+        sections: {},
+        sectionImpls: {},
+        sectionVariants: {},
+        codeObjs: {},
+        codeObjImpls: {},
+        codeObjVariants: {},
+        artifactGroups: {},
+        singletonSections: createSingletonSections(),
+        parentSectionMap: {},
+        shownParamIds: {},
+        requiredDecodedImages: [],
+        genCodeBinding: null,
+      },
+      completedOpIds: [],
+      pendingOpIds: [],
+    };
+
+    const cancelSpy = vi.spyOn(debouncedDispatchViewportUpdate, "cancel");
+
+    processProjectStateUpdateFromBackend(update);
+
+    expect(cancelSpy).toHaveBeenCalledTimes(1);
+    cancelSpy.mockRestore();
   });
 
   it("fits view to visible sections when viewport is unset", () => {

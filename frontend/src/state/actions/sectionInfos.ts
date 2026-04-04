@@ -1120,6 +1120,7 @@ function applyViewportFromProjectState(
   if (!viewportChanged && !viewModeChanged) {
     return false;
   }
+  debouncedDispatchViewportUpdate.cancel();
   if (!viewport || !viewportInitialized) {
     useReactFlow.setState({
       fitViewOnInit: true,

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 00:30 EDT
+Last updated: 2026-04-04 00:56 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,37 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `080` restored the mounted authoritative viewport override path on the `All Settings` canary, closing the exact "store-written viewport update produces no rendered motion delta" blocker that made item `079`'s pane-pan compare untrustworthy.
+  - Why this slice was needed:
+    - after item `079`, the next useful step was not another pane-pan compare on the same broken path; it was to make one authoritative shared viewport override survive a prior local `fitView` so future live compares can trust that camera-write lane again
+    - the failing shape turned out to be two coupled issues:
+      - a stale queued local viewport persist could overwrite the authoritative backend `/setViewport` write
+      - the mounted canary kept resolving from its stale local viewport cache even after project-state viewport became authoritative again
+    - until that path worked end-to-end, any normalized dynamic compare that depended on backend/store viewport writes would keep producing false negatives
+  - Production/test change:
+    - `frontend/src/state/actions/sectionInfos.ts` now cancels queued debounced viewport persistence before applying authoritative backend viewport/view-mode updates, so stale local camera writes do not immediately replay over incoming project-state camera changes
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now drops its local viewport cache in a layout-phase handoff when `projectConfig.viewport` becomes authoritative again, so the mounted canary resolves from the shared project viewport instead of replaying the stale locally fitted transform
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` now provides `applyAuthoritativeViewportFromBackend(...)`, which cancels pending local viewport persistence, posts `/setViewport`, fetches the latest project state, cancels persistence again, and applies the backend update deterministically for compare/test flows
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph substrate canary applies an explicit shared viewport write after a local targeted fit`, which proves the mounted `drawSectionDefault` canary honors an authoritative viewport override after local `fitView`
+    - `frontend/src/state/actions/sectionInfos.test.ts` now locks that `processProjectStateUpdateFromBackend(...)` cancels queued viewport persistence before applying an authoritative backend viewport
+  - Automated result:
+    - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts -t 'applies viewport updates to the react flow store|cancels queued viewport persistence before applying an authoritative backend viewport'`
+      - result: passed (`2 passed`, `21 skipped`, about `0.95s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary applies an explicit shared viewport write after a local targeted fit'`
+      - result: passed (`1 passed`, about `19.1s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings'`
+      - result: passed (`1 passed`, about `30.9s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/graphSubstrateParityProbe.ts src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - result: passed
+  - Live verification result:
+    - fresh-context CDP sub-agent bootstrapped the live worktree app on `http://127.0.0.1:3075/settings`, switched to `All Settings`, fit `drawSectionDefault`, then applied an authoritative viewport override through the same backend-state sync path used by the new helper
+    - the mounted canary transform changed from `matrix(1.13895, 0, 0, 1.13895, 713.151, -2613.43)` to `matrix(1.13895, 0, 0, 1.13895, 225.651, -2593.43)`
+    - `drawSectionDefault` stayed visible and moved with the viewport; its rect changed from about `628.70 x 400.91 @ (713.15, 156.05)` to `628.70 x 400.91 @ (225.65, 176.05)`
+    - CDP visual check: done (live worktree authoritative viewport override after local fit; mounted canary transform and `drawSectionDefault` rect moved to the target override)
+  - conclusion for this slice:
+    - close the specific "authoritative viewport override after local fit does not move the mounted canary" blocker
+    - future normalized live compares may use the authoritative viewport override path again, but they still should not assume `graph-substrate-canary` exists on read-only `main`
+    - the compare oracle should stay graph-surface-only and use shared visible section geometry/screenshots against the legacy `main` surface rather than canary-only hooks on `main`
 - Ralph item `079` attempted the next widened `drawSectionDefault` pane-pan live compare after one required lifecycle recovery and found that this exact CDP compare shape is still not a trustworthy oracle, but it did not expose a confirmed worktree-only renderer bug.
   - Why this slice was needed:
     - after item `078` closed the spreadsheet body-input lane, the plan-directed next frontier was another normalized non-drag dynamic compare that could answer a real renderer question instead of extending the same spreadsheet normalization pattern again

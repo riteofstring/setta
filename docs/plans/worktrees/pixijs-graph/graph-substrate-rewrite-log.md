@@ -2704,3 +2704,48 @@ LOOP_TERMINAL_MARKER: none
   - do not treat missing `graph-substrate-canary` hooks on `main` as a product defect; future live compares should use shared visible section geometry or screenshots against the legacy `main` surface instead
 - Next frontier: choose another normalized non-drag dynamic compare that CDP can actually complete end-to-end, preferably a widened `drawSectionDefault` zoom/fit-view compare or another shared named section that does not depend on CDP pan via store-written transforms.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 00:56 EDT - Ralph item 080
+
+- Restored the mounted authoritative viewport override path on the `All Settings` canary so a backend/project-state viewport update now survives a prior local `fitView` and visibly moves `drawSectionDefault`.
+- Why this slice was necessary:
+  - item `079` showed the next live `drawSectionDefault` compare could not trust backend/store viewport writes because the mounted canary never showed a rendered motion delta after a local fit
+  - tracing the failing path exposed two concrete blockers:
+    - a queued debounced local viewport persist could replay over an authoritative backend `/setViewport`
+    - even once project state carried the new viewport, the mounted canary could keep resolving from its stale local viewport cache instead of the shared project viewport
+  - until one authoritative viewport override moved the live canary end-to-end, any further compare on that lane would remain oracle churn instead of renderer evidence
+- Production/test changes:
+  - `frontend/src/state/actions/sectionInfos.ts`
+    - `applyViewportFromProjectState(...)` now cancels queued debounced viewport persistence before applying authoritative backend viewport/view-mode updates
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - the canary now drops its local viewport cache in a layout-phase handoff when `projectConfig.viewport` becomes authoritative again, so the mounted surface resolves from the shared project viewport instead of replaying the stale locally fitted transform
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `applyAuthoritativeViewportFromBackend(...)` to cancel pending local viewport persistence, post `/setViewport`, fetch the latest project state, cancel persistence again, and apply the backend update deterministically for compare/test flows
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added `settings graph substrate canary applies an explicit shared viewport write after a local targeted fit`
+    - the new guard proves a mounted `drawSectionDefault` canary follows an authoritative shared viewport override after local `fitView`
+  - `frontend/src/state/actions/sectionInfos.test.ts`
+    - added coverage that `processProjectStateUpdateFromBackend(...)` cancels queued viewport persistence before applying an authoritative backend viewport
+- Verification:
+  - `pnpm -C frontend exec vitest run src/state/actions/sectionInfos.test.ts -t 'applies viewport updates to the react flow store|cancels queued viewport persistence before applying an authoritative backend viewport'`
+    - result: passed (`2 passed`, `21 skipped`, about `0.95s`)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary applies an explicit shared viewport write after a local targeted fit'`
+    - result: passed (`1 passed`, about `19.1s`)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings'`
+    - result: passed (`1 passed`, about `30.9s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts tests/e2e/settings/graphSubstrateParityProbe.ts src/state/actions/sectionInfos.ts src/state/actions/sectionInfos.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - result: passed
+  - fresh-context CDP sub-agent live verification:
+    - result: passed on the live worktree app at `http://127.0.0.1:3075/settings`
+    - `All Settings` worktree canary before override:
+      - transform `matrix(1.13895, 0, 0, 1.13895, 713.151, -2613.43)`
+      - `drawSectionDefault` rect `{ x: 713.1508, y: 156.0457, width: 628.6983, height: 400.9089 }`
+    - after the authoritative viewport override:
+      - transform `matrix(1.13895, 0, 0, 1.13895, 225.651, -2593.43)`
+      - `drawSectionDefault` rect `{ x: 225.6510, y: 176.0500, width: 628.7004, height: 400.9104 }`
+    - `drawSectionDefault` stayed visible and moved with the viewport
+    - CDP visual check: done (live worktree authoritative viewport override after local fit; mounted canary transform and `drawSectionDefault` rect moved to the target override)
+- Lane status:
+  - close the specific "authoritative viewport override after local fit does not move the mounted canary" blocker
+  - backend/store viewport writes are trustworthy again for future normalized compare steps on the worktree side
+- Next frontier: return to a normalized non-drag live compare on `drawSectionDefault`, but use shared visible section geometry or screenshots against legacy `main` instead of assuming `graph-substrate-canary` exists on the read-only oracle.
+- LOOP_TERMINAL_MARKER: none
