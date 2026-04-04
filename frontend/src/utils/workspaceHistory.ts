@@ -1,5 +1,4 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
-import { GENERATED_BOOTSTRAP_PROTOCOL } from "utils/generatedTypes";
 import {
   normalizeSettaFilesLocation,
   type SettaFilesLocation,
@@ -15,12 +14,8 @@ export type WorkspaceHistoryEntry = {
 };
 
 const HISTORY_KEY = "setta.workspaceHistory";
-const HISTORY_HANDOFF_KEY =
-  GENERATED_BOOTSTRAP_PROTOCOL.workspaceHistoryStorageKey;
-const HISTORY_HANDOFF_QUERY_PARAM =
-  GENERATED_BOOTSTRAP_PROTOCOL.workspaceHistoryQueryParam;
+const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff";
 const HISTORY_LIMIT = 6;
-const HISTORY_HANDOFF_MAX_LENGTH = GENERATED_BOOTSTRAP_PROTOCOL.maxValueLength;
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -255,58 +250,6 @@ export function consumeWorkspaceHistoryHandoff(): void {
   saveWorkspaceHistory(merged);
 }
 
-export function applyWorkspaceHistoryHandoffFromUrl(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  let url: URL;
-  try {
-    url = new URL(window.location.href);
-  } catch {
-    return;
-  }
-
-  const rawHandoff = url.searchParams.get(HISTORY_HANDOFF_QUERY_PARAM);
-  if (rawHandoff) {
-    const trimmed = rawHandoff.trim();
-    if (trimmed && trimmed.length <= HISTORY_HANDOFF_MAX_LENGTH) {
-      const storage = safeLocalStorage();
-      if (storage) {
-        try {
-          storage.setItem(HISTORY_HANDOFF_KEY, trimmed);
-        } catch {
-          // Ignore storage failures.
-        }
-      }
-    }
-    url.searchParams.delete(HISTORY_HANDOFF_QUERY_PARAM);
-  }
-
-  if (!rawHandoff) {
-    return;
-  }
-
-  const nextUrl = url.toString();
-  try {
-    window.history.replaceState(window.history.state, "", nextUrl);
-    return;
-  } catch {
-    // Some browsers/extensions can leave a non-cloneable state in history.state.
-    // Falling back to null is better than leaving the handoff URL behind.
-  }
-  try {
-    window.history.replaceState(null, "", nextUrl);
-  } catch (error) {
-    console.warn("Failed to clean workspace history handoff from URL", error);
-    try {
-      window.location.replace(nextUrl);
-    } catch {
-      // ignore
-    }
-  }
-}
-
 export function appendWorkspaceHistoryToBootstrapUrlFragment(
   bootstrapUrlFragment: string,
   entries: WorkspaceHistoryEntry[],
@@ -327,7 +270,7 @@ export function appendWorkspaceHistoryToBootstrapUrlFragment(
   }
   const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
   const params = new URLSearchParams(hash);
-  params.set(GENERATED_BOOTSTRAP_PROTOCOL.workspaceHistoryHashParam, encoded);
+  params.set("wh", encoded);
   url.hash = params.toString();
   return url.toString();
 }

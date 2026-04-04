@@ -1,8 +1,8 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import _ from "lodash";
 import {
-  getCurrEffectiveCodeObjImplWithTypeGuardIfPresent,
-  getCurrEffectiveSectionImplWithTypeGuardIfPresent,
+  getCurrEffectiveCodeObjImplWithTypeGuard,
+  getCurrEffectiveSectionImplWithTypeGuard,
 } from "state/actions/sectionInfos";
 import { useMisc, useProjectState, useShareSession } from "state/definitions";
 import { useTextFieldWaitingForLSPResult } from "state/hooks/lsp";
@@ -151,21 +151,37 @@ export function ParamUI({
   const isSelectingParams = useMisc((x) => x.isSelectingParams);
   const isDeploymentMode = useShareSession((x) => x.isDeploymentMode);
   const { canEditParams } = useShareCapabilities();
-  const paramUiState = useProjectState((x) => {
-    const impl = getCurrEffectiveSectionImplWithTypeGuardIfPresent(
+  const {
+    codeObjType,
+    passwordHasSecret,
+    configLanguage,
+    defaultVal,
+    disabledOrFrozen,
+    dropzoneMode,
+    dropzoneMaxAttachments,
+    dropzonePlaceholder,
+    timeControlMode,
+    timeDisplayFormat,
+    timeDisplayTransparent,
+    timeDisplayScale,
+    timeDisplayFont,
+    dateDisplayFormat,
+    dateControlMode,
+    dateSelectionMode,
+    dateCalendarWeekStart,
+    dateIncludesTime,
+  } = useProjectState((x) => {
+    const impl = getCurrEffectiveSectionImplWithTypeGuard(
       x,
       sectionId,
       isBaseSectionWithParamsImpl,
     );
-    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuardIfPresent(
+    const codeObjImpl = getCurrEffectiveCodeObjImplWithTypeGuard(
       x,
       sectionId,
       paramInfoId,
       isBaseChildlessCodeObjImpl,
     );
-    if (!impl || !codeObjImpl) {
-      return null;
-    }
     const isDropzone = codeObjImpl.type === CodeObjTypeEnum.DropzoneParam;
     const hasPasswordSecret =
       codeObjImpl.type === CodeObjTypeEnum.PasswordParam
@@ -212,32 +228,6 @@ export function ParamUI({
       dateIncludesTime: isDateParam ? codeObjImpl.dateIncludesTime : false,
     };
   }, _.isEqual);
-  const hasParamUiState = paramUiState !== null;
-  const codeObjType = paramUiState?.codeObjType ?? CodeObjTypeEnum.TextParam;
-  const passwordHasSecret = paramUiState?.passwordHasSecret ?? false;
-  const configLanguage = paramUiState?.configLanguage;
-  const defaultVal = paramUiState?.defaultVal ?? "";
-  const disabledOrFrozen = paramUiState?.disabledOrFrozen ?? false;
-  const dropzoneMode = paramUiState?.dropzoneMode ?? null;
-  const dropzoneMaxAttachments = paramUiState?.dropzoneMaxAttachments ?? null;
-  const dropzonePlaceholder = paramUiState?.dropzonePlaceholder ?? null;
-  const timeControlMode =
-    paramUiState?.timeControlMode ?? TimeControlModeEnum.display;
-  const timeDisplayFormat =
-    paramUiState?.timeDisplayFormat ?? TimeDisplayFormatEnum.twenty_four_hour;
-  const timeDisplayTransparent = paramUiState?.timeDisplayTransparent ?? false;
-  const timeDisplayScale = paramUiState?.timeDisplayScale ?? 1;
-  const timeDisplayFont =
-    paramUiState?.timeDisplayFont ?? TimeDisplayFontEnum.monospace;
-  const dateDisplayFormat =
-    paramUiState?.dateDisplayFormat ?? DateDisplayFormatEnum.iso;
-  const dateControlMode =
-    paramUiState?.dateControlMode ?? DateControlModeEnum.input;
-  const dateSelectionMode =
-    paramUiState?.dateSelectionMode ?? DateSelectionModeEnum.single;
-  const dateCalendarWeekStart =
-    paramUiState?.dateCalendarWeekStart ?? DateCalendarWeekStartEnum.sunday;
-  const dateIncludesTime = paramUiState?.dateIncludesTime ?? false;
 
   const waitingForResult = useTextFieldWaitingForLSPResult({
     sectionId,
@@ -257,10 +247,6 @@ export function ParamUI({
     });
   const passwordPlaceholder =
     passwordHasSecret && value === "" ? "Saved" : undefined;
-
-  if (!hasParamUiState) {
-    return null;
-  }
 
   function onEscape() {
     focusOnSection(null, sectionId, false);
