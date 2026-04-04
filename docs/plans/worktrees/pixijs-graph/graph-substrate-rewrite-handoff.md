@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 14:04 EDT
+Last updated: 2026-04-03 14:10 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,21 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `044` completed the first bounded section-level Gate 2 compare that item `043` handed off.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - one shared toolbar `fit view` was applied so the checked section used the same framing on both sides
+    - the sub-agent then compared one shared visible section card at normal zoom instead of reopening a whole-surface lane
+  - Result:
+    - no concrete renderer defect showed up on the first shared visible section card
+    - the checked card was the visible `Core` defaults card whose body text begins `Name Editable Core Name Type defaultVal "" Has Secret typeAnnotation "" value ""`
+    - its section chrome, text density, and layout matched between worktree and `main` on the checked lane
+    - no worktree-only drift was isolated from this first section-level compare, so there is no production fix to take from this evidence alone
+  - conclusion for this slice:
+    - treat the first shared visible section-level compare as clean
+    - do not reopen that exact card unless a later fresh compare or regression shows drift there
+    - the next real frontier is the neighboring shared visible card in the same column, not another whole-surface geometry pass
 - Ralph item `043` used the required bounded normalization/oracle step to check whether a concrete graph-surface defect still remained after the recent interaction-lane closures.
   - Process:
     - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`

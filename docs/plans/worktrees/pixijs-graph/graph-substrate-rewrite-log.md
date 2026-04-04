@@ -70,6 +70,38 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 044
+
+- Item: Run the first bounded shared-section Gate 2 compare on normalized `All Settings` to see whether a concrete section-level chrome/text defect is already visible.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not add a new regression or speculative renderer patch first.
+  - The previous whole-surface normalized pass (`043`) was already clean, so the useful bounded next step was to compare one shared visible section card at normal zoom and see whether the first section-level renderer question was concrete yet.
+  - A fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were normalized to active `All Settings`.
+  - One shared toolbar `fit view` was applied to keep the checked section framed the same way on both pages.
+  - The checked shared visible card was the `Core` defaults section whose visible body text begins `Name Editable Core Name Type defaultVal "" Has Secret typeAnnotation "" value ""`.
+  - That first shared section-level compare did not isolate a worktree-only renderer defect:
+    - chrome matched
+    - text density matched
+    - layout matched at the checked normal-zoom framing
+  - No production code or automated tests changed in this slice because the compare did not expose a concrete defect to fix or lock down yet.
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings`
+      - one shared `fit view` aligned the checked section framing
+      - the first shared visible section card matched between worktree and `main`
+- Conclusion:
+  - the first shared visible section-level compare is clean
+  - do not reopen that exact card unless a later fresh compare starts showing drift
+  - the next bounded frontier should probe the neighboring shared visible card in the same column, since the first card did not expose the awaited Gate 2 defect
+- Next action:
+  - run one fresh normalized section-level compare on the neighboring shared visible `All Settings` card whose body includes the `Drop a file here` placeholder, and isolate the first concrete chrome/text drift if it exists
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 042
 
 - Item: Lock the normalized `All Settings` toolbar `fit view` lane with a live regression now that the shared graph-surface compare is clean.
