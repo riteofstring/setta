@@ -16,7 +16,7 @@ import {
   route_load_share_project_config,
 } from "utils/generatedEndpoints";
 import type {
-  ProjectStateSingleConfigWithCompletedOpIds,
+  ProjectStateSingleConfigWithCompletedOpIDs,
   ShareDeploymentSessionResponse,
 } from "utils/generatedTypes";
 
@@ -28,7 +28,7 @@ type ShareSessionOptions = {
 type ShareDeploymentSessionRouteResponse =
   ResponseDataAndStatus<ShareDeploymentSessionResponse>;
 type ShareProjectConfigRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 
 function clearShareSessionCookie() {
   document.cookie = "shareSessionId=; path=/; Max-Age=0; SameSite=Lax";

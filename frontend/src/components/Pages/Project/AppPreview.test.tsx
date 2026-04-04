@@ -18,7 +18,7 @@ import "testUtils/reactRefreshPreamble";
 import {
   createAppDefinition,
   createProjectConfig,
-  createProjectStateSingleConfig,
+  createSingleConfig,
 } from "utils/generatedTypes";
 
 import { AppPreview } from "./AppPreview";
@@ -226,7 +226,7 @@ describe("AppPreview", () => {
 
   it("loads a preview config through the Go project-load route when previewing another project", async () => {
     routeLoadProjectConfigMock.mockResolvedValue({
-      data: createProjectStateSingleConfig({
+      data: createSingleConfig({
         projectConfig: createProjectConfig({
           id: "preview-config",
           name: "Preview Project",

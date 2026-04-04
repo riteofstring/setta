@@ -7,9 +7,9 @@ import {
   createProjectCodegenPythonTarget,
   createProjectConfig,
   createProjectRunCapabilities,
-  createProjectStateSingleConfig,
-  createProjectStateSingleConfigWithCompletedOpIds,
+  createProjectStateSingleConfigWithCompletedOpIDs,
   createSectionCapabilities,
+  createSingleConfig,
   createSingletonSections,
   createTerminalSectionImpl,
   createVariant,
@@ -117,7 +117,7 @@ function buildProjectState({
     });
   }
 
-  return createProjectStateSingleConfig({
+  return createSingleConfig({
     projectConfig: createProjectConfig({
       id: "project-1",
       sectionVariantMap,
@@ -181,7 +181,7 @@ describe("runCodeBlock", () => {
 
   it("rehydrates project state after a successful run when the backend creates the attached terminal", async () => {
     useProjectState.setState(buildProjectState({ attachedTerminalId: null }));
-    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIds(
+    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIDs(
       {
         projectState: buildProjectState({
           attachedTerminalId: terminalSectionId,
@@ -236,7 +236,7 @@ describe("runCodeBlock", () => {
         pythonCodegenEnabled: true,
       }),
     );
-    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIds(
+    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIDs(
       {
         projectState: buildProjectState({
           attachedTerminalId: null,
@@ -277,7 +277,7 @@ describe("runCodeBlock", () => {
     useProjectState.setState((state) => {
       state.projectConfig.entryCodeBlockId = codeSectionId;
     });
-    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIds(
+    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIDs(
       {
         projectState: buildProjectState({
           attachedTerminalId: terminalSectionId,

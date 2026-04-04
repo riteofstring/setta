@@ -3,7 +3,7 @@ import {
   createCore,
   createGroupSectionImpl,
   createProjectConfig,
-  createProjectStateSingleConfig,
+  createSingleConfig,
   createUserDefaultCodeSectionImpl,
   createUserDefaultGroupSectionImpl,
   createVariant,
@@ -51,7 +51,7 @@ function createSectionState(input: {
     sectionVariantMap[sectionId] = variantId;
   }
 
-  return createProjectStateSingleConfig({
+  return createSingleConfig({
     projectConfig: createProjectConfig({
       id: "project-config-id",
       name: "Test Project",

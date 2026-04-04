@@ -726,7 +726,7 @@ export async function route_get_share_deployment_state(
   deploymentName: string,
   version: string,
 ): Promise<
-  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
+  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIDs>
 > {
   return await get(
     GoHTTPRouteHelpers.shareDeploymentState(deploymentName, version),
@@ -857,7 +857,7 @@ export async function route_load_cached_image_artifacts(
 
 export async function route_load_project_config(
   x: gt.LoadProjectConfigRequestInput,
-): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+): Promise<ResponseDataAndStatus<gt.SingleConfig>> {
   return await post(GoHTTPRouteHelpers.loadProjectConfig(), x);
 }
 
@@ -872,7 +872,7 @@ export async function route_load_share_project_config(
   version: string,
   x: gt.LoadDeploymentProjectConfigRequestInput,
 ): Promise<
-  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIds>
+  ResponseDataAndStatus<gt.ProjectStateSingleConfigWithCompletedOpIDs>
 > {
   return await post(
     GoHTTPRouteHelpers.shareDeploymentProjectConfig(deploymentName, version),
@@ -1349,7 +1349,7 @@ export async function route_set_project_chat_windowing_state(
 
 export async function route_set_project_config_codegen_targets(
   x: gt.SetProjectConfigCodegenTargetsRequest,
-): Promise<ResponseDataAndStatus<gt.ProjectStateSingleConfig>> {
+): Promise<ResponseDataAndStatus<gt.SingleConfig>> {
   return await post(GoHTTPRouteHelpers.setProjectConfigCodegenTargets(), x);
 }
 

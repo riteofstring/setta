@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createProjectConfig,
   createProjectRunCapabilities,
-  createProjectStateSingleConfig,
   createSectionCapabilities,
+  createSingleConfig,
   createSingletonSections,
 } from "utils/generatedTypes";
 
@@ -12,7 +12,7 @@ import { resolveMainRunRequest } from "./runCapabilities";
 
 describe("resolveMainRunRequest", () => {
   it("prefers the local entry code block over stale backend run capabilities", () => {
-    const state = createProjectStateSingleConfig({
+    const state = createSingleConfig({
       projectConfig: createProjectConfig({
         entryCodeBlockId: "manual-section",
         hasPythonCodegenTarget: true,
@@ -47,7 +47,7 @@ describe("resolveMainRunRequest", () => {
   });
 
   it("disables main run when the local entry selection is cleared", () => {
-    const state = createProjectStateSingleConfig({
+    const state = createSingleConfig({
       projectConfig: createProjectConfig({
         entryCodeBlockId: null,
         hasPythonCodegenTarget: false,

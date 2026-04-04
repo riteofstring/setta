@@ -8,7 +8,7 @@ import "testUtils/reactRefreshPreamble";
 import {
   createCodeSectionImpl,
   createProjectConfig,
-  createProjectStateSingleConfigWithCompletedOpIds,
+  createProjectStateSingleConfigWithCompletedOpIDs,
   createUserDefaultCodeSectionImpl,
   SectionTypeEnum,
   type Core,
@@ -43,7 +43,7 @@ vi.mock("utils/generatedEndpoints", async () => {
       status: 200,
     })),
     route_get_latest_project_state: vi.fn(async () => ({
-      data: createProjectStateSingleConfigWithCompletedOpIds(),
+      data: createProjectStateSingleConfigWithCompletedOpIDs(),
       response: new Response("{}", {
         status: 200,
       }),
@@ -64,7 +64,7 @@ const mockedRouteGetLatestProjectState = vi.mocked(
 );
 
 function latestProjectStateFixture() {
-  return createProjectStateSingleConfigWithCompletedOpIds({
+  return createProjectStateSingleConfigWithCompletedOpIDs({
     projectState: {
       projectConfig: createProjectConfig({
         id: "project-1",

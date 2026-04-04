@@ -1,6 +1,6 @@
 import { useLocalStorage, useMisc } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { createProjectStateSingleConfigWithCompletedOpIds } from "utils/generatedTypes";
+import { createProjectStateSingleConfigWithCompletedOpIDs } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearProjectChatThreadStorageUndoStackForTests,
@@ -17,7 +17,7 @@ const processProjectStateUpdateFromBackendMock = vi.fn();
 const projectStateUpdateResponse = {
   status: 200,
   hasResponse: true,
-  data: createProjectStateSingleConfigWithCompletedOpIds({
+  data: createProjectStateSingleConfigWithCompletedOpIDs({
     projectState: {
       projectConfig: {
         id: "project-a",

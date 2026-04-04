@@ -14,6 +14,7 @@ import (
 
 	binarypayload "setta/internal/binary"
 	"setta/internal/httpapi"
+	"setta/internal/projectview"
 	"setta/internal/realtime"
 )
 
@@ -104,23 +105,25 @@ var endpointRequestTypeOverrides = map[string]reflect.Type{
 }
 
 var endpointResponseTypeOverrides = map[string]reflect.Type{
-	"POST RouteBinaryUpload":                  reflect.TypeOf(binarypayload.ContentRef{}),
-	"POST RouteGetListenerCoverage":           reflect.TypeOf(realtime.ListenerCoverageSnapshot{}),
-	"GET RouteGetServerMode":                  reflect.TypeOf(httpapi.ServerModeResponse{}),
-	"POST RouteShareDeploymentCurrentSession": reflect.TypeOf(ShareDeploymentSessionResponse{}),
-	"POST RouteAppDeploymentCurrentSession":   reflect.TypeOf(AppDeploymentSessionResponse{}),
-	"GET RouteShareDeploymentState":           reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
-	"POST RouteShareDeploymentProjectConfig":  reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
-	"GET RouteAppDeploymentState":             reflect.TypeOf(AppDeploymentStateResponse{}),
-	"POST RouteAppDeploymentProjectConfig":    reflect.TypeOf(AppDeploymentStateResponse{}),
-	"GET RouteShareDeployments":               reflect.TypeOf(DeploymentMetadataList(nil)),
-	"GET RouteShareDeploymentVersions":        reflect.TypeOf(DeploymentMetadataList(nil)),
-	"GET RouteShareDeploymentLatest":          reflect.TypeOf(DeploymentMetadata{}),
-	"POST RouteShareDeployments":              reflect.TypeOf(DeploymentMetadata{}),
-	"GET RouteAppDeployments":                 reflect.TypeOf(DeploymentMetadataList(nil)),
-	"GET RouteAppDeploymentVersions":          reflect.TypeOf(DeploymentMetadataList(nil)),
-	"GET RouteAppDeploymentLatest":            reflect.TypeOf(DeploymentMetadata{}),
-	"POST RouteAppDeployments":                reflect.TypeOf(DeploymentMetadata{}),
+	"POST RouteBinaryUpload":                   reflect.TypeOf(binarypayload.ContentRef{}),
+	"POST RouteGetListenerCoverage":            reflect.TypeOf(realtime.ListenerCoverageSnapshot{}),
+	"GET RouteGetServerMode":                   reflect.TypeOf(httpapi.ServerModeResponse{}),
+	"POST RouteLoadProjectConfig":              reflect.TypeOf(projectview.SingleConfig{}),
+	"POST RouteSetProjectConfigCodegenTargets": reflect.TypeOf(projectview.SingleConfig{}),
+	"POST RouteShareDeploymentCurrentSession":  reflect.TypeOf(ShareDeploymentSessionResponse{}),
+	"POST RouteAppDeploymentCurrentSession":    reflect.TypeOf(AppDeploymentSessionResponse{}),
+	"GET RouteShareDeploymentState":            reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}),
+	"POST RouteShareDeploymentProjectConfig":   reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}),
+	"GET RouteAppDeploymentState":              reflect.TypeOf(AppDeploymentStateResponse{}),
+	"POST RouteAppDeploymentProjectConfig":     reflect.TypeOf(AppDeploymentStateResponse{}),
+	"GET RouteShareDeployments":                reflect.TypeOf(DeploymentMetadataList(nil)),
+	"GET RouteShareDeploymentVersions":         reflect.TypeOf(DeploymentMetadataList(nil)),
+	"GET RouteShareDeploymentLatest":           reflect.TypeOf(DeploymentMetadata{}),
+	"POST RouteShareDeployments":               reflect.TypeOf(DeploymentMetadata{}),
+	"GET RouteAppDeployments":                  reflect.TypeOf(DeploymentMetadataList(nil)),
+	"GET RouteAppDeploymentVersions":           reflect.TypeOf(DeploymentMetadataList(nil)),
+	"GET RouteAppDeploymentLatest":             reflect.TypeOf(DeploymentMetadata{}),
+	"POST RouteAppDeployments":                 reflect.TypeOf(DeploymentMetadata{}),
 }
 
 func CurrentEndpoints() []EndpointSpec {

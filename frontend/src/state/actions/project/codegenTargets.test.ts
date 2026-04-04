@@ -7,7 +7,7 @@ import {
   createProjectConfig,
   createSingletonSections,
   type CodeFileBinding,
-  type ProjectStateSingleConfig,
+  type SingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
 import { applyProjectCodegenTargetsResponse } from "./codegenTargets";
@@ -61,7 +61,7 @@ describe("applyProjectCodegenTargetsResponse", () => {
   });
 
   it("replaces the current project state and matching metadata from the authoritative response", () => {
-    const responseState: ProjectStateSingleConfig = {
+    const responseState: SingleConfig = {
       sections: {},
       sectionImpls: {},
       sectionVariants: {},
@@ -97,7 +97,7 @@ describe("applyProjectCodegenTargetsResponse", () => {
   });
 
   it("leaves the loaded project state untouched when the response is for another project", () => {
-    const responseState: ProjectStateSingleConfig = {
+    const responseState: SingleConfig = {
       sections: {},
       sectionImpls: {},
       sectionVariants: {},

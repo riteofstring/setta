@@ -2,7 +2,7 @@ import { usePendingOperations, useProjectState } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,
-  createProjectStateSingleConfig,
+  createSingleConfig,
   createViewModeConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -226,7 +226,7 @@ describe("view mode canonical mutations", () => {
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
 
     processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
+      projectState: createSingleConfig({
         projectConfig: createProjectConfig({
           ...useProjectState.getState().projectConfig,
           watchCodeEnabled: true,

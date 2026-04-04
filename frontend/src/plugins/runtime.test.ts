@@ -35,7 +35,7 @@ import {
   createPluginStatusEntry,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfigWithCompletedOpIds,
+  createProjectStateSingleConfigWithCompletedOpIDs,
   createSingletonSections,
   createUserDefaultDictSectionImpl,
   createVariant,
@@ -49,7 +49,7 @@ import {
   type PluginRuntimeResponse,
   type PluginStatusEntry,
   type PluginStatusResponse,
-  type ProjectStateSingleConfigWithCompletedOpIds,
+  type ProjectStateSingleConfigWithCompletedOpIDs,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type StateCreator, type StoreApi } from "zustand/vanilla";
@@ -404,9 +404,9 @@ class RuntimeTestWebSocket extends EventTarget {
 
 function buildPluginRuntimeProjectStateUpdate(
   activeIds: string[],
-): ProjectStateSingleConfigWithCompletedOpIds {
+): ProjectStateSingleConfigWithCompletedOpIDs {
   const state = useProjectState.getState();
-  return createProjectStateSingleConfigWithCompletedOpIds({
+  return createProjectStateSingleConfigWithCompletedOpIDs({
     projectState: {
       projectConfig: {
         ...state.projectConfig,

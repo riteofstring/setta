@@ -159,7 +159,7 @@ async function getViewportScale(page: Page): Promise<number> {
   });
 }
 
-type ProjectStateSingleConfigWithCompletedOpIds = {
+type ProjectStateSingleConfigWithCompletedOpIDs = {
   projectState: {
     projectConfig: {
       topLevelSections: Record<string, { x: number; y: number }>;
@@ -174,8 +174,8 @@ type ProjectStateSingleConfigWithCompletedOpIds = {
 async function getLatestProjectState(
   page: Page,
   projectConfigId: string,
-): Promise<ProjectStateSingleConfigWithCompletedOpIds> {
-  const payload = await postBackend<ProjectStateSingleConfigWithCompletedOpIds>(
+): Promise<ProjectStateSingleConfigWithCompletedOpIDs> {
+  const payload = await postBackend<ProjectStateSingleConfigWithCompletedOpIDs>(
     page,
     "/getLatestProjectState",
     { projectConfigId },
@@ -187,7 +187,7 @@ async function getLatestProjectState(
 }
 
 function findViewModeId(
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
   name: string,
 ): string {
   for (const viewMode of Object.values(
@@ -201,7 +201,7 @@ function findViewModeId(
 }
 
 function buildLayoutSubset(
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
   allowedNames: Set<string>,
 ): Record<string, { x: number; y: number }> {
   const { sections, projectConfig } = payload.projectState;
@@ -224,7 +224,7 @@ function buildLayoutSubset(
 
 async function applyProjectStateUpdate(
   page: Page,
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
 ): Promise<void> {
   await page.evaluate(async (stateUpdate) => {
     const mod = await import("/src/state/actions/sectionInfos");

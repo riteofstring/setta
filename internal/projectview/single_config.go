@@ -109,6 +109,7 @@ type SingleConfig struct {
 	RequiredDecodedImages []string                               `json:"requiredDecodedImages"`
 	GenCodeBinding        *CodeFileBinding                       `json:"genCodeBinding"`
 	ProjectChatWindowing  projectstate.ProjectChatWindowingState `json:"projectChatWindowing"`
+	ArtifactGroups        map[string]any                         `json:"artifactGroups,omitempty"`
 }
 
 type ProjectConfig struct {
@@ -229,6 +230,7 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		RequiredDecodedImages: deriveRequiredDecodedImages(project),
 		GenCodeBinding:        deriveGenCodeBinding(project),
 		ProjectChatWindowing:  projectstate.DefaultProjectChatWindowingState(),
+		ArtifactGroups:        map[string]any{},
 	}
 
 	projectConfig, err := projectConfigFromProject(project)

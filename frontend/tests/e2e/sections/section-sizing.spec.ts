@@ -10,7 +10,7 @@ import {
   postBackend,
   setCallableFromFrontend,
   setSectionSizesFromFrontend,
-  type ProjectStateSingleConfigResponse,
+  type SingleConfigResponse,
 } from "../helpers";
 
 async function createSection(
@@ -46,7 +46,7 @@ async function setSectionSizes(
   >,
 ) {
   const latestStateResponse = await postBackend<{
-    projectState?: ProjectStateSingleConfigResponse | null;
+    projectState?: SingleConfigResponse | null;
   }>(page, "/getLatestProjectState", {
     projectConfigId,
   });
@@ -104,7 +104,7 @@ async function addKwargs(
 }
 
 function getSectionSizeFromState(
-  state: ProjectStateSingleConfigResponse,
+  state: SingleConfigResponse,
   sectionId: string,
 ) {
   const variantId = state.projectConfig.sectionVariantMap[sectionId];

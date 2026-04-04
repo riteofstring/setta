@@ -14,8 +14,8 @@ import {
 import { resetProjectStores } from "state/utils";
 import {
   createProjectConfig,
-  createProjectStateSingleConfig,
   createSettingsState,
+  createSingleConfig,
   createSingletonSections,
 } from "utils/generatedTypes";
 import {
@@ -160,7 +160,7 @@ describe("subscriptions viewport persistence", () => {
     expect(routeSetViewportMock).not.toHaveBeenCalled();
 
     processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
+      projectState: createSingleConfig({
         projectConfig: createProjectConfig({
           id: "project-1",
           viewport: staleBackendViewport,

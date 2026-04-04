@@ -269,6 +269,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		if len(spec.CreateExprOverrides) > 0 {
 			declaration.CreateExpr = buildGoBackedCreateExprWithExprOverridesTS(
 				context,
+				declarationName,
 				spec.DefaultValue,
 				properties,
 				spec.CreateExprOverrides,
@@ -276,6 +277,7 @@ func (c *typeConverter) reflectedObjectDeclaration(
 		} else {
 			declaration.CreateExpr = buildGoBackedCreateExprTS(
 				context,
+				declarationName,
 				spec.DefaultValue,
 				properties,
 			)

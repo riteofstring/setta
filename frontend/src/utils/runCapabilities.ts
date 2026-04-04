@@ -1,7 +1,7 @@
-import type { ProjectStateSingleConfig } from "utils/generatedTypes";
+import type { SingleConfig } from "utils/generatedTypes";
 
 type RunCapabilityState = Pick<
-  ProjectStateSingleConfig,
+  SingleConfig,
   "projectConfig" | "sectionCapabilities" | "singletonSections"
 >;
 

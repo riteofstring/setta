@@ -20,7 +20,7 @@ import {
 import type {
   AppDeploymentSessionResponse,
   AppDeploymentStateResponse,
-  ProjectStateSingleConfig,
+  SingleConfig,
 } from "utils/generatedTypes";
 
 const APP_SESSION_STORAGE_KEY = "settaAppSession";
@@ -336,7 +336,7 @@ export async function ensureAppProjectConfigLoaded(
   return await loadAppDeploymentState({ projectConfigId });
 }
 
-function storeAppConfigState(projectState: ProjectStateSingleConfig) {
+function storeAppConfigState(projectState: SingleConfig) {
   useAppConfigs.setState((state) => ({
     configs: {
       ...state.configs,

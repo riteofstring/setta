@@ -20,7 +20,7 @@ import {
   createCore,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfig,
+  createSingleConfig,
   createUserDefaultChatSectionImpl,
   createVariant,
   createWindowSpaceConfig,
@@ -1212,7 +1212,7 @@ describe("window-space optimistic rollback", () => {
     expect(usePendingOperations.getState().pending[0]?.acknowledged).toBe(true);
 
     processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
+      projectState: createSingleConfig({
         projectConfig: createProjectConfig({
           ...useProjectState.getState().projectConfig,
           watchCodeEnabled: true,

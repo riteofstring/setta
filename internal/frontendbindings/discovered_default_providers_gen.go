@@ -98,9 +98,6 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf((*ProjectCodegenPythonTarget)(nil)).Elem(): func() any {
 			return projectview.FrontendDefaultProjectCodegenPythonTarget()
 		},
-		reflect.TypeOf(ProjectConfig{}): func() any {
-			return projectview.FrontendDefaultProjectConfig()
-		},
 		reflect.TypeOf((*RunEvent)(nil)).Elem(): func() any {
 			return agentruns.FrontendDefaultRunEvent()
 		},

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import type { ProjectStateSingleConfigWithCompletedOpIds } from "utils/generatedTypes";
+import type { ProjectStateSingleConfigWithCompletedOpIDs } from "utils/generatedTypes";
 import {
   cleanupIsolatedProject,
   createTopLevelSectionFromFrontend,
@@ -37,7 +37,7 @@ async function getViewportTransform(page: Page): Promise<{
 
 async function applyBackendProjectStateUpdate(
   page: Page,
-  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  payload: ProjectStateSingleConfigWithCompletedOpIDs,
 ): Promise<void> {
   await page.evaluate(async (stateUpdate) => {
     const { processProjectStateUpdateFromBackend } = await import(
@@ -63,7 +63,7 @@ test("stale backend project sync does not clobber a newer local viewport", async
     }
 
     const staleState =
-      await postBackend<ProjectStateSingleConfigWithCompletedOpIds>(
+      await postBackend<ProjectStateSingleConfigWithCompletedOpIDs>(
         page,
         "/getLatestProjectState",
         { projectConfigId: projectContext.projectConfigId },

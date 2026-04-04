@@ -10,13 +10,9 @@ import {
 } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_load_project_config } from "utils/generatedEndpoints";
-import {
-  createAppDefinition,
-  type ProjectStateSingleConfig,
-} from "utils/generatedTypes";
+import { createAppDefinition, type SingleConfig } from "utils/generatedTypes";
 
-type LoadProjectConfigRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfig>;
+type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
 
 export function AppPreview() {
   const appSpec = useAppDefinition((x) => x.appSpec);

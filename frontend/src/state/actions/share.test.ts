@@ -8,8 +8,8 @@ import {
   createProjectConfig,
   createSharePolicy,
   createSingletonSections,
-  type ProjectStateSingleConfig,
   type ShareDeploymentSessionResponse,
+  type SingleConfig,
 } from "utils/generatedTypes";
 import {
   afterAll,
@@ -96,7 +96,7 @@ function buildShareSessionResponse(
 function buildProjectState(
   projectConfigId: string,
   name: string,
-): ProjectStateSingleConfig {
+): SingleConfig {
   return {
     sections: {},
     sectionImpls: {},

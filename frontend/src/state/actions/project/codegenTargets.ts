@@ -1,9 +1,9 @@
 import { useAllProjectMetadata, useProjectState } from "state/definitions";
-import type { ProjectStateSingleConfig } from "utils/generatedTypes";
+import type { SingleConfig } from "utils/generatedTypes";
 import { loadProjectState } from "./loadProject";
 
 export function applyProjectCodegenTargetsResponse(
-  projectState: ProjectStateSingleConfig,
+  projectState: SingleConfig,
 ): void {
   const { id: projectConfigId } = projectState.projectConfig;
 

@@ -49,7 +49,6 @@ import {
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  ProjectStateSingleConfig,
   PromptTemplate,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
@@ -57,6 +56,7 @@ import {
   SettaNotification,
   SettingsState,
   SharePolicy,
+  SingleConfig,
   TranscriptionProfile,
   WebsocketConnectionInfo,
 } from "utils/generatedTypes";
@@ -144,7 +144,7 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = ProjectStateSingleConfig & {
+export type ZustandProjectState = SingleConfig & {
   previewSectionVariantMap: Record<string, string>;
 };
 

@@ -12,7 +12,7 @@ import (
 
 	"setta/internal/externalagents"
 	"setta/internal/projectstate"
-	"setta/internal/projectview"
+	"setta/internal/realtime"
 	"setta/internal/transcriptionsessions"
 )
 
@@ -24,8 +24,6 @@ var discoveredOwnerTypeByWrapper = reverseDiscoveredWrapperTypeOverrides(discove
 func mergedWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 	overrides := DiscoveredWrapperTypeOverrides()
 	overrides[reflect.TypeOf((*externalagents.ChatContextUsage)(nil)).Elem()] = reflect.TypeOf((*ChatContextUsage)(nil)).Elem()
-	overrides[reflect.TypeOf((*projectview.ProjectConfig)(nil)).Elem()] = reflect.TypeOf((*ProjectConfig)(nil)).Elem()
-	overrides[reflect.TypeOf((*projectview.SingleConfig)(nil)).Elem()] = reflect.TypeOf((*ProjectStateSingleConfig)(nil)).Elem()
 	overrides[reflect.TypeOf((*transcriptionsessions.Delta)(nil)).Elem()] = reflect.TypeOf((*TranscriptionSessionDeltaResponse)(nil)).Elem()
 	return overrides
 }
@@ -95,12 +93,19 @@ func buildTSMergeGeneratedOptionsExprFromTSObject(
 	defaults map[string]any,
 	orderedKeys []string,
 	overridesExpr string,
+	resultType string,
 ) string {
 	if strings.TrimSpace(overridesExpr) == "" {
 		overridesExpr = "options"
 	}
 	var builder strings.Builder
-	builder.WriteString("mergeGeneratedOptions(\n")
+	builder.WriteString("mergeGeneratedOptions")
+	if resultType = strings.TrimSpace(resultType); resultType != "" {
+		builder.WriteString("<")
+		builder.WriteString(resultType)
+		builder.WriteString(">")
+	}
+	builder.WriteString("(\n")
 	writeTSObjectLiteral(&builder, "    ", defaults, orderedKeys)
 	builder.WriteString(",\n")
 	builder.WriteString("    ")
@@ -115,6 +120,7 @@ func buildTSMergeGeneratedOptionsExprFromGoValueTS(
 	value any,
 	orderedKeys []string,
 	overridesExpr string,
+	resultType string,
 ) string {
 	if strings.TrimSpace(overridesExpr) == "" {
 		overridesExpr = "options"
@@ -126,7 +132,7 @@ func buildTSMergeGeneratedOptionsExprFromGoValueTS(
 	if len(orderedKeys) > 0 {
 		validateTSLiteralObjectKeys(context, defaults, orderedKeys)
 	}
-	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr)
+	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr, resultType)
 }
 
 func buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
@@ -135,6 +141,7 @@ func buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
 	orderedKeys []string,
 	overridesExpr string,
 	exprOverrides map[string]string,
+	resultType string,
 ) string {
 	defaults := mustTSLiteralObjectFromGoValue(context, value)
 	if len(orderedKeys) == 0 {
@@ -150,7 +157,7 @@ func buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
 		}
 		defaults[key] = tsRawExpr{Expr: expr}
 	}
-	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr)
+	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr, resultType)
 }
 
 func fillMissingTSLiteralObjectKeysWithNil(object map[string]any, orderedKeys []string) {
@@ -167,6 +174,7 @@ func buildTSMergeGeneratedOptionsCreateBodyFromGoValueTS(
 	value any,
 	orderedKeys []string,
 	overridesExpr string,
+	resultType string,
 ) string {
 	var builder strings.Builder
 	builder.WriteString("  return ")
@@ -176,6 +184,7 @@ func buildTSMergeGeneratedOptionsCreateBodyFromGoValueTS(
 			value,
 			orderedKeys,
 			overridesExpr,
+			resultType,
 		),
 	)
 	builder.WriteString(";")
@@ -446,9 +455,39 @@ func specialTypeDeclaration(
 		return declaration, ok, err
 	}
 	if declaration, ok := specialMetadataTypeDeclaration(t); ok {
+		if err := ensureSpecialDeclarationDependencies(converter, t); err != nil {
+			return TypeDeclaration{}, false, err
+		}
 		return declaration, true, nil
 	}
 	return TypeDeclaration{}, false, nil
+}
+
+func ensureSpecialDeclarationDependencies(converter *typeConverter, t reflect.Type) error {
+	var dependencies []reflect.Type
+	switch t {
+	case reflect.TypeOf(realtime.BaseDependencyKeyUnion{}):
+		dependencies = []reflect.Type{
+			reflect.TypeOf(realtime.DependencyKeyType("")),
+			reflect.TypeOf(realtime.SectionDependencyKey{}),
+			reflect.TypeOf(realtime.SectionParamDependencyKey{}),
+		}
+	case reflect.TypeOf(realtime.BaseDependencyValueUnion{}):
+		dependencies = []reflect.Type{
+			reflect.TypeOf(realtime.DependencyValueType("")),
+			reflect.TypeOf(realtime.LiteralDependencyValue{}),
+			reflect.TypeOf(realtime.FileReadDependencyValue{}),
+			reflect.TypeOf(realtime.BinaryDependencyValue{}),
+		}
+	default:
+		return nil
+	}
+	for _, dependency := range dependencies {
+		if err := converter.ensureDeclaration(dependency); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func generatedUserDefaultCodeParamCodeObjDeclaration(

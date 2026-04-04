@@ -10,8 +10,8 @@ import type {
 import {
   createCodeSectionImpl,
   createCore,
-  createProjectStateSingleConfig,
-  createProjectStateSingleConfigWithCompletedOpIds,
+  createProjectStateSingleConfigWithCompletedOpIDs,
+  createSingleConfig,
   createUserDefaultCodeSectionImpl,
   createVariant,
   SectionTypeEnum,
@@ -202,8 +202,8 @@ function buildBackendProjectStateUpdate({
   completedOpIds?: Array<string>;
 }) {
   const currentState = useProjectState.getState();
-  return createProjectStateSingleConfigWithCompletedOpIds({
-    projectState: createProjectStateSingleConfig({
+  return createProjectStateSingleConfigWithCompletedOpIDs({
+    projectState: createSingleConfig({
       projectConfig: {
         ...currentState.projectConfig,
         id: projectConfigId,

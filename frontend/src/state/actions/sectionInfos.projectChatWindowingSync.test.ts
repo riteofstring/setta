@@ -16,7 +16,7 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfig,
+  createSingleConfig,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it } from "vitest";
 import { processProjectStateUpdateFromBackend } from "./sectionInfos";
@@ -24,7 +24,7 @@ import { processProjectStateUpdateFromBackend } from "./sectionInfos";
 function buildProjectState(
   projectChatWindowing = createProjectChatWindowingState(),
 ) {
-  return createProjectStateSingleConfig({
+  return createSingleConfig({
     projectConfig: createProjectConfig({
       id: "project-config-1",
     }),

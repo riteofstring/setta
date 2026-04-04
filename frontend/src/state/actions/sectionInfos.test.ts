@@ -39,7 +39,7 @@ import {
   createDictSectionImpl,
   createListRootSectionImpl,
   createProjectConfig,
-  createProjectStateSingleConfig,
+  createSingleConfig,
   createSingletonSections,
   createTerminalSectionImpl,
   createUserDefaultCallableSectionImpl,
@@ -49,7 +49,7 @@ import {
   createVariant,
   ListRootViewModeEnum,
   SectionTypeEnum,
-  type ProjectStateSingleConfigWithCompletedOpIds,
+  type ProjectStateSingleConfigWithCompletedOpIDs,
   type ShownParamIds,
   type ViewModeConfig,
 } from "utils/generatedTypes";
@@ -1269,7 +1269,7 @@ describe("createTopLevelSectionLayoutDict", () => {
     const sections = {
       [sectionVisible]: { id: sectionVisible },
       [sectionHidden]: { id: sectionHidden },
-    } as ProjectStateSingleConfigWithCompletedOpIds["projectState"]["sections"];
+    } as ProjectStateSingleConfigWithCompletedOpIDs["projectState"]["sections"];
     const nodeInternals = new Map([
       [
         sectionVisible,
@@ -1363,8 +1363,8 @@ describe("processProjectStateUpdateFromBackend", () => {
       viewportInitialized: true,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: createProjectStateSingleConfig({
+    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+      projectState: createSingleConfig({
         projectConfig: nextConfig,
         sections: {},
         sectionImpls: {},
@@ -1449,8 +1449,8 @@ describe("processProjectStateUpdateFromBackend", () => {
       fitViewOnInitOptions: undefined,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: createProjectStateSingleConfig({
+    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+      projectState: createSingleConfig({
         projectConfig: {
           ...projectConfig,
           viewport: null,
@@ -1561,8 +1561,8 @@ describe("processProjectStateUpdateFromBackend", () => {
       fitViewOnInitOptions: undefined,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: createProjectStateSingleConfig({
+    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+      projectState: createSingleConfig({
         projectConfig: {
           ...projectConfig,
           activeViewModeId: viewModeBId,
@@ -1664,7 +1664,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     };
 
     processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
+      projectState: createSingleConfig({
         projectConfig: {
           ...currentProjectConfig,
           topLevelSections: nextViewMode.topLevelSections,
@@ -1781,8 +1781,8 @@ describe("processProjectStateUpdateFromBackend", () => {
       requestUpdateNodeDimensions: false,
     });
 
-    const update: ProjectStateSingleConfigWithCompletedOpIds = {
-      projectState: createProjectStateSingleConfig({
+    const update: ProjectStateSingleConfigWithCompletedOpIDs = {
+      projectState: createSingleConfig({
         projectConfig: {
           ...projectConfig,
           activeViewModeId: viewModeBId,
@@ -1851,7 +1851,7 @@ describe("processProjectStateUpdateFromBackend", () => {
 
     // Only artifactGroups changes here; the backend update must still publish.
     processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
+      projectState: createSingleConfig({
         projectConfig,
         sections: {},
         sectionImpls: {},
@@ -1928,7 +1928,7 @@ describe("processProjectStateUpdateFromBackend", () => {
       // This guards the optimized branch after widening the comparator to the
       // full backend-owned project-state shape.
       processProjectStateUpdateFromBackend({
-        projectState: createProjectStateSingleConfig({
+        projectState: createSingleConfig({
           projectConfig,
           sections: {},
           sectionImpls: {},
@@ -2086,7 +2086,7 @@ describe("processProjectStateUpdateFromBackend", () => {
     ).toBe("3");
 
     processProjectStateUpdateFromBackend({
-      projectState: createProjectStateSingleConfig({
+      projectState: createSingleConfig({
         projectConfig: createProjectConfig({
           id: projectId,
           sectionVariantMap: { [sectionId]: sectionVariantBId },

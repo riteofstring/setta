@@ -147,7 +147,7 @@ type ProjectStateSectionCore = {
   sharedModifier?: { size?: ProjectStateSectionSize };
 };
 type ProjectStateViewport = { x: number; y: number; zoom: number };
-export type ProjectStateSingleConfigResponse = {
+export type SingleConfigResponse = {
   projectConfig: {
     sectionVariantMap: Record<string, string>;
     viewport?: ProjectStateViewport | null;
@@ -883,9 +883,9 @@ async function getCurrentProjectConfigName(page: Page): Promise<string> {
 
 export async function loadProjectConfig(
   page: Page,
-): Promise<ProjectStateSingleConfigResponse> {
+): Promise<SingleConfigResponse> {
   const projectConfigName = await getCurrentProjectConfigName(page);
-  const response = await postBackend<ProjectStateSingleConfigResponse>(
+  const response = await postBackend<SingleConfigResponse>(
     page,
     "/loadProjectConfig",
     { projectConfigName },

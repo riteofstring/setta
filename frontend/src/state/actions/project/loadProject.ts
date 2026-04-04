@@ -31,9 +31,8 @@ import {
 import {
   type AllProjectMetadata,
   type CreateProjectConfigResponse,
-  type ProjectStateSingleConfig,
-  type ProjectStateSingleConfigInput,
   type SettaLspDiagnosticsPayload,
+  type SingleConfig,
 } from "utils/generatedTypes";
 import { requestAIFollowSnapshot } from "../aiFollow";
 import { fetchListenerCoverageSnapshot } from "../listenerCoverage";
@@ -46,14 +45,14 @@ import {
 import { createNodesMapFromProjectConfigChildren } from "../sectionInfos";
 import { initializeServerMode } from "../serverMode";
 
-type LoadProjectConfigRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfig>;
+type LoadProjectConfigRouteResponse = ResponseDataAndStatus<SingleConfig>;
 type LatestLspDiagnosticsRouteResponse =
   ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
 type LoadAllProjectMetadataRouteResponse =
   ResponseDataAndStatus<AllProjectMetadata>;
 type CreateProjectConfigRouteResponse =
   ResponseDataAndStatus<CreateProjectConfigResponse>;
+type LoadProjectStateInput = SingleConfig | Partial<SingleConfig>;
 
 export async function loadProjectConfig({ projectConfigName }) {
   const res: LoadProjectConfigRouteResponse = await route_load_project_config({
@@ -80,8 +79,8 @@ export async function loadProjectConfig({ projectConfigName }) {
 }
 
 function validateLoadedProjectState(
-  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
-): ProjectStateSingleConfig {
+  projectState: LoadProjectStateInput,
+): SingleConfig {
   if (projectState.projectConfig.windowSpaces === undefined) {
     throw new Error(
       "Loaded project state is missing projectConfig.windowSpaces.",
@@ -90,12 +89,10 @@ function validateLoadedProjectState(
   if (projectState.projectChatWindowing === undefined) {
     throw new Error("Loaded project state is missing projectChatWindowing.");
   }
-  return projectState as ProjectStateSingleConfig;
+  return projectState as SingleConfig;
 }
 
-export async function loadProjectState(
-  projectState: ProjectStateSingleConfigInput | ProjectStateSingleConfig,
-) {
+export async function loadProjectState(projectState: LoadProjectStateInput) {
   const normalizedProjectState = validateLoadedProjectState(projectState);
   const { viewport, viewportInitialized } =
     normalizedProjectState.projectConfig;

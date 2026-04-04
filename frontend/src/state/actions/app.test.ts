@@ -11,7 +11,7 @@ import {
   createSharePolicy,
   createSingletonSections,
   type AppDeploymentSessionResponse,
-  type ProjectStateSingleConfig,
+  type SingleConfig,
 } from "utils/generatedTypes";
 import {
   afterAll,
@@ -91,7 +91,7 @@ function buildAppSessionResponse(
 function buildProjectState(
   projectConfigId: string,
   name: string,
-): ProjectStateSingleConfig {
+): SingleConfig {
   return {
     sections: {},
     sectionImpls: {},

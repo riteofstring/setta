@@ -64,7 +64,7 @@ import {
   createWebsocketMsgCurrentAddressUpdate,
   type AuthRefreshStatusResponse,
   type BinaryContentRef,
-  type ProjectStateSingleConfigWithCompletedOpIds,
+  type ProjectStateSingleConfigWithCompletedOpIDs,
   type SettaLspDiagnosticsPayload,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
@@ -152,7 +152,7 @@ type AuthRefreshStatusRouteResponse =
   ResponseDataAndStatus<AuthRefreshStatusResponse>;
 type BinaryUploadRouteResponse = ResponseDataAndStatus<BinaryContentRef>;
 type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 type LatestLSPDiagnosticsRouteResponse =
   ResponseDataAndStatus<SettaLspDiagnosticsPayload>;
 

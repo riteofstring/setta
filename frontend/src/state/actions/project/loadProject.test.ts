@@ -24,11 +24,11 @@ import {
   createProjectChatWindowInstance,
   createProjectChatWindowingState,
   createProjectConfig,
-  createProjectStateSingleConfig,
   createSettaLspDiagnosticsPayload,
   createSettaProjectConfigDiagnostics,
+  createSingleConfig,
   createWindowSpaceConfig,
-  type ProjectStateSingleConfigInput,
+  type SingleConfig,
 } from "utils/generatedTypes";
 import {
   afterAll,
@@ -212,7 +212,7 @@ describe("loadAllProjectMetadata", () => {
   });
 
   it("hydrates a project config and triggers the Go-owned follow-up reads", async () => {
-    const loadedProjectState = createProjectStateSingleConfig({
+    const loadedProjectState = createSingleConfig({
       projectConfig: createProjectConfig({
         id: "project-loaded",
         name: "Loaded Project",
@@ -314,7 +314,7 @@ describe("loadProjectState", () => {
   });
 
   it("throws when loaded project config is missing window spaces", async () => {
-    const invalidProjectState: ProjectStateSingleConfigInput = {
+    const invalidProjectState: Partial<SingleConfig> = {
       projectConfig: {
         id: "project-invalid",
         name: "Invalid Project",
@@ -327,7 +327,7 @@ describe("loadProjectState", () => {
   });
 
   it("throws when loaded project state is missing project chat windowing", async () => {
-    const invalidProjectState: ProjectStateSingleConfigInput = {
+    const invalidProjectState: Partial<SingleConfig> = {
       projectConfig: createProjectConfig({
         id: "project-missing-windowing",
         name: "Missing Windowing",
@@ -340,7 +340,7 @@ describe("loadProjectState", () => {
   });
 
   it("keeps backend project chat windowing authoritative on load", async () => {
-    const backendProjectState: ProjectStateSingleConfigInput = {
+    const backendProjectState: Partial<SingleConfig> = {
       projectConfig: createProjectConfig({
         id: "project-restore",
         name: "Restore Project",

@@ -20,14 +20,14 @@ import {
 } from "utils/generatedEndpoints";
 import {
   type CreateChildSectionsResponse,
-  type ProjectStateSingleConfigWithCompletedOpIds,
+  type ProjectStateSingleConfigWithCompletedOpIDs,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
 type CreateChildSectionsRouteResponse =
   ResponseDataAndStatus<CreateChildSectionsResponse>;
 type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 
 export function AttachedTerminalControls({
   sectionId,

@@ -53,10 +53,10 @@ import {
   isBaseParentSectionImpl,
   isBaseSectionWithParamsImpl,
   ListRootViewModeEnum,
-  ProjectStateSingleConfig,
-  ProjectStateSingleConfigWithCompletedOpIds,
+  ProjectStateSingleConfigWithCompletedOpIDs,
   SectionType,
   SectionTypeEnum,
+  SingleConfig,
   Variant,
   Viewport,
 } from "utils/generatedTypes";
@@ -100,7 +100,7 @@ function getEffectiveImpl<T extends object>(
 }
 
 function getEffectiveSectionImplIfPresent(
-  projectState: ProjectStateSingleConfig,
+  projectState: SingleConfig,
   sectionId: string,
 ): BaseSectionImplUnion | null {
   const variantId = projectState.projectConfig.sectionVariantMap[sectionId];
@@ -128,7 +128,7 @@ type ChatSectionImpl = Extract<
 >;
 
 function mergeStreamingChatSections(
-  projectState: ProjectStateSingleConfig,
+  projectState: SingleConfig,
   currentState: ZustandProjectState,
 ): string[] {
   const mergedSectionIds: string[] = [];
@@ -1079,8 +1079,8 @@ export function manualDndChildrenReset() {
 }
 
 function getComparableProjectState(
-  state: ProjectStateSingleConfig | ZustandProjectState,
-): ProjectStateSingleConfig {
+  state: SingleConfig | ZustandProjectState,
+): SingleConfig {
   return sanitizeProjectStateActiveIds({
     sections: state.sections,
     sectionImpls: state.sectionImpls,
@@ -1100,8 +1100,8 @@ function getComparableProjectState(
 }
 
 function pruneProjectChatWindowingForExistingSections(
-  projectState: ProjectStateSingleConfig,
-): ProjectStateSingleConfig {
+  projectState: SingleConfig,
+): SingleConfig {
   const existingSectionIds = new Set(Object.keys(projectState.sections));
   let changed = false;
   const nextInstancesById = Object.fromEntries(
@@ -1133,7 +1133,7 @@ function pruneProjectChatWindowingForExistingSections(
 }
 
 export function processProjectStateUpdateFromBackend(
-  x: ProjectStateSingleConfigWithCompletedOpIds,
+  x: ProjectStateSingleConfigWithCompletedOpIDs,
 ) {
   const projectConfigId = getCurrProjectConfigId();
   if (x.projectState.projectConfig.id !== projectConfigId) {
@@ -1232,9 +1232,7 @@ export function processProjectStateUpdateFromBackend(
   );
 }
 
-function applyViewportFromProjectState(
-  projectState: ProjectStateSingleConfig,
-): boolean {
+function applyViewportFromProjectState(projectState: SingleConfig): boolean {
   const { viewport, viewportInitialized } = projectState.projectConfig;
   const currentState = useProjectState.getState();
   const currentConfig = currentState.projectConfig;
@@ -1273,7 +1271,7 @@ function applyViewportFromProjectState(
 }
 
 function getVisibleTopLevelSectionIdsForAutoFit(
-  projectState: ProjectStateSingleConfig,
+  projectState: SingleConfig,
 ): string[] {
   const topLevelSections = getActiveViewModeTopLevelSections(projectState);
   const orderedSectionIds = Object.keys(topLevelSections);
@@ -1291,9 +1289,7 @@ function getVisibleTopLevelSectionIdsForAutoFit(
   );
 }
 
-function getFitViewOptionsForVisibleSections(
-  projectState: ProjectStateSingleConfig,
-) {
+function getFitViewOptionsForVisibleSections(projectState: SingleConfig) {
   const { activeViewModeId, isEditingViewMode, viewModes } =
     projectState.projectConfig;
   if (isEditingViewMode) {
@@ -1566,7 +1562,7 @@ export function getSectionShouldRender(
   return isEditingViewMode || visibility;
 }
 
-export function getActiveViewModeConfig(state: ProjectStateSingleConfig) {
+export function getActiveViewModeConfig(state: SingleConfig) {
   const { activeViewModeId, viewModes } = state.projectConfig;
   if (!activeViewModeId) {
     throw new Error("Active view mode is not set");
@@ -1578,9 +1574,7 @@ export function getActiveViewModeConfig(state: ProjectStateSingleConfig) {
   return viewMode;
 }
 
-export function getActiveViewModeTopLevelSections(
-  projectState: ProjectStateSingleConfig,
-) {
+export function getActiveViewModeTopLevelSections(projectState: SingleConfig) {
   const { activeViewModeId, topLevelSections, viewModes } =
     projectState.projectConfig;
   if (!activeViewModeId || !(activeViewModeId in viewModes)) {
@@ -1690,13 +1684,13 @@ export function deleteAllActiveSections() {
 }
 
 export function createTopLevelSectionLayoutDict(
-  sections: ProjectStateSingleConfig["sections"],
+  sections: SingleConfig["sections"],
   nodeInternals: ZustandNodeInternalsState["x"],
   existingLayouts:
-    | ProjectStateSingleConfig["projectConfig"]["topLevelSections"]
+    | SingleConfig["projectConfig"]["topLevelSections"]
     | null = null,
 ) {
-  const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
+  const topLevelSections: SingleConfig["projectConfig"]["topLevelSections"] =
     {};
   if (existingLayouts) {
     for (const [sectionId, layout] of Object.entries(existingLayouts)) {
@@ -1722,7 +1716,7 @@ export function createTopLevelSectionLayoutDict(
 }
 
 type TopLevelSectionLayoutMap =
-  ProjectStateSingleConfig["projectConfig"]["topLevelSections"];
+  SingleConfig["projectConfig"]["topLevelSections"];
 
 type PendingViewportState = Viewport | null;
 

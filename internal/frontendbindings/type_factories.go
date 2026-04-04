@@ -39,11 +39,15 @@ func buildGenericGoBackedCreateBodyTS(
 	}
 	defaultsObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
 	var builder strings.Builder
-	builder.WriteString("  const defaults = ")
+	builder.WriteString("  const defaults: ")
+	builder.WriteString(declarationName)
+	builder.WriteString(" = ")
 	writeTSObjectLiteral(&builder, "  ", defaultsObject, goJSONFieldOrder(defaultValue))
 	builder.WriteString(";\n")
 	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
+	builder.WriteString("    ...mergeGeneratedOptions<")
+	builder.WriteString(declarationName)
+	builder.WriteString(">(defaults, options),\n")
 	for _, field := range fieldSpecs {
 		builder.WriteString("    ")
 		builder.WriteString(field.Name)
@@ -358,7 +362,7 @@ func objectDeclarationWithGoBackedCreateExpr(
 ) TypeDeclaration {
 	return objectDeclarationWithCreateExpr(
 		name,
-		buildGoBackedCreateExprTS("frontend create defaults "+name, defaultValue, properties),
+		buildGoBackedCreateExprTS("frontend create defaults "+name, name, defaultValue, properties),
 		properties...,
 	)
 }
@@ -370,28 +374,34 @@ func buildGoBackedSectionDefaultsCreateExprTS(implType string, properties []Type
 	}
 	return buildGoBackedCreateExprTS(
 		"frontend user default section defaults "+implType,
+		"UserDefault"+implType+"SectionImpl",
 		defaults,
 		properties,
 	)
 }
 
-func buildGoBackedCreateExprTS(context string, value any, properties []TypeProperty) string {
+func buildGoBackedCreateExprTS(
+	context string,
+	resultType string,
+	value any,
+	properties []TypeProperty,
+) string {
 	filteredDefaults := filterObjectByTypeProperties(
 		context,
 		mustTSLiteralObjectFromGoValue(context, value),
 		properties,
 	)
-	var builder strings.Builder
-	builder.WriteString("mergeGeneratedOptions(\n")
-	writeTSObjectLiteral(&builder, "    ", filteredDefaults, orderedTypePropertyNames(properties))
-	builder.WriteString(",\n")
-	builder.WriteString("    options,\n")
-	builder.WriteString("  )")
-	return builder.String()
+	return buildTSMergeGeneratedOptionsExprFromTSObject(
+		filteredDefaults,
+		orderedTypePropertyNames(properties),
+		"options",
+		resultType,
+	)
 }
 
 func buildGoBackedCreateExprWithExprOverridesTS(
 	context string,
+	resultType string,
 	value any,
 	properties []TypeProperty,
 	exprOverrides map[string]string,
@@ -408,6 +418,7 @@ func buildGoBackedCreateExprWithExprOverridesTS(
 		orderedTypePropertyNames(properties),
 		"options",
 		exprOverrides,
+		resultType,
 	)
 }
 

@@ -14,7 +14,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   BinaryContentRef,
-  type ProjectStateSingleConfigWithCompletedOpIds,
+  type ProjectStateSingleConfigWithCompletedOpIDs,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 import { resolveRunRequest } from "utils/runCapabilities";
@@ -29,7 +29,7 @@ import {
 } from "./sectionInfos";
 
 type LatestProjectStateRouteResponse =
-  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIds>;
+  ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 type RunCodeRouteResponse = ResponseDataAndStatus<null>;
 
 export async function runCodeBlock(sectionId: string | null) {

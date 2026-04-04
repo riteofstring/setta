@@ -6,6 +6,7 @@ import (
 
 	"setta/internal/agentruns"
 	"setta/internal/deployments"
+	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
@@ -362,14 +363,28 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"entryCodeBlockValue": true,
 		},
 	},
-	reflect.TypeOf(ProjectStateSingleConfig{}): {
-		DefaultValue:  frontendDefaultProjectStateSingleConfigValue(),
+	reflect.TypeOf(projectview.SingleConfig{}): {
+		DefaultValue:  projectview.FrontendDefaultSingleConfig(),
+		HasCreateExpr: true,
+		PropertyTypeExprOverrides: map[string]string{
+			"sectionImpls": "Record<string, BaseSectionImplUnion>",
+			"codeObjImpls": "Record<string, BaseCodeObjImplUnion>",
+		},
+	},
+	reflect.TypeOf(httpapi.ProjectStateSingleConfigWithCompletedOpIDs{}): {
+		DefaultValue: httpapi.ProjectStateSingleConfigWithCompletedOpIDs{
+			ProjectState:   projectview.FrontendDefaultSingleConfig(),
+			CompletedOpIDs: []string{},
+			PendingOpIDs:   []string{},
+		},
 		HasCreateExpr: true,
 	},
-	reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}): {
-		DeclarationName: "ProjectStateSingleConfigWithCompletedOpIds",
-		DefaultValue:    frontendDefaultProjectStateSingleConfigWithCompletedOpIdsValue(),
-		HasCreateExpr:   true,
+	reflect.TypeOf(projectview.ProjectConfig{}): {
+		DefaultValue:  projectview.FrontendDefaultProjectConfig(),
+		HasCreateExpr: true,
+		PropertyTypeExprOverrides: map[string]string{
+			"codegenTargets": "Array<ProjectCodegenTarget>",
+		},
 	},
 	reflect.TypeOf(SharePolicy{}): {
 		DefaultValue:  deployments.DefaultPolicy(),
