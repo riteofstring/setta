@@ -16,6 +16,7 @@ import (
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
 var discoveredWrapperTypeOverrides = DiscoveredWrapperTypeOverrides()
+var discoveredOwnerTypeByWrapper = reverseDiscoveredWrapperTypeOverrides(discoveredWrapperTypeOverrides)
 
 type tsLiteralField struct {
 	Name  string
@@ -270,6 +271,22 @@ func appendGoJSONFieldOrder(valueType reflect.Type, order *[]string) {
 		}
 		*order = append(*order, name)
 	}
+}
+
+func reverseDiscoveredWrapperTypeOverrides(
+	overrides map[reflect.Type]reflect.Type,
+) map[reflect.Type]reflect.Type {
+	reversed := make(map[reflect.Type]reflect.Type, len(overrides))
+	for ownerType, wrapperType := range overrides {
+		if ownerType == nil || wrapperType == nil {
+			continue
+		}
+		if _, exists := reversed[wrapperType]; exists {
+			continue
+		}
+		reversed[wrapperType] = ownerType
+	}
+	return reversed
 }
 
 func goJSONFieldOrderMap[T any](values map[string]T) map[string][]string {

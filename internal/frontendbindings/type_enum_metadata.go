@@ -5,7 +5,6 @@ import (
 	"strings"
 	"unicode"
 
-	"setta/internal/projectstate"
 	"setta/internal/stringenumvalues"
 )
 
@@ -18,17 +17,6 @@ const (
 )
 
 var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
-	reflect.TypeOf(SectionType("")): func() []EnumValue {
-		values := frontendBindingStructFieldEnumValues(
-			reflect.TypeOf(projectstate.FrontendSectionSizingPolicyByType{}),
-		)
-		return frontendBindingMoveEnumValueBefore(values, "TextBlock", "Prompt")
-	},
-	reflect.TypeOf(CodeObjType("")): func() []EnumValue {
-		return frontendBindingStructFieldEnumValues(
-			reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}),
-		)
-	},
 	reflect.TypeOf(CodeLanguage("")): frontendBindingFixedEnumValues(
 		"python",
 		"bash",
@@ -40,81 +28,15 @@ var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
 		"markdown",
 		"plaintext",
 	),
-	reflect.TypeOf(ConfigLanguage("")): frontendBindingFixedEnumValues("python", "json"),
-	reflect.TypeOf(ParameterPassingStyle("")): frontendBindingFixedEnumValues(
-		"DEFAULT",
-		"ARGS",
-		"KWARGS",
-		"POSITIONAL_ONLY",
-		"KEYWORD_ONLY",
-	),
-	reflect.TypeOf(ParamNameType("")): frontendBindingFixedEnumValues("CODE", "TEXT"),
-	reflect.TypeOf(ButtonActionMode("")): frontendBindingFixedEnumValues(
-		"WEBSOCKET_LISTENER",
-		"HTTP_REQUEST",
-		"SETTA_API",
-	),
-	reflect.TypeOf(HttpRequestMethod("")): frontendBindingFixedEnumValues(
-		"GET",
-		"POST",
-		"PUT",
-		"PATCH",
-		"DELETE",
-		"HEAD",
-		"OPTIONS",
-	),
-	reflect.TypeOf(DropzoneMode("")):         frontendBindingFixedEnumValues("STATEFUL", "STATELESS"),
-	reflect.TypeOf(TextParamInputUIType("")): frontendBindingFixedEnumValues("plain", "time", "date"),
-	reflect.TypeOf(TimeDisplayFormat("")): frontendBindingFixedEnumValues(
-		"twenty_four_hour",
-		"twelve_hour",
-	),
-	reflect.TypeOf(TimeControlMode("")):       frontendBindingFixedEnumValues("input", "display"),
-	reflect.TypeOf(TimeDisplayFont("")):       frontendBindingFixedEnumValues("clock", "monospace", "system"),
-	reflect.TypeOf(DateDisplayFormat("")):     frontendBindingFixedEnumValues("iso", "us", "eu", "long"),
-	reflect.TypeOf(DateControlMode("")):       frontendBindingFixedEnumValues("input", "calendar"),
-	reflect.TypeOf(DateSelectionMode("")):     frontendBindingFixedEnumValues("single", "multiple"),
-	reflect.TypeOf(DateCalendarWeekStart("")): frontendBindingFixedEnumValues("sunday", "monday"),
-	reflect.TypeOf(BackgroundVariant("")):     frontendBindingFixedEnumValues("lines", "dots", "cross"),
-	reflect.TypeOf(SelectionMode("")):         frontendBindingFixedEnumValues("partial", "full"),
-	reflect.TypeOf(PanOnScrollMode("")):       frontendBindingFixedEnumValues("free", "vertical", "horizontal"),
+	reflect.TypeOf(BackgroundVariant("")): frontendBindingFixedEnumValues("lines", "dots", "cross"),
+	reflect.TypeOf(SelectionMode("")):     frontendBindingFixedEnumValues("partial", "full"),
+	reflect.TypeOf(PanOnScrollMode("")):   frontendBindingFixedEnumValues("free", "vertical", "horizontal"),
 	reflect.TypeOf(MetaControlSizeMode("")): frontendBindingFixedEnumValues(
 		"any",
 		"auto_only",
 		"manual_only",
 	),
 	reflect.TypeOf(SectionSizeMode("")): frontendBindingFixedEnumValues("auto"),
-	reflect.TypeOf(TaskBoardTaskRecurrence("")): frontendBindingFixedEnumValues(
-		"none",
-		"hourly",
-		"daily",
-		"specified_days",
-		"specified_months",
-		"specified_years",
-	),
-	reflect.TypeOf(TaskBoardRecurringWeekday("")): frontendBindingFixedEnumValues(
-		"monday",
-		"tuesday",
-		"wednesday",
-		"thursday",
-		"friday",
-		"saturday",
-		"sunday",
-	),
-	reflect.TypeOf(TaskBoardRecurringMonth("")): frontendBindingFixedEnumValues(
-		"january",
-		"february",
-		"march",
-		"april",
-		"may",
-		"june",
-		"july",
-		"august",
-		"september",
-		"october",
-		"november",
-		"december",
-	),
 	reflect.TypeOf(AgenticEdgeKind("")): frontendBindingFixedEnumValues(
 		"chat_chat",
 		"section_chat",
@@ -174,13 +96,34 @@ func frontendBindingEnumValues(t reflect.Type) ([]EnumValue, bool, error) {
 		return nil, false, err
 	}
 	if !ok {
+		if ownerType, ownerOK := discoveredOwnerTypeByWrapper[t]; ownerOK {
+			discovered, ok, err = stringenumvalues.Default().Values(ownerType)
+		}
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
 		return nil, false, nil
 	}
 
-	return frontendBindingEnumValuesFromDiscovered(
+	return frontendBindingAdjustedDiscoveredEnumValues(t, discovered), true, nil
+}
+
+func frontendBindingAdjustedDiscoveredEnumValues(
+	t reflect.Type,
+	discovered []stringenumvalues.EnumValue,
+) []EnumValue {
+	values := frontendBindingEnumValuesFromDiscovered(
 		discovered,
 		frontendBindingEnumNamingModes[t],
-	), true, nil
+	)
+	switch t {
+	case reflect.TypeOf(SectionType("")):
+		return frontendBindingMoveEnumValueBefore(values, "TextBlock", "Prompt")
+	default:
+		return values
+	}
 }
 
 func frontendBindingFixedEnumValues(values ...string) func() []EnumValue {
