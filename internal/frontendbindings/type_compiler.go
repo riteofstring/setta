@@ -58,7 +58,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		if err := c.ensureDeclaration(t); err != nil {
 			return "", err
 		}
-		return t.Name(), nil
+		return frontendBindingTypeName(t), nil
 	}
 
 	switch t.Kind() {
@@ -105,7 +105,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 			if err := c.ensureDeclaration(t); err != nil {
 				return "", err
 			}
-			return t.Name(), nil
+			return frontendBindingTypeName(t), nil
 		}
 		return "", fmt.Errorf("unsupported Go type for TS conversion: %s", t.String())
 	}
@@ -144,7 +144,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 
 	if values, ok := c.stringEnums[t]; ok {
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:       t.Name(),
+			Name:       frontendBindingTypeName(t),
 			Kind:       "enum",
 			EnumValues: values,
 		})
@@ -161,7 +161,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			})
 		}
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:       t.Name(),
+			Name:       frontendBindingTypeName(t),
 			Kind:       "enum",
 			EnumValues: enumValues,
 		})
@@ -175,21 +175,21 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			return err
 		}
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:       t.Name(),
+			Name:       frontendBindingTypeName(t),
 			Kind:       "object",
 			Properties: properties,
 		})
 		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.String:
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  t.Name(),
+			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
 			Alias: "string",
 		})
 		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.Bool:
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  t.Name(),
+			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
 			Alias: "boolean",
 		})
@@ -198,7 +198,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  t.Name(),
+			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
 			Alias: "number",
 		})
@@ -209,7 +209,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			return err
 		}
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  t.Name(),
+			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
 			Alias: fmt.Sprintf("Array<%s>", inner),
 		})
@@ -224,7 +224,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			return err
 		}
 		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:  t.Name(),
+			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
 			Alias: fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr),
 		})
@@ -244,6 +244,17 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	return t
 }
 
+func frontendBindingTypeName(t reflect.Type) string {
+	t = canonicalFrontendBindingType(t)
+	if t == nil {
+		return ""
+	}
+	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok && spec.DeclarationName != "" {
+		return spec.DeclarationName
+	}
+	return t.Name()
+}
+
 func (c *typeConverter) reflectedObjectDeclaration(
 	t reflect.Type,
 	spec reflectedObjectDeclarationSpec,
@@ -260,11 +271,12 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	if len(spec.ExtraProperties) > 0 {
 		properties = append(properties, spec.ExtraProperties...)
 	}
-	declaration := objectDeclaration(t.Name(), properties...)
+	declarationName := frontendBindingTypeName(t)
+	declaration := objectDeclaration(declarationName, properties...)
 	if spec.CreateBody != "" {
 		declaration.CreateBody = spec.CreateBody
 	} else if spec.HasCreateExpr {
-		context := "frontend create defaults " + t.Name()
+		context := "frontend create defaults " + declarationName
 		if len(spec.CreateExprOverrides) > 0 {
 			declaration.CreateExpr = buildGoBackedCreateExprWithExprOverridesTS(
 				context,

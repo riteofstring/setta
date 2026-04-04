@@ -521,6 +521,187 @@ func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarati
 	}
 }
 
+func TestTypeConverterReflectsChatSupportContractsWithoutManualDeclarations(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
+	tests := []struct {
+		name               string
+		root               reflect.Type
+		properties         []TypeProperty
+		expectCreateHelper bool
+	}{
+		{
+			name: "ChatFileAttachment",
+			root: reflect.TypeOf(ChatFileAttachment{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "mimeType", TypeExpr: "string | null", Optional: true},
+				{Name: "size", TypeExpr: "number | null", Optional: true},
+			},
+		},
+		{
+			name: "MessageTextContent",
+			root: reflect.TypeOf(MessageTextContent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"text"`, Optional: false},
+				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "MessageImageUrl",
+			root: reflect.TypeOf(MessageImageURL{}),
+			properties: []TypeProperty{
+				{Name: "url", TypeExpr: "string", Optional: false},
+				{Name: "detail", TypeExpr: `"auto" | "low" | "high" | null`, Optional: true},
+			},
+		},
+		{
+			name: "MessageImageUrlContent",
+			root: reflect.TypeOf(MessageImageURLContent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"image_url"`, Optional: false},
+				{Name: "image_url", TypeExpr: "MessageImageUrl", Optional: false},
+			},
+		},
+		{
+			name: "MessageThinkingContent",
+			root: reflect.TypeOf(MessageThinkingContent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"thinking"`, Optional: false},
+				{Name: "thinking", TypeExpr: "string", Optional: false},
+				{Name: "summary", TypeExpr: "string | null", Optional: true},
+				{Name: "signature", TypeExpr: "string | null", Optional: true},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "ToolReferenceContent",
+			root: reflect.TypeOf(ToolReferenceContent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"tool_reference"`, Optional: false},
+				{Name: "tool_name", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "ToolCallFunction",
+			root: reflect.TypeOf(ToolCallFunction{}),
+			properties: []TypeProperty{
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "arguments", TypeExpr: "{ [key: string]: JSONValue | undefined }", Optional: false},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "ToolCall",
+			root: reflect.TypeOf(ToolCall{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "type", TypeExpr: `"function"`, Optional: false},
+				{Name: "function", TypeExpr: "ToolCallFunction", Optional: false},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "SystemChatMessage",
+			root: reflect.TypeOf(SystemChatMessage{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContent>", Optional: false},
+				{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.system", Optional: false},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "AssistantChatMessage",
+			root: reflect.TypeOf(AssistantChatMessage{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContent>", Optional: false},
+				{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.assistant", Optional: false},
+				{Name: "tool_calls", TypeExpr: "Array<ToolCall> | null", Optional: true},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "UserChatMessage",
+			root: reflect.TypeOf(UserChatMessage{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContent>", Optional: false},
+				{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.user", Optional: false},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "ToolChatMessage",
+			root: reflect.TypeOf(ToolChatMessage{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.tool", Optional: false},
+				{Name: "tool_call_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_name", TypeExpr: "string | null", Optional: true},
+				{Name: "arguments", TypeExpr: "JSONValue", Optional: false},
+				{Name: "result", TypeExpr: "JSONValue", Optional: false},
+				{Name: "content", TypeExpr: "Array<ToolReferenceContent | Record<string, unknown>>", Optional: false},
+				{Name: "is_error", TypeExpr: "boolean", Optional: false},
+				{Name: "started_at", TypeExpr: "string", Optional: false},
+				{Name: "completed_at", TypeExpr: "string | null", Optional: true},
+			},
+			expectCreateHelper: true,
+		},
+		{
+			name: "ChatSectionBranch",
+			root: reflect.TypeOf(ChatSectionBranch{}),
+			properties: []TypeProperty{
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "createdAt", TypeExpr: "number", Optional: false},
+				{Name: "parentBranchId", TypeExpr: "string | null", Optional: true},
+				{Name: "branchFromMessageId", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "ChatSectionState",
+			root: reflect.TypeOf(ChatSectionState{}),
+			properties: []TypeProperty{
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "inputText", TypeExpr: "string", Optional: false},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: false},
+				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "activeBranchId", TypeExpr: "string | null", Optional: true},
+				{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want object", tt.name, declaration.Kind)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if tt.expectCreateHelper && declaration.CreateExpr == "" {
+				t.Fatalf("%s should use a Go-backed create expr", tt.name)
+			}
+		})
+	}
+}
+
 func TestTypeConverterReflectsRealtimeContractsWithoutManualDeclarations(t *testing.T) {
 	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {

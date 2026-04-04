@@ -1030,7 +1030,7 @@ func frontendTypeName(t reflect.Type) string {
 	if t == nil || t.Name() == "" || t.PkgPath() == "" {
 		return ""
 	}
-	return t.Name()
+	return frontendBindingTypeName(t)
 }
 
 func tsTypeReference(t reflect.Type) string {
@@ -1047,7 +1047,7 @@ func tsTypeReference(t reflect.Type) string {
 	}
 	ref := "null"
 	if t.PkgPath() != "" && t.Name() != "" {
-		ref = "gt." + t.Name()
+		ref = "gt." + frontendBindingTypeName(t)
 	}
 	if nullable && ref != "null" {
 		return ref + " | null"

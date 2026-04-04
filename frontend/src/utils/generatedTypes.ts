@@ -608,6 +608,13 @@ export type UpdateTranscriptionProfileRequestInput = {
   profile: TranscriptionProfile;
 };
 
+export type ChatSectionBranch = {
+  messages: Array<BaseChatMessageUnion>;
+  createdAt: number;
+  parentBranchId?: string | null;
+  branchFromMessageId?: string | null;
+};
+
 export type ChatSectionState = {
   messages: Array<BaseChatMessageUnion>;
   inputText: string;
@@ -6277,13 +6284,6 @@ export function createToolChatMessage(
     options,
   );
 }
-
-export type ChatSectionBranch = {
-  messages: Array<BaseChatMessageUnion>;
-  createdAt: number;
-  parentBranchId?: string | null;
-  branchFromMessageId?: string | null;
-};
 
 type UserDefaultChatSectionImpl = {
   isFrozen: boolean;

@@ -4,7 +4,6 @@ import (
 	"reflect"
 
 	"setta/internal/projectstate"
-	"setta/internal/scriptablechat"
 )
 
 func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
@@ -1162,117 +1161,13 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"JSONValue",
 			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
 		),
-		reflect.TypeOf(ChatFileAttachment{}): objectDeclaration(
-			"ChatFileAttachment",
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "name", TypeExpr: "string"},
-			TypeProperty{Name: "mimeType", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "size", TypeExpr: "number | null", Optional: true},
-		),
-		reflect.TypeOf(MessageTextContent{}): objectDeclarationWithGoBackedCreateExpr(
-			"MessageTextContent",
-			scriptablechat.FrontendDefaultMessageTextContent(),
-			TypeProperty{Name: "type", TypeExpr: `"text"`},
-			TypeProperty{Name: "text", TypeExpr: "string"},
-		),
-		reflect.TypeOf(MessageImageURL{}): objectDeclaration(
-			"MessageImageUrl",
-			TypeProperty{Name: "url", TypeExpr: "string"},
-			TypeProperty{Name: "detail", TypeExpr: `"auto" | "low" | "high" | null`, Optional: true},
-		),
-		reflect.TypeOf(MessageImageURLContent{}): objectDeclaration(
-			"MessageImageUrlContent",
-			TypeProperty{Name: "type", TypeExpr: `"image_url"`},
-			TypeProperty{Name: "image_url", TypeExpr: "MessageImageUrl"},
-		),
-		reflect.TypeOf(MessageThinkingContent{}): objectDeclarationWithGoBackedCreateExpr(
-			"MessageThinkingContent",
-			scriptablechat.FrontendDefaultMessageThinkingContent(),
-			TypeProperty{Name: "type", TypeExpr: `"thinking"`},
-			TypeProperty{Name: "thinking", TypeExpr: "string"},
-			TypeProperty{Name: "summary", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "signature", TypeExpr: "string | null", Optional: true},
-		),
 		reflect.TypeOf(MessageContent{}): aliasDeclaration(
 			"MessageContent",
 			"MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
 		),
-		reflect.TypeOf(ToolReferenceContent{}): objectDeclaration(
-			"ToolReferenceContent",
-			TypeProperty{Name: "type", TypeExpr: `"tool_reference"`},
-			TypeProperty{Name: "tool_name", TypeExpr: "string"},
-		),
-		reflect.TypeOf(ToolCallFunction{}): objectDeclarationWithGoBackedCreateExpr(
-			"ToolCallFunction",
-			scriptablechat.FrontendDefaultToolCallFunction(),
-			TypeProperty{Name: "name", TypeExpr: "string"},
-			TypeProperty{Name: "arguments", TypeExpr: "{ [key: string]: JSONValue | undefined }"},
-		),
-		reflect.TypeOf(ToolCall{}): objectDeclarationWithGoBackedCreateExpr(
-			"ToolCall",
-			scriptablechat.FrontendDefaultToolCall(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "type", TypeExpr: `"function"`},
-			TypeProperty{Name: "function", TypeExpr: "ToolCallFunction"},
-		),
-		reflect.TypeOf(SystemChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
-			"SystemChatMessage",
-			scriptablechat.FrontendDefaultSystemChatMessage(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "content", TypeExpr: "Array<MessageContent>"},
-			TypeProperty{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>"},
-			TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.system"},
-		),
-		reflect.TypeOf(AssistantChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
-			"AssistantChatMessage",
-			scriptablechat.FrontendDefaultAssistantChatMessage(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "content", TypeExpr: "Array<MessageContent>"},
-			TypeProperty{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>"},
-			TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.assistant"},
-			TypeProperty{Name: "tool_calls", TypeExpr: "Array<ToolCall> | null", Optional: true},
-		),
-		reflect.TypeOf(UserChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
-			"UserChatMessage",
-			scriptablechat.FrontendDefaultUserChatMessage(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "content", TypeExpr: "Array<MessageContent>"},
-			TypeProperty{Name: "attachments", TypeExpr: "Array<ChatFileAttachment>"},
-			TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.user"},
-		),
-		reflect.TypeOf(ToolChatMessage{}): objectDeclarationWithGoBackedCreateExpr(
-			"ToolChatMessage",
-			scriptablechat.FrontendDefaultToolChatMessage(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "role", TypeExpr: "typeof ChatRoleEnum.tool"},
-			TypeProperty{Name: "tool_call_id", TypeExpr: "string"},
-			TypeProperty{Name: "tool_name", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "arguments", TypeExpr: "JSONValue"},
-			TypeProperty{Name: "result", TypeExpr: "JSONValue"},
-			TypeProperty{Name: "content", TypeExpr: "Array<ToolReferenceContent | Record<string, unknown>>"},
-			TypeProperty{Name: "is_error", TypeExpr: "boolean"},
-			TypeProperty{Name: "started_at", TypeExpr: "string"},
-			TypeProperty{Name: "completed_at", TypeExpr: "string | null", Optional: true},
-		),
 		reflect.TypeOf(BaseChatMessageUnion{}): aliasDeclaration(
 			"BaseChatMessageUnion",
 			"SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
-		),
-		reflect.TypeOf(ChatSectionBranch{}): objectDeclaration(
-			"ChatSectionBranch",
-			TypeProperty{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>"},
-			TypeProperty{Name: "createdAt", TypeExpr: "number"},
-			TypeProperty{Name: "parentBranchId", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "branchFromMessageId", TypeExpr: "string | null", Optional: true},
-		),
-		reflect.TypeOf(ChatSectionState{}): objectDeclaration(
-			"ChatSectionState",
-			TypeProperty{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>"},
-			TypeProperty{Name: "inputText", TypeExpr: "string"},
-			TypeProperty{Name: "waitingForResponse", TypeExpr: "boolean"},
-			TypeProperty{Name: "toolCallArguments", TypeExpr: "Record<string, string>"},
-			TypeProperty{Name: "activeBranchId", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>"},
 		),
 		reflect.TypeOf(UserDefaultChatSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 			"UserDefaultChatSectionImpl",

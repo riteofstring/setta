@@ -14,6 +14,7 @@ import (
 	"setta/internal/artifacts"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
 	"setta/internal/stringenumvalues"
 )
@@ -1556,6 +1557,7 @@ func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
 }
 
 type reflectedObjectDeclarationSpec struct {
+	DeclarationName           string
 	DefaultValue              any
 	HasCreateExpr             bool
 	CreateBody                string
@@ -2088,6 +2090,129 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectstate.FrontendDefaultTaskBoardColumn(),
 			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(ChatFileAttachment{}):
+		return reflectedObjectDeclarationSpec{}, true
+	case reflect.TypeOf(MessageTextContent{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  scriptablechat.FrontendDefaultMessageTextContent(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"type": `"text"`,
+			},
+		}, true
+	case reflect.TypeOf(MessageImageURL{}):
+		return reflectedObjectDeclarationSpec{
+			DeclarationName: "MessageImageUrl",
+			PropertyTypeExprOverrides: map[string]string{
+				"detail": `"auto" | "low" | "high" | null`,
+			},
+		}, true
+	case reflect.TypeOf(MessageImageURLContent{}):
+		return reflectedObjectDeclarationSpec{
+			DeclarationName: "MessageImageUrlContent",
+			PropertyTypeExprOverrides: map[string]string{
+				"type": `"image_url"`,
+			},
+		}, true
+	case reflect.TypeOf(MessageThinkingContent{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  scriptablechat.FrontendDefaultMessageThinkingContent(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"type": `"thinking"`,
+			},
+		}, true
+	case reflect.TypeOf(ToolReferenceContent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": `"tool_reference"`,
+			},
+		}, true
+	case reflect.TypeOf(ToolCallFunction{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  scriptablechat.FrontendDefaultToolCallFunction(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"arguments": "{ [key: string]: JSONValue | undefined }",
+			},
+		}, true
+	case reflect.TypeOf(ToolCall{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  scriptablechat.FrontendDefaultToolCall(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"type": `"function"`,
+			},
+		}, true
+	case reflect.TypeOf(SystemChatMessage{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:      scriptablechat.FrontendDefaultSystemChatMessage(),
+			HasCreateExpr:     true,
+			IgnoredProperties: reflectedIgnoredProperties("role", "createdAt"),
+			ExtraProperties: []TypeProperty{
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.system"},
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"content": "Array<MessageContent>",
+			},
+		}, true
+	case reflect.TypeOf(AssistantChatMessage{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:      scriptablechat.FrontendDefaultAssistantChatMessage(),
+			HasCreateExpr:     true,
+			IgnoredProperties: reflectedIgnoredProperties("role", "createdAt", "tool_calls"),
+			ExtraProperties: []TypeProperty{
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.assistant"},
+				{Name: "tool_calls", TypeExpr: "Array<ToolCall> | null", Optional: true},
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"content": "Array<MessageContent>",
+			},
+		}, true
+	case reflect.TypeOf(UserChatMessage{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:      scriptablechat.FrontendDefaultUserChatMessage(),
+			HasCreateExpr:     true,
+			IgnoredProperties: reflectedIgnoredProperties("role", "createdAt"),
+			ExtraProperties: []TypeProperty{
+				{Name: "role", TypeExpr: "typeof ChatRoleEnum.user"},
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"content": "Array<MessageContent>",
+			},
+		}, true
+	case reflect.TypeOf(ToolChatMessage{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:      scriptablechat.FrontendDefaultToolChatMessage(),
+			HasCreateExpr:     true,
+			IgnoredProperties: reflectedIgnoredProperties("createdAt"),
+			PropertyTypeExprOverrides: map[string]string{
+				"role":       "typeof ChatRoleEnum.tool",
+				"arguments":  "JSONValue",
+				"result":     "JSONValue",
+				"content":    "Array<ToolReferenceContent | Record<string, unknown>>",
+				"started_at": "string",
+			},
+		}, true
+	case reflect.TypeOf(ChatSectionBranch{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"messages": "Array<BaseChatMessageUnion>",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"parentBranchId":      true,
+				"branchFromMessageId": true,
+			},
+		}, true
+	case reflect.TypeOf(ChatSectionState{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"messages": "Array<BaseChatMessageUnion>",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"activeBranchId": true,
+			},
 		}, true
 	case reflect.TypeOf(SetSectionParamFilterRequestInput{}):
 		return reflectedOptionalPropertiesSpec("frontendOpId"), true
