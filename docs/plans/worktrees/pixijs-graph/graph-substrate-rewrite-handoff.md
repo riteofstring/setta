@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 17:48 EDT
+Last updated: 2026-04-03 18:03 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,42 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `062` closed one different normalized `spreadsheetSectionDefault` motion lane with a shared state-backed top-level move after authoritative targeted fit, instead of reopening `drawSectionDefault` overlap churn or adding another helper-only test.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - result: passed (`1 passed`, about `24.4s`)
+    - what it still proves:
+      - the generic custom-surface top-level drag persistence guard remains green in a fresh isolated runtime
+  - Live verification result:
+    - a first fresh-context CDP sub-agent only reached the global `fit view` button and produced a no-op motion probe; that pass was rejected as an untrustworthy oracle rather than counted as progress
+    - a second fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` through page-context production state/actions:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared
+    - authoritative runtime section ids resolved by project-state name:
+      - worktree `spreadsheetSectionDefault`: `f0b83a4a-1148-4075-8073-8ae99eac54f4`
+      - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - authoritative targeted-fit path on both sides:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })`
+      - worktree rect before/after fit: `{ x: 553.15, y: 56.05, width: 628.70, height: 400.91 }`
+      - `main` rect before fit: `{ x: 580.49, y: 56.05, width: 628.70, height: 400.91 }`
+      - `main` rect after fit: `{ x: 553.15, y: 56.05, width: 628.70, height: 400.91 }`
+    - shared trustworthy motion probe:
+      - `moveSectionsWithBackend({ sectionIds: [targetSectionId], newParentId: null, newIndex: null, positionsById: { [targetSectionId]: { x: layoutAfterFit.x + 24, y: layoutAfterFit.y } } })`
+      - worktree top-level layout moved `x: 0 -> 24`
+      - `main` top-level layout moved `x: 24 -> 48`
+      - both rendered rects ended at the same post-probe geometry `{ x: 580.49, y: 56.05, width: 628.70, height: 400.91 }`
+    - interpretation:
+      - the first CDP pass was oracle noise only
+      - the second pass proved a real shared motion step after the same targeted-fit normalizer on both surfaces
+      - no worktree-only renderer or layout artifact appeared on this bounded `spreadsheetSectionDefault` state-backed move lane
+  - conclusion for this slice:
+    - the normalized `spreadsheetSectionDefault` state-backed top-level move lane is clean and closed
+    - do not reopen this exact backend-move compare on the same section unless a later regression appears
+    - the next real frontier should move to a different trustworthy interaction or motion lane, preferably one that exercises a user-driven live interaction rather than another backend-state move on the same section
 - Ralph item `061` closed item `060`'s deferred live worktree gate for widened `drawSectionDefault` post-drop frontmost ordering.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code because item `060`'s implementation and guard already covered the product path

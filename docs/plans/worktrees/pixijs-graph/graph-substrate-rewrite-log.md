@@ -2183,3 +2183,25 @@ LOOP_TERMINAL_MARKER: none
 - Read-only `main` normalized to `All Settings` too, but that session did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`); treated as oracle limitation rather than remaining worktree drift.
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 18:03 EDT - Ralph item 062
+
+- Closed one different normalized `spreadsheetSectionDefault` motion lane with a shared state-backed top-level move after authoritative targeted fit; no production or test files changed this iteration.
+- Re-ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`; result: passed (`1 passed`, about `24.4s`).
+- First fresh-context CDP sub-agent was rejected as an oracle because it only used the global `fit view` control and the motion probe was a no-op.
+- Second fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to active `All Settings` with `overviewVis=false`, `uiEditorVis=false`, and cleared active ids.
+- Authoritative runtime ids resolved by project-state name:
+  - worktree `spreadsheetSectionDefault`: `f0b83a4a-1148-4075-8073-8ae99eac54f4`
+  - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+- Shared targeted-fit path on both sides:
+  - `fitView({ nodes: [{ id }], padding: 0.1 })`
+  - worktree rect before/after fit: `{ x: 553.15, y: 56.05, width: 628.70, height: 400.91 }`
+  - `main` rect before fit: `{ x: 580.49, y: 56.05, width: 628.70, height: 400.91 }`
+  - `main` rect after fit: `{ x: 553.15, y: 56.05, width: 628.70, height: 400.91 }`
+- Shared trustworthy motion probe:
+  - `moveSectionsWithBackend({ sectionIds: [targetSectionId], newParentId: null, newIndex: null, positionsById: { [targetSectionId]: { x: layoutAfterFit.x + 24, y: layoutAfterFit.y } } })`
+  - worktree top-level layout moved `x: 0 -> 24`
+  - `main` top-level layout moved `x: 24 -> 48`
+  - both rendered rects ended at `{ x: 580.49, y: 56.05, width: 628.70, height: 400.91 }`
+- Lane status: no worktree-only renderer or layout artifact appeared on this bounded `spreadsheetSectionDefault` state-backed move lane; keep the claim narrow and do not treat it as a physical mouse-drag oracle.
+- Next frontier: move to a different trustworthy interaction or motion lane, preferably one that exercises a user-driven live interaction instead of another backend-state move on the same section.
+- LOOP_TERMINAL_MARKER: none
