@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 09:56 EDT
+Last updated: 2026-04-04 09:31 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,31 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `111` reused the existing shared title-edit-after-pan parity lane and turned it into a bounded evidence pass instead of guessing at a production fix.
+  - Why this slice was needed:
+    - items `109` and `110` were both shortcut-lane oracle passes, so the next valid step had to move to one different dynamic Gate 1 / Gate 2 lane rather than continue the same support shape
+    - the handoff explicitly asked for a shared body-heavy motion/editing pulse that could expose a real canary-only interaction defect
+    - the existing main-reference probe for shared title editing after normalized pane pan already covered that exact contract, so the narrowest useful step was to rerun it on the fresh run-030 runtimes and pair it with one fresh-context CDP check
+  - Production/test change:
+    - no production or test files changed in this slice
+    - this iteration intentionally reused the existing main-reference title-edit-after-pan probe and fresh CDP verification only
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-030/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-030/main-ai.log`
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `38.4s`)
+  - Live verification result:
+    - one fresh-context CDP sub-agent compared both origins from the worktree CDP browser on `9300`; the read-only main CDP browser on `9309` was not running, but the sub-agent still opened and inspected the `3087` reference origin from the same browser session
+    - the sub-agent chose the shared `Browser` lane (`browserSectionDefault` on the worktree side), but the attempted short pan did not land on a confirmed blank graph-surface point and instead hit the right-side `Select A Section to Edit` aside chrome
+    - after that imperfect replay, the worktree tab centered `browserSectionDefault` while the read-only reference tab centered `sectionSizingPolicy`; double-clicking the visible title/header text did not produce a visible inline editor on either side, and focus landed on `BODY` for canary versus `ARTICLE` for legacy
+    - this is suggestive evidence of a live motion/editing mismatch, but it is not yet trustworthy enough to justify a renderer change because the CDP replay missed the intended blank-pane pan target
+    - CDP visual check: done (fresh-context title-edit-after-pan compare on live `3075` canary vs read-only `3087` legacy through worktree CDP `9300`; evidence was suggestive but the pan replay was not exact)
+  - conclusion for this slice:
+    - keep the existing shared title-edit-after-pan Playwright parity probe as passing on the current run-030 surfaces
+    - do not land a production change from the current CDP evidence alone
+    - the next bounded step on this lane should be one exact live replay that uses a verified blank graph-surface pan target or an equivalent CDP-compatible pan path before deciding whether the `browserSectionDefault` versus `sectionSizingPolicy` landing difference is a real renderer defect
 - Ralph item `110` used the one allowed post-support oracle step on the shared canvas-focus shortcut lane and closed it as non-reproducible on the current runtimes instead of forcing a speculative production fix.
   - Why this slice was needed:
     - items `108` and `109` were both oracle/probe-heavy, so the next valid step was either a real production fix or one bounded evidence pass that determined whether the reported shortcut mismatch still existed on the current run
@@ -2772,6 +2797,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `110`
-- Latest item: `2026-04-04 110`
+- Active history window: items `001` through `111`
+- Latest item: `2026-04-04 111`
 - Older history archives: none yet
