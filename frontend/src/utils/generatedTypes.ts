@@ -1136,211 +1136,24 @@ export type UpdateArtifactMsgContent = {
   updateType: "update" | "delete";
 };
 
-type BackendInitEvent = {
-  message: string;
-  timestamp: string;
-};
-
-export type BackendInitStatusResponse = {
-  events: Array<BackendInitEvent>;
-  isReady: boolean;
-  error: string | null;
-  authCookieRefreshWindowSeconds: number;
-  worktreeName: string | null;
-};
-
-export type AuthRefreshStatusResponse = {
-  authCookieRefreshWindowSeconds: number;
-};
-
-const ServerModeEnum = {
+const ModeEnum = {
   IDE: "ide",
   Share: "share",
   App: "app",
   Launcher: "launcher",
 } as const;
-type ServerMode = ObjectValues<typeof ServerModeEnum>;
+type Mode = ObjectValues<typeof ModeEnum>;
 
 export type ServerModeResponse = {
-  mode: ServerMode;
+  mode: Mode;
 };
 
-export type SettaHomeInfoResponse = {
-  settaHome: string;
-  globalSettaFilesBase: string;
-  activeSettaFilesLocation: string | null;
-  llmConfigPath: string;
-};
-
-const LaunchSettaFilesLocationEnum = {
-  Auto: "auto",
-  Local: "local",
-  Global: "global",
+const LauncherInstallSourceEnum = {
+  UVTool: "uv_tool",
+  InstallerManaged: "installer_managed",
+  Unsupported: "unsupported",
 } as const;
-type LaunchSettaFilesLocation = ObjectValues<
-  typeof LaunchSettaFilesLocationEnum
->;
-
-const LaunchResolvedSettaFilesLocationEnum = {
-  Local: "local",
-  Global: "global",
-} as const;
-type LaunchResolvedSettaFilesLocation = ObjectValues<
-  typeof LaunchResolvedSettaFilesLocationEnum
->;
-
-export type LaunchRequestInput = {
-  launchIntentToken?: string | null;
-  workspaceRoot?: string | null;
-  profile?: string | null;
-  settaHome?: string | null;
-  settaFilesRoot?: string | null;
-  settaFilesLocation?: LaunchSettaFilesLocation | null;
-  runtimeRoot?: string | null;
-  sshTarget?: string | null;
-  sshArgs?: string | null;
-  remoteCmd?: string | null;
-  localPort?: number | null;
-};
-
-export type CreateWorkspaceLaunchIntentRequestInput = {
-  launchRequest: LaunchRequestInput;
-  returnUrl: string;
-};
-
-export type LaunchErrorPayload = {
-  code: string;
-  message: string;
-};
-
-export type CreateWorkspaceLaunchIntentResponse = {
-  ok: boolean;
-  launchIntentToken: string | null;
-  requestedAt: number | null;
-  error: LaunchErrorPayload | null;
-};
-
-type LaunchSessionInfo = {
-  id: string;
-  workspacePath: string;
-  workspacePathCanonical: string;
-  host: string;
-  port: number;
-  pid: number;
-  startedAt: string;
-};
-
-export type LaunchResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  returnUrl: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  session: LaunchSessionInfo | null;
-  remoteCmdResolved: string | null;
-  error: LaunchErrorPayload | null;
-};
-
-type LauncherHomeErrorPayload = {
-  code: string;
-  message: string;
-};
-
-export type LauncherRecentWorkspacePayload = {
-  workspaceRoot: string;
-  pinned: boolean;
-  lastUsedAt: number;
-};
-
-export type LauncherRecentWorkspacesResponse = {
-  ok: boolean;
-  workspaces: Array<LauncherRecentWorkspacePayload>;
-  error: LauncherHomeErrorPayload | null;
-};
-
-export type LauncherRecentWorkspaceRequestInput = {
-  settaHome: string | null;
-  workspaceRoot: string;
-  pinned: boolean | null;
-};
-
-export type PinLauncherRecentWorkspaceRequestInput = {
-  settaHome: string | null;
-  workspaceRoot: string;
-  pinned: boolean;
-};
-
-export type LauncherFilesystemRootsResponse = {
-  ok: boolean;
-  roots: Array<string>;
-};
-
-export type LauncherDirectoryEntryPayload = {
-  name: string;
-  path: string;
-  isDirectory: boolean;
-  isSymlink: boolean;
-};
-
-export type LauncherListDirectoryRequestInput = {
-  path: string | null;
-  cursor: string | null;
-  pageSize: number | null;
-};
-
-export type LauncherListDirectoryResponse = {
-  ok: boolean;
-  currentPath: string | null;
-  parentPath: string | null;
-  entries: Array<LauncherDirectoryEntryPayload>;
-  nextCursor: string | null;
-  hasMore: boolean;
-  truncated: boolean;
-  error: LauncherHomeErrorPayload | null;
-};
-
-const FilesLocationEnum = {
-  auto: "auto",
-  local: "local",
-  global: "global",
-} as const;
-type FilesLocation = ObjectValues<typeof FilesLocationEnum>;
-
-export type LauncherOpenWorkspaceRequestInput = {
-  workspaceRoot: string;
-  settaHome: string | null;
-  profile: string | null;
-  settaFilesRoot: string | null;
-  settaFilesLocation: FilesLocation | null;
-  runtimeRoot: string | null;
-  createIfMissing: boolean;
-};
-
-const ResolvedFilesLocationEnum = {
-  local: "local",
-  global: "global",
-} as const;
-type ResolvedFilesLocation = ObjectValues<typeof ResolvedFilesLocationEnum>;
-
-export type LauncherOpenWorkspaceResponse = {
-  ok: boolean;
-  bootstrapUrlFragment: string | null;
-  workspaceRoot: string | null;
-  settaFilesLocation: ResolvedFilesLocation | null;
-  settaFilesRoot: string | null;
-  runtimeRoot: string | null;
-  settaHome: string | null;
-  profile: string | null;
-  sessionId: string | null;
-  startedNew: boolean | null;
-  error: LauncherHomeErrorPayload | null;
-};
+type LauncherInstallSource = ObjectValues<typeof LauncherInstallSourceEnum>;
 
 const LauncherOpenModeEnum = {
   Browser: "browser",
@@ -1356,106 +1169,14 @@ type LauncherWorkspaceBehavior = ObjectValues<
   typeof LauncherWorkspaceBehaviorEnum
 >;
 
-const SetupLauncherWorkspaceBehaviorEnum = {
-  LastUsedOrPrompt: "last-used-or-prompt",
-  AlwaysPrompt: "always-prompt",
-} as const;
-type SetupLauncherWorkspaceBehavior = ObjectValues<
-  typeof SetupLauncherWorkspaceBehaviorEnum
->;
-
-const LauncherInstallSourceEnum = {
-  UVTool: "uv-tool",
-  InstallerManaged: "installer-managed",
-  Unsupported: "unsupported",
-} as const;
-type LauncherInstallSource = ObjectValues<typeof LauncherInstallSourceEnum>;
-
-const LauncherUpdateCapabilityEnum = {
-  InApp: "in_app",
-  InstallerManaged: "installer_managed",
-  Unsupported: "unsupported",
-} as const;
-type LauncherUpdateCapability = ObjectValues<
-  typeof LauncherUpdateCapabilityEnum
->;
-
-type LauncherOperationErrorPayload = {
-  code: string;
-  message: string;
-};
-
-export type LauncherStatusResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-};
-export function createLauncherStatusResponse(
-  options: Partial<LauncherStatusResponse> = {},
-): LauncherStatusResponse {
-  return options as LauncherStatusResponse;
-}
-
-export type LauncherUpdateResponse = {
-  ok: boolean;
-  installed?: boolean | null;
-  settaHome?: string | null;
-  launcherDir?: string | null;
-  metadataPath?: string | null;
-  targetCommand?: Array<string>;
-  targetValid?: boolean | null;
-  targetError?: string | null;
-  channel?: string | null;
-  settaVersion?: string | null;
-  openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: LauncherWorkspaceBehavior | null;
-  lastUsedWorkspace?: string | null;
-  artifactOptions?: Record<string, string>;
-  managedArtifacts?: Record<string, string>;
-  existingManagedArtifacts?: Array<string>;
-  missingManagedArtifacts?: Array<string>;
-  updateCapability?: LauncherUpdateCapability | null;
-  updateGuidance?: string | null;
-  error?: LauncherOperationErrorPayload | null;
-  packageSpec?: string | null;
-  fromVersion?: string | null;
-  toVersion?: string | null;
-};
-
-export type LauncherRequestBaseInput = {
-  settaHome: string | null;
-};
-
 export type SetupLauncherRequestInput = {
   settaHome?: string | null;
   channel?: string | null;
   installSource?: LauncherInstallSource | null;
   openMode?: LauncherOpenMode | null;
-  workspaceBehavior?: SetupLauncherWorkspaceBehavior | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
   installArtifacts?: boolean | null;
   artifactOptions?: Record<string, string>;
-};
-
-export type UpdateLauncherRequestInput = {
-  settaHome: string | null;
-  packageSpec: string | null;
 };
 
 export type AppRoute = {
@@ -1934,7 +1655,7 @@ export function createPluginListEntry(
 
 export type PluginListResponse = {
   schemaVersion: number;
-  serverMode: ServerMode;
+  serverMode: Mode;
   restartCapability: PluginRestartCapability;
   plugins: Array<PluginListEntry>;
 };
@@ -1972,7 +1693,7 @@ export function createPluginStatusEntry(
 
 export type PluginStatusResponse = {
   schemaVersion: number;
-  serverMode: ServerMode;
+  serverMode: Mode;
   restartCapability: PluginRestartCapability;
   plugins: Array<PluginStatusEntry>;
 };
@@ -1985,7 +1706,7 @@ export type PluginRuntimeResponse = {
 
 export type PluginRescanResponse = {
   schemaVersion: number;
-  serverMode: ServerMode;
+  serverMode: Mode;
   installedPlugins: number;
   activePlugins: number;
 };
@@ -8132,6 +7853,29 @@ export type FrontendWebsocketMsgUnion = {
   content: any;
 };
 
+export type LauncherRecentWorkspaceRequest = {
+  settaHome: string | null;
+  workspaceRoot: string;
+  pinned: boolean | null;
+};
+
+export type RecentWorkspaceEntry = {
+  workspaceRoot: string;
+  pinned: boolean;
+  lastUsedAt: number;
+};
+
+type LauncherHomeErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type LauncherRecentWorkspacesResponse = {
+  ok: boolean;
+  workspaces: Array<RecentWorkspaceEntry>;
+  error: LauncherHomeErrorPayload | null;
+};
+
 export type AppendTranscriptionAudioRequest = {
   sessionId: string;
   audioPcm16Base64: string;
@@ -8233,6 +7977,46 @@ export type WindowSpaceMutationResponse = {
   windowSpaceId?: string | null;
 };
 
+const LaunchSettaFilesLocationEnum = {
+  Auto: "auto",
+  Local: "local",
+  Global: "global",
+} as const;
+type LaunchSettaFilesLocation = ObjectValues<
+  typeof LaunchSettaFilesLocationEnum
+>;
+
+export type LaunchRequest = {
+  launchIntentToken?: string | null;
+  workspaceRoot?: string | null;
+  profile?: string | null;
+  settaHome?: string | null;
+  settaFilesRoot?: string | null;
+  settaFilesLocation?: LaunchSettaFilesLocation | null;
+  runtimeRoot?: string | null;
+  sshTarget?: string | null;
+  sshArgs?: string | null;
+  remoteCmd?: string | null;
+  localPort?: number | null;
+};
+
+export type CreateWorkspaceLaunchIntentRequest = {
+  launchRequest: LaunchRequest;
+  returnUrl: string;
+};
+
+export type WorkspaceLaunchErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type CreateWorkspaceLaunchIntentResponse = {
+  ok: boolean;
+  launchIntentToken: string | null;
+  requestedAt: number | null;
+  error: WorkspaceLaunchErrorPayload | null;
+};
+
 export type DeleteJSONSourceFileAndVariantRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -8269,6 +8053,23 @@ export type GetAIFollowSnapshotRequest = {
   projectConfigId: string;
 };
 
+export type AuthRefreshStatusResponse = {
+  authCookieRefreshWindowSeconds: number;
+};
+
+type BackendInitEvent = {
+  message: string;
+  timestamp: string;
+};
+
+export type BackendInitStatusResponse = {
+  events: Array<BackendInitEvent>;
+  isReady: boolean;
+  error: string | null;
+  authCookieRefreshWindowSeconds: number;
+  worktreeName: string | null;
+};
+
 export type GetChatSectionChatIDRequest = {
   projectConfigId: string;
   sectionId: string;
@@ -8287,6 +8088,53 @@ export type ProjectStateSingleConfigWithCompletedOpIDs = {
   completedOpIds: Array<string>;
   pendingOpIds: Array<string>;
 };
+
+export type LauncherFilesystemRootsResponse = {
+  ok: boolean;
+  roots: Array<string>;
+};
+
+const LauncherUpdateCapabilityEnum = {
+  InApp: "in_app",
+  InstallerManaged: "installer_managed",
+  Unsupported: "unsupported",
+} as const;
+type LauncherUpdateCapability = ObjectValues<
+  typeof LauncherUpdateCapabilityEnum
+>;
+
+type LauncherOperationErrorPayload = {
+  code: string;
+  message: string;
+};
+
+export type LauncherStatusResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+};
+export function createLauncherStatusResponse(
+  options: Partial<LauncherStatusResponse> = {},
+): LauncherStatusResponse {
+  return options as LauncherStatusResponse;
+}
 
 export type GetLLMResponseRequest = {
   chatId: string | null;
@@ -8333,6 +8181,119 @@ type RunnerSummarySection = {
 export type RunnerSummarySnapshot = {
   projectConfigId: string;
   sections: Array<RunnerSummarySection>;
+};
+
+export type SettaHomeInfoResponse = {
+  settaHome: string;
+  globalSettaFilesBase: string;
+  activeSettaFilesLocation: string | null;
+  llmConfigPath: string;
+};
+
+const LaunchResolvedSettaFilesLocationEnum = {
+  Local: "local",
+  Global: "global",
+} as const;
+type LaunchResolvedSettaFilesLocation = ObjectValues<
+  typeof LaunchResolvedSettaFilesLocationEnum
+>;
+
+type LaunchSessionInfo = {
+  id: string;
+  workspacePath: string;
+  workspacePathCanonical: string;
+  host: string;
+  port: number;
+  pid: number;
+  startedAt: string;
+};
+
+export type LaunchResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  returnUrl: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: LaunchResolvedSettaFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  session: LaunchSessionInfo | null;
+  remoteCmdResolved: string | null;
+  error: WorkspaceLaunchErrorPayload | null;
+};
+
+export type LauncherListDirectoryRequest = {
+  path: string | null;
+  cursor: string | null;
+  pageSize: number | null;
+};
+
+export type DirectoryEntry = {
+  name: string;
+  path: string;
+  isDirectory: boolean;
+  isSymlink: boolean;
+};
+
+export type LauncherListDirectoryResponse = {
+  ok: boolean;
+  currentPath: string | null;
+  parentPath: string | null;
+  entries: Array<DirectoryEntry>;
+  nextCursor: string | null;
+  hasMore: boolean;
+  truncated: boolean;
+  error: LauncherHomeErrorPayload | null;
+};
+
+const FilesLocationEnum = {
+  auto: "auto",
+  local: "local",
+  global: "global",
+} as const;
+type FilesLocation = ObjectValues<typeof FilesLocationEnum>;
+
+export type LauncherOpenWorkspaceRequest = {
+  workspaceRoot: string;
+  settaHome: string | null;
+  profile: string | null;
+  settaFilesRoot: string | null;
+  settaFilesLocation: FilesLocation | null;
+  runtimeRoot: string | null;
+  createIfMissing: boolean;
+};
+
+const ResolvedFilesLocationEnum = {
+  local: "local",
+  global: "global",
+} as const;
+type ResolvedFilesLocation = ObjectValues<typeof ResolvedFilesLocationEnum>;
+
+export type LauncherOpenWorkspaceResponse = {
+  ok: boolean;
+  bootstrapUrlFragment: string | null;
+  workspaceRoot: string | null;
+  settaFilesLocation: ResolvedFilesLocation | null;
+  settaFilesRoot: string | null;
+  runtimeRoot: string | null;
+  settaHome: string | null;
+  profile: string | null;
+  sessionId: string | null;
+  startedNew: boolean | null;
+  error: LauncherHomeErrorPayload | null;
+};
+
+export type PinLauncherRecentWorkspaceRequest = {
+  settaHome: string | null;
+  workspaceRoot: string;
+  pinned: boolean;
+};
+
+export type LauncherRequestBase = {
+  settaHome: string | null;
 };
 
 export type RespondExternalAgentApprovalRequest = {
@@ -8500,6 +8461,37 @@ export type StopLLMChatRequest = {
 
 export type StopTranscriptionSessionRequest = {
   sessionId: string;
+};
+
+export type UpdateLauncherRequest = {
+  settaHome: string | null;
+  packageSpec: string | null;
+};
+
+export type LauncherUpdateResponse = {
+  ok: boolean;
+  installed?: boolean | null;
+  settaHome?: string | null;
+  launcherDir?: string | null;
+  metadataPath?: string | null;
+  targetCommand?: Array<string>;
+  targetValid?: boolean | null;
+  targetError?: string | null;
+  channel?: string | null;
+  settaVersion?: string | null;
+  openMode?: LauncherOpenMode | null;
+  workspaceBehavior?: LauncherWorkspaceBehavior | null;
+  lastUsedWorkspace?: string | null;
+  artifactOptions?: Record<string, string>;
+  managedArtifacts?: Record<string, string>;
+  existingManagedArtifacts?: Array<string>;
+  missingManagedArtifacts?: Array<string>;
+  updateCapability?: LauncherUpdateCapability | null;
+  updateGuidance?: string | null;
+  error?: LauncherOperationErrorPayload | null;
+  packageSpec?: string | null;
+  fromVersion?: string | null;
+  toVersion?: string | null;
 };
 
 export type GeneratedAppGenerationMode =

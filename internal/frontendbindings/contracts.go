@@ -13,140 +13,27 @@ import (
 	"setta/internal/realtime"
 )
 
-type BackendInitEvent httpapi.BackendInitEvent
-
-type BackendInitStatusResponse httpapi.BackendInitStatusResponse
-
-type AuthRefreshStatusResponse httpapi.AuthRefreshStatusResponse
-
-type ServerMode config.Mode
-
-const (
-	ServerModeIDE      ServerMode = ServerMode(config.ModeIDE)
-	ServerModeShare    ServerMode = ServerMode(config.ModeShare)
-	ServerModeApp      ServerMode = ServerMode(config.ModeApp)
-	ServerModeLauncher ServerMode = ServerMode(config.ModeLauncher)
-)
-
 type ServerModeResponse struct {
-	Mode ServerMode `json:"mode"`
+	Mode config.Mode `json:"mode"`
 }
-
-type SettaHomeInfoResponse httpapi.SettaHomeInfoResponse
-
-type LaunchSettaFilesLocation httpapi.LaunchSettaFilesLocation
-
-const (
-	LaunchSettaFilesLocationAuto   LaunchSettaFilesLocation = LaunchSettaFilesLocation(httpapi.LaunchSettaFilesLocationAuto)
-	LaunchSettaFilesLocationLocal  LaunchSettaFilesLocation = LaunchSettaFilesLocation(httpapi.LaunchSettaFilesLocationLocal)
-	LaunchSettaFilesLocationGlobal LaunchSettaFilesLocation = LaunchSettaFilesLocation(httpapi.LaunchSettaFilesLocationGlobal)
-)
-
-type LaunchResolvedSettaFilesLocation httpapi.LaunchResolvedSettaFilesLocation
-
-const (
-	LaunchResolvedSettaFilesLocationLocal  LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(httpapi.LaunchResolvedSettaFilesLocationLocal)
-	LaunchResolvedSettaFilesLocationGlobal LaunchResolvedSettaFilesLocation = LaunchResolvedSettaFilesLocation(httpapi.LaunchResolvedSettaFilesLocationGlobal)
-)
-
-type LaunchRequestInput httpapi.LaunchRequest
-
-type CreateWorkspaceLaunchIntentRequestInput httpapi.CreateWorkspaceLaunchIntentRequest
-
-type LaunchErrorPayload httpapi.WorkspaceLaunchErrorPayload
-
-type CreateWorkspaceLaunchIntentResponse httpapi.CreateWorkspaceLaunchIntentResponse
-
-type LaunchSessionInfo httpapi.LaunchSessionInfo
-
-type LaunchResponse httpapi.LaunchResponse
-
-type LauncherHomeErrorPayload httpapi.LauncherHomeErrorPayload
 
 type GetLauncherRecentWorkspacesRequestInput struct {
 	SettaHome *string `json:"setta_home,omitempty"`
 }
 
-type LauncherRecentWorkspacePayload launcher.RecentWorkspaceEntry
-
-type LauncherRecentWorkspacesResponse httpapi.LauncherRecentWorkspacesResponse
-
-type LauncherRecentWorkspaceRequestInput httpapi.LauncherRecentWorkspaceRequest
-
-type PinLauncherRecentWorkspaceRequestInput httpapi.PinLauncherRecentWorkspaceRequest
-
-type LauncherFilesystemRootsResponse httpapi.LauncherFilesystemRootsResponse
-
-type LauncherDirectoryEntryPayload launcher.DirectoryEntry
-
-type LauncherListDirectoryRequestInput httpapi.LauncherListDirectoryRequest
-
-type LauncherListDirectoryResponse httpapi.LauncherListDirectoryResponse
-
-type LauncherOpenWorkspaceRequestInput httpapi.LauncherOpenWorkspaceRequest
-
-type LauncherOpenWorkspaceResponse httpapi.LauncherOpenWorkspaceResponse
-
-type LauncherOpenMode launcher.LauncherOpenMode
-
-const (
-	LauncherOpenModeBrowser   LauncherOpenMode = LauncherOpenMode(launcher.LauncherOpenModeBrowser)
-	LauncherOpenModeChromeApp LauncherOpenMode = LauncherOpenMode(launcher.LauncherOpenModeChromeApp)
-)
-
-type LauncherWorkspaceBehavior launcher.LauncherWorkspaceBehavior
-
-const (
-	LauncherWorkspaceBehaviorLastUsedOrPrompt LauncherWorkspaceBehavior = LauncherWorkspaceBehavior(launcher.LauncherWorkspaceBehaviorLastUsedOrPrompt)
-	LauncherWorkspaceBehaviorAlwaysPrompt     LauncherWorkspaceBehavior = LauncherWorkspaceBehavior(launcher.LauncherWorkspaceBehaviorAlwaysPrompt)
-)
-
-type SetupLauncherWorkspaceBehavior string
-
-const (
-	SetupLauncherWorkspaceBehaviorLastUsedOrPrompt SetupLauncherWorkspaceBehavior = "last-used-or-prompt"
-	SetupLauncherWorkspaceBehaviorAlwaysPrompt     SetupLauncherWorkspaceBehavior = "always-prompt"
-)
-
-type LauncherInstallSource string
-
-const (
-	LauncherInstallSourceUVTool           LauncherInstallSource = "uv-tool"
-	LauncherInstallSourceInstallerManaged LauncherInstallSource = "installer-managed"
-	LauncherInstallSourceUnsupported      LauncherInstallSource = "unsupported"
-)
-
-type LauncherUpdateCapability launcher.LauncherUpdateCapability
-
-const (
-	LauncherUpdateCapabilityInApp            LauncherUpdateCapability = LauncherUpdateCapability(launcher.LauncherUpdateCapabilityInApp)
-	LauncherUpdateCapabilityInstallerManaged LauncherUpdateCapability = LauncherUpdateCapability(launcher.LauncherUpdateCapabilityInstallerManaged)
-	LauncherUpdateCapabilityUnsupported      LauncherUpdateCapability = LauncherUpdateCapability(launcher.LauncherUpdateCapabilityUnsupported)
-)
-
-type LauncherOperationErrorPayload httpapi.LauncherOperationErrorPayload
-
 type GetLauncherStatusRequestInput struct {
 	SettaHome *string `json:"setta_home,omitempty"`
 }
 
-type LauncherStatusResponse httpapi.LauncherStatusResponse
-
-type LauncherUpdateResponse httpapi.LauncherUpdateResponse
-
-type LauncherRequestBaseInput httpapi.LauncherRequestBase
-
 type SetupLauncherRequestInput struct {
-	SettaHome         *string                         `json:"settaHome,omitempty"`
-	Channel           *string                         `json:"channel,omitempty"`
-	InstallSource     *LauncherInstallSource          `json:"installSource,omitempty"`
-	OpenMode          *LauncherOpenMode               `json:"openMode,omitempty"`
-	WorkspaceBehavior *SetupLauncherWorkspaceBehavior `json:"workspaceBehavior,omitempty"`
-	InstallArtifacts  *bool                           `json:"installArtifacts,omitempty"`
-	ArtifactOptions   map[string]string               `json:"artifactOptions,omitempty"`
+	SettaHome         *string                             `json:"settaHome,omitempty"`
+	Channel           *string                             `json:"channel,omitempty"`
+	InstallSource     *launcher.LauncherInstallSource     `json:"installSource,omitempty"`
+	OpenMode          *launcher.LauncherOpenMode          `json:"openMode,omitempty"`
+	WorkspaceBehavior *launcher.LauncherWorkspaceBehavior `json:"workspaceBehavior,omitempty"`
+	InstallArtifacts  *bool                               `json:"installArtifacts,omitempty"`
+	ArtifactOptions   map[string]string                   `json:"artifactOptions,omitempty"`
 }
-
-type UpdateLauncherRequestInput httpapi.UpdateLauncherRequest
 
 type AppCatalogPropType appspec.PropType
 

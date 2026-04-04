@@ -155,7 +155,7 @@ func TestAppIDEModeManagesLauncherArtifactsOverHTTP(t *testing.T) {
 	setupRequest, err := http.NewRequest(
 		http.MethodPost,
 		server.URL+"/api"+httpapi.RouteSetupLauncher,
-		strings.NewReader(`{"settaHome":"`+cfg.Paths.SettaHome+`","channel":"uv-tool","installSource":"uv-tool","installArtifacts":true}`),
+		strings.NewReader(`{"settaHome":"`+cfg.Paths.SettaHome+`","channel":"uv-tool","installSource":"uv_tool","installArtifacts":true}`),
 	)
 	if err != nil {
 		t.Fatalf("new setup launcher request: %v", err)

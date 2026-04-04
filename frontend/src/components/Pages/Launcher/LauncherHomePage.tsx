@@ -11,13 +11,13 @@ import {
   route_remove_launcher_recent_workspace,
 } from "utils/generatedEndpoints";
 import type {
-  LauncherDirectoryEntryPayload,
+  DirectoryEntry,
   LauncherFilesystemRootsResponse,
-  LauncherListDirectoryRequestInput,
+  LauncherListDirectoryRequest,
   LauncherListDirectoryResponse,
   LauncherOpenWorkspaceResponse,
-  LauncherRecentWorkspacePayload,
   LauncherRecentWorkspacesResponse,
+  RecentWorkspaceEntry,
 } from "utils/generatedTypes";
 import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
@@ -94,7 +94,7 @@ type DirectoryLoadOptions = {
 const DIRECTORY_PAGE_SIZE = 250;
 
 type DirectoryListingState = {
-  entries: Array<LauncherDirectoryEntryPayload>;
+  entries: Array<DirectoryEntry>;
   hasMore: boolean;
   nextCursor: string | null;
   truncated: boolean;
@@ -115,7 +115,7 @@ export function applyDirectoryListingPage({
   payload,
   append,
 }: {
-  previousEntries: Array<LauncherDirectoryEntryPayload>;
+  previousEntries: Array<DirectoryEntry>;
   payload: LauncherListDirectoryResponse;
   append: boolean;
 }): DirectoryListingState {
@@ -150,7 +150,7 @@ export function LauncherHomePage() {
   );
 
   const [recentWorkspaces, setRecentWorkspaces] = useState<
-    Array<LauncherRecentWorkspacePayload>
+    Array<RecentWorkspaceEntry>
   >([]);
   const [recentWorkspacesError, setRecentWorkspacesError] = useState<
     string | null
@@ -212,7 +212,7 @@ export function LauncherHomePage() {
     options?: DirectoryLoadOptions,
   ) {
     const append = options?.append === true;
-    const request: LauncherListDirectoryRequestInput = {
+    const request: LauncherListDirectoryRequest = {
       path,
       cursor: options?.cursor ?? null,
       pageSize: DIRECTORY_PAGE_SIZE,
@@ -343,7 +343,7 @@ export function LauncherHomePage() {
     );
   }
 
-  async function togglePinWorkspace(entry: LauncherRecentWorkspacePayload) {
+  async function togglePinWorkspace(entry: RecentWorkspaceEntry) {
     setRecentActionInFlight("pin");
     const response: LauncherRecentWorkspacesRouteResponse =
       await route_pin_launcher_recent_workspace({
@@ -364,7 +364,7 @@ export function LauncherHomePage() {
     setRecentWorkspacesError(null);
   }
 
-  async function removeRecentWorkspace(entry: LauncherRecentWorkspacePayload) {
+  async function removeRecentWorkspace(entry: RecentWorkspaceEntry) {
     setRecentActionInFlight("remove");
     const response: LauncherRecentWorkspacesRouteResponse =
       await route_remove_launcher_recent_workspace({

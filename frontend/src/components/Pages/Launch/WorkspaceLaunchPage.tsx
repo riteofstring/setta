@@ -8,7 +8,10 @@ import {
   type ResponseDataAndStatus,
 } from "utils/endpointUtils";
 import { route_launch } from "utils/generatedEndpoints";
-import type { LaunchErrorPayload, LaunchResponse } from "utils/generatedTypes";
+import type {
+  LaunchResponse,
+  WorkspaceLaunchErrorPayload,
+} from "utils/generatedTypes";
 import { resolveLauncherBootstrapUrl } from "utils/launcherBootstrapUrl";
 import { buildLaunchRequestDedupeKey } from "utils/launchRequestDedupeKey";
 import { chooseWorkspaceHistorySettaFilesLocation } from "utils/settaFilesLocation";
@@ -87,7 +90,7 @@ function formatElapsedMs(ms: number): string {
 }
 
 export function resolveWorkspaceLaunchErrorMessage(
-  rawError: LaunchErrorPayload | null | undefined,
+  rawError: WorkspaceLaunchErrorPayload | null | undefined,
 ): string {
   if (rawError?.code === OUTDATED_PROJECT_SETTINGS_ERROR_CODE) {
     return OUTDATED_PROJECT_SETTINGS_ERROR_MESSAGE;

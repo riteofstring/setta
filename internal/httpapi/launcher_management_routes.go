@@ -275,19 +275,24 @@ func normalizeLauncherInstallSourceForSetup(value *string) (*launcher.LauncherIn
 	}
 	trimmed := strings.TrimSpace(*value)
 	switch trimmed {
-	case "uv-tool":
+	case string(launcher.LauncherInstallSourceUVTool):
 		normalized := launcher.LauncherInstallSourceUVTool
 		return &normalized, nil
-	case "installer-managed":
+	case string(launcher.LauncherInstallSourceInstallerManaged):
 		normalized := launcher.LauncherInstallSourceInstallerManaged
 		return &normalized, nil
-	case "unsupported":
+	case string(launcher.LauncherInstallSourceUnsupported):
 		normalized := launcher.LauncherInstallSourceUnsupported
 		return &normalized, nil
 	default:
 		return nil, &launcher.LauncherSetupError{
-			Code:    "BadRequest",
-			Message: "installSource must be one of 'uv-tool', 'installer-managed', or 'unsupported'.",
+			Code: "BadRequest",
+			Message: fmt.Sprintf(
+				"installSource must be one of %q, %q, or %q.",
+				launcher.LauncherInstallSourceUVTool,
+				launcher.LauncherInstallSourceInstallerManaged,
+				launcher.LauncherInstallSourceUnsupported,
+			),
 		}
 	}
 }
@@ -318,16 +323,20 @@ func normalizeLauncherWorkspaceBehaviorForSetup(value *string) (*launcher.Launch
 	}
 	trimmed := strings.TrimSpace(*value)
 	switch trimmed {
-	case "last-used-or-prompt":
+	case string(launcher.LauncherWorkspaceBehaviorLastUsedOrPrompt):
 		normalized := launcher.LauncherWorkspaceBehaviorLastUsedOrPrompt
 		return &normalized, nil
-	case "always-prompt":
+	case string(launcher.LauncherWorkspaceBehaviorAlwaysPrompt):
 		normalized := launcher.LauncherWorkspaceBehaviorAlwaysPrompt
 		return &normalized, nil
 	default:
 		return nil, &launcher.LauncherSetupError{
-			Code:    "BadRequest",
-			Message: "workspaceBehavior must be either 'last-used-or-prompt' or 'always-prompt'.",
+			Code: "BadRequest",
+			Message: fmt.Sprintf(
+				"workspaceBehavior must be either %q or %q.",
+				launcher.LauncherWorkspaceBehaviorLastUsedOrPrompt,
+				launcher.LauncherWorkspaceBehaviorAlwaysPrompt,
+			),
 		}
 	}
 }

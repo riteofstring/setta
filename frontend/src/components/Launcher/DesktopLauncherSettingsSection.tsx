@@ -9,11 +9,11 @@ import {
   route_update_launcher,
 } from "utils/generatedEndpoints";
 import {
-  type LauncherRequestBaseInput,
+  type LauncherRequestBase,
   type LauncherStatusResponse,
   type LauncherUpdateResponse,
   type SetupLauncherRequestInput,
-  type UpdateLauncherRequestInput,
+  type UpdateLauncherRequest,
 } from "utils/generatedTypes";
 
 type LauncherActionState =
@@ -66,20 +66,8 @@ export function normalizeLauncherScopeSettaHome(
 
 function buildLauncherRequestBase(
   settaHome: string | null,
-): LauncherRequestBaseInput {
+): LauncherRequestBase {
   return { settaHome };
-}
-
-function normalizeSetupWorkspaceBehavior(
-  workspaceBehavior: LauncherStatusResponse["workspaceBehavior"],
-): "last-used-or-prompt" | "always-prompt" | undefined {
-  if (workspaceBehavior === "always_prompt") {
-    return "always-prompt";
-  }
-  if (workspaceBehavior === "last_used_or_prompt") {
-    return "last-used-or-prompt";
-  }
-  return undefined;
 }
 
 export function buildSetupLauncherRequest(
@@ -100,11 +88,8 @@ export function buildSetupLauncherRequest(
   if (launcherStatus.openMode) {
     request.openMode = launcherStatus.openMode;
   }
-  const workspaceBehavior = normalizeSetupWorkspaceBehavior(
-    launcherStatus.workspaceBehavior,
-  );
-  if (workspaceBehavior) {
-    request.workspaceBehavior = workspaceBehavior;
+  if (launcherStatus.workspaceBehavior) {
+    request.workspaceBehavior = launcherStatus.workspaceBehavior;
   }
   if (launcherStatus.artifactOptions) {
     request.artifactOptions = { ...launcherStatus.artifactOptions };
@@ -114,7 +99,7 @@ export function buildSetupLauncherRequest(
 
 function buildUpdateLauncherRequest(
   settaHome: string | null,
-): UpdateLauncherRequestInput {
+): UpdateLauncherRequest {
   return { settaHome };
 }
 

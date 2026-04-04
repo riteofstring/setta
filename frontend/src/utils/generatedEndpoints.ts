@@ -40,7 +40,7 @@ export async function route_add_kwarg(
 }
 
 export async function route_add_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequestInput,
+  x: gt.LauncherRecentWorkspaceRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
   return await post(GoHTTPRouteHelpers.addLauncherRecentWorkspace(), x);
 }
@@ -232,7 +232,7 @@ export async function route_create_window_space(
 }
 
 export async function route_create_workspace_launch_intent(
-  x: gt.CreateWorkspaceLaunchIntentRequestInput,
+  x: gt.CreateWorkspaceLaunchIntentRequest,
 ): Promise<ResponseDataAndStatus<gt.CreateWorkspaceLaunchIntentResponse>> {
   return await post(GoHTTPRouteHelpers.createWorkspaceLaunchIntent(), x);
 }
@@ -776,7 +776,7 @@ export async function route_interrupt_terminal_processes(
 }
 
 export async function route_launch(
-  x: gt.LaunchRequestInput,
+  x: gt.LaunchRequest,
 ): Promise<ResponseDataAndStatus<gt.LaunchResponse>> {
   return await post(GoHTTPRouteHelpers.launch(), x);
 }
@@ -794,7 +794,7 @@ export async function route_list_app_deployments(): Promise<
 }
 
 export async function route_list_launcher_directory(
-  x: gt.LauncherListDirectoryRequestInput,
+  x: gt.LauncherListDirectoryRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherListDirectoryResponse>> {
   return await post(GoHTTPRouteHelpers.listLauncherDirectory(), x);
 }
@@ -899,7 +899,7 @@ export async function route_move_sections(
 }
 
 export async function route_open_launcher_workspace(
-  x: gt.LauncherOpenWorkspaceRequestInput,
+  x: gt.LauncherOpenWorkspaceRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherOpenWorkspaceResponse>> {
   return await post(GoHTTPRouteHelpers.openLauncherWorkspace(), x);
 }
@@ -917,7 +917,7 @@ export async function route_paste_sections(
 }
 
 export async function route_pin_launcher_recent_workspace(
-  x: gt.PinLauncherRecentWorkspaceRequestInput,
+  x: gt.PinLauncherRecentWorkspaceRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
   return await post(GoHTTPRouteHelpers.pinLauncherRecentWorkspace(), x);
 }
@@ -1033,19 +1033,19 @@ export async function route_redo(
 }
 
 export async function route_remove_launcher(
-  x: gt.LauncherRequestBaseInput,
+  x: gt.LauncherRequestBase,
 ): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
   return await post(GoHTTPRouteHelpers.removeLauncher(), x);
 }
 
 export async function route_remove_launcher_recent_workspace(
-  x: gt.LauncherRecentWorkspaceRequestInput,
+  x: gt.LauncherRecentWorkspaceRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherRecentWorkspacesResponse>> {
   return await post(GoHTTPRouteHelpers.removeLauncherRecentWorkspace(), x);
 }
 
 export async function route_repair_launcher(
-  x: gt.LauncherRequestBaseInput,
+  x: gt.LauncherRequestBase,
 ): Promise<ResponseDataAndStatus<gt.LauncherStatusResponse>> {
   return await post(GoHTTPRouteHelpers.repairLauncher(), x);
 }
@@ -1804,7 +1804,7 @@ export async function route_update_external_agent_config(
 }
 
 export async function route_update_launcher(
-  x: gt.UpdateLauncherRequestInput,
+  x: gt.UpdateLauncherRequest,
 ): Promise<ResponseDataAndStatus<gt.LauncherUpdateResponse>> {
   return await post(GoHTTPRouteHelpers.updateLauncher(), x);
 }

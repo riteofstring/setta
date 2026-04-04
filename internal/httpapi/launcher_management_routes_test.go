@@ -116,7 +116,7 @@ func TestRegisterLauncherManagementRoutesSetupAndRemoveRoundtripMetadataOnly(t *
 	setupRequest := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteSetupLauncher,
-		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`","channel":"uv-tool","installSource":"uv-tool","openMode":"chrome-app","workspaceBehavior":"always-prompt","installArtifacts":false}`),
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`","channel":"uv-tool","installSource":"uv_tool","openMode":"chrome-app","workspaceBehavior":"always_prompt","installArtifacts":false}`),
 	)
 	setupRequest.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(setupResponse, setupRequest)
@@ -347,7 +347,7 @@ func TestRegisterLauncherManagementRoutesSetupInstallsManagedArtifacts(t *testin
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api"+RouteSetupLauncher,
-		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`","channel":"uv-tool","installSource":"uv-tool","installArtifacts":true}`),
+		strings.NewReader(`{"settaHome":"`+defaultSettaHome+`","channel":"uv-tool","installSource":"uv_tool","installArtifacts":true}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	handler.ServeHTTP(response, request)

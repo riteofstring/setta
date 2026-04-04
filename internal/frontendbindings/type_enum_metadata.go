@@ -5,6 +5,9 @@ import (
 	"strings"
 	"unicode"
 
+	"setta/internal/config"
+	"setta/internal/httpapi"
+	"setta/internal/launcher"
 	"setta/internal/stringenumvalues"
 )
 
@@ -50,22 +53,21 @@ var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
 }
 
 var frontendBindingEnumNamingModes = map[reflect.Type]frontendEnumNamingMode{
-	reflect.TypeOf(ServerMode("")):                       frontendEnumNamingPascalValue,
-	reflect.TypeOf(LaunchSettaFilesLocation("")):         frontendEnumNamingPascalValue,
-	reflect.TypeOf(LaunchResolvedSettaFilesLocation("")): frontendEnumNamingPascalValue,
-	reflect.TypeOf(LauncherOpenMode("")):                 frontendEnumNamingPascalValue,
-	reflect.TypeOf(LauncherWorkspaceBehavior("")):        frontendEnumNamingPascalValue,
-	reflect.TypeOf(SetupLauncherWorkspaceBehavior("")):   frontendEnumNamingPascalValue,
-	reflect.TypeOf(LauncherInstallSource("")):            frontendEnumNamingPascalValue,
-	reflect.TypeOf(LauncherUpdateCapability("")):         frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginScope("")):                      frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginEnablementSource("")):           frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginSourceManager("")):              frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginInstallerBackend("")):           frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginSourceTrustStatus("")):          frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginBlockedCapabilityReason("")):    frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginRestartCapabilityMode("")):      frontendEnumNamingPascalValue,
-	reflect.TypeOf(StreamingEventType("")):               frontendEnumNamingUpperSnakeValue,
+	reflect.TypeOf(config.Mode("")):                              frontendEnumNamingPascalValue,
+	reflect.TypeOf(httpapi.LaunchSettaFilesLocation("")):         frontendEnumNamingPascalValue,
+	reflect.TypeOf(httpapi.LaunchResolvedSettaFilesLocation("")): frontendEnumNamingPascalValue,
+	reflect.TypeOf(launcher.LauncherOpenMode("")):                frontendEnumNamingPascalValue,
+	reflect.TypeOf(launcher.LauncherWorkspaceBehavior("")):       frontendEnumNamingPascalValue,
+	reflect.TypeOf(launcher.LauncherInstallSource("")):           frontendEnumNamingPascalValue,
+	reflect.TypeOf(launcher.LauncherUpdateCapability("")):        frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginScope("")):                              frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginEnablementSource("")):                   frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginSourceManager("")):                      frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginInstallerBackend("")):                   frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginSourceTrustStatus("")):                  frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginBlockedCapabilityReason("")):            frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginRestartCapabilityMode("")):              frontendEnumNamingPascalValue,
+	reflect.TypeOf(StreamingEventType("")):                       frontendEnumNamingUpperSnakeValue,
 }
 
 var frontendBindingEnumPascalAcronyms = map[string]string{

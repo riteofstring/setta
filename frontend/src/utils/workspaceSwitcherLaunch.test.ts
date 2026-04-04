@@ -7,7 +7,7 @@ import {
   it,
   vi,
 } from "vitest";
-import type { LaunchRequestInput } from "./generatedTypes";
+import type { LaunchRequest } from "./generatedTypes";
 import {
   consumeOpenWorkspaceSwitcherRequest,
   readPendingWorkspaceLaunch,
@@ -121,7 +121,7 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("reads pending launch from sessionStorage", () => {
-    const request: LaunchRequestInput = { workspaceRoot: "/tmp/work" };
+    const request: LaunchRequest = { workspaceRoot: "/tmp/work" };
     writePendingWorkspaceLaunch({
       request,
       returnUrl: "http://localhost/project",
@@ -172,7 +172,7 @@ describe("workspaceSwitcherLaunch", () => {
   });
 
   it("roundtrips the workspace switcher draft payload", () => {
-    const request: LaunchRequestInput = {
+    const request: LaunchRequest = {
       workspaceRoot: "/tmp/work",
       settaFilesLocation: "global",
       sshTarget: "user@host",

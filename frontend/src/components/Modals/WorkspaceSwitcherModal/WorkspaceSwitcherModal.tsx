@@ -16,7 +16,7 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   CreateWorkspaceLaunchIntentResponse,
-  LaunchRequestInput,
+  LaunchRequest,
   SettaHomeInfoResponse,
 } from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
@@ -49,7 +49,7 @@ export async function createPendingWorkspaceLaunchFromIntent({
   launchRequest,
   returnUrl,
 }: {
-  launchRequest: LaunchRequestInput;
+  launchRequest: LaunchRequest;
   returnUrl: string;
 }): Promise<CreatePendingWorkspaceLaunchResult> {
   const response: CreateWorkspaceLaunchIntentRouteResponse =
@@ -218,7 +218,7 @@ export function WorkspaceSwitcherModal() {
     }
     setIsLaunching(true);
 
-    const request: LaunchRequestInput = {
+    const request: LaunchRequest = {
       workspaceRoot: trimmedWorkspace,
       settaFilesLocation,
       sshTarget: trimmedSshTarget || null,
