@@ -1,8 +1,73 @@
 import pytest
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from fastapi.testclient import TestClient
 
-from setta.auth.cookies import auth_cookie_name
+from setta.auth.cookies import (
+    auth_cookie_name,
+    list_stale_auth_cookie_names,
+    set_auth_cookie,
+)
+from setta.utils.constants import C
+
+
+@pytest.fixture
+def app() -> FastAPI:
+    app = FastAPI()
+
+    @app.get("/set-cookie")
+    async def set_cookie(request: Request):
+        response = JSONResponse({"ok": True})
+        set_auth_cookie(
+            response,
+            "token-value",
+            session_id="test-session",
+            request=request,
+        )
+        return response
+
+    return app
+
+
+@pytest.mark.parametrize(
+    ("base_url", "expect_secure"),
+    [
+        ("https://testserver", True),
+        ("http://testserver", False),
+    ],
+)
+def test_set_auth_cookie_secure_flags(
+    app: FastAPI,
+    base_url: str,
+    expect_secure: bool,
+) -> None:
+    with TestClient(app, base_url=base_url) as client:
+        response = client.get("/set-cookie")
+
+    assert response.status_code == 200
+    cookie_header = response.headers.get("set-cookie", "")
+    if expect_secure:
+        assert "Secure" in cookie_header
+    else:
+        assert "Secure" not in cookie_header
 
 
 def test_auth_cookie_name_requires_non_empty_session_id() -> None:
     with pytest.raises(ValueError):
         auth_cookie_name("  ")
+
+
+def test_list_stale_auth_cookie_names_only_targets_same_prefix() -> None:
+    current_cookie_name = auth_cookie_name("active-session")
+    stale_cookie_name = f"{C.AUTH_COOKIE_NAME}_stale-session"
+    legacy_cookie_name = C.AUTH_COOKIE_NAME
+
+    assert list_stale_auth_cookie_names(
+        [
+            current_cookie_name,
+            stale_cookie_name,
+            legacy_cookie_name,
+            "other_prefix_cookie",
+        ],
+        session_id="active-session",
+    ) == [stale_cookie_name, legacy_cookie_name]
