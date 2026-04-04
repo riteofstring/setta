@@ -2991,6 +2991,42 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move back to a real renderer-facing compare, preferably one cross-worktree graph-surface-only motion lane that CDP can drive end-to-end now that short pan and short drag are both guarded on the shared worktree lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 04:05 EDT - Ralph item 090
+
+- Added an opt-in cross-worktree spreadsheet body-search interaction-state probe for normalized `All Settings` and closed that bounded body-heavy lane without reopening another plain rect-delta motion compare.
+- Why this slice was necessary:
+  - items `088` and `089` had already closed the cross-worktree short-pan and short-drag lanes, so the next plan-aligned frontier was the first body-heavy interaction-state question on the same normalized `All Settings` compare
+  - the stable spreadsheet filter input (`${sectionId}-args-filter`) already existed on both surfaces, which made it a better canary for DOM editing handoff after motion than another top-level geometry-only assertion
+  - this still counted as one bounded renderer-facing oracle step: verify that after the same short pan and one zoom-in click, read-only `main` legacy and worktree canary both keep the spreadsheet search input visible and editable
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `settings graph parity probe keeps the spreadsheet body search input working after normalized motion on read-only main legacy and worktree canary`
+    - the new probe boots both live runtimes with explicit backend origins, normalizes pane/selection noise, fits `spreadsheetSectionDefault`, applies the same short pane pan plus one `zoom in` control click, and then verifies the section-scoped spreadsheet filter input remains visible/focusable/editable on both sides
+    - added file-local helpers to resolve a shared graph section locator and capture a child element's relative center inside that section; no shared parity helper surface changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - first targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<stale worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<stale main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the spreadsheet body search input working after normalized motion on read-only main legacy and worktree canary' --reporter=line`
+    - result: failed once during global setup because the old worktree bootstrap token had expired (`401 Unauthorized`)
+  - second targeted Playwright rerun on the first draft:
+    - result: failed once because the initial assertion incorrectly required the input's relative Y position to stay numerically constant through zoom on legacy; that was not the real product contract
+  - final targeted direct live-runtime Playwright rerun after refreshing runtime info/bootstrap URLs and narrowing the assertion to pan-phase attachment plus post-zoom editability:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the spreadsheet body search input working after normalized motion on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `36.0s`)
+  - fresh-context CDP sub-agent:
+    - initial bootstrap-token navigations were rejected, so the check used the already-running `3075/settings` and `3087/settings` routes instead
+    - both live pages loaded `All Settings` and exposed `spreadsheetSectionDefault` with a visible body-search input whose id ends in `-args-filter`
+    - selector counts confirmed the surface split explicitly:
+      - worktree `3075`: `[data-testid="graph-substrate-canary"] = 1`, `[data-testid="graph-substrate-canary-section"] = 46`, `.react-flow__pane = 0`, `.react-flow__viewport = 1`, `.react-flow__node[data-id] = 46`
+      - read-only `main` `3087`: `[data-testid="graph-substrate-canary"] = 0`, `[data-testid="graph-substrate-canary-section"] = 0`, `.react-flow__pane = 1`, `.react-flow__viewport = 1`, `.react-flow__node[data-id] = 46`
+  - CDP visual check: done (fresh-context post-state sanity check on already-running `3075` canary vs `3087` legacy settings pages; spreadsheet filter input visible on both and selector counts confirmed the surface split)
+- Lane status:
+  - close the specific cross-worktree spreadsheet body-search interaction-state lane as covered
+  - refresh runtime info for fresh bootstrap URLs before rerunning these live main-reference probes; the short-lived tokens can expire within the same loop pass
+- Next frontier:
+  - move to a concrete widened body-heavy drag-attachment compare or production renderer defect investigation, not another short geometry-only parity guard by default
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-04 03:09 EDT - Ralph item 087
 
 - Added a normalized shared-section modified-wheel zoom parity guard on the worktree `Core` legacy vs `All Settings` canary lane and recorded the remaining live CDP driver boundary explicitly instead of reopening another untrustworthy wheel compare.
