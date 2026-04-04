@@ -1,6 +1,9 @@
 package frontendbindings
 
-import "reflect"
+import (
+	"reflect"
+	"strings"
+)
 
 var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 	reflect.TypeOf(BaseDependencyKeyUnion{}): aliasDeclaration(
@@ -179,255 +182,322 @@ func generatedSectionWithParamsProperties(configLanguageTypeExpr string) []TypeP
 	}
 }
 
-var generatedSectionAliasDeclarations = buildGeneratedSectionAliasDeclarations()
+type generatedSectionAliasSpec struct {
+	RootType                     reflect.Type
+	SectionName                  string
+	BaseExpr                     string
+	IncludeChildren              bool
+	IncludeWithParams            bool
+	ConfigLanguageTypeExpr       string
+	AdditionalProperties         []TypeProperty
+	UserDefaultPropertyOrder     []string
+	UserDefaultIgnoredProperties map[string]struct{}
+	UserDefaultReflectedSources  []reflect.Type
+}
 
-func buildGeneratedSectionAliasDeclarations() map[reflect.Type]TypeDeclaration {
-	declarations := map[reflect.Type]TypeDeclaration{
-		reflect.TypeOf(BaseSectionImpl{}): generatedBaseSectionImplDeclaration(),
-		reflect.TypeOf(BaseParentSectionImplUnion{}): aliasIntersectionDeclarationFromProperties(
-			"BaseParentSectionImplUnion",
-			"BaseSectionImpl",
-			[]TypeProperty{{Name: "children", TypeExpr: "Array<string>"}},
+var generatedSectionAliasSpecs = []generatedSectionAliasSpec{
+	{
+		RootType:               reflect.TypeOf(CallableSectionImpl{}),
+		SectionName:            "Callable",
+		IncludeWithParams:      true,
+		ConfigLanguageTypeExpr: "ConfigLanguage",
+		AdditionalProperties: []TypeProperty{
+			{Name: "callable", TypeExpr: "string | null", Optional: true},
+			{Name: "hideParams", TypeExpr: "boolean"},
+		},
+		UserDefaultIgnoredProperties: reflectedIgnoredProperties(
+			"callable",
+			"codeObjVariantMap",
+			"pinnedParams",
+			"selectedParams",
+			"ignoreTypeErrors",
 		),
-		reflect.TypeOf(BaseSectionWithParamsImplUnion{}): aliasIntersectionDeclarationFromProperties(
-			"BaseSectionWithParamsImplUnion",
-			"BaseSectionImpl",
-			[]TypeProperty{{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>"}},
+	},
+	{
+		RootType:               reflect.TypeOf(DictSectionImpl{}),
+		SectionName:            "Dict",
+		IncludeWithParams:      true,
+		ConfigLanguageTypeExpr: "string",
+		AdditionalProperties: []TypeProperty{
+			{Name: "topLevelParamId", TypeExpr: "string | null"},
+			{Name: "isJsonSource", TypeExpr: "boolean"},
+			{Name: "jsonSourceKeys", TypeExpr: "Array<string>"},
+			{Name: "jsonSourceMissing", TypeExpr: "boolean"},
+		},
+		UserDefaultIgnoredProperties: reflectedIgnoredProperties(
+			"codeObjVariantMap",
+			"pinnedParams",
+			"selectedParams",
+			"ignoreTypeErrors",
+			"topLevelParamId",
+			"jsonSourceMissing",
 		),
-		reflect.TypeOf(ListRootSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"ListRootSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("ListRoot"),
-				{Name: "children", TypeExpr: "Array<string>"},
-				{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
-				{Name: "viewMode", TypeExpr: "ListRootViewMode"},
-			},
-		),
-		reflect.TypeOf(GroupSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"GroupSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("Group"),
-				{Name: "children", TypeExpr: "Array<string>"},
-				{Name: "isHorizontalOrientation", TypeExpr: "boolean"},
-				{Name: "overflowMode", TypeExpr: "boolean"},
-				{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
-			},
-		),
-		reflect.TypeOf(StateMachineStartSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"StateMachineStartSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("StateMachineStart"),
-				{Name: "machineGroupId", TypeExpr: "string"},
-				{Name: "label", TypeExpr: "string"},
-				{Name: "maxIterations", TypeExpr: "number | null", Optional: true},
-			},
-		),
-		reflect.TypeOf(StateMachineGateSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"StateMachineGateSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("StateMachineGate"),
-				{Name: "machineGroupId", TypeExpr: "string"},
-				{Name: "gateType", TypeExpr: "StateMachineGateType"},
-				{Name: "label", TypeExpr: "string"},
-				{Name: "ui", TypeExpr: "StateMachineGateUIState"},
-			},
-		),
-		reflect.TypeOf(StateMachineEndSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"StateMachineEndSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("StateMachineEnd"),
-				{Name: "machineGroupId", TypeExpr: "string"},
-				{Name: "label", TypeExpr: "string"},
-			},
-		),
-		reflect.TypeOf(TextBlockSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"TextBlockSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("TextBlock"),
-				{Name: "format", TypeExpr: "TextBlockFormat"},
-				{Name: "masterFontSizePx", TypeExpr: "number"},
-				{Name: "headingAsSectionName", TypeExpr: "boolean"},
-				{Name: "metaControlStyle", TypeExpr: "boolean"},
-				{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode"},
-				{Name: "text", TypeExpr: "string"},
-			},
-		),
-		reflect.TypeOf(PromptSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"PromptSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("Prompt"),
-				{Name: "promptTemplateId", TypeExpr: "string | null", Optional: true},
-				{Name: "template", TypeExpr: "string"},
-				{Name: "format", TypeExpr: "PromptFormat"},
-				{Name: "inputs", TypeExpr: "Record<string, string>"},
-				{Name: "renderedText", TypeExpr: "string"},
-				{Name: "missingVariables", TypeExpr: "Array<string>"},
-				{Name: "renderError", TypeExpr: "string | null", Optional: true},
-			},
-		),
-		reflect.TypeOf(CodeSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"CodeSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("Code"),
-				{Name: "children", TypeExpr: "Array<string>"},
-				{Name: "code", TypeExpr: "string"},
-				{Name: "codeLanguage", TypeExpr: "string"},
-				{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
-				{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: true},
-				{Name: "diagnosticsIgnoreState", TypeExpr: "CodeSectionDiagnosticsIgnoreState"},
-			},
-		),
-		reflect.TypeOf(TerminalSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"TerminalSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{sectionTypeProperty("Terminal")},
-		),
-		reflect.TypeOf(BaseSectionImplUnion{}): aliasUnionDeclaration(
-			"BaseSectionImplUnion",
-			"CallableSectionImpl",
-			"DictSectionImpl",
-			"ListRootSectionImpl",
-			"GroupSectionImpl",
-			"StateMachineStartSectionImpl",
-			"StateMachineGateSectionImpl",
-			"StateMachineEndSectionImpl",
-			"TextBlockSectionImpl",
-			"PromptSectionImpl",
-			"CodeSectionImpl",
-			"TerminalSectionImpl",
-			"ChatSectionImpl",
-			"BrowserSectionImpl",
-			"ChartSectionImpl",
-			"TaskBoardSectionImpl",
-			"SpreadsheetSectionImpl",
-			"BaseSectionImpl",
-		),
-		reflect.TypeOf(ChatSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"ChatSectionImpl",
-			"BaseSectionImpl & ChatSectionState",
-			[]TypeProperty{
-				sectionTypeProperty("Chat"),
-				{Name: "managed", TypeExpr: "boolean"},
-				{Name: "engineConfigId", TypeExpr: "string | null", Optional: true},
-				{Name: "transcriptionProfileId", TypeExpr: "string | null", Optional: true},
-				{Name: "agentProfileId", TypeExpr: "string | null", Optional: true},
-				{Name: "chatId", TypeExpr: "string | null", Optional: true},
-				{Name: "thinking", TypeExpr: "boolean"},
-				{Name: "permissionMode", TypeExpr: "ChatPermissionMode"},
-				{Name: "searchEnabled", TypeExpr: "boolean"},
-				{Name: "dictationMode", TypeExpr: "ChatDictationMode"},
-			},
-		),
-		reflect.TypeOf(BrowserSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"BrowserSectionImpl",
-			`Omit<BaseSectionImpl, "viewMode">`,
-			[]TypeProperty{
-				sectionTypeProperty("Browser"),
-				{Name: "folder", TypeExpr: "string"},
-				{Name: "hideColumn", TypeExpr: "boolean"},
-				{Name: "columnWidth", TypeExpr: "number | null", Optional: true},
-				{Name: "typesColumnWidth", TypeExpr: "number | null", Optional: true},
-				{Name: "viewMode", TypeExpr: "BrowserAreaViewMode"},
-				{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>"},
-			},
-		),
-		reflect.TypeOf(TaskBoardSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"TaskBoardSectionImpl",
-			`Omit<BaseSectionImpl, "viewMode">`,
-			[]TypeProperty{
-				sectionTypeProperty("TaskBoard"),
-				{Name: "viewMode", TypeExpr: "TaskBoardViewMode"},
-				{Name: "columns", TypeExpr: "Array<TaskBoardColumn>"},
-				{Name: "tasks", TypeExpr: "Array<TaskBoardTask>"},
-			},
-		),
-		reflect.TypeOf(ChartSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"ChartSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("Chart"),
-				{Name: "dataPath", TypeExpr: "string"},
-				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion"},
-			},
-		),
-		reflect.TypeOf(SpreadsheetSectionImpl{}): aliasIntersectionDeclarationFromProperties(
-			"SpreadsheetSectionImpl",
-			"BaseSectionImpl",
-			[]TypeProperty{
-				sectionTypeProperty("Spreadsheet"),
-				{Name: "filePath", TypeExpr: "string"},
-				{Name: "activeSheet", TypeExpr: "string | null", Optional: true},
-				{Name: "readOnly", TypeExpr: "boolean"},
-				{Name: "showRowNumbers", TypeExpr: "boolean"},
-				{Name: "density", TypeExpr: "SpreadsheetGridDensity"},
-				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean"},
-			},
-		),
-	}
-
-	callableProperties := append(
-		[]TypeProperty{sectionTypeProperty("Callable")},
-		generatedSectionWithParamsProperties("ConfigLanguage")...,
-	)
-	callableProperties = append(
-		callableProperties,
-		TypeProperty{Name: "callable", TypeExpr: "string | null", Optional: true},
-		TypeProperty{Name: "hideParams", TypeExpr: "boolean"},
-	)
-	declarations[reflect.TypeOf(CallableSectionImpl{})] = aliasIntersectionDeclarationFromProperties(
-		"CallableSectionImpl",
-		"BaseSectionImpl",
-		callableProperties,
-	)
-
-	dictProperties := append(
-		[]TypeProperty{sectionTypeProperty("Dict")},
-		generatedSectionWithParamsProperties("string")...,
-	)
-	dictProperties = append(
-		dictProperties,
-		TypeProperty{Name: "topLevelParamId", TypeExpr: "string | null"},
-		TypeProperty{Name: "isJsonSource", TypeExpr: "boolean"},
-		TypeProperty{Name: "jsonSourceKeys", TypeExpr: "Array<string>"},
-		TypeProperty{Name: "jsonSourceMissing", TypeExpr: "boolean"},
-	)
-	declarations[reflect.TypeOf(DictSectionImpl{})] = aliasIntersectionDeclarationFromProperties(
-		"DictSectionImpl",
-		"BaseSectionImpl",
-		dictProperties,
-	)
-
-	baseDictProperties := append(
-		[]TypeProperty{{Name: "type", TypeExpr: "typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables"}},
-		generatedSectionWithParamsProperties("string")...,
-	)
-	baseDictProperties = append(
-		baseDictProperties,
-		TypeProperty{Name: "topLevelParamId", TypeExpr: "string | null"},
-		TypeProperty{Name: "isJsonSource", TypeExpr: "boolean"},
-		TypeProperty{Name: "jsonSourceKeys", TypeExpr: "Array<string>"},
-		TypeProperty{Name: "jsonSourceMissing", TypeExpr: "boolean"},
-	)
-	declarations[reflect.TypeOf(BaseDictSectionImplUnion{})] = aliasIntersectionDeclarationFromProperties(
-		"BaseDictSectionImplUnion",
-		"BaseSectionImpl",
-		baseDictProperties,
-	)
-
-	return declarations
+	},
+	{
+		RootType:        reflect.TypeOf(ListRootSectionImpl{}),
+		SectionName:     "ListRoot",
+		IncludeChildren: true,
+		AdditionalProperties: []TypeProperty{
+			{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
+			{Name: "viewMode", TypeExpr: "ListRootViewMode"},
+		},
+	},
+	{
+		RootType:        reflect.TypeOf(GroupSectionImpl{}),
+		SectionName:     "Group",
+		IncludeChildren: true,
+		AdditionalProperties: []TypeProperty{
+			{Name: "isHorizontalOrientation", TypeExpr: "boolean"},
+			{Name: "overflowMode", TypeExpr: "boolean"},
+			{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(StateMachineStartSectionImpl{}),
+		SectionName: "StateMachineStart",
+		AdditionalProperties: []TypeProperty{
+			{Name: "machineGroupId", TypeExpr: "string"},
+			{Name: "label", TypeExpr: "string"},
+			{Name: "maxIterations", TypeExpr: "number | null", Optional: true},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(StateMachineGateSectionImpl{}),
+		SectionName: "StateMachineGate",
+		AdditionalProperties: []TypeProperty{
+			{Name: "machineGroupId", TypeExpr: "string"},
+			{Name: "gateType", TypeExpr: "StateMachineGateType"},
+			{Name: "label", TypeExpr: "string"},
+			{Name: "ui", TypeExpr: "StateMachineGateUIState"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(StateMachineEndSectionImpl{}),
+		SectionName: "StateMachineEnd",
+		AdditionalProperties: []TypeProperty{
+			{Name: "machineGroupId", TypeExpr: "string"},
+			{Name: "label", TypeExpr: "string"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(TextBlockSectionImpl{}),
+		SectionName: "TextBlock",
+		AdditionalProperties: []TypeProperty{
+			{Name: "format", TypeExpr: "TextBlockFormat"},
+			{Name: "masterFontSizePx", TypeExpr: "number"},
+			{Name: "headingAsSectionName", TypeExpr: "boolean"},
+			{Name: "metaControlStyle", TypeExpr: "boolean"},
+			{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode"},
+			{Name: "text", TypeExpr: "string"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(PromptSectionImpl{}),
+		SectionName: "Prompt",
+		AdditionalProperties: []TypeProperty{
+			{Name: "promptTemplateId", TypeExpr: "string | null", Optional: true},
+			{Name: "template", TypeExpr: "string"},
+			{Name: "format", TypeExpr: "PromptFormat"},
+			{Name: "inputs", TypeExpr: "Record<string, string>"},
+			{Name: "renderedText", TypeExpr: "string"},
+			{Name: "missingVariables", TypeExpr: "Array<string>"},
+			{Name: "renderError", TypeExpr: "string | null", Optional: true},
+		},
+	},
+	{
+		RootType:        reflect.TypeOf(CodeSectionImpl{}),
+		SectionName:     "Code",
+		IncludeChildren: true,
+		UserDefaultPropertyOrder: []string{
+			"code",
+			"codeFileBinding",
+			"attachedTerminalSectionId",
+			"codeLanguage",
+			"diagnosticsIgnoreState",
+		},
+		AdditionalProperties: []TypeProperty{
+			{Name: "code", TypeExpr: "string"},
+			{Name: "codeLanguage", TypeExpr: "string"},
+			{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
+			{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: true},
+			{Name: "diagnosticsIgnoreState", TypeExpr: "CodeSectionDiagnosticsIgnoreState"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(TerminalSectionImpl{}),
+		SectionName: "Terminal",
+	},
+	{
+		RootType:    reflect.TypeOf(ChatSectionImpl{}),
+		SectionName: "Chat",
+		BaseExpr:    "BaseSectionImpl & ChatSectionState",
+		AdditionalProperties: []TypeProperty{
+			{Name: "managed", TypeExpr: "boolean"},
+			{Name: "engineConfigId", TypeExpr: "string | null", Optional: true},
+			{Name: "transcriptionProfileId", TypeExpr: "string | null", Optional: true},
+			{Name: "agentProfileId", TypeExpr: "string | null", Optional: true},
+			{Name: "chatId", TypeExpr: "string | null", Optional: true},
+			{Name: "thinking", TypeExpr: "boolean"},
+			{Name: "permissionMode", TypeExpr: "ChatPermissionMode"},
+			{Name: "searchEnabled", TypeExpr: "boolean"},
+			{Name: "dictationMode", TypeExpr: "ChatDictationMode"},
+		},
+		UserDefaultReflectedSources: []reflect.Type{
+			reflect.TypeOf(ChatSectionState{}),
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(BrowserSectionImpl{}),
+		SectionName: "Browser",
+		BaseExpr:    `Omit<BaseSectionImpl, "viewMode">`,
+		AdditionalProperties: []TypeProperty{
+			{Name: "folder", TypeExpr: "string"},
+			{Name: "hideColumn", TypeExpr: "boolean"},
+			{Name: "columnWidth", TypeExpr: "number | null", Optional: true},
+			{Name: "typesColumnWidth", TypeExpr: "number | null", Optional: true},
+			{Name: "viewMode", TypeExpr: "BrowserAreaViewMode"},
+			{Name: "savedSearches", TypeExpr: "Array<BrowserSavedSearch>"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(ChartSectionImpl{}),
+		SectionName: "Chart",
+		AdditionalProperties: []TypeProperty{
+			{Name: "dataPath", TypeExpr: "string"},
+			{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(TaskBoardSectionImpl{}),
+		SectionName: "TaskBoard",
+		BaseExpr:    `Omit<BaseSectionImpl, "viewMode">`,
+		AdditionalProperties: []TypeProperty{
+			{Name: "viewMode", TypeExpr: "TaskBoardViewMode"},
+			{Name: "columns", TypeExpr: "Array<TaskBoardColumn>"},
+			{Name: "tasks", TypeExpr: "Array<TaskBoardTask>"},
+		},
+	},
+	{
+		RootType:    reflect.TypeOf(SpreadsheetSectionImpl{}),
+		SectionName: "Spreadsheet",
+		AdditionalProperties: []TypeProperty{
+			{Name: "filePath", TypeExpr: "string"},
+			{Name: "activeSheet", TypeExpr: "string | null", Optional: true},
+			{Name: "readOnly", TypeExpr: "boolean"},
+			{Name: "showRowNumbers", TypeExpr: "boolean"},
+			{Name: "density", TypeExpr: "SpreadsheetGridDensity"},
+			{Name: "autoReloadOnExternalChange", TypeExpr: "boolean"},
+		},
+	},
 }
 
 func generatedSectionAliasDeclaration(t reflect.Type) (TypeDeclaration, bool) {
-	declaration, ok := generatedSectionAliasDeclarations[t]
-	return declaration, ok
+	switch t {
+	case reflect.TypeOf(BaseSectionImpl{}):
+		return generatedBaseSectionImplDeclaration(), true
+	case reflect.TypeOf(BaseParentSectionImplUnion{}):
+		return generatedBaseParentSectionImplUnionDeclaration(), true
+	case reflect.TypeOf(BaseSectionWithParamsImplUnion{}):
+		return generatedBaseSectionWithParamsImplUnionDeclaration(), true
+	case reflect.TypeOf(BaseDictSectionImplUnion{}):
+		return generatedBaseDictSectionImplUnionDeclaration(), true
+	case reflect.TypeOf(BaseSectionImplUnion{}):
+		return generatedBaseSectionImplUnionDeclaration(), true
+	}
+	spec, ok := generatedSectionAliasSpecForType(t)
+	if !ok {
+		return TypeDeclaration{}, false
+	}
+	return generatedConcreteSectionAliasDeclaration(spec), true
+}
+
+func generatedSectionAliasSpecForType(t reflect.Type) (generatedSectionAliasSpec, bool) {
+	for _, spec := range generatedSectionAliasSpecs {
+		if spec.RootType == t {
+			return spec, true
+		}
+	}
+	return generatedSectionAliasSpec{}, false
+}
+
+func generatedSectionAliasSpecForSectionName(sectionName string) (generatedSectionAliasSpec, bool) {
+	for _, spec := range generatedSectionAliasSpecs {
+		if spec.SectionName == sectionName {
+			return spec, true
+		}
+	}
+	return generatedSectionAliasSpec{}, false
+}
+
+func generatedSectionAliasBaseExpr(spec generatedSectionAliasSpec) string {
+	if strings.TrimSpace(spec.BaseExpr) != "" {
+		return spec.BaseExpr
+	}
+	return "BaseSectionImpl"
+}
+
+func generatedSectionAliasProperties(spec generatedSectionAliasSpec) []TypeProperty {
+	properties := []TypeProperty{sectionTypeProperty(spec.SectionName)}
+	if spec.IncludeWithParams {
+		properties = append(properties, generatedSectionWithParamsProperties(spec.ConfigLanguageTypeExpr)...)
+	}
+	if spec.IncludeChildren {
+		properties = append(properties, TypeProperty{Name: "children", TypeExpr: "Array<string>"})
+	}
+	properties = append(properties, spec.AdditionalProperties...)
+	return properties
+}
+
+func generatedConcreteSectionAliasDeclaration(spec generatedSectionAliasSpec) TypeDeclaration {
+	return aliasIntersectionDeclarationFromProperties(
+		spec.RootType.Name(),
+		generatedSectionAliasBaseExpr(spec),
+		generatedSectionAliasProperties(spec),
+	)
+}
+
+func generatedBaseParentSectionImplUnionDeclaration() TypeDeclaration {
+	return aliasIntersectionDeclarationFromProperties(
+		"BaseParentSectionImplUnion",
+		"BaseSectionImpl",
+		[]TypeProperty{{Name: "children", TypeExpr: "Array<string>"}},
+	)
+}
+
+func generatedBaseSectionWithParamsImplUnionDeclaration() TypeDeclaration {
+	return aliasIntersectionDeclarationFromProperties(
+		"BaseSectionWithParamsImplUnion",
+		"BaseSectionImpl",
+		[]TypeProperty{{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>"}},
+	)
+}
+
+func generatedBaseDictSectionImplUnionDeclaration() TypeDeclaration {
+	properties := append(
+		[]TypeProperty{{Name: "type", TypeExpr: "typeof SectionTypeEnum.Dict | typeof SectionTypeEnum.GlobalVariables"}},
+		generatedSectionWithParamsProperties("string")...,
+	)
+	properties = append(
+		properties,
+		TypeProperty{Name: "topLevelParamId", TypeExpr: "string | null"},
+		TypeProperty{Name: "isJsonSource", TypeExpr: "boolean"},
+		TypeProperty{Name: "jsonSourceKeys", TypeExpr: "Array<string>"},
+		TypeProperty{Name: "jsonSourceMissing", TypeExpr: "boolean"},
+	)
+	return aliasIntersectionDeclarationFromProperties(
+		"BaseDictSectionImplUnion",
+		"BaseSectionImpl",
+		properties,
+	)
+}
+
+func generatedBaseSectionImplUnionDeclaration() TypeDeclaration {
+	members := make([]string, 0, len(generatedSectionAliasSpecs)+1)
+	for _, spec := range generatedSectionAliasSpecs {
+		members = append(members, spec.RootType.Name())
+	}
+	members = append(members, "BaseSectionImpl")
+	return aliasUnionDeclaration("BaseSectionImplUnion", members...)
 }
 
 var baseCodeObjImplBaseProperties = []TypeProperty{
@@ -458,6 +528,7 @@ var codeObjImplParamValueProperties = []TypeProperty{
 }
 
 type generatedCodeObjAliasSpec struct {
+	RootType             reflect.Type
 	Name                 string
 	TypeExpr             string
 	IncludeChildren      bool
@@ -466,91 +537,22 @@ type generatedCodeObjAliasSpec struct {
 	AdditionalProperties []TypeProperty
 }
 
-var generatedCodeObjAliasDeclarations = map[reflect.Type]TypeDeclaration{
-	reflect.TypeOf(BaseCodeObjImpl{}): aliasObjectDeclarationFromProperties(
-		"BaseCodeObjImpl",
-		baseCodeObjImplBaseProperties,
-		"[key: string]: unknown;",
-	),
-	reflect.TypeOf(BaseCodeObjImplUnion{}): aliasUnionDeclaration(
-		"BaseCodeObjImplUnion",
-		"BaseCodeObjImpl",
-		"CodeCallableCodeObjImpl",
-		"CodeParamCodeObjImpl",
-		"TextParamCodeObjImpl",
-		"DateParamCodeObjImpl",
-		"TimeParamCodeObjImpl",
-		"ButtonParamCodeObjImpl",
-		"SliderParamCodeObjImpl",
-		"RotaryParamCodeObjImpl",
-		"SwitchParamCodeObjImpl",
-		"ColorPickerParamCodeObjImpl",
-		"DropdownParamCodeObjImpl",
-		"PasswordParamCodeObjImpl",
-		"TextAreaParamCodeObjImpl",
-		"DropzoneParamCodeObjImpl",
-		"NestedParamCodeObjImpl",
-	),
-	reflect.TypeOf(BaseChildlessCodeObjImplUnion{}): aliasUnionDeclaration(
-		"BaseChildlessCodeObjImplUnion",
-		"BaseCodeObjImpl",
-		"CodeParamCodeObjImpl",
-		"TextParamCodeObjImpl",
-		"DateParamCodeObjImpl",
-		"TimeParamCodeObjImpl",
-		"SliderParamCodeObjImpl",
-		"RotaryParamCodeObjImpl",
-		"SwitchParamCodeObjImpl",
-		"ColorPickerParamCodeObjImpl",
-		"DropdownParamCodeObjImpl",
-		"PasswordParamCodeObjImpl",
-		"TextAreaParamCodeObjImpl",
-		"DropzoneParamCodeObjImpl",
-	),
-	reflect.TypeOf(BaseParamCodeObjImplUnion{}): aliasUnionDeclaration(
-		"BaseParamCodeObjImplUnion",
-		"BaseCodeObjImpl",
-		"CodeParamCodeObjImpl",
-		"TextParamCodeObjImpl",
-		"DateParamCodeObjImpl",
-		"TimeParamCodeObjImpl",
-		"ButtonParamCodeObjImpl",
-		"SliderParamCodeObjImpl",
-		"RotaryParamCodeObjImpl",
-		"SwitchParamCodeObjImpl",
-		"ColorPickerParamCodeObjImpl",
-		"DropdownParamCodeObjImpl",
-		"PasswordParamCodeObjImpl",
-		"TextAreaParamCodeObjImpl",
-		"DropzoneParamCodeObjImpl",
-		"NestedParamCodeObjImpl",
-	),
-	reflect.TypeOf(BaseParentCodeObjImplUnion{}): aliasUnionDeclaration(
-		"BaseParentCodeObjImplUnion",
-		"CodeCallableCodeObjImpl",
-		"NestedParamCodeObjImpl",
-	),
-}
-
-var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
-	reflect.TypeOf(CodeParamCodeObjImpl{}): {
+var generatedCodeObjAliasSpecs = []generatedCodeObjAliasSpec{
+	{
+		RootType:        reflect.TypeOf(CodeCallableCodeObjImpl{}),
+		Name:            "CodeCallableCodeObjImpl",
+		TypeExpr:        "typeof CodeObjTypeEnum.CodeCallable",
+		IncludeChildren: true,
+	},
+	{
+		RootType:           reflect.TypeOf(CodeParamCodeObjImpl{}),
 		Name:               "CodeParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.CodeParam",
 		IncludeParamBase:   true,
 		IncludeParamValues: true,
 	},
-	reflect.TypeOf(CodeCallableCodeObjImpl{}): {
-		Name:            "CodeCallableCodeObjImpl",
-		TypeExpr:        "typeof CodeObjTypeEnum.CodeCallable",
-		IncludeChildren: true,
-	},
-	reflect.TypeOf(NestedParamCodeObjImpl{}): {
-		Name:             "NestedParamCodeObjImpl",
-		TypeExpr:         "typeof CodeObjTypeEnum.NestedParam",
-		IncludeChildren:  true,
-		IncludeParamBase: true,
-	},
-	reflect.TypeOf(TextParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(TextParamCodeObjImpl{}),
 		Name:               "TextParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.TextParam",
 		IncludeParamBase:   true,
@@ -559,7 +561,8 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "uiType", TypeExpr: "TextParamInputUIType"},
 		},
 	},
-	reflect.TypeOf(DateParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(DateParamCodeObjImpl{}),
 		Name:               "DateParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.DateParam",
 		IncludeParamBase:   true,
@@ -572,7 +575,8 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "dateIncludesTime", TypeExpr: "boolean"},
 		},
 	},
-	reflect.TypeOf(TimeParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(TimeParamCodeObjImpl{}),
 		Name:               "TimeParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.TimeParam",
 		IncludeParamBase:   true,
@@ -585,7 +589,8 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "timeDisplayFont", TypeExpr: "TimeDisplayFont"},
 		},
 	},
-	reflect.TypeOf(ButtonParamCodeObjImpl{}): {
+	{
+		RootType:         reflect.TypeOf(ButtonParamCodeObjImpl{}),
 		Name:             "ButtonParamCodeObjImpl",
 		TypeExpr:         "typeof CodeObjTypeEnum.ButtonParam",
 		IncludeParamBase: true,
@@ -599,7 +604,8 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "requestBody", TypeExpr: "string"},
 		},
 	},
-	reflect.TypeOf(SliderParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(SliderParamCodeObjImpl{}),
 		Name:               "SliderParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.SliderParam",
 		IncludeParamBase:   true,
@@ -610,7 +616,8 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "step", TypeExpr: "number"},
 		},
 	},
-	reflect.TypeOf(RotaryParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(RotaryParamCodeObjImpl{}),
 		Name:               "RotaryParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.RotaryParam",
 		IncludeParamBase:   true,
@@ -621,13 +628,15 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "step", TypeExpr: "number"},
 		},
 	},
-	reflect.TypeOf(SwitchParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(SwitchParamCodeObjImpl{}),
 		Name:               "SwitchParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.SwitchParam",
 		IncludeParamBase:   true,
 		IncludeParamValues: true,
 	},
-	reflect.TypeOf(ColorPickerParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(ColorPickerParamCodeObjImpl{}),
 		Name:               "ColorPickerParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.ColorPickerParam",
 		IncludeParamBase:   true,
@@ -636,7 +645,8 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "colorChoices", TypeExpr: "Array<ColorPickerChoice>"},
 		},
 	},
-	reflect.TypeOf(DropdownParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(DropdownParamCodeObjImpl{}),
 		Name:               "DropdownParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.DropdownParam",
 		IncludeParamBase:   true,
@@ -645,7 +655,8 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "choices", TypeExpr: "Array<string>"},
 		},
 	},
-	reflect.TypeOf(PasswordParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(PasswordParamCodeObjImpl{}),
 		Name:               "PasswordParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.PasswordParam",
 		IncludeParamBase:   true,
@@ -654,13 +665,15 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "hasSecret", TypeExpr: "boolean"},
 		},
 	},
-	reflect.TypeOf(TextAreaParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(TextAreaParamCodeObjImpl{}),
 		Name:               "TextAreaParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.TextAreaParam",
 		IncludeParamBase:   true,
 		IncludeParamValues: true,
 	},
-	reflect.TypeOf(DropzoneParamCodeObjImpl{}): {
+	{
+		RootType:           reflect.TypeOf(DropzoneParamCodeObjImpl{}),
 		Name:               "DropzoneParamCodeObjImpl",
 		TypeExpr:           "typeof CodeObjTypeEnum.DropzoneParam",
 		IncludeParamBase:   true,
@@ -671,16 +684,95 @@ var generatedCodeObjAliasSpecs = map[reflect.Type]generatedCodeObjAliasSpec{
 			{Name: "placeholder", TypeExpr: "string"},
 		},
 	},
+	{
+		RootType:         reflect.TypeOf(NestedParamCodeObjImpl{}),
+		Name:             "NestedParamCodeObjImpl",
+		TypeExpr:         "typeof CodeObjTypeEnum.NestedParam",
+		IncludeChildren:  true,
+		IncludeParamBase: true,
+	},
 }
 
 func generatedCodeObjAliasDeclaration(t reflect.Type) (TypeDeclaration, bool) {
-	if declaration, ok := generatedCodeObjAliasDeclarations[t]; ok {
-		return declaration, true
+	switch t {
+	case reflect.TypeOf(BaseCodeObjImpl{}):
+		return generatedBaseCodeObjImplDeclaration(), true
+	case reflect.TypeOf(BaseCodeObjImplUnion{}):
+		return generatedCodeObjUnionDeclaration("BaseCodeObjImplUnion", "", true), true
+	case reflect.TypeOf(BaseChildlessCodeObjImplUnion{}):
+		return generatedCodeObjUnionDeclaration("BaseChildlessCodeObjImplUnion", "BaseChildlessCodeObjImplTypeSet", true), true
+	case reflect.TypeOf(BaseParamCodeObjImplUnion{}):
+		return generatedCodeObjUnionDeclaration("BaseParamCodeObjImplUnion", "BaseParamCodeObjImplTypeSet", true), true
+	case reflect.TypeOf(BaseParentCodeObjImplUnion{}):
+		return generatedCodeObjUnionDeclaration("BaseParentCodeObjImplUnion", "BaseParentCodeObjImplTypeSet", false), true
 	}
-	if spec, ok := generatedCodeObjAliasSpecs[t]; ok {
+	if spec, ok := generatedCodeObjAliasSpecForType(t); ok {
 		return generatedConcreteCodeObjAliasDeclaration(spec), true
 	}
 	return TypeDeclaration{}, false
+}
+
+func generatedCodeObjAliasSpecForType(t reflect.Type) (generatedCodeObjAliasSpec, bool) {
+	for _, spec := range generatedCodeObjAliasSpecs {
+		if spec.RootType == t {
+			return spec, true
+		}
+	}
+	return generatedCodeObjAliasSpec{}, false
+}
+
+func generatedBaseCodeObjImplDeclaration() TypeDeclaration {
+	return aliasObjectDeclarationFromProperties(
+		"BaseCodeObjImpl",
+		baseCodeObjImplBaseProperties,
+		"[key: string]: unknown;",
+	)
+}
+
+func generatedCodeObjUnionDeclaration(
+	name string,
+	typeSetName string,
+	includeBase bool,
+) TypeDeclaration {
+	members := make([]string, 0, len(generatedCodeObjAliasSpecs)+1)
+	if includeBase {
+		members = append(members, "BaseCodeObjImpl")
+	}
+	if typeSetName == "" {
+		for _, spec := range generatedCodeObjAliasSpecs {
+			members = append(members, spec.Name)
+		}
+		return aliasUnionDeclaration(name, members...)
+	}
+	allowedMembers := generatedCodeObjAliasNamesForTypeSet(typeSetName)
+	for _, spec := range generatedCodeObjAliasSpecs {
+		if _, ok := allowedMembers[spec.Name]; ok {
+			members = append(members, spec.Name)
+		}
+	}
+	return aliasUnionDeclaration(name, members...)
+}
+
+func generatedCodeObjAliasNamesForTypeSet(typeSetName string) map[string]struct{} {
+	for _, spec := range projectStateTypeGuardTypeSets {
+		if spec.Name != typeSetName {
+			continue
+		}
+		members := make(map[string]struct{}, len(spec.Members))
+		for _, member := range spec.Members {
+			members[generatedCodeObjAliasNameFromTypeSetMember(member)] = struct{}{}
+		}
+		return members
+	}
+	return map[string]struct{}{}
+}
+
+func generatedCodeObjAliasNameFromTypeSetMember(member string) string {
+	name := strings.TrimPrefix(strings.TrimSpace(member), "CodeObjTypeEnum.")
+	if name == "" {
+		return member
+	}
+	return name + "CodeObjImpl"
 }
 
 func generatedConcreteCodeObjAliasDeclaration(spec generatedCodeObjAliasSpec) TypeDeclaration {
@@ -696,13 +788,6 @@ func generatedConcreteCodeObjAliasDeclaration(spec generatedCodeObjAliasSpec) Ty
 	}
 	properties = append(properties, spec.AdditionalProperties...)
 	return aliasIntersectionDeclarationFromProperties(spec.Name, "BaseCodeObjImpl", properties)
-}
-
-type generatedUserDefaultSectionSpec struct {
-	SectionName               string
-	AdditionalPropertyOrder   []string
-	PropertyTypeExprOverrides map[string]string
-	IgnoredDefaultProperties  map[string]struct{}
 }
 
 var generatedUserDefaultSectionBasePropertyOrder = []string{
@@ -723,260 +808,4 @@ var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
 	"isPreset":                {},
 	"children":                {},
 	"promptTemplateId":        {},
-}
-
-var generatedUserDefaultSectionSpecs = map[reflect.Type]generatedUserDefaultSectionSpec{
-	reflect.TypeOf(UserDefaultCallableSectionImpl{}): {
-		SectionName: "Callable",
-		AdditionalPropertyOrder: []string{
-			"hideUnpinnedParams",
-			"paramFilter",
-			"columnWidth",
-			"configLanguage",
-			"edgeInputParams",
-			"edgeOutputPorts",
-			"hideParams",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"columnWidth":     "number | null",
-			"configLanguage":  "ConfigLanguage",
-			"edgeInputParams": "Array<string>",
-			"edgeOutputPorts": "Array<EdgePort>",
-			"hideParams":      "boolean",
-		},
-		IgnoredDefaultProperties: reflectedIgnoredProperties(
-			"callable",
-			"codeObjVariantMap",
-			"pinnedParams",
-			"selectedParams",
-			"ignoreTypeErrors",
-		),
-	},
-	reflect.TypeOf(UserDefaultDictSectionImpl{}): {
-		SectionName: "Dict",
-		AdditionalPropertyOrder: []string{
-			"hideUnpinnedParams",
-			"paramFilter",
-			"columnWidth",
-			"configLanguage",
-			"edgeInputParams",
-			"edgeOutputPorts",
-			"isJsonSource",
-			"jsonSourceKeys",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"columnWidth":     "number | null",
-			"configLanguage":  "string",
-			"edgeInputParams": "Array<string>",
-			"edgeOutputPorts": "Array<EdgePort>",
-			"jsonSourceKeys":  "Array<string>",
-		},
-		IgnoredDefaultProperties: reflectedIgnoredProperties(
-			"codeObjVariantMap",
-			"pinnedParams",
-			"selectedParams",
-			"ignoreTypeErrors",
-			"topLevelParamId",
-			"jsonSourceMissing",
-		),
-	},
-	reflect.TypeOf(UserDefaultChatSectionImpl{}): {
-		SectionName: "Chat",
-		AdditionalPropertyOrder: []string{
-			"managed",
-			"engineConfigId",
-			"transcriptionProfileId",
-			"agentProfileId",
-			"chatId",
-			"thinking",
-			"permissionMode",
-			"searchEnabled",
-			"dictationMode",
-			"messages",
-			"inputText",
-			"waitingForResponse",
-			"toolCallArguments",
-			"activeBranchId",
-			"branches",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"managed":                "boolean",
-			"engineConfigId":         "string | null",
-			"transcriptionProfileId": "string | null",
-			"agentProfileId":         "string | null",
-			"chatId":                 "string | null",
-			"thinking":               "boolean",
-			"permissionMode":         "ChatPermissionMode",
-			"searchEnabled":          "boolean",
-			"dictationMode":          "ChatDictationMode",
-			"messages":               "Array<BaseChatMessageUnion>",
-			"inputText":              "string",
-			"waitingForResponse":     "boolean",
-			"toolCallArguments":      "Record<string, string>",
-			"activeBranchId":         "string | null",
-			"branches":               "Record<string, ChatSectionBranch>",
-		},
-	},
-	reflect.TypeOf(UserDefaultListRootSectionImpl{}): {
-		SectionName: "ListRoot",
-		AdditionalPropertyOrder: []string{
-			"defaultChildSectionType",
-			"viewMode",
-		},
-	},
-	reflect.TypeOf(UserDefaultGroupSectionImpl{}): {
-		SectionName: "Group",
-		AdditionalPropertyOrder: []string{
-			"isHorizontalOrientation",
-			"overflowMode",
-			"defaultChildSectionType",
-		},
-	},
-	reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}): {
-		SectionName: "StateMachineStart",
-		AdditionalPropertyOrder: []string{
-			"machineGroupId",
-			"label",
-			"maxIterations",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"machineGroupId": "string",
-			"label":          "string",
-			"maxIterations":  "number | null",
-		},
-	},
-	reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}): {
-		SectionName: "StateMachineGate",
-		AdditionalPropertyOrder: []string{
-			"machineGroupId",
-			"gateType",
-			"label",
-			"ui",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"machineGroupId": "string",
-			"gateType":       "StateMachineGateType",
-			"label":          "string",
-			"ui":             "StateMachineGateUIState",
-		},
-	},
-	reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}): {
-		SectionName: "StateMachineEnd",
-		AdditionalPropertyOrder: []string{
-			"machineGroupId",
-			"label",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"machineGroupId": "string",
-			"label":          "string",
-		},
-	},
-	reflect.TypeOf(UserDefaultTextBlockSectionImpl{}): {
-		SectionName: "TextBlock",
-		AdditionalPropertyOrder: []string{
-			"format",
-			"masterFontSizePx",
-			"headingAsSectionName",
-			"metaControlStyle",
-			"textDisplayMode",
-			"text",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"format":               "TextBlockFormat",
-			"masterFontSizePx":     "number",
-			"headingAsSectionName": "boolean",
-			"textDisplayMode":      "TextBlockDisplayMode",
-		},
-	},
-	reflect.TypeOf(UserDefaultPromptSectionImpl{}): {
-		SectionName: "Prompt",
-		AdditionalPropertyOrder: []string{
-			"template",
-			"format",
-			"inputs",
-			"renderedText",
-			"missingVariables",
-			"renderError",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"template":         "string",
-			"format":           "PromptFormat",
-			"inputs":           "Record<string, string>",
-			"renderedText":     "string",
-			"missingVariables": "Array<string>",
-			"renderError":      "string | null",
-		},
-	},
-	reflect.TypeOf(UserDefaultCodeSectionImpl{}): {
-		SectionName: "Code",
-		AdditionalPropertyOrder: []string{
-			"code",
-			"codeFileBinding",
-			"attachedTerminalSectionId",
-			"codeLanguage",
-			"diagnosticsIgnoreState",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"diagnosticsIgnoreState": "CodeSectionDiagnosticsIgnoreState",
-		},
-	},
-	reflect.TypeOf(UserDefaultTerminalSectionImpl{}): {
-		SectionName:             "Terminal",
-		AdditionalPropertyOrder: nil,
-	},
-	reflect.TypeOf(UserDefaultBrowserSectionImpl{}): {
-		SectionName: "Browser",
-		AdditionalPropertyOrder: []string{
-			"folder",
-			"hideColumn",
-			"columnWidth",
-			"typesColumnWidth",
-			"viewMode",
-			"savedSearches",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"typesColumnWidth": "number | null",
-			"viewMode":         "BrowserAreaViewMode",
-			"savedSearches":    "Array<BrowserSavedSearch>",
-		},
-	},
-	reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}): {
-		SectionName: "TaskBoard",
-		AdditionalPropertyOrder: []string{
-			"viewMode",
-			"columns",
-			"tasks",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"viewMode": "TaskBoardViewMode",
-			"columns":  "Array<TaskBoardColumn> | null",
-			"tasks":    "Array<TaskBoardTask>",
-		},
-	},
-	reflect.TypeOf(UserDefaultChartSectionImpl{}): {
-		SectionName: "Chart",
-		AdditionalPropertyOrder: []string{
-			"dataPath",
-			"chartSettings",
-		},
-	},
-	reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}): {
-		SectionName: "Spreadsheet",
-		AdditionalPropertyOrder: []string{
-			"filePath",
-			"activeSheet",
-			"readOnly",
-			"showRowNumbers",
-			"density",
-			"autoReloadOnExternalChange",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"density": "SpreadsheetGridDensity",
-		},
-	},
-}
-
-func generatedUserDefaultSectionSpecForType(t reflect.Type) (generatedUserDefaultSectionSpec, bool) {
-	spec, ok := generatedUserDefaultSectionSpecs[t]
-	return spec, ok
 }

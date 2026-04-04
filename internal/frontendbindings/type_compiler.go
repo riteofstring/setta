@@ -4,22 +4,19 @@ import (
 	"fmt"
 	"reflect"
 	"strings"
-
-	"setta/internal/stringenumvalues"
 )
 
 type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
-	stringEnums  map[reflect.Type][]EnumValue
 }
 
 func newTypeConverter() *typeConverter {
 	return &typeConverter{
-		seen:        make(map[reflect.Type]struct{}),
-		stringEnums: frontendBindingStringEnumValues(),
+		seen: make(map[reflect.Type]struct{}),
 	}
 }
+
 func (c *typeConverter) AddRootType(root reflect.Type) error {
 	if root == nil {
 		return nil
@@ -135,28 +132,13 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		return c.appendAdditionalDeclarationsForType(t)
 	}
 
-	if values, ok := c.stringEnums[t]; ok {
+	if values, ok, err := frontendBindingEnumValues(t); err != nil {
+		return err
+	} else if ok {
 		c.declarations = append(c.declarations, TypeDeclaration{
 			Name:       frontendBindingTypeName(t),
 			Kind:       "enum",
 			EnumValues: values,
-		})
-		return c.appendAdditionalDeclarationsForType(t)
-	}
-	if values, ok, err := stringenumvalues.Default().Values(t); err != nil {
-		return err
-	} else if ok {
-		enumValues := make([]EnumValue, 0, len(values))
-		for _, value := range values {
-			enumValues = append(enumValues, EnumValue{
-				Name:  value.Name,
-				Value: value.Value,
-			})
-		}
-		c.declarations = append(c.declarations, TypeDeclaration{
-			Name:       frontendBindingTypeName(t),
-			Kind:       "enum",
-			EnumValues: enumValues,
 		})
 		return c.appendAdditionalDeclarationsForType(t)
 	}

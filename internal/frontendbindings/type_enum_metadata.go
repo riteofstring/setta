@@ -1,507 +1,315 @@
 package frontendbindings
 
-import "reflect"
+import (
+	"reflect"
+	"strings"
+	"unicode"
 
-func frontendBindingStringEnumValues() map[reflect.Type][]EnumValue {
-	return map[reflect.Type][]EnumValue{
-		reflect.TypeOf(DependencyKeyType("")): {
-			{Name: "Section", Value: "Section"},
-			{Name: "SectionParam", Value: "SectionParam"},
-		},
-		reflect.TypeOf(DependencyValueType("")): {
-			{Name: "Literal", Value: "Literal"},
-			{Name: "Binary", Value: "Binary"},
-			{Name: "FileRead", Value: "FileRead"},
-		},
-		reflect.TypeOf(ServerMode("")): {
-			{Name: "IDE", Value: "ide"},
-			{Name: "Share", Value: "share"},
-			{Name: "App", Value: "app"},
-			{Name: "Launcher", Value: "launcher"},
-		},
-		reflect.TypeOf(LaunchSettaFilesLocation("")): {
-			{Name: "Auto", Value: "auto"},
-			{Name: "Local", Value: "local"},
-			{Name: "Global", Value: "global"},
-		},
-		reflect.TypeOf(LaunchResolvedSettaFilesLocation("")): {
-			{Name: "Local", Value: "local"},
-			{Name: "Global", Value: "global"},
-		},
-		reflect.TypeOf(LauncherOpenMode("")): {
-			{Name: "Browser", Value: "browser"},
-			{Name: "ChromeApp", Value: "chrome-app"},
-		},
-		reflect.TypeOf(LauncherWorkspaceBehavior("")): {
-			{Name: "LastUsedOrPrompt", Value: "last_used_or_prompt"},
-			{Name: "AlwaysPrompt", Value: "always_prompt"},
-		},
-		reflect.TypeOf(SetupLauncherWorkspaceBehavior("")): {
-			{Name: "LastUsedOrPrompt", Value: "last-used-or-prompt"},
-			{Name: "AlwaysPrompt", Value: "always-prompt"},
-		},
-		reflect.TypeOf(LauncherInstallSource("")): {
-			{Name: "UVTool", Value: "uv-tool"},
-			{Name: "InstallerManaged", Value: "installer-managed"},
-			{Name: "Unsupported", Value: "unsupported"},
-		},
-		reflect.TypeOf(LauncherUpdateCapability("")): {
-			{Name: "InApp", Value: "in_app"},
-			{Name: "InstallerManaged", Value: "installer_managed"},
-			{Name: "Unsupported", Value: "unsupported"},
-		},
-		reflect.TypeOf(PluginScope("")): {
-			{Name: "Workspace", Value: "workspace"},
-			{Name: "SettaFiles", Value: "setta_files"},
-			{Name: "Global", Value: "global"},
-		},
-		reflect.TypeOf(PluginRuntimeState("")): {
-			{Name: "active", Value: "active"},
-			{Name: "disabled", Value: "disabled"},
-			{Name: "invalid", Value: "invalid"},
-			{Name: "shadowed", Value: "shadowed"},
-			{Name: "pending_restart", Value: "pending_restart"},
-		},
-		reflect.TypeOf(PluginEnablementSource("")): {
-			{Name: "WorkspaceDisabled", Value: "workspace_disabled"},
-			{Name: "WorkspaceEnabled", Value: "workspace_enabled"},
-			{Name: "GlobalAutoEnabled", Value: "global_auto_enabled"},
-			{Name: "ManifestDefault", Value: "manifest_default"},
-		},
-		reflect.TypeOf(PluginSourceManager("")): {
-			{Name: "Setta", Value: "setta"},
-			{Name: "PackageManager", Value: "package_manager"},
-		},
-		reflect.TypeOf(PluginInstallerBackend("")): {
-			{Name: "Auto", Value: "auto"},
-			{Name: "Pip", Value: "pip"},
-			{Name: "UV", Value: "uv"},
-		},
-		reflect.TypeOf(PluginSourceTrustStatus("")): {
-			{Name: "Unverified", Value: "unverified"},
-		},
-		reflect.TypeOf(PluginBlockedCapabilityReason("")): {
-			{Name: "ModePolicy", Value: "mode_policy"},
-			{Name: "HostPolicy", Value: "host_policy"},
-			{Name: "ManifestInvalid", Value: "manifest_invalid"},
-		},
-		reflect.TypeOf(PluginRestartCapabilityMode("")): {
-			{Name: "Manual", Value: "manual"},
-			{Name: "Programmatic", Value: "programmatic"},
-		},
-		reflect.TypeOf(SettaNotificationType("")): {
-			{Name: "error", Value: "error"},
-			{Name: "warning", Value: "warning"},
-			{Name: "info", Value: "info"},
-			{Name: "save", Value: "save"},
-		},
-		reflect.TypeOf(ChatRole("")): {
-			{Name: "system", Value: "system"},
-			{Name: "user", Value: "user"},
-			{Name: "assistant", Value: "assistant"},
-			{Name: "tool", Value: "tool"},
-		},
-		reflect.TypeOf(ChatPermissionMode("")): {
-			{Name: "minimal", Value: "minimal"},
-			{Name: "yolo", Value: "yolo"},
-			{Name: "config_toml_custom", Value: "config_toml_custom"},
-		},
-		reflect.TypeOf(ChatDictationMode("")): {
-			{Name: "auto", Value: "auto"},
-			{Name: "browser", Value: "browser"},
-			{Name: "provider", Value: "provider"},
-		},
-		reflect.TypeOf(SectionType("")): {
-			{Name: "Callable", Value: "Callable"},
-			{Name: "Dict", Value: "Dict"},
-			{Name: "ListRoot", Value: "ListRoot"},
-			{Name: "Group", Value: "Group"},
-			{Name: "StateMachineStart", Value: "StateMachineStart"},
-			{Name: "StateMachineGate", Value: "StateMachineGate"},
-			{Name: "StateMachineEnd", Value: "StateMachineEnd"},
-			{Name: "Image", Value: "Image"},
-			{Name: "Chart", Value: "Chart"},
-			{Name: "Draw", Value: "Draw"},
-			{Name: "TextBlock", Value: "TextBlock"},
-			{Name: "Prompt", Value: "Prompt"},
-			{Name: "MetaControl", Value: "MetaControl"},
-			{Name: "Social", Value: "Social"},
-			{Name: "GlobalVariables", Value: "GlobalVariables"},
-			{Name: "Code", Value: "Code"},
-			{Name: "GenPythonCode", Value: "GenPythonCode"},
-			{Name: "GenPythonMetadata", Value: "GenPythonMetadata"},
-			{Name: "Terminal", Value: "Terminal"},
-			{Name: "IFrame", Value: "IFrame"},
-			{Name: "Chat", Value: "Chat"},
-			{Name: "Browser", Value: "Browser"},
-			{Name: "Plugin", Value: "Plugin"},
-			{Name: "TaskBoard", Value: "TaskBoard"},
-			{Name: "Spreadsheet", Value: "Spreadsheet"},
-		},
-		reflect.TypeOf(CodeObjType("")): {
-			{Name: "CodeCallable", Value: "CodeCallable"},
-			{Name: "CodeParam", Value: "CodeParam"},
-			{Name: "TextParam", Value: "TextParam"},
-			{Name: "DateParam", Value: "DateParam"},
-			{Name: "TimeParam", Value: "TimeParam"},
-			{Name: "ButtonParam", Value: "ButtonParam"},
-			{Name: "SliderParam", Value: "SliderParam"},
-			{Name: "RotaryParam", Value: "RotaryParam"},
-			{Name: "SwitchParam", Value: "SwitchParam"},
-			{Name: "ColorPickerParam", Value: "ColorPickerParam"},
-			{Name: "DropdownParam", Value: "DropdownParam"},
-			{Name: "PasswordParam", Value: "PasswordParam"},
-			{Name: "TextAreaParam", Value: "TextAreaParam"},
-			{Name: "DropzoneParam", Value: "DropzoneParam"},
-			{Name: "NestedParam", Value: "NestedParam"},
-		},
-		reflect.TypeOf(CodeLanguage("")): {
-			{Name: "python", Value: "python"},
-			{Name: "bash", Value: "bash"},
-			{Name: "javascript", Value: "javascript"},
-			{Name: "typescript", Value: "typescript"},
-			{Name: "json", Value: "json"},
-			{Name: "yaml", Value: "yaml"},
-			{Name: "toml", Value: "toml"},
-			{Name: "markdown", Value: "markdown"},
-			{Name: "plaintext", Value: "plaintext"},
-		},
-		reflect.TypeOf(ConfigLanguage("")): {
-			{Name: "python", Value: "python"},
-			{Name: "json", Value: "json"},
-		},
-		reflect.TypeOf(ParameterPassingStyle("")): {
-			{Name: "DEFAULT", Value: "DEFAULT"},
-			{Name: "ARGS", Value: "ARGS"},
-			{Name: "KWARGS", Value: "KWARGS"},
-			{Name: "POSITIONAL_ONLY", Value: "POSITIONAL_ONLY"},
-			{Name: "KEYWORD_ONLY", Value: "KEYWORD_ONLY"},
-		},
-		reflect.TypeOf(ParamNameType("")): {
-			{Name: "CODE", Value: "CODE"},
-			{Name: "TEXT", Value: "TEXT"},
-		},
-		reflect.TypeOf(ButtonActionMode("")): {
-			{Name: "WEBSOCKET_LISTENER", Value: "WEBSOCKET_LISTENER"},
-			{Name: "HTTP_REQUEST", Value: "HTTP_REQUEST"},
-			{Name: "SETTA_API", Value: "SETTA_API"},
-		},
-		reflect.TypeOf(HttpRequestMethod("")): {
-			{Name: "GET", Value: "GET"},
-			{Name: "POST", Value: "POST"},
-			{Name: "PUT", Value: "PUT"},
-			{Name: "PATCH", Value: "PATCH"},
-			{Name: "DELETE", Value: "DELETE"},
-			{Name: "HEAD", Value: "HEAD"},
-			{Name: "OPTIONS", Value: "OPTIONS"},
-		},
-		reflect.TypeOf(DropzoneMode("")): {
-			{Name: "STATEFUL", Value: "STATEFUL"},
-			{Name: "STATELESS", Value: "STATELESS"},
-		},
-		reflect.TypeOf(TextParamInputUIType("")): {
-			{Name: "plain", Value: "plain"},
-			{Name: "time", Value: "time"},
-			{Name: "date", Value: "date"},
-		},
-		reflect.TypeOf(TimeDisplayFormat("")): {
-			{Name: "twenty_four_hour", Value: "twenty_four_hour"},
-			{Name: "twelve_hour", Value: "twelve_hour"},
-		},
-		reflect.TypeOf(TimeControlMode("")): {
-			{Name: "input", Value: "input"},
-			{Name: "display", Value: "display"},
-		},
-		reflect.TypeOf(TimeDisplayFont("")): {
-			{Name: "clock", Value: "clock"},
-			{Name: "monospace", Value: "monospace"},
-			{Name: "system", Value: "system"},
-		},
-		reflect.TypeOf(DateDisplayFormat("")): {
-			{Name: "iso", Value: "iso"},
-			{Name: "us", Value: "us"},
-			{Name: "eu", Value: "eu"},
-			{Name: "long", Value: "long"},
-		},
-		reflect.TypeOf(DateControlMode("")): {
-			{Name: "input", Value: "input"},
-			{Name: "calendar", Value: "calendar"},
-		},
-		reflect.TypeOf(DateSelectionMode("")): {
-			{Name: "single", Value: "single"},
-			{Name: "multiple", Value: "multiple"},
-		},
-		reflect.TypeOf(DateCalendarWeekStart("")): {
-			{Name: "sunday", Value: "sunday"},
-			{Name: "monday", Value: "monday"},
-		},
-		reflect.TypeOf(BrowserAreaViewMode("")): {
-			{Name: "list", Value: "list"},
-			{Name: "thumbnail", Value: "thumbnail"},
-			{Name: "carousel", Value: "carousel"},
-		},
-		reflect.TypeOf(BrowserSearchScope("")): {
-			{Name: "recursive", Value: "recursive"},
-			{Name: "local", Value: "local"},
-		},
-		reflect.TypeOf(RunSnapshotMode("")): {
-			{Name: "ephemeral", Value: "ephemeral"},
-			{Name: "always", Value: "always"},
-			{Name: "never", Value: "never"},
-		},
-		reflect.TypeOf(RenameRefactorMode("")): {
-			{Name: "ALWAYS_ASK", Value: "ALWAYS_ASK"},
-			{Name: "ALWAYS_RENAME", Value: "ALWAYS_RENAME"},
-			{Name: "NEVER_RENAME", Value: "NEVER_RENAME"},
-		},
-		reflect.TypeOf(BackgroundVariant("")): {
-			{Name: "lines", Value: "lines"},
-			{Name: "dots", Value: "dots"},
-			{Name: "cross", Value: "cross"},
-		},
-		reflect.TypeOf(SelectionMode("")): {
-			{Name: "partial", Value: "partial"},
-			{Name: "full", Value: "full"},
-		},
-		reflect.TypeOf(PanOnScrollMode("")): {
-			{Name: "free", Value: "free"},
-			{Name: "vertical", Value: "vertical"},
-			{Name: "horizontal", Value: "horizontal"},
-		},
-		reflect.TypeOf(ProjectCodegenLanguage("")): {
-			{Name: "python", Value: "python"},
-		},
-		reflect.TypeOf(SectionCodegenMode("")): {
-			{Name: "inherit", Value: "inherit"},
-			{Name: "include", Value: "include"},
-			{Name: "exclude", Value: "exclude"},
-		},
-		reflect.TypeOf(SectionRepresentationMode("")): {
-			{Name: "expression", Value: "expression"},
-			{Name: "file_path", Value: "file_path"},
-			{Name: "file_read", Value: "file_read"},
-		},
-		reflect.TypeOf(CodeObjValueRepresentationMode("")): {
-			{Name: "expression", Value: "expression"},
-			{Name: "json_parsed", Value: "json_parsed"},
-			{Name: "string", Value: "string"},
-			{Name: "file_path", Value: "file_path"},
-			{Name: "file_read", Value: "file_read"},
-		},
-		reflect.TypeOf(MetaControlSizeMode("")): {
-			{Name: "any", Value: "any"},
-			{Name: "auto_only", Value: "auto_only"},
-			{Name: "manual_only", Value: "manual_only"},
-		},
-		reflect.TypeOf(SectionSizeMode("")): {
-			{Name: "auto", Value: "auto"},
-		},
-		reflect.TypeOf(ListRootViewMode("")): {
-			{Name: "default", Value: "default"},
-			{Name: "task_list", Value: "task_list"},
-			{Name: "kanban", Value: "kanban"},
-		},
-		reflect.TypeOf(TextBlockDisplayMode("")): {
-			{Name: "Render", Value: "Render"},
-			{Name: "Edit", Value: "Edit"},
-		},
-		reflect.TypeOf(TextBlockFormat("")): {
-			{Name: "Plaintext", Value: "Plaintext"},
-			{Name: "Markdown", Value: "Markdown"},
-		},
-		reflect.TypeOf(TaskBoardViewMode("")): {
-			{Name: "task_list", Value: "task_list"},
-			{Name: "kanban", Value: "kanban"},
-		},
-		reflect.TypeOf(TaskBoardTaskRecurrence("")): {
-			{Name: "none", Value: "none"},
-			{Name: "hourly", Value: "hourly"},
-			{Name: "daily", Value: "daily"},
-			{Name: "specified_days", Value: "specified_days"},
-			{Name: "specified_months", Value: "specified_months"},
-			{Name: "specified_years", Value: "specified_years"},
-		},
-		reflect.TypeOf(TaskBoardRecurringWeekday("")): {
-			{Name: "monday", Value: "monday"},
-			{Name: "tuesday", Value: "tuesday"},
-			{Name: "wednesday", Value: "wednesday"},
-			{Name: "thursday", Value: "thursday"},
-			{Name: "friday", Value: "friday"},
-			{Name: "saturday", Value: "saturday"},
-			{Name: "sunday", Value: "sunday"},
-		},
-		reflect.TypeOf(TaskBoardRecurringMonth("")): {
-			{Name: "january", Value: "january"},
-			{Name: "february", Value: "february"},
-			{Name: "march", Value: "march"},
-			{Name: "april", Value: "april"},
-			{Name: "may", Value: "may"},
-			{Name: "june", Value: "june"},
-			{Name: "july", Value: "july"},
-			{Name: "august", Value: "august"},
-			{Name: "september", Value: "september"},
-			{Name: "october", Value: "october"},
-			{Name: "november", Value: "november"},
-			{Name: "december", Value: "december"},
-		},
-		reflect.TypeOf(StateMachineGateType("")): {
-			{Name: "AND", Value: "AND"},
-			{Name: "OR", Value: "OR"},
-			{Name: "XOR", Value: "XOR"},
-		},
-		reflect.TypeOf(StateMachineTargetActionType("")): {
-			{Name: "send_prompt", Value: "send_prompt"},
-			{Name: "reset_thread", Value: "reset_thread"},
-		},
-		reflect.TypeOf(StateMachineThreadStrategy("")): {
-			{Name: "continue_current_thread", Value: "continue_current_thread"},
-			{Name: "new_thread_before_send", Value: "new_thread_before_send"},
-		},
-		reflect.TypeOf(StateMachineSourceFilterType("")): {
-			{Name: "run_completed", Value: "run_completed"},
-			{Name: "run_failed", Value: "run_failed"},
-			{Name: "signal", Value: "signal"},
-		},
-		reflect.TypeOf(StateMachineCountOperator("")): {
-			{Name: "lt", Value: "lt"},
-			{Name: "lte", Value: "lte"},
-			{Name: "eq", Value: "eq"},
-			{Name: "gte", Value: "gte"},
-			{Name: "gt", Value: "gt"},
-		},
-		reflect.TypeOf(AgenticEdgeKind("")): {
-			{Name: "chat_chat", Value: "chat_chat"},
-			{Name: "section_chat", Value: "section_chat"},
-			{Name: "chat_section", Value: "chat_section"},
-		},
-		reflect.TypeOf(AgenticEdgeContextMode("")): {
-			{Name: "reference_only", Value: "reference_only"},
-			{Name: "inline_text", Value: "inline_text"},
-			{Name: "summary", Value: "summary"},
-		},
-		reflect.TypeOf(CodeFileAccessMode("")): {
-			{Name: "read_write", Value: "read_write"},
-			{Name: "read_only", Value: "read_only"},
-			{Name: "write_only", Value: "write_only"},
-		},
-		reflect.TypeOf(ChatWindowPlacement("")): {
-			{Name: "bottom_docked", Value: "bottom_docked"},
-			{Name: "floating", Value: "floating"},
-			{Name: "maximized", Value: "maximized"},
-			{Name: "canvas_section", Value: "canvas_section"},
-		},
-		reflect.TypeOf(ChatWindowMode("")): {
-			{Name: "project_ai_mode", Value: "project_ai_mode"},
-			{Name: "section_mode", Value: "section_mode"},
-			{Name: "git_graph_mode", Value: "git_graph_mode"},
-		},
-		reflect.TypeOf(WindowSpaceSurfaceKind("")): {
-			{Name: "project_chat", Value: "project_chat"},
-			{Name: "section", Value: "section"},
-		},
-		reflect.TypeOf(ClipboardDataType("")): {
-			{Name: "Sections", Value: "Sections"},
-		},
-		reflect.TypeOf(ChartType("")): {
-			{Name: "line", Value: "line"},
-			{Name: "scatter", Value: "scatter"},
-		},
-		reflect.TypeOf(SpreadsheetGridDensity("")): {
-			{Name: "compact", Value: "compact"},
-			{Name: "comfortable", Value: "comfortable"},
-		},
-		reflect.TypeOf(StreamingEventType("")): {
-			{Name: "MESSAGE_START", Value: "message_start"},
-			{Name: "DELTA", Value: "delta"},
-			{Name: "TOOL_CALL_DELTA", Value: "tool_call_delta"},
-			{Name: "TOOL_ARGUMENT_PREVIEW_DELTA", Value: "tool_argument_preview_delta"},
-			{Name: "TOOL_RESULT", Value: "tool_result"},
-			{Name: "MESSAGE_STOP", Value: "message_stop"},
-			{Name: "MESSAGE_FINALIZED", Value: "message_finalized"},
-		},
-		reflect.TypeOf(WebsocketConnectionType("")): {
-			{Name: "CLI", Value: "CLI"},
-			{Name: "SERVER", Value: "SERVER"},
-			{Name: "PYTHON_LOGGER", Value: "PYTHON_LOGGER"},
-			{Name: "PYTHON_SCRIPT", Value: "PYTHON_SCRIPT"},
-			{Name: "FRONTEND", Value: "FRONTEND"},
-		},
-		reflect.TypeOf(WebsocketMsgTypeForFrontend("")): {
-			{Name: "AllConnections", Value: "AllConnections"},
-			{Name: "FrontendIdentity", Value: "FrontendIdentity"},
-			{Name: "Notification", Value: "Notification"},
-			{Name: "LLMStreamingResponse", Value: "LLMStreamingResponse"},
-			{Name: "LSPDiagnostics", Value: "LSPDiagnostics"},
-			{Name: "NameValidationErrors", Value: "NameValidationErrors"},
-			{Name: "ReturnRenameRefactorResults", Value: "ReturnRenameRefactorResults"},
-			{Name: "TerminalMetadata", Value: "TerminalMetadata"},
-			{Name: "UpdateFrontendProjectState", Value: "UpdateFrontendProjectState"},
-			{Name: "UpdateSettings", Value: "UpdateSettings"},
-			{Name: "AllProjectMetadata", Value: "AllProjectMetadata"},
-			{Name: "UpdateArtifacts", Value: "UpdateArtifacts"},
-			{Name: "ListenerCoverageSnapshot", Value: "ListenerCoverageSnapshot"},
-			{Name: "LLMConfigUpdated", Value: "LLMConfigUpdated"},
-			{Name: "LLMApiKeysUpdated", Value: "LLMApiKeysUpdated"},
-			{Name: "AgentRunUpdated", Value: "AgentRunUpdated"},
-			{Name: "BackendLogEvent", Value: "BackendLogEvent"},
-			{Name: "AIFollowToolArgumentsUpdate", Value: "AIFollowToolArgumentsUpdate"},
-			{Name: "AIFollowToolResultUpdate", Value: "AIFollowToolResultUpdate"},
-			{Name: "UISettingReveal", Value: "UISettingReveal"},
-			{Name: "AgentProfilesUpdated", Value: "AgentProfilesUpdated"},
-			{Name: "PromptTemplatesUpdated", Value: "PromptTemplatesUpdated"},
-			{Name: "ExternalAgentConfigsUpdated", Value: "ExternalAgentConfigsUpdated"},
-			{Name: "EngineConfigsUpdated", Value: "EngineConfigsUpdated"},
-			{Name: "TranscriptionProfilesUpdated", Value: "TranscriptionProfilesUpdated"},
-		},
-		reflect.TypeOf(WebsocketMsgTypeForBackend("")): {
-			{Name: "CurrentAddressUpdate", Value: "CurrentAddressUpdate"},
-			{Name: "UISettingRevealResult", Value: "UISettingRevealResult"},
-			{Name: "RealtimeUIChange", Value: "RealtimeUIChange"},
-			{Name: "RealtimeDependencyEvent", Value: "RealtimeDependencyEvent"},
-		},
-		reflect.TypeOf(ArtifactType("")): {
-			{Name: "Image", Value: "Image"},
-			{Name: "BrushStroke", Value: "BrushStroke"},
-			{Name: "DrawAreaLayerItemTransform", Value: "DrawAreaLayerItemTransform"},
-			{Name: "ChartData", Value: "ChartData"},
-			{Name: "File", Value: "File"},
-		},
-		reflect.TypeOf(DrawAreaBrushShape("")): {
-			{Name: "butt", Value: "butt"},
-			{Name: "round", Value: "round"},
-			{Name: "square", Value: "square"},
-		},
-		reflect.TypeOf(DrawAreaMode("")): {
-			{Name: "draw", Value: "draw"},
-			{Name: "erase", Value: "erase"},
-			{Name: "edit", Value: "edit"},
-		},
-		reflect.TypeOf(ArtifactSaveConflictStrategy("")): {
-			{Name: "skip", Value: "skip"},
-			{Name: "backup", Value: "backup"},
-			{Name: "overwrite", Value: "overwrite"},
-		},
-		reflect.TypeOf(ArtifactSaveStatus("")): {
-			{Name: "saved", Value: "saved"},
-			{Name: "unchanged", Value: "unchanged"},
-			{Name: "skipped", Value: "skipped"},
-			{Name: "conflict", Value: "conflict"},
-		},
-		reflect.TypeOf(MissingFolderBehavior("")): {
-			{Name: "error", Value: "error"},
-			{Name: "empty", Value: "empty"},
-		},
-		reflect.TypeOf(FolderContentItemType("")): {
-			{Name: "folder", Value: "folder"},
-			{Name: "file", Value: "file"},
-		},
-		reflect.TypeOf(TransferOperation("")): {
-			{Name: "copy", Value: "copy"},
-			{Name: "move", Value: "move"},
-		},
-		reflect.TypeOf(GitDiffMode("")): {
-			{Name: "unstaged", Value: "unstaged"},
-			{Name: "staged", Value: "staged"},
-		},
+	"setta/internal/projectstate"
+	"setta/internal/stringenumvalues"
+)
+
+type frontendEnumNamingMode int
+
+const (
+	frontendEnumNamingDiscovered frontendEnumNamingMode = iota
+	frontendEnumNamingPascalValue
+	frontendEnumNamingUpperSnakeValue
+)
+
+var frontendBindingSyntheticEnumProviders = map[reflect.Type]func() []EnumValue{
+	reflect.TypeOf(SectionType("")): func() []EnumValue {
+		values := frontendBindingStructFieldEnumValues(
+			reflect.TypeOf(projectstate.FrontendSectionSizingPolicyByType{}),
+		)
+		return frontendBindingMoveEnumValueBefore(values, "TextBlock", "Prompt")
+	},
+	reflect.TypeOf(CodeObjType("")): func() []EnumValue {
+		return frontendBindingStructFieldEnumValues(
+			reflect.TypeOf(projectstate.FrontendMetaControlSizingPolicyByType{}),
+		)
+	},
+	reflect.TypeOf(CodeLanguage("")): frontendBindingFixedEnumValues(
+		"python",
+		"bash",
+		"javascript",
+		"typescript",
+		"json",
+		"yaml",
+		"toml",
+		"markdown",
+		"plaintext",
+	),
+	reflect.TypeOf(ConfigLanguage("")): frontendBindingFixedEnumValues("python", "json"),
+	reflect.TypeOf(ParameterPassingStyle("")): frontendBindingFixedEnumValues(
+		"DEFAULT",
+		"ARGS",
+		"KWARGS",
+		"POSITIONAL_ONLY",
+		"KEYWORD_ONLY",
+	),
+	reflect.TypeOf(ParamNameType("")): frontendBindingFixedEnumValues("CODE", "TEXT"),
+	reflect.TypeOf(ButtonActionMode("")): frontendBindingFixedEnumValues(
+		"WEBSOCKET_LISTENER",
+		"HTTP_REQUEST",
+		"SETTA_API",
+	),
+	reflect.TypeOf(HttpRequestMethod("")): frontendBindingFixedEnumValues(
+		"GET",
+		"POST",
+		"PUT",
+		"PATCH",
+		"DELETE",
+		"HEAD",
+		"OPTIONS",
+	),
+	reflect.TypeOf(DropzoneMode("")):         frontendBindingFixedEnumValues("STATEFUL", "STATELESS"),
+	reflect.TypeOf(TextParamInputUIType("")): frontendBindingFixedEnumValues("plain", "time", "date"),
+	reflect.TypeOf(TimeDisplayFormat("")): frontendBindingFixedEnumValues(
+		"twenty_four_hour",
+		"twelve_hour",
+	),
+	reflect.TypeOf(TimeControlMode("")):       frontendBindingFixedEnumValues("input", "display"),
+	reflect.TypeOf(TimeDisplayFont("")):       frontendBindingFixedEnumValues("clock", "monospace", "system"),
+	reflect.TypeOf(DateDisplayFormat("")):     frontendBindingFixedEnumValues("iso", "us", "eu", "long"),
+	reflect.TypeOf(DateControlMode("")):       frontendBindingFixedEnumValues("input", "calendar"),
+	reflect.TypeOf(DateSelectionMode("")):     frontendBindingFixedEnumValues("single", "multiple"),
+	reflect.TypeOf(DateCalendarWeekStart("")): frontendBindingFixedEnumValues("sunday", "monday"),
+	reflect.TypeOf(BackgroundVariant("")):     frontendBindingFixedEnumValues("lines", "dots", "cross"),
+	reflect.TypeOf(SelectionMode("")):         frontendBindingFixedEnumValues("partial", "full"),
+	reflect.TypeOf(PanOnScrollMode("")):       frontendBindingFixedEnumValues("free", "vertical", "horizontal"),
+	reflect.TypeOf(MetaControlSizeMode("")): frontendBindingFixedEnumValues(
+		"any",
+		"auto_only",
+		"manual_only",
+	),
+	reflect.TypeOf(SectionSizeMode("")): frontendBindingFixedEnumValues("auto"),
+	reflect.TypeOf(TaskBoardTaskRecurrence("")): frontendBindingFixedEnumValues(
+		"none",
+		"hourly",
+		"daily",
+		"specified_days",
+		"specified_months",
+		"specified_years",
+	),
+	reflect.TypeOf(TaskBoardRecurringWeekday("")): frontendBindingFixedEnumValues(
+		"monday",
+		"tuesday",
+		"wednesday",
+		"thursday",
+		"friday",
+		"saturday",
+		"sunday",
+	),
+	reflect.TypeOf(TaskBoardRecurringMonth("")): frontendBindingFixedEnumValues(
+		"january",
+		"february",
+		"march",
+		"april",
+		"may",
+		"june",
+		"july",
+		"august",
+		"september",
+		"october",
+		"november",
+		"december",
+	),
+	reflect.TypeOf(AgenticEdgeKind("")): frontendBindingFixedEnumValues(
+		"chat_chat",
+		"section_chat",
+		"chat_section",
+	),
+	reflect.TypeOf(AgenticEdgeContextMode("")): frontendBindingFixedEnumValues(
+		"reference_only",
+		"inline_text",
+		"summary",
+	),
+}
+
+var frontendBindingEnumNamingModes = map[reflect.Type]frontendEnumNamingMode{
+	reflect.TypeOf(ServerMode("")):                       frontendEnumNamingPascalValue,
+	reflect.TypeOf(LaunchSettaFilesLocation("")):         frontendEnumNamingPascalValue,
+	reflect.TypeOf(LaunchResolvedSettaFilesLocation("")): frontendEnumNamingPascalValue,
+	reflect.TypeOf(LauncherOpenMode("")):                 frontendEnumNamingPascalValue,
+	reflect.TypeOf(LauncherWorkspaceBehavior("")):        frontendEnumNamingPascalValue,
+	reflect.TypeOf(SetupLauncherWorkspaceBehavior("")):   frontendEnumNamingPascalValue,
+	reflect.TypeOf(LauncherInstallSource("")):            frontendEnumNamingPascalValue,
+	reflect.TypeOf(LauncherUpdateCapability("")):         frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginScope("")):                      frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginEnablementSource("")):           frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginSourceManager("")):              frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginInstallerBackend("")):           frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginSourceTrustStatus("")):          frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginBlockedCapabilityReason("")):    frontendEnumNamingPascalValue,
+	reflect.TypeOf(PluginRestartCapabilityMode("")):      frontendEnumNamingPascalValue,
+	reflect.TypeOf(StreamingEventType("")):               frontendEnumNamingUpperSnakeValue,
+}
+
+var frontendBindingEnumPascalAcronyms = map[string]string{
+	"api":  "API",
+	"http": "HTTP",
+	"id":   "ID",
+	"ide":  "IDE",
+	"json": "JSON",
+	"llm":  "LLM",
+	"mcp":  "MCP",
+	"ui":   "UI",
+	"url":  "URL",
+	"uv":   "UV",
+}
+
+func frontendBindingEnumValues(t reflect.Type) ([]EnumValue, bool, error) {
+	t = canonicalFrontendBindingType(t)
+	if t == nil {
+		return nil, false, nil
 	}
+
+	if provider, ok := frontendBindingSyntheticEnumProviders[t]; ok {
+		return provider(), true, nil
+	}
+
+	discovered, ok, err := stringenumvalues.Default().Values(t)
+	if err != nil {
+		return nil, false, err
+	}
+	if !ok {
+		return nil, false, nil
+	}
+
+	return frontendBindingEnumValuesFromDiscovered(
+		discovered,
+		frontendBindingEnumNamingModes[t],
+	), true, nil
+}
+
+func frontendBindingFixedEnumValues(values ...string) func() []EnumValue {
+	return func() []EnumValue {
+		enumValues := make([]EnumValue, 0, len(values))
+		for _, value := range values {
+			enumValues = append(enumValues, EnumValue{
+				Name:  value,
+				Value: value,
+			})
+		}
+		return enumValues
+	}
+}
+
+func frontendBindingEnumValuesFromDiscovered(
+	discovered []stringenumvalues.EnumValue,
+	mode frontendEnumNamingMode,
+) []EnumValue {
+	values := make([]EnumValue, 0, len(discovered))
+	seen := make(map[string]struct{}, len(discovered))
+	for _, discoveredValue := range discovered {
+		name := discoveredValue.Name
+		switch mode {
+		case frontendEnumNamingPascalValue:
+			name = frontendBindingPascalEnumValueName(discoveredValue.Value)
+		case frontendEnumNamingUpperSnakeValue:
+			name = frontendBindingUpperSnakeEnumValueName(discoveredValue.Value)
+		}
+		key := name + "\x00" + discoveredValue.Value
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		values = append(values, EnumValue{
+			Name:  name,
+			Value: discoveredValue.Value,
+		})
+	}
+	return values
+}
+
+func frontendBindingStructFieldEnumValues(structType reflect.Type) []EnumValue {
+	values := make([]EnumValue, 0, structType.NumField())
+	for index := 0; index < structType.NumField(); index++ {
+		field := structType.Field(index)
+		if !field.IsExported() {
+			continue
+		}
+		name := frontendBindingStructFieldEnumName(field)
+		if name == "" {
+			continue
+		}
+		values = append(values, EnumValue{
+			Name:  name,
+			Value: name,
+		})
+	}
+	return values
+}
+
+func frontendBindingMoveEnumValueBefore(
+	values []EnumValue,
+	name string,
+	before string,
+) []EnumValue {
+	fromIndex := -1
+	toIndex := -1
+	for index, value := range values {
+		switch value.Name {
+		case name:
+			fromIndex = index
+		case before:
+			toIndex = index
+		}
+	}
+	if fromIndex == -1 || toIndex == -1 || fromIndex < toIndex {
+		return values
+	}
+
+	ordered := append([]EnumValue(nil), values...)
+	value := ordered[fromIndex]
+	copy(ordered[toIndex+1:fromIndex+1], ordered[toIndex:fromIndex])
+	ordered[toIndex] = value
+	return ordered
+}
+
+func frontendBindingStructFieldEnumName(field reflect.StructField) string {
+	jsonName := strings.TrimSpace(field.Tag.Get("json"))
+	if jsonName == "" {
+		return field.Name
+	}
+	name, _, _ := strings.Cut(jsonName, ",")
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return field.Name
+	}
+	if name == "-" {
+		return ""
+	}
+	return name
+}
+
+func frontendBindingPascalEnumValueName(value string) string {
+	parts := strings.FieldsFunc(strings.TrimSpace(value), func(char rune) bool {
+		return char == '-' || char == '_' || !(unicode.IsLetter(char) || unicode.IsDigit(char))
+	})
+	if len(parts) == 0 {
+		return value
+	}
+
+	var builder strings.Builder
+	for _, part := range parts {
+		if part == "" {
+			continue
+		}
+		lower := strings.ToLower(part)
+		if acronym, ok := frontendBindingEnumPascalAcronyms[lower]; ok {
+			builder.WriteString(acronym)
+			continue
+		}
+		runes := []rune(lower)
+		runes[0] = unicode.ToUpper(runes[0])
+		builder.WriteString(string(runes))
+	}
+	return builder.String()
+}
+
+func frontendBindingUpperSnakeEnumValueName(value string) string {
+	normalized := strings.ReplaceAll(strings.TrimSpace(value), "-", "_")
+	return strings.ToUpper(normalized)
 }

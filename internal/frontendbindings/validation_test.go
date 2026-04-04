@@ -3578,24 +3578,126 @@ func copyFrontendSupportFile(t *testing.T, repoRoot string, tempSrcDir string, r
 }
 
 func TestTypeConverterRendersStringEnums(t *testing.T) {
-	converter := newTypeConverter()
-	if err := converter.AddRootType(reflect.TypeOf(ServerMode(""))); err != nil {
-		t.Fatalf("AddRootType(ServerMode) error = %v", err)
+	tests := []struct {
+		name     string
+		root     reflect.Type
+		expected []EnumValue
+	}{
+		{
+			name: "ServerMode",
+			root: reflect.TypeOf(ServerMode("")),
+			expected: []EnumValue{
+				{Name: "IDE", Value: "ide"},
+				{Name: "Share", Value: "share"},
+				{Name: "App", Value: "app"},
+				{Name: "Launcher", Value: "launcher"},
+			},
+		},
+		{
+			name: "LauncherOpenMode",
+			root: reflect.TypeOf(LauncherOpenMode("")),
+			expected: []EnumValue{
+				{Name: "Browser", Value: "browser"},
+				{Name: "ChromeApp", Value: "chrome-app"},
+			},
+		},
+		{
+			name: "StreamingEventType",
+			root: reflect.TypeOf(StreamingEventType("")),
+			expected: []EnumValue{
+				{Name: "MESSAGE_START", Value: "message_start"},
+				{Name: "DELTA", Value: "delta"},
+				{Name: "TOOL_CALL_DELTA", Value: "tool_call_delta"},
+				{Name: "TOOL_ARGUMENT_PREVIEW_DELTA", Value: "tool_argument_preview_delta"},
+				{Name: "TOOL_RESULT", Value: "tool_result"},
+				{Name: "MESSAGE_STOP", Value: "message_stop"},
+				{Name: "MESSAGE_FINALIZED", Value: "message_finalized"},
+			},
+		},
+		{
+			name: "CodeLanguage",
+			root: reflect.TypeOf(CodeLanguage("")),
+			expected: []EnumValue{
+				{Name: "python", Value: "python"},
+				{Name: "bash", Value: "bash"},
+				{Name: "javascript", Value: "javascript"},
+				{Name: "typescript", Value: "typescript"},
+				{Name: "json", Value: "json"},
+				{Name: "yaml", Value: "yaml"},
+				{Name: "toml", Value: "toml"},
+				{Name: "markdown", Value: "markdown"},
+				{Name: "plaintext", Value: "plaintext"},
+			},
+		},
+		{
+			name: "SectionType",
+			root: reflect.TypeOf(SectionType("")),
+			expected: []EnumValue{
+				{Name: "Callable", Value: "Callable"},
+				{Name: "Dict", Value: "Dict"},
+				{Name: "ListRoot", Value: "ListRoot"},
+				{Name: "Group", Value: "Group"},
+				{Name: "StateMachineStart", Value: "StateMachineStart"},
+				{Name: "StateMachineGate", Value: "StateMachineGate"},
+				{Name: "StateMachineEnd", Value: "StateMachineEnd"},
+				{Name: "Image", Value: "Image"},
+				{Name: "Chart", Value: "Chart"},
+				{Name: "Draw", Value: "Draw"},
+				{Name: "TextBlock", Value: "TextBlock"},
+				{Name: "Prompt", Value: "Prompt"},
+				{Name: "MetaControl", Value: "MetaControl"},
+				{Name: "Social", Value: "Social"},
+				{Name: "GlobalVariables", Value: "GlobalVariables"},
+				{Name: "Code", Value: "Code"},
+				{Name: "GenPythonCode", Value: "GenPythonCode"},
+				{Name: "GenPythonMetadata", Value: "GenPythonMetadata"},
+				{Name: "Terminal", Value: "Terminal"},
+				{Name: "IFrame", Value: "IFrame"},
+				{Name: "Chat", Value: "Chat"},
+				{Name: "Browser", Value: "Browser"},
+				{Name: "Plugin", Value: "Plugin"},
+				{Name: "TaskBoard", Value: "TaskBoard"},
+				{Name: "Spreadsheet", Value: "Spreadsheet"},
+			},
+		},
+		{
+			name: "CodeObjType",
+			root: reflect.TypeOf(CodeObjType("")),
+			expected: []EnumValue{
+				{Name: "CodeCallable", Value: "CodeCallable"},
+				{Name: "CodeParam", Value: "CodeParam"},
+				{Name: "TextParam", Value: "TextParam"},
+				{Name: "DateParam", Value: "DateParam"},
+				{Name: "TimeParam", Value: "TimeParam"},
+				{Name: "ButtonParam", Value: "ButtonParam"},
+				{Name: "SliderParam", Value: "SliderParam"},
+				{Name: "RotaryParam", Value: "RotaryParam"},
+				{Name: "SwitchParam", Value: "SwitchParam"},
+				{Name: "ColorPickerParam", Value: "ColorPickerParam"},
+				{Name: "DropdownParam", Value: "DropdownParam"},
+				{Name: "PasswordParam", Value: "PasswordParam"},
+				{Name: "TextAreaParam", Value: "TextAreaParam"},
+				{Name: "DropzoneParam", Value: "DropzoneParam"},
+				{Name: "NestedParam", Value: "NestedParam"},
+			},
+		},
 	}
 
-	declaration := requireDeclaration(t, converter.Declarations(), "ServerMode")
-	if declaration.Kind != "enum" {
-		t.Fatalf("ServerMode declaration kind = %q, want %q", declaration.Kind, "enum")
-	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
 
-	expected := []EnumValue{
-		{Name: "IDE", Value: "ide"},
-		{Name: "Share", Value: "share"},
-		{Name: "App", Value: "app"},
-		{Name: "Launcher", Value: "launcher"},
-	}
-	if !reflect.DeepEqual(declaration.EnumValues, expected) {
-		t.Fatalf("ServerMode enum values = %#v, want %#v", declaration.EnumValues, expected)
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "enum" {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, "enum")
+			}
+			if !reflect.DeepEqual(declaration.EnumValues, tt.expected) {
+				t.Fatalf("%s enum values = %#v, want %#v", tt.name, declaration.EnumValues, tt.expected)
+			}
+		})
 	}
 }
 

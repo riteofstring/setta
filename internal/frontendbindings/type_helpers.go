@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"setta/internal/projectstate"
-	"setta/internal/stringenumvalues"
 )
 
 var timeType = reflect.TypeOf(time.Time{})
@@ -195,32 +194,14 @@ func validateTSLiteralObjectKeys(context string, object map[string]any, orderedK
 }
 
 func EnumValuesForType(t reflect.Type) ([]EnumValue, bool, error) {
-	t = canonicalFrontendBindingType(t)
-	if t == nil {
-		return nil, false, nil
-	}
-
-	converter := newTypeConverter()
-	if values, ok := converter.stringEnums[t]; ok {
-		return append([]EnumValue(nil), values...), true, nil
-	}
-
-	values, ok, err := stringenumvalues.Default().Values(t)
+	values, ok, err := frontendBindingEnumValues(t)
 	if err != nil {
 		return nil, false, err
 	}
 	if !ok {
 		return nil, false, nil
 	}
-
-	enumValues := make([]EnumValue, 0, len(values))
-	for _, value := range values {
-		enumValues = append(enumValues, EnumValue{
-			Name:  value.Name,
-			Value: value.Value,
-		})
-	}
-	return enumValues, true, nil
+	return append([]EnumValue(nil), values...), true, nil
 }
 
 func mustTSLiteralValueFromGoValue(context string, value any) any {
@@ -477,54 +458,73 @@ func generatedUserDefaultCodeParamCodeObjDeclaration(
 func generatedUserDefaultSectionDeclaration(
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
-	spec, ok := generatedUserDefaultSectionSpecForType(t)
+	sectionName, ok := generatedUserDefaultSectionNameForType(t)
 	if !ok {
 		return TypeDeclaration{}, false, nil
 	}
-	properties, err := generatedUserDefaultSectionProperties(spec)
+	properties, err := generatedUserDefaultSectionProperties(sectionName)
 	if err != nil {
 		return TypeDeclaration{}, false, err
 	}
 	return objectDeclarationWithGoBackedSectionDefaults(
 		t.Name(),
-		spec.SectionName,
+		sectionName,
 		properties...,
 	), true, nil
 }
 
-func generatedUserDefaultSectionProperties(
-	spec generatedUserDefaultSectionSpec,
-) ([]TypeProperty, error) {
-	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(spec.SectionName)
+func generatedUserDefaultSectionNameForType(t reflect.Type) (string, bool) {
+	if t == nil || t.Kind() != reflect.Struct {
+		return "", false
+	}
+	name := strings.TrimSpace(t.Name())
+	if !strings.HasPrefix(name, "UserDefault") || !strings.HasSuffix(name, "SectionImpl") {
+		return "", false
+	}
+	sectionName := strings.TrimSuffix(strings.TrimPrefix(name, "UserDefault"), "SectionImpl")
+	if _, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName); err != nil {
+		return "", false
+	}
+	if _, ok := generatedSectionAliasSpecForSectionName(sectionName); !ok {
+		return "", false
+	}
+	return sectionName, true
+}
+
+func generatedUserDefaultSectionProperties(sectionName string) ([]TypeProperty, error) {
+	defaults, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName)
 	if err != nil {
 		return nil, err
 	}
-	registry, err := generatedUserDefaultSectionPropertyRegistry()
+	registry, propertyOrder, ignored, err := generatedUserDefaultSectionPropertyRegistry(sectionName)
 	if err != nil {
 		return nil, err
 	}
-	propertyOrder := append(
-		append([]string(nil), generatedUserDefaultSectionBasePropertyOrder...),
-		spec.AdditionalPropertyOrder...,
-	)
 	remaining := make(map[string]struct{}, len(defaults))
 	for name := range defaults {
 		if _, ignored := generatedUserDefaultSectionIgnoredDefaultProperties[name]; ignored {
 			continue
 		}
-		if _, ignored := spec.IgnoredDefaultProperties[name]; ignored {
+		if _, ignored := ignored[name]; ignored {
 			continue
 		}
 		remaining[name] = struct{}{}
 	}
 	properties := make([]TypeProperty, 0, len(propertyOrder))
 	for _, name := range propertyOrder {
-		if _, ok := defaults[name]; !ok {
+		if _, skip := generatedUserDefaultSectionIgnoredDefaultProperties[name]; skip {
 			continue
 		}
-		property, err := generatedUserDefaultSectionProperty(name, registry, spec.PropertyTypeExprOverrides)
+		if _, skip := ignored[name]; skip {
+			continue
+		}
+		value, ok := defaults[name]
+		if !ok {
+			continue
+		}
+		property, err := generatedUserDefaultSectionProperty(name, value, registry)
 		if err != nil {
-			return nil, fmt.Errorf("%s defaults %q: %w", spec.SectionName, name, err)
+			return nil, fmt.Errorf("%s defaults %q: %w", sectionName, name, err)
 		}
 		properties = append(properties, property)
 		delete(remaining, name)
@@ -537,21 +537,109 @@ func generatedUserDefaultSectionProperties(
 		sort.Strings(unhandled)
 		return nil, fmt.Errorf(
 			"frontend user default section %s has unhandled properties: %s",
-			spec.SectionName,
+			sectionName,
 			strings.Join(unhandled, ", "),
 		)
 	}
 	return properties, nil
 }
 
-func generatedUserDefaultSectionPropertyRegistry() (map[string]TypeProperty, error) {
+func generatedUserDefaultSectionPropertyRegistry(sectionName string) (
+	map[string]TypeProperty,
+	[]string,
+	map[string]struct{},
+	error,
+) {
+	spec, ok := generatedSectionAliasSpecForSectionName(sectionName)
+	if !ok {
+		return nil, nil, nil, fmt.Errorf("unsupported generated user default section: %s", sectionName)
+	}
 	baseSectionDeclaration := generatedBaseSectionImplDeclaration()
 	registry := make(map[string]TypeProperty, len(baseSectionDeclaration.Properties))
 	for _, property := range baseSectionDeclaration.Properties {
 		property.Optional = false
 		registry[property.Name] = property
 	}
-	return registry, nil
+	propertyOrder := append([]string(nil), generatedUserDefaultSectionBasePropertyOrder...)
+	sectionProperties := generatedSectionAliasProperties(spec)
+	if len(spec.UserDefaultPropertyOrder) > 0 {
+		sectionProperties = generatedUserDefaultSectionOrderedProperties(sectionProperties, spec.UserDefaultPropertyOrder)
+	}
+	appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, sectionProperties)
+	for _, source := range spec.UserDefaultReflectedSources {
+		properties, err := generatedUserDefaultReflectedProperties(source)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		appendUniqueGeneratedUserDefaultSectionProperties(&propertyOrder, registry, properties)
+	}
+	return registry, propertyOrder, spec.UserDefaultIgnoredProperties, nil
+}
+
+func generatedUserDefaultSectionOrderedProperties(
+	properties []TypeProperty,
+	order []string,
+) []TypeProperty {
+	if len(order) == 0 {
+		return properties
+	}
+	byName := make(map[string]TypeProperty, len(properties))
+	for _, property := range properties {
+		byName[property.Name] = property
+	}
+	ordered := make([]TypeProperty, 0, len(properties))
+	seen := make(map[string]struct{}, len(properties))
+	for _, name := range order {
+		property, ok := byName[name]
+		if !ok {
+			continue
+		}
+		ordered = append(ordered, property)
+		seen[name] = struct{}{}
+	}
+	for _, property := range properties {
+		if _, ok := seen[property.Name]; ok {
+			continue
+		}
+		ordered = append(ordered, property)
+	}
+	return ordered
+}
+
+func appendUniqueGeneratedUserDefaultSectionProperties(
+	order *[]string,
+	registry map[string]TypeProperty,
+	properties []TypeProperty,
+) {
+	seen := make(map[string]struct{}, len(*order))
+	for _, name := range *order {
+		seen[name] = struct{}{}
+	}
+	for _, property := range properties {
+		if property.Name == "type" {
+			continue
+		}
+		property.Optional = false
+		registry[property.Name] = property
+		if _, ok := seen[property.Name]; ok {
+			continue
+		}
+		*order = append(*order, property.Name)
+		seen[property.Name] = struct{}{}
+	}
+}
+
+func generatedUserDefaultReflectedProperties(t reflect.Type) ([]TypeProperty, error) {
+	spec, ok := ownerBackedReflectedObjectDeclarationSpec(t)
+	if !ok {
+		return nil, fmt.Errorf("missing reflected object declaration spec for %s", t)
+	}
+	converter := newTypeConverter()
+	declaration, err := converter.reflectedObjectDeclaration(t, spec)
+	if err != nil {
+		return nil, err
+	}
+	return declaration.Properties, nil
 }
 
 func generatedUserDefaultCodeParamCodeObjProperties() ([]TypeProperty, error) {
@@ -566,20 +654,25 @@ func generatedUserDefaultCodeParamCodeObjProperties() ([]TypeProperty, error) {
 
 func generatedUserDefaultSectionProperty(
 	name string,
+	defaultValue any,
 	registry map[string]TypeProperty,
-	typeExprOverrides map[string]string,
 ) (TypeProperty, error) {
 	property, ok := registry[name]
 	if !ok {
 		property = TypeProperty{Name: name}
-	}
-	if override, ok := typeExprOverrides[name]; ok {
-		property.TypeExpr = override
 	}
 	if property.TypeExpr == "" {
 		return TypeProperty{}, fmt.Errorf("missing TypeScript type metadata")
 	}
 	property.Name = name
 	property.Optional = false
+	property.TypeExpr = generatedUserDefaultSectionPropertyTypeExpr(property.TypeExpr, defaultValue)
 	return property, nil
+}
+
+func generatedUserDefaultSectionPropertyTypeExpr(typeExpr string, defaultValue any) string {
+	if defaultValue != nil || strings.Contains(typeExpr, "null") {
+		return typeExpr
+	}
+	return typeExpr + " | null"
 }
