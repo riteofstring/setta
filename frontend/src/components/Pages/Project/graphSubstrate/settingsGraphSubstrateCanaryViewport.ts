@@ -128,3 +128,15 @@ export function resolveSettingsGraphSubstrateCanaryVisibleViewportSize(
     height: Math.max(viewportSize.height, 0),
   };
 }
+
+export function resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
+  viewportSize: GraphViewportSize,
+): Position | null {
+  if (viewportSize.width <= 0 || viewportSize.height <= 0) {
+    return null;
+  }
+  return {
+    x: viewportSize.width / 2,
+    y: viewportSize.height / 2,
+  };
+}

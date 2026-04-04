@@ -169,12 +169,27 @@ test("settings graph substrate canary zoom in control respects the normalized Al
     if (!initialTransform) {
       throw new Error("Missing canary viewport transform before zoom in.");
     }
+    const expectedZoomInTransform =
+      await getCanaryExpectedToolbarZoomTransform(
+        page,
+        initialTransform.zoom * 1.2,
+      );
+    expect(expectedZoomInTransform).not.toBeNull();
+    if (!expectedZoomInTransform) {
+      throw new Error("Missing expected canary zoom-in transform.");
+    }
 
     await page.getByRole("button", { name: "zoom in" }).click();
 
     await expect
       .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
       .toBeCloseTo(initialTransform.zoom * 1.2, 2);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+      .toBeCloseTo(expectedZoomInTransform.x, 1);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+      .toBeCloseTo(expectedZoomInTransform.y, 1);
   } finally {
     await allTab.click().catch(() => {});
     await postBackend(page, "/setViewport", {
@@ -895,6 +910,53 @@ async function getCanaryViewportTransform(page: Page): Promise<{
       zoom: matrix.a,
     };
   });
+}
+
+async function getCanaryExpectedToolbarZoomTransform(
+  page: Page,
+  nextZoom: number,
+): Promise<{
+  x: number;
+  y: number;
+  zoom: number;
+} | null> {
+  return page.evaluate((targetZoom) => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary"]',
+    );
+    const viewport = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary-viewport"]',
+    );
+    if (!root || !viewport) {
+      return null;
+    }
+    const transform = window.getComputedStyle(viewport).transform;
+    const matrix =
+      !transform || transform === "none"
+        ? new DOMMatrixReadOnly()
+        : new DOMMatrixReadOnly(transform);
+    if (
+      !Number.isFinite(matrix.a) ||
+      !Number.isFinite(matrix.e) ||
+      !Number.isFinite(matrix.f) ||
+      matrix.a <= 0
+    ) {
+      return null;
+    }
+    const centerScreenPoint = {
+      x: root.clientWidth / 2,
+      y: root.clientHeight / 2,
+    };
+    const anchorWorldPoint = {
+      x: (centerScreenPoint.x - matrix.e) / matrix.a,
+      y: (centerScreenPoint.y - matrix.f) / matrix.a,
+    };
+    return {
+      x: centerScreenPoint.x - anchorWorldPoint.x * targetZoom,
+      y: centerScreenPoint.y - anchorWorldPoint.y * targetZoom,
+      zoom: targetZoom,
+    };
+  }, nextZoom);
 }
 
 async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{

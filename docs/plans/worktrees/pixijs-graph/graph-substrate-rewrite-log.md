@@ -915,6 +915,44 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 029
+
+- Item: Align the custom-substrate toolbar zoom controls with legacy full-surface zoom anchoring on normalized `All Settings`.
+- Status: `done`
+- Details:
+  - This iteration had to land a production fix instead of another harness-only slice because the previous two completed iterations had only tightened parity scaffolding.
+  - A normalized live compare on `All Settings -> fit view -> zoom in` exposed a real canary-only control bug:
+    - worktree `matrix(0.144, 0, 0, 0.144, 741.356, -450.108)`
+    - `main` `matrix(0.144, 0, 0, 0.144, 806.256, -450.108)`
+    - the shared zoom step matched, but the canary anchored the zoom too far left
+  - Root cause:
+    - `SettingsGraphSubstrateCanary` was routing `zoomBy(...)` / `zoomTo(...)` through `getCanaryViewportCenterScreenPoint(...)`, which targets the visible graph center after subtracting pane widths
+    - legacy toolbar zoom on `main` still centers on the full graph surface wrapper, so the canary and legacy paths diverged as soon as the camera moved
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(...)`, which resolves the full canary-root center for toolbar zoom controls.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that helper for `zoomBy(...)` / `zoomTo(...)` while leaving the fit/center paths on the visible-viewport contract.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now covers the full-surface zoom-control anchor helper.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts the normalized `zoom in` transform against the expected full-root-center anchor, not just the zoom scalar.
+  - The fresh-context CDP sub-agent for this loop could not access browser tooling, so the final visual compare used a main-context chrome-devtools fallback after refreshing bootstrap tokens and reopening both live pages directly.
+  - `./scripts/run-playwright-e2e.sh` was not trustworthy on this slice because its helper bootstrap path returned `401`; the direct live-runtime Playwright command with a freshly refreshed token passed and was used as the narrow E2E gate.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`10 passed`)
+  - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+    - result: passed (`1 passed`, about `50s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - after reloading both live pages and normalizing them to `All Settings -> fit view`, worktree and `main` both reported `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - after one shared `zoom in` click, both sides reported `matrix(0.12, 0, 0, 0.12, 791.88, -338.34)`
+      - final screenshots matched on the target graph surface; remaining differences were non-target workspace chrome (`pixijs-graph` label and overview ordering)
+- Conclusion:
+  - the canary toolbar zoom controls now anchor to the same screen point as legacy `main` on the checked normalized `All Settings` path
+  - this closes the zoom-control anchor lane instead of spending another iteration on more control-harness churn
+- Next action:
+  - run the next normalized dynamic compare on the same `All Settings` canary path, preferably a short pan or drag sequence, and isolate the first remaining canary-only motion or interaction artifact
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 025
 
 - Item: Pin the `All Settings` graph-substrate canary to the full `UIPage` bounds so the live surface no longer collapses into a content-height lane.

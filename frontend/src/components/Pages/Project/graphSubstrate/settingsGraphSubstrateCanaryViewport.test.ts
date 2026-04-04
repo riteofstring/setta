@@ -3,6 +3,7 @@ import {
   fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
+  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
@@ -150,5 +151,23 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
       width: 500,
       height: 600,
     });
+  });
+
+  it("anchors zoom controls to the full graph surface center", () => {
+    expect(
+      resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint({
+        width: 1440,
+        height: 828,
+      }),
+    ).toEqual({
+      x: 720,
+      y: 414,
+    });
+    expect(
+      resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint({
+        width: 0,
+        height: 828,
+      }),
+    ).toBeNull();
   });
 });

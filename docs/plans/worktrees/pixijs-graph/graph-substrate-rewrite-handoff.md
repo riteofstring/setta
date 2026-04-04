@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 23:40 EDT
+Last updated: 2026-04-03 00:02 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,25 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `029` closed the first real dynamic canary parity bug instead of extending harness work: the custom-substrate toolbar zoom controls were anchoring to the visible graph center while legacy `main` still anchored zoom to the full graph surface center.
+  - a normalized live compare on `All Settings -> fit view -> zoom in` showed a real product mismatch before the fix:
+    - worktree `matrix(0.144, 0, 0, 0.144, 741.356, -450.108)`
+    - `main` `matrix(0.144, 0, 0, 0.144, 806.256, -450.108)`
+  - the zoom factor matched and only the anchor drifted, which isolated the bug to the canary zoom-control screen point instead of control plumbing or saved-camera state
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(...)`, and `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that full-surface center for canary `zoomBy(...)` / `zoomTo(...)`
+  - focused automation now locks the lane down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` covers the full-surface zoom anchor helper
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts the normalized `zoom in` transform against the full canary-root center, not just the zoom scalar
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`10 passed`)
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+      - result: passed (`1 passed`, about `50s`)
+  - CDP visual verification for this slice used a main-context chrome-devtools fallback because the fresh-context sub-agent in this chat could not access browser-tooling:
+    - after reloading both live pages and re-normalizing to `All Settings -> fit view`, worktree and `main` both reported the same initial transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - after one shared `zoom in` click, both sides now report the same transform `matrix(0.12, 0, 0, 0.12, 791.88, -338.34)`
+    - the final screenshots matched on the target graph surface; remaining differences were non-target workspace chrome (`pixijs-graph` label and overview ordering)
+  - conclusion for this slice: the toolbar zoom-control anchor lane is closed; do not reopen it unless the normalized Playwright canary or an equally normalized CDP compare fails
 - Ralph item `028` resolved the immediate dynamic-compare blocker with a focused normalized canary test instead of another speculative production patch.
   - a fresh-context CDP sub-agent using refreshed bootstrap tokens could reopen both live worktree and `main` sessions, but the first quick zoom-control compare was misleading because it did not fully normalize the camera state first
   - on that unnormalized live worktree session, the canary reopened at `window.reactFlowZoom = 0.8333333333333334` and one shared `zoom in` click moved it to `1`, which looked like a control-path bug until the state source was isolated
@@ -444,10 +463,10 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The graph-surface height / bottom-anchor lane is also complete:
   - item `025` pins the canary root to the full `UIPage` bounds, and the latest fresh CDP compare now shows the same `828px` graph height plus matching minimap / controls anchoring on worktree and `main`
   - do not reopen that lane unless a later controlled compare shows the canary shrinking back to a content-height lane
+- The toolbar zoom-control anchor lane is also complete:
+  - item `029` aligned canary `zoomBy(...)` / `zoomTo(...)` with the legacy full-surface center, and the latest normalized compare now matches after `All Settings -> fit view -> zoom in`
+  - do not reopen that lane unless the normalized Playwright canary or a fresh normalized CDP compare shows the `x` anchor drifting again
 - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
-  - the first shared dynamic control now has a deterministic normalized guard:
-    - `settings graph substrate canary zoom in control respects the normalized All Settings fit` proves the canary starts at the expected `viewport: null` fit camera and that one shared `zoom in` click yields the legacy `1.2x` step
-    - do not spend another iteration on zoom-control math unless that guard or a matching normalized CDP compare fails
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
@@ -481,6 +500,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `027`
-- Latest item: `2026-04-02 027`
+- Active history window: items `001` through `029`
+- Latest item: `2026-04-03 029`
 - Older history archives: none yet

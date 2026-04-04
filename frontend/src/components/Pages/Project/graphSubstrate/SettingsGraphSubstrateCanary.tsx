@@ -35,6 +35,7 @@ import {
   fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
   resolveSettingsGraphSubstrateCanarySharedViewport,
+  resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint,
   resolveSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryVisibleViewportSize,
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
@@ -376,7 +377,9 @@ export function SettingsGraphSubstrateCanary() {
         const { resolvedViewport, wrapperDimensions } =
           canaryViewportStateRef.current;
         const centerScreenPoint =
-          getCanaryViewportCenterScreenPoint(wrapperDimensions);
+          resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
+            wrapperDimensions,
+          );
         if (!resolvedViewport || !centerScreenPoint || factor === 1) {
           return;
         }
@@ -394,9 +397,10 @@ export function SettingsGraphSubstrateCanary() {
         );
       },
       zoomTo: (zoomLevel: number) => {
-        const centerScreenPoint = getCanaryViewportCenterScreenPoint(
-          canaryViewportStateRef.current.wrapperDimensions,
-        );
+        const centerScreenPoint =
+          resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(
+            canaryViewportStateRef.current.wrapperDimensions,
+          );
         if (!centerScreenPoint) {
           return;
         }
