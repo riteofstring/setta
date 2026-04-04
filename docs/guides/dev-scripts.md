@@ -148,6 +148,9 @@ These are used by the top-level wrappers or for advanced workflows.
   - Specialized Codex loop for Go-as-source-of-truth cleanup work.
   - Starts a fresh Codex session every iteration, defaults to yolo mode, and stops only after Codex emits an explicit clean-stop sentinel.
   - Enforces that every non-stop iteration leaves a clean worktree and advances `HEAD`, so the loop fails fast if Codex forgets to commit after running `./gcf.sh`.
+- `./scripts/run-codex-frontendbindings-rebuild-loop.sh`
+  - Specialized Codex loop for rebuilding `internal/frontendbindings` from scratch to match the main-branch two-converter shape.
+  - Starts a fresh Codex session every iteration, seeds a rebuild checklist, requires `./gcf.sh` and `./check_quality.sh` before commit, and forbids compatibility-shim work like handwritten endpoint inventories, mirrored contract ownership, and `map[string]any` default payload tables.
 
 ## Layer 3: Frontend `pnpm` scripts (from `frontend/`)
 
