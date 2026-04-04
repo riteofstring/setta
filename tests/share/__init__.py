@@ -1,1 +1,0 @@
-"""Share-mode tests."""
