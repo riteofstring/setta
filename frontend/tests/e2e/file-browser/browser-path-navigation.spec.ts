@@ -3,7 +3,6 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   getViewportBoundsForPlacement,
   openIsolatedProject,
@@ -81,17 +80,12 @@ test("overview file browser shows dotfiles and supports breadcrumb up-navigation
     await page.waitForSelector(".react-flow__pane");
 
     const overviewPane = page.locator("#OverviewPane");
-    const pathInput = overviewPane
-      .getByTestId("file-browser-path-input")
-      .first();
+    const pathInput = overviewPane.getByTestId("file-browser-path-input").first();
     await expect(pathInput).toBeVisible();
 
     // The overview file browser should show project dotfiles without toggling a hidden-files mode.
     await expect(
-      overviewPane
-        .getByTestId("file-browser-row")
-        .filter({ hasText: ".env" })
-        .first(),
+      overviewPane.getByTestId("file-browser-row").filter({ hasText: ".env" }).first(),
     ).toBeVisible();
 
     await commitPathInput({
@@ -100,14 +94,10 @@ test("overview file browser shows dotfiles and supports breadcrumb up-navigation
       targetPath: nestedFolder,
     });
     await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(pathInput)),
-      )
+      .poll(async () => normalizePathForComparison(await readCodeMirrorValue(pathInput)))
       .toBe(normalizePathForComparison(nestedFolder));
 
-    const breadcrumbs = overviewPane
-      .getByTestId("file-browser-breadcrumbs")
-      .first();
+    const breadcrumbs = overviewPane.getByTestId("file-browser-breadcrumbs").first();
     await expect(
       breadcrumbs.getByRole("button", { name: folderName }),
     ).toBeVisible();
@@ -115,21 +105,15 @@ test("overview file browser shows dotfiles and supports breadcrumb up-navigation
     // Clicking an ancestor breadcrumb should jump directly to that folder.
     await breadcrumbs.getByRole("button", { name: folderName }).click();
     await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(pathInput)),
-      )
+      .poll(async () => normalizePathForComparison(await readCodeMirrorValue(pathInput)))
       .toBe(normalizePathForComparison(parentFolder));
 
     // The dedicated up button should then move back to the workspace root.
-    const goUpButton = overviewPane
-      .getByTestId("file-browser-go-up-button")
-      .first();
+    const goUpButton = overviewPane.getByTestId("file-browser-go-up-button").first();
     await expect(goUpButton).toBeEnabled();
     await goUpButton.click();
     await expect
-      .poll(async () =>
-        normalizePathForComparison(await readCodeMirrorValue(pathInput)),
-      )
+      .poll(async () => normalizePathForComparison(await readCodeMirrorValue(pathInput)))
       .toBe(normalizePathForComparison(rootPath));
   } finally {
     await cleanupIsolatedProject(page, projectContext);
@@ -149,16 +133,18 @@ test("browser sections support breadcrumb and go-up navigation", async ({
   try {
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error(
-        "Unable to resolve viewport bounds for section placement.",
-      );
+      throw new Error("Unable to resolve viewport bounds for section placement.");
     }
 
-    const browserSection = await createTopLevelSectionFromFrontend(page, {
-      projectConfigId: projectContext.projectConfigId,
-      implType: "Browser",
-      viewportBounds,
-    });
+    const browserSection = await postBackend<{ sectionId?: string }>(
+      page,
+      "/createTopLevelSection",
+      {
+        projectConfigId: projectContext.projectConfigId,
+        implType: "Browser",
+        viewportBounds,
+      },
+    );
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
@@ -186,9 +172,7 @@ test("browser sections support breadcrumb and go-up navigation", async ({
         targetPath: nestedFolder,
       });
       await expect
-        .poll(async () =>
-          normalizePathForComparison(await readCodeMirrorValue(pathInput)),
-        )
+        .poll(async () => normalizePathForComparison(await readCodeMirrorValue(pathInput)))
         .toBe(normalizePathForComparison(nestedFolder));
 
       const breadcrumbs = sectionNode.getByTestId("file-browser-breadcrumbs");
@@ -199,18 +183,14 @@ test("browser sections support breadcrumb and go-up navigation", async ({
       // Browser sections and the overview pane should follow the same ancestor model.
       await breadcrumbs.getByRole("button", { name: folderName }).click();
       await expect
-        .poll(async () =>
-          normalizePathForComparison(await readCodeMirrorValue(pathInput)),
-        )
+        .poll(async () => normalizePathForComparison(await readCodeMirrorValue(pathInput)))
         .toBe(normalizePathForComparison(parentFolder));
 
       const goUpButton = sectionNode.getByTestId("file-browser-go-up-button");
       await expect(goUpButton).toBeEnabled();
       await goUpButton.click();
       await expect
-        .poll(async () =>
-          normalizePathForComparison(await readCodeMirrorValue(pathInput)),
-        )
+        .poll(async () => normalizePathForComparison(await readCodeMirrorValue(pathInput)))
         .toBe(normalizePathForComparison(workspaceRoot));
     } finally {
       await postBackend(page, "/deleteSections", {
