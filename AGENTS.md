@@ -26,6 +26,23 @@
 - Python should keep ergonomic helper behavior: transport/session glue, context managers, callback scheduling, iterators, friendly lookup/builders, and other read-only convenience layers over authoritative Go-owned contracts.
 - If Python is only parsing backend-authored payloads or using generated contracts as DTOs, that does not by itself require a local Go subprocess call.
 
+## Cross-Language Source of Truth
+
+- Minimize code and logic duplication across Go, Python, and TypeScript.
+- Go is the authoritative source of truth for canonical business logic, validation, derived metadata, and shared contract definitions unless the developer explicitly states otherwise.
+- Prefer solutions in this order: `1.` entirely Go-owned logic, `2.` Go as the source of truth with Python or TypeScript generated from that source, `3.` duplicated Python or TypeScript logic only when strongly justified.
+- Any duplicated non-trivial logic in Python or TypeScript must have a concrete justification such as latency, offline requirements, or a platform constraint. Convenience alone is not enough.
+- When duplication is unavoidable, keep the duplicated surface minimal and document the reason near the implementation or in the relevant design notes.
+
+## Code Generation Design
+
+- Go-to-TypeScript and Go-to-Python generation should be generic and discovery-driven whenever a programmatic source of truth exists.
+- Do not rely on hand-maintained allowlists of type or endpoint names in generation scripts when the generator can discover the relevant structures directly from Go packages, metadata, or typed registration points.
+- Do not over-engineer discovery just to avoid generating some unused types or functions. We already run a pruning step after generation, so broad correct discovery is usually better than brittle hyper-selective discovery.
+- Keep hardcoded special cases in generators to the absolute minimum and require a concrete reason when they cannot be removed.
+- Do not embed large blocks of Python or TypeScript source as raw strings inside generation scripts. If substantial handwritten language-specific code is required, keep it in real `.py` or `.ts` files and have generation compose with that code instead of recreating it as string literals.
+- The point of generation is to remove duplicated ownership, so generation code should describe structure and mapping rules rather than acting as a second handwritten implementation of the generated language.
+
 ## Dev Workflow
 
 - Prefer `./start.sh`, `./reset.sh`, and `./ai.sh` for the high-level source-checkout dev loop. For exact script behavior, use `docs/guides/dev-scripts.md`.
@@ -70,6 +87,12 @@
 - Backend and frontend endpoint functions should have the exact same name.
 - On the frontend, always use route functions from `generatedEndpoints`.
 - If a function exists on the backend but not on the frontend, run the generation workflow in Generation & Cleanup to sync endpoint definitions.
+
+## Realtime Updates
+
+- Prefer push-based updates over polling when the backend already knows when state changes.
+- For frontend/backend synchronization, default to backend-initiated websocket updates rather than periodic frontend polling unless push is impractical.
+- Polling must be justified by a concrete constraint such as third-party limitations, infrastructure limitations, or a deliberately simplified non-critical path.
 
 ## Generation & Cleanup
 
