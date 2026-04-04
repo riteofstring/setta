@@ -13,7 +13,6 @@ Start with the full visibility pass:
 Normal install scripts must stay frozen:
 
 - `./dev_install.sh`
-- `./dev_install_python.sh`
 
 Refresh lockfiles only on purpose:
 
@@ -38,12 +37,6 @@ Use `./configure_supply_chain.sh` to update the repo-local or user-level minimum
 - Use pinned direct versions in `pyproject.toml`, then refresh `uv.lock`.
 - The repo enforces Python release age from `uv.lock` metadata with `scripts/check_uv_lock_release_age.py`.
 
-### Go
-
-- Prioritize code-reachable `govulncheck` findings.
-- Do not bump unrelated modules just because verbose output lists non-reachable advisories.
-- Go release-age enforcement is audit-only through `scripts/check_go_module_release_age.py`, which runs via the repo's `uv`-managed dev environment after Python bootstrap.
-
 ### Frontend / Node / pnpm
 
 - Prefer official upstream releases and narrow `pnpm.overrides` for transitive fixes when the existing upstream range already allows a safe version.
@@ -54,7 +47,7 @@ Use `./configure_supply_chain.sh` to update the repo-local or user-level minimum
 ## Minimum release age policy
 
 - Every accepted dependency upgrade must satisfy the repo minimum release-age policy.
-- Re-run `./audit_supply_chain.sh` after refreshes, or at minimum rerun the Python, Go, and pnpm release-age checks before keeping the lockfile changes.
+- Re-run `./audit_supply_chain.sh` after refreshes, or at minimum rerun the Python and pnpm release-age checks before keeping the lockfile changes.
 - `uv` only supports an absolute `--exclude-newer` cutoff, so rolling-age enforcement for `uv.lock` happens through `scripts/check_uv_lock_release_age.py` during Python bootstrap.
 - pnpm uses `minimum-release-age` in minutes, not `min-release-age` in days.
 - Treat pnpm config as resolver guidance only. Hard enforcement for checked-in Node dependencies comes from `scripts/check_pnpm_lock_release_age.py` via `./update_dependencies.sh` and `./audit_supply_chain.sh`, which run that checker through the repo's `uv`-managed dev environment.

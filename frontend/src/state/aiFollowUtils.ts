@@ -1,10 +1,5 @@
 import type { AIFollowMode } from "state/types/aiFollow";
-import {
-  SectionTypeEnum,
-  type BaseSectionImplUnion,
-  type ChatSectionImpl,
-  type Variant,
-} from "utils/generatedTypes";
+import { SectionTypeEnum } from "utils/generatedTypes";
 
 type AIFollowIdsByProject = Record<
   string,
@@ -39,9 +34,11 @@ export function getSectionIdsForProject(
 }
 
 type SectionVariantMap = Record<string, string>;
-type SectionVariantEntry = Pick<Variant, "impl">;
-type SectionImplEntry = Pick<BaseSectionImplUnion, "type"> &
-  Partial<Pick<ChatSectionImpl, "chatId">>;
+type SectionVariantEntry = { impl: string };
+type SectionImplEntry = {
+  type?: SectionTypeEnum;
+  chatId?: string | null;
+};
 
 export function getAllowedChatIdsForProject(
   mode: AIFollowMode,
