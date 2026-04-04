@@ -10,6 +10,7 @@ import {
 import { describe, expect, it } from "vitest";
 import {
   resolveActiveViewModeName,
+  selectSettingsGraphSubstrateCanaryLayoutSections,
   selectSettingsGraphSubstrateCanarySections,
   shouldUseSettingsGraphSubstrateCanary,
 } from "./settingsGraphSubstrateCanaryModel";
@@ -139,6 +140,13 @@ describe("settingsGraphSubstrateCanaryModel", () => {
   it("resolves the active view mode name from project state", () => {
     const state = createProjectState();
     expect(resolveActiveViewModeName(state)).toBe("All Settings");
+  });
+
+  it("returns no canary layout sections outside the settings All Settings route", () => {
+    const state = createProjectState();
+    state.projectConfig.name = "project";
+
+    expect(selectSettingsGraphSubstrateCanaryLayoutSections(state)).toEqual([]);
   });
 
   it("selects all visible canary sections in top-left order and prefers measured dimensions", () => {

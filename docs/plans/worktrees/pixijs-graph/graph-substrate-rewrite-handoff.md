@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 22:05 EDT
+Last updated: 2026-04-02 22:42 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,28 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `026` fixed the next stable `All Settings` minimap-content drift after the graph-surface-height lane: the canary surface was rendering `46` sections, but the shared minimap only had geometry for `5` of them, so the panel collapsed into a shallow strip instead of showing the full settings stack.
+  - the first fresh CDP compare that chose this slice showed the worktree canary active with `46` `[data-testid="graph-substrate-canary-section"]` nodes but only `5` `.react-flow__minimap-node` rects, while the live worktree minimap viewBox coverage was only `1.75%`
+  - the root cause was shared geometry ownership, not another minimap-panel bug:
+    - the canary already rendered all `All Settings` sections from active view-mode layout data
+    - but most canary sections never synchronized their measured DOM width/height back into shared `nodeInternals`, so shared consumers like `ResponsiveMiniMap` could only render the small subset that already had width/height
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts` now syncs visible canary section position / size / z-index into shared `nodeInternals` from the canary's measured DOM sizes.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now runs that sync whenever visible sections or observed canary element sizes change, so shared graph consumers stay aligned with the canary surface instead of lagging behind it.
+  - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` and `frontend/src/forks/xyflow/minimap/MiniMap.tsx` now resolve minimap geometry from the canary-aware layout path on `settings` / `All Settings`, so minimap bounds and node placement no longer fall back to stale raw positions when the canary is active.
+  - focused automation now locks the contract down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` covers the shared-node sync helper directly
+    - `frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx` covers the canary-aware minimap geometry resolver
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that the first-render `All Settings` canary minimap renders the same number of minimap nodes as visible canary sections, which directly catches the old `46` vs `5` under-render bug
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed (`21 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: passed (`1 passed`, about `38s`)
+  - fresh-context CDP visual verification for the targeted fix is good enough to treat the worktree defect as closed, but the live `main` minimap session was not a trustworthy oracle after reload:
+    - after reloading the live worktree tab on `http://127.0.0.1:3075/settings` with `All Settings` active, the worktree reported `46` canary sections and `46` minimap section rects
+    - the same reload pass on read-only `main` `http://127.0.0.1:3087/settings` did not expose minimap section rects, so this CDP run confirms the worktree no longer under-renders its own minimap but does not provide a clean side-by-side visual oracle for the final parity judgment on this lane
+    - bootstrap consume URLs returned `401`, so the compare had to use already-running live tabs instead of a fresh bootstrap-minted oracle session
+  - this minimap-content under-render lane is now complete for the worktree product bug; do not spend another iteration on it unless a fresh controlled compare reproduces missing minimap nodes again
 - Ralph item `025` closed the next stable normal-zoom `All Settings` renderer drift after the background lane: the custom substrate could still collapse into a content-height graph lane, which packed the cards upward and pulled the minimap / controls too high compared with `main`.
   - the fresh-context CDP compare that chose this slice reported a worktree graph surface rect `{ x: 0, y: 36, width: 1440, height: 441 }` while read-only `main` still filled `{ x: 0, y: 36, width: 1440, height: 828 }`
   - the likely owner was the canary mount contract itself rather than more bounds math: `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` was still letting the surface size from content instead of pinning it to the `UIPage` bounds

@@ -16,7 +16,7 @@ type TopLevelLayout = {
   h: number | null;
 };
 
-export type GraphSubstrateCanarySection = {
+export type GraphSubstrateCanaryLayoutSection = {
   sectionId: string;
   position: Position;
   zIndex: number;
@@ -44,12 +44,21 @@ export function shouldUseSettingsGraphSubstrateCanary(
   );
 }
 
-export function selectSettingsGraphSubstrateCanarySections(
+export function selectSettingsGraphSubstrateCanaryLayoutSections(
   projectState: ZustandProjectState,
-  nodeInternals: Map<string, Node>,
-): Array<GraphSubstrateCanarySection> {
+): Array<GraphSubstrateCanaryLayoutSection> {
+  const activeViewModeName = resolveActiveViewModeName(projectState);
+  if (
+    !shouldUseSettingsGraphSubstrateCanary(
+      projectState.projectConfig.name,
+      activeViewModeName,
+    )
+  ) {
+    return [];
+  }
+
   const layouts = getActiveViewModeTopLevelSections(projectState);
-  const candidates: Array<GraphSubstrateCanarySection> = [];
+  const candidates: Array<GraphSubstrateCanaryLayoutSection> = [];
 
   for (const [sectionId, layout] of Object.entries(layouts)) {
     if (!(sectionId in projectState.sections)) {
@@ -62,15 +71,14 @@ export function selectSettingsGraphSubstrateCanarySections(
     if (!getSectionShouldRender(visibility, isEditingViewMode)) {
       continue;
     }
-    const node = nodeInternals.get(sectionId);
     const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
 
     candidates.push({
       sectionId,
       position: { x: layout.x, y: layout.y },
       zIndex: layout.zIndex,
-      width: node?.width ?? layout.w,
-      height: node?.height ?? layout.h,
+      width: layout.w,
+      height: layout.h,
       positionAndSizeLocked: impl.positionAndSizeLocked,
     });
   }
@@ -86,4 +94,29 @@ export function selectSettingsGraphSubstrateCanarySections(
   });
 
   return candidates;
+}
+
+export type GraphSubstrateCanarySection = {
+  sectionId: string;
+  position: Position;
+  zIndex: number;
+  width: number | null;
+  height: number | null;
+  positionAndSizeLocked: boolean;
+};
+
+export function selectSettingsGraphSubstrateCanarySections(
+  projectState: ZustandProjectState,
+  nodeInternals: Map<string, Node>,
+): Array<GraphSubstrateCanarySection> {
+  return selectSettingsGraphSubstrateCanaryLayoutSections(projectState).map(
+    (layoutSection) => {
+      const node = nodeInternals.get(layoutSection.sectionId);
+      return {
+        ...layoutSection,
+        width: node?.width ?? layoutSection.width,
+        height: node?.height ?? layoutSection.height,
+      };
+    },
+  );
 }

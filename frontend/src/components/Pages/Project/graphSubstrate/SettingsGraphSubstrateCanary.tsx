@@ -30,6 +30,7 @@ import {
   selectSettingsGraphSubstrateCanarySections,
   type GraphSubstrateCanarySection,
 } from "./settingsGraphSubstrateCanaryModel";
+import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
 import {
   fitSettingsGraphSubstrateCanaryViewport,
   resolveSettingsGraphSubstrateCanaryFallbackViewport,
@@ -329,6 +330,20 @@ export function SettingsGraphSubstrateCanary() {
     sections,
     wrapperDimensions,
   ]);
+
+  useEffect(() => {
+    const nodeInternals = useNodeInternals.getState().x;
+    const nextNodeInternals = syncSettingsGraphSubstrateCanaryNodes(
+      nodeInternals,
+      sections,
+      observedElementSizes,
+      sectionPositionOverride,
+    );
+    if (nextNodeInternals === nodeInternals) {
+      return;
+    }
+    useNodeInternals.setState({ x: nextNodeInternals });
+  }, [observedElementSizes, sectionPositionOverride, sections]);
 
   function applyControlledViewportChange(
     buildNextViewport: (currentViewport: GraphViewport) => GraphViewport | null,

@@ -78,6 +78,15 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
     await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
     await expect(page.getByTestId("rf__background")).toBeVisible();
     await expect
+      .poll(async () => {
+        const [minimapNodeCount, canarySectionCount] = await Promise.all([
+          getMiniMapNodeCount(page),
+          getCanarySectionCount(page),
+        ]);
+        return minimapNodeCount - canarySectionCount;
+      })
+      .toBe(0);
+    await expect
       .poll(async () => (await getCanaryPaneViewportGaps(page))?.bottom ?? 9999)
       .toBeLessThan(80);
     await expect
@@ -739,6 +748,10 @@ async function waitForOverviewCount(
 
 async function getMiniMapNodeCount(page: Page): Promise<number> {
   return page.locator(".react-flow__minimap-node").count();
+}
+
+async function getCanarySectionCount(page: Page): Promise<number> {
+  return page.getByTestId("graph-substrate-canary-section").count();
 }
 
 async function getViewportScale(page: Page): Promise<number> {

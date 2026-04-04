@@ -70,6 +70,40 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 026
+
+- Item: Restore full `All Settings` minimap node coverage on the settings graph-substrate canary.
+- Status: `done`
+- Details:
+  - The next stable worktree drift after the graph-surface-height lane was a real product bug in shared geometry ownership, not another minimap visibility or panel-placement issue:
+    - fresh CDP compare on the live worktree showed `46` canary sections but only `5` minimap node rects, so the minimap collapsed into a shallow strip instead of representing the full `All Settings` stack
+    - the canary surface already rendered all visible sections from the active view-mode layout, but shared `nodeInternals` only had measured geometry for a small subset of those sections
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts` now syncs visible canary section geometry back into shared `nodeInternals` from the canary's measured DOM sizes.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now runs that sync whenever visible canary sections or observed section sizes change.
+  - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` and `frontend/src/forks/xyflow/minimap/MiniMap.tsx` now resolve minimap geometry from the canary-aware `settings` / `All Settings` layout path, so the minimap uses the same section positions as the canary surface instead of stale raw store positions.
+  - focused regression coverage now checks the direct contract rather than an indirect visual heuristic:
+    - new unit coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+    - new minimap geometry coverage in `frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that first-render `All Settings` minimap nodes match visible canary sections, which directly catches the old `46` vs `5` under-render bug
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+    - result: passed (`21 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `38s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - a fresh-context CDP sub-agent reloaded the live worktree `http://127.0.0.1:3075/settings` tab with `All Settings` active and confirmed `46` canary sections plus `46` minimap section rects
+      - the same reload pass on read-only `main` `http://127.0.0.1:3087/settings` did not expose minimap section rects, so the worktree fix is visually confirmed but the live `main` minimap session was not a trustworthy parity oracle on this pass
+      - the provided bootstrap consume URLs returned `401`, so the compare had to rely on already-running live tabs
+- Conclusion:
+  - the worktree no longer under-renders the `All Settings` minimap because shared consumers now receive the canary's measured section geometry
+  - this closes the worktree minimap-content under-render bug instead of spending another iteration on more panel or viewport churn
+- Next action:
+  - re-establish a trustworthy read-only `main` oracle session, then run the next controlled normal-zoom `All Settings` compare to isolate the next distinct Gate 1 / Gate 2 renderer drift beyond the now-fixed minimap content path
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 024
 
 - Item: Restore the shared graph background grid on the `All Settings` custom substrate path.
