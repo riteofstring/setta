@@ -22,10 +22,10 @@ import {
   getSectionShouldRender,
 } from "state/actions/sectionInfos";
 import {
+  loadStateMachineRuns,
   resetStateMachineRun,
   startStateMachineRun,
   stopStateMachineRun,
-  subscribeStateMachineRunPolling,
 } from "state/actions/stateMachineRuns";
 import {
   CustomRunItem,
@@ -363,7 +363,7 @@ export function RunInstructions() {
     if (isDeploymentMode || workflowControls.length === 0) {
       return;
     }
-    return subscribeStateMachineRunPolling();
+    loadStateMachineRuns();
   }, [isDeploymentMode, workflowControls.length]);
 
   const runSnapshotModeMeta =
