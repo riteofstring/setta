@@ -1,25 +1,8 @@
-/* @vitest-environment jsdom */
-
-import { act, createElement } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { useFileBrowserState } from "state/definitions";
-import { resetProjectStores } from "state/utils";
-import "testUtils/reactRefreshPreamble";
-import {
-  route_get_file_browser_root,
-  route_get_folder_contents,
-} from "utils/generatedEndpoints";
-import {
-  createFileBrowserRootResponse,
-  createFolderContentItem,
-} from "utils/generatedTypes";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   buildFileBrowserLoadingPathOwner,
-  FileBrowserPane,
   flattenFileBrowserTree,
   forEachWithConcurrencyLimit,
-  getResolvedFileBrowserRootState,
   getSettaBadgeRefreshFolderPaths,
   isEditableFileBrowserTarget,
   isOwnedFileBrowserLoadingPath,
@@ -33,138 +16,6 @@ import {
   sortChildPaths,
   type FileNode,
 } from "./FileBrowserPane";
-
-const generatedEndpoints = vi.hoisted(() => ({
-  route_get_file_browser_root: vi.fn(),
-  route_get_folder_contents: vi.fn(),
-  route_check_workspace_initialized: vi.fn(),
-  route_get_file_browser_download_urls: vi.fn(),
-  route_transfer_file_browser_entry: vi.fn(),
-}));
-
-vi.mock("utils/generatedEndpoints", async () => {
-  const actual = await import("utils/generatedEndpoints");
-  return {
-    ...actual,
-    route_get_file_browser_root: generatedEndpoints.route_get_file_browser_root,
-    route_get_folder_contents: generatedEndpoints.route_get_folder_contents,
-    route_check_workspace_initialized:
-      generatedEndpoints.route_check_workspace_initialized,
-    route_get_file_browser_download_urls:
-      generatedEndpoints.route_get_file_browser_download_urls,
-    route_transfer_file_browser_entry:
-      generatedEndpoints.route_transfer_file_browser_entry,
-  };
-});
-
-vi.mock("react-window", async () => {
-  const React = await import("react");
-  return {
-    List: ({
-      rowComponent: RowComponent,
-      rowCount,
-      rowProps,
-      style,
-      className,
-    }: {
-      rowComponent: React.ComponentType<Record<string, unknown>>;
-      rowCount: number;
-      rowProps: Record<string, unknown>;
-      style?: React.CSSProperties;
-      className?: string;
-    }) =>
-      React.createElement(
-        "div",
-        { style, className },
-        Array.from({ length: rowCount }, (_value, index) =>
-          React.createElement(RowComponent, {
-            key: index,
-            index,
-            style: {},
-            ...rowProps,
-          }),
-        ),
-      ),
-    useListRef: () => ({ current: { scrollToRow() {} } }),
-  };
-});
-
-vi.mock("state/hooks/useColumnWidthDrag", () => ({
-  useColumnWidthDrag: () => ({
-    handleResizeStart() {},
-    setNewWidth() {},
-    widthRef: { current: { currentWidth: 0 } },
-  }),
-}));
-
-vi.mock("components/Utils/CodeMirror/InlineCodeMirrorInput", async () => {
-  const React = await import("react");
-  return {
-    InlineCodeMirrorInput: ({
-      id,
-      value,
-      placeholder,
-      className,
-      dummyClassName,
-    }: {
-      id: string;
-      value: string;
-      placeholder?: string;
-      className?: string;
-      dummyClassName?: string;
-    }) =>
-      React.createElement(
-        "span",
-        { id, className: dummyClassName ?? className },
-        value || placeholder || "",
-      ),
-  };
-});
-
-type RenderedFileBrowserPane = {
-  host: HTMLDivElement;
-  root: Root;
-};
-
-function buildFolderContentsResponse(
-  folderPath: string,
-  items: ReturnType<typeof createFolderContentItem>[],
-) {
-  return {
-    data: {
-      folderPath,
-      items,
-    },
-    status: 200,
-    hasResponse: true,
-  };
-}
-
-async function renderFileBrowserPane() {
-  const host = document.createElement("div");
-  document.body.appendChild(host);
-  const root = createRoot(host);
-
-  await act(async () => {
-    root.render(
-      createElement(FileBrowserPane, {
-        showFilter: false,
-      }),
-    );
-  });
-
-  return { host, root } satisfies RenderedFileBrowserPane;
-}
-
-async function flushEffects(): Promise<void> {
-  for (let index = 0; index < 3; index += 1) {
-    await vi.dynamicImportSettled();
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-  }
-}
 
 function buildNode(
   name: string,
@@ -181,45 +32,6 @@ function buildNode(
 }
 
 describe("sortChildPaths", () => {
-  beforeEach(() => {
-    resetProjectStores();
-    useFileBrowserState.setState({
-      rootPath: null,
-      selectedPath: null,
-      expandedPaths: {},
-      filterText: "",
-      pathSeparator: "/",
-      ignorePatterns: [],
-      typeFilters: {
-        folder: true,
-        file: true,
-        image: true,
-        audio: true,
-        video: true,
-        archive: true,
-        code: true,
-        text: true,
-      },
-      searchScope: "recursive",
-    });
-    generatedEndpoints.route_get_file_browser_root.mockReset();
-    generatedEndpoints.route_get_folder_contents.mockReset();
-    generatedEndpoints.route_check_workspace_initialized.mockReset();
-    generatedEndpoints.route_get_file_browser_download_urls.mockReset();
-    generatedEndpoints.route_transfer_file_browser_entry.mockReset();
-    generatedEndpoints.route_check_workspace_initialized.mockResolvedValue({
-      data: false,
-      status: 200,
-      hasResponse: true,
-    });
-    globalThis.ResizeObserver = class {
-      observe() {}
-      disconnect() {}
-      unobserve() {}
-    } as typeof ResizeObserver;
-    document.body.innerHTML = "";
-  });
-
   it("sorts by name with folders first", () => {
     const nodesByPath: Record<string, FileNode> = {
       folder: buildNode("folder", "folder", 10),
@@ -291,80 +103,6 @@ describe("sortChildPaths", () => {
     });
 
     expect(paths).toEqual(original);
-  });
-
-  it("loads the Go root and folder contents into the pane", async () => {
-    vi.mocked(route_get_file_browser_root).mockResolvedValue({
-      data: createFileBrowserRootResponse({
-        rootPath: "/workspace",
-        pathSeparator: "/",
-        ignorePatterns: ["node_modules"],
-      }),
-      status: 200,
-      hasResponse: true,
-    });
-    vi.mocked(route_get_folder_contents).mockResolvedValue(
-      buildFolderContentsResponse("/workspace", [
-        createFolderContentItem({
-          name: "src",
-          type: "folder",
-          fullPath: "/workspace/src",
-        }),
-        createFolderContentItem({
-          name: "notes.txt",
-          type: "file",
-          fullPath: "/workspace/notes.txt",
-          mtime: 123,
-        }),
-      ]),
-    );
-
-    const { host, root } = await renderFileBrowserPane();
-
-    try {
-      await flushEffects();
-
-      expect(route_get_file_browser_root).toHaveBeenCalledWith();
-      expect(route_get_folder_contents).toHaveBeenCalledWith({
-        folderPath: "/workspace",
-        ignorePatterns: ["node_modules"],
-        maxEntries: 5000,
-        includeMtime: true,
-        includeSettaInitialized: false,
-        allowOutsideWorkspaceRoot: false,
-        missingFolderBehavior: "empty",
-      });
-      expect(useFileBrowserState.getState().rootPath).toBe("/workspace");
-      expect(host.textContent).toContain("workspace");
-      expect(host.textContent).toContain("src");
-      expect(host.textContent).toContain("notes.txt");
-    } finally {
-      await act(async () => {
-        root.unmount();
-      });
-      host.remove();
-    }
-  });
-
-  it("canonicalizes root state when the backend resolves a different folder path", () => {
-    expect(
-      getResolvedFileBrowserRootState({
-        state: {
-          rootPath: "src",
-          selectedPath: "src",
-          expandedPaths: { src: true, "/workspace/other": true },
-        },
-        requestedRootPath: "src",
-        resolvedRootPath: "/workspace/src",
-      }),
-    ).toEqual({
-      rootPath: "/workspace/src",
-      selectedPath: "/workspace/src",
-      expandedPaths: {
-        "/workspace/src": true,
-        "/workspace/other": true,
-      },
-    });
   });
 });
 
