@@ -147,6 +147,31 @@ func FrontendDefaultWindowSpaceConfig() WindowSpaceConfig {
 	}
 }
 
+func FrontendDefaultClipboardProjectStateCore() map[string]any {
+	return map[string]any{
+		"sections":        map[string]any{},
+		"sectionImpls":    map[string]any{},
+		"sectionVariants": map[string]any{},
+		"codeObjs":        map[string]any{},
+		"codeObjImpls":    map[string]any{},
+		"codeObjVariants": map[string]any{},
+	}
+}
+
+func FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap() map[string]any {
+	return map[string]any{
+		"core":              FrontendDefaultClipboardProjectStateCore(),
+		"sectionVariantMap": map[string]any{},
+	}
+}
+
+func FrontendDefaultSectionsClipboardData() map[string]any {
+	return map[string]any{
+		"type": ClipboardDataTypeSections,
+		"data": FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap(),
+	}
+}
+
 func FrontendDefaultCodeParamCodeObjImpl() map[string]any {
 	return childlessParamImplBasePayload()
 }

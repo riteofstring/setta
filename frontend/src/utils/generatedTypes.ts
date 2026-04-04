@@ -3222,6 +3222,11 @@ export function createWindowSpaceState(
   );
 }
 
+type ClipboardProjectStateCoreWithSectionVariantMap = {
+  core: ClipboardProjectStateCore;
+  sectionVariantMap: Record<string, string>;
+};
+
 type SectionsClipboardData = {
   type: typeof ClipboardDataTypeEnum.Sections;
   data: ClipboardProjectStateCoreWithSectionVariantMap;
@@ -3583,11 +3588,6 @@ export type DeleteSelectedParamsRequestInput = {
 export type PrepareSectionsForCopyRequestInput = {
   projectConfigId: string;
   sectionIds: Array<string>;
-};
-
-type ClipboardProjectStateCoreWithSectionVariantMap = {
-  core: ClipboardProjectStateCore;
-  sectionVariantMap: Record<string, string>;
 };
 
 export type Position = {

@@ -1235,6 +1235,57 @@ func TestUserDefaultSectionCreateExprsUseGoOwnedSectionDefaults(t *testing.T) {
 	}
 }
 
+func TestClipboardDefaultsUseGoOwnedValues(t *testing.T) {
+	t.Helper()
+
+	lookup := func(root reflect.Type, name string) TypeDeclaration {
+		t.Helper()
+
+		converter := newTypeConverter()
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+		return mustFindDeclarationByName(t, converter.Declarations(), name)
+	}
+
+	core := lookup(reflect.TypeOf(ClipboardProjectStateCore{}), "ClipboardProjectStateCore")
+	for _, snippet := range []string{
+		`sections: {`,
+		`sectionImpls: {`,
+		`sectionVariants: {`,
+		`codeObjs: {`,
+		`codeObjImpls: {`,
+		`codeObjVariants: {`,
+	} {
+		if !strings.Contains(core.CreateExpr, snippet) {
+			t.Fatalf("clipboard core create expr missing %q:\n%s", snippet, core.CreateExpr)
+		}
+	}
+
+	coreWithMap := lookup(
+		reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}),
+		"ClipboardProjectStateCoreWithSectionVariantMap",
+	)
+	for _, snippet := range []string{
+		`core: createClipboardProjectStateCore(),`,
+		`sectionVariantMap: {`,
+	} {
+		if !strings.Contains(coreWithMap.CreateExpr, snippet) {
+			t.Fatalf("clipboard core-with-map create expr missing %q:\n%s", snippet, coreWithMap.CreateExpr)
+		}
+	}
+
+	data := lookup(reflect.TypeOf(SectionsClipboardData{}), "SectionsClipboardData")
+	for _, snippet := range []string{
+		`type: ClipboardDataTypeEnum.Sections,`,
+		`data: createClipboardProjectStateCoreWithSectionVariantMap(),`,
+	} {
+		if !strings.Contains(data.CreateExpr, snippet) {
+			t.Fatalf("sections clipboard data create expr missing %q:\n%s", snippet, data.CreateExpr)
+		}
+	}
+}
+
 func TestBuildBindingsIncludesProjectStateTypeGuardSupport(t *testing.T) {
 	t.Helper()
 

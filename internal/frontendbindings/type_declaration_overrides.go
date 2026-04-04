@@ -221,50 +221,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			TypeProperty{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
 			TypeProperty{Name: "selected", TypeExpr: "boolean", Optional: true},
 		),
-		reflect.TypeOf(ClipboardProjectStateCore{}): objectDeclarationWithCreateExpr(
-			"ClipboardProjectStateCore",
-			`mergeGeneratedOptions(
-    {
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-    },
-    options,
-  )`,
-			TypeProperty{Name: "sections", TypeExpr: "Record<string, Core>"},
-			TypeProperty{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>"},
-			TypeProperty{Name: "sectionVariants", TypeExpr: "Record<string, Variant>"},
-			TypeProperty{Name: "codeObjs", TypeExpr: "Record<string, Core>"},
-			TypeProperty{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>"},
-			TypeProperty{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>"},
-		),
-		reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}): objectDeclarationWithCreateExpr(
-			"ClipboardProjectStateCoreWithSectionVariantMap",
-			`mergeGeneratedOptions(
-    {
-      core: createClipboardProjectStateCore(),
-      sectionVariantMap: {},
-    },
-    options,
-  )`,
-			TypeProperty{Name: "core", TypeExpr: "ClipboardProjectStateCore"},
-			TypeProperty{Name: "sectionVariantMap", TypeExpr: "Record<string, string>"},
-		),
-		reflect.TypeOf(SectionsClipboardData{}): objectDeclarationWithCreateExpr(
-			"SectionsClipboardData",
-			`mergeGeneratedOptions(
-    {
-      type: ClipboardDataTypeEnum.Sections,
-      data: createClipboardProjectStateCoreWithSectionVariantMap(),
-    },
-    options,
-  )`,
-			TypeProperty{Name: "type", TypeExpr: "typeof ClipboardDataTypeEnum.Sections"},
-			TypeProperty{Name: "data", TypeExpr: "ClipboardProjectStateCoreWithSectionVariantMap"},
-		),
 		reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}): aliasDeclaration(
 			"BaseClipboardDataUnionWithDiscriminator",
 			"SectionsClipboardData",

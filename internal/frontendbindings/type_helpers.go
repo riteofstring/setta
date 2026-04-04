@@ -2499,6 +2499,50 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				"name": false,
 			},
 		}, true
+	case reflect.TypeOf(ClipboardProjectStateCore{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultClipboardProjectStateCore(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"sections":        "Record<string, Core>",
+				"sectionImpls":    "Record<string, BaseSectionImplUnion>",
+				"sectionVariants": "Record<string, Variant>",
+				"codeObjs":        "Record<string, Core>",
+				"codeObjImpls":    "Record<string, BaseCodeObjImplUnion>",
+				"codeObjVariants": "Record<string, Variant>",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"sections":        false,
+				"sectionImpls":    false,
+				"sectionVariants": false,
+				"codeObjs":        false,
+				"codeObjImpls":    false,
+				"codeObjVariants": false,
+			},
+		}, true
+	case reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultClipboardProjectStateCoreWithSectionVariantMap(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"core": "createClipboardProjectStateCore()",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"sectionVariantMap": false,
+			},
+		}, true
+	case reflect.TypeOf(SectionsClipboardData{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultSectionsClipboardData(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"type": "ClipboardDataTypeEnum.Sections",
+				"data": "createClipboardProjectStateCoreWithSectionVariantMap()",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ClipboardDataTypeEnum.Sections",
+			},
+		}, true
 	case reflect.TypeOf(SectionTypeCodegenPolicy{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.FrontendDefaultSectionTypeCodegenPolicy(),

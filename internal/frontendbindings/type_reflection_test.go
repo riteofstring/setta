@@ -272,6 +272,34 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "ClipboardProjectStateCore",
+			root: reflect.TypeOf(ClipboardProjectStateCore{}),
+			properties: []TypeProperty{
+				{Name: "sections", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>", Optional: false},
+				{Name: "sectionVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+				{Name: "codeObjs", TypeExpr: "Record<string, Core>", Optional: false},
+				{Name: "codeObjImpls", TypeExpr: "Record<string, BaseCodeObjImplUnion>", Optional: false},
+				{Name: "codeObjVariants", TypeExpr: "Record<string, Variant>", Optional: false},
+			},
+		},
+		{
+			name: "ClipboardProjectStateCoreWithSectionVariantMap",
+			root: reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}),
+			properties: []TypeProperty{
+				{Name: "core", TypeExpr: "ClipboardProjectStateCore", Optional: false},
+				{Name: "sectionVariantMap", TypeExpr: "Record<string, string>", Optional: false},
+			},
+		},
+		{
+			name: "SectionsClipboardData",
+			root: reflect.TypeOf(SectionsClipboardData{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof ClipboardDataTypeEnum.Sections", Optional: false},
+				{Name: "data", TypeExpr: "ClipboardProjectStateCoreWithSectionVariantMap", Optional: false},
+			},
+		},
+		{
 			name: "Core",
 			root: reflect.TypeOf(Core{}),
 			properties: []TypeProperty{
@@ -898,6 +926,9 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "ProjectConfig" ||
 				tt.name == "SectionCapabilities" ||
 				tt.name == "ProjectStateSingleConfig" ||
+				tt.name == "ClipboardProjectStateCore" ||
+				tt.name == "ClipboardProjectStateCoreWithSectionVariantMap" ||
+				tt.name == "SectionsClipboardData" ||
 				tt.name == "Core" ||
 				tt.name == "Variant" ||
 				tt.name == "SingletonSections" ||
