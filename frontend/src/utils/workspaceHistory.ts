@@ -1,4 +1,5 @@
 import { decodeBase64Url, encodeBase64Url } from "utils/base64Url";
+import { GENERATED_BOOTSTRAP_PROTOCOL } from "utils/generatedTypes";
 import {
   normalizeSettaFilesLocation,
   type SettaFilesLocation,
@@ -14,10 +15,12 @@ export type WorkspaceHistoryEntry = {
 };
 
 const HISTORY_KEY = "setta.workspaceHistory";
-const HISTORY_HANDOFF_KEY = "setta.workspaceHistoryHandoff";
-const HISTORY_HANDOFF_QUERY_PARAM = "__setta_workspace_history";
+const HISTORY_HANDOFF_KEY =
+  GENERATED_BOOTSTRAP_PROTOCOL.workspaceHistoryStorageKey;
+const HISTORY_HANDOFF_QUERY_PARAM =
+  GENERATED_BOOTSTRAP_PROTOCOL.workspaceHistoryQueryParam;
 const HISTORY_LIMIT = 6;
-const HISTORY_HANDOFF_MAX_LENGTH = 8192;
+const HISTORY_HANDOFF_MAX_LENGTH = GENERATED_BOOTSTRAP_PROTOCOL.maxValueLength;
 
 function normalizeNullableString(value: unknown): string | null {
   if (typeof value !== "string") {
@@ -324,7 +327,7 @@ export function appendWorkspaceHistoryToBootstrapUrlFragment(
   }
   const hash = url.hash.startsWith("#") ? url.hash.slice(1) : url.hash;
   const params = new URLSearchParams(hash);
-  params.set("wh", encoded);
+  params.set(GENERATED_BOOTSTRAP_PROTOCOL.workspaceHistoryHashParam, encoded);
   url.hash = params.toString();
   return url.toString();
 }

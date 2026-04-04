@@ -955,7 +955,7 @@ func TestServiceStartChatBuildsManagedInputsAndCombinedPrompt(t *testing.T) {
 		FrontendAffinityToken:   stringPtr("  frontend-managed  "),
 		PermissionMode:          ChatPermissionModeYolo,
 		SearchEnabled:           false,
-		AppGenerationMode:       stringPtr(AppGenerationModeJSONRender),
+		AppGenerationMode:       stringPtr(agentruns.AppGenerationModeJSONRender),
 		AppSpecStreamingEnabled: true,
 		AdditionalInputs: map[string]any{
 			"stateMachineRunId": "workflow-run-1",
@@ -1051,7 +1051,7 @@ func TestServiceStartChatAllowsImageModeWithCurrentImageAttachment(t *testing.T)
 		AllowUnscoped:     true,
 		PermissionMode:    ChatPermissionModeMinimal,
 		SearchEnabled:     false,
-		AppGenerationMode: stringPtr(AppGenerationModeJSONRenderWithImage),
+		AppGenerationMode: stringPtr(agentruns.AppGenerationModeJSONRenderWithImage),
 		AdditionalInputs: map[string]any{
 			"appGenerationByMessageId": map[string]any{
 				"user-image": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
@@ -1080,7 +1080,7 @@ func TestServiceStartChatRejectsImageModeWithoutCurrentOrRetainedImageAttachment
 		AllowUnscoped:     true,
 		PermissionMode:    ChatPermissionModeMinimal,
 		SearchEnabled:     false,
-		AppGenerationMode: stringPtr(AppGenerationModeJSONRenderWithImage),
+		AppGenerationMode: stringPtr(agentruns.AppGenerationModeJSONRenderWithImage),
 		AdditionalInputs: map[string]any{
 			"appGenerationByMessageId": map[string]any{
 				"user-managed": agentruns.ChatAppGenerationMessageModeJSONRenderWithImage,
@@ -1348,7 +1348,7 @@ func TestServiceBuildStartChatInputsAddsBranchMetadata(t *testing.T) {
 			PriorMessages: []map[string]any{userMessage("msg-1", "Original prompt")},
 			ParentRun:     &parentRun,
 		},
-		map[string]string{"msg-1": AppGenerationModeJSONRender},
+		map[string]string{"msg-1": agentruns.AppGenerationModeJSONRender},
 	)
 
 	if got := inputs["chatId"]; got != "chat-branch" {

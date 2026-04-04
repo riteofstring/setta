@@ -4,11 +4,52 @@ import "strings"
 
 const (
 	ChatAppGenerationMessageModePlainChat           = "plain_chat"
-	ChatAppGenerationMessageModeJSONRender          = "json_render"
-	ChatAppGenerationMessageModeJSONRenderWithImage = "json_render_with_image"
-	ChatAppGenerationMessageModePromptBuilder       = "prompt_builder"
-	ChatAppGenerationMessageModeMCPServer           = "mcp_server"
+	AppGenerationModeJSONRender                     = "json_render"
+	AppGenerationModeJSONRenderWithImage            = "json_render_with_image"
+	AppGenerationModePromptBuilder                  = "prompt_builder"
+	AppGenerationModeMCPServer                      = "mcp_server"
+	ChatAppGenerationMessageModeJSONRender          = AppGenerationModeJSONRender
+	ChatAppGenerationMessageModeJSONRenderWithImage = AppGenerationModeJSONRenderWithImage
+	ChatAppGenerationMessageModePromptBuilder       = AppGenerationModePromptBuilder
+	ChatAppGenerationMessageModeMCPServer           = AppGenerationModeMCPServer
 )
+
+func AppGenerationModes() []string {
+	return []string{
+		AppGenerationModeJSONRender,
+		AppGenerationModeJSONRenderWithImage,
+		AppGenerationModePromptBuilder,
+		AppGenerationModeMCPServer,
+	}
+}
+
+func ParseAppGenerationMode(raw string) (string, bool) {
+	trimmed := strings.TrimSpace(raw)
+	switch trimmed {
+	case AppGenerationModeJSONRender,
+		AppGenerationModeJSONRenderWithImage,
+		AppGenerationModePromptBuilder,
+		AppGenerationModeMCPServer:
+		return trimmed, true
+	default:
+		return "", false
+	}
+}
+
+func NormalizeOptionalAppGenerationMode(value *string) (*string, bool) {
+	if value == nil {
+		return nil, true
+	}
+	trimmed := strings.TrimSpace(*value)
+	if trimmed == "" {
+		return nil, true
+	}
+	normalized, ok := ParseAppGenerationMode(trimmed)
+	if !ok {
+		return nil, false
+	}
+	return &normalized, true
+}
 
 func ExtractAppGenerationByMessageID(inputs map[string]any) map[string]string {
 	if len(inputs) == 0 {
@@ -43,10 +84,10 @@ func NormalizeAppGenerationByMessageID(raw any) map[string]string {
 func isAllowedChatAppGenerationMessageMode(mode string) bool {
 	switch mode {
 	case ChatAppGenerationMessageModePlainChat,
-		ChatAppGenerationMessageModeJSONRender,
-		ChatAppGenerationMessageModeJSONRenderWithImage,
-		ChatAppGenerationMessageModePromptBuilder,
-		ChatAppGenerationMessageModeMCPServer:
+		AppGenerationModeJSONRender,
+		AppGenerationModeJSONRenderWithImage,
+		AppGenerationModePromptBuilder,
+		AppGenerationModeMCPServer:
 		return true
 	default:
 		return false

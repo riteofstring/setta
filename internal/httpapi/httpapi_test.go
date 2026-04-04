@@ -1185,20 +1185,22 @@ func TestBootstrapPageIncludesLauncherHandoffAndWorkspaceHistoryStorage(t *testi
 	}
 	html := response.Body.String()
 	for _, needle := range []string{
-		`const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";`,
-		`const workspaceHistoryHandoffQueryParam = "__setta_workspace_history";`,
+		`const bootstrapProtocol = {"workspaceHistoryStorageKey":"setta.workspaceHistoryHandoff","workspaceHistoryQueryParam":"__setta_workspace_history","workspaceHistoryHashParam":"wh","launcherOriginStorageKey":"setta.launcherOrigin","launcherOriginHashParam":"lo","launcherOriginProofHashParam":"lop","openWorkspaceSwitcherQueryParam":"__setta_open_workspace_switcher","openWorkspaceSwitcherHashParam":"osw","backendOriginOverrideQueryParam":"__setta_backend_origin","maxValueLength":8192};`,
+		`const workspaceHistoryHandoffKey = bootstrapProtocol.workspaceHistoryStorageKey;`,
+		`const workspaceHistoryHandoffQueryParam = bootstrapProtocol.workspaceHistoryQueryParam;`,
 		`localStorage.setItem(workspaceHistoryHandoffKey, trimmed);`,
 		`redirect.searchParams.set(workspaceHistoryHandoffQueryParam, trimmed);`,
-		`const launcherOriginKey = "setta.launcherOrigin";`,
+		`const launcherOriginKey = bootstrapProtocol.launcherOriginStorageKey;`,
 		`const launcherOriginStorage = sessionStorage;`,
-		`hashParams.get("lo")`,
-		`hashParams.get("lop")`,
-		`hashParams.get("osw")`,
-		`const openWorkspaceSwitcherQueryParam = "__setta_open_workspace_switcher";`,
+		`hashParams.get(bootstrapProtocol.launcherOriginHashParam)`,
+		`hashParams.get(bootstrapProtocol.launcherOriginProofHashParam)`,
+		`hashParams.get(bootstrapProtocol.openWorkspaceSwitcherHashParam)`,
+		`const openWorkspaceSwitcherQueryParam = bootstrapProtocol.openWorkspaceSwitcherQueryParam;`,
 		`redirect.searchParams.set(openWorkspaceSwitcherQueryParam, "1");`,
 		`consumeBody.launcherOrigin = launcherOriginHandoff.origin;`,
 		`consumeBody.launcherOriginProof = launcherOriginHandoff.proof;`,
 		`launcherOriginStorage.setItem(launcherOriginKey, trimmed);`,
+		`const maxHandoffLength = bootstrapProtocol.maxValueLength;`,
 	} {
 		if !strings.Contains(html, needle) {
 			t.Fatalf("expected bootstrap page to contain %q, got %q", needle, html)

@@ -779,17 +779,7 @@ func isAllowedSimpleNameChar(char rune) bool {
 }
 
 func sanitizeViewModeSlug(name string) string {
-	replaced := strings.NewReplacer(
-		"[", "_",
-		"]", "_",
-		"\"", "_",
-		"'", "_",
-		" ", "_",
-	).Replace(name)
-	for strings.Contains(replaced, "__") {
-		replaced = strings.ReplaceAll(replaced, "__", "_")
-	}
-	return strings.Trim(strings.ToLower(replaced), "_")
+	return sanitizeSimpleNameSlug(name)
 }
 
 func newProjectStateID() (string, error) {

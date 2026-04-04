@@ -1,6 +1,8 @@
 import { HOME_ROUTER_PATH } from "utils/constants";
+import { GENERATED_BOOTSTRAP_PROTOCOL } from "utils/generatedTypes";
 
-const OPEN_WORKSPACE_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
+const OPEN_WORKSPACE_SWITCHER_QUERY_PARAM =
+  GENERATED_BOOTSTRAP_PROTOCOL.openWorkspaceSwitcherQueryParam;
 
 type WorkspaceLaunchBackNavigation =
   | { kind: "navigate"; target: string }

@@ -239,21 +239,7 @@ func GeneratedPythonMetadataRelativePath(projectName string) string {
 }
 
 func sanitizeProjectSlug(name string) string {
-	sanitizedRunes := make([]rune, 0, len(name))
-	for _, char := range name {
-		switch char {
-		case '[', ']', '"', '\'', ' ':
-			sanitizedRunes = append(sanitizedRunes, '_')
-		default:
-			sanitizedRunes = append(sanitizedRunes, char)
-		}
-	}
-	sanitized := string(sanitizedRunes)
-	for strings.Contains(sanitized, "__") {
-		sanitized = strings.ReplaceAll(sanitized, "__", "_")
-	}
-	sanitized = strings.Trim(sanitized, "_")
-	return strings.ToLower(sanitized)
+	return sanitizeSimpleNameSlug(name)
 }
 
 func decodePythonCodegenTargetStringField(raw json.RawMessage, field string) (string, error) {

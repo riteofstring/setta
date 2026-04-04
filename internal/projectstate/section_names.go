@@ -307,23 +307,10 @@ func sanitizeSectionPythonIdentifier(name string) string {
 	if unicode.IsDigit(firstRune) {
 		sanitized = "_" + sanitized
 	}
-	if isSectionPythonKeyword(sanitized) {
+	if isPythonKeyword(sanitized) {
 		sanitized = "_" + sanitized
 	}
 	return sanitized
-}
-
-func isSectionPythonKeyword(value string) bool {
-	switch value {
-	case "False", "None", "True", "and", "as", "assert", "async", "await",
-		"break", "case", "class", "continue", "def", "del", "elif", "else",
-		"except", "finally", "for", "from", "global", "if", "import", "in",
-		"is", "lambda", "match", "nonlocal", "not", "or", "pass", "raise",
-		"return", "try", "type", "while", "with", "yield":
-		return true
-	default:
-		return false
-	}
 }
 
 func IsInvalidSectionNameError(err error) bool {

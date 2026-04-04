@@ -8349,6 +8349,455 @@ export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
   suppress: boolean;
 };
 
+export type GeneratedAppGenerationMode =
+  | "json_render"
+  | "json_render_with_image"
+  | "prompt_builder"
+  | "mcp_server";
+
+export const GeneratedAppGenerationModeEnum = {
+  JSONRender: "json_render",
+  JSONRenderWithImage: "json_render_with_image",
+  PromptBuilder: "prompt_builder",
+  MCPServer: "mcp_server",
+} as const satisfies Record<string, GeneratedAppGenerationMode>;
+
+export const GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE = "plain_chat";
+
+export function parseGeneratedAppGenerationMode(
+  value: unknown,
+): GeneratedAppGenerationMode | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  switch (trimmed) {
+    case "json_render":
+    case "json_render_with_image":
+    case "prompt_builder":
+    case "mcp_server":
+      return trimmed;
+    default:
+      return null;
+  }
+}
+
+type GeneratedProjectNameValidationOptions = {
+  allowReserved?: boolean;
+};
+
+type GeneratedParamNameValidationOptions = {
+  allowEmpty: boolean;
+  requirePythonIdentifier: boolean;
+  skipPathChecks?: boolean;
+};
+
+const generatedSimpleNameAllowedChars = new Set<string>([
+  " ",
+  "-",
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+  "M",
+  "N",
+  "O",
+  "P",
+  "Q",
+  "R",
+  "S",
+  "T",
+  "U",
+  "V",
+  "W",
+  "X",
+  "Y",
+  "Z",
+  "_",
+  "a",
+  "b",
+  "c",
+  "d",
+  "e",
+  "f",
+  "g",
+  "h",
+  "i",
+  "j",
+  "k",
+  "l",
+  "m",
+  "n",
+  "o",
+  "p",
+  "q",
+  "r",
+  "s",
+  "t",
+  "u",
+  "v",
+  "w",
+  "x",
+  "y",
+  "z",
+]);
+
+const generatedProjectReservedNames = new Set<string>(["home", "settings"]);
+
+const generatedPythonIdentifierStartChars = new Set<string>([
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+  "M",
+  "N",
+  "O",
+  "P",
+  "Q",
+  "R",
+  "S",
+  "T",
+  "U",
+  "V",
+  "W",
+  "X",
+  "Y",
+  "Z",
+  "_",
+  "a",
+  "b",
+  "c",
+  "d",
+  "e",
+  "f",
+  "g",
+  "h",
+  "i",
+  "j",
+  "k",
+  "l",
+  "m",
+  "n",
+  "o",
+  "p",
+  "q",
+  "r",
+  "s",
+  "t",
+  "u",
+  "v",
+  "w",
+  "x",
+  "y",
+  "z",
+]);
+
+const generatedPythonIdentifierContinueChars = new Set<string>([
+  "0",
+  "1",
+  "2",
+  "3",
+  "4",
+  "5",
+  "6",
+  "7",
+  "8",
+  "9",
+  "A",
+  "B",
+  "C",
+  "D",
+  "E",
+  "F",
+  "G",
+  "H",
+  "I",
+  "J",
+  "K",
+  "L",
+  "M",
+  "N",
+  "O",
+  "P",
+  "Q",
+  "R",
+  "S",
+  "T",
+  "U",
+  "V",
+  "W",
+  "X",
+  "Y",
+  "Z",
+  "_",
+  "a",
+  "b",
+  "c",
+  "d",
+  "e",
+  "f",
+  "g",
+  "h",
+  "i",
+  "j",
+  "k",
+  "l",
+  "m",
+  "n",
+  "o",
+  "p",
+  "q",
+  "r",
+  "s",
+  "t",
+  "u",
+  "v",
+  "w",
+  "x",
+  "y",
+  "z",
+]);
+
+const generatedPythonKeywords = new Set<string>([
+  "False",
+  "None",
+  "True",
+  "and",
+  "as",
+  "assert",
+  "async",
+  "await",
+  "break",
+  "case",
+  "class",
+  "continue",
+  "def",
+  "del",
+  "elif",
+  "else",
+  "except",
+  "finally",
+  "for",
+  "from",
+  "global",
+  "if",
+  "import",
+  "in",
+  "is",
+  "lambda",
+  "match",
+  "nonlocal",
+  "not",
+  "or",
+  "pass",
+  "raise",
+  "return",
+  "try",
+  "type",
+  "while",
+  "with",
+  "yield",
+]);
+
+const generatedSlugReplacementChars = new Set<string>([
+  "[",
+  "]",
+  '"',
+  "'",
+  " ",
+]);
+
+const generatedEmptyNameValidationSet = new Set<string>();
+
+function validateGeneratedSimpleNameInput(
+  name: string,
+  label: string,
+  reservedNames: ReadonlySet<string>,
+  allowReserved: boolean = false,
+): string | null {
+  const normalized = name.trim();
+  if (!normalized) {
+    return label + " cannot be empty.";
+  }
+  for (const char of normalized) {
+    const codepoint = char.codePointAt(0);
+    if (codepoint !== undefined && (codepoint < 32 || codepoint === 127)) {
+      return label + " cannot include control characters.";
+    }
+  }
+  if (normalized.includes("/") || normalized.includes("\\")) {
+    return label + " cannot include path separators.";
+  }
+  if (normalized.includes("..")) {
+    return label + " cannot include '..' path segments.";
+  }
+  for (const char of normalized) {
+    if (!generatedSimpleNameAllowedChars.has(char)) {
+      return label + " can only contain letters, numbers, spaces, '_' and '-'.";
+    }
+  }
+  if (!allowReserved && reservedNames.has(normalized.toLowerCase())) {
+    return label + " '" + normalized + "' is reserved.";
+  }
+  return null;
+}
+
+function sanitizeGeneratedSimpleNameSlug(name: string): string {
+  let output = "";
+  for (const char of name) {
+    output += generatedSlugReplacementChars.has(char) ? "_" : char;
+  }
+  while (output.includes("__")) {
+    output = output.replace("__", "_");
+  }
+  while (output.startsWith("_")) {
+    output = output.slice(1);
+  }
+  while (output.endsWith("_")) {
+    output = output.slice(0, -1);
+  }
+  return output.toLowerCase();
+}
+
+function isGeneratedPythonIdentifier(value: string): boolean {
+  let index = 0;
+  for (const char of value) {
+    if (index === 0) {
+      if (!generatedPythonIdentifierStartChars.has(char)) {
+        return false;
+      }
+    } else if (!generatedPythonIdentifierContinueChars.has(char)) {
+      return false;
+    }
+    index += 1;
+  }
+  return index > 0;
+}
+
+export function validateGeneratedProjectNameInput(
+  name: string,
+  options: GeneratedProjectNameValidationOptions = {} as GeneratedProjectNameValidationOptions,
+): string | null {
+  const allowReserved = options.allowReserved ?? false;
+  const baseError = validateGeneratedSimpleNameInput(
+    name,
+    "Project name",
+    generatedProjectReservedNames,
+    allowReserved,
+  );
+  if (baseError) {
+    return baseError;
+  }
+  if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {
+    return "Project name is invalid after sanitization.";
+  }
+  return null;
+}
+
+export function validateGeneratedViewModeNameInput(
+  name: string,
+): string | null {
+  const baseError = validateGeneratedSimpleNameInput(
+    name,
+    "View mode name",
+    generatedProjectReservedNames,
+  );
+  if (baseError) {
+    return baseError;
+  }
+  if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {
+    return "View mode name is invalid after sanitization.";
+  }
+  return null;
+}
+
+export function validateGeneratedWindowSpaceNameInput(
+  name: string,
+): string | null {
+  const baseError = validateGeneratedSimpleNameInput(
+    name,
+    "Window space name",
+    generatedEmptyNameValidationSet,
+  );
+  if (baseError) {
+    return baseError;
+  }
+  if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {
+    return "Window space name is invalid after sanitization.";
+  }
+  return null;
+}
+
+export function validateGeneratedSectionNameInput(name: string): string | null {
+  return validateGeneratedSimpleNameInput(
+    name,
+    "Section name",
+    generatedEmptyNameValidationSet,
+  );
+}
+
+export function validateGeneratedParamNameInput(
+  name: string,
+  options: GeneratedParamNameValidationOptions,
+): string | null {
+  const normalized = name.trim();
+  if (!normalized) {
+    return options.allowEmpty ? null : "Param name cannot be empty.";
+  }
+  for (const char of normalized) {
+    const codepoint = char.codePointAt(0);
+    if (codepoint !== undefined && (codepoint < 32 || codepoint === 127)) {
+      return "Param name cannot include control characters.";
+    }
+  }
+  if (!(options.skipPathChecks ?? false)) {
+    if (normalized.includes("/") || normalized.includes("\\")) {
+      return "Param name cannot include path separators.";
+    }
+    if (normalized.includes("..")) {
+      return "Param name cannot include '..' path segments.";
+    }
+  }
+  if (options.requirePythonIdentifier) {
+    if (!isGeneratedPythonIdentifier(normalized)) {
+      return "Param name must be a valid Python identifier.";
+    }
+    if (generatedPythonKeywords.has(normalized)) {
+      return "Param name cannot be a Python keyword.";
+    }
+  }
+  return null;
+}
+
 export type ImplArgsBundleMap = {
   BaseSection: {
     impl: BaseSectionImplUnion;
@@ -8836,6 +9285,32 @@ export const UISettingRevealContentSchema = {
     };
   },
 };
+
+type GeneratedBootstrapProtocol = {
+  workspaceHistoryStorageKey: string;
+  workspaceHistoryQueryParam: string;
+  workspaceHistoryHashParam: string;
+  launcherOriginStorageKey: string;
+  launcherOriginHashParam: string;
+  launcherOriginProofHashParam: string;
+  openWorkspaceSwitcherQueryParam: string;
+  openWorkspaceSwitcherHashParam: string;
+  backendOriginOverrideQueryParam: string;
+  maxValueLength: number;
+};
+
+export const GENERATED_BOOTSTRAP_PROTOCOL = {
+  workspaceHistoryStorageKey: "setta.workspaceHistoryHandoff",
+  workspaceHistoryQueryParam: "__setta_workspace_history",
+  workspaceHistoryHashParam: "wh",
+  launcherOriginStorageKey: "setta.launcherOrigin",
+  launcherOriginHashParam: "lo",
+  launcherOriginProofHashParam: "lop",
+  openWorkspaceSwitcherQueryParam: "__setta_open_workspace_switcher",
+  openWorkspaceSwitcherHashParam: "osw",
+  backendOriginOverrideQueryParam: "__setta_backend_origin",
+  maxValueLength: 8192,
+} as const satisfies GeneratedBootstrapProtocol;
 
 type FrontendConstants = {
   AUTH_COOKIE_REFRESH_WINDOW_SECONDS: number;

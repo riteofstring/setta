@@ -47,6 +47,8 @@ import {
   type BaseChatMessageUnion,
   type EngineConfig,
   EngineTypeEnum,
+  GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+  GeneratedAppGenerationModeEnum,
 } from "utils/generatedTypes";
 import { getSafeLocalStorageAdapter } from "utils/safeLocalStorage";
 import { clamp } from "utils/utils";
@@ -123,17 +125,26 @@ const EMPTY_CUSTOM_SLASH_COMMAND_DRAFT: CustomSlashCommandDraft = {
 };
 
 const CUSTOM_SLASH_COMMAND_MODE_ITEMS = [
-  { id: "plain_chat", name: "Plain chat" },
-  { id: "json_render", name: "JSON Render" },
-  { id: "json_render_with_image", name: "Image to JSON Render" },
-  { id: "prompt_builder", name: "Prompt Builder" },
-  { id: "mcp_server", name: "MCP Server" },
+  {
+    id: GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE,
+    name: "Plain chat",
+  },
+  { id: GeneratedAppGenerationModeEnum.JSONRender, name: "JSON Render" },
+  {
+    id: GeneratedAppGenerationModeEnum.JSONRenderWithImage,
+    name: "Image to JSON Render",
+  },
+  {
+    id: GeneratedAppGenerationModeEnum.PromptBuilder,
+    name: "Prompt Builder",
+  },
+  { id: GeneratedAppGenerationModeEnum.MCPServer, name: "MCP Server" },
 ] as const;
 
 function getCustomSlashCommandModeLabel(
   mode: AppGenerationMode | null,
 ): string | null {
-  const resolvedId = mode ?? "plain_chat";
+  const resolvedId = mode ?? GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE;
   return (
     CUSTOM_SLASH_COMMAND_MODE_ITEMS.find((item) => item.id === resolvedId)
       ?.name ?? null
@@ -1913,7 +1924,10 @@ function CustomSlashCommandsPanel({
               })),
             },
           ]}
-          value={newCustomSlashAppGenerationMode ?? "plain_chat"}
+          value={
+            newCustomSlashAppGenerationMode ??
+            GENERATED_PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE
+          }
           small={false}
           onSelectedItemChange={onSetNewCustomSlashAppGenerationMode}
           placeholder="Select a submission mode"

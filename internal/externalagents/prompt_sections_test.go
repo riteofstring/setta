@@ -4,13 +4,15 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"setta/internal/agentruns"
 )
 
 func TestBuildAppGenerationModePromptIncludesStreamingAndReferenceImageContext(t *testing.T) {
 	t.Parallel()
 
 	prompt := buildAppGenerationModePrompt(
-		stringPtr(AppGenerationModeJSONRenderWithImage),
+		stringPtr(agentruns.AppGenerationModeJSONRenderWithImage),
 		true,
 		stringPtr("https://example.com/reference.png"),
 		stringPtr("Match spacing and heading scale first."),
@@ -44,7 +46,7 @@ func TestBuildAppGenerationModePromptIgnoresReferenceImageForNonImageModes(t *te
 	t.Parallel()
 
 	prompt := buildAppGenerationModePrompt(
-		stringPtr(AppGenerationModePromptBuilder),
+		stringPtr(agentruns.AppGenerationModePromptBuilder),
 		true,
 		stringPtr("https://example.com/reference.png"),
 		stringPtr("Ignore outside image mode."),
@@ -63,7 +65,7 @@ func TestBuildAppGenerationModePromptIgnoresReferenceImageForNonImageModes(t *te
 func TestBuildAppGenerationModePromptMCPModeSwitchesPersistenceInstruction(t *testing.T) {
 	t.Parallel()
 
-	streamingPrompt := buildAppGenerationModePrompt(stringPtr(AppGenerationModeMCPServer), true, nil, nil)
+	streamingPrompt := buildAppGenerationModePrompt(stringPtr(agentruns.AppGenerationModeMCPServer), true, nil, nil)
 	if !strings.Contains(streamingPrompt, "setta__stream_app_definition") {
 		t.Fatalf("expected MCP streaming prompt to use stream tool, got %q", streamingPrompt)
 	}
@@ -71,7 +73,7 @@ func TestBuildAppGenerationModePromptMCPModeSwitchesPersistenceInstruction(t *te
 		t.Fatalf("expected MCP streaming prompt to omit full-spec tool, got %q", streamingPrompt)
 	}
 
-	fullSpecPrompt := buildAppGenerationModePrompt(stringPtr(AppGenerationModeMCPServer), false, nil, nil)
+	fullSpecPrompt := buildAppGenerationModePrompt(stringPtr(agentruns.AppGenerationModeMCPServer), false, nil, nil)
 	if !strings.Contains(fullSpecPrompt, "setta__set_app_definition") {
 		t.Fatalf("expected MCP full-spec prompt to use set_app_definition, got %q", fullSpecPrompt)
 	}

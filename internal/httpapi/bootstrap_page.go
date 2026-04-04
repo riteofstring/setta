@@ -12,7 +12,6 @@ import (
 const (
 	bootstrapPagePath        = "/__setta__/bootstrap"
 	bootstrapConsumePath     = "/__setta__/bootstrap/consume"
-	backendOriginQueryParam  = "__setta_backend_origin"
 	defaultDevFrontendScheme = "http"
 	devFrontendPortEnv       = "SETTA_DEV_FRONTEND_PORT"
 	devFrontendSchemeEnv     = "SETTA_DEV_FRONTEND_SCHEME"
@@ -518,12 +517,13 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
         const redirectUrl = __SETTA_REDIRECT_URL__;
         const consumeUrl = __SETTA_CONSUME_URL__;
         const bootstrapPagePath = __SETTA_BOOTSTRAP_PAGE_PATH__;
-        const workspaceHistoryHandoffKey = "setta.workspaceHistoryHandoff";
-        const workspaceHistoryHandoffQueryParam = "__setta_workspace_history";
-        const launcherOriginKey = "setta.launcherOrigin";
-        const openWorkspaceSwitcherQueryParam = "__setta_open_workspace_switcher";
+        const bootstrapProtocol = __SETTA_BOOTSTRAP_PROTOCOL__;
+        const workspaceHistoryHandoffKey = bootstrapProtocol.workspaceHistoryStorageKey;
+        const workspaceHistoryHandoffQueryParam = bootstrapProtocol.workspaceHistoryQueryParam;
+        const launcherOriginKey = bootstrapProtocol.launcherOriginStorageKey;
+        const openWorkspaceSwitcherQueryParam = bootstrapProtocol.openWorkspaceSwitcherQueryParam;
         const launcherOriginStorage = sessionStorage;
-        const maxHandoffLength = 8192;
+        const maxHandoffLength = bootstrapProtocol.maxValueLength;
         const form = document.getElementById("bootstrap-form");
         const input = document.getElementById("token-input");
         const statusEl = document.getElementById("status");
@@ -549,7 +549,7 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
 
         function hydrateWorkspaceHistoryFromHash() {
           try {
-            const encoded = hashParams.get("wh");
+            const encoded = hashParams.get(bootstrapProtocol.workspaceHistoryHashParam);
             if (!encoded) {
               return;
             }
@@ -564,7 +564,7 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
 
         function appendWorkspaceHistoryHandoffToRedirectUrl(rawRedirectUrl) {
           try {
-            const encoded = hashParams.get("wh");
+            const encoded = hashParams.get(bootstrapProtocol.workspaceHistoryHashParam);
             if (!encoded) {
               return rawRedirectUrl;
             }
@@ -582,8 +582,8 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
 
         function readLauncherOriginHandoffFromHash() {
           try {
-            const rawOrigin = hashParams.get("lo");
-            const rawProof = hashParams.get("lop");
+            const rawOrigin = hashParams.get(bootstrapProtocol.launcherOriginHashParam);
+            const rawProof = hashParams.get(bootstrapProtocol.launcherOriginProofHashParam);
             if (!rawOrigin || !rawProof) {
               return null;
             }
@@ -624,7 +624,7 @@ const bootstrapPageHTMLTemplate = `<!DOCTYPE html>
 
         function shouldOpenWorkspaceSwitcherFromHash() {
           try {
-            const raw = hashParams.get("osw");
+            const raw = hashParams.get(bootstrapProtocol.openWorkspaceSwitcherHashParam);
             if (!raw) {
               return false;
             }
@@ -726,11 +726,13 @@ func bootstrapPageHandler() http.HandlerFunc {
 		redirectJSON, _ := json.Marshal(redirectURL)
 		consumeJSON, _ := json.Marshal(bootstrapConsumePath)
 		pagePathJSON, _ := json.Marshal(bootstrapPagePath)
+		bootstrapProtocolJSON, _ := json.Marshal(FrontendBootstrapProtocol())
 
 		html := strings.NewReplacer(
 			"__SETTA_REDIRECT_URL__", string(redirectJSON),
 			"__SETTA_CONSUME_URL__", string(consumeJSON),
 			"__SETTA_BOOTSTRAP_PAGE_PATH__", string(pagePathJSON),
+			"__SETTA_BOOTSTRAP_PROTOCOL__", string(bootstrapProtocolJSON),
 		).Replace(bootstrapPageHTMLTemplate)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -777,7 +779,7 @@ func resolveBootstrapRedirectURL(r *http.Request) string {
 		return redirectURL
 	}
 	query := parsed.Query()
-	query.Set(backendOriginQueryParam, backendOrigin)
+	query.Set(BackendOriginOverrideQueryParam, backendOrigin)
 	parsed.RawQuery = query.Encode()
 	return parsed.String()
 }

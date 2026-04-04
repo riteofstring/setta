@@ -2,7 +2,10 @@ import type { CSSProperties } from "react";
 import type { AppGenerationMode } from "state/types/appGenerationMode";
 import type { ChatAppGenerationContext } from "state/utils/chatAppGeneration";
 import { isImageAttachment } from "utils/attachmentPreview";
-import { ChatFileAttachment } from "utils/generatedTypes";
+import {
+  ChatFileAttachment,
+  GeneratedAppGenerationModeEnum,
+} from "utils/generatedTypes";
 import {
   type ChatPermissionModeValue,
   type ChatSlashCommandAction,
@@ -243,7 +246,9 @@ export function resolveSlashCommandSubmitOptions(
 function requiresImageAttachmentForAppGenerationMode(
   appGenerationMode: AppGenerationMode | null | undefined,
 ): boolean {
-  return appGenerationMode === "json_render_with_image";
+  return (
+    appGenerationMode === GeneratedAppGenerationModeEnum.JSONRenderWithImage
+  );
 }
 
 function hasImageAttachment(attachments: ChatFileAttachment[]): boolean {

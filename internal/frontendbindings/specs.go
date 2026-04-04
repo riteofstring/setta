@@ -1581,15 +1581,21 @@ func CurrentAdditionalDeclarations() []TypeDeclaration {
 	declarations := make(
 		[]TypeDeclaration,
 		0,
-		len(projectStateSupportDeclarations())+
+		len(appGenerationSupportDeclarations())+
+			len(nameValidationSupportDeclarations())+
+			len(projectStateSupportDeclarations())+
 			len(websocketSupportDeclarations())+
+			len(bootstrapHandoffSupportDeclarations())+
 			len(frontendConstantsSupportDeclarations())+
 			len(uiEditorTabSupportDeclarations())+
 			len(transportPolicySupportDeclarations())+
 			len(interopSupportDeclarations()),
 	)
+	declarations = append(declarations, appGenerationSupportDeclarations()...)
+	declarations = append(declarations, nameValidationSupportDeclarations()...)
 	declarations = append(declarations, projectStateSupportDeclarations()...)
 	declarations = append(declarations, websocketSupportDeclarations()...)
+	declarations = append(declarations, bootstrapHandoffSupportDeclarations()...)
 	declarations = append(declarations, frontendConstantsSupportDeclarations()...)
 	declarations = append(declarations, uiEditorTabSupportDeclarations()...)
 	declarations = append(declarations, transportPolicySupportDeclarations()...)

@@ -47,6 +47,7 @@ import {
   ChatFileAttachment,
   ChatRoleEnum,
   EngineTypeEnum,
+  GeneratedAppGenerationModeEnum,
   type ToolCall,
 } from "utils/generatedTypes";
 import { type ProjectChatThreadBlockedErrorCode } from "./projectChatHydrationAuthority";
@@ -822,7 +823,8 @@ export function hasRetainedImageAttachmentFromImageModeThread(
       return false;
     }
     if (
-      appGenerationByMessageId[message.id]?.mode !== "json_render_with_image"
+      appGenerationByMessageId[message.id]?.mode !==
+      GeneratedAppGenerationModeEnum.JSONRenderWithImage
     ) {
       return false;
     }

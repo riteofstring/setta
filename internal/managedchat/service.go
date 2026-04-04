@@ -23,11 +23,6 @@ const (
 	runTypeExternalChat = "external_agent"
 	runTypeScriptable   = "scriptable_chat"
 
-	AppGenerationModeJSONRender          = "json_render"
-	AppGenerationModeJSONRenderWithImage = "json_render_with_image"
-	AppGenerationModePromptBuilder       = "prompt_builder"
-	AppGenerationModeMCPServer           = "mcp_server"
-
 	maxReferenceImageURLChars   = 4096
 	maxReferenceImageNotesChars = 100000
 	stopChatWaitTimeout         = 2 * time.Second
@@ -1017,19 +1012,11 @@ func normalizeOptionalString(value *string) *string {
 }
 
 func normalizeAppGenerationMode(value *string) (*string, error) {
-	if value == nil {
-		return nil, nil
-	}
-	trimmed := strings.TrimSpace(*value)
-	if trimmed == "" {
-		return nil, nil
-	}
-	switch trimmed {
-	case AppGenerationModeJSONRender, AppGenerationModeJSONRenderWithImage, AppGenerationModePromptBuilder, AppGenerationModeMCPServer:
-		return &trimmed, nil
-	default:
+	normalized, ok := agentruns.NormalizeOptionalAppGenerationMode(value)
+	if !ok {
 		return nil, ErrAppGenerationModeInvalid
 	}
+	return normalized, nil
 }
 
 func normalizeReferenceImageInputs(referenceImageURL *string, referenceImageNotes *string) (*string, *string, error) {
@@ -1069,7 +1056,7 @@ func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, re
 		lines[2] = "- streamingPreview: enabled"
 	}
 	switch resolvedMode {
-	case AppGenerationModeJSONRender, AppGenerationModeJSONRenderWithImage, AppGenerationModePromptBuilder:
+	case agentruns.AppGenerationModeJSONRender, agentruns.AppGenerationModeJSONRenderWithImage, agentruns.AppGenerationModePromptBuilder:
 		lines = append(lines,
 			"- If you are generating/updating the App spec (json-render):",
 			"  - Use catalog-compatible components only.",
@@ -1088,7 +1075,7 @@ func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, re
 		}
 	}
 	switch resolvedMode {
-	case AppGenerationModeJSONRenderWithImage:
+	case agentruns.AppGenerationModeJSONRenderWithImage:
 		lines = append(lines,
 			"- Prioritize reference-image fidelity in this order: layout structure, spacing rhythm, typography scale, then color intent.",
 			"- If exact parity is impossible with catalog constraints, preserve hierarchy and explain the closest approximation.",
@@ -1102,11 +1089,11 @@ func buildAppGenerationModePrompt(mode *string, appSpecStreamingEnabled bool, re
 				lines = append(lines, fmt.Sprintf("- Reference image notes: %s", strings.TrimSpace(*referenceImageNotes)))
 			}
 		}
-	case AppGenerationModePromptBuilder:
+	case agentruns.AppGenerationModePromptBuilder:
 		lines = append(lines,
 			"- Prompt-builder flow: keep responses concise and tool-oriented so generation can run from the App pane without manual copy/paste.",
 		)
-	case AppGenerationModeMCPServer:
+	case agentruns.AppGenerationModeMCPServer:
 		lines = append(lines,
 			"- MCP-server flow: use MCP tools as the source of truth for design artifacts when available.",
 			"- For Figma-oriented requests, support both paths:",
