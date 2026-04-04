@@ -3506,3 +3506,36 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on a different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 07:33 EDT - Ralph item 103
+
+- Added a normalized cross-worktree widened `drawSectionDefault` pane-pan parity probe and closed that bounded non-group/non-spreadsheet wide-card motion lane without inventing a production fix.
+- Why this slice was necessary:
+  - items `101` and `102` still had no trustworthy canary-only renderer defect, so the next valid step was one different uncovered dynamic lane rather than more section-chrome churn
+  - a fresh-context CDP compare earlier in the iteration normalized `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`, exercised the shared `Core Name Editable` body-filter edit path, and again found no canary-only drift
+  - `drawSectionDefault` was the next non-group/non-spreadsheet wide-card pane-pan lane, but the live `/settings` surface exposes the stable `sectionId-args-filter` anchor after normalized fit rather than a runtime draw canvas/control anchor, so the deterministic probe had to use that durable DOM control
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added opt-in probe `settings graph parity probe keeps the widened draw section attached during normalized pane pan on read-only main legacy and worktree canary`
+    - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, fits `drawSectionDefault` on both surfaces, applies the same short blank-space pan, and compares pane state, transform delta, and `sectionId-args-filter` anchor drift against read-only `main`
+    - refactored the local section-child center helper through a selector-based helper so new probes can reuse section-scoped anchors consistently
+  - no production renderer files changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - refreshed runtime/bootstrap values before the final live rerun:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-022/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-022/main-ai.log`
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the widened draw section attached during normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `38.8s`)
+  - fresh-context CDP sub-agent:
+    - checked the exact lane on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+    - after normalized `All Settings` setup, shared `fit view`, and one short blank-pane pan pulse, `drawSectionDefault` plus its `Brush Color` / `Brush Shape` args stayed visually attached and aligned on both tabs
+    - no canary-only defect was visible on this exact lane
+  - CDP visual check: both /settings tabs were normalized to All Settings, and the widened draw section stayed attached with its section-scoped args aligned after the blank-pane pan pulse.
+- Lane status:
+  - close the specific widened `drawSectionDefault` pane-pan lane as covered by the new deterministic main-reference probe
+  - do not reopen it unless a later fresh compare shows the `drawSectionDefault` section-scoped args filter detaching, disappearing, or drifting after the same normalized pane-pan path
+- Next frontier:
+  - return to one fresh normalized live compare on a materially different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
+- LOOP_TERMINAL_MARKER: none

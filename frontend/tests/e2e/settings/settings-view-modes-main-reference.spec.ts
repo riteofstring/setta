@@ -2917,6 +2917,348 @@ test("settings graph parity probe keeps the group args filter editable after nor
   }
 });
 
+test("settings graph parity probe keeps the widened draw section attached during normalized pane pan on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const worktreeDrawSectionId = findSectionIdByName(
+    worktreeInitialState,
+    "drawSectionDefault",
+  );
+  const referenceDrawSectionId = findSectionIdByName(
+    referenceInitialState,
+    "drawSectionDefault",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const panDelta = { x: 120, y: 80 };
+
+  async function captureDrawSectionAfterPan(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    targetPage: Page;
+  }) {
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    await expect
+      .poll(async () => {
+        return (
+          (
+            await captureSettingsGraphSectionMetrics(
+              args.targetPage,
+              args.sectionId,
+            )
+          ).rect?.width ?? 0
+        );
+      })
+      .toBeGreaterThan(500);
+    await expect
+      .poll(async () => {
+        return (
+          (
+            await captureSettingsGraphSectionMetrics(
+              args.targetPage,
+              args.sectionId,
+            )
+          ).rect?.height ?? 0
+        );
+      })
+      .toBeGreaterThan(300);
+
+    const sectionLocator = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const drawArgsFilter = sectionLocator
+      .locator(`[id="${args.sectionId}-args-filter"]`)
+      .first();
+
+    await expect(sectionLocator).toBeVisible();
+    await expect(drawArgsFilter).toBeVisible();
+
+    const beforeMetrics = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    const beforeAnchorPosition = await getSectionChildRelativeCenterPosition(
+      args.targetPage,
+      args.sectionId,
+      `${args.sectionId}-args-filter`,
+    );
+    if (
+      !beforeMetrics.rect ||
+      !beforeMetrics.transform ||
+      !beforeAnchorPosition
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} draw-section baseline metrics.`,
+      );
+    }
+
+    const panStart = await findSettingsGraphPanePoint(args.targetPage);
+    await args.targetPage.mouse.move(panStart.x, panStart.y);
+    await args.targetPage.mouse.down();
+    await args.targetPage.mouse.move(
+      panStart.x + panDelta.x,
+      panStart.y + panDelta.y,
+      {
+        steps: 10,
+      },
+    );
+    await args.targetPage.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const afterPan = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!afterPan.rect || !afterPan.transform) {
+          return 0;
+        }
+        return Math.max(
+          Math.hypot(
+            afterPan.rect.x - beforeMetrics.rect.x,
+            afterPan.rect.y - beforeMetrics.rect.y,
+          ),
+          Math.hypot(
+            afterPan.transform.x - beforeMetrics.transform.x,
+            afterPan.transform.y - beforeMetrics.transform.y,
+          ),
+        );
+      })
+      .toBeGreaterThan(60);
+
+    await expect
+      .poll(async () => {
+        const latestAnchorPosition =
+          await getSectionChildRelativeCenterPosition(
+            args.targetPage,
+            args.sectionId,
+            `${args.sectionId}-args-filter`,
+          );
+        if (!latestAnchorPosition) {
+          return Number.POSITIVE_INFINITY;
+        }
+        return Math.max(
+          Math.abs(latestAnchorPosition.x - beforeAnchorPosition.x),
+          Math.abs(latestAnchorPosition.y - beforeAnchorPosition.y),
+        );
+      })
+      .toBeLessThan(0.03);
+
+    const afterMetrics = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    const afterAnchorPosition = await getSectionChildRelativeCenterPosition(
+      args.targetPage,
+      args.sectionId,
+      `${args.sectionId}-args-filter`,
+    );
+    if (!afterMetrics.transform || !afterAnchorPosition) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} draw-section result metrics.`,
+      );
+    }
+
+    return {
+      anchorPositionDrift: {
+        x: Math.abs(afterAnchorPosition.x - beforeAnchorPosition.x),
+        y: Math.abs(afterAnchorPosition.y - beforeAnchorPosition.y),
+      },
+      paneState: await getLocalPaneState(args.targetPage),
+      transformDelta: {
+        x: afterMetrics.transform.x - beforeMetrics.transform.x,
+        y: afterMetrics.transform.y - beforeMetrics.transform.y,
+        zoom: afterMetrics.transform.zoom - beforeMetrics.transform.zoom,
+      },
+    };
+  }
+
+  try {
+    const referenceResult = await captureDrawSectionAfterPan({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      pageTab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceDrawSectionId,
+      targetPage: referencePage,
+    });
+    const worktreeResult = await captureDrawSectionAfterPan({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      pageTab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeDrawSectionId,
+      targetPage: page,
+    });
+
+    expect(referenceResult.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(referenceResult.anchorPositionDrift.x).toBeLessThan(0.03);
+    expect(referenceResult.anchorPositionDrift.y).toBeLessThan(0.03);
+    expect(worktreeResult.anchorPositionDrift.x).toBeLessThan(0.03);
+    expect(worktreeResult.anchorPositionDrift.y).toBeLessThan(0.03);
+    expect(
+      Math.abs(
+        worktreeResult.transformDelta.x - referenceResult.transformDelta.x,
+      ),
+    ).toBeLessThan(2);
+    expect(
+      Math.abs(
+        worktreeResult.transformDelta.y - referenceResult.transformDelta.y,
+      ),
+    ).toBeLessThan(2);
+    expect(
+      Math.abs(
+        worktreeResult.transformDelta.zoom -
+          referenceResult.transformDelta.zoom,
+      ),
+    ).toBeLessThan(0.02);
+  } finally {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreInitialViewModeLayout({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary", async ({
   context,
   page,
@@ -3567,8 +3909,20 @@ async function getSectionChildRelativeCenterPosition(
   sectionId: string,
   childId: string,
 ): Promise<{ x: number; y: number } | null> {
+  return getSectionChildRelativeCenterBySelector(
+    page,
+    sectionId,
+    `[id="${childId}"]`,
+  );
+}
+
+async function getSectionChildRelativeCenterBySelector(
+  page: Page,
+  sectionId: string,
+  childSelector: string,
+): Promise<{ x: number; y: number } | null> {
   return page.evaluate(
-    ({ targetSectionId, targetChildId }) => {
+    ({ targetSectionId, targetChildSelector }) => {
       const section =
         document.querySelector<HTMLElement>(
           `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
@@ -3577,7 +3931,7 @@ async function getSectionChildRelativeCenterPosition(
           `.react-flow__node[data-id="${targetSectionId}"]`,
         );
       const child =
-        section?.querySelector<HTMLElement>(`[id="${targetChildId}"]`) ?? null;
+        section?.querySelector<HTMLElement>(targetChildSelector) ?? null;
       if (!section || !child) {
         return null;
       }
@@ -3597,7 +3951,7 @@ async function getSectionChildRelativeCenterPosition(
     },
     {
       targetSectionId: sectionId,
-      targetChildId: childId,
+      targetChildSelector: childSelector,
     },
   );
 }

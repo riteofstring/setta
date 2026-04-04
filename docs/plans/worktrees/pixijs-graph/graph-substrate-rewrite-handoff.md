@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 07:13 EDT
+Last updated: 2026-04-04 07:33 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `103` added a normalized cross-worktree widened `drawSectionDefault` pane-pan parity probe and closed that bounded non-group/non-spreadsheet wide-card motion lane without inventing a production fix.
+  - Why this slice was needed:
+    - items `101` and `102` still did not expose a trustworthy canary-only renderer defect, so the next valid step was one different uncovered dynamic lane rather than more section-chrome churn
+    - the fresh-context CDP compare earlier in this iteration on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings` again found no trustworthy canary-only defect on normalized `All Settings`; the shared `Core Name Editable` body-filter edit path stayed aligned on both surfaces
+    - `drawSectionDefault` was the next non-group/non-spreadsheet wide-card pane-pan lane, but the live `/settings` surface exposes the stable section-scoped `args-filter` after normalized fit rather than a runtime draw canvas/control anchor, so the deterministic probe had to use that durable DOM control
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added opt-in probe `settings graph parity probe keeps the widened draw section attached during normalized pane pan on read-only main legacy and worktree canary`
+      - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, fits `drawSectionDefault` on both surfaces, applies the same short blank-space pan, and compares pane state, transform delta, and `sectionId-args-filter` anchor drift against read-only `main`
+      - refactored the local section-child center helper through a selector-based helper so section-scoped anchors can be reused consistently across future probe shapes
+    - no production renderer files changed in this slice
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - refreshed runtime/bootstrap values before the final live rerun:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-022/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-022/main-ai.log`
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the widened draw section attached during normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `38.8s`)
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the exact lane on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+    - after normalized `All Settings` setup, shared `fit view`, and one short blank-pane pan pulse, `drawSectionDefault` plus its `Brush Color` / `Brush Shape` args stayed visually attached and aligned on both tabs
+    - no canary-only defect was visible on this exact lane
+    - CDP visual check: both /settings tabs were normalized to All Settings, and the widened draw section stayed attached with its section-scoped args aligned after the blank-pane pan pulse.
+  - conclusion for this slice:
+    - close the specific widened `drawSectionDefault` pane-pan lane as covered by the new deterministic main-reference probe
+    - do not reopen this lane unless a later fresh compare shows the `drawSectionDefault` section-scoped args filter detaching, disappearing, or drifting after the same normalized pane-pan path
+    - the next real frontier should return to one fresh normalized live compare on a materially different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
 - Ralph item `102` added a normalized cross-worktree section-chrome plain-wheel-pan parity probe and closed that bounded dynamic lane without inventing a production fix.
   - Why this slice was needed:
     - item `101` was a normalization-only helper change, so the next iteration had to return to a different live dynamic path instead of extending the same support lane again
@@ -2510,7 +2539,10 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - the exact `groupSectionDefault` shared wide-card pan pulse is also now closed; do not reopen it unless a fresh compare reintroduces drift
   - the keyboard-accessible `groupSectionDefault` motion probe is also clean; do not spend another iteration repeating that exact workaround just because true CDP mouse drag was untrustworthy
   - the targeted wide-card `groupSectionDefault` Playwright drag oracle is now available; reuse it if a future compare needs trustworthy top-level drag evidence, but do not spend another iteration extending that support lane by itself
-  - focus the next compare on one different trustworthy dynamic action across worktree and `main`, not more `groupSectionDefault` pan/zoom repetition:
+  - the widened `drawSectionDefault` pane-pan lane is now closed:
+    - item `103` proves `drawSectionDefault` keeps its stable `sectionId-args-filter` anchor attached through one normalized short pane pan on worktree canary and read-only `main` legacy
+    - do not reopen this lane unless a later fresh compare shows the draw-section anchor detaching, disappearing, or drifting after the same normalized pane-pan path
+  - focus the next compare on one different trustworthy dynamic action across worktree and `main`, not more `groupSectionDefault` or `drawSectionDefault` pane-pan repetition:
     - a shared body-heavy dynamic pulse that CDP can complete end-to-end without relying on a synthetic mouse-drop commit
     - or a post-state CDP inspection paired with an existing Playwright drag oracle if another top-level drag lane genuinely needs live visual context
     - isolate any remaining interaction-state drift or body/chrome detachment that only appears once motion starts
@@ -2540,6 +2572,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `102`
-- Latest item: `2026-04-04 102`
+- Active history window: items `001` through `103`
+- Latest item: `2026-04-04 103`
 - Older history archives: none yet
