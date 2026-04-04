@@ -1201,6 +1201,133 @@ func TestTypeConverterReflectsChatSupportContractsWithoutManualDeclarations(t *t
 	}
 }
 
+func TestTypeConverterReflectsStreamingContractsWithoutManualDeclarations(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		properties []TypeProperty
+	}{
+		{
+			name: "MessageTextDelta",
+			root: reflect.TypeOf(MessageTextDelta{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"text_delta"`, Optional: false},
+				{Name: "index", TypeExpr: "number", Optional: false},
+				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "MessageThinkingDelta",
+			root: reflect.TypeOf(MessageThinkingDelta{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: `"thinking_delta"`, Optional: false},
+				{Name: "index", TypeExpr: "number", Optional: false},
+				{Name: "thinking", TypeExpr: "string", Optional: false},
+				{Name: "summary", TypeExpr: "string | null", Optional: true},
+				{Name: "signature", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "MessageStartEvent",
+			root: reflect.TypeOf(MessageStartEvent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_START", Optional: false},
+				{Name: "message", TypeExpr: "BaseChatMessageUnion", Optional: false},
+			},
+		},
+		{
+			name: "MessageDeltaEvent",
+			root: reflect.TypeOf(MessageDeltaEvent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.DELTA", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+				{Name: "content", TypeExpr: "Array<MessageContentDelta> | null", Optional: true},
+			},
+		},
+		{
+			name: "ToolCallDeltaEvent",
+			root: reflect.TypeOf(ToolCallDeltaEvent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_CALL_DELTA", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_call_id", TypeExpr: "string", Optional: false},
+				{Name: "arguments_delta", TypeExpr: "string", Optional: false},
+				{Name: "tool_name", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "ToolResultEvent",
+			root: reflect.TypeOf(ToolResultEvent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_RESULT", Optional: false},
+				{Name: "result", TypeExpr: "ToolChatMessage", Optional: false},
+			},
+		},
+		{
+			name: "ToolArgumentPreviewDeltaEvent",
+			root: reflect.TypeOf(ToolArgumentPreviewDeltaEvent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_call_id", TypeExpr: "string", Optional: false},
+				{Name: "tool_name", TypeExpr: "string", Optional: false},
+				{Name: "arguments_delta", TypeExpr: "string", Optional: false},
+				{Name: "preview_kind", TypeExpr: "string", Optional: false},
+				{Name: "target_ids_by_type", TypeExpr: "Record<string, Array<string>>", Optional: false},
+				{Name: "preview_value_delta", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "MessageStopEvent",
+			root: reflect.TypeOf(MessageStopEvent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_STOP", Optional: false},
+				{Name: "message_id", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "MessageFinalizedEvent",
+			root: reflect.TypeOf(MessageFinalizedEvent{}),
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "typeof StreamingEventTypeEnum.MESSAGE_FINALIZED", Optional: false},
+				{Name: "message", TypeExpr: "BaseChatMessageUnion", Optional: false},
+			},
+		},
+		{
+			name: "LLMStreamingResponse",
+			root: reflect.TypeOf(LLMStreamingResponse{}),
+			properties: []TypeProperty{
+				{Name: "chatId", TypeExpr: "string", Optional: false},
+				{Name: "chunk", TypeExpr: "LLMStreamingResponseChunk", Optional: false},
+				{Name: "sectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "projectConfigId", TypeExpr: "string | null", Optional: true},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want object", tt.name, declaration.Kind)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+		})
+	}
+}
+
 func TestTypeConverterReflectsRealtimeContractsWithoutManualDeclarations(t *testing.T) {
 	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {

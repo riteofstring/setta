@@ -2250,6 +2250,85 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				"outputs": "Record<string, unknown> | null",
 			},
 		}, true
+	case reflect.TypeOf(MessageTextDelta{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": `"text_delta"`,
+			},
+		}, true
+	case reflect.TypeOf(MessageThinkingDelta{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": `"thinking_delta"`,
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"summary":   true,
+				"signature": true,
+			},
+		}, true
+	case reflect.TypeOf(MessageStartEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type":    "typeof StreamingEventTypeEnum.MESSAGE_START",
+				"message": "BaseChatMessageUnion",
+			},
+		}, true
+	case reflect.TypeOf(MessageDeltaEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type":    "typeof StreamingEventTypeEnum.DELTA",
+				"content": "Array<MessageContentDelta> | null",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"content": true,
+			},
+		}, true
+	case reflect.TypeOf(ToolCallDeltaEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof StreamingEventTypeEnum.TOOL_CALL_DELTA",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"tool_name": true,
+			},
+		}, true
+	case reflect.TypeOf(ToolResultEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type":   "typeof StreamingEventTypeEnum.TOOL_RESULT",
+				"result": "ToolChatMessage",
+			},
+		}, true
+	case reflect.TypeOf(ToolArgumentPreviewDeltaEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA",
+			},
+		}, true
+	case reflect.TypeOf(MessageStopEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof StreamingEventTypeEnum.MESSAGE_STOP",
+			},
+		}, true
+	case reflect.TypeOf(MessageFinalizedEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type":    "typeof StreamingEventTypeEnum.MESSAGE_FINALIZED",
+				"message": "BaseChatMessageUnion",
+			},
+		}, true
+	case reflect.TypeOf(LLMStreamingResponse{}):
+		return reflectedObjectDeclarationSpec{
+			DeclarationName: "LLMStreamingResponse",
+			PropertyTypeExprOverrides: map[string]string{
+				"chunk": "LLMStreamingResponseChunk",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"sectionId":       true,
+				"projectConfigId": true,
+			},
+		}, true
 	case reflect.TypeOf(projectview.ProjectRunCapabilities{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.ProjectRunCapabilities{},
