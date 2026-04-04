@@ -4,10 +4,14 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
+	"setta/internal/settingsstate"
 	"setta/internal/stringenumvalues"
 )
 
@@ -895,6 +899,301 @@ func defaultsTypeProperty(defaultType string) TypeProperty {
 
 func overrideTypeProperty(implType string) TypeProperty {
 	return TypeProperty{Name: "overrides", TypeExpr: "Partial<" + implType + ">", DefaultValue: "{}"}
+}
+
+func buildSettingsSectionCreateExprTS(sectionName string, properties []TypeProperty) string {
+	defaults, err := settingsstate.DefaultDocument()
+	if err != nil {
+		panic("load settings defaults: " + err.Error())
+	}
+	rawSection, ok := defaults[sectionName]
+	if !ok {
+		panic("missing settings defaults section: " + sectionName)
+	}
+	sectionObject, ok := rawSection.(map[string]any)
+	if !ok {
+		panic("settings defaults section is not an object: " + sectionName)
+	}
+	if err := validateRenderedSettingsSection(sectionName, sectionObject, properties); err != nil {
+		panic(err.Error())
+	}
+
+	var builder strings.Builder
+	builder.WriteString("mergeGeneratedOptions(\n")
+	writeTSObjectLiteral(&builder, "    ", sectionObject, orderedTypePropertyNames(properties))
+	builder.WriteString(",\n")
+	builder.WriteString("    options,\n")
+	builder.WriteString("  )")
+	return builder.String()
+}
+
+func validateRenderedSettingsSection(sectionName string, object map[string]any, properties []TypeProperty) error {
+	expected := map[string]struct{}{}
+	for _, property := range properties {
+		expected[property.Name] = struct{}{}
+		if _, ok := object[property.Name]; !ok {
+			return fmt.Errorf(
+				"settings defaults section %q is missing property %q",
+				sectionName,
+				property.Name,
+			)
+		}
+	}
+	for key := range object {
+		if _, ok := expected[key]; ok {
+			continue
+		}
+		return fmt.Errorf(
+			"settings defaults section %q has unexpected property %q",
+			sectionName,
+			key,
+		)
+	}
+	return nil
+}
+
+func orderedTypePropertyNames(properties []TypeProperty) []string {
+	names := make([]string, 0, len(properties))
+	for _, property := range properties {
+		names = append(names, property.Name)
+	}
+	return names
+}
+
+func writeTSObjectLiteral(
+	builder *strings.Builder,
+	indent string,
+	object map[string]any,
+	orderedKeys []string,
+) {
+	builder.WriteString("{\n")
+	childIndent := indent + "  "
+	seen := map[string]struct{}{}
+	for _, key := range orderedKeys {
+		value, ok := object[key]
+		if !ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		builder.WriteString(childIndent)
+		builder.WriteString(renderTSObjectKey(key))
+		builder.WriteString(": ")
+		writeTSLiteralValue(builder, childIndent, value)
+		builder.WriteString(",\n")
+	}
+
+	remaining := make([]string, 0, len(object)-len(seen))
+	for key := range object {
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		remaining = append(remaining, key)
+	}
+	sort.Strings(remaining)
+	for _, key := range remaining {
+		builder.WriteString(childIndent)
+		builder.WriteString(renderTSObjectKey(key))
+		builder.WriteString(": ")
+		writeTSLiteralValue(builder, childIndent, object[key])
+		builder.WriteString(",\n")
+	}
+
+	builder.WriteString(indent)
+	builder.WriteString("}")
+}
+
+func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
+	switch typed := value.(type) {
+	case nil:
+		builder.WriteString("null")
+	case bool:
+		if typed {
+			builder.WriteString("true")
+		} else {
+			builder.WriteString("false")
+		}
+	case string:
+		builder.WriteString(strconv.Quote(typed))
+	case float64:
+		builder.WriteString(formatTSNumberLiteral(typed))
+	case []any:
+		writeTSArrayLiteral(builder, indent, typed)
+	case map[string]any:
+		writeTSObjectLiteral(builder, indent, typed, nil)
+	default:
+		payload, err := json.Marshal(typed)
+		if err != nil {
+			panic("marshal TypeScript literal value: " + err.Error())
+		}
+		builder.Write(payload)
+	}
+}
+
+func writeTSArrayLiteral(builder *strings.Builder, indent string, values []any) {
+	if len(values) == 0 {
+		builder.WriteString("[]")
+		return
+	}
+	if tsArrayLiteralCanInline(values) {
+		builder.WriteString("[")
+		for index, value := range values {
+			if index > 0 {
+				builder.WriteString(", ")
+			}
+			writeTSLiteralValue(builder, indent, value)
+		}
+		builder.WriteString("]")
+		return
+	}
+
+	builder.WriteString("[\n")
+	childIndent := indent + "  "
+	for _, value := range values {
+		builder.WriteString(childIndent)
+		writeTSLiteralValue(builder, childIndent, value)
+		builder.WriteString(",\n")
+	}
+	builder.WriteString(indent)
+	builder.WriteString("]")
+}
+
+func tsArrayLiteralCanInline(values []any) bool {
+	for _, value := range values {
+		switch value.(type) {
+		case nil, bool, string, float64:
+			continue
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func renderTSObjectKey(key string) string {
+	if key != "__proto__" && tsIdentifierPattern.MatchString(key) {
+		return key
+	}
+	return strconv.Quote(key)
+}
+
+func formatTSNumberLiteral(value float64) string {
+	if math.IsNaN(value) || math.IsInf(value, 0) {
+		panic("settings defaults contained a non-finite numeric literal")
+	}
+	return strconv.FormatFloat(value, 'f', -1, 64)
+}
+
+func settingsShortcutsTypeProperties() []TypeProperty {
+	return []TypeProperty{
+		{Name: "newCardShortcut", TypeExpr: "string"},
+		{Name: "newGroupShortcut", TypeExpr: "string"},
+		{Name: "typeCheckShortcut", TypeExpr: "string"},
+		{Name: "newProjectConfigShortcut", TypeExpr: "string"},
+		{Name: "undoShortcut", TypeExpr: "string"},
+		{Name: "redoShortcut", TypeExpr: "string"},
+		{Name: "groupShortcut", TypeExpr: "string"},
+		{Name: "ungroupShortcut", TypeExpr: "string"},
+		{Name: "saveShortcut", TypeExpr: "string"},
+		{Name: "saveAsShortcut", TypeExpr: "string"},
+		{Name: "loadShortcut", TypeExpr: "string"},
+		{Name: "searchShortcut", TypeExpr: "string"},
+		{Name: "advancedSearchShortcut", TypeExpr: "string"},
+		{Name: "commandPaletteShortcut", TypeExpr: "string"},
+		{Name: "resetZoomShortcut", TypeExpr: "string"},
+		{Name: "copyShortcut", TypeExpr: "string"},
+		{Name: "pasteShortcut", TypeExpr: "string"},
+		{Name: "pasteAsRefShortcut", TypeExpr: "string"},
+		{Name: "sortingShortcut", TypeExpr: "string"},
+		{Name: "movingFreeShortcut", TypeExpr: "string"},
+		{Name: "showTooltipShortcut", TypeExpr: "string"},
+		{Name: "tooltipToPlaintextShortcut", TypeExpr: "string"},
+		{Name: "tooltipToMarkdownShortcut", TypeExpr: "string"},
+		{Name: "freezeTooltipShortcut", TypeExpr: "string"},
+		{Name: "frozenTooltipToPlaintextShortcut", TypeExpr: "string"},
+		{Name: "frozenTooltipToMarkdownShortcut", TypeExpr: "string"},
+		{Name: "incrementTooltipPageShortcut", TypeExpr: "string"},
+		{Name: "decrementTooltipPageShortcut", TypeExpr: "string"},
+		{Name: "copyTooltipTextShortcut", TypeExpr: "string"},
+		{Name: "frozenTooltipIncrementShortcut", TypeExpr: "string"},
+		{Name: "frozenTooltipDecrementShortcut", TypeExpr: "string"},
+		{Name: "frozenTooltipCopyShortcut", TypeExpr: "string"},
+		{Name: "newTerminalShortcut", TypeExpr: "string"},
+		{Name: "fitViewShortcut", TypeExpr: "string"},
+		{Name: "zoomToMouseShortcut", TypeExpr: "string"},
+		{Name: "deleteSectionShortcut", TypeExpr: "string"},
+		{Name: "selectAll", TypeExpr: "string"},
+		{Name: "selectTopLevelNonGroupSections", TypeExpr: "string"},
+		{Name: "showVersionsTabShortcut", TypeExpr: "string"},
+		{Name: "showParamUITypeTabShortcut", TypeExpr: "string"},
+		{Name: "showProjectOverviewTabShortcut", TypeExpr: "string"},
+		{Name: "focusHeaderShortcut", TypeExpr: "string"},
+		{Name: "focusOverviewShortcut", TypeExpr: "string"},
+		{Name: "focusCanvasShortcut", TypeExpr: "string"},
+		{Name: "focusUiEditorShortcut", TypeExpr: "string"},
+		{Name: "nextTopLevelSectionShortcut", TypeExpr: "string"},
+		{Name: "prevTopLevelSectionShortcut", TypeExpr: "string"},
+		{Name: "runCodeShortcut", TypeExpr: "string"},
+		{Name: "runEntryCodeBlockShortcut", TypeExpr: "string"},
+		{Name: "paramSelect", TypeExpr: "string"},
+		{Name: "paramIndentShortcut", TypeExpr: "string"},
+		{Name: "paramUnindentShortcut", TypeExpr: "string"},
+		{Name: "paramMoveUpShortcut", TypeExpr: "string"},
+		{Name: "paramMoveDownShortcut", TypeExpr: "string"},
+		{Name: "formatCode", TypeExpr: "string"},
+		{Name: "selectionKeyCode", TypeExpr: "string"},
+		{Name: "multiSelectionKeyCode", TypeExpr: "string"},
+		{Name: "panActivationKeyCode", TypeExpr: "string"},
+		{Name: "zoomActivationKeyCode", TypeExpr: "string"},
+		{Name: "zoomInShortcut", TypeExpr: "string"},
+		{Name: "zoomOutShortcut", TypeExpr: "string"},
+		{Name: "restartLanguageServerShortcut", TypeExpr: "string"},
+	}
+}
+
+func settingsGUITypeProperties() []TypeProperty {
+	return []TypeProperty{
+		{Name: "snapGrid", TypeExpr: "[number, number]"},
+		{Name: "showGridLines", TypeExpr: "boolean"},
+		{Name: "gridPattern", TypeExpr: "BackgroundVariant"},
+		{Name: "gridPatternSize", TypeExpr: "number"},
+		{Name: "gridColor", TypeExpr: "string"},
+		{Name: "gridColorDarkMode", TypeExpr: "string"},
+		{Name: "wireColor", TypeExpr: "string"},
+		{Name: "wireColorDarkMode", TypeExpr: "string"},
+		{Name: "defaultZoomLevel", TypeExpr: "number"},
+		{Name: "minZoom", TypeExpr: "number"},
+		{Name: "maxZoom", TypeExpr: "number"},
+		{Name: "panOnDrag", TypeExpr: "boolean"},
+		{Name: "panOnScroll", TypeExpr: "boolean"},
+		{Name: "panOnScrollSpeed", TypeExpr: "number"},
+		{Name: "panOnScrollMode", TypeExpr: "PanOnScrollMode"},
+		{Name: "zoomOnScroll", TypeExpr: "boolean"},
+		{Name: "zoomOnPinch", TypeExpr: "boolean"},
+		{Name: "zoomOnDoubleClick", TypeExpr: "boolean"},
+		{Name: "selectionMode", TypeExpr: "SelectionMode"},
+		{Name: "leftSidePaneShiftsMap", TypeExpr: "boolean"},
+		{Name: "transitionDuration", TypeExpr: "number"},
+		{Name: "sectionTagColorChoices", TypeExpr: "Array<{ color: string; description: string; }>"},
+	}
+}
+
+func settingsBackendTypeProperties() []TypeProperty {
+	return []TypeProperty{
+		{Name: "showDefaultConfigOnLoad", TypeExpr: "boolean"},
+		{Name: "autosave", TypeExpr: "boolean"},
+		{Name: "autobackup", TypeExpr: "boolean"},
+		{Name: "autobackupFreq", TypeExpr: "number"},
+		{Name: "autobackupKeepLastN", TypeExpr: "number"},
+		{Name: "clearTerminalBeforeMarkingAsReady", TypeExpr: "boolean"},
+		{Name: "defaultTerminalShell", TypeExpr: "string | null", Optional: true},
+		{Name: "exportDbReadableOnSave", TypeExpr: "boolean"},
+		{Name: "exportDbReadableWithVariantsOnSave", TypeExpr: "boolean"},
+		{Name: "autoRefetchCallableParamsOnLspMismatch", TypeExpr: "boolean"},
+		{Name: "renameRefactorMode", TypeExpr: "RenameRefactorMode"},
+		{Name: "saveRenderedValues", TypeExpr: "boolean"},
+		{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode"},
+		{Name: "completionGuardEnabled", TypeExpr: "boolean"},
+	}
 }
 
 func exportedResolvedFactoryDeclaration(data generatedFactoryDeclarationData) TypeDeclaration {
@@ -2247,232 +2546,18 @@ func newTypeConverter() *typeConverter {
 			),
 			reflect.TypeOf(SettingsShortcuts{}): objectDeclarationWithCreateExpr(
 				"SettingsShortcuts",
-				`mergeGeneratedOptions(
-    {
-      newCardShortcut: "N",
-      newGroupShortcut: "G",
-      typeCheckShortcut: "",
-      newProjectConfigShortcut: "",
-      undoShortcut: "Mod + Z",
-      redoShortcut: "Mod + Shift + Z",
-      groupShortcut: "Mod + G",
-      ungroupShortcut: "Shift + Mod + G",
-      saveShortcut: "Mod + S",
-      saveAsShortcut: "Mod + Shift + S",
-      loadShortcut: "Mod + L",
-      searchShortcut: "Mod + K",
-      advancedSearchShortcut: "Mod + P",
-      commandPaletteShortcut: "Mod + Shift + P",
-      resetZoomShortcut: "Mod + Comma",
-      copyShortcut: "Mod + C",
-      pasteShortcut: "Mod + V",
-      pasteAsRefShortcut: "Mod + Shift + V",
-      sortingShortcut: "Mod + Alt",
-      movingFreeShortcut: "Alt",
-      showTooltipShortcut: "Q",
-      tooltipToPlaintextShortcut: "Q + S",
-      tooltipToMarkdownShortcut: "Q + W",
-      freezeTooltipShortcut: "Q + F",
-      frozenTooltipToPlaintextShortcut: "S",
-      frozenTooltipToMarkdownShortcut: "W",
-      incrementTooltipPageShortcut: "Q + ArrowRight",
-      decrementTooltipPageShortcut: "Q + ArrowLeft",
-      copyTooltipTextShortcut: "Q + C",
-      frozenTooltipIncrementShortcut: "ArrowRight",
-      frozenTooltipDecrementShortcut: "ArrowLeft",
-      frozenTooltipCopyShortcut: "C",
-      newTerminalShortcut: "Ctrl + \u0060",
-      fitViewShortcut: "F",
-      zoomToMouseShortcut: "Z",
-      deleteSectionShortcut: "Backspace",
-      selectAll: "Mod + A",
-      selectTopLevelNonGroupSections: "Mod + Shift + A",
-      showVersionsTabShortcut: "V",
-      showParamUITypeTabShortcut: "P",
-      showProjectOverviewTabShortcut: "O",
-      focusHeaderShortcut: "Ctrl + Shift + 1",
-      focusOverviewShortcut: "Ctrl + Shift + 2",
-      focusCanvasShortcut: "Ctrl + Shift + 3",
-      focusUiEditorShortcut: "Ctrl + Shift + 4",
-      nextTopLevelSectionShortcut: "Alt + J",
-      prevTopLevelSectionShortcut: "Alt + K",
-      runCodeShortcut: "Mod + Enter",
-      runEntryCodeBlockShortcut: "Mod + Shift + Enter",
-      paramSelect: "Mod + Shift",
-      paramIndentShortcut: "Tab",
-      paramUnindentShortcut: "Shift + Tab",
-      paramMoveUpShortcut: "Alt + ArrowUp",
-      paramMoveDownShortcut: "Alt + ArrowDown",
-      formatCode: "Shift + Alt + F",
-      selectionKeyCode: "Shift",
-      multiSelectionKeyCode: "Mod",
-      panActivationKeyCode: "Space",
-      zoomActivationKeyCode: "Mod",
-      zoomInShortcut: "Equal",
-      zoomOutShortcut: "Minus",
-      restartLanguageServerShortcut: "Alt + Shift + R",
-    },
-    options,
-  )`,
-				TypeProperty{Name: "newCardShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "newGroupShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "typeCheckShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "newProjectConfigShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "undoShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "redoShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "groupShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "ungroupShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "saveShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "saveAsShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "loadShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "searchShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "advancedSearchShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "commandPaletteShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "resetZoomShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "copyShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "pasteShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "pasteAsRefShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "sortingShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "movingFreeShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "showTooltipShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "tooltipToPlaintextShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "tooltipToMarkdownShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "freezeTooltipShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "frozenTooltipToPlaintextShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "frozenTooltipToMarkdownShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "incrementTooltipPageShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "decrementTooltipPageShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "copyTooltipTextShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "frozenTooltipIncrementShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "frozenTooltipDecrementShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "frozenTooltipCopyShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "newTerminalShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "fitViewShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "zoomToMouseShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "deleteSectionShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "selectAll", TypeExpr: "string"},
-				TypeProperty{Name: "selectTopLevelNonGroupSections", TypeExpr: "string"},
-				TypeProperty{Name: "showVersionsTabShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "showParamUITypeTabShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "showProjectOverviewTabShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "focusHeaderShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "focusOverviewShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "focusCanvasShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "focusUiEditorShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "nextTopLevelSectionShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "prevTopLevelSectionShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "runCodeShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "runEntryCodeBlockShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "paramSelect", TypeExpr: "string"},
-				TypeProperty{Name: "paramIndentShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "paramUnindentShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "paramMoveUpShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "paramMoveDownShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "formatCode", TypeExpr: "string"},
-				TypeProperty{Name: "selectionKeyCode", TypeExpr: "string"},
-				TypeProperty{Name: "multiSelectionKeyCode", TypeExpr: "string"},
-				TypeProperty{Name: "panActivationKeyCode", TypeExpr: "string"},
-				TypeProperty{Name: "zoomActivationKeyCode", TypeExpr: "string"},
-				TypeProperty{Name: "zoomInShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "zoomOutShortcut", TypeExpr: "string"},
-				TypeProperty{Name: "restartLanguageServerShortcut", TypeExpr: "string"},
+				buildSettingsSectionCreateExprTS("shortcuts", settingsShortcutsTypeProperties()),
+				settingsShortcutsTypeProperties()...,
 			),
 			reflect.TypeOf(SettingsGUI{}): objectDeclarationWithCreateExpr(
 				"SettingsGUI",
-				`mergeGeneratedOptions(
-    {
-      snapGrid: [15, 15],
-      showGridLines: true,
-      gridPattern: BackgroundVariantEnum.dots,
-      gridPatternSize: 2,
-      gridColor: "#afbacf",
-      gridColorDarkMode: "#2b364a",
-      wireColor: "#41506c",
-      wireColorDarkMode: "#bac2d3",
-      defaultZoomLevel: 1.0,
-      minZoom: 0.1,
-      maxZoom: 10.0,
-      panOnDrag: true,
-      panOnScroll: true,
-      panOnScrollSpeed: 1.0,
-      panOnScrollMode: PanOnScrollModeEnum.free,
-      zoomOnScroll: true,
-      zoomOnPinch: true,
-      zoomOnDoubleClick: false,
-      selectionMode: SelectionModeEnum.partial,
-      leftSidePaneShiftsMap: true,
-      transitionDuration: 50,
-      sectionTagColorChoices: [
-        { color: "#ef4444", description: "Red" },
-        { color: "#f97316", description: "Orange" },
-        { color: "#eab308", description: "Yellow" },
-        { color: "#22c55e", description: "Green" },
-        { color: "#06b6d4", description: "Cyan" },
-        { color: "#3b82f6", description: "Blue" },
-        { color: "#a855f7", description: "Purple" },
-        { color: "#64748b", description: "Slate" },
-      ],
-    },
-    options,
-  )`,
-				TypeProperty{Name: "snapGrid", TypeExpr: "[number, number]"},
-				TypeProperty{Name: "showGridLines", TypeExpr: "boolean"},
-				TypeProperty{Name: "gridPattern", TypeExpr: "BackgroundVariant"},
-				TypeProperty{Name: "gridPatternSize", TypeExpr: "number"},
-				TypeProperty{Name: "gridColor", TypeExpr: "string"},
-				TypeProperty{Name: "gridColorDarkMode", TypeExpr: "string"},
-				TypeProperty{Name: "wireColor", TypeExpr: "string"},
-				TypeProperty{Name: "wireColorDarkMode", TypeExpr: "string"},
-				TypeProperty{Name: "defaultZoomLevel", TypeExpr: "number"},
-				TypeProperty{Name: "minZoom", TypeExpr: "number"},
-				TypeProperty{Name: "maxZoom", TypeExpr: "number"},
-				TypeProperty{Name: "panOnDrag", TypeExpr: "boolean"},
-				TypeProperty{Name: "panOnScroll", TypeExpr: "boolean"},
-				TypeProperty{Name: "panOnScrollSpeed", TypeExpr: "number"},
-				TypeProperty{Name: "panOnScrollMode", TypeExpr: "PanOnScrollMode"},
-				TypeProperty{Name: "zoomOnScroll", TypeExpr: "boolean"},
-				TypeProperty{Name: "zoomOnPinch", TypeExpr: "boolean"},
-				TypeProperty{Name: "zoomOnDoubleClick", TypeExpr: "boolean"},
-				TypeProperty{Name: "selectionMode", TypeExpr: "SelectionMode"},
-				TypeProperty{Name: "leftSidePaneShiftsMap", TypeExpr: "boolean"},
-				TypeProperty{Name: "transitionDuration", TypeExpr: "number"},
-				TypeProperty{Name: "sectionTagColorChoices", TypeExpr: "Array<{ color: string; description: string; }>"},
+				buildSettingsSectionCreateExprTS("gui", settingsGUITypeProperties()),
+				settingsGUITypeProperties()...,
 			),
 			reflect.TypeOf(SettingsBackend{}): objectDeclarationWithCreateExpr(
 				"SettingsBackend",
-				`mergeGeneratedOptions(
-    {
-      showDefaultConfigOnLoad: true,
-      autosave: true,
-      autobackup: true,
-      autobackupFreq: 300,
-      autobackupKeepLastN: 10,
-      clearTerminalBeforeMarkingAsReady: true,
-      defaultTerminalShell: null,
-      exportDbReadableOnSave: false,
-      exportDbReadableWithVariantsOnSave: false,
-      autoRefetchCallableParamsOnLspMismatch: true,
-      renameRefactorMode: RenameRefactorModeEnum.ALWAYS_ASK,
-      saveRenderedValues: false,
-      runSnapshotMode: RunSnapshotModeEnum.ephemeral,
-      completionGuardEnabled: false,
-    },
-    options,
-  )`,
-				TypeProperty{Name: "showDefaultConfigOnLoad", TypeExpr: "boolean"},
-				TypeProperty{Name: "autosave", TypeExpr: "boolean"},
-				TypeProperty{Name: "autobackup", TypeExpr: "boolean"},
-				TypeProperty{Name: "autobackupFreq", TypeExpr: "number"},
-				TypeProperty{Name: "autobackupKeepLastN", TypeExpr: "number"},
-				TypeProperty{Name: "clearTerminalBeforeMarkingAsReady", TypeExpr: "boolean"},
-				TypeProperty{Name: "defaultTerminalShell", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "exportDbReadableOnSave", TypeExpr: "boolean"},
-				TypeProperty{Name: "exportDbReadableWithVariantsOnSave", TypeExpr: "boolean"},
-				TypeProperty{Name: "autoRefetchCallableParamsOnLspMismatch", TypeExpr: "boolean"},
-				TypeProperty{Name: "renameRefactorMode", TypeExpr: "RenameRefactorMode"},
-				TypeProperty{Name: "saveRenderedValues", TypeExpr: "boolean"},
-				TypeProperty{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode"},
-				TypeProperty{Name: "completionGuardEnabled", TypeExpr: "boolean"},
+				buildSettingsSectionCreateExprTS("backend", settingsBackendTypeProperties()),
+				settingsBackendTypeProperties()...,
 			),
 			reflect.TypeOf(SettingsState{}): objectDeclarationWithCreateBody(
 				"SettingsState",

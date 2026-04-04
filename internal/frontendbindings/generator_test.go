@@ -238,6 +238,57 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 }
 
+func TestSettingsCreateExprsUseGoDefaultSettingsDocument(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, root := range []reflect.Type{
+		reflect.TypeOf(SettingsShortcuts{}),
+		reflect.TypeOf(SettingsGUI{}),
+		reflect.TypeOf(SettingsBackend{}),
+	} {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+	}
+
+	guiDeclaration := mustFindDeclarationByName(t, converter.Declarations(), "SettingsGUI")
+	if !strings.Contains(guiDeclaration.CreateExpr, `gridPattern: "dots",`) {
+		t.Fatalf("SettingsGUI create expr missing Go-backed grid pattern default:\n%s", guiDeclaration.CreateExpr)
+	}
+	if !strings.Contains(guiDeclaration.CreateExpr, `panOnScrollMode: "free",`) {
+		t.Fatalf("SettingsGUI create expr missing Go-backed panOnScrollMode default:\n%s", guiDeclaration.CreateExpr)
+	}
+	if !strings.Contains(guiDeclaration.CreateExpr, "sectionTagColorChoices: [\n") {
+		t.Fatalf("SettingsGUI create expr missing structured array rendering:\n%s", guiDeclaration.CreateExpr)
+	}
+	if strings.Contains(guiDeclaration.CreateExpr, "BackgroundVariantEnum.") {
+		t.Fatalf("SettingsGUI create expr still embeds handwritten enum references:\n%s", guiDeclaration.CreateExpr)
+	}
+
+	backendDeclaration := mustFindDeclarationByName(t, converter.Declarations(), "SettingsBackend")
+	if !strings.Contains(backendDeclaration.CreateExpr, `renameRefactorMode: "ALWAYS_ASK",`) {
+		t.Fatalf("SettingsBackend create expr missing Go-backed renameRefactorMode default:\n%s", backendDeclaration.CreateExpr)
+	}
+	if !strings.Contains(backendDeclaration.CreateExpr, `runSnapshotMode: "ephemeral",`) {
+		t.Fatalf("SettingsBackend create expr missing Go-backed runSnapshotMode default:\n%s", backendDeclaration.CreateExpr)
+	}
+	if strings.Contains(backendDeclaration.CreateExpr, "RunSnapshotModeEnum.") {
+		t.Fatalf("SettingsBackend create expr still embeds handwritten enum references:\n%s", backendDeclaration.CreateExpr)
+	}
+}
+
+func mustFindDeclarationByName(t *testing.T, declarations []TypeDeclaration, name string) TypeDeclaration {
+	t.Helper()
+	for _, declaration := range declarations {
+		if declaration.Name == name {
+			return declaration
+		}
+	}
+	t.Fatalf("declaration %q not found", name)
+	return TypeDeclaration{}
+}
+
 func TestBuildBindingsRendersPathParamAwareEndpoints(t *testing.T) {
 	t.Helper()
 
