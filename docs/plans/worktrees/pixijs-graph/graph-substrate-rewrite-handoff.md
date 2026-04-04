@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 14:38 EDT
+Last updated: 2026-04-03 14:59 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,32 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `049` landed one bounded normalization support slice instead of guessing at another wide-card compare.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary can fit a named body-heavy section into a wide-card compare state`
+    - the test resolves `groupSectionDefault` by authoritative project-state section name, clears the shared `All Settings` viewport to `null`, then uses the production canary `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path to target just that section
+    - new local helpers in the same spec:
+      - `findSectionIdByName(...)`
+      - `getCanarySectionBoundingBox(...)`
+      - `fitCanaryViewportToSection(...)`
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.8s`)
+    - what it proves: in the isolated Playwright runtime, a one-section canary `fitView` can widen `groupSectionDefault` from the narrow chip state into a wide-card compare state
+  - Live verification result:
+    - a fresh-context CDP sub-agent reran the same idea against live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - that live pass did not produce a trustworthy shared wide-card normalizer on the current sessions:
+      - worktree pre `groupSectionDefault`: `x=863.88 y=57.66 w=66.24 h=42.24`, viewport `translate(791.88px, -338.34px) scale(0.12)`
+      - worktree post targeted fit: `x=839.90 y=90.80 w=55.20 h=35.20`, viewport `translate(779.9px, -245.2px) scale(0.1)`
+      - `main` pre/post stayed at `x=839.90 y=90.80 w=55.20 h=35.20`, viewport `translate(779.9px, -245.2px) scale(0.1)`
+    - treat the CDP result as authoritative for the live canary gate: the one-section fit is still not yet a usable deterministic wide-card normalizer on the current loop sessions
+  - Important nuance:
+    - a direct local browser probe on the worktree outside the CDP gate did show `groupSectionDefault` expanding to about `822.73 x 524.64` at zoom about `1.49` after the same targeted `fitView`
+    - because the live CDP gate still failed to reproduce that behavior, the next blocker is now specifically a live-session normalization / oracle mismatch, not the absence of a code path or missing automated guard
+  - conclusion for this slice:
+    - the test helper lane is complete; do not spend another iteration rephrasing the same targeted-fit regression
+    - the wide-card dynamic compare lane is still blocked on making the live CDP session honor or faithfully expose the same one-section fit behavior
+  - the next real frontier is to inspect why the current live `All Settings` canary session does not reproduce the passing targeted-fit path before reopening the `groupSectionDefault` wide-card compare
 - Ralph item `048` used the allowed bounded normalization/oracle step to probe one different dynamic wide/body-heavy lane after the recent compare-only closures.
   - Process:
     - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`

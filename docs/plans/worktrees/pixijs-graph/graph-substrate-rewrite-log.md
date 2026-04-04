@@ -1579,6 +1579,48 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 049
+
+- Item: Add one bounded regression/helper proving whether a targeted one-section canary `fitView` can normalize `groupSectionDefault` into the wide-card compare state.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not change production renderer code.
+  - The last two completed iterations (`047`, `048`) were compare-only closures, so this slice used the allowed bounded normalization/support lane directly on the concrete wide-card blocker instead of reopening another compare.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary can fit a named body-heavy section into a wide-card compare state`.
+  - The new case:
+    - normalizes the worktree to active `All Settings`
+    - clears the shared viewport to `null`
+    - resolves `groupSectionDefault` from authoritative project-state section names
+    - calls the production canary `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path for that single section
+    - asserts the targeted section grows from the narrow chip baseline into a wide-card compare state with zoom above `1`
+  - Supporting helpers added in the same spec:
+    - `findSectionIdByName(...)`
+    - `getCanarySectionBoundingBox(...)`
+    - `fitCanaryViewportToSection(...)`
+  - Supplementary local browser probe on the live worktree suggested the underlying code path can widen `groupSectionDefault`:
+    - before: about `66.24 x 42.24`
+    - after targeted fit: about `822.73 x 524.64`
+    - resulting zoom: about `1.49`
+    - this was not treated as the final gate, but it explains why the landed regression is worth keeping even though the live CDP canary is still inconsistent
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.8s`)
+  - CDP visual check
+    - result: done, but failed to validate the same normalizer on the current live sessions
+    - note:
+      - fresh-context sub-agent checked worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - worktree pre `groupSectionDefault`: `x=863.88 y=57.66 w=66.24 h=42.24`, viewport `translate(791.88px, -338.34px) scale(0.12)`
+      - worktree post targeted fit: `x=839.90 y=90.80 w=55.20 h=35.20`, viewport `translate(779.9px, -245.2px) scale(0.1)`
+      - `main` pre/post stayed at `x=839.90 y=90.80 w=55.20 h=35.20`, viewport `translate(779.9px, -245.2px) scale(0.1)`
+      - live CDP therefore did not confirm a usable deterministic wide-card normalizer yet
+- Conclusion:
+  - the targeted-fit regression/helper lane is now covered and should not be repeated as another harness-only slice
+  - the real blocker is now narrower: the live `All Settings` CDP/oracle path still does not reproduce the same one-section fit behavior that the automated test and supplementary browser probe can hit
+- Next action:
+  - inspect why the live current-session canary does not honor or faithfully expose the targeted `groupSectionDefault` `fitView` path before reopening the wide-card dynamic compare lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 047
 
 - Item: Run one bounded dynamic wide-card compare on normalized `All Settings` instead of repeating another static graph-surface card pass.

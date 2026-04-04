@@ -979,7 +979,9 @@ test("settings graph substrate canary matches legacy modified-wheel zoom behavio
     );
     const initialTransform = await getCanaryViewportTransform(page);
     if (!initialTransform) {
-      throw new Error("Missing canary viewport transform before modified-wheel zoom.");
+      throw new Error(
+        "Missing canary viewport transform before modified-wheel zoom.",
+      );
     }
     await page.mouse.move(zoomPoint.x, zoomPoint.y);
     await page.keyboard.down(MOD_KEY);
@@ -1321,6 +1323,115 @@ test("settings graph substrate canary keeps a body search input working after pa
     await expect(searchableSection).toHaveAttribute("data-dragging", "false");
     await sectionSearchInput.fill("");
     await expect(sectionSearchInput).toHaveValue("");
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
+test("settings graph substrate canary can fit a named body-heavy section into a wide-card compare state", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const groupSectionId = findSectionIdByName(
+    initialState,
+    "groupSectionDefault",
+  );
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    await expect(canaryPane).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    const initialTargetBox = await getCanarySectionBoundingBox(
+      page,
+      groupSectionId,
+    );
+    if (!initialTargetBox) {
+      throw new Error(
+        "Missing groupSectionDefault canary bounds before targeted fit.",
+      );
+    }
+
+    // Future parity probes can use the production viewport controller to
+    // normalize one named wide/body-heavy card into a stable compare state
+    // instead of relying on click ordering or viewport carry-over.
+    expect(await fitCanaryViewportToSection(page, groupSectionId)).toBe(true);
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? 0)
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          groupSectionId,
+        );
+        return targetBox?.width ?? 0;
+      })
+      .toBeGreaterThan(Math.max(initialTargetBox.width * 6, 500));
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          groupSectionId,
+        );
+        return targetBox?.height ?? 0;
+      })
+      .toBeGreaterThan(Math.max(initialTargetBox.height * 6, 300));
   } finally {
     await postBackend(page, "/setActiveViewMode", {
       projectConfigId,
@@ -1981,6 +2092,37 @@ async function getFocusedCanvasSectionId(page: Page): Promise<string | null> {
   });
 }
 
+async function getCanarySectionBoundingBox(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  const section = page
+    .locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${sectionId}"]`,
+    )
+    .first();
+  return await section.boundingBox();
+}
+
+async function fitCanaryViewportToSection(
+  page: Page,
+  sectionId: string,
+): Promise<boolean> {
+  return page.evaluate(async (targetSectionId) => {
+    const { useReactFlow } = await import(
+      "/src/forks/xyflow/core/store/index.ts"
+    );
+    const viewportController = useReactFlow.getState().viewportController;
+    if (!viewportController) {
+      return false;
+    }
+    return viewportController.fitView({
+      nodes: [{ id: targetSectionId }],
+      padding: 0.1,
+    });
+  }, sectionId);
+}
+
 async function setDurableActiveSectionIds(
   page: Page,
   activeIds: string[],
@@ -2062,6 +2204,20 @@ function findViewModeId(
     }
   }
   throw new Error(`Missing view mode ${name}`);
+}
+
+function findSectionIdByName(
+  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  name: string,
+): string {
+  for (const [sectionId, section] of Object.entries(
+    payload.projectState.sections,
+  )) {
+    if (section.name === name) {
+      return sectionId;
+    }
+  }
+  throw new Error(`Missing section ${name}`);
 }
 
 function getExpectedCanarySectionOrder(
