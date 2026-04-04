@@ -106,8 +106,8 @@ fi
 previous_head="$(<"${head_file}")"
 
 latest_run_suffix="$(
-  find "${output_dir}" -maxdepth 1 -type d -name 'run-*' -exec basename {} \; 2>/dev/null \
-    | sed 's/^run-//' \
+  find "${output_dir}" -maxdepth 2 -type f -path "${output_dir}/run-*/last-message.txt" -print 2>/dev/null \
+    | sed -E 's#^.*/run-([0-9]+)/last-message\.txt$#\1#' \
     | sort -n \
     | tail -n 1
 )"
@@ -119,10 +119,6 @@ if [[ -z "${latest_run_suffix}" ]]; then
 fi
 
 response_file="${output_dir}/run-${latest_run_suffix}/last-message.txt"
-if [[ ! -f "${response_file}" ]]; then
-  echo "Latest response file not found: ${response_file}" >&2
-  exit 1
-fi
 
 if grep -Fxq "${sentinel}" "${response_file}"; then
   if [[ "${current_head}" != "${previous_head}" ]]; then
