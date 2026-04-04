@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 18:25 EDT
+Last updated: 2026-04-03 18:37 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `064` used the required non-harness bounded oracle step to isolate the next real Gate 1 / Gate 2 canary artifact on a different named section, instead of repeating another drag/pan support slice.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the point of the slice was to isolate the next live renderer question after two support-heavy iterations
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+    - result: passed (`1 passed`, about `20.5s`)
+    - what it still proves:
+      - the existing canary zoom contract remains green in isolated Playwright
+      - no new harness/test work was needed to ask the next live renderer question
+  - Live verification result:
+    - a fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to:
+      - active `All Settings`
+      - overview hidden
+      - UI editor hidden
+      - cleared active section ids
+    - authoritative runtime ids resolved by project-state name on a different shared section:
+      - worktree `groupSectionDefault`: `20eeee62-c082-42c0-848f-76466e57dfa3`
+      - `main` `groupSectionDefault`: `a92931c4-a389-4276-96e1-31816bd21c57`
+    - shared targeted-fit and zoom path:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })` returned `true` on both pages
+      - after the shared targeted fit, the worktree canary was already visibly left-shifted inside the graph surface before any additional zoom pulse
+      - one shared real toolbar `zoom in` click on both sides kept the mismatch and amplified it
+    - post-zoom metrics:
+      - worktree transform `{ x: -753.26, y: -4120.25, zoom: 1.36674 }`, target rect `{ x: 66.78, y: 15.95, width: 754.44, height: 481.09 }`
+      - `main` transform `{ x: -300.26, y: -4120.25, zoom: 1.36674 }`, target rect `{ x: 521.15, y: 17.32, width: 751.70, height: 478.36 }`
+    - screenshot evidence:
+      - `/tmp/setta-worktree-groupsection-zoom.png`
+      - `/tmp/setta-reference-groupsection-zoom.png`
+    - interpretation:
+      - this is not another spreadsheet/draw drag issue
+      - the next remaining artifact is a canary fit/zoom positioning problem on `groupSectionDefault`
+      - the mismatch appears immediately after the shared targeted-fit path, not only after the zoom pulse, so the bug is earlier than zoom-button handling itself
+  - likely production frontier:
+    - inspect the canary fit/center math in `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts`
+    - current code still derives visible-viewport width and fit/zoom center offsets from `overviewTrueWidth` / `uiEditorTrueWidth` without a visibility-aware effective-width layer, so that path is the first place to test against this newly isolated left-shift artifact
+  - conclusion for this slice:
+    - the bounded oracle step is complete and useful; do not spend the next iteration on more general zoom harness work
+    - the next real task should be a production fix for the canary fit/visible-viewport width math, followed by the same `groupSectionDefault` targeted-fit + zoom CDP recheck
 - Ralph item `063` closed one different user-driven `spreadsheetSectionDefault` drag lane by adding targeted automated proof for the widened top-level drag path, then rechecking the widened fit state live after the allowed lifecycle recovery.
   - Production/test change:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag`.

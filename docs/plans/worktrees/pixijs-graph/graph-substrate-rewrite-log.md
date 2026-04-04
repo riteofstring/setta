@@ -2246,3 +2246,26 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: the widened `spreadsheetSectionDefault` top-level drag lane is now closed with targeted automated proof plus a live post-recovery graph-surface fit gate; do not reopen this exact spreadsheet drag lane unless a later regression appears.
 - Next frontier: move to one different user-driven interaction or motion lane on a different named section, or isolate the first remaining canary-only artifact if a fresh normalized compare exposes one.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 18:37 EDT - Ralph item 064
+
+- Completed the required non-harness bounded oracle step after items `062` and `063` by isolating the next live canary artifact on a different named section; no production or test files changed this iteration.
+- Re-ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`; result: passed (`1 passed`, about `20.5s`).
+- Fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to active `All Settings`, overview hidden, UI editor hidden, and cleared active section ids.
+- Authoritative runtime ids resolved by project-state name on a different shared section:
+  - worktree `groupSectionDefault`: `20eeee62-c082-42c0-848f-76466e57dfa3`
+  - `main` `groupSectionDefault`: `a92931c4-a389-4276-96e1-31816bd21c57`
+- Shared targeted-fit and zoom path:
+  - `fitView({ nodes: [{ id }], padding: 0.1 })` returned `true` on both pages
+  - the worktree canary was already visibly left-shifted inside the graph surface immediately after the shared targeted fit
+  - one shared toolbar `zoom in` click preserved and amplified the mismatch
+- Post-zoom metrics:
+  - worktree transform `{ x: -753.26, y: -4120.25, zoom: 1.36674 }`, target rect `{ x: 66.78, y: 15.95, width: 754.44, height: 481.09 }`
+  - `main` transform `{ x: -300.26, y: -4120.25, zoom: 1.36674 }`, target rect `{ x: 521.15, y: 17.32, width: 751.70, height: 478.36 }`
+- Screenshot evidence:
+  - `/tmp/setta-worktree-groupsection-zoom.png`
+  - `/tmp/setta-reference-groupsection-zoom.png`
+- Lane status: not clean. This is the next real canary artifact, and it appears before the zoom pulse itself, so the likely production frontier is the canary fit/visible-viewport width math rather than more generic zoom harness work.
+- Code-reading note:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` still derive fit/zoom center math from `overviewTrueWidth` / `uiEditorTrueWidth` without a visibility-aware effective-width layer; test that path first next iteration.
+- Next frontier: implement a production fix for the canary fit/visible-viewport width path, then rerun the same `groupSectionDefault` targeted-fit + zoom CDP compare.
+- LOOP_TERMINAL_MARKER: none
