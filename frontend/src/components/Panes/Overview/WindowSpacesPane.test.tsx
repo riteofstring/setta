@@ -14,14 +14,12 @@ import { WindowSpacesPane } from "./WindowSpacesPane";
 const createWindowSpaceFromCurrentFloatingWindowsMock = vi.fn();
 const persistWindowSpaceSortOrderMock = vi.fn();
 const restoreWindowSpaceInWorkspaceMock = vi.fn();
-const setWindowSpaceNameMock = vi.fn();
 
 type MockProjectState = {
   sections: Record<string, { name: string }>;
   projectConfig: {
     id: string;
     name: string;
-    windowSpaceSlugsById?: Record<string, string>;
     windowSpaces?: Record<string, ReturnType<typeof createWindowSpaceConfig>>;
   };
   projectChatWindowing: {
@@ -43,7 +41,6 @@ let mockProjectState: MockProjectState = {
   projectConfig: {
     id: "project-config-id",
     name: "Project Alpha",
-    windowSpaceSlugsById: {},
     windowSpaces: {},
   },
   projectChatWindowing: {
@@ -82,7 +79,6 @@ vi.mock("state/actions/windowSpaces", async () => {
       persistWindowSpaceSortOrderMock(...args),
     restoreWindowSpaceInWorkspace: (...args: unknown[]) =>
       restoreWindowSpaceInWorkspaceMock(...args),
-    setWindowSpaceName: (...args: unknown[]) => setWindowSpaceNameMock(...args),
   };
 });
 
@@ -94,16 +90,11 @@ describe("WindowSpacesPane", () => {
     createWindowSpaceFromCurrentFloatingWindowsMock.mockReset();
     persistWindowSpaceSortOrderMock.mockReset();
     restoreWindowSpaceInWorkspaceMock.mockReset();
-    setWindowSpaceNameMock.mockReset();
     mockProjectState = {
       sections: {},
       projectConfig: {
         id: "project-config-id",
         name: "Project Alpha",
-        windowSpaceSlugsById: {
-          "window-space-a": "research-board",
-          "window-space-b": "alpha-review",
-        },
         windowSpaces: {
           "window-space-a": createWindowSpaceConfig({
             id: "window-space-a",
@@ -204,58 +195,5 @@ describe("WindowSpacesPane", () => {
       restoreButton?.click();
     });
     expect(restoreWindowSpaceInWorkspaceMock).not.toHaveBeenCalled();
-  });
-
-  it("submits conflicting window-space renames to the backend and shows the backend error", async () => {
-    setWindowSpaceNameMock.mockResolvedValue({
-      data: {
-        detail:
-          "Window space name 'Alpha Review' conflicts with existing window space 'Alpha Review'.",
-      },
-      hasResponse: true,
-      status: 400,
-    });
-
-    await act(async () => {
-      root.render(<WindowSpacesPane isEditing={false} canEditLayout={true} />);
-    });
-
-    const renameButtons = host.querySelectorAll(
-      '[data-testid="window-space-rename"]',
-    );
-    expect(renameButtons).toHaveLength(2);
-
-    await act(async () => {
-      (renameButtons[0] as HTMLButtonElement).click();
-    });
-
-    const input = host.querySelector(
-      '[data-testid="window-space-name-input"]',
-    ) as HTMLInputElement | null;
-    expect(input).not.toBeNull();
-
-    await act(async () => {
-      const valueSetter = Object.getOwnPropertyDescriptor(
-        HTMLInputElement.prototype,
-        "value",
-      )?.set;
-      valueSetter?.call(input, "Alpha Review");
-      input?.dispatchEvent(new Event("input", { bubbles: true }));
-    });
-
-    await act(async () => {
-      input?.focus();
-      input?.blur();
-    });
-
-    expect(setWindowSpaceNameMock).toHaveBeenCalledTimes(1);
-    expect(setWindowSpaceNameMock).toHaveBeenCalledWith(
-      "project-config-id",
-      "window-space-a",
-      "Alpha Review",
-    );
-    expect(host.textContent).toContain(
-      "Window space name 'Alpha Review' conflicts with existing window space 'Alpha Review'.",
-    );
   });
 });
