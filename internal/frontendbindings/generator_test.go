@@ -312,6 +312,90 @@ func TestEngineAndRunDeclarationsUseStructuredCreateBodies(t *testing.T) {
 	}
 }
 
+func TestProjectStateDeclarationsUseStructuredCreateBodies(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, root := range []reflect.Type{
+		reflect.TypeOf(ProjectConfig{}),
+		reflect.TypeOf(ProjectStateSingleConfig{}),
+	} {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+	}
+
+	projectRunCapabilities := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"ProjectRunCapabilities",
+	)
+	if projectRunCapabilities.CreateExpr != "" {
+		t.Fatalf("ProjectRunCapabilities should use a structured create body, got create expr:\n%s", projectRunCapabilities.CreateExpr)
+	}
+	for _, snippet := range []string{
+		`canRunFromMain: false,`,
+		`mainRunDisabledReason: null,`,
+		`effectiveEntrySectionId: null,`,
+	} {
+		if !strings.Contains(projectRunCapabilities.CreateBody, snippet) {
+			t.Fatalf("ProjectRunCapabilities create body missing %q:\n%s", snippet, projectRunCapabilities.CreateBody)
+		}
+	}
+
+	sectionCapabilities := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"SectionCapabilities",
+	)
+	if sectionCapabilities.CreateExpr != "" {
+		t.Fatalf("SectionCapabilities should use a structured create body, got create expr:\n%s", sectionCapabilities.CreateExpr)
+	}
+	for _, snippet := range []string{
+		`canRun: false,`,
+		`canSelectAsEntryCodeBlock: false,`,
+		`entryCodeBlockValue: null,`,
+	} {
+		if !strings.Contains(sectionCapabilities.CreateBody, snippet) {
+			t.Fatalf("SectionCapabilities create body missing %q:\n%s", snippet, sectionCapabilities.CreateBody)
+		}
+	}
+
+	projectConfig := mustFindDeclarationByName(t, converter.Declarations(), "ProjectConfig")
+	if projectConfig.CreateExpr != "" {
+		t.Fatalf("ProjectConfig should use a structured create body, got create expr:\n%s", projectConfig.CreateExpr)
+	}
+	for _, snippet := range []string{
+		`runCapabilities: createProjectRunCapabilities(),`,
+		`watchCodeRegistry: {},`,
+		`windowSpaces: {},`,
+		`stateMachineEdges: [],`,
+	} {
+		if !strings.Contains(projectConfig.CreateBody, snippet) {
+			t.Fatalf("ProjectConfig create body missing %q:\n%s", snippet, projectConfig.CreateBody)
+		}
+	}
+
+	projectStateSingleConfig := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"ProjectStateSingleConfig",
+	)
+	if projectStateSingleConfig.CreateExpr != "" {
+		t.Fatalf("ProjectStateSingleConfig should use a structured create body, got create expr:\n%s", projectStateSingleConfig.CreateExpr)
+	}
+	for _, snippet := range []string{
+		`projectConfig: createProjectConfig(),`,
+		`sectionCapabilities: {},`,
+		`singletonSections: createSingletonSections(),`,
+		`projectChatWindowing: createProjectChatWindowingState(),`,
+	} {
+		if !strings.Contains(projectStateSingleConfig.CreateBody, snippet) {
+			t.Fatalf("ProjectStateSingleConfig create body missing %q:\n%s", snippet, projectStateSingleConfig.CreateBody)
+		}
+	}
+}
+
 func TestSettingsCreateExprsUseGoDefaultSettingsDocument(t *testing.T) {
 	t.Helper()
 

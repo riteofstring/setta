@@ -1365,37 +1365,94 @@ func buildTaskBoardOverridesPreludeTS() string {
 	return builder.String()
 }
 
+func buildProjectRunCapabilitiesCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("canRunFromMain", "false"),
+		tsObjectField("mainRunDisabledReason", "null"),
+		tsObjectField("effectiveEntrySectionId", "null"),
+	}, "options")
+}
+
+func buildSectionCapabilitiesCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("canRun", "false"),
+		tsObjectField("runDisabledReason", "null"),
+		tsObjectField("runRequestSectionId", "null"),
+		tsObjectField("canSelectAsEntryCodeBlock", "false"),
+		tsObjectField("entryCodeBlockValue", "null"),
+	}, "options")
+}
+
+func buildProjectConfigCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("id", tsStringLiteralExpr("")),
+		tsObjectField("name", tsStringLiteralExpr("")),
+		tsObjectField("showParamDisplayNames", "false"),
+		tsObjectField("allowJsonSourceKeyEdits", "false"),
+		tsObjectField("previewImgColor", tsStringLiteralExpr("")),
+		tsObjectField("viewport", "null"),
+		tsObjectField("viewportInitialized", "false"),
+		tsObjectField("viewModes", "{}"),
+		tsObjectField("activeViewModeId", "null"),
+		tsObjectField("isEditingViewMode", "false"),
+		tsObjectField("hasPythonCodegenTarget", "false"),
+		tsObjectField("runCapabilities", "createProjectRunCapabilities()"),
+		tsObjectField("codegenTargets", "[]"),
+		tsObjectField("watchCodeEnabled", "false"),
+		tsObjectField("watchCodeFolders", "[]"),
+		tsObjectField("watchCodeFiles", "[]"),
+		tsObjectField("watchCodeRegistry", "{}"),
+		tsObjectField("watchCodeBaselineByPath", "{}"),
+		tsObjectField("entryCodeBlockId", "null"),
+		tsObjectField("sectionPathSlugsById", "{}"),
+		tsObjectField("sectionIdsByPathSlug", "{}"),
+		tsObjectField("topLevelSections", "{}"),
+		tsObjectField("windowSpaceSlugsById", "{}"),
+		tsObjectField("windowSpaceIdsBySlug", "{}"),
+		tsObjectField("windowSpaces", "{}"),
+		tsObjectField("sectionVariantMap", "{}"),
+		tsObjectField("activeIds", "[]"),
+		tsObjectField("edges", "[]"),
+		tsObjectField("agenticEdges", "[]"),
+		tsObjectField("stateMachineEdges", "[]"),
+	}, "options")
+}
+
+func buildProjectStateSingleConfigCreateBodyTS() string {
+	return buildTSMergeGeneratedOptionsCreateBodyTS([]tsObjectEntry{
+		tsObjectField("projectConfig", "createProjectConfig()"),
+		tsObjectField("sections", "{}"),
+		tsObjectField("sectionImpls", "{}"),
+		tsObjectField("sectionCapabilities", "{}"),
+		tsObjectField("sectionVariants", "{}"),
+		tsObjectField("codeObjs", "{}"),
+		tsObjectField("codeObjImpls", "{}"),
+		tsObjectField("codeObjVariants", "{}"),
+		tsObjectField("artifactGroups", "{}"),
+		tsObjectField("singletonSections", "createSingletonSections()"),
+		tsObjectField("parentSectionMap", "{}"),
+		tsObjectField("shownParamIds", "{}"),
+		tsObjectField("requiredDecodedImages", "[]"),
+		tsObjectField("genCodeBinding", "null"),
+		tsObjectField("projectChatWindowing", "createProjectChatWindowingState()"),
+	}, "options")
+}
+
 func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 	return map[reflect.Type][]TypeDeclaration{
 		reflect.TypeOf(ProjectConfig{}): {
-			objectDeclarationWithCreateExpr(
+			objectDeclarationWithCreateBody(
 				"ProjectRunCapabilities",
-				`mergeGeneratedOptions(
-    {
-      canRunFromMain: false,
-      mainRunDisabledReason: null,
-      effectiveEntrySectionId: null,
-    },
-    options,
-  )`,
+				buildProjectRunCapabilitiesCreateBodyTS(),
 				TypeProperty{Name: "canRunFromMain", TypeExpr: "boolean"},
 				TypeProperty{Name: "mainRunDisabledReason", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "effectiveEntrySectionId", TypeExpr: "string | null", Optional: true},
 			),
 		},
 		reflect.TypeOf(ProjectStateSingleConfig{}): {
-			objectDeclarationWithCreateExpr(
+			objectDeclarationWithCreateBody(
 				"SectionCapabilities",
-				`mergeGeneratedOptions(
-    {
-      canRun: false,
-      runDisabledReason: null,
-      runRequestSectionId: null,
-      canSelectAsEntryCodeBlock: false,
-      entryCodeBlockValue: null,
-    },
-    options,
-  )`,
+				buildSectionCapabilitiesCreateBodyTS(),
 				TypeProperty{Name: "canRun", TypeExpr: "boolean"},
 				TypeProperty{Name: "runDisabledReason", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "runRequestSectionId", TypeExpr: "string | null", Optional: true},
@@ -3239,43 +3296,9 @@ func newTypeConverter() *typeConverter {
 				"SectionsClipboardDataResponse",
 				"SectionsClipboardData",
 			),
-			reflect.TypeOf(ProjectConfig{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(ProjectConfig{}): objectDeclarationWithCreateBody(
 				"ProjectConfig",
-				`mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      showParamDisplayNames: false,
-      allowJsonSourceKeyEdits: false,
-      previewImgColor: "",
-      viewport: null,
-      viewportInitialized: false,
-      viewModes: {},
-      activeViewModeId: null,
-      isEditingViewMode: false,
-      hasPythonCodegenTarget: false,
-      runCapabilities: createProjectRunCapabilities(),
-      codegenTargets: [],
-      watchCodeEnabled: false,
-      watchCodeFolders: [],
-      watchCodeFiles: [],
-      watchCodeRegistry: {},
-      watchCodeBaselineByPath: {},
-      entryCodeBlockId: null,
-      sectionPathSlugsById: {},
-      sectionIdsByPathSlug: {},
-      topLevelSections: {},
-      windowSpaceSlugsById: {},
-      windowSpaceIdsBySlug: {},
-      windowSpaces: {},
-      sectionVariantMap: {},
-      activeIds: [],
-      edges: [],
-      agenticEdges: [],
-      stateMachineEdges: [],
-    },
-    options,
-  )`,
+				buildProjectConfigCreateBodyTS(),
 				TypeProperty{Name: "id", TypeExpr: "string"},
 				TypeProperty{Name: "name", TypeExpr: "string"},
 				TypeProperty{Name: "showParamDisplayNames", TypeExpr: "boolean"},
@@ -3307,28 +3330,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "agenticEdges", TypeExpr: "Array<AgenticEdge>"},
 				TypeProperty{Name: "stateMachineEdges", TypeExpr: "Array<StateMachineEdge>"},
 			),
-			reflect.TypeOf(ProjectStateSingleConfig{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(ProjectStateSingleConfig{}): objectDeclarationWithCreateBody(
 				"ProjectStateSingleConfig",
-				`mergeGeneratedOptions(
-    {
-      projectConfig: createProjectConfig(),
-      sections: {},
-      sectionImpls: {},
-      sectionCapabilities: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      artifactGroups: {},
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {},
-      shownParamIds: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-      projectChatWindowing: createProjectChatWindowingState(),
-    },
-    options,
-  )`,
+				buildProjectStateSingleConfigCreateBodyTS(),
 				TypeProperty{Name: "projectConfig", TypeExpr: "ProjectConfig"},
 				TypeProperty{Name: "sections", TypeExpr: "Record<string, Core>"},
 				TypeProperty{Name: "sectionImpls", TypeExpr: "Record<string, BaseSectionImplUnion>"},
