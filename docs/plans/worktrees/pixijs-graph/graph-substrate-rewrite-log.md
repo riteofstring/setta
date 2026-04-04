@@ -3026,3 +3026,32 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move back to a renderer-facing cross-worktree compare that CDP can physically drive end-to-end, or pair Playwright-driven motion with CDP post-state inspection instead of forcing another wheel-only lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 03:43 EDT - Ralph item 088
+
+- Added an opt-in cross-worktree short-pan parity probe for worktree `All Settings` canary vs read-only `main` `All Settings` legacy and used it to close the live normalization blocker that CDP alone could not drive honestly.
+- Why this slice was necessary:
+  - the fresh-context CDP compare on this pass did not expose a renderer defect; it showed that live UI-only normalization and motion on the cross-worktree lane were not trustworthy enough to judge
+  - the plan/handoff already pointed to the right next move: pair Playwright-driven motion with CDP post-state inspection instead of reopening another brittle live-only driver lane
+  - the missing support step was one bounded cross-worktree oracle that could normalize both live runtimes against their real backends, pick one shared visible top-level section by name, and compare the same short pan delta on worktree canary vs read-only `main` legacy
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `settings graph parity probe applies the same short pan delta on read-only main legacy and worktree canary after normalized fit`
+    - the new probe boots both live runtimes with fresh bootstrap URLs, uses explicit backend origins for the worktree and read-only `main`, clears pane/selection noise, resolves one shared visible top-level section name across both `All Settings` states, fits that same section, and compares the resulting pan deltas
+    - the helper path intentionally uses explicit backend origins instead of browser-side `/api` fetches, because the latter returned `404` on this live lane and was not a trustworthy source of truth
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - final direct live-runtime Playwright rerun with fresh one-shot bootstrap values:
+    - `env PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --reporter=line`
+    - result: passed (`1 passed`, `22.8s`)
+  - fresh-context CDP sub-agent:
+    - worktree `3075` confirmed as the canary graph surface on `/settings`
+    - read-only `main` `3087` confirmed as the legacy graph surface on `/settings`
+    - both pages exposed the shared top-level `All Settings` lane under a clean/default browser viewport
+  - CDP visual check: done (fresh-context post-state sanity check on worktree `3075` canary vs read-only `main` `3087` legacy for the new cross-worktree `All Settings` short-pan lane)
+- Lane status:
+  - close the specific cross-worktree short-pan normalization blocker as covered by the new probe
+  - if this lane needs another rerun later, refresh both one-shot bootstrap URLs first and keep using explicit backend origins for worktree vs read-only `main`; do not fall back to browser-side `/api` fetches on this live compare
+- Next frontier:
+  - move past short-pan coverage and use the same Playwright-motion-plus-CDP-post-state pattern on another renderer-facing cross-worktree lane, preferably a short top-level drag or a body-heavy motion path where interaction-state drift could still surface
+- LOOP_TERMINAL_MARKER: none
