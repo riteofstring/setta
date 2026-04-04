@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 17:29 EDT
+Last updated: 2026-04-04 17:46 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -41,6 +41,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `135` retried the `dropzoneParamCodeObjDefault` -> `Mode` lane with fresh-context CDP sessions and project-state-derived ids, then closed that lane as unsupported for the current tool stack because a third setup-heavy pass still never produced one trustworthy bounded compare.
+  - Why this slice was needed:
+    - item `134` had classified the previous miss as a tooling/lifecycle blocker rather than renderer drift, so the next valid step was one fresh retry on the same named lane before inventing a new frontier
+    - lane-budget rules do not allow a third pass on the same lane to spend the iteration reproving setup, so this retry needed to either produce one real bounded compare or explicitly close the lane
+  - Production/test change:
+    - none; this slice intentionally changed no production or test files
+  - What this slice established:
+    - `chrome-devtools-mcp` is reachable again on the current run-054 surfaces, so item `134`'s MCP-access blocker is no longer the active issue
+    - `dropzoneParamCodeObjDefault` still exists on normalized `All Settings` on both sides, but the current worktree id is not the same as the earlier run-052 readout:
+      - worktree `All Settings` file-backed id: `b821cb16-8e9a-413a-b02b-832f79257ab7`
+      - read-only main `All Settings` id: `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+    - the first fresh-context verification pass proved the old DOM/localStorage lookup shape is not trustworthy enough for this lane on the current surfaces:
+      - both `/settings` tabs were on `All Settings` with `Mode` visible
+      - the named dropzone lane was not exposed reliably enough through that lookup path, and a short worktree drag attempt ended with `Node is detached from document`
+    - the second fresh-context verification pass resolved the target through live state instead of DOM lookup, but the read-only `main` CDP path still failed backend reads (`Failed to fetch` on `/api/loadProjectConfig` and `/api/getLatestProjectState`) before the bounded drag/pan action could run
+    - the read-only `main` in-page store still confirmed the legacy surface was mounted, compare-pane chrome was normalized, and the target section was present, so this is a compare-path/tool-stack limitation rather than renderer evidence
+    - no bounded drag/pan compare ran on this item, so there is still no renderer drift claim on `dropzoneParamCodeObjDefault`
+  - Verification:
+    - refreshed run-054 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-054/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-054/main-ai.log`
+    - repo/runtime cross-check:
+      - `node - <<'NODE' ... setta_files_dev/setta-settings-project.json ... /Users/jeff/Documents/_projects/setta/setta_files_dev/setta-settings-project.json ... 'All Settings' ... 'dropzoneParamCodeObjDefault' ... NODE`
+      - result: both project-state files still expose `dropzoneParamCodeObjDefault` on `All Settings`, with the current worktree id `b821cb16-8e9a-413a-b02b-832f79257ab7`
+    - first fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - reached live worktree `3075/settings` and read-only main `3087/settings`
+      - found `Mode` on both tabs but could not keep the named target lane stable through the DOM/localStorage lookup path; the worktree drag attempt failed with `Node is detached from document`
+    - second fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - resolved worktree lane id from live backend state as `b821cb16-8e9a-413a-b02b-832f79257ab7`
+      - confirmed the read-only `main` in-page store still held `dropzoneParamCodeObjDefault` as `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+      - blocked before the bounded motion step because the reference-tab backend fetch path failed with `Failed to fetch` on `/api/loadProjectConfig` and `/api/getLatestProjectState`
+    - CDP visual check: blocked (DevTools was reachable again, but the reference-side compare path still could not complete one trustworthy bounded drag/pan action on this lane)
+  - conclusion for this slice:
+    - close `dropzoneParamCodeObjDefault` as unsupported/untrustworthy for the current tool stack; three setup-heavy passes on this lane still did not produce one bounded compare, so continuing it would be churn under the lane-budget rule
+    - do not reopen this lane unless the compare path changes materially (for example, a deterministic reference-side state/action path that avoids the current CDP/backend fetch failure)
+    - the next iteration should move to the next shared normalized `All Settings` lane from item `133`, with `dictSectionDefault` as the next canonical target section instead of spending a fourth pass on `dropzoneParamCodeObjDefault`
 - Ralph item `134` attempted the bounded `dropzoneParamCodeObjDefault` -> `Mode` normalized dynamic compare, but the required Chrome DevTools MCP gate stayed inaccessible even after the one allowed worktree lifecycle restart.
   - Why this slice was needed:
     - item `133` had already named `dropzoneParamCodeObjDefault` as the next shared lane, so the next valid step was one bounded dynamic action on that exact lane instead of reopening chat coverage or adding another harness-first guard

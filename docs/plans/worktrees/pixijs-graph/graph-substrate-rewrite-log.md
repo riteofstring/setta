@@ -4605,3 +4605,34 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - begin the next iteration with a fresh worktree lifecycle bootstrap and retry the same normalized `dropzoneParamCodeObjDefault` -> `Mode` dynamic compare from scratch using refreshed runtime values before any new harness work
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 17:46 EDT - Ralph item 135
+
+- Retried the `dropzoneParamCodeObjDefault` -> `Mode` lane with fresh-context CDP sessions and project-state-derived ids, then closed that lane as unsupported for the current tool stack because the third setup-heavy pass still never produced one trustworthy bounded compare.
+- Why this slice was necessary:
+  - item `134` had classified the prior miss as a tooling/lifecycle blocker rather than renderer drift, so the next valid step was one fresh retry on the same named lane before inventing a new frontier
+  - the lane-budget rule does not allow a third pass on the same lane to spend the iteration reproving setup, so this retry needed to either produce one real bounded compare or close the lane
+- Production/test change:
+  - none; this slice intentionally changed no production or test files
+- Verification:
+  - refreshed run-054 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-054/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-054/main-ai.log`
+  - repo/runtime cross-check:
+    - `node - <<'NODE' ... setta_files_dev/setta-settings-project.json ... /Users/jeff/Documents/_projects/setta/setta_files_dev/setta-settings-project.json ... 'All Settings' ... 'dropzoneParamCodeObjDefault' ... NODE`
+    - result: both project-state files still expose `dropzoneParamCodeObjDefault` on `All Settings`; the current worktree id is `b821cb16-8e9a-413a-b02b-832f79257ab7` and read-only `main` remains `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+  - first fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - reached live worktree `3075/settings` and read-only main `3087/settings`
+    - found `Mode` on both tabs, but the DOM/localStorage target-resolution path was not trustworthy enough for this lane and the short worktree drag failed with `Node is detached from document`
+  - second fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - resolved the worktree lane id from live backend state as `b821cb16-8e9a-413a-b02b-832f79257ab7`
+    - confirmed the read-only `main` in-page store still held `dropzoneParamCodeObjDefault` as `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+    - blocked before the bounded motion step because the reference-tab backend fetch path failed with `Failed to fetch` on `/api/loadProjectConfig` and `/api/getLatestProjectState`
+  - CDP visual check: blocked (DevTools was reachable again, but the reference-side compare path still could not complete one trustworthy bounded drag/pan action on this lane)
+- Lane status:
+  - close `dropzoneParamCodeObjDefault` as unsupported/untrustworthy for the current tool stack; three setup-heavy passes on this lane still did not produce one bounded compare
+  - do not reopen this lane unless the compare path changes materially and avoids the current reference-side CDP/backend fetch failure
+- Next frontier:
+  - move to the next shared normalized `All Settings` lane from item `133`, with `dictSectionDefault` as the next canonical target section instead of spending a fourth pass on `dropzoneParamCodeObjDefault`
+- LOOP_TERMINAL_MARKER: none
