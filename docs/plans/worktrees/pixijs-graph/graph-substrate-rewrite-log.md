@@ -70,6 +70,41 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 008
+
+- Item: Re-check the multi-section `All Settings` canary against the read-only `main` oracle and decide whether to continue or stop for replan.
+- Status: `blocked`
+- Details:
+  - No production code changed in this pass.
+  - The current worktree runtime remains healthy:
+    - `http://127.0.0.1:3075/settings` responds
+    - `pnpm -C frontend cdp-port` still reports `9297`
+  - A fresh-context CDP sub-agent could not call chrome-devtools-mcp tools, so the visual compare could not be offloaded there this iteration.
+  - The decisive blocker is still the read-only `main` oracle being down:
+    - `curl -I --max-time 5 http://127.0.0.1:3087/settings`
+      - result: failed with connection refused
+    - `/var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.vpSQx2/run-007/main-ai.log`
+      - result: `main` backend/frontend startup still aborts on a `ProjectStateSingleConfig` validation failure while loading the settings project
+      - salient errors: missing `projectConfig`; extra `schemaVersion`, `defaultProjectId`, and `projects`
+  - Item `007` already ended with the same dead-`main` oracle, so this is now a repeated external blocker rather than a transient verification miss.
+- Verification:
+  - `curl -I --max-time 5 http://127.0.0.1:3075/settings`
+    - result: passed (`HTTP/1.1 200 OK`)
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings`
+    - result: failed (`curl: (7) Failed to connect to 127.0.0.1 port 3087`)
+  - `pnpm -C frontend cdp-port`
+    - result: passed (`9297`)
+  - CDP visual check
+    - result: not run
+    - note: the required staged Gate 1 side-by-side compare cannot proceed without a healthy `main` oracle session
+- Conclusion:
+  - the next planned frontier still depends on a working read-only `main` reference session
+  - continuing with unrelated canary refactors would violate the sequencing rules because the same oracle blocker has now repeated
+- Next action:
+  - stop for replan or restore the read-only `main` oracle session before resuming Gate 1 comparison work
+
+LOOP_TERMINAL_MARKER: replan_required
+
 ## 2026-04-02 007
 
 - Item: Expand the `settings` graph-substrate canary from one visible section to the visible `All Settings` top-level section set.

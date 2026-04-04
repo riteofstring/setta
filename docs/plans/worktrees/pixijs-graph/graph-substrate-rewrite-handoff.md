@@ -9,6 +9,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `008` did not land product code:
+  - the current worktree app is still healthy on `http://127.0.0.1:3075/settings`
+  - `pnpm -C frontend cdp-port` still reports `9297`
+  - a fresh-context CDP sub-agent could not call the chrome-devtools-mcp tools, so the compare could not be offloaded there this pass
+  - the real blocker is the read-only `main` oracle still being down:
+    - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returns connection refused
+    - `/var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.vpSQx2/run-007/main-ai.log` still shows `main` failing during startup on a `ProjectStateSingleConfig` validation error while loading the settings project (`projectConfig` missing and `schemaVersion` / `defaultProjectId` / `projects` rejected as extras)
+  - because item `007` already ended with the same `main`-oracle failure, this is now a repeated external blocker rather than a transient missed compare
 - Ralph item `007` landed the first multi-section `All Settings` canary slice on the custom graph substrate:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now returns all visible top-level canary sections instead of a single preferred section and carries each section's `positionAndSizeLocked` state into the canary render contract
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the visible `All Settings` top-level section set on the custom surface, fits the initial viewport to the shared section bounds, and routes drag ownership to whichever section is actually grabbed instead of pinning a synthetic top-left section
@@ -58,9 +66,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - `All Settings` active and `graph-substrate-canary` visible
     - more than one top-level section visible on the custom surface
     - no gross blank-card or detached-body issue in the normal visible field
-  - `main` reference comparison did not run this iteration:
-    - `http://127.0.0.1:3087/settings` returned `ERR_CONNECTION_REFUSED`
-    - `run-006/main-ai.log` shows the read-only `main` reference app died during startup on a settings-project validation error, so side-by-side oracle comparison was unavailable in this pass
+  - `main` reference comparison still cannot run:
+    - `http://127.0.0.1:3087/settings` continues to fail with connection refused
+    - `run-007/main-ai.log` shows the read-only `main` reference app still dies during startup on the same settings-project validation error, so side-by-side oracle comparison remains unavailable
 
 ## Architectural stance
 
@@ -89,6 +97,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - a representative DOM-backed interaction/editing path is now proven on the same slice after pan/zoom
   - the multi-section canary expansion is now in place on `All Settings`
   - next use a healthy `main` oracle session to do the staged Gate 1 gross-drift compare on that multi-section surface before spending time on pixel-parity cleanup or harness polish
+  - if the next iteration still cannot obtain a healthy read-only `main` oracle, stop for plan/oracle adjustment instead of continuing unrelated canary changes
 
 ## Explicit deferrals
 
@@ -111,6 +120,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `007`
-- Latest item: `2026-04-02 007`
+- Active history window: items `001` through `008`
+- Latest item: `2026-04-02 008`
 - Older history archives: none yet
