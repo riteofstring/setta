@@ -7,8 +7,9 @@ Usage: ./scripts/run-codex-authority-cleanup-loop.sh [options] [-- <extra codex 
 
 Run Codex in a fresh-session loop to remove unjustified Go/Python/TypeScript
 duplication, eliminate handwritten generator mirrors including helper-wrapped
-field-by-field output construction, and replace unjustified polling with
-websocket pushes where the backend already knows when state changes.
+field-by-field output construction, eliminate bad generator templates that
+merely relocate handwritten downstream code, and replace unjustified polling
+with websocket pushes where the backend already knows when state changes.
 
 Defaults:
 - Maximum iterations: 1000
@@ -197,6 +198,7 @@ Primary goals, in priority order:
 - Find unjustified duplication across Go, Python, and TypeScript, and remove it. Go is authoritative.
 - Find handwritten Go->Python and Go->TypeScript generator logic that mirrors downstream structure or defaults field by field, and replace it with generic generation driven by Go-owned type information or explicit authoritative metadata.
 - Specifically audit for hardcoded downstream constructions such as `tsObjectField(...)`, `pyObjectField(...)`, object-literal builder calls, per-type create bodies, template parameter lists, and similar patterns that restate Python or TypeScript structure/defaults in the generator, and replace them with a programmatic approach.
+- Find bad generation templates: sidecar `.tmpl` files that mostly contain fixed downstream Python or TypeScript code, or that simply relocate handwritten downstream structure/defaults without meaningful Go-derived inputs. Remove existing bad templates and replace them with programmatic generation or materially data-driven templates.
 - Find large Python or TypeScript source blocks embedded as strings in Go->Python and Go->TypeScript generation scripts, and replace them with structural generation or external templates.
 - Find unjustified polling that can be replaced by websocket pushes when the backend already knows when state changes, and make that replacement.
 
@@ -212,8 +214,9 @@ Execution constraints:
 - Do not leave duplicated non-trivial Python or TypeScript logic in place without an explicit concrete justification.
 - Do not count a cleanup as successful if it only rewrites handwritten downstream mirrors into helper calls, tiny templates, or per-type builder functions. Patterns like field-by-field `tsObjectField(...)` or `pyObjectField(...)` lists are still hardcoded duplication unless they are derived from Go-owned schema or explicit authoritative metadata.
 - Prefer generators that interpret Go reflection data, zero values, tags, enum metadata, typed registration metadata, or other Go-owned descriptors. If a custom downstream default or exception is unavoidable, encode it as narrow Go-owned metadata with a concrete reason instead of restating the whole downstream object shape in the generator.
+- A sidecar template is only acceptable when it is materially parameterized by Go-owned schema or metadata, or when it serves as a shared top-level output wrapper. A `.tmpl` rendered with `nil` data or trivial pass-through values that mostly contains fixed downstream code is a bad template and should be removed.
 - Assume a programmatic solution is expected here. Do not stop at moving hardcoded constructions behind helpers or templates. Keep pushing until the downstream fields/defaults are derived from Go-owned schema or metadata unless you hit a concrete repo-specific blocker that you can name precisely.
-- Do not make a cosmetic commit that merely moves hardcoded downstream structure between raw strings, helper calls, and templates. If you cannot produce a materially more generic result for that issue in this session, leave it unchanged and continue auditing for another actionable issue.
+- Treat existing bad templates as actionable cleanup work, not as acceptable status quo. Do not make a cosmetic commit that merely moves hardcoded downstream structure between raw strings, helper calls, and templates. If you cannot produce a materially more generic result for that issue in this session, leave it unchanged and continue auditing for another actionable issue.
 - Do not leave large Python or TypeScript source blocks embedded as raw strings in generation scripts when a structured or template-backed approach is practical.
 - Prefer websocket pushes over polling when the backend already knows when data changed.
 - Do not introduce heuristic fallbacks or broad exception handling.
