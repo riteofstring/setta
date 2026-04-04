@@ -1462,6 +1462,131 @@ test("settings graph substrate canary can fit a named body-heavy section into a 
   }
 });
 
+test("settings graph substrate canary targeted fit stays deterministic after clearing durable selection noise", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const initialActiveIds = [
+    ...initialState.projectState.projectConfig.activeIds,
+  ];
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const groupSectionId = findSectionIdByName(
+    initialState,
+    "groupSectionDefault",
+  );
+  const distractorSectionId = getExpectedCanarySectionOrder(
+    initialState,
+    allSettingsViewModeId,
+  ).find((sectionId) => sectionId !== groupSectionId);
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  if (!distractorSectionId) {
+    throw new Error(
+      "Missing a second visible All Settings section for selection normalization.",
+    );
+  }
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    await expect(canaryPane).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+
+    await setDurableActiveSectionIds(page, [distractorSectionId]);
+    await expect
+      .poll(async () => isCanarySectionActive(page, distractorSectionId))
+      .toBe(true);
+
+    // Live CDP compares should explicitly neutralize persisted active-section
+    // state before judging graph-surface drift, otherwise selection/list chrome
+    // can masquerade as renderer movement.
+    await setDurableActiveSectionIds(page, []);
+    await expect
+      .poll(async () => isCanarySectionActive(page, distractorSectionId))
+      .toBe(false);
+    await expect
+      .poll(async () => {
+        return (await getLatestProjectState(page, projectConfigId)).projectState
+          .projectConfig.activeIds;
+      })
+      .toEqual([]);
+
+    expect(await fitGraphViewportToSection(page, groupSectionId)).toBe(true);
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? 0)
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => {
+        return Math.abs(
+          (await getCanarySectionCenterOffsetFromRootCenter(
+            page,
+            groupSectionId,
+          )) ?? Number.POSITIVE_INFINITY,
+        );
+      })
+      .toBeLessThan(40);
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    await setDurableActiveSectionIds(page, initialActiveIds);
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths", async ({
   page,
 }) => {

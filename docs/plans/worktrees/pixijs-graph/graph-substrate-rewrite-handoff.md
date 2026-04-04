@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 20:34 EDT
+Last updated: 2026-04-03 20:46 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,28 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `075` added a deterministic Playwright normalization guard for the normalized `All Settings` targeted-fit compare instead of guessing at a renderer bug from noisy live selection/view state.
+  - Why this slice was needed:
+    - fresh-context CDP compare on worktree `3076` versus read-only `main` `3087` did not isolate a trustworthy graph-surface-only renderer defect after lifecycle recovery
+    - one looser compare leaked into editable/selection state (`machineGroupId` text focus) and the stricter retry still left the worktree in overview/list-oriented state after the same section targeting steps, which made the remaining delta look like selection/view-state oracle noise rather than a stable canvas divergence
+    - the next live dynamic compare needed a locked normalization step that explicitly clears durable active-section state before the named-section fit, otherwise persisted selection chrome could keep masquerading as renderer drift
+  - Production/test change:
+    - added a focused Playwright test in `frontend/tests/e2e/settings/settings-view-modes.spec.ts` that:
+      - enters `All Settings` with `viewport: null`
+      - hides overview and UI editor panes
+      - forces a distractor section into durable active state, then clears durable `activeIds`
+      - proves the canary targeted fit still centers `groupSectionDefault` after that selection-noise reset
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary targeted fit stays deterministic after clearing durable selection noise'`
+      - result: passed (`1 passed`, about `23.5s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+  - Live verification result:
+    - fresh-context CDP sub-agent compare against `main` completed and reported the remaining mismatch looked like selection/view-state oracle noise, not a stable graph-surface-only artifact
+    - CDP visual check: done (strict compare attempted; remaining diffs were treated as oracle noise)
+  - conclusion for this slice:
+    - this iteration did not confirm a new worktree renderer regression worth fixing in production
+    - the compare normalizer now has an explicit guard for durable active-section noise, so the next live CDP pass should reuse that cleared-selection targeted-fit setup before judging dynamic drift
 - Ralph item `074` fixed the DevTools browser stop path so stale `devtools.pid` files no longer leave orphaned Chrome running across lifecycle resets and CDP retries.
   - Why this slice was needed:
     - the one allowed lifecycle recovery for the blocked CDP compare still left the old worktree Chrome alive on `9298` while `./aireset.sh` reported a fresh debug port `9299`, which made the CDP wrapper look broken even though the underlying browser state was split across stale and fresh launches
@@ -1656,6 +1678,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - use the next iteration for the normalized `All Settings` graph-surface-only compare itself, not more lifecycle/auth cleanup
   - if the read-only `main` reference still shows websocket or oracle noise during that fresh `9297` compare, treat it as reference/oracle debt rather than a reopened worktree renderer regression unless the clean worktree surface regresses too
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
+  - item `075` now locks one more normalization precondition: clear durable active-section state before the named-section fit so selection/list chrome cannot masquerade as graph-surface drift
   - the widened `drawSectionDefault` post-drop frontmost lane now has a production fix plus a passing Playwright guard; the next fresh session should rerun that exact live CDP compare before reopening the lane
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
   - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
@@ -1694,6 +1717,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `074`
-- Latest item: `2026-04-03 074`
+- Active history window: items `001` through `075`
+- Latest item: `2026-04-03 075`
 - Older history archives: none yet

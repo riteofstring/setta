@@ -2558,3 +2558,29 @@ LOOP_TERMINAL_MARKER: none
   - the worktree now has a fresh, trustworthy CDP endpoint again on `9297`
 - Next frontier: return to the normalized `All Settings` graph-surface compare on worktree `3077/8077` versus read-only `main`, using the recovered `9297` browser instead of spending another iteration on lifecycle/auth cleanup.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 20:46 EDT - Ralph item 075
+
+- Added a deterministic Playwright normalization guard for the `All Settings` targeted-fit compare so the next live CDP pass does not confuse persisted active-section chrome with graph-surface drift.
+- Why this slice was necessary:
+  - fresh-context CDP compare on worktree `3076` versus read-only `main` `3087` did not isolate a trustworthy new renderer bug after the lifecycle/auth recovery lane closed
+  - the first loose compare leaked into editable/selection state, and the stricter retry still left the worktree in overview/list-oriented state after the same section-targeting steps, which pointed to selection/view-state oracle noise rather than a stable graph-surface-only artifact
+  - the compare lane therefore needed one bounded normalization guard that clears durable `activeIds` before the named-section fit instead of inventing a production renderer fix from untrusted live state
+- Production/test changes:
+  - added `settings graph substrate canary targeted fit stays deterministic after clearing durable selection noise` to `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - the new test:
+    - enters `All Settings` with `viewport: null`
+    - hides overview and UI editor panes
+    - forces a distractor section into durable active state, then clears durable `activeIds`
+    - proves `fitView` still centers `groupSectionDefault` after the selection-noise reset
+- Verification:
+  - fresh-context CDP sub-agent compare against `main`
+    - result: completed; remaining mismatch looked like selection/view-state oracle noise, not a stable graph-surface-only artifact
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary targeted fit stays deterministic after clearing durable selection noise'`
+    - result: passed (`1 passed`, about `23.5s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+- Lane status:
+  - no trustworthy new worktree renderer regression was confirmed on this pass
+  - the targeted-fit normalization lane now explicitly neutralizes durable active-section noise before live compare work
+- Next frontier: rerun the normalized live CDP dynamic compare on `All Settings` using the selection-cleared targeted-fit setup, then isolate the first real graph-surface artifact that survives that normalization.
+- LOOP_TERMINAL_MARKER: none
