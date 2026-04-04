@@ -386,6 +386,75 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "UserDefaultCallableSectionImpl",
+			root: reflect.TypeOf(UserDefaultCallableSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: false},
+				{Name: "paramFilter", TypeExpr: "string", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "configLanguage", TypeExpr: "ConfigLanguage", Optional: false},
+				{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: false},
+				{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: false},
+				{Name: "hideParams", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultDictSectionImpl",
+			root: reflect.TypeOf(UserDefaultDictSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: false},
+				{Name: "paramFilter", TypeExpr: "string", Optional: false},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: false},
+				{Name: "configLanguage", TypeExpr: "string", Optional: false},
+				{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: false},
+				{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: false},
+				{Name: "isJsonSource", TypeExpr: "boolean", Optional: false},
+				{Name: "jsonSourceKeys", TypeExpr: "Array<string>", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultChatSectionImpl",
+			root: reflect.TypeOf(UserDefaultChatSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "managed", TypeExpr: "boolean", Optional: false},
+				{Name: "engineConfigId", TypeExpr: "string | null", Optional: false},
+				{Name: "transcriptionProfileId", TypeExpr: "string | null", Optional: false},
+				{Name: "agentProfileId", TypeExpr: "string | null", Optional: false},
+				{Name: "chatId", TypeExpr: "string | null", Optional: false},
+				{Name: "thinking", TypeExpr: "boolean", Optional: false},
+				{Name: "permissionMode", TypeExpr: "ChatPermissionMode", Optional: false},
+				{Name: "searchEnabled", TypeExpr: "boolean", Optional: false},
+				{Name: "dictationMode", TypeExpr: "ChatDictationMode", Optional: false},
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: false},
+				{Name: "inputText", TypeExpr: "string", Optional: false},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: false},
+				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "activeBranchId", TypeExpr: "string | null", Optional: false},
+				{Name: "branches", TypeExpr: "Record<string, ChatSectionBranch>", Optional: false},
+			},
+		},
+		{
 			name: "UserDefaultBrowserSectionImpl",
 			root: reflect.TypeOf(UserDefaultBrowserSectionImpl{}),
 			properties: []TypeProperty{
@@ -690,6 +759,9 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			if (tt.name == "BrowserSavedSearch" ||
 				tt.name == "TaskBoardColumn" ||
 				tt.name == "TaskBoardTask" ||
+				tt.name == "UserDefaultCallableSectionImpl" ||
+				tt.name == "UserDefaultDictSectionImpl" ||
+				tt.name == "UserDefaultChatSectionImpl" ||
 				tt.name == "UserDefaultBrowserSectionImpl" ||
 				tt.name == "UserDefaultListRootSectionImpl" ||
 				tt.name == "UserDefaultGroupSectionImpl" ||

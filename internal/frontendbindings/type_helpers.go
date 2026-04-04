@@ -1603,6 +1603,7 @@ type generatedUserDefaultSectionSpec struct {
 	SectionName               string
 	AdditionalPropertyOrder   []string
 	PropertyTypeExprOverrides map[string]string
+	IgnoredDefaultProperties  map[string]struct{}
 }
 
 var generatedUserDefaultSectionBasePropertyOrder = []string{
@@ -1647,6 +1648,100 @@ func generatedUserDefaultSectionSpecForType(
 	t reflect.Type,
 ) (generatedUserDefaultSectionSpec, bool) {
 	switch t {
+	case reflect.TypeOf(UserDefaultCallableSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Callable",
+			AdditionalPropertyOrder: []string{
+				"hideUnpinnedParams",
+				"paramFilter",
+				"columnWidth",
+				"configLanguage",
+				"edgeInputParams",
+				"edgeOutputPorts",
+				"hideParams",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"columnWidth":     "number | null",
+				"configLanguage":  "ConfigLanguage",
+				"edgeInputParams": "Array<string>",
+				"edgeOutputPorts": "Array<EdgePort>",
+				"hideParams":      "boolean",
+			},
+			IgnoredDefaultProperties: reflectedIgnoredProperties(
+				"callable",
+				"codeObjVariantMap",
+				"pinnedParams",
+				"selectedParams",
+				"ignoreTypeErrors",
+			),
+		}, true
+	case reflect.TypeOf(UserDefaultDictSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Dict",
+			AdditionalPropertyOrder: []string{
+				"hideUnpinnedParams",
+				"paramFilter",
+				"columnWidth",
+				"configLanguage",
+				"edgeInputParams",
+				"edgeOutputPorts",
+				"isJsonSource",
+				"jsonSourceKeys",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"columnWidth":     "number | null",
+				"configLanguage":  "string",
+				"edgeInputParams": "Array<string>",
+				"edgeOutputPorts": "Array<EdgePort>",
+				"jsonSourceKeys":  "Array<string>",
+			},
+			IgnoredDefaultProperties: reflectedIgnoredProperties(
+				"codeObjVariantMap",
+				"pinnedParams",
+				"selectedParams",
+				"ignoreTypeErrors",
+				"topLevelParamId",
+				"jsonSourceMissing",
+			),
+		}, true
+	case reflect.TypeOf(UserDefaultChatSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Chat",
+			AdditionalPropertyOrder: []string{
+				"managed",
+				"engineConfigId",
+				"transcriptionProfileId",
+				"agentProfileId",
+				"chatId",
+				"thinking",
+				"permissionMode",
+				"searchEnabled",
+				"dictationMode",
+				"messages",
+				"inputText",
+				"waitingForResponse",
+				"toolCallArguments",
+				"activeBranchId",
+				"branches",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"managed":                "boolean",
+				"engineConfigId":         "string | null",
+				"transcriptionProfileId": "string | null",
+				"agentProfileId":         "string | null",
+				"chatId":                 "string | null",
+				"thinking":               "boolean",
+				"permissionMode":         "ChatPermissionMode",
+				"searchEnabled":          "boolean",
+				"dictationMode":          "ChatDictationMode",
+				"messages":               "Array<BaseChatMessageUnion>",
+				"inputText":              "string",
+				"waitingForResponse":     "boolean",
+				"toolCallArguments":      "Record<string, string>",
+				"activeBranchId":         "string | null",
+				"branches":               "Record<string, ChatSectionBranch>",
+			},
+		}, true
 	case reflect.TypeOf(UserDefaultListRootSectionImpl{}):
 		return generatedUserDefaultSectionSpec{
 			SectionName: "ListRoot",
@@ -1840,6 +1935,9 @@ func generatedUserDefaultSectionProperties(
 	remaining := make(map[string]struct{}, len(defaults))
 	for name := range defaults {
 		if _, ignored := generatedUserDefaultSectionIgnoredDefaultProperties[name]; ignored {
+			continue
+		}
+		if _, ignored := spec.IgnoredDefaultProperties[name]; ignored {
 			continue
 		}
 		remaining[name] = struct{}{}
