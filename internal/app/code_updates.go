@@ -103,6 +103,9 @@ func (s *codeUpdateService) SetCode(ctx context.Context, projectID string, secti
 			return err
 		}
 	}
+	if err := s.broadcastProjectStateUpdates(ctx, snapshot, []string{projectID}); err != nil {
+		return err
+	}
 
 	return s.broadcastWatchCodeWarnings(ctx, snapshot.Document, []string{projectID}, signatureObserver.Attempts())
 }
@@ -206,6 +209,9 @@ func (s *codeUpdateService) ReloadBoundCodeFile(ctx context.Context, raw string,
 		return err
 	}
 	if err := s.typeCheckProjects(ctx, snapshot.Document, mapKeysSorted(typeCheckProjectIDs)); err != nil {
+		return err
+	}
+	if err := s.broadcastProjectStateUpdates(ctx, snapshot, projectIDs); err != nil {
 		return err
 	}
 
@@ -319,6 +325,44 @@ func (s *codeUpdateService) broadcastWatchCodeWarnings(
 			); err != nil {
 				return err
 			}
+		}
+	}
+	return nil
+}
+
+func (s *codeUpdateService) broadcastProjectStateUpdates(
+	ctx context.Context,
+	snapshot projectstate.Snapshot,
+	projectIDs []string,
+) error {
+	if s == nil || s.frontendWebsocketHub == nil || s.projectState == nil {
+		return nil
+	}
+
+	seenProjectIDs := map[string]struct{}{}
+	orderedProjectIDs := make([]string, 0, len(projectIDs))
+	for _, projectID := range projectIDs {
+		trimmedProjectID := strings.TrimSpace(projectID)
+		if trimmedProjectID == "" {
+			continue
+		}
+		if _, exists := seenProjectIDs[trimmedProjectID]; exists {
+			continue
+		}
+		seenProjectIDs[trimmedProjectID] = struct{}{}
+		orderedProjectIDs = append(orderedProjectIDs, trimmedProjectID)
+	}
+	sort.Strings(orderedProjectIDs)
+
+	for _, projectID := range orderedProjectIDs {
+		if err := broadcastFrontendProjectStateUpdate(
+			ctx,
+			s.projectState,
+			s.frontendWebsocketHub,
+			snapshot,
+			projectID,
+		); err != nil {
+			return err
 		}
 	}
 	return nil

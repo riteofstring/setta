@@ -11,9 +11,7 @@ import {
   SectionTypeEnum,
   createProjectCodegenPythonTarget,
   createProjectConfig,
-  createSingletonSections,
   type Core,
-  type ProjectStateSingleConfigWithCompletedOpIds,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -57,31 +55,6 @@ const sectionVariant: Variant = {
   modifier: {},
   isFrozen: false,
 };
-
-function latestProjectStateFixture(): ProjectStateSingleConfigWithCompletedOpIds {
-  return {
-    projectState: {
-      sections: {},
-      sectionImpls: {},
-      sectionVariants: {},
-      codeObjs: {},
-      codeObjImpls: {},
-      codeObjVariants: {},
-      projectConfig: createProjectConfig({
-        id: "project-1",
-        watchCodeEnabled: true,
-        codegenTargets: [createProjectCodegenPythonTarget()],
-      }),
-      singletonSections: createSingletonSections(),
-      parentSectionMap: {},
-      shownParamIds: {},
-      requiredDecodedImages: [],
-      genCodeBinding: null,
-    },
-    completedOpIds: [],
-    pendingOpIds: [],
-  };
-}
 
 function setupCodeSection({
   watchCodeEnabled,
@@ -155,7 +128,7 @@ describe("queueCodeUpdate", () => {
     resetProjectStores();
   });
 
-  it("rehydrates project state after a successful bound Python Watch Code edit", async () => {
+  it("leaves bound Python Watch Code project-state sync to websocket updates", async () => {
     const { processProjectStateUpdateFromBackend } = await import(
       "./sectionInfos"
     );
@@ -176,12 +149,6 @@ describe("queueCodeUpdate", () => {
       data: null,
       hasResponse: true,
     });
-    const latestProjectState = latestProjectStateFixture();
-    vi.mocked(route_get_latest_project_state).mockResolvedValue({
-      status: 200,
-      data: latestProjectState,
-      hasResponse: true,
-    });
 
     queueCodeUpdate(sectionId, "print('latest')");
     await flushPendingCodeUpdate(sectionId);
@@ -192,12 +159,8 @@ describe("queueCodeUpdate", () => {
       code: "print('latest')",
       frontendOpId: expect.any(String),
     });
-    expect(route_get_latest_project_state).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-    });
-    expect(processProjectStateUpdateFromBackend).toHaveBeenCalledWith(
-      latestProjectState,
-    );
+    expect(route_get_latest_project_state).not.toHaveBeenCalled();
+    expect(processProjectStateUpdateFromBackend).not.toHaveBeenCalled();
   });
 
   it("does not rehydrate after unrelated code edits", async () => {

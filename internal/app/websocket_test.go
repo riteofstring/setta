@@ -2939,6 +2939,83 @@ func TestAppDeleteSectionsRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	}
 }
 
+func TestAppSetCodeRouteBroadcastsProjectStateUpdateForWatchCodeBoundSection(t *testing.T) {
+	cfg := testConfig(t)
+	cfg.Server.Mode = config.ModeIDE
+	prepareAppCurrentSession(t, cfg)
+	prepareAppLSPFixture(t)
+
+	app, err := New(cfg, observability.NewLogger(0, io.Discard))
+	if err != nil {
+		t.Fatalf("new app: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := app.Shutdown(context.Background()); err != nil {
+			t.Fatalf("shutdown app: %v", err)
+		}
+	})
+	seedAppWatchCodeBoundSectionProject(t, app)
+
+	server := httptest.NewServer(app.Handler())
+	defer server.Close()
+
+	authCookie := newAppTestAuthCookie(t, app)
+	conn, _, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http")+wsapi.RouteFrontend, &websocket.DialOptions{
+		HTTPHeader: http.Header{
+			"Cookie": []string{authCookie.Name + "=" + authCookie.Value},
+		},
+	})
+	if err != nil {
+		t.Fatalf("dial frontend websocket route: %v", err)
+	}
+	defer conn.CloseNow()
+
+	_ = readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeFrontendIdentity, 2)
+
+	request, err := http.NewRequest(
+		http.MethodPost,
+		server.URL+"/api"+httpapi.RouteSetCode,
+		strings.NewReader(`{"projectConfigId":"project-alpha","sectionId":"section-main","code":"def sorted(iterable):\n    return iterable\n","frontendOpId":"set-code-op"}`),
+	)
+	if err != nil {
+		t.Fatalf("new set code request: %v", err)
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.AddCookie(authCookie)
+
+	response, err := http.DefaultClient.Do(request)
+	if err != nil {
+		t.Fatalf("post set code: %v", err)
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(response.Body)
+		t.Fatalf("expected 200, got %d with body %q", response.StatusCode, string(body))
+	}
+
+	envelope := readAppRouteEnvelopeUntilType(t, conn, realtime.MessageTypeUpdateFrontendProjectState, 4)
+	var content realtime.ProjectStateUpdateContent
+	if err := json.Unmarshal(envelope.Content, &content); err != nil {
+		t.Fatalf("decode project state update content: %v", err)
+	}
+	if content.ProjectState.ProjectConfig.ID != "project-alpha" {
+		t.Fatalf("expected project-alpha state update, got %q", content.ProjectState.ProjectConfig.ID)
+	}
+	if !containsAppString(content.CompletedOpIDs, "set-code-op") {
+		t.Fatalf("expected completed set-code-op in websocket update, got %#v", content.CompletedOpIDs)
+	}
+	if len(content.PendingOpIDs) != 0 {
+		t.Fatalf("expected no pending op ids after set code, got %#v", content.PendingOpIDs)
+	}
+	entry, ok := content.ProjectState.ProjectConfig.WatchCodeRegistry["pkg.bound.sorted:function"]
+	if !ok {
+		t.Fatalf("expected websocket update to include derived watch code entry, got %#v", content.ProjectState.ProjectConfig.WatchCodeRegistry)
+	}
+	if len(entry.SectionIDs) != 1 || entry.SectionsCount != 1 {
+		t.Fatalf("expected websocket update to include one callable section binding, got %#v", entry)
+	}
+}
+
 func TestAppMoveSectionsRouteBroadcastsProjectStateUpdate(t *testing.T) {
 	cfg := testConfig(t)
 	cfg.Server.Mode = config.ModeIDE
