@@ -1245,6 +1245,159 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 	}
 }
 
+func TestTypeConverterUsesMetadataDeclarationsWithoutManualOverrides(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
+	tests := []struct {
+		name          string
+		root          reflect.Type
+		kind          string
+		alias         string
+		properties    []TypeProperty
+		hasCreateExpr bool
+	}{
+		{
+			name:  "BaseDependencyKeyUnion",
+			root:  reflect.TypeOf(BaseDependencyKeyUnion{}),
+			kind:  "alias",
+			alias: "SectionDependencyKey | SectionParamDependencyKey",
+		},
+		{
+			name:  "BaseDependencyValueUnion",
+			root:  reflect.TypeOf(BaseDependencyValueUnion{}),
+			kind:  "alias",
+			alias: "LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
+		},
+		{
+			name:  "BuiltinCodeLanguage",
+			root:  reflect.TypeOf(BuiltinCodeLanguage{}),
+			kind:  "alias",
+			alias: "CodeLanguage",
+		},
+		{
+			name:  "MessageContentDelta",
+			root:  reflect.TypeOf((*MessageContentDelta)(nil)).Elem(),
+			kind:  "alias",
+			alias: "MessageTextDelta | MessageThinkingDelta",
+		},
+		{
+			name:  "LLMStreamingResponseChunk",
+			root:  reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(),
+			kind:  "alias",
+			alias: "MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
+		},
+		{
+			name:  "SectionSizeValue",
+			root:  reflect.TypeOf(SectionSizeValue{}),
+			kind:  "alias",
+			alias: "number | SectionSizeMode",
+		},
+		{
+			name:  "ProjectCodegenTarget",
+			root:  reflect.TypeOf(ProjectCodegenTarget{}),
+			kind:  "alias",
+			alias: "ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
+		},
+		{
+			name:          "ViewModeConfig",
+			root:          reflect.TypeOf(ViewModeConfig{}),
+			kind:          "alias",
+			alias:         "ViewMode",
+			hasCreateExpr: true,
+		},
+		{
+			name:  "BaseClipboardDataUnionWithDiscriminator",
+			root:  reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}),
+			kind:  "alias",
+			alias: "SectionsClipboardData",
+		},
+		{
+			name:  "SectionsClipboardDataResponse",
+			root:  reflect.TypeOf(SectionsClipboardDataResponse{}),
+			kind:  "alias",
+			alias: "SectionsClipboardData",
+		},
+		{
+			name:  "JSONValue",
+			root:  reflect.TypeOf(JSONValue{}),
+			kind:  "alias",
+			alias: "null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
+		},
+		{
+			name:  "MessageContent",
+			root:  reflect.TypeOf(MessageContent{}),
+			kind:  "alias",
+			alias: "MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
+		},
+		{
+			name:  "BaseChatMessageUnion",
+			root:  reflect.TypeOf(BaseChatMessageUnion{}),
+			kind:  "alias",
+			alias: "SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
+		},
+		{
+			name:  "BaseChartSettingsUnion",
+			root:  reflect.TypeOf(BaseChartSettingsUnion{}),
+			kind:  "alias",
+			alias: "LineChartSettings | ScatterChartSettings",
+		},
+		{
+			name:  "BinaryUploadRequestInput",
+			root:  reflect.TypeOf(BinaryUploadRequestInput{}),
+			kind:  "alias",
+			alias: "FormData",
+		},
+		{
+			name:  "BinaryDownloadResponse",
+			root:  reflect.TypeOf(BinaryDownloadResponse{}),
+			kind:  "alias",
+			alias: "Uint8Array",
+		},
+		{
+			name:  "WebsocketMsg",
+			root:  reflect.TypeOf(WebsocketMsg{}),
+			kind:  "alias",
+			alias: "WebsocketMsgCurrentAddressUpdate | WebsocketMsgRealtimeUIChange | WebsocketMsgRealtimeDependencyEvent | WebsocketMsgUISettingRevealResult",
+		},
+		{
+			name: "FrontendWebsocketMsgUnion",
+			root: reflect.TypeOf(FrontendWebsocketMsgUnion{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string | null", Optional: true},
+				{Name: "messageType", TypeExpr: "WebsocketMsgTypeForFrontend", Optional: false},
+				{Name: "content", TypeExpr: "any", Optional: false},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+			if (declaration.CreateExpr != "") != tt.hasCreateExpr {
+				t.Fatalf("%s CreateExpr presence = %t, want %t", tt.name, declaration.CreateExpr != "", tt.hasCreateExpr)
+			}
+		})
+	}
+}
+
 func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarations(t *testing.T) {
 	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {

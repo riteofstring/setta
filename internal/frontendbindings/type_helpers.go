@@ -1404,7 +1404,104 @@ func specialTypeDeclaration(
 	if declaration, ok, err := artifactTypeDeclaration(converter, t); ok || err != nil {
 		return declaration, ok, err
 	}
+	if declaration, ok := specialMetadataTypeDeclaration(t); ok {
+		return declaration, true, nil
+	}
 	return TypeDeclaration{}, false, nil
+}
+
+func specialMetadataTypeDeclaration(t reflect.Type) (TypeDeclaration, bool) {
+	switch t {
+	case reflect.TypeOf(BaseDependencyKeyUnion{}):
+		return aliasDeclaration(
+			"BaseDependencyKeyUnion",
+			"SectionDependencyKey | SectionParamDependencyKey",
+		), true
+	case reflect.TypeOf(BaseDependencyValueUnion{}):
+		return aliasDeclaration(
+			"BaseDependencyValueUnion",
+			"LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
+		), true
+	case reflect.TypeOf(BuiltinCodeLanguage{}):
+		return aliasDeclaration(
+			"BuiltinCodeLanguage",
+			"CodeLanguage",
+		), true
+	case reflect.TypeOf((*MessageContentDelta)(nil)).Elem():
+		return aliasDeclaration(
+			"MessageContentDelta",
+			"MessageTextDelta | MessageThinkingDelta",
+		), true
+	case reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem():
+		return aliasDeclaration(
+			"LLMStreamingResponseChunk",
+			"MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
+		), true
+	case reflect.TypeOf(SectionSizeValue{}):
+		return aliasDeclaration(
+			"SectionSizeValue",
+			"number | SectionSizeMode",
+		), true
+	case reflect.TypeOf(ProjectCodegenTarget{}):
+		return aliasDeclaration(
+			"ProjectCodegenTarget",
+			"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
+		), true
+	case reflect.TypeOf(ViewModeConfig{}):
+		return aliasDeclarationWithCreateExpr(
+			"ViewModeConfig",
+			"ViewMode",
+			"createViewMode(options)",
+		), true
+	case reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}):
+		return aliasDeclaration(
+			"BaseClipboardDataUnionWithDiscriminator",
+			"SectionsClipboardData",
+		), true
+	case reflect.TypeOf(SectionsClipboardDataResponse{}):
+		return aliasDeclaration(
+			"SectionsClipboardDataResponse",
+			"SectionsClipboardData",
+		), true
+	case reflect.TypeOf(JSONValue{}):
+		return aliasDeclaration(
+			"JSONValue",
+			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
+		), true
+	case reflect.TypeOf(MessageContent{}):
+		return aliasDeclaration(
+			"MessageContent",
+			"MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
+		), true
+	case reflect.TypeOf(BaseChatMessageUnion{}):
+		return aliasDeclaration(
+			"BaseChatMessageUnion",
+			"SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
+		), true
+	case reflect.TypeOf(BaseChartSettingsUnion{}):
+		return aliasDeclaration(
+			"BaseChartSettingsUnion",
+			"LineChartSettings | ScatterChartSettings",
+		), true
+	case reflect.TypeOf(BinaryUploadRequestInput{}):
+		return aliasDeclaration("BinaryUploadRequestInput", "FormData"), true
+	case reflect.TypeOf(BinaryDownloadResponse{}):
+		return aliasDeclaration("BinaryDownloadResponse", "Uint8Array"), true
+	case reflect.TypeOf(WebsocketMsg{}):
+		return aliasDeclaration(
+			"WebsocketMsg",
+			"WebsocketMsgCurrentAddressUpdate | WebsocketMsgRealtimeUIChange | WebsocketMsgRealtimeDependencyEvent | WebsocketMsgUISettingRevealResult",
+		), true
+	case reflect.TypeOf(FrontendWebsocketMsgUnion{}):
+		return objectDeclaration(
+			"FrontendWebsocketMsgUnion",
+			TypeProperty{Name: "id", TypeExpr: "string | null", Optional: true},
+			TypeProperty{Name: "messageType", TypeExpr: "WebsocketMsgTypeForFrontend"},
+			TypeProperty{Name: "content", TypeExpr: "any"},
+		), true
+	default:
+		return TypeDeclaration{}, false
+	}
 }
 
 func generatedUserDefaultCodeParamCodeObjDeclaration(

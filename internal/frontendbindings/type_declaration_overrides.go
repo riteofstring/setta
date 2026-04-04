@@ -6,49 +6,6 @@ import (
 
 func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 	return map[reflect.Type]TypeDeclaration{
-		reflect.TypeOf(BaseDependencyKeyUnion{}): {
-			Name:  "BaseDependencyKeyUnion",
-			Kind:  "alias",
-			Alias: "SectionDependencyKey | SectionParamDependencyKey",
-		},
-		reflect.TypeOf(BaseDependencyValueUnion{}): {
-			Name:  "BaseDependencyValueUnion",
-			Kind:  "alias",
-			Alias: "LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
-		},
-		reflect.TypeOf(BuiltinCodeLanguage{}): aliasDeclaration(
-			"BuiltinCodeLanguage",
-			"CodeLanguage",
-		),
-		reflect.TypeOf((*MessageContentDelta)(nil)).Elem(): aliasDeclaration(
-			"MessageContentDelta",
-			"MessageTextDelta | MessageThinkingDelta",
-		),
-		reflect.TypeOf((*LLMStreamingResponseChunk)(nil)).Elem(): aliasDeclaration(
-			"LLMStreamingResponseChunk",
-			"MessageStartEvent | MessageDeltaEvent | ToolCallDeltaEvent | ToolResultEvent | ToolArgumentPreviewDeltaEvent | MessageStopEvent | MessageFinalizedEvent",
-		),
-		reflect.TypeOf(SectionSizeValue{}): aliasDeclaration(
-			"SectionSizeValue",
-			"number | SectionSizeMode",
-		),
-		reflect.TypeOf(ProjectCodegenTarget{}): aliasDeclaration(
-			"ProjectCodegenTarget",
-			"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
-		),
-		reflect.TypeOf(ViewModeConfig{}): aliasDeclarationWithCreateExpr(
-			"ViewModeConfig",
-			"ViewMode",
-			"createViewMode(options)",
-		),
-		reflect.TypeOf(BaseClipboardDataUnionWithDiscriminator{}): aliasDeclaration(
-			"BaseClipboardDataUnionWithDiscriminator",
-			"SectionsClipboardData",
-		),
-		reflect.TypeOf(SectionsClipboardDataResponse{}): aliasDeclaration(
-			"SectionsClipboardDataResponse",
-			"SectionsClipboardData",
-		),
 		reflect.TypeOf(BaseSectionImpl{}): objectDeclaration(
 			"BaseSectionImpl",
 			TypeProperty{Name: "type", TypeExpr: "SectionType"},
@@ -569,18 +526,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   | SpreadsheetSectionImpl
   | BaseSectionImpl`,
 		),
-		reflect.TypeOf(JSONValue{}): aliasDeclaration(
-			"JSONValue",
-			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
-		),
-		reflect.TypeOf(MessageContent{}): aliasDeclaration(
-			"MessageContent",
-			"MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
-		),
-		reflect.TypeOf(BaseChatMessageUnion{}): aliasDeclaration(
-			"BaseChatMessageUnion",
-			"SystemChatMessage | AssistantChatMessage | UserChatMessage | ToolChatMessage",
-		),
 		reflect.TypeOf(ChatSectionImpl{}): aliasDeclaration(
 			"ChatSectionImpl",
 			`BaseSectionImpl & ChatSectionState & {
@@ -617,10 +562,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   tasks: Array<TaskBoardTask>;
 }`,
 		),
-		reflect.TypeOf(BaseChartSettingsUnion{}): aliasDeclaration(
-			"BaseChartSettingsUnion",
-			"LineChartSettings | ScatterChartSettings",
-		),
 		reflect.TypeOf(ChartSectionImpl{}): aliasDeclaration(
 			"ChartSectionImpl",
 			`BaseSectionImpl & {
@@ -640,26 +581,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   density: SpreadsheetGridDensity;
   autoReloadOnExternalChange: boolean;
 }`,
-		),
-		reflect.TypeOf(BinaryUploadRequestInput{}): {
-			Name:  "BinaryUploadRequestInput",
-			Kind:  "alias",
-			Alias: "FormData",
-		},
-		reflect.TypeOf(BinaryDownloadResponse{}): {
-			Name:  "BinaryDownloadResponse",
-			Kind:  "alias",
-			Alias: "Uint8Array",
-		},
-		reflect.TypeOf(WebsocketMsg{}): aliasDeclaration(
-			"WebsocketMsg",
-			"WebsocketMsgCurrentAddressUpdate | WebsocketMsgRealtimeUIChange | WebsocketMsgRealtimeDependencyEvent | WebsocketMsgUISettingRevealResult",
-		),
-		reflect.TypeOf(FrontendWebsocketMsgUnion{}): objectDeclaration(
-			"FrontendWebsocketMsgUnion",
-			TypeProperty{Name: "id", TypeExpr: "string | null", Optional: true},
-			TypeProperty{Name: "messageType", TypeExpr: "WebsocketMsgTypeForFrontend"},
-			TypeProperty{Name: "content", TypeExpr: "any"},
 		),
 	}
 }
