@@ -188,6 +188,107 @@ test("settings graph substrate canary restores the persisted shared viewport on 
   }
 });
 
+test("settings graph substrate canary preserves a recent viewport change across a fast view-mode switch", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  const coreTab = page.getByRole("button", { name: "Core", exact: true });
+  let allSettingsInitialViewport: {
+    x: number;
+    y: number;
+    zoom: number;
+  } | null = null;
+
+  try {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => {
+        const drift = await getCanaryAutoFitDrift(page);
+        return drift?.zoom ?? Number.POSITIVE_INFINITY;
+      })
+      .toBeLessThan(0.03);
+
+    const allSettingsInitialState = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    allSettingsInitialViewport =
+      allSettingsInitialState.projectState.projectConfig.viewport;
+
+    const panStart = await findCanaryPanePoint(page);
+    await page.mouse.move(panStart.x, panStart.y);
+    await page.mouse.down();
+    await page.mouse.move(panStart.x + 140, panStart.y + 90, { steps: 10 });
+    await page.mouse.up();
+
+    // A fast tab switch should keep the latest user-owned canary camera.
+    const expectedViewport = await getCanaryViewportTransform(page);
+    if (!expectedViewport) {
+      throw new Error("Missing panned canary viewport.");
+    }
+
+    await expect(coreTab).toBeVisible();
+    await coreTab.click();
+    await page.waitForSelector(READY_SELECTOR);
+
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+      .toBeCloseTo(expectedViewport.x, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+      .toBeCloseTo(expectedViewport.y, 0);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeCloseTo(expectedViewport.zoom, 2);
+  } finally {
+    await allTab.click().catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: allSettingsInitialViewport,
+    });
+    const initialActiveViewModeId =
+      initialState.projectState.projectConfig.activeViewModeId;
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary drags one section and persists the top-level layout", async ({
   page,
 }) => {

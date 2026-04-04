@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 15:56 EDT
+Last updated: 2026-04-02 16:31 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,19 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `019` landed a bounded viewport-persistence fix for fast `All Settings` mode switches on the custom substrate path:
+  - `frontend/src/state/actions/sectionInfos.ts` now exports `persistCurrentViewportImmediately()`, which cancels the debounced viewport sender and awaits an immediate `/setViewport` write for the current camera before a mode change proceeds.
+  - `frontend/src/components/Pages/Project/ViewModeTabs.tsx` and `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` now await that helper before `route_set_active_view_mode(...)`, so the backend saves the current mode's latest viewport before switching away.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now covers a fast `All Settings -> Core -> All Settings` round-trip after a recent canary pan, proving the latest user-owned viewport survives the switch.
+- Targeted verification passed for item `019`:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/ViewModeTabs.test.tsx src/components/Panes/Overview/ViewingEditingMode.integration.test.tsx`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings|settings graph substrate canary preserves a recent viewport change across a fast view-mode switch'`
+    - result: passed (`2 passed`, about `40s`)
+- Fresh CDP verification for item `019`:
+  - a fresh-context CDP sub-agent confirmed the worktree preserved the recent `All Settings` viewport across the fast `All Settings -> Core -> All Settings` switch
+  - one separate fresh CDP sub-agent session lacked browser-tool access, but the worktree debug target stayed healthy at `http://127.0.0.1:9297/json/version` and the follow-up CDP sub-agent completed the live check successfully
+  - `main` was not a trustworthy oracle for this exact rushed multi-click sequence; it re-centered differently and ended back on `Core`, so do not use that fast-switch pattern as the parity canary
 - Ralph item `018` landed a bounded canary fit-input parity fix inside the `All Settings` substrate path:
   - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` now merges selector-provided section sizes with observed DOM sizes instead of trusting observed sizes alone.
   - the bounds helper now uses the larger available width/height for each section, which keeps the initial fit aligned with legacy node-internal geometry while still expanding to larger real DOM boxes when fallback sizing lags behind render.
@@ -244,8 +257,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The initial-fit / bounds-input lane is complete for the current normal-zoom `All Settings` gate:
   - item `018` reused the selector’s size contract in the bounds helper and the latest CDP compare no longer shows a material “too tight” framing difference versus `main`
   - do not spend another iteration on pure bounds math unless a new controlled compare reopens that specific defect
-- The next real frontier is the next earliest remaining product drift on the same canary path:
-  - inspect `All Settings` at normal zoom for the next Gate 1 / Gate 2 issue after initial framing, especially text/chrome drift, zoom artifacts, or interaction-state behavior that is still visibly different from `main`
+- The fast-switch viewport-persistence lane is complete:
+  - item `019` closed the race where a recent canary pan/zoom could be lost if the user switched modes before the debounced viewport write reached the backend
+  - do not spend another iteration on more view-mode switch plumbing unless a new controlled repro shows the current canary camera still gets dropped
+- The next real frontier is the next earliest stable product drift on the same canary path:
+  - rerun a controlled, settled normal-zoom compare on `All Settings` against `main` using a trustworthy sequence such as a cleared viewport or a deliberate stable round-trip, not the rushed multi-click switch that `main` itself mishandles
+  - once the oracle sequence is stable, inspect the next Gate 1 / Gate 2 issue after initial framing and switch-persistence, especially text/chrome drift, zoom artifacts, or remaining stable camera/framing mismatch
   - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
 - Lifecycle/bootstrap debugging is no longer the default frontier:
   - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
@@ -272,6 +289,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `016`
-- Latest item: `2026-04-02 016`
+- Active history window: items `001` through `019`
+- Latest item: `2026-04-02 019`
 - Older history archives: none yet

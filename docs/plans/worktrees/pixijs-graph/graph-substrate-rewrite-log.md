@@ -636,3 +636,33 @@ LOOP_TERMINAL_MARKER: none
   - use CDP on the same `All Settings` normal-zoom canary to identify the next Gate 1 / Gate 2 product defect, with priority on text/chrome drift, zoom artifacts, or interaction-state behavior
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 019
+
+- Item: Persist the current canary viewport immediately before view-mode switches so fast `All Settings` tab changes do not restore a stale camera.
+- Status: `done`
+- Details:
+  - The next Gate 1 defect after the bounds lane was a mode-switch race, not another section-order or fit-input problem:
+    - a fresh CDP compare showed the worktree still restoring a materially different `All Settings` viewport after a quick `All Settings -> Core -> All Settings` sequence
+    - targeted Playwright then reproduced the bug directly by panning the canary and switching away before the debounced viewport write reached the backend
+  - `frontend/src/state/actions/sectionInfos.ts` now exports `persistCurrentViewportImmediately()`, which cancels the debounced sender and awaits an immediate `route_set_viewport(...)` call for the live ReactFlow/canary transform.
+  - `frontend/src/components/Pages/Project/ViewModeTabs.tsx` and `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` now await that helper before `route_set_active_view_mode(...)`, so the backend stores the current mode's latest viewport before the active mode changes.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now proves that a recent canary pan survives a fast `All Settings -> Core -> All Settings` round-trip instead of snapping back to the stale pre-pan camera.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/ViewModeTabs.test.tsx src/components/Panes/Overview/ViewingEditingMode.integration.test.tsx`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings|settings graph substrate canary preserves a recent viewport change across a fast view-mode switch'`
+    - result: passed (`2 passed`, about `40s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - a fresh-context CDP sub-agent confirmed the worktree preserved the recent viewport across the fast switch on live `http://127.0.0.1:3075/settings`
+      - one separate fresh CDP sub-agent session lacked tool access, but `curl -fsS --max-time 5 http://127.0.0.1:9297/json/version` still succeeded and the follow-up CDP sub-agent completed the live check
+      - `main` was not a stable oracle for this exact rushed multi-click sequence because it re-centered differently and ended back on `Core`
+- Conclusion:
+  - the canary no longer drops a recent user-owned viewport when the user changes view modes before the debounced camera write lands
+  - this closes the stale-camera switch-persistence lane for the checked `All Settings` canary path
+- Next action:
+  - rerun a controlled, settled worktree-vs-`main` normal-zoom compare on `All Settings` to identify the next stable Gate 1 / Gate 2 drift now that the fast-switch stale-camera lane is closed
+
+LOOP_TERMINAL_MARKER: none

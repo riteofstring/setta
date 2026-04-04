@@ -2028,3 +2028,16 @@ export const debouncedDispatchViewportUpdate = _.debounce(
   () => dispatchViewportUpdate(getCurrProjectConfigViewport()),
   1000,
 );
+
+export async function persistCurrentViewportImmediately(): Promise<void> {
+  const projectConfigId = getCurrProjectConfigId();
+  if (projectConfigId === NULL_PROJECT_CONFIG_ID) {
+    return;
+  }
+  // View-mode switches need the current camera on the backend before the mode changes.
+  debouncedDispatchViewportUpdate.cancel();
+  await route_set_viewport({
+    projectConfigId,
+    viewport: getCurrProjectConfigViewport(),
+  });
+}
