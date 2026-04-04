@@ -16,6 +16,33 @@ export type SettingsGraphViewportTransform = {
 
 export type SettingsGraphSurfaceKind = "canary" | "legacy";
 
+export type SettingsGraphComparePreflightStatus =
+  | "ok"
+  | "worktree_unhealthy"
+  | "reference_unhealthy";
+
+export type SettingsGraphComparePreflightIssueCode =
+  | "surface_missing"
+  | "wrong_surface_kind"
+  | "pane_state_mismatch"
+  | "active_view_mode_mismatch"
+  | "missing_target_section"
+  | "fit_view_failed";
+
+export type SettingsGraphComparePreflightIssue = {
+  code: SettingsGraphComparePreflightIssueCode;
+  detail: string;
+};
+
+export type SettingsGraphComparePreflightResult = {
+  activeViewModeName: string | null;
+  issues: Array<SettingsGraphComparePreflightIssue>;
+  paneState: SettingsGraphLocalPaneState;
+  status: SettingsGraphComparePreflightStatus;
+  surfaceKind: SettingsGraphSurfaceKind | null;
+  targetSectionId: string | null;
+};
+
 export type ProjectStateSingleConfigWithCompletedOpIds = {
   projectState: {
     parentSectionMap: Record<string, string | null | undefined>;
@@ -133,6 +160,18 @@ export function findViewModeId(
   throw new Error(`Missing view mode ${name}`);
 }
 
+export function findViewModeName(
+  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  viewModeId: string | null,
+): string | null {
+  if (!viewModeId) {
+    return null;
+  }
+
+  const viewMode = payload.projectState.projectConfig.viewModes[viewModeId];
+  return viewMode?.name ?? null;
+}
+
 export function findSectionIdByName(
   payload: ProjectStateSingleConfigWithCompletedOpIds,
   name: string,
@@ -145,6 +184,134 @@ export function findSectionIdByName(
     }
   }
   throw new Error(`Missing section ${name}`);
+}
+
+function findOptionalSectionIdByName(
+  payload: ProjectStateSingleConfigWithCompletedOpIds,
+  name: string,
+): string | null {
+  for (const [sectionId, section] of Object.entries(
+    payload.projectState.sections,
+  )) {
+    if (section.name === name) {
+      return sectionId;
+    }
+  }
+  return null;
+}
+
+function settingsGraphPaneStatesMatch(
+  left: SettingsGraphLocalPaneState,
+  right: SettingsGraphLocalPaneState,
+): boolean {
+  return (
+    left.overviewVisible === right.overviewVisible &&
+    left.overviewTrueWidth === right.overviewTrueWidth &&
+    left.uiEditorVisible === right.uiEditorVisible &&
+    left.uiEditorTrueWidth === right.uiEditorTrueWidth
+  );
+}
+
+function formatSettingsGraphPaneState(
+  paneState: SettingsGraphLocalPaneState,
+): string {
+  return JSON.stringify(paneState);
+}
+
+// Separate unhealthy runtime/setup state from renderer drift before a parity lane acts.
+export async function runSettingsGraphComparePreflight(args: {
+  expectedPaneState?: SettingsGraphLocalPaneState;
+  expectedSurfaceKind: SettingsGraphSurfaceKind;
+  expectedViewModeName: string;
+  page: Page;
+  projectConfigId: string;
+  requireFitView?: boolean;
+  side: "reference" | "worktree";
+  targetSectionId?: string;
+  targetSectionName?: string;
+}): Promise<SettingsGraphComparePreflightResult> {
+  const [payload, paneState, surfaceKind] = await Promise.all([
+    getLatestProjectState(args.page, args.projectConfigId),
+    getLocalPaneState(args.page),
+    getSettingsGraphSurfaceKind(args.page),
+  ]);
+
+  const issues: Array<SettingsGraphComparePreflightIssue> = [];
+  const activeViewModeName = findViewModeName(
+    payload,
+    payload.projectState.projectConfig.activeViewModeId,
+  );
+
+  if (!surfaceKind) {
+    issues.push({
+      code: "surface_missing",
+      detail: `${args.side} surface did not mount a legacy or canary graph root.`,
+    });
+  } else if (surfaceKind !== args.expectedSurfaceKind) {
+    issues.push({
+      code: "wrong_surface_kind",
+      detail: `${args.side} surface kind ${surfaceKind} did not match expected ${args.expectedSurfaceKind}.`,
+    });
+  }
+
+  const expectedPaneState =
+    args.expectedPaneState ?? SETTINGS_GRAPH_COMPARE_PANE_STATE;
+  if (!settingsGraphPaneStatesMatch(paneState, expectedPaneState)) {
+    issues.push({
+      code: "pane_state_mismatch",
+      detail: `${args.side} pane state ${formatSettingsGraphPaneState(paneState)} did not match expected ${formatSettingsGraphPaneState(expectedPaneState)}.`,
+    });
+  }
+
+  if (activeViewModeName !== args.expectedViewModeName) {
+    issues.push({
+      code: "active_view_mode_mismatch",
+      detail: `${args.side} active view mode ${activeViewModeName ?? "null"} did not match expected ${args.expectedViewModeName}.`,
+    });
+  }
+
+  let targetSectionId = args.targetSectionId ?? null;
+  if (!targetSectionId && args.targetSectionName) {
+    targetSectionId = findOptionalSectionIdByName(
+      payload,
+      args.targetSectionName,
+    );
+  }
+
+  if (!targetSectionId || !payload.projectState.sections[targetSectionId]) {
+    issues.push({
+      code: "missing_target_section",
+      detail:
+        args.targetSectionName !== undefined
+          ? `${args.side} missing target section ${args.targetSectionName}.`
+          : `${args.side} missing target section id ${args.targetSectionId ?? "null"}.`,
+    });
+  } else if (args.requireFitView) {
+    const fitApplied = await fitGraphViewportToSection(
+      args.page,
+      targetSectionId,
+    );
+    if (!fitApplied) {
+      issues.push({
+        code: "fit_view_failed",
+        detail: `${args.side} fitGraphViewportToSection(${targetSectionId}) returned false.`,
+      });
+    }
+  }
+
+  return {
+    activeViewModeName,
+    issues,
+    paneState,
+    status:
+      issues.length === 0
+        ? "ok"
+        : args.side === "reference"
+          ? "reference_unhealthy"
+          : "worktree_unhealthy",
+    surfaceKind,
+    targetSectionId,
+  };
 }
 
 export function findSharedVisibleSettingsGraphSection(

@@ -92,9 +92,31 @@ This file is the reusable loop entrypoint for this worktree.
   - clear viewport to `null`
   - trigger one shared `fit view`
   - compare only graph-surface metrics such as viewport transform, target-section rects, neighboring section geometry, and graph-surface screenshots
+- Treat the shared Playwright parity probe as the primary oracle for those Gate 1 / Gate 2 lanes. Use Chrome DevTools MCP as the required visual confirmation layer, not as the default mechanism for re-driving fragile motion or wheel input from scratch.
 - If a dynamic compare needs the same subject on both sides, choose a shared section by name or id and align that section locally inside the graph surface before acting; do not use overview ordering or whole-page scroll position as the oracle.
+- Each active lane must name one canonical target section in the handoff/history. Use `findSharedVisibleSettingsGraphSection(...)` only to bootstrap a new lane when no named target has been proven yet; do not keep rediscovering the compare target once the lane exists.
+- Trusted lane matrix for normalized `All Settings` parity:
+  - shared `clear viewport -> fit view` landing on one named section, measured through the Playwright parity helpers
+  - named-section authoritative viewport override / restoration
+  - named-section toolbar zoom or modified-wheel zoom where Playwright drives the motion and CDP only confirms the post-state visually
+  - named-section blank-pane pan or top-level drag on a lane that already has a deterministic Playwright oracle
+  - named-section post-motion attachment/editing checks backed by one deterministic Playwright probe
+- Known-untrusted compare shapes:
+  - ad hoc CDP modified-wheel replay as the only zoom oracle
+  - ad hoc CDP drag/drop or pane-pan replay without a paired deterministic Playwright lane
+  - compare targets chosen from overview ordering, DOM order, first visible section, or page scroll
+  - reused-session stale viewport/state snapshots treated as fresh parity evidence
+- Before blaming renderer drift, run a hard preflight on both worktree and read-only `main`:
+  - expected surface kind is mounted
+  - compare pane state matches the normalized oracle state
+  - active view mode is `All Settings`
+  - the named target section exists
+  - the shared targeted `fitView(...)` path returns `true` when that lane requires it
+- If the worktree side fails that preflight, classify the slice as `worktree_unhealthy` and recover or narrow the setup before making renderer claims.
+- If the read-only `main` side fails that preflight, classify the slice as `reference_unhealthy` and refresh/restart the reference runtime before making renderer claims.
 - If the only remaining diffs are oracle-noise classes after that normalization, do not return `REPLAN_REQUIRED`; record the noise in handoff/history and continue with `SUBTASK_DONE` or a bounded non-terminal blocker plus the next normalization or graph-surface probe step.
 - Use `REPLAN_REQUIRED` only when no bounded normalization step or graph-surface-only probe can produce trustworthy evidence without a real human decision.
+- Lane budget rule: after two oracle-only or probe-only iterations on the same named lane, the next pass must either land product code on that lane or explicitly close the lane as unsupported/untrustworthy for the current tool stack. Do not spend a third pass re-proving the same setup.
 - Terminal statuses must append an explicit marker to the history file:
   - `TASK_DONE` requires `LOOP_TERMINAL_MARKER: task_done`
   - `REPLAN_REQUIRED` requires `LOOP_TERMINAL_MARKER: replan_required`
@@ -114,6 +136,7 @@ This file is the reusable loop entrypoint for this worktree.
 - Do not claim CDP visual verification when CDP access is unavailable.
 - If a rewrite phase temporarily leaves no trustworthy live CDP canary for the gate you need, mark the slice as `SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate` so the loop can keep moving while the pending visual gate stays explicit in the handoff/history.
 - For settings graph exact-fit / centering probes, prefer the shared Playwright parity helpers under `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` over one-off browser snippets so pane normalization, section lookup, targeted `fitView(...)`, and center-offset capture stay consistent across iterations.
+- When a settings parity lane uses the shared helpers, prefer `runSettingsGraphComparePreflight(...)` before the lane action so reference/runtime health is classified explicitly instead of being mistaken for renderer drift.
 
 ## Lifecycle bootstrap
 

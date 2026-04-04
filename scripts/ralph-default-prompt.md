@@ -29,7 +29,28 @@ Execution rules:
   - clear viewport to `null`
   - trigger one shared `fit view`
   - compare graph-surface-only outputs such as viewport transform, target section rects, nearby section geometry, and graph-surface screenshots
+- Treat the shared Playwright parity probe as the primary oracle for those dynamic lanes. Use Chrome DevTools MCP as the required visual confirmation layer, not as the default tool for re-driving fragile motion or wheel input from scratch.
 - If a dynamic compare needs the same subject on both sides, choose a shared section by name or id and align that section locally inside the graph surface before acting. Do not use overview ordering or whole-page scroll position as the oracle.
+- Each lane must name one canonical target section in the handoff/history. Use `findSharedVisibleSettingsGraphSection(...)` only when opening a brand-new lane; once the lane exists, keep using the same named section instead of rediscovering a target every pass.
+- Trusted parity lanes on normalized `All Settings`:
+  - shared `clear viewport -> fit view` landing on one named section via the Playwright parity helpers
+  - named-section authoritative viewport override / restoration
+  - named-section toolbar zoom or modified-wheel zoom where Playwright drives the motion and CDP only checks the post-state visually
+  - named-section blank-pane pan or top-level drag on a lane that already has a deterministic Playwright oracle
+  - named-section post-motion attachment/editing checks backed by one deterministic Playwright probe
+- Known-untrusted compare shapes:
+  - ad hoc CDP modified-wheel replay as the only zoom oracle
+  - ad hoc CDP drag/drop or pane-pan replay without a paired deterministic Playwright lane
+  - compare targets chosen from overview ordering, DOM order, first visible section, or page scroll
+  - reused-session stale viewport/state snapshots treated as fresh parity evidence
+- Before making a parity claim, run a hard preflight on both worktree and read-only `main`:
+  - expected surface kind is mounted
+  - compare pane state matches the normalized oracle state
+  - active view mode is `All Settings`
+  - the named target section exists
+  - the shared targeted `fitView(...)` path returns `true` when that lane requires it
+- If the worktree side fails preflight, classify the result as `worktree_unhealthy` and recover or narrow the setup before making renderer claims.
+- If the read-only `main` side fails preflight, classify the result as `reference_unhealthy` and refresh/restart the reference runtime before making renderer claims.
 - For UI work, do not claim visual verification without the required CDP check.
 - Treat `main` as the visual oracle for the renderer. Final acceptance for the macOS `100%` zoom canary states is `1:1` appearance versus `main`, but iteration sequencing should follow the staged visual gates instead of treating final pixel parity as the first blocker on every pass.
 - Use this staged gate ladder when deciding what to do next:
@@ -54,6 +75,8 @@ Execution rules:
 - If the code subtask is complete but the required visual/CDP gate is temporarily not trustworthy because the rewrite phase has not produced a stable live canary yet, record that state in the handoff/history and return `LOOP_STATUS: SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate`.
 - If the only remaining diffs after normalized graph-surface comparison are oracle-noise classes, do not return `REPLAN_REQUIRED`; record the noise and return `SUBTASK_DONE` with the next bounded normalization or graph-surface probe step.
 - For settings graph exact-fit / centering lanes, reuse the shared helpers in `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` for pane-state normalization, section lookup, targeted `fitView(...)`, and center-offset capture instead of rebuilding those snippets ad hoc inside the browser tool.
+- When those settings parity helpers are available, prefer `runSettingsGraphComparePreflight(...)` before the lane action so setup/runtime failures are classified explicitly instead of being mistaken for renderer drift.
+- Lane budget rule: after two oracle-only or probe-only passes on the same named lane, the next pass must either land product code on that lane or explicitly close the lane as unsupported/untrustworthy for the current tool stack. Do not spend a third pass re-proving the same setup.
 - Use `LOOP_TERMINAL_MARKER: none` for `SUBTASK_DONE` and `BLOCKED`.
 - Use `LOOP_TERMINAL_MARKER: task_done` only when the overall plan is actually complete, and append the exact line `LOOP_TERMINAL_MARKER: task_done` to the history file in the same iteration.
 - Use `LOOP_TERMINAL_MARKER: replan_required` only when the correct outcome is to stop the loop for a real human replan/review, and append the exact line `LOOP_TERMINAL_MARKER: replan_required` to the history file in the same iteration.
@@ -75,6 +98,7 @@ Handoff rules:
 - If the current micro-lane or seam-lift lane is complete but broader rewrite work remains, do not stop the Ralph loop; return `LOOP_STATUS: SUBTASK_DONE` and name the next real frontier in `LOOP_NEXT_ACTION`.
 - If the remaining "next steps" in the current lane are only more pure-forwarding seam lifts, close that lane and move to the next real blocker/frontier instead of manufacturing another slice.
 - If the remaining "next steps" in the current lane are only more harness/oracle hygiene without a concrete renderer question or bounded normalization payoff, stop for replan instead of manufacturing another support-only slice.
+- If the current lane already spent two oracle-only passes and the third pass would still only re-prove setup, close that lane as unsupported/untrustworthy or move to a different named lane instead of extending the same oracle family again.
 - Session-state ordering, overview ordering, page scroll, and other oracle-noise classes are not by themselves a real human-replan condition; prefer `SUBTASK_DONE` with the next bounded graph-surface-only oracle step.
 - If progress now depends on fixing a repeated external blocker or writing a new plan, stop and say that plainly instead of continuing the previous sequence.
 - If the blocker is recoverable by a fresh outer-loop bootstrap of the current worktree, return `LOOP_RECOVERY: restart_worktree_lifecycle` with `LOOP_STATUS: BLOCKED` so Ralph can retry automatically.

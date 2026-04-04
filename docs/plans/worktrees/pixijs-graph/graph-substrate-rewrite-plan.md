@@ -1,7 +1,7 @@
 # Graph Substrate Rewrite Plan
 
 Date: 2026-04-02
-Updated: 2026-04-03
+Updated: 2026-04-04
 Worktree: `pixijs-graph`
 Current branch: `pixijs-graph`
 Execution base: `main`
@@ -171,6 +171,8 @@ After normalization, compare only graph-surface outputs:
 - neighboring section geometry
 - graph-surface screenshots or cropped metrics
 
+The shared Playwright parity probes are the primary oracle for those normalized lanes. Chrome DevTools MCP remains a required visual confirmation layer, but it should confirm the post-state instead of being the default mechanism for replaying fragile wheel or drag input from scratch.
+
 Do not treat these as renderer evidence unless the current slice is explicitly about them:
 
 - overview ordering
@@ -180,7 +182,39 @@ Do not treat these as renderer evidence unless the current slice is explicitly a
 
 If a dynamic compare needs the same subject on both sides, pick a shared section by name or id and align that section locally inside the graph surface before acting. Do not rely on overview order or page scroll to choose the compare target.
 
+Each active lane must name one canonical target section in the handoff/history. Use `findSharedVisibleSettingsGraphSection(...)` only to bootstrap a brand-new lane when no named target has been proven yet.
+
+Trusted normalized `All Settings` parity lanes:
+
+- shared `clear viewport -> fit view` landing on one named section
+- named-section authoritative viewport override / restoration
+- named-section toolbar zoom or modified-wheel zoom where Playwright drives the motion and CDP only confirms the post-state visually
+- named-section blank-pane pan or top-level drag on a lane that already has a deterministic Playwright oracle
+- named-section post-motion attachment/editing checks backed by one deterministic Playwright probe
+
+Known-untrusted compare shapes:
+
+- ad hoc CDP modified-wheel replay as the only zoom oracle
+- ad hoc CDP drag/drop or pane-pan replay without a paired deterministic Playwright lane
+- compare targets chosen from overview ordering, DOM order, first visible section, or page scroll
+- reused-session stale viewport/state snapshots treated as fresh parity evidence
+
+Before a parity lane is allowed to claim renderer drift, both worktree and read-only `main` must pass a hard preflight:
+
+- expected surface kind is mounted
+- compare pane state matches the normalized oracle state
+- active view mode is `All Settings`
+- the named target section exists
+- the shared targeted `fitView(...)` path returns `true` when the lane requires it
+
+Classify preflight failures explicitly:
+
+- `worktree_unhealthy`: the live worktree failed preflight, so recover or narrow the setup before making renderer claims
+- `reference_unhealthy`: the read-only `main` reference failed preflight, so refresh/restart the reference runtime before making renderer claims
+
 Oracle-noise classes alone do not justify `REPLAN_REQUIRED`. The next bounded slice should either narrow the oracle further or add one non-product normalization helper that directly unblocks a renderer question.
+
+Lane budget rule: after two oracle-only or probe-only passes on the same named lane, the next pass must either land product code on that lane or close it as unsupported/untrustworthy for the current tool stack. Do not spend a third pass re-proving the same setup.
 
 ## Branching decision
 

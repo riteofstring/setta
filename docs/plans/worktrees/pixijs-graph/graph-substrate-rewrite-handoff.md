@@ -1,10 +1,43 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 16:57 EDT
+Last updated: 2026-04-04 17:09 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
 Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-completed.md`
+
+## Oracle operating rules
+
+- Primary oracle:
+  - use the shared Playwright parity probes as the primary oracle for normalized `All Settings` Gate 1 / Gate 2 lanes
+  - use Chrome DevTools MCP as the required visual confirmation layer, not as the default tool for re-driving fragile wheel/drag motion from scratch
+- Trusted lane matrix:
+  - shared `clear viewport -> fit view` landing on one named section
+  - named-section authoritative viewport override / restoration
+  - named-section toolbar zoom or modified-wheel zoom where Playwright drives the gesture and CDP only confirms the post-state visually
+  - named-section blank-pane pan or top-level drag on a lane that already has a deterministic Playwright oracle
+  - named-section post-motion attachment/editing checks backed by one deterministic Playwright probe
+- Known-untrusted compare shapes:
+  - ad hoc CDP modified-wheel replay as the only zoom oracle
+  - ad hoc CDP drag/drop or pane-pan replay without a paired deterministic Playwright lane
+  - compare targets chosen from overview ordering, DOM order, first visible section, or page scroll
+  - reused-session stale viewport/state snapshots treated as fresh parity evidence
+- Canonical targets:
+  - each active lane must name one canonical section in the handoff/history
+  - `findSharedVisibleSettingsGraphSection(...)` is only for opening a new lane when no named target has been proven yet
+- Hard preflight before parity claims:
+  - expected surface kind is mounted
+  - compare pane state matches `SETTINGS_GRAPH_COMPARE_PANE_STATE`
+  - active view mode is `All Settings`
+  - the named target section exists
+  - the shared targeted `fitView(...)` path returns `true` when that lane requires it
+- Status taxonomy:
+  - `reference_unhealthy` means read-only `main` failed preflight and must be refreshed/restarted before making renderer claims
+  - `worktree_unhealthy` means the live worktree failed preflight and must be recovered/narrowed before making renderer claims
+  - renderer drift only starts after both sides pass preflight on the same named lane
+- Lane budget:
+  - after two oracle-only or probe-only passes on the same named lane, the next pass must either land product code on that lane or close it as unsupported/untrustworthy for the current tool stack
+  - do not spend a third pass re-proving the same setup
 
 ## Current status
 
