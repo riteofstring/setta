@@ -297,6 +297,41 @@ func goJSONFieldOrderMap[T any](values map[string]T) map[string][]string {
 	return orders
 }
 
+func goJSONFieldOrderMapFromStructFields(value any) map[string][]string {
+	valueType := reflect.TypeOf(value)
+	if valueType == nil {
+		return nil
+	}
+	valueValue := reflect.ValueOf(value)
+	for valueType.Kind() == reflect.Pointer {
+		if valueValue.IsValid() && !valueValue.IsNil() {
+			valueValue = valueValue.Elem()
+		}
+		valueType = valueType.Elem()
+	}
+	if valueType.Kind() != reflect.Struct {
+		return nil
+	}
+
+	orders := make(map[string][]string, valueType.NumField())
+	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
+		field := valueType.Field(fieldIndex)
+		if !field.IsExported() || field.Anonymous {
+			continue
+		}
+		name, _, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		if valueValue.IsValid() {
+			orders[name] = goJSONFieldOrder(valueValue.Field(fieldIndex).Interface())
+			continue
+		}
+		orders[name] = goJSONFieldOrder(reflect.New(field.Type).Elem().Interface())
+	}
+	return orders
+}
+
 func goJSONFieldOrderMapAny(values map[string]any) map[string][]string {
 	orders := make(map[string][]string, len(values))
 	for key, value := range values {

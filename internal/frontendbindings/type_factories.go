@@ -11,56 +11,6 @@ import (
 	"setta/internal/settingsstate"
 )
 
-func metaControlSizingPolicyByTypeProperties() []TypeProperty {
-	return []TypeProperty{
-		{Name: "CodeCallable", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "CodeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "TextParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "DateParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "TimeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "ButtonParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "SliderParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "RotaryParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "SwitchParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "ColorPickerParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "DropdownParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "PasswordParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "TextAreaParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "DropzoneParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-		{Name: "NestedParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-	}
-}
-
-func sectionSizingPolicyByTypeProperties() []TypeProperty {
-	return []TypeProperty{
-		{Name: "Callable", TypeExpr: "SectionSizingPolicyCallableTypeEntry"},
-		{Name: "Dict", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "ListRoot", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Group", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "StateMachineStart", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "StateMachineGate", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "StateMachineEnd", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Image", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Chart", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Draw", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Prompt", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "TextBlock", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "MetaControl", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Social", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "GlobalVariables", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Code", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "GenPythonCode", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "GenPythonMetadata", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Terminal", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "IFrame", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Chat", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Browser", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Plugin", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "TaskBoard", TypeExpr: "SectionSizingPolicyTypeEntry"},
-		{Name: "Spreadsheet", TypeExpr: "SectionSizingPolicyTypeEntry"},
-	}
-}
-
 func buildTSNestedObjectMergeCreateBodyTS(
 	rootGeneric string,
 	nestedGeneric string,
@@ -124,24 +74,8 @@ func buildMetaControlSizingPolicyByTypeCreateBodyTS() string {
 			"meta control sizing policy defaults",
 			defaults,
 		),
-		orderedTypePropertyNames(metaControlSizingPolicyByTypeProperties()),
-		goJSONFieldOrderMap(map[string]projectstate.FrontendMetaControlSizingPolicyTypeEntry{
-			"CodeCallable":     defaults.CodeCallable,
-			"CodeParam":        defaults.CodeParam,
-			"TextParam":        defaults.TextParam,
-			"DateParam":        defaults.DateParam,
-			"TimeParam":        defaults.TimeParam,
-			"ButtonParam":      defaults.ButtonParam,
-			"SliderParam":      defaults.SliderParam,
-			"RotaryParam":      defaults.RotaryParam,
-			"SwitchParam":      defaults.SwitchParam,
-			"ColorPickerParam": defaults.ColorPickerParam,
-			"DropdownParam":    defaults.DropdownParam,
-			"PasswordParam":    defaults.PasswordParam,
-			"TextAreaParam":    defaults.TextAreaParam,
-			"DropzoneParam":    defaults.DropzoneParam,
-			"NestedParam":      defaults.NestedParam,
-		}),
+		goJSONFieldOrder(defaults),
+		goJSONFieldOrderMapFromStructFields(defaults),
 	)
 }
 
@@ -154,34 +88,8 @@ func buildSectionSizingPolicyByTypeCreateBodyTS() string {
 			"section sizing policy defaults",
 			defaults,
 		),
-		orderedTypePropertyNames(sectionSizingPolicyByTypeProperties()),
-		map[string][]string{
-			"Callable":          goJSONFieldOrder(defaults.Callable),
-			"Dict":              goJSONFieldOrder(defaults.Dict),
-			"ListRoot":          goJSONFieldOrder(defaults.ListRoot),
-			"Group":             goJSONFieldOrder(defaults.Group),
-			"StateMachineStart": goJSONFieldOrder(defaults.StateMachineStart),
-			"StateMachineGate":  goJSONFieldOrder(defaults.StateMachineGate),
-			"StateMachineEnd":   goJSONFieldOrder(defaults.StateMachineEnd),
-			"Image":             goJSONFieldOrder(defaults.Image),
-			"Chart":             goJSONFieldOrder(defaults.Chart),
-			"Draw":              goJSONFieldOrder(defaults.Draw),
-			"Prompt":            goJSONFieldOrder(defaults.Prompt),
-			"TextBlock":         goJSONFieldOrder(defaults.TextBlock),
-			"MetaControl":       goJSONFieldOrder(defaults.MetaControl),
-			"Social":            goJSONFieldOrder(defaults.Social),
-			"GlobalVariables":   goJSONFieldOrder(defaults.GlobalVariables),
-			"Code":              goJSONFieldOrder(defaults.Code),
-			"GenPythonCode":     goJSONFieldOrder(defaults.GenPythonCode),
-			"GenPythonMetadata": goJSONFieldOrder(defaults.GenPythonMetadata),
-			"Terminal":          goJSONFieldOrder(defaults.Terminal),
-			"IFrame":            goJSONFieldOrder(defaults.IFrame),
-			"Chat":              goJSONFieldOrder(defaults.Chat),
-			"Browser":           goJSONFieldOrder(defaults.Browser),
-			"Plugin":            goJSONFieldOrder(defaults.Plugin),
-			"TaskBoard":         goJSONFieldOrder(defaults.TaskBoard),
-			"Spreadsheet":       goJSONFieldOrder(defaults.Spreadsheet),
-		},
+		goJSONFieldOrder(defaults),
+		goJSONFieldOrderMapFromStructFields(defaults),
 	)
 }
 
