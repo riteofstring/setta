@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 21:24 EDT
+Last updated: 2026-04-03 21:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,23 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `078` closed the live `spreadsheetSectionDefault` body-input pan/zoom compare lane with fresh CDP evidence; no worktree-only renderer or interaction bug survived the normalized compare.
+  - Why this slice was needed:
+    - after items `076` and `077`, the next valid step on the spreadsheet lane was no longer another guard tweak; it was to decide whether the normalized body-input compare still exposed a real canary-only defect or could be retired as oracle noise
+    - the `drawSectionDefault` top-level drag lane still suffers from untrustworthy CDP mouse-drop completion, so the spreadsheet body-input lane remained the narrowest body-heavy compare that CDP could finish end-to-end without inventing a new harness path
+  - Production/test change:
+    - none; this slice intentionally changed no production or test code because the bounded goal was to close or reopen the spreadsheet lane with fresh live evidence
+  - Automated result:
+    - none; no code changed on this pass
+  - Live verification result:
+    - fresh-context CDP sub-agent bootstrapped worktree `3076` and read-only `main` `3087` on `/settings`
+    - `main` showed `spreadsheetSectionDefault` selected and widened, with the body controls anchored and visible (`activeSheet`, `Density`, `filePath`, `Show Row Numbers`, plus the section `Filter` input)
+    - on the worktree, the closest CDP-only normalized state (`fit view` plus one `zoom in` pulse) kept the graph substrate, minimap, and tiny section stack anchored in place; no body/input detachment or renderer tear appeared
+    - the remaining delta was overview/session chrome state (`main` kept the overview sidebar visible while the worktree did not), which was treated as oracle noise rather than graph-surface evidence
+    - CDP visual check: done (fresh-page worktree vs `main` spreadsheet lane compare on `/settings`, using fit-view + zoom-in normalization)
+  - conclusion for this slice:
+    - close the spreadsheet body-input pan/zoom compare lane for now; do not reopen it unless a future compare shows the real filter/body handoff disappearing or detaching
+    - the next frontier should be another normalized non-drag dynamic compare that CDP can complete end-to-end, preferably the widened `drawSectionDefault` pane-pan lane or another shared named section, not more spreadsheet-lane harness work
 - Ralph item `077` normalized the `spreadsheetSectionDefault` body-search pan/zoom guard onto the named body-heavy section and closed the placeholder-driven stale-active-state mismatch that surfaced on the first rerun.
   - Why this slice was needed:
     - after item `076`, the next bounded frontier was one different trustworthy dynamic compare on normalized `All Settings`, and the existing body-search pan/zoom guard was the narrowest body-heavy motion lane that could be rerun without CDP mouse-drop ambiguity

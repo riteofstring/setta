@@ -2646,3 +2646,23 @@ LOOP_TERMINAL_MARKER: none
   - do not reopen this lane with placeholder-specific assertions unless a future compare shows the actual filter input disappearing or detaching
 - Next frontier: return to the normalized live dynamic compare and pick the first remaining graph-surface artifact that survives cleared selection state, using the real spreadsheet filter/body anchor instead of placeholder text if this body-heavy lane is revisited.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 21:29 EDT - Ralph item 078
+
+- Closed the live `spreadsheetSectionDefault` body-input pan/zoom compare lane with fresh CDP evidence; no worktree-only renderer or interaction artifact was confirmed after the normalized compare.
+- Why this slice was necessary:
+  - after item `077`, the spreadsheet lane had already been normalized onto the named body-heavy section, so the next valid step was to decide whether a real canary-only defect still survived that cleanup or whether the lane could be retired as oracle noise
+  - the `drawSectionDefault` top-level drag lane still cannot be judged safely from direct CDP mouse-drop attempts, so the spreadsheet body-input lane was the narrowest body-heavy compare that CDP could complete end-to-end
+- Production/test changes:
+  - none; this slice intentionally changed no production or test code because the bounded goal was to close or reopen the spreadsheet lane with fresh live evidence
+- Verification:
+  - fresh-context CDP sub-agent live compare:
+    - result: completed on worktree `3076` versus read-only `main` `3087`
+    - `main` showed `spreadsheetSectionDefault` selected and widened with anchored body controls and the section `Filter` input visible (`activeSheet`, `Density`, `filePath`, `Show Row Numbers`)
+    - on the worktree, the closest CDP-only normalized state (`fit view` plus one `zoom in` pulse) kept the graph substrate, minimap, and tiny section stack anchored; no body/input detachment or renderer tear appeared
+    - the remaining difference was overview/session chrome state (`main` kept the overview sidebar open while the worktree did not), which was treated as oracle noise rather than graph-surface evidence
+    - CDP visual check: done (fresh-page worktree vs `main` spreadsheet lane compare on `/settings`, using fit-view + zoom-in normalization)
+- Lane status:
+  - close the spreadsheet body-input pan/zoom compare lane for now
+  - do not reopen it unless a future compare shows the real filter/body handoff disappearing or detaching
+- Next frontier: move to another normalized non-drag dynamic compare that CDP can complete end-to-end, preferably the widened `drawSectionDefault` pane-pan lane or another shared named section under the graph-surface-only oracle.
+- LOOP_TERMINAL_MARKER: none
