@@ -2495,3 +2495,32 @@ LOOP_TERMINAL_MARKER: none
   - the live websocket `SecurityError: line too long` blocker is still open; this slice only removed a harness mismatch and did not change the runtime cross-namespace/shared-browser behavior
 - Next frontier: return to the live cross-namespace auth-cookie/websocket blocker and choose one bounded runtime fix or measurement step instead of another support-only cleanup pass.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 20:19 EDT - Ralph item 073
+
+- Cleared stale loopback Setta auth cookies from the dedicated DevTools browser profile before Chrome bootstrap, which restored a clean worktree websocket handshake on the live restarted runtime.
+- Why this slice was necessary:
+  - inspecting the real worktree DevTools profile showed the worktree already had its own dedicated profile, so the remaining blocker was no longer accurately described as purely “shared with main”
+  - the active profile at `/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-profile/Default/Cookies` still contained dozens of loopback auth cookies under legacy names such as `setta_auth_setta.pixijs-graph_*` and `setta_auth_setta_*`, which were enough to keep the handshake lane dirty even after the backend auth cleanup slices
+- Production/test changes:
+  - added `scripts/lib/clear_devtools_profile_auth_cookies.py`, a stdlib-only helper that deletes loopback `setta_auth*` cookies from a dedicated Chrome user-data-dir
+  - wired `scripts/start-browser-mcp.sh` to run that helper before launching Chrome so each DevTools lifecycle starts from a clean Setta auth-cookie slate
+  - added `tests/start/test_devtools_profile_auth_cleanup.py` to prove the helper removes only loopback Setta auth cookies and safely no-ops when the cookie DB is missing
+- Verification:
+  - `source activate.sh && pytest tests/start/test_devtools_profile_auth_cleanup.py`
+    - result: passed (`2 passed`, about `0.21s`)
+  - `bash -n scripts/start-browser-mcp.sh`
+    - result: passed
+  - live runtime verification:
+    - restarted with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - fresh runtime moved to frontend `3077`, backend `8077`, session `121957`
+    - launcher output reported `Removed 71 loopback Setta auth cookies from /tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-profile`
+    - direct sqlite check on that real `/tmp` profile returned `0` remaining loopback cookies
+    - fresh-context CDP verification then bootstrapped the worktree runtime and observed:
+      - `http://127.0.0.1:3077/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8077` -> `http://127.0.0.1:3077/settings`
+      - websocket `ws://127.0.0.1:8077/api/frontend` completed with `101 Switching Protocols`
+      - no corresponding websocket `Network.loadingFailed`
+- Lane status:
+  - the worktree-side websocket `SecurityError: line too long` blocker is closed for the dedicated DevTools lifecycle path used by Ralph
+  - this slice did not reopen the normalized `All Settings` compare yet; the default settings-page probe still lacked `[data-testid="graph-substrate-canary"]`, so the compare lane still needs explicit `All Settings` normalization
+- Next frontier: use the same cleanup helper manually against the read-only `main` reference DevTools profile, then rerun the normalized `All Settings` graph-surface compare instead of reopening the worktree auth lane.
+- LOOP_TERMINAL_MARKER: none

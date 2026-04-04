@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 20:06 EDT
+Last updated: 2026-04-03 20:19 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `073` cleared the worktree DevTools-profile auth-cookie buildup before Chrome bootstrap, which restored a clean worktree websocket handshake instead of extending the backend auth-prune lane again.
+  - Why this slice was needed:
+    - fresh inspection of the dedicated worktree browser profile showed the remaining websocket blocker was still live inside the profile itself, not just in backend request handling
+    - the active worktree DevTools profile at `/tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-profile/Default/Cookies` still held dozens of loopback auth cookies under legacy names such as `setta_auth_setta.pixijs-graph_*` and `setta_auth_setta_*`
+    - that meant the earlier “shared profile with main” framing was no longer precise enough for the worktree side: the worktree already has its own dedicated profile, but that profile had inherited stale loopback cookies from older launch patterns
+  - Production/test change:
+    - added `scripts/lib/clear_devtools_profile_auth_cookies.py`, a small stdlib-only helper that deletes loopback `setta_auth*` cookies from a dedicated Chrome user-data-dir before bootstrap
+    - `scripts/start-browser-mcp.sh` now runs that helper immediately after creating the profile dir and before launching Chrome, so each fresh DevTools lifecycle starts from a clean Setta auth-cookie slate
+    - added `tests/start/test_devtools_profile_auth_cleanup.py` to prove the helper removes only loopback Setta auth cookies while preserving unrelated cookies and no-ops cleanly when the cookie DB does not exist yet
+  - Automated result:
+    - `source activate.sh && pytest tests/start/test_devtools_profile_auth_cleanup.py`
+      - result: passed (`2 passed`, about `0.21s`)
+    - `bash -n scripts/start-browser-mcp.sh`
+      - result: passed
+  - Live verification result:
+    - restarted the worktree lifecycle with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - fresh runtime: frontend `3077`, backend `8077`, session `121957`
+      - launcher output reported `Removed 71 loopback Setta auth cookies from /tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-profile`
+    - direct sqlite check on the real restarted profile path returned no remaining loopback cookies:
+      - `sqlite3 /tmp/setta-mcp/setta.pixijs-graph-d589c75eb0b9/devtools-profile/Default/Cookies "select count(*) ..."` -> `0`
+    - fresh-context CDP sub-agent bootstrapped the worktree runtime and verified:
+      - page flow: `http://127.0.0.1:3077/?__setta_backend_origin=http%3A%2F%2F127.0.0.1%3A8077` -> `http://127.0.0.1:3077/settings`
+      - websocket `ws://127.0.0.1:8077/api/frontend` completed with `101 Switching Protocols`
+      - no matching `Network.loadingFailed` appeared for that websocket
+      - `[data-testid="graph-substrate-canary"]` was absent on the default settings page in that probe, so this slice did not resume the normalized `All Settings` compare yet
+  - conclusion for this slice:
+    - the worktree-side websocket `SecurityError: line too long` blocker is closed for the dedicated DevTools lifecycle path used by Ralph
+    - the remaining compare blocker is now reference-side/oracle-side again, not another worktree auth-cookie namespace change
+  - next iteration should use the same cleanup helper manually against the read-only `main` reference DevTools profile, then rerun the normalized `All Settings` graph-surface compare instead of reopening this worktree auth lane
 - Ralph item `072` removed the leftover legacy auth-cookie namespace override from the Playwright E2E runner so the auth-lane harness now follows the same workspace-derived default path as the live runtime.
   - Why this slice was needed:
     - after items `070` and `071`, `scripts/run-playwright-e2e.sh` still exported `SETTA_AUTH_COOKIE_NAME=setta_auth_${INSTANCE_NAME}`, so Playwright coverage was still pinned to the removed legacy namespace even though the live `ai` and dev-instance launchers had already moved back to `resolve_setta_paths(...)`

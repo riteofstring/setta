@@ -108,6 +108,18 @@ resolve_python_bin() {
   return 1
 }
 
+clear_devtools_profile_auth_cookies() {
+  local profile_dir="$1"
+  local python_bin=""
+  python_bin="$(resolve_python_bin || true)"
+  if [[ -z "${python_bin}" ]]; then
+    return 0
+  fi
+  "${python_bin}" \
+    "${SCRIPT_DIR}/lib/clear_devtools_profile_auth_cookies.py" \
+    --profile-dir "${profile_dir}"
+}
+
 write_pid() {
   mkdir -p "$MCP_RUN_DIR"
   printf "%s\n" "$2" > "$1"
@@ -503,6 +515,7 @@ if command -v lsof >/dev/null 2>&1; then
 fi
 
 mkdir -p "$PROFILE_DIR"
+clear_devtools_profile_auth_cookies "$PROFILE_DIR"
 
 BACKGROUND_CHROME_ARGS=(
   --remote-debugging-port="$DEBUG_PORT"
