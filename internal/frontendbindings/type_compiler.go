@@ -93,7 +93,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		}
 		return fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr), nil
 	case reflect.Struct:
-		properties, err := c.structProperties(t, nil)
+		properties, err := c.structProperties(t, nil, nil)
 		if err != nil {
 			return "", err
 		}
@@ -170,7 +170,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 
 	switch t.Kind() {
 	case reflect.Struct:
-		properties, err := c.structProperties(t, nil)
+		properties, err := c.structProperties(t, nil, nil)
 		if err != nil {
 			return err
 		}
@@ -248,7 +248,11 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	t reflect.Type,
 	spec reflectedObjectDeclarationSpec,
 ) (TypeDeclaration, error) {
-	properties, err := c.structProperties(t, spec.PropertyTypeExprOverrides)
+	properties, err := c.structProperties(
+		t,
+		spec.PropertyTypeExprOverrides,
+		spec.PropertyOptionalOverrides,
+	)
 	if err != nil {
 		return TypeDeclaration{}, err
 	}
@@ -275,7 +279,8 @@ func (c *typeConverter) reflectedObjectDeclaration(
 
 func (c *typeConverter) structProperties(
 	t reflect.Type,
-	overrides map[string]string,
+	typeExprOverrides map[string]string,
+	optionalOverrides map[string]bool,
 ) ([]TypeProperty, error) {
 	properties := make([]TypeProperty, 0, t.NumField())
 	for i := range t.NumField() {
@@ -288,8 +293,8 @@ func (c *typeConverter) structProperties(
 			continue
 		}
 		typeExprOverride := ""
-		if overrides != nil {
-			typeExprOverride = overrides[name]
+		if typeExprOverrides != nil {
+			typeExprOverride = typeExprOverrides[name]
 		}
 		typeExpr := typeExprOverride
 		if typeExpr == "" {
@@ -297,6 +302,11 @@ func (c *typeConverter) structProperties(
 			typeExpr, err = c.renderTypeExpr(field.Type)
 			if err != nil {
 				return nil, fmt.Errorf("%s.%s: %w", t.Name(), field.Name, err)
+			}
+		}
+		if optionalOverrides != nil {
+			if override, ok := optionalOverrides[name]; ok {
+				optional = override
 			}
 		}
 		properties = append(properties, TypeProperty{

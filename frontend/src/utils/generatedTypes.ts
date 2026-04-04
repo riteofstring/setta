@@ -503,62 +503,21 @@ export type DeleteEngineConfigRequestInput = {
   configId: string;
 };
 
+export type AgentProfile = {
+  id: string;
+  name: string;
+  description: string;
+  systemPrompt: string;
+  enableBackgroundSummaryFill: boolean;
+  enableLlmChatTitles: boolean;
+  engineConfigId?: string | null;
+  toolAllowlist: Array<string>;
+  memoryScope?: string | null;
+};
+
 export type UpdateAgentProfileRequestInput = {
   profile: AgentProfile;
 };
-
-export type UpdateEngineConfigRequestInput = {
-  config: EngineConfig;
-};
-
-export type CreateTranscriptionProfileRequestInput = {
-  name: string;
-  transcriptionLlmConfigId: string;
-  transportMode: TranscriptionTransportMode;
-  chunkMs: number;
-  language?: string | null;
-};
-
-export type UpdateTranscriptionProfileRequestInput = {
-  profile: TranscriptionProfile;
-};
-
-export type SetChatSectionStateRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  state: ChatSectionState;
-};
-
-export type GetChatSectionChatIDResponse = string;
-
-export type GetLLMChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  llmConfig?: LLMConfig | null;
-  contextUsage?: ChatContextUsage | null;
-};
-
-export type ExternalAgentChatResponse = {
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  contextUsage?: ChatContextUsage | null;
-};
-
-type EngineRuntimeSupport = {
-  thinking: boolean;
-};
-function createEngineRuntimeSupport(
-  options: Partial<EngineRuntimeSupport> = {},
-): EngineRuntimeSupport {
-  return mergeGeneratedOptions(
-    {
-      thinking: false,
-    },
-    options,
-  );
-}
 
 export type EngineConfig = {
   id: string;
@@ -600,19 +559,9 @@ export function createEngineConfig(
   };
 }
 
-export type AgentProfile = {
-  id: string;
-  name: string;
-  description: string;
-  systemPrompt: string;
-  enableBackgroundSummaryFill: boolean;
-  enableLlmChatTitles: boolean;
-  engineConfigId?: string | null;
-  toolAllowlist: Array<string>;
-  memoryScope?: string | null;
+export type UpdateEngineConfigRequestInput = {
+  config: EngineConfig;
 };
-
-export type AgentProfileList = Array<AgentProfile>;
 
 export const TranscriptionTransportModeEnum = {
   auto: "auto",
@@ -623,6 +572,14 @@ type TranscriptionTransportMode = ObjectValues<
   typeof TranscriptionTransportModeEnum
 >;
 
+export type CreateTranscriptionProfileRequestInput = {
+  name: string;
+  transcriptionLlmConfigId: string;
+  transportMode: TranscriptionTransportMode;
+  chunkMs: number;
+  language?: string | null;
+};
+
 export type TranscriptionProfile = {
   id: string;
   name: string;
@@ -632,6 +589,58 @@ export type TranscriptionProfile = {
   supportsRealtimeTranscription: boolean;
   language?: string | null;
 };
+
+export type UpdateTranscriptionProfileRequestInput = {
+  profile: TranscriptionProfile;
+};
+
+export type ChatSectionState = {
+  messages: Array<BaseChatMessageUnion>;
+  inputText: string;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  activeBranchId?: string | null;
+  branches: Record<string, ChatSectionBranch>;
+};
+
+export type SetChatSectionStateRequestInput = {
+  frontendOpId?: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  state: ChatSectionState;
+};
+
+export type GetChatSectionChatIDResponse = string;
+
+export type GetLLMChatResponse = {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  llmConfig?: LLMConfig | null;
+  contextUsage?: ChatContextUsage | null;
+};
+
+export type ExternalAgentChatResponse = {
+  messages: Array<BaseChatMessageUnion>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  contextUsage?: ChatContextUsage | null;
+};
+
+type EngineRuntimeSupport = {
+  thinking: boolean;
+};
+function createEngineRuntimeSupport(
+  options: Partial<EngineRuntimeSupport> = {},
+): EngineRuntimeSupport {
+  return mergeGeneratedOptions(
+    {
+      thinking: false,
+    },
+    options,
+  );
+}
+
+export type AgentProfileList = Array<AgentProfile>;
 
 export type TranscriptionProfileList = Array<TranscriptionProfile>;
 
@@ -5363,6 +5372,15 @@ export type SetChatSectionSettingsRequestInput = {
   dictationMode: ChatDictationMode;
 };
 
+export const StateMachineGateTypeEnum = {
+  AND: "AND",
+  OR: "OR",
+  XOR: "XOR",
+} as const;
+export type StateMachineGateType = ObjectValues<
+  typeof StateMachineGateTypeEnum
+>;
+
 export type SetStateMachineSectionSettingsRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -5744,15 +5762,6 @@ export const TaskBoardRecurringMonthEnum = {
 } as const;
 export type TaskBoardRecurringMonth = ObjectValues<
   typeof TaskBoardRecurringMonthEnum
->;
-
-export const StateMachineGateTypeEnum = {
-  AND: "AND",
-  OR: "OR",
-  XOR: "XOR",
-} as const;
-export type StateMachineGateType = ObjectValues<
-  typeof StateMachineGateTypeEnum
 >;
 
 const StateMachineTargetActionTypeEnum = {
@@ -6281,15 +6290,6 @@ export type ChatSectionBranch = {
   createdAt: number;
   parentBranchId?: string | null;
   branchFromMessageId?: string | null;
-};
-
-export type ChatSectionState = {
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId?: string | null;
-  branches: Record<string, ChatSectionBranch>;
 };
 
 type UserDefaultChatSectionImpl = {

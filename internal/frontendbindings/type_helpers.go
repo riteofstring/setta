@@ -1567,6 +1567,7 @@ type reflectedObjectDeclarationSpec struct {
 	HasCreateExpr             bool
 	CreateExprOverrides       map[string]string
 	PropertyTypeExprOverrides map[string]string
+	PropertyOptionalOverrides map[string]bool
 }
 
 func specialTypeDeclaration(
@@ -1758,6 +1759,19 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			DefaultValue:  agentruns.EngineRuntimeSupport{},
 			HasCreateExpr: true,
 		}, true
+	case reflect.TypeOf(AgentProfile{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyOptionalOverrides: map[string]bool{
+				"engineConfigId": true,
+				"memoryScope":    true,
+			},
+		}, true
+	case reflect.TypeOf(TranscriptionProfile{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyOptionalOverrides: map[string]bool{
+				"language": true,
+			},
+		}, true
 	case reflect.TypeOf(RunEvent{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  agentruns.FrontendDefaultRunEvent(),
@@ -1806,6 +1820,19 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectstate.FrontendDefaultTaskBoardColumn(),
 			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(SetChatSectionStateRequestInput{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyOptionalOverrides: map[string]bool{
+				"frontendOpId": true,
+			},
+		}, true
+	case reflect.TypeOf(SetStateMachineSectionSettingsRequestInput{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyOptionalOverrides: map[string]bool{
+				"frontendOpId": true,
+				"gateType":     true,
+			},
 		}, true
 	case reflect.TypeOf(LineChartSettings{}):
 		return reflectedObjectDeclarationSpec{
