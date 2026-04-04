@@ -1,31 +1,66 @@
+import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
 import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
-import type { ZustandProjectState } from "state/definitions";
-import { route_set_view_mode_sort_order } from "utils/generatedEndpoints";
+import { useProjectState, type ZustandProjectState } from "state/definitions";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import {
+  route_delete_view_mode,
+  route_set_view_mode_sort_order,
+} from "utils/generatedEndpoints";
+import { createProjectConfig } from "utils/generatedTypes";
 
-export function applyViewModeSortOrder(
-  state: ZustandProjectState,
-  orderedViewModeIds: Array<string>,
-): void {
-  const viewModes = state.projectConfig.viewModes;
-  if (orderedViewModeIds.length !== Object.keys(viewModes).length) {
-    throw new Error(
-      "orderedViewModeIds must include every view mode exactly once.",
-    );
-  }
+type ProjectConfigMutationPayload = {
+  projectConfig: ZustandProjectState["projectConfig"];
+};
 
-  const seen = new Set<string>();
-  for (const viewModeId of orderedViewModeIds) {
-    if (!(viewModeId in viewModes)) {
-      throw new Error(`View mode ${viewModeId} not found.`);
-    }
-    if (seen.has(viewModeId)) {
-      throw new Error("orderedViewModeIds contains duplicates.");
-    }
-    seen.add(viewModeId);
-  }
+type ProjectConfigMutationRouteResponse =
+  ResponseDataAndStatus<ProjectConfigMutationPayload>;
 
-  orderedViewModeIds.forEach((viewModeId, index) => {
-    viewModes[viewModeId].sortIndex = index;
+function dispatchOptimisticViewModeMutation({
+  apply,
+  projectConfigId,
+  send,
+}: {
+  apply: (state: ZustandProjectState) => void;
+  projectConfigId: string;
+  send: (args: {
+    frontendOpId: string;
+    projectConfigId: string;
+  }) =>
+    | ProjectConfigMutationRouteResponse
+    | Promise<ProjectConfigMutationRouteResponse>;
+}) {
+  const previousProjectConfig = createProjectConfig(
+    useProjectState.getState().projectConfig,
+  );
+  let acknowledgedProjectConfig: ZustandProjectState["projectConfig"] | null =
+    null;
+  dispatchOptimisticProjectStateUpdate({
+    projectConfigId,
+    apply,
+    reapply: (state) => {
+      if (acknowledgedProjectConfig) {
+        state.projectConfig = acknowledgedProjectConfig;
+        return;
+      }
+      apply(state);
+    },
+    rollback: (state) => {
+      state.projectConfig = createProjectConfig(previousProjectConfig);
+    },
+    send: async (frontendOpId) => {
+      const response = await send({
+        frontendOpId,
+        projectConfigId,
+      });
+      if (res200(response)) {
+        acknowledgedProjectConfig = response.data.projectConfig;
+        publishProjectConfigSnapshot(
+          projectConfigId,
+          response.data.projectConfig,
+        );
+      }
+      return response;
+    },
   });
 }
 
@@ -33,14 +68,29 @@ export function persistViewModeSortOrder(
   projectConfigId: string,
   orderedViewModeIds: Array<string>,
 ): void {
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      applyViewModeSortOrder(state, orderedViewModeIds);
-    },
-    send: (frontendOpId) =>
+  dispatchOptimisticViewModeMutation({
+    apply: () => {},
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
       route_set_view_mode_sort_order({
-        projectConfigId,
+        projectConfigId: nextProjectConfigId,
         orderedViewModeIds,
+        frontendOpId,
+      }),
+  });
+}
+
+export function deleteViewMode(
+  projectConfigId: string,
+  viewModeId: string,
+): void {
+  dispatchOptimisticViewModeMutation({
+    apply: () => {},
+    projectConfigId,
+    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
+      route_delete_view_mode({
+        projectConfigId: nextProjectConfigId,
+        viewModeId,
         frontendOpId,
       }),
   });
