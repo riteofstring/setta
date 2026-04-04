@@ -38,7 +38,13 @@ export function fitView(options: InternalFitViewOptions = {}) {
     options.initial && !fitViewOnInitDone && fitViewOnInit;
   const d3initialized = d3Zoom && d3Selection;
 
-  if (d3initialized && (isInitialFitView || !options.initial)) {
+  if (!d3initialized) {
+    return (
+      useReactFlow.getState().viewportController?.fitView(options) ?? false
+    );
+  }
+
+  if (isInitialFitView || !options.initial) {
     const nodes = getNodes().filter((n) => {
       if (options.nodes?.length) {
         return options.nodes.some((optionNode) => optionNode.id === n.id);
@@ -80,11 +86,15 @@ export function fitView(options: InternalFitViewOptions = {}) {
 }
 
 export function onFitViewHandler() {
-  if (useReactFlow.getState().fitViewOnInit) {
+  const { fitViewOnInit, viewportController } = useReactFlow.getState();
+  if (fitViewOnInit && !viewportController) {
     return;
   }
   const duration = useSettings.getState().gui.transitionDuration;
-  fitView({ duration });
+  const didFit = fitView({ duration });
+  if (!didFit) {
+    return;
+  }
   // Hack to set fitViewOnInit after transform is done.
   // If it gets set before the transform is done, then the
   // reactFitViewOnInitSubscriptionFn subscription will get
