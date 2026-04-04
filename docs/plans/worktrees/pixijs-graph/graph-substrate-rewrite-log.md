@@ -2205,3 +2205,44 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: no worktree-only renderer or layout artifact appeared on this bounded `spreadsheetSectionDefault` state-backed move lane; keep the claim narrow and do not treat it as a physical mouse-drag oracle.
 - Next frontier: move to a different trustworthy interaction or motion lane, preferably one that exercises a user-driven live interaction instead of another backend-state move on the same section.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 18:25 EDT - Ralph item 063
+
+- Closed one different user-driven `spreadsheetSectionDefault` drag lane by adding a widened top-level drag guard, then rechecking the widened fit state live after the one allowed lifecycle recovery.
+- `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag`.
+- The new Playwright lane:
+  - normalizes to active `All Settings`
+  - closes overview and UI editor panes
+  - resolves `spreadsheetSectionDefault` by authoritative project-state section name
+  - widens that section through the shared `fitView({ nodes: [{ id }], padding: 0.1 })` path
+  - drives the real top-level drag mouse path
+  - asserts the spreadsheet body anchor stays locked to the same widened section shell during motion
+  - asserts the top-level layout persists after the drop
+- Verification:
+  - Playwright
+    - command: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag'`
+    - result: passed (`1 passed`, about `24.2s`)
+  - Prettier
+    - command: `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - CDP visual check
+    - result: done after recovery
+    - note:
+      - the first fresh-context CDP sub-agent hit a stale runtime blocker on the old worktree `3075` tab (`Runtime.enable` never returned)
+      - used the one allowed self-recovery: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - recovered worktree session moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, session `32b22e`
+      - a fresh-context retry then confirmed the restarted `3077` worktree session and the read-only `3087` reference session were both reachable
+      - both sides were normalized through production state/actions to active `All Settings`, `overviewVis=false`, `uiEditorVis=false`, and cleared active selection
+      - authoritative runtime ids resolved by project-state name:
+        - worktree `spreadsheetSectionDefault`: `1e14b979-fe71-4819-9801-3e16b4e12885`
+        - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+      - shared targeted-fit path on both sides:
+        - `fitView({ nodes: [{ id }], padding: 0.1 })`
+        - worktree post-fit viewport `translate(405.651px, -5446.9px) scale(1.13895)` with section rect `{ x: 405.651, y: 56.046, width: 628.698, height: 400.909 }`
+        - `main` post-fit viewport `translate(498.481px, -5446.9px) scale(1.13895)` with section rect `{ x: 553.151, y: 56.046, width: 628.698, height: 400.909 }`
+      - screenshot evidence:
+        - `/tmp/setta-3077-production-fit-final.png`
+        - `/tmp/setta-3087-production-fit.png`
+      - visible quality check: both widened spreadsheet sections looked clean after fit; no worktree-only blank/detached artifact appeared, and the small dark rectangle on the canvas was present on both surfaces
+- Lane status: the widened `spreadsheetSectionDefault` top-level drag lane is now closed with targeted automated proof plus a live post-recovery graph-surface fit gate; do not reopen this exact spreadsheet drag lane unless a later regression appears.
+- Next frontier: move to one different user-driven interaction or motion lane on a different named section, or isolate the first remaining canary-only artifact if a fresh normalized compare exposes one.
+- LOOP_TERMINAL_MARKER: none

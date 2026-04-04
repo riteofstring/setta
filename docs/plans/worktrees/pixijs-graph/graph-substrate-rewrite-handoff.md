@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 18:03 EDT
+Last updated: 2026-04-03 18:25 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `063` closed one different user-driven `spreadsheetSectionDefault` drag lane by adding targeted automated proof for the widened top-level drag path, then rechecking the widened fit state live after the allowed lifecycle recovery.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag`.
+    - the new case reuses the existing named-section drag/body-anchor helpers, normalizes to active `All Settings`, closes overview and UI editor panes, widens `spreadsheetSectionDefault` through `fitView({ nodes: [{ id }], padding: 0.1 })`, drives the real Playwright mouse drag path, and asserts both:
+      - the spreadsheet body anchor stays locked to the same widened section shell during motion
+      - the top-level layout persists after the drop
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag'` passed (`1 passed`, about `24.2s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` passed
+    - what it proves now:
+      - the widened spreadsheet card can use the true top-level drag path in the isolated canary runtime without body/shell detachment
+  - Live verification result:
+    - a first fresh-context CDP sub-agent hit a stale-tab runtime blocker on the old worktree session (`Runtime.enable` on the `3075` tab never returned), so this iteration used the one allowed lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, session `32b22e`
+    - after the restart, a second fresh-context CDP sub-agent confirmed the restarted `3077` session was reachable, then normalized both worktree `http://127.0.0.1:3077/settings` and read-only `main` `http://127.0.0.1:3087/settings` through production state/actions:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active selection cleared in production state
+    - authoritative runtime ids resolved by project-state name:
+      - worktree `spreadsheetSectionDefault`: `1e14b979-fe71-4819-9801-3e16b4e12885`
+      - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - shared targeted-fit path on both sides:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })`
+      - worktree post-fit viewport `translate(405.651px, -5446.9px) scale(1.13895)` and section rect `{ x: 405.651, y: 56.046, width: 628.698, height: 400.909 }`
+      - `main` post-fit viewport `translate(498.481px, -5446.9px) scale(1.13895)` and section rect `{ x: 553.151, y: 56.046, width: 628.698, height: 400.909 }`
+    - screenshot evidence:
+      - `/tmp/setta-3077-production-fit-final.png`
+      - `/tmp/setta-3087-production-fit.png`
+    - interpretation:
+      - CDP is healthy again after the bounded restart
+      - the widened spreadsheet section looks visibly clean on both surfaces after the shared targeted-fit normalizer
+      - no worktree-only blank/detached artifact appeared on this lane; the small dark rectangle visible on the canvas showed up on both surfaces, so it is oracle noise rather than a canary-only defect
+  - conclusion for this slice:
+    - the widened `spreadsheetSectionDefault` top-level drag lane is now closed with targeted Playwright coverage plus a live post-recovery graph-surface fit gate
+    - do not reopen this exact spreadsheet drag lane unless a later regression appears
+    - the stale `3075` runtime hang was a lifecycle issue, not a product blocker; future iterations can treat `3077/8077` as the current recovered worktree session for this pass
+    - the next real frontier should move to one different user-driven interaction or motion lane on a different named section, or isolate the first remaining canary-only artifact if a fresh compare shows one
 - Ralph item `062` closed one different normalized `spreadsheetSectionDefault` motion lane with a shared state-backed top-level move after authoritative targeted fit, instead of reopening `drawSectionDefault` overlap churn or adding another helper-only test.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code

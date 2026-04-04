@@ -2273,6 +2273,197 @@ test("settings graph substrate canary keeps a widened body-heavy section attache
   }
 });
 
+test("settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const spreadsheetSectionId = findSectionIdByName(
+    initialState,
+    "spreadsheetSectionDefault",
+  );
+  const spreadsheetSectionLayout =
+    initialState.projectState.projectConfig.topLevelSections[
+      spreadsheetSectionId
+    ];
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  if (!spreadsheetSectionLayout) {
+    throw new Error("Missing spreadsheetSectionDefault top-level layout.");
+  }
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const targetSection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${spreadsheetSectionId}"]`,
+    );
+    await expect(canaryPane).toBeVisible();
+    await expect(targetSection).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitGraphViewportToSection(page, spreadsheetSectionId)).toBe(
+      true,
+    );
+
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          spreadsheetSectionId,
+        );
+        return targetBox?.width ?? 0;
+      })
+      .toBeGreaterThan(500);
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          spreadsheetSectionId,
+        );
+        return targetBox?.height ?? 0;
+      })
+      .toBeGreaterThan(300);
+
+    const initialSectionBox = await getCanarySectionBoundingBox(
+      page,
+      spreadsheetSectionId,
+    );
+    const initialBodyAnchorOffset = await getCanarySectionBodyAnchorOffset(
+      page,
+      spreadsheetSectionId,
+    );
+    if (!initialSectionBox || !initialBodyAnchorOffset) {
+      throw new Error(
+        "Missing widened spreadsheet section bounds or body anchor before drag.",
+      );
+    }
+
+    const dragTarget = await findDraggableCanarySection(
+      page,
+      spreadsheetSectionId,
+    );
+    await page.mouse.move(dragTarget.point.x, dragTarget.point.y);
+    await page.mouse.down();
+    await expect(targetSection).toHaveAttribute("data-dragging", "true");
+    await page.mouse.move(dragTarget.point.x + 180, dragTarget.point.y + 110, {
+      steps: 10,
+    });
+
+    await expect
+      .poll(async () => {
+        const movedBox = await getCanarySectionBoundingBox(
+          page,
+          spreadsheetSectionId,
+        );
+        if (!movedBox) {
+          return 0;
+        }
+        return Math.hypot(
+          movedBox.x - initialSectionBox.x,
+          movedBox.y - initialSectionBox.y,
+        );
+      })
+      .toBeGreaterThan(80);
+    await expect
+      .poll(async () => {
+        const latestBodyAnchorOffset = await getCanarySectionBodyAnchorOffset(
+          page,
+          spreadsheetSectionId,
+        );
+        if (!latestBodyAnchorOffset) {
+          return Number.POSITIVE_INFINITY;
+        }
+        return Math.max(
+          Math.abs(latestBodyAnchorOffset.x - initialBodyAnchorOffset.x),
+          Math.abs(latestBodyAnchorOffset.y - initialBodyAnchorOffset.y),
+        );
+      })
+      .toBeLessThan(16);
+
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const latestState = await getLatestProjectState(page, projectConfigId);
+        const latestLayout =
+          latestState.projectState.projectConfig.topLevelSections[
+            spreadsheetSectionId
+          ];
+        if (!latestLayout) {
+          return false;
+        }
+        return (
+          latestLayout.x !== spreadsheetSectionLayout.x ||
+          latestLayout.y !== spreadsheetSectionLayout.y
+        );
+      })
+      .toBe(true);
+  } finally {
+    await postBackend(page, "/setTopLevelSectionLayout", {
+      projectConfigId,
+      topLevelSections:
+        initialState.projectState.projectConfig.topLevelSections,
+    });
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings view modes keep visible sections when layout payload is partial", async ({
   page,
 }) => {
