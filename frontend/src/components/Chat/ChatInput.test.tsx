@@ -4,9 +4,10 @@ import { useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { type SharePolicy } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { ChatInput } from "./ChatInput";
+import { type ChatSlashCommandDefinition } from "./chatComposerControls";
 import {
   areSlashSuggestionsPortalStylesEqual,
-  ChatInput,
   cycleQueuedDraftSelection,
   cycleSubmittedMessageHistorySelection,
   enqueueQueuedDraft,
@@ -15,8 +16,7 @@ import {
   resolveCustomPromptSlashCommandSubmission,
   resolveEscapeComposerAction,
   resolveSlashCommandRequest,
-} from "./ChatInput";
-import { type ChatSlashCommandDefinition } from "./chatComposerControls";
+} from "./chatInputHelpers";
 
 function buildSharePolicy(overrides: Partial<SharePolicy> = {}): SharePolicy {
   return {
@@ -278,17 +278,17 @@ describe("ChatInput composer controls", () => {
     expect(markup).not.toContain("est. context left");
   });
 
-  it("renders an unavailable badge when context telemetry is unavailable", () => {
+  it("renders no badge when context telemetry is unavailable", () => {
     const markup = renderChatInput({
       contextWindowTokens: null,
       contextUsedTokens: null,
-      contextUsageUnavailable: true,
       value: "1234",
       onChange: vi.fn(),
     });
 
-    expect(markup).toContain("context unavailable");
-    expect(markup).toContain('aria-label="context unavailable"');
+    expect(markup).not.toContain("context unavailable");
+    expect(markup).not.toContain('aria-label="context unavailable"');
+    expect(markup).not.toContain("context left");
   });
 
   it("does not render slash buttons above the composer", () => {
