@@ -5,7 +5,7 @@ type RunCapabilityState = Pick<
   "projectConfig" | "sectionCapabilities"
 >;
 
-export type ResolvedRunRequest = {
+type ResolvedRunRequest = {
   canRun: boolean;
   disabledReason: string | null;
   executionSectionId: string | null;
@@ -60,7 +60,7 @@ export function resolveMainRunRequest(
   };
 }
 
-export function resolveSectionRunRequest(
+function resolveSectionRunRequest(
   state: RunCapabilityState,
   sectionId: string,
 ): ResolvedRunRequest {
