@@ -32,7 +32,6 @@ type WindowSpaceRowSharedProps = {
   windowSpace: WindowSpaceConfig;
   projectConfigId: string;
   projectConfigName: string;
-  windowSpaceSlugsById: Record<string, string>;
   canEditLayout: boolean;
   sortableEnabled: boolean;
 };
@@ -72,7 +71,6 @@ export function WindowSpacesPane({
   const {
     projectConfigId,
     projectConfigName,
-    windowSpaceSlugsById,
     windowSpaceList,
     canSaveWindowSpace,
   } = useProjectState((state) => {
@@ -90,7 +88,6 @@ export function WindowSpacesPane({
     return {
       projectConfigId: state.projectConfig.id,
       projectConfigName: state.projectConfig.name,
-      windowSpaceSlugsById: state.projectConfig.windowSpaceSlugsById,
       windowSpaceList: sortWindowSpaces(
         Object.values(getProjectWindowSpaces(state.projectConfig)),
       ),
@@ -176,7 +173,6 @@ export function WindowSpacesPane({
                   windowSpace={windowSpace}
                   projectConfigId={projectConfigId}
                   projectConfigName={projectConfigName}
-                  windowSpaceSlugsById={windowSpaceSlugsById}
                   canEditLayout={canEditLayout}
                   sortableEnabled={sortableEnabled}
                 />
@@ -186,7 +182,6 @@ export function WindowSpacesPane({
                   windowSpace={windowSpace}
                   projectConfigId={projectConfigId}
                   projectConfigName={projectConfigName}
-                  windowSpaceSlugsById={windowSpaceSlugsById}
                   canEditLayout={canEditLayout}
                   sortableEnabled={sortableEnabled}
                 />
@@ -203,7 +198,6 @@ function WindowSpaceRow({
   windowSpace,
   projectConfigId,
   projectConfigName,
-  windowSpaceSlugsById,
   canEditLayout,
 }: WindowSpaceRowSharedProps) {
   const [isRenaming, setIsRenaming] = useState(false);
@@ -228,10 +222,7 @@ function WindowSpaceRow({
 
   const openPath = buildStandaloneWindowSpacePath(
     projectConfigName,
-    {
-      windowSpaceSlugsById,
-    },
-    windowSpace.id,
+    windowSpace.name,
   );
 
   return (
@@ -313,7 +304,6 @@ function WindowSpaceEditingRow({
   windowSpace,
   projectConfigId,
   projectConfigName,
-  windowSpaceSlugsById,
   canEditLayout,
   sortableEnabled,
 }: WindowSpaceRowSharedProps) {
@@ -336,10 +326,7 @@ function WindowSpaceEditingRow({
 
   const openPath = buildStandaloneWindowSpacePath(
     projectConfigName,
-    {
-      windowSpaceSlugsById,
-    },
-    windowSpace.id,
+    windowSpace.name,
   );
 
   return (
