@@ -405,6 +405,154 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "UserDefaultListRootSectionImpl",
+			root: reflect.TypeOf(UserDefaultListRootSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: false},
+				{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultGroupSectionImpl",
+			root: reflect.TypeOf(UserDefaultGroupSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "isHorizontalOrientation", TypeExpr: "boolean", Optional: false},
+				{Name: "overflowMode", TypeExpr: "boolean", Optional: false},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultStateMachineStartSectionImpl",
+			root: reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "machineGroupId", TypeExpr: "string", Optional: false},
+				{Name: "label", TypeExpr: "string", Optional: false},
+				{Name: "maxIterations", TypeExpr: "number | null", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultStateMachineGateSectionImpl",
+			root: reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "machineGroupId", TypeExpr: "string", Optional: false},
+				{Name: "gateType", TypeExpr: "StateMachineGateType", Optional: false},
+				{Name: "label", TypeExpr: "string", Optional: false},
+				{Name: "ui", TypeExpr: "StateMachineGateUIState", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultStateMachineEndSectionImpl",
+			root: reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "machineGroupId", TypeExpr: "string", Optional: false},
+				{Name: "label", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultTextBlockSectionImpl",
+			root: reflect.TypeOf(UserDefaultTextBlockSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "format", TypeExpr: "TextBlockFormat", Optional: false},
+				{Name: "masterFontSizePx", TypeExpr: "number", Optional: false},
+				{Name: "headingAsSectionName", TypeExpr: "boolean", Optional: false},
+				{Name: "metaControlStyle", TypeExpr: "boolean", Optional: false},
+				{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode", Optional: false},
+				{Name: "text", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultPromptSectionImpl",
+			root: reflect.TypeOf(UserDefaultPromptSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "template", TypeExpr: "string", Optional: false},
+				{Name: "format", TypeExpr: "PromptFormat", Optional: false},
+				{Name: "inputs", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "renderedText", TypeExpr: "string", Optional: false},
+				{Name: "missingVariables", TypeExpr: "Array<string>", Optional: false},
+				{Name: "renderError", TypeExpr: "string | null", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultCodeSectionImpl",
+			root: reflect.TypeOf(UserDefaultCodeSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "code", TypeExpr: "string", Optional: false},
+				{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: false},
+				{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: false},
+				{Name: "codeLanguage", TypeExpr: "string", Optional: false},
+				{Name: "diagnosticsIgnoreState", TypeExpr: "CodeSectionDiagnosticsIgnoreState", Optional: false},
+			},
+		},
+		{
+			name: "UserDefaultTerminalSectionImpl",
+			root: reflect.TypeOf(UserDefaultTerminalSectionImpl{}),
+			properties: []TypeProperty{
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
 			name: "UserDefaultTaskBoardSectionImpl",
 			root: reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}),
 			properties: []TypeProperty{
@@ -543,6 +691,15 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "TaskBoardColumn" ||
 				tt.name == "TaskBoardTask" ||
 				tt.name == "UserDefaultBrowserSectionImpl" ||
+				tt.name == "UserDefaultListRootSectionImpl" ||
+				tt.name == "UserDefaultGroupSectionImpl" ||
+				tt.name == "UserDefaultStateMachineStartSectionImpl" ||
+				tt.name == "UserDefaultStateMachineGateSectionImpl" ||
+				tt.name == "UserDefaultStateMachineEndSectionImpl" ||
+				tt.name == "UserDefaultTextBlockSectionImpl" ||
+				tt.name == "UserDefaultPromptSectionImpl" ||
+				tt.name == "UserDefaultCodeSectionImpl" ||
+				tt.name == "UserDefaultTerminalSectionImpl" ||
 				tt.name == "UserDefaultTaskBoardSectionImpl" ||
 				tt.name == "UserDefaultChartSectionImpl" ||
 				tt.name == "UserDefaultSpreadsheetSectionImpl" ||

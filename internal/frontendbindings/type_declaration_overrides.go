@@ -911,19 +911,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   placeholder: string;
 }`,
 		),
-		reflect.TypeOf(UserDefaultListRootSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultListRootSectionImpl",
-			"ListRoot",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
-			TypeProperty{Name: "viewMode", TypeExpr: "ListRootViewMode"},
-		),
 		reflect.TypeOf(ListRootSectionImpl{}): aliasDeclaration(
 			"ListRootSectionImpl",
 			`BaseSectionImpl & {
@@ -932,20 +919,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   defaultChildSectionType: SectionType;
   viewMode: ListRootViewMode;
 }`,
-		),
-		reflect.TypeOf(UserDefaultGroupSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultGroupSectionImpl",
-			"Group",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "isHorizontalOrientation", TypeExpr: "boolean"},
-			TypeProperty{Name: "overflowMode", TypeExpr: "boolean"},
-			TypeProperty{Name: "defaultChildSectionType", TypeExpr: "SectionType"},
 		),
 		reflect.TypeOf(GroupSectionImpl{}): aliasDeclaration(
 			"GroupSectionImpl",
@@ -957,20 +930,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   defaultChildSectionType: SectionType;
 }`,
 		),
-		reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultStateMachineStartSectionImpl",
-			"StateMachineStart",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
-			TypeProperty{Name: "label", TypeExpr: "string"},
-			TypeProperty{Name: "maxIterations", TypeExpr: "number | null"},
-		),
 		reflect.TypeOf(StateMachineStartSectionImpl{}): aliasDeclaration(
 			"StateMachineStartSectionImpl",
 			`BaseSectionImpl & {
@@ -979,21 +938,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   label: string;
   maxIterations?: number | null;
 }`,
-		),
-		reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultStateMachineGateSectionImpl",
-			"StateMachineGate",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
-			TypeProperty{Name: "gateType", TypeExpr: "StateMachineGateType"},
-			TypeProperty{Name: "label", TypeExpr: "string"},
-			TypeProperty{Name: "ui", TypeExpr: "StateMachineGateUIState"},
 		),
 		reflect.TypeOf(StateMachineGateSectionImpl{}): aliasDeclaration(
 			"StateMachineGateSectionImpl",
@@ -1005,19 +949,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   ui: StateMachineGateUIState;
 }`,
 		),
-		reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultStateMachineEndSectionImpl",
-			"StateMachineEnd",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "machineGroupId", TypeExpr: "string"},
-			TypeProperty{Name: "label", TypeExpr: "string"},
-		),
 		reflect.TypeOf(StateMachineEndSectionImpl{}): aliasDeclaration(
 			"StateMachineEndSectionImpl",
 			`BaseSectionImpl & {
@@ -1025,23 +956,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   machineGroupId: string;
   label: string;
 }`,
-		),
-		reflect.TypeOf(UserDefaultTextBlockSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultTextBlockSectionImpl",
-			"TextBlock",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "format", TypeExpr: "TextBlockFormat"},
-			TypeProperty{Name: "masterFontSizePx", TypeExpr: "number"},
-			TypeProperty{Name: "headingAsSectionName", TypeExpr: "boolean"},
-			TypeProperty{Name: "metaControlStyle", TypeExpr: "boolean"},
-			TypeProperty{Name: "textDisplayMode", TypeExpr: "TextBlockDisplayMode"},
-			TypeProperty{Name: "text", TypeExpr: "string"},
 		),
 		reflect.TypeOf(TextBlockSectionImpl{}): aliasDeclaration(
 			"TextBlockSectionImpl",
@@ -1054,23 +968,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   textDisplayMode: TextBlockDisplayMode;
   text: string;
 }`,
-		),
-		reflect.TypeOf(UserDefaultPromptSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultPromptSectionImpl",
-			"Prompt",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "template", TypeExpr: "string"},
-			TypeProperty{Name: "format", TypeExpr: "PromptFormat"},
-			TypeProperty{Name: "inputs", TypeExpr: "Record<string, string>"},
-			TypeProperty{Name: "renderedText", TypeExpr: "string"},
-			TypeProperty{Name: "missingVariables", TypeExpr: "Array<string>"},
-			TypeProperty{Name: "renderError", TypeExpr: "string | null"},
 		),
 		reflect.TypeOf(PromptSectionImpl{}): aliasDeclaration(
 			"PromptSectionImpl",
@@ -1085,22 +982,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   renderError?: string | null;
 }`,
 		),
-		reflect.TypeOf(UserDefaultCodeSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultCodeSectionImpl",
-			"Code",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
-			TypeProperty{Name: "code", TypeExpr: "string"},
-			TypeProperty{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null"},
-			TypeProperty{Name: "attachedTerminalSectionId", TypeExpr: "string | null"},
-			TypeProperty{Name: "codeLanguage", TypeExpr: "string"},
-			TypeProperty{Name: "diagnosticsIgnoreState", TypeExpr: "CodeSectionDiagnosticsIgnoreState"},
-		),
 		reflect.TypeOf(CodeSectionImpl{}): aliasDeclaration(
 			"CodeSectionImpl",
 			`BaseSectionImpl & {
@@ -1112,17 +993,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   attachedTerminalSectionId?: string | null;
   diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
 }`,
-		),
-		reflect.TypeOf(UserDefaultTerminalSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
-			"UserDefaultTerminalSectionImpl",
-			"Terminal",
-			TypeProperty{Name: "isFrozen", TypeExpr: "boolean"},
-			TypeProperty{Name: "tagColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "styleColor", TypeExpr: "string | null"},
-			TypeProperty{Name: "size", TypeExpr: "SectionSize"},
-			TypeProperty{Name: "aspectRatio", TypeExpr: "boolean | number"},
-			TypeProperty{Name: "isMinimized", TypeExpr: "boolean"},
-			TypeProperty{Name: "positionAndSizeLocked", TypeExpr: "boolean"},
 		),
 		reflect.TypeOf(TerminalSectionImpl{}): aliasDeclaration(
 			"TerminalSectionImpl",

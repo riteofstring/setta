@@ -1621,6 +1621,8 @@ var generatedUserDefaultSectionIgnoredDefaultProperties = map[string]struct{}{
 	"aspectRatioExtraHeight":  {},
 	"aspectRatioExtraWidth":   {},
 	"isPreset":                {},
+	"children":                {},
+	"promptTemplateId":        {},
 }
 
 func generatedUserDefaultSectionDeclaration(
@@ -1645,6 +1647,122 @@ func generatedUserDefaultSectionSpecForType(
 	t reflect.Type,
 ) (generatedUserDefaultSectionSpec, bool) {
 	switch t {
+	case reflect.TypeOf(UserDefaultListRootSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "ListRoot",
+			AdditionalPropertyOrder: []string{
+				"defaultChildSectionType",
+				"viewMode",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultGroupSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Group",
+			AdditionalPropertyOrder: []string{
+				"isHorizontalOrientation",
+				"overflowMode",
+				"defaultChildSectionType",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultStateMachineStartSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "StateMachineStart",
+			AdditionalPropertyOrder: []string{
+				"machineGroupId",
+				"label",
+				"maxIterations",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"machineGroupId": "string",
+				"label":          "string",
+				"maxIterations":  "number | null",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultStateMachineGateSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "StateMachineGate",
+			AdditionalPropertyOrder: []string{
+				"machineGroupId",
+				"gateType",
+				"label",
+				"ui",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"machineGroupId": "string",
+				"gateType":       "StateMachineGateType",
+				"label":          "string",
+				"ui":             "StateMachineGateUIState",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultStateMachineEndSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "StateMachineEnd",
+			AdditionalPropertyOrder: []string{
+				"machineGroupId",
+				"label",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"machineGroupId": "string",
+				"label":          "string",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultTextBlockSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "TextBlock",
+			AdditionalPropertyOrder: []string{
+				"format",
+				"masterFontSizePx",
+				"headingAsSectionName",
+				"metaControlStyle",
+				"textDisplayMode",
+				"text",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"format":               "TextBlockFormat",
+				"masterFontSizePx":     "number",
+				"headingAsSectionName": "boolean",
+				"textDisplayMode":      "TextBlockDisplayMode",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultPromptSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Prompt",
+			AdditionalPropertyOrder: []string{
+				"template",
+				"format",
+				"inputs",
+				"renderedText",
+				"missingVariables",
+				"renderError",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"template":         "string",
+				"format":           "PromptFormat",
+				"inputs":           "Record<string, string>",
+				"renderedText":     "string",
+				"missingVariables": "Array<string>",
+				"renderError":      "string | null",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultCodeSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName: "Code",
+			AdditionalPropertyOrder: []string{
+				"code",
+				"codeFileBinding",
+				"attachedTerminalSectionId",
+				"codeLanguage",
+				"diagnosticsIgnoreState",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"diagnosticsIgnoreState": "CodeSectionDiagnosticsIgnoreState",
+			},
+		}, true
+	case reflect.TypeOf(UserDefaultTerminalSectionImpl{}):
+		return generatedUserDefaultSectionSpec{
+			SectionName:             "Terminal",
+			AdditionalPropertyOrder: nil,
+		}, true
 	case reflect.TypeOf(UserDefaultBrowserSectionImpl{}):
 		return generatedUserDefaultSectionSpec{
 			SectionName: "Browser",
