@@ -63,6 +63,14 @@ func FrontendDefaultTaskBoardTask() TaskBoardTask {
 	}
 }
 
+func FrontendDefaultDrawAreaLayerItem() DrawAreaLayerItem {
+	return DrawAreaLayerItem{
+		Type:        DrawAreaLayerItemTypeBrushStroke,
+		DataPath:    "",
+		TransformID: "",
+	}
+}
+
 func FrontendDefaultLineChartSettings() map[string]any {
 	return map[string]any{
 		"type":               ChartTypeLine,

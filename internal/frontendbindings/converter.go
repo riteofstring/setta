@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"setta/internal/agentruns"
+	"setta/internal/artifacts"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
@@ -967,6 +968,26 @@ func buildGoBackedCreateExprTS(context string, value any, properties []TypePrope
 	return builder.String()
 }
 
+func buildGoBackedCreateExprWithExprOverridesTS(
+	context string,
+	value any,
+	properties []TypeProperty,
+	exprOverrides map[string]string,
+) string {
+	filteredDefaults := filterObjectByTypeProperties(
+		context,
+		mustTSLiteralObjectFromGoValue(context, value),
+		properties,
+	)
+	return buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
+		context,
+		filteredDefaults,
+		orderedTypePropertyNames(properties),
+		"options",
+		exprOverrides,
+	)
+}
+
 func filterObjectByTypeProperties(
 	context string,
 	object map[string]any,
@@ -1540,6 +1561,159 @@ func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
 		return []TypeDeclaration{declaration}, true
 	}
 	return nil, false
+}
+
+type reflectedObjectDeclarationSpec struct {
+	DefaultValue              any
+	HasCreateExpr             bool
+	CreateExprOverrides       map[string]string
+	PropertyTypeExprOverrides map[string]string
+}
+
+func specialTypeDeclaration(
+	converter *typeConverter,
+	t reflect.Type,
+) (TypeDeclaration, bool, error) {
+	if declaration, ok, err := artifactTypeDeclaration(converter, t); ok || err != nil {
+		return declaration, ok, err
+	}
+	return TypeDeclaration{}, false, nil
+}
+
+func artifactTypeDeclaration(
+	converter *typeConverter,
+	t reflect.Type,
+) (TypeDeclaration, bool, error) {
+	switch t {
+	case reflect.TypeOf(CanvasPoint{}):
+		return aliasDeclaration("CanvasPoint", "[number, number]"), true, nil
+	case reflect.TypeOf(DrawAreaTransform{}):
+		return aliasDeclaration(
+			"DrawAreaTransform",
+			"[number, number, number, number, number, number]",
+		), true, nil
+	case reflect.TypeOf(ChartDataValue{}):
+		return aliasDeclaration(
+			"ChartDataValue",
+			"Record<string, Array<string | number>>",
+		), true, nil
+	case reflect.TypeOf(ChartData{}):
+		return aliasDeclaration("ChartData", "ChartDataValue"), true, nil
+	case reflect.TypeOf(ChartDataType{}):
+		return aliasDeclaration("ChartDataType", "ChartDataValue"), true, nil
+	case reflect.TypeOf(ArtifactUnion{}):
+		return aliasDeclaration(
+			"ArtifactUnion",
+			"ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
+		), true, nil
+	}
+
+	var spec reflectedObjectDeclarationSpec
+	switch t {
+	case reflect.TypeOf(BrushStroke{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultBrushStroke(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"points": `Array<CanvasPoint | "BREAK">`,
+			},
+		}
+	case reflect.TypeOf(BrushStrokeWithTransform{}):
+		spec = reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"points":    `Array<CanvasPoint | "BREAK">`,
+				"transform": "DrawAreaTransform",
+			},
+		}
+	case reflect.TypeOf(DrawAreaLayerItemTransform{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultDrawAreaLayerItemTransform(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"transform": "DrawAreaTransform",
+			},
+		}
+	case reflect.TypeOf(DrawAreaLayerItem{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultDrawAreaLayerItem(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke",
+			},
+		}
+	case reflect.TypeOf(DrawAreaLayer{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultDrawAreaLayer(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"name": "createRandomName()",
+			},
+		}
+	case reflect.TypeOf(ImageArtifact{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultImageArtifact(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"id":    "createPngArtifactId()",
+				"value": "createBinaryContentRef()",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ArtifactTypeEnum.Image",
+			},
+		}
+	case reflect.TypeOf(BrushStrokeArtifact{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultBrushStrokeArtifact(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"id":    "createJsonArtifactId()",
+				"value": "createBrushStroke()",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ArtifactTypeEnum.BrushStroke",
+			},
+		}
+	case reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultDrawAreaLayerItemTransformArtifact(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"id":    "createJsonArtifactId()",
+				"value": "createDrawAreaLayerItemTransform()",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ArtifactTypeEnum.DrawAreaLayerItemTransform",
+			},
+		}
+	case reflect.TypeOf(ChartDataArtifact{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultChartDataArtifact(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"id": "createCsvArtifactId()",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ArtifactTypeEnum.ChartData",
+			},
+		}
+	case reflect.TypeOf(FileArtifact{}):
+		spec = reflectedObjectDeclarationSpec{
+			DefaultValue:  artifacts.FrontendDefaultFileArtifact(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"id":    "createFileArtifactId()",
+				"value": "createBinaryContentRef()",
+			},
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ArtifactTypeEnum.File",
+			},
+		}
+	default:
+		return TypeDeclaration{}, false, nil
+	}
+
+	declaration, err := converter.reflectedObjectDeclaration(t, spec)
+	return declaration, true, err
 }
 
 type typeConverter struct {
@@ -4416,169 +4590,6 @@ func newTypeConverter() *typeConverter {
 				Kind:  "alias",
 				Alias: "Uint8Array",
 			},
-			reflect.TypeOf(CanvasPoint{}): aliasDeclaration(
-				"CanvasPoint",
-				"[number, number]",
-			),
-			reflect.TypeOf(DrawAreaTransform{}): aliasDeclaration(
-				"DrawAreaTransform",
-				"[number, number, number, number, number, number]",
-			),
-			reflect.TypeOf(BrushStroke{}): objectDeclarationWithCreateExpr(
-				"BrushStroke",
-				`mergeGeneratedOptions(
-    {
-      strokeStyle: "",
-      lineWidth: 1,
-      lineCap: DrawAreaBrushShapeEnum.round,
-      points: [],
-      globalCompositeOperation: "source-over",
-    },
-    options,
-  )`,
-				TypeProperty{Name: "strokeStyle", TypeExpr: "string"},
-				TypeProperty{Name: "lineWidth", TypeExpr: "number"},
-				TypeProperty{Name: "lineCap", TypeExpr: "DrawAreaBrushShape"},
-				TypeProperty{Name: "points", TypeExpr: `Array<CanvasPoint | "BREAK">`},
-				TypeProperty{Name: "globalCompositeOperation", TypeExpr: "string"},
-			),
-			reflect.TypeOf(BrushStrokeWithTransform{}): objectDeclaration(
-				"BrushStrokeWithTransform",
-				TypeProperty{Name: "strokeStyle", TypeExpr: "string"},
-				TypeProperty{Name: "lineWidth", TypeExpr: "number"},
-				TypeProperty{Name: "lineCap", TypeExpr: "DrawAreaBrushShape"},
-				TypeProperty{Name: "points", TypeExpr: `Array<CanvasPoint | "BREAK">`},
-				TypeProperty{Name: "globalCompositeOperation", TypeExpr: "string"},
-				TypeProperty{Name: "transform", TypeExpr: "DrawAreaTransform"},
-			),
-			reflect.TypeOf(DrawAreaLayerItemTransform{}): objectDeclarationWithCreateExpr(
-				"DrawAreaLayerItemTransform",
-				`mergeGeneratedOptions(
-    {
-      transform: [1, 0, 0, 1, 0, 0],
-      eraserStrokes: [],
-    },
-    options,
-  )`,
-				TypeProperty{Name: "transform", TypeExpr: "DrawAreaTransform"},
-				TypeProperty{Name: "eraserStrokes", TypeExpr: "Array<BrushStrokeWithTransform>"},
-			),
-			reflect.TypeOf(DrawAreaLayerItem{}): objectDeclarationWithCreateExpr(
-				"DrawAreaLayerItem",
-				`mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.BrushStroke,
-      dataPath: "",
-      transformId: "",
-    },
-    options,
-  )`,
-				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke"},
-				TypeProperty{Name: "dataPath", TypeExpr: "string"},
-				TypeProperty{Name: "transformId", TypeExpr: "string"},
-			),
-			reflect.TypeOf(DrawAreaLayer{}): objectDeclarationWithCreateExpr(
-				"DrawAreaLayer",
-				`mergeGeneratedOptions(
-    {
-      name: createRandomName(),
-      elements: [],
-      visible: true,
-      layerOpacity: 1,
-    },
-    options,
-  )`,
-				TypeProperty{Name: "name", TypeExpr: "string"},
-				TypeProperty{Name: "elements", TypeExpr: "Array<DrawAreaLayerItem>"},
-				TypeProperty{Name: "visible", TypeExpr: "boolean"},
-				TypeProperty{Name: "layerOpacity", TypeExpr: "number"},
-			),
-			reflect.TypeOf(ImageArtifact{}): objectDeclarationWithCreateExpr(
-				"ImageArtifact",
-				`mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.Image,
-      id: createPngArtifactId(),
-      value: createBinaryContentRef(),
-    },
-    options,
-  )`,
-				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.Image"},
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "value", TypeExpr: "BinaryContentRef"},
-			),
-			reflect.TypeOf(BrushStrokeArtifact{}): objectDeclarationWithCreateExpr(
-				"BrushStrokeArtifact",
-				`mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.BrushStroke,
-      id: createJsonArtifactId(),
-      value: createBrushStroke(),
-    },
-    options,
-  )`,
-				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.BrushStroke"},
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "value", TypeExpr: "BrushStroke"},
-			),
-			reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}): objectDeclarationWithCreateExpr(
-				"DrawAreaLayerItemTransformArtifact",
-				`mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
-      id: createJsonArtifactId(),
-      value: createDrawAreaLayerItemTransform(),
-    },
-    options,
-  )`,
-				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.DrawAreaLayerItemTransform"},
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "value", TypeExpr: "DrawAreaLayerItemTransform"},
-			),
-			reflect.TypeOf(ChartDataValue{}): aliasDeclaration(
-				"ChartDataValue",
-				"Record<string, Array<string | number>>",
-			),
-			reflect.TypeOf(ChartData{}): aliasDeclaration(
-				"ChartData",
-				"ChartDataValue",
-			),
-			reflect.TypeOf(ChartDataType{}): aliasDeclaration(
-				"ChartDataType",
-				"ChartDataValue",
-			),
-			reflect.TypeOf(ChartDataArtifact{}): objectDeclarationWithCreateExpr(
-				"ChartDataArtifact",
-				`mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.ChartData,
-      id: createCsvArtifactId(),
-      value: {},
-    },
-    options,
-  )`,
-				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.ChartData"},
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "value", TypeExpr: "ChartDataValue"},
-			),
-			reflect.TypeOf(FileArtifact{}): objectDeclarationWithCreateExpr(
-				"FileArtifact",
-				`mergeGeneratedOptions(
-    {
-      type: ArtifactTypeEnum.File,
-      id: createFileArtifactId(),
-      value: createBinaryContentRef(),
-    },
-    options,
-  )`,
-				TypeProperty{Name: "type", TypeExpr: "typeof ArtifactTypeEnum.File"},
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "value", TypeExpr: "BinaryContentRef"},
-			),
-			reflect.TypeOf(ArtifactUnion{}): aliasDeclaration(
-				"ArtifactUnion",
-				"ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
-			),
 			reflect.TypeOf(UpdateArtifactMsgContent{}): objectDeclaration(
 				"UpdateArtifactMsgContent",
 				TypeProperty{Name: "artifacts", TypeExpr: "Array<ArtifactUnion>"},
@@ -4754,7 +4765,7 @@ func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
 		}
 		return fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr), nil
 	case reflect.Struct:
-		properties, err := c.structProperties(t)
+		properties, err := c.structProperties(t, nil)
 		if err != nil {
 			return "", err
 		}
@@ -4781,6 +4792,13 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		return nil
 	}
 	c.seen[t] = struct{}{}
+
+	if decl, ok, err := specialTypeDeclaration(c, t); err != nil {
+		return err
+	} else if ok {
+		c.declarations = append(c.declarations, decl)
+		return c.appendAdditionalDeclarationsForType(t)
+	}
 
 	if decl, ok := c.manualTypes[t]; ok {
 		c.declarations = append(c.declarations, decl)
@@ -4815,7 +4833,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 
 	switch t.Kind() {
 	case reflect.Struct:
-		properties, err := c.structProperties(t)
+		properties, err := c.structProperties(t, nil)
 		if err != nil {
 			return err
 		}
@@ -4889,7 +4907,39 @@ func canonicalFrontendBindingType(t reflect.Type) reflect.Type {
 	return t
 }
 
-func (c *typeConverter) structProperties(t reflect.Type) ([]TypeProperty, error) {
+func (c *typeConverter) reflectedObjectDeclaration(
+	t reflect.Type,
+	spec reflectedObjectDeclarationSpec,
+) (TypeDeclaration, error) {
+	properties, err := c.structProperties(t, spec.PropertyTypeExprOverrides)
+	if err != nil {
+		return TypeDeclaration{}, err
+	}
+	declaration := objectDeclaration(t.Name(), properties...)
+	if spec.HasCreateExpr {
+		context := "frontend create defaults " + t.Name()
+		if len(spec.CreateExprOverrides) > 0 {
+			declaration.CreateExpr = buildGoBackedCreateExprWithExprOverridesTS(
+				context,
+				spec.DefaultValue,
+				properties,
+				spec.CreateExprOverrides,
+			)
+		} else {
+			declaration.CreateExpr = buildGoBackedCreateExprTS(
+				context,
+				spec.DefaultValue,
+				properties,
+			)
+		}
+	}
+	return declaration, nil
+}
+
+func (c *typeConverter) structProperties(
+	t reflect.Type,
+	overrides map[string]string,
+) ([]TypeProperty, error) {
 	properties := make([]TypeProperty, 0, t.NumField())
 	for i := range t.NumField() {
 		field := t.Field(i)
@@ -4900,9 +4950,17 @@ func (c *typeConverter) structProperties(t reflect.Type) ([]TypeProperty, error)
 		if skip {
 			continue
 		}
-		typeExpr, err := c.renderTypeExpr(field.Type)
-		if err != nil {
-			return nil, fmt.Errorf("%s.%s: %w", t.Name(), field.Name, err)
+		typeExprOverride := ""
+		if overrides != nil {
+			typeExprOverride = overrides[name]
+		}
+		typeExpr := typeExprOverride
+		if typeExpr == "" {
+			var err error
+			typeExpr, err = c.renderTypeExpr(field.Type)
+			if err != nil {
+				return nil, fmt.Errorf("%s.%s: %w", t.Name(), field.Name, err)
+			}
 		}
 		properties = append(properties, TypeProperty{
 			Name:     name,

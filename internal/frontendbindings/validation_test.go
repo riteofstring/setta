@@ -7692,7 +7692,7 @@ func disabledGetLLMResponseRequestTreatsAppSpecStreamingEnabledAsOptional(t *tes
 	}
 }
 
-func disabledArtifactSupportUsesConverterDeclarations(t *testing.T) {
+func TestArtifactSupportUsesConverterDeclarations(t *testing.T) {
 	tests := []struct {
 		name          string
 		root          reflect.Type

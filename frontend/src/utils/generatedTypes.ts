@@ -915,7 +915,7 @@ export function createBrushStroke(
     {
       strokeStyle: "",
       lineWidth: 1,
-      lineCap: DrawAreaBrushShapeEnum.round,
+      lineCap: "round",
       points: [],
       globalCompositeOperation: "source-over",
     },
@@ -958,7 +958,7 @@ export function createDrawAreaLayerItem(
 ): DrawAreaLayerItem {
   return mergeGeneratedOptions(
     {
-      type: ArtifactTypeEnum.BrushStroke,
+      type: "BrushStroke",
       dataPath: "",
       transformId: "",
     },
@@ -986,6 +986,18 @@ export function createDrawAreaLayer(
   );
 }
 
+export type BinaryContentRef = {
+  contentId: string;
+  byteLength: number;
+  mimeType?: string;
+  sha256?: string;
+};
+export function createBinaryContentRef(
+  options: Partial<BinaryContentRef> = {},
+): BinaryContentRef {
+  return options as BinaryContentRef;
+}
+
 export type ImageArtifact = {
   type: typeof ArtifactTypeEnum.Image;
   id: string;
@@ -996,7 +1008,7 @@ export function createImageArtifact(
 ): ImageArtifact {
   return mergeGeneratedOptions(
     {
-      type: ArtifactTypeEnum.Image,
+      type: "Image",
       id: createPngArtifactId(),
       value: createBinaryContentRef(),
     },
@@ -1014,7 +1026,7 @@ export function createBrushStrokeArtifact(
 ): BrushStrokeArtifact {
   return mergeGeneratedOptions(
     {
-      type: ArtifactTypeEnum.BrushStroke,
+      type: "BrushStroke",
       id: createJsonArtifactId(),
       value: createBrushStroke(),
     },
@@ -1032,7 +1044,7 @@ export function createDrawAreaLayerItemTransformArtifact(
 ): DrawAreaLayerItemTransformArtifact {
   return mergeGeneratedOptions(
     {
-      type: ArtifactTypeEnum.DrawAreaLayerItemTransform,
+      type: "DrawAreaLayerItemTransform",
       id: createJsonArtifactId(),
       value: createDrawAreaLayerItemTransform(),
     },
@@ -1052,7 +1064,7 @@ export function createChartDataArtifact(
 ): ChartDataArtifact {
   return mergeGeneratedOptions(
     {
-      type: ArtifactTypeEnum.ChartData,
+      type: "ChartData",
       id: createCsvArtifactId(),
       value: {},
     },
@@ -1820,18 +1832,6 @@ export const DependencyValueTypeEnum = {
   Binary: "Binary",
   FileRead: "FileRead",
 } as const;
-
-export type BinaryContentRef = {
-  contentId: string;
-  byteLength: number;
-  mimeType?: string;
-  sha256?: string;
-};
-export function createBinaryContentRef(
-  options: Partial<BinaryContentRef> = {},
-): BinaryContentRef {
-  return options as BinaryContentRef;
-}
 
 export type LiteralDependencyValue = {
   payload: string;
