@@ -611,3 +611,75 @@ export async function findSettingsGraphSectionDragPoint(
   }
   return point;
 }
+
+export async function findSettingsGraphSectionWheelPanPoint(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate(
+    ({
+      canaryRootSelector,
+      targetSectionId,
+      canarySectionSelector,
+      legacySectionSelector,
+    }: {
+      canaryRootSelector: string;
+      targetSectionId: string;
+      canarySectionSelector: string;
+      legacySectionSelector: string;
+    }) => {
+      const blockingSelector = ".nowheel";
+      const xs = [0.2, 0.35, 0.5, 0.65, 0.8];
+      const ys = [0.12, 0.2, 0.3, 0.45, 0.6];
+      const usingCanary = Boolean(document.querySelector(canaryRootSelector));
+      const sectionSelector = usingCanary
+        ? `${canarySectionSelector}[data-section-id="${targetSectionId}"]`
+        : `${legacySectionSelector}[data-id="${targetSectionId}"]`;
+      const resolvedSectionSelector = usingCanary
+        ? canarySectionSelector
+        : legacySectionSelector;
+      const section = document.querySelector<HTMLElement>(sectionSelector);
+      if (!section) {
+        return null;
+      }
+
+      const bounds = section.getBoundingClientRect();
+      for (const yPct of ys) {
+        for (const xPct of xs) {
+          const x = bounds.x + bounds.width * xPct;
+          const y = bounds.y + bounds.height * yPct;
+          const element = document.elementFromPoint(x, y);
+          if (!(element instanceof Element)) {
+            continue;
+          }
+          if (element.closest(blockingSelector)) {
+            continue;
+          }
+          const resolvedSection = element.closest<HTMLElement>(
+            resolvedSectionSelector,
+          );
+          if (!resolvedSection || resolvedSection !== section) {
+            continue;
+          }
+          return { x, y };
+        }
+      }
+
+      return null;
+    },
+    {
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      targetSectionId: sectionId,
+      canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+    },
+  );
+
+  if (!point) {
+    throw new Error(
+      `Unable to find a wheel-pan graph point for section ${sectionId}.`,
+    );
+  }
+
+  return point;
+}

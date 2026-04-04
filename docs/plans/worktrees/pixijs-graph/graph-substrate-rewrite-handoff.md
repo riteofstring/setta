@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 05:54 EDT
+Last updated: 2026-04-04 06:14 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,38 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `098` fixed the canary wheel-target gate so plain-wheel pan now works from ordinary section chrome instead of only from blank pane.
+  - Why this slice was needed:
+    - the last several iterations were parity-probe-only work, so the next valid slice had to land a concrete production fix instead of another normalization guard
+    - legacy `ZoomPane` only suppresses wheel handling inside explicit `.nowheel` islands, but the canary root was dropping every wheel event whose target lived anywhere inside a section
+    - that made section-hover wheel pan a real canary-only interaction gap on the current Gate 1 / Gate 2 motion path
+  - Production/test change:
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts`
+      - split the target guards into three explicit contracts: section-drag blocking, pane-pointer blocking, and wheel blocking
+      - wheel blocking now only suppresses `.nowheel` islands; pane pointer drag still blocks section descendants
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - pane drag keeps using the section-level blocker
+      - `handlePaneWheel(...)` now uses the narrower wheel blocker instead of treating every section descendant as a hard stop
+    - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - covers ordinary section chrome, explicit `.nowheel` islands, and interactive drag descendants
+    - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      - added `findSettingsGraphSectionWheelPanPoint(...)` so Playwright can target a real non-`.nowheel` section-chrome point
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - new regression: `settings graph substrate canary keeps plain-wheel pan working from section chrome on the custom surface`
+  - Automated result:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+      - result: passed (`3 passed`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps plain-wheel pan working from section chrome on the custom surface'`
+      - result: passed (`1 passed`, `15.2s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent used worktree page `10` at `http://127.0.0.1:3075/settings` and read-only `main` page `15` at `http://127.0.0.1:3087/settings`
+    - wheel over visible section chrome panned both pages; the viewport transform stepped by about `180px` with no meaningful zoom change
+    - no obvious canary-only visual drift remained after the wheel action
+    - CDP visual check: done (live `3075` canary vs read-only `3087` legacy; wheel over section chrome now pans on both surfaces without visible canary-only drift)
+  - conclusion for this slice:
+    - close the specific wheel-over-section motion lane as fixed
+    - do not reopen it unless a later fresh compare shows the canary suppressing plain wheel over ordinary section chrome again or leaking wheel motion into `.nowheel` bodies
+    - the next real frontier should return to a fresh normalized live compare aimed at the next remaining canary-only production artifact on a different dynamic path, not another section-wheel guard
 - Ralph item `097` added a normalized cross-worktree modified-wheel zoom parity probe on a shared `All Settings` section and closed that bounded zoom lane without reopening the earlier pan/drag/fit-view shapes.
   - Why this slice was needed:
     - the plan/handoff explicitly named the modified-wheel zoom compare as the next bounded dynamic action after the fit-view-after-pan lane closed
@@ -2390,6 +2422,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `095`
-- Latest item: `2026-04-04 095`
+- Active history window: items `001` through `098`
+- Latest item: `2026-04-04 098`
 - Older history archives: none yet

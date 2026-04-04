@@ -35,6 +35,11 @@ import type { Position } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
 import {
+  shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget,
+  shouldBlockSettingsGraphSubstrateCanaryWheelTarget,
+  shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget,
+} from "./settingsGraphSubstrateCanaryInteractions";
+import {
   selectSettingsGraphSubstrateCanarySections,
   type GraphSubstrateCanarySection,
 } from "./settingsGraphSubstrateCanaryModel";
@@ -71,10 +76,6 @@ const ROOT_STYLE: CSSProperties = {
 };
 
 const WHEEL_ZOOM_IDLE_TIMEOUT_MS = 180;
-const DRAG_BLOCKING_SELECTOR =
-  ".nodrag,input,textarea,select,option,a,[contenteditable='true']";
-const CANARY_SECTION_SELECTOR =
-  '[data-testid="graph-substrate-canary-section"]';
 
 type ActiveSectionDrag = {
   pointerId: number;
@@ -619,7 +620,9 @@ export function SettingsGraphSubstrateCanary() {
     if (event.button !== 0) {
       return;
     }
-    if (shouldIgnoreSectionDragTarget(event.target)) {
+    if (
+      shouldIgnoreSettingsGraphSubstrateCanarySectionDragTarget(event.target)
+    ) {
       return;
     }
 
@@ -713,7 +716,9 @@ export function SettingsGraphSubstrateCanary() {
     if (!resolvedViewport || event.button !== 0) {
       return;
     }
-    if (isBackgroundTargetBlocked(event.target)) {
+    if (
+      shouldBlockSettingsGraphSubstrateCanaryPanePointerTarget(event.target)
+    ) {
       return;
     }
 
@@ -773,7 +778,7 @@ export function SettingsGraphSubstrateCanary() {
     if (!resolvedViewport || !rootRef.current) {
       return;
     }
-    if (isBackgroundTargetBlocked(event.target)) {
+    if (shouldBlockSettingsGraphSubstrateCanaryWheelTarget(event.target)) {
       return;
     }
 
@@ -1020,13 +1025,6 @@ function getCanaryFitViewSections(
   return sections.filter((section) => targetSectionIds.has(section.sectionId));
 }
 
-function shouldIgnoreSectionDragTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  return Boolean(target.closest(DRAG_BLOCKING_SELECTOR));
-}
-
 function ensureCanaryNode(section: GraphSubstrateCanarySection) {
   if (useNodeInternals.getState().x.has(section.sectionId)) {
     return;
@@ -1055,13 +1053,6 @@ function resetCanarySectionTempZIndex(sectionId: string) {
     tempZIndex: node.zIndex,
   });
   useNodeInternals.setState({ x: nextNodeInternals });
-}
-
-function isBackgroundTargetBlocked(target: EventTarget | null): boolean {
-  if (!(target instanceof Element)) {
-    return false;
-  }
-  return target.closest(CANARY_SECTION_SELECTOR) !== null;
 }
 
 function getRenderedSectionPosition(

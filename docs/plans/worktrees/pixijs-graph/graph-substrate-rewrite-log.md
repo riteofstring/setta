@@ -3340,3 +3340,38 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - run one fresh normalized live compare aimed at isolating the first remaining canary-only production artifact, with production fix work preferred over adding another new parity guard by default
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 06:14 EDT - Ralph item 098
+
+- Fixed the canary wheel-target gate so plain-wheel pan now works from ordinary section chrome instead of only from blank pane.
+- Why this slice was necessary:
+  - the last several iterations were parity-probe-only work, so the next valid slice had to land a concrete production fix rather than another normalization helper
+  - legacy `ZoomPane` only suppresses wheel handling inside explicit `.nowheel` islands, but the canary root was dropping every wheel event whose target lived anywhere inside a section
+  - that made section-hover wheel pan a real canary-only interaction gap on the active Gate 1 / Gate 2 motion path
+- Production/test changes:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.ts`
+    - added explicit helpers for section-drag blocking, pane-pointer blocking, and wheel blocking
+    - wheel blocking now only suppresses `.nowheel` islands; pane drag still blocks section descendants
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - switched `handlePaneWheel(...)` to the narrower wheel blocker while keeping pane drag on the section-level blocker
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+    - covers ordinary section chrome, explicit `.nowheel` islands, and interactive drag descendants
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `findSettingsGraphSectionWheelPanPoint(...)` so Playwright can target a real non-`.nowheel` section-chrome point
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - new regression: `settings graph substrate canary keeps plain-wheel pan working from section chrome on the custom surface`
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInteractions.test.ts`
+    - result: passed (`3 passed`)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps plain-wheel pan working from section chrome on the custom surface'`
+    - result: passed (`1 passed`, `15.2s`)
+  - fresh-context CDP sub-agent:
+    - checked worktree page `10` on `http://127.0.0.1:3075/settings` and read-only `main` page `15` on `http://127.0.0.1:3087/settings`
+    - wheel over visible section chrome panned both pages; the viewport transform stepped by about `180px` with no meaningful zoom change
+    - no obvious canary-only visual drift remained
+  - CDP visual check: done (live `3075` canary vs read-only `3087` legacy; wheel over section chrome now pans on both surfaces without visible canary-only drift)
+- Lane status:
+  - close the specific wheel-over-section motion lane as fixed
+  - do not reopen it unless a later fresh compare shows the canary suppressing plain wheel over ordinary section chrome again or leaking wheel motion into `.nowheel` bodies
+- Next frontier:
+  - return to one fresh normalized live compare aimed at the next remaining canary-only production artifact on a different dynamic path, not another section-wheel guard
+- LOOP_TERMINAL_MARKER: none

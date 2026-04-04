@@ -6,6 +6,7 @@ import {
   findSectionIdByName,
   findSettingsGraphPanePoint,
   findSettingsGraphSectionDragPoint,
+  findSettingsGraphSectionWheelPanPoint,
   findSharedVisibleSettingsGraphSection,
   findViewModeId,
   fitGraphViewportToSection,
@@ -1924,6 +1925,87 @@ test("settings graph substrate canary matches legacy plain-wheel pan behavior on
   await expect
     .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
     .toBeCloseTo(viewportAfterDrag.y + 240, 0);
+});
+
+test("settings graph substrate canary keeps plain-wheel pan working from section chrome on the custom surface", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+
+  const canaryPane = page.getByTestId("graph-substrate-canary");
+  const canarySections = page.getByTestId("graph-substrate-canary-section");
+  await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+  await expect(canaryPane).toBeVisible();
+  await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+  let targetSection = canarySections.first();
+  let sectionId: string | null = null;
+  let wheelPoint: { x: number; y: number } | null = null;
+  const sectionCount = await canarySections.count();
+  for (let index = 0; index < sectionCount; index += 1) {
+    const candidateSection = canarySections.nth(index);
+    const candidateSectionId =
+      await candidateSection.getAttribute("data-section-id");
+    if (!candidateSectionId) {
+      continue;
+    }
+    try {
+      const candidateWheelPoint = await findSettingsGraphSectionWheelPanPoint(
+        page,
+        candidateSectionId,
+      );
+      targetSection = candidateSection;
+      sectionId = candidateSectionId;
+      wheelPoint = candidateWheelPoint;
+      break;
+    } catch {
+      continue;
+    }
+  }
+  await expect(targetSection).toBeVisible();
+  if (!sectionId || !wheelPoint) {
+    throw new Error(
+      "Unable to find a canary section with a non-nowheel wheel-pan point.",
+    );
+  }
+
+  const initialTransform = await getCanaryViewportTransform(page);
+  const initialBox = await targetSection.boundingBox();
+  if (!initialTransform || !initialBox) {
+    throw new Error(
+      "Missing canary viewport baseline for section chrome wheel test.",
+    );
+  }
+
+  await page.mouse.move(wheelPoint.x, wheelPoint.y);
+  await page.mouse.wheel(0, -240);
+
+  await expect
+    .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+    .toBeCloseTo(initialTransform.zoom, 2);
+  await expect
+    .poll(async () => {
+      const currentTransform = await getCanaryViewportTransform(page);
+      return currentTransform?.y ?? null;
+    })
+    .toBeCloseTo(initialTransform.y + 240, 0);
+  await expect
+    .poll(async () => {
+      const movedBox = await targetSection.boundingBox();
+      if (!movedBox) {
+        return 0;
+      }
+      return Math.hypot(movedBox.x - initialBox.x, movedBox.y - initialBox.y);
+    })
+    .toBeGreaterThan(150);
 });
 
 test("settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface", async ({
