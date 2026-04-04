@@ -1,0 +1,8 @@
+  if (value === undefined || value === null) {
+    return null;
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  issues.push(fieldName + " must be a string or null.");
+  return null;

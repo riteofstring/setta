@@ -37,6 +37,15 @@ describe("HomePage", () => {
     expect(getProjectTopLevelSectionCount(project)).toBe(2);
   });
 
+  it("returns null when home metadata does not include section layouts", () => {
+    expect(
+      getProjectTopLevelSectionCount({
+        id: "project-1",
+        name: "Project 1",
+      }),
+    ).toBeNull();
+  });
+
   it("partitions favorite and non-favorite projects in a single pass result", () => {
     const projectA = createProjectConfig({ id: "project-a", name: "A" });
     const projectB = createProjectConfig({ id: "project-b", name: "B" });

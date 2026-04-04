@@ -1,0 +1,27 @@
+const normalized = name.trim();
+if (!normalized) {
+  return options.allowEmpty ? null : "Param name cannot be empty.";
+}
+for (const char of normalized) {
+  const codepoint = char.codePointAt(0);
+  if (codepoint !== undefined && (codepoint < 32 || codepoint === 127)) {
+    return "Param name cannot include control characters.";
+  }
+}
+if (!(options.skipPathChecks ?? false)) {
+  if (normalized.includes("/") || normalized.includes("\\")) {
+    return "Param name cannot include path separators.";
+  }
+  if (normalized.includes("..")) {
+    return "Param name cannot include '..' path segments.";
+  }
+}
+if (options.requirePythonIdentifier) {
+  if (!isGeneratedPythonIdentifier(normalized)) {
+    return "Param name must be a valid Python identifier.";
+  }
+  if (generatedPythonKeywords.has(normalized)) {
+    return "Param name cannot be a Python keyword.";
+  }
+}
+return null;
