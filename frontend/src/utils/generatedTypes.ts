@@ -4661,9 +4661,9 @@ function createSectionSizingPolicy(
   return {
     ...mergeGeneratedOptions(
       {
-        byType,
-        metaControlByType,
-        globals,
+        byType: byType,
+        metaControlByType: metaControlByType,
+        globals: globals,
       },
       options,
     ),
@@ -4952,11 +4952,7 @@ export function createSettingsState(
   const sectionSizingPolicy = createSectionSizingPolicy(
     options.sectionSizingPolicy ?? {},
   );
-  const defaults: SettingsState = {
-    shortcuts,
-    gui,
-    backend,
-    sectionSizingPolicy,
+  const clonedDefaults = {
     languageServer: {
       basedpyright: {
         analysis: {
@@ -4971,13 +4967,33 @@ export function createSettingsState(
     },
   };
   return {
-    ...mergeGeneratedOptions(defaults, options),
+    ...mergeGeneratedOptions(
+      {
+        shortcuts: shortcuts,
+        gui: gui,
+        backend: backend,
+        sectionSizingPolicy: sectionSizingPolicy,
+        languageServer: {
+          basedpyright: {
+            analysis: {
+              diagnosticSeverityOverrides: {
+                reportSelfClsParameterName: "none",
+                reportUnannotatedClassAttribute: "none",
+                reportUnknownMemberType: "none",
+                reportUnknownVariableType: "none",
+              },
+            },
+          },
+        },
+      },
+      options,
+    ),
     shortcuts,
     gui,
     backend,
     sectionSizingPolicy,
     languageServer: cloneGeneratedValue(
-      options.languageServer ?? defaults.languageServer,
+      options.languageServer ?? clonedDefaults.languageServer,
     ),
   };
 }
@@ -5336,9 +5352,9 @@ export function createProjectCodegenPythonTarget(
       },
       options,
     ),
-    language: "python",
     sectionPolicy,
     codeObjValuePolicy,
+    language: "python",
   };
 }
 

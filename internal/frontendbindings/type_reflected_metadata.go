@@ -363,21 +363,9 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	},
 	reflect.TypeOf(SectionSizingPolicy{}): {
 		CreateBody: buildSectionSizingPolicyCreateBodyTS(),
-		PropertyTypeExprOverrides: map[string]string{
-			"byType":            "SectionSizingPolicyByType",
-			"metaControlByType": "MetaControlSizingPolicyByType",
-			"globals":           "SectionSizingPolicyGlobals",
-		},
 	},
 	reflect.TypeOf(SettingsState{}): {
 		CreateBody: buildSettingsStateCreateBodyTS(),
-		PropertyTypeExprOverrides: map[string]string{
-			"shortcuts":           "SettingsShortcuts",
-			"gui":                 "SettingsGUI",
-			"backend":             "SettingsBackend",
-			"sectionSizingPolicy": "SectionSizingPolicy",
-			"languageServer":      "Record<string, unknown>",
-		},
 	},
 	reflect.TypeOf(projectview.SectionCapabilities{}): {
 		DefaultValue:  projectview.SectionCapabilities{},

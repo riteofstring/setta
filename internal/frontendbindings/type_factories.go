@@ -65,6 +65,93 @@ func buildTSNestedObjectMergeCreateBodyTS(
 	return builder.String()
 }
 
+type generatedCompositeCreateFieldSpec struct {
+	LocalName    string
+	PropertyName string
+	CreateExpr   string
+}
+
+type generatedCompositeCreateAssignmentSpec struct {
+	Name string
+	Expr string
+}
+
+func buildGoBackedCompositeCreateBodyTS(
+	context string,
+	defaultValue any,
+	nestedFields []generatedCompositeCreateFieldSpec,
+	clonedFields []string,
+	assignments []generatedCompositeCreateAssignmentSpec,
+) string {
+	fieldOrder := goJSONFieldOrder(defaultValue)
+	defaultObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
+
+	exprOverrides := make(map[string]string, len(nestedFields))
+	var builder strings.Builder
+	for _, field := range nestedFields {
+		builder.WriteString("  const ")
+		builder.WriteString(field.LocalName)
+		builder.WriteString(" = ")
+		builder.WriteString(field.CreateExpr)
+		builder.WriteString(";\n")
+		exprOverrides[field.PropertyName] = field.LocalName
+	}
+	if len(clonedFields) > 0 {
+		clonedDefaults := make(map[string]any, len(clonedFields))
+		for _, name := range clonedFields {
+			value, ok := defaultObject[name]
+			if !ok {
+				panic(context + ": missing cloned field default " + name)
+			}
+			clonedDefaults[name] = value
+		}
+		builder.WriteString("  const clonedDefaults = ")
+		writeTSObjectLiteral(&builder, "  ", clonedDefaults, clonedFields)
+		builder.WriteString(";\n")
+	}
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...")
+	builder.WriteString(buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
+		context,
+		defaultValue,
+		fieldOrder,
+		"options",
+		exprOverrides,
+	))
+	builder.WriteString(",\n")
+	for _, field := range nestedFields {
+		builder.WriteString("    ")
+		if field.PropertyName == field.LocalName {
+			builder.WriteString(field.PropertyName)
+		} else {
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(": ")
+			builder.WriteString(field.LocalName)
+		}
+		builder.WriteString(",\n")
+	}
+	for _, name := range clonedFields {
+		builder.WriteString("    ")
+		builder.WriteString(name)
+		builder.WriteString(": cloneGeneratedValue(\n")
+		builder.WriteString("      options.")
+		builder.WriteString(name)
+		builder.WriteString(" ?? clonedDefaults.")
+		builder.WriteString(name)
+		builder.WriteString(",\n")
+		builder.WriteString("    ),\n")
+	}
+	for _, assignment := range assignments {
+		builder.WriteString("    ")
+		builder.WriteString(assignment.Name)
+		builder.WriteString(": ")
+		builder.WriteString(assignment.Expr)
+		builder.WriteString(",\n")
+	}
+	builder.WriteString("  };")
+	return builder.String()
+}
+
 func buildMetaControlSizingPolicyByTypeCreateBodyTS() string {
 	defaults := projectstate.FrontendDefaultMetaControlSizingPolicyByType()
 	return buildTSNestedObjectMergeCreateBodyTS(
@@ -94,87 +181,90 @@ func buildSectionSizingPolicyByTypeCreateBodyTS() string {
 }
 
 func buildSectionSizingPolicyCreateBodyTS() string {
-	var builder strings.Builder
-	builder.WriteString("  const byType = createSectionSizingPolicyByType(options.byType ?? {});\n")
-	builder.WriteString("  const metaControlByType = createMetaControlSizingPolicyByType(\n")
-	builder.WriteString("    options.metaControlByType ?? {},\n")
-	builder.WriteString("  );\n")
-	builder.WriteString("  const globals = createSectionSizingPolicyGlobals(options.globals ?? {});\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions(\n")
-	builder.WriteString("      {\n")
-	builder.WriteString("        byType,\n")
-	builder.WriteString("        metaControlByType,\n")
-	builder.WriteString("        globals,\n")
-	builder.WriteString("      },\n")
-	builder.WriteString("      options,\n")
-	builder.WriteString("    ),\n")
-	builder.WriteString("    byType,\n")
-	builder.WriteString("    metaControlByType,\n")
-	builder.WriteString("    globals,\n")
-	builder.WriteString("  };")
-	return builder.String()
+	return buildGoBackedCompositeCreateBodyTS(
+		"frontend default section sizing policy",
+		projectstate.FrontendDefaultSectionSizingPolicy(),
+		[]generatedCompositeCreateFieldSpec{
+			{
+				LocalName:    "byType",
+				PropertyName: "byType",
+				CreateExpr:   "createSectionSizingPolicyByType(options.byType ?? {})",
+			},
+			{
+				LocalName:    "metaControlByType",
+				PropertyName: "metaControlByType",
+				CreateExpr: "createMetaControlSizingPolicyByType(\n" +
+					"    options.metaControlByType ?? {},\n" +
+					"  )",
+			},
+			{
+				LocalName:    "globals",
+				PropertyName: "globals",
+				CreateExpr:   "createSectionSizingPolicyGlobals(options.globals ?? {})",
+			},
+		},
+		nil,
+		nil,
+	)
 }
 
 func buildSettingsStateCreateBodyTS() string {
-	defaults := settingsstate.FrontendDefaultSettingsState()
-
-	var builder strings.Builder
-	builder.WriteString("  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});\n")
-	builder.WriteString("  const gui = createSettingsGUI(options.gui ?? {});\n")
-	builder.WriteString("  const backend = createSettingsBackend(options.backend ?? {});\n")
-	builder.WriteString("  const sectionSizingPolicy = createSectionSizingPolicy(\n")
-	builder.WriteString("    options.sectionSizingPolicy ?? {},\n")
-	builder.WriteString("  );\n")
-	builder.WriteString("  const defaults: SettingsState = {\n")
-	builder.WriteString("    shortcuts,\n")
-	builder.WriteString("    gui,\n")
-	builder.WriteString("    backend,\n")
-	builder.WriteString("    sectionSizingPolicy,\n")
-	builder.WriteString("    languageServer: ")
-	writeTSObjectLiteral(&builder, "    ", defaults.LanguageServer, nil)
-	builder.WriteString(",\n")
-	builder.WriteString("  };\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
-	builder.WriteString("    shortcuts,\n")
-	builder.WriteString("    gui,\n")
-	builder.WriteString("    backend,\n")
-	builder.WriteString("    sectionSizingPolicy,\n")
-	builder.WriteString("    languageServer: cloneGeneratedValue(\n")
-	builder.WriteString("      options.languageServer ?? defaults.languageServer,\n")
-	builder.WriteString("    ),\n")
-	builder.WriteString("  };")
-	return builder.String()
+	return buildGoBackedCompositeCreateBodyTS(
+		"frontend default settings state",
+		settingsstate.FrontendDefaultSettingsState(),
+		[]generatedCompositeCreateFieldSpec{
+			{
+				LocalName:    "shortcuts",
+				PropertyName: "shortcuts",
+				CreateExpr:   "createSettingsShortcuts(options.shortcuts ?? {})",
+			},
+			{
+				LocalName:    "gui",
+				PropertyName: "gui",
+				CreateExpr:   "createSettingsGUI(options.gui ?? {})",
+			},
+			{
+				LocalName:    "backend",
+				PropertyName: "backend",
+				CreateExpr:   "createSettingsBackend(options.backend ?? {})",
+			},
+			{
+				LocalName:    "sectionSizingPolicy",
+				PropertyName: "sectionSizingPolicy",
+				CreateExpr: "createSectionSizingPolicy(\n" +
+					"    options.sectionSizingPolicy ?? {},\n" +
+					"  )",
+			},
+		},
+		[]string{"languageServer"},
+		nil,
+	)
 }
 
 func buildProjectCodegenPythonTargetCreateBodyTS() string {
 	defaultTarget := projectview.FrontendDefaultProjectCodegenPythonTarget()
-	var builder strings.Builder
-	builder.WriteString("  const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});\n")
-	builder.WriteString("  const codeObjValuePolicy = createCodeObjValuePolicy(\n")
-	builder.WriteString("    options.codeObjValuePolicy ?? {},\n")
-	builder.WriteString("  );\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...")
-	builder.WriteString(buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
+	return buildGoBackedCompositeCreateBodyTS(
 		"default project codegen python target",
 		defaultTarget,
-		goJSONFieldOrder(defaultTarget),
-		"options",
-		map[string]string{
-			"sectionPolicy":      "sectionPolicy",
-			"codeObjValuePolicy": "codeObjValuePolicy",
+		[]generatedCompositeCreateFieldSpec{
+			{
+				LocalName:    "sectionPolicy",
+				PropertyName: "sectionPolicy",
+				CreateExpr:   "createSectionCodegenPolicy(options.sectionPolicy ?? {})",
+			},
+			{
+				LocalName:    "codeObjValuePolicy",
+				PropertyName: "codeObjValuePolicy",
+				CreateExpr: "createCodeObjValuePolicy(\n" +
+					"    options.codeObjValuePolicy ?? {},\n" +
+					"  )",
+			},
 		},
-	))
-	builder.WriteString(",\n")
-	builder.WriteString("    language: ")
-	writeTSLiteralValue(&builder, "    ", string(defaultTarget.Language))
-	builder.WriteString(",\n")
-	builder.WriteString("    sectionPolicy,\n")
-	builder.WriteString("    codeObjValuePolicy,\n")
-	builder.WriteString("  };")
-	return builder.String()
+		nil,
+		[]generatedCompositeCreateAssignmentSpec{
+			{Name: "language", Expr: renderTSLiteralExpr(string(defaultTarget.Language))},
+		},
+	)
 }
 
 func buildSectionCodegenPolicyCreateBodyTS() string {
