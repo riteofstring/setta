@@ -120,7 +120,7 @@ export function TextInputCodeMirror({
   );
 }
 
-function resolveTooltipParentDivId(
+export function resolveTooltipParentDivId(
   tooltipParentDivId: string | null | undefined,
 ): string | null {
   if (tooltipParentDivId === undefined) {
