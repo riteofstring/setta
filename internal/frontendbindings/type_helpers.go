@@ -2329,6 +2329,12 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				"projectConfigId": true,
 			},
 		}, true
+	case reflect.TypeOf(RunCodeRequestInput{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"runSnapshotMode": "RunSnapshotMode | null",
+			},
+		}, true
 	case reflect.TypeOf(projectview.ProjectRunCapabilities{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.ProjectRunCapabilities{},
@@ -2592,6 +2598,13 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			PropertyOptionalOverrides: map[string]bool{
 				"id":   false,
 				"name": false,
+			},
+		}, true
+	case reflect.TypeOf(Edge{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"style": "Record<string, unknown>",
+				"data":  "Record<string, unknown>",
 			},
 		}, true
 	case reflect.TypeOf(ClipboardProjectStateCore{}):

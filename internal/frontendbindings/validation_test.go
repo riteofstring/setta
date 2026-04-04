@@ -4103,6 +4103,20 @@ func TestProjectStateRequestContractsUseConverterObjects(t *testing.T) {
 				{Name: "binding", TypeExpr: "CodeFileBindingUpdate", Optional: false},
 			},
 		},
+		{
+			name: "RunCodeRequestInput",
+			root: reflect.TypeOf(RunCodeRequestInput{}),
+			properties: []TypeProperty{
+				{Name: "projectConfigId", TypeExpr: "string", Optional: false},
+				{Name: "sectionId", TypeExpr: "string | null", Optional: false},
+				{Name: "terminalSectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "cliId", TypeExpr: "string | null", Optional: true},
+				{Name: "runSnapshotMode", TypeExpr: "RunSnapshotMode | null", Optional: true},
+				{Name: "drawSnapshotsBySectionId", TypeExpr: "Record<string, BinaryContentRef> | null", Optional: true},
+				{Name: "sectionVariantOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
+				{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
+			},
+		},
 	}
 
 	for _, tt := range tests {
