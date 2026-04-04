@@ -17,7 +17,7 @@ import {
   useShareSession,
   type ZustandProjectState,
 } from "state/definitions";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import {
   route_set_project_chat_window_chat_id,
   route_set_project_chat_windowing_state,
@@ -515,19 +515,76 @@ function normalizeWorkspaceProjectChatWindowInstance(
   };
 }
 
+function getSectionBindingPlacementPriority(
+  placement: ChatWindowPlacement,
+): number {
+  if (placement === ChatWindowPlacementEnum.canvas_section) {
+    return 4;
+  }
+  if (placement === ChatWindowPlacementEnum.floating) {
+    return 3;
+  }
+  if (placement === ChatWindowPlacementEnum.maximized) {
+    return 2;
+  }
+  return 1;
+}
+
+function isProjectChatWindowVisible(
+  instance: ProjectChatWindowInstance,
+): boolean {
+  return !instance.isClosed && !instance.isMinimized;
+}
+
+function isPreferredSectionBindingCandidate(
+  candidate: ProjectChatWindowInstance,
+  currentBest: ProjectChatWindowInstance | null,
+): boolean {
+  if (!currentBest) {
+    return true;
+  }
+  const candidatePlacementPriority = getSectionBindingPlacementPriority(
+    candidate.placement,
+  );
+  const bestPlacementPriority = getSectionBindingPlacementPriority(
+    currentBest.placement,
+  );
+  if (candidatePlacementPriority !== bestPlacementPriority) {
+    return candidatePlacementPriority > bestPlacementPriority;
+  }
+
+  const candidateVisible = isProjectChatWindowVisible(candidate);
+  const bestVisible = isProjectChatWindowVisible(currentBest);
+  if (candidateVisible !== bestVisible) {
+    return candidateVisible;
+  }
+
+  if (candidate.zIndex !== currentBest.zIndex) {
+    return candidate.zIndex > currentBest.zIndex;
+  }
+  if (candidate.lastFocusedAt !== currentBest.lastFocusedAt) {
+    return candidate.lastFocusedAt > currentBest.lastFocusedAt;
+  }
+  return candidate.instanceId > currentBest.instanceId;
+}
+
 function getProjectChatWindowInstanceForSectionInState(
   state: ProjectChatWindowingState,
   sectionId: string,
 ): ProjectChatWindowInstance | null {
   const normalized = normalizeProjectChatWindowingOrder(state).state;
+  let bestMatch: ProjectChatWindowInstance | null = null;
   for (const instanceId of normalized.order) {
     const instance = normalized.instancesById[instanceId];
     if (!instance || instance.sectionIdOrNull !== sectionId) {
       continue;
     }
-    return instance;
+    if (!isPreferredSectionBindingCandidate(instance, bestMatch)) {
+      continue;
+    }
+    bestMatch = instance;
   }
-  return null;
+  return bestMatch;
 }
 
 export function getProjectChatWindowBindingForSectionInState(
@@ -656,6 +713,7 @@ function getExternalProjectChatWindowInstanceForSectionInState(
   { visibleOnly }: { visibleOnly: boolean },
 ): ProjectChatWindowInstance | null {
   const normalized = normalizeProjectChatWindowingOrder(state).state;
+  let bestMatch: ProjectChatWindowInstance | null = null;
   for (const instanceId of normalized.order) {
     const instance = normalized.instancesById[instanceId];
     if (!instance || instance.sectionIdOrNull !== sectionId) {
@@ -667,9 +725,12 @@ function getExternalProjectChatWindowInstanceForSectionInState(
     if (visibleOnly && (instance.isClosed || instance.isMinimized)) {
       continue;
     }
-    return instance;
+    if (!isPreferredSectionBindingCandidate(instance, bestMatch)) {
+      continue;
+    }
+    bestMatch = instance;
   }
-  return null;
+  return bestMatch;
 }
 
 function getNextWindowInstanceId(state: ProjectChatWindowingState): {
@@ -1340,14 +1401,14 @@ type PendingProjectChatWindowingMutation = {
 };
 
 type ProjectChatWindowingWriteResponse =
-  ResponseDataAndStatus<ProjectChatWindowingState>;
+  | Awaited<ReturnType<typeof route_set_project_chat_windowing_state>>
+  | Awaited<ReturnType<typeof route_set_project_chat_window_chat_id>>;
 
-type SyntheticProjectChatWindowingWriteResponse =
-  ProjectChatWindowingWriteResponse & {
-    data: ProjectChatWindowingState;
-    hasResponse: true;
-    status: 200;
-  };
+type SyntheticProjectChatWindowingWriteResponse = {
+  data: ProjectChatWindowingState;
+  hasResponse: true;
+  status: 200;
+};
 
 type ProjectChatWindowingTrackedResponse =
   | ProjectChatWindowingWriteResponse
