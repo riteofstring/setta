@@ -96,19 +96,6 @@ if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
   CHROME_ARGS=(${CHROME_EXTRA_ARGS})
 fi
 
-append_optional_args() {
-  local target_name="$1"
-  shift
-  local -n target_args="${target_name}"
-  local arg=""
-
-  for arg in "$@"; do
-    if [[ -n "${arg}" ]]; then
-      target_args+=("${arg}")
-    fi
-  done
-}
-
 resolve_python_bin() {
   if command -v python >/dev/null 2>&1; then
     echo "python"
@@ -523,8 +510,12 @@ BACKGROUND_CHROME_ARGS=(
   --no-first-run
   --no-default-browser-check
 )
-append_optional_args BACKGROUND_CHROME_ARGS "${HEADLESS_CHROME_ARGS[@]}"
-append_optional_args BACKGROUND_CHROME_ARGS "${CHROME_ARGS[@]}"
+if [[ ${#HEADLESS_CHROME_ARGS[@]} -gt 0 ]]; then
+  BACKGROUND_CHROME_ARGS+=("${HEADLESS_CHROME_ARGS[@]}")
+fi
+if [[ ${#CHROME_ARGS[@]} -gt 0 ]]; then
+  BACKGROUND_CHROME_ARGS+=("${CHROME_ARGS[@]}")
+fi
 BACKGROUND_CHROME_ARGS+=(about:blank)
 
 OPEN_CHROME_ARGS=(
@@ -533,7 +524,9 @@ OPEN_CHROME_ARGS=(
   --no-first-run
   --no-default-browser-check
 )
-append_optional_args OPEN_CHROME_ARGS "${CHROME_ARGS[@]}"
+if [[ ${#CHROME_ARGS[@]} -gt 0 ]]; then
+  OPEN_CHROME_ARGS+=("${CHROME_ARGS[@]}")
+fi
 OPEN_CHROME_ARGS+=(about:blank)
 
 echo "Starting Chrome with remote debugging on port $DEBUG_PORT..."

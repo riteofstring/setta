@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 15:36 EDT
+Last updated: 2026-04-02 15:43 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,18 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `017` landed the remaining shell-compatibility fix that was still preventing the patched headless launcher from starting in the live Ralph runtime:
+  - `scripts/start-browser-mcp.sh` no longer uses the Bash-4-only `local -n` helper to append optional Chrome args; it now appends those arrays explicitly so macOS `/bin/bash` 3.2 can execute the headless devtools path.
+  - `tests/start/test_start_browser_mcp_script.py` now invokes the script through `/bin/bash` when it exists, so the direct launcher coverage exercises the same shell Ralph used in the failing lifecycle run.
+- Targeted verification passed for item `017`:
+  - `source activate.sh && pytest tests/start/test_start_browser_mcp_script.py`
+    - result: passed (`3 passed`)
+  - isolated live smoke:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 DEBUG_PORT=9693 MCP_RUN_DIR=<tmp> PROFILE_DIR=<tmp> /bin/bash ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
+    - `curl -fsS --max-time 3 http://127.0.0.1:9693/json/version`
+    - result: passed (returned the Chrome DevTools JSON payload after the launcher exited)
+- This closes the concrete launcher bug surfaced in the current Ralph runtime log:
+  - `/Users/jeff/Documents/_projects/setta.pixijs-graph/scripts/start-browser-mcp.sh: line 102: local: -n: invalid option`
 - Ralph item `016` landed the lifecycle/browser launcher fix that was blocking the post-item-013 oracle compare:
   - `scripts/start-browser-mcp.sh` now launches background devtools Chrome through a detached Python subprocess (`start_new_session=True`, with `nohup` fallback) so the headless browser no longer dies with the short-lived launcher shell.
   - the same script now builds Chrome argv arrays without the empty `CHROME_ARGS` placeholder that was causing the detached Python launch path to exit immediately.
@@ -21,7 +33,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - `DEBUG_PORT=9692 MCP_RUN_DIR=/tmp/setta-mcp-live12 PROFILE_DIR=/tmp/setta-profile-live12 BOOTSTRAP_ENABLED=0 ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
     - after `sleep 1`, `curl -fsS --max-time 3 http://127.0.0.1:9692/json/version` returned the Chrome DevTools JSON payload successfully
 - This closes the lifecycle-launcher bug that made the headless debug Chrome disappear before CDP came up.
-- The actual worktree/main lifecycle sessions from item `015` were not re-bootstrapped in this iteration, so the cleared-viewport worktree-vs-`main` compare is still pending.
+- The already-running worktree/main lifecycle sessions from this Ralph pass were not re-bootstrapped after item `017`, so the strict cleared-viewport worktree-vs-`main` compare is still pending:
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` still returns `Error: No matching Setta sessions found.`
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` still returns `Error: No matching Setta sessions found.`
 - The required post-item-013 cleared-viewport compare is now blocked by lifecycle/bootstrap availability rather than another bounds hypothesis:
   - fresh-context CDP sub-agent could not connect because `http://127.0.0.1:9297/json/version` was unreachable
   - one allowed local self-recovery ran with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
@@ -238,6 +252,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - item `013` then moved the canary fit to measured DOM bounds and aligned the size box model with legacy `fitView`
 - before doing more bounds work, restore a healthy worktree CDP target plus a healthy read-only `main` reference session and re-run the strict cleared-viewport CDP compare on `All Settings`
 - item `016` should make that retry meaningful again:
+  - item `017` also removed the remaining macOS system-Bash crash from the launcher path that showed up in `run-003/worktree-ai.log`
   - use the normal Ralph-managed worktree/main lifecycles first instead of more ad hoc launcher debugging
   - if the patched lifecycle still fails to produce a trustworthy worktree or `main` session, inspect the remaining Setta-session/bootstrap wiring next rather than returning to bounds math
   - only after that compare is valid should the next iteration decide whether the remaining frontier is still the measured-bounds vertical framing mismatch or a different oracle/state issue

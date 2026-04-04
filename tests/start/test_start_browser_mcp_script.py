@@ -9,6 +9,13 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
+def _system_bash() -> str:
+    system_bash = Path("/bin/bash")
+    if system_bash.exists():
+        return str(system_bash)
+    return "bash"
+
+
 def _write_executable(path: Path, body: str) -> None:
     path.write_text(body, encoding="utf-8")
     path.chmod(0o755)
@@ -63,7 +70,7 @@ exit 1
 
     # Multi-worktree launches rely on a fresh app process so args are honored.
     result = subprocess.run(
-        ["bash", str(script_path), "--devtools"],
+        [_system_bash(), str(script_path), "--devtools"],
         cwd=repo_root,
         env=env,
         check=False,
@@ -121,7 +128,13 @@ exit 1
     env["MCP_BASE_DIR"] = str(tmp_path / "mcp")
 
     result = subprocess.run(
-        ["bash", str(script_path), "--devtools", "--browser-mode", "headless"],
+        [
+            _system_bash(),
+            str(script_path),
+            "--devtools",
+            "--browser-mode",
+            "headless",
+        ],
         cwd=repo_root,
         env=env,
         check=False,
@@ -174,7 +187,13 @@ exit 1
     env["MCP_RUN_DIR"] = str(mcp_run_dir)
 
     result = subprocess.run(
-        ["bash", str(script_path), "--devtools", "--browser-mode", "headless"],
+        [
+            _system_bash(),
+            str(script_path),
+            "--devtools",
+            "--browser-mode",
+            "headless",
+        ],
         cwd=repo_root,
         env=env,
         check=False,

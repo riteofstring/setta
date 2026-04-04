@@ -579,3 +579,29 @@ LOOP_TERMINAL_MARKER: none
   - inspect the canary's cleared-viewport bounds inputs versus the legacy visible-section fit inputs on `All Settings`, and fix whichever size/source mismatch is undercounting the visible field
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 017
+
+- Item: Make `start-browser-mcp.sh` compatible with macOS `/bin/bash` so Ralph's headless lifecycle can actually launch DevTools Chrome on this worktree.
+- Status: `done`
+- Details:
+  - The live `run-003/worktree-ai.log` failure was not another generic bootstrap miss; the launcher itself was crashing before Chrome started:
+    - `/Users/jeff/Documents/_projects/setta.pixijs-graph/scripts/start-browser-mcp.sh: line 102: local: -n: invalid option`
+  - `scripts/start-browser-mcp.sh` no longer uses the Bash-4-only `local -n` nameref helper when building Chrome argv arrays.
+  - The same script now appends optional headless/custom Chrome args with explicit array concatenation, which preserves the item-016 empty-arg fix while remaining compatible with macOS `/bin/bash` 3.2.
+  - `tests/start/test_start_browser_mcp_script.py` now invokes the launcher through `/bin/bash` when it exists, so the direct script coverage matches the shell Ralph actually used in the failing lifecycle run.
+- Verification:
+  - `source activate.sh && pytest tests/start/test_start_browser_mcp_script.py`
+    - result: passed (`3 passed`, about `2s`)
+  - isolated live smoke
+    - command:
+      - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 DEBUG_PORT=9693 MCP_RUN_DIR=<tmp> PROFILE_DIR=<tmp> /bin/bash ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
+      - `curl -fsS --max-time 3 http://127.0.0.1:9693/json/version`
+    - result: passed (returned the Chrome DevTools JSON payload after two short retry polls)
+- Conclusion:
+  - the headless launcher now works on the system Bash that the Ralph lifecycle actually used
+  - this iteration intentionally stopped at the launcher fix; it did not yet rerun the fresh worktree-vs-`main` strict cleared-viewport compare
+- Next action:
+  - rerun the normal Ralph-managed worktree and `main` `ai` lifecycles with the updated launcher, then retry the strict `All Settings` cleared-viewport CDP compare before touching more canary bounds/state code
+
+LOOP_TERMINAL_MARKER: none
