@@ -5,7 +5,6 @@ import {
   formatHistoryTimestamp,
   getHistoryPlaceholderText,
   getManagedChatRunRefreshKey,
-  resolveManagedChatHistoryPollIntervalMs,
   resolveManagedChatRunType,
   shouldExitManagedChatHistory,
   shouldPersistInitializedChatState,
@@ -282,35 +281,6 @@ describe("shouldPersistInitializedChatState", () => {
         },
       }),
     ).toBe(false);
-  });
-});
-
-describe("resolveManagedChatHistoryPollIntervalMs", () => {
-  it("polls while a section chat run is active", () => {
-    expect(
-      resolveManagedChatHistoryPollIntervalMs({
-        hasLoadError: false,
-        hasRunningHistoryEntry: true,
-      }),
-    ).toBe(5000);
-  });
-
-  it("retries load failures even when no run is active", () => {
-    expect(
-      resolveManagedChatHistoryPollIntervalMs({
-        hasLoadError: true,
-        hasRunningHistoryEntry: false,
-      }),
-    ).toBe(10000);
-  });
-
-  it("stops polling when idle and healthy", () => {
-    expect(
-      resolveManagedChatHistoryPollIntervalMs({
-        hasLoadError: false,
-        hasRunningHistoryEntry: false,
-      }),
-    ).toBeNull();
   });
 });
 

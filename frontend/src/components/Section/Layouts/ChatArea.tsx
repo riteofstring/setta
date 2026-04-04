@@ -100,7 +100,6 @@ import {
   formatHistoryTimestamp,
   getHistoryPlaceholderText,
   getManagedChatRunRefreshKey,
-  resolveManagedChatHistoryPollIntervalMs,
   resolveManagedChatRunType,
   shouldExitManagedChatHistory,
   shouldPersistInitializedChatState,
@@ -923,54 +922,11 @@ function ManagedChatHistoryPanel({
       ),
     [agentRuns, historyCompatibility, projectConfigId, sectionId],
   );
-  const hasRunningHistoryEntry = useMemo(
-    () => sectionHistoryEntries.some((entry) => entry.waitingForResponse),
-    [sectionHistoryEntries],
-  );
-  const pollIntervalMs = resolveManagedChatHistoryPollIntervalMs({
-    hasLoadError: Boolean(agentRunsLoadError),
-    hasRunningHistoryEntry,
-  });
-
   useEffect(() => {
-    let intervalId: number | null = null;
-
-    const clearPollingInterval = () => {
-      if (intervalId === null) {
-        return;
-      }
-      window.clearInterval(intervalId);
-      intervalId = null;
-    };
-
-    const startPollingIfNeeded = () => {
-      clearPollingInterval();
-      if (pollIntervalMs === null || document.visibilityState !== "visible") {
-        return;
-      }
-      intervalId = window.setInterval(() => {
-        void loadAgentRuns();
-      }, pollIntervalMs);
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState !== "visible") {
-        clearPollingInterval();
-        return;
-      }
+    if (!agentRunsInitialLoadComplete) {
       void loadAgentRuns();
-      startPollingIfNeeded();
-    };
-
-    void loadAgentRuns();
-    startPollingIfNeeded();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-
-    return () => {
-      clearPollingInterval();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [pollIntervalMs]);
+    }
+  }, [agentRunsInitialLoadComplete]);
 
   return (
     <ChatSectionHistoryList

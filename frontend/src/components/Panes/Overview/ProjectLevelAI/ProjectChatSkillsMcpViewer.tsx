@@ -506,7 +506,7 @@ export function resolveCanAddCustomSlashCommand({
   return true;
 }
 
-export function shouldPollSlashCommandAgentRuns({
+export function shouldLoadSlashCommandAgentRuns({
   viewMode,
   hasExternalAgentEngine,
 }: {
@@ -969,23 +969,6 @@ function runSkillsRefreshEffect(args: {
     return;
   }
   void refreshSkillsBrowser();
-}
-
-function runSlashCommandPollingEffect(args: {
-  shouldPollSlashRuns: boolean;
-}): (() => void) | void {
-  const { shouldPollSlashRuns } = args;
-  if (!shouldPollSlashRuns) {
-    return;
-  }
-  void loadAgentRuns();
-  const refreshIntervalMs = 15_000;
-  const intervalId = window.setInterval(() => {
-    void loadAgentRuns();
-  }, refreshIntervalMs);
-  return () => {
-    window.clearInterval(intervalId);
-  };
 }
 
 function canEditSelectedSkillMarkdown(args: {
@@ -2248,6 +2231,9 @@ export function ProjectChatSkillsMcpViewer({
     (state) => state.externalAgentHealthInitialLoadComplete,
   );
   const agentRuns = useAIStore((state) => state.agentRuns);
+  const agentRunsInitialLoadComplete = useAIStore(
+    (state) => state.agentRunsInitialLoadComplete,
+  );
   const agentRunsAuthorityState = useAIStore(
     (state) => state.agentRunsAuthorityState,
   );
@@ -2662,8 +2648,8 @@ export function ProjectChatSkillsMcpViewer({
       (entry) => entry.engineType === EngineTypeEnum.external_agent,
     );
   }, [slashCommandsByEngine]);
-  const shouldPollSlashRuns = useMemo(() => {
-    return shouldPollSlashCommandAgentRuns({
+  const shouldLoadSlashRuns = useMemo(() => {
+    return shouldLoadSlashCommandAgentRuns({
       viewMode,
       hasExternalAgentEngine: hasExternalAgentSlashEngine,
     });
@@ -2734,10 +2720,10 @@ export function ProjectChatSkillsMcpViewer({
   }, [selectedSlashEngineId, slashCommandsByEngine]);
 
   useEffect(() => {
-    return runSlashCommandPollingEffect({
-      shouldPollSlashRuns,
-    });
-  }, [shouldPollSlashRuns]);
+    if (shouldLoadSlashRuns && !agentRunsInitialLoadComplete) {
+      void loadAgentRuns();
+    }
+  }, [agentRunsInitialLoadComplete, shouldLoadSlashRuns]);
 
   const readonlyMarkdownViewerExtensions = useMemo(() => {
     return getExtensions({

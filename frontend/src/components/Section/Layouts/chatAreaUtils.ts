@@ -112,25 +112,6 @@ export function buildManagedZeroScopeBannerSessionKey(
   return `setta:managed-zero-scope-banner-dismissed:${projectConfigId}:${sectionId}`;
 }
 
-const MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS = 5000;
-const MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS = 10000;
-
-export function resolveManagedChatHistoryPollIntervalMs({
-  hasLoadError,
-  hasRunningHistoryEntry,
-}: {
-  hasLoadError: boolean;
-  hasRunningHistoryEntry: boolean;
-}): number | null {
-  if (hasRunningHistoryEntry) {
-    return MANAGED_CHAT_HISTORY_RUNNING_POLL_INTERVAL_MS;
-  }
-  if (hasLoadError) {
-    return MANAGED_CHAT_HISTORY_ERROR_POLL_INTERVAL_MS;
-  }
-  return null;
-}
-
 export function formatHistoryTimestamp(timestampMs: number): string {
   if (timestampMs <= 0) {
     return "No timestamp";
