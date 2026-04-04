@@ -3,6 +3,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import {
   cleanupIsolatedProject,
+  createTopLevelSectionFromFrontend,
   getViewportBoundsForPlacement,
   openIsolatedProject,
   postBackend,
@@ -24,22 +25,20 @@ test("icon view scrolls with trackpad wheel (does not get eaten by canvas pan)",
     const projectConfigId = projectContext.projectConfigId;
     const viewportBounds = await getViewportBoundsForPlacement(page);
     if (!viewportBounds) {
-      throw new Error("Unable to resolve viewport bounds for section placement.");
+      throw new Error(
+        "Unable to resolve viewport bounds for section placement.",
+      );
     }
 
-    const browserSection = await postBackend<{ sectionId?: string }>(
-      page,
-      "/createTopLevelSection",
-      {
-        projectConfigId,
-        implType: "Browser",
-        position: {
-          x: viewportBounds.x + viewportBounds.w * 0.25,
-          y: viewportBounds.y + viewportBounds.h * 0.25,
-        },
-        viewportBounds,
+    const browserSection = await createTopLevelSectionFromFrontend(page, {
+      projectConfigId,
+      implType: "Browser",
+      position: {
+        x: viewportBounds.x + viewportBounds.w * 0.25,
+        y: viewportBounds.y + viewportBounds.h * 0.25,
       },
-    );
+      viewportBounds,
+    });
     const sectionId = browserSection?.sectionId;
     if (!sectionId) {
       throw new Error("Missing sectionId when creating browser section.");
