@@ -572,6 +572,114 @@ func TestProjectStateDeclarationsUseGoBackedCapabilityDefaults(t *testing.T) {
 	}
 }
 
+func TestProjectStateWindowingDeclarationsUseGoBackedDefaults(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, root := range []reflect.Type{
+		reflect.TypeOf(TopLevelSectionLayout{}),
+		reflect.TypeOf(ViewMode{}),
+		reflect.TypeOf(ChatWindowBounds{}),
+		reflect.TypeOf(ChatWindowDockMetrics{}),
+		reflect.TypeOf(ProjectChatWindowInstance{}),
+		reflect.TypeOf(ProjectChatWindowingState{}),
+		reflect.TypeOf(NormalizedFloatingWindowBounds{}),
+		reflect.TypeOf(WindowSpaceWindow{}),
+		reflect.TypeOf(WindowSpaceState{}),
+		reflect.TypeOf(WindowSpaceConfig{}),
+	} {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+	}
+
+	topLevelSectionLayout := mustFindDeclarationByName(t, converter.Declarations(), "TopLevelSectionLayout")
+	for _, snippet := range []string{
+		`zIndex: 0,`,
+		`w: null,`,
+		`h: null,`,
+	} {
+		if !strings.Contains(topLevelSectionLayout.CreateExpr, snippet) {
+			t.Fatalf("TopLevelSectionLayout create expr missing %q:\n%s", snippet, topLevelSectionLayout.CreateExpr)
+		}
+	}
+
+	viewMode := mustFindDeclarationByName(t, converter.Declarations(), "ViewMode")
+	for _, snippet := range []string{
+		`sortIndex: 0,`,
+		`visibilityBySectionId: {},`,
+		`viewport: null,`,
+		`topLevelSections: {},`,
+	} {
+		if !strings.Contains(viewMode.CreateExpr, snippet) {
+			t.Fatalf("ViewMode create expr missing %q:\n%s", snippet, viewMode.CreateExpr)
+		}
+	}
+
+	chatWindowDockMetrics := mustFindDeclarationByName(t, converter.Declarations(), "ChatWindowDockMetrics")
+	for _, snippet := range []string{
+		`widthFraction: null,`,
+		`preferredWidthPx: null,`,
+	} {
+		if !strings.Contains(chatWindowDockMetrics.CreateExpr, snippet) {
+			t.Fatalf("ChatWindowDockMetrics create expr missing %q:\n%s", snippet, chatWindowDockMetrics.CreateExpr)
+		}
+	}
+
+	projectChatWindowInstance := mustFindDeclarationByName(t, converter.Declarations(), "ProjectChatWindowInstance")
+	for _, snippet := range []string{
+		`placement: "bottom_docked",`,
+		`dockMetrics: createChatWindowDockMetrics(),`,
+		`sectionIdOrNull: null,`,
+		`chatId: null,`,
+	} {
+		if !strings.Contains(projectChatWindowInstance.CreateExpr, snippet) {
+			t.Fatalf("ProjectChatWindowInstance create expr missing %q:\n%s", snippet, projectChatWindowInstance.CreateExpr)
+		}
+	}
+	if strings.Contains(projectChatWindowInstance.CreateExpr, "ChatWindowPlacementEnum.") {
+		t.Fatalf("ProjectChatWindowInstance create expr should use Go-backed literals, got:\n%s", projectChatWindowInstance.CreateExpr)
+	}
+
+	projectChatWindowingState := mustFindDeclarationByName(t, converter.Declarations(), "ProjectChatWindowingState")
+	for _, snippet := range []string{
+		`instancesById: {`,
+		`order: [],`,
+		`nextInstanceNumber: 1,`,
+	} {
+		if !strings.Contains(projectChatWindowingState.CreateExpr, snippet) {
+			t.Fatalf("ProjectChatWindowingState create expr missing %q:\n%s", snippet, projectChatWindowingState.CreateExpr)
+		}
+	}
+
+	windowSpaceWindow := mustFindDeclarationByName(t, converter.Declarations(), "WindowSpaceWindow")
+	for _, snippet := range []string{
+		`surfaceKind: "project_chat",`,
+		`mode: "project_ai_mode",`,
+		`normalizedBounds: createNormalizedFloatingWindowBounds(),`,
+	} {
+		if !strings.Contains(windowSpaceWindow.CreateExpr, snippet) {
+			t.Fatalf("WindowSpaceWindow create expr missing %q:\n%s", snippet, windowSpaceWindow.CreateExpr)
+		}
+	}
+	if strings.Contains(windowSpaceWindow.CreateExpr, "WindowSpaceSurfaceKindEnum.") {
+		t.Fatalf("WindowSpaceWindow create expr should use Go-backed literals, got:\n%s", windowSpaceWindow.CreateExpr)
+	}
+
+	windowSpaceConfig := mustFindDeclarationByName(t, converter.Declarations(), "WindowSpaceConfig")
+	for _, snippet := range []string{
+		`windowsById: {`,
+		`order: [],`,
+		`id: "",`,
+		`name: "",`,
+		`sortIndex: 0,`,
+	} {
+		if !strings.Contains(windowSpaceConfig.CreateExpr, snippet) {
+			t.Fatalf("WindowSpaceConfig create expr missing %q:\n%s", snippet, windowSpaceConfig.CreateExpr)
+		}
+	}
+}
+
 func TestSettingsCreateExprsUseGoDefaultSettingsDocument(t *testing.T) {
 	t.Helper()
 

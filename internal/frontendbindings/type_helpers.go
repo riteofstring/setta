@@ -973,10 +973,11 @@ func buildGoBackedCreateExprWithExprOverridesTS(
 	properties []TypeProperty,
 	exprOverrides map[string]string,
 ) string {
-	filteredDefaults := filterObjectByTypeProperties(
+	filteredDefaults := filterObjectByTypePropertiesWithExprOverrides(
 		context,
 		mustTSLiteralObjectFromGoValue(context, value),
 		properties,
+		exprOverrides,
 	)
 	return buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
 		context,
@@ -992,10 +993,24 @@ func filterObjectByTypeProperties(
 	object map[string]any,
 	properties []TypeProperty,
 ) map[string]any {
+	return filterObjectByTypePropertiesWithExprOverrides(context, object, properties, nil)
+}
+
+func filterObjectByTypePropertiesWithExprOverrides(
+	context string,
+	object map[string]any,
+	properties []TypeProperty,
+	exprOverrides map[string]string,
+) map[string]any {
 	filtered := make(map[string]any, len(properties))
 	for _, property := range properties {
 		value, ok := object[property.Name]
 		if !ok {
+			if exprOverrides != nil {
+				if _, overridden := exprOverrides[property.Name]; overridden {
+					continue
+				}
+			}
 			if property.Optional {
 				continue
 			}
@@ -1830,6 +1845,33 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 				},
 			},
 		}, true
+	case reflect.TypeOf(TopLevelSectionLayout{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultTopLevelSectionLayout(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"zIndex": "0",
+				"w":      "null",
+				"h":      "null",
+			},
+		}, true
+	case reflect.TypeOf(ViewMode{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultViewMode(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"sortIndex":             "0",
+				"isUserFacing":          "false",
+				"isTab":                 "false",
+				"visibilityBySectionId": "{}",
+				"viewport":              "null",
+				"viewportInitialized":   "false",
+				"topLevelSections":      "{}",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"sortIndex": true,
+			},
+		}, true
 	case reflect.TypeOf(Core{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.FrontendDefaultCore(),
@@ -1860,6 +1902,79 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.FrontendDefaultShownParamIDs(),
 			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(ChatWindowBounds{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.DefaultChatWindowBounds(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(ChatWindowDockMetrics{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultChatWindowDockMetrics(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"widthFraction":    "null",
+				"preferredWidthPx": "null",
+			},
+		}, true
+	case reflect.TypeOf(ProjectChatWindowInstance{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultProjectChatWindowInstance(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"isMinimized":                 "false",
+				"isClosed":                    "false",
+				"isMaximized":                 "false",
+				"dockMetrics":                 "createChatWindowDockMetrics()",
+				"zIndex":                      "0",
+				"lastPlacementBeforeMaximize": "null",
+				"sectionIdOrNull":             "null",
+				"title":                       "null",
+				"lastFocusedAt":               "0",
+				"chatId":                      "null",
+			},
+		}, true
+	case reflect.TypeOf(ProjectChatWindowingState{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.DefaultProjectChatWindowingState(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(NormalizedFloatingWindowBounds{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.DefaultNormalizedFloatingWindowBounds(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(WindowSpaceWindow{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultWindowSpaceWindow(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"sectionIdOrNull":        "null",
+				"title":                  "null",
+				"chatId":                 "null",
+				"embeddedGitPaneVisible": "false",
+				"zIndex":                 "0",
+				"normalizedBounds":       "createNormalizedFloatingWindowBounds()",
+			},
+		}, true
+	case reflect.TypeOf(WindowSpaceState{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultWindowSpaceState(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(WindowSpaceConfig{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultWindowSpaceConfig(),
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"id":        `""`,
+				"name":      `""`,
+				"sortIndex": "0",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"id":   false,
+				"name": false,
+			},
 		}, true
 	case reflect.TypeOf(SectionTypeCodegenPolicy{}):
 		return reflectedObjectDeclarationSpec{

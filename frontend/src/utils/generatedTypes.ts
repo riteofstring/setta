@@ -2583,6 +2583,28 @@ export type Viewport = {
   zoom: number;
 };
 
+export type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return mergeGeneratedOptions(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
+}
+
 type ViewMode = {
   id: string;
   name: string;
@@ -2644,23 +2666,62 @@ type WatchCodeRegistryEntry = {
   sectionsCount?: number;
 };
 
-export type TopLevelSectionLayout = {
+export const WindowSpaceSurfaceKindEnum = {
+  project_chat: "project_chat",
+  section: "section",
+} as const;
+type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
+
+export const ChatWindowModeEnum = {
+  project_ai_mode: "project_ai_mode",
+  section_mode: "section_mode",
+  git_graph_mode: "git_graph_mode",
+} as const;
+export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
+
+export type NormalizedFloatingWindowBounds = {
   x: number;
   y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
+  width: number;
+  height: number;
 };
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
+function createNormalizedFloatingWindowBounds(
+  options: Partial<NormalizedFloatingWindowBounds> = {},
+): NormalizedFloatingWindowBounds {
   return mergeGeneratedOptions(
     {
       x: 0,
       y: 0,
+      width: 1,
+      height: 1,
+    },
+    options,
+  );
+}
+
+type WindowSpaceWindow = {
+  surfaceKind?: WindowSpaceSurfaceKind;
+  sectionIdOrNull?: string | null;
+  mode?: ChatWindowMode;
+  title?: string | null;
+  chatId?: string | null;
+  embeddedGitPaneVisible?: boolean;
+  zIndex?: number;
+  normalizedBounds?: NormalizedFloatingWindowBounds;
+};
+export function createWindowSpaceWindow(
+  options: Partial<WindowSpaceWindow> = {},
+): WindowSpaceWindow {
+  return mergeGeneratedOptions(
+    {
+      surfaceKind: "project_chat",
+      sectionIdOrNull: null,
+      mode: "project_ai_mode",
+      title: null,
+      chatId: null,
+      embeddedGitPaneVisible: false,
       zIndex: 0,
-      w: null,
-      h: null,
+      normalizedBounds: createNormalizedFloatingWindowBounds(),
     },
     options,
   );
@@ -2861,6 +2922,82 @@ export type CodeFileBinding = {
   autoBinding: boolean;
 };
 
+export const ChatWindowPlacementEnum = {
+  bottom_docked: "bottom_docked",
+  floating: "floating",
+  maximized: "maximized",
+  canvas_section: "canvas_section",
+} as const;
+export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
+
+export type ChatWindowBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
+type ChatWindowDockMetrics = {
+  widthFraction?: number | null;
+  preferredWidthPx?: number | null;
+};
+function createChatWindowDockMetrics(
+  options: Partial<ChatWindowDockMetrics> = {},
+): ChatWindowDockMetrics {
+  return mergeGeneratedOptions(
+    {
+      widthFraction: null,
+      preferredWidthPx: null,
+    },
+    options,
+  );
+}
+
+export type ProjectChatWindowInstance = {
+  instanceId: string;
+  placement?: ChatWindowPlacement;
+  isMinimized?: boolean;
+  isClosed?: boolean;
+  isMaximized?: boolean;
+  bounds?: ChatWindowBounds;
+  dockMetrics?: ChatWindowDockMetrics;
+  zIndex?: number;
+  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
+  mode?: ChatWindowMode;
+  sectionIdOrNull?: string | null;
+  title?: string | null;
+  lastFocusedAt?: number;
+  chatId?: string | null;
+};
+export function createProjectChatWindowInstance(
+  options: Partial<ProjectChatWindowInstance> = {},
+): ProjectChatWindowInstance {
+  return mergeGeneratedOptions(
+    {
+      instanceId: "",
+      placement: "bottom_docked",
+      isMinimized: false,
+      isClosed: false,
+      isMaximized: false,
+      bounds: {
+        height: 520,
+        width: 820,
+        x: 120,
+        y: 120,
+      },
+      dockMetrics: createChatWindowDockMetrics(),
+      zIndex: 0,
+      lastPlacementBeforeMaximize: null,
+      mode: "project_ai_mode",
+      sectionIdOrNull: null,
+      title: null,
+      lastFocusedAt: 0,
+      chatId: null,
+    },
+    options,
+  );
+}
+
 export type ProjectChatWindowingState = {
   instancesById: Record<string, ProjectChatWindowInstance>;
   order: Array<string>;
@@ -2993,151 +3130,6 @@ type ClipboardProjectStateCore = {
   codeObjImpls: Record<string, BaseCodeObjImplUnion>;
   codeObjVariants: Record<string, Variant>;
 };
-
-export const ChatWindowPlacementEnum = {
-  bottom_docked: "bottom_docked",
-  floating: "floating",
-  maximized: "maximized",
-  canvas_section: "canvas_section",
-} as const;
-export type ChatWindowPlacement = ObjectValues<typeof ChatWindowPlacementEnum>;
-
-export const ChatWindowModeEnum = {
-  project_ai_mode: "project_ai_mode",
-  section_mode: "section_mode",
-  git_graph_mode: "git_graph_mode",
-} as const;
-export type ChatWindowMode = ObjectValues<typeof ChatWindowModeEnum>;
-
-export type ChatWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-function createChatWindowBounds(
-  options: Partial<ChatWindowBounds> = {},
-): ChatWindowBounds {
-  return mergeGeneratedOptions(
-    {
-      x: 120,
-      y: 120,
-      width: 820,
-      height: 520,
-    },
-    options,
-  );
-}
-
-type ChatWindowDockMetrics = {
-  widthFraction?: number | null;
-  preferredWidthPx?: number | null;
-};
-function createChatWindowDockMetrics(
-  options: Partial<ChatWindowDockMetrics> = {},
-): ChatWindowDockMetrics {
-  return mergeGeneratedOptions(
-    {
-      widthFraction: null,
-      preferredWidthPx: null,
-    },
-    options,
-  );
-}
-
-export type ProjectChatWindowInstance = {
-  instanceId: string;
-  placement?: ChatWindowPlacement;
-  isMinimized?: boolean;
-  isClosed?: boolean;
-  isMaximized?: boolean;
-  bounds?: ChatWindowBounds;
-  dockMetrics?: ChatWindowDockMetrics;
-  zIndex?: number;
-  lastPlacementBeforeMaximize?: ChatWindowPlacement | null;
-  mode?: ChatWindowMode;
-  sectionIdOrNull?: string | null;
-  title?: string | null;
-  lastFocusedAt?: number;
-  chatId?: string | null;
-};
-export function createProjectChatWindowInstance(
-  options: Partial<ProjectChatWindowInstance> = {},
-): ProjectChatWindowInstance {
-  return mergeGeneratedOptions(
-    {
-      instanceId: "",
-      placement: ChatWindowPlacementEnum.bottom_docked,
-      isMinimized: false,
-      isClosed: false,
-      isMaximized: false,
-      bounds: createChatWindowBounds(),
-      dockMetrics: createChatWindowDockMetrics(),
-      zIndex: 0,
-      lastPlacementBeforeMaximize: null,
-      mode: ChatWindowModeEnum.project_ai_mode,
-      sectionIdOrNull: null,
-      title: null,
-      lastFocusedAt: 0,
-      chatId: null,
-    },
-    options,
-  );
-}
-
-export const WindowSpaceSurfaceKindEnum = {
-  project_chat: "project_chat",
-  section: "section",
-} as const;
-type WindowSpaceSurfaceKind = ObjectValues<typeof WindowSpaceSurfaceKindEnum>;
-
-export type NormalizedFloatingWindowBounds = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-function createNormalizedFloatingWindowBounds(
-  options: Partial<NormalizedFloatingWindowBounds> = {},
-): NormalizedFloatingWindowBounds {
-  return mergeGeneratedOptions(
-    {
-      x: 0,
-      y: 0,
-      width: 1,
-      height: 1,
-    },
-    options,
-  );
-}
-
-type WindowSpaceWindow = {
-  surfaceKind?: WindowSpaceSurfaceKind;
-  sectionIdOrNull?: string | null;
-  mode?: ChatWindowMode;
-  title?: string | null;
-  chatId?: string | null;
-  embeddedGitPaneVisible?: boolean;
-  zIndex?: number;
-  normalizedBounds?: NormalizedFloatingWindowBounds;
-};
-export function createWindowSpaceWindow(
-  options: Partial<WindowSpaceWindow> = {},
-): WindowSpaceWindow {
-  return mergeGeneratedOptions(
-    {
-      surfaceKind: WindowSpaceSurfaceKindEnum.project_chat,
-      sectionIdOrNull: null,
-      mode: ChatWindowModeEnum.project_ai_mode,
-      title: null,
-      chatId: null,
-      embeddedGitPaneVisible: false,
-      zIndex: 0,
-      normalizedBounds: createNormalizedFloatingWindowBounds(),
-    },
-    options,
-  );
-}
 
 export type WindowSpaceState = {
   windowsById: Record<string, WindowSpaceWindow>;

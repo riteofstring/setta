@@ -8,6 +8,22 @@ func FrontendDefaultViewport() Viewport {
 	}
 }
 
+func FrontendDefaultTopLevelSectionLayout() TopLevelSectionLayout {
+	return TopLevelSectionLayout{
+		X: 0,
+		Y: 0,
+	}
+}
+
+func FrontendDefaultViewMode() ViewMode {
+	return ViewMode{
+		ID:                    "",
+		Name:                  "",
+		VisibilityBySectionID: map[string]bool{},
+		TopLevelSections:      map[string]TopLevelSectionLayout{},
+	}
+}
+
 func FrontendDefaultTypeErrorIgnoreState() TypeErrorIgnoreState {
 	return TypeErrorIgnoreState{
 		Callable: false,
@@ -89,5 +105,44 @@ func FrontendDefaultScatterChartSettings() map[string]any {
 		"categoryColumn": nil,
 		"xAxisLog":       false,
 		"yAxisLog":       false,
+	}
+}
+
+func FrontendDefaultChatWindowDockMetrics() ChatWindowDockMetrics {
+	return ChatWindowDockMetrics{}
+}
+
+func FrontendDefaultProjectChatWindowInstance() ProjectChatWindowInstance {
+	return ProjectChatWindowInstance{
+		InstanceID:  "",
+		Placement:   ChatWindowPlacementBottomDocked,
+		Bounds:      DefaultChatWindowBounds(),
+		DockMetrics: FrontendDefaultChatWindowDockMetrics(),
+		Mode:        ChatWindowModeProjectAI,
+	}
+}
+
+func FrontendDefaultWindowSpaceWindow() WindowSpaceWindow {
+	return WindowSpaceWindow{
+		SurfaceKind:      WindowSpaceSurfaceKindProjectChat,
+		Mode:             ChatWindowModeProjectAI,
+		NormalizedBounds: DefaultNormalizedFloatingWindowBounds(),
+	}
+}
+
+func FrontendDefaultWindowSpaceState() WindowSpaceState {
+	return WindowSpaceState{
+		WindowsByID: map[string]WindowSpaceWindow{},
+		Order:       []string{},
+	}
+}
+
+func FrontendDefaultWindowSpaceConfig() WindowSpaceConfig {
+	defaults := FrontendDefaultWindowSpaceState()
+	return WindowSpaceConfig{
+		WindowsByID: defaults.WindowsByID,
+		Order:       defaults.Order,
+		ID:          "",
+		Name:        "",
 	}
 }

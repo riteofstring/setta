@@ -122,6 +122,32 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "TopLevelSectionLayout",
+			root: reflect.TypeOf(TopLevelSectionLayout{}),
+			properties: []TypeProperty{
+				{Name: "x", TypeExpr: "number", Optional: false},
+				{Name: "y", TypeExpr: "number", Optional: false},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "w", TypeExpr: "number | null", Optional: true},
+				{Name: "h", TypeExpr: "number | null", Optional: true},
+			},
+		},
+		{
+			name: "ViewMode",
+			root: reflect.TypeOf(ViewMode{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: true},
+				{Name: "isUserFacing", TypeExpr: "boolean", Optional: true},
+				{Name: "isTab", TypeExpr: "boolean", Optional: true},
+				{Name: "visibilityBySectionId", TypeExpr: "Record<string, boolean>", Optional: true},
+				{Name: "viewport", TypeExpr: "Viewport | null", Optional: true},
+				{Name: "viewportInitialized", TypeExpr: "boolean", Optional: true},
+				{Name: "topLevelSections", TypeExpr: "Record<string, TopLevelSectionLayout>", Optional: true},
+			},
+		},
+		{
 			name: "SectionCapabilities",
 			root: reflect.TypeOf(projectview.SectionCapabilities{}),
 			properties: []TypeProperty{
@@ -201,6 +227,96 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			properties: []TypeProperty{
 				{Name: "pinned", TypeExpr: "ShownParamIdDetails", Optional: false},
 				{Name: "unpinned", TypeExpr: "ShownParamIdDetails", Optional: false},
+			},
+		},
+		{
+			name: "ChatWindowBounds",
+			root: reflect.TypeOf(ChatWindowBounds{}),
+			properties: []TypeProperty{
+				{Name: "x", TypeExpr: "number", Optional: false},
+				{Name: "y", TypeExpr: "number", Optional: false},
+				{Name: "width", TypeExpr: "number", Optional: false},
+				{Name: "height", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "ChatWindowDockMetrics",
+			root: reflect.TypeOf(ChatWindowDockMetrics{}),
+			properties: []TypeProperty{
+				{Name: "widthFraction", TypeExpr: "number | null", Optional: true},
+				{Name: "preferredWidthPx", TypeExpr: "number | null", Optional: true},
+			},
+		},
+		{
+			name: "ProjectChatWindowInstance",
+			root: reflect.TypeOf(ProjectChatWindowInstance{}),
+			properties: []TypeProperty{
+				{Name: "instanceId", TypeExpr: "string", Optional: false},
+				{Name: "placement", TypeExpr: "ChatWindowPlacement", Optional: true},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: true},
+				{Name: "isClosed", TypeExpr: "boolean", Optional: true},
+				{Name: "isMaximized", TypeExpr: "boolean", Optional: true},
+				{Name: "bounds", TypeExpr: "ChatWindowBounds", Optional: true},
+				{Name: "dockMetrics", TypeExpr: "ChatWindowDockMetrics", Optional: true},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "lastPlacementBeforeMaximize", TypeExpr: "ChatWindowPlacement | null", Optional: true},
+				{Name: "mode", TypeExpr: "ChatWindowMode", Optional: true},
+				{Name: "sectionIdOrNull", TypeExpr: "string | null", Optional: true},
+				{Name: "title", TypeExpr: "string | null", Optional: true},
+				{Name: "lastFocusedAt", TypeExpr: "number", Optional: true},
+				{Name: "chatId", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "ProjectChatWindowingState",
+			root: reflect.TypeOf(ProjectChatWindowingState{}),
+			properties: []TypeProperty{
+				{Name: "instancesById", TypeExpr: "Record<string, ProjectChatWindowInstance>", Optional: false},
+				{Name: "order", TypeExpr: "Array<string>", Optional: false},
+				{Name: "nextInstanceNumber", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "NormalizedFloatingWindowBounds",
+			root: reflect.TypeOf(NormalizedFloatingWindowBounds{}),
+			properties: []TypeProperty{
+				{Name: "x", TypeExpr: "number", Optional: false},
+				{Name: "y", TypeExpr: "number", Optional: false},
+				{Name: "width", TypeExpr: "number", Optional: false},
+				{Name: "height", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
+			name: "WindowSpaceWindow",
+			root: reflect.TypeOf(WindowSpaceWindow{}),
+			properties: []TypeProperty{
+				{Name: "surfaceKind", TypeExpr: "WindowSpaceSurfaceKind", Optional: true},
+				{Name: "sectionIdOrNull", TypeExpr: "string | null", Optional: true},
+				{Name: "mode", TypeExpr: "ChatWindowMode", Optional: true},
+				{Name: "title", TypeExpr: "string | null", Optional: true},
+				{Name: "chatId", TypeExpr: "string | null", Optional: true},
+				{Name: "embeddedGitPaneVisible", TypeExpr: "boolean", Optional: true},
+				{Name: "zIndex", TypeExpr: "number", Optional: true},
+				{Name: "normalizedBounds", TypeExpr: "NormalizedFloatingWindowBounds", Optional: true},
+			},
+		},
+		{
+			name: "WindowSpaceState",
+			root: reflect.TypeOf(WindowSpaceState{}),
+			properties: []TypeProperty{
+				{Name: "windowsById", TypeExpr: "Record<string, WindowSpaceWindow>", Optional: false},
+				{Name: "order", TypeExpr: "Array<string>", Optional: false},
+			},
+		},
+		{
+			name: "WindowSpaceConfig",
+			root: reflect.TypeOf(WindowSpaceConfig{}),
+			properties: []TypeProperty{
+				{Name: "windowsById", TypeExpr: "Record<string, WindowSpaceWindow>", Optional: false},
+				{Name: "order", TypeExpr: "Array<string>", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "sortIndex", TypeExpr: "number", Optional: true},
 			},
 		},
 		{
@@ -323,7 +439,17 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "Variant" ||
 				tt.name == "SingletonSections" ||
 				tt.name == "ShownParamIdDetails" ||
-				tt.name == "ShownParamIds") && declaration.CreateExpr == "" {
+				tt.name == "ShownParamIds" ||
+				tt.name == "TopLevelSectionLayout" ||
+				tt.name == "ViewMode" ||
+				tt.name == "ChatWindowBounds" ||
+				tt.name == "ChatWindowDockMetrics" ||
+				tt.name == "ProjectChatWindowInstance" ||
+				tt.name == "ProjectChatWindowingState" ||
+				tt.name == "NormalizedFloatingWindowBounds" ||
+				tt.name == "WindowSpaceWindow" ||
+				tt.name == "WindowSpaceState" ||
+				tt.name == "WindowSpaceConfig") && declaration.CreateExpr == "" {
 				t.Fatalf("%s should use a Go-backed create expr", tt.name)
 			}
 		})
