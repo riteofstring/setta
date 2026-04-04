@@ -4427,3 +4427,35 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pick one different normalized dynamic lane on `All Settings` instead of reopening modified-wheel or the recent drag/edit oracle family; prefer a shared non-Browser section with a visibly present body/control anchor or a fresh normalized compare that isolates the first remaining canary-only renderer defect
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 16:12 EDT - Ralph item 130
+
+- Identified `chatSectionDefault` as the next viable shared non-Browser body-heavy lane on normalized `All Settings` without reopening closed `group` / `spreadsheet` / `draw` / `taskBoard` / Browser families.
+- Why this slice was necessary:
+  - items `128` and `129` were both probe/oracle cleanup, so the next allowed support step had to directly unblock a concrete renderer question instead of adding another harness-first lane
+  - the handoff explicitly said to use the existing CDP/manual comparison flow to find the next shared normalized motion lane whose body/control anchor is visibly present after `clear viewport -> fit view`
+- Production/test change:
+  - no production or test files changed in this slice
+- What this slice established:
+  - `chatSectionDefault` is visibly present on both worktree canary and read-only `main` legacy after normalized `All Settings -> clear viewport -> fit view`
+  - the stable body/control anchor `Auto Create Initial Chat` is visibly present on both surfaces on that lane
+  - `dropzoneParamCodeObjDefault` remains a fallback candidate, but the chat lane is already sufficient to unblock the next renderer-facing dynamic compare
+  - the fresh-context lane-identification compare did not show body/chrome detachment, wrong-surface state, or obvious visual instability on this lane
+- Verification:
+  - refreshed run-049 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-049/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-049/main-ai.log`
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - normalized live `3075/settings` and read-only `3087/settings` to active `All Settings`
+    - confirmed `chatSectionDefault` plus the `Auto Create Initial Chat` anchor on both surfaces after normalized fit
+    - confirmed `dropzoneParamCodeObjDefault` remained available as a fallback candidate
+  - the later reused-session pan readout and the extra fresh-context rerun attempt were not kept as renderer evidence:
+    - the follow-up reused stale page state
+    - the second sub-agent timed out before it returned a clean from-scratch bilateral pan result
+  - CDP visual check: done (fresh-context lane-viability compare on live `3075` canary vs read-only `3087` legacy; `chatSectionDefault` with `Auto Create Initial Chat` is a usable shared lane after normalized fit)
+- Lane status:
+  - open `chatSectionDefault` as the next trustworthy non-Browser shared lane
+  - do not treat the reused-session `30px` worktree-only pulse as product evidence
+- Next frontier:
+  - rerun one from-scratch normalized dynamic action on `chatSectionDefault` across both surfaces, preferably a short blank-pane pan pulse or one short top-level drag, before adding any new harness work
+- LOOP_TERMINAL_MARKER: none

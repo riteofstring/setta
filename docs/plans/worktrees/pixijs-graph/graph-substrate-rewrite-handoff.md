@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 15:45 EDT
+Last updated: 2026-04-04 16:12 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `130` used the existing CDP/manual comparison flow to identify the next viable non-Browser body-heavy lane instead of reopening already-closed probe families.
+  - Why this slice was needed:
+    - items `128` and `129` were both probe/oracle cleanup, so the next allowed bounded support step had to directly unblock a concrete renderer question rather than add another harness-first lane
+    - the immediate frontier explicitly called for one different shared normalized motion lane whose body/control anchor is visibly present after `clear viewport -> fit view`, with existing CDP/manual comparison preferred over more helper work
+  - Production/test change:
+    - no production or test files changed in this slice
+  - What this slice established:
+    - `chatSectionDefault` is a usable shared body-heavy lane on normalized `All Settings`
+    - the stable body/control anchor `Auto Create Initial Chat` is visibly present on both worktree canary and read-only `main` legacy after shared normalization
+    - the fresh-context lane-identification compare did not show body/chrome detachment, wrong-surface state, or obvious visual instability on this lane
+    - `dropzoneParamCodeObjDefault` remained available as a fallback candidate, but `chatSectionDefault` was already enough to unblock the next renderer-facing dynamic compare
+  - Verification:
+    - refreshed run-049 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-049/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-049/main-ai.log`
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - normalized live worktree `3075/settings` and read-only `3087/settings` to active `All Settings`
+      - confirmed `chatSectionDefault` plus the `Auto Create Initial Chat` anchor are visibly present on both surfaces after normalized fit
+      - also confirmed `dropzoneParamCodeObjDefault` remains available if the chat lane later proves unusable
+    - the later reused-session pan readout and the extra from-scratch rerun attempt were not kept as renderer evidence:
+      - the follow-up reused stale page state
+      - the second fresh-context sub-agent timed out before returning a clean bilateral pan measurement
+    - CDP visual check: done (fresh-context lane-viability compare on live `3075` canary vs read-only `3087` legacy; `chatSectionDefault` with `Auto Create Initial Chat` is a usable shared lane after normalized fit)
+  - conclusion for this slice:
+    - open `chatSectionDefault` as the next trustworthy non-Browser shared lane
+    - do not treat the reused-session `30px` worktree-only pulse as product evidence
+    - the next iteration should rerun one from-scratch normalized dynamic action on `chatSectionDefault` across both surfaces, preferably a short blank-pane pan pulse or short top-level drag, before adding any new harness work
 - Ralph item `129` reran the normalized modified-wheel zoom delta main-reference lane on the current run-048 surfaces and closed it as clean again, using the planned CDP fallback static sanity check instead of pretending CDP can replay the native modified-wheel gesture.
   - Why this slice was needed:
     - the last two completed iterations were both probe-shape fixes on the same drag/edit lane, so the next bounded step had to move to a different dynamic path rather than spend a third pass on the same oracle family
@@ -3263,6 +3291,16 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
+- `chatSectionDefault` is now the next viable shared non-Browser body-heavy lane:
+  - fresh-context CDP confirmed the stable `Auto Create Initial Chat` anchor is visibly present on both worktree canary and read-only `main` legacy after normalized `All Settings -> clear viewport -> fit view`
+  - `dropzoneParamCodeObjDefault` is the fallback only if a later fresh compare shows the chat lane is not actually usable
+  - do not spend the next pass rediscovering lane viability or reopening `group`, `spreadsheet`, `draw`, `taskBoard`, or Browser default lanes
+- The next bounded slice should use `chatSectionDefault` for one from-scratch normalized dynamic action across both surfaces:
+  - prefer a short blank-pane pan pulse or one short top-level drag that CDP can complete end-to-end without synthetic drop ambiguity
+  - only add a new deterministic Playwright/main-reference guard after that exact chat-lane motion compare either exposes a stable mismatch or proves clean enough to lock down
+- Do not treat the reused-session `30px` worktree-only pan readout from this iteration as renderer evidence:
+  - that follow-up did not start from a fresh normalized baseline
+  - the fresh-context rerun attempt timed out before it returned clean bilateral motion metrics
 - The normalized modified-wheel zoom delta lane is now closed again for the current run-048 surfaces:
   - the targeted main-reference Playwright probe passed on fresh run-048 runtime/bootstrap values
   - the exact modified-wheel replay remains a known MCP tool boundary, so the live visual acceptance for this lane is the fallback shared `fit view -> toolbar zoom in` sanity check on the same normalized graph surface
