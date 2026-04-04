@@ -1,0 +1,1531 @@
+# Graph Substrate Rewrite Handoff
+
+Last updated: 2026-04-03 19:23 EDT
+Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
+Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
+Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-completed.md`
+
+## Current status
+
+- Ralph item `068` reran the exact normalized `groupSectionDefault` targeted-fit compare on a fresh loop session to decide whether item `067`'s remaining centering question was a worktree bug or a repeated reference-session blocker.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the only justified next step after two oracle-only passes was one final bounded compare that could either reopen centering work or close it
+  - Automated result:
+    - none; no production code changed, so this slice used runtime sanity checks plus fresh-context CDP verification as the narrowest relevant verification
+  - Live verification result:
+    - runtime sanity checks confirmed both sessions were live before the compare:
+      - worktree `setta status --connect-info --latest --json --workspace .` still reported session `f6451a` on backend `8075`
+      - read-only `main` `setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` still reported session `76d188` on backend `8087`
+      - `pnpm -C frontend cdp-port` still reported worktree CDP port `9298`
+      - the latest `Local:` entry in `/var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.eunRtq/run-035/main-ai.log` still pointed at `http://127.0.0.1:3087/`
+    - fresh-context CDP sub-agent reran the exact targeted-fit lane:
+      - opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - normalized both pages to active `All Settings`
+      - resolved `groupSectionDefault` by project-state name:
+        - worktree `206b4718-1fc5-4846-99e8-8f4335ae40a7`
+        - `main` `a92931c4-a389-4276-96e1-31816bd21c57`
+      - normalized pane state to `overviewVis=false`, `overviewTrueWidth=420`, `uiEditorVis=false`, `uiEditorTrueWidth=260`
+      - ran the exact page-context helper `fitView({ nodes: [{ id: targetSectionId }], padding: 0.1 })`
+      - worktree exact-fit metrics:
+        - transform `{ x: -277.71694214876027, y: -3396.7933884297518, zoom: 1.1389462809917354 }`
+        - section rect `{ x: 405.6508483886719, y: 56.04541015625, width: 628.6983642578125, height: 400.9091796875 }`
+        - visible-surface center offset `dx=0.000030517578125`, `dy=0`
+      - read-only `main` exact-fit probe blocked again before centering could be measured:
+        - `[data-testid="graph-substrate-canary"]` was absent
+        - `[data-testid="graph-substrate-canary-section"]` count stayed `0`
+        - `.react-flow__pane` was present, so the page itself had loaded
+        - console showed repeated `WebSocket connection to 'ws://127.0.0.1:8087/api/frontend' failed` errors
+  - conclusion for this slice:
+    - do not reopen worktree centering code from the weaker whole-surface `+80px` delta or the older `main`-right `96px` screenshot alone
+    - the exact worktree targeted-fit path remains centered, so the repeated blocker is now clearly reference-session availability on `main`, not an already-proven worktree centering bug
+    - because the same `main` missing-canary/websocket blocker has now repeated across two exact targeted-fit passes, the next iteration should pivot to resolving or explaining that reference-session blocker before any more `groupSectionDefault` centering/parity work
+- Ralph item `067` reran the blocked normalized `groupSectionDefault` centering probe on the fresh loop session, then tightened it to the exact per-section fit path before deciding whether the remaining horizontal delta was product evidence or oracle noise.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the goal was to finish the delayed parity question from item `066` before reopening the centering implementation
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths'`
+    - result: passed (`1 passed`, about `23.4s`)
+    - what it still proves:
+      - the stale-hidden-pane fit + toolbar zoom regression guard from item `065` remains green in isolated Playwright
+  - Live verification result:
+    - runtime sanity check showed the fresh loop session was back on the original worktree runtime (`3075` / `8075`) with `pnpm -C frontend cdp-port` reporting `9298`
+    - first fresh-context CDP sub-agent succeeded on a graph-surface-wide normalization:
+      - opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - clicked `All Settings` on both pages
+      - cleared selection with `Escape`
+      - ran the visible `fit view` control on both pages
+      - measured `groupSectionDefault` inside the graph surface after that shared whole-surface fit
+      - resulting metrics:
+        - worktree `3075`: transform `translate(632.4px, -245.2px) scale(0.1)`, section rect `{ x: 692.4, y: 90.8, width: 55.2, height: 35.2 }`, center offset `dx=0.0`, `dy=-148.1`
+        - `main` `3087`: transform `translate(712.4px, -245.2px) scale(0.1)`, section rect `{ x: 772.4, y: 90.8, width: 55.2, height: 35.2 }`, center offset `dx=+80.0`, `dy=-148.1`
+      - because that pass did not use the exact targeted per-section fit helper from the test lane, it was treated as useful but not sufficient to reopen production centering work on its own
+    - second fresh-context CDP sub-agent reran the exact targeted-fit path used by the Playwright helpers:
+      - resolved `groupSectionDefault` by project-state name:
+        - worktree `206b4718-1fc5-4846-99e8-8f4335ae40a7`
+        - `main` `a92931c4-a389-4276-96e1-31816bd21c57`
+      - explicitly normalized local pane state to `overviewVis=false`, `overviewTrueWidth=420`, `uiEditorVis=false`, `uiEditorTrueWidth=260`
+      - cleared viewport to `null`
+      - ran the exact page-context fit helper `fitView({ nodes: [{ id: targetSectionId }], padding: 0.1 })`
+      - worktree exact-fit metrics:
+        - transform `{ x: -277.717, y: -3396.79, zoom: 1.13895 }`
+        - section rect `{ x: 405.6508483886719, y: 56.04541015625, width: 628.6983642578125, height: 400.9091796875 }`
+        - center offset `0.000030517578125`
+      - `main` exact-fit path blocked before the canary could render:
+        - after reload + `All Settings`, `document.querySelectorAll('[data-testid="graph-substrate-canary"]').length` stayed `0`
+        - console showed repeated `WebSocket connection to 'ws://127.0.0.1:8087/api/frontend' failed` errors
+        - the exact per-section fit probe failed with `Missing canary root`
+  - conclusion for this slice:
+    - do not treat the weaker whole-surface `+80px` delta as settled product evidence on its own
+    - the exact worktree targeted-fit path is centered, so the remaining unanswered question is now reference-session availability rather than an already-proven worktree centering bug
+    - the next iteration should retry the same exact `groupSectionDefault` targeted-fit compare on a fresh reference session before any more production centering work
+- Ralph item `066` attempted the planned normalized `groupSectionDefault` centering/parity probe, but the required fresh-context CDP verification blocked at the tool boundary even after the one allowed worktree lifecycle recovery.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the goal was to answer whether item `065`'s remaining `main`-right `96px` delta survives a visible-graph-surface-centered oracle
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths'`
+    - result: passed (`1 passed`, about `22.1s`)
+    - what it still proves:
+      - the stale-hidden-pane fit + toolbar zoom guard from item `065` remains green in isolated Playwright
+  - Live verification result:
+    - first fresh-context CDP sub-agent retry on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` immediately returned `CDP tool access failed` before any trustworthy graph-surface metrics were produced
+    - used the one allowed self-recovery path:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - recovered worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, session `39a5aa`
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` confirmed the fresh `8077` session
+    - post-recovery runtime note:
+      - the launcher printed `chrome-devtools-mcp expects: http://127.0.0.1:9299`
+      - `pnpm -C frontend cdp-port` still reported `9298`
+    - second fresh-context CDP sub-agent retry against worktree `http://127.0.0.1:3077/settings` and read-only `main` `http://127.0.0.1:3087/settings` never returned usable metrics after recovery, so there is still no trustworthy post-recovery CDP oracle for the visible-graph-surface centering question
+  - conclusion for this slice:
+    - no new renderer evidence was produced beyond the existing item `065` screenshots because CDP access remained blocked after the allowed recovery attempt
+    - the next iteration should begin with a fresh worktree lifecycle restart and retry the same visible-graph-surface-centered `groupSectionDefault` probe before any further product or harness work
+- Ralph item `065` fixed the canary fit/center math for hidden-pane states by making the viewport path visibility-aware instead of trusting stale remembered pane widths, then rechecked the same `groupSectionDefault` fit + zoom lane live.
+  - Production/test change:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryEffectivePaneWidths(...)`, which derives effective left/right graph insets from `overviewVis` / `uiEditorVis` plus the remembered widths, falling back to the closed rail width when a pane is hidden.
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses those effective widths for:
+      - initial auto-fit sizing
+      - visible viewport width pushed into the shared React Flow store
+      - canary `fitView(...)` center math
+      - canary `setCenter(...)` / viewport-center math
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now adds a unit case proving hidden panes with stale remembered widths fall back to the closed rail width and no longer shift the fit result left.
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths`, which:
+      - activates `All Settings`
+      - leaves both panes hidden while directly preserving stale remembered widths in the store
+      - fits `groupSectionDefault`
+      - clicks the real toolbar `zoom in`
+      - asserts the widened card stays centered on the graph surface through the zoom pulse
+    - the same spec’s expected auto-fit helper now also uses pane visibility plus `CLOSED_PANE_WIDTH` instead of trusting stale hidden widths.
+  - Automated result:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` passed (`1 passed`, `13 tests`, about `0.7s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state|settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths|settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'` passed (`3 passed`, about `48.4s`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts tests/e2e/settings/settings-view-modes.spec.ts` passed
+  - Live verification result:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both pages were normalized to active `All Settings`, active selection cleared, and the stale hidden-pane state was applied on both sides:
+      - `overviewVis=false`
+      - `overviewTrueWidth=420`
+      - `uiEditorVis=false`
+      - `uiEditorTrueWidth=260`
+    - `groupSectionDefault` was resolved by name on each page, then both pages ran the same targeted `fitView({ nodes: [{ id }], padding: 0.1 })` plus one real toolbar `zoom in`
+    - after zoom:
+      - worktree `3075`: transform `{ x: 0, y: 0, zoom: 1 }`, target rect `{ x: 342.78, y: 15.95, width: 754.44, height: 481.09 }`, center offset `-0.00003px`
+      - `main` `3087`: transform `{ x: 0, y: 0, zoom: 1 }`, target rect `{ x: 438.78, y: 15.95, width: 754.44, height: 481.09 }`, center offset `+96.00px`
+    - screenshot evidence:
+      - `/tmp/setta-worktree-settings-after-zoom.png`
+      - `/tmp/setta-main-settings-after-zoom.png`
+    - interpretation:
+      - the old worktree-only left-shift is gone on this exact lane
+      - the worktree canary now lands centered through the fit + zoom path under stale hidden pane widths
+      - the remaining mismatch is smaller and flipped: `main` remains about `96px` farther right on this compare, so the next question is whether that residual offset is legacy-oracle behavior or another shared centering difference
+  - conclusion for this slice:
+    - the visibility-aware pane-width production fix is complete and verified; do not reopen the stale-hidden-width left-shift bug itself
+    - the next real frontier is a narrower normalized `groupSectionDefault` centering/parity probe to explain the remaining `main`-right `96px` offset instead of more harness work
+- Ralph item `064` used the required non-harness bounded oracle step to isolate the next real Gate 1 / Gate 2 canary artifact on a different named section, instead of repeating another drag/pan support slice.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the point of the slice was to isolate the next live renderer question after two support-heavy iterations
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+    - result: passed (`1 passed`, about `20.5s`)
+    - what it still proves:
+      - the existing canary zoom contract remains green in isolated Playwright
+      - no new harness/test work was needed to ask the next live renderer question
+  - Live verification result:
+    - a fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to:
+      - active `All Settings`
+      - overview hidden
+      - UI editor hidden
+      - cleared active section ids
+    - authoritative runtime ids resolved by project-state name on a different shared section:
+      - worktree `groupSectionDefault`: `20eeee62-c082-42c0-848f-76466e57dfa3`
+      - `main` `groupSectionDefault`: `a92931c4-a389-4276-96e1-31816bd21c57`
+    - shared targeted-fit and zoom path:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })` returned `true` on both pages
+      - after the shared targeted fit, the worktree canary was already visibly left-shifted inside the graph surface before any additional zoom pulse
+      - one shared real toolbar `zoom in` click on both sides kept the mismatch and amplified it
+    - post-zoom metrics:
+      - worktree transform `{ x: -753.26, y: -4120.25, zoom: 1.36674 }`, target rect `{ x: 66.78, y: 15.95, width: 754.44, height: 481.09 }`
+      - `main` transform `{ x: -300.26, y: -4120.25, zoom: 1.36674 }`, target rect `{ x: 521.15, y: 17.32, width: 751.70, height: 478.36 }`
+    - screenshot evidence:
+      - `/tmp/setta-worktree-groupsection-zoom.png`
+      - `/tmp/setta-reference-groupsection-zoom.png`
+    - interpretation:
+      - this is not another spreadsheet/draw drag issue
+      - the next remaining artifact is a canary fit/zoom positioning problem on `groupSectionDefault`
+      - the mismatch appears immediately after the shared targeted-fit path, not only after the zoom pulse, so the bug is earlier than zoom-button handling itself
+  - likely production frontier:
+    - inspect the canary fit/center math in `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts`
+    - current code still derives visible-viewport width and fit/zoom center offsets from `overviewTrueWidth` / `uiEditorTrueWidth` without a visibility-aware effective-width layer, so that path is the first place to test against this newly isolated left-shift artifact
+  - conclusion for this slice:
+    - the bounded oracle step is complete and useful; do not spend the next iteration on more general zoom harness work
+    - the next real task should be a production fix for the canary fit/visible-viewport width math, followed by the same `groupSectionDefault` targeted-fit + zoom CDP recheck
+- Ralph item `063` closed one different user-driven `spreadsheetSectionDefault` drag lane by adding targeted automated proof for the widened top-level drag path, then rechecking the widened fit state live after the allowed lifecycle recovery.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag`.
+    - the new case reuses the existing named-section drag/body-anchor helpers, normalizes to active `All Settings`, closes overview and UI editor panes, widens `spreadsheetSectionDefault` through `fitView({ nodes: [{ id }], padding: 0.1 })`, drives the real Playwright mouse drag path, and asserts both:
+      - the spreadsheet body anchor stays locked to the same widened section shell during motion
+      - the top-level layout persists after the drop
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened spreadsheet section attached during top-level drag'` passed (`1 passed`, about `24.2s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` passed
+    - what it proves now:
+      - the widened spreadsheet card can use the true top-level drag path in the isolated canary runtime without body/shell detachment
+  - Live verification result:
+    - a first fresh-context CDP sub-agent hit a stale-tab runtime blocker on the old worktree session (`Runtime.enable` on the `3075` tab never returned), so this iteration used the one allowed lifecycle recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, session `32b22e`
+    - after the restart, a second fresh-context CDP sub-agent confirmed the restarted `3077` session was reachable, then normalized both worktree `http://127.0.0.1:3077/settings` and read-only `main` `http://127.0.0.1:3087/settings` through production state/actions:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active selection cleared in production state
+    - authoritative runtime ids resolved by project-state name:
+      - worktree `spreadsheetSectionDefault`: `1e14b979-fe71-4819-9801-3e16b4e12885`
+      - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - shared targeted-fit path on both sides:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })`
+      - worktree post-fit viewport `translate(405.651px, -5446.9px) scale(1.13895)` and section rect `{ x: 405.651, y: 56.046, width: 628.698, height: 400.909 }`
+      - `main` post-fit viewport `translate(498.481px, -5446.9px) scale(1.13895)` and section rect `{ x: 553.151, y: 56.046, width: 628.698, height: 400.909 }`
+    - screenshot evidence:
+      - `/tmp/setta-3077-production-fit-final.png`
+      - `/tmp/setta-3087-production-fit.png`
+    - interpretation:
+      - CDP is healthy again after the bounded restart
+      - the widened spreadsheet section looks visibly clean on both surfaces after the shared targeted-fit normalizer
+      - no worktree-only blank/detached artifact appeared on this lane; the small dark rectangle visible on the canvas showed up on both surfaces, so it is oracle noise rather than a canary-only defect
+  - conclusion for this slice:
+    - the widened `spreadsheetSectionDefault` top-level drag lane is now closed with targeted Playwright coverage plus a live post-recovery graph-surface fit gate
+    - do not reopen this exact spreadsheet drag lane unless a later regression appears
+    - the stale `3075` runtime hang was a lifecycle issue, not a product blocker; future iterations can treat `3077/8077` as the current recovered worktree session for this pass
+    - the next real frontier should move to one different user-driven interaction or motion lane on a different named section, or isolate the first remaining canary-only artifact if a fresh compare shows one
+- Ralph item `062` closed one different normalized `spreadsheetSectionDefault` motion lane with a shared state-backed top-level move after authoritative targeted fit, instead of reopening `drawSectionDefault` overlap churn or adding another helper-only test.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - result: passed (`1 passed`, about `24.4s`)
+    - what it still proves:
+      - the generic custom-surface top-level drag persistence guard remains green in a fresh isolated runtime
+  - Live verification result:
+    - a first fresh-context CDP sub-agent only reached the global `fit view` button and produced a no-op motion probe; that pass was rejected as an untrustworthy oracle rather than counted as progress
+    - a second fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` through page-context production state/actions:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared
+    - authoritative runtime section ids resolved by project-state name:
+      - worktree `spreadsheetSectionDefault`: `f0b83a4a-1148-4075-8073-8ae99eac54f4`
+      - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - authoritative targeted-fit path on both sides:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })`
+      - worktree rect before/after fit: `{ x: 553.15, y: 56.05, width: 628.70, height: 400.91 }`
+      - `main` rect before fit: `{ x: 580.49, y: 56.05, width: 628.70, height: 400.91 }`
+      - `main` rect after fit: `{ x: 553.15, y: 56.05, width: 628.70, height: 400.91 }`
+    - shared trustworthy motion probe:
+      - `moveSectionsWithBackend({ sectionIds: [targetSectionId], newParentId: null, newIndex: null, positionsById: { [targetSectionId]: { x: layoutAfterFit.x + 24, y: layoutAfterFit.y } } })`
+      - worktree top-level layout moved `x: 0 -> 24`
+      - `main` top-level layout moved `x: 24 -> 48`
+      - both rendered rects ended at the same post-probe geometry `{ x: 580.49, y: 56.05, width: 628.70, height: 400.91 }`
+    - interpretation:
+      - the first CDP pass was oracle noise only
+      - the second pass proved a real shared motion step after the same targeted-fit normalizer on both surfaces
+      - no worktree-only renderer or layout artifact appeared on this bounded `spreadsheetSectionDefault` state-backed move lane
+  - conclusion for this slice:
+    - the normalized `spreadsheetSectionDefault` state-backed top-level move lane is clean and closed
+    - do not reopen this exact backend-move compare on the same section unless a later regression appears
+    - the next real frontier should move to a different trustworthy interaction or motion lane, preferably one that exercises a user-driven live interaction rather than another backend-state move on the same section
+- Ralph item `061` closed item `060`'s deferred live worktree gate for widened `drawSectionDefault` post-drop frontmost ordering.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because item `060`'s implementation and guard already covered the product path
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'`
+    - result: passed (`1 passed`, about `20.0s`)
+    - what it still proves:
+      - the targeted canary guard from item `060` remains green in a fresh isolated runtime
+  - Live verification result:
+    - a fresh-context CDP sub-agent recreated the worktree canary overlap state on `http://127.0.0.1:3075/settings`
+    - worktree normalization:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared after the drop before judging frontmost order
+    - authoritative runtime ids resolved by project state:
+      - worktree `drawSectionDefault`: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+      - overlap target `globalVariablesSectionDefault`: `16789d60-9a19-46d3-b0e8-20cee80b66e7`
+    - exact recreated overlap lane on worktree:
+      - screen delta `(+48, +731.36767578125)`
+      - world delta `(+42.14408007375214, +642.1420394058124)` at zoom `1.13895`
+    - before drop:
+      - target top-level layout `{ x: 0, y: 2400, zIndex: 0, w: 552, h: 352 }`
+      - target rendered box `{ x: 235.6508, y: 96.0457, width: 628.6984, height: 400.9089 }`
+      - overlap rendered box `{ x: 235.6508, y: 779.4133, width: 628.6984, height: 400.9092 }`
+    - after drop with active selection cleared:
+      - target top-level layout `{ x: 42.14408007375214, y: 3042.1420394058123, zIndex: 45, w: 552, h: 352 }`
+      - overlap top-level layout `{ x: 0, y: 3000, zIndex: 4, w: 552, h: 352 }`
+      - target rendered z-index `45`
+      - overlap rendered z-index `4`
+      - rendered frontmost margin stayed `+41`
+    - screenshot evidence:
+      - `/tmp/setta-worktree-drawSectionDefault-post-drop-overlap.png`
+    - read-only `main` was normalized to active `All Settings` too, but that session still did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`), so there was no like-for-like canary oracle there on this pass
+  - conclusion for this slice:
+    - item `060`'s deferred live worktree gate is now closed
+    - the widened `drawSectionDefault` post-drop frontmost lane is complete; do not spend another iteration recreating this same overlap state unless a later regression appears
+    - the missing `main` canary surface on this pass is oracle limitation, not a remaining worktree blocker
+    - the next real frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane, not more `drawSectionDefault` overlap churn
+- Ralph item `060` landed the canary-side post-drop frontmost fix for `drawSectionDefault` and closed the production half of that drag-state lane; the exact live CDP recreation is deferred to the next fresh session.
+  - Production/test change:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now raises the shared temp z-index when a canary top-level drag starts, renders the canary wrapper from the shared `tempZIndex`, resets temp z-order on canceled drags, and persists `setZIndices([sectionId], true)` when a moved drag drops instead of only writing the new position.
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now carries `tempZIndex` through the canary section selector so the custom surface follows the same frontmost ordering contract the legacy surface already exposes through node internals.
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened draw section frontmost after top-level drag`, which:
+      - normalizes to active `All Settings`
+      - closes overview and UI editor panes
+      - widens `drawSectionDefault`
+      - drags it into a deliberate overlap with a nearby top-level section
+      - clears active selection
+      - asserts both stored top-level z-index and rendered section z-index keep the moved draw card frontmost after the drop
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`, and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` were updated for the new `tempZIndex` shape/expectations.
+  - Automated result:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` passed (`3 passed`, `11 tests`, about `0.9s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'` passed (`1 passed`, about `18.9s`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts tests/e2e/settings/settings-view-modes.spec.ts` passed
+  - Live verification result:
+    - one fresh-context CDP sub-agent only inspected the current already-loaded worktree/main tabs and did not recreate the widened post-drop draw overlap state first, so that compare is not a trustworthy oracle for this slice
+    - a second fresh-context CDP sub-agent attempted the exact worktree-only recreation, but the live session had already drifted into a mutated state where `drawSectionDefault` was offscreen at `y = -1993.95`; CDP could not reliably bring that card back into the intended widened overlap state without disturbing the page further
+    - treat the exact live visual gate for this slice as deferred rather than failed
+  - conclusion for this slice:
+    - the canary now has explicit production coverage plus automated proof for persistent frontmost z-order after a widened top-level drag
+    - do not reopen this lane with another harness-only pass
+    - the next iteration should use the fresh lifecycle bootstrap to rerun the exact widened `drawSectionDefault` post-drop compare in CDP before deciding whether any live-only renderer drift remains on this lane
+- Ralph item `059` closed the normalized widened `drawSectionDefault` short-pan compare lane, so the current named wide-card pan churn is complete and the next frontier should move to a different interaction lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production renderer or test code because the existing shared targeted-fit and canary pan guards were already the right support coverage for the live compare
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings legacy graph surface can fit a named param-default section into a wide-card compare state|settings graph substrate canary keeps a widened draw section attached during pane pan'`
+    - result: passed (`2 passed`, about `32.5s`)
+    - what it still proves:
+      - the shared targeted-fit helper remains green on the legacy reference path
+      - the widened `drawSectionDefault` canary pan guard remains green on the custom-surface path
+  - Live verification result:
+    - the intended fresh-context CDP sub-agent again could not invoke browser-MCP tools in its own session, so the same bounded Chrome DevTools compare was completed directly in the main thread; this was a tool-surface limitation, not a product blocker
+    - both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` were normalized through production state/actions:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared
+    - authoritative runtime section ids resolved by project-state name:
+      - worktree `drawSectionDefault`: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+      - `main` `drawSectionDefault`: `3b30fc00-c471-4376-ac50-f3643a240183`
+    - shared targeted-fit path on both sides:
+      - `fitView({ nodes: [{ id }], padding: 0.1 })`
+      - worktree before fit: viewport `matrix(1.13895, 0, 0, 1.13895, 355.651, -2593.43)`, rect `{ x: 355.651, y: 176.046, width: 628.698, height: 400.909 }`
+      - worktree after fit: viewport `matrix(1.13895, 0, 0, 1.13895, 175.651, -2713.43)`, rect `{ x: 175.651, y: 56.046, width: 628.698, height: 400.909 }`
+      - `main` before fit: viewport `matrix(1.13895, 0, 0, 1.13895, 553.151, -2713.43)`, rect `{ x: 554.290, y: 57.185, width: 626.420, height: 398.631 }`
+      - `main` after fit: viewport `matrix(1.13895, 0, 0, 1.13895, 553.151, -2713.43)`, rect `{ x: 554.290, y: 57.185, width: 626.420, height: 398.631 }`
+    - shared short pan pulse on the same wide-card state:
+      - implementation path:
+        - if D3 viewport resources were present, call `useReactFlow.getState().d3Zoom.translateBy(d3Selection, dx / zoom, dy / zoom)`
+        - otherwise call `viewportController.setViewport({ x + dx, y + dy, zoom })`
+      - shared delta: `(+60, +40)`
+      - worktree after pan: viewport `matrix(1.13895, 0, 0, 1.13895, 235.651, -2673.43)`, rect `{ x: 235.651, y: 96.046, width: 628.698, height: 400.909 }`
+      - `main` after pan: viewport `matrix(1.13895, 0, 0, 1.13895, 613.151, -2673.43)`, rect `{ x: 614.290, y: 97.185, width: 626.420, height: 398.631 }`
+    - screenshot evidence for the widened post-pan state was captured to:
+      - `/tmp/setta-worktree-drawSectionDefault-wide-pan.png`
+      - `/tmp/setta-main-drawSectionDefault-wide-pan.png`
+    - interpretation:
+      - the worktree and `main` both took the same targeted-fit path and the same pan delta cleanly
+      - the small legacy-vs-canary width/offset difference already existed before the pan and did not widen during motion, so this slice does not expose a worktree-only pan-time artifact
+  - conclusion for this slice:
+    - the normalized widened `drawSectionDefault` short-pan lane is clean and closed
+    - do not spend another iteration on a fourth named wide-card pan pass unless fresh motion drift appears
+    - the current pan-lane support work is sufficient; the next iteration should move to a different interaction or motion frontier rather than extending the same harness shape
+- Ralph item `058` closed the reference-side targeted-fit blocker for the normalized `drawSectionDefault` lane by proving the shared `fitView(...)` path works on both canary and legacy graph surfaces.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now replaces the canary-only `fitCanaryViewportToSection(...)` helper with shared `fitGraphViewportToSection(...)`, which imports `/src/forks/xyflow/core/store/utils.ts` and calls `fitView({ nodes: [{ id }], padding: 0.1 })`
+    - the same spec also renames the pane normalizer helper to `setComparePaneVisibility(...)` because it now supports both canary and legacy surface checks
+    - the spec now adds `settings legacy graph surface can fit a named param-default section into a wide-card compare state`
+    - the new legacy case:
+      - normalizes to active `Param Defaults`
+      - closes overview and UI editor panes through the production pane-visibility path
+      - resolves `textAreaParamCodeObjDefault` by authoritative project-state section name
+      - drives the shared `fitView({ nodes: [{ id }], padding: 0.1 })` path on the legacy `react-flow__pane`
+      - asserts the viewport scale increases materially
+      - asserts the targeted section expands into a wide-card compare state
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings legacy graph surface can fit a named param-default section into a wide-card compare state|settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`2 passed`, about `34.7s`)
+    - what it proves now:
+      - the shared helper still widens the canary `groupSectionDefault` lane
+      - the same helper also widens a legacy D3-backed settings surface, so the reference-side draw normalizer no longer depends on `viewportController`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` also passed after formatting the file
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the read-only `main` reference at `http://127.0.0.1:3087/settings`
+    - active `All Settings` was already present on that session, so no tab normalization was needed first
+    - authoritative runtime section resolution on `main`:
+      - `useProjectState.getState().sections['3b30fc00-c471-4376-ac50-f3643a240183'].name === 'drawSectionDefault'`
+    - authoritative targeted-fit call on the legacy surface:
+      - `fitView({ nodes: [{ id: '3b30fc00-c471-4376-ac50-f3643a240183' }], padding: 0.1 })`
+      - return value: `true`
+    - before fit:
+      - viewport `translate(779.9px, -245.2px) scale(0.1)`
+    - after fit:
+      - viewport `translate(553.151px, -2713.43px) scale(1.13895)`
+      - store transform `[553.150826446281, -2713.4256198347107, 1.1389462809917354]`
+      - target rect `{ x: 553.1508, y: 56.0457, width: 628.6983, height: 400.9089 }`
+    - important nuance:
+      - raw page-context imports must use absolute Vite paths such as `/src/state/actions/nodeInternals.ts`; bare specifiers like `state/actions/nodeInternals` are not reliable in CDP eval
+      - `onFitViewHandler()` is not the right oracle here because it fits the whole view rather than one named section
+  - conclusion for this slice:
+    - the reference-side targeted-fit blocker from item `057` is now closed
+    - do not spend another iteration proving whether legacy `main` can widen one named card; it can
+    - the next real frontier is to rerun the normalized widened `drawSectionDefault` short pan compare across worktree canary and read-only `main` using the now-proven shared targeted-fit path on both sides
+- Ralph item `057` closed the worktree-side `drawSectionDefault` widened pan lane and corrected item `056`'s blocker from "missing targeted fit" to "reference-side normalization".
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened draw section attached during pane pan`
+    - the new case:
+      - normalizes to active `All Settings`
+      - closes overview and UI editor panes through the production pane-visibility path
+      - resolves `drawSectionDefault` by authoritative project-state section name
+      - widens that section through the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path
+      - performs one real pane pan on the canary surface
+      - asserts the viewport and section both move materially
+      - asserts a body anchor stays locked to the same section shell during the pan
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section attached during pane pan'`
+    - result: passed (`1 passed`, about `24.7s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` also passed after formatting the file
+    - what it proves now: a third named widened card can pan through the real custom-surface path without body/shell detachment
+  - Live verification result:
+    - one fresh-context CDP sub-agent first confirmed the production targeted-fit path is callable directly from the live page context on the worktree:
+      - authoritative runtime `drawSectionDefault` id on the worktree: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+      - `useReactFlow.getState().viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` returned `true`
+      - importing `/src/forks/xyflow/core/store/utils.ts` and calling its `fitView(...)` helper also returned `true`
+    - a second fresh-context CDP sub-agent then checked the live worktree `http://127.0.0.1:3075/settings`
+      - before the shared short pan probe: viewport `matrix(1.13895, 0, 0, 1.13895, 175.651, -2713.43)` and section rect `{ x: 175.651, y: 56.046, width: 628.698, height: 400.909 }`
+      - after the production viewport pan probe: viewport `matrix(1.13895, 0, 0, 1.13895, 355.651, -2593.43)` and section rect `{ x: 355.651, y: 176.046, width: 628.698, height: 400.909 }`
+      - no size drift or obvious body/shell detachment was visible on the worktree lane
+    - the read-only `main` reference at `http://127.0.0.1:3087/settings` did not expose the canary surface or `viewportController` on this pass, only the legacy `react-flow__pane`, so the same targeted-fit widened pan probe was not runnable there yet
+  - conclusion for this slice:
+    - the worktree-side `drawSectionDefault` widened pan lane is clean and item `056`'s targeted-fit blocker is now closed on the canary path
+    - do not reopen `drawSectionDefault` with another worktree-only fit/pan harness slice unless a later compare reintroduces drift
+    - the remaining blocker is reference-side only: establish an equivalent widened `drawSectionDefault` compare state on `main`'s legacy surface before judging cross-surface parity on this lane
+    - the next real frontier is one bounded oracle step on read-only `main` that creates the comparable widened `drawSectionDefault` state on the legacy surface, then reruns the short pan compare against the already-clean worktree lane
+- Ralph item `056` used the allowed bounded normalization/oracle step to probe one different shared non-`group`/non-`spreadsheet` dynamic lane before reopening more motion helpers.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.7s`)
+    - what it still proves: the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path remains green in the isolated Playwright runtime
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - the shared non-`group`/non-`spreadsheet` candidate was `drawSectionDefault`
+    - the sub-agent resolved the visible runtime node ids from the live graph surface:
+      - worktree node id `a5efa896-d045-4d50-8afc-cd748d2c0fcd` / visible section wrapper `a5efa896-d045-4d50-8afc-cd748d2c0fcd-CustomResizable`
+      - `main` node id `3b30fc00-c471-4376-ac50-f3643a240183` / visible section wrapper `3b30fc00-c471-4376-ac50-f3643a240183-CustomResizable`
+    - before fit:
+      - worktree viewport `matrix(1.13895, 0, 0, 1.13895, 295.651, -5366.9)` and section rect `x=297 y=-2596 w=626 h=399`
+      - `main` viewport `matrix(1.13895, 0, 0, 1.13895, 613.151, -5406.9)` and section rect `x=614 y=-2636 w=626 h=399`
+    - the only reliable fit call the sub-agent could exercise from the live session was the toolbar/global `fit view` route, and that collapsed both sides back to the global zoom-out state instead of producing a comparable widened one-section lane:
+      - worktree after fit: viewport `matrix(0.1, 0, 0, 0.1, 402.4, -245.2)` and section rect `x=403 y=31 w=55 h=35`
+      - `main` after fit: viewport `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` and section rect `x=780 y=31 w=55 h=35`
+    - screenshots saved to:
+      - `/tmp/worktree-settings-draw-fit.png`
+      - `/tmp/reference-settings-draw-fit.png`
+      - `/tmp/worktree-settings-snapshot.png`
+  - conclusion for this slice:
+    - this is a completed blocker-finding oracle step, not a closed renderer lane
+    - do not reopen `groupSectionDefault` / `spreadsheetSectionDefault` pan or drag churn just because this new lane blocked
+    - the current blocker is specifically that this live `drawSectionDefault` compare did not yet use the authoritative targeted one-section fit path; the toolbar/global fit route is not a trustworthy oracle for the widened lane
+    - the next real frontier is one bounded live normalization step that resolves a non-`group`/non-`spreadsheet` section by authoritative project-state name/id and calls the production targeted `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path directly before rerunning the dynamic probe
+- Ralph item `055` closed one different normalized wide-card pan lane on `spreadsheetSectionDefault` instead of reopening the recent `groupSectionDefault` support work.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened body-heavy section attached during pane pan`
+    - the new case:
+      - normalizes to active `All Settings`
+      - closes overview and UI editor panes through the production pane-visibility path
+      - resolves `spreadsheetSectionDefault` by authoritative project-state section name
+      - widens that section through the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path
+      - performs a real pane pan on the canary surface
+      - asserts the viewport and section both move materially
+      - asserts a body anchor stays locked to the same section shell during the pan
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened body-heavy section attached during pane pan'`
+    - result: passed (`1 passed`, about `20.0s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` also passed
+    - what it proves now: a second named widened body-heavy card can pan through the real custom-surface path without body/shell detachment
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings` with `overviewVis=false` and `uiEditorVis=false`
+    - the named section ids were resolved from live app state, not from label text:
+      - worktree `spreadsheetSectionDefault`: `f0b83a4a-1148-4075-8073-8ae99eac54f4`
+      - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - both sides were widened through the targeted production `fitView` path, then one shared short pan pulse `(+60, +40)` was applied
+    - before pan:
+      - worktree viewport `matrix(1.13895, 0, 0, 1.13895, 235.651, -5406.9)` and section rect `x=235.6508 y=96.0459 w=628.6984 h=400.9087`
+      - `main` viewport `matrix(1.13895, 0, 0, 1.13895, 553.151, -5446.9)` and section rect `x=553.1508 y=56.0459 w=628.6983 h=400.9087`
+    - after pan:
+      - worktree viewport `matrix(1.13895, 0, 0, 1.13895, 295.651, -5366.9)` and section rect `x=295.6508 y=136.0459 w=628.6984 h=400.9087`
+      - `main` viewport `matrix(1.13895, 0, 0, 1.13895, 613.151, -5406.9)` and section rect `x=613.1508 y=96.0459 w=628.6983 h=400.9087`
+    - screenshot evidence for the checked widened post-pan state was captured to:
+      - `/tmp/worktree-spreadsheetSectionDefault-post-pan-final.png`
+      - `/tmp/main-spreadsheetSectionDefault-post-pan-final.png`
+    - ignored oracle nuance:
+      - `main` did not expose the canary test id on this pass, so the sub-agent used the equivalent legacy `react-flow__viewport` graph surface there instead
+  - conclusion for this slice:
+    - the normalized `spreadsheetSectionDefault` wide-card pan lane is clean
+    - do not reopen this exact widened pan pulse unless a later fresh compare reintroduces drift
+    - the next real frontier should move to one different normalized dynamic interaction-state or drag lane, not more `groupSectionDefault` or `spreadsheetSectionDefault` pan churn
+- Ralph item `054` closed the wide-card top-level drag oracle blocker for `groupSectionDefault` without reopening production renderer work.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened body-heavy section attached during top-level drag`
+    - the spec extends `findDraggableCanarySection(...)` so the drag probe can target one named section by resolved runtime id
+    - new local helper in the same spec:
+      - `getCanarySectionBodyAnchorOffset(...)`
+    - the new case widens `groupSectionDefault`, drags it through the real Playwright mouse path, and asserts both:
+      - a body anchor stays locked to the same section shell during motion
+      - the top-level layout persists after drop
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened body-heavy section attached during top-level drag'`
+    - result: passed (`1 passed`, about `20.9s`)
+    - what it proves now: the widened body-heavy card can use the true top-level drag path in the isolated canary runtime without body/shell detachment
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the live worktree `http://127.0.0.1:3075/settings`
+    - the first sub-agent attempt failed only because the prompt used the section name where the runtime section id was required; the retry resolved the actual `groupSectionDefault` section id as `09be53dc-f764-42da-b355-de56de647ee1`
+    - after normalizing to active `All Settings` with `overviewVis=false` and `uiEditorVis=false`, the production targeted-fit path widened the live card cleanly and no obvious blank/detached/body-loss artifact was visible
+    - screenshot evidence for the widened live card was captured to:
+      - `/tmp/setta-groupSectionDefault-fit.png`
+  - conclusion for this slice:
+    - the helper/oracle blocker is now closed for the `groupSectionDefault` wide-card drag question
+    - do not spend another iteration on helper-only drag instrumentation for this lane
+    - CDP mouse drag itself is still not the trustworthy oracle here, but future wide-card drag questions can now reuse this Playwright coverage plus a live fit screenshot check instead of inventing another support slice
+    - the next real frontier should return to one different normalized dynamic motion or interaction-state lane, not more `groupSectionDefault` drag-oracle churn
+- Ralph item `053` closed the normalized `groupSectionDefault` wide-card pan lane with one bounded graph-surface compare instead of reopening the drag-workaround lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface'`
+    - result: passed (`1 passed`, about `15.6s`)
+    - what it still proves: the isolated canary still takes the expected plain-wheel pan path on the custom surface
+  - Live verification result:
+    - a fresh-context CDP sub-agent was spawned first, but browser-MCP tools were not callable inside that sub-agent session, so the same bounded Chrome DevTools MCP compare was completed directly in the main thread instead
+    - both sides were normalized through production state/actions, not brittle UI ordering:
+      - active `All Settings`
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - active section ids cleared
+      - shared viewport reset to `null`
+    - the compare then reused the already-closed `groupSectionDefault` wide-card state from item `051` by applying the same shared viewport before the motion step:
+      - before pan, worktree viewport `matrix(1, 0, 0, 1, -7.5, -2954.5)` and `groupSectionDefault` `x=592.5 y=81.5 w=552 h=352`
+      - before pan, `main` viewport `matrix(1, 0, 0, 1, -7.5, -2954.5)` and `groupSectionDefault` `x=592.5 y=81.5 w=552 h=352`
+    - one shared short pan pulse was then applied via the production `route_set_viewport(...)` path with delta `(+120, +80)`:
+      - after pan, worktree viewport `matrix(1, 0, 0, 1, 112.5, -2874.5)` and `groupSectionDefault` `x=712.5 y=161.5 w=552 h=352`
+      - after pan, `main` viewport `matrix(1, 0, 0, 1, 112.5, -2874.5)` and `groupSectionDefault` `x=712.5 y=161.5 w=552 h=352`
+    - screenshot evidence for the checked panned wide-card state was captured to:
+      - `/tmp/setta-worktree-groupSectionDefault-wide-pan.png`
+      - `/tmp/setta-main-groupSectionDefault-wide-pan.png`
+    - ignored oracle noise:
+      - worktree/main label chrome only
+  - conclusion for this slice:
+    - the normalized `groupSectionDefault` wide-card pan lane is clean
+    - do not reopen this exact wide-card pan pulse unless a later fresh compare reintroduces drift
+    - the next real frontier should move to one different trustworthy dynamic motion lane instead of repeating `groupSectionDefault` zoom/pan/keyboard-workaround coverage
+- Ralph item `052` completed one bounded post-wide-card motion probe on the same normalized `groupSectionDefault` graph surface without reopening the helper lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - result: passed (`1 passed`, about `24.3s`)
+    - what it still proves: the generic custom-substrate top-level drag path remains green in the isolated Playwright runtime
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings` with `overviewVis=false` and `uiEditorVis=false`
+    - CDP did not provide a physically trustworthy mouse-drag interaction on this canvas, so the bounded live probe used the closest trustworthy accessible motion path instead:
+      - focus `groupSectionDefault`
+      - send `Space`, `ArrowRight`, `Space`
+    - neither side showed a worktree-only motion artifact on that accessible probe:
+      - worktree viewport stayed at `matrix(0.1, 0, 0, 0.1, 402.4, -245.2)`
+      - worktree `groupSectionDefault`: `x=463.3 y=91.3 w=53.4 h=2.2`
+      - `main` viewport stayed at `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - `main` `groupSectionDefault`: `x=840.8 y=91.3 w=53.4 h=2.2`
+    - ignored oracle noise:
+      - transient `Autosaved!` toast
+      - focused `fit view` control chrome
+      - worktree-only extra header text (`Agentic link target/source`)
+  - conclusion for this slice:
+    - no worktree-only motion artifact was isolated on the checked accessible motion lane
+    - do not reopen this exact keyboard-accessible drag probe unless a later fresh compare starts showing drift
+    - because CDP mouse drag was not trustworthy here, do not spend the next iteration repeating the same drag-oracle workaround
+    - the next real frontier should pivot to one short normalized pan pulse on the same wide-card graph surface, or another equally trustworthy dynamic motion probe, before reopening drag-specific support work
+- Ralph item `051` closed the normalized `groupSectionDefault` wide-card zoom lane with a fresh CDP-only compare instead of reopening the helper lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Live verification result:
+    - a fresh-context CDP sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - normalization that mattered:
+      - `overviewVis=false`
+      - `uiEditorVis=false`
+      - targeted `groupSectionDefault` fit was driven through the live viewport hook instead of noisy UI pokes
+      - no visible section selection needed clearing on either side
+    - before targeted fit, the worktree was still on a stale off-screen camera while `main` already showed the wide card:
+      - worktree viewport: `matrix(1, 0, 0, 1, -156, -4436.5)`
+      - worktree `groupSectionDefault`: `x=592.5 y=81.5 w=552 h=352` after fit, matching `main`
+      - `main` viewport before fit: `matrix(1, 0, 0, 1, -7.5, -2954.5)`
+      - `main` `groupSectionDefault`: `x=592.5 y=81.5 w=552 h=352`
+    - after the shared targeted fit, both sides matched exactly at the same wide-card state:
+      - viewport: `matrix(1, 0, 0, 1, -7.5, -2954.5)`
+      - `groupSectionDefault`: `x=592.5 y=81.5 w=552 h=352`
+    - after one shared `zoom in` step, both sides still matched exactly:
+      - viewport: `matrix(1.2, 0, 0, 1.2, -153, -3589.5)`
+      - `groupSectionDefault`: `x=567 y=46.5002 w=662.4 h=422.3999`
+    - treat this result as authoritative for the checked lane: the earlier mismatch was camera/state noise, not a worktree-only renderer defect
+  - conclusion for this slice:
+    - the normalized `groupSectionDefault` wide-card zoom compare is clean
+    - do not reopen this exact wide-card zoom lane unless a later fresh compare shows drift again
+    - the next real frontier should move to a different dynamic action on the same normalized graph surface, preferably a short drag-pan pulse or one short top-level section drag
+- Ralph item `050` closed the live targeted-fit normalization blocker for `groupSectionDefault` instead of adding another generic compare helper.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now forces the wide-card targeted-fit regression through an explicit closed-pane graph-surface state before calling `viewportController.fitView(...)`
+    - new local helper in the same spec:
+      - `setCanaryComparePaneVisibility(...)`
+    - that helper uses production `togglePaneVisibility(...)` / `PaneNameEnum` state instead of raw localStorage guessing, then waits until `overviewVis` and `uiEditorVis` match the requested normalization
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.9s`)
+    - what it proves now: the targeted-fit regression is anchored to a deterministic closed-pane graph-surface state instead of pane carry-over
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the live worktree `http://127.0.0.1:3075/settings`
+    - after normalizing `overview=false` and `uiEditor=false`, the same production `viewportController.fitView({ nodes: [{ id: "groupSectionDefault" }], padding: 0.1 })` path widened the canary exactly as needed:
+      - viewport before: `{"x":737.4,"y":-51.7,"zoom":0.1}`
+      - viewport after: `{"x":-277.717,"y":-3396.79,"zoom":1.13895}`
+      - `groupSectionDefault` before: `{"x":797.4,"y":284.3,"width":55.2,"height":35.2}`
+      - `groupSectionDefault` after: `{"x":405.6508,"y":56.0454,"width":628.6984,"height":400.9092}`
+    - treat this CDP result as authoritative for the blocker: the live worktree canary does honor the targeted one-section fit once non-target pane chrome is normalized away
+  - conclusion for this slice:
+    - the previous live blocker was pane-state carry-over / oracle noise, not a missing worktree targeted-fit code path
+    - do not spend the next iteration on another helper-only targeted-fit rewrite
+  - the next real frontier is to rerun the bounded dynamic wide-card compare on `groupSectionDefault` with the same closed-pane normalization applied to both worktree and read-only `main`
+- Ralph item `049` landed one bounded normalization support slice instead of guessing at another wide-card compare.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary can fit a named body-heavy section into a wide-card compare state`
+    - the test resolves `groupSectionDefault` by authoritative project-state section name, clears the shared `All Settings` viewport to `null`, then uses the production canary `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path to target just that section
+    - new local helpers in the same spec:
+      - `findSectionIdByName(...)`
+      - `getCanarySectionBoundingBox(...)`
+      - `fitCanaryViewportToSection(...)`
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.8s`)
+    - what it proves: in the isolated Playwright runtime, a one-section canary `fitView` can widen `groupSectionDefault` from the narrow chip state into a wide-card compare state
+  - Live verification result:
+    - a fresh-context CDP sub-agent reran the same idea against live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - that live pass did not produce a trustworthy shared wide-card normalizer on the current sessions:
+      - worktree pre `groupSectionDefault`: `x=863.88 y=57.66 w=66.24 h=42.24`, viewport `translate(791.88px, -338.34px) scale(0.12)`
+      - worktree post targeted fit: `x=839.90 y=90.80 w=55.20 h=35.20`, viewport `translate(779.9px, -245.2px) scale(0.1)`
+      - `main` pre/post stayed at `x=839.90 y=90.80 w=55.20 h=35.20`, viewport `translate(779.9px, -245.2px) scale(0.1)`
+    - treat the CDP result as authoritative for the live canary gate: the one-section fit is still not yet a usable deterministic wide-card normalizer on the current loop sessions
+  - Important nuance:
+    - a direct local browser probe on the worktree outside the CDP gate did show `groupSectionDefault` expanding to about `822.73 x 524.64` at zoom about `1.49` after the same targeted `fitView`
+    - because the live CDP gate still failed to reproduce that behavior, the next blocker is now specifically a live-session normalization / oracle mismatch, not the absence of a code path or missing automated guard
+  - conclusion for this slice:
+    - the test helper lane is complete; do not spend another iteration rephrasing the same targeted-fit regression
+    - the wide-card dynamic compare lane is still blocked on making the live CDP session honor or faithfully expose the same one-section fit behavior
+  - the next real frontier is to inspect why the current live `All Settings` canary session does not reproduce the passing targeted-fit path before reopening the `groupSectionDefault` wide-card compare
+- Ralph item `048` used the allowed bounded normalization/oracle step to probe one different dynamic wide/body-heavy lane after the recent compare-only closures.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`, non-target pane/chat chrome was minimized where possible, and one shared `fit view` was attempted before the motion probe
+    - the candidate shared wide/body-heavy section was `groupSectionDefault`, chosen specifically to avoid reopening `spreadsheetSectionDefault` or the already-cleared static card lanes
+  - Result:
+    - this lane was not yet trustworthy for a same-state motion compare
+    - on `main`, `groupSectionDefault` surfaced as a full body-heavy card at about `x=592.5 y=81.5 w=552 h=352`
+    - on the worktree, the same named section stayed a narrow chip at about `x=863.88 y=57.66 w=66.24 h=42.24`
+    - because the section did not normalize to the same expanded state on both sides, this pass could not credibly isolate a worktree-only motion or interaction artifact
+    - extra noise observed during the pass:
+      - worktree overview focus / fit-view controls behaved inconsistently while trying to surface the same lane
+      - read-only `main` briefly showed transient `Autosaved!` status text
+  - conclusion for this slice:
+    - treat this as a completed blocker-finding oracle step, not as a closed motion lane
+    - do not spend the next iteration on another wide-lane dynamic compare until the worktree can surface the same expanded body card state as `main` for the chosen section
+    - the next real frontier is to inspect and fix or normalize the worktree section-selection / body-expansion path so a trustworthy shared wide-card compare becomes possible
+- This iteration intentionally avoided a fourth static card compare.
+- Ralph item `047` closed the first bounded dynamic wide-card compare after the recent static-card closures.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - one shared toolbar `fit view` was applied
+    - the shared wide body-heavy target was `spreadsheetSectionDefault`
+    - the sub-agent then performed one shared `zoom in` step on the graph surface
+  - Result:
+    - after the zoom, `spreadsheetSectionDefault` remained visible on both sides at the same placement and size, about `x=792 y=274 w=66 h=42`
+    - the viewport screenshots showed the same enlarged graph-card layout on worktree and `main`
+    - no worktree-only motion or interaction artifact appeared on the checked lane
+  - conclusion for this slice:
+    - treat this bounded dynamic zoom-time wide-card lane as clean
+    - do not reopen this exact `spreadsheetSectionDefault` zoom check unless a fresh compare starts showing drift
+    - the next real frontier should move to one different bounded dynamic graph-surface lane, preferably a short pan or drag compare on another shared wide/body-heavy section, not back to static card compares
+- This is a fresh worktree from `main`.
+- Ralph item `046` closed the first materially different graph-surface section-level Gate 2 compare beyond the two already-cleared same-column cards.
+  - Process:
+    - a first fresh-context CDP pass in this iteration accidentally compared the `shortcuts` entry in the left overview/list surface instead of a graph-surface section card
+    - that overview hit was rejected as oracle noise for this lane, not counted as progress, and the compare was rerun with a stricter graph-surface-only oracle
+    - a second fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`, non-target sidebar/list ordering differences were ignored, and one shared toolbar `fit view` was applied
+    - the rerun then compared one shared visible `.react-flow__node` section card at normal zoom instead of another same-column core card
+  - Result:
+    - no concrete renderer defect showed up on this materially different graph-surface card either
+    - the checked card was `activeSheet null` in the lower-right graph cluster, just above the bottom tab strip on both sides
+    - the visible card text matched between worktree and `main`, including:
+      - `Auto Reload On External Change`
+      - `Density compact`
+      - `filePath ""`
+      - `Read Only`
+      - `Show Row Numbers`
+      - `Size height 500.0 width 760.0`
+    - no worktree-only text, chrome, or layout drift was isolated on this graph-surface lane
+  - conclusion for this slice:
+    - treat the `activeSheet null` graph-surface compare as clean and close this static wide-card micro-lane
+    - do not treat overview/list ordering or other non-graph-surface sidebar differences as renderer evidence on this lane
+    - the next real frontier should move to one bounded dynamic graph-surface compare on a materially different shared card, preferably a short pan or zoom-time check on a wide body-heavy section, not a fourth static card compare
+- Ralph item `045` closed the neighboring same-column section-level Gate 2 compare that item `044` handed off.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were kept on active `All Settings`, non-target worktree-label chrome was closed, and one shared toolbar `fit view` was applied
+    - the sub-agent skipped the already-cleared first visible same-column card and compared the next shared visible card in that column at normal zoom
+  - Result:
+    - no concrete renderer defect showed up on the neighboring shared visible card either
+    - the checked card was `timeParamCodeObjDefault`, below the already-cleared same-column `passwordParamCodeObjDefault` core card
+    - the visible text matched between worktree and `main`:
+      - `ARGS Core Name Editable Core Name Type defaultVal "" Time Control Mode Time Display Font Time Display Format timeDisplayScale 1.0 Time Display Transparent typeAnnotation "" value ""`
+    - the rendered placement also matched exactly on the checked lane:
+      - `top=691`
+      - `left=780`
+      - `bottom=722`
+    - no worktree-only text, chrome, or layout drift was isolated from this neighboring-card compare, so there is no production fix to take from this evidence alone
+  - conclusion for this slice:
+    - treat the second same-column section-level compare as clean and close that micro-lane
+    - do not reopen either of the already-checked same-column cards unless a later fresh compare or regression shows drift there
+    - the next real frontier should move to one materially different shared visible card at normal zoom, not another same-column core-card compare or a reopened whole-surface geometry pass
+- Ralph item `044` completed the first bounded section-level Gate 2 compare that item `043` handed off.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - one shared toolbar `fit view` was applied so the checked section used the same framing on both sides
+    - the sub-agent then compared one shared visible section card at normal zoom instead of reopening a whole-surface lane
+  - Result:
+    - no concrete renderer defect showed up on the first shared visible section card
+    - the checked card was the visible `Core` defaults card whose body text begins `Name Editable Core Name Type defaultVal "" Has Secret typeAnnotation "" value ""`
+    - its section chrome, text density, and layout matched between worktree and `main` on the checked lane
+    - no worktree-only drift was isolated from this first section-level compare, so there is no production fix to take from this evidence alone
+  - conclusion for this slice:
+    - treat the first shared visible section-level compare as clean
+    - do not reopen that exact card unless a later fresh compare or regression shows drift there
+    - the next real frontier is the neighboring shared visible card in the same column, not another whole-surface geometry pass
+- Ralph item `043` used the required bounded normalization/oracle step to check whether a concrete graph-surface defect still remained after the recent interaction-lane closures.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - non-target top-right worktree label chrome was closed on both pages
+    - no clear `viewport: null` control surfaced in this bounded pass, so the sub-agent applied one shared toolbar `fit view`
+  - Result:
+    - the normalized graph surface matched exactly on both sides for the checked visible lane
+    - both pages reported the same graph metrics:
+      - `.react-flow__node`: `46`
+      - `.react-flow__edge`: `0`
+      - viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - sampled shared visible sections also matched by name, position, and size:
+      - `drawSectionDefault` at `(780, 31)` size `55x35`
+      - `pluginSectionDefault` at `(780, 211)` size `55x35`
+      - `dateParamCodeObjDefault` at `(900, 451)` size `55x31`
+    - the full visible 24-node normalized grid matched by name, geometry, and viewport transform
+    - remaining differences were non-target oracle noise outside the graph surface, including transient `Autosaved!` status text and sidebar tag ordering/content differences
+  - conclusion for this slice:
+    - no concrete worktree-only graph-surface defect was found in this bounded normalized compare
+    - do not reopen the already-closed fit / pan / wheel lanes from this evidence alone
+    - the next real frontier should move to a section-level Gate 2 chrome/text compare on one shared visible section instead of more whole-surface geometry churn
+- Ralph item `042` closed the normalized `All Settings` toolbar `fit view` lane with a targeted regression instead of another production patch.
+  - Process:
+    - a fresh-context CDP sub-agent normalized worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to `All Settings`, applied one shared off-fit movement, and compared explicit `fit view`
+    - that live compare did not isolate a worktree-only graph-surface defect; both sides converged to the same post-`fit view` transform and the only remaining diffs were non-target chrome/status noise
+    - because the lane was already clean live, the useful slice here was to lock the explicit toolbar contract down with a focused E2E instead of forcing a speculative renderer change
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan`
+    - the case normalizes `All Settings`, captures the first explicit `fit view` transform, pans the canary off that baseline, and asserts that a second `fit view` returns to the same transform
+    - the first draft incorrectly compared explicit `fit view` against the initial auto-fit helper; that mismatch was test-oracle error rather than a product bug, so the final test uses the first explicit `fit view` result itself as the stable oracle
+  - Verification:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan'`
+      - result: passed (`1 passed`, about `23.0s`)
+    - fresh-context CDP sub-agent reran the normalized live lane
+      - result: done; after an off-fit step, worktree and `main` both converged back to `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` on the checked graph surface
+  - conclusion for this slice:
+    - the toolbar `fit view` lane is closed for the checked normalized `All Settings` path
+    - do not reopen it unless the new targeted E2E or a fresh normalized CDP compare starts showing worktree-vs-`main` drift again
+- Ralph item `041` closed the modified-wheel zoom interaction lane with a targeted regression instead of another production patch.
+  - Process:
+    - a fresh-context CDP sub-agent first reran the normalized `All Settings` graph-surface compare and did not isolate a new canary-only renderer defect on the checked surface; visible differences were non-target chrome only
+    - the next bounded lane chosen from that clean compare was the still-unlocked `Mod+wheel` zoom path, because plain-wheel pan was already covered live while modified-wheel zoom only had helper-level unit coverage
+    - a second fresh-context CDP sub-agent then normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`, applied one shared `fit view`, and performed one modified-wheel zoom gesture on the graph surface
+  - Result:
+    - both sides started from the same normalized transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - both sides ended at the same post-wheel transform `matrix(0.527803, 0, 0, 0.527803, 1036.15, -2235.34)`
+    - no worktree-only zoom-path drift was isolated on the checked lane, so the useful slice here was to lock the live interaction down instead of forcing a speculative product patch
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface`
+    - the case normalizes `All Settings`, holds the default `Mod` zoom activation key, performs a wheel gesture on a blank canary point, and asserts that the canary takes the zoom path while keeping the pointer anchor stable in the canary root coordinate space
+    - the first draft incorrectly compared root-local viewport math against page-space coordinates; the final test fixes that by resolving the pointer into canary-root coordinates before checking the anchored transform
+  - Verification:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+      - result: failed in Playwright global setup with the known live-runtime bootstrap `401`; treat this as harness noise, not as a product failure on the checked lane
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+      - result: passed (`1 passed`, about `21.8s`)
+    - fresh-context CDP sub-agent reran the same normalized modified-wheel zoom lane
+      - result: done; worktree and `main` produced the same post-wheel viewport matrix on the checked graph surface
+  - conclusion for this slice:
+    - the modified-wheel zoom interaction lane is closed for the checked normalized `All Settings` path
+    - do not reopen it unless the new targeted E2E or a fresh normalized CDP compare starts showing worktree-vs-`main` drift again
+- Ralph item `040` closed the normalized `All Settings` selection-state drift lane with a small production fix instead of another oracle-only pass.
+  - Root cause:
+    - a fresh-context CDP compare on normalized `All Settings -> fit view -> short pan` still showed a worktree-only blue-selected card on the graph surface
+    - repo inspection showed the live worktree and read-only `main` store different durable `projectConfig.activeIds` (`spreadsheetSectionDefault` on the worktree, `genPythonCodeSectionDefault` on `main`), so part of that delta was persisted oracle state rather than a renderer defect
+    - the remaining product gap was that `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` did not implement the legacy blank-pane deselect contract from `Pane.tsx`, so the canary path had no way to clear active section chrome on a true blank-surface click
+  - Production change:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now mirrors legacy blank-pane click behavior on the canary root
+    - a true blank-surface click now clears active section ids through `applyActiveSectionChange({ interaction: "pane-click" })`, records `lastPaneClickLocation` via `screenToFlowPosition(...)`, and clears `nodesSelectionDims`
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary blank pane click clears the active section durably`
+    - the case normalizes `All Settings`, seeds one visible canary section as active, clicks a real blank point on the canary surface, and asserts both live active chrome and durable backend `activeIds` clear
+  - Verification:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary blank pane click clears the active section durably'`
+      - result: passed (`1 passed`, about `19.5s`)
+      - note: the first attempt used a stale copied token and failed in Playwright global setup with `401`; the rerun with the refreshed `setta status --connect-info --latest --json` token passed
+    - fresh-context CDP sub-agent reran the checked lane after the patch
+      - result: no canary-only selected-card drift remained; after a blank-surface click and short shared pan pulse, `.react-flow__node.selected` count was `0` on both worktree and `main`
+  - conclusion for this slice:
+    - the blank-pane deselect / selected-card drift lane is closed for the checked normalized `All Settings` path
+    - when selection chrome is not the target of a compare, treat differing stored `activeIds` as oracle state and normalize them away with one shared blank-surface click before judging renderer drift
+- Ralph item `039` closed the deeper post-motion DOM body-editor lane with one targeted canary regression instead of another production patch.
+  - Process:
+    - the first fresh-context CDP sub-agent could not answer the lane because the old worktree `/settings` tab was on `Unable to load app` / `Failed to check server mode (network error)`, so the blocker was local lifecycle state rather than a renderer defect
+    - per loop recovery rules, the worktree lifecycle was restarted once with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - after the restart, the refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, and `setta status --connect-info --latest --json` returned a fresh bootstrap URL for the retried checks
+  - Fresh-context CDP verification after recovery:
+    - a new sub-agent bootstrapped fresh worktree and read-only `main` `/settings` sessions, normalized both to active `All Settings`, applied one shared `fit view`, and closed non-target chat chrome
+    - the shared body control `Density` behaved the same on both sides: its combobox focus opened the same vertical listbox on the worktree canary and legacy `main`
+    - result: no worktree-only body-editor handoff defect was isolated on the checked lane; remaining differences looked like oracle noise rather than renderer drift
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a body search input working after pan and zoom`
+    - the case normalizes `All Settings`, pans, zooms via the shared `zoom in` control, and verifies that a section-body search input can still focus and accept typing without flipping the enclosing canary section into drag state
+    - note: the first draft tried to drive a disabled density-widget shell inside `spreadsheetSectionDefault`; that timed out and was replaced with the editable body search input instead of treating the disabled shell as a product bug
+  - Verification:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3077 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8077 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a body search input working after pan and zoom'`
+      - result: passed (`1 passed`, about `15s`)
+      - note: the first direct run after CDP consumed an older bootstrap token failed in Playwright global setup with `401`; treat that as one-time bootstrap-token noise, not a reopened renderer issue
+    - fresh-context CDP sub-agent reran the normalized `All Settings` compare after the lifecycle recovery
+      - result: no worktree-only body-editor defect observed; the checked `Density` control opened equally on worktree and `main`
+  - conclusion for this slice:
+    - the deeper post-motion DOM body-editor lane is closed for the checked canary path
+    - do not spend another iteration on title/body editor handoff unless a fresh normalized CDP compare or the new direct live-runtime Playwright guard fails
+    - the next bounded frontier should move to the next remaining interaction or visual parity lane on normalized `All Settings`, not more editor-handoff churn
+- Ralph item `038` closed the post-motion title-edit handoff lane with a targeted test-only patch instead of another product change.
+  - Root cause:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` still tried to prove the title-edit lane by zooming with a plain wheel gesture after pan
+    - item `030` intentionally changed the canary wheel contract so plain wheel pans unless the zoom activation path is used, so the old test now failed before it ever reached the DOM editing handoff it meant to verify
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now uses the shared `zoom in` control for the post-motion zoom step, keeping the title-edit handoff probe aligned with the live canary zoom behavior
+  - Verification:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps title editing working after pan and zoom'`
+      - result: failed with the known temp-workspace bootstrap `401`; treat that launcher path as harness noise for this slice, not as a reopened renderer bug
+    - `source activate.sh && ... setta status --connect-info --latest --json ... && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps title editing working after pan and zoom'`
+      - result: passed (`1 passed`, about `14s`)
+    - fresh-context CDP sub-agent normalized fresh worktree and read-only `main` `/settings` tabs to active `All Settings`, applied one shared `fit view`, zoomed, and checked the shared `Core` section title-edit handoff
+      - result: no worktree-only renderer or editing-handoff defect observed on the checked lane
+      - note: the chosen shared section did not expose an inline title editor on either side during the manual probe, so treat that specific observation as parity evidence rather than a new worktree bug
+  - conclusion for this slice:
+    - the post-motion title-edit handoff lane is closed for the current canary path
+    - do not reopen it unless the direct live-runtime Playwright check or a fresh normalized CDP compare fails again
+    - the next bounded frontier should move to a deeper DOM body-editor handoff or another remaining interaction lane, not more title-edit oracle churn
+- Ralph item `037` closed the normalized shared-section `All Settings` pan/drag compare lane without a code patch.
+  - Process:
+    - the first fresh-context CDP sub-agent in this iteration still could not access `chrome-devtools-mcp`
+    - per loop recovery rules, the worktree lifecycle was restarted once with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - after restart, the refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, and `pnpm -C frontend cdp-port` reported `9298`
+  - Fresh-context CDP verification after the restart:
+    - a new sub-agent opened fresh worktree and read-only `main` pages on `/settings`
+    - both pages were normalized to active `All Settings`, non-target pane/chat chrome was minimized where present, and one shared `fit view` pulse was applied
+    - the sub-agent then picked one shared named section and ran the short pan/drag compare requested by the plan
+  - Result:
+    - the checked pan/drag lane looks closed; no canary-only motion or interaction artifact was confirmed on the normalized graph surface
+    - the only remaining page-local difference called out on the checked surface was a minimized `Chat Window 1` chip on the worktree page, treated as oracle-noise / non-target chrome rather than renderer drift
+  - conclusion for this slice:
+    - do not spend another iteration on this short pan/drag lane unless a fresh normalized compare reproduces a real motion defect
+    - keep the next frontier on normalized graph-surface-only parity, but move to the next interaction lane instead of more pan/drag or oracle churn
+    - the next bounded probe should prefer post-motion DOM editing handoff on a shared named section, since the motion lane itself is no longer the earliest failing gate from this evidence
+- Ralph item `036` closed the temp-workspace `Ctrl+Shift+3` canvas-focus mismatch on the canary path.
+  - Root cause:
+    - `movePaneToIncludeElement(...)` still preferred any populated `d3Zoom` / `d3Selection` pair, even when the live surface had already switched to the custom canary viewport controller and the old React Flow pane selection was stale
+    - on the canary path that meant focus could return to the correct stored section while viewport motion still targeted the wrong owner, leaving the section offscreen
+  - Production change:
+    - `frontend/src/forks/xyflow/core/utils/graph.ts` now computes focus-pan inclusion from the full element screen rect instead of a single point, so the restored target is brought visibly back into the canvas lane instead of only nudging an anchor point
+    - the same helper now ignores stale/disconnected `d3` viewport state and falls back to the live `viewportController` when the active pane owner is the canary surface
+  - Focused automation now locks the lane down:
+    - `frontend/src/forks/xyflow/core/utils/graph.test.ts` covers both the rect-based controller translation and the stale-`d3` fallback
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now explicitly stores a deterministic canary target, moves focus out of the canvas, invokes `Ctrl+Shift+3`, and asserts both target-section focus restoration and visible in-pane recovery
+  - Targeted verification in this iteration:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`25 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+      - result: passed (`1 passed`, about `27s`)
+  - fresh-context CDP verification is usable again in this loop:
+    - a fresh-context sub-agent opened new DevTools tabs on worktree and read-only `main`, normalized both to `/settings` + `All Settings`, exercised `Ctrl+Shift+3`, and confirmed the target graph content stayed in-frame instead of remaining offscreen
+    - remaining differences were limited to oracle-noise classes such as small pan/zoom or minimap-thumbnail variance, not the checked shortcut-restore behavior
+  - conclusion for this slice:
+    - the canvas-focus shortcut lane is closed for the checked `All Settings` canary path
+    - do not spend another iteration on this shortcut unless a fresh normalized Playwright or CDP compare shows the target section going offscreen again
+- Ralph item `035` did not land a code patch; it narrowed the canvas-focus shortcut blocker and left the worktree clean for the next iteration.
+  - in that iteration, fresh-context CDP sub-agents were not usable: both returned without `chrome-devtools-mcp` access even though the worktree runtime and Chrome debug endpoint were live
+  - main-context CDP fallback was usable and changed the interpretation of the stale live-tab evidence:
+    - normalized live worktree `/settings` to active `All Settings` with `viewport: null`
+    - pre-shortcut canary transform: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - after `Ctrl+Shift+3`, the active canvas target became the `shortcuts` section and the canary transform moved to `matrix(0.1, 0, 0, 0.1, 779.9, 10)`
+    - this means the live shortcut is restoring the stored canvas focus target, not blindly the first section
+  - a tighter Playwright variant then exposed the unresolved blocker on the temp-workspace path:
+    - explicitly focus a deterministic canary section
+    - seed an offscreen viewport for that same target
+    - wait for the offscreen viewport to settle
+    - press `Ctrl+Shift+3`
+    - result: the target section id regains focus, but the target still does not return into the visible canary pane within the test timeout
+  - multiple production hypotheses were tried and reverted in this iteration:
+    - panning the canvas focus path to the enclosing section shell instead of the nested focused control
+    - translating the no-`d3` viewport-controller fallback in screen space instead of world space
+    - neither cleared the focused Playwright failure, so no production change was kept
+  - targeted verification in this iteration:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts`
+      - result: passed while the experimental no-`d3` translation patch was under test, but that patch was reverted after the E2E still failed
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+      - result: failed repeatedly once the oracle was tightened to a deterministic offscreen focus target
+  - conclusion for this slice:
+    - the current blocker is no longer stale-tab oracle ambiguity
+    - the next iteration should treat the temp-workspace `Ctrl+Shift+3` focus-pan mismatch as the active product frontier and instrument it directly instead of trying more speculative pan-target math
+- Ralph item `034` landed the canary canvas-focus wiring slice, but it did not fully close the live visual gate.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now participates in the shared canvas focus scope via `useTabScope(...)` and `data-tab-scope="canvas"`.
+  - `frontend/src/forks/xyflow/core/utils/graph.ts` `movePaneToIncludeElement(...)` now falls back to the canary `viewportController.setViewport(...)` path when the legacy `d3Zoom` viewport is absent.
+  - `frontend/src/utils/focusManager.ts` now orders canvas focus targets from `getActiveViewModeTopLevelSections(state)` instead of raw `projectConfig.topLevelSections`, which keeps focus traversal on the same active-view-mode layout source as the canary.
+  - focused automation now covers the lane:
+    - `frontend/src/forks/xyflow/core/utils/graph.test.ts` covers the controller fallback for focus panning without `d3`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now covers the offscreen-canary `Ctrl+Shift+3` focus-shortcut path
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`24 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+      - result: passed (`1 passed`, about `24s`)
+  - live CDP status is still a deferred gate, not a clean closure:
+    - a direct fresh-context probe on the current live worktree `/settings` tab still found the first canary section (`textAreaParamCodeObjDefault`) far offscreen with unchanged pre/post shortcut geometry:
+      - viewport `matrix(1, 0, 0, 1, 592.5, 45.5)`
+      - first section transform `matrix(1, 0, 0, 1, 600, 8400)` / rect `y=8481.5`
+      - `Ctrl+Shift+3` produced no observable viewport movement on that stale live tab
+    - the sub-agent could not re-run the exact Playwright-style normalized `All Settings` offscreen seeding in-browser because the browser-side backend fetch failed with `TypeError: fetch failed`
+  - conclusion for this slice:
+    - the production wiring and focused automation are in place
+    - the next iteration should recover a trustworthy live `All Settings` seeded state and re-run the exact CDP shortcut lane before taking another product fix on this area
+- Ralph item `033` resolves the item `032` oracle blocker at the process level so the loop can keep moving without another human stop.
+  - the chosen strategy is the narrower graph-surface-only oracle path, not product-state mutation and not more overview/order cleanup
+  - default dynamic compare normalization is now:
+    - close or minimize non-target pane/chat chrome on both sides
+    - normalize both sessions to active `All Settings`
+    - clear viewport to `null`
+    - trigger one shared `fit view`
+  - after that normalization, compare only graph-surface outputs such as viewport transform, target-section rects, neighboring section geometry, and graph-surface screenshots
+  - overview ordering, whole-page scroll position, worktree-label chrome, and other non-target workspace chrome are explicitly excluded as parity signals unless the current slice is about those surfaces
+  - if a dynamic compare needs the same subject on both sides, the next slice should pick a shared section by name or id and align that section locally inside the graph surface before acting instead of relying on overview order or page scroll
+  - oracle-noise classes alone are no longer grounds for `REPLAN_REQUIRED`; the loop should return `SUBTASK_DONE` with the next bounded normalization or graph-surface probe step instead
+- Ralph item `032` did not land a code patch; it closed the question of whether the next dynamic Gate 1 / Gate 2 frontier currently has a trustworthy live oracle.
+  - a fresh-context CDP sub-agent normalized both sessions to `All Settings` and checked a shared `fit view` pulse
+  - that pass did **not** find a concrete graph-surface mismatch: no zoom-blur, camera snap, or pan-drift artifact was called out on the checked pulse
+  - the next fresh-context drag compare did not produce a renderer defect either; it found that the two live sessions were not starting from the same scroll state before the drag (`All Settings` was far lower in the worktree DOM than in `main`)
+  - direct repo inspection confirmed the remaining worktree-vs-`main` ordering mismatch is persisted session state, not fresh canary rendering drift:
+    - worktree `setta_files_dev/setta-settings-project.json` currently stores active `All Settings` `topLevelSections` / view-mode order starting with `textAreaParamCodeObjDefault`
+    - read-only `main` `setta_files_dev/setta-settings-project.json` currently stores active `All Settings` `topLevelSections` / view-mode order starting with `shortcuts`
+    - both files already agree internally between `projectConfig.topLevelSections` and the active view mode, so this is not another canary-only ordering bug like item `031`
+  - a follow-up fresh-context CDP sub-agent could not invoke browser tools in this chat, so the iteration did not recover a cleaner oracle beyond the first completed CDP pass
+  - conclusion for this slice:
+    - the current blocker is oracle normalization, not a newly isolated renderer defect
+    - do not land speculative production fixes against overview ordering or session scroll state from this evidence alone
+- Ralph item `031` closed a canary-only ordering bug on the `All Settings` surface instead of opening another viewport-control lane.
+  - the next suspected mismatch after items `029` and `030` looked like section-order drift, but the first fresh-context CDP sub-agent could not invoke browser MCP in this chat and only returned partial evidence
+  - repo inspection showed a concrete canary-only divergence from the legacy source of truth:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` was iterating the active layout and then re-sorting sections by `y/x/sectionId`
+    - legacy graph consumers use `getTopLevelSectionIdsForDisplay(...)` / active top-level-section key order instead of a positional re-sort
+  - the canary model now iterates `getTopLevelSectionIdsForDisplay(projectState)` and reads layout data from `getActiveViewModeTopLevelSections(projectState)`, which keeps the canary on the same section-order source-of-truth path as legacy React Flow
+  - focused automation now locks the lane down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` now expects legacy display order rather than top-left sort order
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that the rendered `All Settings` canary section order matches the active view-mode top-level-section order from project state on first render
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+      - result: passed (`5 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: passed (`1 passed`, about `37s`)
+  - CDP verification for this slice used the same main-context fallback pattern as item `029` because the fresh-context sub-agent still could not invoke browser MCP here:
+    - after reloading the live worktree page, the worktree canary reported `46` rendered sections and its rendered header order matched the `Overview` pane order exactly (`firstMismatchIndex = -1`)
+    - the read-only `main` page likewise still had `46` visible React Flow nodes whose rendered header order matched its own `Overview` pane order exactly (`firstMismatchIndex = -1`)
+    - this means the canary no longer applies its own extra positional sort; the remaining worktree-vs-`main` ordering difference is upstream saved state / overview ordering, not another graph-substrate ordering path
+  - conclusion for this slice: the canary-only section-order lane is closed; do not reopen it unless the canary again diverges from the active `All Settings` top-level-section order on a fresh reload
+- Ralph item `030` closed the next real dynamic canary parity bug instead of extending control harnesses again: the custom-substrate canary treated a plain wheel gesture as zoom, while legacy `main` treated the same `All Settings` gesture as pan-scroll.
+  - a normalized live compare on `All Settings -> fit view -> drag pan -> plain wheel` showed the real product mismatch before the fix:
+    - worktree `{ x: 1136.18, y: 43.9448, zoom: 0.139474 }`
+    - `main` `{ x: 919.9, y: 278.3, zoom: 0.1 }`
+  - the root cause was the canary wheel owner, not another camera-save artifact:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` was hard-coding wheel input to `zoomViewportAroundScreenPoint(...)`
+    - legacy `frontend/src/forks/xyflow/core/container/ZoomPane.tsx` routes the same gesture through shared `panOnScroll` / `zoomOnScroll` / pinch / activation-key semantics, so plain wheel on this route should pan instead of zoom
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryWheelOutcome(...)`, which mirrors the legacy wheel contract for plain-wheel pan-scroll, activation-key zoom, and pinch zoom
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that shared wheel outcome and tracks pan-scroll versus wheel-zoom interaction state separately, so the canary no longer marks plain wheel input as zoom
+  - focused automation now locks the lane down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` covers both the legacy plain-wheel pan result and the remaining activation-key zoom path
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that a plain wheel gesture on the canary keeps zoom fixed and pans by the same amount as legacy instead of zooming the card surface
+    - that E2E case also no longer waits on `.react-flow__pane` before entering `All Settings`, because a live session can already reopen on the canary path and never expose the legacy pane
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`12 passed`)
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface|settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+      - result: passed (`2 passed`, about `44s`)
+  - manual oracle compare for this slice is now aligned again:
+    - after `fit view -> drag pan -> plain wheel`, worktree and `main` both reported `{ x: 919.9, y: 278.3, zoom: 0.1 }`
+    - `chrome-devtools-mcp` tooling was not available in this chat, so this iteration used a direct live Playwright compare against read-only `main` instead of claiming a CDP screenshot pass
+    - `./scripts/run-playwright-e2e.sh` hit an isolated bootstrap `401` inside its temp workspace during verification, but the direct live-runtime Playwright path with a fresh token passed; treat that launcher issue as verification harness noise for this slice, not as a reopened renderer bug
+  - conclusion for this slice: the plain-wheel interaction lane is closed; do not reopen it unless the normalized Playwright canary or a fresh live compare shows the canary zooming on plain wheel again
+- Ralph item `029` closed the first real dynamic canary parity bug instead of extending harness work: the custom-substrate toolbar zoom controls were anchoring to the visible graph center while legacy `main` still anchored zoom to the full graph surface center.
+  - a normalized live compare on `All Settings -> fit view -> zoom in` showed a real product mismatch before the fix:
+    - worktree `matrix(0.144, 0, 0, 0.144, 741.356, -450.108)`
+    - `main` `matrix(0.144, 0, 0, 0.144, 806.256, -450.108)`
+  - the zoom factor matched and only the anchor drifted, which isolated the bug to the canary zoom-control screen point instead of control plumbing or saved-camera state
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryZoomControlScreenPoint(...)`, and `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that full-surface center for canary `zoomBy(...)` / `zoomTo(...)`
+  - focused automation now locks the lane down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` covers the full-surface zoom anchor helper
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts the normalized `zoom in` transform against the full canary-root center, not just the zoom scalar
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`10 passed`)
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+      - result: passed (`1 passed`, about `50s`)
+  - CDP visual verification for this slice used a main-context chrome-devtools fallback because the fresh-context sub-agent in this chat could not access browser-tooling:
+    - after reloading both live pages and re-normalizing to `All Settings -> fit view`, worktree and `main` both reported the same initial transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - after one shared `zoom in` click, both sides now report the same transform `matrix(0.12, 0, 0, 0.12, 791.88, -338.34)`
+    - the final screenshots matched on the target graph surface; remaining differences were non-target workspace chrome (`pixijs-graph` label and overview ordering)
+  - conclusion for this slice: the toolbar zoom-control anchor lane is closed; do not reopen it unless the normalized Playwright canary or an equally normalized CDP compare fails
+- Ralph item `028` resolved the immediate dynamic-compare blocker with a focused normalized canary test instead of another speculative production patch.
+  - a fresh-context CDP sub-agent using refreshed bootstrap tokens could reopen both live worktree and `main` sessions, but the first quick zoom-control compare was misleading because it did not fully normalize the camera state first
+  - on that unnormalized live worktree session, the canary reopened at `window.reactFlowZoom = 0.8333333333333334` and one shared `zoom in` click moved it to `1`, which looked like a control-path bug until the state source was isolated
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph substrate canary zoom in control respects the normalized All Settings fit`, which:
+    - explicitly sets active view mode to `All Settings`
+    - clears the active viewport to `null`
+    - reapplies the backend project-state update in-page
+    - asserts the canary settles on the normalized fit camera (`zoom ~= 0.1`)
+    - asserts one shared `zoom in` click advances that camera by the legacy `1.2x` step (`zoom ~= 0.12`)
+  - the new case intentionally does not wait on legacy `.react-flow__pane` readiness before normalization, because a live session can already be on the canary path and never expose the pane
+  - targeted verification passed directly against the current live worktree runtime:
+    - `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary zoom in control respects the normalized All Settings fit'`
+    - result: passed (`1 passed`, about `1.1m`)
+  - conclusion for this slice: the normalized zoom-control path is behaving correctly; the earlier CDP result was a saved-camera / unnormalized-session artifact, not a zoom-controller math defect
+  - do not reopen zoom-control math unless this normalized Playwright canary or an equally normalized CDP compare fails
+- Ralph item `027` closed the remaining stationary normal-zoom `All Settings` parity lane without another production patch.
+  - the blocked question for this slice was whether a real graph-surface drift still remained after items `025` and `026`, or whether recent compares were still being confounded by workspace chrome / stale live-tab state
+  - a saved normalized compare from the already-authenticated live worktree / `main` sessions reset both sides to active `All Settings` with `viewport: null`, then captured fresh-page screenshots plus metrics from those same sessions
+  - the saved stationary graph-surface metrics matched on both sides:
+    - viewport transform `matrix(0.1, 0, 0, 0.1, 779.9, -51.7)`
+    - graph rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`
+    - minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`
+    - `46` visible nodes, `46` minimap nodes, background count `1`
+  - saved cropped graph screenshots from that compare were visually indistinguishable; the remaining screenshot deltas were outside the target graph-surface lane:
+    - worktree-only worktree label chrome in the top bar
+    - different overview-list ordering / scroll state
+    - transient top-bar status text
+  - this means the next real frontier is no longer another stationary transform / bounds / minimap / background / surface-height fix on `All Settings`
+- Ralph item `026` fixed the next stable `All Settings` minimap-content drift after the graph-surface-height lane: the canary surface was rendering `46` sections, but the shared minimap only had geometry for `5` of them, so the panel collapsed into a shallow strip instead of showing the full settings stack.
+  - the first fresh CDP compare that chose this slice showed the worktree canary active with `46` `[data-testid="graph-substrate-canary-section"]` nodes but only `5` `.react-flow__minimap-node` rects, while the live worktree minimap viewBox coverage was only `1.75%`
+  - the root cause was shared geometry ownership, not another minimap-panel bug:
+    - the canary already rendered all `All Settings` sections from active view-mode layout data
+    - but most canary sections never synchronized their measured DOM width/height back into shared `nodeInternals`, so shared consumers like `ResponsiveMiniMap` could only render the small subset that already had width/height
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.ts` now syncs visible canary section position / size / z-index into shared `nodeInternals` from the canary's measured DOM sizes.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now runs that sync whenever visible sections or observed canary element sizes change, so shared graph consumers stay aligned with the canary surface instead of lagging behind it.
+  - `frontend/src/forks/xyflow/minimap/MiniMapNodes.tsx` and `frontend/src/forks/xyflow/minimap/MiniMap.tsx` now resolve minimap geometry from the canary-aware layout path on `settings` / `All Settings`, so minimap bounds and node placement no longer fall back to stale raw positions when the canary is active.
+  - focused automation now locks the contract down:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` covers the shared-node sync helper directly
+    - `frontend/src/forks/xyflow/minimap/MiniMapNodes.test.tsx` covers the canary-aware minimap geometry resolver
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that the first-render `All Settings` canary minimap renders the same number of minimap nodes as visible canary sections, which directly catches the old `46` vs `5` under-render bug
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts src/forks/xyflow/minimap/MiniMap.test.ts src/forks/xyflow/minimap/MiniMapNodes.test.tsx`
+      - result: passed (`21 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: passed (`1 passed`, about `38s`)
+  - fresh-context CDP visual verification for the targeted fix is good enough to treat the worktree defect as closed, but the live `main` minimap session was not a trustworthy oracle after reload:
+    - after reloading the live worktree tab on `http://127.0.0.1:3075/settings` with `All Settings` active, the worktree reported `46` canary sections and `46` minimap section rects
+    - the same reload pass on read-only `main` `http://127.0.0.1:3087/settings` did not expose minimap section rects, so this CDP run confirms the worktree no longer under-renders its own minimap but does not provide a clean side-by-side visual oracle for the final parity judgment on this lane
+    - bootstrap consume URLs returned `401`, so the compare had to use already-running live tabs instead of a fresh bootstrap-minted oracle session
+  - this minimap-content under-render lane is now complete for the worktree product bug; do not spend another iteration on it unless a fresh controlled compare reproduces missing minimap nodes again
+- Ralph item `025` closed the next stable normal-zoom `All Settings` renderer drift after the background lane: the custom substrate could still collapse into a content-height graph lane, which packed the cards upward and pulled the minimap / controls too high compared with `main`.
+  - the fresh-context CDP compare that chose this slice reported a worktree graph surface rect `{ x: 0, y: 36, width: 1440, height: 441 }` while read-only `main` still filled `{ x: 0, y: 36, width: 1440, height: 828 }`
+  - the likely owner was the canary mount contract itself rather than more bounds math: `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` was still letting the surface size from content instead of pinning it to the `UIPage` bounds
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now mounts the canary root as an absolute `inset: 0` surface, so the graph substrate fills the full `UIPage` lane instead of shrinking around visible section content
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds a focused first-render regression that fails when the canary leaves a large dead bottom gap (`bottom gap < 80px` on the seeded `All Settings` route)
+  - targeted verification passed in this iteration:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: passed (`1 passed`, about `19s`)
+  - fresh-context CDP visual verification passed for the targeted fix:
+    - live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` both reported the same normalized `All Settings` surface after the patch
+    - both pages now report:
+      - graph surface rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`
+      - viewport transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`
+      - controls rect `{ x: 3.5, y: 477, width: 32, height: 339, bottom: 816 }`
+    - no floating chat window was visible on either page during the final compare, so this result is not explained by extra chat chrome
+  - this graph-surface height / bottom-anchor lane is now complete; do not spend another iteration on it unless a fresh controlled compare reproduces the old half-height canary surface again
+- Ralph item `024` closed the next stable `All Settings` renderer drift after the viewport/minimap lanes: the custom substrate was dropping the graph background grid entirely while `main` still rendered it.
+  - a controlled normal-zoom compare explicitly reset both the worktree and read-only `main` `All Settings` viewports to `null`, then applied the backend state update in-page before inspecting the graph surface
+  - the normalized compare showed the same graph transform, surface bounds, section/node count, and minimap on both sides, but the worktree alone had `backgroundCount = 0` while `main` had `backgroundCount = 1`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the shared `Background` layer whenever `snapToGrid` and `showGridLines` are enabled, matching the legacy `ReactFlow` path
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that the initial `All Settings` canary render keeps the shared background visible on the same path that already checks the multi-column spread
+  - targeted verification passed in this iteration:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+      - result: passed (`1 passed`, about `18s`)
+  - CDP visual verification passed for the targeted fix:
+    - the fresh sub-agent path still could not call browser tools in this chat context, so the compare used direct fresh pages in the current chrome-devtools session as a fallback
+    - after reloading the worktree page, re-normalizing both sides to active `All Settings` with `viewport: null`, and reapplying backend state in-page, both surfaces reported:
+      - transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - `46` visible sections/nodes
+      - minimap present
+      - matching graph rect `{ x: 0, y: 36, width: 1440, height: 441 }`
+    - the worktree now also reports `backgroundCount = 1`, matching `main`, and the viewport screenshots show the same dotted grid behind the `All Settings` cards
+  - this background lane is now complete; do not spend another iteration on graph-background parity unless a later controlled compare shows the grid missing again
+- Ralph item `023` landed a bounded fix for provisional `All Settings` viewport persistence on the custom substrate path:
+  - the next stable drift after the minimap lane was not more fit math; the live worktree had started saving the canary's provisional fallback viewport `{ x: 48, y: 48, zoom: 1 }` into the `All Settings` view-mode state, which later reopened the old oversized single-card / partial-`gui` presentation
+  - the canary now marks only restored backend viewports and user-owned local canary viewport changes as persistable through a new shared ReactFlow `viewportPersistenceEnabled` store flag
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now keeps provisional fallback/auto-fit viewports non-persistable while still allowing restored saved cameras and explicit user pan/zoom/fit actions to persist
+  - `frontend/src/state/actions/sectionInfos.ts` now treats `viewportPersistenceEnabled === false` the same as `fitViewOnInit` for viewport writes, so the debounced sender no longer stores provisional canary transforms
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now covers the direct bug: starting `All Settings` from `viewport: null` must still leave both the active project viewport and the active `All Settings` view-mode viewport `null` after the debounce window
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`9 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary does not persist a provisional initial viewport'`
+      - result: passed (`1 passed`, about `30s`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings|settings graph substrate canary preserves a recent viewport change across a fast view-mode switch'`
+      - result: passed (`2 passed`, about `1m`)
+  - fresh-context CDP verification passed for the targeted fix:
+    - the worktree `All Settings` viewport was explicitly cleared to `null` through in-page backend calls, `/settings` was reloaded, and the compare waited about `1.4s`
+    - a follow-up runtime check still showed `projectConfig.viewport === null` and active `All Settings` view-mode `viewport === null`, so the old debounce re-persist did not fire
+    - visually, the worktree no longer reopened on the oversized single-card / partial-`gui` surface after that controlled reset
+  - do not spend another iteration on this persistence lane unless a new controlled `viewport: null` compare shows the canary still re-persists a provisional camera
+- A fresh-storage, no-extra-controls CDP compare closed the previous viewport-fit lane:
+  - a fresh-context CDP sub-agent compared the live worktree and read-only `main` `All Settings` surfaces before any viewport-control interaction
+  - both sides landed on the same initial canary transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` with the same visible graph bounds (`46` visible nodes; bounds `minX=780 minY=-209 maxX=955 maxY=722`)
+  - do not spend another iteration on the initial-entry fit lane unless a new controlled compare reopens it
+- Ralph item `022` closed the `All Settings` minimap parity lane:
+  - the next visible `main` delta after the fit compare was minimap parity: `main` still showed the responsive minimap panel on `All Settings`, while the worktree hid it entirely
+  - `frontend/src/components/Pages/Project/UiPage.tsx` now renders `ResponsiveMiniMap` whenever `showMinimap` is enabled, including the settings graph-substrate canary path
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now asserts that `All Settings` keeps the minimap visible on the canary path and that it renders more than one minimap node
+  - targeted Playwright verification passed in this iteration:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
+      - result: passed (`1 passed`, about `17s`)
+  - fresh-context CDP visual verification passed in this iteration:
+    - strict `chrome-devtools-mcp` compare on live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - worktree `All Settings`: minimap visible after clearing extra chat chrome
+    - `main` `All Settings`: minimap visible in the same bottom-left location
+    - no other blocking visual mismatch was called out on this minimap-focused compare
+  - this lane is now complete; do not spend another iteration on minimap visibility unless a later compare shows a regression
+- Ralph item `021` landed the visible-viewport-width fix for the `All Settings` custom substrate fit math:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now derives a canary-visible viewport size by subtracting `overviewTrueWidth` and `uiEditorTrueWidth` before fitting bounds, matching legacy `ReactFlow`'s width contract instead of fitting against the full root width and then adding the overview offset again.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses that visible viewport size for initial auto-fit, shared `useReactFlow.width`, fit-view controller commands, and viewport centering, so the canary no longer over-shifts horizontally when panes are open.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now covers the visible-width helper and the corrected initial-fit center result.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now computes the canary auto-fit oracle from the visible graph width instead of the full root width, so the regression guard no longer mirrors the old bug.
+- Targeted verification passed for item `021`:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`7 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `18s`)
+- Fresh CDP verification for item `021`:
+  - a fresh-context CDP sub-agent compared the live worktree and read-only `main` `All Settings` surfaces after triggering fit view on both sides
+  - worktree canary transform after fit view: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+  - `main` legacy transform after fit view: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+  - visual result: the earlier horizontal fit-view drift no longer reproduced; node spread and centering matched closely enough to treat that slice as fixed
+- Ralph item `020` landed the bounded viewport-controls fix for the `All Settings` custom substrate path:
+  - `frontend/src/forks/xyflow/core/types/general.ts` and `frontend/src/forks/xyflow/core/store/initialState.ts` now expose a typed `viewportController` slot on the shared ReactFlow store.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now registers a canary-local controller that maps shared zoom/reset/fit/set-center/set-viewport commands onto the canary viewport state and current scene bounds instead of dead-ending when `d3Zoom` is absent.
+  - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts` now delegates zoom/reset/set-center/map-position commands to that controller on non-d3 routes, and `frontend/src/forks/xyflow/core/store/utils.ts` now lets `fitView(...)` and `onFitViewHandler()` do the same.
+  - focused unit coverage now lives in `frontend/src/forks/xyflow/core/hooks/useViewportHelper.test.ts` and `frontend/src/forks/xyflow/core/store/utils.test.ts`.
+- Targeted verification passed for item `020`:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/forks/xyflow/core/store/utils.test.ts`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface'`
+    - result: passed (`1 passed`, about `16s`)
+- Fresh CDP verification for item `020`:
+  - a fresh-context CDP sub-agent reran the original worktree-vs-`main` viewport-control sequence on `/settings` after clearing `localStorage` and `sessionStorage`
+  - worktree behavior is fixed for the targeted defect:
+    - initial worktree `All Settings` transform was still bad (`translate(1592.67px, 88.9545px) scale(0.191013)`) with `visibleNodeCount = 0`
+    - `reset zoom` changed the worktree transform to `translate(3869.86px, -1414.75px) scale(1)` but still left the center blank
+    - `fit view` then changed the worktree transform again to `translate(967.4px, -21.7px) scale(0.1)` and recovered `visibleNodeCount = 46`, bringing the settings grid back into view instead of staying inert
+  - `main` still behaves as the oracle for this control path:
+    - initial `All Settings` transform `translate(779.9px, -21.7px) scale(0.1)`
+    - `reset zoom` moved to `translate(1319px, -4213px) scale(1)`
+    - `fit view` returned to `translate(779.9px, -21.7px) scale(0.1)` with `visibleNodeCount = 46`
+  - high-level result: the worktree now matches the legacy control behavior that mattered for this defect because `fit view` is no longer a no-op and restores the off-screen grid; the remaining drift is initial framing and a fitted `x` offset (`967.4px` vs `779.9px`)
+- A dedicated seeded Playwright regression for the viewport-control buttons was explored during this iteration but not landed:
+  - the seeded workspace path was not trustworthy enough for a new control-specific assertion, so that experimental E2E test was removed rather than committing a flaky guard
+  - keep the stable pan/zoom E2E plus the new unit coverage as the automation record for item `020`; revisit a control-specific Playwright check only after the initial fresh-state framing bug below is fixed
+- Ralph item `019` landed a bounded viewport-persistence fix for fast `All Settings` mode switches on the custom substrate path:
+  - `frontend/src/state/actions/sectionInfos.ts` now exports `persistCurrentViewportImmediately()`, which cancels the debounced viewport sender and awaits an immediate `/setViewport` write for the current camera before a mode change proceeds.
+  - `frontend/src/components/Pages/Project/ViewModeTabs.tsx` and `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` now await that helper before `route_set_active_view_mode(...)`, so the backend saves the current mode's latest viewport before switching away.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now covers a fast `All Settings -> Core -> All Settings` round-trip after a recent canary pan, proving the latest user-owned viewport survives the switch.
+- Targeted verification passed for item `019`:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/ViewModeTabs.test.tsx src/components/Panes/Overview/ViewingEditingMode.integration.test.tsx`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings|settings graph substrate canary preserves a recent viewport change across a fast view-mode switch'`
+    - result: passed (`2 passed`, about `40s`)
+- Fresh CDP verification for item `019`:
+  - a fresh-context CDP sub-agent confirmed the worktree preserved the recent `All Settings` viewport across the fast `All Settings -> Core -> All Settings` switch
+  - one separate fresh CDP sub-agent session lacked browser-tool access, but the worktree debug target stayed healthy at `http://127.0.0.1:9297/json/version` and the follow-up CDP sub-agent completed the live check successfully
+  - `main` was not a trustworthy oracle for this exact rushed multi-click sequence; it re-centered differently and ended back on `Core`, so do not use that fast-switch pattern as the parity canary
+- Ralph item `018` landed a bounded canary fit-input parity fix inside the `All Settings` substrate path:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` now merges selector-provided section sizes with observed DOM sizes instead of trusting observed sizes alone.
+  - the bounds helper now uses the larger available width/height for each section, which keeps the initial fit aligned with legacy node-internal geometry while still expanding to larger real DOM boxes when fallback sizing lags behind render.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts` now covers the merged-size contract directly.
+- Targeted verification passed for item `018`:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`13 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `24s`)
+- Fresh CDP visual verification is trustworthy again for the checked slice:
+  - a fresh-context CDP sub-agent inspected both the worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+  - after minimizing the worktree chat surface, the normal-zoom `All Settings` framing looked effectively matched; the earlier “worktree is still materially tighter than `main`” blocker did not reproduce on this latest compare
+  - treat the older lifecycle/bootstrap compare failures below as historical audit trail rather than the latest state of the bounds lane
+- Ralph item `017` landed the remaining shell-compatibility fix that was still preventing the patched headless launcher from starting in the live Ralph runtime:
+  - `scripts/start-browser-mcp.sh` no longer uses the Bash-4-only `local -n` helper to append optional Chrome args; it now appends those arrays explicitly so macOS `/bin/bash` 3.2 can execute the headless devtools path.
+  - `tests/start/test_start_browser_mcp_script.py` now invokes the script through `/bin/bash` when it exists, so the direct launcher coverage exercises the same shell Ralph used in the failing lifecycle run.
+- Targeted verification passed for item `017`:
+  - `source activate.sh && pytest tests/start/test_start_browser_mcp_script.py`
+    - result: passed (`3 passed`)
+  - isolated live smoke:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 DEBUG_PORT=9693 MCP_RUN_DIR=<tmp> PROFILE_DIR=<tmp> /bin/bash ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
+    - `curl -fsS --max-time 3 http://127.0.0.1:9693/json/version`
+    - result: passed (returned the Chrome DevTools JSON payload after the launcher exited)
+- This closes the concrete launcher bug surfaced in the current Ralph runtime log:
+  - `/Users/jeff/Documents/_projects/setta.pixijs-graph/scripts/start-browser-mcp.sh: line 102: local: -n: invalid option`
+- Ralph item `016` landed the lifecycle/browser launcher fix that was blocking the post-item-013 oracle compare:
+  - `scripts/start-browser-mcp.sh` now launches background devtools Chrome through a detached Python subprocess (`start_new_session=True`, with `nohup` fallback) so the headless browser no longer dies with the short-lived launcher shell.
+  - the same script now builds Chrome argv arrays without the empty `CHROME_ARGS` placeholder that was causing the detached Python launch path to exit immediately.
+  - `scripts/run-codex-loop.sh` now recognizes `--browser-mode` support through the repo-root `ai.sh` wrapper by checking the sibling `scripts/ai.sh`, so Ralph can use the explicit browser-mode flag on modern launchers instead of falling back to the wrapper hack.
+  - targeted script wiring coverage now includes the wrapper-detection case plus a behavioral test proving the headless browser process stays alive after `start-browser-mcp.sh` exits.
+- Targeted launcher verification passed for item `016`:
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py tests/start/test_run_codex_loop_script.py tests/start/test_start_browser_mcp_script.py`
+    - result: passed (`36 passed`)
+  - isolated live smoke:
+    - `DEBUG_PORT=9692 MCP_RUN_DIR=/tmp/setta-mcp-live12 PROFILE_DIR=/tmp/setta-profile-live12 BOOTSTRAP_ENABLED=0 ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
+    - after `sleep 1`, `curl -fsS --max-time 3 http://127.0.0.1:9692/json/version` returned the Chrome DevTools JSON payload successfully
+- This closes the lifecycle-launcher bug that made the headless debug Chrome disappear before CDP came up.
+- The already-running worktree/main lifecycle sessions from this Ralph pass were not re-bootstrapped after item `017`, so the strict cleared-viewport worktree-vs-`main` compare is still pending:
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` still returns `Error: No matching Setta sessions found.`
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` still returns `Error: No matching Setta sessions found.`
+- The required post-item-013 cleared-viewport compare is now blocked by lifecycle/bootstrap availability rather than another bounds hypothesis:
+  - fresh-context CDP sub-agent could not connect because `http://127.0.0.1:9297/json/version` was unreachable
+  - one allowed local self-recovery ran with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - terminal output reported frontend `http://127.0.0.1:3076/`, backend `http://127.0.0.1:8076`, debug port `9298`, bootstrap session `c80b97`
+    - follow-up checks still found no reachable Chrome target and no live Setta connect info:
+      - `curl -fsS --max-time 3 http://127.0.0.1:9298/json/version` failed with connection refused
+      - `lsof -nP -iTCP:9298 -sTCP:LISTEN` returned no listener
+      - `pnpm -C frontend cdp-port` still reported stale port `9297`
+      - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph` returned `Error: No matching Setta sessions found.`
+  - the allowed fallback retry also failed: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./ai.sh`
+    - terminal output reported frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, debug port `9299`, bootstrap session `752acc`
+    - `curl -fsS --max-time 3 http://127.0.0.1:9299/json/version` failed with connection refused
+    - `lsof -nP -iTCP:9299 -sTCP:LISTEN` returned no listener
+    - `pnpm -C frontend cdp-port` still reported `9297`
+    - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph` still returned `Error: No matching Setta sessions found.`
+- The read-only `main` oracle is still not trustworthy:
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` returned `Error: No matching Setta sessions found.`
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returned `200 OK`, so the shell serves while the actual bootstrap/app session remains unavailable
+- Because both allowed worktree recovery launches failed before item `016`, do not land more fit/bounds code yet; the next iteration must retry the lifecycle/bootstrap compare with the patched launchers first, then decide whether the bounds lane is still the real blocker.
+- Ralph item `013` landed a bounded bounds-readiness fix inside the custom canary:
+  - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` plus focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now waits for measured DOM sizes from every visible canary section before computing the first auto-fit scene bounds, instead of fitting against partial layout fallback sizes
+  - the same canary now records observed section sizes with `offsetWidth` / `offsetHeight`, matching legacy `fitView`'s box model instead of `ResizeObserver.contentRect`
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now tightens the cleared-viewport `All Settings` check to compare the live canary zoom against the measured visible-section fit, instead of only asserting a loose `zoom < 0.95`
+- Targeted automation for item `013` passed:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+- The required post-fix CDP oracle compare is now the only blocker:
+  - one allowed local self-recovery ran after the first CDP sub-agent reported `chrome-devtools-mcp` unavailable:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - restarted worktree runtime from terminal output: frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, bootstrap token session `e5ff30`
+  - after that restart, a second fresh CDP sub-agent still could not access `chrome-devtools-mcp`
+  - `pnpm -C frontend cdp-port` after restart reported `9298`, while the restart terminal printed Chrome remote debugging on `9299`; treat the worktree runtime as restarted but the CDP bridge itself as still unavailable in this Codex session
+  - because the post-item-013 side-by-side compare against `main` did not run, we do not yet know whether the tighter `All Settings` framing blocker is closed or whether a smaller remaining vertical-fit mismatch is still present
+- A fresh-loop retry of that deferred compare is now blocked on the read-only `main` oracle session instead of the worktree:
+  - a fresh CDP sub-agent verified the worktree on `http://127.0.0.1:3075/settings` with `All Settings` active, `graph-substrate-canary` present, and `.react-flow__pane` absent
+  - a second stricter fresh CDP sub-agent could not validate `main` on `http://127.0.0.1:3087/settings` because the app never mounted the settings UI:
+    - `All Settings` control absent
+    - `canaryCount = 0`
+    - `paneCount = 0`
+    - `rootChildren = 0`
+    - reload surfaced `Error: Search engine null is not supported.`
+  - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` returned `Error: No matching Setta sessions found.`
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returns `200 OK`, so the main frontend shell is serving but the reference app/bootstrap session is not currently trustworthy as a visual oracle
+  - do not land more fit/bounds code until a fresh iteration restores a healthy `main` reference session and re-runs the strict cleared-viewport compare
+- Ralph item `012` landed a bounded initial-fit alignment fix inside the custom canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `fitSettingsGraphSubstrateCanaryViewport(...)` so the canary's first fit can follow the same visible-center and max-zoom rules as legacy `ReactFlow`
+  - that helper now:
+    - shifts the fit center by `overviewTrueWidth` instead of centering in the raw wrapper
+    - caps the initial fit zoom to `defaultZoomLevel` the same way legacy `fitView({ initial: true })` does
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now routes its first auto-fit through that helper instead of calling `fitViewportToWorldRect(...)` directly
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now locks down the overview-offset + initial-zoom-cap behavior
+- The blocked post-`011` oracle compare is now resolved:
+  - one allowed local self-recovery ran successfully: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - the restarted worktree came up on frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077`
+  - a fresh CDP sub-agent could then inspect both the restarted worktree and read-only `main`
+- Fresh CDP after item `012` shows the remaining blocker explicitly:
+  - the worktree `All Settings` cleared-viewport fit is still framed much tighter than `main`
+  - visually, the worktree shows only a few larger cards centered in the canvas while `main` is more zoomed out and shows a denser vertical field of smaller cards
+  - that means the remaining drift is no longer explained by:
+    - the old fallback `{48,48,1}` seed suppressing auto-fit
+    - a missing overview-width center offset
+    - a missing initial max-zoom cap
+  - the remaining frontier is therefore a bounds / measured-size mismatch in the canary fit inputs rather than more saved-viewport plumbing
+- Ralph item `011` landed the bounded initial-fit ownership fix inside the custom canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now separates three concepts explicitly:
+    - the top-left fallback viewport seed
+    - the authoritative shared viewport source
+    - the final resolved viewport
+  - the same helper now ignores a `useReactFlow` viewport when it only mirrors the canary's own fallback seed and no saved project viewport exists, which prevents the fallback `{48,48,1}` transform from suppressing the later auto-fit
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now computes fallback/shared/resolved viewport state separately and gates auto-fit against the authoritative shared viewport instead of the fallback echo
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now locks down the fallback-echo rejection and the still-authoritative non-fallback shared viewport case
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now clears the saved viewport before entering `All Settings` and proves the canary auto-fits (`zoom < 0.95`) instead of sticking at the raw fallback; the persisted-viewport restore test still passes on the same slice
+- The controlled oracle compare before the fix exposed the real blocker:
+  - after clearing the saved viewport on both sides and re-entering `All Settings`, the worktree stayed at `matrix(1, 0, 0, 1, 48, 48)` while `main` fit the view to `matrix(0.428082, 0, 0, 0.428082, 1458.36, 774.733)`
+  - that proved the canary was treating its own fallback seed as an authoritative shared viewport instead of running a real initial fit
+- Ralph item `010` landed the bounded `All Settings` saved-viewport restore fix inside the custom canary:
+  - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` plus focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now resolves its initial viewport from the shared saved camera state before falling back to a fresh fit seed
+  - the same canary now also treats the first auto-fit as provisional and yields to the authoritative shared `useReactFlow` / project viewport when that saved state arrives during view-mode handoff, while preserving user-owned pan/zoom afterward
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now proves that `All Settings` restores a persisted viewport after `All Settings -> Core -> All Settings`
+- The viewport-restore bug is narrower now:
+  - the canary no longer always re-fits on remount for the checked restore path
+  - CDP verified that the worktree now restores a non-fit `All Settings` camera state after `Core -> All Settings`
+  - however the restored framing still visibly drifts from `main`, so the remaining blocker is final viewport/oracle alignment rather than persistence itself
+- Ralph item `009` landed a bounded product fix for the multi-section canary layout source:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now takes section positions and `zIndex` from the active view-mode layout instead of preferring stale `nodeInternals` positions
+  - the same selector still preserves live measured widths and heights from `nodeInternals`, so drag/pan/zoom geometry stays current without letting old route state decide the canary layout
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` now locks down that active-layout positions win over stale `nodeInternals` positions
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes a focused initial-layout guard proving the canary does not collapse all visible cards into a single screen x-column on first render in the seeded E2E workspace
+  - the same E2E file now finds pan/zoom background points by probing the actual canary pane background, which keeps the drag/pan/title checks valid after the broader visible-section layout changed
+- The old `main`-oracle startup blocker is stale:
+  - `curl -I --max-time 5 http://127.0.0.1:3087/settings` now returns `200 OK`
+  - `pnpm -C frontend cdp-port` still reports `9297` for the worktree, and `cd /Users/jeff/Documents/_projects/setta && pnpm -C frontend cdp-port` reports `9309` for `main`
+- Ralph item `007` landed the first multi-section `All Settings` canary slice on the custom graph substrate:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now returns all visible top-level canary sections instead of a single preferred section and carries each section's `positionAndSizeLocked` state into the canary render contract
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the visible `All Settings` top-level section set on the custom surface, fits the initial viewport to the shared section bounds, and routes drag ownership to whichever section is actually grabbed instead of pinning a synthetic top-left section
+  - the canary now observes per-section DOM sizes locally so the shared viewport fit uses the visible multi-section bounds without reintroducing `xyflow` ownership
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so the canary coverage proves more than one section is visible, a runtime-discovered draggable section can move without dragging a different visible section, and shared pan/zoom still moves multiple visible sections together
+  - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` for the plural visible-section selector and lock-state contract
+- Ralph item `006` landed the first representative DOM interaction/editing handoff proof on the `settings` graph-substrate canary:
+  - `frontend/src/components/Section/Header/SectionTitle.tsx` now marks editable section titles as both `nodrag` and `setta-prevent-section-on-click-trigger`
+  - this keeps the canary-local drag capture and parent section activation from swallowing title double-clicks on the checked `All Settings` slice
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` with a focused canary proof that pans and zooms the custom surface, renames the visible section title through the DOM header editor, and restores the original section name afterward
+- Ralph item `005` landed the first real custom pan/zoom ownership inside the `settings` graph-substrate canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns background pan on the canary root instead of relying on legacy `xyflow` pane ownership
+  - the same canary root now owns anchored wheel zoom for the checked `All Settings` slice
+  - the canary mirrors viewport interaction state back into shared `useReactFlow` / `useMisc` flags during pan/zoom so DOM-backed section internals still see the expected interaction state
+  - the canary viewport now exposes a stable `graph-substrate-canary-viewport` test target for transform checks
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` with a focused canary pan/zoom proof on the custom surface
+- Ralph item `004` landed the first real custom drag ownership inside the `settings` graph-substrate canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns one top-level section drag locally on the canary surface
+  - the canary pins its selected section while dragging so the visible card does not swap to a different top-left candidate mid-move
+  - the section body/shell now move together through a canary-local position override and commit back through the existing top-level layout persistence path on release
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now prefers live `nodeInternals` geometry and can keep a preferred visible section selected during drag
+  - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts` now no-ops cleanly when custom-substrate routes have transform state but no legacy `d3Zoom` / `d3Selection`
+  - added `frontend/src/forks/xyflow/core/hooks/useViewportHelper.test.ts` for the null-d3 guard
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so the canary drag test finds a valid draggable point, verifies drag state/motion, and restores layout + active view mode after itself
+- Ralph item `003` landed the first real `settings` graph-substrate canary at the nearest meaningful composition boundary:
+  - `frontend/src/components/Pages/Project/UiPage.tsx` now chooses between legacy `ReactFlow` and a new `settings`/`All Settings` canary path
+  - added `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+  - the canary renders one DOM-backed top-level section through a custom viewport transform instead of `xyflow`
+  - the canary syncs the shared `useReactFlow` zoom/transform state so existing section internals still read the right zoom on that slice
+  - legacy `ReactFlow` still owns every other route/view mode
+- Ralph item `002` remains the transform/math foundation underneath that canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/viewportTransform.ts`
+  - focused Vitest coverage for world/screen conversion, anchored zoom, and bounds fitting
+  - existing `xyflow` point conversion, fit-to-bounds, and `setCenter` math routed through that helper
+- The old `setta.pixijs-rewrite` branch is research only for this effort.
+- Current priority is Gate 0 basic viability on a new custom graph substrate, not polishing the old shared-page-runtime path.
+- The first-order product requirement is:
+  - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
+- The previous post-item-021 frontier is now closed:
+  - the fresh-storage, no-extra-controls CDP compare no longer shows the worktree opening off-screen before any viewport interaction
+  - the follow-on minimap parity lane is also closed; do not reopen viewport-fit churn or minimap work unless a later compare regresses
+- Current live verification state:
+  - targeted Vitest passed for:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - targeted Playwright passed for:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+  - targeted Vitest passed for:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+  - targeted Vitest passed for:
+    - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+  - targeted Playwright passed for:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render|settings graph substrate canary restores the persisted shared viewport on All Settings'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
+  - saved normalized live-session compare after item `026`: done
+    - a fresh-page compare against the already-authenticated live worktree / `main` sessions captured matching stationary `All Settings` metrics in `/tmp/setta-compare-results.json`
+    - both sides matched on transform `matrix(0.1, 0, 0, 0.1, 779.9, -51.7)`, graph rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`, minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`, background count `1`, and `46` visible / minimap nodes
+    - the saved cropped graph screenshots `/tmp/setta-worktree-graph-crop.png` and `/tmp/setta-main-graph-crop.png` are visually indistinguishable; remaining full-screenshot differences are workspace chrome only, not graph-surface drift
+  - CDP visual check:
+    - fresh-storage initial-entry compare after item `021`: done
+      - worktree and `main` matched before any viewport controls: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` with the same visible graph bounds
+      - the old initial off-screen / blank-entry Gate 1 defect no longer reproduced
+      - the next visible delta from that compare was minimap parity: `main` showed a visible minimap panel while the worktree did not
+    - worktree vs `main` stationary `All Settings`: superseded
+      - older live-tab compares that still showed framing drift are now stale for the current stationary lane
+      - the saved normalized live-session compare above is the latest trustworthy stationary oracle, and it no longer shows a graph-surface drift on the checked normal-zoom state
+    - minimap parity compare after item `022`: done
+      - fresh-context `chrome-devtools-mcp` compare on live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - both sides showed the minimap on `All Settings`
+      - no other blocking visual mismatch was called out on this minimap-focused compare
+    - controlled cleared-viewport compare before item `011`: done
+      - after forcing `viewport: null` and re-entering `All Settings`, the worktree stayed at the fallback transform `matrix(1, 0, 0, 1, 48, 48)` while `main` fit to `matrix(0.428082, 0, 0, 0.428082, 1458.36, 774.733)`
+      - this is the evidence that drove the fallback-echo fix
+    - controlled cleared-viewport compare after item `011`: blocked
+      - after one allowed local self-recovery (`BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`), the worktree restarted on frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077`
+      - fresh CDP sub-agents still could not invoke browser page actions; one run reported canceled `navigate_page` / `evaluate_script` / `take_snapshot` actions, and the retry reported the browser tools were not invokable at all
+      - the post-fix live compare therefore remains unverified and is the current blocker
+    - controlled cleared-viewport compare after item `012`: done
+      - after the restarted worktree became CDP-reachable, a fresh side-by-side compare against `main` showed the worktree still framed `All Settings` much tighter
+      - visual summary:
+        - worktree: a few larger cards centered in the canvas
+        - `main`: more zoomed-out framing with a denser vertical field of smaller cards
+      - this closes the tool-availability blocker from item `011` and leaves a product blocker: the canary fit bounds still differ from the legacy oracle
+    - post-item-013 compare retried from a fresh loop session: invalid
+      - fresh CDP reached the worktree successfully and confirmed the canary `All Settings` surface
+      - the read-only `main` reference on `http://127.0.0.1:3087/settings` did not mount the settings graph at all (`All Settings` control absent, `canaryCount = 0`, `paneCount = 0`, `rootChildren = 0`)
+      - reloading the blank `main` page surfaced `Error: Search engine null is not supported.`
+      - repo-side status check also found no active Setta session for `/Users/jeff/Documents/_projects/setta`
+      - the compare must be retried only after the next iteration restores a healthy `main` reference lifecycle; do not treat the current `main` runtime as a valid oracle
+    - post-item-013 compare after the allowed worktree recovery retry: blocked
+      - a fresh CDP sub-agent failed immediately because `http://127.0.0.1:9297/json/version` was unreachable
+      - the one allowed self-recovery sequence (`./aireset.sh`, then fallback `./ai.sh`) brought frontend/backend back on new ports but never produced a reachable Chrome debug target at `9298` or `9299`
+      - after both launches, `setta status --connect-info` still reported no live worktree session, so there was no trustworthy bootstrap-first browser state to compare against `main`
+      - this is now a lifecycle/bootstrap blocker, not new evidence about canary fit bounds
+
+## Architectural stance
+
+- Do not continue the old `xyflow` + shared-page-runtime + DOM-measured shell sync model.
+- Replace the graph substrate first.
+- Keep DOM section bodies/editors initially.
+- Make camera/world coordinates authoritative outside `xyflow`.
+- Add Pixi ownership only after the substrate itself is proven.
+
+## Immediate next frontier
+
+- The next bounded slice should leave the canvas-focus shortcut lane and the blank-pane deselect lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
+- Use the same graph-surface-only normalization on worktree and read-only `main`:
+  - close or minimize non-target pane/chat chrome
+  - normalize to active `All Settings`
+  - clear viewport to `null`
+  - trigger one shared `fit view`
+  - if selection chrome is visible and not the target of the compare, clear it on both sides with one shared blank-surface click before judging the graph surface
+- Prefer one short shared dynamic action on the normalized graph surface, such as:
+  - a small drag-pan pulse
+  - one short top-level section drag
+- Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
+- Keep using the graph-surface-only normalization when you need live CDP context:
+  - close or minimize non-target pane/chat chrome
+  - normalize to `All Settings`
+  - clear viewport to `null`
+  - trigger one shared `fit view`
+- The `UIPage` seam-lift lane is complete:
+  - `UIPage` is now the first real implementation selector between legacy `xyflow` and the new custom substrate canary
+  - do not spend another iteration pushing this seam through more pure-forwarding layers
+- The initial-fit / bounds-input lane is complete for the current normal-zoom `All Settings` gate:
+  - item `018` reused the selector’s size contract in the bounds helper and the latest CDP compare no longer shows a material “too tight” framing difference versus `main`
+  - do not spend another iteration on pure bounds math unless a new controlled compare reopens that specific defect
+- The fresh-storage initial-entry fit lane is also complete:
+  - the latest controlled CDP compare showed identical initial transforms and visible graph bounds on worktree and `main`
+  - do not reopen that lane unless a future fresh-storage compare shows the canary blank/off-screen again
+- The fast-switch viewport-persistence lane is complete:
+  - item `019` closed the race where a recent canary pan/zoom could be lost if the user switched modes before the debounced viewport write reached the backend
+  - do not spend another iteration on more view-mode switch plumbing unless a new controlled repro shows the current canary camera still gets dropped
+- The provisional-viewport persistence lane is also complete for the checked `viewport: null` canary entry:
+  - item `023` stopped the canary from saving its fallback/auto-fit seed back into `All Settings` before the user owns the camera
+  - do not reopen that lane unless a controlled null-viewport compare shows the debounce path still reintroducing a provisional transform
+- The graph-background parity lane is also complete:
+  - item `024` restored the shared dotted grid on the canary path, and the latest normalized compare shows `backgroundCount = 1` on both worktree and `main`
+  - do not reopen that lane unless a later controlled compare shows the background layer missing again
+- The graph-surface height / bottom-anchor lane is also complete:
+  - item `025` pins the canary root to the full `UIPage` bounds, and the latest fresh CDP compare now shows the same `828px` graph height plus matching minimap / controls anchoring on worktree and `main`
+  - do not reopen that lane unless a later controlled compare shows the canary shrinking back to a content-height lane
+- The toolbar zoom-control anchor lane is also complete:
+  - item `029` aligned canary `zoomBy(...)` / `zoomTo(...)` with the legacy full-surface center, and the latest normalized compare now matches after `All Settings -> fit view -> zoom in`
+  - do not reopen that lane unless the normalized Playwright canary or a fresh normalized CDP compare shows the `x` anchor drifting again
+- The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
+  - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
+  - the widened `drawSectionDefault` post-drop frontmost lane now has a production fix plus a passing Playwright guard; the next fresh session should rerun that exact live CDP compare before reopening the lane
+  - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
+  - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
+  - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
+  - the exact `groupSectionDefault` targeted-fit plus shared `zoom in` lane is now closed; do not reopen it unless a fresh compare reintroduces drift
+  - the exact `groupSectionDefault` shared wide-card pan pulse is also now closed; do not reopen it unless a fresh compare reintroduces drift
+  - the keyboard-accessible `groupSectionDefault` motion probe is also clean; do not spend another iteration repeating that exact workaround just because true CDP mouse drag was untrustworthy
+  - the targeted wide-card `groupSectionDefault` Playwright drag oracle is now available; reuse it if a future compare needs trustworthy top-level drag evidence, but do not spend another iteration extending that support lane by itself
+  - focus the next compare on one different trustworthy dynamic action across worktree and `main`, not more `groupSectionDefault` pan/zoom repetition:
+    - a true top-level section drag on a shared wide/body-heavy card if a trustworthy motion oracle is available
+    - or a different shared body-heavy dynamic pulse if physical drag is still not trustworthy in CDP
+    - isolate any remaining interaction-state drift or body/chrome detachment that only appears once motion starts
+  - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
+- Lifecycle/bootstrap debugging is no longer the default frontier:
+  - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
+  - do not resume ad hoc bounds hypotheses without fresh visual evidence
+
+## Explicit deferrals
+
+- no tiny-card or low-zoom appearance work
+- no Pixi body rendering first
+- no `pixiui` adoption first
+- no harness-only slices unless they directly unblock the current custom-substrate slice
+
+## Durable completed work
+
+- This worktree now contains:
+  - loop/bootstrap setup plus the fresh rewrite plan set
+  - the first pure graph-substrate viewport transform helper module
+  - existing `xyflow` point/fit/center callsites routed through that helper
+  - a `settings`/`All Settings` `UIPage` canary seam that swaps out `ReactFlow`
+  - a first custom graph-surface canary that renders one DOM-backed top-level section through the shared transform contract
+  - the first custom canary drag ownership slice plus a null-safe shared viewport helper path for non-`xyflow` routes
+  - a first proven DOM-backed title edit path on that same canary after custom pan/zoom ownership
+- See `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-completed.md` for maintained milestones once product slices start landing.
+
+## History pointers
+
+- Active history window: items `001` through `060`
+- Latest item: `2026-04-03 060`
+- Older history archives: none yet
