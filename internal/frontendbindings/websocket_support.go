@@ -1,10 +1,23 @@
 package frontendbindings
 
 import (
+	_ "embed"
 	"strings"
 
 	"setta/internal/realtime"
 )
+
+//go:embed templates/websocket_support_is_record.ts.tmpl
+var websocketSupportIsRecordTemplate string
+
+//go:embed templates/websocket_support_read_required_string.ts.tmpl
+var websocketSupportReadRequiredStringTemplate string
+
+//go:embed templates/websocket_support_read_optional_string.ts.tmpl
+var websocketSupportReadOptionalStringTemplate string
+
+//go:embed templates/websocket_support_read_duration_ms.ts.tmpl
+var websocketSupportReadDurationMsTemplate string
 
 type WebsocketConnectionType string
 
@@ -187,37 +200,31 @@ func websocketSafeParseDeclarations() []TypeDeclaration {
 }
 
 func buildWebsocketSupportIsRecordBodyTS() string {
-	return `  return value !== null && typeof value === "object" && !Array.isArray(value);`
+	return mustRenderFrontendBindingTemplate("websocketSupportIsRecord", websocketSupportIsRecordTemplate, nil)
 }
 
 func buildWebsocketSupportReadRequiredStringBodyTS() string {
-	return `  if (typeof value === "string") {
-    return value;
-  }
-  issues.push(fieldName + " must be a string.");
-  return "";`
+	return mustRenderFrontendBindingTemplate(
+		"websocketSupportReadRequiredString",
+		websocketSupportReadRequiredStringTemplate,
+		nil,
+	)
 }
 
 func buildWebsocketSupportReadOptionalStringBodyTS() string {
-	return `  if (value === undefined || value === null) {
-    return null;
-  }
-  if (typeof value === "string") {
-    return value;
-  }
-  issues.push(fieldName + " must be a string or null.");
-  return null;`
+	return mustRenderFrontendBindingTemplate(
+		"websocketSupportReadOptionalString",
+		websocketSupportReadOptionalStringTemplate,
+		nil,
+	)
 }
 
 func buildWebsocketSupportReadDurationMsBodyTS() string {
-	return `  if (value === undefined) {
-    return 3000;
-  }
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value;
-  }
-  issues.push("durationMs must be a finite number.");
-  return 3000;`
+	return mustRenderFrontendBindingTemplate(
+		"websocketSupportReadDurationMs",
+		websocketSupportReadDurationMsTemplate,
+		nil,
+	)
 }
 
 func buildWebsocketReadActivationStepsBodyTS() string {

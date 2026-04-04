@@ -6,6 +6,9 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+
+	"setta/internal/config"
+	"setta/internal/httpapi"
 )
 
 func TestRenderTypesUsesStructuredCreateBody(t *testing.T) {
@@ -104,6 +107,88 @@ func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 		t.Fatalf(
 			"validateGeneratedParamNameInput body missing template-rendered Python identifier check:\n%s",
 			bodies["validateGeneratedParamNameInput"],
+		)
+	}
+}
+
+func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
+	t.Helper()
+
+	interopBodies := map[string]string{}
+	for _, declaration := range interopSupportDeclarations() {
+		if declaration.Kind != "function" {
+			continue
+		}
+		interopBodies[declaration.Name] = declaration.FunctionBody
+	}
+	if !strings.Contains(
+		interopBodies["normalizeGeneratedOrigin"],
+		`formatGeneratedOriginHost(parsedOrigin.hostname)`,
+	) {
+		t.Fatalf(
+			"normalizeGeneratedOrigin body missing template-rendered host formatting:\n%s",
+			interopBodies["normalizeGeneratedOrigin"],
+		)
+	}
+	if !strings.Contains(
+		interopBodies["normalizeGeneratedToolName"],
+		`return "AskUserQuestion";`,
+	) {
+		t.Fatalf(
+			"normalizeGeneratedToolName body missing template-rendered AskUserQuestion literal:\n%s",
+			interopBodies["normalizeGeneratedToolName"],
+		)
+	}
+
+	transportBodies := map[string]string{}
+	for _, declaration := range transportPolicySupportDeclarations() {
+		if declaration.Kind != "function" {
+			continue
+		}
+		transportBodies[declaration.Name] = declaration.FunctionBody
+	}
+	if !strings.Contains(
+		transportBodies["resolveGeneratedEndpointOriginForMode"],
+		`normalizedAddress.startsWith(`+tsStringLiteralExpr(httpapi.RouteBootstrapPage)+`)`,
+	) {
+		t.Fatalf(
+			"resolveGeneratedEndpointOriginForMode body missing template-rendered bootstrap route literal:\n%s",
+			transportBodies["resolveGeneratedEndpointOriginForMode"],
+		)
+	}
+	if !strings.Contains(
+		transportBodies["resolveGeneratedEndpointOriginForMode"],
+		`serverMode !== `+tsStringLiteralExpr(string(config.ModeLauncher)),
+	) {
+		t.Fatalf(
+			"resolveGeneratedEndpointOriginForMode body missing template-rendered launcher mode literal:\n%s",
+			transportBodies["resolveGeneratedEndpointOriginForMode"],
+		)
+	}
+
+	websocketBodies := map[string]string{}
+	for _, declaration := range websocketSupportDeclarations() {
+		if declaration.Kind != "function" {
+			continue
+		}
+		websocketBodies[declaration.Name] = declaration.FunctionBody
+	}
+	if !strings.Contains(
+		websocketBodies["websocketSupportReadRequiredString"],
+		`issues.push(fieldName + " must be a string.");`,
+	) {
+		t.Fatalf(
+			"websocketSupportReadRequiredString body missing template-rendered validation:\n%s",
+			websocketBodies["websocketSupportReadRequiredString"],
+		)
+	}
+	if !strings.Contains(
+		websocketBodies["websocketSupportReadDurationMs"],
+		`issues.push("durationMs must be a finite number.");`,
+	) {
+		t.Fatalf(
+			"websocketSupportReadDurationMs body missing template-rendered duration validation:\n%s",
+			websocketBodies["websocketSupportReadDurationMs"],
 		)
 	}
 }

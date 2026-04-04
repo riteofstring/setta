@@ -179,9 +179,5 @@ func renderNamedSimpleNameValidationBody(data namedSimpleNameValidationTemplateD
 }
 
 func mustRenderNameValidationTemplate(source string, data any) string {
-	rendered, err := renderTemplate(source, data)
-	if err != nil {
-		panic("render name validation template: " + err.Error())
-	}
-	return rendered
+	return mustRenderFrontendBindingTemplate("name validation", source, data)
 }

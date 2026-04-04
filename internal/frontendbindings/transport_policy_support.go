@@ -1,11 +1,24 @@
 package frontendbindings
 
 import (
+	_ "embed"
 	"strings"
 
 	"setta/internal/config"
 	"setta/internal/httpapi"
 )
+
+//go:embed templates/transport_policy_strip_generated_transport_address_query_and_hash.ts.tmpl
+var stripGeneratedTransportAddressQueryAndHashTemplate string
+
+//go:embed templates/transport_policy_resolve_generated_server_mode_capabilities.ts.tmpl
+var resolveGeneratedServerModeCapabilitiesTemplate string
+
+//go:embed templates/transport_policy_resolve_generated_workspace_launch_route_kind.ts.tmpl
+var resolveGeneratedWorkspaceLaunchRouteKindTemplate string
+
+//go:embed templates/transport_policy_resolve_generated_endpoint_origin_for_mode.ts.tmpl
+var resolveGeneratedEndpointOriginForModeTemplate string
 
 func transportPolicySupportDeclarations() []TypeDeclaration {
 	return []TypeDeclaration{
@@ -40,57 +53,47 @@ func transportPolicySupportDeclarations() []TypeDeclaration {
 			"stripGeneratedTransportAddressQueryAndHash",
 			false,
 			"string",
-			`const hashIndex = address.indexOf("#");
-let withoutHash = address;
-if (hashIndex >= 0) {
-  withoutHash = address.slice(0, hashIndex);
-}
-const queryIndex = withoutHash.indexOf("?");
-if (queryIndex >= 0) {
-  return withoutHash.slice(0, queryIndex);
-}
-return withoutHash;`,
+			mustRenderFrontendBindingTemplate(
+				"stripGeneratedTransportAddressQueryAndHash",
+				stripGeneratedTransportAddressQueryAndHashTemplate,
+				nil,
+			),
 			TypeProperty{Name: "address", TypeExpr: "string"},
 		),
 		exportedFunctionDeclaration(
 			"resolveGeneratedServerModeCapabilities",
 			"GeneratedServerModeCapabilities",
-			`if (mode === null) {
-  return { canManageDesktopLauncher: false };
-}
-return GENERATED_SERVER_MODE_BOUNDARY_POLICY[mode].capabilities;`,
+			mustRenderFrontendBindingTemplate(
+				"resolveGeneratedServerModeCapabilities",
+				resolveGeneratedServerModeCapabilitiesTemplate,
+				nil,
+			),
 			TypeProperty{Name: "mode", TypeExpr: `ServerModeResponse["mode"] | null`},
 		),
 		exportedFunctionDeclaration(
 			"resolveGeneratedWorkspaceLaunchRouteKind",
 			"GeneratedWorkspaceLaunchRouteKind",
-			`if (mode === null) {
-  return "blocked";
-}
-return GENERATED_SERVER_MODE_BOUNDARY_POLICY[mode].workspaceLaunchRouteKind;`,
+			mustRenderFrontendBindingTemplate(
+				"resolveGeneratedWorkspaceLaunchRouteKind",
+				resolveGeneratedWorkspaceLaunchRouteKindTemplate,
+				nil,
+			),
 			TypeProperty{Name: "mode", TypeExpr: `ServerModeResponse["mode"] | null`},
 		),
 		exportedFunctionDeclaration(
 			"resolveGeneratedEndpointOriginForMode",
 			"GeneratedEndpointOriginPolicy",
-			`const normalizedAddress = stripGeneratedTransportAddressQueryAndHash(address);
-if (normalizedAddress.startsWith(`+tsStringLiteralExpr(httpapi.RouteBootstrapPage)+`)) {
-  return "backend-origin";
-}
-const routePolicy = GENERATED_ENDPOINT_ORIGIN_POLICY[normalizedAddress];
-if (routePolicy === "backend-origin") {
-  return "backend-origin";
-}
-if (routePolicy === "launcher") {
-  if (
-    GENERATED_MODE_SCOPED_LAUNCHER_ROUTES.has(normalizedAddress) &&
-    serverMode !== `+tsStringLiteralExpr(string(config.ModeLauncher))+`
-  ) {
-    return "backend";
-  }
-  return "launcher";
-}
-return "backend";`,
+			mustRenderFrontendBindingTemplate(
+				"resolveGeneratedEndpointOriginForMode",
+				resolveGeneratedEndpointOriginForModeTemplate,
+				struct {
+					BootstrapPageLiteral string
+					LauncherModeLiteral  string
+				}{
+					BootstrapPageLiteral: tsStringLiteralExpr(httpapi.RouteBootstrapPage),
+					LauncherModeLiteral:  tsStringLiteralExpr(string(config.ModeLauncher)),
+				},
+			),
 			TypeProperty{Name: "address", TypeExpr: "string"},
 			TypeProperty{Name: "serverMode", TypeExpr: `ServerModeResponse["mode"] | null`},
 		),
