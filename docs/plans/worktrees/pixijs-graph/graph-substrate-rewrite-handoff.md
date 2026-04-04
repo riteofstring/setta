@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 19:05 EDT
+Last updated: 2026-04-03 19:14 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,45 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `067` reran the blocked normalized `groupSectionDefault` centering probe on the fresh loop session, then tightened it to the exact per-section fit path before deciding whether the remaining horizontal delta was product evidence or oracle noise.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the goal was to finish the delayed parity question from item `066` before reopening the centering implementation
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths'`
+    - result: passed (`1 passed`, about `23.4s`)
+    - what it still proves:
+      - the stale-hidden-pane fit + toolbar zoom regression guard from item `065` remains green in isolated Playwright
+  - Live verification result:
+    - runtime sanity check showed the fresh loop session was back on the original worktree runtime (`3075` / `8075`) with `pnpm -C frontend cdp-port` reporting `9298`
+    - first fresh-context CDP sub-agent succeeded on a graph-surface-wide normalization:
+      - opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - clicked `All Settings` on both pages
+      - cleared selection with `Escape`
+      - ran the visible `fit view` control on both pages
+      - measured `groupSectionDefault` inside the graph surface after that shared whole-surface fit
+      - resulting metrics:
+        - worktree `3075`: transform `translate(632.4px, -245.2px) scale(0.1)`, section rect `{ x: 692.4, y: 90.8, width: 55.2, height: 35.2 }`, center offset `dx=0.0`, `dy=-148.1`
+        - `main` `3087`: transform `translate(712.4px, -245.2px) scale(0.1)`, section rect `{ x: 772.4, y: 90.8, width: 55.2, height: 35.2 }`, center offset `dx=+80.0`, `dy=-148.1`
+      - because that pass did not use the exact targeted per-section fit helper from the test lane, it was treated as useful but not sufficient to reopen production centering work on its own
+    - second fresh-context CDP sub-agent reran the exact targeted-fit path used by the Playwright helpers:
+      - resolved `groupSectionDefault` by project-state name:
+        - worktree `206b4718-1fc5-4846-99e8-8f4335ae40a7`
+        - `main` `a92931c4-a389-4276-96e1-31816bd21c57`
+      - explicitly normalized local pane state to `overviewVis=false`, `overviewTrueWidth=420`, `uiEditorVis=false`, `uiEditorTrueWidth=260`
+      - cleared viewport to `null`
+      - ran the exact page-context fit helper `fitView({ nodes: [{ id: targetSectionId }], padding: 0.1 })`
+      - worktree exact-fit metrics:
+        - transform `{ x: -277.717, y: -3396.79, zoom: 1.13895 }`
+        - section rect `{ x: 405.6508483886719, y: 56.04541015625, width: 628.6983642578125, height: 400.9091796875 }`
+        - center offset `0.000030517578125`
+      - `main` exact-fit path blocked before the canary could render:
+        - after reload + `All Settings`, `document.querySelectorAll('[data-testid="graph-substrate-canary"]').length` stayed `0`
+        - console showed repeated `WebSocket connection to 'ws://127.0.0.1:8087/api/frontend' failed` errors
+        - the exact per-section fit probe failed with `Missing canary root`
+  - conclusion for this slice:
+    - do not treat the weaker whole-surface `+80px` delta as settled product evidence on its own
+    - the exact worktree targeted-fit path is centered, so the remaining unanswered question is now reference-session availability rather than an already-proven worktree centering bug
+    - the next iteration should retry the same exact `groupSectionDefault` targeted-fit compare on a fresh reference session before any more production centering work
 - Ralph item `066` attempted the planned normalized `groupSectionDefault` centering/parity probe, but the required fresh-context CDP verification blocked at the tool boundary even after the one allowed worktree lifecycle recovery.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code because the goal was to answer whether item `065`'s remaining `main`-right `96px` delta survives a visible-graph-surface-centered oracle

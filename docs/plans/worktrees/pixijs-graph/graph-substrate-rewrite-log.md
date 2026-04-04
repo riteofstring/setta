@@ -2322,3 +2322,38 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: blocked on Chrome DevTools MCP access after the allowed recovery attempt; no new renderer conclusion beyond item `065` was earned this iteration.
 - Next frontier: restart the worktree lifecycle fresh and retry the same visible-graph-surface-centered `groupSectionDefault` probe before any more product or harness work.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 19:14 EDT - Ralph item 067
+
+- Re-ran the delayed `groupSectionDefault` centering probe on the fresh loop session without changing production or test code, then tightened the oracle to the exact targeted-fit helper before deciding whether the remaining horizontal delta was real renderer evidence.
+- Re-ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths'`; result: passed (`1 passed`, about `23.4s`).
+- Runtime sanity checks showed the fresh loop session was back on the original worktree runtime (`3075` / `8075`) and `pnpm -C frontend cdp-port` reported `9298`.
+- First fresh-context CDP sub-agent result:
+  - normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to `All Settings`
+  - cleared selection with `Escape`
+  - ran the visible `fit view` control on both pages
+  - measured `groupSectionDefault` after that shared whole-surface fit
+  - resulting metrics:
+    - worktree `3075`: transform `translate(632.4px, -245.2px) scale(0.1)`, section rect `{ x: 692.4, y: 90.8, width: 55.2, height: 35.2 }`, center offset `dx=0.0`, `dy=-148.1`
+    - `main` `3087`: transform `translate(712.4px, -245.2px) scale(0.1)`, section rect `{ x: 772.4, y: 90.8, width: 55.2, height: 35.2 }`, center offset `dx=+80.0`, `dy=-148.1`
+  - lane interpretation:
+    - useful evidence, but not sufficient by itself to reopen production centering work because this pass used whole-surface fit instead of the exact targeted per-section helper
+- Second fresh-context CDP sub-agent result:
+  - resolved `groupSectionDefault` by project-state name:
+    - worktree `206b4718-1fc5-4846-99e8-8f4335ae40a7`
+    - `main` `a92931c4-a389-4276-96e1-31816bd21c57`
+  - explicitly normalized local pane state to `overviewVis=false`, `overviewTrueWidth=420`, `uiEditorVis=false`, `uiEditorTrueWidth=260`
+  - cleared viewport to `null`
+  - ran the exact page-context helper `fitView({ nodes: [{ id: targetSectionId }], padding: 0.1 })`
+  - worktree exact-fit metrics:
+    - transform `{ x: -277.717, y: -3396.79, zoom: 1.13895 }`
+    - section rect `{ x: 405.6508483886719, y: 56.04541015625, width: 628.6983642578125, height: 400.9091796875 }`
+    - center offset `0.000030517578125`
+  - read-only `main` exact-fit probe blocked:
+    - after reload + `All Settings`, `[data-testid="graph-substrate-canary"]` never rendered
+    - console showed repeated `WebSocket connection to 'ws://127.0.0.1:8087/api/frontend' failed` errors
+    - the exact probe failed with `Missing canary root`
+- Lane status:
+  - do not treat the weaker whole-surface `+80px` delta as settled product evidence on its own
+  - the exact worktree targeted-fit path is centered, so the remaining blocker is a fresh, trustworthy reference-session canary for the same exact compare
+- Next frontier: retry the exact targeted `groupSectionDefault` compare on a fresh reference session before doing more production centering work.
+- LOOP_TERMINAL_MARKER: none
