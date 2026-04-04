@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 17:14 EDT
+Last updated: 2026-04-04 17:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -41,6 +41,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `134` attempted the bounded `dropzoneParamCodeObjDefault` -> `Mode` normalized dynamic compare, but the required Chrome DevTools MCP gate stayed inaccessible even after the one allowed worktree lifecycle restart.
+  - Why this slice was needed:
+    - item `133` had already named `dropzoneParamCodeObjDefault` as the next shared lane, so the next valid step was one bounded dynamic action on that exact lane instead of reopening chat coverage or adding another harness-first guard
+    - the repo rules require a Chrome DevTools MCP check before claiming completion on these visual parity slices, so the lane could only close if CDP came back after the allowed self-recovery
+  - Production/test change:
+    - none; this slice did not change production or test files because the work stopped at the required live verification gate
+  - What this slice established:
+    - the one allowed local self-recovery ran via headless `aireset.sh` and moved the current worktree lifecycle onto offset `76` (`frontend 3076`, `backend 8076`, debug Chrome announced on `9298`, session `9ff431`)
+    - `chrome-devtools-mcp` still remained inaccessible from fresh-context verification sub-agents after that restart, so the required normalized compare and CDP visual gate could not complete
+    - partial direct-CDP inspection is not renderer evidence and must not be treated as drift:
+      - worktree page `http://127.0.0.1:3076/settings` was still in an unnormalized state with viewport transform `translate(405.651px, 20.0455px) scale(1.13895)`
+      - read-only main `http://127.0.0.1:3087/settings` remained near the old normalized fit at `translate(712.4px, -51.7px) scale(0.1)`
+      - the partial probe did locate the `dropzoneParamCodeObjDefault` node plus the visible `Mode` anchor on both pages, but it never completed the `setViewport` / `setActiveIds` reset and never ran the bounded drag/move pass
+    - `./scripts/dev-runtime-info.sh` reported the new backend/bootstrap session correctly after restart, but its frontend/debug fields stayed stale from the old runtime log; `curl -I http://127.0.0.1:3076/settings` was the trustworthy confirmation that the restarted worktree frontend was actually serving on `3076`
+  - Verification:
+    - attempted fresh-context CDP sub-agent before self-recovery:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: `chrome-devtools-mcp` pages were inaccessible from that session, so no compare ran
+    - one allowed self-recovery:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - restart log result: offset `76`, `frontend 3076`, `backend 8076`, debug Chrome announced on `9298`
+    - refreshed runtime/context checks after restart:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-053/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-053/main-ai.log`
+      - `curl -I --max-time 5 http://127.0.0.1:3076/settings`
+      - `curl -I --max-time 5 http://127.0.0.1:3087/settings`
+    - second fresh-context verification sub-agent after restart:
+      - `chrome-devtools-mcp` still inaccessible from the session
+      - best partial direct-CDP inspection only:
+        - worktree page `BD59453E...` at `http://127.0.0.1:3076/settings`
+        - reference page `7721801F...` at `http://127.0.0.1:3087/settings`
+        - worktree baseline node rect `x=1089.02, y=8256.46, w=628.70, h=302.96`, `Mode` anchor rect `x=1106.10, y=8439.83, w=292.71, h=22.78`
+        - reference baseline node rect `x=772.40, y=704.30, w=55.20, h=9.80`, `Mode` anchor rect `x=772.50, y=709.20, w=55.00, h=4.40`
+    - CDP visual check: not run (Chrome DevTools MCP stayed inaccessible after the allowed self-recovery; the partial direct-CDP probe did not complete normalization or the bounded drag/move compare)
+  - conclusion for this slice:
+    - keep `dropzoneParamCodeObjDefault` as the active named lane; this iteration did not produce renderer evidence and did not close the lane
+    - classify the blocker as lifecycle/tooling rather than renderer drift
+    - the next iteration should begin with a fresh worktree lifecycle bootstrap and retry the same normalized `dropzoneParamCodeObjDefault` -> `Mode` dynamic compare from scratch using refreshed runtime values before any new harness work
 - Ralph item `133` used one fresh-context normalized CDP compare to identify the next distinct `All Settings` renderer-facing lane after closing the `chatWindowing` pan/drag family.
   - Why this slice was needed:
     - items `131` and `132` were both support-heavy on the same `chatWindowing` lane, so the next valid pass had to be one bounded live normalization/oracle step that names the next real frontier instead of adding another guard on a closed lane
