@@ -7,17 +7,25 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type RefObject,
 } from "react";
+import {
+  getCurrEffectiveSectionImpl,
+  debounced_route_set_top_level_section_layout,
+} from "state/actions/sectionInfos";
+import { addNodes, moveNodes } from "state/actions/nodeInternals";
 import {
   useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
+import type { Position } from "utils/generatedTypes";
 import { selectSettingsGraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import {
   centerViewportOnWorldPoint,
   fitViewportToWorldRect,
+  screenDeltaToWorldDelta,
   type GraphViewport,
 } from "./viewportTransform";
 
@@ -31,6 +39,20 @@ const ROOT_STYLE: CSSProperties = {
 };
 
 const INITIAL_SCREEN_PADDING_PX = 48;
+const DRAG_BLOCKING_SELECTOR =
+  ".nodrag,input,textarea,select,option,a,[contenteditable='true']";
+
+type ActiveSectionDrag = {
+  pointerId: number;
+  sectionId: string;
+  originScreenPoint: Position;
+  originWorldPosition: Position;
+};
+
+type SectionPositionOverride = {
+  sectionId: string;
+  position: Position;
+};
 
 function buildInitialViewport(
   viewport: GraphViewport | null,
@@ -56,18 +78,40 @@ function buildInitialViewport(
 export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
+  const dragStateRef = useRef<ActiveSectionDrag | null>(null);
+  const lastFittedSectionIdRef = useRef<string | null>(null);
   const [sectionSize, setSectionSize] = useState<{
     width: number;
     height: number;
   } | null>(null);
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
+  const [preferredSectionId, setPreferredSectionId] = useState<string | null>(
+    null,
+  );
+  const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
+    null,
+  );
+  const [sectionPositionOverride, setSectionPositionOverride] =
+    useState<SectionPositionOverride | null>(null);
   const wrapperDimensions = useElementDimensions(rootRef);
+  const nodeInternals = useNodeInternals((state) => state.x);
   const section = useProjectState(
     (state) =>
       selectSettingsGraphSubstrateCanarySection(
         state,
-        useNodeInternals.getState().x,
+        nodeInternals,
+        preferredSectionId,
       ),
+    _.isEqual,
+  );
+  const isSectionPositionLocked = useProjectState(
+    (state) => {
+      if (!section) {
+        return false;
+      }
+      return getCurrEffectiveSectionImpl(state, section.sectionId)
+        .positionAndSizeLocked;
+    },
     _.isEqual,
   );
   const { minZoom, maxZoom, defaultZoomLevel } = useSettings(
@@ -109,10 +153,34 @@ export function SettingsGraphSubstrateCanary() {
   }, [section?.sectionId]);
 
   useEffect(() => {
+    if (!section) {
+      if (sectionPositionOverride !== null) {
+        setSectionPositionOverride(null);
+      }
+      if (preferredSectionId !== null) {
+        setPreferredSectionId(null);
+      }
+      return;
+    }
+    if (preferredSectionId === null) {
+      setPreferredSectionId(section.sectionId);
+    }
+    if (
+      sectionPositionOverride &&
+      (sectionPositionOverride.sectionId !== section.sectionId ||
+        positionsMatch(section.position, sectionPositionOverride.position))
+    ) {
+      setSectionPositionOverride(null);
+    }
+  }, [preferredSectionId, section, sectionPositionOverride]);
+
+  useEffect(() => {
     if (
       !section ||
       wrapperDimensions.width <= 0 ||
-      wrapperDimensions.height <= 0
+      wrapperDimensions.height <= 0 ||
+      (viewport !== null &&
+        lastFittedSectionIdRef.current === section.sectionId)
     ) {
       return;
     }
@@ -125,8 +193,8 @@ export function SettingsGraphSubstrateCanary() {
 
     const nextViewport = fitViewportToWorldRect(
       {
-        x: section.layout.x,
-        y: section.layout.y,
+        x: section.position.x,
+        y: section.position.y,
         width,
         height,
       },
@@ -137,6 +205,7 @@ export function SettingsGraphSubstrateCanary() {
         padding: 0.12,
       },
     );
+    lastFittedSectionIdRef.current = section.sectionId;
 
     setViewport((current) => {
       if (
@@ -155,6 +224,7 @@ export function SettingsGraphSubstrateCanary() {
     section,
     sectionSize?.height,
     sectionSize?.width,
+    viewport,
     wrapperDimensions,
   ]);
 
@@ -163,8 +233,8 @@ export function SettingsGraphSubstrateCanary() {
       return viewport;
     }
     return buildInitialViewport(viewport, defaultZoomLevel, {
-      x: section.layout.x,
-      y: section.layout.y,
+      x: section.position.x,
+      y: section.position.y,
     });
   }, [defaultZoomLevel, section, viewport]);
 
@@ -187,6 +257,107 @@ export function SettingsGraphSubstrateCanary() {
     });
   }, [resolvedViewport, wrapperDimensions.height, wrapperDimensions.width]);
 
+  const renderedSectionPosition =
+    sectionPositionOverride?.sectionId === section?.sectionId
+      ? sectionPositionOverride.position
+      : section?.position ?? null;
+
+  function handleSectionPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (
+      !section ||
+      !resolvedViewport ||
+      !renderedSectionPosition ||
+      isSectionPositionLocked
+    ) {
+      return;
+    }
+    if (event.button !== 0) {
+      return;
+    }
+    if (shouldIgnoreSectionDragTarget(event.target)) {
+      return;
+    }
+
+    setPreferredSectionId(section.sectionId);
+    setDraggingSectionId(section.sectionId);
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      sectionId: section.sectionId,
+      originScreenPoint: {
+        x: event.clientX,
+        y: event.clientY,
+      },
+      originWorldPosition: renderedSectionPosition,
+    };
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handleSectionPointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const activeDrag = dragStateRef.current;
+    if (
+      !activeDrag ||
+      !resolvedViewport ||
+      activeDrag.pointerId !== event.pointerId
+    ) {
+      return;
+    }
+
+    const worldDelta = screenDeltaToWorldDelta(
+      {
+        x: event.clientX - activeDrag.originScreenPoint.x,
+        y: event.clientY - activeDrag.originScreenPoint.y,
+      },
+      resolvedViewport,
+    );
+    setSectionPositionOverride({
+      sectionId: activeDrag.sectionId,
+      position: {
+        x: activeDrag.originWorldPosition.x + worldDelta.x,
+        y: activeDrag.originWorldPosition.y + worldDelta.y,
+      },
+    });
+    event.preventDefault();
+  }
+
+  function finishSectionDrag(
+    event: ReactPointerEvent<HTMLDivElement>,
+    persistLayout: boolean,
+  ) {
+    const activeDrag = dragStateRef.current;
+    if (!activeDrag || activeDrag.pointerId !== event.pointerId) {
+      return;
+    }
+    dragStateRef.current = null;
+    setDraggingSectionId(null);
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (persistLayout && section && sectionPositionOverride) {
+      ensureCanaryNode({
+        ...section,
+        position: sectionPositionOverride.position,
+      });
+      moveNodes([
+        {
+          id: sectionPositionOverride.sectionId,
+          position: sectionPositionOverride.position,
+        },
+      ]);
+      debounced_route_set_top_level_section_layout();
+      return;
+    }
+    setSectionPositionOverride(null);
+  }
+
+  let sectionCursor: CSSProperties["cursor"] = "grab";
+  if (isSectionPositionLocked) {
+    sectionCursor = "default";
+  } else if (draggingSectionId === section?.sectionId) {
+    sectionCursor = "grabbing";
+  }
+
   return (
     <div
       ref={rootRef}
@@ -208,14 +379,25 @@ export function SettingsGraphSubstrateCanary() {
             ref={sectionRef}
             className="react-flow__node"
             style={{
-              transform: `translate(${section.layout.x}px,${section.layout.y}px)`,
+              cursor: sectionCursor,
+              touchAction: "none",
+              transform: renderedSectionPosition
+                ? `translate(${renderedSectionPosition.x}px,${renderedSectionPosition.y}px)`
+                : undefined,
               pointerEvents: "all",
               visibility: "visible",
-              zIndex: section.layout.zIndex,
+              zIndex: section.zIndex,
             }}
             data-id={section.sectionId}
             data-section-id={section.sectionId}
+            data-dragging={
+              draggingSectionId === section.sectionId ? "true" : "false"
+            }
             data-testid="graph-substrate-canary-section"
+            onPointerDownCapture={handleSectionPointerDown}
+            onPointerMoveCapture={handleSectionPointerMove}
+            onPointerUpCapture={(event) => finishSectionDrag(event, true)}
+            onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
           >
             <SectionContainer sectionId={section.sectionId} isTopLevel={true} />
           </div>
@@ -231,6 +413,37 @@ export function SettingsGraphSubstrateCanary() {
       </div>
     </div>
   );
+}
+
+function shouldIgnoreSectionDragTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  return Boolean(target.closest(DRAG_BLOCKING_SELECTOR));
+}
+
+function ensureCanaryNode(
+  section: NonNullable<
+    ReturnType<typeof selectSettingsGraphSubstrateCanarySection>
+  >,
+) {
+  if (useNodeInternals.getState().x.has(section.sectionId)) {
+    return;
+  }
+  addNodes([
+    {
+      id: section.sectionId,
+      position: section.position,
+      width: section.width,
+      height: section.height,
+      zIndex: section.zIndex,
+      tempZIndex: section.zIndex,
+    },
+  ]);
+}
+
+function positionsMatch(left: Position, right: Position): boolean {
+  return left.x === right.x && left.y === right.y;
 }
 
 function useElementDimensions(ref: RefObject<HTMLDivElement>) {

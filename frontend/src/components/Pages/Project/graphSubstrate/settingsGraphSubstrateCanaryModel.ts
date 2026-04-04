@@ -5,6 +5,7 @@ import {
   getSectionViewModeVisibility,
 } from "state/actions/sectionInfos";
 import type { ZustandProjectState } from "state/definitions";
+import type { Position } from "utils/generatedTypes";
 
 type TopLevelLayout = {
   x: number;
@@ -16,7 +17,8 @@ type TopLevelLayout = {
 
 export type GraphSubstrateCanarySection = {
   sectionId: string;
-  layout: TopLevelLayout;
+  position: Position;
+  zIndex: number;
   width: number | null;
   height: number | null;
 };
@@ -43,6 +45,7 @@ export function shouldUseSettingsGraphSubstrateCanary(
 export function selectSettingsGraphSubstrateCanarySection(
   projectState: ZustandProjectState,
   nodeInternals: Map<string, Node>,
+  preferredSectionId: string | null = null,
 ): GraphSubstrateCanarySection | null {
   const layouts = getActiveViewModeTopLevelSections(projectState);
   const candidates: Array<GraphSubstrateCanarySection> = [];
@@ -58,21 +61,32 @@ export function selectSettingsGraphSubstrateCanarySection(
     if (!getSectionShouldRender(visibility, isEditingViewMode)) {
       continue;
     }
+    const node = nodeInternals.get(sectionId);
 
     candidates.push({
       sectionId,
-      layout,
-      width: nodeInternals.get(sectionId)?.width ?? layout.w,
-      height: nodeInternals.get(sectionId)?.height ?? layout.h,
+      position: node?.position ?? { x: layout.x, y: layout.y },
+      zIndex: node?.zIndex ?? layout.zIndex,
+      width: node?.width ?? layout.w,
+      height: node?.height ?? layout.h,
     });
   }
 
-  candidates.sort((a, b) => {
-    if (a.layout.y !== b.layout.y) {
-      return a.layout.y - b.layout.y;
+  if (preferredSectionId) {
+    const preferredCandidate =
+      candidates.find((candidate) => candidate.sectionId === preferredSectionId) ??
+      null;
+    if (preferredCandidate) {
+      return preferredCandidate;
     }
-    if (a.layout.x !== b.layout.x) {
-      return a.layout.x - b.layout.x;
+  }
+
+  candidates.sort((a, b) => {
+    if (a.position.y !== b.position.y) {
+      return a.position.y - b.position.y;
+    }
+    if (a.position.x !== b.position.x) {
+      return a.position.x - b.position.x;
     }
     return a.sectionId.localeCompare(b.sectionId);
   });

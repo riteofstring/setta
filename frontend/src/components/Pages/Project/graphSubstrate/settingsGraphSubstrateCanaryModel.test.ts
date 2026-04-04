@@ -107,9 +107,42 @@ describe("settingsGraphSubstrateCanaryModel", () => {
       selectSettingsGraphSubstrateCanarySection(state, nodeInternals),
     ).toEqual({
       sectionId: "section-b",
-      layout: { x: 120, y: 100, zIndex: 1, w: 320, h: 240 },
+      position: { x: 120, y: 100 },
+      zIndex: 1,
       width: 410,
       height: 260,
+    });
+  });
+
+  it("keeps rendering the preferred visible section after it moves away from the top-left", () => {
+    const state = createProjectState();
+    const nodeInternals = new Map<string, Node>([
+      [
+        "section-a",
+        {
+          id: "section-a",
+          position: { x: 760, y: 420 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 2,
+          type: "Code",
+        },
+      ],
+    ]);
+
+    expect(
+      selectSettingsGraphSubstrateCanarySection(
+        state,
+        nodeInternals,
+        "section-a",
+      ),
+    ).toEqual({
+      sectionId: "section-a",
+      position: { x: 760, y: 420 },
+      zIndex: 2,
+      width: 240,
+      height: 160,
     });
   });
 });

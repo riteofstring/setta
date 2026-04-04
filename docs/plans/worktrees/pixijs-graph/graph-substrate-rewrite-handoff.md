@@ -9,6 +9,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `004` landed the first real custom drag ownership inside the `settings` graph-substrate canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns one top-level section drag locally on the canary surface
+  - the canary pins its selected section while dragging so the visible card does not swap to a different top-left candidate mid-move
+  - the section body/shell now move together through a canary-local position override and commit back through the existing top-level layout persistence path on release
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now prefers live `nodeInternals` geometry and can keep a preferred visible section selected during drag
+  - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts` now no-ops cleanly when custom-substrate routes have transform state but no legacy `d3Zoom` / `d3Selection`
+  - added `frontend/src/forks/xyflow/core/hooks/useViewportHelper.test.ts` for the null-d3 guard
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so the canary drag test finds a valid draggable point, verifies drag state/motion, and restores layout + active view mode after itself
 - Ralph item `003` landed the first real `settings` graph-substrate canary at the nearest meaningful composition boundary:
   - `frontend/src/components/Pages/Project/UiPage.tsx` now chooses between legacy `ReactFlow` and a new `settings`/`All Settings` canary path
   - added `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
@@ -25,15 +33,17 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The first-order product requirement is:
   - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
 - Current live verification state:
-  - targeted Vitest passed for `settingsGraphSubstrateCanaryModel.test.ts`
+  - targeted Vitest passed for:
+    - `src/forks/xyflow/core/hooks/useViewportHelper.test.ts`
+    - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - `src/components/Pages/Project/graphSubstrate/viewportTransform.test.ts`
   - targeted Playwright passed for `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
-  - CDP visual check passed on a fresh lifecycle session:
-    - `http://127.0.0.1:3076/settings`
+  - CDP visual check passed on the current worktree session:
+    - `http://127.0.0.1:3075/settings`
     - `graph-substrate-canary` visible
-    - exactly one `graph-substrate-canary-section` visible
-    - surface not blank
     - `.react-flow__pane` absent on `All Settings`
-  - note: the inherited bootstrap token was stale at the start of CDP verification; one allowed `./aireset.sh` recovery produced a fresh session and the follow-up CDP check passed
+    - canary drag completed with the section body still attached to the shell/header during drag and after release
+    - no route crash or error boundary after release
 
 ## Architectural stance
 
@@ -51,13 +61,13 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The next production frontier is inside the new canary itself:
   - one normal-zoom section on `All Settings`
   - existing DOM body
-  - custom drag ownership
-  - no detached body drift
+  - custom pan/zoom ownership
+  - no detached body drift or zoom-related error paths
 - Required order from here:
   - keep the current custom viewport state model and `UIPage` seam
-  - implement top-level section drag on the canary surface without falling back to `xyflow` drag ownership
-  - prove the DOM body stays attached during that drag
-  - then add custom pan/zoom on the same surface
+  - drag ownership is now in place on the canary surface
+  - next implement custom pan/zoom on the same surface without falling back to `xyflow` pane ownership
+  - prove the DOM body stays attached during pan/zoom as well, with no visual blur/blockiness or route-level crash paths
 
 ## Explicit deferrals
 
@@ -74,10 +84,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - existing `xyflow` point/fit/center callsites routed through that helper
   - a `settings`/`All Settings` `UIPage` canary seam that swaps out `ReactFlow`
   - a first custom graph-surface canary that renders one DOM-backed top-level section through the shared transform contract
+  - the first custom canary drag ownership slice plus a null-safe shared viewport helper path for non-`xyflow` routes
 - See `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-completed.md` for maintained milestones once product slices start landing.
 
 ## History pointers
 
-- Active history window: items `001` through `003`
-- Latest item: `2026-04-02 003`
+ - Active history window: items `001` through `004`
+ - Latest item: `2026-04-02 004`
 - Older history archives: none yet

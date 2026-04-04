@@ -5,6 +5,13 @@ const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const SETTINGS_URL = new URL("/settings", BASE_URL).toString();
 const READY_SELECTOR = ".react-flow__pane";
 
+type BoundingBox = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 test("settings view tabs filter sections and minimap", async ({ page }) => {
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
@@ -45,6 +52,94 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
 
   const paramZoom = await getViewportScale(page);
   expect(coreZoom).toBeGreaterThan(paramZoom);
+});
+
+test("settings graph substrate canary drags one section and persists the top-level layout", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+
+  const canarySection = page.getByTestId("graph-substrate-canary-section");
+  await expect(canarySection).toBeVisible();
+  await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+  const sectionId = await canarySection.getAttribute("data-section-id");
+  if (!sectionId) {
+    throw new Error("Missing canary section id.");
+  }
+
+  const originalLayout =
+    initialState.projectState.projectConfig.topLevelSections[sectionId];
+  if (!originalLayout) {
+    throw new Error(`Missing original layout for section ${sectionId}.`);
+  }
+
+  const initialBox = await canarySection.boundingBox();
+  if (!initialBox) {
+    throw new Error("Missing initial canary section bounds.");
+  }
+
+  try {
+    const dragStart = await findCanaryDragPoint(page, initialBox);
+    const startX = dragStart.x;
+    const startY = dragStart.y;
+    await page.mouse.move(startX, startY);
+    await page.mouse.down();
+    await expect(canarySection).toHaveAttribute("data-dragging", "true");
+    await page.mouse.move(startX + 180, startY + 110, { steps: 10 });
+
+    await expect
+      .poll(async () => {
+        const movedBox = await canarySection.boundingBox();
+        if (!movedBox) {
+          return 0;
+        }
+        return Math.hypot(
+          movedBox.x - initialBox.x,
+          movedBox.y - initialBox.y,
+        );
+      })
+      .toBeGreaterThan(80);
+
+    await page.mouse.up();
+
+    await expect.poll(async () => {
+      const latestState = await getLatestProjectState(page, projectConfigId);
+      const layout =
+        latestState.projectState.projectConfig.topLevelSections[sectionId];
+      if (!layout) {
+        return false;
+      }
+      return layout.x !== originalLayout.x || layout.y !== originalLayout.y;
+    }).toBe(true);
+  } finally {
+    await postBackend(page, "/setTopLevelSectionLayout", {
+      projectConfigId,
+      topLevelSections: initialState.projectState.projectConfig.topLevelSections,
+    });
+    const initialActiveViewModeId =
+      initialState.projectState.projectConfig.activeViewModeId;
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -127,6 +222,41 @@ async function getViewportScale(page: Page): Promise<number> {
     }
     return matrix.a;
   });
+}
+
+async function findCanaryDragPoint(
+  page: Page,
+  box: BoundingBox,
+): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate((bounds) => {
+    const blockingSelector =
+      ".nodrag,input,textarea,select,option,a,[contenteditable='true']";
+    const xs = [0.2, 0.35, 0.5, 0.65, 0.8];
+    const ys = [0.12, 0.2, 0.3, 0.45, 0.6];
+    for (const yPct of ys) {
+      for (const xPct of xs) {
+        const x = bounds.x + bounds.width * xPct;
+        const y = bounds.y + bounds.height * yPct;
+        const element = document.elementFromPoint(x, y);
+        if (!(element instanceof Element)) {
+          continue;
+        }
+        const section = element.closest('[data-testid="graph-substrate-canary-section"]');
+        if (!section) {
+          continue;
+        }
+        if (element.closest(blockingSelector)) {
+          continue;
+        }
+        return { x, y };
+      }
+    }
+    return null;
+  }, box);
+  if (!point) {
+    throw new Error("Unable to find a draggable point inside the canary section.");
+  }
+  return point;
 }
 
 type ProjectStateSingleConfigWithCompletedOpIds = {

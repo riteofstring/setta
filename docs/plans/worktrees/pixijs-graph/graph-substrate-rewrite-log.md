@@ -137,3 +137,34 @@ LOOP_TERMINAL_MARKER: none
   - implement top-level section drag on `SettingsGraphSubstrateCanary` and prove the DOM body stays attached while moving
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 004
+
+- Item: Add custom top-level drag ownership to the `settings` graph-substrate canary and harden the shared viewport helpers for non-`xyflow` routes.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns drag on the checked canary slice instead of falling back to `xyflow` drag ownership.
+  - The canary keeps a preferred visible section selected while dragging so the rendered card does not swap to another top-left candidate mid-move.
+  - The canary uses a local position override during drag, then commits the final top-level position through the existing top-level layout persistence path on release.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now prefers live `nodeInternals` geometry and supports preferred-section selection.
+  - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts` now no-ops when `d3Zoom` / `d3Selection` are absent, which fixes the canary-route crash that CDP found after the first drag implementation.
+  - Added `frontend/src/forks/xyflow/core/hooks/useViewportHelper.test.ts` to lock down the null-d3 guard.
+  - Updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so the drag proof:
+    - finds a real draggable point inside the canary section
+    - verifies drag activation and movement
+    - restores both top-level layout and the original active view mode afterward
+- Verification:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/viewportTransform.test.ts`
+    - result: passed (`14 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed (`3 passed`, about `32s`)
+  - CDP visual check
+    - result: passed
+    - note: on `http://127.0.0.1:3075/settings`, `graph-substrate-canary` was visible, `.react-flow__pane` stayed absent on `All Settings`, the canary section body remained attached to its shell/header during drag and after release, and no route crash/error boundary appeared after drop
+- Conclusion:
+  - Gate 0 drag ownership now exists on the new substrate for the checked `settings` canary slice
+  - the next useful frontier is custom pan/zoom ownership on the same surface, not more seam lifting or harness-only cleanup
+- Next action:
+  - implement custom pan/zoom on `SettingsGraphSubstrateCanary` and prove the DOM-backed section stays attached and visually stable during pan/zoom as well
+
+LOOP_TERMINAL_MARKER: none
