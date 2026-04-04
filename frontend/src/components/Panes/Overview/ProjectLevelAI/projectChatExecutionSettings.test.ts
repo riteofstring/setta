@@ -1,4 +1,4 @@
-import { resolveSlashCommandRequest } from "components/Chat/chatInputHelpers";
+import { resolveSlashCommandRequest } from "components/Chat/ChatInput";
 import { shouldShowPlanModeBadge } from "components/Chat/planModeBadgeUtils";
 import {
   createAgentRun,
@@ -30,7 +30,7 @@ import {
   resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
-} from "./projectChatCoreUtils";
+} from "./ProjectChatCore";
 import {
   resolveProjectChatHydrationAuthority,
   resolveProjectChatRunTypeForEngine,
@@ -856,20 +856,22 @@ describe("resolveProjectChatContextTelemetry", () => {
       contextWindowTokens: 200,
       contextUsedTokens: 150,
       contextUsageIsEstimated: true,
+      contextUsageUnavailable: false,
     });
   });
 
-  it("returns null telemetry without frontend estimates", () => {
+  it("marks context usage unavailable without frontend estimates", () => {
     const telemetry = resolveProjectChatContextTelemetry(null);
 
     expect(telemetry).toEqual({
       contextWindowTokens: null,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
     });
   });
 
-  it("returns partial telemetry when backend omits either field", () => {
+  it("marks context usage unavailable when backend omits either field", () => {
     const telemetry = resolveProjectChatContextTelemetry({
       contextWindowTokens: 4000,
       contextUsedTokens: null,
@@ -880,6 +882,7 @@ describe("resolveProjectChatContextTelemetry", () => {
       contextWindowTokens: 4000,
       contextUsedTokens: null,
       contextUsageIsEstimated: false,
+      contextUsageUnavailable: true,
     });
   });
 });
