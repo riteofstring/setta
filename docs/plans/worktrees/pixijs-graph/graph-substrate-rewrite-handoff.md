@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 04:18 EDT
+Last updated: 2026-04-04 04:30 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `092` added an opt-in cross-worktree cleared-viewport entry parity probe for normalized `All Settings` and closed that bounded viewport-restoration oracle lane without reopening another motion-only compare.
+  - Why this slice was needed:
+    - a fresh-context CDP compare on this pass did not expose a concrete canary-only dynamic renderer defect on the normalized `All Settings` surface
+    - the only visible divergence was which section happened to appear first in the viewport, which looked like viewport-entry/oracle noise rather than a graph-substrate regression
+    - the narrowest valid next step was one bounded normalization probe that answered the reopened question directly: after clearing the authoritative viewport on both live runtimes, do worktree canary and read-only `main` legacy land the same shared named section before any extra pan or drag work
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - new opt-in probe: `settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary`
+      - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the saved viewport on both `All Settings` surfaces, resolves one shared visible top-level section by name, and then compares the immediate post-entry transform/rect/center-offset metrics for that section without any additional motion driver
+      - no shared parity helper surface changed in this slice; the existing graph-surface metrics helpers were sufficient once the probe stopped using DOM order as the oracle
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun after refreshing runtime info/bootstrap URLs:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `26.6s`)
+  - Live verification result:
+    - the initial fresh-context CDP sub-agent on this pass normalized both live `/settings` pages to `All Settings` and did not find a concrete canary-only dynamic graph-surface defect to fix
+    - a second fresh-context CDP sub-agent then checked the same cleared-viewport landing lane after the new probe landed:
+      - worktree `3075/settings`: canary surface (`pixijs-graph`)
+      - read-only `main` `3087/settings`: legacy surface (`main`)
+      - both pages were normalized to `All Settings`, a blank-surface click was used to clear selection noise when possible, and no concrete canary-only graph-surface drift was visible on the landing state
+      - the only visible difference was the expected top-right worktree/main label chrome, not a renderer regression on the graph surface
+    - CDP visual check: done (fresh-context cleared-viewport `All Settings` landing sanity check on worktree `3075` canary vs read-only `main` `3087` legacy; no concrete canary-only graph-surface drift visible)
+  - conclusion for this slice:
+    - close the specific cleared-viewport `All Settings` landing/oracle lane as matched for the current live runtimes
+    - do not reopen this lane with DOM-order or “first visible card” assertions unless a future compare shows an actual shared named section landing mismatch after clearing viewport
+    - the next real frontier returns to dynamic Gate 1 / Gate 2 behavior on a different shared action or section, or to a concrete production renderer defect if a fresh live compare actually exposes one
 - Ralph item `091` added an opt-in cross-worktree spreadsheet body-anchor top-level drag probe for normalized `All Settings` and closed that bounded body-heavy drag-attachment lane without reopening another generic drag-delta compare.
   - Why this slice was needed:
     - items `089` and `090` had already covered the plain top-level drag delta and the spreadsheet body-search pan/zoom interaction-state lane, so the next plan-aligned frontier was the actual body-attachment question during top-level drag on the same normalized cross-worktree compare
@@ -2124,6 +2152,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Immediate next frontier
 
 - The next bounded slice should leave the canvas-focus shortcut lane and the blank-pane deselect lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
+- The cleared-viewport `All Settings` landing lane is now closed for the current live runtimes:
+  - item `092` shows that after clearing the authoritative viewport on both worktree canary and read-only `main` legacy, one shared named top-level section lands with matching transform/rect/center-offset metrics
+  - do not reopen this lane with DOM order or “first visible card” assertions unless a future compare shows an actual shared named section mismatch after clearing viewport
 - The spreadsheet top-level drag body-anchor lane is now closed:
   - item `091` already proves `spreadsheetSectionDefault` keeps its stable args-filter body anchor attached and editable through one normalized short top-level drag on worktree canary and read-only `main` legacy
   - do not spend another iteration on more spreadsheet-specific drag/search guard tightening unless a fresh compare shows the actual input disappearing, drifting, or becoming non-interactive
@@ -2140,6 +2171,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - a small drag-pan pulse
   - one short top-level section drag
 - Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
+- Because item `092` did not expose a canary-only landing defect, the next pass should avoid another entry-state oracle slice by default and return to one materially different dynamic graph-surface action that could still expose a real renderer bug.
 - Prefer the next dynamic lane on a different body-heavy shared section or a concrete production renderer defect; the spreadsheet body anchor now has enough coverage for the current gate.
 - Keep using the graph-surface-only normalization when you need live CDP context:
   - close or minimize non-target pane/chat chrome

@@ -3153,3 +3153,35 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to one different body-heavy motion path or a concrete production renderer defect investigation, not more spreadsheet-specific guard tightening by default
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 04:30 EDT - Ralph item 092
+
+- Added an opt-in cross-worktree cleared-viewport entry parity probe for normalized `All Settings` and closed that bounded viewport-restoration oracle lane without reopening another motion-only compare.
+- Why this slice was necessary:
+  - a fresh-context CDP compare on this pass did not expose a concrete canary-only dynamic renderer defect on the normalized `All Settings` graph surface
+  - the only visible divergence was which section happened to appear first in the viewport, which looked like viewport-entry/oracle noise rather than a graph-substrate regression
+  - the narrowest valid next step was one bounded normalization probe that answered that reopened question directly: after clearing the authoritative viewport on both live runtimes, do worktree canary and read-only `main` legacy land the same shared named section before any extra pan or drag work
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary`
+    - the new probe boots both live runtimes with fresh bootstrap URLs, normalizes pane/selection state, clears the saved viewport on both `All Settings` surfaces, resolves one shared visible top-level section by name, and then compares the immediate post-entry transform/rect/center-offset metrics for that section without any extra motion driver
+    - no shared parity helper surface changed in this slice; the existing graph-surface metrics helpers were sufficient once the probe stopped using DOM order as the oracle
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - fresh runtime info refresh before the live rerun:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-011/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-011/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe lands the same shared section after clearing viewport on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `26.6s`)
+  - fresh-context CDP sub-agent:
+    - checked `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+    - normalized both to `All Settings`, attempted a blank-surface click to clear selection noise, and confirmed the expected surface split (`pixijs-graph` canary on worktree, legacy `main` on reference)
+    - no concrete canary-only graph-surface drift was visible on the cleared-viewport landing state; the only visible difference was the expected top-right worktree/main label chrome
+  - CDP visual check: done (fresh-context cleared-viewport `All Settings` landing sanity check on worktree `3075` canary vs read-only `main` `3087` legacy; no concrete canary-only graph-surface drift visible)
+- Lane status:
+  - close the specific cleared-viewport `All Settings` landing/oracle lane as matched for the current live runtimes
+  - do not reopen this lane with DOM-order or “first visible card” assertions unless a future compare shows an actual shared named section mismatch after clearing viewport
+- Next frontier:
+  - return to dynamic Gate 1 / Gate 2 behavior on a different shared action or section, or to a concrete production renderer defect if a fresh live compare actually exposes one
+- LOOP_TERMINAL_MARKER: none
