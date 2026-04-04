@@ -4459,3 +4459,39 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - rerun one from-scratch normalized dynamic action on `chatSectionDefault` across both surfaces, preferably a short blank-pane pan pulse or one short top-level drag, before adding any new harness work
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 16:37 EDT - Ralph item 131
+
+- Corrected the misidentified chat body-heavy lane from `chatSectionDefault` to `chatWindowing` and landed deterministic pane-pan coverage on the real `Auto Create Initial Chat` control.
+- Why this slice was necessary:
+  - item `130` had opened the next chat lane from a fresh CDP/manual compare, but the first targeted Playwright rerun showed that `chatSectionDefault` does not mount the expected body controls after normalized fit
+  - the bounded next step was to correct the lane identity and move the renderer question onto the actual mounted shared control surface instead of continuing with a stale section name
+- Production/test change:
+  - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `getLocatorRelativeCenterPosition(...)`
+    - added `settings graph parity probe keeps the chat windowing auto-create control attached during normalized pane pan on read-only main legacy and worktree canary`
+- Verification:
+  - refreshed run-050 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-050/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-050/main-ai.log`
+  - formatting:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-050 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-050 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the chat windowing auto-create control attached during normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `1.6m`)
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - normalized both live tabs to active `All Settings`, `overviewVisible=false`/`overviewTrueWidth=420`, `uiEditorVisible=false`/`uiEditorTrueWidth=260`, and cleared viewport to `null`
+    - corrected shared section ids:
+      - worktree canary `chatWindowing`: `37d4f866-e5f5-40cb-8902-c38611e96695`
+      - read-only main legacy `chatWindowing`: `9bcd4502-3d92-4136-a050-57d2f89f8119`
+    - after shared targeted fit on both: viewport transform `{ x: 454.545, y: -536, zoom: 1.25165 }`
+    - worktree canary post-shift sample via backend viewport write: viewport `{ x: 574.545, y: -456, zoom: 1.25165 }`, section rect moved with anchor-local drift effectively zero (`x=0`, `y≈0.00018`)
+    - read-only main legacy ignored the same programmatic pan/write path and stayed at baseline, so an exact bilateral live-motion CDP replay was not available on this lane
+  - CDP visual check: done (fresh-context normalized `chatWindowing` compare on live `3075` canary vs read-only `3087` legacy; baseline matched, the worktree post-shift attachment sample stayed clean, and the missing bilateral motion replay is a read-only-main CDP/runtime limitation rather than product evidence)
+- Lane status:
+  - supersede item `130`'s lane naming: use `chatWindowing` as the real shared `Auto Create Initial Chat` lane
+  - keep the new Playwright probe as the authoritative guard for the shared blank-pane pan path on this lane
+- Next frontier:
+  - use `chatWindowing` for the next renderer-facing compare; prefer one short top-level drag or another trustworthy live compare that does not depend on the unavailable read-only-main programmatic pan path
+- LOOP_TERMINAL_MARKER: none
