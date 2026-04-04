@@ -625,6 +625,101 @@ func TestProjectPythonCodegenExportResolvesEffectiveSectionAndCodeObject(t *test
 	}
 }
 
+func TestProjectPythonCodegenExportUsesCanonicalImplFallbackFields(t *testing.T) {
+	t.Parallel()
+
+	project, err := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		CodegenTargets: []ProjectCodegenTarget{{
+			Language: string(CodeLanguagePython),
+		}},
+		SectionVariantMap: map[string]string{
+			"code-section": "code-variant",
+			"draw-section": "draw-variant",
+		},
+		Sections: map[string]Section{
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+			"draw-section": {
+				ID:               "draw-section",
+				Name:             "Draw",
+				VariantIDs:       []string{"draw-variant"},
+				DefaultVariantID: "draw-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"code-variant": {
+				ID:     "code-variant",
+				ImplID: "code-impl",
+			},
+			"draw-variant": {
+				ID:     "draw-variant",
+				ImplID: "draw-impl",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{
+					Language: CodeLanguagePython,
+					Binding: &CodeFileBinding{
+						Path:        "code/auto.py",
+						AccessMode:  CodeFileAccessModeReadWrite,
+						AutoBinding: true,
+					},
+				},
+			},
+			"draw-impl": {
+				ID:   "draw-impl",
+				Kind: SectionKindDraw,
+				Draw: &DrawSectionImpl{
+					RenderedImagePath: "artifacts/draw.png",
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize export project: %v", err)
+	}
+
+	exported, ok, err := project.PythonCodegenExport()
+	if err != nil {
+		t.Fatalf("build python codegen export: %v", err)
+	}
+	if !ok {
+		t.Fatal("expected python codegen export")
+	}
+
+	codeSection, err := exported.ResolveSection("code-section")
+	if err != nil {
+		t.Fatalf("resolve code section: %v", err)
+	}
+	codeBinding := codeSection.ObjectField("codeFileBinding")
+	if codeBinding == nil {
+		t.Fatalf("expected codeFileBinding object, got %#v", codeSection.Payload["codeFileBinding"])
+	}
+	if got := payloadRawStringField(codeBinding, "canonical_path"); got != "code/auto.py" {
+		t.Fatalf("expected canonical_path code/auto.py, got %q", got)
+	}
+	if got, ok := codeBinding["autoBinding"].(bool); !ok || !got {
+		t.Fatalf("expected autoBinding=true, got %#v", codeBinding["autoBinding"])
+	}
+
+	drawSection, err := exported.ResolveSection("draw-section")
+	if err != nil {
+		t.Fatalf("resolve draw section: %v", err)
+	}
+	if got := drawSection.StringField("renderedImagePath"); got != "artifacts/draw.png" {
+		t.Fatalf("expected renderedImagePath artifacts/draw.png, got %q", got)
+	}
+}
+
 // MetaControl section policy resolution should derive the control code object type from effective state instead of relying on a payload field.
 func TestProjectPythonCodegenExportResolvesMetaControlPolicyFromControlParam(t *testing.T) {
 	t.Parallel()

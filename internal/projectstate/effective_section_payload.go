@@ -79,16 +79,15 @@ func rawSectionImplPayloadObject(impl SectionImpl) (map[string]any, error) {
 	if impl.IsCode() {
 		payload["codeLanguage"] = string(impl.Code.Language)
 		if impl.Code.Binding != nil {
-			payload["codeFileBinding"] = map[string]any{
-				"canonical_path": impl.Code.Binding.Path,
-				"access_mode":    string(impl.Code.Binding.AccessMode),
-				"autoBinding":    impl.Code.Binding.AutoBinding,
-			}
+			payload["codeFileBinding"] = codeFileBindingObject(*impl.Code.Binding)
 		}
 		if impl.Code.AttachedTerminalSectionID != "" {
 			payload["attachedTerminalSectionId"] = impl.Code.AttachedTerminalSectionID
 		}
 		payload["children"] = append([]string(nil), impl.Code.Children...)
+	}
+	if impl.IsDraw() && impl.Draw != nil && strings.TrimSpace(impl.Draw.RenderedImagePath) != "" {
+		payload["renderedImagePath"] = impl.Draw.RenderedImagePath
 	}
 	return payload, nil
 }

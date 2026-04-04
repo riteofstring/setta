@@ -127,6 +127,90 @@ func TestProjectSetCurrentSectionFieldStoresPresetDrawLayersOnVariantModifier(t 
 	}
 }
 
+func TestEffectiveSectionPayloadIncludesImplBackedDrawAndBindingFields(t *testing.T) {
+	t.Parallel()
+
+	project, err := Project{
+		ID:   "project-alpha",
+		Name: "Alpha",
+		SectionVariantMap: map[string]string{
+			"code-section": "code-variant",
+			"draw-section": "draw-variant",
+		},
+		Sections: map[string]Section{
+			"code-section": {
+				ID:               "code-section",
+				Name:             "Code",
+				VariantIDs:       []string{"code-variant"},
+				DefaultVariantID: "code-variant",
+			},
+			"draw-section": {
+				ID:               "draw-section",
+				Name:             "Draw",
+				VariantIDs:       []string{"draw-variant"},
+				DefaultVariantID: "draw-variant",
+			},
+		},
+		SectionVariants: map[string]SectionVariant{
+			"code-variant": {
+				ID:     "code-variant",
+				ImplID: "code-impl",
+			},
+			"draw-variant": {
+				ID:     "draw-variant",
+				ImplID: "draw-impl",
+			},
+		},
+		SectionImpls: map[string]SectionImpl{
+			"code-impl": {
+				ID:   "code-impl",
+				Kind: SectionKindCode,
+				Code: &CodeSectionImpl{
+					Language: CodeLanguagePython,
+					Binding: &CodeFileBinding{
+						Path:        "code/auto.py",
+						AccessMode:  CodeFileAccessModeReadWrite,
+						AutoBinding: true,
+					},
+				},
+			},
+			"draw-impl": {
+				ID:   "draw-impl",
+				Kind: SectionKindDraw,
+				Draw: &DrawSectionImpl{
+					RenderedImagePath: "artifacts/draw.png",
+				},
+			},
+		},
+	}.Normalized()
+	if err != nil {
+		t.Fatalf("normalize project: %v", err)
+	}
+
+	codePayload, err := effectiveSectionPayload(project, "code-section", "code-variant")
+	if err != nil {
+		t.Fatalf("effective code payload: %v", err)
+	}
+	codeBinding, ok := payloadObjectField(codePayload, "codeFileBinding")
+	if !ok {
+		t.Fatalf("expected codeFileBinding object, got %#v", codePayload["codeFileBinding"])
+	}
+	if got := payloadRawStringField(codeBinding, "canonical_path"); got != "code/auto.py" {
+		t.Fatalf("expected canonical_path code/auto.py, got %q", got)
+	}
+	if got, ok := codeBinding["autoBinding"].(bool); !ok || !got {
+		t.Fatalf("expected autoBinding=true, got %#v", codeBinding["autoBinding"])
+	}
+
+	drawPayload, err := effectiveSectionPayload(project, "draw-section", "draw-variant")
+	if err != nil {
+		t.Fatalf("effective draw payload: %v", err)
+	}
+	if got := payloadRawStringField(drawPayload, "renderedImagePath"); got != "artifacts/draw.png" {
+		t.Fatalf("expected renderedImagePath artifacts/draw.png, got %q", got)
+	}
+}
+
 func TestEffectiveSectionPayloadMaterializesLegacySectionImplDefaults(t *testing.T) {
 	t.Parallel()
 

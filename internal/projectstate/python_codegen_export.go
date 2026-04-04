@@ -1,15 +1,12 @@
 package projectstate
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
 )
 
 var (
-	ErrPythonCodegenExportPayloadInvalid   = errors.New("project python codegen export payload is invalid")
-	ErrPythonCodegenExportObjectRequired   = errors.New("project python codegen export payload must be a JSON object")
 	ErrPythonCodegenExportSectionTypeEmpty = errors.New("project python codegen export section type is required")
 	ErrPythonCodegenExportCodeObjTypeEmpty = errors.New("project python codegen export code object type is required")
 )
@@ -185,7 +182,7 @@ func (e PythonCodegenExport) resolveSection(
 		VariantID:       variant.ID,
 		VariantName:     variant.Name,
 		Type:            sectionType,
-		Payload:         clonePythonCodegenObject(payload),
+		Payload:         cloneProjectObject(payload),
 		IsTopLevel:      e.project.HasTopLevelSection(section.ID),
 		Policy:          resolvedPolicy,
 		project:         e.project.Clone(),
@@ -202,11 +199,11 @@ func (s PythonCodegenSection) ResolveCodeObject(codeObjID string) (PythonCodegen
 }
 
 func (e PythonCodegenExport) resolveCodeObjectWithVariantMap(codeObjVariantMap map[string]string, codeObjID string) (PythonCodegenCodeObject, error) {
-	payload, codeObj, variant, err := effectivePythonCodegenCodeObject(e.project, codeObjVariantMap, codeObjID)
+	payload, codeObj, variant, impl, err := effectivePythonCodegenCodeObject(e.project, codeObjVariantMap, codeObjID)
 	if err != nil {
 		return PythonCodegenCodeObject{}, err
 	}
-	codeObjType := strings.TrimSpace(codeObjTypeForPythonCodegen(e.project, codeObj.ID, payload))
+	codeObjType := strings.TrimSpace(effectiveCodeObjPayloadType(payload, strings.TrimSpace(impl.Type)))
 	if codeObjType == "" {
 		return PythonCodegenCodeObject{}, fmt.Errorf("%w: codeObj=%q", ErrPythonCodegenExportCodeObjTypeEmpty, codeObj.ID)
 	}
@@ -222,17 +219,17 @@ func (e PythonCodegenExport) resolveCodeObjectWithVariantMap(codeObjVariantMap m
 		VariantID:   variant.ID,
 		VariantName: variant.Name,
 		Type:        codeObjType,
-		Payload:     clonePythonCodegenObject(payload),
+		Payload:     cloneProjectObject(payload),
 		ValuePolicy: valuePolicy,
 	}, nil
 }
 
 func (s PythonCodegenSection) resolveCodeObjectWithVariantMap(codeObjVariantMap map[string]string, codeObjID string) (PythonCodegenCodeObject, error) {
-	payload, codeObj, variant, err := effectivePythonCodegenCodeObject(s.project, codeObjVariantMap, codeObjID)
+	payload, codeObj, variant, impl, err := effectivePythonCodegenCodeObject(s.project, codeObjVariantMap, codeObjID)
 	if err != nil {
 		return PythonCodegenCodeObject{}, err
 	}
-	codeObjType := strings.TrimSpace(codeObjTypeForPythonCodegen(s.project, codeObj.ID, payload))
+	codeObjType := strings.TrimSpace(effectiveCodeObjPayloadType(payload, strings.TrimSpace(impl.Type)))
 	if codeObjType == "" {
 		return PythonCodegenCodeObject{}, fmt.Errorf("%w: codeObj=%q", ErrPythonCodegenExportCodeObjTypeEmpty, codeObj.ID)
 	}
@@ -248,7 +245,7 @@ func (s PythonCodegenSection) resolveCodeObjectWithVariantMap(codeObjVariantMap 
 		VariantID:   variant.ID,
 		VariantName: variant.Name,
 		Type:        codeObjType,
-		Payload:     clonePythonCodegenObject(payload),
+		Payload:     cloneProjectObject(payload),
 		ValuePolicy: valuePolicy,
 	}, nil
 }
@@ -295,212 +292,58 @@ func effectivePythonCodegenSectionObject(
 	variant SectionVariant,
 	impl SectionImpl,
 ) (map[string]any, error) {
-	base, err := rawObjectFromPythonCodegenPayload(sectionImplPayloadUncheckedForPythonCodegen(impl))
+	base, err := rawSectionImplPayloadObject(impl)
 	if err != nil {
 		return nil, err
 	}
-	sharedModifier, err := rawObjectFromPythonCodegenModifier(section.SharedModifier)
+	sharedModifier, err := rawObjectFromProjectPayload(section.SharedModifier)
 	if err != nil {
 		return nil, err
 	}
-	modifier, err := rawObjectFromPythonCodegenModifier(variant.Modifier)
+	modifier, err := rawObjectFromProjectPayload(variant.Modifier)
 	if err != nil {
 		return nil, err
 	}
-	return mergePythonCodegenObjects(mergePythonCodegenObjects(base, sharedModifier), modifier), nil
+	return mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier), nil
 }
 
 func effectivePythonCodegenCodeObject(
 	project Project,
 	codeObjVariantMap map[string]string,
 	codeObjID string,
-) (map[string]any, CodeObject, CodeObjectVariant, error) {
+) (map[string]any, CodeObject, CodeObjectVariant, CodeObjectImpl, error) {
 	codeObj, ok := project.CodeObjs[codeObjID]
 	if !ok {
-		return nil, CodeObject{}, CodeObjectVariant{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: %q", ErrCodeObjNotFound, codeObjID)
 	}
 	variantID, ok := codeObjVariantMap[codeObjID]
 	if !ok {
-		return nil, CodeObject{}, CodeObjectVariant{}, fmt.Errorf("%w: codeObj=%q", ErrCodeObjVariantNotFound, codeObjID)
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: codeObj=%q", ErrCodeObjVariantNotFound, codeObjID)
 	}
 	if !containsString(codeObj.VariantIDs, variantID) {
-		return nil, CodeObject{}, CodeObjectVariant{}, fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantMembership, codeObjID, variantID)
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: codeObj=%q variant=%q", ErrCodeObjVariantMembership, codeObjID, variantID)
 	}
 	variant, ok := project.CodeObjVariants[variantID]
 	if !ok {
-		return nil, CodeObject{}, CodeObjectVariant{}, fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, variantID)
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: %q", ErrCodeObjVariantNotFound, variantID)
 	}
 	impl, ok := project.CodeObjImpls[variant.ImplID]
 	if !ok {
-		return nil, CodeObject{}, CodeObjectVariant{}, fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, variant.ImplID)
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, fmt.Errorf("%w: %q", ErrCodeObjImplNotFound, variant.ImplID)
 	}
-	base, err := rawObjectFromPythonCodegenPayload(codeObjImplPayloadUncheckedForPythonCodegen(impl))
+	base, err := rawCodeObjImplPayloadObject(impl)
 	if err != nil {
-		return nil, CodeObject{}, CodeObjectVariant{}, err
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
-	sharedModifier, err := rawObjectFromPythonCodegenModifier(codeObj.SharedModifier)
+	sharedModifier, err := rawObjectFromProjectPayload(codeObj.SharedModifier)
 	if err != nil {
-		return nil, CodeObject{}, CodeObjectVariant{}, err
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
-	modifier, err := rawObjectFromPythonCodegenModifier(variant.Modifier)
+	modifier, err := rawObjectFromProjectPayload(variant.Modifier)
 	if err != nil {
-		return nil, CodeObject{}, CodeObjectVariant{}, err
+		return nil, CodeObject{}, CodeObjectVariant{}, CodeObjectImpl{}, err
 	}
-	return mergePythonCodegenObjects(mergePythonCodegenObjects(base, sharedModifier), modifier), codeObj, variant, nil
-}
-
-func sectionImplPayloadUncheckedForPythonCodegen(impl SectionImpl) RawJSON {
-	if len(impl.Payload) > 0 {
-		return cloneRawJSON(impl.Payload)
-	}
-	payload := map[string]any{
-		"id":   impl.ID,
-		"type": fallbackSectionTypeForPythonCodegen(impl),
-	}
-	switch {
-	case impl.IsCode():
-		payload["codeLanguage"] = string(impl.Code.Language)
-		if impl.Code.Binding != nil {
-			payload["codeFileBinding"] = pythonCodegenBindingObject(impl.Code.Binding)
-		}
-		if impl.Code.AttachedTerminalSectionID != "" {
-			payload["attachedTerminalSectionId"] = impl.Code.AttachedTerminalSectionID
-		}
-		payload["children"] = append([]string(nil), impl.Code.Children...)
-	case impl.IsDraw():
-		if impl.Draw.RenderedImagePath != "" {
-			payload["renderedImagePath"] = impl.Draw.RenderedImagePath
-		}
-	}
-	return mustMarshalPythonCodegenObject(payload)
-}
-
-func codeObjImplPayloadUncheckedForPythonCodegen(impl CodeObjectImpl) RawJSON {
-	if len(impl.Payload) > 0 {
-		return cloneRawJSON(impl.Payload)
-	}
-	return mustMarshalPythonCodegenObject(map[string]any{
-		"id":   impl.ID,
-		"type": impl.Type,
-	})
-}
-
-func fallbackSectionTypeForPythonCodegen(impl SectionImpl) string {
-	switch {
-	case impl.IsCode():
-		return "Code"
-	case impl.IsTerminal():
-		return "Terminal"
-	case impl.IsDraw():
-		return "Draw"
-	case impl.IsGenerated():
-		switch impl.Generated.Kind {
-		case GeneratedSectionKindPythonCode:
-			return "GenPythonCode"
-		case GeneratedSectionKindPythonMetadata:
-			return "GenPythonMetadata"
-		case GeneratedSectionKindPlugin:
-			return "Plugin"
-		}
-	}
-	if impl.Kind == "" {
-		return ""
-	}
-	return string(impl.Kind)
-}
-
-func codeObjTypeForPythonCodegen(project Project, codeObjID string, payload map[string]any) string {
-	if objectType := stringFieldFromPythonCodegenObject(payload, "type"); objectType != "" {
-		return objectType
-	}
-	codeObj, ok := project.CodeObjs[codeObjID]
-	if !ok || len(codeObj.VariantIDs) == 0 {
-		return ""
-	}
-	variant, ok := project.CodeObjVariants[codeObj.VariantIDs[0]]
-	if !ok {
-		return ""
-	}
-	impl, ok := project.CodeObjImpls[variant.ImplID]
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(impl.Type)
-}
-
-func pythonCodegenBindingObject(binding *CodeFileBinding) map[string]any {
-	return map[string]any{
-		"canonical_path": binding.Path,
-		"access_mode":    pythonCodegenBindingAccessMode(binding.AccessMode),
-		"autoBinding":    false,
-	}
-}
-
-func pythonCodegenBindingAccessMode(mode CodeFileAccessMode) string {
-	if strings.TrimSpace(string(mode)) == "" {
-		return string(CodeFileAccessModeReadWrite)
-	}
-	return string(mode)
-}
-
-func rawObjectFromPythonCodegenModifier(raw RawJSON) (map[string]any, error) {
-	if len(raw) == 0 {
-		return map[string]any{}, nil
-	}
-	return rawObjectFromPythonCodegenPayload(raw)
-}
-
-func rawObjectFromPythonCodegenPayload(raw RawJSON) (map[string]any, error) {
-	if len(raw) == 0 {
-		return map[string]any{}, nil
-	}
-
-	var payload any
-	if err := json.Unmarshal(raw, &payload); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrPythonCodegenExportPayloadInvalid, err)
-	}
-	object, ok := payload.(map[string]any)
-	if !ok {
-		return nil, ErrPythonCodegenExportObjectRequired
-	}
-	return object, nil
-}
-
-func mergePythonCodegenObjects(base map[string]any, modifier map[string]any) map[string]any {
-	merged := clonePythonCodegenObject(base)
-	for key, value := range modifier {
-		baseObject, baseIsObject := merged[key].(map[string]any)
-		modifierObject, modifierIsObject := value.(map[string]any)
-		if baseIsObject && modifierIsObject {
-			merged[key] = mergePythonCodegenObjects(baseObject, modifierObject)
-			continue
-		}
-		merged[key] = clonePythonCodegenValue(value)
-	}
-	return merged
-}
-
-func clonePythonCodegenObject(source map[string]any) map[string]any {
-	cloned := make(map[string]any, len(source))
-	for key, value := range source {
-		cloned[key] = clonePythonCodegenValue(value)
-	}
-	return cloned
-}
-
-func clonePythonCodegenValue(value any) any {
-	switch typed := value.(type) {
-	case map[string]any:
-		return clonePythonCodegenObject(typed)
-	case []any:
-		cloned := make([]any, len(typed))
-		for index, entry := range typed {
-			cloned[index] = clonePythonCodegenValue(entry)
-		}
-		return cloned
-	default:
-		return typed
-	}
+	return mergeProjectObjects(mergeProjectObjects(base, sharedModifier), modifier), codeObj, variant, impl, nil
 }
 
 func stringFieldFromPythonCodegenObject(object map[string]any, key string) string {
@@ -548,7 +391,7 @@ func objectFieldFromPythonCodegenObject(object map[string]any, key string) map[s
 	if !ok {
 		return nil
 	}
-	return clonePythonCodegenObject(typed)
+	return cloneProjectObject(typed)
 }
 
 func stringMapFieldFromPythonCodegenObject(object map[string]any, key string) map[string]string {
@@ -577,12 +420,4 @@ func stringMapFieldFromPythonCodegenObject(object map[string]any, key string) ma
 		output[trimmedKey] = trimmedValue
 	}
 	return output
-}
-
-func mustMarshalPythonCodegenObject(value map[string]any) RawJSON {
-	raw, err := json.Marshal(value)
-	if err != nil {
-		panic(err)
-	}
-	return raw
 }
