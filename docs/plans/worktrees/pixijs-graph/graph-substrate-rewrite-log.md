@@ -70,6 +70,34 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 016
+
+- Item: Fix Ralph's headless lifecycle/browser launcher path so CDP can stay up long enough to retry the blocked `All Settings` oracle compare.
+- Status: `done`
+- Details:
+  - `scripts/start-browser-mcp.sh` now launches background devtools Chrome through a detached Python subprocess (`start_new_session=True`, with `nohup` fallback) instead of tying the headless browser to the short-lived launcher shell.
+  - The same script now builds Chrome argv arrays without forwarding the empty `CHROME_ARGS` placeholder, which was causing the detached Python launch path to exit immediately.
+  - `scripts/run-codex-loop.sh` now detects `--browser-mode` support through the repo-root `ai.sh` wrapper by checking the sibling `scripts/ai.sh`, so modern launchers get the explicit `--browser-mode headless` flag instead of falling back to the wrapper hack.
+  - Updated script-wiring coverage:
+    - `tests/start/test_start_browser_mcp_script.py` now includes a behavioral check that the headless browser process stays alive after `start-browser-mcp.sh` exits.
+    - `tests/start/test_run_codex_loop_script.py` now proves the wrapper-style `ai.sh -> scripts/ai.sh` layout still receives the explicit browser-mode flag.
+- Verification:
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py tests/start/test_run_codex_loop_script.py tests/start/test_start_browser_mcp_script.py`
+    - result: passed (`36 passed`, about `86s`)
+  - isolated live smoke
+    - command:
+      - `DEBUG_PORT=9692 MCP_RUN_DIR=/tmp/setta-mcp-live12 PROFILE_DIR=/tmp/setta-profile-live12 BOOTSTRAP_ENABLED=0 ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
+      - `sleep 1`
+      - `curl -fsS --max-time 3 http://127.0.0.1:9692/json/version`
+    - result: passed (returned the Chrome DevTools JSON payload)
+- Conclusion:
+  - the previously repeated lifecycle blocker now has a concrete script-level fix instead of more retry churn
+  - this iteration intentionally stopped at launcher health; it did not yet rerun the blocked worktree-vs-`main` cleared-viewport compare
+- Next action:
+  - rerun the normal Ralph-managed worktree and `main` `ai` lifecycles with the patched scripts, then retry the strict `All Settings` cleared-viewport CDP compare before touching more canary fit/bounds code
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 015
 
 - Item: Retry the deferred post-item-013 bootstrap-first cleared-viewport `All Settings` compare after the one allowed local lifecycle recovery.

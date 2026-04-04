@@ -160,6 +160,31 @@ def test_aireset_accepts_equals_style_path_flags(tmp_path: Path) -> None:
     assert f"SETTA_RUNTIME_ROOT={runtime_root}" in ai_env
 
 
+def test_aireset_forwards_browser_mode_only_to_ai(tmp_path: Path) -> None:
+    sandbox_root = build_aireset_sandbox(tmp_path)
+    home_dir = tmp_path / "home"
+    home_dir.mkdir(parents=True, exist_ok=True)
+    env = script_env(tmp_path / "unused-bin", home_dir)
+
+    result = run_script(
+        [
+            "bash",
+            str(sandbox_root / "aireset.sh"),
+            "--browser-mode",
+            "headless",
+        ],
+        cwd=sandbox_root,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    reset_args = (sandbox_root / "reset_args.txt").read_text(encoding="utf-8")
+    ai_args = (sandbox_root / "ai_args.txt").read_text(encoding="utf-8")
+
+    assert "--browser-mode" not in reset_args
+    assert ai_args.strip() == "--browser-mode headless"
+
+
 def test_aireset_rejects_conflicting_setta_files_root_and_location(
     tmp_path: Path,
 ) -> None:

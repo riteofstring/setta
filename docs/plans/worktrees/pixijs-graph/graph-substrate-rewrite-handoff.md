@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 15:15 EDT
+Last updated: 2026-04-02 15:36 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,7 +9,19 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
-- Ralph item `015` stayed on blocker resolution only; no product-code changes landed.
+- Ralph item `016` landed the lifecycle/browser launcher fix that was blocking the post-item-013 oracle compare:
+  - `scripts/start-browser-mcp.sh` now launches background devtools Chrome through a detached Python subprocess (`start_new_session=True`, with `nohup` fallback) so the headless browser no longer dies with the short-lived launcher shell.
+  - the same script now builds Chrome argv arrays without the empty `CHROME_ARGS` placeholder that was causing the detached Python launch path to exit immediately.
+  - `scripts/run-codex-loop.sh` now recognizes `--browser-mode` support through the repo-root `ai.sh` wrapper by checking the sibling `scripts/ai.sh`, so Ralph can use the explicit browser-mode flag on modern launchers instead of falling back to the wrapper hack.
+  - targeted script wiring coverage now includes the wrapper-detection case plus a behavioral test proving the headless browser process stays alive after `start-browser-mcp.sh` exits.
+- Targeted launcher verification passed for item `016`:
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_ai.py tests/start/test_dev_script_wiring_aireset.py tests/start/test_run_codex_loop_script.py tests/start/test_start_browser_mcp_script.py`
+    - result: passed (`36 passed`)
+  - isolated live smoke:
+    - `DEBUG_PORT=9692 MCP_RUN_DIR=/tmp/setta-mcp-live12 PROFILE_DIR=/tmp/setta-profile-live12 BOOTSTRAP_ENABLED=0 ./scripts/start-browser-mcp.sh --devtools --browser-mode headless`
+    - after `sleep 1`, `curl -fsS --max-time 3 http://127.0.0.1:9692/json/version` returned the Chrome DevTools JSON payload successfully
+- This closes the lifecycle-launcher bug that made the headless debug Chrome disappear before CDP came up.
+- The actual worktree/main lifecycle sessions from item `015` were not re-bootstrapped in this iteration, so the cleared-viewport worktree-vs-`main` compare is still pending.
 - The required post-item-013 cleared-viewport compare is now blocked by lifecycle/bootstrap availability rather than another bounds hypothesis:
   - fresh-context CDP sub-agent could not connect because `http://127.0.0.1:9297/json/version` was unreachable
   - one allowed local self-recovery ran with `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
@@ -28,7 +40,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The read-only `main` oracle is still not trustworthy:
   - `source activate.sh && setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta` returned `Error: No matching Setta sessions found.`
   - `curl -I --max-time 5 http://127.0.0.1:3087/settings` still returned `200 OK`, so the shell serves while the actual bootstrap/app session remains unavailable
-- Because both allowed worktree recovery launches failed to restore a reachable debug Chrome or a valid Setta session, do not land more fit/bounds code yet; the next iteration must restore lifecycle/CDP health first, then retry the bootstrap-first compare.
+- Because both allowed worktree recovery launches failed before item `016`, do not land more fit/bounds code yet; the next iteration must retry the lifecycle/bootstrap compare with the patched launchers first, then decide whether the bounds lane is still the real blocker.
 - Ralph item `013` landed a bounded bounds-readiness fix inside the custom canary:
   - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` plus focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now waits for measured DOM sizes from every visible canary section before computing the first auto-fit scene bounds, instead of fitting against partial layout fallback sizes
@@ -224,7 +236,10 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - automated coverage now proves the canary no longer does that in the checked browser path
   - item `012` aligned the canary's initial visible-center and initial max-zoom semantics with legacy `ReactFlow`
   - item `013` then moved the canary fit to measured DOM bounds and aligned the size box model with legacy `fitView`
-  - before doing more bounds work, restore a healthy worktree CDP target plus a healthy read-only `main` reference session and re-run the strict cleared-viewport CDP compare on `All Settings`
+- before doing more bounds work, restore a healthy worktree CDP target plus a healthy read-only `main` reference session and re-run the strict cleared-viewport CDP compare on `All Settings`
+- item `016` should make that retry meaningful again:
+  - use the normal Ralph-managed worktree/main lifecycles first instead of more ad hoc launcher debugging
+  - if the patched lifecycle still fails to produce a trustworthy worktree or `main` session, inspect the remaining Setta-session/bootstrap wiring next rather than returning to bounds math
   - only after that compare is valid should the next iteration decide whether the remaining frontier is still the measured-bounds vertical framing mismatch or a different oracle/state issue
   - if the next fresh lifecycle bootstrap still leaves `json/version` unreachable or `setta status --connect-info` empty, stop debugging canary math and inspect the loop/browser lifecycle wiring instead
 
@@ -249,6 +264,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `015`
-- Latest item: `2026-04-02 015`
+- Active history window: items `001` through `016`
+- Latest item: `2026-04-02 016`
 - Older history archives: none yet

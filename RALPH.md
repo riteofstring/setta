@@ -133,6 +133,8 @@ This file is the reusable loop entrypoint for this worktree.
 - `aireset` and `restart-aireset` fall back to `ai.sh` if `aireset.sh` fails.
 - `main` lifecycle is for a read-only visual reference session only; no code changes or commits may happen there.
 - `main` reference startup is asynchronous; Ralph does not block Codex on `main` becoming ready.
+- If `main` is configured with an `ai` lifecycle and the launched reference frontend still does not start serving, Ralph should retry `main` once with `restart-aireset` before giving up on that iteration.
+- When Ralph starts lifecycle sessions itself, it should force the configured loop browser mode for those launches. Headless remains the default loop behavior; manual `./ai.sh` or `./aireset.sh` runs stay headed unless the caller explicitly opts into headless mode.
 - Restart lifecycles wait on the repo's Setta session status before Codex starts the iteration.
 - If an iteration returns `BLOCKED` with `LOOP_RECOVERY: restart_worktree_lifecycle`, Ralph should continue to the next iteration instead of stopping so the configured worktree bootstrap can retry automatically.
 - If an iteration returns `BLOCKED` with `LOOP_RECOVERY: retry_next_iteration`, Ralph should continue to the next iteration instead of stopping.

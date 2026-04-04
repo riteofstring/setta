@@ -382,6 +382,167 @@ shell_join_args() {
   printf '%s\n' "${joined}"
 }
 
+resolve_target_relative_path() {
+  local target_root="$1"
+  local raw_path="$2"
+
+  python - "${target_root}" "${raw_path}" <<'PY'
+import os
+import sys
+
+target_root = sys.argv[1]
+raw_path = sys.argv[2]
+expanded = os.path.expandvars(os.path.expanduser(raw_path))
+if os.path.isabs(expanded):
+    print(os.path.realpath(expanded))
+else:
+    print(os.path.realpath(os.path.join(target_root, expanded)))
+PY
+}
+
+workspace_setta_status_env_args=()
+
+build_workspace_setta_status_env_args() {
+  local target_root="$1"
+  local target_root_real=""
+  local default_setta_home=""
+
+  workspace_setta_status_env_args=()
+  target_root_real="$(cd "${target_root}" && pwd -P 2>/dev/null || printf '%s' "${target_root}")"
+
+  if [[ -n "${SETTA_FILES_ROOT:-}" ]] && [[ -n "${SETTA_FILES_LOCATION:-}" ]]; then
+    return 1
+  fi
+
+  if [[ -n "${SETTA_HOME:-}" ]]; then
+    workspace_setta_status_env_args+=(
+      "SETTA_HOME=$(resolve_target_relative_path "${target_root_real}" "${SETTA_HOME}")"
+    )
+  elif [[ -n "${SETTA_FILES_LOCATION:-}" || -n "${SETTA_PROFILE:-}" ]]; then
+    if [[ -n "${HOME:-}" ]]; then
+      default_setta_home="${HOME}/.setta-development"
+      workspace_setta_status_env_args+=(
+        "SETTA_HOME=$(resolve_target_relative_path "${target_root_real}" "${default_setta_home}")"
+      )
+    fi
+  fi
+
+  if [[ -n "${SETTA_PROFILE:-}" ]]; then
+    workspace_setta_status_env_args+=("SETTA_PROFILE=${SETTA_PROFILE}")
+  fi
+
+  if [[ -n "${SETTA_RUNTIME_ROOT:-}" ]]; then
+    workspace_setta_status_env_args+=(
+      "SETTA_RUNTIME_ROOT=$(resolve_target_relative_path "${target_root_real}" "${SETTA_RUNTIME_ROOT}")"
+    )
+  fi
+
+  if [[ -n "${SETTA_FILES_ROOT:-}" ]]; then
+    workspace_setta_status_env_args+=(
+      "SETTA_FILES_ROOT=$(resolve_target_relative_path "${target_root_real}" "${SETTA_FILES_ROOT}")"
+    )
+    return 0
+  fi
+
+  if [[ -n "${SETTA_FILES_LOCATION:-}" ]]; then
+    workspace_setta_status_env_args+=("SETTA_FILES_LOCATION=${SETTA_FILES_LOCATION}")
+    return 0
+  fi
+
+  workspace_setta_status_env_args+=(
+    "SETTA_FILES_ROOT=${target_root_real}/setta_files_dev"
+  )
+}
+
+workspace_setta_status_command() {
+  local target_root="$1"
+  shift
+  local command_parts=()
+
+  build_workspace_setta_status_env_args "${target_root}" || return 1
+
+  if [[ ${#workspace_setta_status_env_args[@]} -gt 0 ]]; then
+    command_parts+=(env "${workspace_setta_status_env_args[@]}")
+  fi
+  command_parts+=(setta status "$@")
+  shell_join_args "${command_parts[@]}"
+}
+
+ai_script_supports_browser_mode_flag() {
+  local ai_script="$1"
+  local ai_dir=""
+  local nested_ai_script=""
+
+  [[ -f "${ai_script}" ]] || return 1
+  if grep -Fq -- "--browser-mode" "${ai_script}"; then
+    return 0
+  fi
+
+  ai_dir="$(cd "$(dirname "${ai_script}")" && pwd)"
+  nested_ai_script="${ai_dir}/scripts/ai.sh"
+  [[ -f "${nested_ai_script}" ]] || return 1
+  grep -Fq -- "--browser-mode" "${nested_ai_script}"
+}
+
+ensure_ralph_headless_chrome_wrapper() {
+  local run_dir="$1"
+  local wrapper_path="${run_dir}/ralph-headless-chrome.sh"
+
+  if [[ -x "${wrapper_path}" ]]; then
+    printf '%s\n' "${wrapper_path}"
+    return 0
+  fi
+
+  cat > "${wrapper_path}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+resolve_ralph_real_chrome_bin() {
+  local candidate="${RALPH_REAL_CHROME_BIN:-}"
+  if [[ -n "${candidate}" ]] && [[ -x "${candidate}" ]] && [[ "${candidate}" != "$0" ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  candidate="${CHROME_BIN:-}"
+  if [[ -n "${candidate}" ]] && [[ -x "${candidate}" ]] && [[ "${candidate}" != "$0" ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+    if [[ -x "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" ]]; then
+      printf '%s\n' "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+      return 0
+    fi
+    if [[ -x "/Applications/Chromium.app/Contents/MacOS/Chromium" ]]; then
+      printf '%s\n' "/Applications/Chromium.app/Contents/MacOS/Chromium"
+      return 0
+    fi
+  fi
+
+  candidate="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+  if [[ -n "${candidate}" ]]; then
+    printf '%s\n' "${candidate}"
+    return 0
+  fi
+
+  return 1
+}
+
+REAL_CHROME_BIN="$(resolve_ralph_real_chrome_bin || true)"
+if [[ -z "${REAL_CHROME_BIN}" ]]; then
+  echo "Could not resolve a Chrome/Chromium binary for Ralph headless lifecycle launches." >&2
+  exit 1
+fi
+
+exec "${REAL_CHROME_BIN}" "$@" --headless
+EOF
+
+  chmod +x "${wrapper_path}"
+  printf '%s\n' "${wrapper_path}"
+}
+
 extract_cmux_ref() {
   local payload="$1"
   local ref_prefix="$2"
@@ -407,6 +568,7 @@ discover_main_worktree_root() {
 workspace_setta_status_payload() {
   local target_root="$1"
   local status_payload=""
+  local status_command=()
 
   if [[ -f "${target_root}/activate.sh" ]]; then
     # shellcheck disable=SC1090
@@ -417,8 +579,14 @@ workspace_setta_status_payload() {
     return 1
   fi
 
+  build_workspace_setta_status_env_args "${target_root}" || return 1
+  status_command=(setta status --list-sessions --json --workspace "${target_root}" --server-mode ide)
+  if [[ ${#workspace_setta_status_env_args[@]} -gt 0 ]]; then
+    status_command=(env "${workspace_setta_status_env_args[@]}" "${status_command[@]}")
+  fi
+
   status_payload="$(
-    setta status --list-sessions --json --workspace "${target_root}" --server-mode ide 2>/dev/null || true
+    "${status_command[@]}" 2>/dev/null || true
   )"
   if [[ "${status_payload}" != __SETTA_JSON_B64__* ]]; then
     return 1
@@ -968,8 +1136,52 @@ lifecycle_log_label() {
   esac
 }
 
+url_responds() {
+  local url="$1"
+
+  if [[ -z "${url}" ]]; then
+    return 1
+  fi
+
+  curl -fsS -o /dev/null --max-time 5 "${url}"
+}
+
+wait_for_frontend_url_serving() {
+  local target_name="$1"
+  local log_path="$2"
+  local timeout_seconds="$3"
+  local start_ts=""
+  local elapsed=""
+  local frontend_url=""
+
+  start_ts="$(date +%s)"
+  while true; do
+    frontend_url="$(extract_frontend_url_from_log "${log_path}" || true)"
+    if [[ -n "${frontend_url}" ]] && url_responds "${frontend_url}"; then
+      echo "[bootstrap] ${target_name}: frontend serving at ${frontend_url}"
+      return 0
+    fi
+
+    elapsed="$(( $(date +%s) - start_ts ))"
+    if [[ "${elapsed}" -ge "${timeout_seconds}" ]]; then
+      echo "Timed out waiting for ${target_name} frontend to serve." >&2
+      if [[ -n "${frontend_url}" ]]; then
+        echo "Last observed ${target_name} frontend url: ${frontend_url}" >&2
+      fi
+      if [[ -f "${log_path}" ]]; then
+        echo "Last log lines from ${log_path}:" >&2
+        tail -n 60 "${log_path}" >&2 || true
+      fi
+      return 1
+    fi
+
+    sleep 2
+  done
+}
+
 refresh_main_runtime_values() {
   local runtime_dir="${1:-${output_dir}}"
+  local lifecycle_mode="${2:-${main_effective_lifecycle:-${main_lifecycle:-}}}"
   local main_log_label=""
 
   main_frontend_url=""
@@ -982,13 +1194,59 @@ refresh_main_runtime_values() {
     return 0
   fi
 
-  if main_log_label="$(lifecycle_log_label "${main_lifecycle:-}")"; then
+  if main_log_label="$(lifecycle_log_label "${lifecycle_mode}")"; then
     main_runtime_log_path="${runtime_dir}/main-${main_log_label}.log"
     main_frontend_url="$(extract_frontend_url_from_log "${main_runtime_log_path}" || true)"
     main_backend_url="$(extract_backend_url_from_log "${main_runtime_log_path}" || true)"
     main_bootstrap_url="$(extract_bootstrap_url_from_log "${main_runtime_log_path}" || true)"
     main_debug_port="$(extract_debug_port_from_log "${main_runtime_log_path}" || true)"
   fi
+}
+
+bootstrap_main_reference() {
+  local target_root="$1"
+  local lifecycle_mode="$2"
+  local run_dir="$3"
+  local resolved_terminal_mode="$4"
+  local iteration_label="$5"
+  local frontend_health_timeout="${RALPH_MAIN_FRONTEND_HEALTH_TIMEOUT_SECONDS:-30}"
+  local attempted_lifecycle="${lifecycle_mode}"
+  local attempted_reset_retry="0"
+  local main_lifecycle_exit_code="0"
+  local main_log_label=""
+  local main_log_path=""
+
+  while true; do
+    echo "[${iteration_label}] Bootstrapping main (${attempted_lifecycle})"
+    set +e
+    run_lifecycle_mode "main" "${target_root}" "${attempted_lifecycle}" "${run_dir}" "${resolved_terminal_mode}" "0"
+    main_lifecycle_exit_code="$?"
+    set -e
+
+    main_effective_lifecycle="${attempted_lifecycle}"
+    refresh_main_runtime_values "${run_dir}" "${main_effective_lifecycle}"
+
+    if [[ "${main_lifecycle_exit_code}" -eq 0 ]] \
+      && main_log_label="$(lifecycle_log_label "${attempted_lifecycle}")"; then
+      main_log_path="${run_dir}/main-${main_log_label}.log"
+      if ! wait_for_frontend_url_serving "main" "${main_log_path}" "${frontend_health_timeout}"; then
+        main_lifecycle_exit_code="1"
+      fi
+    fi
+
+    if [[ "${main_lifecycle_exit_code}" -eq 0 ]]; then
+      return 0
+    fi
+
+    if [[ "${attempted_reset_retry}" == "0" ]] && [[ "${attempted_lifecycle}" =~ ^(ai|restart-ai)$ ]]; then
+      echo "[${iteration_label}] Main bootstrap via ${attempted_lifecycle} did not yield a healthy frontend; retrying once with restart-aireset." >&2
+      attempted_lifecycle="restart-aireset"
+      attempted_reset_retry="1"
+      continue
+    fi
+
+    return "${main_lifecycle_exit_code}"
+  done
 }
 
 run_lifecycle_mode() {
@@ -999,10 +1257,13 @@ run_lifecycle_mode() {
   local resolved_terminal_mode="$5"
   local wait_for_running="${6:-1}"
   local quiet_browser_env="${ralph_browser_env_prefix}"
+  local lifecycle_browser_env="${quiet_browser_env}"
   local label=""
   local launcher_path=""
   local command_display=""
   local command_body=""
+  local launcher_args=()
+  local browser_args_string=""
   local should_restart="0"
   local session_state="not_running"
   local log_path=""
@@ -1019,6 +1280,21 @@ run_lifecycle_mode() {
   local kill_script="${target_root}/kill.sh"
   local ai_script="${target_root}/ai.sh"
   local aireset_script="${target_root}/aireset.sh"
+  local headless_wrapper_path=""
+
+  if ai_script_supports_browser_mode_flag "${ai_script}"; then
+    launcher_args=(--browser-mode "${ralph_browser_mode}")
+  elif [[ "${ralph_browser_mode}" == "headless" ]]; then
+    headless_wrapper_path="$(ensure_ralph_headless_chrome_wrapper "${run_dir}")"
+    if [[ -n "${CHROME_BIN:-}" ]]; then
+      lifecycle_browser_env+=" RALPH_REAL_CHROME_BIN=$(printf '%q' "${CHROME_BIN}")"
+    fi
+    lifecycle_browser_env+=" CHROME_BIN=$(printf '%q' "${headless_wrapper_path}")"
+  fi
+
+  if [[ ${#launcher_args[@]} -gt 0 ]]; then
+    browser_args_string="$(shell_join_args "${launcher_args[@]}")"
+  fi
 
   case "${lifecycle_mode}" in
     kill)
@@ -1034,26 +1310,46 @@ run_lifecycle_mode() {
       label="ai"
       launcher_path="${ai_script}"
       command_display="./ai.sh"
-      command_body="${quiet_browser_env} \"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       ;;
     aireset)
       label="aireset"
       launcher_path="${aireset_script}"
       command_display="./aireset.sh (fallback ./ai.sh)"
-      command_body="${quiet_browser_env} \"${aireset_script}\" || ${quiet_browser_env} \"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${aireset_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
+      command_body+=" || ${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       ;;
     restart-ai)
       label="ai"
       launcher_path="${ai_script}"
       command_display="./ai.sh"
-      command_body="${quiet_browser_env} \"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       should_restart="1"
       ;;
     restart-aireset)
       label="aireset"
       launcher_path="${aireset_script}"
       command_display="./aireset.sh (fallback ./ai.sh)"
-      command_body="${quiet_browser_env} \"${aireset_script}\" || ${quiet_browser_env} \"${ai_script}\""
+      command_body="${lifecycle_browser_env} \"${aireset_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
+      command_body+=" || ${lifecycle_browser_env} \"${ai_script}\""
+      if [[ -n "${browser_args_string}" ]]; then
+        command_body+=" ${browser_args_string}"
+      fi
       should_restart="1"
       ;;
     *)
@@ -1119,6 +1415,28 @@ render_prompt() {
   local prompt_template="$1"
   local destination="$2"
   local mode_label="$3"
+  local worktree_connect_info_command=""
+  local main_connect_info_command=""
+
+  worktree_connect_info_command="setta status --connect-info --latest --json --workspace ${workdir}"
+  if worktree_connect_info_command="$(
+    workspace_setta_status_command "${workdir}" --connect-info --latest --json --workspace "${workdir}"
+  )"; then
+    :
+  else
+    worktree_connect_info_command="setta status --connect-info --latest --json --workspace ${workdir}"
+  fi
+
+  main_connect_info_command="setta status --connect-info --latest --json --workspace ${main_worktree_root:-<main-worktree>}"
+  if [[ -n "${main_worktree_root:-}" ]]; then
+    if main_connect_info_command="$(
+      workspace_setta_status_command "${main_worktree_root}" --connect-info --latest --json --workspace "${main_worktree_root}"
+    )"; then
+      :
+    else
+      main_connect_info_command="setta status --connect-info --latest --json --workspace ${main_worktree_root}"
+    fi
+  fi
 
   cat > "${destination}" <<EOF
 You are running inside an automated Codex loop iteration for this repository.
@@ -1156,10 +1474,10 @@ Loop context:
 - only use headed browser sessions when browser automation mode is headed
 - use these current runtime values instead of guessing old ports if defaults were reassigned during startup
 - if you restart the current worktree lifecycle inside the iteration, refresh runtime values before continuing:
-  - connect info: \`setta status --connect-info --latest --json --workspace ${workdir}\`
+  - connect info: \`${worktree_connect_info_command}\`
   - debug port: \`pnpm -C frontend cdp-port\`
 - if you need to refresh the current main reference runtime values before a side-by-side check:
-  - connect info: \`setta status --connect-info --latest --json --workspace ${main_worktree_root:-<main-worktree>}\`
+  - connect info: \`${main_connect_info_command}\`
   - debug port: \`cd ${main_worktree_root:-<main-worktree>} && pnpm -C frontend cdp-port\`
   - frontend url: read the latest \`Local:\` entry from \`${main_runtime_log_path:-the main lifecycle log}\` instead of guessing \`http://127.0.0.1:3000\`
 
@@ -1857,6 +2175,7 @@ worktree_bootstrap_url=""
 worktree_debug_port=""
 worktree_runtime_log_path=""
 main_worktree_root="$(discover_main_worktree_root "${workdir}" || true)"
+main_effective_lifecycle=""
 main_frontend_url=""
 main_backend_url=""
 main_bootstrap_url=""
@@ -1958,9 +2277,9 @@ for ((iteration = 1; ; iteration += 1)); do
       echo "Cannot run main lifecycle; main worktree root could not be discovered." >&2
       exit 1
     fi
-    echo "[$iteration/$iterations] Bootstrapping main (${main_lifecycle})"
+    main_effective_lifecycle="${main_lifecycle}"
     set +e
-    run_lifecycle_mode "main" "${main_worktree_root}" "${main_lifecycle}" "${run_dir}" "${resolved_terminal_mode}" "0"
+    bootstrap_main_reference "${main_worktree_root}" "${main_lifecycle}" "${run_dir}" "${resolved_terminal_mode}" "${iteration}/${iterations}"
     main_lifecycle_exit_code="$?"
     set -e
     if [[ "${main_lifecycle_exit_code}" -ne 0 ]]; then
@@ -1968,7 +2287,7 @@ for ((iteration = 1; ; iteration += 1)); do
         "status=bootstrap-failure" \
         "mode=bootstrap" \
         "exit_code=${main_lifecycle_exit_code}" \
-        "lifecycle_mode=${main_lifecycle}"
+        "lifecycle_mode=${main_effective_lifecycle:-${main_lifecycle}}"
       echo "[$iteration/$iterations] Main bootstrap failed with exit code ${main_lifecycle_exit_code}; retrying next iteration." >&2
       if [[ "${stop_on_error}" == "1" ]]; then
         exit "${main_lifecycle_exit_code}"
