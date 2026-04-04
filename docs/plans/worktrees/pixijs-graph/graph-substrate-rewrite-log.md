@@ -4075,3 +4075,33 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move off the now-closed Browser lane and pick the next shared normalized Gate 1 / Gate 2 motion lane on `All Settings` (for example, a different shared named section or a short pan/drag lane) instead of spending another pass on Browser-only churn
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 12:36 EDT - Ralph item 120
+
+- Investigated the next Browser-specific motion lane and closed it as non-viable on the current normalized live surfaces; the speculative probe was reverted before commit.
+- Why this slice was necessary:
+  - item `119` had already closed the Browser compression lane and explicitly said to move off Browser-only churn
+  - the narrowest remaining question was whether `browserSectionDefault` exposed a stable Browser body/control anchor that could support a new normalized motion probe on both worktree canary and read-only `main`
+- What this slice established:
+  - a fresh-context CDP sub-agent inspected the normalized live Browser lane on worktree `3075` and read-only `3087`
+  - the assumed Browser path-field anchor (`CodeMirror-<sectionId>-browser-path`) was not present on either live normalized surface
+  - a speculative Playwright probe for that path-field anchor was attempted and then rewritten to try Browser view-mode controls, but the normalized Playwright lane likewise did not expose matching visible `List view` / `Icon view` controls
+  - both speculative probe shapes were reverted before the final tree state, so no production or test code changed in the committed result
+- Verification:
+  - refreshed run-039 runtime/bootstrap values during the investigation:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-039/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-039/main-ai.log`
+  - exploratory targeted Playwright reruns were attempted on fresh run-039 bootstrap tokens:
+    - `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the Browser path input working after normalized motion on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed; the path-field anchor was not present
+    - `env ... pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the Browser view controls working after normalized motion on read-only main legacy and worktree canary' --reporter=line`
+      - result: failed; the fallback Browser view controls were also not present on the normalized Playwright lane
+  - fresh-context CDP sub-agent finding:
+    - no live Browser path-field anchor was present on either normalized tab
+    - this lane should not be retried without one explicit normalization step that first exposes a real Browser control surface on both sides
+  - CDP visual check: done (fresh-context Browser-lane viability inspection on live `3075` canary vs read-only `3087` legacy; the assumed Browser path/control anchors are not exposed on the normalized live DOM)
+- Lane status:
+  - close the attempted Browser body-motion lane as a blocked/invalid compare shape for the current normalized `All Settings` state
+  - do not reopen Browser-anchor work without first proving that a real Browser control surface is visible on both tabs after normalization
+- Next frontier:
+  - pick a different shared normalized Gate 1 / Gate 2 motion lane whose control/body anchor is visibly present on both surfaces after `clear viewport -> fit view`, instead of spending another iteration on Browser-anchor guesswork
+- LOOP_TERMINAL_MARKER: none

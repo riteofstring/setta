@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 12:12 EDT
+Last updated: 2026-04-04 12:36 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,26 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `120` closed the attempted Browser body-motion probe as a non-viable lane for the current normalized live surfaces and reverted the speculative test before commit.
+  - Why this slice was needed:
+    - item `119` explicitly said to move off the now-closed Browser compression lane and pick the next shared normalized Gate 1 / Gate 2 motion lane instead of spending another pass on Browser-only churn
+    - the narrowest candidate looked like a Browser-specific body/control lane on the same shared `browserSectionDefault` section, but only if a stable visible Browser control actually existed on both live normalized surfaces
+  - What this iteration established:
+    - a fresh-context CDP sub-agent read the browser MCP quickstart, normalized the live worktree `3075` and read-only `3087` settings pages, and checked the Browser lane directly
+    - the assumed Browser path-field anchor (`CodeMirror-<sectionId>-browser-path`) does not exist on either normalized live surface
+    - the follow-up speculative Playwright probe for Browser path editing was not kept; after that failed, a second attempt to pivot to Browser view-mode controls also found no matching visible `List view` / `Icon view` buttons on the normalized Playwright surfaces
+    - both speculative probe shapes were reverted before commit, so the repo remains in a clean code state
+  - Verification result:
+    - refreshed run-039 runtime/bootstrap values during the investigation:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-039/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-039/main-ai.log`
+    - exploratory targeted Playwright reruns on fresh tokens were attempted and failed for the same root reason: the assumed Browser anchors were not present on the normalized live DOM
+    - fresh-context CDP finding: no live Browser path-field anchor was present on either side, so this lane is not a trustworthy next probe without an explicit Browser-unminimize normalization step first
+    - CDP visual check: done (fresh-context Browser-lane viability inspection on live `3075` canary vs read-only `3087` legacy; the assumed Browser path/control anchors are not exposed on the normalized live DOM)
+  - conclusion for this slice:
+    - do not spend another iteration assuming `browserSectionDefault` exposes a usable body/control anchor after the current normalized `All Settings -> fit view` setup
+    - if Browser must become the next lane later, first add one explicit normalization that makes its real control surface visible on both tabs; otherwise pick a different shared section whose live controls are already present after normalization
+    - the next iteration should pick a different shared normalized Gate 1 / Gate 2 motion lane with a control or body anchor that is visibly present on both surfaces, not more Browser-anchor guesswork
 - Ralph item `119` closed the Browser authoritative-move-plus-fit compression lane by fixing the canary fit/state paths that were masking live backend layout updates and overfitting to stale section bounds.
   - Why this slice was needed:
     - item `118` had already isolated the first real production frontier on the shared Browser lane: after the same authoritative `+120,+80` move and targeted fit, the canary looked visibly compressed while read-only `main` did not
@@ -2933,14 +2953,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- The next bounded slice is to investigate the newly isolated canary fit/compression defect on the shared Browser authoritative-move lane, not to add another support probe.
-- Item `118` now provides the deterministic support artifact for this lane:
-  - keep using the normalized `All Settings` setup, shared `browserSectionDefault` target, authoritative `+120,+80` move, and targeted refit before judging the graph surface
-  - do not reopen the older pan-and-zoom title-edit lane or the direct CDP mouse-drag surrogate debate unless this exact move-plus-fit artifact stops reproducing
-- Treat the active blocker as a production renderer/layout question, not tooling debt:
-  - the new Playwright parity probe passed on the current run-037 runtimes
-  - the required live CDP gate also ran cleanly enough to confirm title-edit parity and isolate a remaining canary-only geometry mismatch
-- The next production question to answer is why the canary fit path leaves the moved `browserSectionDefault` section visually compressed after the authoritative move while read-only `main` renders the same moved section at normal size.
+- The Browser authoritative-move compression lane is closed by item `119`; do not reopen it unless a fresh normalized compare reproduces the old size/layout mismatch.
+- The attempted Browser body-motion lane is also blocked for now by item `120`:
+  - the assumed Browser path-field anchor is not present on either normalized live surface
+  - the fallback Browser view-mode controls were likewise not exposed on the normalized Playwright lane
+  - do not spend another iteration on Browser-anchor guesswork unless the next slice first adds one explicit normalization that makes a real Browser control surface visible on both tabs
+- The next bounded slice should therefore pick one different shared normalized Gate 1 / Gate 2 motion lane on `All Settings` whose target control/body anchor is already visibly present on both surfaces after `clear viewport -> fit view`.
+- Prefer a lane that can still expose a real renderer or interaction-state defect without more support churn:
+  - one short shared pan/drag/motion pulse on a different shared named section
+  - or one existing Playwright-backed lane whose live target control is visibly present after normalization
 - The cleared-viewport `All Settings` landing lane is now closed for the current live runtimes:
   - item `092` shows that after clearing the authoritative viewport on both worktree canary and read-only `main` legacy, one shared named top-level section lands with matching transform/rect/center-offset metrics
   - do not reopen this lane with DOM order or “first visible card” assertions unless a future compare shows an actual shared named section mismatch after clearing viewport
@@ -3046,6 +3067,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `118`
-- Latest item: `2026-04-04 118`
+- Active history window: items `001` through `120`
+- Latest item: `2026-04-04 120`
 - Older history archives: none yet
