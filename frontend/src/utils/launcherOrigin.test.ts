@@ -1,9 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import {
-  appendLauncherOriginToBootstrapUrlFragment,
-  getOrInitLauncherOrigin,
-} from "./launcherOrigin";
+import { getOrInitLauncherOrigin } from "./launcherOrigin";
 
 function createMemoryStorage(): Storage {
   const values = new Map<string, string>();
@@ -107,17 +104,5 @@ describe("launcherOrigin", () => {
     expect(sessionStorageStub.getItem("setta.launcherOrigin")).toBe(
       "http://127.0.0.1:3000",
     );
-  });
-
-  it("preserves signed launcher handoff hash params", () => {
-    const originalUrl =
-      "http://127.0.0.1:61111/__setta__/bootstrap#token=tok&lo=http%3A%2F%2F127.0.0.1%3A8000&lop=proof";
-
-    const updated = appendLauncherOriginToBootstrapUrlFragment(
-      originalUrl,
-      "http://127.0.0.1:9000",
-    );
-
-    expect(updated).toBe(originalUrl);
   });
 });

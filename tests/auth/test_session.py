@@ -3,10 +3,14 @@ from pathlib import Path
 
 import pytest
 
-from setta.auth import session as auth_session
+import setta.auth.session as auth_session
+
 from setta.auth.session import load_current_session_secret
-from setta.sessions import SessionRegistry
-from setta.sessions.constants import SESSION_ID_ENV_VAR, SESSIONS_ROOT_ENV_VAR
+from setta.sessions.registry import SessionRegistry
+from setta.types.generated.go_shared_constants import (
+    SESSIONS_ROOT_ENV_VAR,
+    SESSION_ID_ENV_VAR,
+)
 from setta.utils.constants import C
 
 
