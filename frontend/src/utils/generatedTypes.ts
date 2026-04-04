@@ -304,9 +304,6 @@ export function createExternalAgentPreflightStatus(
   return options as ExternalAgentPreflightStatus;
 }
 
-export type ExternalAgentPreflightStatusListResponse =
-  Array<ExternalAgentPreflightStatus>;
-
 export type GetExternalAgentConfigRequestInput = {
   configId: string;
 };
@@ -855,12 +852,6 @@ export function createAllLLMConfigs(
   return options as AllLLMConfigs;
 }
 
-export type BinaryUploadRequestInput = FormData;
-
-export type BinaryDownloadRequestInput = {
-  contentId: string;
-};
-
 export type BinaryDownloadResponse = Uint8Array;
 
 const UploadScopeEnum = {
@@ -873,17 +864,6 @@ export type ImportFilesToArtifactsRequestInput = {
   paths: Array<string>;
   uploadScope: UploadScope;
 };
-
-type ImportFilesToArtifactsResponseItem = {
-  kind: string;
-  id: string;
-  name: string;
-  mimeType: string;
-  size: number;
-};
-
-export type ImportFilesToArtifactsResponse =
-  Array<ImportFilesToArtifactsResponseItem>;
 
 export type LoadCachedArtifactsRequestInput = {
   paths: Array<string>;
@@ -1127,29 +1107,11 @@ type ArtifactSaveConflictStrategy = ObjectValues<
   typeof ArtifactSaveConflictStrategyEnum
 >;
 
-const ArtifactSaveStatusEnum = {
-  saved: "saved",
-  unchanged: "unchanged",
-  skipped: "skipped",
-  conflict: "conflict",
-} as const;
-type ArtifactSaveStatus = ObjectValues<typeof ArtifactSaveStatusEnum>;
-
-type ArtifactSaveResult = {
-  id: string;
-  type: ArtifactType;
-  status: ArtifactSaveStatus;
-  backupPath?: string | null;
-  message?: string | null;
-};
-
 export type UpdateArtifactsRequestInput = {
   artifacts: Array<ArtifactUnion>;
   conflictStrategy?: ArtifactSaveConflictStrategy | null;
   uploadScope?: string | null;
 };
-
-export type UpdateArtifactsResponse = Array<ArtifactSaveResult>;
 
 type DeleteArtifactRequestItem = {
   id: string;
@@ -1159,8 +1121,6 @@ type DeleteArtifactRequestItem = {
 export type DeleteArtifactsRequestInput = {
   artifacts: Array<DeleteArtifactRequestItem>;
 };
-
-export type DeleteArtifactsResponse = Array<string>;
 
 export type LoadCachedImageArtifactsResponse = Array<ImageArtifact | null>;
 
@@ -1290,10 +1250,6 @@ export type LaunchResponse = {
 type LauncherHomeErrorPayload = {
   code: string;
   message: string;
-};
-
-export type GetLauncherRecentWorkspacesRequestInput = {
-  setta_home?: string | null;
 };
 
 export type LauncherRecentWorkspacePayload = {
@@ -1429,10 +1385,6 @@ type LauncherOperationErrorPayload = {
   message: string;
 };
 
-export type GetLauncherStatusRequestInput = {
-  setta_home?: string | null;
-};
-
 export type LauncherStatusResponse = {
   ok: boolean;
   installed?: boolean | null;
@@ -1504,41 +1456,6 @@ export type SetupLauncherRequestInput = {
 export type UpdateLauncherRequestInput = {
   settaHome: string | null;
   packageSpec: string | null;
-};
-
-const AppCatalogPropTypeEnum = {
-  string: "string",
-  number: "number",
-  dimension: "dimension",
-  boolean: "boolean",
-} as const;
-type AppCatalogPropType = ObjectValues<typeof AppCatalogPropTypeEnum>;
-
-type AppCatalogProp = {
-  type: AppCatalogPropType;
-  responsive?: boolean;
-  required?: boolean;
-  min?: number | null;
-  max?: number | null;
-  enum?: Array<unknown>;
-  default?: unknown;
-};
-
-type AppCatalogComponent = {
-  type: string;
-  children: boolean;
-  props?: Record<string, AppCatalogProp>;
-};
-
-type AppCatalogAction = {
-  name: string;
-};
-
-export type AppCatalogResponse = {
-  id: string;
-  version: string;
-  components: Array<AppCatalogComponent>;
-  actions: Array<AppCatalogAction>;
 };
 
 export type AppRoute = {
@@ -1617,11 +1534,6 @@ export type AppDefinitionValidationResponse = {
   capabilities: AppCapabilities;
 };
 
-export type AppDefinitionMutationResponse = {
-  appSpec: unknown;
-  appDefinition?: AppDefinition | null;
-};
-
 type SettaLspDiagnosticPosition = {
   line: number;
   character: number;
@@ -1668,14 +1580,6 @@ export function createSettaLspDiagnosticsPayload(
 ): SettaLspDiagnosticsPayload {
   return options as SettaLspDiagnosticsPayload;
 }
-
-export type GetLatestLspDiagnosticsRequestInput = {
-  projectConfigId: string;
-};
-
-export type TypeCheckRequestInput = {
-  projectConfigId: string;
-};
 
 export type SetTypeErrorIgnoreRequestInput = {
   projectConfigId: string;
@@ -1817,9 +1721,6 @@ export type AttachmentDownloadURLEntry = {
   url: string;
   expiresAt: number;
 };
-
-export type GetAttachmentDownloadURLsResponse =
-  Array<AttachmentDownloadURLEntry>;
 
 export type ForceRefreshListenerRequestInput = {
   projectConfigId: string;
@@ -2120,12 +2021,6 @@ export type PluginInstallResponse = {
   trustStatus: PluginSourceTrustStatus;
   trustWarning: string;
   components: Array<string>;
-  state: PluginRuntimeState;
-  restartRequired: boolean;
-};
-
-export type PluginEnableDisableResponse = {
-  pluginId: string;
   state: PluginRuntimeState;
   restartRequired: boolean;
 };
@@ -3326,7 +3221,7 @@ type ClipboardProjectStateCoreWithSectionVariantMap = {
   sectionVariantMap: Record<string, string>;
 };
 
-type SectionsClipboardData = {
+export type SectionsClipboardData = {
   type: typeof ClipboardDataTypeEnum.Sections;
   data: ClipboardProjectStateCoreWithSectionVariantMap;
 };
@@ -3542,21 +3437,10 @@ export type AIFollowToolResultUpdateContent = {
 export type AIFollowSnapshotResponse =
   Array<AIFollowToolArgumentsUpdateContent>;
 
-type CodeMirrorCompletion = {
-  label: string;
-  type: string;
-};
-
-export type CodeMirrorCompletionResponse = Array<CodeMirrorCompletion>;
-
 export type CreateNewSectionVariantRequestInput = {
   frontendOpId: string | null;
   projectConfigId: string;
   sectionId: string;
-};
-
-export type CreateNewSectionVariantResponse = {
-  variantId: string;
 };
 
 export type SetSectionVariantRequestInput = {
@@ -3639,23 +3523,6 @@ export const SectionTypeEnum = {
 } as const;
 export type SectionType = ObjectValues<typeof SectionTypeEnum>;
 
-export type CreateChildSectionsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  parentId: string;
-  implType: SectionType;
-  numChildren: number;
-  startIdx?: number | null;
-};
-
-export type CreateChildSectionsViaIncrementerRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  calledBy: string;
-  implType: SectionType;
-  numChildren: number;
-};
-
 export type CreateChildSectionsResponse = {
   sectionIds: Array<string>;
 };
@@ -3665,10 +3532,6 @@ export type DeleteChildSectionsViaDecrementerRequestInput = {
   projectConfigId: string;
   calledBy: string;
   numChildren: number;
-};
-
-export type DeleteChildSectionsViaDecrementerResponse = {
-  sectionIds: Array<string>;
 };
 
 export type DeleteSectionsRequestInput = {
@@ -3703,24 +3566,6 @@ export type PasteSectionsRequestInput = {
 
 export type SectionsClipboardDataResponse = SectionsClipboardData;
 
-export type CreateEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown> | null;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown> | null;
-};
-
 export type UpdateEdgeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -3749,24 +3594,6 @@ export type SetEdgesRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
   edges: Array<Edge>;
-};
-
-export type CreateStateMachineEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  id?: string | null;
-  machineGroupId: string;
-  sourceSectionId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetPortId: string;
-  sourceFilter?: StateMachineSourceFilter | null;
-  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
-  targetAction?: StateMachineTargetAction | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
 };
 
 export type UpdateStateMachineEdgeRequestInput = {
@@ -3800,19 +3627,6 @@ export const AgenticEdgeContextModeEnum = {
   summary: "summary",
 } as const;
 type AgenticEdgeContextMode = ObjectValues<typeof AgenticEdgeContextModeEnum>;
-
-export type CreateAgenticEdgeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  id?: string | null;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-};
 
 export type UpdateAgenticEdgeRequestInput = {
   frontendOpId?: string | null;
@@ -5097,10 +4911,6 @@ export function createSettingsState(
   };
 }
 
-export type SaveSettingsRequestInput = {
-  settings: SettingsState;
-};
-
 type SectionTypeCodegenPolicy = {
   mode: SectionCodegenMode;
   representation: SectionRepresentationMode;
@@ -5503,8 +5313,6 @@ export type CreateViewModeRequestInput = {
   projectConfigId: string;
 };
 
-export type CreateViewModeResponse = string;
-
 export type SetActiveViewModeRequestInput = {
   frontendOpId: string | null;
   projectConfigId: string;
@@ -5683,12 +5491,6 @@ export type SetSectionPinnedParamsRequestInput = {
   pinnedParams: Array<string>;
 };
 
-export type SetProjectConfigCodegenTargetsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  codegenTargets: Array<ProjectCodegenTarget>;
-};
-
 export const ChatPermissionModeEnum = {
   minimal: "minimal",
   yolo: "yolo",
@@ -5758,12 +5560,6 @@ export type UngroupGroupsRequestInput = {
   frontendOpId: string | null;
   projectConfigId: string;
   groupIds: Array<string>;
-};
-
-export type SetSectionSizesRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionSizes: Record<string, SectionSize>;
 };
 
 export type ToggleParamSelectedRequestInput = {
@@ -7979,13 +7775,6 @@ export type SetSectionEdgeOutputsRequestInput = {
   edgeOutputPorts: Array<EdgePort>;
 };
 
-export type SetParentDefaultChildSectionTypeRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  defaultChildSectionType: SectionType;
-};
-
 export type SetListRootViewModeRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -8098,14 +7887,6 @@ export type SetChartTypeRequestInput = {
   chartType: ChartType;
 };
 
-export type SetChartSettingsRequestInput = {
-  frontendOpId?: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  chartSettings: BaseChartSettingsUnion;
-  changedSettings: Array<string>;
-};
-
 export type SetTextBlockTextRequestInput = {
   frontendOpId?: string | null;
   projectConfigId: string;
@@ -8183,17 +7964,6 @@ export type InterruptTerminalProcessesRequestInput = {
 
 export type InterruptTerminalProcessesResponse = {
   interruptedSessionCount: number;
-};
-
-export type RunCodeRequestInput = {
-  projectConfigId: string;
-  sectionId: string | null;
-  terminalSectionId?: string | null;
-  cliId?: string | null;
-  runSnapshotMode?: RunSnapshotMode | null;
-  drawSnapshotsBySectionId?: Record<string, BinaryContentRef> | null;
-  sectionVariantOverrides?: Record<string, string> | null;
-  paramOverrides?: Record<string, string> | null;
 };
 
 export const WebsocketConnectionTypeEnum = {
@@ -8362,25 +8132,19 @@ export type FrontendWebsocketMsgUnion = {
   content: any;
 };
 
-export type DeleteSectionVariantOrAskRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
+export type AppendTranscriptionAudioRequest = {
+  sessionId: string;
+  audioPcm16Base64: string;
+  sampleRateHz: number;
+  channels: number;
 };
 
-export type DeleteJSONSourceFileAndVariantRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  variantId: string;
-  filepath: string;
+export type CancelTranscriptionSessionRequest = {
+  sessionId: string;
 };
 
-export type ProjectConfigMutationResponse = {
-  projectConfig: ProjectConfig;
-};
-
-export type RevealPathInOSFileExplorerRequest = {
-  path: string;
+export type CancelTranscriptionSessionResponse = {
+  ok: boolean;
 };
 
 export type ChangeParamImplRequest = {
@@ -8391,8 +8155,159 @@ export type ChangeParamImplRequest = {
   selectedId: string;
 };
 
+export type CreateAgenticEdgeRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  id: string | null;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: string;
+  contextMode: string | null;
+  style: JSONValue;
+  hidden: boolean;
+  zIndex: number;
+};
+
+export type CreateChildSectionsRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  parentId: string;
+  implType: string;
+  numChildren: number;
+  startIdx: number | null;
+};
+
+export type CreateChildSectionsViaIncrementerRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  calledBy: string;
+  implType: string;
+  numChildren: number;
+};
+
+export type CreateEdgeRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type: string;
+  label: string | null;
+  style: JSONValue;
+  animated: boolean;
+  hidden: boolean;
+  zIndex: number;
+  data: JSONValue;
+};
+
+export type CreateStateMachineEdgeRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  id: string | null;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter: StateMachineSourceFilter | null;
+  sourceActivationCountCondition: StateMachineSourceActivationCountCondition | null;
+  targetAction: StateMachineTargetAction | null;
+  style: JSONValue;
+  hidden: boolean;
+  zIndex: number;
+  selected: boolean;
+};
+
+export type CreateWindowSpaceRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  state: WindowSpaceState;
+  name?: string | null;
+};
+
+export type WindowSpaceMutationResponse = {
+  projectConfig: ProjectConfig;
+  windowSpaceId?: string | null;
+};
+
+export type DeleteJSONSourceFileAndVariantRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+  filepath: string;
+};
+
+export type DeleteSectionVariantOrAskRequest = {
+  projectConfigId: string;
+  sectionId: string;
+  variantId: string;
+};
+
+export type ProjectConfigMutationResponse = {
+  projectConfig: ProjectConfig;
+};
+
+export type DeleteWindowSpaceRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  windowSpaceId: string;
+};
+
 export type DocstringToMarkdownRequest = {
   docstring: string;
+};
+
+export type GetAgenticSummaryCacheStatusRequest = {
+  projectConfigId: string;
+  chatSectionId: string;
+};
+
+export type GetAIFollowSnapshotRequest = {
+  projectConfigId: string;
+};
+
+export type GetChatSectionChatIDRequest = {
+  projectConfigId: string;
+  sectionId: string;
+};
+
+export type GetExternalAgentChatResponse = {
+  messages: Array<Record<string, unknown>>;
+  waitingForResponse: boolean;
+  toolCallArguments: Record<string, string>;
+  contextUsage: ChatContextUsage | null;
+  appGenerationByMessageId: Record<string, string>;
+};
+
+export type ProjectStateSingleConfigWithCompletedOpIDs = {
+  projectState: ProjectStateSingleConfig;
+  completedOpIds: Array<string>;
+  pendingOpIds: Array<string>;
+};
+
+export type GetLLMResponseRequest = {
+  chatId: string | null;
+  continueFromChatId: string | null;
+  message: Record<string, unknown>;
+  engineConfigId: string;
+  agentProfileId: string | null;
+  thinking: boolean;
+  projectConfigId: string;
+  sectionId: string | null;
+  frontendAffinityToken: string | null;
+  allowUnscoped: boolean;
+  branchParentChatId: string | null;
+  branchFromMessageId: string | null;
+  appSpecStreamingEnabled?: boolean;
+  permissionMode: string;
+  searchEnabled: boolean;
+  appGenerationMode: string | null;
+  appGenerationByMessageId: Record<string, string>;
+  appGenerationReferenceImageUrl: string | null;
+  appGenerationReferenceImageNotes: string | null;
 };
 
 type RunnerSummaryVariant = {
@@ -8420,80 +8335,6 @@ export type RunnerSummarySnapshot = {
   sections: Array<RunnerSummarySection>;
 };
 
-export type StartTranscriptionSessionRequest = {
-  transcriptionProfileId: string;
-  language: string | null;
-};
-
-export type StartTranscriptionSessionResponse = {
-  sessionId: string;
-  resolvedTransportMode: string;
-  chunkMs: number;
-};
-
-export type AppendTranscriptionAudioRequest = {
-  sessionId: string;
-  audioPcm16Base64: string;
-  sampleRateHz: number;
-  channels: number;
-};
-
-export type StopTranscriptionSessionRequest = {
-  sessionId: string;
-};
-
-export type CancelTranscriptionSessionRequest = {
-  sessionId: string;
-};
-
-export type CancelTranscriptionSessionResponse = {
-  ok: boolean;
-};
-
-export type GetLLMResponseRequest = {
-  chatId: string | null;
-  continueFromChatId: string | null;
-  message: Record<string, unknown>;
-  engineConfigId: string;
-  agentProfileId: string | null;
-  thinking: boolean;
-  projectConfigId: string;
-  sectionId: string | null;
-  frontendAffinityToken: string | null;
-  allowUnscoped: boolean;
-  branchParentChatId: string | null;
-  branchFromMessageId: string | null;
-  appSpecStreamingEnabled?: boolean;
-  permissionMode: string;
-  searchEnabled: boolean;
-  appGenerationMode: string | null;
-  appGenerationByMessageId: Record<string, string>;
-  appGenerationReferenceImageUrl: string | null;
-  appGenerationReferenceImageNotes: string | null;
-};
-
-export type GetLLMChatRequest = {
-  chatId: string;
-  projectConfigId: string | null;
-};
-
-export type StopLLMChatRequest = {
-  chatId: string;
-};
-
-export type GetExternalAgentChatRequest = {
-  chatId: string;
-  projectConfigId: string | null;
-};
-
-export type GetAIFollowSnapshotRequest = {
-  projectConfigId: string;
-};
-
-export type StopExternalAgentRunRequest = {
-  runId: string;
-};
-
 export type RespondExternalAgentApprovalRequest = {
   approvalId: string;
   approved: boolean;
@@ -8504,9 +8345,48 @@ export type RespondExternalAgentQuestionRequest = {
   answers: Record<string, string>;
 };
 
-export type GetChatSectionChatIDRequest = {
+export type RevealPathInOSFileExplorerRequest = {
+  path: string;
+};
+
+export type RunCodeRequest = {
   projectConfigId: string;
   sectionId: string;
+  terminalSectionId: string;
+  cliId: string;
+  runSnapshotMode: RunSnapshotMode;
+  drawSnapshotsBySectionId: Record<string, BinaryContentRef>;
+  sectionVariantOverrides: Record<string, string>;
+  paramOverrides: Record<string, string>;
+};
+
+export type SaveSettingsRequest = {
+  settings: unknown;
+};
+
+export type RunningBackendVersionHandshake = {
+  sdkVersion: string;
+  coreVersion: string;
+  sdkContractVersion: number;
+};
+
+type ChartSettingsUpdate = {
+  type: ChartType;
+  xAxisColumn: string | null;
+  secondYAxisColumns: Array<string>;
+  categoryColumn: string | null;
+  xAxisLog: boolean;
+  y1AxisLog: boolean;
+  y2AxisLog: boolean;
+  yAxisLog: boolean;
+};
+
+export type SetChartSettingsRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  chartSettings: ChartSettingsUpdate;
+  changedSettings: Array<string>;
 };
 
 export type SetChatSectionChatIDRequest = {
@@ -8514,6 +8394,46 @@ export type SetChatSectionChatIDRequest = {
   projectConfigId: string;
   sectionId: string;
   chatId: string | null;
+};
+
+export type SetParentDefaultChildSectionTypeRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  defaultChildSectionType: string;
+};
+
+export type SetProjectChatWindowChatIDRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  instanceId: string;
+  chatId: string | null;
+};
+
+export type SetProjectChatWindowingStateRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  state: ProjectChatWindowingState;
+};
+
+export type SetProjectConfigCodegenTargetsRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  codegenTargets: Array<JSONValue>;
+};
+
+export type SetPromptFormatRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  format: PromptFormat;
+};
+
+export type SetPromptInputsRequest = {
+  frontendOpId: string | null;
+  projectConfigId: string;
+  sectionId: string;
+  inputs: Record<string, string>;
 };
 
 export type SetPromptTemplateRequest = {
@@ -8530,30 +8450,20 @@ export type SetPromptTemplateLinkRequest = {
   promptTemplateId?: string | null;
 };
 
-export type SetPromptInputsRequest = {
-  frontendOpId: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  inputs: Record<string, string>;
+type sectionSizeValueRequest = {
+  auto: boolean;
+  value: number;
 };
 
-export type SetPromptFormatRequest = {
-  frontendOpId: string | null;
-  projectConfigId: string;
-  sectionId: string;
-  format: PromptFormat;
+type sectionSizeRequest = {
+  width: sectionSizeValueRequest;
+  height: sectionSizeValueRequest;
 };
 
-export type CreateWindowSpaceRequest = {
+export type SetSectionSizesRequest = {
   frontendOpId: string | null;
   projectConfigId: string;
-  state: WindowSpaceState;
-  name?: string | null;
-};
-
-export type WindowSpaceMutationResponse = {
-  projectConfig: ProjectConfig;
-  windowSpaceId?: string | null;
+  sectionSizes: Record<string, sectionSizeRequest>;
 };
 
 export type SetWindowSpaceNameRequest = {
@@ -8569,81 +8479,27 @@ export type SetWindowSpaceSortOrderRequest = {
   orderedWindowSpaceIds: Array<string>;
 };
 
-export type DeleteWindowSpaceRequest = {
-  frontendOpId: string | null;
-  projectConfigId: string;
-  windowSpaceId: string;
+export type StartTranscriptionSessionRequest = {
+  transcriptionProfileId: string;
+  language: string | null;
 };
 
-export type SetProjectChatWindowingStateRequest = {
-  frontendOpId: string | null;
-  projectConfigId: string;
-  state: ProjectChatWindowingState;
+export type StartTranscriptionSessionResponse = {
+  sessionId: string;
+  resolvedTransportMode: string;
+  chunkMs: number;
 };
 
-export type SetProjectChatWindowChatIDRequest = {
-  frontendOpId: string | null;
-  projectConfigId: string;
-  instanceId: string;
-  chatId: string | null;
+export type StopExternalAgentRunRequest = {
+  runId: string;
 };
 
-export type GetAgenticSummaryCacheStatusRequest = {
-  projectConfigId: string;
-  chatSectionId: string;
+export type StopLLMChatRequest = {
+  chatId: string;
 };
 
-export type ClearTextFieldCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-};
-
-export type TextFieldCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  paramInfoId: string | null;
-  fullText: string;
-  position: number;
-};
-
-export type OutputAccessorCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  fullText: string;
-  position: number;
-};
-
-export type CodeAreaCompletionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  fullText: string;
-  position: number;
-};
-
-export type GenCodePrefixCompletionRequest = {
-  projectConfigId: string;
-  fullText: string;
-  position: number;
-};
-
-export type GenCodeSuffixCompletionRequest = {
-  projectConfigId: string;
-  fullText: string;
-  position: number;
-};
-
-export type SetCodeSectionDiagnosticsMuteRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  mute: boolean;
-};
-
-export type SetCodeSectionDiagnosticCodeSuppressionRequest = {
-  projectConfigId: string;
-  sectionId: string;
-  code: unknown;
-  suppress: boolean;
+export type StopTranscriptionSessionRequest = {
+  sessionId: string;
 };
 
 export type GeneratedAppGenerationMode =

@@ -223,20 +223,6 @@ func TestBuildBindingsRejectsInvalidEndpointSpecs(t *testing.T) {
 			},
 			want: "has path params but no path params type",
 		},
-		{
-			name: "unnamed path params type",
-			spec: EndpointSpec{
-				FunctionName:    "route_load_thing_by_id",
-				Method:          "GET",
-				RouteCollection: "GoHTTPRoutes",
-				RouteName:       "loadThingByID",
-				PathParamsType: reflect.TypeOf(struct {
-					ThingID string `json:"thingId"`
-				}{}),
-				ResponseType: reflect.TypeOf(BuildTestResponse{}),
-			},
-			want: "path params type must be a named Go type",
-		},
 	}
 
 	for _, tt := range tests {

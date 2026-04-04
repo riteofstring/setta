@@ -436,9 +436,6 @@ func validateEndpointSpecs(routeGroups []RouteGroup, endpointSpecs []EndpointSpe
 		if spec.RequestType != nil && frontendTypeName(spec.RequestType) == "" {
 			return fmt.Errorf("endpoint %s: request type must be a named Go type, got %s", spec.FunctionName, spec.RequestType.String())
 		}
-		if spec.PathParamsType != nil && frontendTypeName(spec.PathParamsType) == "" {
-			return fmt.Errorf("endpoint %s: path params type must be a named Go type, got %s", spec.FunctionName, spec.PathParamsType.String())
-		}
 		if spec.ResponseType != nil && frontendTypeName(spec.ResponseType) == "" {
 			return fmt.Errorf("endpoint %s: response type must be a named Go type, got %s", spec.FunctionName, spec.ResponseType.String())
 		}
@@ -530,7 +527,7 @@ func validateEndpointPathParams(spec EndpointSpec, routePath string) error {
 			return fmt.Errorf(
 				"endpoint %s: path params type %s is missing route param %q",
 				spec.FunctionName,
-				frontendTypeName(spec.PathParamsType),
+				pathParamsTypeLabel(spec.PathParamsType),
 				routeParamName,
 			)
 		}
@@ -540,7 +537,7 @@ func validateEndpointPathParams(spec EndpointSpec, routePath string) error {
 			return fmt.Errorf(
 				"endpoint %s: path params type %s includes extra field %q not present in route %s",
 				spec.FunctionName,
-				frontendTypeName(spec.PathParamsType),
+				pathParamsTypeLabel(spec.PathParamsType),
 				field.Name,
 				routePath,
 			)
@@ -930,6 +927,16 @@ func endpointPathParamFields(t reflect.Type) ([]endpointPathParamField, error) {
 		return nil, fmt.Errorf("path params type %s has no exported JSON fields", t.Name())
 	}
 	return fields, nil
+}
+
+func pathParamsTypeLabel(t reflect.Type) string {
+	if t == nil {
+		return "<nil>"
+	}
+	if name := frontendTypeName(t); name != "" {
+		return name
+	}
+	return t.String()
 }
 
 func endpointRequestFields(t reflect.Type) ([]endpointRequestField, error) {

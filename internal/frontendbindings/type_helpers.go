@@ -10,8 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"setta/internal/externalagents"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/transcriptionsessions"
 )
 
 var timeType = reflect.TypeOf(time.Time{})
@@ -21,8 +23,10 @@ var discoveredOwnerTypeByWrapper = reverseDiscoveredWrapperTypeOverrides(discove
 
 func mergedWrapperTypeOverrides() map[reflect.Type]reflect.Type {
 	overrides := DiscoveredWrapperTypeOverrides()
+	overrides[reflect.TypeOf((*externalagents.ChatContextUsage)(nil)).Elem()] = reflect.TypeOf((*ChatContextUsage)(nil)).Elem()
 	overrides[reflect.TypeOf((*projectview.ProjectConfig)(nil)).Elem()] = reflect.TypeOf((*ProjectConfig)(nil)).Elem()
 	overrides[reflect.TypeOf((*projectview.SingleConfig)(nil)).Elem()] = reflect.TypeOf((*ProjectStateSingleConfig)(nil)).Elem()
+	overrides[reflect.TypeOf((*transcriptionsessions.Delta)(nil)).Elem()] = reflect.TypeOf((*TranscriptionSessionDeltaResponse)(nil)).Elem()
 	return overrides
 }
 
