@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 20:46 EDT
+Last updated: 2026-04-03 21:08 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `076` reran the live `drawSectionDefault` post-drop frontmost lane with corrected in-page normalization wiring and found the remaining blocker is untrustworthy CDP mouse-drop completion, not a confirmed worktree-only renderer defect.
+  - Why this slice was needed:
+    - after item `075`, the next bounded frontier was one trustworthy dynamic compare on normalized `All Settings`, and the widened `drawSectionDefault` frontmost lane already had a production fix plus a passing Playwright guard but still lacked fresh live evidence
+    - the first fresh-context CDP attempt had misrouted normalization mutations to the frontend origin, so this pass first confirmed the page-context imports and generated endpoint helpers were usable before judging the product lane
+  - Production/test change:
+    - none; this slice intentionally changed no production or test code because the bounded goal was to decide whether this lane still exposed a real worktree-only artifact
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'`
+      - result: passed (`1 passed`, about `19.5s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent reopened worktree `3076` and read-only `main` `3087`, verified in-page imports from `/src/state/definitions.ts` and `/src/utils/generatedEndpoints.ts`, and normalized the worktree page with:
+      - active view mode `All Settings`
+      - `viewport: null`
+      - durable `activeIds: []`
+      - local pane state `{ overviewVis: false, overviewTrueWidth: 420, uiEditorVis: false, uiEditorTrueWidth: 260 }`
+      - `fitView({ nodes: [{ id: drawSectionId }], padding: 0.1 })`
+    - on the worktree page, `drawSectionDefault` resolved to `e326537a-5e12-4fa9-b42e-1ebbdb7455b1`, the overlap target resolved to `8911c410-4da4-4291-9c13-7cd4c791b796`, and the overlap plan matched the Playwright helper logic with delta `{ x: 48, y: 731.36767578125 }` and projected overlap `580.70 x 352.91`
+    - the synthetic CDP drag activated the lane but never committed the drop:
+      - `data-dragging` became `true` on pointer down and stayed `true` before and after mouse up
+      - top-level layout stayed `{ x: 0, y: 2400, zIndex: 0 }` before and after the attempt
+      - moved distance remained `0`
+      - rendered temp z-index still stayed above the overlap target (`1000` vs `0`)
+    - no clear body/chrome detachment or other worktree-only graph-surface artifact appeared before the drop failed
+    - because the direct CDP mouse drop never completed on the worktree half, the read-only `main` half of the overlap-drag compare was not treated as a trustworthy product oracle
+    - CDP visual check: done (live compare attempted; drag completion itself remained untrustworthy)
+  - conclusion for this slice:
+    - do not reopen production renderer work from the `drawSectionDefault` frontmost lane based on this failed CDP mouse-drop attempt
+    - for this lane, the trustworthy evidence is still the passing Playwright drag/frontmost oracle; direct CDP mouse drag remains unreliable as the drop oracle
 - Ralph item `075` added a deterministic Playwright normalization guard for the normalized `All Settings` targeted-fit compare instead of guessing at a renderer bug from noisy live selection/view state.
   - Why this slice was needed:
     - fresh-context CDP compare on worktree `3076` versus read-only `main` `3087` did not isolate a trustworthy graph-surface-only renderer defect after lifecycle recovery
@@ -1674,12 +1702,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - item `029` aligned canary `zoomBy(...)` / `zoomTo(...)` with the legacy full-surface center, and the latest normalized compare now matches after `All Settings -> fit view -> zoom in`
   - do not reopen that lane unless the normalized Playwright canary or a fresh normalized CDP compare shows the `x` anchor drifting again
 - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
-  - the stale-browser lifecycle blocker is closed: the current worktree runtime is on frontend `3077`, backend `8077`, and the recovered CDP browser is on `9297` with a passing fresh-context MCP sanity check
+  - the stale-browser lifecycle blocker is closed: this pass used worktree frontend `3076`, backend `8076`, and the recovered CDP browser on `9297`
   - use the next iteration for the normalized `All Settings` graph-surface-only compare itself, not more lifecycle/auth cleanup
   - if the read-only `main` reference still shows websocket or oracle noise during that fresh `9297` compare, treat it as reference/oracle debt rather than a reopened worktree renderer regression unless the clean worktree surface regresses too
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
   - item `075` now locks one more normalization precondition: clear durable active-section state before the named-section fit so selection/list chrome cannot masquerade as graph-surface drift
-  - the widened `drawSectionDefault` post-drop frontmost lane now has a production fix plus a passing Playwright guard; the next fresh session should rerun that exact live CDP compare before reopening the lane
+  - the widened `drawSectionDefault` post-drop frontmost lane should not be reopened with direct CDP mouse drag unless the tool path itself changes:
+    - this pass left `data-dragging` stuck `true` after mouse up and never committed the drop layout on the worktree side
+    - reuse the existing Playwright drag/frontmost guard if this lane needs trustworthy evidence again, and pair it with CDP only for post-state inspection or screenshots
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
   - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
@@ -1688,8 +1718,8 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - the keyboard-accessible `groupSectionDefault` motion probe is also clean; do not spend another iteration repeating that exact workaround just because true CDP mouse drag was untrustworthy
   - the targeted wide-card `groupSectionDefault` Playwright drag oracle is now available; reuse it if a future compare needs trustworthy top-level drag evidence, but do not spend another iteration extending that support lane by itself
   - focus the next compare on one different trustworthy dynamic action across worktree and `main`, not more `groupSectionDefault` pan/zoom repetition:
-    - a true top-level section drag on a shared wide/body-heavy card if a trustworthy motion oracle is available
-    - or a different shared body-heavy dynamic pulse if physical drag is still not trustworthy in CDP
+    - a shared body-heavy dynamic pulse that CDP can complete end-to-end without relying on a synthetic mouse-drop commit
+    - or a post-state CDP inspection paired with an existing Playwright drag oracle if another top-level drag lane genuinely needs live visual context
     - isolate any remaining interaction-state drift or body/chrome detachment that only appears once motion starts
   - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
 - Lifecycle/bootstrap debugging is no longer the default frontier:
@@ -1717,6 +1747,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `075`
-- Latest item: `2026-04-03 075`
+- Active history window: items `001` through `076`
+- Latest item: `2026-04-03 076`
 - Older history archives: none yet

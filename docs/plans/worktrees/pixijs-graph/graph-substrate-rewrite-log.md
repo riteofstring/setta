@@ -2584,3 +2584,33 @@ LOOP_TERMINAL_MARKER: none
   - the targeted-fit normalization lane now explicitly neutralizes durable active-section noise before live compare work
 - Next frontier: rerun the normalized live CDP dynamic compare on `All Settings` using the selection-cleared targeted-fit setup, then isolate the first real graph-surface artifact that survives that normalization.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 21:08 EDT - Ralph item 076
+
+- Reran the live `drawSectionDefault` post-drop frontmost lane with corrected in-page normalization wiring and found the remaining blocker is untrustworthy CDP mouse-drop completion, not a confirmed worktree-only renderer defect.
+- Why this slice was necessary:
+  - after item `075`, the next bounded frontier was one trustworthy dynamic compare on normalized `All Settings`, and the widened `drawSectionDefault` frontmost lane already had a production fix plus a passing Playwright guard but still lacked fresh live evidence
+  - the first fresh-context CDP attempt had misrouted normalization mutations to the frontend origin, so this pass first confirmed the page-context imports and generated endpoint helpers were usable before judging the product lane
+- Production/test changes:
+  - none; this slice intentionally changed no production or test code because the bounded goal was to decide whether this lane still exposed a real worktree-only artifact
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'`
+    - result: passed (`1 passed`, about `19.5s`)
+  - fresh-context CDP sub-agent live compare:
+    - result: normalization wiring worked in-page on worktree `3076` and read-only `main` `3087`, but the direct CDP mouse drag did not commit the drop on the worktree half
+    - worktree details:
+      - normalized `All Settings` via in-page generated endpoints plus store imports
+      - `drawSectionDefault` id `e326537a-5e12-4fa9-b42e-1ebbdb7455b1`
+      - overlap target `8911c410-4da4-4291-9c13-7cd4c791b796`
+      - overlap delta `{ x: 48, y: 731.36767578125 }`
+      - `data-dragging` became `true` on pointer down and stayed `true` after mouse up
+      - top-level layout stayed `{ x: 0, y: 2400, zIndex: 0 }` before and after the drag attempt
+      - moved distance `0`
+      - rendered temp z-index still stayed above the overlap target (`1000` vs `0`)
+      - no clear body/chrome detachment or other worktree-only graph-surface artifact appeared before the drop failed
+    - because the synthetic drop never completed on the worktree side, the read-only `main` half was not treated as trustworthy product evidence
+    - CDP visual check: done (live compare attempted; drag completion itself remained untrustworthy)
+- Lane status:
+  - do not reopen production renderer work from the `drawSectionDefault` frontmost lane based on this failed CDP mouse-drop attempt
+  - the trustworthy evidence for this lane is still the passing Playwright drag/frontmost guard; direct CDP mouse drag remains unreliable as the drop oracle
+- Next frontier: choose one different dynamic compare that CDP can complete end-to-end, or pair CDP post-state inspection with an existing Playwright drag oracle if another top-level drag lane genuinely needs live visual context.
+- LOOP_TERMINAL_MARKER: none
