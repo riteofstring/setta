@@ -205,7 +205,8 @@ Execution constraints:
   - ${ROOT_DIR}/AGENTS.md
   - recent commits: \`git log --oneline --decorate -n 15\`
   - the most recent loop response under \`${output_dir}/run-*/last-message.txt\`, if any exist
-- Work on exactly one concrete issue per iteration unless a tightly-coupled fix requires more.
+- Start with a fresh targeted audit of the three goal areas.
+- Fix any actionable issue or set of tightly-related issues that you can complete confidently within this iteration.
 - Prefer Go-owned logic and generated downstream surfaces over duplicated Python or TypeScript logic.
 - Do not leave duplicated non-trivial Python or TypeScript logic in place without an explicit concrete justification.
 - Do not leave large Python or TypeScript source blocks embedded as raw strings in generation scripts when a structured or template-backed approach is practical.
