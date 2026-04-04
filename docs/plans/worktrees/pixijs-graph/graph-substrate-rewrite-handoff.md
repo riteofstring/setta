@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 06:30 EDT
+Last updated: 2026-04-04 06:52 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,38 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `100` added a normalized cross-worktree group-args-filter-after-pan parity probe and closed that bounded body-editability lane without inventing a production fix.
+  - Why this slice was needed:
+    - the fresh-context live CDP compare for this iteration again did not expose a trustworthy canary-only production defect on normalized `All Settings`; it only confirmed that shared visible graph-section bodies remained editable on both sides
+    - the previous handoff explicitly asked for the next remaining body-editability or interaction-state lane on a shared `All Settings` section when no concrete defect was visible
+    - `groupSectionDefault` already had a stable section-scoped args filter and a known top-level fit path, so it was the narrowest deterministic post-pan editability lane that could be verified end-to-end this iteration
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - new opt-in probe: `settings graph parity probe keeps the group args filter editable after normalized pane pan on read-only main legacy and worktree canary`
+      - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, fits `groupSectionDefault` on both surfaces, applies the same short blank-space pan, verifies the section-scoped args filter stays attached, edits the filter on both sides, and compares the resulting pan delta against read-only `main`
+      - while landing the probe, corrected the lane assertion to compare worktree-vs-main pan transform delta instead of incorrectly expecting zero viewport movement on a pane-pan path
+    - no production renderer files changed in this slice
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - refreshed runtime/bootstrap values before the live rerun:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-019/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-019/main-ai.log`
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the group args filter editable after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `38.1s`)
+  - Live verification result:
+    - the initial fresh-context CDP compare again found no trustworthy canary-only renderer defect on normalized `All Settings`; it only confirmed that shared visible graph-section bodies such as `chatSectionDefaultArgs` and `dropzoneParamCodeObjDefaultArgs` still exposed editable descendants on both surfaces
+    - a second fresh-context CDP sub-agent then checked the exact `groupSectionDefault` lane on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+      - both tabs were on `All Settings`
+      - after aligning the graph viewport into the `groupSectionDefault` lane, the node was visible on both pages
+      - the section-scoped args controls were present and enabled on both sides, with editable filter inputs (`disabled: false`)
+      - no obvious canary-only visual drift was visible; the remaining differences were viewport/zoom state and a minor wrapper class-name difference, not a visible content mismatch
+    - CDP visual check: done (worktree and read-only `main` both show `groupSectionDefault` with editable args filter controls after lane alignment; no obvious visible drift)
+  - conclusion for this slice:
+    - close the specific `groupSectionDefault` args-filter-after-pan lane as covered by the new deterministic main-reference probe
+    - do not reopen this lane unless a later fresh compare shows the filter detaching, disabling, or diverging visually after the same normalized pane-pan path
+    - because items `099` and `100` are both probe-only slices, the next real frontier should pivot back to a fresh normalized live compare specifically hunting the next concrete canary-only production defect on a different dynamic path, with production-fix work preferred over opening a third probe-first lane by default
 - Ralph item `099` added a normalized cross-worktree shared-title edit-after-pan parity probe and closed that bounded post-pan editing lane without inventing a production fix.
   - Why this slice was needed:
     - a fresh-context live CDP compare for this iteration normalized `All Settings` on worktree `3075` and read-only `main` `3087`, then checked top-level drag, modified-wheel zoom, and short blank-space pan without exposing a concrete canary-only production artifact
