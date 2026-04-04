@@ -269,3 +269,56 @@ def test_claude_sdk_runner_queries_client_with_string_prompt(
             "usage": {"input_tokens": 1},
         }
     ]
+
+
+def test_claude_sdk_runner_normalizes_tool_names(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    fake_site = tmp_path / "site"
+    sdk_root = fake_site / "claude_agent_sdk"
+    sdk_root.mkdir(parents=True)
+    (sdk_root / "__init__.py").write_text(
+        textwrap.dedent(
+            """
+            class AssistantMessage: pass
+            class ClaudeAgentOptions:
+                def __init__(self, **kwargs):
+                    self.kwargs = kwargs
+            class ClaudeSDKClient:
+                def __init__(self, options=None):
+                    self.options = options
+                async def __aenter__(self):
+                    return self
+                async def __aexit__(self, exc_type, exc, tb):
+                    return False
+                async def query(self, prompt, session_id="default"):
+                    return None
+                async def receive_response(self):
+                    if False:
+                        yield None
+            class PermissionResultAllow:
+                def __init__(self, behavior, updated_input=None):
+                    self.behavior = behavior
+                    self.updated_input = updated_input
+            class PermissionResultDeny:
+                def __init__(self, behavior, message, interrupt):
+                    self.behavior = behavior
+                    self.message = message
+                    self.interrupt = interrupt
+            class ResultMessage: pass
+            class SystemMessage: pass
+            """
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(fake_site))
+    monkeypatch.delitem(sys.modules, "claude_agent_sdk", raising=False)
+
+    module = _load_claude_sdk_runner("test_claude_sdk_runner_tool_normalization")
+
+    assert module.normalize_tool_name("  mcp__setta__read_file  ") == "setta__read_file"
+    assert module.normalize_tool_name("setta_read_file") == "setta__read_file"
+    assert module.normalize_tool_name("question") == "AskUserQuestion"
+    assert module.normalize_tool_name("QUESTION") == "AskUserQuestion"
+    assert module.normalize_tool_name("mcp__question") == "question"

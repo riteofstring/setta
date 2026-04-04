@@ -110,20 +110,21 @@ function buildPluginStatusEntry(
 }
 
 describe("plugins pane helpers", () => {
-  it("validates supported install source schemes", () => {
+  it("only requires a non-empty install source spec before backend validation", () => {
     expect(pluginsPaneTestApi.validateInstallSourceSpec("")).toBe(
       "Source spec is required.",
     );
-    expect(
-      pluginsPaneTestApi.validateInstallSourceSpec("file:/tmp/plugin"),
-    ).toBe("Unsupported source spec. Use github: or pypi:.");
-    expect(pluginsPaneTestApi.validateInstallSourceSpec("github:acme")).toBe(
-      "Invalid github source spec. Expected github:owner/repo[#ref] or github:owner/repo@ref.",
-    );
-    expect(pluginsPaneTestApi.validateInstallSourceSpec("pypi:   ")).toBe(
-      "Invalid pypi source spec. Expected pypi:package or pypi:package==version.",
+    expect(pluginsPaneTestApi.validateInstallSourceSpec("   ")).toBe(
+      "Source spec is required.",
     );
 
+    expect(
+      pluginsPaneTestApi.validateInstallSourceSpec("file:/tmp/plugin"),
+    ).toBeNull();
+    expect(pluginsPaneTestApi.validateInstallSourceSpec("github:acme")).toBe(
+      null,
+    );
+    expect(pluginsPaneTestApi.validateInstallSourceSpec("pypi:   ")).toBeNull();
     expect(
       pluginsPaneTestApi.validateInstallSourceSpec("github:acme/plugin#v1"),
     ).toBeNull();

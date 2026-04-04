@@ -106,9 +106,16 @@ def normalize_tool_name(value: str | None) -> str:
     if not isinstance(value, str):
         return ""
     trimmed = value.strip()
-    if trimmed.lower() == "question":
+    if not trimmed:
+        return ""
+    normalized = trimmed
+    if normalized.startswith("mcp__"):
+        normalized = normalized[len("mcp__") :]
+    if normalized.startswith("setta_") and not normalized.startswith("setta__"):
+        normalized = "setta__" + normalized[len("setta_") :]
+    if not trimmed.startswith("mcp__") and normalized.lower() == "question":
         return "AskUserQuestion"
-    return trimmed
+    return normalized
 
 
 def parse_non_negative_int(value: Any) -> int | None:

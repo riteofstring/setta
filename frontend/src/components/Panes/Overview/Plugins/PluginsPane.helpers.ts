@@ -200,31 +200,10 @@ export function buildCapabilityUnavailableMessage({
 export function validateInstallSourceSpec(
   sourceSpecRaw: string,
 ): string | null {
-  const sourceSpec = sourceSpecRaw.trim();
-  if (!sourceSpec) {
+  if (!sourceSpecRaw.trim()) {
     return "Source spec is required.";
   }
-
-  if (sourceSpec.startsWith("github:")) {
-    const value = sourceSpec.slice("github:".length).trim();
-    if (!value || !value.includes("/")) {
-      return (
-        "Invalid github source spec. Expected github:owner/repo[#ref] " +
-        "or github:owner/repo@ref."
-      );
-    }
-    return null;
-  }
-
-  if (sourceSpec.startsWith("pypi:")) {
-    const value = sourceSpec.slice("pypi:".length).trim();
-    if (!value) {
-      return "Invalid pypi source spec. Expected pypi:package or pypi:package==version.";
-    }
-    return null;
-  }
-
-  return "Unsupported source spec. Use github: or pypi:.";
+  return null;
 }
 
 export function buildInstallTrustSummaryMessage(
