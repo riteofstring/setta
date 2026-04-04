@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 19:59 EDT
+Last updated: 2026-04-03 20:06 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,24 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `072` removed the leftover legacy auth-cookie namespace override from the Playwright E2E runner so the auth-lane harness now follows the same workspace-derived default path as the live runtime.
+  - Why this slice was needed:
+    - after items `070` and `071`, `scripts/run-playwright-e2e.sh` still exported `SETTA_AUTH_COOKIE_NAME=setta_auth_${INSTANCE_NAME}`, so Playwright coverage was still pinned to the removed legacy namespace even though the live `ai` and dev-instance launchers had already moved back to `resolve_setta_paths(...)`
+    - that mismatch made the E2E helper a weak verifier for the remaining websocket/auth-cookie blocker because the disposable Playwright browser context was still exercising a different namespace policy than the worktree runtime
+  - Production/test change:
+    - `scripts/run-playwright-e2e.sh` no longer forces a legacy `SETTA_AUTH_COOKIE_NAME` default, so disposable Playwright runs now use the workspace-derived auth-cookie name unless a caller explicitly overrides it
+    - `tests/start/test_dev_script_wiring_structure.py` now locks that the Playwright runner does not reintroduce that legacy namespace override
+  - Automated result:
+    - `bash -n scripts/run-playwright-e2e.sh`
+      - result: passed
+    - `source activate.sh && pytest tests/start/test_dev_script_wiring_structure.py -k 'playwright_runner'`
+      - result: passed (`9 passed`, `6 deselected`, about `0.12s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+      - result: passed (`1 passed`, about `19.4s`)
+  - conclusion for this slice:
+    - Playwright bootstrap/auth now tracks the same hashed workspace namespace as the live runtime instead of the removed `setta_auth_<instance>` fallback
+    - this closes an auth-lane harness divergence, but it does not resolve the remaining live cross-namespace/shared-browser websocket `SecurityError: line too long` blocker on its own
+  - next iteration should return to the live blocker and choose either one bounded cross-namespace isolation fix or one direct runtime measurement step for that blocker, not more harness-only cleanup
 - Ralph item `071` corrected the live auth-cookie lane by removing the remaining `ai`/dev-script override that was still pinning the worktree to `setta_auth_<instance>` and by teaching bootstrap cleanup about that older same-workspace namespace.
   - Why this was needed:
     - while checking item `070`, the live `ai` lifecycle still showed `SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-graph` in the backend process environment, which meant the new workspace-default hashing code in `resolve_setta_paths(...)` was not actually on the active runtime path

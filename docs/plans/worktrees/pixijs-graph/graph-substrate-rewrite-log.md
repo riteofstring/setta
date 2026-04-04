@@ -2474,3 +2474,24 @@ LOOP_TERMINAL_MARKER: none
   - the remaining websocket blocker is the broader cross-namespace/shared-profile accumulation lane, especially foreign namespaces like the read-only `main` reference cookies, not the already-fixed worktree default namespace
 - Next frontier: decide the narrowest bounded fix or verification lane for the remaining cross-namespace shared-profile cookie buildup before reopening `groupSectionDefault` parity work.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 20:06 EDT - Ralph item 072
+
+- Removed the leftover legacy auth-cookie namespace override from `scripts/run-playwright-e2e.sh` so Playwright E2E now follows the same workspace-derived auth-cookie default as the live runtime instead of forcing `setta_auth_${INSTANCE_NAME}`.
+- Why this slice was necessary:
+  - after items `070` and `071`, the E2E runner was still exporting the removed legacy namespace, which meant the auth-lane harness was no longer exercising the same default cookie path as the live `ai`/dev runtime
+  - that divergence would have kept future Playwright checks on the websocket blocker on a stale auth setup instead of the current hashed workspace namespace
+- Production/test changes:
+  - deleted the default `SETTA_AUTH_COOKIE_NAME` export from `scripts/run-playwright-e2e.sh`
+  - added a structural regression check in `tests/start/test_dev_script_wiring_structure.py` to ensure the runner does not reintroduce that legacy namespace override
+- Verification:
+  - `bash -n scripts/run-playwright-e2e.sh`
+    - result: passed
+  - `source activate.sh && pytest tests/start/test_dev_script_wiring_structure.py -k 'playwright_runner'`
+    - result: passed (`9 passed`, `6 deselected`, about `0.12s`)
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+    - result: passed (`1 passed`, about `19.4s`)
+- Lane status:
+  - Playwright now matches the current workspace-scoped auth namespace policy instead of the removed legacy runner override
+  - the live websocket `SecurityError: line too long` blocker is still open; this slice only removed a harness mismatch and did not change the runtime cross-namespace/shared-browser behavior
+- Next frontier: return to the live cross-namespace auth-cookie/websocket blocker and choose one bounded runtime fix or measurement step instead of another support-only cleanup pass.
+- LOOP_TERMINAL_MARKER: none
