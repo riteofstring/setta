@@ -137,7 +137,6 @@ fi
 export SETTA_HOST
 export SETTA_PORT
 export SETTA_DEV_FRONTEND_PORT
-export SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"
 export VITE_BACKEND_ORIGIN="http://${SETTA_HOST}:${SETTA_PORT}"
 setta_path_flags_apply_env
 

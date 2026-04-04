@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 19:44 EDT
+Last updated: 2026-04-03 19:59 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `071` corrected the live auth-cookie lane by removing the remaining `ai`/dev-script override that was still pinning the worktree to `setta_auth_<instance>` and by teaching bootstrap cleanup about that older same-workspace namespace.
+  - Why this was needed:
+    - while checking item `070`, the live `ai` lifecycle still showed `SETTA_AUTH_COOKIE_NAME=setta_auth_setta.pixijs-graph` in the backend process environment, which meant the new workspace-default hashing code in `resolve_setta_paths(...)` was not actually on the active runtime path
+    - inspecting the Chrome profile cookie DB confirmed the browser still carried many stale same-workspace cookies under the old `setta_auth_setta.pixijs-graph_*` namespace, so item `070`'s default-name change alone could not clean up the real worktree-side buildup while the scripts kept forcing the old base name
+  - Production/test change:
+    - `scripts/ai.sh` and `scripts/run-dev-instance.sh` no longer export `SETTA_AUTH_COOKIE_NAME="setta_auth_${INSTANCE_NAME}"`, so the runtime now uses the resolved workspace auth-cookie base from `resolve_setta_paths(...)`
+    - `backend/setta/auth/cookies.py` now prunes three deterministic namespaces during bootstrap consume:
+      - the current runtime namespace
+      - the older same-workspace `ai.sh` namespace derived from the workspace basename
+      - the old generic `setta_auth_<session>` namespace
+    - `tests/auth/test_cookies.py` now proves workspace-scoped cleanup removes the legacy same-workspace script namespace plus the generic legacy namespace while preserving unrelated workspace namespaces
+    - `tests/auth/test_auth_bootstrap_integration.py` now proves live bootstrap consume emits deletion headers for that legacy `ai.sh` namespace and the generic legacy namespace while keeping unrelated worktree cookies untouched
+  - Automated result:
+    - `source activate.sh && pytest tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+      - result: passed (`15 passed`, about `2.66s`)
+    - `source activate.sh && ruff check backend/setta/auth/cookies.py tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+      - result: passed
+    - `source activate.sh && ruff format --check backend/setta/auth/cookies.py tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+      - result: passed
+    - `bash -n scripts/ai.sh scripts/run-dev-instance.sh`
+      - result: passed
+  - Live verification result:
+    - restarted the worktree lifecycle with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - fresh runtime: frontend `3078`, backend `8078`, session `812bb7`, launcher-reported debug port `9300`
+    - `ps eww -p 88073` on the fresh backend process no longer showed any `SETTA_AUTH_COOKIE_NAME` environment variable, confirming the `ai` launcher stopped pinning the old instance-name base
+    - direct bootstrap consume on the fresh runtime returned:
+      - `set-cookie: setta_auth_53762dfa3eea_812bb7=...`
+      - this proves the live backend is now using the hashed workspace-derived namespace from `resolve_setta_paths(...)`
+    - a second direct bootstrap consume with synthetic stale cookies in the request header returned deletion headers for:
+      - `setta_auth_setta.pixijs-graph_123abc`
+      - `setta_auth_abc123`
+      - plus the fresh current cookie `setta_auth_53762dfa3eea_812bb7=...`
+      - this proves the live cleanup path now prunes the previous same-workspace `ai.sh` namespace as well as the generic legacy namespace
+  - conclusion for this slice:
+    - item `070` is now actually live on the `ai`/dev runtime path instead of being shadowed by the script override
+    - same-workspace stale-cookie buildup from the prior `ai.sh` namespace is now explicitly pruned during bootstrap
+    - the remaining websocket blocker is no longer “worktree still on the old base namespace”; it is the broader cross-namespace/shared-profile accumulation lane, especially foreign namespaces such as the read-only `main` reference cookies
+  - next iteration should treat the remaining blocker as cross-namespace profile contamination rather than reopening the already-fixed worktree default-name lane
 - Ralph item `070` addressed the remaining shared-cookie namespace flaw behind the websocket `SecurityError: line too long` lane instead of resuming parity work on another stale runtime.
   - Production/test change:
     - `backend/setta/utils/paths.py` now derives a deterministic workspace-scoped default auth-cookie base name via `build_default_auth_cookie_name(...)` and uses it whenever no explicit profile `authCookieName` override is configured.

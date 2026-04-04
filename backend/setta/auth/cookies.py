@@ -1,6 +1,12 @@
+import re
+
 from fastapi import Request, Response
 
-from setta.utils.constants import C
+from setta.utils.constants import C, normalize_cookie_name
+from setta.utils.paths import get_setta_paths
+
+_LEGACY_AUTH_COOKIE_NAME = "setta_auth"
+_LEGACY_SESSION_COOKIE_PATTERN = re.compile(r"^setta_auth_[0-9a-f]{6}$")
 
 
 def auth_cookie_name(session_id: str) -> str:
@@ -34,13 +40,16 @@ def list_stale_auth_cookie_names(
     cookie_names: list[str], *, session_id: str
 ) -> list[str]:
     current_cookie_name = auth_cookie_name(session_id)
-    session_cookie_prefix = f"{C.AUTH_COOKIE_NAME}_"
     stale_cookie_names: list[str] = []
     for cookie_name in cookie_names:
         if cookie_name == current_cookie_name:
             continue
-        if cookie_name == C.AUTH_COOKIE_NAME or cookie_name.startswith(
-            session_cookie_prefix
+        if any(
+            _is_cookie_name_in_auth_namespace(
+                cookie_name,
+                namespace_cookie_name=namespace_cookie_name,
+            )
+            for namespace_cookie_name in _auth_cookie_namespaces_to_prune()
         ):
             stale_cookie_names.append(cookie_name)
     return stale_cookie_names
@@ -80,3 +89,26 @@ def set_auth_cookie(
         secure=secure,
         path="/",
     )
+
+
+def _is_cookie_name_in_auth_namespace(
+    cookie_name: str, *, namespace_cookie_name: str
+) -> bool:
+    if cookie_name == namespace_cookie_name:
+        return True
+    if namespace_cookie_name == _LEGACY_AUTH_COOKIE_NAME:
+        return _LEGACY_SESSION_COOKIE_PATTERN.fullmatch(cookie_name) is not None
+    return cookie_name.startswith(f"{namespace_cookie_name}_")
+
+
+def _auth_cookie_namespaces_to_prune() -> list[str]:
+    namespaces_to_prune = [C.AUTH_COOKIE_NAME]
+    legacy_instance_cookie_name = normalize_cookie_name(
+        f"{_LEGACY_AUTH_COOKIE_NAME}_{get_setta_paths().workspace_root.name}",
+        default=_LEGACY_AUTH_COOKIE_NAME,
+    )
+    if legacy_instance_cookie_name not in namespaces_to_prune:
+        namespaces_to_prune.append(legacy_instance_cookie_name)
+    if _LEGACY_AUTH_COOKIE_NAME not in namespaces_to_prune:
+        namespaces_to_prune.append(_LEGACY_AUTH_COOKIE_NAME)
+    return namespaces_to_prune
