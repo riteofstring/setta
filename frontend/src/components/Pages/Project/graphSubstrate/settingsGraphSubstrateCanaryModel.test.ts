@@ -1,10 +1,16 @@
 import type { Node } from "forks/xyflow/core/types";
 import type { ZustandProjectState } from "state/definitions";
-import { createProjectConfig } from "utils/generatedTypes";
+import {
+  createCodeSectionImpl,
+  createCore,
+  createProjectConfig,
+  createUserDefaultCodeSectionImpl,
+  createVariant,
+} from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
   resolveActiveViewModeName,
-  selectSettingsGraphSubstrateCanarySection,
+  selectSettingsGraphSubstrateCanarySections,
   shouldUseSettingsGraphSubstrateCanary,
 } from "./settingsGraphSubstrateCanaryModel";
 
@@ -14,6 +20,11 @@ function createProjectState(): ZustandProjectState {
     name: "settings",
   });
   projectConfig.activeViewModeId = "all-settings";
+  projectConfig.sectionVariantMap = {
+    "section-a": "variant-a",
+    "section-b": "variant-b",
+    hidden: "variant-hidden",
+  };
   projectConfig.viewModes = {
     "all-settings": {
       id: "all-settings",
@@ -34,12 +45,56 @@ function createProjectState(): ZustandProjectState {
   return {
     projectConfig,
     sections: {
-      "section-a": { id: "section-a", name: "A", type: "Code" },
-      "section-b": { id: "section-b", name: "B", type: "Code" },
-      hidden: { id: "hidden", name: "Hidden", type: "Code" },
+      "section-a": createCore({
+        id: "section-a",
+        name: "A",
+        variants: ["variant-a"],
+        defaultVariant: "variant-a",
+      }),
+      "section-b": createCore({
+        id: "section-b",
+        name: "B",
+        variants: ["variant-b"],
+        defaultVariant: "variant-b",
+      }),
+      hidden: createCore({
+        id: "hidden",
+        name: "Hidden",
+        variants: ["variant-hidden"],
+        defaultVariant: "variant-hidden",
+      }),
     },
-    sectionImpls: {},
-    sectionVariants: {},
+    sectionVariants: {
+      "variant-a": createVariant({
+        id: "variant-a",
+        impl: "impl-a",
+        nonPresetImpls: [],
+      }),
+      "variant-b": createVariant({
+        id: "variant-b",
+        impl: "impl-b",
+        nonPresetImpls: [],
+      }),
+      "variant-hidden": createVariant({
+        id: "variant-hidden",
+        impl: "impl-hidden",
+        nonPresetImpls: [],
+      }),
+    },
+    sectionImpls: {
+      "impl-a": createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        id: "impl-a",
+        positionAndSizeLocked: false,
+      }),
+      "impl-b": createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        id: "impl-b",
+        positionAndSizeLocked: false,
+      }),
+      "impl-hidden": createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        id: "impl-hidden",
+        positionAndSizeLocked: false,
+      }),
+    },
     codeObjs: {},
     codeObjImpls: {},
     codeObjVariants: {},
@@ -86,7 +141,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     expect(resolveActiveViewModeName(state)).toBe("All Settings");
   });
 
-  it("selects the top-left visible canary section and prefers measured dimensions", () => {
+  it("selects all visible canary sections in top-left order and prefers measured dimensions", () => {
     const state = createProjectState();
     const nodeInternals = new Map<string, Node>([
       [
@@ -104,17 +159,28 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     ]);
 
     expect(
-      selectSettingsGraphSubstrateCanarySection(state, nodeInternals),
-    ).toEqual({
-      sectionId: "section-b",
-      position: { x: 120, y: 100 },
-      zIndex: 1,
-      width: 410,
-      height: 260,
-    });
+      selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
+    ).toEqual([
+      {
+        sectionId: "section-b",
+        position: { x: 120, y: 100 },
+        zIndex: 1,
+        width: 410,
+        height: 260,
+        positionAndSizeLocked: false,
+      },
+      {
+        sectionId: "section-a",
+        position: { x: 500, y: 200 },
+        zIndex: 2,
+        width: 240,
+        height: 160,
+        positionAndSizeLocked: false,
+      },
+    ]);
   });
 
-  it("keeps rendering the preferred visible section after it moves away from the top-left", () => {
+  it("keeps rendering moved sections and preserves measured geometry for them", () => {
     const state = createProjectState();
     const nodeInternals = new Map<string, Node>([
       [
@@ -132,17 +198,24 @@ describe("settingsGraphSubstrateCanaryModel", () => {
     ]);
 
     expect(
-      selectSettingsGraphSubstrateCanarySection(
-        state,
-        nodeInternals,
-        "section-a",
-      ),
-    ).toEqual({
-      sectionId: "section-a",
-      position: { x: 760, y: 420 },
-      zIndex: 2,
-      width: 240,
-      height: 160,
-    });
+      selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
+    ).toEqual([
+      {
+        sectionId: "section-b",
+        position: { x: 120, y: 100 },
+        zIndex: 1,
+        width: 320,
+        height: 240,
+        positionAndSizeLocked: false,
+      },
+      {
+        sectionId: "section-a",
+        position: { x: 760, y: 420 },
+        zIndex: 2,
+        width: 240,
+        height: 160,
+        positionAndSizeLocked: false,
+      },
+    ]);
   });
 });

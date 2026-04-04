@@ -70,6 +70,37 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 007
+
+- Item: Expand the `settings` graph-substrate canary from one visible section to the visible `All Settings` top-level section set.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now returns the visible top-level canary section list instead of a single preferred section and includes each section's `positionAndSizeLocked` state for drag ownership decisions.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders that visible section set on the custom surface, fits the initial viewport to the shared section bounds, and routes drag ownership to the section that was actually grabbed.
+  - The canary now keeps local per-section DOM size observations so multi-section viewport fitting uses the visible section field without handing ownership back to `xyflow`.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now proves:
+    - more than one canary section is visible on `All Settings`
+    - a runtime-discovered draggable section can move without pulling a different visible section with it
+    - shared pan/zoom moves multiple visible sections together
+    - title editing still works on the broader canary surface
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` now locks down the plural visible-section selector and lock-state contract.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`4 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap|settings graph substrate canary drags one section and persists the top-level layout|settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
+    - result: passed (`4 passed`, about `44s`)
+  - CDP visual check
+    - result: partial pass
+    - note: on `http://127.0.0.1:3075/settings`, `All Settings` showed more than one visible canary section and no gross blank/detached-body issue in the normal visible field
+    - note: side-by-side gross-drift comparison against the read-only `main` reference did not run because `http://127.0.0.1:3087/settings` returned `ERR_CONNECTION_REFUSED`; `run-006/main-ai.log` shows the reference app died during startup on a settings-project validation error
+- Conclusion:
+  - the custom graph-substrate canary now covers the visible `All Settings` top-level section field instead of a single representative section
+  - the next useful frontier is the staged Gate 1 gross-drift comparison against a healthy `main` oracle session, then any concrete multi-section visual/perf issue that compare exposes
+- Next action:
+  - restore or refresh the read-only `main` reference session and do the normal-zoom Gate 1 gross-drift compare for the new multi-section canary surface
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 005
 
 - Item: Add custom pan/zoom ownership to the `settings` graph-substrate canary and prove the checked section stays attached on the custom surface.

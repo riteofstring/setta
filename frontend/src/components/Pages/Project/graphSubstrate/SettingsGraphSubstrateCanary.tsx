@@ -13,10 +13,7 @@ import {
   type RefObject,
 } from "react";
 import { addNodes, moveNodes } from "state/actions/nodeInternals";
-import {
-  debounced_route_set_top_level_section_layout,
-  getCurrEffectiveSectionImpl,
-} from "state/actions/sectionInfos";
+import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos";
 import {
   useMisc,
   useNodeInternals,
@@ -25,7 +22,10 @@ import {
 } from "state/definitions";
 import type { Position } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
-import { selectSettingsGraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
+import {
+  selectSettingsGraphSubstrateCanarySections,
+  type GraphSubstrateCanarySection,
+} from "./settingsGraphSubstrateCanaryModel";
 import {
   centerViewportOnWorldPoint,
   fitViewportToWorldRect,
@@ -92,22 +92,14 @@ function buildInitialViewport(
 
 export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
-  const sectionRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<ActiveSectionDrag | null>(null);
   const viewportPanStateRef = useRef<ActiveViewportPan | null>(null);
   const wheelZoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const isWheelZoomingRef = useRef(false);
-  const lastFittedSectionIdRef = useRef<string | null>(null);
-  const [sectionSize, setSectionSize] = useState<{
-    width: number;
-    height: number;
-  } | null>(null);
+  const lastFittedSceneKeyRef = useRef<string | null>(null);
   const [viewport, setViewport] = useState<GraphViewport | null>(null);
-  const [preferredSectionId, setPreferredSectionId] = useState<string | null>(
-    null,
-  );
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
     null,
   );
@@ -115,23 +107,13 @@ export function SettingsGraphSubstrateCanary() {
   const [sectionPositionOverride, setSectionPositionOverride] =
     useState<SectionPositionOverride | null>(null);
   const wrapperDimensions = useElementDimensions(rootRef);
+  const { getObservedElementRef, observedElementSizes } =
+    useObservedElementSizes();
   const nodeInternals = useNodeInternals((state) => state.x);
-  const section = useProjectState(
-    (state) =>
-      selectSettingsGraphSubstrateCanarySection(
-        state,
-        nodeInternals,
-        preferredSectionId,
-      ),
+  const sections = useProjectState(
+    (state) => selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
     _.isEqual,
   );
-  const isSectionPositionLocked = useProjectState((state) => {
-    if (!section) {
-      return false;
-    }
-    return getCurrEffectiveSectionImpl(state, section.sectionId)
-      .positionAndSizeLocked;
-  }, _.isEqual);
   const { minZoom, maxZoom, defaultZoomLevel } = useSettings(
     (state) => ({
       minZoom: state.gui.minZoom,
@@ -156,81 +138,51 @@ export function SettingsGraphSubstrateCanary() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!sectionRef.current || typeof ResizeObserver === "undefined") {
-      return;
-    }
-
-    const observer = new ResizeObserver((entries) => {
-      const entry = entries[0];
-      if (!entry) {
-        return;
-      }
-      const width = Math.round(entry.contentRect.width);
-      const height = Math.round(entry.contentRect.height);
-      if (width <= 0 || height <= 0) {
-        return;
-      }
-      setSectionSize((current) => {
-        if (current?.width === width && current.height === height) {
-          return current;
-        }
-        return { width, height };
-      });
-    });
-
-    observer.observe(sectionRef.current);
-    return () => {
-      observer.disconnect();
-    };
-  }, [section?.sectionId]);
+  const sectionById = useMemo(() => {
+    return new Map(sections.map((section) => [section.sectionId, section]));
+  }, [sections]);
 
   useEffect(() => {
-    if (!section) {
-      if (sectionPositionOverride !== null) {
+    if (sections.length > 0) {
+      if (
+        sectionPositionOverride &&
+        !sectionById.has(sectionPositionOverride.sectionId)
+      ) {
         setSectionPositionOverride(null);
       }
-      if (preferredSectionId !== null) {
-        setPreferredSectionId(null);
-      }
       return;
     }
-    if (preferredSectionId === null) {
-      setPreferredSectionId(section.sectionId);
-    }
-    if (
-      sectionPositionOverride &&
-      (sectionPositionOverride.sectionId !== section.sectionId ||
-        positionsMatch(section.position, sectionPositionOverride.position))
-    ) {
+    if (sectionPositionOverride !== null) {
       setSectionPositionOverride(null);
     }
-  }, [preferredSectionId, section, sectionPositionOverride]);
+    dragStateRef.current = null;
+    setDraggingSectionId(null);
+  }, [sectionById, sectionPositionOverride, sections.length]);
+
+  const sceneBounds = useMemo(() => {
+    return getViewportBoundsForSections(
+      sections,
+      observedElementSizes,
+      sectionPositionOverride,
+    );
+  }, [observedElementSizes, sectionPositionOverride, sections]);
+
+  const sceneKey = useMemo(() => {
+    return sections.map((section) => section.sectionId).join("|");
+  }, [sections]);
 
   useEffect(() => {
     if (
-      !section ||
+      !sceneBounds ||
       wrapperDimensions.width <= 0 ||
       wrapperDimensions.height <= 0 ||
-      (viewport !== null &&
-        lastFittedSectionIdRef.current === section.sectionId)
+      (viewport !== null && lastFittedSceneKeyRef.current === sceneKey)
     ) {
-      return;
-    }
-
-    const width = sectionSize?.width ?? section.width;
-    const height = sectionSize?.height ?? section.height;
-    if (!width || !height) {
       return;
     }
 
     const nextViewport = fitViewportToWorldRect(
-      {
-        x: section.position.x,
-        y: section.position.y,
-        width,
-        height,
-      },
+      sceneBounds,
       wrapperDimensions,
       {
         minZoom,
@@ -238,7 +190,7 @@ export function SettingsGraphSubstrateCanary() {
         padding: 0.12,
       },
     );
-    lastFittedSectionIdRef.current = section.sectionId;
+    lastFittedSceneKeyRef.current = sceneKey;
 
     setViewport((current) => {
       if (
@@ -251,25 +203,18 @@ export function SettingsGraphSubstrateCanary() {
       }
       return nextViewport;
     });
-  }, [
-    maxZoom,
-    minZoom,
-    section,
-    sectionSize?.height,
-    sectionSize?.width,
-    viewport,
-    wrapperDimensions,
-  ]);
+  }, [maxZoom, minZoom, sceneBounds, sceneKey, viewport, wrapperDimensions]);
 
   const resolvedViewport = useMemo(() => {
-    if (!section) {
+    const initialSection = sections[0];
+    if (!initialSection) {
       return viewport;
     }
     return buildInitialViewport(viewport, defaultZoomLevel, {
-      x: section.position.x,
-      y: section.position.y,
+      x: initialSection.position.x,
+      y: initialSection.position.y,
     });
-  }, [defaultZoomLevel, section, viewport]);
+  }, [defaultZoomLevel, sections, viewport]);
 
   useEffect(() => {
     if (!rootRef.current || !resolvedViewport) {
@@ -290,18 +235,11 @@ export function SettingsGraphSubstrateCanary() {
     });
   }, [resolvedViewport, wrapperDimensions.height, wrapperDimensions.width]);
 
-  const renderedSectionPosition =
-    sectionPositionOverride?.sectionId === section?.sectionId
-      ? sectionPositionOverride.position
-      : section?.position ?? null;
-
-  function handleSectionPointerDown(event: ReactPointerEvent<HTMLDivElement>) {
-    if (
-      !section ||
-      !resolvedViewport ||
-      !renderedSectionPosition ||
-      isSectionPositionLocked
-    ) {
+  function handleSectionPointerDown(
+    section: GraphSubstrateCanarySection,
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) {
+    if (!resolvedViewport || section.positionAndSizeLocked) {
       return;
     }
     if (event.button !== 0) {
@@ -311,7 +249,6 @@ export function SettingsGraphSubstrateCanary() {
       return;
     }
 
-    setPreferredSectionId(section.sectionId);
     setDraggingSectionId(section.sectionId);
     dragStateRef.current = {
       pointerId: event.pointerId,
@@ -320,7 +257,10 @@ export function SettingsGraphSubstrateCanary() {
         x: event.clientX,
         y: event.clientY,
       },
-      originWorldPosition: renderedSectionPosition,
+      originWorldPosition: getRenderedSectionPosition(
+        section,
+        sectionPositionOverride,
+      ),
     };
     event.preventDefault();
     event.stopPropagation();
@@ -367,9 +307,14 @@ export function SettingsGraphSubstrateCanary() {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
-    if (persistLayout && section && sectionPositionOverride) {
+    const draggedSection = sectionById.get(activeDrag.sectionId);
+    if (
+      persistLayout &&
+      draggedSection &&
+      sectionPositionOverride?.sectionId === activeDrag.sectionId
+    ) {
       ensureCanaryNode({
-        ...section,
+        ...draggedSection,
         position: sectionPositionOverride.position,
       });
       moveNodes([
@@ -379,7 +324,6 @@ export function SettingsGraphSubstrateCanary() {
         },
       ]);
       debounced_route_set_top_level_section_layout();
-      return;
     }
     setSectionPositionOverride(null);
   }
@@ -492,13 +436,6 @@ export function SettingsGraphSubstrateCanary() {
     event.stopPropagation();
   }
 
-  let sectionCursor: CSSProperties["cursor"] = "grab";
-  if (isSectionPositionLocked) {
-    sectionCursor = "default";
-  } else if (draggingSectionId === section?.sectionId) {
-    sectionCursor = "grabbing";
-  }
-
   return (
     <div
       ref={rootRef}
@@ -528,35 +465,56 @@ export function SettingsGraphSubstrateCanary() {
           zIndex: 1,
         }}
       >
-        {section ? (
-          <div
-            ref={sectionRef}
-            className="react-flow__node"
-            style={{
-              cursor: sectionCursor,
-              touchAction: "none",
-              position: "absolute",
-              transform: renderedSectionPosition
-                ? `translate(${renderedSectionPosition.x}px,${renderedSectionPosition.y}px)`
-                : undefined,
-              transformOrigin: "0 0",
-              pointerEvents: "all",
-              visibility: "visible",
-              zIndex: section.zIndex,
-            }}
-            data-id={section.sectionId}
-            data-section-id={section.sectionId}
-            data-dragging={
-              draggingSectionId === section.sectionId ? "true" : "false"
+        {sections.length > 0 ? (
+          sections.map((section) => {
+            const renderedSectionPosition = getRenderedSectionPosition(
+              section,
+              sectionPositionOverride,
+            );
+            let sectionCursor: CSSProperties["cursor"] = "grab";
+            if (section.positionAndSizeLocked) {
+              sectionCursor = "default";
+            } else if (draggingSectionId === section.sectionId) {
+              sectionCursor = "grabbing";
             }
-            data-testid="graph-substrate-canary-section"
-            onPointerDownCapture={handleSectionPointerDown}
-            onPointerMoveCapture={handleSectionPointerMove}
-            onPointerUpCapture={(event) => finishSectionDrag(event, true)}
-            onPointerCancelCapture={(event) => finishSectionDrag(event, false)}
-          >
-            <SectionContainer sectionId={section.sectionId} isTopLevel={true} />
-          </div>
+
+            return (
+              <div
+                key={section.sectionId}
+                ref={getObservedElementRef(section.sectionId)}
+                className="react-flow__node"
+                style={{
+                  cursor: sectionCursor,
+                  touchAction: "none",
+                  position: "absolute",
+                  transform: `translate(${renderedSectionPosition.x}px,${renderedSectionPosition.y}px)`,
+                  transformOrigin: "0 0",
+                  pointerEvents: "all",
+                  visibility: "visible",
+                  zIndex: section.zIndex,
+                }}
+                data-id={section.sectionId}
+                data-section-id={section.sectionId}
+                data-dragging={
+                  draggingSectionId === section.sectionId ? "true" : "false"
+                }
+                data-testid="graph-substrate-canary-section"
+                onPointerDownCapture={(event) =>
+                  handleSectionPointerDown(section, event)
+                }
+                onPointerMoveCapture={handleSectionPointerMove}
+                onPointerUpCapture={(event) => finishSectionDrag(event, true)}
+                onPointerCancelCapture={(event) =>
+                  finishSectionDrag(event, false)
+                }
+              >
+                <SectionContainer
+                  sectionId={section.sectionId}
+                  isTopLevel={true}
+                />
+              </div>
+            );
+          })
         ) : (
           <div
             className="flex h-full items-center justify-center text-xs text-setta-500 dark:text-setta-400"
@@ -578,11 +536,7 @@ function shouldIgnoreSectionDragTarget(target: EventTarget | null): boolean {
   return Boolean(target.closest(DRAG_BLOCKING_SELECTOR));
 }
 
-function ensureCanaryNode(
-  section: NonNullable<
-    ReturnType<typeof selectSettingsGraphSubstrateCanarySection>
-  >,
-) {
+function ensureCanaryNode(section: GraphSubstrateCanarySection) {
   if (useNodeInternals.getState().x.has(section.sectionId)) {
     return;
   }
@@ -598,15 +552,60 @@ function ensureCanaryNode(
   ]);
 }
 
-function positionsMatch(left: Position, right: Position): boolean {
-  return left.x === right.x && left.y === right.y;
-}
-
 function isBackgroundTargetBlocked(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) {
     return false;
   }
   return target.closest(CANARY_SECTION_SELECTOR) !== null;
+}
+
+function getRenderedSectionPosition(
+  section: GraphSubstrateCanarySection,
+  sectionPositionOverride: SectionPositionOverride | null,
+) {
+  if (sectionPositionOverride?.sectionId === section.sectionId) {
+    return sectionPositionOverride.position;
+  }
+  return section.position;
+}
+
+function getViewportBoundsForSections(
+  sections: Array<GraphSubstrateCanarySection>,
+  observedElementSizes: Record<string, { width: number; height: number }>,
+  sectionPositionOverride: SectionPositionOverride | null,
+) {
+  if (sections.length === 0) {
+    return null;
+  }
+
+  let minX = Number.POSITIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  for (const section of sections) {
+    const size = observedElementSizes[section.sectionId];
+    const width = size?.width ?? section.width;
+    const height = size?.height ?? section.height;
+    if (!width || !height) {
+      return null;
+    }
+    const position = getRenderedSectionPosition(
+      section,
+      sectionPositionOverride,
+    );
+    minX = Math.min(minX, position.x);
+    minY = Math.min(minY, position.y);
+    maxX = Math.max(maxX, position.x + width);
+    maxY = Math.max(maxY, position.y + height);
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX,
+    height: maxY - minY,
+  };
 }
 
 function syncCanaryViewportInteractionState({
@@ -653,4 +652,102 @@ function useElementDimensions(ref: RefObject<HTMLDivElement>) {
   }, [ref]);
 
   return dimensions;
+}
+
+function useObservedElementSizes() {
+  const [observedElementSizes, setObservedElementSizes] = useState<
+    Record<string, { width: number; height: number }>
+  >({});
+  const observerRef = useRef<ResizeObserver | null>(null);
+  const elementsRef = useRef(new Map<string, HTMLDivElement>());
+  const refCallbacksRef = useRef(
+    new Map<string, (element: HTMLDivElement | null) => void>(),
+  );
+
+  useEffect(() => {
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+
+    const observer = new ResizeObserver((entries) => {
+      setObservedElementSizes((current) => {
+        let changed = false;
+        const next = { ...current };
+
+        for (const entry of entries) {
+          const sectionId = entry.target.getAttribute("data-section-id");
+          if (!sectionId) {
+            continue;
+          }
+          const width = Math.round(entry.contentRect.width);
+          const height = Math.round(entry.contentRect.height);
+          if (width <= 0 || height <= 0) {
+            continue;
+          }
+          const previousSize = current[sectionId];
+          if (previousSize?.width === width && previousSize.height === height) {
+            continue;
+          }
+          next[sectionId] = { width, height };
+          changed = true;
+        }
+
+        return changed ? next : current;
+      });
+    });
+
+    observerRef.current = observer;
+    for (const element of elementsRef.current.values()) {
+      observer.observe(element);
+    }
+
+    return () => {
+      observer.disconnect();
+      observerRef.current = null;
+    };
+  }, []);
+
+  function setObservedElement(
+    sectionId: string,
+    element: HTMLDivElement | null,
+  ) {
+    const currentElement = elementsRef.current.get(sectionId);
+    if (currentElement && currentElement !== element) {
+      observerRef.current?.unobserve(currentElement);
+      elementsRef.current.delete(sectionId);
+    }
+
+    if (!element) {
+      setObservedElementSizes((current) => {
+        if (!(sectionId in current)) {
+          return current;
+        }
+        const next = { ...current };
+        delete next[sectionId];
+        return next;
+      });
+      return;
+    }
+
+    elementsRef.current.set(sectionId, element);
+    observerRef.current?.observe(element);
+  }
+
+  function getObservedElementRef(sectionId: string) {
+    const existing = refCallbacksRef.current.get(sectionId);
+    if (existing) {
+      return existing;
+    }
+
+    const callback = (element: HTMLDivElement | null) => {
+      setObservedElement(sectionId, element);
+    };
+    refCallbacksRef.current.set(sectionId, callback);
+    return callback;
+  }
+
+  return {
+    getObservedElementRef,
+    observedElementSizes,
+  };
 }

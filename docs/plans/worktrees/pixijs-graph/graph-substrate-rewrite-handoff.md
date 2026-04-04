@@ -9,6 +9,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `007` landed the first multi-section `All Settings` canary slice on the custom graph substrate:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now returns all visible top-level canary sections instead of a single preferred section and carries each section's `positionAndSizeLocked` state into the canary render contract
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now renders the visible `All Settings` top-level section set on the custom surface, fits the initial viewport to the shared section bounds, and routes drag ownership to whichever section is actually grabbed instead of pinning a synthetic top-left section
+  - the canary now observes per-section DOM sizes locally so the shared viewport fit uses the visible multi-section bounds without reintroducing `xyflow` ownership
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so the canary coverage proves more than one section is visible, a runtime-discovered draggable section can move without dragging a different visible section, and shared pan/zoom still moves multiple visible sections together
+  - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts` for the plural visible-section selector and lock-state contract
 - Ralph item `006` landed the first representative DOM interaction/editing handoff proof on the `settings` graph-substrate canary:
   - `frontend/src/components/Section/Header/SectionTitle.tsx` now marks editable section titles as both `nodrag` and `setta-prevent-section-on-click-trigger`
   - this keeps the canary-local drag capture and parent section activation from swallowing title double-clicks on the checked `All Settings` slice
@@ -44,19 +50,17 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
 - Current live verification state:
   - targeted Vitest passed for:
-    - `src/forks/xyflow/core/hooks/useViewportHelper.test.ts`
     - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
-    - `src/components/Pages/Project/graphSubstrate/viewportTransform.test.ts`
   - targeted Playwright passed for:
-    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary (drags one section and persists the top-level layout|pans and zooms one section on the custom surface|keeps title editing working after pan and zoom)'`
-  - CDP visual check passed on the current worktree session:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap|settings graph substrate canary drags one section and persists the top-level layout|settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
+  - CDP visual check passed on the current worktree session for the static normal-zoom canary field:
     - `http://127.0.0.1:3075/settings`
-    - `graph-substrate-canary` visible
-    - `.react-flow__pane` absent on `All Settings`
-    - background pan moved the canary viewport on the live surface while the DOM-backed section body stayed attached to its shell/header
-    - wheel zoom changed the live canary viewport scale while the section stayed visible/attached
-    - the visible `gui` section title now double-clicks into a focused header `input` on the live canary
-    - no route crash or error boundary after pan/zoom/title-edit verification
+    - `All Settings` active and `graph-substrate-canary` visible
+    - more than one top-level section visible on the custom surface
+    - no gross blank-card or detached-body issue in the normal visible field
+  - `main` reference comparison did not run this iteration:
+    - `http://127.0.0.1:3087/settings` returned `ERR_CONNECTION_REFUSED`
+    - `run-006/main-ai.log` shows the read-only `main` reference app died during startup on a settings-project validation error, so side-by-side oracle comparison was unavailable in this pass
 
 ## Architectural stance
 
@@ -76,14 +80,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - existing DOM body
   - custom drag/pan/zoom ownership plus one representative DOM edit handoff are now in place for the checked slice
 - The next real frontier is no longer seam lifting or single-control handoff proof:
-  - expand the custom substrate beyond one top-level section on `All Settings`
-  - keep DOM-backed section bodies/editors attached and interactive while more than one section is present on the custom surface
-  - treat any new detached-body, wrong-surface, or obvious perf regression during that expansion as the next blocker
+  - the canary now renders the visible top-level `All Settings` section set on the custom surface instead of a single representative section
+  - keep DOM-backed section bodies/editors attached and interactive while that broader visible set is exercised
+  - treat any new detached-body, wrong-surface, obvious perf regression, or newly visible drag ownership bug during the multi-section canary path as the next blocker
 - Required order from here:
   - keep the current custom viewport state model and `UIPage` seam
   - drag and custom pan/zoom ownership are now in place on the canary surface
   - a representative DOM-backed interaction/editing path is now proven on the same slice after pan/zoom
-  - next broaden the canary beyond one section before spending more time on harness polish or pixel-parity cleanup
+  - the multi-section canary expansion is now in place on `All Settings`
+  - next use a healthy `main` oracle session to do the staged Gate 1 gross-drift compare on that multi-section surface before spending time on pixel-parity cleanup or harness polish
 
 ## Explicit deferrals
 
@@ -106,6 +111,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `006`
-- Latest item: `2026-04-02 006`
+- Active history window: items `001` through `007`
+- Latest item: `2026-04-02 007`
 - Older history archives: none yet

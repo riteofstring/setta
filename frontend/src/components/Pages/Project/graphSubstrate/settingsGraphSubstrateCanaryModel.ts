@@ -1,6 +1,7 @@
 import type { Node } from "forks/xyflow/core/types";
 import {
   getActiveViewModeTopLevelSections,
+  getCurrEffectiveSectionImpl,
   getSectionShouldRender,
   getSectionViewModeVisibility,
 } from "state/actions/sectionInfos";
@@ -21,6 +22,7 @@ export type GraphSubstrateCanarySection = {
   zIndex: number;
   width: number | null;
   height: number | null;
+  positionAndSizeLocked: boolean;
 };
 
 export function resolveActiveViewModeName(
@@ -42,11 +44,10 @@ export function shouldUseSettingsGraphSubstrateCanary(
   );
 }
 
-export function selectSettingsGraphSubstrateCanarySection(
+export function selectSettingsGraphSubstrateCanarySections(
   projectState: ZustandProjectState,
   nodeInternals: Map<string, Node>,
-  preferredSectionId: string | null = null,
-): GraphSubstrateCanarySection | null {
+): Array<GraphSubstrateCanarySection> {
   const layouts = getActiveViewModeTopLevelSections(projectState);
   const candidates: Array<GraphSubstrateCanarySection> = [];
 
@@ -62,6 +63,7 @@ export function selectSettingsGraphSubstrateCanarySection(
       continue;
     }
     const node = nodeInternals.get(sectionId);
+    const impl = getCurrEffectiveSectionImpl(projectState, sectionId);
 
     candidates.push({
       sectionId,
@@ -69,16 +71,8 @@ export function selectSettingsGraphSubstrateCanarySection(
       zIndex: node?.zIndex ?? layout.zIndex,
       width: node?.width ?? layout.w,
       height: node?.height ?? layout.h,
+      positionAndSizeLocked: impl.positionAndSizeLocked,
     });
-  }
-
-  if (preferredSectionId) {
-    const preferredCandidate =
-      candidates.find((candidate) => candidate.sectionId === preferredSectionId) ??
-      null;
-    if (preferredCandidate) {
-      return preferredCandidate;
-    }
   }
 
   candidates.sort((a, b) => {
@@ -91,5 +85,5 @@ export function selectSettingsGraphSubstrateCanarySection(
     return a.sectionId.localeCompare(b.sectionId);
   });
 
-  return candidates[0] ?? null;
+  return candidates;
 }
