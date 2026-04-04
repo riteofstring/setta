@@ -520,3 +520,43 @@ func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarati
 		})
 	}
 }
+
+func TestTypeConverterReflectsRealtimeContractsWithoutManualDeclarations(t *testing.T) {
+	overrides := frontendBindingDeclarationOverrides()
+	tests := []struct {
+		name string
+		root reflect.Type
+	}{
+		{name: "GetLLMChatResponse", root: reflect.TypeOf(GetLLMChatResponse{})},
+		{name: "ExternalAgentChatResponse", root: reflect.TypeOf(ExternalAgentChatResponse{})},
+		{name: "UpdateArtifactMsgContent", root: reflect.TypeOf(UpdateArtifactMsgContent{})},
+		{name: "UISettingRevealActivationStep", root: reflect.TypeOf(UISettingRevealActivationStep{})},
+		{name: "UISettingRevealTarget", root: reflect.TypeOf(UISettingRevealTarget{})},
+		{name: "UISettingRevealContent", root: reflect.TypeOf(UISettingRevealContent{})},
+		{name: "UISettingRevealResultStatus", root: reflect.TypeOf(UISettingRevealResultStatus{})},
+		{name: "UISettingRevealResultContent", root: reflect.TypeOf(UISettingRevealResultContent{})},
+		{name: "WebsocketMsgRealtimeUIChangeContent", root: reflect.TypeOf(WebsocketMsgRealtimeUIChangeContent{})},
+		{name: "WebsocketMsgRealtimeUIChange", root: reflect.TypeOf(WebsocketMsgRealtimeUIChange{})},
+		{name: "WebsocketMsgRealtimeDependencyEventContent", root: reflect.TypeOf(WebsocketMsgRealtimeDependencyEventContent{})},
+		{name: "WebsocketMsgRealtimeDependencyEvent", root: reflect.TypeOf(WebsocketMsgRealtimeDependencyEvent{})},
+		{name: "WebsocketMsgUISettingRevealResult", root: reflect.TypeOf(WebsocketMsgUISettingRevealResult{})},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, ok := overrides[tt.root]; ok {
+				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
+			}
+
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != "object" {
+				t.Fatalf("%s declaration kind = %q, want object", tt.name, declaration.Kind)
+			}
+		})
+	}
+}

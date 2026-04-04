@@ -626,6 +626,26 @@ export type SetChatSectionStateRequestInput = {
 
 export type GetChatSectionChatIDResponse = string;
 
+export type BaseChatMessageUnion =
+  | SystemChatMessage
+  | AssistantChatMessage
+  | UserChatMessage
+  | ToolChatMessage;
+
+export type LLMConfig = {
+  id: string;
+  model: string;
+  provider?: string;
+  base_url?: string;
+  api_key_env?: string;
+  other_params?: Record<string, unknown>;
+  mcpServerIds?: Array<string>;
+  temporary?: boolean;
+};
+export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
+  return options as LLMConfig;
+}
+
 export type GetLLMChatResponse = {
   messages: Array<BaseChatMessageUnion>;
   waitingForResponse: boolean;
@@ -814,20 +834,6 @@ type MCPServerConfig = {
   encoding?: string;
   encoding_error_handler?: string;
 };
-
-export type LLMConfig = {
-  id: string;
-  model: string;
-  provider?: string;
-  base_url?: string;
-  api_key_env?: string;
-  other_params?: Record<string, unknown>;
-  mcpServerIds?: Array<string>;
-  temporary?: boolean;
-};
-export function createLLMConfig(options: Partial<LLMConfig> = {}): LLMConfig {
-  return options as LLMConfig;
-}
 
 export type AllLLMConfigs = {
   configs: Record<string, LLMConfig>;
@@ -6271,12 +6277,6 @@ export function createToolChatMessage(
     options,
   );
 }
-
-export type BaseChatMessageUnion =
-  | SystemChatMessage
-  | AssistantChatMessage
-  | UserChatMessage
-  | ToolChatMessage;
 
 export type ChatSectionBranch = {
   messages: Array<BaseChatMessageUnion>;

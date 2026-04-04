@@ -2189,6 +2189,28 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 		return reflectedOptionalPropertiesSpec("frontendOpId"), true
 	case reflect.TypeOf(SetCodeFileBindingRequestInput{}):
 		return reflectedOptionalPropertiesSpec("frontendOpId"), true
+	case reflect.TypeOf(UpdateArtifactMsgContent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"updateType": `"update" | "delete"`,
+			},
+		}, true
+	case reflect.TypeOf(UISettingRevealTarget{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyOptionalOverrides: map[string]bool{
+				"revealActivationSteps": false,
+			},
+		}, true
+	case reflect.TypeOf(UISettingRevealResultStatus{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"status": `"revealed" | "failed"`,
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"errorCode":    true,
+				"errorMessage": true,
+			},
+		}, true
 	case reflect.TypeOf(LineChartSettings{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectstate.FrontendDefaultLineChartSettings(),
@@ -2216,6 +2238,24 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			HasCreateExpr: true,
 			PropertyTypeExprOverrides: map[string]string{
 				"messageType": "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate",
+			},
+		}, true
+	case reflect.TypeOf(WebsocketMsgRealtimeUIChange{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"messageType": "typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange",
+			},
+		}, true
+	case reflect.TypeOf(WebsocketMsgRealtimeDependencyEvent{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"messageType": "typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent",
+			},
+		}, true
+	case reflect.TypeOf(WebsocketMsgUISettingRevealResult{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"messageType": "typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult",
 			},
 		}, true
 	default:

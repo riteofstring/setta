@@ -4191,7 +4191,7 @@ func disabledAIRequestContractsUseConverterObjects(t *testing.T) {
 	}
 }
 
-func disabledAIResponseContractsUseConverterObjects(t *testing.T) {
+func TestAIResponseContractsUseConverterObjects(t *testing.T) {
 	tests := []struct {
 		name       string
 		root       reflect.Type
