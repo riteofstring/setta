@@ -12,14 +12,12 @@ type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
 	stringEnums  map[reflect.Type][]EnumValue
-	manualTypes  map[reflect.Type]TypeDeclaration
 }
 
 func newTypeConverter() *typeConverter {
 	return &typeConverter{
 		seen:        make(map[reflect.Type]struct{}),
 		stringEnums: frontendBindingStringEnumValues(),
-		manualTypes: frontendBindingDeclarationOverrides(),
 	}
 }
 func (c *typeConverter) AddRootType(root reflect.Type) error {
@@ -134,11 +132,6 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			return err
 		}
 		c.declarations = append(c.declarations, declaration)
-		return c.appendAdditionalDeclarationsForType(t)
-	}
-
-	if decl, ok := c.manualTypes[t]; ok {
-		c.declarations = append(c.declarations, decl)
 		return c.appendAdditionalDeclarationsForType(t)
 	}
 

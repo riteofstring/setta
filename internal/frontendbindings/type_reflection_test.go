@@ -8,7 +8,6 @@ import (
 )
 
 func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name       string
 		root       reflect.Type
@@ -1159,10 +1158,6 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -1246,7 +1241,6 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 }
 
 func TestTypeConverterUsesMetadataDeclarationsWithoutManualOverrides(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name          string
 		root          reflect.Type
@@ -1372,10 +1366,6 @@ func TestTypeConverterUsesMetadataDeclarationsWithoutManualOverrides(t *testing.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -1399,7 +1389,6 @@ func TestTypeConverterUsesMetadataDeclarationsWithoutManualOverrides(t *testing.
 }
 
 func TestTypeConverterUsesCodeObjAliasMetadataWithoutManualOverrides(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name  string
 		root  reflect.Type
@@ -1502,10 +1491,6 @@ func TestTypeConverterUsesCodeObjAliasMetadataWithoutManualOverrides(t *testing.
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -1522,8 +1507,161 @@ func TestTypeConverterUsesCodeObjAliasMetadataWithoutManualOverrides(t *testing.
 	}
 }
 
+func TestTypeConverterUsesSectionAliasMetadataWithoutManualOverrides(t *testing.T) {
+	tests := []struct {
+		name       string
+		root       reflect.Type
+		kind       string
+		alias      string
+		properties []TypeProperty
+	}{
+		{
+			name: "BaseSectionImpl",
+			root: reflect.TypeOf(BaseSectionImpl{}),
+			kind: "object",
+			properties: []TypeProperty{
+				{Name: "type", TypeExpr: "SectionType", Optional: false},
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "isFrozen", TypeExpr: "boolean", Optional: false},
+				{Name: "isInOtherProjectConfigs", TypeExpr: "boolean", Optional: false},
+				{Name: "tagColor", TypeExpr: "string | null", Optional: false},
+				{Name: "styleColor", TypeExpr: "string | null", Optional: false},
+				{Name: "size", TypeExpr: "SectionSize", Optional: false},
+				{Name: "aspectRatio", TypeExpr: "boolean | number", Optional: false},
+				{Name: "aspectRatioExtraHeight", TypeExpr: "number", Optional: false},
+				{Name: "aspectRatioExtraWidth", TypeExpr: "number", Optional: false},
+				{Name: "isMinimized", TypeExpr: "boolean", Optional: false},
+				{Name: "positionAndSizeLocked", TypeExpr: "boolean", Optional: false},
+				{Name: "isPreset", TypeExpr: "boolean", Optional: false},
+				{Name: "children", TypeExpr: "Array<string>", Optional: true},
+				{Name: "codeObjVariantMap", TypeExpr: "Record<string, string>", Optional: true},
+				{Name: "hideUnpinnedParams", TypeExpr: "boolean", Optional: true},
+				{Name: "paramFilter", TypeExpr: "string", Optional: true},
+				{Name: "columnWidth", TypeExpr: "number | null", Optional: true},
+				{Name: "configLanguage", TypeExpr: "string", Optional: true},
+				{Name: "pinnedParams", TypeExpr: "Array<string>", Optional: true},
+				{Name: "selectedParams", TypeExpr: "Array<string>", Optional: true},
+				{Name: "ignoreTypeErrors", TypeExpr: "TypeErrorIgnoreState", Optional: true},
+				{Name: "edgeInputParams", TypeExpr: "Array<string>", Optional: true},
+				{Name: "edgeOutputPorts", TypeExpr: "Array<EdgePort>", Optional: true},
+				{Name: "topLevelParamId", TypeExpr: "string | null", Optional: true},
+				{Name: "isJsonSource", TypeExpr: "boolean", Optional: true},
+				{Name: "jsonSourceKeys", TypeExpr: "Array<string>", Optional: true},
+				{Name: "jsonSourceMissing", TypeExpr: "boolean", Optional: true},
+				{Name: "metaControlParamId", TypeExpr: "string | null", Optional: true},
+				{Name: "showSectionTitle", TypeExpr: "boolean", Optional: true},
+				{Name: "attachedTerminalSectionId", TypeExpr: "string | null", Optional: true},
+				{Name: "code", TypeExpr: "string", Optional: true},
+				{Name: "codeLanguage", TypeExpr: "string", Optional: true},
+				{Name: "codeFileBinding", TypeExpr: "CodeFileBinding | null", Optional: true},
+				{Name: "messages", TypeExpr: "Array<BaseChatMessageUnion>", Optional: true},
+				{Name: "inputText", TypeExpr: "string", Optional: true},
+				{Name: "waitingForResponse", TypeExpr: "boolean", Optional: true},
+				{Name: "toolCallArguments", TypeExpr: "Record<string, string>", Optional: true},
+				{Name: "pluginId", TypeExpr: "string", Optional: true},
+				{Name: "kind", TypeExpr: "string", Optional: true},
+				{Name: "data", TypeExpr: "Record<string, unknown>", Optional: true},
+				{Name: "schemaVersion", TypeExpr: "number | null", Optional: true},
+				{Name: "viewMode", TypeExpr: "ListRootViewMode", Optional: true},
+				{Name: "defaultChildSectionType", TypeExpr: "SectionType", Optional: true},
+				{Name: "isHorizontalOrientation", TypeExpr: "boolean", Optional: true},
+				{Name: "overflowMode", TypeExpr: "boolean", Optional: true},
+				{Name: "hideColumn", TypeExpr: "boolean", Optional: true},
+				{Name: "folder", TypeExpr: "string", Optional: true},
+				{Name: "filePath", TypeExpr: "string", Optional: true},
+				{Name: "activeSheet", TypeExpr: "string | null", Optional: true},
+				{Name: "readOnly", TypeExpr: "boolean", Optional: true},
+				{Name: "showRowNumbers", TypeExpr: "boolean", Optional: true},
+				{Name: "density", TypeExpr: "string", Optional: true},
+				{Name: "autoReloadOnExternalChange", TypeExpr: "boolean", Optional: true},
+				{Name: "text", TypeExpr: "string", Optional: true},
+				{Name: "metaControlStyle", TypeExpr: "boolean", Optional: true},
+				{Name: "imagePath", TypeExpr: "string", Optional: true},
+				{Name: "dataPath", TypeExpr: "string", Optional: true},
+				{Name: "chartSettings", TypeExpr: "BaseChartSettingsUnion", Optional: true},
+			},
+		},
+		{
+			name: "CallableSectionImpl",
+			root: reflect.TypeOf(CallableSectionImpl{}),
+			kind: "alias",
+			alias: `BaseSectionImpl & {
+  type: typeof SectionTypeEnum.Callable;
+  codeObjVariantMap: Record<string, string>;
+  hideUnpinnedParams: boolean;
+  paramFilter: string;
+  columnWidth: number | null;
+  configLanguage: ConfigLanguage;
+  pinnedParams: Array<string>;
+  selectedParams: Array<string>;
+  ignoreTypeErrors: TypeErrorIgnoreState;
+  edgeInputParams: Array<string>;
+  edgeOutputPorts: Array<EdgePort>;
+  callable?: string | null;
+  hideParams: boolean;
+}`,
+		},
+		{
+			name: "BrowserSectionImpl",
+			root: reflect.TypeOf(BrowserSectionImpl{}),
+			kind: "alias",
+			alias: `Omit<BaseSectionImpl, "viewMode"> & {
+  type: typeof SectionTypeEnum.Browser;
+  folder: string;
+  hideColumn: boolean;
+  columnWidth?: number | null;
+  typesColumnWidth?: number | null;
+  viewMode: BrowserAreaViewMode;
+  savedSearches: Array<BrowserSavedSearch>;
+}`,
+		},
+		{
+			name: "BaseSectionImplUnion",
+			root: reflect.TypeOf(BaseSectionImplUnion{}),
+			kind: "alias",
+			alias: `CallableSectionImpl
+  | DictSectionImpl
+  | ListRootSectionImpl
+  | GroupSectionImpl
+  | StateMachineStartSectionImpl
+  | StateMachineGateSectionImpl
+  | StateMachineEndSectionImpl
+  | TextBlockSectionImpl
+  | PromptSectionImpl
+  | CodeSectionImpl
+  | TerminalSectionImpl
+  | ChatSectionImpl
+  | BrowserSectionImpl
+  | ChartSectionImpl
+  | TaskBoardSectionImpl
+  | SpreadsheetSectionImpl
+  | BaseSectionImpl`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			converter := newTypeConverter()
+			if err := converter.AddRootType(tt.root); err != nil {
+				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
+			}
+
+			declaration := requireDeclaration(t, converter.Declarations(), tt.name)
+			if declaration.Kind != tt.kind {
+				t.Fatalf("%s declaration kind = %q, want %q", tt.name, declaration.Kind, tt.kind)
+			}
+			if declaration.Alias != tt.alias {
+				t.Fatalf("%s alias = %q, want %q", tt.name, declaration.Alias, tt.alias)
+			}
+			if !reflect.DeepEqual(declaration.Properties, tt.properties) {
+				t.Fatalf("%s properties = %#v, want %#v", tt.name, declaration.Properties, tt.properties)
+			}
+		})
+	}
+}
+
 func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarations(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name string
 		root reflect.Type
@@ -1565,10 +1703,6 @@ func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarati
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -1583,7 +1717,6 @@ func TestTypeConverterReflectsProjectStateMutationRequestsWithoutManualDeclarati
 }
 
 func TestTypeConverterReflectsChatSupportContractsWithoutManualDeclarations(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name               string
 		root               reflect.Type
@@ -1740,10 +1873,6 @@ func TestTypeConverterReflectsChatSupportContractsWithoutManualDeclarations(t *t
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -1764,7 +1893,6 @@ func TestTypeConverterReflectsChatSupportContractsWithoutManualDeclarations(t *t
 }
 
 func TestTypeConverterReflectsStreamingContractsWithoutManualDeclarations(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name       string
 		root       reflect.Type
@@ -1870,10 +1998,6 @@ func TestTypeConverterReflectsStreamingContractsWithoutManualDeclarations(t *tes
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -1891,7 +2015,6 @@ func TestTypeConverterReflectsStreamingContractsWithoutManualDeclarations(t *tes
 }
 
 func TestTypeConverterReflectsRealtimeContractsWithoutManualDeclarations(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name string
 		root reflect.Type
@@ -1913,10 +2036,6 @@ func TestTypeConverterReflectsRealtimeContractsWithoutManualDeclarations(t *test
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
@@ -1931,7 +2050,6 @@ func TestTypeConverterReflectsRealtimeContractsWithoutManualDeclarations(t *test
 }
 
 func TestTypeConverterReflectsPluginRuntimeContractsWithoutManualDeclarations(t *testing.T) {
-	overrides := frontendBindingDeclarationOverrides()
 	tests := []struct {
 		name string
 		root reflect.Type
@@ -1942,10 +2060,6 @@ func TestTypeConverterReflectsPluginRuntimeContractsWithoutManualDeclarations(t 
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if _, ok := overrides[tt.root]; ok {
-				t.Fatalf("%s should not remain in the manual declaration override map", tt.name)
-			}
-
 			converter := newTypeConverter()
 			if err := converter.AddRootType(tt.root); err != nil {
 				t.Fatalf("AddRootType(%s) error = %v", tt.root.String(), err)
