@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 05:14 EDT
+Last updated: 2026-04-04 05:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `095` added a normalized cross-worktree `groupSectionDefault` body-anchor top-level drag probe and closed that bounded body-heavy drag lane without reopening the spreadsheet path.
+  - Why this slice was needed:
+    - the handoff already closed the spreadsheet body-anchor drag lane and explicitly asked for the next dynamic compare on a different body-heavy shared section or a concrete production defect
+    - a fresh-context CDP compare on the raw live pages did not reveal a trustworthy canary-only drag artifact; it showed that the worktree tab could reopen on the wrong `VIEW MODES`/offscreen graph state while read-only `main` stayed on the expected `All Settings` graph surface
+    - the narrowest valid next step was one deterministic main-reference probe that normalizes both surfaces, targets `groupSectionDefault`, and uses the same stable section-scoped `args-filter` id already available on both sides instead of inventing a heuristic body anchor
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - new opt-in probe: `settings graph parity probe keeps the group body args filter attached during normalized top-level drag on read-only main legacy and worktree canary`
+      - the probe boots both live runtimes with fresh bootstrap values, restores the initial `All Settings` top-level layout before each capture, normalizes pane/selection noise, fits `groupSectionDefault` on both surfaces, applies the same short top-level drag, and then verifies the stable section-scoped `args-filter` keeps the same relative center inside the section, remains focusable/editable, and does not drag the viewport with it
+    - no production renderer files changed in this slice
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun with fresh runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the group body args filter attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed twice in the final file state (`1 passed`, `32.0s` then `33.1s`)
+  - Live verification result:
+    - fresh-context CDP sub-agent checked the already-running live settings pages:
+      - worktree page `8FA3CBBF9F37382539C36129E82F5774` at `http://127.0.0.1:3075/settings`
+      - read-only `main` page `B90861330BDE851B1B764D7375D963E0` at `http://127.0.0.1:3087/settings`
+    - on the raw live worktree tab, `groupSectionDefault` was present in the DOM but effectively offscreen to the right (`x≈1372`) with the page sitting on `VIEW MODES` chrome and viewport transform `matrix(0.1, 0, 0, 0.1, 1312.4, -51.7)`
+    - on read-only `main`, `groupSectionDefault` was already visible on the graph surface (`x≈772, y≈284`)
+    - the sub-agent attempted a short main-side drag pulse, but it did not move the node or viewport; the live raw-tab lane was therefore treated as untrustworthy/oracle-limited rather than as a canary-only renderer defect
+    - CDP visual check: done (fresh-context live `groupSectionDefault` lane sanity check on worktree `3075` vs read-only `main` `3087`; the raw worktree tab state was offscreen/misaligned, so the new deterministic Playwright probe owns the normalized compare)
+  - conclusion for this slice:
+    - close the specific `groupSectionDefault` top-level drag body-anchor lane as covered by the new deterministic main-reference probe
+    - do not reopen this lane from raw saved tab state alone; first normalize to `All Settings` plus cleared viewport/selection and only treat a mismatch as renderer drift if the stable `args-filter` anchor actually detaches, disappears, or becomes non-interactive
+    - the next real frontier should move to a different shared dynamic action or a concrete production renderer defect, not another `args-filter` top-level drag variant
 - Ralph item `094` tightened the shared normalized graph-surface pane helper so parity compares wait for visible pane chrome to disappear before measuring the graph surface.
   - Why this slice was needed:
     - the first fresh-context CDP compare on this pass did not expose a concrete canary-only renderer defect on normalized `All Settings`; the live graph surface still looked stable against read-only `main`
@@ -2211,6 +2239,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The spreadsheet top-level drag body-anchor lane is now closed:
   - item `091` already proves `spreadsheetSectionDefault` keeps its stable args-filter body anchor attached and editable through one normalized short top-level drag on worktree canary and read-only `main` legacy
   - do not spend another iteration on more spreadsheet-specific drag/search guard tightening unless a fresh compare shows the actual input disappearing, drifting, or becoming non-interactive
+- The `groupSectionDefault` top-level drag body-anchor lane is now closed:
+  - item `095` proves `groupSectionDefault` keeps the same stable args-filter body anchor attached and editable through one normalized short top-level drag on worktree canary and read-only `main` legacy
+  - do not reopen this lane from raw restored tab state alone; the fresh-context CDP compare showed that saved live tabs can reopen on offscreen/wrong-chrome graph state, so only a normalized compare or failing deterministic probe should count as renderer evidence here
 - The `spreadsheetSectionDefault` body-search pan/zoom guard is now normalized and closed for the current stale-active-state question:
   - it targets the section-scoped args filter by stable id after a named-section fit
   - do not reopen that lane with `⌘ + K` placeholder assertions unless a future compare proves the actual input disappears
@@ -2225,7 +2256,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - one short top-level section drag
 - Choose the first remaining visible canary-only artifact on that dynamic path and land a production fix instead of more harness cleanup.
 - Because item `092` did not expose a canary-only landing defect, the next pass should avoid another entry-state oracle slice by default and return to one materially different dynamic graph-surface action that could still expose a real renderer bug.
-- Prefer the next dynamic lane on a different body-heavy shared section or a concrete production renderer defect; the spreadsheet body anchor now has enough coverage for the current gate.
+- Prefer the next dynamic lane on a different shared action or a concrete production renderer defect; the spreadsheet and `groupSectionDefault` body-anchor drag lanes now have enough coverage for the current gate.
 - Keep using the graph-surface-only normalization when you need live CDP context:
   - close or minimize non-target pane/chat chrome
   - normalize to `All Settings`
@@ -2304,6 +2335,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `088`
-- Latest item: `2026-04-04 088`
+- Active history window: items `001` through `095`
+- Latest item: `2026-04-04 095`
 - Older history archives: none yet

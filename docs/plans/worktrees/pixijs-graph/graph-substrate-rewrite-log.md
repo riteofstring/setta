@@ -3247,3 +3247,33 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one bounded renderer-facing dynamic compare on normalized `All Settings`; if the fast-switch `fit view` main-reference lane is retried, first define the exact authoritative reference surface/metric instead of landing another half-bounded draft probe
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 05:29 EDT - Ralph item 095
+
+- Added a normalized cross-worktree `groupSectionDefault` body-anchor top-level drag probe and closed that bounded body-heavy drag lane without reopening the spreadsheet path.
+- Why this slice was necessary:
+  - the handoff already closed the spreadsheet body-anchor lane and asked for the next dynamic compare on a different body-heavy shared section or a concrete production bug
+  - a fresh-context CDP compare on the raw live pages did not reveal a trustworthy canary-only drag artifact; it showed the worktree tab reopening on the wrong `VIEW MODES`/offscreen graph state while read-only `main` stayed on the expected `All Settings` graph surface
+  - the narrowest valid next step was one deterministic main-reference probe that normalizes both surfaces, targets `groupSectionDefault`, and uses the stable section-scoped `args-filter` id already present on both sides instead of inventing a heuristic body anchor
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - new opt-in probe: `settings graph parity probe keeps the group body args filter attached during normalized top-level drag on read-only main legacy and worktree canary`
+    - the probe restores the initial `All Settings` top-level layout before each capture, normalizes pane/selection noise, fits `groupSectionDefault`, applies the same short top-level drag on both surfaces, and verifies the stable `args-filter` anchor stays attached and editable without dragging the viewport
+  - no production renderer files changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun with fresh runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the group body args filter attached during normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed twice in the final file state (`1 passed`, `32.0s` then `33.1s`)
+  - fresh-context CDP sub-agent:
+    - checked worktree page `8FA3CBBF9F37382539C36129E82F5774` on `http://127.0.0.1:3075/settings` and read-only `main` page `B90861330BDE851B1B764D7375D963E0` on `http://127.0.0.1:3087/settings`
+    - on the raw live worktree tab, `groupSectionDefault` was present in the DOM but effectively offscreen to the right (`x≈1372`) with the page sitting on `VIEW MODES` chrome and viewport transform `matrix(0.1, 0, 0, 0.1, 1312.4, -51.7)`
+    - on read-only `main`, `groupSectionDefault` was visible on the graph surface (`x≈772, y≈284`)
+    - the attempted raw live drag lane was not trustworthy enough to judge a canary-only renderer bug, so the deterministic Playwright probe owns this normalized compare
+  - CDP visual check: done (fresh-context live `groupSectionDefault` lane sanity check on `3075` vs `3087`; raw worktree tab state was offscreen/misaligned, which is now recorded as oracle noise for this lane)
+- Lane status:
+  - close the specific `groupSectionDefault` top-level drag body-anchor lane as covered by the new deterministic main-reference probe
+  - do not reopen this lane from raw saved tab state alone; normalize to `All Settings` plus cleared viewport/selection first, and only treat a mismatch as renderer drift if the stable `args-filter` anchor actually detaches, disappears, or becomes non-interactive
+- Next frontier:
+  - move to a different shared dynamic action or a concrete production renderer defect instead of adding another `args-filter` top-level drag variant
+- LOOP_TERMINAL_MARKER: none
