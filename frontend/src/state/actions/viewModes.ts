@@ -1,5 +1,5 @@
-import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
+import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { useProjectState, type ZustandProjectState } from "state/definitions";
 import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
@@ -32,9 +32,8 @@ function dispatchOptimisticViewModeMutation({
   const previousProjectConfig = createProjectConfig(
     useProjectState.getState().projectConfig,
   );
-  let acknowledgedProjectConfig:
-    | ZustandProjectState["projectConfig"]
-    | null = null;
+  let acknowledgedProjectConfig: ZustandProjectState["projectConfig"] | null =
+    null;
   dispatchOptimisticProjectStateUpdate({
     projectConfigId,
     apply,

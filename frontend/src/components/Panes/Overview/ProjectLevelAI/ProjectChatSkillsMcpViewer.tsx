@@ -9,8 +9,8 @@ import { getExtensions } from "components/Utils/CodeMirror/getExtensions";
 import { useCodeMirrorStyle } from "components/Utils/CodeMirror/useCodeMirrorStyle";
 import { IdNameCombobox } from "components/Utils/Combobox/IdNameCombobox";
 import {
-  type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  type PointerEvent as ReactPointerEvent,
   type RefObject,
   useCallback,
   useEffect,
@@ -205,7 +205,9 @@ type SelectedSkillViewState = {
 };
 type SkillGroup = ReturnType<typeof groupSkillsByRootPath>[number];
 type McpServerGroup = ReturnType<typeof groupMcpServersByConfigPath>[number];
-type SlashCommandsByEngineEntry = ReturnType<typeof buildSlashCommandsByEngine>[number];
+type SlashCommandsByEngineEntry = ReturnType<
+  typeof buildSlashCommandsByEngine
+>[number];
 type SkillStatusBySkillId = ReturnType<typeof buildSkillStatusBySkillId>;
 type SkillStatusEntry = SkillStatusBySkillId[string];
 type CodeMirrorTheme = ReturnType<typeof useCodeMirrorStyle>;
@@ -673,12 +675,10 @@ function resolveInitialSkillMarkdownViewerOpen(
 function resolveInitialSkillMarkdownViewMode(
   storageAdapter: ReturnType<typeof getSafeLocalStorageAdapter>,
 ): SkillMarkdownViewMode {
-  return (
-    storageAdapter.getItem(SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY) ===
+  return storageAdapter.getItem(SKILL_MARKDOWN_VIEW_MODE_STORAGE_KEY) ===
     SKILL_MARKDOWN_VIEW_MODE_RAW
-      ? SKILL_MARKDOWN_VIEW_MODE_RAW
-      : SKILL_MARKDOWN_VIEW_MODE_RENDERED
-  );
+    ? SKILL_MARKDOWN_VIEW_MODE_RAW
+    : SKILL_MARKDOWN_VIEW_MODE_RENDERED;
 }
 
 function resolveSelectedSlashEngine(args: {
@@ -825,7 +825,9 @@ function resolveSaveSelectedSkillButtonTitle(args: {
     return "Skill content is still loading.";
   }
   if (!selectedSkillIsEditable) {
-    return selectedSkillEditabilityReason ?? "Only custom skills can be edited.";
+    return (
+      selectedSkillEditabilityReason ?? "Only custom skills can be edited."
+    );
   }
   if (selectedSkillContentTruncated) {
     return "Cannot save a truncated preview.";
@@ -837,8 +839,12 @@ function resolveSkillPreviewTruncationNotice(args: {
   selectedSkillContentTruncated: boolean;
   selectedSkillOriginalSizeBytes: number | null;
 }): string | null {
-  const { selectedSkillContentTruncated, selectedSkillOriginalSizeBytes } = args;
-  if (!selectedSkillContentTruncated || selectedSkillOriginalSizeBytes === null) {
+  const { selectedSkillContentTruncated, selectedSkillOriginalSizeBytes } =
+    args;
+  if (
+    !selectedSkillContentTruncated ||
+    selectedSkillOriginalSizeBytes === null
+  ) {
     return null;
   }
   return `Preview truncated from ${selectedSkillOriginalSizeBytes.toLocaleString()} bytes.`;
@@ -857,7 +863,10 @@ function resolveCurrentCustomSlashDraft(args: {
 
 function resolveSkillMarkdownRawDraft(args: {
   selectedSkillId: string | null;
-  skillMarkdownDraftStateBySkillId: Record<string, SkillMarkdownDraftStateEntry>;
+  skillMarkdownDraftStateBySkillId: Record<
+    string,
+    SkillMarkdownDraftStateEntry
+  >;
 }): string | null {
   const { selectedSkillId, skillMarkdownDraftStateBySkillId } = args;
   if (!selectedSkillId) {
@@ -1310,7 +1319,10 @@ function SkillGroupsPanel({
   skillsSectionRef,
 }: SkillGroupsPanelProps) {
   return (
-    <div ref={skillsSectionRef} className="flex min-h-0 min-w-0 flex-1 flex-col">
+    <div
+      ref={skillsSectionRef}
+      className="flex min-h-0 min-w-0 flex-1 flex-col"
+    >
       <div
         className="min-h-0 min-w-0 overflow-auto rounded-md p-2 text-xs"
         data-testid="project-chat-skills-list-pane"
@@ -1438,7 +1450,9 @@ function SkillMarkdownToolbar({
               : "text-setta-500 hover:bg-setta-200 hover:text-setta-700 dark:text-setta-400 dark:hover:bg-setta-800 dark:hover:text-setta-200"
           }`}
           data-testid="project-chat-skill-markdown-view-raw"
-          onClick={() => onSelectSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW)}
+          onClick={() =>
+            onSelectSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW)
+          }
           type="button"
         >
           Raw text
@@ -1548,7 +1562,11 @@ function SkillMarkdownViewerPanel({
   skillPreviewTruncationNotice,
 }: SkillMarkdownViewerPanelProps) {
   return (
-    <div className={isOpen ? "min-h-[140px] min-w-0 flex-1 overflow-hidden" : "min-w-0"}>
+    <div
+      className={
+        isOpen ? "min-h-[140px] min-w-0 flex-1 overflow-hidden" : "min-w-0"
+      }
+    >
       <Accordion.Root
         className={isOpen ? "h-full min-h-0" : ""}
         collapsible
@@ -1604,11 +1622,15 @@ function SkillMarkdownViewerPanel({
                 />
                 <SkillMarkdownBody
                   codeMirrorTheme={codeMirrorTheme}
-                  editableMarkdownViewerExtensions={editableMarkdownViewerExtensions}
+                  editableMarkdownViewerExtensions={
+                    editableMarkdownViewerExtensions
+                  }
                   isRawMarkdownView={isRawMarkdownView}
                   onSkillMarkdownDraftChange={onSkillMarkdownDraftChange}
                   rawMarkdownModeHint={rawMarkdownModeHint}
-                  readonlyMarkdownViewerExtensions={readonlyMarkdownViewerExtensions}
+                  readonlyMarkdownViewerExtensions={
+                    readonlyMarkdownViewerExtensions
+                  }
                   renderedSkillPreviewContent={renderedSkillPreviewContent}
                   skillMarkdownEditable={skillMarkdownEditable}
                   skillMarkdownRawDraft={skillMarkdownRawDraft}
@@ -1776,7 +1798,8 @@ function SkillsSection({
             className="truncate"
             data-testid="project-chat-custom-skill-root-path"
             title={
-              customSkillCreateRootPath ?? "Custom skill create root unavailable."
+              customSkillCreateRootPath ??
+              "Custom skill create root unavailable."
             }
           >
             {customSkillsRootDescription}
@@ -2161,7 +2184,9 @@ function SlashCommandsSection({
       <CustomSlashCommandsPanel
         addCustomProjectChatSlashCommand={addCustomProjectChatSlashCommand}
         canAddCustomSlashCommand={canAddCustomSlashCommand}
-        conflictingCustomSlashCommandTokens={conflictingCustomSlashCommandTokens}
+        conflictingCustomSlashCommandTokens={
+          conflictingCustomSlashCommandTokens
+        }
         customSlashCommandDefinitions={customSlashCommandDefinitions}
         customSlashNamespaceAuthorityReady={customSlashNamespaceAuthorityReady}
         newCustomSlashAppGenerationMode={newCustomSlashAppGenerationMode}
@@ -2170,7 +2195,9 @@ function SlashCommandsSection({
         onRemoveCustomProjectChatSlashCommand={
           onRemoveCustomProjectChatSlashCommand
         }
-        onSetNewCustomSlashAppGenerationMode={onSetNewCustomSlashAppGenerationMode}
+        onSetNewCustomSlashAppGenerationMode={
+          onSetNewCustomSlashAppGenerationMode
+        }
         onSetNewCustomSlashCommand={onSetNewCustomSlashCommand}
         onSetNewCustomSlashPrompt={onSetNewCustomSlashPrompt}
       />
@@ -2239,8 +2266,9 @@ export function ProjectChatSkillsMcpViewer({
     () => getSafeLocalStorageAdapter("project-chat-skills-mcp-viewer"),
     [],
   );
-  const [isSkillMarkdownViewerOpen, setIsSkillMarkdownViewerOpen] =
-    useState(() => resolveInitialSkillMarkdownViewerOpen(storageAdapter));
+  const [isSkillMarkdownViewerOpen, setIsSkillMarkdownViewerOpen] = useState(
+    () => resolveInitialSkillMarkdownViewerOpen(storageAdapter),
+  );
   const [skillMarkdownViewMode, setSkillMarkdownViewMode] =
     useState<SkillMarkdownViewMode>(() =>
       resolveInitialSkillMarkdownViewMode(storageAdapter),
@@ -2322,43 +2350,46 @@ export function ProjectChatSkillsMcpViewer({
   const showSkillsSection = viewMode === "skills";
   const showMcpSection = viewMode === "mcp";
 
-  const refreshSkillsBrowser = useCallback(async function refreshSkillsBrowserImpl() {
-    if (skillsRefreshInFlight.current) {
-      return;
-    }
-    skillsRefreshInFlight.current = true;
-    setSkillsLoading(true);
-    setSkillsError(null);
-    setCustomSkillCreateRootPath(null);
-    setCustomSkillCreateRootActionable(false);
-    try {
-      const res = await route_get_app_gen_skills();
-      if (!res200(res)) {
-        const detail = getErrorDetail(res.data);
-        setSkillsError(detail ?? "Failed to load skills.");
+  const refreshSkillsBrowser = useCallback(
+    async function refreshSkillsBrowserImpl() {
+      if (skillsRefreshInFlight.current) {
         return;
       }
-      const nextSkills = res.data.skills;
-      skillContentCache.current.clear();
-      setSkills(nextSkills);
-      setCustomSkillCreateRootPath(res.data.customSkillCreateRootPath);
-      setCustomSkillCreateRootActionable(
-        res.data.customSkillCreateRootActionable,
-      );
-      setSkillsRevision((value) => value + 1);
-      setSelectedSkillId((current) => {
-        if (nextSkills.length === 0) {
-          return null;
+      skillsRefreshInFlight.current = true;
+      setSkillsLoading(true);
+      setSkillsError(null);
+      setCustomSkillCreateRootPath(null);
+      setCustomSkillCreateRootActionable(false);
+      try {
+        const res = await route_get_app_gen_skills();
+        if (!res200(res)) {
+          const detail = getErrorDetail(res.data);
+          setSkillsError(detail ?? "Failed to load skills.");
+          return;
         }
-        return nextSkills.some((skill) => skill.skillId === current)
-          ? current
-          : nextSkills[0].skillId;
-      });
-    } finally {
-      setSkillsLoading(false);
-      skillsRefreshInFlight.current = false;
-    }
-  }, []);
+        const nextSkills = res.data.skills;
+        skillContentCache.current.clear();
+        setSkills(nextSkills);
+        setCustomSkillCreateRootPath(res.data.customSkillCreateRootPath);
+        setCustomSkillCreateRootActionable(
+          res.data.customSkillCreateRootActionable,
+        );
+        setSkillsRevision((value) => value + 1);
+        setSelectedSkillId((current) => {
+          if (nextSkills.length === 0) {
+            return null;
+          }
+          return nextSkills.some((skill) => skill.skillId === current)
+            ? current
+            : nextSkills[0].skillId;
+        });
+      } finally {
+        setSkillsLoading(false);
+        skillsRefreshInFlight.current = false;
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     return () => {
@@ -2999,71 +3030,76 @@ export function ProjectChatSkillsMcpViewer({
     [selectedSkillId, skillMarkdownEditable],
   );
 
-  const addCustomProjectChatSlashCommand = useCallback(function addCustomProjectChatSlashCommandImpl() {
-    const normalizedCommand = normalizeSlashCommandToken(newCustomSlashCommand);
-    if (!normalizedCommand) {
-      addTemporaryNotification(
-        "Provide a valid slash command (example: /triage-bugs).",
+  const addCustomProjectChatSlashCommand = useCallback(
+    function addCustomProjectChatSlashCommandImpl() {
+      const normalizedCommand = normalizeSlashCommandToken(
+        newCustomSlashCommand,
       );
-      return;
-    }
-    const trimmedPrompt = newCustomSlashPrompt.trim();
-    if (!trimmedPrompt) {
-      addTemporaryNotification("Provide prompt text for the custom command.");
-      return;
-    }
-    if (
-      reservedSlashCommandTokens.has(normalizedCommand) ||
-      customSlashCommandTokens.has(normalizedCommand)
-    ) {
-      addTemporaryNotification(
-        `${normalizedCommand} collides with an existing slash command.`,
-      );
-      return;
-    }
-    useLocalStorage.setState((state) => {
-      const currentByProject =
-        state.customProjectChatSlashCommandsByProjectConfigId;
-      const currentCommands = currentByProject[projectConfigId] ?? [];
-      if (
-        currentCommands.some(
-          (entry) =>
-            normalizeSlashCommandToken(entry.command) === normalizedCommand,
-        )
-      ) {
-        return state;
+      if (!normalizedCommand) {
+        addTemporaryNotification(
+          "Provide a valid slash command (example: /triage-bugs).",
+        );
+        return;
       }
-      return {
-        customProjectChatSlashCommandsByProjectConfigId: {
-          ...currentByProject,
-          [projectConfigId]: [
-            ...currentCommands,
-            {
-              command: normalizedCommand,
-              prompt: trimmedPrompt,
-              appGenerationMode: newCustomSlashAppGenerationMode,
-            },
-          ],
-        },
-      };
-    });
-    setCustomSlashDraftByProjectConfigId((current) => {
-      const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
-        customSlashDraftByProjectConfigId: current,
-        projectConfigId,
-        nextDraft: EMPTY_CUSTOM_SLASH_COMMAND_DRAFT,
+      const trimmedPrompt = newCustomSlashPrompt.trim();
+      if (!trimmedPrompt) {
+        addTemporaryNotification("Provide prompt text for the custom command.");
+        return;
+      }
+      if (
+        reservedSlashCommandTokens.has(normalizedCommand) ||
+        customSlashCommandTokens.has(normalizedCommand)
+      ) {
+        addTemporaryNotification(
+          `${normalizedCommand} collides with an existing slash command.`,
+        );
+        return;
+      }
+      useLocalStorage.setState((state) => {
+        const currentByProject =
+          state.customProjectChatSlashCommandsByProjectConfigId;
+        const currentCommands = currentByProject[projectConfigId] ?? [];
+        if (
+          currentCommands.some(
+            (entry) =>
+              normalizeSlashCommandToken(entry.command) === normalizedCommand,
+          )
+        ) {
+          return state;
+        }
+        return {
+          customProjectChatSlashCommandsByProjectConfigId: {
+            ...currentByProject,
+            [projectConfigId]: [
+              ...currentCommands,
+              {
+                command: normalizedCommand,
+                prompt: trimmedPrompt,
+                appGenerationMode: newCustomSlashAppGenerationMode,
+              },
+            ],
+          },
+        };
       });
-      return next ?? current;
-    });
-    addTemporaryNotification(`Added ${normalizedCommand}.`);
-  }, [
-    customSlashCommandTokens,
-    newCustomSlashAppGenerationMode,
-    newCustomSlashCommand,
-    newCustomSlashPrompt,
-    projectConfigId,
-    reservedSlashCommandTokens,
-  ]);
+      setCustomSlashDraftByProjectConfigId((current) => {
+        const next = resolveCustomSlashDraftByProjectConfigIdUpdate({
+          customSlashDraftByProjectConfigId: current,
+          projectConfigId,
+          nextDraft: EMPTY_CUSTOM_SLASH_COMMAND_DRAFT,
+        });
+        return next ?? current;
+      });
+      addTemporaryNotification(`Added ${normalizedCommand}.`);
+    },
+    [
+      customSlashCommandTokens,
+      newCustomSlashAppGenerationMode,
+      newCustomSlashCommand,
+      newCustomSlashPrompt,
+      projectConfigId,
+      reservedSlashCommandTokens,
+    ],
+  );
 
   const removeCustomProjectChatSlashCommand = useCallback(
     function removeCustomProjectChatSlashCommandImpl(commandToken: string) {
@@ -3152,88 +3188,94 @@ export function ProjectChatSkillsMcpViewer({
     [skillsRevision],
   );
 
-  const createCustomSkill = useCallback(async function createCustomSkillImpl() {
-    const relativePath = newCustomSkillRelativePath.trim();
-    if (!relativePath) {
-      addTemporaryNotification("Provide a custom skill name first.");
-      return;
-    }
-    setCustomSkillCreateInFlight(true);
-    const initialContent = `# ${relativePath}\n\nDescribe what this skill helps with.\n`;
-    const res = await route_upsert_app_gen_custom_skill({
-      skillId: null,
-      relativePath,
-      content: initialContent,
-    });
-    setCustomSkillCreateInFlight(false);
-    if (!res200(res)) {
-      const detail = getErrorDetail(res.data);
-      addTemporaryNotification(
-        detail
-          ? `Failed to create custom skill: ${detail}`
-          : "Failed to create custom skill.",
-      );
-      return;
-    }
-    setCustomSkillCreateRootPath(res.data.rootPath);
-    setCustomSkillCreateRootActionable(true);
-    setNewCustomSkillRelativePath("");
-    setIsSkillMarkdownViewerOpen(true);
-    setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
-    applyUpsertedSkillResponse({
-      requestSkillId: null,
-      selectUpdatedSkill: true,
-      skill: res.data.skill,
-      skillContent: res.data.skillContent,
-    });
-    addTemporaryNotification(`Created custom skill ${relativePath}.`);
-  }, [applyUpsertedSkillResponse, newCustomSkillRelativePath]);
+  const createCustomSkill = useCallback(
+    async function createCustomSkillImpl() {
+      const relativePath = newCustomSkillRelativePath.trim();
+      if (!relativePath) {
+        addTemporaryNotification("Provide a custom skill name first.");
+        return;
+      }
+      setCustomSkillCreateInFlight(true);
+      const initialContent = `# ${relativePath}\n\nDescribe what this skill helps with.\n`;
+      const res = await route_upsert_app_gen_custom_skill({
+        skillId: null,
+        relativePath,
+        content: initialContent,
+      });
+      setCustomSkillCreateInFlight(false);
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        addTemporaryNotification(
+          detail
+            ? `Failed to create custom skill: ${detail}`
+            : "Failed to create custom skill.",
+        );
+        return;
+      }
+      setCustomSkillCreateRootPath(res.data.rootPath);
+      setCustomSkillCreateRootActionable(true);
+      setNewCustomSkillRelativePath("");
+      setIsSkillMarkdownViewerOpen(true);
+      setSkillMarkdownViewMode(SKILL_MARKDOWN_VIEW_MODE_RAW);
+      applyUpsertedSkillResponse({
+        requestSkillId: null,
+        selectUpdatedSkill: true,
+        skill: res.data.skill,
+        skillContent: res.data.skillContent,
+      });
+      addTemporaryNotification(`Created custom skill ${relativePath}.`);
+    },
+    [applyUpsertedSkillResponse, newCustomSkillRelativePath],
+  );
   const handleCreateCustomSkill = useCallback(() => {
     void createCustomSkill();
   }, [createCustomSkill]);
 
-  const saveSelectedCustomSkill = useCallback(async function saveSelectedCustomSkillImpl() {
-    if (!selectedSkillId) {
-      return;
-    }
-    const requestSkillId = selectedSkillId;
-    if (saveSelectedCustomSkillError) {
-      addTemporaryNotification(saveSelectedCustomSkillError);
-      return;
-    }
-    const nextContent = skillMarkdownRawDraft;
-    if (nextContent === null) {
-      return;
-    }
-    setCustomSkillSaveInFlight(true);
-    const res = await route_upsert_app_gen_custom_skill({
-      skillId: requestSkillId,
-      relativePath: null,
-      content: nextContent,
-    });
-    setCustomSkillSaveInFlight(false);
-    if (!res200(res)) {
-      const detail = getErrorDetail(res.data);
-      addTemporaryNotification(
-        detail
-          ? `Failed to save custom skill: ${detail}`
-          : "Failed to save custom skill.",
-      );
-      return;
-    }
-    applyUpsertedSkillResponse({
-      requestSkillId,
-      selectUpdatedSkill: false,
-      skill: res.data.skill,
-      skillContent: res.data.skillContent,
-    });
-    addTemporaryNotification("Saved custom skill.");
-  }, [
-    applyUpsertedSkillResponse,
-    selectedSkillId,
-    skillMarkdownRawDraft,
-    saveSelectedCustomSkillError,
-  ]);
+  const saveSelectedCustomSkill = useCallback(
+    async function saveSelectedCustomSkillImpl() {
+      if (!selectedSkillId) {
+        return;
+      }
+      const requestSkillId = selectedSkillId;
+      if (saveSelectedCustomSkillError) {
+        addTemporaryNotification(saveSelectedCustomSkillError);
+        return;
+      }
+      const nextContent = skillMarkdownRawDraft;
+      if (nextContent === null) {
+        return;
+      }
+      setCustomSkillSaveInFlight(true);
+      const res = await route_upsert_app_gen_custom_skill({
+        skillId: requestSkillId,
+        relativePath: null,
+        content: nextContent,
+      });
+      setCustomSkillSaveInFlight(false);
+      if (!res200(res)) {
+        const detail = getErrorDetail(res.data);
+        addTemporaryNotification(
+          detail
+            ? `Failed to save custom skill: ${detail}`
+            : "Failed to save custom skill.",
+        );
+        return;
+      }
+      applyUpsertedSkillResponse({
+        requestSkillId,
+        selectUpdatedSkill: false,
+        skill: res.data.skill,
+        skillContent: res.data.skillContent,
+      });
+      addTemporaryNotification("Saved custom skill.");
+    },
+    [
+      applyUpsertedSkillResponse,
+      selectedSkillId,
+      skillMarkdownRawDraft,
+      saveSelectedCustomSkillError,
+    ],
+  );
   const handleSaveSelectedCustomSkill = useCallback(() => {
     void saveSelectedCustomSkill();
   }, [saveSelectedCustomSkill]);
@@ -3355,9 +3397,7 @@ export function ProjectChatSkillsMcpViewer({
           conflictingCustomSlashCommandTokens
         }
         customSlashCommandDefinitions={customSlashCommandDefinitions}
-        customSlashNamespaceAuthorityReady={
-          customSlashNamespaceAuthorityReady
-        }
+        customSlashNamespaceAuthorityReady={customSlashNamespaceAuthorityReady}
         engineConfigsInitialLoadComplete={engineConfigsInitialLoadComplete}
         newCustomSlashAppGenerationMode={newCustomSlashAppGenerationMode}
         newCustomSlashCommand={newCustomSlashCommand}
@@ -3366,7 +3406,9 @@ export function ProjectChatSkillsMcpViewer({
           removeCustomProjectChatSlashCommand
         }
         onSelectSlashEngine={setSelectedSlashEngineId}
-        onSetNewCustomSlashAppGenerationMode={setNewCustomSlashAppGenerationMode}
+        onSetNewCustomSlashAppGenerationMode={
+          setNewCustomSlashAppGenerationMode
+        }
         onSetNewCustomSlashCommand={setNewCustomSlashCommand}
         onSetNewCustomSlashPrompt={setNewCustomSlashPrompt}
         selectedAgentNativeSlashCommands={selectedAgentNativeSlashCommands}

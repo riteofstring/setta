@@ -80,10 +80,12 @@ function buildCreatedWindowSpaceResponse(request: {
   id?: string;
 }) {
   const projectConfig = useProjectState.getState().projectConfig;
-  const nextSortIndex = Object.values(projectConfig.windowSpaces).reduce(
-    (maxSortIndex, windowSpace) => Math.max(maxSortIndex, windowSpace.sortIndex),
-    -1,
-  ) + 1;
+  const nextSortIndex =
+    Object.values(projectConfig.windowSpaces).reduce(
+      (maxSortIndex, windowSpace) =>
+        Math.max(maxSortIndex, windowSpace.sortIndex),
+      -1,
+    ) + 1;
   const createdWindowSpace = createWindowSpaceConfig({
     id: request.id ?? "window-space-1",
     name: request.name?.trim() ? request.name.trim() : "Focused Layout",

@@ -75,7 +75,9 @@ export function buildStandaloneWindowSpacePath(
 ): string {
   const windowSpaceSlug = projectConfig.windowSpaceSlugsById[windowSpaceId];
   if (!windowSpaceSlug) {
-    throw new Error(`Missing backend-owned slug for window space ${windowSpaceId}.`);
+    throw new Error(
+      `Missing backend-owned slug for window space ${windowSpaceId}.`,
+    );
   }
   return `/${encodeURIComponent(projectConfigName)}/${PROJECT_WINDOW_SPACE_STANDALONE_ROUTE_SEGMENT}/${encodeURIComponent(
     windowSpaceSlug,

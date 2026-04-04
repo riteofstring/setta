@@ -235,17 +235,19 @@ function resolveMotionSettings(args: {
   durationMs: unknown;
   easing: unknown;
   preset: unknown;
-  themeMotion: {
-    delayMs?: number;
-    durationMs?: number;
-    easing?: string;
-    staggerMs?: number;
-  } | null | undefined;
+  themeMotion:
+    | {
+        delayMs?: number;
+        durationMs?: number;
+        easing?: string;
+        staggerMs?: number;
+      }
+    | null
+    | undefined;
   staggerMs?: unknown;
 }) {
   const { delayMs, durationMs, easing, preset, staggerMs, themeMotion } = args;
-  const fallbackEasing =
-    themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
+  const fallbackEasing = themeMotion?.easing ?? "cubic-bezier(0.16, 1, 0.3, 1)";
   return {
     delayMs: resolveNumber(delayMs, themeMotion?.delayMs ?? 0),
     durationMs: resolveNumber(durationMs, themeMotion?.durationMs ?? 220),
@@ -277,10 +279,7 @@ function resolveTabTitle(
   index: number,
   tabElement: RawElementProps | null,
 ): string {
-  if (
-    tabElement?.props &&
-    typeof tabElement.props.title === "string"
-  ) {
+  if (tabElement?.props && typeof tabElement.props.title === "string") {
     return tabElement.props.title;
   }
   return `Tab ${index + 1}`;
@@ -374,7 +373,10 @@ function resolveActionButtonState(args: {
     runDisabledReason,
   } = args;
   const actionName = action ?? "";
-  const actionType = resolveActionType(actionName, actionDefinition ?? undefined);
+  const actionType = resolveActionType(
+    actionName,
+    actionDefinition ?? undefined,
+  );
   const isRunAction = actionName === "run" || actionType === "run";
   const isDownloadAction =
     actionType === "downloadArtifact" || actionType === "downloadBinary";
@@ -504,9 +506,7 @@ function resolveParamBindingState(args: {
   if (!codeObjVariantId) {
     return getParamBindingFailureState();
   }
-  if (
-    !hasValidParamCodeObjBinding(configState, codeObjVariantId, paramId)
-  ) {
+  if (!hasValidParamCodeObjBinding(configState, codeObjVariantId, paramId)) {
     return getParamBindingFailureState();
   }
   const previewActive =
@@ -571,7 +571,8 @@ function handleActionButtonClick(args: {
   resolvedConfigId: string | null;
   sectionId: string | null;
 }): void {
-  const { actionName, isDisabled, onAction, resolvedConfigId, sectionId } = args;
+  const { actionName, isDisabled, onAction, resolvedConfigId, sectionId } =
+    args;
   if (!actionName || !onAction || isDisabled) {
     return;
   }
@@ -605,7 +606,13 @@ function resolveParamInputStatusMessage(args: {
   if (!configState) {
     return "Loading config…";
   }
-  if (!sectionId || !paramId || !canRenderParam || !sectionImpl || !codeObjImpl) {
+  if (
+    !sectionId ||
+    !paramId ||
+    !canRenderParam ||
+    !sectionImpl ||
+    !codeObjImpl
+  ) {
     return "Missing param binding.";
   }
   return null;
@@ -625,7 +632,9 @@ function resolveParamEditabilityMessage(args: {
   return null;
 }
 
-function resolveParamInputRuntimeContext(runtime: ReturnType<typeof useAppRuntime>) {
+function resolveParamInputRuntimeContext(
+  runtime: ReturnType<typeof useAppRuntime>,
+) {
   return {
     canEditParams: runtime?.canEditParams ?? true,
     dataBindings: runtime?.dataBindings,
@@ -1104,7 +1113,7 @@ function ParamInputBlock({ element }: AppComponentProps) {
     scope.configId,
   );
   const configState = useAppConfigs((state) =>
-    resolvedConfigId ? (state.configs[resolvedConfigId] ?? null) : null,
+    resolvedConfigId ? state.configs[resolvedConfigId] ?? null : null,
   );
   const serverMode = useServerMode((x) => x.mode);
   const modeResolved = useServerMode((x) => x.modeResolved);
@@ -1132,7 +1141,13 @@ function ParamInputBlock({ element }: AppComponentProps) {
   if (statusMessage) {
     return renderAppBindingMessage(statusMessage);
   }
-  if (!codeObjImpl || !paramId || !resolvedConfigId || !sectionId || !sectionImpl) {
+  if (
+    !codeObjImpl ||
+    !paramId ||
+    !resolvedConfigId ||
+    !sectionId ||
+    !sectionImpl
+  ) {
     return renderAppBindingMessage("Missing param binding.");
   }
 
@@ -1411,7 +1426,8 @@ function resolveParamRenderContext(
   const isFrozen = isBaseSectionWithParamsImpl(sectionImpl)
     ? sectionImpl.isFrozen
     : false;
-  const defaultVal = "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
+  const defaultVal =
+    "defaultVal" in codeObjImpl ? codeObjImpl.defaultVal : null;
   const isPasswordParam = codeObjImpl.type === CodeObjTypeEnum.PasswordParam;
   const passwordHasSecret =
     isPasswordParam &&
@@ -1466,19 +1482,32 @@ function resolveDropdownParamValue(
 
 function resolveDropzoneSettings(codeObjImpl: BaseChildlessCodeObjImplUnion) {
   return {
-    mode: "mode" in codeObjImpl ? codeObjImpl.mode ?? DropzoneModeEnum.STATEFUL : DropzoneModeEnum.STATEFUL,
+    mode:
+      "mode" in codeObjImpl
+        ? codeObjImpl.mode ?? DropzoneModeEnum.STATEFUL
+        : DropzoneModeEnum.STATEFUL,
     maxAttachments:
       "maxAttachments" in codeObjImpl
         ? codeObjImpl.maxAttachments ?? null
         : null,
     placeholder:
-      "placeholder" in codeObjImpl ? codeObjImpl.placeholder ?? undefined : undefined,
+      "placeholder" in codeObjImpl
+        ? codeObjImpl.placeholder ?? undefined
+        : undefined,
   };
 }
 
 function renderCodeMirrorParam(context: AppParamRenderContext) {
-  const { configLanguage, defaultVal, isDisabled, onChange, onEscape, paramInfoId, sectionId, stringValue } =
-    context;
+  const {
+    configLanguage,
+    defaultVal,
+    isDisabled,
+    onChange,
+    onEscape,
+    paramInfoId,
+    sectionId,
+    stringValue,
+  } = context;
   const cursorClass = !isDisabled ? APP_PARAM_TEXT_INPUT_ACTIVE_CLASS : "";
   return (
     <>
@@ -1623,7 +1652,9 @@ function renderSwitchParam(context: AppParamRenderContext) {
 
 function renderColorPickerParam(context: AppParamRenderContext) {
   const colorChoices =
-    "colorChoices" in context.codeObjImpl ? context.codeObjImpl.colorChoices : [];
+    "colorChoices" in context.codeObjImpl
+      ? context.codeObjImpl.colorChoices
+      : [];
   return (
     <ColorPickerInput
       colorChoices={colorChoices}
@@ -1648,7 +1679,8 @@ function renderColorPickerParam(context: AppParamRenderContext) {
 }
 
 function renderDropdownParam(context: AppParamRenderContext) {
-  const choices = "choices" in context.codeObjImpl ? context.codeObjImpl.choices : [];
+  const choices =
+    "choices" in context.codeObjImpl ? context.codeObjImpl.choices : [];
   return (
     <DropdownInput
       choices={choices}
@@ -1853,17 +1885,16 @@ function ActionButton({ element, onAction }: AppComponentProps) {
     isDisabled,
     isRunAction,
     resolvedLabel,
-  } =
-    resolveActionButtonState({
-      action,
-      actionDefinition: actionRuntime.actionDefinition,
-      allowDownloads: actionRuntime.allowDownloads,
-      allowLinks: actionRuntime.allowLinks,
-      canRun,
-      isRunning,
-      label,
-      runDisabledReason,
-    });
+  } = resolveActionButtonState({
+    action,
+    actionDefinition: actionRuntime.actionDefinition,
+    allowDownloads: actionRuntime.allowDownloads,
+    allowLinks: actionRuntime.allowLinks,
+    canRun,
+    isRunning,
+    label,
+    runDisabledReason,
+  });
   const { buttonLabel, buttonTitle } = resolveActionButtonPresentation({
     disabledReason,
     isDisabled,

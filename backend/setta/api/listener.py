@@ -1455,9 +1455,11 @@ class SettaListener:
         self, dependency_metadata: ListenerDependencyMetadata
     ) -> None:
         for spec in self._callbacks.values():
-            spec.structured_dependencies = self._resolve_callback_structured_dependencies(
-                spec,
-                dependency_metadata,
+            spec.structured_dependencies = (
+                self._resolve_callback_structured_dependencies(
+                    spec,
+                    dependency_metadata,
+                )
             )
             if not spec.structured_dependencies:
                 spec.dependency_names = ()
@@ -1899,10 +1901,7 @@ class SettaListener:
         event_name: str,
     ) -> bool:
         project_config_id = self._project_config_id
-        if (
-            project_config_id is None
-            or event_project_config_id == project_config_id
-        ):
+        if project_config_id is None or event_project_config_id == project_config_id:
             return False
         logger.debug(
             "Listener %s ignoring %s for project %s",
@@ -1937,10 +1936,7 @@ class SettaListener:
         if last_sequence is None or sequence > last_sequence:
             return False
         logger.debug(
-            (
-                "Listener %s ignoring out-of-order %s sequence %s "
-                "(last=%s session=%s)"
-            ),
+            ("Listener %s ignoring out-of-order %s sequence %s (last=%s session=%s)"),
             self._log_identifier,
             event_name,
             sequence,
@@ -2013,9 +2009,11 @@ class SettaListener:
         *,
         unknown_key_log: str,
     ) -> set[BaseDependencyKeyUnion]:
-        rendered_dependency_values, _ = self._build_dependency_cache_from_snapshot_values(
-            dependency_values,
-            dependency_metadata,
+        rendered_dependency_values, _ = (
+            self._build_dependency_cache_from_snapshot_values(
+                dependency_values,
+                dependency_metadata,
+            )
         )
         applied_dependency_keys: set[BaseDependencyKeyUnion] = set()
         for entry in dependency_values.entries:
@@ -2042,17 +2040,21 @@ class SettaListener:
         authoritative_dependency_keys: set[BaseDependencyKeyUnion],
         authoritative_dependency_values: ListenerRenderedDependencyValues | None,
     ) -> None:
-        self._latest_dependency_snapshot_values = self._merge_rendered_dependency_values(
-            self._latest_dependency_snapshot_values,
-            remove_keys=dirty_dependency_keys,
-            updates=local_core_dependency_values,
+        self._latest_dependency_snapshot_values = (
+            self._merge_rendered_dependency_values(
+                self._latest_dependency_snapshot_values,
+                remove_keys=dirty_dependency_keys,
+                updates=local_core_dependency_values,
+            )
         )
         if authoritative_dependency_values is None:
             return
-        self._latest_dependency_snapshot_values = self._merge_rendered_dependency_values(
-            self._latest_dependency_snapshot_values,
-            remove_keys=authoritative_dependency_keys,
-            updates=authoritative_dependency_values,
+        self._latest_dependency_snapshot_values = (
+            self._merge_rendered_dependency_values(
+                self._latest_dependency_snapshot_values,
+                remove_keys=authoritative_dependency_keys,
+                updates=authoritative_dependency_values,
+            )
         )
 
     def _build_cache_diff(

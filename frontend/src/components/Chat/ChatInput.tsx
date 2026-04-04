@@ -41,9 +41,9 @@ import {
   type ChatExecutionControls,
   type ChatSlashCommand,
   type ChatSlashCommandResult,
-  type ChatSubmitResult,
   type ChatSubmitDispatchResult,
   type ChatSubmitOptions,
+  type ChatSubmitResult,
   type QueuedChatDraft,
   type SlashCommandExecutionOutcome,
   areSlashSuggestionsPortalStylesEqual,
@@ -164,7 +164,6 @@ type ProviderDictationTranscriptionResult =
 export type {
   ChatSlashCommand,
   ChatSlashCommandResult,
-  ChatSubmitResult,
   ChatSubmitDispatchResult,
   ChatSubmitOptions,
 } from "./chatInputHelpers";
@@ -256,9 +255,7 @@ function handleSlashSuggestionsKeyDown(args: {
   applySlashSuggestion: (index: number) => void;
   event: KeyboardEvent<HTMLTextAreaElement>;
   inputValue: string;
-  setActiveSlashIndex: (
-    value: number | ((current: number) => number),
-  ) => void;
+  setActiveSlashIndex: (value: number | ((current: number) => number)) => void;
   shouldShowSlashSuggestions: boolean;
   slashSuggestions: ChatSlashCommandDefinition[];
 }): boolean {
@@ -297,10 +294,7 @@ function handleSlashSuggestionsKeyDown(args: {
   event.preventDefault();
   const suggestion = slashSuggestions[activeSlashIndex];
   const normalizedInput = inputValue.trim().toLowerCase();
-  if (
-    suggestion &&
-    normalizedInput === suggestion.command.toLowerCase()
-  ) {
+  if (suggestion && normalizedInput === suggestion.command.toLowerCase()) {
     dispatchComposerSubmitFromTextarea(event.currentTarget);
     return true;
   }
@@ -338,8 +332,7 @@ function handleEscapeComposerKeyDown(args: {
   const escapeAction = resolveEscapeComposerAction({
     waitingForResponse,
     onStopAvailable: typeof onStop === "function",
-    stopRequestedForCurrentResponse:
-      stopRequestedForCurrentResponseRef.current,
+    stopRequestedForCurrentResponse: stopRequestedForCurrentResponseRef.current,
     selectedSubmittedMessageIndex,
     hasComposerDraft,
   });
@@ -474,11 +467,7 @@ function handleQueuedDraftSelectionKeyDown(args: {
     );
     return true;
   }
-  if (
-    event.key !== "Enter" ||
-    event.shiftKey ||
-    !selectedQueuedDraftId
-  ) {
+  if (event.key !== "Enter" || event.shiftKey || !selectedQueuedDraftId) {
     return false;
   }
   event.preventDefault();
@@ -654,9 +643,7 @@ function handleChatInputKeyDown(args: {
   restoreQueuedDraftToComposer: (draftId: string) => void;
   selectedQueuedDraftId: string | null;
   selectedSubmittedMessageIndex: number | null;
-  setActiveSlashIndex: (
-    value: number | ((current: number) => number),
-  ) => void;
+  setActiveSlashIndex: (value: number | ((current: number) => number)) => void;
   setInputValue: (nextValue: string) => void;
   setSelectedQueuedDraftId: (
     value: string | null | ((current: string | null) => string | null),
@@ -794,8 +781,7 @@ function handleChatInputFormKeyDown(args: {
   const escapeAction = resolveEscapeComposerAction({
     waitingForResponse,
     onStopAvailable: Boolean(onStop),
-    stopRequestedForCurrentResponse:
-      stopRequestedForCurrentResponseRef.current,
+    stopRequestedForCurrentResponse: stopRequestedForCurrentResponseRef.current,
     selectedSubmittedMessageIndex: null,
     hasComposerDraft: false,
   });
@@ -905,9 +891,7 @@ function resolveParsedSlashCommandSubmission(args: {
   return resolveCustomPromptSlashCommandSubmission({
     promptTemplate: parsed.promptTemplate,
     args: parsed.args,
-    ...(parsed.rawSuffix === undefined
-      ? {}
-      : { rawSuffix: parsed.rawSuffix }),
+    ...(parsed.rawSuffix === undefined ? {} : { rawSuffix: parsed.rawSuffix }),
     attachments: submittedAttachments,
   });
 }
@@ -1138,8 +1122,7 @@ async function executeRegisteredSlashCommand(args: {
       setSlashFeedback,
       submitRemotely,
       submittedAttachments,
-      successFeedback:
-        slashResult.feedback ?? `Submitted ${parsed.command}.`,
+      successFeedback: slashResult.feedback ?? `Submitted ${parsed.command}.`,
     });
   }
   return finalizeLocalSlashCommandResult({
@@ -1157,8 +1140,7 @@ function resolveRefreshedSlashCommandRequest(args: {
   slashResult: NormalizedSlashCommandResult | undefined;
 }): { parsed: ChatSlashCommand; commandAvailable: boolean } | null {
   const { message, slashResult } = args;
-  const refreshedSlashCommands =
-    slashResult?.refreshedSlashCommands ?? null;
+  const refreshedSlashCommands = slashResult?.refreshedSlashCommands ?? null;
   const refreshedRecognizedSlashCommands =
     slashResult?.refreshedRecognizedSlashCommands ?? null;
   if (!refreshedSlashCommands || !refreshedRecognizedSlashCommands) {
@@ -1296,9 +1278,7 @@ function resolveSlashSuggestionsPortalStyle(args: {
           SLASH_SUGGESTIONS_EDGE_PADDING_PX,
           Math.min(
             inputRect.bottom + SLASH_SUGGESTIONS_INPUT_INSET_PX,
-            window.innerHeight -
-              SLASH_SUGGESTIONS_EDGE_PADDING_PX -
-              maxHeight,
+            window.innerHeight - SLASH_SUGGESTIONS_EDGE_PADDING_PX - maxHeight,
           ),
         )
       : undefined;
@@ -2319,7 +2299,10 @@ function ChatBackgroundTerminalActivityControl(props: {
                 key={entry.id}
                 className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
               >
-                <p className="truncate text-[11px] font-medium" title={entry.label}>
+                <p
+                  className="truncate text-[11px] font-medium"
+                  title={entry.label}
+                >
                   {entry.label}
                 </p>
                 <p
@@ -2395,7 +2378,10 @@ function ChatSubagentActivityControl(props: {
                 key={entry.id}
                 className="rounded px-2 py-1.5 text-setta-700 dark:text-setta-200"
               >
-                <p className="truncate text-[11px] font-medium" title={entry.label}>
+                <p
+                  className="truncate text-[11px] font-medium"
+                  title={entry.label}
+                >
                   {entry.label}
                 </p>
                 <p

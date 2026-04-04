@@ -196,7 +196,7 @@ export function validateParamNameInput(
   });
 }
 
-export function sanitizeNameForSlug(name: string): string {
+function sanitizeNameForSlug(name: string): string {
   const invalidChars = "[]\"' ";
   let output = "";
   for (const char of name) {

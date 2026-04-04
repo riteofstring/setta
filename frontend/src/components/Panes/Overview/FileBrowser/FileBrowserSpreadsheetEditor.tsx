@@ -186,7 +186,9 @@ export function shouldAnnounceSpreadsheetAutoReload(args: {
   return args.reloadSucceeded && !args.isCancelled;
 }
 
-async function loadSpreadsheetDraft(path: string): Promise<SpreadsheetLoadOutcome> {
+async function loadSpreadsheetDraft(
+  path: string,
+): Promise<SpreadsheetLoadOutcome> {
   const response: FileBrowserFileContentRouteResponse =
     await route_get_file_browser_file_content({
       path,
@@ -195,12 +197,14 @@ async function loadSpreadsheetDraft(path: string): Promise<SpreadsheetLoadOutcom
   if (!res200(response)) {
     return {
       status: "error",
-      message: getErrorDetail(response.data) ?? "Failed to load spreadsheet file.",
+      message:
+        getErrorDetail(response.data) ?? "Failed to load spreadsheet file.",
     };
   }
-  const binaryResponse: BinaryDownloadRouteResponse = await route_binary_download({
-    contentId: response.data.contentId,
-  });
+  const binaryResponse: BinaryDownloadRouteResponse =
+    await route_binary_download({
+      contentId: response.data.contentId,
+    });
   if (!res200(binaryResponse) || !binaryResponse.data) {
     return {
       status: "error",
@@ -348,7 +352,8 @@ async function persistSpreadsheetSave(args: {
   if (!res200(response)) {
     return {
       status: "error",
-      message: getErrorDetail(response.data) ?? "Failed to save spreadsheet file.",
+      message:
+        getErrorDetail(response.data) ?? "Failed to save spreadsheet file.",
     };
   }
   return {
@@ -820,8 +825,11 @@ type SpreadsheetStatusMessage = {
   text: string;
 };
 
-function resolveSpreadsheetStatusMessages(args: SpreadsheetStatusBannerProps): SpreadsheetStatusMessage[] {
-  const { errorText, hasExternalDiskChange, isDirty, readOnly, statusText } = args;
+function resolveSpreadsheetStatusMessages(
+  args: SpreadsheetStatusBannerProps,
+): SpreadsheetStatusMessage[] {
+  const { errorText, hasExternalDiskChange, isDirty, readOnly, statusText } =
+    args;
   const messages: SpreadsheetStatusMessage[] = [];
   if (readOnly) {
     messages.push({
@@ -1153,15 +1161,20 @@ function SpreadsheetMobileToolbarMenu({
                 </label>
                 <select
                   className="min-w-0 flex-1 rounded border border-setta-300 bg-white px-1.5 py-1 text-[11px] text-setta-700 outline-none focus-visible:border-blue-400 dark:border-setta-700 dark:bg-setta-900 dark:text-setta-100"
-                  onChange={(event) => onApplySortColumnValue(event.target.value)}
+                  onChange={(event) =>
+                    onApplySortColumnValue(event.target.value)
+                  }
                   value={sortState ? String(sortState.columnIndex) : ""}
                 >
                   <option value="">None</option>
-                  {Array.from({ length: sheet.columnCount }, (_value, index) => (
-                    <option key={`menu-sort-${index}`} value={index}>
-                      {getSpreadsheetColumnLabel(index)}
-                    </option>
-                  ))}
+                  {Array.from(
+                    { length: sheet.columnCount },
+                    (_value, index) => (
+                      <option key={`menu-sort-${index}`} value={index}>
+                        {getSpreadsheetColumnLabel(index)}
+                      </option>
+                    ),
+                  )}
                 </select>
                 <button
                   className="rounded border border-setta-300 px-2 py-1 text-[11px] text-setta-600 hover:bg-setta-100 disabled:opacity-50 dark:border-setta-700 dark:text-setta-300 dark:hover:bg-setta-800"
@@ -1255,7 +1268,10 @@ function SpreadsheetStatusBanner({
   return (
     <div className="border-b border-setta-200 px-3 py-1 text-[11px] dark:border-setta-800">
       {messages.map((message) => (
-        <span key={`${message.className}:${message.text}`} className={message.className}>
+        <span
+          key={`${message.className}:${message.text}`}
+          className={message.className}
+        >
           {message.text}
         </span>
       ))}
@@ -1267,7 +1283,9 @@ type SpreadsheetGlideGridViewProps = {
   densityMetrics: SpreadsheetDensityMetrics;
   densityMultiplier: number;
   displayedRowCount: number;
-  getGlideCellContent: (item: Item) => EditableGridCell | { kind: GridCellKind.Loading; allowOverlay: false };
+  getGlideCellContent: (
+    item: Item,
+  ) => EditableGridCell | { kind: GridCellKind.Loading; allowOverlay: false };
   glideRenderHeight: number;
   glideRenderWidth: number;
   glideTheme: Partial<Theme>;
@@ -1354,8 +1372,7 @@ function SpreadsheetGlideGridView({
             showRowNumbers
               ? {
                   kind: "number",
-                  width:
-                    densityMetrics.indexColumnWidth * densityMultiplier,
+                  width: densityMetrics.indexColumnWidth * densityMultiplier,
                 }
               : undefined
           }
@@ -1620,7 +1637,9 @@ function SpreadsheetFooter({
   );
 }
 
-function useSelectedPathRef(selectedPath: string | null): MutableRefObject<string | null> {
+function useSelectedPathRef(
+  selectedPath: string | null,
+): MutableRefObject<string | null> {
   const selectedPathRef = useRef<string | null>(selectedPath);
   useEffect(() => {
     selectedPathRef.current = selectedPath;
@@ -1697,72 +1716,75 @@ function useSpreadsheetLoadFile(args: {
     setStatusText,
   } = args;
 
-  return useCallback(async (path: string): Promise<boolean> => {
-    const requestId = loadRequestIdRef.current + 1;
-    loadRequestIdRef.current = requestId;
-    const isStaleRequest = () =>
-      isSpreadsheetLoadRequestStale({
-        activeRequestId: loadRequestIdRef.current,
-        requestId,
-        currentSelectedPath: selectedPathRef.current,
-        requestedPath: path,
-      });
+  return useCallback(
+    async (path: string): Promise<boolean> => {
+      const requestId = loadRequestIdRef.current + 1;
+      loadRequestIdRef.current = requestId;
+      const isStaleRequest = () =>
+        isSpreadsheetLoadRequestStale({
+          activeRequestId: loadRequestIdRef.current,
+          requestId,
+          currentSelectedPath: selectedPathRef.current,
+          requestedPath: path,
+        });
 
-    setIsLoading(true);
-    setErrorText(null);
-    setStatusText(null);
-    try {
-      const outcome = await loadSpreadsheetDraft(path);
-      if (isStaleRequest()) {
+      setIsLoading(true);
+      setErrorText(null);
+      setStatusText(null);
+      try {
+        const outcome = await loadSpreadsheetDraft(path);
+        if (isStaleRequest()) {
+          return false;
+        }
+        if (outcome.status === "error") {
+          setErrorText(outcome.message);
+          return false;
+        }
+        applyLoadedSpreadsheetDraft({
+          draft: outcome.draft,
+          editVersionRef,
+          listRef,
+          setColumnWidths,
+          setErrorText,
+          setFilterQuery,
+          setGridSelection,
+          setHasExternalDiskChange,
+          setIsDirty,
+          setSelectionSummary,
+          setSheet,
+          setSortState,
+          setStatusText,
+        });
+        return true;
+      } catch {
+        if (!isStaleRequest()) {
+          setErrorText("Failed to load spreadsheet file.");
+        }
         return false;
+      } finally {
+        if (loadRequestIdRef.current === requestId) {
+          setIsLoading(false);
+        }
       }
-      if (outcome.status === "error") {
-        setErrorText(outcome.message);
-        return false;
-      }
-      applyLoadedSpreadsheetDraft({
-        draft: outcome.draft,
-        editVersionRef,
-        listRef,
-        setColumnWidths,
-        setErrorText,
-        setFilterQuery,
-        setGridSelection,
-        setHasExternalDiskChange,
-        setIsDirty,
-        setSelectionSummary,
-        setSheet,
-        setSortState,
-        setStatusText,
-      });
-      return true;
-    } catch {
-      if (!isStaleRequest()) {
-        setErrorText("Failed to load spreadsheet file.");
-      }
-      return false;
-    } finally {
-      if (loadRequestIdRef.current === requestId) {
-        setIsLoading(false);
-      }
-    }
-  }, [
-    editVersionRef,
-    listRef,
-    loadRequestIdRef,
-    selectedPathRef,
-    setColumnWidths,
-    setErrorText,
-    setFilterQuery,
-    setGridSelection,
-    setHasExternalDiskChange,
-    setIsDirty,
-    setIsLoading,
-    setSelectionSummary,
-    setSheet,
-    setSortState,
-    setStatusText,
-  ]);
+    },
+    [
+      editVersionRef,
+      listRef,
+      loadRequestIdRef,
+      selectedPathRef,
+      setColumnWidths,
+      setErrorText,
+      setFilterQuery,
+      setGridSelection,
+      setHasExternalDiskChange,
+      setIsDirty,
+      setIsLoading,
+      setSelectionSummary,
+      setSheet,
+      setSortState,
+      setStatusText,
+    ],
+  );
 }
 
 function useSpreadsheetSelectedPathEffect(args: {
@@ -1995,7 +2017,11 @@ function resolveSpreadsheetDeletionEdits(args: {
   const yStart = Math.max(0, range.y);
   const xEnd = Math.min(columnCount, range.x + range.width);
   const yEnd = Math.min(displayedRowIndexes.length, range.y + range.height);
-  for (let visibleRowIndex = yStart; visibleRowIndex < yEnd; visibleRowIndex += 1) {
+  for (
+    let visibleRowIndex = yStart;
+    visibleRowIndex < yEnd;
+    visibleRowIndex += 1
+  ) {
     const sourceRowIndex = displayedRowIndexes[visibleRowIndex];
     if (sourceRowIndex === undefined || sourceRowIndex >= rowCount) {
       continue;
@@ -2024,41 +2050,44 @@ function useSpreadsheetOnChangeCell(args: {
     setStatusText,
   } = args;
 
-  return useCallback((rowIndex: number, columnIndex: number, value: string) => {
-    if (effectiveReadOnly) {
-      return;
-    }
-    const sourceRowIndex = displayedRowIndexes[rowIndex];
-    if (sourceRowIndex === undefined) {
-      return;
-    }
-    applySpreadsheetMutation({
+  return useCallback(
+    (rowIndex: number, columnIndex: number, value: string) => {
+      if (effectiveReadOnly) {
+        return;
+      }
+      const sourceRowIndex = displayedRowIndexes[rowIndex];
+      if (sourceRowIndex === undefined) {
+        return;
+      }
+      applySpreadsheetMutation({
+        editVersionRef,
+        setIsDirty,
+        setSheet,
+        setStatusText,
+        updateDraft: (draft) => {
+          const nextRows = applySpreadsheetCellUpdates({
+            rows: draft.rows,
+            columnCount: draft.columnCount,
+            edits: [{ rowIndex: sourceRowIndex, columnIndex, value }],
+          });
+          return nextRows === draft.rows
+            ? draft
+            : {
+                ...draft,
+                rows: nextRows,
+              };
+        },
+      });
+    },
+    [
+      displayedRowIndexes,
       editVersionRef,
+      effectiveReadOnly,
       setIsDirty,
       setSheet,
       setStatusText,
-      updateDraft: (draft) => {
-        const nextRows = applySpreadsheetCellUpdates({
-          rows: draft.rows,
-          columnCount: draft.columnCount,
-          edits: [{ rowIndex: sourceRowIndex, columnIndex, value }],
-        });
-        return nextRows === draft.rows
-          ? draft
-          : {
-              ...draft,
-              rows: nextRows,
-            };
-      },
-    });
-  }, [
-    displayedRowIndexes,
-    editVersionRef,
-    effectiveReadOnly,
-    setIsDirty,
-    setSheet,
-    setStatusText,
-  ]);
+    ],
+  );
 }
 
 function useSpreadsheetOnCellsEdited(args: {
@@ -2083,44 +2112,47 @@ function useSpreadsheetOnCellsEdited(args: {
     setStatusText,
   } = args;
 
-  return useCallback((newValues) => {
-    if (effectiveReadOnly) {
-      return false;
-    }
-    applySpreadsheetMutation({
+  return useCallback(
+    (newValues) => {
+      if (effectiveReadOnly) {
+        return false;
+      }
+      applySpreadsheetMutation({
+        editVersionRef,
+        setIsDirty,
+        setSheet,
+        setStatusText,
+        updateDraft: (draft) => {
+          const edits = resolveSpreadsheetEditedCells({
+            columnCount: draft.columnCount,
+            displayedRowIndexes,
+            newValues,
+            rowCount: draft.rowCount,
+          });
+          const nextRows = applySpreadsheetCellUpdates({
+            rows: draft.rows,
+            columnCount: draft.columnCount,
+            edits,
+          });
+          return nextRows === draft.rows
+            ? draft
+            : {
+                ...draft,
+                rows: nextRows,
+              };
+        },
+      });
+      return true;
+    },
+    [
+      displayedRowIndexes,
       editVersionRef,
+      effectiveReadOnly,
       setIsDirty,
       setSheet,
       setStatusText,
-      updateDraft: (draft) => {
-        const edits = resolveSpreadsheetEditedCells({
-          columnCount: draft.columnCount,
-          displayedRowIndexes,
-          newValues,
-          rowCount: draft.rowCount,
-        });
-        const nextRows = applySpreadsheetCellUpdates({
-          rows: draft.rows,
-          columnCount: draft.columnCount,
-          edits,
-        });
-        return nextRows === draft.rows
-          ? draft
-          : {
-              ...draft,
-              rows: nextRows,
-            };
-      },
-    });
-    return true;
-  }, [
-    displayedRowIndexes,
-    editVersionRef,
-    effectiveReadOnly,
-    setIsDirty,
-    setSheet,
-    setStatusText,
-  ]);
+    ],
+  );
 }
 
 function useSpreadsheetOnDeleteSelection(args: {
@@ -2140,44 +2172,47 @@ function useSpreadsheetOnDeleteSelection(args: {
     setStatusText,
   } = args;
 
-  return useCallback((selection: GridSelection) => {
-    if (effectiveReadOnly) {
+  return useCallback(
+    (selection: GridSelection) => {
+      if (effectiveReadOnly) {
+        return false;
+      }
+      applySpreadsheetMutation({
+        editVersionRef,
+        setIsDirty,
+        setSheet,
+        setStatusText,
+        updateDraft: (draft) => {
+          const edits = resolveSpreadsheetDeletionEdits({
+            columnCount: draft.columnCount,
+            displayedRowIndexes,
+            rowCount: draft.rowCount,
+            selection,
+          });
+          const nextRows = applySpreadsheetCellUpdates({
+            rows: draft.rows,
+            columnCount: draft.columnCount,
+            edits,
+          });
+          return nextRows === draft.rows
+            ? draft
+            : {
+                ...draft,
+                rows: nextRows,
+              };
+        },
+      });
       return false;
-    }
-    applySpreadsheetMutation({
+    },
+    [
+      displayedRowIndexes,
       editVersionRef,
+      effectiveReadOnly,
       setIsDirty,
       setSheet,
       setStatusText,
-      updateDraft: (draft) => {
-        const edits = resolveSpreadsheetDeletionEdits({
-          columnCount: draft.columnCount,
-          displayedRowIndexes,
-          rowCount: draft.rowCount,
-          selection,
-        });
-        const nextRows = applySpreadsheetCellUpdates({
-          rows: draft.rows,
-          columnCount: draft.columnCount,
-          edits,
-        });
-        return nextRows === draft.rows
-          ? draft
-          : {
-              ...draft,
-              rows: nextRows,
-            };
-      },
-    });
-    return false;
-  }, [
-    displayedRowIndexes,
-    editVersionRef,
-    effectiveReadOnly,
-    setIsDirty,
-    setSheet,
-    setStatusText,
-  ]);
+    ],
+  );
 }
 
 function useSpreadsheetOnAddRow(args: {
@@ -2187,8 +2222,13 @@ function useSpreadsheetOnAddRow(args: {
   setSheet: Dispatch<SetStateAction<SpreadsheetDraft | null>>;
   setStatusText: (value: string | null) => void;
 }): () => void {
-  const { editVersionRef, effectiveReadOnly, setIsDirty, setSheet, setStatusText } =
-    args;
+  const {
+    editVersionRef,
+    effectiveReadOnly,
+    setIsDirty,
+    setSheet,
+    setStatusText,
+  } = args;
 
   return useCallback(() => {
     if (effectiveReadOnly) {
@@ -2201,7 +2241,10 @@ function useSpreadsheetOnAddRow(args: {
       setStatusText,
       updateDraft: (draft) => ({
         ...draft,
-        rows: [...draft.rows, Array.from({ length: draft.columnCount }, () => "")],
+        rows: [
+          ...draft.rows,
+          Array.from({ length: draft.columnCount }, () => ""),
+        ],
         rowCount: draft.rowCount + 1,
       }),
     });
@@ -2215,8 +2258,13 @@ function useSpreadsheetOnAddColumn(args: {
   setSheet: Dispatch<SetStateAction<SpreadsheetDraft | null>>;
   setStatusText: (value: string | null) => void;
 }): () => void {
-  const { editVersionRef, effectiveReadOnly, setIsDirty, setSheet, setStatusText } =
-    args;
+  const {
+    editVersionRef,
+    effectiveReadOnly,
+    setIsDirty,
+    setSheet,
+    setStatusText,
+  } = args;
 
   return useCallback(() => {
     if (effectiveReadOnly) {
@@ -2404,29 +2452,35 @@ function useSpreadsheetSortHandlers(args: {
   toggleSortDirection: () => void;
 } {
   const { setFilterQuery, setSortState } = args;
-  const onToggleSort = useCallback((columnIndex: number) => {
-    setSortState((prev) => {
-      if (!prev || prev.columnIndex !== columnIndex) {
-        return { columnIndex, direction: "asc" };
+  const onToggleSort = useCallback(
+    (columnIndex: number) => {
+      setSortState((prev) => {
+        if (!prev || prev.columnIndex !== columnIndex) {
+          return { columnIndex, direction: "asc" };
+        }
+        if (prev.direction === "asc") {
+          return { columnIndex, direction: "desc" };
+        }
+        return null;
+      });
+    },
+    [setSortState],
+  );
+  const applySortColumnValue = useCallback(
+    (value: string) => {
+      if (value === "") {
+        setSortState(null);
+        return;
       }
-      if (prev.direction === "asc") {
-        return { columnIndex, direction: "desc" };
+      const columnIndex = Number(value);
+      if (!Number.isFinite(columnIndex)) {
+        setSortState(null);
+        return;
       }
-      return null;
-    });
-  }, [setSortState]);
-  const applySortColumnValue = useCallback((value: string) => {
-    if (value === "") {
-      setSortState(null);
-      return;
-    }
-    const columnIndex = Number(value);
-    if (!Number.isFinite(columnIndex)) {
-      setSortState(null);
-      return;
-    }
-    setSortState({ columnIndex, direction: "asc" });
-  }, [setSortState]);
+      setSortState({ columnIndex, direction: "asc" });
+    },
+    [setSortState],
+  );
   const toggleSortDirection = useCallback(() => {
     setSortState((prev) =>
       prev
@@ -2488,30 +2542,37 @@ function useSpreadsheetGlideCellContent(args: {
 }) {
   const { displayedRowCount, displayedRowIndexes, effectiveReadOnly, sheet } =
     args;
-  return useCallback(([columnIndex, visibleRowIndex]: Item) => {
-    if (!sheet || visibleRowIndex < 0 || visibleRowIndex >= displayedRowCount) {
+  return useCallback(
+    ([columnIndex, visibleRowIndex]: Item) => {
+      if (
+        !sheet ||
+        visibleRowIndex < 0 ||
+        visibleRowIndex >= displayedRowCount
+      ) {
+        return {
+          kind: GridCellKind.Loading,
+          allowOverlay: false,
+        };
+      }
+      const sourceRowIndex = displayedRowIndexes[visibleRowIndex];
+      if (sourceRowIndex === undefined) {
+        return {
+          kind: GridCellKind.Loading,
+          allowOverlay: false,
+        };
+      }
+      const row = sheet.rows[sourceRowIndex] ?? [];
+      const value = row[columnIndex] ?? "";
       return {
-        kind: GridCellKind.Loading,
-        allowOverlay: false,
+        kind: GridCellKind.Text,
+        allowOverlay: true,
+        displayData: value,
+        data: value,
+        readonly: effectiveReadOnly,
       };
-    }
-    const sourceRowIndex = displayedRowIndexes[visibleRowIndex];
-    if (sourceRowIndex === undefined) {
-      return {
-        kind: GridCellKind.Loading,
-        allowOverlay: false,
-      };
-    }
-    const row = sheet.rows[sourceRowIndex] ?? [];
-    const value = row[columnIndex] ?? "";
-    return {
-      kind: GridCellKind.Text,
-      allowOverlay: true,
-      displayData: value,
-      data: value,
-      readonly: effectiveReadOnly,
-    };
-  }, [displayedRowCount, displayedRowIndexes, effectiveReadOnly, sheet]);
+    },
+    [displayedRowCount, displayedRowIndexes, effectiveReadOnly, sheet],
+  );
 }
 
 function useSpreadsheetSelectedFileState(
@@ -2580,7 +2641,9 @@ function useSpreadsheetGridLayout(args: {
   };
 }
 
-function resolveSpreadsheetEmptyStateMessage(selectedPath: string | null): string | null {
+function resolveSpreadsheetEmptyStateMessage(
+  selectedPath: string | null,
+): string | null {
   if (!selectedPath) {
     return "Drop a CSV/XLSX file from your OS or File Browser to preview and edit.";
   }
@@ -2816,10 +2879,7 @@ export function FileBrowserSpreadsheetEditor({
     (columnIndex: number, newSize: number) => {
       setColumnWidths((prev) => ({
         ...prev,
-        [columnIndex]: Math.max(
-          48,
-          Math.round(newSize / densityMultiplier),
-        ),
+        [columnIndex]: Math.max(48, Math.round(newSize / densityMultiplier)),
       }));
     },
     [densityMultiplier],

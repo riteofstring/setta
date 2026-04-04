@@ -118,14 +118,24 @@ describe("view mode canonical mutations", () => {
 
     persistViewModeSortOrder("project-id", ["gamma-id", "alpha-id", "beta-id"]);
 
-    expect(useProjectState.getState().projectConfig.viewModes["alpha-id"]?.sortIndex).toBe(0);
-    expect(useProjectState.getState().projectConfig.viewModes["gamma-id"]?.sortIndex).toBe(2);
+    expect(
+      useProjectState.getState().projectConfig.viewModes["alpha-id"]?.sortIndex,
+    ).toBe(0);
+    expect(
+      useProjectState.getState().projectConfig.viewModes["gamma-id"]?.sortIndex,
+    ).toBe(2);
 
     await flushOptimisticMutation();
 
-    expect(useProjectState.getState().projectConfig.viewModes["gamma-id"]?.sortIndex).toBe(0);
-    expect(useProjectState.getState().projectConfig.viewModes["alpha-id"]?.sortIndex).toBe(1);
-    expect(useProjectState.getState().projectConfig.viewModes["beta-id"]?.sortIndex).toBe(2);
+    expect(
+      useProjectState.getState().projectConfig.viewModes["gamma-id"]?.sortIndex,
+    ).toBe(0);
+    expect(
+      useProjectState.getState().projectConfig.viewModes["alpha-id"]?.sortIndex,
+    ).toBe(1);
+    expect(
+      useProjectState.getState().projectConfig.viewModes["beta-id"]?.sortIndex,
+    ).toBe(2);
   });
 
   it("adopts the backend-selected fallback when deleting the active view mode", async () => {
