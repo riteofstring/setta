@@ -3,7 +3,12 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.testclient import TestClient
 
-from setta.auth.cookies import auth_cookie_name, set_auth_cookie
+from setta.auth.cookies import (
+    auth_cookie_name,
+    list_stale_auth_cookie_names,
+    set_auth_cookie,
+)
+from setta.utils.constants import C
 
 
 @pytest.fixture
@@ -50,3 +55,19 @@ def test_set_auth_cookie_secure_flags(
 def test_auth_cookie_name_requires_non_empty_session_id() -> None:
     with pytest.raises(ValueError):
         auth_cookie_name("  ")
+
+
+def test_list_stale_auth_cookie_names_only_targets_same_prefix() -> None:
+    current_cookie_name = auth_cookie_name("active-session")
+    stale_cookie_name = f"{C.AUTH_COOKIE_NAME}_stale-session"
+    legacy_cookie_name = C.AUTH_COOKIE_NAME
+
+    assert list_stale_auth_cookie_names(
+        [
+            current_cookie_name,
+            stale_cookie_name,
+            legacy_cookie_name,
+            "other_prefix_cookie",
+        ],
+        session_id="active-session",
+    ) == [stale_cookie_name, legacy_cookie_name]

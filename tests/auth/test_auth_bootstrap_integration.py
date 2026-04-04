@@ -81,6 +81,58 @@ def test_bootstrap_token_sets_cookie_for_protected_route(
     assert response.json() == {"ok": True}
 
 
+def test_bootstrap_consume_prunes_stale_same_instance_auth_cookies(
+    bootstrap_client,
+) -> None:
+    client, session, secret = bootstrap_client
+    cookie_domain = "testserver.local"
+    stale_session_cookie_name = f"{C.AUTH_COOKIE_NAME}_stale-session"
+    legacy_cookie_name = C.AUTH_COOKIE_NAME
+    unrelated_cookie_name = "other_instance_auth_cookie"
+    client.cookies.set(
+        stale_session_cookie_name,
+        "stale-token",
+        domain=cookie_domain,
+        path="/",
+    )
+    client.cookies.set(
+        legacy_cookie_name,
+        "legacy-token",
+        domain=cookie_domain,
+        path="/",
+    )
+    client.cookies.set(
+        unrelated_cookie_name,
+        "keep-me",
+        domain=cookie_domain,
+        path="/",
+    )
+
+    token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)
+    response = client.post("/__setta__/bootstrap/consume", json={"token": token})
+
+    response.raise_for_status()
+    assert response.json() == {"status": "ok"}
+
+    response_cookie_headers = response.headers.get_list("set-cookie")
+    assert any(
+        header.startswith(f"{stale_session_cookie_name}=") and "Max-Age=0" in header
+        for header in response_cookie_headers
+    )
+    assert any(
+        header.startswith(f"{legacy_cookie_name}=") and "Max-Age=0" in header
+        for header in response_cookie_headers
+    )
+    assert any(
+        header.startswith(f"{C.AUTH_COOKIE_NAME}_{session.id}=")
+        and "HttpOnly" in header
+        for header in response_cookie_headers
+    )
+    assert stale_session_cookie_name not in client.cookies
+    assert legacy_cookie_name not in client.cookies
+    assert unrelated_cookie_name in client.cookies
+
+
 def test_bootstrap_consume_returns_verified_launcher_origin(bootstrap_client) -> None:
     client, session, secret = bootstrap_client
     token = BOOTSTRAP_TOKEN_MANAGER.mint(session.id, secret)

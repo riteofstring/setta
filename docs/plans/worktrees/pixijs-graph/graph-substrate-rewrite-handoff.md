@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 19:23 EDT
+Last updated: 2026-04-03 19:36 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `069` addressed the repeated “missing main canary / websocket blocker” lane by landing a narrow auth-cookie cleanup fix, then reclassifying the live blocker with fresh-context CDP plus runtime-log evidence instead of doing another centering/oracle-only pass.
+  - Production/test change:
+    - `backend/setta/auth/cookies.py` now centralizes the secure-flag resolution, exposes `list_stale_auth_cookie_names(...)`, and adds `clear_stale_auth_cookies(...)` so bootstrap can delete stale same-instance auth cookies before setting the current session cookie.
+    - `backend/setta/routers/bootstrap.py` now calls `clear_stale_auth_cookies(...)` inside `route_bootstrap_consume(...)` immediately before minting the new auth cookie.
+    - `tests/auth/test_cookies.py` now locks the cookie-name filtering rule so only same-prefix legacy/stale auth cookies are targeted.
+    - `tests/auth/test_auth_bootstrap_integration.py` now proves bootstrap consume emits deletion headers for stale same-instance auth cookies, preserves unrelated cookies, and leaves only the current session auth cookie active in the client jar.
+  - Automated result:
+    - `source activate.sh && pytest tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+      - result: passed (`13 passed`, about `2.25s`)
+    - `source activate.sh && ruff check backend/setta/auth/cookies.py backend/setta/routers/bootstrap.py tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+      - result: passed
+    - `source activate.sh && ruff format --check backend/setta/auth/cookies.py backend/setta/routers/bootstrap.py tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+      - result: passed
+  - Live verification result:
+    - fresh-context Chrome DevTools sub-agent reopened both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both pages currently rendered the canary root and section cards, so the earlier “main canary missing” state is not a live renderer blank-state at the moment
+    - both pages still logged repeated frontend websocket failures:
+      - worktree `ws://127.0.0.1:8075/api/frontend`
+      - `main` `ws://127.0.0.1:8087/api/frontend`
+    - on the same `main` page, non-websocket API requests still succeeded (`/api/serverMode`, `/api/loadSettings`, `/api/loadProjectConfig`, `/api/getLatestLspDiagnostics`, `/api/getAIFollowSnapshot`, `/api/getListenerCoverage`, `/api/setTopLevelSectionLayout`)
+    - page-context `document.cookie` was empty on both pages, which is consistent with the auth cookie being `HttpOnly`
+    - runtime-log grep across the current run (`run-036`) showed the stronger backend-side clue on both runtimes, not just `main`:
+      - `main-ai.log` repeatedly logged `websockets.exceptions.SecurityError: line too long` followed by `InvalidMessage: did not receive a valid HTTP request`
+      - `worktree-ai.log` showed the same repeated `SecurityError: line too long` / `InvalidMessage` pattern
+  - conclusion for this slice:
+    - the blocker is now best classified as a shared websocket transport/auth-cookie problem rather than a live main-only missing-canary renderer regression
+    - the new bootstrap cleanup should reduce repeat auth-cookie buildup on the worktree after the next fresh lifecycle restart, but the read-only `main` reference is still running old code, so shared websocket console noise may persist there for now
+    - because both canary surfaces are currently visible again, the centering/parity lane should not stay paused on the old “main canary missing” assumption
 - Ralph item `068` reran the exact normalized `groupSectionDefault` targeted-fit compare on a fresh loop session to decide whether item `067`'s remaining centering question was a worktree bug or a repeated reference-session blocker.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code because the only justified next step after two oracle-only passes was one final bounded compare that could either reopen centering work or close it
@@ -39,7 +67,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - conclusion for this slice:
     - do not reopen worktree centering code from the weaker whole-surface `+80px` delta or the older `main`-right `96px` screenshot alone
     - the exact worktree targeted-fit path remains centered, so the repeated blocker is now clearly reference-session availability on `main`, not an already-proven worktree centering bug
-    - because the same `main` missing-canary/websocket blocker has now repeated across two exact targeted-fit passes, the next iteration should pivot to resolving or explaining that reference-session blocker before any more `groupSectionDefault` centering/parity work
+    - because the same `main` missing-canary/websocket blocker had repeated across two exact targeted-fit passes, the next iteration pivoted to resolving/explaining that transport blocker before reopening `groupSectionDefault` centering/parity work
 - Ralph item `067` reran the blocked normalized `groupSectionDefault` centering probe on the fresh loop session, then tightened it to the exact per-section fit path before deciding whether the remaining horizontal delta was product evidence or oracle noise.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code because the goal was to finish the delayed parity question from item `066` before reopening the centering implementation

@@ -2386,3 +2386,32 @@ LOOP_TERMINAL_MARKER: none
   - the blocker has repeated: the read-only `main` session is failing to render the canary root on the exact compare path, which prevents a trustworthy parity oracle
 - Next frontier: pivot to resolving or explaining the repeated read-only `main` missing-canary/websocket blocker before reopening any more `groupSectionDefault` centering/parity work.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 19:36 EDT - Ralph item 069
+
+- Addressed the repeated missing-canary/websocket blocker with one bounded auth-cookie slice instead of another centering/oracle-only rerun.
+- Production/test changes:
+  - `backend/setta/auth/cookies.py` now exposes same-prefix stale auth-cookie filtering plus `clear_stale_auth_cookies(...)`, and reuses the secure-flag resolver for both delete/set paths.
+  - `backend/setta/routers/bootstrap.py` now prunes stale same-instance auth cookies during bootstrap consume before setting the current session cookie.
+  - `tests/auth/test_cookies.py` now locks the stale-cookie selection rule.
+  - `tests/auth/test_auth_bootstrap_integration.py` now proves bootstrap consume deletes stale same-instance auth cookies while preserving unrelated cookies.
+- Verification:
+  - `source activate.sh && pytest tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+    - result: passed (`13 passed`, about `2.25s`)
+  - `source activate.sh && ruff check backend/setta/auth/cookies.py backend/setta/routers/bootstrap.py tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+    - result: passed
+  - `source activate.sh && ruff format --check backend/setta/auth/cookies.py backend/setta/routers/bootstrap.py tests/auth/test_cookies.py tests/auth/test_auth_bootstrap_integration.py`
+    - result: passed
+  - fresh-context CDP visual check:
+    - reopened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both pages currently rendered the canary root and section cards, so the blocker is not a live blank-renderer state right now
+    - both pages still logged repeated frontend websocket failures (`ws://127.0.0.1:8075/api/frontend` and `ws://127.0.0.1:8087/api/frontend`)
+    - on `main`, the surrounding HTTP API requests still returned `200`, so the failure remained transport-scoped rather than whole-page load failure
+- Runtime-log evidence:
+  - `rg -n "SecurityError: line too long|InvalidMessage" /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.eunRtq/run-036/main-ai.log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.eunRtq/run-036/worktree-ai.log -S`
+  - result: both logs repeatedly showed `websockets.exceptions.SecurityError: line too long` followed by `InvalidMessage: did not receive a valid HTTP request`
+- Lane status:
+  - the old “read-only `main` missing canary” blocker is now better explained as a shared websocket/auth-cookie transport issue, not a live main-only renderer regression
+  - the new bootstrap cleanup should help the worktree after the next fresh lifecycle restart, but read-only `main` is still on old code so websocket noise may persist there
+  - because both canaries are visible again, the normalized `groupSectionDefault` centering/parity lane should not stay paused on the old missing-canary assumption
+- Next frontier: let the next fresh lifecycle pick up the worktree auth-cookie cleanup, then rerun the normalized exact `groupSectionDefault` targeted-fit compare and treat shared websocket console noise as secondary unless either page stops rendering canary sections again.
+- LOOP_TERMINAL_MARKER: none
