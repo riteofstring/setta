@@ -80,7 +80,6 @@ def days_to_minutes(days: int) -> int:
 
 def upsert_npmrc(path: Path, *, days: int) -> None:
     minutes = days_to_minutes(days)
-    lines: list[str]
     if path.exists():
         lines = path.read_text(encoding="utf-8").splitlines()
     else:
@@ -125,9 +124,6 @@ def configure_local(repo_root: Path, *, days: int) -> None:
             f"- Updated {(repo_root / project_dir / '.npmrc').relative_to(repo_root)}"
         )
     print(
-        "Go has no native install-time release-age setting; use ./audit_supply_chain.sh for Go module age checks."
-    )
-    print(
         "pnpm uses minimum-release-age in minutes, and this repo also verifies checked-in pnpm lockfiles with audit/update scripts."
     )
     print(
@@ -160,9 +156,6 @@ def configure_global(repo_root: Path, *, days: int) -> None:
     print(f"Configured global npm/pnpm minimum release age: {days} day(s).")
     print(
         "Skipped uv: current uv only supports an absolute exclude-newer date, not a rolling global minimum-age policy."
-    )
-    print(
-        "Skipped Go: Go modules do not expose a native install-time release-age setting."
     )
     print(
         "Use ./configure_supply_chain.sh --local-only if you want repo-local Python enforcement via init_env.sh."
