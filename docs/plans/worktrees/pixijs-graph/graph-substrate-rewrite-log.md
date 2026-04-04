@@ -4532,3 +4532,34 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to the next distinct normalized `All Settings` renderer-facing lane or the first fresh graph-surface artifact beyond the now-closed `chatWindowing` pan/drag family
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 17:14 EDT - Ralph item 133
+
+- Used one fresh-context normalized CDP compare to identify the next distinct `All Settings` renderer-facing lane after closing the `chatWindowing` pan/drag family.
+- Why this slice was necessary:
+  - items `131` and `132` were both support-heavy on the same `chatWindowing` lane, so the next valid pass had to be one bounded live normalization/oracle step that names the next real frontier instead of adding another new guard on a closed lane
+  - the older handoff frontier still pointed at stale `chatSectionDefault` guidance, which item `131` had already invalidated
+- Production/test change:
+  - none; this slice intentionally changed no production or test files because the bounded goal was to identify the next trustworthy shared lane before reopening automation work
+- Verification:
+  - refreshed run-052 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-052/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-052/main-ai.log`
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - used live worktree page `41` at `http://127.0.0.1:3075/settings` and read-only main page `1` at `http://127.0.0.1:3087/settings`
+    - normalized both to active `All Settings` with `overviewVisible=false`, `uiEditorVisible=false`, `activeIds=[]`, no open chat windows, and one shared `fit view`
+    - post-fit viewports:
+      - worktree canary: `{ x: 714.018, y: -50.329, zoom: 0.1 }`
+      - read-only main legacy: `{ x: 712.4, y: -51.7, zoom: 0.1 }`
+    - shared visible named sections after fit included `chatWindowing`, `languageServer`, `sectionSizingPolicy`, `callableSectionDefault`, `chartSectionDefault`, `chatSectionDefault`, `codeSectionDefault`, `dictSectionDefault`, and `dropzoneParamCodeObjDefault`
+    - confirmed `dropzoneParamCodeObjDefault` ids:
+      - worktree canary: `1b4b21a1-ca87-4d98-aa4e-aae0cef75880`
+      - read-only main legacy: `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+    - confirmed the shared visible anchor `Mode` is present on both surfaces
+  - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; `dropzoneParamCodeObjDefault` is visibly present on both after shared fit, with the shared `Mode` anchor ready for the next dynamic compare)
+- Lane status:
+  - supersede the stale `chatSectionDefault` frontier; `dropzoneParamCodeObjDefault` is now the next named shared lane
+  - keep `chatWindowing` closed for the current motion family unless a future deterministic rerun or fresh normalized compare shows a real canary-only artifact there
+- Next frontier:
+  - use `dropzoneParamCodeObjDefault` for one bounded normalized dynamic action across both surfaces, anchored on `Mode`, before adding any new deterministic main-reference guard
+- LOOP_TERMINAL_MARKER: none

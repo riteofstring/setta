@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 17:09 EDT
+Last updated: 2026-04-04 17:14 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -41,6 +41,36 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `133` used one fresh-context normalized CDP compare to identify the next distinct `All Settings` renderer-facing lane after closing the `chatWindowing` pan/drag family.
+  - Why this slice was needed:
+    - items `131` and `132` were both support-heavy on the same `chatWindowing` lane, so the next valid pass had to be one bounded live normalization/oracle step that names the next real frontier instead of adding another guard on a closed lane
+    - the older handoff frontier still pointed at stale `chatSectionDefault` guidance, which item `131` had already invalidated by proving the real shared chat control lives on `chatWindowing`
+  - Production/test change:
+    - none; this slice intentionally changed no production or test files because the bounded goal was to identify the next trustworthy shared lane before reopening automation work
+  - What this slice established:
+    - after shared normalized `All Settings -> compare pane state -> activeIds=[] -> fit view`, both live surfaces exposed the same viable shared named-section set, including `dropzoneParamCodeObjDefault`
+    - `dropzoneParamCodeObjDefault` is the next distinct shared non-Browser lane worth checking after the now-closed `chatWindowing` family
+    - the stable shared visible anchor on that lane is `Mode`, and it is visibly present on both the worktree canary and read-only `main` legacy surfaces after normalized fit
+  - Verification:
+    - refreshed run-052 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-052/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-052/main-ai.log`
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - used live worktree page `41` at `http://127.0.0.1:3075/settings` and read-only main page `1` at `http://127.0.0.1:3087/settings`
+      - normalized both to active `All Settings` with `overviewVisible=false`, `uiEditorVisible=false`, `activeIds=[]`, no open chat windows, and one shared `fit view`
+      - post-fit viewports:
+        - worktree canary: `{ x: 714.018, y: -50.329, zoom: 0.1 }`
+        - read-only main legacy: `{ x: 712.4, y: -51.7, zoom: 0.1 }`
+      - shared visible named sections after fit included `chatWindowing`, `languageServer`, `sectionSizingPolicy`, `callableSectionDefault`, `chartSectionDefault`, `chatSectionDefault`, `codeSectionDefault`, `dictSectionDefault`, and `dropzoneParamCodeObjDefault`
+      - confirmed `dropzoneParamCodeObjDefault` ids:
+        - worktree canary: `1b4b21a1-ca87-4d98-aa4e-aae0cef75880`
+        - read-only main legacy: `0b33882a-de1c-4c3d-90f7-cd2c9e4fb8a8`
+      - confirmed the shared visible anchor `Mode` is present on both surfaces
+    - CDP visual check: done (fresh-context normalized live `3075` canary vs read-only `3087` legacy; `dropzoneParamCodeObjDefault` is visibly present on both after shared fit, with the shared `Mode` anchor ready for the next dynamic compare)
+  - conclusion for this slice:
+    - supersede the stale `chatSectionDefault` immediate-frontier guidance; `dropzoneParamCodeObjDefault` is now the next named shared lane
+    - the next iteration should use `dropzoneParamCodeObjDefault` for one bounded normalized dynamic action, anchored on `Mode`, before adding any new deterministic main-reference guard
 - Ralph item `132` added deterministic top-level drag coverage for the corrected `chatWindowing` lane and closed the checked chat pan/drag motion family as clean on the current run-051 surfaces.
   - Why this slice was needed:
     - item `131` had corrected the lane identity and closed the normalized pane-pan path, but the handoff still named one short top-level drag as the next trustworthy renderer-facing compare on the real `Auto Create Initial Chat` surface
@@ -3398,16 +3428,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- `chatSectionDefault` is now the next viable shared non-Browser body-heavy lane:
-  - fresh-context CDP confirmed the stable `Auto Create Initial Chat` anchor is visibly present on both worktree canary and read-only `main` legacy after normalized `All Settings -> clear viewport -> fit view`
-  - `dropzoneParamCodeObjDefault` is the fallback only if a later fresh compare shows the chat lane is not actually usable
-  - do not spend the next pass rediscovering lane viability or reopening `group`, `spreadsheet`, `draw`, `taskBoard`, or Browser default lanes
-- The next bounded slice should use `chatSectionDefault` for one from-scratch normalized dynamic action across both surfaces:
-  - prefer a short blank-pane pan pulse or one short top-level drag that CDP can complete end-to-end without synthetic drop ambiguity
-  - only add a new deterministic Playwright/main-reference guard after that exact chat-lane motion compare either exposes a stable mismatch or proves clean enough to lock down
-- Do not treat the reused-session `30px` worktree-only pan readout from this iteration as renderer evidence:
-  - that follow-up did not start from a fresh normalized baseline
-  - the fresh-context rerun attempt timed out before it returned clean bilateral motion metrics
+- `dropzoneParamCodeObjDefault` is now the next viable shared non-Browser body-heavy lane:
+  - fresh-context CDP confirmed `dropzoneParamCodeObjDefault` is visibly present on both worktree canary and read-only `main` legacy after normalized `All Settings -> clear viewport -> fit view`
+  - the stable shared visible anchor on that lane is `Mode`
+  - supersede the stale `chatSectionDefault` guidance from older items; item `131` already proved that the real shared chat control lane is `chatWindowing`, and item `132` closed that motion family
+  - do not spend the next pass rediscovering lane viability or reopening `chatWindowing`, `group`, `spreadsheet`, `draw`, `taskBoard`, or Browser default lanes
+- The next bounded slice should use `dropzoneParamCodeObjDefault` for one from-scratch normalized dynamic action across both surfaces:
+  - prefer one short blank-pane pan pulse or one short top-level drag that the current tool stack can complete end-to-end without synthetic drop ambiguity
+  - use the shared `Mode` control as the section-local anchor
+  - only add a new deterministic Playwright/main-reference guard after that exact `dropzoneParamCodeObjDefault` motion compare either exposes a stable mismatch or proves clean enough to lock down
 - The normalized modified-wheel zoom delta lane is now closed again for the current run-048 surfaces:
   - the targeted main-reference Playwright probe passed on fresh run-048 runtime/bootstrap values
   - the exact modified-wheel replay remains a known MCP tool boundary, so the live visual acceptance for this lane is the fallback shared `fit view -> toolbar zoom in` sanity check on the same normalized graph surface
