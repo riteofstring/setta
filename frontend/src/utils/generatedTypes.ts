@@ -1813,14 +1813,14 @@ export const DependencyKeyTypeEnum = {
 } as const;
 
 export type SectionDependencyKey = {
-  sectionId: string;
   type: typeof DependencyKeyTypeEnum.Section;
+  sectionId: string;
 };
 
 export type SectionParamDependencyKey = {
+  type: typeof DependencyKeyTypeEnum.SectionParam;
   sectionId: string;
   codeObjId: string;
-  type: typeof DependencyKeyTypeEnum.SectionParam;
 };
 
 export type BaseDependencyKeyUnion =
@@ -1834,18 +1834,18 @@ export const DependencyValueTypeEnum = {
 } as const;
 
 export type LiteralDependencyValue = {
-  payload: string;
   type: typeof DependencyValueTypeEnum.Literal;
+  payload: string;
 };
 
 type FileReadDependencyValue = {
-  payload: string;
   type: typeof DependencyValueTypeEnum.FileRead;
+  payload: string;
 };
 
 export type BinaryDependencyValue = {
-  payload: BinaryContentRef;
   type: typeof DependencyValueTypeEnum.Binary;
+  payload: BinaryContentRef;
 };
 
 export type BaseDependencyValueUnion =

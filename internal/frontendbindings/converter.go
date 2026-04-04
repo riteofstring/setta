@@ -1716,6 +1716,132 @@ func artifactTypeDeclaration(
 	return declaration, true, err
 }
 
+func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectDeclarationSpec, bool) {
+	switch t {
+	case reflect.TypeOf(SectionDependencyKey{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof DependencyKeyTypeEnum.Section",
+			},
+		}, true
+	case reflect.TypeOf(SectionParamDependencyKey{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof DependencyKeyTypeEnum.SectionParam",
+			},
+		}, true
+	case reflect.TypeOf(LiteralDependencyValue{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof DependencyValueTypeEnum.Literal",
+			},
+		}, true
+	case reflect.TypeOf(FileReadDependencyValue{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof DependencyValueTypeEnum.FileRead",
+			},
+		}, true
+	case reflect.TypeOf(BinaryDependencyValue{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"payload": "BinaryContentRef",
+				"type":    "typeof DependencyValueTypeEnum.Binary",
+			},
+		}, true
+	case reflect.TypeOf(EngineConfigDefaults{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  agentruns.FrontendDefaultEngineConfigDefaults(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(EngineRuntimeSupport{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  agentruns.EngineRuntimeSupport{},
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(RunEvent{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  agentruns.FrontendDefaultRunEvent(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(AgentRun{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  agentruns.FrontendDefaultRun(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"inputs":  "Record<string, unknown> | null",
+				"outputs": "Record<string, unknown> | null",
+			},
+		}, true
+	case reflect.TypeOf(SectionTypeCodegenPolicy{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultSectionTypeCodegenPolicy(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(SectionCodegenOverride{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultSectionCodegenOverride(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(CodeObjTypeValuePolicy{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultCodeObjTypeValuePolicy(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(CodeObjValueOverride{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultCodeObjValueOverride(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(ProjectCodegenPluginTarget{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultProjectCodegenPluginTarget(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(BrowserSavedSearchTypeFilters{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultBrowserSavedSearchTypeFilters(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(TaskBoardColumn{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultTaskBoardColumn(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(LineChartSettings{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultLineChartSettings(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ChartTypeEnum.line",
+			},
+		}, true
+	case reflect.TypeOf(ScatterChartSettings{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultScatterChartSettings(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"type": "typeof ChartTypeEnum.scatter",
+			},
+		}, true
+	case reflect.TypeOf(WebsocketConnectionInfo{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  frontendDefaultWebsocketConnectionInfo(),
+			HasCreateExpr: true,
+		}, true
+	case reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  frontendDefaultWebsocketMsgCurrentAddressUpdate(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"messageType": "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate",
+			},
+		}, true
+	default:
+		return reflectedObjectDeclarationSpec{}, false
+	}
+}
+
 type typeConverter struct {
 	declarations []TypeDeclaration
 	seen         map[reflect.Type]struct{}
@@ -2228,51 +2354,10 @@ func newTypeConverter() *typeConverter {
 			},
 		},
 		manualTypes: map[reflect.Type]TypeDeclaration{
-			reflect.TypeOf(SectionDependencyKey{}): {
-				Name: "SectionDependencyKey",
-				Kind: "object",
-				Properties: []TypeProperty{
-					{Name: "sectionId", TypeExpr: "string"},
-					{Name: "type", TypeExpr: "typeof DependencyKeyTypeEnum.Section"},
-				},
-			},
-			reflect.TypeOf(SectionParamDependencyKey{}): {
-				Name: "SectionParamDependencyKey",
-				Kind: "object",
-				Properties: []TypeProperty{
-					{Name: "sectionId", TypeExpr: "string"},
-					{Name: "codeObjId", TypeExpr: "string"},
-					{Name: "type", TypeExpr: "typeof DependencyKeyTypeEnum.SectionParam"},
-				},
-			},
 			reflect.TypeOf(BaseDependencyKeyUnion{}): {
 				Name:  "BaseDependencyKeyUnion",
 				Kind:  "alias",
 				Alias: "SectionDependencyKey | SectionParamDependencyKey",
-			},
-			reflect.TypeOf(LiteralDependencyValue{}): {
-				Name: "LiteralDependencyValue",
-				Kind: "object",
-				Properties: []TypeProperty{
-					{Name: "payload", TypeExpr: "string"},
-					{Name: "type", TypeExpr: "typeof DependencyValueTypeEnum.Literal"},
-				},
-			},
-			reflect.TypeOf(FileReadDependencyValue{}): {
-				Name: "FileReadDependencyValue",
-				Kind: "object",
-				Properties: []TypeProperty{
-					{Name: "payload", TypeExpr: "string"},
-					{Name: "type", TypeExpr: "typeof DependencyValueTypeEnum.FileRead"},
-				},
-			},
-			reflect.TypeOf(BinaryDependencyValue{}): {
-				Name: "BinaryDependencyValue",
-				Kind: "object",
-				Properties: []TypeProperty{
-					{Name: "payload", TypeExpr: "BinaryContentRef"},
-					{Name: "type", TypeExpr: "typeof DependencyValueTypeEnum.Binary"},
-				},
 			},
 			reflect.TypeOf(BaseDependencyValueUnion{}): {
 				Name:  "BaseDependencyValueUnion",
@@ -2297,16 +2382,6 @@ func newTypeConverter() *typeConverter {
 					{Name: "paramOverrides", TypeExpr: "Record<string, string> | null", Optional: true},
 				},
 			},
-			reflect.TypeOf(EngineConfigDefaults{}): objectDeclarationWithGoBackedCreateExpr(
-				"EngineConfigDefaults",
-				agentruns.FrontendDefaultEngineConfigDefaults(),
-				TypeProperty{Name: "thinking", TypeExpr: "boolean | null", Optional: true},
-			),
-			reflect.TypeOf(EngineRuntimeSupport{}): objectDeclarationWithGoBackedCreateExpr(
-				"EngineRuntimeSupport",
-				agentruns.EngineRuntimeSupport{},
-				TypeProperty{Name: "thinking", TypeExpr: "boolean"},
-			),
 			reflect.TypeOf(EngineConfig{}): objectDeclarationWithCreateBody(
 				"EngineConfig",
 				buildEngineConfigCreateBodyTS(),
@@ -2339,32 +2414,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "chunkMs", TypeExpr: "number"},
 				TypeProperty{Name: "supportsRealtimeTranscription", TypeExpr: "boolean"},
 				TypeProperty{Name: "language", TypeExpr: "string | null", Optional: true},
-			),
-			reflect.TypeOf(RunEvent{}): objectDeclarationWithGoBackedCreateExpr(
-				"RunEvent",
-				agentruns.FrontendDefaultRunEvent(),
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "timestamp", TypeExpr: "string"},
-				TypeProperty{Name: "type", TypeExpr: "string"},
-				TypeProperty{Name: "payload", TypeExpr: "Record<string, unknown>", Optional: true},
-			),
-			reflect.TypeOf(AgentRun{}): objectDeclarationWithGoBackedCreateExpr(
-				"AgentRun",
-				agentruns.FrontendDefaultRun(),
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "profileId", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "status", TypeExpr: "AgentRunStatus"},
-				TypeProperty{Name: "startedAt", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "finishedAt", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "inputs", TypeExpr: "Record<string, unknown> | null", Optional: true},
-				TypeProperty{Name: "outputs", TypeExpr: "Record<string, unknown> | null", Optional: true},
-				TypeProperty{Name: "toolCalls", TypeExpr: "Array<Record<string, unknown>>"},
-				TypeProperty{Name: "cost", TypeExpr: "number | null", Optional: true},
-				TypeProperty{Name: "events", TypeExpr: "Array<RunEvent>"},
-			),
-			reflect.TypeOf(AgentRunList{}): aliasDeclaration(
-				"AgentRunList",
-				"Array<AgentRun>",
 			),
 			reflect.TypeOf(MessageTextDelta{}): objectDeclaration(
 				"MessageTextDelta",
@@ -2587,18 +2636,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "sectionSizingPolicy", TypeExpr: "SectionSizingPolicy"},
 				TypeProperty{Name: "languageServer", TypeExpr: "Record<string, unknown>"},
 			),
-			reflect.TypeOf(SectionTypeCodegenPolicy{}): objectDeclarationWithGoBackedCreateExpr(
-				"SectionTypeCodegenPolicy",
-				projectview.FrontendDefaultSectionTypeCodegenPolicy(),
-				TypeProperty{Name: "mode", TypeExpr: "SectionCodegenMode"},
-				TypeProperty{Name: "representation", TypeExpr: "SectionRepresentationMode"},
-			),
-			reflect.TypeOf(SectionCodegenOverride{}): objectDeclarationWithGoBackedCreateExpr(
-				"SectionCodegenOverride",
-				projectview.FrontendDefaultSectionCodegenOverride(),
-				TypeProperty{Name: "mode", TypeExpr: "SectionCodegenMode"},
-				TypeProperty{Name: "representation", TypeExpr: "SectionRepresentationMode"},
-			),
 			reflect.TypeOf(SectionCodegenPolicy{}): objectDeclarationWithCreateBody(
 				"SectionCodegenPolicy",
 				buildSectionCodegenPolicyCreateBodyTS(),
@@ -2607,16 +2644,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "exclude", TypeExpr: "Array<string>"},
 				TypeProperty{Name: "typePolicies", TypeExpr: "Record<SectionType, SectionTypeCodegenPolicy>"},
 				TypeProperty{Name: "sectionOverrides", TypeExpr: "Record<string, SectionCodegenOverride>"},
-			),
-			reflect.TypeOf(CodeObjTypeValuePolicy{}): objectDeclarationWithGoBackedCreateExpr(
-				"CodeObjTypeValuePolicy",
-				projectview.FrontendDefaultCodeObjTypeValuePolicy(),
-				TypeProperty{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode"},
-			),
-			reflect.TypeOf(CodeObjValueOverride{}): objectDeclarationWithGoBackedCreateExpr(
-				"CodeObjValueOverride",
-				projectview.FrontendDefaultCodeObjValueOverride(),
-				TypeProperty{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode"},
 			),
 			reflect.TypeOf(CodeObjValuePolicy{}): objectDeclarationWithCreateBody(
 				"CodeObjValuePolicy",
@@ -2633,12 +2660,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "generateMetadata", TypeExpr: "boolean"},
 				TypeProperty{Name: "sectionPolicy", TypeExpr: "SectionCodegenPolicy"},
 				TypeProperty{Name: "codeObjValuePolicy", TypeExpr: "CodeObjValuePolicy"},
-			),
-			reflect.TypeOf(ProjectCodegenPluginTarget{}): objectDeclarationWithGoBackedCreateExpr(
-				"ProjectCodegenPluginTarget",
-				projectview.FrontendDefaultProjectCodegenPluginTarget(),
-				TypeProperty{Name: "language", TypeExpr: "string"},
-				TypeProperty{Name: "options", TypeExpr: "Record<string, unknown>"},
 			),
 			reflect.TypeOf(ProjectCodegenTarget{}): aliasDeclaration(
 				"ProjectCodegenTarget",
@@ -4085,15 +4106,6 @@ func newTypeConverter() *typeConverter {
   dictationMode: ChatDictationMode;
 }`,
 			),
-			reflect.TypeOf(BrowserSavedSearchTypeFilters{}): objectDeclarationWithGoBackedCreateExpr(
-				"BrowserSavedSearchTypeFilters",
-				projectstate.FrontendDefaultBrowserSavedSearchTypeFilters(),
-				TypeProperty{Name: "image", TypeExpr: "boolean"},
-				TypeProperty{Name: "video", TypeExpr: "boolean"},
-				TypeProperty{Name: "audio", TypeExpr: "boolean"},
-				TypeProperty{Name: "text", TypeExpr: "boolean"},
-				TypeProperty{Name: "data", TypeExpr: "boolean"},
-			),
 			reflect.TypeOf(BrowserSavedSearch{}): objectDeclarationWithGoBackedCreateExpr(
 				"BrowserSavedSearch",
 				projectstate.FrontendDefaultBrowserSavedSearch(),
@@ -4134,14 +4146,6 @@ func newTypeConverter() *typeConverter {
   savedSearches: Array<BrowserSavedSearch>;
 }`,
 			),
-			reflect.TypeOf(TaskBoardColumn{}): objectDeclarationWithGoBackedCreateExpr(
-				"TaskBoardColumn",
-				projectstate.FrontendDefaultTaskBoardColumn(),
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "name", TypeExpr: "string"},
-				TypeProperty{Name: "color", TypeExpr: "string"},
-				TypeProperty{Name: "sortIndex", TypeExpr: "number"},
-			),
 			reflect.TypeOf(TaskBoardTask{}): objectDeclarationWithGoBackedCreateExpr(
 				"TaskBoardTask",
 				projectstate.FrontendDefaultTaskBoardTask(),
@@ -4179,25 +4183,6 @@ func newTypeConverter() *typeConverter {
   columns: Array<TaskBoardColumn>;
   tasks: Array<TaskBoardTask>;
 }`,
-			),
-			reflect.TypeOf(LineChartSettings{}): objectDeclarationWithGoBackedCreateExpr(
-				"LineChartSettings",
-				projectstate.FrontendDefaultLineChartSettings(),
-				TypeProperty{Name: "type", TypeExpr: "typeof ChartTypeEnum.line"},
-				TypeProperty{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "secondYAxisColumns", TypeExpr: "Array<string>"},
-				TypeProperty{Name: "xAxisLog", TypeExpr: "boolean"},
-				TypeProperty{Name: "y1AxisLog", TypeExpr: "boolean"},
-				TypeProperty{Name: "y2AxisLog", TypeExpr: "boolean"},
-			),
-			reflect.TypeOf(ScatterChartSettings{}): objectDeclarationWithGoBackedCreateExpr(
-				"ScatterChartSettings",
-				projectstate.FrontendDefaultScatterChartSettings(),
-				TypeProperty{Name: "type", TypeExpr: "typeof ChartTypeEnum.scatter"},
-				TypeProperty{Name: "xAxisColumn", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "categoryColumn", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "xAxisLog", TypeExpr: "boolean"},
-				TypeProperty{Name: "yAxisLog", TypeExpr: "boolean"},
 			),
 			reflect.TypeOf(BaseChartSettingsUnion{}): aliasDeclaration(
 				"BaseChartSettingsUnion",
@@ -4595,21 +4580,6 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "artifacts", TypeExpr: "Array<ArtifactUnion>"},
 				TypeProperty{Name: "updateType", TypeExpr: `"update" | "delete"`},
 			),
-			reflect.TypeOf(WebsocketConnectionInfo{}): objectDeclarationWithGoBackedCreateExpr(
-				"WebsocketConnectionInfo",
-				frontendDefaultWebsocketConnectionInfo(),
-				TypeProperty{Name: "id", TypeExpr: "string"},
-				TypeProperty{Name: "connectionType", TypeExpr: "WebsocketConnectionType"},
-				TypeProperty{Name: "currentAddress", TypeExpr: "string | null"},
-				TypeProperty{Name: "shareSessionId", TypeExpr: "string | null"},
-			),
-			reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}): objectDeclarationWithGoBackedCreateExpr(
-				"WebsocketMsgCurrentAddressUpdate",
-				frontendDefaultWebsocketMsgCurrentAddressUpdate(),
-				TypeProperty{Name: "id", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "messageType", TypeExpr: "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate"},
-				TypeProperty{Name: "content", TypeExpr: "string"},
-			),
 			reflect.TypeOf(UISettingRevealActivationStep{}): objectDeclaration(
 				"UISettingRevealActivationStep",
 				TypeProperty{Name: "type", TypeExpr: "string"},
@@ -4797,6 +4767,15 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		return err
 	} else if ok {
 		c.declarations = append(c.declarations, decl)
+		return c.appendAdditionalDeclarationsForType(t)
+	}
+
+	if spec, ok := ownerBackedReflectedObjectDeclarationSpec(t); ok {
+		declaration, err := c.reflectedObjectDeclaration(t, spec)
+		if err != nil {
+			return err
+		}
+		c.declarations = append(c.declarations, declaration)
 		return c.appendAdditionalDeclarationsForType(t)
 	}
 
