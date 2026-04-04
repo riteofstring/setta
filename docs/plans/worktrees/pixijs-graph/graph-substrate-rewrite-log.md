@@ -4202,3 +4202,33 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - pivot away from task-board default motion lanes and hunt the first concrete production renderer question on a truly new visible lane, with production-fix work preferred over another harness-only pass
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 13:38 EDT - Ralph item 124
+
+- Closed the explicit Browser control-surface normalization experiment as non-viable on the current run-043 surfaces, without adding another speculative probe.
+- Why this slice was necessary:
+  - item `120` had already blocked the Browser body-motion lane unless one stronger normalization could actually expose a real Browser body/control surface on both live tabs
+  - after the task-board default motion lanes closed cleanly, this was the narrowest valid support step that could answer whether Browser could re-enter the frontier at all
+- What this slice established:
+  - refreshed run-043 runtime info confirmed the live comparison still targets worktree `3075` / backend `8075` / CDP `9300` and read-only `3087` / backend `8087`
+  - a direct headless Playwright inspection normalized both sides to active `All Settings`, targeted-fit `browserSectionDefault`, explicitly activated that section, and checked it after `0` through `6` `zoom in` clicks
+  - on both surfaces, the Browser card grew to large on-screen geometry but still never mounted a Browser path input, Browser view-mode controls, or a `File explorer` region
+  - the only visible in-card content on both sides remained section/config labels such as `ARGS`, `aspectRatio`, `columnWidth`, `folder`, `savedSearches`, `typesColumnWidth`, and `View Mode`
+  - a fresh-context CDP sub-agent confirmed the same live result after targeted fit and `1` through `3` `zoom in` clicks on both worktree canary and read-only `main`
+- Verification:
+  - refreshed run-043 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-043/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-043/main-ai.log`
+  - direct headless Playwright inspection via `pnpm -C frontend exec node --input-type=module`:
+    - worktree `3075`: `browserSectionDefault` grew from about `545 x 348` at targeted fit to about `1629 x 1039` after `6` zoom clicks, but `browser-path` inputs, `List view`, `Icon view`, `Carousel view`, and `File explorer` stayed absent
+    - read-only `3087`: `browserSectionDefault` grew from about `823 x 525` at targeted fit to about `2457 x 1567` after `6` zoom clicks, with the same Browser-body controls still absent
+    - explicit active-section selection did not change that result on either side
+  - fresh-context CDP sub-agent:
+    - normalized both live `/settings` tabs to `All Settings`, targeted `browserSectionDefault`, and checked after `1`, `2`, and `3` `zoom in` clicks
+    - both tabs still showed only config labels and no real Browser body/control surface
+  - CDP visual check: done (fresh-context Browser control-surface viability compare on live `3075` canary vs read-only `3087` legacy; targeted fit, explicit activation, and zoom still do not expose Browser path/view/explorer controls on either side)
+- Lane status:
+  - close the explicit Browser control-surface normalization lane for now
+  - do not reopen Browser body/control work on `All Settings` cards unless a future product slice changes the renderer/state path enough that a real Browser body surface is actually mounted on both live tabs
+- Next frontier:
+  - return to a non-Browser shared visible lane or a concrete production renderer question instead of spending another pass on Browser visibility normalization
+- LOOP_TERMINAL_MARKER: none

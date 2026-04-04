@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 13:20 EDT
+Last updated: 2026-04-04 13:38 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,35 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `124` closed the explicit Browser control-surface normalization experiment as non-viable on the current run-043 surfaces, without adding another speculative probe.
+  - Why this slice was needed:
+    - item `120` had already blocked the Browser body-motion lane unless one explicit normalization step could surface a real Browser body/control anchor on both worktree canary and read-only `main`
+    - after the task-board default motion lanes closed cleanly, this was the narrowest valid support step that could directly answer whether Browser could return as a real frontier instead of staying guesswork
+  - What this slice established:
+    - refreshed run-043 runtime/bootstrap values confirmed the current live surfaces are still worktree `3075` / backend `8075` / CDP `9300` and read-only `3087` / backend `8087`
+    - a direct headless Playwright inspection normalized both pages to active `All Settings`, targeted-fit `browserSectionDefault`, explicitly activated that section, and checked it after `0` through `6` `zoom in` clicks
+    - on both surfaces, the Browser card grew to large on-screen geometry, but it still never mounted a Browser path input, Browser view-mode controls, or a file-explorer region
+    - the only visible in-card content on both sides remained section/config labels such as `ARGS`, `aspectRatio`, `columnWidth`, `folder`, `savedSearches`, `typesColumnWidth`, and `View Mode`
+    - a fresh-context CDP sub-agent confirmed the same live result at targeted fit and after `1` through `3` `zoom in` clicks on both tabs: no visible `Path` input, `List view`, `Icon view`, `Carousel view`, or `File explorer`
+  - Automated result:
+    - no production or test files changed in this slice
+    - no new Playwright parity probe was added, because the explicit normalization still failed to expose any real Browser body surface worth probing
+  - Live verification result:
+    - refreshed run-043 runtime/bootstrap values:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-043/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-043/main-ai.log`
+    - direct headless Playwright inspection:
+      - targeted-fit `browserSectionDefault`, then explicit active-section selection plus repeated `zoom in`
+      - worktree `3075`: section box grew from about `545 x 348` at fit to about `1629 x 1039` after `6` zoom clicks, but `browser-path` inputs, Browser view controls, and `File explorer` stayed absent
+      - read-only `3087`: section box grew from about `823 x 525` at fit to about `2457 x 1567` after `6` zoom clicks, with the same Browser-body controls still absent
+    - fresh-context CDP sub-agent:
+      - normalized both live `/settings` tabs to `All Settings`, targeted `browserSectionDefault`, and checked after `1`, `2`, and `3` `zoom in` clicks
+      - both tabs still showed only config labels and no real Browser body/control surface
+    - CDP visual check: done (fresh-context Browser control-surface viability compare on live `3075` canary vs read-only `3087` legacy; targeted fit, explicit activation, and zoom still do not expose Browser path/view/explorer controls on either side)
+  - conclusion for this slice:
+    - close the explicit Browser control-surface normalization lane for now
+    - do not reopen Browser body/control work on `All Settings` cards unless a future product slice changes the renderer/state path enough that a real Browser body surface is actually mounted on both live tabs
+    - the next iteration should return to a non-Browser shared visible lane or a concrete production renderer question, not another Browser visibility probe
 - Ralph item `123` closed the bounded live `taskBoardSectionDefault` fit-plus-zoom lane as clean on the current run-042 surfaces, without adding another probe.
   - Why this slice was needed:
     - item `122` had already closed the task-board short blank-pane pan lane, but the recent task-board work still lacked one direct live readout for the same visible section after a shared `fit view` plus one `zoom in`
@@ -3043,10 +3072,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Immediate next frontier
 
 - The Browser authoritative-move compression lane is closed by item `119`; do not reopen it unless a fresh normalized compare reproduces the old size/layout mismatch.
-- The attempted Browser body-motion lane is also blocked for now by item `120`:
-  - the assumed Browser path-field anchor is not present on either normalized live surface
-  - the fallback Browser view-mode controls were likewise not exposed on the normalized Playwright lane
-  - do not spend another iteration on Browser-anchor guesswork unless the next slice first adds one explicit normalization that makes a real Browser control surface visible on both tabs
+- The attempted Browser body-motion lane remains closed after item `124`:
+  - item `120` already showed that the assumed Browser path-field and fallback view-toggle anchors were absent after the baseline normalized compare
+  - item `124` then retried the lane with the explicit normalization that item `120` had left open: targeted-fit `browserSectionDefault`, explicit active-section selection, and repeated `zoom in`
+  - even with that stronger normalization, both worktree canary and read-only `main` still exposed only config labels inside the Browser card and never mounted a real Browser path input, Browser view controls, or a file-explorer region
+  - do not spend another iteration on Browser body/control probes unless a future product slice first changes the live Browser card so those controls actually render on both tabs
 - The next bounded slice should therefore pick one different shared normalized Gate 1 / Gate 2 motion lane on `All Settings` whose target control/body anchor is already visibly present on both surfaces after `clear viewport -> fit view`.
 - Prefer a lane that can still expose a real renderer or interaction-state defect without more support churn:
   - one short shared pan/drag/motion pulse on a different shared named section
@@ -3156,6 +3186,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `120`
-- Latest item: `2026-04-04 120`
+- Active history window: items `001` through `124`
+- Latest item: `2026-04-04 124`
 - Older history archives: none yet
