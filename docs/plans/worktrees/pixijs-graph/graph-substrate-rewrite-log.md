@@ -70,6 +70,49 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 052
+
+- Item: Run one bounded post-wide-card motion probe on normalized `groupSectionDefault` and decide whether a concrete worktree-only drag/motion artifact still remains.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not change production renderer or test code.
+  - The checked frontier from `051` was the first different dynamic action on the same normalized graph surface, not another targeted-fit or zoom-helper rewrite.
+  - Existing automated baseline for the canary drag path remained relevant, so the current focused drag regression was rerun before the live compare.
+  - A fresh-context CDP sub-agent checked worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were normalized to:
+    - active `All Settings`
+    - `overviewVis=false`
+    - `uiEditorVis=false`
+  - CDP did not provide a physically trustworthy mouse-drag interaction on this canvas, so the bounded live probe used the closest trustworthy accessible motion path instead:
+    - focus `groupSectionDefault`
+    - send `Space`, `ArrowRight`, `Space`
+  - On that accessible motion probe, neither side showed a worktree-only artifact:
+    - worktree viewport stayed at `matrix(0.1, 0, 0, 0.1, 402.4, -245.2)`
+    - worktree `groupSectionDefault`: `x=463.3 y=91.3 w=53.4 h=2.2`
+    - `main` viewport stayed at `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - `main` `groupSectionDefault`: `x=840.8 y=91.3 w=53.4 h=2.2`
+  - Oracle noise intentionally ignored:
+    - transient `Autosaved!` toast
+    - focused `fit view` control chrome
+    - worktree-only extra header text (`Agentic link target/source`)
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - result: passed (`1 passed`, about `24.3s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` sessions to active `All Settings` with overview/ui-editor chrome closed
+      - CDP mouse drag was not trustworthy on this canvas, so the live motion probe used the accessible `Space` + `ArrowRight` + `Space` sequence on `groupSectionDefault`
+      - no worktree-only motion artifact was isolated on that bounded live probe
+- Conclusion:
+  - the checked accessible motion lane is clean; there is no production fix to take from this evidence alone
+  - do not spend another iteration repeating this exact keyboard-accessible drag workaround just because true CDP mouse drag is unreliable here
+  - this does not count as a final physical drag-lane closure; return to drag-specific work only if a fresh product clue or a narrower trustworthy drag oracle makes it actionable
+- Next action:
+  - run one different trustworthy dynamic graph-surface compare, preferably a short normalized pan pulse on the same wide-card state, and isolate the first visible canary-only motion artifact if one still remains
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 051
 
 - Item: Re-run the normalized `groupSectionDefault` wide-card dynamic compare with script-driven pane/camera normalization and decide whether a concrete worktree-only zoom artifact still remains.

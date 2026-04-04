@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 15:33 EDT
+Last updated: 2026-04-03 15:42 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,33 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `052` completed one bounded post-wide-card motion probe on the same normalized `groupSectionDefault` graph surface without reopening the helper lane.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
+    - result: passed (`1 passed`, about `24.3s`)
+    - what it still proves: the generic custom-substrate top-level drag path remains green in the isolated Playwright runtime
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings` with `overviewVis=false` and `uiEditorVis=false`
+    - CDP did not provide a physically trustworthy mouse-drag interaction on this canvas, so the bounded live probe used the closest trustworthy accessible motion path instead:
+      - focus `groupSectionDefault`
+      - send `Space`, `ArrowRight`, `Space`
+    - neither side showed a worktree-only motion artifact on that accessible probe:
+      - worktree viewport stayed at `matrix(0.1, 0, 0, 0.1, 402.4, -245.2)`
+      - worktree `groupSectionDefault`: `x=463.3 y=91.3 w=53.4 h=2.2`
+      - `main` viewport stayed at `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - `main` `groupSectionDefault`: `x=840.8 y=91.3 w=53.4 h=2.2`
+    - ignored oracle noise:
+      - transient `Autosaved!` toast
+      - focused `fit view` control chrome
+      - worktree-only extra header text (`Agentic link target/source`)
+  - conclusion for this slice:
+    - no worktree-only motion artifact was isolated on the checked accessible motion lane
+    - do not reopen this exact keyboard-accessible drag probe unless a later fresh compare starts showing drift
+    - because CDP mouse drag was not trustworthy here, do not spend the next iteration repeating the same drag-oracle workaround
+    - the next real frontier should pivot to one short normalized pan pulse on the same wide-card graph surface, or another equally trustworthy dynamic motion probe, before reopening drag-specific support work
 - Ralph item `051` closed the normalized `groupSectionDefault` wide-card zoom lane with a fresh CDP-only compare instead of reopening the helper lane.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code
@@ -922,9 +949,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
   - the exact `groupSectionDefault` targeted-fit plus shared `zoom in` lane is now closed; do not reopen it unless a fresh compare reintroduces drift
-  - focus the next compare on one different shared dynamic action across worktree and `main`, preferably a small drag-pan pulse or one short top-level section drag, and isolate the first visible canary-only artifact:
+  - the keyboard-accessible `groupSectionDefault` motion probe is also clean; do not spend another iteration repeating that exact workaround just because true CDP mouse drag was untrustworthy
+  - focus the next compare on one different trustworthy dynamic action across worktree and `main`, preferably a small shared pan pulse on the same normalized wide-card state, and isolate the first visible canary-only artifact:
     - any remaining interaction-state drift during pan/drag after the blank-surface selection normalization
     - any dynamic body/chrome detachment that only appears once the camera moves
+    - return to drag-specific work only if a fresh product clue or a narrower trustworthy drag oracle makes that lane materially actionable again
   - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
 - Lifecycle/bootstrap debugging is no longer the default frontier:
   - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
@@ -951,6 +980,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `051`
-- Latest item: `2026-04-03 051`
+- Active history window: items `001` through `052`
+- Latest item: `2026-04-03 052`
 - Older history archives: none yet
