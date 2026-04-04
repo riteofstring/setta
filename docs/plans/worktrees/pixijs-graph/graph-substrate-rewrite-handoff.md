@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 14:59 EDT
+Last updated: 2026-04-03 15:18 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,28 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `050` closed the live targeted-fit normalization blocker for `groupSectionDefault` instead of adding another generic compare helper.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now forces the wide-card targeted-fit regression through an explicit closed-pane graph-surface state before calling `viewportController.fitView(...)`
+    - new local helper in the same spec:
+      - `setCanaryComparePaneVisibility(...)`
+    - that helper uses production `togglePaneVisibility(...)` / `PaneNameEnum` state instead of raw localStorage guessing, then waits until `overviewVis` and `uiEditorVis` match the requested normalization
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.9s`)
+    - what it proves now: the targeted-fit regression is anchored to a deterministic closed-pane graph-surface state instead of pane carry-over
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the live worktree `http://127.0.0.1:3075/settings`
+    - after normalizing `overview=false` and `uiEditor=false`, the same production `viewportController.fitView({ nodes: [{ id: "groupSectionDefault" }], padding: 0.1 })` path widened the canary exactly as needed:
+      - viewport before: `{"x":737.4,"y":-51.7,"zoom":0.1}`
+      - viewport after: `{"x":-277.717,"y":-3396.79,"zoom":1.13895}`
+      - `groupSectionDefault` before: `{"x":797.4,"y":284.3,"width":55.2,"height":35.2}`
+      - `groupSectionDefault` after: `{"x":405.6508,"y":56.0454,"width":628.6984,"height":400.9092}`
+    - treat this CDP result as authoritative for the blocker: the live worktree canary does honor the targeted one-section fit once non-target pane chrome is normalized away
+  - conclusion for this slice:
+    - the previous live blocker was pane-state carry-over / oracle noise, not a missing worktree targeted-fit code path
+    - do not spend the next iteration on another helper-only targeted-fit rewrite
+  - the next real frontier is to rerun the bounded dynamic wide-card compare on `groupSectionDefault` with the same closed-pane normalization applied to both worktree and read-only `main`
 - Ralph item `049` landed one bounded normalization support slice instead of guessing at another wide-card compare.
   - Production/test change:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary can fit a named body-heavy section into a wide-card compare state`

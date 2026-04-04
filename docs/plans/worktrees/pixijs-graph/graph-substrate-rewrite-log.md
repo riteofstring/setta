@@ -70,6 +70,39 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 050
+
+- Item: Normalize non-target pane chrome in the targeted wide-card fit regression, then verify the live worktree canary widens `groupSectionDefault` under the same closed-pane state.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not change production renderer code.
+  - The current blocker from `049` was specifically the live-session normalization/oracle mismatch around `groupSectionDefault`, not the absence of a working targeted `fitView` path.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now closes overview and ui-editor pane chrome before the wide-card targeted-fit assertion.
+  - New local helper in the same spec:
+    - `setCanaryComparePaneVisibility(...)`
+  - The helper uses production `togglePaneVisibility(...)` plus `PaneNameEnum` and waits until `overviewVis` / `uiEditorVis` match the requested state, so the targeted-fit regression no longer depends on carried-over pane chrome.
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`1 passed`, about `19.9s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized the live worktree `/settings` session to `All Settings`
+      - pane vis state was explicitly `overview=false`, `uiEditor=false`
+      - viewport before targeted fit: `{"x":737.4,"y":-51.7,"zoom":0.1}`
+      - viewport after targeted fit: `{"x":-277.717,"y":-3396.79,"zoom":1.13895}`
+      - `groupSectionDefault` before: `{"x":797.4,"y":284.3,"width":55.2,"height":35.2}`
+      - `groupSectionDefault` after: `{"x":405.6508,"y":56.0454,"width":628.6984,"height":400.9092}`
+      - live worktree wide-card result: confirmed (`width 628.7px`)
+- Conclusion:
+  - the live targeted-fit blocker is resolved: the worktree canary does widen `groupSectionDefault` once non-target pane chrome is normalized away
+  - the previous mismatch was oracle noise from pane-state carry-over, not a missing renderer/code path
+  - do not spend another iteration on helper-only targeted-fit work
+- Next action:
+  - rerun the bounded dynamic wide-card compare on `groupSectionDefault` with the same closed-pane normalization applied to both worktree and read-only `main`, then isolate the first remaining motion/interaction artifact if one still reproduces
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 046
 
 - Item: Run one bounded graph-surface-only Gate 2 compare on a materially different shared visible card instead of repeating another same-column core-card pass.

@@ -1395,6 +1395,10 @@ test("settings graph substrate canary can fit a named body-heavy section into a 
     await expect
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
+    await setCanaryComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
 
     const initialTargetBox = await getCanarySectionBoundingBox(
       page,
@@ -2316,6 +2320,71 @@ async function setOverviewTab(page: Page, tabName: string): Promise<void> {
     payload.state = { ...payload.state, overviewTab: tab, overviewVis: true };
     localStorage.setItem(key, JSON.stringify(payload));
   }, tabName);
+}
+
+async function setCanaryComparePaneVisibility(
+  page: Page,
+  {
+    overviewVisible,
+    uiEditorVisible,
+  }: {
+    overviewVisible: boolean;
+    uiEditorVisible: boolean;
+  },
+): Promise<void> {
+  await page.evaluate(
+    async (desiredVisibility: {
+      overviewVisible: boolean;
+      uiEditorVisible: boolean;
+    }) => {
+      const { togglePaneVisibility } = await import(
+        "/src/components/Panes/paneLayout.ts"
+      );
+      const { useLocalStorage } = await import("/src/state/definitions.ts");
+      const { PaneNameEnum } = await import("/src/utils/constants.ts");
+      const paneTargets = [
+        {
+          paneName: PaneNameEnum.overview,
+          desiredVisible: desiredVisibility.overviewVisible,
+          visibilityKey: "overviewVis",
+        },
+        {
+          paneName: PaneNameEnum.uiEditor,
+          desiredVisible: desiredVisibility.uiEditorVisible,
+          visibilityKey: "uiEditorVis",
+        },
+      ];
+
+      for (const paneTarget of paneTargets) {
+        const currentState = useLocalStorage.getState();
+        const isVisible =
+          paneTarget.visibilityKey === "overviewVis"
+            ? currentState.overviewVis
+            : currentState.uiEditorVis;
+        if (isVisible === paneTarget.desiredVisible) {
+          continue;
+        }
+        togglePaneVisibility(paneTarget.paneName);
+      }
+    },
+    { overviewVisible, uiEditorVisible },
+  );
+
+  await expect
+    .poll(async () => {
+      return page.evaluate(async () => {
+        const { useLocalStorage } = await import("/src/state/definitions.ts");
+        const state = useLocalStorage.getState();
+        return {
+          overviewVisible: state.overviewVis,
+          uiEditorVisible: state.uiEditorVis,
+        };
+      });
+    })
+    .toEqual({
+      overviewVisible,
+      uiEditorVisible,
+    });
 }
 
 type ProjectConfigIdResponse = {
