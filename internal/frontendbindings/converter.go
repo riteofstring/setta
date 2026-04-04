@@ -748,6 +748,200 @@ func buildProjectCodegenPythonTargetCreateBodyTS() string {
 	)
 }
 
+type generatedFactoryDeclarationData struct {
+	Name          string
+	ImplType      string
+	DefaultType   string
+	Fields        []tsLiteralField
+	Prelude       string
+	OverridesExpr string
+}
+
+func combineTSLiteralFields(groups ...[]tsLiteralField) []tsLiteralField {
+	total := 0
+	for _, group := range groups {
+		total += len(group)
+	}
+	fields := make([]tsLiteralField, 0, total)
+	for _, group := range groups {
+		fields = append(fields, group...)
+	}
+	return fields
+}
+
+func sectionImplIdentityFields(typeExpr string) []tsLiteralField {
+	return []tsLiteralField{
+		{Name: "type", Value: typeExpr},
+		{Name: "id", Value: `""`},
+		{Name: "name", Value: `""`},
+	}
+}
+
+func generatedBaseSectionImplFields(defaultsExpr string) []tsLiteralField {
+	return []tsLiteralField{
+		{Name: "isFrozen", Value: defaultsExpr + ".isFrozen"},
+		{Name: "isInOtherProjectConfigs", Value: "false"},
+		{Name: "tagColor", Value: defaultsExpr + ".tagColor"},
+		{Name: "styleColor", Value: defaultsExpr + ".styleColor"},
+		{Name: "size", Value: defaultsExpr + ".size"},
+		{Name: "aspectRatio", Value: defaultsExpr + ".aspectRatio"},
+		{Name: "aspectRatioExtraHeight", Value: "0"},
+		{Name: "aspectRatioExtraWidth", Value: "0"},
+		{Name: "isMinimized", Value: defaultsExpr + ".isMinimized"},
+		{Name: "positionAndSizeLocked", Value: defaultsExpr + ".positionAndSizeLocked"},
+		{Name: "isPreset", Value: "false"},
+	}
+}
+
+func generatedSectionWithParamsImplFields(defaultsExpr string) []tsLiteralField {
+	return combineTSLiteralFields(
+		generatedBaseSectionImplFields(defaultsExpr),
+		[]tsLiteralField{
+			{Name: "codeObjVariantMap", Value: "{}"},
+			{Name: "hideUnpinnedParams", Value: defaultsExpr + ".hideUnpinnedParams"},
+			{Name: "paramFilter", Value: defaultsExpr + ".paramFilter"},
+			{Name: "columnWidth", Value: defaultsExpr + ".columnWidth"},
+			{Name: "configLanguage", Value: defaultsExpr + ".configLanguage"},
+			{Name: "pinnedParams", Value: "[]"},
+			{Name: "selectedParams", Value: "[]"},
+			{Name: "ignoreTypeErrors", Value: `{
+        callable: false,
+        params: {},
+      }`},
+			{Name: "edgeInputParams", Value: defaultsExpr + ".edgeInputParams"},
+			{Name: "edgeOutputPorts", Value: defaultsExpr + ".edgeOutputPorts"},
+		},
+	)
+}
+
+func sectionImplCreateFields(typeExpr string, defaultsExpr string, extras ...[]tsLiteralField) []tsLiteralField {
+	return combineTSLiteralFields(
+		sectionImplIdentityFields(typeExpr),
+		generatedBaseSectionImplFields(defaultsExpr),
+		combineTSLiteralFields(extras...),
+	)
+}
+
+func sectionWithParamsImplCreateFields(typeExpr string, defaultsExpr string, extras ...[]tsLiteralField) []tsLiteralField {
+	return combineTSLiteralFields(
+		sectionImplIdentityFields(typeExpr),
+		generatedSectionWithParamsImplFields(defaultsExpr),
+		combineTSLiteralFields(extras...),
+	)
+}
+
+func buildGeneratedFactoryReturnBodyTS(fields []tsLiteralField, overridesExpr string, prelude string) string {
+	var builder strings.Builder
+	trimmedPrelude := strings.TrimRight(prelude, "\n")
+	if trimmedPrelude != "" {
+		builder.WriteString(trimmedPrelude)
+		builder.WriteString("\n")
+	}
+	builder.WriteString("  return mergeGeneratedOptions(\n")
+	builder.WriteString("    {\n")
+	writeTSObjectFields(&builder, "      ", fields)
+	builder.WriteString("    },\n")
+	builder.WriteString("    ")
+	builder.WriteString(overridesExpr)
+	builder.WriteString(",\n")
+	builder.WriteString("  );")
+	return builder.String()
+}
+
+func buildResolvedGeneratedFactoryBodyTS(
+	defaultType string,
+	implType string,
+	fields []tsLiteralField,
+	prelude string,
+	overridesExpr string,
+) string {
+	if overridesExpr == "" {
+		overridesExpr = "resolved.overrides"
+	}
+	var builder strings.Builder
+	builder.WriteString("  const resolved = resolveGeneratedFactoryInputs<\n")
+	builder.WriteString("    ")
+	builder.WriteString(defaultType)
+	builder.WriteString(",\n")
+	builder.WriteString("    ")
+	builder.WriteString(implType)
+	builder.WriteString("\n")
+	builder.WriteString("  >(create")
+	builder.WriteString(defaultType)
+	builder.WriteString("(), defaultsOrOverrides, overrides);\n")
+	builder.WriteString(buildGeneratedFactoryReturnBodyTS(fields, overridesExpr, prelude))
+	return builder.String()
+}
+
+func buildDirectGeneratedFactoryBodyTS(fields []tsLiteralField, overridesExpr string) string {
+	return buildGeneratedFactoryReturnBodyTS(fields, overridesExpr, "")
+}
+
+func defaultsOrOverridesTypeProperty(defaultType string, implType string) TypeProperty {
+	return TypeProperty{
+		Name:         "defaultsOrOverrides",
+		TypeExpr:     "Partial<" + defaultType + "> | Partial<" + implType + ">",
+		DefaultValue: "{}",
+	}
+}
+
+func optionalOverrideTypeProperty(implType string) TypeProperty {
+	return TypeProperty{Name: "overrides", TypeExpr: "Partial<" + implType + ">", Optional: true}
+}
+
+func defaultsTypeProperty(defaultType string) TypeProperty {
+	return TypeProperty{Name: "defaults", TypeExpr: defaultType}
+}
+
+func overrideTypeProperty(implType string) TypeProperty {
+	return TypeProperty{Name: "overrides", TypeExpr: "Partial<" + implType + ">", DefaultValue: "{}"}
+}
+
+func exportedResolvedFactoryDeclaration(data generatedFactoryDeclarationData) TypeDeclaration {
+	return exportedFunctionDeclaration(
+		data.Name,
+		data.ImplType,
+		buildResolvedGeneratedFactoryBodyTS(
+			data.DefaultType,
+			data.ImplType,
+			data.Fields,
+			data.Prelude,
+			data.OverridesExpr,
+		),
+		defaultsOrOverridesTypeProperty(data.DefaultType, data.ImplType),
+		optionalOverrideTypeProperty(data.ImplType),
+	)
+}
+
+func exportedDefaultsFactoryDeclaration(
+	name string,
+	implType string,
+	defaultType string,
+	fields []tsLiteralField,
+) TypeDeclaration {
+	return exportedFunctionDeclaration(
+		name,
+		implType,
+		buildDirectGeneratedFactoryBodyTS(fields, "overrides"),
+		defaultsTypeProperty(defaultType),
+		overrideTypeProperty(implType),
+	)
+}
+
+func buildTaskBoardOverridesPreludeTS() string {
+	var builder strings.Builder
+	builder.WriteString("  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {\n")
+	builder.WriteString("    ...resolved.overrides,\n")
+	builder.WriteString("  };\n")
+	builder.WriteString("  if (normalizedOverrides.columns === undefined) {\n")
+	builder.WriteString("    delete normalizedOverrides.columns;\n")
+	builder.WriteString("  }\n")
+	builder.WriteString("  if (normalizedOverrides.tasks === undefined) {\n")
+	builder.WriteString("    delete normalizedOverrides.tasks;\n")
+	builder.WriteString("  }")
+	return builder.String()
+}
+
 func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 	return map[reflect.Type][]TypeDeclaration{
 		reflect.TypeOf(ProjectConfig{}): {
@@ -787,624 +981,273 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 			),
 		},
 		reflect.TypeOf(CallableSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createCallableSectionImpl",
-				"CallableSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCallableSectionImpl,
-    CallableSectionImpl
-  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Callable,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: resolved.defaults.hideUnpinnedParams,
-      paramFilter: resolved.defaults.paramFilter,
-      columnWidth: resolved.defaults.columnWidth,
-      configLanguage: resolved.defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: resolved.defaults.edgeInputParams,
-      edgeOutputPorts: resolved.defaults.edgeOutputPorts,
-      callable: null,
-      hideParams: resolved.defaults.hideParams,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultCallableSectionImpl> | Partial<CallableSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<CallableSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createCallableSectionImpl",
+				ImplType:    "CallableSectionImpl",
+				DefaultType: "UserDefaultCallableSectionImpl",
+				Fields: sectionWithParamsImplCreateFields(
+					"SectionTypeEnum.Callable",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "callable", Value: "null"},
+						{Name: "hideParams", Value: "resolved.defaults.hideParams"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(DictSectionImpl{}): {
-			exportedFunctionDeclaration(
+			exportedDefaultsFactoryDeclaration(
 				"createDictSectionImpl",
 				"DictSectionImpl",
-				`  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Dict,
-      id: "",
-      name: "",
-      isFrozen: defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: defaults.tagColor,
-      styleColor: defaults.styleColor,
-      size: defaults.size,
-      aspectRatio: defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: defaults.isMinimized,
-      positionAndSizeLocked: defaults.positionAndSizeLocked,
-      isPreset: false,
-      codeObjVariantMap: {},
-      hideUnpinnedParams: defaults.hideUnpinnedParams,
-      paramFilter: defaults.paramFilter,
-      columnWidth: defaults.columnWidth,
-      configLanguage: defaults.configLanguage,
-      pinnedParams: [],
-      selectedParams: [],
-      ignoreTypeErrors: {
-        callable: false,
-        params: {},
-      },
-      edgeInputParams: defaults.edgeInputParams,
-      edgeOutputPorts: defaults.edgeOutputPorts,
-      topLevelParamId: null,
-      isJsonSource: defaults.isJsonSource,
-      jsonSourceKeys: defaults.jsonSourceKeys,
-      jsonSourceMissing: false,
-    },
-    overrides,
-  );`,
-				TypeProperty{Name: "defaults", TypeExpr: "UserDefaultDictSectionImpl"},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<DictSectionImpl>", DefaultValue: "{}"},
+				"UserDefaultDictSectionImpl",
+				sectionWithParamsImplCreateFields(
+					"SectionTypeEnum.Dict",
+					"defaults",
+					[]tsLiteralField{
+						{Name: "topLevelParamId", Value: "null"},
+						{Name: "isJsonSource", Value: "defaults.isJsonSource"},
+						{Name: "jsonSourceKeys", Value: "defaults.jsonSourceKeys"},
+						{Name: "jsonSourceMissing", Value: "false"},
+					},
+				),
 			),
 		},
 		reflect.TypeOf(CodeParamCodeObjImpl{}): {
-			exportedFunctionDeclaration(
-				"createCodeParamCodeObjImpl",
-				"CodeParamCodeObjImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeParamCodeObjImpl,
-    CodeParamCodeObjImpl
-  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: CodeObjTypeEnum.CodeParam,
-      id: "",
-      name: "",
-      description: "",
-      isPreset: false,
-      coreNameType: resolved.defaults.coreNameType,
-      coreNameEditable: resolved.defaults.coreNameEditable,
-      passingStyle: ParameterPassingStyleEnum.DEFAULT,
-      typeAnnotation: resolved.defaults.typeAnnotation,
-      defaultVal: resolved.defaults.defaultVal,
-      value: resolved.defaults.value,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultCodeParamCodeObjImpl> | Partial<CodeParamCodeObjImpl>",
-					DefaultValue: "{}",
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createCodeParamCodeObjImpl",
+				ImplType:    "CodeParamCodeObjImpl",
+				DefaultType: "UserDefaultCodeParamCodeObjImpl",
+				Fields: []tsLiteralField{
+					{Name: "type", Value: "CodeObjTypeEnum.CodeParam"},
+					{Name: "id", Value: `""`},
+					{Name: "name", Value: `""`},
+					{Name: "description", Value: `""`},
+					{Name: "isPreset", Value: "false"},
+					{Name: "coreNameType", Value: "resolved.defaults.coreNameType"},
+					{Name: "coreNameEditable", Value: "resolved.defaults.coreNameEditable"},
+					{Name: "passingStyle", Value: "ParameterPassingStyleEnum.DEFAULT"},
+					{Name: "typeAnnotation", Value: "resolved.defaults.typeAnnotation"},
+					{Name: "defaultVal", Value: "resolved.defaults.defaultVal"},
+					{Name: "value", Value: "resolved.defaults.value"},
 				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<CodeParamCodeObjImpl>", Optional: true},
-			),
+			}),
 		},
 		reflect.TypeOf(ListRootSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createListRootSectionImpl",
-				"ListRootSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultListRootSectionImpl,
-    ListRootSectionImpl
-  >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.ListRoot,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      children: [],
-      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
-      viewMode: resolved.defaults.viewMode,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultListRootSectionImpl> | Partial<ListRootSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<ListRootSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createListRootSectionImpl",
+				ImplType:    "ListRootSectionImpl",
+				DefaultType: "UserDefaultListRootSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.ListRoot",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "children", Value: "[]"},
+						{Name: "defaultChildSectionType", Value: "resolved.defaults.defaultChildSectionType"},
+						{Name: "viewMode", Value: "resolved.defaults.viewMode"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(GroupSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createGroupSectionImpl",
-				"GroupSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultGroupSectionImpl,
-    GroupSectionImpl
-  >(createUserDefaultGroupSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Group,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      children: [],
-      isHorizontalOrientation: resolved.defaults.isHorizontalOrientation,
-      overflowMode: resolved.defaults.overflowMode,
-      defaultChildSectionType: resolved.defaults.defaultChildSectionType,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultGroupSectionImpl> | Partial<GroupSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<GroupSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createGroupSectionImpl",
+				ImplType:    "GroupSectionImpl",
+				DefaultType: "UserDefaultGroupSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.Group",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "children", Value: "[]"},
+						{Name: "isHorizontalOrientation", Value: "resolved.defaults.isHorizontalOrientation"},
+						{Name: "overflowMode", Value: "resolved.defaults.overflowMode"},
+						{Name: "defaultChildSectionType", Value: "resolved.defaults.defaultChildSectionType"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(StateMachineStartSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createStateMachineStartSectionImpl",
-				"StateMachineStartSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultStateMachineStartSectionImpl,
-    StateMachineStartSectionImpl
-  >(createUserDefaultStateMachineStartSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.StateMachineStart,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      machineGroupId: resolved.defaults.machineGroupId,
-      label: resolved.defaults.label,
-      maxIterations: resolved.defaults.maxIterations,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultStateMachineStartSectionImpl> | Partial<StateMachineStartSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<StateMachineStartSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createStateMachineStartSectionImpl",
+				ImplType:    "StateMachineStartSectionImpl",
+				DefaultType: "UserDefaultStateMachineStartSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.StateMachineStart",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "machineGroupId", Value: "resolved.defaults.machineGroupId"},
+						{Name: "label", Value: "resolved.defaults.label"},
+						{Name: "maxIterations", Value: "resolved.defaults.maxIterations"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(StateMachineGateSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createStateMachineGateSectionImpl",
-				"StateMachineGateSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultStateMachineGateSectionImpl,
-    StateMachineGateSectionImpl
-  >(createUserDefaultStateMachineGateSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.StateMachineGate,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      machineGroupId: resolved.defaults.machineGroupId,
-      gateType: resolved.defaults.gateType,
-      label: resolved.defaults.label,
-      ui: resolved.defaults.ui,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultStateMachineGateSectionImpl> | Partial<StateMachineGateSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<StateMachineGateSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createStateMachineGateSectionImpl",
+				ImplType:    "StateMachineGateSectionImpl",
+				DefaultType: "UserDefaultStateMachineGateSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.StateMachineGate",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "machineGroupId", Value: "resolved.defaults.machineGroupId"},
+						{Name: "gateType", Value: "resolved.defaults.gateType"},
+						{Name: "label", Value: "resolved.defaults.label"},
+						{Name: "ui", Value: "resolved.defaults.ui"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(StateMachineEndSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createStateMachineEndSectionImpl",
-				"StateMachineEndSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultStateMachineEndSectionImpl,
-    StateMachineEndSectionImpl
-  >(createUserDefaultStateMachineEndSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.StateMachineEnd,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      machineGroupId: resolved.defaults.machineGroupId,
-      label: resolved.defaults.label,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultStateMachineEndSectionImpl> | Partial<StateMachineEndSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<StateMachineEndSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createStateMachineEndSectionImpl",
+				ImplType:    "StateMachineEndSectionImpl",
+				DefaultType: "UserDefaultStateMachineEndSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.StateMachineEnd",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "machineGroupId", Value: "resolved.defaults.machineGroupId"},
+						{Name: "label", Value: "resolved.defaults.label"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(TextBlockSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createTextBlockSectionImpl",
-				"TextBlockSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTextBlockSectionImpl,
-    TextBlockSectionImpl
-  >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.TextBlock,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      format: resolved.defaults.format,
-      masterFontSizePx: resolved.defaults.masterFontSizePx,
-      headingAsSectionName: resolved.defaults.headingAsSectionName,
-      metaControlStyle: resolved.defaults.metaControlStyle,
-      textDisplayMode: resolved.defaults.textDisplayMode,
-      text: resolved.defaults.text,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultTextBlockSectionImpl> | Partial<TextBlockSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<TextBlockSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createTextBlockSectionImpl",
+				ImplType:    "TextBlockSectionImpl",
+				DefaultType: "UserDefaultTextBlockSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.TextBlock",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "format", Value: "resolved.defaults.format"},
+						{Name: "masterFontSizePx", Value: "resolved.defaults.masterFontSizePx"},
+						{Name: "headingAsSectionName", Value: "resolved.defaults.headingAsSectionName"},
+						{Name: "metaControlStyle", Value: "resolved.defaults.metaControlStyle"},
+						{Name: "textDisplayMode", Value: "resolved.defaults.textDisplayMode"},
+						{Name: "text", Value: "resolved.defaults.text"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(PromptSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createPromptSectionImpl",
-				"PromptSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultPromptSectionImpl,
-    PromptSectionImpl
-  >(createUserDefaultPromptSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Prompt,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      promptTemplateId: null,
-      template: resolved.defaults.template,
-      format: resolved.defaults.format,
-      inputs: resolved.defaults.inputs,
-      renderedText: resolved.defaults.renderedText,
-      missingVariables: resolved.defaults.missingVariables,
-      renderError: resolved.defaults.renderError,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultPromptSectionImpl> | Partial<PromptSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<PromptSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createPromptSectionImpl",
+				ImplType:    "PromptSectionImpl",
+				DefaultType: "UserDefaultPromptSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.Prompt",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "promptTemplateId", Value: "null"},
+						{Name: "template", Value: "resolved.defaults.template"},
+						{Name: "format", Value: "resolved.defaults.format"},
+						{Name: "inputs", Value: "resolved.defaults.inputs"},
+						{Name: "renderedText", Value: "resolved.defaults.renderedText"},
+						{Name: "missingVariables", Value: "resolved.defaults.missingVariables"},
+						{Name: "renderError", Value: "resolved.defaults.renderError"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(CodeSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createCodeSectionImpl",
-				"CodeSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeSectionImpl,
-    CodeSectionImpl
-  >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Code,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      children: [],
-      code: resolved.defaults.code,
-      codeLanguage: resolved.defaults.codeLanguage,
-      codeFileBinding: resolved.defaults.codeFileBinding,
-      attachedTerminalSectionId: resolved.defaults.attachedTerminalSectionId,
-      diagnosticsIgnoreState: cloneGeneratedValue(
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createCodeSectionImpl",
+				ImplType:    "CodeSectionImpl",
+				DefaultType: "UserDefaultCodeSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.Code",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "children", Value: "[]"},
+						{Name: "code", Value: "resolved.defaults.code"},
+						{Name: "codeLanguage", Value: "resolved.defaults.codeLanguage"},
+						{Name: "codeFileBinding", Value: "resolved.defaults.codeFileBinding"},
+						{Name: "attachedTerminalSectionId", Value: "resolved.defaults.attachedTerminalSectionId"},
+						{Name: "diagnosticsIgnoreState", Value: `cloneGeneratedValue(
         resolved.defaults.diagnosticsIgnoreState,
-      ),
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultCodeSectionImpl> | Partial<CodeSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<CodeSectionImpl>", Optional: true},
-			),
+      )`},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(TerminalSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createTerminalSectionImpl",
-				"TerminalSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTerminalSectionImpl,
-    TerminalSectionImpl
-  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Terminal,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultTerminalSectionImpl> | Partial<TerminalSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<TerminalSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createTerminalSectionImpl",
+				ImplType:    "TerminalSectionImpl",
+				DefaultType: "UserDefaultTerminalSectionImpl",
+				Fields:      sectionImplCreateFields("SectionTypeEnum.Terminal", "resolved.defaults"),
+			}),
 		},
 		reflect.TypeOf(ChatSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createChatSectionImpl",
-				"ChatSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChatSectionImpl,
-    ChatSectionImpl
-  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Chat,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      managed: resolved.defaults.managed,
-      engineConfigId: resolved.defaults.engineConfigId,
-      transcriptionProfileId: resolved.defaults.transcriptionProfileId,
-      agentProfileId: resolved.defaults.agentProfileId,
-      chatId: resolved.defaults.chatId,
-      thinking: resolved.defaults.thinking,
-      permissionMode: resolved.defaults.permissionMode,
-      searchEnabled: resolved.defaults.searchEnabled,
-      dictationMode: resolved.defaults.dictationMode,
-      messages: resolved.defaults.messages,
-      inputText: resolved.defaults.inputText,
-      waitingForResponse: resolved.defaults.waitingForResponse,
-      toolCallArguments: resolved.defaults.toolCallArguments,
-      activeBranchId: resolved.defaults.activeBranchId,
-      branches: resolved.defaults.branches,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultChatSectionImpl> | Partial<ChatSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<ChatSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createChatSectionImpl",
+				ImplType:    "ChatSectionImpl",
+				DefaultType: "UserDefaultChatSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.Chat",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "managed", Value: "resolved.defaults.managed"},
+						{Name: "engineConfigId", Value: "resolved.defaults.engineConfigId"},
+						{Name: "transcriptionProfileId", Value: "resolved.defaults.transcriptionProfileId"},
+						{Name: "agentProfileId", Value: "resolved.defaults.agentProfileId"},
+						{Name: "chatId", Value: "resolved.defaults.chatId"},
+						{Name: "thinking", Value: "resolved.defaults.thinking"},
+						{Name: "permissionMode", Value: "resolved.defaults.permissionMode"},
+						{Name: "searchEnabled", Value: "resolved.defaults.searchEnabled"},
+						{Name: "dictationMode", Value: "resolved.defaults.dictationMode"},
+						{Name: "messages", Value: "resolved.defaults.messages"},
+						{Name: "inputText", Value: "resolved.defaults.inputText"},
+						{Name: "waitingForResponse", Value: "resolved.defaults.waitingForResponse"},
+						{Name: "toolCallArguments", Value: "resolved.defaults.toolCallArguments"},
+						{Name: "activeBranchId", Value: "resolved.defaults.activeBranchId"},
+						{Name: "branches", Value: "resolved.defaults.branches"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(BrowserSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createBrowserSectionImpl",
-				"BrowserSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultBrowserSectionImpl,
-    BrowserSectionImpl
-  >(createUserDefaultBrowserSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Browser,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      folder: resolved.defaults.folder,
-      hideColumn: resolved.defaults.hideColumn,
-      columnWidth: resolved.defaults.columnWidth,
-      typesColumnWidth: resolved.defaults.typesColumnWidth,
-      viewMode: resolved.defaults.viewMode,
-      savedSearches: resolved.defaults.savedSearches,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultBrowserSectionImpl> | Partial<BrowserSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<BrowserSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createBrowserSectionImpl",
+				ImplType:    "BrowserSectionImpl",
+				DefaultType: "UserDefaultBrowserSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.Browser",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "folder", Value: "resolved.defaults.folder"},
+						{Name: "hideColumn", Value: "resolved.defaults.hideColumn"},
+						{Name: "columnWidth", Value: "resolved.defaults.columnWidth"},
+						{Name: "typesColumnWidth", Value: "resolved.defaults.typesColumnWidth"},
+						{Name: "viewMode", Value: "resolved.defaults.viewMode"},
+						{Name: "savedSearches", Value: "resolved.defaults.savedSearches"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(TaskBoardSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createTaskBoardSectionImpl",
-				"TaskBoardSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTaskBoardSectionImpl,
-    TaskBoardSectionImpl
-  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
-  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {
-    ...resolved.overrides,
-  };
-  if (normalizedOverrides.columns === undefined) {
-    delete normalizedOverrides.columns;
-  }
-  if (normalizedOverrides.tasks === undefined) {
-    delete normalizedOverrides.tasks;
-  }
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.TaskBoard,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      viewMode: resolved.defaults.viewMode,
-      columns:
-        resolved.defaults.columns === null ||
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:          "createTaskBoardSectionImpl",
+				ImplType:      "TaskBoardSectionImpl",
+				DefaultType:   "UserDefaultTaskBoardSectionImpl",
+				Prelude:       buildTaskBoardOverridesPreludeTS(),
+				OverridesExpr: "normalizedOverrides",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.TaskBoard",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "viewMode", Value: "resolved.defaults.viewMode"},
+						{Name: "columns", Value: `resolved.defaults.columns === null ||
         resolved.defaults.columns === undefined
           ? []
-          : cloneGeneratedValue(resolved.defaults.columns),
-      tasks: resolved.defaults.tasks,
-    },
-    normalizedOverrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultTaskBoardSectionImpl> | Partial<TaskBoardSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<TaskBoardSectionImpl>", Optional: true},
-			),
+          : cloneGeneratedValue(resolved.defaults.columns)`},
+						{Name: "tasks", Value: "resolved.defaults.tasks"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(BaseChartSettingsUnion{}): {
 			exportedFunctionDeclaration(
@@ -1426,82 +1269,38 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 			),
 		},
 		reflect.TypeOf(ChartSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createChartSectionImpl",
-				"ChartSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChartSectionImpl,
-    ChartSectionImpl
-  >(createUserDefaultChartSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Chart,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      dataPath: resolved.defaults.dataPath,
-      chartSettings: cloneGeneratedValue(resolved.defaults.chartSettings),
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultChartSectionImpl> | Partial<ChartSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<ChartSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createChartSectionImpl",
+				ImplType:    "ChartSectionImpl",
+				DefaultType: "UserDefaultChartSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.Chart",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "dataPath", Value: "resolved.defaults.dataPath"},
+						{Name: "chartSettings", Value: "cloneGeneratedValue(resolved.defaults.chartSettings)"},
+					},
+				),
+			}),
 		},
 		reflect.TypeOf(SpreadsheetSectionImpl{}): {
-			exportedFunctionDeclaration(
-				"createSpreadsheetSectionImpl",
-				"SpreadsheetSectionImpl",
-				`  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultSpreadsheetSectionImpl,
-    SpreadsheetSectionImpl
-  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
-  return mergeGeneratedOptions(
-    {
-      type: SectionTypeEnum.Spreadsheet,
-      id: "",
-      name: "",
-      isFrozen: resolved.defaults.isFrozen,
-      isInOtherProjectConfigs: false,
-      tagColor: resolved.defaults.tagColor,
-      styleColor: resolved.defaults.styleColor,
-      size: resolved.defaults.size,
-      aspectRatio: resolved.defaults.aspectRatio,
-      aspectRatioExtraHeight: 0,
-      aspectRatioExtraWidth: 0,
-      isMinimized: resolved.defaults.isMinimized,
-      positionAndSizeLocked: resolved.defaults.positionAndSizeLocked,
-      isPreset: false,
-      filePath: resolved.defaults.filePath,
-      activeSheet: resolved.defaults.activeSheet,
-      readOnly: resolved.defaults.readOnly,
-      showRowNumbers: resolved.defaults.showRowNumbers,
-      density: resolved.defaults.density,
-      autoReloadOnExternalChange: resolved.defaults.autoReloadOnExternalChange,
-    },
-    resolved.overrides,
-  );`,
-				TypeProperty{
-					Name:         "defaultsOrOverrides",
-					TypeExpr:     "Partial<UserDefaultSpreadsheetSectionImpl> | Partial<SpreadsheetSectionImpl>",
-					DefaultValue: "{}",
-				},
-				TypeProperty{Name: "overrides", TypeExpr: "Partial<SpreadsheetSectionImpl>", Optional: true},
-			),
+			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
+				Name:        "createSpreadsheetSectionImpl",
+				ImplType:    "SpreadsheetSectionImpl",
+				DefaultType: "UserDefaultSpreadsheetSectionImpl",
+				Fields: sectionImplCreateFields(
+					"SectionTypeEnum.Spreadsheet",
+					"resolved.defaults",
+					[]tsLiteralField{
+						{Name: "filePath", Value: "resolved.defaults.filePath"},
+						{Name: "activeSheet", Value: "resolved.defaults.activeSheet"},
+						{Name: "readOnly", Value: "resolved.defaults.readOnly"},
+						{Name: "showRowNumbers", Value: "resolved.defaults.showRowNumbers"},
+						{Name: "density", Value: "resolved.defaults.density"},
+						{Name: "autoReloadOnExternalChange", Value: "resolved.defaults.autoReloadOnExternalChange"},
+					},
+				),
+			}),
 		},
 	}
 }
