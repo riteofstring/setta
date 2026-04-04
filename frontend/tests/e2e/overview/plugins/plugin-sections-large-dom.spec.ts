@@ -1,7 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import path from "path";
 import {
-  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
   getViewportBoundsForPlacement,
   openIsolatedProject,
@@ -87,37 +86,32 @@ test("plugin sections remain interactive with 100+ fixture sections", async ({
     const columns = 11;
     const rows = 10;
     const createdSectionIds: string[] = [];
-    const createdResponses = (await applyProjectMutationsFromFrontend(page, {
-      projectConfigId: projectContext.projectConfigId,
-      operations: Array.from({ length: totalSections }, (_, index) => {
-        const column = index % columns;
-        const row = Math.floor(index / columns) % rows;
-        return {
-          routeName: "route_create_top_level_section" as const,
-          payload: {
-            implType: "Plugin",
-            controlCodeObjType: null,
-            implOverrides: {
-              type: "Plugin",
-              pluginId: "setta-fixture-frontend",
-              kind: "fixture-card",
-              data: {
-                text: `large-${index}`,
-              },
+    for (let index = 0; index < totalSections; index += 1) {
+      const column = index % columns;
+      const row = Math.floor(index / columns) % rows;
+      const created = await postBackend<CreateTopLevelSectionResponse>(
+        page,
+        "/createTopLevelSection",
+        {
+          projectConfigId: projectContext.projectConfigId,
+          implType: "Plugin",
+          controlCodeObjType: null,
+          implOverrides: {
+            type: "Plugin",
+            pluginId: "setta-fixture-frontend",
+            kind: "fixture-card",
+            data: {
+              text: `large-${index}`,
             },
-            position: {
-              x:
-                viewportBounds.x +
-                ((column + 0.5) * viewportBounds.w) / columns,
-              y: viewportBounds.y + ((row + 0.5) * viewportBounds.h) / rows,
-            },
-            topLevelSections: null,
-            viewportBounds,
           },
-        };
-      }),
-    })) as CreateTopLevelSectionResponse[];
-    for (const created of createdResponses) {
+          position: {
+            x: viewportBounds.x + ((column + 0.5) * viewportBounds.w) / columns,
+            y: viewportBounds.y + ((row + 0.5) * viewportBounds.h) / rows,
+          },
+          topLevelSections: null,
+          viewportBounds,
+        },
+      );
       const sectionId = created?.sectionId;
       expect(sectionId).toBeTruthy();
       if (!sectionId) {
