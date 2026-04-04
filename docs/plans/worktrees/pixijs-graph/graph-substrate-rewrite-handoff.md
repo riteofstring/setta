@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 02:23 EDT
+Last updated: 2026-04-04 02:36 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,31 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `085` tested whether the next shared-section `shortcuts` drag/frontmost live lane is actually trustworthy and concluded that this exact CDP mouse-drop shape should not be reopened.
+  - Why this slice was needed:
+    - items `083` and `084` had already closed normalized `shortcuts` fit and short-pan on the shared lane, so the next plan-aligned candidate was a bounded drag/frontmost compare
+    - the last two completed iterations were support-only, so this pass needed to answer one concrete renderer-facing oracle question instead of extending helper coverage again
+    - the open question was whether CDP could drive a real shared-section overlap/drop well enough to judge frontmost ordering, or whether this was another tool-limited drag lane
+  - Production/test change:
+    - none; this slice intentionally changed no production or test code
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'`
+      - result: passed (`1 passed`, about `19.4s`)
+  - Live verification result:
+    - fresh-context CDP sub-agents reached the correct worktree runtime on `3075/settings` and could start a normalized `shortcuts` drag on the graph surface
+    - the first pass showed the drag itself was live and visually clean, but it stopped before the explicit overlap/frontmost verdict
+    - the strict rerun attempted the real overlap hit-test against lower-row target `browserSectionDefault`
+      - before drag:
+        - `shortcuts` rect `{ x: 692.6, y: 236.0, width: 55.2, height: 35.2 }`
+        - `browserSectionDefault` rect `{ x: 688.4, y: 292.2, width: 55.2, height: 35.2 }`
+      - after the available CDP-driven drop attempt, `shortcuts` never produced a true overlap with the target, so there was no honest post-drop overlap point to judge
+      - the overlap hit-test only resolved the target row's input/button chrome, not a dragged-card-over-target stack winner
+    - no concrete canary-only renderer defect was established from this lane
+    - CDP visual check: done (fresh-context worktree CDP drag/frontmost feasibility check on shared `shortcuts`; drag was live, but no trustworthy overlap/frontmost verdict was obtainable)
+  - conclusion for this slice:
+    - close the specific shared `shortcuts` live CDP drag/frontmost lane as untrustworthy/oracle-limited, not as a renderer failure
+    - do not spend another iteration trying to force CDP mouse-drop on this tiny-card `shortcuts` subject
+    - if a live drag/frontmost context is needed again, pair an existing Playwright drag/frontmost oracle with CDP post-state inspection on an already widened lane, or pivot to another end-to-end dynamic pulse that CDP can actually drive
 - Ralph item `084` added a normalized worktree legacy-vs-canary short-pan parity guard on the shared `shortcuts` lane and used it to close the next worktree motion slice without reopening the now-closed pane-width oracle work.
   - Why this slice was needed:
     - item `083` had already closed the `shortcuts` fit-centering gap as remembered-pane oracle noise, so the next valid step was one concrete post-fit motion lane rather than more compare-state cleanup
