@@ -25,14 +25,12 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   });
   await expect(allTab).toBeVisible();
   await allTab.click();
-  await page.waitForFunction(
-    (minCount) =>
-      document.querySelectorAll(".react-flow__node").length > minCount,
-    13,
-  );
-
-  const allZoom = await getViewportScale(page);
-  expect(coreZoom).toBeGreaterThan(allZoom);
+  await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+  await expect(
+    page.getByTestId("graph-substrate-canary-section"),
+  ).toBeVisible();
+  await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+  await expect(page.locator(".react-flow__minimap-node")).toHaveCount(0);
 
   const paramTab = page.getByRole("button", {
     name: "Param Defaults",
@@ -40,12 +38,12 @@ test("settings view tabs filter sections and minimap", async ({ page }) => {
   });
   await expect(paramTab).toBeVisible();
   await paramTab.click();
+  await page.waitForSelector(READY_SELECTOR);
   await waitForNodeCount(page, 13);
   expect(await getMiniMapNodeCount(page)).toBe(13);
   await waitForOverviewCount(page, 13);
 
   const paramZoom = await getViewportScale(page);
-  expect(paramZoom).toBeGreaterThan(allZoom);
   expect(coreZoom).toBeGreaterThan(paramZoom);
 });
 

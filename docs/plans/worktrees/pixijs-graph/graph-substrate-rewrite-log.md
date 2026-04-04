@@ -103,3 +103,37 @@ LOOP_TERMINAL_MARKER: none
   - add a stable custom viewport state model plus the first `settings` canary seam that consumes `viewportTransform.ts`
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 003
+
+- Item: Land the first `UIPage`-level `settings` graph-substrate canary that renders one DOM-backed section outside `xyflow`.
+- Status: `done`
+- Details:
+  - Added `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`.
+  - Added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` plus focused model coverage.
+  - `frontend/src/components/Pages/Project/UiPage.tsx` now makes the first real implementation choice in this rewrite:
+    - `settings` project + `All Settings` view mode uses the custom graph-substrate canary
+    - all other routes/view modes still use legacy `ReactFlow`
+  - The canary currently renders one visible top-level section with the existing DOM `SectionContainer` on a custom transformed surface.
+  - The canary mirrors the current custom viewport into `useReactFlow` state so section internals that still read shared zoom continue to see the right transform on this slice.
+  - Updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so the `All Settings` expectation now checks for the custom canary rather than assuming the old all-`ReactFlow` path.
+  - This intentionally stops the seam-lift lane at `UIPage`; the next useful work is interaction ownership inside the canary, not forwarding the same contract through more wrappers.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`3 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed (`2 passed`, about `22s`)
+  - CDP visual check
+    - result: passed
+    - note: the inherited bootstrap token/session was stale at first; one allowed `./aireset.sh` recovery started a fresh session and the follow-up CDP check on `http://127.0.0.1:3076/settings` verified:
+      - `graph-substrate-canary` visible
+      - exactly one `graph-substrate-canary-section` visible
+      - surface not blank
+      - `.react-flow__pane` absent on `All Settings`
+- Conclusion:
+  - the rewrite now has its first real product seam and no longer depends on `xyflow` ownership for the checked `UIPage` canary route selection
+  - Gate 0 still is not complete because drag/pan/zoom ownership has not moved onto the new surface yet
+- Next action:
+  - implement top-level section drag on `SettingsGraphSubstrateCanary` and prove the DOM body stays attached while moving
+
+LOOP_TERMINAL_MARKER: none

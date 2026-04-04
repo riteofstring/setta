@@ -1,5 +1,3 @@
 # Graph Substrate Rewrite Completed Summary
 
-No completed product milestones yet.
-
-Use this file to maintain a compact summary of landed substrate/runtime milestones once the first implementation slices ship.
+- 2026-04-02 `003`: `UIPage` now switches the `settings` project `All Settings` view mode to `SettingsGraphSubstrateCanary`, which renders one DOM-backed top-level section on a custom viewport transform instead of `ReactFlow` while leaving every other route/view mode on the legacy path.

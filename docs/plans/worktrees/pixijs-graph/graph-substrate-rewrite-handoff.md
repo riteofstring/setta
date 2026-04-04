@@ -9,17 +9,31 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
-- Ralph item `002` landed the first shared viewport/camera math for the rewrite:
-  - added `frontend/src/components/Pages/Project/graphSubstrate/viewportTransform.ts`
-  - added focused Vitest coverage for world/screen conversion, anchored zoom, and bounds fitting
-  - routed existing `xyflow` point conversion, fit-to-bounds, and `setCenter` math through that helper so the current app already uses the same transform contract
+- Ralph item `003` landed the first real `settings` graph-substrate canary at the nearest meaningful composition boundary:
+  - `frontend/src/components/Pages/Project/UiPage.tsx` now chooses between legacy `ReactFlow` and a new `settings`/`All Settings` canary path
+  - added `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+  - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts`
+  - the canary renders one DOM-backed top-level section through a custom viewport transform instead of `xyflow`
+  - the canary syncs the shared `useReactFlow` zoom/transform state so existing section internals still read the right zoom on that slice
+  - legacy `ReactFlow` still owns every other route/view mode
+- Ralph item `002` remains the transform/math foundation underneath that canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/viewportTransform.ts`
+  - focused Vitest coverage for world/screen conversion, anchored zoom, and bounds fitting
+  - existing `xyflow` point conversion, fit-to-bounds, and `setCenter` math routed through that helper
 - The old `setta.pixijs-rewrite` branch is research only for this effort.
 - Current priority is Gate 0 basic viability on a new custom graph substrate, not polishing the old shared-page-runtime path.
 - The first-order product requirement is:
   - one normal-zoom `settings` section must stay visible, attached during pan/zoom/drag, interactive, and not obviously slower than the existing DOM path
 - Current live verification state:
-  - targeted Vitest slice passed for the new helper module and existing `graph.ts` coverage
-  - CDP smoke on the worktree bootstrap reached `/home` and `/settings` with no blank-screen regression
+  - targeted Vitest passed for `settingsGraphSubstrateCanaryModel.test.ts`
+  - targeted Playwright passed for `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - CDP visual check passed on a fresh lifecycle session:
+    - `http://127.0.0.1:3076/settings`
+    - `graph-substrate-canary` visible
+    - exactly one `graph-substrate-canary-section` visible
+    - surface not blank
+    - `.react-flow__pane` absent on `All Settings`
+  - note: the inherited bootstrap token was stale at the start of CDP verification; one allowed `./aireset.sh` recovery produced a fresh session and the follow-up CDP check passed
 
 ## Architectural stance
 
@@ -31,17 +45,19 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- Introduce a narrow custom graph/runtime seam for `settings` while leaving existing behavior untouched elsewhere.
-- First implementation target remains:
+- The `UIPage` seam-lift lane is complete:
+  - `UIPage` is now the first real implementation selector between legacy `xyflow` and the new custom substrate canary
+  - do not spend another iteration pushing this seam through more pure-forwarding layers
+- The next production frontier is inside the new canary itself:
   - one normal-zoom section on `All Settings`
   - existing DOM body
-  - custom camera/drag ownership
+  - custom drag ownership
   - no detached body drift
 - Required order from here:
-  - define a stable custom viewport state model that uses `viewportTransform.ts`
-  - introduce a custom graph/runtime seam for the canary route
-  - render one section body through that seam with DOM content
-  - implement drag on the new substrate and prove the body stays attached
+  - keep the current custom viewport state model and `UIPage` seam
+  - implement top-level section drag on the canary surface without falling back to `xyflow` drag ownership
+  - prove the DOM body stays attached during that drag
+  - then add custom pan/zoom on the same surface
 
 ## Explicit deferrals
 
@@ -56,10 +72,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - loop/bootstrap setup plus the fresh rewrite plan set
   - the first pure graph-substrate viewport transform helper module
   - existing `xyflow` point/fit/center callsites routed through that helper
+  - a `settings`/`All Settings` `UIPage` canary seam that swaps out `ReactFlow`
+  - a first custom graph-surface canary that renders one DOM-backed top-level section through the shared transform contract
 - See `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-completed.md` for maintained milestones once product slices start landing.
 
 ## History pointers
 
-- Active history window: items `001` through `002`
-- Latest item: `2026-04-02 002`
+- Active history window: items `001` through `003`
+- Latest item: `2026-04-02 003`
 - Older history archives: none yet
