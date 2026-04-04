@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 18:52 EDT
+Last updated: 2026-04-03 19:05 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,27 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `066` attempted the planned normalized `groupSectionDefault` centering/parity probe, but the required fresh-context CDP verification blocked at the tool boundary even after the one allowed worktree lifecycle recovery.
+  - Production/test change:
+    - none; this iteration intentionally did not change production or test code because the goal was to answer whether item `065`'s remaining `main`-right `96px` delta survives a visible-graph-surface-centered oracle
+  - Automated result:
+    - reran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths'`
+    - result: passed (`1 passed`, about `22.1s`)
+    - what it still proves:
+      - the stale-hidden-pane fit + toolbar zoom guard from item `065` remains green in isolated Playwright
+  - Live verification result:
+    - first fresh-context CDP sub-agent retry on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` immediately returned `CDP tool access failed` before any trustworthy graph-surface metrics were produced
+    - used the one allowed self-recovery path:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - recovered worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, session `39a5aa`
+    - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` confirmed the fresh `8077` session
+    - post-recovery runtime note:
+      - the launcher printed `chrome-devtools-mcp expects: http://127.0.0.1:9299`
+      - `pnpm -C frontend cdp-port` still reported `9298`
+    - second fresh-context CDP sub-agent retry against worktree `http://127.0.0.1:3077/settings` and read-only `main` `http://127.0.0.1:3087/settings` never returned usable metrics after recovery, so there is still no trustworthy post-recovery CDP oracle for the visible-graph-surface centering question
+  - conclusion for this slice:
+    - no new renderer evidence was produced beyond the existing item `065` screenshots because CDP access remained blocked after the allowed recovery attempt
+    - the next iteration should begin with a fresh worktree lifecycle restart and retry the same visible-graph-surface-centered `groupSectionDefault` probe before any further product or harness work
 - Ralph item `065` fixed the canary fit/center math for hidden-pane states by making the viewport path visibility-aware instead of trusting stale remembered pane widths, then rechecked the same `groupSectionDefault` fit + zoom lane live.
   - Production/test change:
     - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryEffectivePaneWidths(...)`, which derives effective left/right graph insets from `overviewVis` / `uiEditorVis` plus the remembered widths, falling back to the closed rail width when a pane is hidden.

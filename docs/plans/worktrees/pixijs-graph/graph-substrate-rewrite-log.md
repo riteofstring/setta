@@ -2308,3 +2308,17 @@ LOOP_TERMINAL_MARKER: none
 - Lane status: the old worktree-left-shift bug is closed on this exact stale-hidden-pane lane; the remaining difference is smaller and flipped, with `main` about `96px` farther right.
 - Next frontier: run one narrower normalized `groupSectionDefault` centering/parity probe to decide whether the remaining `main`-right offset is legacy-oracle behavior or another shared centering mismatch.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 19:05 EDT - Ralph item 066
+
+- Attempted the planned normalized `groupSectionDefault` centering/parity probe without changing production or test code; the goal was to decide whether item `065`'s remaining `main`-right `96px` delta survives a visible-graph-surface-centered oracle.
+- Re-ran `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths'`; result: passed (`1 passed`, about `22.1s`).
+- First fresh-context CDP sub-agent retry on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` returned `CDP tool access failed` before any trustworthy metrics were produced.
+- Used the one allowed self-recovery path:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+  - recovered worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, session `39a5aa`
+  - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.` confirmed the fresh `8077` session
+  - runtime refresh note: the launcher printed `chrome-devtools-mcp expects: http://127.0.0.1:9299`, while `pnpm -C frontend cdp-port` still reported `9298`
+- Second fresh-context CDP sub-agent retry on worktree `http://127.0.0.1:3077/settings` and read-only `main` `http://127.0.0.1:3087/settings` still did not return usable metrics after recovery, so there is no trustworthy post-recovery CDP oracle for the visible-graph-surface centering question on this pass.
+- Lane status: blocked on Chrome DevTools MCP access after the allowed recovery attempt; no new renderer conclusion beyond item `065` was earned this iteration.
+- Next frontier: restart the worktree lifecycle fresh and retry the same visible-graph-surface-centered `groupSectionDefault` probe before any more product or harness work.
+- LOOP_TERMINAL_MARKER: none
