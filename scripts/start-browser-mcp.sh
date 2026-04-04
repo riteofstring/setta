@@ -4,10 +4,16 @@ set -euo pipefail
 CHROME_BIN="${CHROME_BIN:-}"
 FOREGROUND="0"
 CHROME_EXTRA_ARGS="${CHROME_EXTRA_ARGS:-}"
-BROWSER_MODE="${BROWSER_MODE:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 WORKTREE_ROOT=$(git -C "${ROOT_DIR}" rev-parse --show-toplevel 2>/dev/null || echo "${ROOT_DIR}")
+SETTA_CLI_HELPER="${ROOT_DIR}/scripts/lib/setta_cli_command.sh"
+if [[ ! -f "${SETTA_CLI_HELPER}" ]]; then
+  echo "Missing Setta CLI helper: ${SETTA_CLI_HELPER}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+. "${SETTA_CLI_HELPER}"
 
 instance_offset() {
   local instance_name="$1"
@@ -87,10 +93,8 @@ BOOTSTRAP_WAIT_SECONDS="${BOOTSTRAP_WAIT_SECONDS:-120}"
 DEVTOOLS_CLOSE_BLANK_TABS="${DEVTOOLS_CLOSE_BLANK_TABS:-1}"
 DEVTOOLS_OPEN_WITH_CHROME="${DEVTOOLS_OPEN_WITH_CHROME:-1}"
 BOOTSTRAP_VERBOSE="${BOOTSTRAP_VERBOSE:-1}"
-DEVTOOLS_HEADLESS="${DEVTOOLS_HEADLESS:-0}"
 
 CHROME_ARGS=()
-HEADLESS_CHROME_ARGS=()
 if [[ -n "${CHROME_EXTRA_ARGS}" ]]; then
   # shellcheck disable=SC2206
   CHROME_ARGS=(${CHROME_EXTRA_ARGS})
@@ -113,47 +117,18 @@ write_pid() {
   printf "%s\n" "$2" > "$1"
 }
 
-launch_background_browser() {
-  local python_bin=""
-  local pid=""
-
-  python_bin="$(resolve_python_bin || true)"
-  if [[ -n "${python_bin}" ]]; then
-    pid="$(
-      "${python_bin}" - "$@" <<'PY'
-import subprocess
-import sys
-
-proc = subprocess.Popen(
-    sys.argv[1:],
-    stdin=subprocess.DEVNULL,
-    stdout=subprocess.DEVNULL,
-    stderr=subprocess.DEVNULL,
-    start_new_session=True,
-)
-print(proc.pid)
-PY
-    )"
-    write_pid "${MCP_RUN_DIR}/devtools.pid" "${pid}"
-    return 0
-  fi
-
-  nohup "$@" >/dev/null 2>&1 &
-  write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
-}
-
 get_bootstrap_url() {
   if [[ -f "${ROOT_DIR}/activate.sh" ]]; then
     # Ensure the python env is active for the Setta CLI.
     # shellcheck disable=SC1090
     source "${ROOT_DIR}/activate.sh"
   fi
-  if ! command -v setta >/dev/null 2>&1; then
+  if ! setta_cli_command_init "${ROOT_DIR}"; then
     return 1
   fi
 
   local status_payload=""
-  status_payload="$(setta status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
+  status_payload="$("${SETTA_CLI_CMD[@]}" status --connect-info --latest --json --workspace "${WORKTREE_ROOT}" 2>/dev/null || true)"
   if [[ "$status_payload" != __SETTA_JSON_B64__* ]]; then
     return 1
   fi
@@ -373,7 +348,7 @@ open_bootstrap_in_devtools() {
 
 usage() {
   cat <<'EOF'
-Usage: start-browser-mcp.sh [--devtools] [--foreground] [--browser-mode headed|headless]
+Usage: start-browser-mcp.sh [--devtools] [--foreground]
 
 Starts a dedicated Chrome/Chromium instance with remote debugging enabled for
 chrome-devtools-mcp. This is separate from your main profile.
@@ -386,14 +361,12 @@ Environment variables:
   BOOTSTRAP_WAIT_SECONDS  Seconds to wait for a bootstrap URL before giving up (default: 120)
   DEVTOOLS_CLOSE_BLANK_TABS  Close about:blank tabs after opening Setta (default: 1)
   DEVTOOLS_OPEN_WITH_CHROME  Also ask Chrome to open the URL in the devtools profile (default: 1)
-  DEVTOOLS_HEADLESS  Launch the devtools browser in headless mode when set to 1 (default: 0)
   CHROME_BIN   Path to Chrome/Chromium binary (auto-detected if unset)
   CHROME_EXTRA_ARGS  Extra Chrome flags (space-separated)
 
 Flags:
   --devtools       Start Chrome with remote debugging for chrome-devtools-mcp
   --foreground     Keep the debug browser attached to this terminal (devtools only)
-  --browser-mode   headed or headless; overrides DEVTOOLS_HEADLESS for this run
 EOF
 }
 
@@ -404,24 +377,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --foreground)
       FOREGROUND="1"
-      shift
-      ;;
-    --browser-mode)
-      if [[ $# -lt 2 ]]; then
-        echo "Missing value for --browser-mode" >&2
-        usage >&2
-        exit 1
-      fi
-      BROWSER_MODE="$2"
-      shift 2
-      ;;
-    --browser-mode=*)
-      BROWSER_MODE="${1#*=}"
-      if [[ -z "${BROWSER_MODE}" ]]; then
-        echo "Missing value for --browser-mode" >&2
-        usage >&2
-        exit 1
-      fi
       shift
       ;;
     -h|--help)
@@ -435,34 +390,6 @@ while [[ $# -gt 0 ]]; do
       ;;
   esac
 done
-
-if [[ -n "${BROWSER_MODE}" ]]; then
-  case "${BROWSER_MODE}" in
-    headed)
-      DEVTOOLS_HEADLESS="0"
-      ;;
-    headless)
-      DEVTOOLS_HEADLESS="1"
-      ;;
-    *)
-      echo "Invalid value for --browser-mode: ${BROWSER_MODE}. Expected headed or headless." >&2
-      exit 1
-      ;;
-  esac
-fi
-
-case "${DEVTOOLS_HEADLESS}" in
-  0|1) ;;
-  *)
-    echo "Invalid DEVTOOLS_HEADLESS value: ${DEVTOOLS_HEADLESS}. Expected 0 or 1." >&2
-    exit 1
-    ;;
-esac
-
-if [[ "${DEVTOOLS_HEADLESS}" == "1" ]]; then
-  DEVTOOLS_OPEN_WITH_CHROME="0"
-  HEADLESS_CHROME_ARGS=(--headless)
-fi
 
 if [[ -z "$CHROME_BIN" ]]; then
   if [[ "${OSTYPE:-}" == "darwin"* ]]; then
@@ -504,61 +431,54 @@ fi
 
 mkdir -p "$PROFILE_DIR"
 
-BACKGROUND_CHROME_ARGS=(
-  --remote-debugging-port="$DEBUG_PORT"
-  --user-data-dir="$PROFILE_DIR"
-  --no-first-run
-  --no-default-browser-check
-)
-if [[ ${#HEADLESS_CHROME_ARGS[@]} -gt 0 ]]; then
-  BACKGROUND_CHROME_ARGS+=("${HEADLESS_CHROME_ARGS[@]}")
-fi
-if [[ ${#CHROME_ARGS[@]} -gt 0 ]]; then
-  BACKGROUND_CHROME_ARGS+=("${CHROME_ARGS[@]}")
-fi
-BACKGROUND_CHROME_ARGS+=(about:blank)
-
-OPEN_CHROME_ARGS=(
-  --remote-debugging-port="$DEBUG_PORT"
-  --user-data-dir="$PROFILE_DIR"
-  --no-first-run
-  --no-default-browser-check
-)
-if [[ ${#CHROME_ARGS[@]} -gt 0 ]]; then
-  OPEN_CHROME_ARGS+=("${CHROME_ARGS[@]}")
-fi
-OPEN_CHROME_ARGS+=(about:blank)
-
 echo "Starting Chrome with remote debugging on port $DEBUG_PORT..."
 if [[ "$FOREGROUND" == "1" ]]; then
   write_pid "${MCP_RUN_DIR}/devtools.pid" "$$"
   open_bootstrap_in_devtools
-  exec "$CHROME_BIN" "${BACKGROUND_CHROME_ARGS[@]}"
+  exec "$CHROME_BIN" \
+    --remote-debugging-port="$DEBUG_PORT" \
+    --user-data-dir="$PROFILE_DIR" \
+    --no-first-run \
+    --no-default-browser-check \
+    "${CHROME_ARGS[@]:-}" \
+    about:blank
 else
-  if [[ "${DEVTOOLS_HEADLESS}" == "1" ]]; then
-    launch_background_browser "$CHROME_BIN" "${BACKGROUND_CHROME_ARGS[@]}"
+  app_bundle=""
+  if [[ "${OSTYPE:-}" == "darwin"* ]]; then
+    case "$CHROME_BIN" in
+      *.app/Contents/MacOS/*)
+        app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
+        ;;
+    esac
+  fi
+  if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
+    if ! open -g -n -a "$app_bundle" --args \
+      --remote-debugging-port="$DEBUG_PORT" \
+      --user-data-dir="$PROFILE_DIR" \
+      --no-first-run \
+      --no-default-browser-check \
+      "${CHROME_ARGS[@]:-}" \
+      about:blank >/dev/null 2>&1; then
+      "$CHROME_BIN" \
+        --remote-debugging-port="$DEBUG_PORT" \
+        --user-data-dir="$PROFILE_DIR" \
+        --no-first-run \
+        --no-default-browser-check \
+        "${CHROME_ARGS[@]:-}" \
+        about:blank >/dev/null 2>&1 &
+      write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
+    fi
   else
-    app_bundle=""
-    if [[ "${OSTYPE:-}" == "darwin"* ]]; then
-      case "$CHROME_BIN" in
-        *.app/Contents/MacOS/*)
-          app_bundle="${CHROME_BIN%/Contents/MacOS/*}"
-          ;;
-      esac
-    fi
-    if [[ -n "$app_bundle" ]] && command -v open >/dev/null 2>&1; then
-      if ! open -g -n -a "$app_bundle" --args "${OPEN_CHROME_ARGS[@]}" >/dev/null 2>&1; then
-        launch_background_browser "$CHROME_BIN" "${OPEN_CHROME_ARGS[@]}"
-      fi
-    else
-      launch_background_browser "$CHROME_BIN" "${OPEN_CHROME_ARGS[@]}"
-    fi
+    "$CHROME_BIN" \
+      --remote-debugging-port="$DEBUG_PORT" \
+      --user-data-dir="$PROFILE_DIR" \
+      --no-first-run \
+      --no-default-browser-check \
+      "${CHROME_ARGS[@]:-}" \
+      about:blank >/dev/null 2>&1 &
+    write_pid "${MCP_RUN_DIR}/devtools.pid" "$!"
   fi
   open_bootstrap_in_devtools
   echo "chrome-devtools-mcp expects: http://127.0.0.1:$DEBUG_PORT"
-  if [[ "${DEVTOOLS_HEADLESS}" == "1" ]]; then
-    echo "To stop the debug browser, kill its process."
-  else
-    echo "To stop the debug browser, quit that Chrome window or kill its process."
-  fi
+  echo "To stop the debug browser, quit that Chrome window or kill its process."
 fi
