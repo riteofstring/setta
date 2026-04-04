@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 18:37 EDT
+Last updated: 2026-04-03 18:52 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,47 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `065` fixed the canary fit/center math for hidden-pane states by making the viewport path visibility-aware instead of trusting stale remembered pane widths, then rechecked the same `groupSectionDefault` fit + zoom lane live.
+  - Production/test change:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now exports `resolveSettingsGraphSubstrateCanaryEffectivePaneWidths(...)`, which derives effective left/right graph insets from `overviewVis` / `uiEditorVis` plus the remembered widths, falling back to the closed rail width when a pane is hidden.
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now uses those effective widths for:
+      - initial auto-fit sizing
+      - visible viewport width pushed into the shared React Flow store
+      - canary `fitView(...)` center math
+      - canary `setCenter(...)` / viewport-center math
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now adds a unit case proving hidden panes with stale remembered widths fall back to the closed rail width and no longer shift the fit result left.
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths`, which:
+      - activates `All Settings`
+      - leaves both panes hidden while directly preserving stale remembered widths in the store
+      - fits `groupSectionDefault`
+      - clicks the real toolbar `zoom in`
+      - asserts the widened card stays centered on the graph surface through the zoom pulse
+    - the same spec’s expected auto-fit helper now also uses pane visibility plus `CLOSED_PANE_WIDTH` instead of trusting stale hidden widths.
+  - Automated result:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` passed (`1 passed`, `13 tests`, about `0.7s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state|settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths|settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'` passed (`3 passed`, about `48.4s`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts tests/e2e/settings/settings-view-modes.spec.ts` passed
+  - Live verification result:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both pages were normalized to active `All Settings`, active selection cleared, and the stale hidden-pane state was applied on both sides:
+      - `overviewVis=false`
+      - `overviewTrueWidth=420`
+      - `uiEditorVis=false`
+      - `uiEditorTrueWidth=260`
+    - `groupSectionDefault` was resolved by name on each page, then both pages ran the same targeted `fitView({ nodes: [{ id }], padding: 0.1 })` plus one real toolbar `zoom in`
+    - after zoom:
+      - worktree `3075`: transform `{ x: 0, y: 0, zoom: 1 }`, target rect `{ x: 342.78, y: 15.95, width: 754.44, height: 481.09 }`, center offset `-0.00003px`
+      - `main` `3087`: transform `{ x: 0, y: 0, zoom: 1 }`, target rect `{ x: 438.78, y: 15.95, width: 754.44, height: 481.09 }`, center offset `+96.00px`
+    - screenshot evidence:
+      - `/tmp/setta-worktree-settings-after-zoom.png`
+      - `/tmp/setta-main-settings-after-zoom.png`
+    - interpretation:
+      - the old worktree-only left-shift is gone on this exact lane
+      - the worktree canary now lands centered through the fit + zoom path under stale hidden pane widths
+      - the remaining mismatch is smaller and flipped: `main` remains about `96px` farther right on this compare, so the next question is whether that residual offset is legacy-oracle behavior or another shared centering difference
+  - conclusion for this slice:
+    - the visibility-aware pane-width production fix is complete and verified; do not reopen the stale-hidden-width left-shift bug itself
+    - the next real frontier is a narrower normalized `groupSectionDefault` centering/parity probe to explain the remaining `main`-right `96px` offset instead of more harness work
 - Ralph item `064` used the required non-harness bounded oracle step to isolate the next real Gate 1 / Gate 2 canary artifact on a different named section, instead of repeating another drag/pan support slice.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code because the point of the slice was to isolate the next live renderer question after two support-heavy iterations

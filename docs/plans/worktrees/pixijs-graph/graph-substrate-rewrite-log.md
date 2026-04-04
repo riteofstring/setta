@@ -2269,3 +2269,42 @@ LOOP_TERMINAL_MARKER: none
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` still derive fit/zoom center math from `overviewTrueWidth` / `uiEditorTrueWidth` without a visibility-aware effective-width layer; test that path first next iteration.
 - Next frontier: implement a production fix for the canary fit/visible-viewport width path, then rerun the same `groupSectionDefault` targeted-fit + zoom CDP compare.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 18:52 EDT - Ralph item 065
+
+- Fixed the canary fit/center path for hidden-pane states by making the viewport math visibility-aware instead of trusting stale remembered pane widths.
+- Production changes:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts`
+    - added `resolveSettingsGraphSubstrateCanaryEffectivePaneWidths(...)`
+    - hidden panes now contribute the closed rail width instead of their stale remembered width
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - initial auto-fit, canary `fitView(...)`, canary `setCenter(...)`, and the shared visible viewport width now all use the effective pane widths
+- Test changes:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - added a regression case for hidden panes with stale remembered widths
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added `settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths`
+    - updated the expected auto-fit helper to use pane visibility plus `CLOSED_PANE_WIDTH`
+- Verification:
+  - Vitest
+    - command: `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`1 passed`, `13 tests`, about `0.7s`)
+  - Playwright
+    - command: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary can fit a named body-heavy section into a wide-card compare state|settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths|settings graph substrate canary matches legacy modified-wheel zoom behavior on the custom surface'`
+    - result: passed (`3 passed`, about `48.4s`)
+  - Prettier
+    - command: `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to active `All Settings`, cleared active selection, and applied the stale hidden-pane state `overviewVis=false`, `overviewTrueWidth=420`, `uiEditorVis=false`, `uiEditorTrueWidth=260`
+      - both sides resolved `groupSectionDefault` by name, ran the same targeted `fitView({ nodes: [{ id }], padding: 0.1 })`, then clicked the real toolbar `zoom in` once
+      - after zoom:
+        - worktree `3075`: transform `{ x: 0, y: 0, zoom: 1 }`, target rect `{ x: 342.78, y: 15.95, width: 754.44, height: 481.09 }`, center offset `-0.00003px`
+        - `main` `3087`: transform `{ x: 0, y: 0, zoom: 1 }`, target rect `{ x: 438.78, y: 15.95, width: 754.44, height: 481.09 }`, center offset `+96.00px`
+      - screenshots:
+        - `/tmp/setta-worktree-settings-after-zoom.png`
+        - `/tmp/setta-main-settings-after-zoom.png`
+- Lane status: the old worktree-left-shift bug is closed on this exact stale-hidden-pane lane; the remaining difference is smaller and flipped, with `main` about `96px` farther right.
+- Next frontier: run one narrower normalized `groupSectionDefault` centering/parity probe to decide whether the remaining `main`-right offset is legacy-oracle behavior or another shared centering mismatch.
+- LOOP_TERMINAL_MARKER: none

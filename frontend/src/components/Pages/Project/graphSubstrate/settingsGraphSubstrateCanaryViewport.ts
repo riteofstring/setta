@@ -1,3 +1,4 @@
+import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { PanOnScrollModeEnum, type Position } from "utils/generatedTypes";
 import {
   centerViewportOnWorldPoint,
@@ -41,6 +42,11 @@ export type SettingsGraphSubstrateCanaryWheelOutcome =
   | { kind: "pan-scroll"; nextViewport: GraphViewport }
   | { kind: "zoom"; nextViewport: GraphViewport }
   | null;
+
+export type SettingsGraphSubstrateCanaryEffectivePaneWidths = {
+  overviewWidth: number;
+  uiEditorWidth: number;
+};
 
 export function resolveSettingsGraphSubstrateCanaryFallbackViewport(
   defaultZoomLevel: number,
@@ -110,6 +116,29 @@ export function shouldPersistSettingsGraphSubstrateCanaryViewport(
   viewportOwnership: SettingsGraphSubstrateCanaryViewportOwnership | null,
 ): boolean {
   return sharedProjectViewport !== null || viewportOwnership === "local";
+}
+
+export function resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
+  overviewVisible,
+  overviewTrueWidth,
+  uiEditorVisible,
+  uiEditorTrueWidth,
+}: {
+  overviewVisible: boolean;
+  overviewTrueWidth: number;
+  uiEditorVisible: boolean;
+  uiEditorTrueWidth: number;
+}): SettingsGraphSubstrateCanaryEffectivePaneWidths {
+  return {
+    overviewWidth: Math.max(
+      overviewVisible ? overviewTrueWidth : CLOSED_PANE_WIDTH,
+      0,
+    ),
+    uiEditorWidth: Math.max(
+      uiEditorVisible ? uiEditorTrueWidth : CLOSED_PANE_WIDTH,
+      0,
+    ),
+  };
 }
 
 export function fitSettingsGraphSubstrateCanaryViewport(

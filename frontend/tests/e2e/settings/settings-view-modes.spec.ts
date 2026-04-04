@@ -1462,6 +1462,130 @@ test("settings graph substrate canary can fit a named body-heavy section into a 
   }
 });
 
+test("settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const groupSectionId = findSectionIdByName(
+    initialState,
+    "groupSectionDefault",
+  );
+  const initialPaneState = await getLocalPaneState(page);
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    await expect(canaryPane).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await setLocalPaneState(page, {
+      overviewVisible: false,
+      overviewTrueWidth: 420,
+      uiEditorVisible: false,
+      uiEditorTrueWidth: 260,
+    });
+
+    expect(await fitGraphViewportToSection(page, groupSectionId)).toBe(true);
+
+    await expect
+      .poll(async () => {
+        const viewport = await getCanaryViewportTransform(page);
+        return viewport?.zoom ?? 0;
+      })
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => {
+        return Math.abs(
+          (await getCanarySectionCenterOffsetFromRootCenter(
+            page,
+            groupSectionId,
+          )) ?? Number.POSITIVE_INFINITY,
+        );
+      })
+      .toBeLessThan(40);
+
+    const fittedTransform = await getCanaryViewportTransform(page);
+    if (!fittedTransform) {
+      throw new Error("Missing canary transform after stale-width fit.");
+    }
+
+    await page.getByRole("button", { name: "zoom in" }).click();
+
+    await expect
+      .poll(async () => {
+        const viewport = await getCanaryViewportTransform(page);
+        return viewport?.zoom ?? 0;
+      })
+      .toBeGreaterThan(fittedTransform.zoom);
+    await expect
+      .poll(async () => {
+        return Math.abs(
+          (await getCanarySectionCenterOffsetFromRootCenter(
+            page,
+            groupSectionId,
+          )) ?? Number.POSITIVE_INFINITY,
+        );
+      })
+      .toBeLessThan(60);
+  } finally {
+    await setLocalPaneState(page, initialPaneState);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings legacy graph surface can fit a named param-default section into a wide-card compare state", async ({
   page,
 }) => {
@@ -2690,7 +2814,8 @@ async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
   y: number;
   zoom: number;
 } | null> {
-  return page.evaluate(() => {
+  return page.evaluate(async () => {
+    const { CLOSED_PANE_WIDTH } = await import("/src/utils/constants.ts");
     const root = document.querySelector<HTMLElement>(
       '[data-testid="graph-substrate-canary"]',
     );
@@ -2708,29 +2833,47 @@ async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
     }
 
     const persistedLocalState = localStorage.getItem("setta_data");
+    let overviewVis = true;
     let overviewTrueWidth = 0;
+    let uiEditorVis = false;
     let uiEditorTrueWidth = 0;
     if (persistedLocalState) {
       const parsed = JSON.parse(persistedLocalState) as
         | {
             state?: {
+              overviewVis?: unknown;
               overviewTrueWidth?: unknown;
+              uiEditorVis?: unknown;
               uiEditorTrueWidth?: unknown;
             };
           }
         | {
+            overviewVis?: unknown;
             overviewTrueWidth?: unknown;
+            uiEditorVis?: unknown;
             uiEditorTrueWidth?: unknown;
           };
       const persistedState =
         "state" in parsed && parsed.state ? parsed.state : parsed;
+      if (typeof persistedState.overviewVis === "boolean") {
+        overviewVis = persistedState.overviewVis;
+      }
       if (typeof persistedState.overviewTrueWidth === "number") {
         overviewTrueWidth = persistedState.overviewTrueWidth;
+      }
+      if (typeof persistedState.uiEditorVis === "boolean") {
+        uiEditorVis = persistedState.uiEditorVis;
       }
       if (typeof persistedState.uiEditorTrueWidth === "number") {
         uiEditorTrueWidth = persistedState.uiEditorTrueWidth;
       }
     }
+    const effectiveOverviewWidth = overviewVis
+      ? overviewTrueWidth
+      : CLOSED_PANE_WIDTH;
+    const effectiveUiEditorWidth = uiEditorVis
+      ? uiEditorTrueWidth
+      : CLOSED_PANE_WIDTH;
 
     let minX = Number.POSITIVE_INFINITY;
     let minY = Number.POSITIVE_INFINITY;
@@ -2758,7 +2901,7 @@ async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
     const boundsWidth = maxX - minX;
     const boundsHeight = maxY - minY;
     const visibleWidth = Math.max(
-      root.clientWidth - overviewTrueWidth - uiEditorTrueWidth,
+      root.clientWidth - effectiveOverviewWidth - effectiveUiEditorWidth,
       0,
     );
     if (boundsWidth <= 0 || boundsHeight <= 0) {
@@ -2769,7 +2912,7 @@ async function getCanaryExpectedAutoFitTransform(page: Page): Promise<{
       visibleWidth / (boundsWidth * (1 + padding)),
       root.clientHeight / (boundsHeight * (1 + padding)),
     );
-    const centerX = overviewTrueWidth + visibleWidth / 2;
+    const centerX = effectiveOverviewWidth + visibleWidth / 2;
     const centerY = root.clientHeight / 2;
 
     return {
@@ -2797,6 +2940,78 @@ async function getCanaryAutoFitDrift(page: Page): Promise<{
     y: Math.abs(current.y - expected.y),
     zoom: Math.abs(current.zoom - expected.zoom),
   };
+}
+
+async function getCanarySectionCenterOffsetFromRootCenter(
+  page: Page,
+  sectionId: string,
+): Promise<number | null> {
+  return page.evaluate((targetSectionId) => {
+    const root = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary"]',
+    );
+    const section = document.querySelector<HTMLElement>(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
+    );
+    if (!root || !section) {
+      return null;
+    }
+    const rootRect = root.getBoundingClientRect();
+    const sectionRect = section.getBoundingClientRect();
+    return (
+      sectionRect.left +
+      sectionRect.width / 2 -
+      (rootRect.left + rootRect.width / 2)
+    );
+  }, sectionId);
+}
+
+async function getLocalPaneState(page: Page): Promise<{
+  overviewVisible: boolean;
+  overviewTrueWidth: number;
+  uiEditorVisible: boolean;
+  uiEditorTrueWidth: number;
+}> {
+  return page.evaluate(async () => {
+    const { useLocalStorage } = await import("/src/state/definitions.ts");
+    const state = useLocalStorage.getState();
+    return {
+      overviewVisible: state.overviewVis,
+      overviewTrueWidth: state.overviewTrueWidth,
+      uiEditorVisible: state.uiEditorVis,
+      uiEditorTrueWidth: state.uiEditorTrueWidth,
+    };
+  });
+}
+
+async function setLocalPaneState(
+  page: Page,
+  paneState: {
+    overviewVisible: boolean;
+    overviewTrueWidth: number;
+    uiEditorVisible: boolean;
+    uiEditorTrueWidth: number;
+  },
+): Promise<void> {
+  await page.evaluate(
+    async (nextPaneState: {
+      overviewVisible: boolean;
+      overviewTrueWidth: number;
+      uiEditorVisible: boolean;
+      uiEditorTrueWidth: number;
+    }) => {
+      const { useLocalStorage } = await import("/src/state/definitions.ts");
+      useLocalStorage.setState({
+        overviewVis: nextPaneState.overviewVisible,
+        overviewTrueWidth: nextPaneState.overviewTrueWidth,
+        uiEditorVis: nextPaneState.uiEditorVisible,
+        uiEditorTrueWidth: nextPaneState.uiEditorTrueWidth,
+      });
+    },
+    paneState,
+  );
+
+  await expect.poll(async () => getLocalPaneState(page)).toEqual(paneState);
 }
 
 async function findDraggableCanarySection(
