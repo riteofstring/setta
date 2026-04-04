@@ -14,6 +14,7 @@ type reflectedObjectDeclarationSpec struct {
 	DeclarationName           string
 	DefaultValue              any
 	HasCreateExpr             bool
+	UseGenericCreateBody      bool
 	CreateBody                string
 	CreateExprOverrides       map[string]string
 	PropertyTypeExprOverrides map[string]string
@@ -46,7 +47,7 @@ func reflectedSpecWithDiscoveredDefault(
 	t reflect.Type,
 	spec reflectedObjectDeclarationSpec,
 ) reflectedObjectDeclarationSpec {
-	if spec.HasCreateExpr {
+	if spec.DefaultValue != nil {
 		return spec
 	}
 	provider, ok := discoveredFrontendDefaultValueProviderRegistry[t]
@@ -200,7 +201,9 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 		HasCreateExpr: true,
 	},
 	reflect.TypeOf(EngineConfig{}): {
-		CreateBody: buildEngineConfigCreateBodyTS(),
+		DefaultValue:         agentruns.EngineConfig{EngineType: agentruns.EngineTypeSettaLLM},
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 		PropertyOptionalOverrides: map[string]bool{
 			"defaults":              false,
 			"externalAgentConfigId": true,
@@ -329,16 +332,20 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 		},
 	},
 	reflect.TypeOf(MetaControlSizingPolicyByType{}): {
-		CreateBody: buildMetaControlSizingPolicyByTypeCreateBodyTS(),
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 	},
 	reflect.TypeOf(SectionSizingPolicyByType{}): {
-		CreateBody: buildSectionSizingPolicyByTypeCreateBodyTS(),
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 	},
 	reflect.TypeOf(SectionSizingPolicy{}): {
-		CreateBody: buildSectionSizingPolicyCreateBodyTS(),
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 	},
 	reflect.TypeOf(SettingsState{}): {
-		CreateBody: buildSettingsStateCreateBodyTS(),
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 	},
 	reflect.TypeOf(projectview.SectionCapabilities{}): {
 		DefaultValue:  projectview.SectionCapabilities{},
@@ -527,7 +534,9 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 		},
 	},
 	reflect.TypeOf(SectionCodegenPolicy{}): {
-		CreateBody: buildSectionCodegenPolicyCreateBodyTS(),
+		DefaultValue:         projectview.FrontendDefaultPythonSectionCodegenPolicy(),
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 		PropertyTypeExprOverrides: map[string]string{
 			"allowlist":            "Array<SectionType> | null",
 			"metaControlAllowlist": "Array<CodeObjType> | null",
@@ -540,14 +549,17 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 		},
 	},
 	reflect.TypeOf(CodeObjValuePolicy{}): {
-		CreateBody: buildCodeObjValuePolicyCreateBodyTS(),
+		DefaultValue:         projectview.FrontendDefaultPythonCodeObjValuePolicy(),
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 		PropertyTypeExprOverrides: map[string]string{
 			"typePolicies":     "Record<CodeObjType, CodeObjTypeValuePolicy>",
 			"codeObjOverrides": "Record<string, CodeObjValueOverride>",
 		},
 	},
 	reflect.TypeOf(ProjectCodegenPythonTarget{}): {
-		CreateBody: buildProjectCodegenPythonTargetCreateBodyTS(),
+		HasCreateExpr:        true,
+		UseGenericCreateBody: true,
 		PropertyTypeExprOverrides: map[string]string{
 			"language":           "typeof ProjectCodegenLanguageEnum.python",
 			"sectionPolicy":      "SectionCodegenPolicy",

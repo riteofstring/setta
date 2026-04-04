@@ -542,31 +542,19 @@ export type EngineConfig = {
 export function createEngineConfig(
   options: Partial<EngineConfig> = {},
 ): EngineConfig {
-  const defaults = createEngineConfigDefaults();
-  const runtimeSupport = createEngineRuntimeSupport();
-  const mergedDefaults = mergeGeneratedOptions(
-    defaults,
-    options.defaults ?? {},
-  );
-  const mergedRuntimeSupport =
-    options.runtimeSupport === undefined || options.runtimeSupport === null
-      ? null
-      : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport);
+  const defaults = {
+    id: "",
+    name: "",
+    engineType: "setta_llm",
+    defaults: {},
+  };
   return {
-    ...mergeGeneratedOptions(
-      {
-        id: "",
-        name: "",
-        engineType: "setta_llm",
-        settaLlmConfigId: null,
-        externalAgentConfigId: null,
-        defaults: defaults,
-        runtimeSupport: null,
-      },
-      options,
-    ),
-    defaults: mergedDefaults,
-    runtimeSupport: mergedRuntimeSupport,
+    ...mergeGeneratedOptions(defaults, options),
+    defaults: createEngineConfigDefaults(options.defaults ?? defaults.defaults),
+    runtimeSupport:
+      options.runtimeSupport === undefined || options.runtimeSupport === null
+        ? null
+        : createEngineRuntimeSupport(options.runtimeSupport),
   };
 }
 
@@ -3566,6 +3554,11 @@ type SectionSizingPolicyTypeEntry = {
   minWidth: number;
   maxWidth: number;
 };
+function createSectionSizingPolicyTypeEntry(
+  options: Partial<SectionSizingPolicyTypeEntry> = {},
+): SectionSizingPolicyTypeEntry {
+  return options as SectionSizingPolicyTypeEntry;
+}
 
 type SectionSizingPolicyCallableTypeEntry = {
   minHeight: number;
@@ -3575,6 +3568,11 @@ type SectionSizingPolicyCallableTypeEntry = {
   hideSearchMinHeight: number;
   hideParamsMinHeight: number;
 };
+function createSectionSizingPolicyCallableTypeEntry(
+  options: Partial<SectionSizingPolicyCallableTypeEntry> = {},
+): SectionSizingPolicyCallableTypeEntry {
+  return options as SectionSizingPolicyCallableTypeEntry;
+}
 
 export type MetaControlSizingPolicyTypeEntry = {
   minHeight: number;
@@ -3582,6 +3580,11 @@ export type MetaControlSizingPolicyTypeEntry = {
   sizeModeHeight: MetaControlSizeMode;
   sizeModeWidth: MetaControlSizeMode;
 };
+function createMetaControlSizingPolicyTypeEntry(
+  options: Partial<MetaControlSizingPolicyTypeEntry> = {},
+): MetaControlSizingPolicyTypeEntry {
+  return options as MetaControlSizingPolicyTypeEntry;
+}
 
 type MetaControlSizingPolicyByType = {
   CodeCallable: MetaControlSizingPolicyTypeEntry;
@@ -3603,236 +3606,144 @@ type MetaControlSizingPolicyByType = {
 function createMetaControlSizingPolicyByType(
   options: Partial<MetaControlSizingPolicyByType> = {},
 ): MetaControlSizingPolicyByType {
+  const defaults = {
+    CodeCallable: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    CodeParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    TextParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    DateParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    TimeParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    ButtonParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    SliderParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "auto_only",
+      sizeModeWidth: "any",
+    },
+    RotaryParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    SwitchParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    ColorPickerParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    DropdownParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "auto_only",
+      sizeModeWidth: "any",
+    },
+    PasswordParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "auto_only",
+      sizeModeWidth: "any",
+    },
+    TextAreaParam: {
+      minHeight: 80,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    DropzoneParam: {
+      minHeight: 120,
+      minWidth: 240,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+    NestedParam: {
+      minHeight: 32,
+      minWidth: 200,
+      sizeModeHeight: "any",
+      sizeModeWidth: "any",
+    },
+  };
   return {
-    ...mergeGeneratedOptions<MetaControlSizingPolicyByType>(
-      {
-        CodeCallable: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        CodeParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        TextParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        DateParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        TimeParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        ButtonParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        SliderParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "auto_only",
-          sizeModeWidth: "any",
-        },
-        RotaryParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        SwitchParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        ColorPickerParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        DropdownParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "auto_only",
-          sizeModeWidth: "any",
-        },
-        PasswordParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "auto_only",
-          sizeModeWidth: "any",
-        },
-        TextAreaParam: {
-          minHeight: 80,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        DropzoneParam: {
-          minHeight: 120,
-          minWidth: 240,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-        NestedParam: {
-          minHeight: 32,
-          minWidth: 200,
-          sizeModeHeight: "any",
-          sizeModeWidth: "any",
-        },
-      },
-      options,
+    ...mergeGeneratedOptions(defaults, options),
+    CodeCallable: createMetaControlSizingPolicyTypeEntry(
+      options.CodeCallable ?? defaults.CodeCallable,
     ),
-    CodeCallable: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.CodeCallable ?? {},
+    CodeParam: createMetaControlSizingPolicyTypeEntry(
+      options.CodeParam ?? defaults.CodeParam,
     ),
-    CodeParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.CodeParam ?? {},
+    TextParam: createMetaControlSizingPolicyTypeEntry(
+      options.TextParam ?? defaults.TextParam,
     ),
-    TextParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.TextParam ?? {},
+    DateParam: createMetaControlSizingPolicyTypeEntry(
+      options.DateParam ?? defaults.DateParam,
     ),
-    DateParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.DateParam ?? {},
+    TimeParam: createMetaControlSizingPolicyTypeEntry(
+      options.TimeParam ?? defaults.TimeParam,
     ),
-    TimeParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.TimeParam ?? {},
+    ButtonParam: createMetaControlSizingPolicyTypeEntry(
+      options.ButtonParam ?? defaults.ButtonParam,
     ),
-    ButtonParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.ButtonParam ?? {},
+    SliderParam: createMetaControlSizingPolicyTypeEntry(
+      options.SliderParam ?? defaults.SliderParam,
     ),
-    SliderParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "auto_only",
-        sizeModeWidth: "any",
-      },
-      options.SliderParam ?? {},
+    RotaryParam: createMetaControlSizingPolicyTypeEntry(
+      options.RotaryParam ?? defaults.RotaryParam,
     ),
-    RotaryParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.RotaryParam ?? {},
+    SwitchParam: createMetaControlSizingPolicyTypeEntry(
+      options.SwitchParam ?? defaults.SwitchParam,
     ),
-    SwitchParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.SwitchParam ?? {},
+    ColorPickerParam: createMetaControlSizingPolicyTypeEntry(
+      options.ColorPickerParam ?? defaults.ColorPickerParam,
     ),
-    ColorPickerParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.ColorPickerParam ?? {},
+    DropdownParam: createMetaControlSizingPolicyTypeEntry(
+      options.DropdownParam ?? defaults.DropdownParam,
     ),
-    DropdownParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "auto_only",
-        sizeModeWidth: "any",
-      },
-      options.DropdownParam ?? {},
+    PasswordParam: createMetaControlSizingPolicyTypeEntry(
+      options.PasswordParam ?? defaults.PasswordParam,
     ),
-    PasswordParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "auto_only",
-        sizeModeWidth: "any",
-      },
-      options.PasswordParam ?? {},
+    TextAreaParam: createMetaControlSizingPolicyTypeEntry(
+      options.TextAreaParam ?? defaults.TextAreaParam,
     ),
-    TextAreaParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 80,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.TextAreaParam ?? {},
+    DropzoneParam: createMetaControlSizingPolicyTypeEntry(
+      options.DropzoneParam ?? defaults.DropzoneParam,
     ),
-    DropzoneParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 120,
-        minWidth: 240,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.DropzoneParam ?? {},
-    ),
-    NestedParam: mergeGeneratedOptions<MetaControlSizingPolicyTypeEntry>(
-      {
-        minHeight: 32,
-        minWidth: 200,
-        sizeModeHeight: "any",
-        sizeModeWidth: "any",
-      },
-      options.NestedParam ?? {},
+    NestedParam: createMetaControlSizingPolicyTypeEntry(
+      options.NestedParam ?? defaults.NestedParam,
     ),
   };
 }
@@ -3891,390 +3802,222 @@ type SectionSizingPolicyByType = {
 function createSectionSizingPolicyByType(
   options: Partial<SectionSizingPolicyByType> = {},
 ): SectionSizingPolicyByType {
+  const defaults = {
+    Callable: {
+      hideParamsMinHeight: 90,
+      hideSearchMinHeight: 42,
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 104,
+      minWidth: 200,
+    },
+    Dict: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 78,
+      minWidth: 200,
+    },
+    ListRoot: {
+      maxHeight: 50,
+      maxWidth: 100000,
+      minHeight: 50,
+      minWidth: 200,
+    },
+    Group: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    StateMachineStart: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 96,
+      minWidth: 240,
+    },
+    StateMachineGate: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 120,
+      minWidth: 240,
+    },
+    StateMachineEnd: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 96,
+      minWidth: 240,
+    },
+    Image: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 100,
+      minWidth: 200,
+    },
+    Chart: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 300,
+      minWidth: 300,
+    },
+    Draw: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 100,
+      minWidth: 402,
+    },
+    Prompt: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 150,
+      minWidth: 300,
+    },
+    TextBlock: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 49,
+      minWidth: 100,
+    },
+    MetaControl: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 10,
+      minWidth: 100,
+    },
+    Social: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 50,
+      minWidth: 200,
+    },
+    GlobalVariables: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 78,
+      minWidth: 200,
+    },
+    Code: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 58.2,
+      minWidth: 200,
+    },
+    GenPythonCode: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    GenPythonMetadata: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    Terminal: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 100,
+      minWidth: 200,
+    },
+    IFrame: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 0,
+      minWidth: 200,
+    },
+    Chat: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 200,
+      minWidth: 400,
+    },
+    Browser: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 250,
+      minWidth: 200,
+    },
+    Plugin: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 80,
+      minWidth: 200,
+    },
+    TaskBoard: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 240,
+      minWidth: 360,
+    },
+    Spreadsheet: {
+      maxHeight: 100000,
+      maxWidth: 100000,
+      minHeight: 260,
+      minWidth: 420,
+    },
+  };
   return {
-    ...mergeGeneratedOptions(
-      {
-        Callable: {
-          hideParamsMinHeight: 90,
-          hideSearchMinHeight: 42,
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 104,
-          minWidth: 200,
-        },
-        Dict: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 78,
-          minWidth: 200,
-        },
-        ListRoot: {
-          maxHeight: 50,
-          maxWidth: 100000,
-          minHeight: 50,
-          minWidth: 200,
-        },
-        Group: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 0,
-          minWidth: 200,
-        },
-        StateMachineStart: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 96,
-          minWidth: 240,
-        },
-        StateMachineGate: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 120,
-          minWidth: 240,
-        },
-        StateMachineEnd: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 96,
-          minWidth: 240,
-        },
-        Image: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 100,
-          minWidth: 200,
-        },
-        Chart: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 300,
-          minWidth: 300,
-        },
-        Draw: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 100,
-          minWidth: 402,
-        },
-        Prompt: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 150,
-          minWidth: 300,
-        },
-        TextBlock: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 49,
-          minWidth: 100,
-        },
-        MetaControl: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 10,
-          minWidth: 100,
-        },
-        Social: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 50,
-          minWidth: 200,
-        },
-        GlobalVariables: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 78,
-          minWidth: 200,
-        },
-        Code: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 58.2,
-          minWidth: 200,
-        },
-        GenPythonCode: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 0,
-          minWidth: 200,
-        },
-        GenPythonMetadata: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 0,
-          minWidth: 200,
-        },
-        Terminal: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 100,
-          minWidth: 200,
-        },
-        IFrame: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 0,
-          minWidth: 200,
-        },
-        Chat: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 200,
-          minWidth: 400,
-        },
-        Browser: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 250,
-          minWidth: 200,
-        },
-        Plugin: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 80,
-          minWidth: 200,
-        },
-        TaskBoard: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 240,
-          minWidth: 360,
-        },
-        Spreadsheet: {
-          maxHeight: 100000,
-          maxWidth: 100000,
-          minHeight: 260,
-          minWidth: 420,
-        },
-      },
-      options,
+    ...mergeGeneratedOptions(defaults, options),
+    Callable: createSectionSizingPolicyCallableTypeEntry(
+      options.Callable ?? defaults.Callable,
     ),
-    Callable: mergeGeneratedOptions(
-      {
-        minHeight: 104,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-        hideSearchMinHeight: 42,
-        hideParamsMinHeight: 90,
-      },
-      options.Callable ?? {},
+    Dict: createSectionSizingPolicyTypeEntry(options.Dict ?? defaults.Dict),
+    ListRoot: createSectionSizingPolicyTypeEntry(
+      options.ListRoot ?? defaults.ListRoot,
     ),
-    Dict: mergeGeneratedOptions(
-      {
-        minHeight: 78,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Dict ?? {},
+    Group: createSectionSizingPolicyTypeEntry(options.Group ?? defaults.Group),
+    StateMachineStart: createSectionSizingPolicyTypeEntry(
+      options.StateMachineStart ?? defaults.StateMachineStart,
     ),
-    ListRoot: mergeGeneratedOptions(
-      {
-        minHeight: 50,
-        maxHeight: 50,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.ListRoot ?? {},
+    StateMachineGate: createSectionSizingPolicyTypeEntry(
+      options.StateMachineGate ?? defaults.StateMachineGate,
     ),
-    Group: mergeGeneratedOptions(
-      {
-        minHeight: 0,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Group ?? {},
+    StateMachineEnd: createSectionSizingPolicyTypeEntry(
+      options.StateMachineEnd ?? defaults.StateMachineEnd,
     ),
-    StateMachineStart: mergeGeneratedOptions(
-      {
-        minHeight: 96,
-        maxHeight: 100000,
-        minWidth: 240,
-        maxWidth: 100000,
-      },
-      options.StateMachineStart ?? {},
+    Image: createSectionSizingPolicyTypeEntry(options.Image ?? defaults.Image),
+    Chart: createSectionSizingPolicyTypeEntry(options.Chart ?? defaults.Chart),
+    Draw: createSectionSizingPolicyTypeEntry(options.Draw ?? defaults.Draw),
+    Prompt: createSectionSizingPolicyTypeEntry(
+      options.Prompt ?? defaults.Prompt,
     ),
-    StateMachineGate: mergeGeneratedOptions(
-      {
-        minHeight: 120,
-        maxHeight: 100000,
-        minWidth: 240,
-        maxWidth: 100000,
-      },
-      options.StateMachineGate ?? {},
+    TextBlock: createSectionSizingPolicyTypeEntry(
+      options.TextBlock ?? defaults.TextBlock,
     ),
-    StateMachineEnd: mergeGeneratedOptions(
-      {
-        minHeight: 96,
-        maxHeight: 100000,
-        minWidth: 240,
-        maxWidth: 100000,
-      },
-      options.StateMachineEnd ?? {},
+    MetaControl: createSectionSizingPolicyTypeEntry(
+      options.MetaControl ?? defaults.MetaControl,
     ),
-    Image: mergeGeneratedOptions(
-      {
-        minHeight: 100,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Image ?? {},
+    Social: createSectionSizingPolicyTypeEntry(
+      options.Social ?? defaults.Social,
     ),
-    Chart: mergeGeneratedOptions(
-      {
-        minHeight: 300,
-        maxHeight: 100000,
-        minWidth: 300,
-        maxWidth: 100000,
-      },
-      options.Chart ?? {},
+    GlobalVariables: createSectionSizingPolicyTypeEntry(
+      options.GlobalVariables ?? defaults.GlobalVariables,
     ),
-    Draw: mergeGeneratedOptions(
-      {
-        minHeight: 100,
-        maxHeight: 100000,
-        minWidth: 402,
-        maxWidth: 100000,
-      },
-      options.Draw ?? {},
+    Code: createSectionSizingPolicyTypeEntry(options.Code ?? defaults.Code),
+    GenPythonCode: createSectionSizingPolicyTypeEntry(
+      options.GenPythonCode ?? defaults.GenPythonCode,
     ),
-    Prompt: mergeGeneratedOptions(
-      {
-        minHeight: 150,
-        maxHeight: 100000,
-        minWidth: 300,
-        maxWidth: 100000,
-      },
-      options.Prompt ?? {},
+    GenPythonMetadata: createSectionSizingPolicyTypeEntry(
+      options.GenPythonMetadata ?? defaults.GenPythonMetadata,
     ),
-    TextBlock: mergeGeneratedOptions(
-      {
-        minHeight: 49,
-        maxHeight: 100000,
-        minWidth: 100,
-        maxWidth: 100000,
-      },
-      options.TextBlock ?? {},
+    Terminal: createSectionSizingPolicyTypeEntry(
+      options.Terminal ?? defaults.Terminal,
     ),
-    MetaControl: mergeGeneratedOptions(
-      {
-        minHeight: 10,
-        maxHeight: 100000,
-        minWidth: 100,
-        maxWidth: 100000,
-      },
-      options.MetaControl ?? {},
+    IFrame: createSectionSizingPolicyTypeEntry(
+      options.IFrame ?? defaults.IFrame,
     ),
-    Social: mergeGeneratedOptions(
-      {
-        minHeight: 50,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Social ?? {},
+    Chat: createSectionSizingPolicyTypeEntry(options.Chat ?? defaults.Chat),
+    Browser: createSectionSizingPolicyTypeEntry(
+      options.Browser ?? defaults.Browser,
     ),
-    GlobalVariables: mergeGeneratedOptions(
-      {
-        minHeight: 78,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.GlobalVariables ?? {},
+    Plugin: createSectionSizingPolicyTypeEntry(
+      options.Plugin ?? defaults.Plugin,
     ),
-    Code: mergeGeneratedOptions(
-      {
-        minHeight: 58.2,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Code ?? {},
+    TaskBoard: createSectionSizingPolicyTypeEntry(
+      options.TaskBoard ?? defaults.TaskBoard,
     ),
-    GenPythonCode: mergeGeneratedOptions(
-      {
-        minHeight: 0,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.GenPythonCode ?? {},
-    ),
-    GenPythonMetadata: mergeGeneratedOptions(
-      {
-        minHeight: 0,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.GenPythonMetadata ?? {},
-    ),
-    Terminal: mergeGeneratedOptions(
-      {
-        minHeight: 100,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Terminal ?? {},
-    ),
-    IFrame: mergeGeneratedOptions(
-      {
-        minHeight: 0,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.IFrame ?? {},
-    ),
-    Chat: mergeGeneratedOptions(
-      {
-        minHeight: 200,
-        maxHeight: 100000,
-        minWidth: 400,
-        maxWidth: 100000,
-      },
-      options.Chat ?? {},
-    ),
-    Browser: mergeGeneratedOptions(
-      {
-        minHeight: 250,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Browser ?? {},
-    ),
-    Plugin: mergeGeneratedOptions(
-      {
-        minHeight: 80,
-        maxHeight: 100000,
-        minWidth: 200,
-        maxWidth: 100000,
-      },
-      options.Plugin ?? {},
-    ),
-    TaskBoard: mergeGeneratedOptions(
-      {
-        minHeight: 240,
-        maxHeight: 100000,
-        minWidth: 360,
-        maxWidth: 100000,
-      },
-      options.TaskBoard ?? {},
-    ),
-    Spreadsheet: mergeGeneratedOptions(
-      {
-        minHeight: 260,
-        maxHeight: 100000,
-        minWidth: 420,
-        maxWidth: 100000,
-      },
-      options.Spreadsheet ?? {},
+    Spreadsheet: createSectionSizingPolicyTypeEntry(
+      options.Spreadsheet ?? defaults.Spreadsheet,
     ),
   };
 }
@@ -4287,23 +4030,271 @@ export type SectionSizingPolicy = {
 function createSectionSizingPolicy(
   options: Partial<SectionSizingPolicy> = {},
 ): SectionSizingPolicy {
-  const byType = createSectionSizingPolicyByType(options.byType ?? {});
-  const metaControlByType = createMetaControlSizingPolicyByType(
-    options.metaControlByType ?? {},
-  );
-  const globals = createSectionSizingPolicyGlobals(options.globals ?? {});
-  return {
-    ...mergeGeneratedOptions(
-      {
-        byType: byType,
-        metaControlByType: metaControlByType,
-        globals: globals,
+  const defaults = {
+    byType: {
+      Browser: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 250,
+        minWidth: 200,
       },
-      options,
+      Callable: {
+        hideParamsMinHeight: 90,
+        hideSearchMinHeight: 42,
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 104,
+        minWidth: 200,
+      },
+      Chart: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 300,
+        minWidth: 300,
+      },
+      Chat: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 200,
+        minWidth: 400,
+      },
+      Code: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 58.2,
+        minWidth: 200,
+      },
+      Dict: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 78,
+        minWidth: 200,
+      },
+      Draw: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 100,
+        minWidth: 402,
+      },
+      GenPythonCode: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 0,
+        minWidth: 200,
+      },
+      GenPythonMetadata: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 0,
+        minWidth: 200,
+      },
+      GlobalVariables: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 78,
+        minWidth: 200,
+      },
+      Group: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 0,
+        minWidth: 200,
+      },
+      IFrame: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 0,
+        minWidth: 200,
+      },
+      Image: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 100,
+        minWidth: 200,
+      },
+      ListRoot: {
+        maxHeight: 50,
+        maxWidth: 100000,
+        minHeight: 50,
+        minWidth: 200,
+      },
+      MetaControl: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 10,
+        minWidth: 100,
+      },
+      Plugin: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 80,
+        minWidth: 200,
+      },
+      Prompt: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 150,
+        minWidth: 300,
+      },
+      Social: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 50,
+        minWidth: 200,
+      },
+      Spreadsheet: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 260,
+        minWidth: 420,
+      },
+      StateMachineEnd: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 96,
+        minWidth: 240,
+      },
+      StateMachineGate: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 120,
+        minWidth: 240,
+      },
+      StateMachineStart: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 96,
+        minWidth: 240,
+      },
+      TaskBoard: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 240,
+        minWidth: 360,
+      },
+      Terminal: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 100,
+        minWidth: 200,
+      },
+      TextBlock: {
+        maxHeight: 100000,
+        maxWidth: 100000,
+        minHeight: 49,
+        minWidth: 100,
+      },
+    },
+    metaControlByType: {
+      ButtonParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      CodeCallable: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      CodeParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      ColorPickerParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      DateParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      DropdownParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "auto_only",
+        sizeModeWidth: "any",
+      },
+      DropzoneParam: {
+        minHeight: 120,
+        minWidth: 240,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      NestedParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      PasswordParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "auto_only",
+        sizeModeWidth: "any",
+      },
+      RotaryParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      SliderParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "auto_only",
+        sizeModeWidth: "any",
+      },
+      SwitchParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      TextAreaParam: {
+        minHeight: 80,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      TextParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+      TimeParam: {
+        minHeight: 32,
+        minWidth: 200,
+        sizeModeHeight: "any",
+        sizeModeWidth: "any",
+      },
+    },
+    globals: {
+      autoMaxHeight: 350,
+      infiniteMaxHeight: 100000,
+      infiniteMaxWidth: 100000,
+      minimizedHeight: 32,
+      pinnedParamsAreaMinHeight: 64,
+      unpinnedParamsAreaMinHeight: 36,
+    },
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options),
+    byType: createSectionSizingPolicyByType(options.byType ?? defaults.byType),
+    metaControlByType: createMetaControlSizingPolicyByType(
+      options.metaControlByType ?? defaults.metaControlByType,
     ),
-    byType,
-    metaControlByType,
-    globals,
+    globals: createSectionSizingPolicyGlobals(
+      options.globals ?? defaults.globals,
+    ),
   };
 }
 
@@ -4580,13 +4571,399 @@ export type SettingsState = {
 export function createSettingsState(
   options: Partial<SettingsState> = {},
 ): SettingsState {
-  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
-  const gui = createSettingsGUI(options.gui ?? {});
-  const backend = createSettingsBackend(options.backend ?? {});
-  const sectionSizingPolicy = createSectionSizingPolicy(
-    options.sectionSizingPolicy ?? {},
-  );
-  const clonedDefaults = {
+  const defaults = {
+    shortcuts: {
+      advancedSearchShortcut: "Mod + P",
+      commandPaletteShortcut: "Mod + Shift + P",
+      copyShortcut: "Mod + C",
+      copyTooltipTextShortcut: "Q + C",
+      decrementTooltipPageShortcut: "Q + ArrowLeft",
+      deleteSectionShortcut: "Backspace",
+      fitViewShortcut: "F",
+      focusCanvasShortcut: "Ctrl + Shift + 3",
+      focusHeaderShortcut: "Ctrl + Shift + 1",
+      focusOverviewShortcut: "Ctrl + Shift + 2",
+      focusUiEditorShortcut: "Ctrl + Shift + 4",
+      formatCode: "Shift + Alt + F",
+      freezeTooltipShortcut: "Q + F",
+      frozenTooltipCopyShortcut: "C",
+      frozenTooltipDecrementShortcut: "ArrowLeft",
+      frozenTooltipIncrementShortcut: "ArrowRight",
+      frozenTooltipToMarkdownShortcut: "W",
+      frozenTooltipToPlaintextShortcut: "S",
+      groupShortcut: "Mod + G",
+      incrementTooltipPageShortcut: "Q + ArrowRight",
+      loadShortcut: "Mod + L",
+      movingFreeShortcut: "Alt",
+      multiSelectionKeyCode: "Mod",
+      newCardShortcut: "N",
+      newGroupShortcut: "G",
+      newProjectConfigShortcut: "",
+      newTerminalShortcut: "Ctrl + `",
+      nextTopLevelSectionShortcut: "Alt + J",
+      panActivationKeyCode: "Space",
+      paramIndentShortcut: "Tab",
+      paramMoveDownShortcut: "Alt + ArrowDown",
+      paramMoveUpShortcut: "Alt + ArrowUp",
+      paramSelect: "Mod + Shift",
+      paramUnindentShortcut: "Shift + Tab",
+      pasteAsRefShortcut: "Mod + Shift + V",
+      pasteShortcut: "Mod + V",
+      prevTopLevelSectionShortcut: "Alt + K",
+      redoShortcut: "Mod + Shift + Z",
+      resetZoomShortcut: "Mod + Comma",
+      restartLanguageServerShortcut: "Alt + Shift + R",
+      runCodeShortcut: "Mod + Enter",
+      runEntryCodeBlockShortcut: "Mod + Shift + Enter",
+      saveAsShortcut: "Mod + Shift + S",
+      saveShortcut: "Mod + S",
+      searchShortcut: "Mod + K",
+      selectAll: "Mod + A",
+      selectTopLevelNonGroupSections: "Mod + Shift + A",
+      selectionKeyCode: "Shift",
+      showParamUITypeTabShortcut: "P",
+      showProjectOverviewTabShortcut: "O",
+      showTooltipShortcut: "Q",
+      showVersionsTabShortcut: "V",
+      sortingShortcut: "Mod + Alt",
+      tooltipToMarkdownShortcut: "Q + W",
+      tooltipToPlaintextShortcut: "Q + S",
+      typeCheckShortcut: "",
+      undoShortcut: "Mod + Z",
+      ungroupShortcut: "Shift + Mod + G",
+      zoomActivationKeyCode: "Mod",
+      zoomInShortcut: "Equal",
+      zoomOutShortcut: "Minus",
+      zoomToMouseShortcut: "Z",
+    },
+    gui: {
+      defaultZoomLevel: 1,
+      gridColor: "#afbacf",
+      gridColorDarkMode: "#2b364a",
+      gridPattern: "dots",
+      gridPatternSize: 2,
+      leftSidePaneShiftsMap: true,
+      maxZoom: 10,
+      minZoom: 0.1,
+      panOnDrag: true,
+      panOnScroll: true,
+      panOnScrollMode: "free",
+      panOnScrollSpeed: 1,
+      sectionTagColorChoices: [
+        {
+          color: "#ef4444",
+          description: "Red",
+        },
+        {
+          color: "#f97316",
+          description: "Orange",
+        },
+        {
+          color: "#eab308",
+          description: "Yellow",
+        },
+        {
+          color: "#22c55e",
+          description: "Green",
+        },
+        {
+          color: "#06b6d4",
+          description: "Cyan",
+        },
+        {
+          color: "#3b82f6",
+          description: "Blue",
+        },
+        {
+          color: "#a855f7",
+          description: "Purple",
+        },
+        {
+          color: "#64748b",
+          description: "Slate",
+        },
+      ],
+      selectionMode: "partial",
+      showGridLines: true,
+      snapGrid: [15, 15],
+      transitionDuration: 50,
+      wireColor: "#41506c",
+      wireColorDarkMode: "#bac2d3",
+      zoomOnDoubleClick: false,
+      zoomOnPinch: true,
+      zoomOnScroll: true,
+    },
+    backend: {
+      autoRefetchCallableParamsOnLspMismatch: true,
+      autobackup: true,
+      autobackupFreq: 300,
+      autobackupKeepLastN: 10,
+      autosave: true,
+      clearTerminalBeforeMarkingAsReady: true,
+      completionGuardEnabled: false,
+      exportDbReadableOnSave: false,
+      exportDbReadableWithVariantsOnSave: false,
+      renameRefactorMode: "ALWAYS_ASK",
+      runSnapshotMode: "ephemeral",
+      saveRenderedValues: false,
+      showDefaultConfigOnLoad: true,
+    },
+    sectionSizingPolicy: {
+      byType: {
+        Browser: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 250,
+          minWidth: 200,
+        },
+        Callable: {
+          hideParamsMinHeight: 90,
+          hideSearchMinHeight: 42,
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 104,
+          minWidth: 200,
+        },
+        Chart: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 300,
+          minWidth: 300,
+        },
+        Chat: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 200,
+          minWidth: 400,
+        },
+        Code: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 58.2,
+          minWidth: 200,
+        },
+        Dict: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 78,
+          minWidth: 200,
+        },
+        Draw: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 100,
+          minWidth: 402,
+        },
+        GenPythonCode: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 0,
+          minWidth: 200,
+        },
+        GenPythonMetadata: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 0,
+          minWidth: 200,
+        },
+        GlobalVariables: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 78,
+          minWidth: 200,
+        },
+        Group: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 0,
+          minWidth: 200,
+        },
+        IFrame: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 0,
+          minWidth: 200,
+        },
+        Image: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 100,
+          minWidth: 200,
+        },
+        ListRoot: {
+          maxHeight: 50,
+          maxWidth: 100000,
+          minHeight: 50,
+          minWidth: 200,
+        },
+        MetaControl: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 10,
+          minWidth: 100,
+        },
+        Plugin: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 80,
+          minWidth: 200,
+        },
+        Prompt: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 150,
+          minWidth: 300,
+        },
+        Social: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 50,
+          minWidth: 200,
+        },
+        Spreadsheet: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 260,
+          minWidth: 420,
+        },
+        StateMachineEnd: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 96,
+          minWidth: 240,
+        },
+        StateMachineGate: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 120,
+          minWidth: 240,
+        },
+        StateMachineStart: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 96,
+          minWidth: 240,
+        },
+        TaskBoard: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 240,
+          minWidth: 360,
+        },
+        Terminal: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 100,
+          minWidth: 200,
+        },
+        TextBlock: {
+          maxHeight: 100000,
+          maxWidth: 100000,
+          minHeight: 49,
+          minWidth: 100,
+        },
+      },
+      globals: {
+        autoMaxHeight: 350,
+        infiniteMaxHeight: 100000,
+        infiniteMaxWidth: 100000,
+        minimizedHeight: 32,
+        pinnedParamsAreaMinHeight: 64,
+        unpinnedParamsAreaMinHeight: 36,
+      },
+      metaControlByType: {
+        ButtonParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        CodeCallable: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        CodeParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        ColorPickerParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        DateParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        DropdownParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "auto_only",
+          sizeModeWidth: "any",
+        },
+        DropzoneParam: {
+          minHeight: 120,
+          minWidth: 240,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        NestedParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        PasswordParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "auto_only",
+          sizeModeWidth: "any",
+        },
+        RotaryParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        SliderParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "auto_only",
+          sizeModeWidth: "any",
+        },
+        SwitchParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        TextAreaParam: {
+          minHeight: 80,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        TextParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+        TimeParam: {
+          minHeight: 32,
+          minWidth: 200,
+          sizeModeHeight: "any",
+          sizeModeWidth: "any",
+        },
+      },
+    },
     languageServer: {
       basedpyright: {
         analysis: {
@@ -4601,33 +4978,12 @@ export function createSettingsState(
     },
   };
   return {
-    ...mergeGeneratedOptions(
-      {
-        shortcuts: shortcuts,
-        gui: gui,
-        backend: backend,
-        sectionSizingPolicy: sectionSizingPolicy,
-        languageServer: {
-          basedpyright: {
-            analysis: {
-              diagnosticSeverityOverrides: {
-                reportSelfClsParameterName: "none",
-                reportUnannotatedClassAttribute: "none",
-                reportUnknownMemberType: "none",
-                reportUnknownVariableType: "none",
-              },
-            },
-          },
-        },
-      },
-      options,
-    ),
-    shortcuts,
-    gui,
-    backend,
-    sectionSizingPolicy,
-    languageServer: cloneGeneratedValue(
-      options.languageServer ?? clonedDefaults.languageServer,
+    ...mergeGeneratedOptions(defaults, options),
+    shortcuts: createSettingsShortcuts(options.shortcuts ?? defaults.shortcuts),
+    gui: createSettingsGUI(options.gui ?? defaults.gui),
+    backend: createSettingsBackend(options.backend ?? defaults.backend),
+    sectionSizingPolicy: createSectionSizingPolicy(
+      options.sectionSizingPolicy ?? defaults.sectionSizingPolicy,
     ),
   };
 }
@@ -4674,7 +5030,7 @@ type SectionCodegenPolicy = {
 export function createSectionCodegenPolicy(
   options: Partial<SectionCodegenPolicy> = {},
 ): SectionCodegenPolicy {
-  const defaults: SectionCodegenPolicy = {
+  const defaults = {
     allowlist: [
       "Callable",
       "Dict",
@@ -4807,41 +5163,28 @@ export function createSectionCodegenPolicy(
     },
     sectionOverrides: {},
   };
-  const typePolicies = Object.fromEntries(
-    Object.entries({
-      ...defaults.typePolicies,
-      ...(options.typePolicies ?? {}),
-    }).map(([sectionType, policy]) => [
-      sectionType,
-      createSectionTypeCodegenPolicy(policy),
-    ]),
-  ) as Record<SectionType, SectionTypeCodegenPolicy>;
-  const sectionOverrides = Object.fromEntries(
-    Object.entries({
-      ...defaults.sectionOverrides,
-      ...(options.sectionOverrides ?? {}),
-    }).map(([sectionId, override]) => [
-      sectionId,
-      createSectionCodegenOverride(override),
-    ]),
-  ) as Record<string, SectionCodegenOverride>;
   return {
     ...mergeGeneratedOptions(defaults, options),
-    allowlist:
-      options.allowlist === null
-        ? null
-        : [...(options.allowlist ?? defaults.allowlist ?? [])],
-    metaControlAllowlist:
-      options.metaControlAllowlist === null
-        ? null
-        : [
-            ...(options.metaControlAllowlist ??
-              defaults.metaControlAllowlist ??
-              []),
-          ],
-    exclude: [...(options.exclude ?? defaults.exclude ?? [])],
-    typePolicies,
-    sectionOverrides,
+    typePolicies: Object.fromEntries(
+      Object.entries({
+        ...(defaults.typePolicies ?? {}),
+        ...(options.typePolicies ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createSectionTypeCodegenPolicy(
+          value as Partial<SectionTypeCodegenPolicy>,
+        ),
+      ]),
+    ) as Record<SectionType, SectionTypeCodegenPolicy>,
+    sectionOverrides: Object.fromEntries(
+      Object.entries({
+        ...(defaults.sectionOverrides ?? {}),
+        ...(options.sectionOverrides ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createSectionCodegenOverride(value as Partial<SectionCodegenOverride>),
+      ]),
+    ) as Record<string, SectionCodegenOverride>,
   };
 }
 
@@ -4880,7 +5223,7 @@ type CodeObjValuePolicy = {
 export function createCodeObjValuePolicy(
   options: Partial<CodeObjValuePolicy> = {},
 ): CodeObjValuePolicy {
-  const defaults: CodeObjValuePolicy = {
+  const defaults = {
     typePolicies: {
       ButtonParam: {
         representation: "expression",
@@ -4930,28 +5273,26 @@ export function createCodeObjValuePolicy(
     },
     codeObjOverrides: {},
   };
-  const typePolicies = Object.fromEntries(
-    Object.entries({
-      ...defaults.typePolicies,
-      ...(options.typePolicies ?? {}),
-    }).map(([codeObjType, policy]) => [
-      codeObjType,
-      createCodeObjTypeValuePolicy(policy),
-    ]),
-  ) as Record<CodeObjType, CodeObjTypeValuePolicy>;
-  const codeObjOverrides = Object.fromEntries(
-    Object.entries({
-      ...defaults.codeObjOverrides,
-      ...(options.codeObjOverrides ?? {}),
-    }).map(([codeObjId, override]) => [
-      codeObjId,
-      createCodeObjValueOverride(override),
-    ]),
-  ) as Record<string, CodeObjValueOverride>;
   return {
     ...mergeGeneratedOptions(defaults, options),
-    typePolicies,
-    codeObjOverrides,
+    typePolicies: Object.fromEntries(
+      Object.entries({
+        ...(defaults.typePolicies ?? {}),
+        ...(options.typePolicies ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createCodeObjTypeValuePolicy(value as Partial<CodeObjTypeValuePolicy>),
+      ]),
+    ) as Record<CodeObjType, CodeObjTypeValuePolicy>,
+    codeObjOverrides: Object.fromEntries(
+      Object.entries({
+        ...(defaults.codeObjOverrides ?? {}),
+        ...(options.codeObjOverrides ?? {}),
+      }).map(([key, value]) => [
+        key,
+        createCodeObjValueOverride(value as Partial<CodeObjValueOverride>),
+      ]),
+    ) as Record<string, CodeObjValueOverride>,
   };
 }
 
@@ -4966,25 +5307,203 @@ export type ProjectCodegenPythonTarget = {
 export function createProjectCodegenPythonTarget(
   options: Partial<ProjectCodegenPythonTarget> = {},
 ): ProjectCodegenPythonTarget {
-  const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});
-  const codeObjValuePolicy = createCodeObjValuePolicy(
-    options.codeObjValuePolicy ?? {},
-  );
-  return {
-    ...mergeGeneratedOptions(
-      {
-        language: "python",
-        genCodePrefix: "",
-        genCodeSuffix: "state = SettaState()",
-        generateMetadata: false,
-        sectionPolicy: sectionPolicy,
-        codeObjValuePolicy: codeObjValuePolicy,
-      },
-      options,
-    ),
-    sectionPolicy,
-    codeObjValuePolicy,
+  const defaults = {
     language: "python",
+    genCodePrefix: "",
+    genCodeSuffix: "state = SettaState()",
+    generateMetadata: false,
+    sectionPolicy: {
+      allowlist: [
+        "Callable",
+        "Dict",
+        "ListRoot",
+        "Group",
+        "GlobalVariables",
+        "TextBlock",
+        "Draw",
+        "MetaControl",
+        "TaskBoard",
+        "Spreadsheet",
+      ],
+      exclude: [],
+      metaControlAllowlist: [
+        "CodeParam",
+        "TextParam",
+        "DateParam",
+        "TimeParam",
+        "TextAreaParam",
+        "SliderParam",
+        "RotaryParam",
+        "SwitchParam",
+        "ColorPickerParam",
+        "DropdownParam",
+        "PasswordParam",
+        "ButtonParam",
+        "DropzoneParam",
+      ],
+      sectionOverrides: {},
+      typePolicies: {
+        Browser: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Callable: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Chart: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Chat: {
+          mode: "inherit",
+          representation: "file_read",
+        },
+        Code: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Dict: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Draw: {
+          mode: "inherit",
+          representation: "file_read",
+        },
+        GenPythonCode: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        GenPythonMetadata: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        GlobalVariables: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Group: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        IFrame: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Image: {
+          mode: "inherit",
+          representation: "file_read",
+        },
+        ListRoot: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        MetaControl: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Plugin: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Prompt: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Social: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Spreadsheet: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        StateMachineEnd: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        StateMachineGate: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        StateMachineStart: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        TaskBoard: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        Terminal: {
+          mode: "inherit",
+          representation: "expression",
+        },
+        TextBlock: {
+          mode: "inherit",
+          representation: "expression",
+        },
+      },
+    },
+    codeObjValuePolicy: {
+      codeObjOverrides: {},
+      typePolicies: {
+        ButtonParam: {
+          representation: "expression",
+        },
+        CodeCallable: {
+          representation: "expression",
+        },
+        CodeParam: {
+          representation: "expression",
+        },
+        ColorPickerParam: {
+          representation: "string",
+        },
+        DateParam: {
+          representation: "string",
+        },
+        DropdownParam: {
+          representation: "expression",
+        },
+        DropzoneParam: {
+          representation: "file_path",
+        },
+        NestedParam: {
+          representation: "expression",
+        },
+        PasswordParam: {
+          representation: "string",
+        },
+        RotaryParam: {
+          representation: "expression",
+        },
+        SliderParam: {
+          representation: "expression",
+        },
+        SwitchParam: {
+          representation: "expression",
+        },
+        TextAreaParam: {
+          representation: "string",
+        },
+        TextParam: {
+          representation: "string",
+        },
+        TimeParam: {
+          representation: "string",
+        },
+      },
+    },
+  };
+  return {
+    ...mergeGeneratedOptions(defaults, options),
+    sectionPolicy: createSectionCodegenPolicy(
+      options.sectionPolicy ?? defaults.sectionPolicy,
+    ),
+    codeObjValuePolicy: createCodeObjValuePolicy(
+      options.codeObjValuePolicy ?? defaults.codeObjValuePolicy,
+    ),
   };
 }
 

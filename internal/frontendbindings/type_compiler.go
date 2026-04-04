@@ -248,7 +248,21 @@ func (c *typeConverter) reflectedObjectDeclaration(
 	}
 	declarationName := frontendBindingTypeName(t)
 	declaration := objectDeclaration(declarationName, properties...)
-	if spec.CreateBody != "" {
+	if spec.UseGenericCreateBody {
+		context := "frontend create defaults " + declarationName
+		createBody, err := buildGenericGoBackedCreateBodyTS(
+			context,
+			declarationName,
+			t,
+			spec.DefaultValue,
+			properties,
+			spec.CreateExprOverrides,
+		)
+		if err != nil {
+			return TypeDeclaration{}, err
+		}
+		declaration.CreateBody = createBody
+	} else if spec.CreateBody != "" {
 		declaration.CreateBody = spec.CreateBody
 	} else if spec.HasCreateExpr {
 		context := "frontend create defaults " + declarationName

@@ -3,446 +3,281 @@ package frontendbindings
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 
-	"setta/internal/agentruns"
 	"setta/internal/projectstate"
-	"setta/internal/projectview"
-	"setta/internal/settingsstate"
 )
 
-func buildTSNestedObjectMergeCreateBodyTS(
-	rootGeneric string,
-	nestedGeneric string,
-	defaults map[string]any,
-	orderedKeys []string,
-	nestedFieldOrders map[string][]string,
-) string {
-	if len(orderedKeys) == 0 {
-		orderedKeys = sortedTSLiteralObjectKeys(defaults)
-	}
-	var builder strings.Builder
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions")
-	if rootGeneric != "" {
-		builder.WriteString("<")
-		builder.WriteString(rootGeneric)
-		builder.WriteString(">")
-	}
-	builder.WriteString("(\n")
-	builder.WriteString("      ")
-	writeTSObjectLiteral(&builder, "      ", defaults, orderedKeys)
-	builder.WriteString(",\n")
-	builder.WriteString("      options,\n")
-	builder.WriteString("    ),\n")
-	for _, key := range orderedKeys {
-		rawEntry, ok := defaults[key]
-		if !ok {
-			panic("missing nested TypeScript default entry: " + key)
-		}
-		entryObject, ok := rawEntry.(map[string]any)
-		if !ok {
-			panic("nested TypeScript default entry is not an object: " + key)
-		}
-		builder.WriteString("    ")
-		builder.WriteString(key)
-		builder.WriteString(": mergeGeneratedOptions")
-		if nestedGeneric != "" {
-			builder.WriteString("<")
-			builder.WriteString(nestedGeneric)
-			builder.WriteString(">")
-		}
-		builder.WriteString("(\n")
-		builder.WriteString("      ")
-		writeTSObjectLiteral(&builder, "      ", entryObject, nestedFieldOrders[key])
-		builder.WriteString(",\n")
-		builder.WriteString("      options.")
-		builder.WriteString(key)
-		builder.WriteString(" ?? {},\n")
-		builder.WriteString("    ),\n")
-	}
-	builder.WriteString("  };")
-	return builder.String()
-}
+type generatedFactoryPropertyExprBuilder func(defaultsExpr string) string
 
-type generatedCompositeCreateFieldSpec struct {
-	LocalName    string
-	PropertyName string
-	CreateExpr   string
-}
-
-type generatedCompositeCreateAssignmentSpec struct {
+type genericCreateFieldSpec struct {
 	Name string
 	Expr string
 }
 
-type generatedCompositeCreateClonedFieldSpec struct {
-	Name     string
-	Nullable bool
-}
-
-type generatedFactoryPropertyExprBuilder func(defaultsExpr string) string
-
-type generatedCompositeCreateMapFieldSpec struct {
-	Name       string
-	KeyName    string
-	ValueName  string
-	CreateExpr string
-	ResultType string
-}
-
-func buildGoBackedCompositeCreateBodyTS(
+func buildGenericGoBackedCreateBodyTS(
 	context string,
+	declarationName string,
+	structType reflect.Type,
 	defaultValue any,
-	nestedFields []generatedCompositeCreateFieldSpec,
-	clonedFields []string,
-	assignments []generatedCompositeCreateAssignmentSpec,
-) string {
-	fieldOrder := goJSONFieldOrder(defaultValue)
-	defaultObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
-
-	exprOverrides := make(map[string]string, len(nestedFields))
-	var builder strings.Builder
-	for _, field := range nestedFields {
-		builder.WriteString("  const ")
-		builder.WriteString(field.LocalName)
-		builder.WriteString(" = ")
-		builder.WriteString(field.CreateExpr)
-		builder.WriteString(";\n")
-		exprOverrides[field.PropertyName] = field.LocalName
+	properties []TypeProperty,
+	exprOverrides map[string]string,
+) (string, error) {
+	if defaultValue == nil {
+		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
-	if len(clonedFields) > 0 {
-		clonedDefaults := make(map[string]any, len(clonedFields))
-		for _, name := range clonedFields {
-			value, ok := defaultObject[name]
-			if !ok {
-				panic(context + ": missing cloned field default " + name)
-			}
-			clonedDefaults[name] = value
-		}
-		builder.WriteString("  const clonedDefaults = ")
-		writeTSObjectLiteral(&builder, "  ", clonedDefaults, clonedFields)
-		builder.WriteString(";\n")
-	}
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...")
-	builder.WriteString(buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
+	fieldSpecs, err := buildGenericCreateFieldSpecs(
 		context,
+		structType,
 		defaultValue,
-		fieldOrder,
-		"options",
+		properties,
 		exprOverrides,
-	))
-	builder.WriteString(",\n")
-	for _, field := range nestedFields {
-		builder.WriteString("    ")
-		if field.PropertyName == field.LocalName {
-			builder.WriteString(field.PropertyName)
-		} else {
-			builder.WriteString(field.PropertyName)
-			builder.WriteString(": ")
-			builder.WriteString(field.LocalName)
-		}
-		builder.WriteString(",\n")
-	}
-	for _, name := range clonedFields {
-		builder.WriteString("    ")
-		builder.WriteString(name)
-		builder.WriteString(": cloneGeneratedValue(\n")
-		builder.WriteString("      options.")
-		builder.WriteString(name)
-		builder.WriteString(" ?? clonedDefaults.")
-		builder.WriteString(name)
-		builder.WriteString(",\n")
-		builder.WriteString("    ),\n")
-	}
-	for _, assignment := range assignments {
-		builder.WriteString("    ")
-		builder.WriteString(assignment.Name)
-		builder.WriteString(": ")
-		builder.WriteString(assignment.Expr)
-		builder.WriteString(",\n")
-	}
-	builder.WriteString("  };")
-	return builder.String()
-}
-
-func buildGoBackedPolicyCreateBodyTS(
-	context string,
-	typeName string,
-	defaultValue any,
-	clonedFields []generatedCompositeCreateClonedFieldSpec,
-	mapFields []generatedCompositeCreateMapFieldSpec,
-) string {
-	defaultsLiteral := renderTSObjectLiteralFromGoValue(
-		context,
-		defaultValue,
-		goJSONFieldOrder(defaultValue),
 	)
-	var builder strings.Builder
-	builder.WriteString("  const defaults: ")
-	builder.WriteString(typeName)
-	builder.WriteString(" = ")
-	builder.WriteString(defaultsLiteral)
-	builder.WriteString(";\n")
-	for _, field := range mapFields {
-		builder.WriteString("  const ")
-		builder.WriteString(field.Name)
-		builder.WriteString(" = Object.fromEntries(\n")
-		builder.WriteString("    Object.entries({\n")
-		builder.WriteString("      ...defaults.")
-		builder.WriteString(field.Name)
-		builder.WriteString(",\n")
-		builder.WriteString("      ...(options.")
-		builder.WriteString(field.Name)
-		builder.WriteString(" ?? {}),\n")
-		builder.WriteString("    }).map(([")
-		builder.WriteString(field.KeyName)
-		builder.WriteString(", ")
-		builder.WriteString(field.ValueName)
-		builder.WriteString("]) => [\n")
-		builder.WriteString("      ")
-		builder.WriteString(field.KeyName)
-		builder.WriteString(",\n")
-		builder.WriteString("      ")
-		builder.WriteString(field.CreateExpr)
-		builder.WriteString(",\n")
-		builder.WriteString("    ]),\n")
-		builder.WriteString("  ) as ")
-		builder.WriteString(field.ResultType)
-		builder.WriteString(";\n")
+	if err != nil {
+		return "", err
 	}
+	defaultsObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
+	var builder strings.Builder
+	builder.WriteString("  const defaults = ")
+	writeTSObjectLiteral(&builder, "  ", defaultsObject, goJSONFieldOrder(defaultValue))
+	builder.WriteString(";\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
-	for _, field := range clonedFields {
+	for _, field := range fieldSpecs {
 		builder.WriteString("    ")
 		builder.WriteString(field.Name)
-		builder.WriteString(":")
-		if field.Nullable {
-			builder.WriteString("\n")
-			builder.WriteString("      options.")
-			builder.WriteString(field.Name)
-			builder.WriteString(" === null\n")
-			builder.WriteString("        ? null\n")
-			builder.WriteString("        : [...(options.")
-			builder.WriteString(field.Name)
-			builder.WriteString(" ?? defaults.")
-			builder.WriteString(field.Name)
-			builder.WriteString(" ?? [])],\n")
-			continue
-		}
-		builder.WriteString(" [...(options.")
-		builder.WriteString(field.Name)
-		builder.WriteString(" ?? defaults.")
-		builder.WriteString(field.Name)
-		builder.WriteString(" ?? [])],\n")
-	}
-	for _, field := range mapFields {
-		builder.WriteString("    ")
-		builder.WriteString(field.Name)
+		builder.WriteString(": ")
+		builder.WriteString(field.Expr)
 		builder.WriteString(",\n")
 	}
 	builder.WriteString("  };")
-	return builder.String()
+	return builder.String(), nil
 }
 
-func buildMetaControlSizingPolicyByTypeCreateBodyTS() string {
-	defaults := projectstate.FrontendDefaultMetaControlSizingPolicyByType()
-	return buildTSNestedObjectMergeCreateBodyTS(
-		"MetaControlSizingPolicyByType",
-		"MetaControlSizingPolicyTypeEntry",
-		mustTSLiteralObjectFromGoValue(
-			"meta control sizing policy defaults",
+func buildGenericCreateFieldSpecs(
+	context string,
+	structType reflect.Type,
+	defaultValue any,
+	properties []TypeProperty,
+	exprOverrides map[string]string,
+) ([]genericCreateFieldSpec, error) {
+	fieldTypes, err := reflectedFieldTypesByJSONName(structType)
+	if err != nil {
+		return nil, err
+	}
+	defaults := mustTSLiteralObjectFromGoValue(context, defaultValue)
+	specs := []genericCreateFieldSpec{}
+	for _, property := range properties {
+		fieldType, ok := fieldTypes[property.Name]
+		if !ok {
+			return nil, fmt.Errorf("%s is missing field metadata for %q", structType.Name(), property.Name)
+		}
+		explicitDefaultExpr := ""
+		if exprOverrides != nil {
+			explicitDefaultExpr = strings.TrimSpace(exprOverrides[property.Name])
+		}
+		fieldSpec, ok, err := buildGenericCreateFieldSpec(
+			fieldType,
+			property,
+			explicitDefaultExpr,
+			renderTSPropertyAccessExpr("defaults", property.Name),
+			renderTSPropertyAccessExpr("options", property.Name),
 			defaults,
-		),
-		goJSONFieldOrder(defaults),
-		goJSONFieldOrderMapFromStructFields(defaults),
-	)
+		)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			specs = append(specs, fieldSpec)
+		}
+	}
+	return specs, nil
 }
 
-func buildSectionSizingPolicyByTypeCreateBodyTS() string {
-	defaults := projectstate.FrontendDefaultSectionSizingPolicyByType()
-	return buildTSNestedObjectMergeCreateBodyTS(
-		"",
-		"",
-		mustTSLiteralObjectFromGoValue(
-			"section sizing policy defaults",
-			defaults,
-		),
-		goJSONFieldOrder(defaults),
-		goJSONFieldOrderMapFromStructFields(defaults),
-	)
+func buildGenericCreateFieldSpec(
+	fieldType reflect.Type,
+	property TypeProperty,
+	explicitDefaultExpr string,
+	defaultExpr string,
+	optionsExpr string,
+	defaults map[string]any,
+) (genericCreateFieldSpec, bool, error) {
+	defaultExpr = strings.TrimSpace(defaultExpr)
+	optionsExpr = strings.TrimSpace(optionsExpr)
+	_, hasDefault := defaults[property.Name]
+	if explicitDefaultExpr != "" {
+		return genericCreateFieldSpec{
+			Name: property.Name,
+			Expr: buildGenericDefaultFallbackExprTS(fieldType, optionsExpr, explicitDefaultExpr),
+		}, true, nil
+	}
+	if expr, ok := buildGenericNamedStructFieldExprTS(fieldType, optionsExpr, defaultExpr, hasDefault); ok {
+		return genericCreateFieldSpec{Name: property.Name, Expr: expr}, true, nil
+	}
+	if expr, ok := buildGenericMapFieldExprTS(fieldType, property.TypeExpr, optionsExpr, defaultExpr, hasDefault); ok {
+		return genericCreateFieldSpec{Name: property.Name, Expr: expr}, true, nil
+	}
+	return genericCreateFieldSpec{}, false, nil
 }
 
-func buildSectionSizingPolicyCreateBodyTS() string {
-	return buildGoBackedCompositeCreateBodyTS(
-		"frontend default section sizing policy",
-		projectstate.FrontendDefaultSectionSizingPolicy(),
-		[]generatedCompositeCreateFieldSpec{
-			{
-				LocalName:    "byType",
-				PropertyName: "byType",
-				CreateExpr:   "createSectionSizingPolicyByType(options.byType ?? {})",
-			},
-			{
-				LocalName:    "metaControlByType",
-				PropertyName: "metaControlByType",
-				CreateExpr: "createMetaControlSizingPolicyByType(\n" +
-					"    options.metaControlByType ?? {},\n" +
-					"  )",
-			},
-			{
-				LocalName:    "globals",
-				PropertyName: "globals",
-				CreateExpr:   "createSectionSizingPolicyGlobals(options.globals ?? {})",
-			},
-		},
-		nil,
-		nil,
-	)
+func buildGenericNamedStructFieldExprTS(
+	fieldType reflect.Type,
+	optionsExpr string,
+	defaultExpr string,
+	hasDefault bool,
+) (string, bool) {
+	createFuncName, _, nullable, ok := frontendObjectCreateFunctionName(fieldType)
+	if !ok {
+		return "", false
+	}
+	if nullable {
+		if hasDefault {
+			return fmt.Sprintf(
+				"%s === null ? null : %s(%s ?? %s)",
+				optionsExpr,
+				createFuncName,
+				optionsExpr,
+				defaultExpr,
+			), true
+		}
+		return fmt.Sprintf(
+			"%s === undefined || %s === null ? null : %s(%s)",
+			optionsExpr,
+			optionsExpr,
+			createFuncName,
+			optionsExpr,
+		), true
+	}
+	if hasDefault {
+		return fmt.Sprintf("%s(%s ?? %s)", createFuncName, optionsExpr, defaultExpr), true
+	}
+	return fmt.Sprintf("%s(%s ?? {})", createFuncName, optionsExpr), true
 }
 
-func buildSettingsStateCreateBodyTS() string {
-	return buildGoBackedCompositeCreateBodyTS(
-		"frontend default settings state",
-		settingsstate.FrontendDefaultSettingsState(),
-		[]generatedCompositeCreateFieldSpec{
-			{
-				LocalName:    "shortcuts",
-				PropertyName: "shortcuts",
-				CreateExpr:   "createSettingsShortcuts(options.shortcuts ?? {})",
-			},
-			{
-				LocalName:    "gui",
-				PropertyName: "gui",
-				CreateExpr:   "createSettingsGUI(options.gui ?? {})",
-			},
-			{
-				LocalName:    "backend",
-				PropertyName: "backend",
-				CreateExpr:   "createSettingsBackend(options.backend ?? {})",
-			},
-			{
-				LocalName:    "sectionSizingPolicy",
-				PropertyName: "sectionSizingPolicy",
-				CreateExpr: "createSectionSizingPolicy(\n" +
-					"    options.sectionSizingPolicy ?? {},\n" +
-					"  )",
-			},
-		},
-		[]string{"languageServer"},
-		nil,
-	)
-}
-
-func buildProjectCodegenPythonTargetCreateBodyTS() string {
-	defaultTarget := projectview.FrontendDefaultProjectCodegenPythonTarget()
-	return buildGoBackedCompositeCreateBodyTS(
-		"default project codegen python target",
-		defaultTarget,
-		[]generatedCompositeCreateFieldSpec{
-			{
-				LocalName:    "sectionPolicy",
-				PropertyName: "sectionPolicy",
-				CreateExpr:   "createSectionCodegenPolicy(options.sectionPolicy ?? {})",
-			},
-			{
-				LocalName:    "codeObjValuePolicy",
-				PropertyName: "codeObjValuePolicy",
-				CreateExpr: "createCodeObjValuePolicy(\n" +
-					"    options.codeObjValuePolicy ?? {},\n" +
-					"  )",
-			},
-		},
-		nil,
-		[]generatedCompositeCreateAssignmentSpec{
-			{Name: "language", Expr: renderTSLiteralExpr(string(defaultTarget.Language))},
-		},
-	)
-}
-
-func buildSectionCodegenPolicyCreateBodyTS() string {
-	return buildGoBackedPolicyCreateBodyTS(
-		"frontend default python section codegen policy",
-		"SectionCodegenPolicy",
-		projectview.FrontendDefaultPythonSectionCodegenPolicy(),
-		[]generatedCompositeCreateClonedFieldSpec{
-			{Name: "allowlist", Nullable: true},
-			{Name: "metaControlAllowlist", Nullable: true},
-			{Name: "exclude"},
-		},
-		[]generatedCompositeCreateMapFieldSpec{
-			{
-				Name:       "typePolicies",
-				KeyName:    "sectionType",
-				ValueName:  "policy",
-				CreateExpr: "createSectionTypeCodegenPolicy(policy)",
-				ResultType: "Record<SectionType, SectionTypeCodegenPolicy>",
-			},
-			{
-				Name:       "sectionOverrides",
-				KeyName:    "sectionId",
-				ValueName:  "override",
-				CreateExpr: "createSectionCodegenOverride(override)",
-				ResultType: "Record<string, SectionCodegenOverride>",
-			},
-		},
-	)
-}
-
-func buildCodeObjValuePolicyCreateBodyTS() string {
-	return buildGoBackedPolicyCreateBodyTS(
-		"frontend default python code object value policy",
-		"CodeObjValuePolicy",
-		projectview.FrontendDefaultPythonCodeObjValuePolicy(),
-		nil,
-		[]generatedCompositeCreateMapFieldSpec{
-			{
-				Name:       "typePolicies",
-				KeyName:    "codeObjType",
-				ValueName:  "policy",
-				CreateExpr: "createCodeObjTypeValuePolicy(policy)",
-				ResultType: "Record<CodeObjType, CodeObjTypeValuePolicy>",
-			},
-			{
-				Name:       "codeObjOverrides",
-				KeyName:    "codeObjId",
-				ValueName:  "override",
-				CreateExpr: "createCodeObjValueOverride(override)",
-				ResultType: "Record<string, CodeObjValueOverride>",
-			},
-		},
-	)
-}
-
-func buildEngineConfigCreateBodyTS() string {
-	defaultConfig := agentruns.EngineConfig{
-		EngineType: agentruns.EngineTypeSettaLLM,
+func buildGenericMapFieldExprTS(
+	fieldType reflect.Type,
+	resultType string,
+	optionsExpr string,
+	defaultExpr string,
+	hasDefault bool,
+) (string, bool) {
+	nullable := false
+	for fieldType.Kind() == reflect.Pointer {
+		nullable = true
+		fieldType = fieldType.Elem()
+	}
+	if fieldType.Kind() != reflect.Map {
+		return "", false
+	}
+	createFuncName, valueTypeName, _, ok := frontendObjectCreateFunctionName(fieldType.Elem())
+	if !ok {
+		return "", false
+	}
+	defaultSource := "{}"
+	if hasDefault {
+		defaultSource = defaultExpr + " ?? {}"
 	}
 	var builder strings.Builder
-	builder.WriteString("  const defaults = createEngineConfigDefaults();\n")
-	builder.WriteString("  const runtimeSupport = createEngineRuntimeSupport();\n")
-	builder.WriteString("  const mergedDefaults = mergeGeneratedOptions(defaults, options.defaults ?? {});\n")
-	builder.WriteString("  const mergedRuntimeSupport =\n")
-	builder.WriteString("    options.runtimeSupport === undefined || options.runtimeSupport === null\n")
-	builder.WriteString("      ? null\n")
-	builder.WriteString("      : mergeGeneratedOptions(runtimeSupport, options.runtimeSupport);\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...")
-	builder.WriteString(buildTSMergeGeneratedOptionsExprFromGoValueWithExprOverridesTS(
-		"frontend default engine config",
-		defaultConfig,
-		goJSONFieldOrder(defaultConfig),
-		"options",
-		map[string]string{
-			"defaults": "defaults",
-		},
-	))
-	builder.WriteString(",\n")
-	builder.WriteString("    defaults: mergedDefaults,\n")
-	builder.WriteString("    runtimeSupport: mergedRuntimeSupport,\n")
-	builder.WriteString("  };")
-	return builder.String()
+	if nullable {
+		builder.WriteString(optionsExpr)
+		builder.WriteString(" === null\n")
+		builder.WriteString("      ? null\n")
+		builder.WriteString("      : ")
+	}
+	builder.WriteString("Object.fromEntries(\n")
+	builder.WriteString("      Object.entries({\n")
+	builder.WriteString("        ...(")
+	builder.WriteString(defaultSource)
+	builder.WriteString("),\n")
+	builder.WriteString("        ...(")
+	builder.WriteString(optionsExpr)
+	builder.WriteString(" ?? {}),\n")
+	builder.WriteString("      }).map(([key, value]) => [\n")
+	builder.WriteString("        key,\n")
+	builder.WriteString("        ")
+	builder.WriteString(createFuncName)
+	builder.WriteString("(value as Partial<")
+	builder.WriteString(valueTypeName)
+	builder.WriteString(">),\n")
+	builder.WriteString("      ]),\n")
+	builder.WriteString("    ) as ")
+	builder.WriteString(resultType)
+	return builder.String(), true
+}
+
+func buildGenericDefaultFallbackExprTS(
+	fieldType reflect.Type,
+	optionsExpr string,
+	defaultExpr string,
+) string {
+	nullable := false
+	for fieldType.Kind() == reflect.Pointer {
+		nullable = true
+		fieldType = fieldType.Elem()
+	}
+	if nullable {
+		return fmt.Sprintf("%s === null ? null : (%s ?? %s)", optionsExpr, optionsExpr, defaultExpr)
+	}
+	return fmt.Sprintf("%s ?? %s", optionsExpr, defaultExpr)
+}
+
+func frontendObjectCreateFunctionName(fieldType reflect.Type) (string, string, bool, bool) {
+	nullable := false
+	for fieldType.Kind() == reflect.Pointer {
+		nullable = true
+		fieldType = fieldType.Elem()
+	}
+	fieldType = canonicalFrontendBindingType(fieldType)
+	if fieldType == nil || fieldType.Name() == "" || fieldType.PkgPath() == "" {
+		return "", "", false, false
+	}
+	if fieldType.Kind() != reflect.Struct {
+		return "", "", false, false
+	}
+	typeName := frontendBindingTypeName(fieldType)
+	return "create" + typeName, typeName, nullable, true
+}
+
+func reflectedFieldTypesByJSONName(structType reflect.Type) (map[string]reflect.Type, error) {
+	fields := map[string]reflect.Type{}
+	for structType.Kind() == reflect.Pointer {
+		structType = structType.Elem()
+	}
+	if structType.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("generic create body requires a struct type, got %s", structType.String())
+	}
+	for fieldIndex := range structType.NumField() {
+		field := structType.Field(fieldIndex)
+		if !field.IsExported() {
+			continue
+		}
+		if field.Anonymous {
+			embeddedFields, err := reflectedFieldTypesByJSONName(field.Type)
+			if err != nil {
+				return nil, err
+			}
+			for name, fieldType := range embeddedFields {
+				if _, exists := fields[name]; !exists {
+					fields[name] = fieldType
+				}
+			}
+			continue
+		}
+		name, _, skip := jsonFieldName(field)
+		if skip {
+			continue
+		}
+		fields[name] = field.Type
+	}
+	return fields, nil
+}
+
+func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
+	if tsIdentifierPattern.MatchString(propertyName) {
+		return baseExpr + "." + propertyName
+	}
+	return baseExpr + "[" + strconv.Quote(propertyName) + "]"
 }
 
 func buildGeneratedFactoryReturnBodyTS(
