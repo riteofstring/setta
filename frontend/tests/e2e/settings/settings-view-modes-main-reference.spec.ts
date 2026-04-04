@@ -4933,6 +4933,322 @@ test("settings graph parity probe keeps the dict config language row attached af
   }
 });
 
+test("settings graph parity probe keeps the chart data path row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.slow();
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const worktreeChartSectionId = findSectionIdByName(
+    worktreeInitialState,
+    "chartSectionDefault",
+  );
+  const referenceChartSectionId = findSectionIdByName(
+    referenceInitialState,
+    "chartSectionDefault",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+
+  async function captureChartToolbarZoom(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    targetPage: Page;
+  }) {
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    const sectionLocator = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const dataPathRow = sectionLocator.getByText("dataPath", { exact: true });
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+    await expect(sectionLocator).toBeVisible();
+    await expect(dataPathRow).toBeVisible();
+
+    const beforeMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const beforeAnchorPosition = await getLocatorRelativeCenterPosition({
+      child: dataPathRow,
+      section: sectionLocator,
+    });
+    if (
+      !beforeMetrics.transform ||
+      !beforeMetrics.rect ||
+      !beforeAnchorPosition
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} chart toolbar zoom baseline metrics.`,
+      );
+    }
+
+    // Keep the same chart row anchor attached while the shared zoom control
+    // changes the graph viewport.
+    await args.targetPage.getByRole("button", { name: "zoom in" }).click();
+
+    await expect
+      .poll(async () => {
+        return (
+          (
+            await captureSettingsGraphSectionMetrics(
+              args.targetPage,
+              args.sectionId,
+            )
+          ).transform?.zoom ?? 0
+        );
+      })
+      .toBeGreaterThan(beforeMetrics.transform.zoom * 1.08);
+
+    await expect
+      .poll(async () => {
+        const latestAnchorPosition = await getLocatorRelativeCenterPosition({
+          child: dataPathRow,
+          section: sectionLocator,
+        });
+        if (!latestAnchorPosition) {
+          return Number.POSITIVE_INFINITY;
+        }
+        return Math.max(
+          Math.abs(latestAnchorPosition.x - beforeAnchorPosition.x),
+          Math.abs(latestAnchorPosition.y - beforeAnchorPosition.y),
+        );
+      })
+      .toBeLessThan(0.03);
+
+    const afterMetrics = await waitForSettledSectionMetrics({
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      page: args.targetPage,
+      sectionId: args.sectionId,
+    });
+    const afterAnchorPosition = await getLocatorRelativeCenterPosition({
+      child: dataPathRow,
+      section: sectionLocator,
+    });
+    if (!afterMetrics.transform || !afterMetrics.rect || !afterAnchorPosition) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} chart toolbar zoom result metrics.`,
+      );
+    }
+
+    return {
+      afterMetrics: {
+        centerOffsetFromRootCenter: afterMetrics.centerOffsetFromRootCenter,
+        rect: afterMetrics.rect,
+        transform: afterMetrics.transform,
+      },
+      anchorDrift: {
+        x: Math.abs(afterAnchorPosition.x - beforeAnchorPosition.x),
+        y: Math.abs(afterAnchorPosition.y - beforeAnchorPosition.y),
+      },
+      paneState: await getLocalPaneState(args.targetPage),
+      zoomDelta: afterMetrics.transform.zoom - beforeMetrics.transform.zoom,
+    };
+  }
+
+  try {
+    const referenceResult = await captureChartToolbarZoom({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      pageTab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceChartSectionId,
+      targetPage: referencePage,
+    });
+    const worktreeResult = await captureChartToolbarZoom({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      pageTab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeChartSectionId,
+      targetPage: page,
+    });
+
+    expect(referenceResult.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(referenceResult.anchorDrift.x).toBeLessThan(0.03);
+    expect(referenceResult.anchorDrift.y).toBeLessThan(0.03);
+    expect(worktreeResult.anchorDrift.x).toBeLessThan(0.03);
+    expect(worktreeResult.anchorDrift.y).toBeLessThan(0.03);
+    expect(
+      Math.abs(worktreeResult.zoomDelta - referenceResult.zoomDelta),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(
+        (worktreeResult.afterMetrics.centerOffsetFromRootCenter ?? 0) -
+          (referenceResult.afterMetrics.centerOffsetFromRootCenter ?? 0),
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.transform.x -
+          referenceResult.afterMetrics.transform.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.transform.y -
+          referenceResult.afterMetrics.transform.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.transform.zoom -
+          referenceResult.afterMetrics.transform.zoom,
+      ),
+    ).toBeLessThan(0.04);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.x -
+          referenceResult.afterMetrics.rect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.y -
+          referenceResult.afterMetrics.rect.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.width -
+          referenceResult.afterMetrics.rect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterMetrics.rect.height -
+          referenceResult.afterMetrics.rect.height,
+      ),
+    ).toBeLessThan(8);
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe keeps the spreadsheet body search input working after normalized motion on read-only main legacy and worktree canary", async ({
   context,
   page,

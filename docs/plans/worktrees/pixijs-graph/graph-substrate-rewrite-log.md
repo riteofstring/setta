@@ -4740,3 +4740,51 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - because items `136` and `137` are now two probe-only passes on the same named dict lane, the next iteration must either land product code on a remaining concrete dict-lane artifact or move to a different renderer-facing named lane instead of spending a third probe-only pass on `dictSectionDefault`
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 18:58 EDT - Ralph item 138
+
+- Opened `chartSectionDefault` as the next trusted toolbar-zoom lane, anchored it on the live `dataPath` row, and used the required CDP visual gate to isolate the first concrete canary-only chart drift instead of continuing the exhausted dict lane.
+- Why this slice was necessary:
+  - items `136` and `137` had already used the dict lane budget on two probe-only passes, so the next valid move had to switch to a different named section rather than adding a third dict probe
+  - `chartSectionDefault` was already part of the shared normalized `All Settings` visible set from item `133`, so it was the narrowest next lane that did not require another anchor-discovery iteration
+- Production/test change:
+  - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added `settings graph parity probe keeps the chart data path row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary`
+    - marked that new live two-runtime probe `test.slow()` after the first full run showed it exceeds the default 120s timeout without a step-level assertion failure
+- What this slice established:
+  - `chartSectionDefault` is present on normalized `All Settings` on both sides with the current live ids:
+    - worktree canary: `e35726e4-ca57-4d1a-a7aa-888e3bdd16e6`
+    - read-only main legacy: `3db69daf-cbba-4d4f-8359-94eb2db8559e`
+  - the exact shared visible chart-body anchor on this lane is `dataPath`, not `Data Path`
+  - the first targeted Playwright rerun failed only because the initial anchor guess used `Data Path`; switching to the actual rendered `dataPath` row fixed the lane setup
+  - the second rerun hit expired run-057 bootstrap tokens (`401 Unauthorized`) during Playwright global setup; refreshing worktree/main runtime info fixed that and should not be treated as renderer evidence
+  - with fresh run-057 bootstrap values and `test.slow()`, the targeted direct live-runtime Playwright rerun passed (`1 passed`, `4.1m`)
+  - the required fresh-context CDP visual gate then normalized both tabs, applied shared targeted `fit view`, and clicked one toolbar `zoom in` on both surfaces
+  - after that same checked path, the read-only main reference stayed in the expected expanded chart-card state, but the worktree canary remained a tiny/collapsed chart card:
+    - reference geometry: header `top≈429.84`, `left≈239.21`, `width≈962.03`, `height≈39.63`; `dataPath` row `top≈581.17`, `left≈250.02`, `width≈463.00`, `height≈36.03`
+    - worktree geometry: header `top≈104.80`, `left≈693.30`, `width≈53.40`, `height≈2.20`; `dataPath` row `top≈113.20`, `left≈693.90`, `width≈25.70`, `height≈2.00`
+  - treat that CDP result as real chart-lane visual drift versus `main`, not as token/tooling noise
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - refreshed run-057 runtime/bootstrap values multiple times during the slice:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-057/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-057/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-057 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-057 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the chart data path row attached after fit view and toolbar zoom in on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `4.1m`)
+  - live chart-id cross-check:
+    - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8075","http://127.0.0.1:3075","chartSectionDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","chartSectionDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+    - result: worktree `e35726e4-ca57-4d1a-a7aa-888e3bdd16e6`, reference `3db69daf-cbba-4d4f-8359-94eb2db8559e`
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - normalized both worktree `3075/settings` and read-only main `3087/settings` to `All Settings`
+    - applied shared targeted `fit view` and one toolbar `zoom in` on `chartSectionDefault`
+    - first full-page accessibility snapshot timed out on the large surface, so the sub-agent switched to DOM geometry plus viewport screenshots
+  - CDP visual check: done (fresh-context chart lane compare on live `3075` canary vs read-only `3087` legacy; after the same normalized fit + one toolbar zoom in, `main` stays expanded while the worktree `chartSectionDefault` remains tiny/collapsed, with `dataPath` row geometry far smaller than reference)
+- Lane status:
+  - `chartSectionDefault` is now the active named lane beyond the exhausted dict lane, with a deterministic toolbar-zoom Playwright probe anchored on the live `dataPath` row
+  - the checked chart toolbar-zoom lane is not visually clean: the required CDP gate found a concrete canary-only post-zoom drift versus `main`
+- Next frontier:
+  - tighten this lane against canary-owned chart geometry or land the product fix for the chart fit/zoom drift before opening another support-only lane
+- LOOP_TERMINAL_MARKER: none
