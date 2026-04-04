@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import { C_ADDRESSES } from "utils/c_addresses";
 import {
   resolveWorkspaceLaunchBackNavigation,
   resolveWorkspaceLaunchReturnUrl,
@@ -51,33 +50,22 @@ describe("WorkspaceLaunchPage back navigation helpers", () => {
     });
   });
 
-  it("maps backend home returns to in-app home navigation", () => {
+  it("preserves cross-origin returns as full redirects", () => {
     const resolved = resolveWorkspaceLaunchBackNavigation(
-      `${C_ADDRESSES.BACKEND_ORIGIN}/home?foo=1#top`,
-      "https://current.example/launching",
-    );
-
-    expect(resolved).toEqual({
-      kind: "navigate",
-      target: "/home?foo=1&__setta_open_workspace_switcher=1#top",
-    });
-  });
-
-  it("preserves trusted cross-origin non-home returns as full redirects", () => {
-    const resolved = resolveWorkspaceLaunchBackNavigation(
-      `${C_ADDRESSES.LAUNCHER_ORIGIN}/projects/demo`,
+      "https://trusted.example/home?foo=1#top",
       "https://current.example/launching",
     );
 
     expect(resolved).toEqual({
       kind: "assign",
-      target: `${C_ADDRESSES.LAUNCHER_ORIGIN}/projects/demo?__setta_open_workspace_switcher=1`,
+      target:
+        "https://trusted.example/home?foo=1&__setta_open_workspace_switcher=1#top",
     });
   });
 
-  it("falls back to local home navigation for untrusted origins", () => {
+  it("falls back to local home navigation for invalid schemes", () => {
     const resolved = resolveWorkspaceLaunchBackNavigation(
-      "https://attacker.example/projects/demo",
+      "javascript:alert('xss')",
       "http://launcher.local/launching",
     );
 

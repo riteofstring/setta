@@ -240,6 +240,24 @@ func (s *OpenWorkspaceService) OpenWorkspace(input OpenWorkspaceInput) (OpenWork
 	}
 
 	normalizedRequestOrigin := frontendorigins.NormalizeOrigin(input.RequestOrigin)
+	if normalizedRequestOrigin != "" {
+		proof := frontendorigins.MintLauncherOriginHandoffProof(
+			launchResult.Session.ID,
+			normalizedRequestOrigin,
+			launchResult.Secret,
+		)
+		bootstrapURLFragment, err = frontendorigins.AppendLauncherOriginHandoffToBootstrapURL(
+			bootstrapURLFragment,
+			normalizedRequestOrigin,
+			proof,
+		)
+		if err != nil {
+			return OpenWorkspaceResult{}, &OpenWorkspaceError{
+				Code:    "InternalError",
+				Message: "Internal Server Error",
+			}
+		}
+	}
 	if err := s.trustLaunchedWorkspaceOriginForLauncherSession(normalizedRequestOrigin, bootstrapURLFragment, input.CurrentSession); err != nil {
 		if launchResult.StartedNew {
 			if rollbackErr := s.rollbackLocalSession(launchResult.Session, launchResult.Paths.RuntimeRoot); rollbackErr != nil {

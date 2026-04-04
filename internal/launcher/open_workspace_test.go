@@ -3,6 +3,7 @@ package launcher
 import (
 	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,6 +159,93 @@ func TestOpenWorkspaceServiceCreatesWorkspaceLaunchesSessionAndPersistsState(t *
 	}
 	if metadata.LastUsedWorkspace == nil || *metadata.LastUsedWorkspace != resolvedWorkspaceRoot {
 		t.Fatalf("expected launcher metadata last used workspace %q, got %#v", resolvedWorkspaceRoot, metadata.LastUsedWorkspace)
+	}
+}
+
+func TestOpenWorkspaceServiceAppendsSignedLauncherOriginHandoffToBootstrapFragment(t *testing.T) {
+	t.Parallel()
+
+	baseRoot := t.TempDir()
+	allowedRoot := filepath.Join(baseRoot, "allowed")
+	defaultSettaHome := filepath.Join(baseRoot, ".setta")
+	workspaceRoot := filepath.Join(allowedRoot, "workspace")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+	resolvedWorkspaceRoot, err := resolvePathLoose(workspaceRoot)
+	if err != nil {
+		t.Fatalf("resolve workspace root: %v", err)
+	}
+	resolvedSettaHome, err := resolvePathLoose(defaultSettaHome)
+	if err != nil {
+		t.Fatalf("resolve default setta home: %v", err)
+	}
+
+	sessionLauncher := &capturingIDELauncher{
+		result: IDELaunchResult{
+			Session: auth.SessionMetadata{
+				ID:   "session-1",
+				Host: "127.0.0.1",
+				Port: 61234,
+			},
+			Secret: []byte("secret"),
+			Paths: config.Paths{
+				WorkspaceRoot:         resolvedWorkspaceRoot,
+				SettaHome:             resolvedSettaHome,
+				SettaFilesRoot:        filepath.Join(resolvedWorkspaceRoot, "setta_files"),
+				ResolvedFilesLocation: config.ResolvedFilesLocationLocal,
+				RuntimeRoot:           filepath.Join(resolvedWorkspaceRoot, "setta_files", "runtime"),
+			},
+			StartedNew: true,
+		},
+	}
+
+	service, err := NewOpenWorkspaceService(OpenWorkspaceServiceOptions{
+		DefaultSettaHome: defaultSettaHome,
+		Home: NewHomeService(HomeServiceOptions{
+			EnvLookup: testEnvLookup(map[string]string{
+				"HOME":                         os.Getenv("HOME"),
+				"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+			}),
+		}),
+		Sessions: sessionLauncher,
+		MintBootstrapToken: func(string, []byte, time.Time) (string, error) {
+			return "tok", nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("new open workspace service: %v", err)
+	}
+
+	result, err := service.OpenWorkspace(OpenWorkspaceInput{
+		WorkspaceRoot: workspaceRoot,
+		RequestOrigin: "http://launcher.example:9001",
+	})
+	if err != nil {
+		t.Fatalf("open workspace: %v", err)
+	}
+
+	bootstrapURL, err := url.Parse(result.BootstrapURLFragment)
+	if err != nil {
+		t.Fatalf("parse bootstrap URL fragment: %v", err)
+	}
+	params, err := url.ParseQuery(strings.TrimPrefix(bootstrapURL.Fragment, "#"))
+	if err != nil {
+		t.Fatalf("parse bootstrap URL fragment params: %v", err)
+	}
+	if params.Get("token") != "tok" {
+		t.Fatalf("expected token in bootstrap URL fragment, got %q", params.Get("token"))
+	}
+	if params.Get("lo") != "http://launcher.example:9001" {
+		t.Fatalf("expected launcher origin handoff, got %q", params.Get("lo"))
+	}
+	if !frontendorigins.ValidateLauncherOriginHandoffProof(
+		"session-1",
+		params.Get("lo"),
+		params.Get("lop"),
+		[]byte("secret"),
+	) {
+		t.Fatalf("expected launcher origin proof to validate, got %q", params.Get("lop"))
 	}
 }
 

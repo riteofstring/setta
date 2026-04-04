@@ -426,8 +426,30 @@ func TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment(t *
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode open workspace payload: %v", err)
 	}
-	if !payload.Ok || payload.BootstrapURLFragment == nil || *payload.BootstrapURLFragment != "http://127.0.0.1:61234/__setta__/bootstrap#token=tok" {
+	if !payload.Ok || payload.BootstrapURLFragment == nil {
 		t.Fatalf("unexpected open workspace payload %#v", payload)
+	}
+	bootstrapURL, err := url.Parse(*payload.BootstrapURLFragment)
+	if err != nil {
+		t.Fatalf("parse bootstrap URL fragment: %v", err)
+	}
+	params, err := url.ParseQuery(strings.TrimPrefix(bootstrapURL.Fragment, "#"))
+	if err != nil {
+		t.Fatalf("parse bootstrap URL fragment params: %v", err)
+	}
+	if params.Get("token") != "tok" {
+		t.Fatalf("expected bootstrap token, got %q", params.Get("token"))
+	}
+	if params.Get("lo") != "http://example.com" {
+		t.Fatalf("expected default request-origin handoff, got %q", params.Get("lo"))
+	}
+	if !frontendorigins.ValidateLauncherOriginHandoffProof(
+		"session-1",
+		params.Get("lo"),
+		params.Get("lop"),
+		[]byte("secret"),
+	) {
+		t.Fatalf("expected launcher origin proof to validate, got %q", params.Get("lop"))
 	}
 	if payload.WorkspaceRoot == nil || *payload.WorkspaceRoot != resolvedWorkspaceRoot {
 		t.Fatalf("unexpected workspace root payload %#v", payload.WorkspaceRoot)
@@ -440,6 +462,89 @@ func TestRegisterLauncherHomeRoutesOpensWorkspaceAndReturnsBootstrapFragment(t *
 	}
 	if sessionLauncher.input == nil || sessionLauncher.input.SettaFilesLocation == nil || *sessionLauncher.input.SettaFilesLocation != "auto" {
 		t.Fatalf("expected route to normalize omitted files location to auto, got %#v", sessionLauncher.input)
+	}
+}
+
+func TestRegisterLauncherHomeRoutesOpenWorkspaceIncludesSignedLauncherOriginHandoff(t *testing.T) {
+	t.Parallel()
+
+	allowedRoot := t.TempDir()
+	workspaceRoot := filepath.Join(allowedRoot, "workspace-open")
+	if err := os.MkdirAll(workspaceRoot, 0o755); err != nil {
+		t.Fatalf("mkdir workspace root: %v", err)
+	}
+	defaultSettaHome := filepath.Join(t.TempDir(), ".setta")
+	home := launcher.NewHomeService(launcher.HomeServiceOptions{
+		EnvLookup: testEnv{
+			"HOME":                         os.Getenv("HOME"),
+			"SETTA_LAUNCHER_ALLOWED_ROOTS": allowedRoot,
+		}.lookup,
+	})
+	sessionLauncher := &httpAPICapturingLauncher{
+		result: launcher.IDELaunchResult{
+			Session: auth.SessionMetadata{
+				ID:   "session-1",
+				Host: "127.0.0.1",
+				Port: 61234,
+			},
+			Secret: []byte("secret"),
+			Paths: config.Paths{
+				WorkspaceRoot:         workspaceRoot,
+				SettaHome:             defaultSettaHome,
+				SettaFilesRoot:        filepath.Join(workspaceRoot, "setta_files"),
+				ResolvedFilesLocation: config.ResolvedFilesLocationLocal,
+				RuntimeRoot:           filepath.Join(workspaceRoot, "setta_files", "runtime"),
+			},
+			StartedNew: false,
+		},
+	}
+
+	handler := newLauncherHomeRouteTestHandler(
+		t,
+		config.ModeLauncher,
+		defaultSettaHome,
+		home,
+		newLauncherHomeOpenWorkspaceService(t, defaultSettaHome, home, sessionLauncher),
+	)
+
+	response := httptest.NewRecorder()
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api"+RouteOpenLauncherWorkspace,
+		stringsReader(`{"workspaceRoot":"`+workspaceRoot+`"}`),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Origin", "http://launcher.example:9001")
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK {
+		t.Fatalf("expected open workspace 200, got %d with body %q", response.Code, response.Body.String())
+	}
+
+	var payload LauncherOpenWorkspaceResponse
+	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
+		t.Fatalf("decode open workspace payload: %v", err)
+	}
+	if !payload.Ok || payload.BootstrapURLFragment == nil {
+		t.Fatalf("unexpected open workspace payload %#v", payload)
+	}
+	bootstrapURL, err := url.Parse(*payload.BootstrapURLFragment)
+	if err != nil {
+		t.Fatalf("parse bootstrap URL fragment: %v", err)
+	}
+	params, err := url.ParseQuery(strings.TrimPrefix(bootstrapURL.Fragment, "#"))
+	if err != nil {
+		t.Fatalf("parse bootstrap URL fragment params: %v", err)
+	}
+	if params.Get("lo") != "http://launcher.example:9001" {
+		t.Fatalf("expected launcher origin handoff, got %q", params.Get("lo"))
+	}
+	if !frontendorigins.ValidateLauncherOriginHandoffProof(
+		"session-1",
+		params.Get("lo"),
+		params.Get("lop"),
+		[]byte("secret"),
+	) {
+		t.Fatalf("expected launcher origin proof to validate, got %q", params.Get("lop"))
 	}
 }
 

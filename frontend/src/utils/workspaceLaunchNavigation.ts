@@ -1,4 +1,3 @@
-import { C_ADDRESSES } from "utils/c_addresses";
 import { HOME_ROUTER_PATH } from "utils/constants";
 
 const OPEN_WORKSPACE_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
@@ -42,22 +41,13 @@ export function resolveWorkspaceLaunchBackNavigation(
   try {
     const currentUrl = new URL(currentHref);
     const resolvedReturnUrl = new URL(returnUrl, currentHref);
-    const allowedOrigins = new Set<string>([
-      currentUrl.origin,
-      C_ADDRESSES.BACKEND_ORIGIN,
-      C_ADDRESSES.LAUNCHER_ORIGIN,
-    ]);
-    if (!allowedOrigins.has(resolvedReturnUrl.origin)) {
-      throw new Error("Disallowed return URL origin.");
-    }
-    const isBackendOrLauncherHomeReturn =
-      resolvedReturnUrl.pathname === HOME_ROUTER_PATH &&
-      (resolvedReturnUrl.origin === C_ADDRESSES.BACKEND_ORIGIN ||
-        resolvedReturnUrl.origin === C_ADDRESSES.LAUNCHER_ORIGIN);
     if (
-      resolvedReturnUrl.origin === currentUrl.origin ||
-      isBackendOrLauncherHomeReturn
+      resolvedReturnUrl.protocol !== "http:" &&
+      resolvedReturnUrl.protocol !== "https:"
     ) {
+      throw new Error("Return URL must use http or https.");
+    }
+    if (resolvedReturnUrl.origin === currentUrl.origin) {
       return {
         kind: "navigate",
         target: buildWorkspaceSwitcherTarget(resolvedReturnUrl),

@@ -7,9 +7,7 @@ backendOriginTransport frontend/src/state/actions/websocketReceive.ts getFronten
 backendOriginTransport frontend/src/state/hooks/terminals/websocketUrl.ts buildTerminalWebsocketUrl
 backendTransport frontend/src/components/App/appTransport.ts buildBinaryDownloadUrl
 backendTransport frontend/src/utils/settaApiPresets.ts SETTA_API_PRESET_ROUTES
-c_addresses frontend/src/utils/launcherBootstrapUrl.ts C_ADDRESSES
 c_addresses frontend/src/utils/transportUrlCore.ts C_ADDRESSES
-c_addresses frontend/src/utils/workspaceLaunchNavigation.ts C_ADDRESSES
 generatedRoutes frontend/src/utils/transportRouteConstants.ts GoHTTPRouteHelpers
 generatedRoutes frontend/src/utils/transportRouteConstants.ts GoRootRouteHelpers
 generatedRoutes frontend/src/utils/transportRouteConstants.ts GoRoutePrefixHelpers
@@ -20,7 +18,6 @@ plugins/transport frontend/src/plugins/runtime.ts buildPluginAssetUrl
 requestTransport frontend/src/components/Section/Layouts/settaApiAction.ts post
 serverModeBoundaryPolicy frontend/src/components/Pages/router.tsx WorkspaceLaunchRouteKind
 serverModeBoundaryPolicy frontend/src/components/Pages/router.tsx resolveWorkspaceLaunchRouteKind
-serverModeBoundaryPolicy frontend/src/utils/endpointUtils.ts ENDPOINT_ORIGIN_POLICY
 serverModeBoundaryPolicy frontend/src/utils/serverModeCapabilities.ts ServerMode
 serverModeBoundaryPolicy frontend/src/utils/serverModeCapabilities.ts ServerModeCapabilities
 serverModeBoundaryPolicy frontend/src/utils/serverModeCapabilities.ts resolveServerModeCapabilities
@@ -32,16 +29,12 @@ transportRouteConstants frontend/src/utils/backendOriginTransport.ts ROOT_TRANSP
 transportRouteConstants frontend/src/utils/backendOriginTransport.ts WEBSOCKET_TRANSPORT_ROUTES
 transportRouteConstants frontend/src/utils/backendOriginTransport.ts buildListenerWebsocketRoute
 transportRouteConstants frontend/src/utils/backendOriginTransport.ts buildTerminalWebsocketRoute
-transportRouteConstants frontend/src/utils/backendTransport.ts SERVER_MODE_BOUNDARY_ROUTES
 transportRouteConstants frontend/src/utils/backendTransport.ts SETTA_API_PRESET_ROUTES
 transportRouteConstants frontend/src/utils/backendTransport.ts buildBinaryDownloadRoute
 transportRouteConstants frontend/src/utils/c_addresses.ts API_ROUTE_PREFIX
-transportRouteConstants frontend/src/utils/serverModeBoundaryPolicy.ts ROOT_TRANSPORT_ROUTES
-transportRouteConstants frontend/src/utils/serverModeBoundaryPolicy.ts SERVER_MODE_BOUNDARY_ROUTES
 transportUrlCore frontend/src/utils/backendOriginTransport.ts buildBackendOriginURL
 transportUrlCore frontend/src/utils/backendOriginTransport.ts buildBackendOriginWebsocketURL
 transportUrlCore frontend/src/utils/backendTransport.ts buildBackendURL
-transportUrlCore frontend/src/utils/endpointUtils.ts resolveEndpointOrigin
 transportUrlCore frontend/src/utils/requestTransport.ts buildBackendURL
 workspaceLaunchNavigation frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx resolveWorkspaceLaunchBackNavigation
 workspaceLaunchNavigation frontend/src/components/Pages/Launch/WorkspaceLaunchPage.tsx resolveWorkspaceLaunchReturnUrl

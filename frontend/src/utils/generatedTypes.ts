@@ -8952,3 +8952,185 @@ export const REQUIRED_UI_EDITOR_TABS = {
     UIEditorTabNameEnum.SectionVariantsConfig,
   ],
 } as Record<SectionType, readonly UIEditorTabName[]>;
+
+export type GeneratedEndpointOriginPolicy =
+  | "backend"
+  | "launcher"
+  | "backend-origin";
+
+export type GeneratedWorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
+
+export type GeneratedServerModeCapabilities = {
+  canManageDesktopLauncher: boolean;
+};
+
+const GENERATED_SERVER_MODE_BOUNDARY_POLICY = {
+  ide: {
+    capabilities: { canManageDesktopLauncher: true },
+    workspaceLaunchRouteKind: "ide",
+  },
+  share: {
+    capabilities: { canManageDesktopLauncher: false },
+    workspaceLaunchRouteKind: "blocked",
+  },
+  app: {
+    capabilities: { canManageDesktopLauncher: false },
+    workspaceLaunchRouteKind: "blocked",
+  },
+  launcher: {
+    capabilities: { canManageDesktopLauncher: false },
+    workspaceLaunchRouteKind: "launcher",
+  },
+} as Record<
+  ServerModeResponse["mode"],
+  {
+    capabilities: GeneratedServerModeCapabilities;
+    workspaceLaunchRouteKind: GeneratedWorkspaceLaunchRouteKind;
+  }
+>;
+
+export const GENERATED_ENDPOINT_ORIGIN_POLICY = {
+  "/launch": "launcher",
+  "/createWorkspaceLaunchIntent": "launcher",
+  "/settaHomeInfo": "backend",
+  "/__setta__/tools/call": "backend-origin",
+  "/launcherRecentWorkspaces": "launcher",
+  "/addLauncherRecentWorkspace": "launcher",
+  "/removeLauncherRecentWorkspace": "launcher",
+  "/pinLauncherRecentWorkspace": "launcher",
+  "/launcherFilesystemRoots": "launcher",
+  "/listLauncherDirectory": "launcher",
+  "/openLauncherWorkspace": "launcher",
+} as Readonly<Record<string, GeneratedEndpointOriginPolicy>>;
+
+const GENERATED_MODE_SCOPED_LAUNCHER_ROUTES = new Set<string>([
+  "/launch",
+  "/createWorkspaceLaunchIntent",
+]);
+
+function stripGeneratedTransportAddressQueryAndHash(address: string): string {
+  const hashIndex = address.indexOf("#");
+  let withoutHash = address;
+  if (hashIndex >= 0) {
+    withoutHash = address.slice(0, hashIndex);
+  }
+  const queryIndex = withoutHash.indexOf("?");
+  if (queryIndex >= 0) {
+    return withoutHash.slice(0, queryIndex);
+  }
+  return withoutHash;
+}
+
+export function resolveGeneratedServerModeCapabilities(
+  mode: ServerModeResponse["mode"] | null,
+): GeneratedServerModeCapabilities {
+  if (mode === null) {
+    return { canManageDesktopLauncher: false };
+  }
+  return GENERATED_SERVER_MODE_BOUNDARY_POLICY[mode].capabilities;
+}
+
+export function resolveGeneratedWorkspaceLaunchRouteKind(
+  mode: ServerModeResponse["mode"] | null,
+): GeneratedWorkspaceLaunchRouteKind {
+  if (mode === null) {
+    return "blocked";
+  }
+  return GENERATED_SERVER_MODE_BOUNDARY_POLICY[mode].workspaceLaunchRouteKind;
+}
+
+export function resolveGeneratedEndpointOriginForMode(
+  address: string,
+  serverMode: ServerModeResponse["mode"] | null,
+): GeneratedEndpointOriginPolicy {
+  const normalizedAddress = stripGeneratedTransportAddressQueryAndHash(address);
+  if (normalizedAddress.startsWith("/__setta__/bootstrap")) {
+    return "backend-origin";
+  }
+  const routePolicy = GENERATED_ENDPOINT_ORIGIN_POLICY[normalizedAddress];
+  if (routePolicy === "backend-origin") {
+    return "backend-origin";
+  }
+  if (routePolicy === "launcher") {
+    if (
+      GENERATED_MODE_SCOPED_LAUNCHER_ROUTES.has(normalizedAddress) &&
+      serverMode !== "launcher"
+    ) {
+      return "backend";
+    }
+    return "launcher";
+  }
+  return "backend";
+}
+
+export function normalizeGeneratedOrigin(
+  rawOrigin: string | null | undefined,
+): string | null {
+  if (typeof rawOrigin !== "string") {
+    return null;
+  }
+  const trimmedOrigin = rawOrigin.trim();
+  if (!trimmedOrigin) {
+    return null;
+  }
+  let parsedOrigin: URL;
+  try {
+    parsedOrigin = new URL(trimmedOrigin);
+  } catch {
+    return null;
+  }
+  if (parsedOrigin.protocol !== "http:" && parsedOrigin.protocol !== "https:") {
+    return null;
+  }
+  if (!parsedOrigin.hostname) {
+    return null;
+  }
+  if (parsedOrigin.username || parsedOrigin.password) {
+    return null;
+  }
+  const port = parsedOrigin.port.trim();
+  if (!port) {
+    return (
+      parsedOrigin.protocol +
+      "//" +
+      formatGeneratedOriginHost(parsedOrigin.hostname)
+    );
+  }
+  return (
+    parsedOrigin.protocol +
+    "//" +
+    formatGeneratedOriginHost(parsedOrigin.hostname) +
+    ":" +
+    port
+  );
+}
+
+function formatGeneratedOriginHost(hostname: string): string {
+  if (hostname.includes(":") && !hostname.startsWith("[")) {
+    return "[" + hostname + "]";
+  }
+  return hostname;
+}
+
+export function normalizeGeneratedToolName(
+  rawToolName: string | null | undefined,
+): string | null {
+  if (typeof rawToolName !== "string") {
+    return null;
+  }
+  const trimmed = rawToolName.trim();
+  if (!trimmed) {
+    return null;
+  }
+  let normalized = trimmed;
+  if (normalized.startsWith("mcp__")) {
+    normalized = normalized.slice("mcp__".length);
+  }
+  if (normalized.startsWith("setta_") && !normalized.startsWith("setta__")) {
+    normalized = "setta__" + normalized.slice("setta_".length);
+  }
+  if (!trimmed.startsWith("mcp__") && normalized.toLowerCase() === "question") {
+    return "AskUserQuestion";
+  }
+  return normalized;
+}
