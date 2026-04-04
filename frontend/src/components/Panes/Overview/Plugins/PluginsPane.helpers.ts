@@ -1,5 +1,4 @@
 import {
-  validateGeneratedPluginSourceSpec,
   type PluginBlockedCapability,
   type PluginInstallResponse,
   type PluginListEntry,
@@ -196,12 +195,6 @@ export function buildCapabilityUnavailableMessage({
     return `${capability} is effective.`;
   }
   return `${capability} is not requested by this plugin.`;
-}
-
-export function validateInstallSourceSpec(
-  sourceSpecRaw: string,
-): string | null {
-  return validateGeneratedPluginSourceSpec(sourceSpecRaw);
 }
 
 export function buildInstallTrustSummaryMessage(

@@ -23,21 +23,31 @@ func TestParseSourceSpecRejectsInvalidFormats(t *testing.T) {
 		name string
 		spec string
 		code ServiceErrorCode
+		want string
 	}{
+		{
+			name: "blank source spec",
+			spec: "   ",
+			code: ServiceErrorCodeSourceInvalid,
+			want: pluginSourceSpecRequiredMessage,
+		},
 		{
 			name: "missing scheme separator",
 			spec: "github-acme/plugin",
 			code: ServiceErrorCodeSourceSchemeUnsupported,
+			want: unsupportedPluginSourceSpecMessagePrefix + "github-acme/plugin",
 		},
 		{
 			name: "missing github repo",
 			spec: "github:acme",
 			code: ServiceErrorCodeSourceInvalid,
+			want: gitHubPluginSourceUsageMessage,
 		},
 		{
 			name: "invalid pypi package",
 			spec: "pypi:bad@@name",
 			code: ServiceErrorCodeSourceInvalid,
+			want: `Invalid package name: "bad@@name"`,
 		},
 	}
 	for _, testCase := range testCases {
@@ -50,6 +60,9 @@ func TestParseSourceSpecRejectsInvalidFormats(t *testing.T) {
 			}
 			if serviceErr.Code != testCase.code {
 				t.Fatalf("expected code %q, got %q", testCase.code, serviceErr.Code)
+			}
+			if serviceErr.Message != testCase.want {
+				t.Fatalf("expected message %q, got %q", testCase.want, serviceErr.Message)
 			}
 		})
 	}

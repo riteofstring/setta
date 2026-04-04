@@ -22,6 +22,12 @@ type ParsedSourceSpec struct {
 
 func ParseSourceSpec(sourceSpec string) (ParsedSourceSpec, error) {
 	raw := strings.TrimSpace(sourceSpec)
+	if raw == "" {
+		return ParsedSourceSpec{}, newServiceError(
+			ServiceErrorCodeSourceInvalid,
+			pluginSourceSpecRequiredMessage,
+		)
+	}
 	if !strings.Contains(raw, ":") {
 		return ParsedSourceSpec{}, newServiceError(
 			ServiceErrorCodeSourceSchemeUnsupported,

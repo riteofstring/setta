@@ -1583,7 +1583,6 @@ func CurrentAdditionalDeclarations() []TypeDeclaration {
 		0,
 		len(appGenerationSupportDeclarations())+
 			len(nameValidationSupportDeclarations())+
-			len(pluginSourceSupportDeclarations())+
 			len(projectStateSupportDeclarations())+
 			len(websocketSupportDeclarations())+
 			len(bootstrapHandoffSupportDeclarations())+
@@ -1594,7 +1593,6 @@ func CurrentAdditionalDeclarations() []TypeDeclaration {
 	)
 	declarations = append(declarations, appGenerationSupportDeclarations()...)
 	declarations = append(declarations, nameValidationSupportDeclarations()...)
-	declarations = append(declarations, pluginSourceSupportDeclarations()...)
 	declarations = append(declarations, projectStateSupportDeclarations()...)
 	declarations = append(declarations, websocketSupportDeclarations()...)
 	declarations = append(declarations, bootstrapHandoffSupportDeclarations()...)

@@ -48,7 +48,6 @@ import {
   formatPluginConfigDraft,
   isLinkedLocalPluginSource,
   parsePluginConfigDraft,
-  validateInstallSourceSpec,
 } from "./PluginsPane.helpers";
 
 type InstallScope = "workspace" | "setta_files" | "global";
@@ -294,11 +293,6 @@ export function PluginsPane() {
   }
 
   async function onInstallPlugin() {
-    const sourceErrorMessage = validateInstallSourceSpec(sourceSpec);
-    if (sourceErrorMessage) {
-      setActionStatus({ type: "error", message: sourceErrorMessage });
-      return;
-    }
     setInstallSummary(null);
     const trimmedSourceSpec = sourceSpec.trim();
     const installRequest = {
