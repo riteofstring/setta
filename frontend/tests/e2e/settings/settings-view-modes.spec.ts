@@ -106,28 +106,28 @@ test("settings graph substrate canary drags one section and persists the top-lev
         if (!movedBox) {
           return 0;
         }
-        return Math.hypot(
-          movedBox.x - initialBox.x,
-          movedBox.y - initialBox.y,
-        );
+        return Math.hypot(movedBox.x - initialBox.x, movedBox.y - initialBox.y);
       })
       .toBeGreaterThan(80);
 
     await page.mouse.up();
 
-    await expect.poll(async () => {
-      const latestState = await getLatestProjectState(page, projectConfigId);
-      const layout =
-        latestState.projectState.projectConfig.topLevelSections[sectionId];
-      if (!layout) {
-        return false;
-      }
-      return layout.x !== originalLayout.x || layout.y !== originalLayout.y;
-    }).toBe(true);
+    await expect
+      .poll(async () => {
+        const latestState = await getLatestProjectState(page, projectConfigId);
+        const layout =
+          latestState.projectState.projectConfig.topLevelSections[sectionId];
+        if (!layout) {
+          return false;
+        }
+        return layout.x !== originalLayout.x || layout.y !== originalLayout.y;
+      })
+      .toBe(true);
   } finally {
     await postBackend(page, "/setTopLevelSectionLayout", {
       projectConfigId,
-      topLevelSections: initialState.projectState.projectConfig.topLevelSections,
+      topLevelSections:
+        initialState.projectState.projectConfig.topLevelSections,
     });
     const initialActiveViewModeId =
       initialState.projectState.projectConfig.activeViewModeId;
@@ -140,6 +140,69 @@ test("settings graph substrate canary drags one section and persists the top-lev
     const restoredState = await getLatestProjectState(page, projectConfigId);
     await applyProjectStateUpdate(page, restoredState);
   }
+});
+
+test("settings graph substrate canary pans and zooms one section on the custom surface", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+  await expect(allTab).toBeVisible();
+  await allTab.click();
+
+  const canaryPane = page.getByTestId("graph-substrate-canary");
+  const canarySection = page.getByTestId("graph-substrate-canary-section");
+  await expect(canaryPane).toBeVisible();
+  await expect(canarySection).toBeVisible();
+  await expect(page.locator(".react-flow__pane")).toHaveCount(0);
+
+  const initialScale = await getCanaryViewportScale(page);
+  const initialBox = await canarySection.boundingBox();
+  const paneBox = await canaryPane.boundingBox();
+  if (!initialBox || !paneBox) {
+    throw new Error("Missing canary bounds for pan and zoom test.");
+  }
+
+  const panStart = findCanaryPanePoint(paneBox, initialBox);
+  await page.mouse.move(panStart.x, panStart.y);
+  await page.mouse.down();
+  await page.mouse.move(panStart.x + 140, panStart.y + 90, { steps: 10 });
+  await page.mouse.up();
+
+  await expect
+    .poll(async () => {
+      const movedBox = await canarySection.boundingBox();
+      if (!movedBox) {
+        return 0;
+      }
+      return Math.hypot(movedBox.x - initialBox.x, movedBox.y - initialBox.y);
+    })
+    .toBeGreaterThan(80);
+
+  const movedBox = await canarySection.boundingBox();
+  if (!movedBox) {
+    throw new Error("Missing moved canary section bounds.");
+  }
+
+  const zoomStart = findCanaryPanePoint(paneBox, movedBox);
+  await page.mouse.move(zoomStart.x, zoomStart.y);
+  await page.mouse.wheel(0, -240);
+
+  await expect
+    .poll(() => getCanaryViewportScale(page))
+    .toBeGreaterThan(initialScale * 1.15);
+  await expect
+    .poll(async () => {
+      const zoomedBox = await canarySection.boundingBox();
+      return zoomedBox?.width ?? 0;
+    })
+    .toBeGreaterThan(initialBox.width * 1.05);
 });
 
 test("settings view modes keep visible sections when layout payload is partial", async ({
@@ -224,6 +287,26 @@ async function getViewportScale(page: Page): Promise<number> {
   });
 }
 
+async function getCanaryViewportScale(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const viewport = document.querySelector(
+      '[data-testid="graph-substrate-canary-viewport"]',
+    );
+    if (!viewport) {
+      return 1;
+    }
+    const transform = window.getComputedStyle(viewport).transform;
+    if (!transform || transform === "none") {
+      return 1;
+    }
+    const matrix = new DOMMatrixReadOnly(transform);
+    if (!Number.isFinite(matrix.a) || matrix.a <= 0) {
+      return 1;
+    }
+    return matrix.a;
+  });
+}
+
 async function findCanaryDragPoint(
   page: Page,
   box: BoundingBox,
@@ -241,7 +324,9 @@ async function findCanaryDragPoint(
         if (!(element instanceof Element)) {
           continue;
         }
-        const section = element.closest('[data-testid="graph-substrate-canary-section"]');
+        const section = element.closest(
+          '[data-testid="graph-substrate-canary-section"]',
+        );
         if (!section) {
           continue;
         }
@@ -254,7 +339,51 @@ async function findCanaryDragPoint(
     return null;
   }, box);
   if (!point) {
-    throw new Error("Unable to find a draggable point inside the canary section.");
+    throw new Error(
+      "Unable to find a draggable point inside the canary section.",
+    );
+  }
+  return point;
+}
+
+function findCanaryPanePoint(
+  containerBox: BoundingBox,
+  sectionBox: BoundingBox,
+): { x: number; y: number } {
+  const containerRight = containerBox.x + containerBox.width;
+  const containerBottom = containerBox.y + containerBox.height;
+  const sectionRight = sectionBox.x + sectionBox.width;
+  const sectionBottom = sectionBox.y + sectionBox.height;
+  const candidates: Array<{ x: number; y: number } | null> = [
+    sectionBox.y - containerBox.y > 24
+      ? {
+          x: sectionBox.x + sectionBox.width / 2,
+          y: sectionBox.y - Math.min(24, (sectionBox.y - containerBox.y) / 2),
+        }
+      : null,
+    containerBottom - sectionBottom > 24
+      ? {
+          x: sectionBox.x + sectionBox.width / 2,
+          y:
+            sectionBottom + Math.min(24, (containerBottom - sectionBottom) / 2),
+        }
+      : null,
+    sectionBox.x - containerBox.x > 24
+      ? {
+          x: sectionBox.x - Math.min(24, (sectionBox.x - containerBox.x) / 2),
+          y: sectionBox.y + sectionBox.height / 2,
+        }
+      : null,
+    containerRight - sectionRight > 24
+      ? {
+          x: sectionRight + Math.min(24, (containerRight - sectionRight) / 2),
+          y: sectionBox.y + sectionBox.height / 2,
+        }
+      : null,
+  ];
+  const point = candidates.find((candidate) => candidate !== null);
+  if (!point) {
+    throw new Error("Unable to find a pan or zoom point on the canary pane.");
   }
   return point;
 }

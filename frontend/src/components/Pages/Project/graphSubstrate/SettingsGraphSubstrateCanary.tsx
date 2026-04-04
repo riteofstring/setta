@@ -1,5 +1,6 @@
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { useReactFlow } from "forks/xyflow/core/store";
+import { getWheelDelta } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
   useEffect,
@@ -8,24 +9,29 @@ import {
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
   type RefObject,
 } from "react";
-import {
-  getCurrEffectiveSectionImpl,
-  debounced_route_set_top_level_section_layout,
-} from "state/actions/sectionInfos";
 import { addNodes, moveNodes } from "state/actions/nodeInternals";
 import {
+  debounced_route_set_top_level_section_layout,
+  getCurrEffectiveSectionImpl,
+} from "state/actions/sectionInfos";
+import {
+  useMisc,
   useNodeInternals,
   useProjectState,
   useSettings,
 } from "state/definitions";
 import type { Position } from "utils/generatedTypes";
+import { isMacOs } from "utils/utils";
 import { selectSettingsGraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import {
   centerViewportOnWorldPoint,
   fitViewportToWorldRect,
   screenDeltaToWorldDelta,
+  translateViewport,
+  zoomViewportAroundScreenPoint,
   type GraphViewport,
 } from "./viewportTransform";
 
@@ -39,14 +45,23 @@ const ROOT_STYLE: CSSProperties = {
 };
 
 const INITIAL_SCREEN_PADDING_PX = 48;
+const WHEEL_ZOOM_IDLE_TIMEOUT_MS = 180;
 const DRAG_BLOCKING_SELECTOR =
   ".nodrag,input,textarea,select,option,a,[contenteditable='true']";
+const CANARY_SECTION_SELECTOR =
+  '[data-testid="graph-substrate-canary-section"]';
 
 type ActiveSectionDrag = {
   pointerId: number;
   sectionId: string;
   originScreenPoint: Position;
   originWorldPosition: Position;
+};
+
+type ActiveViewportPan = {
+  pointerId: number;
+  originScreenPoint: Position;
+  originViewport: GraphViewport;
 };
 
 type SectionPositionOverride = {
@@ -79,6 +94,11 @@ export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
   const sectionRef = useRef<HTMLDivElement>(null);
   const dragStateRef = useRef<ActiveSectionDrag | null>(null);
+  const viewportPanStateRef = useRef<ActiveViewportPan | null>(null);
+  const wheelZoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const isWheelZoomingRef = useRef(false);
   const lastFittedSectionIdRef = useRef<string | null>(null);
   const [sectionSize, setSectionSize] = useState<{
     width: number;
@@ -91,6 +111,7 @@ export function SettingsGraphSubstrateCanary() {
   const [draggingSectionId, setDraggingSectionId] = useState<string | null>(
     null,
   );
+  const [isViewportPanning, setIsViewportPanning] = useState(false);
   const [sectionPositionOverride, setSectionPositionOverride] =
     useState<SectionPositionOverride | null>(null);
   const wrapperDimensions = useElementDimensions(rootRef);
@@ -104,16 +125,13 @@ export function SettingsGraphSubstrateCanary() {
       ),
     _.isEqual,
   );
-  const isSectionPositionLocked = useProjectState(
-    (state) => {
-      if (!section) {
-        return false;
-      }
-      return getCurrEffectiveSectionImpl(state, section.sectionId)
-        .positionAndSizeLocked;
-    },
-    _.isEqual,
-  );
+  const isSectionPositionLocked = useProjectState((state) => {
+    if (!section) {
+      return false;
+    }
+    return getCurrEffectiveSectionImpl(state, section.sectionId)
+      .positionAndSizeLocked;
+  }, _.isEqual);
   const { minZoom, maxZoom, defaultZoomLevel } = useSettings(
     (state) => ({
       minZoom: state.gui.minZoom,
@@ -122,6 +140,21 @@ export function SettingsGraphSubstrateCanary() {
     }),
     _.isEqual,
   );
+
+  useEffect(() => {
+    return () => {
+      viewportPanStateRef.current = null;
+      if (wheelZoomTimeoutRef.current) {
+        clearTimeout(wheelZoomTimeoutRef.current);
+      }
+      isWheelZoomingRef.current = false;
+      useMisc.setState({ isPanScrolling: false });
+      useReactFlow.setState({
+        paneDragging: false,
+        viewportInteractionActive: false,
+      });
+    };
+  }, []);
 
   useEffect(() => {
     if (!sectionRef.current || typeof ResizeObserver === "undefined") {
@@ -351,6 +384,114 @@ export function SettingsGraphSubstrateCanary() {
     setSectionPositionOverride(null);
   }
 
+  function handlePanePointerDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!resolvedViewport || event.button !== 0) {
+      return;
+    }
+    if (isBackgroundTargetBlocked(event.target)) {
+      return;
+    }
+
+    viewportPanStateRef.current = {
+      pointerId: event.pointerId,
+      originScreenPoint: {
+        x: event.clientX,
+        y: event.clientY,
+      },
+      originViewport: resolvedViewport,
+    };
+    setIsViewportPanning(true);
+    syncCanaryViewportInteractionState({
+      isViewportPanning: true,
+      isWheelZooming: isWheelZoomingRef.current,
+    });
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function handlePanePointerMove(event: ReactPointerEvent<HTMLDivElement>) {
+    const activePan = viewportPanStateRef.current;
+    if (!activePan || activePan.pointerId !== event.pointerId) {
+      return;
+    }
+
+    setViewport(
+      translateViewport(activePan.originViewport, {
+        x: event.clientX - activePan.originScreenPoint.x,
+        y: event.clientY - activePan.originScreenPoint.y,
+      }),
+    );
+    event.preventDefault();
+  }
+
+  function finishPanePan(event: ReactPointerEvent<HTMLDivElement>) {
+    const activePan = viewportPanStateRef.current;
+    if (!activePan || activePan.pointerId !== event.pointerId) {
+      return;
+    }
+
+    viewportPanStateRef.current = null;
+    setIsViewportPanning(false);
+    syncCanaryViewportInteractionState({
+      isViewportPanning: false,
+      isWheelZooming: isWheelZoomingRef.current,
+    });
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  function handlePaneWheel(event: ReactWheelEvent<HTMLDivElement>) {
+    if (!resolvedViewport || !rootRef.current) {
+      return;
+    }
+    if (isBackgroundTargetBlocked(event.target)) {
+      return;
+    }
+
+    const rootBounds = rootRef.current.getBoundingClientRect();
+    const wheelFactor = event.ctrlKey && isMacOs() ? 10 : 1;
+    const nextZoom =
+      resolvedViewport.zoom *
+      Math.pow(2, getWheelDelta(event.nativeEvent, wheelFactor));
+    const clampedZoom = Math.min(maxZoom, Math.max(minZoom, nextZoom));
+    if (clampedZoom === resolvedViewport.zoom) {
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
+    if (wheelZoomTimeoutRef.current) {
+      clearTimeout(wheelZoomTimeoutRef.current);
+    }
+    isWheelZoomingRef.current = true;
+    syncCanaryViewportInteractionState({
+      isViewportPanning: viewportPanStateRef.current !== null,
+      isWheelZooming: true,
+    });
+    wheelZoomTimeoutRef.current = setTimeout(() => {
+      isWheelZoomingRef.current = false;
+      syncCanaryViewportInteractionState({
+        isViewportPanning: viewportPanStateRef.current !== null,
+        isWheelZooming: false,
+      });
+    }, WHEEL_ZOOM_IDLE_TIMEOUT_MS);
+
+    setViewport((currentViewport) => {
+      const baseViewport = currentViewport ?? resolvedViewport;
+      return zoomViewportAroundScreenPoint(
+        baseViewport,
+        {
+          x: event.clientX - rootBounds.left,
+          y: event.clientY - rootBounds.top,
+        },
+        clampedZoom,
+      );
+    });
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   let sectionCursor: CSSProperties["cursor"] = "grab";
   if (isSectionPositionLocked) {
     sectionCursor = "default";
@@ -361,17 +502,30 @@ export function SettingsGraphSubstrateCanary() {
   return (
     <div
       ref={rootRef}
-      style={ROOT_STYLE}
+      style={{
+        ...ROOT_STYLE,
+        cursor: isViewportPanning ? "grabbing" : "grab",
+      }}
       className="react-flow setta-light dark:setta-dark"
       data-testid="graph-substrate-canary"
+      onPointerDown={handlePanePointerDown}
+      onPointerMove={handlePanePointerMove}
+      onPointerUp={finishPanePan}
+      onPointerCancel={finishPanePan}
+      onWheel={handlePaneWheel}
     >
       <div
         className="react-flow__viewport"
+        data-testid="graph-substrate-canary-viewport"
         style={{
+          inset: 0,
+          pointerEvents: "none",
+          position: "absolute",
           transform: resolvedViewport
             ? `translate(${resolvedViewport.x}px, ${resolvedViewport.y}px) scale(${resolvedViewport.zoom})`
             : undefined,
           transformOrigin: "0 0",
+          zIndex: 1,
         }}
       >
         {section ? (
@@ -381,9 +535,11 @@ export function SettingsGraphSubstrateCanary() {
             style={{
               cursor: sectionCursor,
               touchAction: "none",
+              position: "absolute",
               transform: renderedSectionPosition
                 ? `translate(${renderedSectionPosition.x}px,${renderedSectionPosition.y}px)`
                 : undefined,
+              transformOrigin: "0 0",
               pointerEvents: "all",
               visibility: "visible",
               zIndex: section.zIndex,
@@ -444,6 +600,27 @@ function ensureCanaryNode(
 
 function positionsMatch(left: Position, right: Position): boolean {
   return left.x === right.x && left.y === right.y;
+}
+
+function isBackgroundTargetBlocked(target: EventTarget | null): boolean {
+  if (!(target instanceof Element)) {
+    return false;
+  }
+  return target.closest(CANARY_SECTION_SELECTOR) !== null;
+}
+
+function syncCanaryViewportInteractionState({
+  isViewportPanning,
+  isWheelZooming,
+}: {
+  isViewportPanning: boolean;
+  isWheelZooming: boolean;
+}) {
+  useMisc.setState({ isPanScrolling: isViewportPanning });
+  useReactFlow.setState({
+    paneDragging: isViewportPanning,
+    viewportInteractionActive: isViewportPanning || isWheelZooming,
+  });
 }
 
 function useElementDimensions(ref: RefObject<HTMLDivElement>) {

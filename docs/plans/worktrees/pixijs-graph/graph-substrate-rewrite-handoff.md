@@ -9,6 +9,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `005` landed the first real custom pan/zoom ownership inside the `settings` graph-substrate canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns background pan on the canary root instead of relying on legacy `xyflow` pane ownership
+  - the same canary root now owns anchored wheel zoom for the checked `All Settings` slice
+  - the canary mirrors viewport interaction state back into shared `useReactFlow` / `useMisc` flags during pan/zoom so DOM-backed section internals still see the expected interaction state
+  - the canary viewport now exposes a stable `graph-substrate-canary-viewport` test target for transform checks
+  - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` with a focused canary pan/zoom proof on the custom surface
 - Ralph item `004` landed the first real custom drag ownership inside the `settings` graph-substrate canary:
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns one top-level section drag locally on the canary surface
   - the canary pins its selected section while dragging so the visible card does not swap to a different top-left candidate mid-move
@@ -37,13 +43,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - `src/forks/xyflow/core/hooks/useViewportHelper.test.ts`
     - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
     - `src/components/Pages/Project/graphSubstrate/viewportTransform.test.ts`
-  - targeted Playwright passed for `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - targeted Playwright passed for:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary (drags one section and persists the top-level layout|pans and zooms one section on the custom surface)'`
   - CDP visual check passed on the current worktree session:
     - `http://127.0.0.1:3075/settings`
     - `graph-substrate-canary` visible
     - `.react-flow__pane` absent on `All Settings`
-    - canary drag completed with the section body still attached to the shell/header during drag and after release
-    - no route crash or error boundary after release
+    - background pan moved the canary viewport on the live surface while the DOM-backed section body stayed attached to its shell/header
+    - wheel zoom changed the live canary viewport scale while the section stayed visible/attached
+    - no route crash or error boundary after pan/zoom verification
 
 ## Architectural stance
 
@@ -61,13 +69,13 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The next production frontier is inside the new canary itself:
   - one normal-zoom section on `All Settings`
   - existing DOM body
-  - custom pan/zoom ownership
-  - no detached body drift or zoom-related error paths
+  - custom drag/pan/zoom ownership is now in place for the checked slice
+  - the remaining Gate 0 gap is proving a representative DOM interaction/editing handoff still works correctly on that same canary after the substrate takes viewport ownership
 - Required order from here:
   - keep the current custom viewport state model and `UIPage` seam
-  - drag ownership is now in place on the canary surface
-  - next implement custom pan/zoom on the same surface without falling back to `xyflow` pane ownership
-  - prove the DOM body stays attached during pan/zoom as well, with no visual blur/blockiness or route-level crash paths
+  - drag and custom pan/zoom ownership are now in place on the canary surface
+  - next prove at least one real DOM-backed interaction/editing path still works on the same slice after pan/zoom, rather than jumping ahead to more seam lifts or broad harness work
+  - only after that should the canary expand beyond one section or move toward broader Gate 1 parity/perf work
 
 ## Explicit deferrals
 
@@ -89,6 +97,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
- - Active history window: items `001` through `004`
- - Latest item: `2026-04-02 004`
+- Active history window: items `001` through `005`
+- Latest item: `2026-04-02 005`
 - Older history archives: none yet

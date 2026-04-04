@@ -70,6 +70,30 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 005
+
+- Item: Add custom pan/zoom ownership to the `settings` graph-substrate canary and prove the checked section stays attached on the custom surface.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now owns background pan on the canary root instead of depending on legacy `xyflow` pane ownership.
+  - The same canary root now owns anchored wheel zoom for the checked `settings` / `All Settings` slice.
+  - The canary syncs pan/zoom interaction state back into shared `useReactFlow` and `useMisc` flags so DOM-backed section internals still receive the expected viewport-interaction signals.
+  - Added a stable `graph-substrate-canary-viewport` test target so automated checks can read the live transform directly.
+  - Updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts` with a focused canary pan/zoom proof on the custom surface while keeping the existing drag proof on the same slice.
+- Verification:
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary (drags one section and persists the top-level layout|pans and zooms one section on the custom surface)'`
+    - result: passed (`2 passed`, about `26s`)
+  - CDP visual check
+    - result: passed
+    - note: on `http://127.0.0.1:3075/settings`, `All Settings` showed `graph-substrate-canary`, `.react-flow__pane` stayed absent, background pan changed the live viewport transform while the DOM-backed section remained attached, wheel zoom changed the viewport scale from `1.94099` to `2.70719`, and no error boundary/crash surfaced
+- Conclusion:
+  - the checked canary now owns drag, pan, and zoom on the new substrate for one normal-zoom `settings` section
+  - Gate 0 no longer lacks viewport ownership on this slice; the remaining near-term risk is DOM interaction/editing handoff on the same custom surface
+- Next action:
+  - prove one representative DOM-backed interaction/editing path still works correctly after the custom substrate takes drag/pan/zoom ownership, then expand canary coverage only if that handoff is stable
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 002
 
 - Item: Add the first shared graph-substrate viewport transform helpers and route existing viewport math through them.
