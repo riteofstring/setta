@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 11:22 EDT
+Last updated: 2026-04-04 11:40 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `118` added a deterministic surrogate move-plus-fit title-edit parity probe so the live Browser drag lane can be judged without relying on untrustworthy CDP mouse drag.
+  - Why this slice was needed:
+    - item `117` already proved the direct drag-plus-title-edit probe in Playwright, but the required live CDP compare was still blocked by post-move normalization because the reference title row could end up off-screen before the edit check
+    - the narrowest valid support step was to normalize the same shared Browser lane through the authoritative layout path that CDP can drive honestly, then refit the moved section before comparing inline title editing
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added opt-in probe `settings graph parity probe keeps shared title editing working after authoritative top-level move and targeted fit on read-only main legacy and worktree canary`
+      - added local helper `moveActiveTopLevelSectionByDelta(...)` plus `getActiveTopLevelSectionLayouts(...)` so the probe can apply the same `+120,+80` move through `/setTopLevelSectionLayout`, refit the shared section, and then verify inline title editing on both surfaces
+    - no production renderer files changed in this slice
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-037/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-037/main-ai.log`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-037 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-037 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after authoritative top-level move and targeted fit on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `51.9s`)
+  - Live verification result:
+    - a fresh-context CDP sub-agent used live worktree `3075` plus read-only `3087`, normalized both to active `All Settings` with overview/UI editor closed and active ids cleared, resolved shared `browserSectionDefault`, applied the same authoritative `+120,+80` top-level move, and refit the moved section into view on both surfaces
+    - after that normalization, the moved title row stayed visibly on-screen on both surfaces and a second click on the actual title node opened and focused the inline editor on both canary and legacy
+    - this closes the normalization blocker from item `117`: the surrogate lane is now trustworthy enough to use as live evidence
+    - the next visible mismatch is geometry, not interaction: after the same move-plus-fit, the canary stayed heavily compressed while `main` rendered the section at normal size
+    - CDP visual check: done (fresh-context `browserSectionDefault` authoritative move + targeted fit compare on live `3075` canary vs read-only `3087` legacy; title editing works on both, but the canary remains visually compressed relative to legacy)
+  - conclusion for this slice:
+    - keep the new authoritative move-plus-fit title-edit parity probe; it is now the deterministic support artifact for live CDP inspection on this Browser lane
+    - do not reopen CDP access recovery or off-screen-title normalization for this lane unless the surrogate path itself regresses
+    - the next iteration should pivot from support work to the newly isolated production frontier: why the canary `fitGraphViewportToSection(...)` path leaves `browserSectionDefault` visually compressed after the authoritative move while read-only `main` does not
 - Ralph item `117` added the missing shared drag-plus-title-edit parity probe instead of reopening the just-closed pan-and-zoom title-edit lane.
   - Why this slice was needed:
     - item `116` closed a real toolbar regression on the shared pan-and-zoom title-edit lane, so the next bounded step had to move to one different normalized motion/editing frontier rather than another pass on the same pan helper shape
@@ -2865,14 +2893,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- The next bounded slice is to restore trustworthy chrome-devtools-mcp access and rerun the exact new pan-and-zoom title-edit parity lane on normalized `All Settings`, not to invent another motion probe.
-- Item `115` already provides the deterministic main-reference probe for this lane:
-  - keep using the normalized `All Settings` setup, pick one shared visible top-level section, apply the short blank-surface pan plus one `zoom in`, then double-click the actual section title text inside the graph surface
-  - do not reopen the older pan-only `backend` title-edit lane or spend another iteration adding support-only variants of this same test unless the product contract changes
-- Treat the current blocker as tool/lifecycle debt, not renderer evidence:
-  - the pre-recovery Playwright parity probe passed
-  - the required live visual gate is still open only because the post-recovery fresh-context CDP agents could not access chrome-devtools-mcp controls
-- If the next fresh iteration still cannot access chrome-devtools-mcp after bootstrap, stop on that tooling blocker instead of changing product code speculatively.
+- The next bounded slice is to investigate the newly isolated canary fit/compression defect on the shared Browser authoritative-move lane, not to add another support probe.
+- Item `118` now provides the deterministic support artifact for this lane:
+  - keep using the normalized `All Settings` setup, shared `browserSectionDefault` target, authoritative `+120,+80` move, and targeted refit before judging the graph surface
+  - do not reopen the older pan-and-zoom title-edit lane or the direct CDP mouse-drag surrogate debate unless this exact move-plus-fit artifact stops reproducing
+- Treat the active blocker as a production renderer/layout question, not tooling debt:
+  - the new Playwright parity probe passed on the current run-037 runtimes
+  - the required live CDP gate also ran cleanly enough to confirm title-edit parity and isolate a remaining canary-only geometry mismatch
+- The next production question to answer is why the canary fit path leaves the moved `browserSectionDefault` section visually compressed after the authoritative move while read-only `main` renders the same moved section at normal size.
 - The cleared-viewport `All Settings` landing lane is now closed for the current live runtimes:
   - item `092` shows that after clearing the authoritative viewport on both worktree canary and read-only `main` legacy, one shared named top-level section lands with matching transform/rect/center-offset metrics
   - do not reopen this lane with DOM order or “first visible card” assertions unless a future compare shows an actual shared named section mismatch after clearing viewport
@@ -2978,6 +3006,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `115`
-- Latest item: `2026-04-04 115`
+- Active history window: items `001` through `118`
+- Latest item: `2026-04-04 118`
 - Older history archives: none yet

@@ -4002,3 +4002,36 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - keep the shared Browser drag-plus-title-edit lane and align the moved section on-screen on both surfaces after the same authoritative move, or make CDP drag trustworthy enough to use directly, before changing product code
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 11:40 EDT - Ralph item 118
+
+- Added a deterministic authoritative-move-plus-fit title-edit parity probe so the shared Browser drag lane can be judged live without relying on untrustworthy CDP mouse drag.
+- Why this slice was necessary:
+  - item `117` had already added the direct drag-plus-title-edit probe, but its live CDP compare still could not decide anything because the reference title row went off-screen before the edit check
+  - the narrowest valid next step was one support slice that normalizes the same shared Browser lane through the authoritative layout path CDP can drive honestly, then refits the moved section before comparing title editing
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added opt-in probe `settings graph parity probe keeps shared title editing working after authoritative top-level move and targeted fit on read-only main legacy and worktree canary`
+    - added local helper `moveActiveTopLevelSectionByDelta(...)` plus `getActiveTopLevelSectionLayouts(...)` so the probe can post the same `+120,+80` move through `/setTopLevelSectionLayout`, refit the shared section, and then verify inline title editing on both surfaces
+  - no production renderer files changed in this slice
+- Verification:
+  - refreshed runtime/bootstrap values for the current run:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-037/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-037/main-ai.log`
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-037 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-037 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after authoritative top-level move and targeted fit on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `51.9s`)
+  - fresh-context CDP sub-agent:
+    - normalized live `3075` canary and read-only `3087` legacy to active `All Settings` with overview/UI editor closed and active ids cleared
+    - resolved shared `browserSectionDefault`, applied the same authoritative `+120,+80` top-level move, and refit the moved section on both surfaces
+    - confirmed the moved title row stayed on-screen in both tabs and a second click on the real title node opened and focused the inline editor on both surfaces
+    - isolated the next visible mismatch as geometry, not interaction: the canary stayed heavily compressed after fit while read-only `main` rendered the same moved section at normal size
+  - CDP visual check: done (fresh-context `browserSectionDefault` authoritative move + targeted fit compare on live `3075` canary vs read-only `3087` legacy; title editing works on both, but the canary remains visually compressed relative to legacy)
+- Lane status:
+  - close the post-move off-screen-title normalization blocker from item `117`; the surrogate lane is now trustworthy enough to use as live evidence
+  - keep the new authoritative move-plus-fit probe as the support artifact for this Browser lane
+  - do not reopen CDP access recovery or off-screen-title normalization unless this exact surrogate path regresses
+- Next frontier:
+  - investigate why the canary `fitGraphViewportToSection(...)` path leaves moved `browserSectionDefault` visually compressed after the authoritative move while read-only `main` does not
+- LOOP_TERMINAL_MARKER: none

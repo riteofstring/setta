@@ -2487,6 +2487,381 @@ test("settings graph parity probe keeps shared title editing working after norma
   }
 });
 
+test("settings graph parity probe keeps shared title editing working after authoritative top-level move and targeted fit on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const sharedSection = findSharedVisibleTopLevelSectionByName({
+    preferredNames: ["browserSectionDefault", "taskBoardSectionDefault"],
+    referenceState: referenceInitialState,
+    viewModeName: "All Settings",
+    worktreeState: worktreeInitialState,
+  });
+  const moveDelta = { x: 120, y: 80 };
+  const referenceOriginalTitle =
+    referenceInitialState.projectState.sections[
+      sharedSection.referenceSectionId
+    ]?.name ?? sharedSection.name;
+  const worktreeOriginalTitle =
+    worktreeInitialState.projectState.sections[sharedSection.worktreeSectionId]
+      ?.name ?? sharedSection.name;
+
+  async function captureTitleEditAfterAuthoritativeMove(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
+    nextTitle: string;
+    originalTitle: string;
+    pageTab: Locator;
+    projectConfigId: string;
+    sectionId: string;
+    targetPage: Page;
+  }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.pageTab).toBeVisible();
+    await args.pageTab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    const sectionLocator = getSettingsGraphSectionLocator(
+      args.targetPage,
+      args.sectionId,
+    );
+    const titleText = sectionLocator.locator("header p").first();
+    const titleInput = sectionLocator.locator("header input").first();
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+    await expect(sectionLocator).toBeVisible();
+    await expect(titleText).toBeVisible();
+    await expect(titleText).toHaveText(args.originalTitle);
+
+    const beforeLayout = await getActiveTopLevelSectionLayout(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!beforeLayout) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} title-edit authoritative-move baseline layout for ${args.originalTitle}.`,
+      );
+    }
+
+    // CDP cannot complete this drag path reliably yet, so normalize the same
+    // post-move state through the backend layout API before the fit/edit check.
+    await moveActiveTopLevelSectionByDelta({
+      backendOrigin: args.backendOrigin,
+      delta: moveDelta,
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      sectionId: args.sectionId,
+    });
+
+    const afterMoveLayout = await getActiveTopLevelSectionLayout(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!afterMoveLayout) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} title-edit authoritative-move layout after update for ${args.originalTitle}.`,
+      );
+    }
+    expect(
+      Math.abs(afterMoveLayout.x - beforeLayout.x - moveDelta.x),
+    ).toBeLessThan(1);
+    expect(
+      Math.abs(afterMoveLayout.y - beforeLayout.y - moveDelta.y),
+    ).toBeLessThan(1);
+
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    await expect(titleText).toBeVisible();
+    const afterFit = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (
+      afterFit.centerOffsetFromRootCenter === null ||
+      !afterFit.rect ||
+      !afterFit.titleRect ||
+      !afterFit.transform
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} title-edit authoritative-move metrics for ${args.originalTitle}.`,
+      );
+    }
+
+    await titleText.dblclick();
+    await expect(titleInput).toBeVisible();
+    await expect(titleInput).toBeFocused();
+    await titleInput.fill(args.nextTitle);
+    await titleInput.press("Enter");
+
+    await expect
+      .poll(async () => {
+        const latestState = await getLatestProjectStateFromBackendOrigin(
+          args.targetPage,
+          args.backendOrigin,
+          args.frontendOrigin,
+          args.projectConfigId,
+        );
+        return latestState.projectState.sections[args.sectionId]?.name ?? null;
+      })
+      .toBe(args.nextTitle);
+    await expect(titleText).toHaveText(args.nextTitle);
+
+    return {
+      afterFit,
+      layoutDelta: {
+        x: afterMoveLayout.x - beforeLayout.x,
+        y: afterMoveLayout.y - beforeLayout.y,
+      },
+      paneState: await getLocalPaneState(args.targetPage),
+    };
+  }
+
+  try {
+    const referenceResult = await captureTitleEditAfterAuthoritativeMove({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      nextTitle: `${referenceOriginalTitle} main authoritative move`,
+      originalTitle: referenceOriginalTitle,
+      pageTab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: referenceProjectConfigId,
+      sectionId: sharedSection.referenceSectionId,
+      targetPage: referencePage,
+    });
+    const worktreeResult = await captureTitleEditAfterAuthoritativeMove({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      nextTitle: `${worktreeOriginalTitle} canary authoritative move`,
+      originalTitle: worktreeOriginalTitle,
+      pageTab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: sharedSection.worktreeSectionId,
+      targetPage: page,
+    });
+
+    expect(referenceResult.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(
+      Math.abs(worktreeResult.layoutDelta.x - referenceResult.layoutDelta.x),
+    ).toBeLessThan(1);
+    expect(
+      Math.abs(worktreeResult.layoutDelta.y - referenceResult.layoutDelta.y),
+    ).toBeLessThan(1);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.centerOffsetFromRootCenter -
+          referenceResult.afterFit.centerOffsetFromRootCenter,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.transform.x -
+          referenceResult.afterFit.transform.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.transform.y -
+          referenceResult.afterFit.transform.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.transform.zoom -
+          referenceResult.afterFit.transform.zoom,
+      ),
+    ).toBeLessThan(0.02);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.rect.x - referenceResult.afterFit.rect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.rect.y - referenceResult.afterFit.rect.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.titleRect.x -
+          referenceResult.afterFit.titleRect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterFit.titleRect.y -
+          referenceResult.afterFit.titleRect.y,
+      ),
+    ).toBeLessThan(8);
+  } finally {
+    await restoreSectionNameForPage({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      name: worktreeOriginalTitle,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: sharedSection.worktreeSectionId,
+    }).catch(() => {});
+    await restoreSectionNameForPage({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      name: referenceOriginalTitle,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: sharedSection.referenceSectionId,
+    }).catch(() => {});
+    await restoreInitialViewModeLayout({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreInitialViewModeLayout({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe keeps draw section frontmost after normalized overlap drag on read-only main legacy and worktree canary", async ({
   context,
   page,
@@ -5559,6 +5934,47 @@ async function restoreCurrentPageState(args: {
   await applyProjectStateUpdate(args.page, restoredState);
 }
 
+async function moveActiveTopLevelSectionByDelta(args: {
+  backendOrigin: string;
+  delta: { x: number; y: number };
+  frontendOrigin: string;
+  page: Page;
+  projectConfigId: string;
+  sectionId: string;
+}): Promise<void> {
+  const currentLayouts = await getActiveTopLevelSectionLayouts(args.page);
+  const currentLayout = currentLayouts[args.sectionId];
+  if (!currentLayout) {
+    throw new Error(
+      `Missing active top-level layout for section ${args.sectionId}.`,
+    );
+  }
+  await postBackendForPage(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    "/setTopLevelSectionLayout",
+    {
+      projectConfigId: args.projectConfigId,
+      topLevelSections: {
+        ...currentLayouts,
+        [args.sectionId]: {
+          ...currentLayout,
+          x: currentLayout.x + args.delta.x,
+          y: currentLayout.y + args.delta.y,
+        },
+      },
+    },
+  );
+  const movedState = await getLatestProjectStateFromBackendOrigin(
+    args.page,
+    args.backendOrigin,
+    args.frontendOrigin,
+    args.projectConfigId,
+  );
+  await applyProjectStateUpdate(args.page, movedState);
+}
+
 async function getActiveTopLevelSectionLayout(
   page: Page,
   sectionId: string,
@@ -5580,6 +5996,30 @@ async function getActiveTopLevelSectionLayout(
       zIndex: layout.zIndex,
     };
   }, sectionId);
+}
+
+async function getActiveTopLevelSectionLayouts(
+  page: Page,
+): Promise<Record<string, { x: number; y: number; zIndex: number }>> {
+  return page.evaluate(async () => {
+    const { getActiveViewModeTopLevelSections } = await import(
+      "/src/state/actions/sectionInfos"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const layouts = getActiveViewModeTopLevelSections(
+      useProjectState.getState(),
+    );
+    return Object.fromEntries(
+      Object.entries(layouts).map(([sectionId, layout]) => [
+        sectionId,
+        {
+          x: layout.x,
+          y: layout.y,
+          zIndex: layout.zIndex,
+        },
+      ]),
+    );
+  });
 }
 
 function resolveScreenPointAnchoredViewport(
