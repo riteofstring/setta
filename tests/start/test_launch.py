@@ -19,7 +19,10 @@ from setta.sessions.constants import IN_PROCESS_ENV_VAR
 from setta.sessions.registry import SessionRegistry
 from setta.start import cli, launch
 from setta.utils.network import format_host_for_url
-from setta.utils.paths import build_files_root_from_base
+from setta.utils.paths import (
+    build_default_auth_cookie_name,
+    build_files_root_from_base,
+)
 from tests.start.launch_test_helpers import require_localhost_bind_or_skip
 
 
@@ -535,7 +538,9 @@ def test_launch_workspace_session_surfaces_outdated_settings_project_errors(
         encoding="utf-8",
     )
 
-    monkeypatch.setattr("setta.launch.DBE.read_settings_project", lambda _self: object())
+    monkeypatch.setattr(
+        "setta.launch.DBE.read_settings_project", lambda _self: object()
+    )
     monkeypatch.setattr(
         "setta.launch.ensure_settings_code_objs",
         lambda _project_state: (_ for _ in ()).throw(
@@ -595,7 +600,7 @@ def test_launch_workspace_session_times_out_and_terminates_spawned_process(
             proc.wait(timeout=5)
 
 
-def test_launch_workspace_session_clears_inherited_auth_cookie_name(
+def test_launch_workspace_session_replaces_inherited_auth_cookie_name(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     workspace = tmp_path / "workspace"
@@ -619,7 +624,9 @@ def test_launch_workspace_session_clears_inherited_auth_cookie_name(
             poll_interval_seconds=0.1,
         )
 
-    assert "SETTA_AUTH_COOKIE_NAME" not in captured_env
+    assert captured_env["SETTA_AUTH_COOKIE_NAME"] == build_default_auth_cookie_name(
+        workspace_root=workspace
+    )
 
 
 def test_launch_workspace_session_sanitizes_inherited_path_env(

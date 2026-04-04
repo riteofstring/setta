@@ -2415,3 +2415,30 @@ LOOP_TERMINAL_MARKER: none
   - because both canaries are visible again, the normalized `groupSectionDefault` centering/parity lane should not stay paused on the old missing-canary assumption
 - Next frontier: let the next fresh lifecycle pick up the worktree auth-cookie cleanup, then rerun the normalized exact `groupSectionDefault` targeted-fit compare and treat shared websocket console noise as secondary unless either page stops rendering canary sections again.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 19:44 EDT - Ralph item 070
+
+- Replaced the shared default auth-cookie namespace with a deterministic workspace-scoped default instead of reopening parity work on a runtime that still used host-wide `setta_auth`.
+- Production/test changes:
+  - `backend/setta/utils/paths.py` now exposes `build_default_auth_cookie_name(...)` and uses it as the default `SettaPaths.auth_cookie_name` whenever no explicit profile `authCookieName` override exists.
+  - `tests/start/test_start_paths_env.py` now proves:
+    - profile overrides still win
+    - removing a profile override restores the workspace default instead of clearing `SETTA_AUTH_COOKIE_NAME`
+    - different workspaces resolve different default auth-cookie base names while one workspace keeps the same default across files-location modes
+  - `tests/start/test_launch.py` now proves launch replaces an inherited stale `SETTA_AUTH_COOKIE_NAME` with the workspace-scoped default.
+- Verification:
+  - `source activate.sh && pytest tests/start/test_start_paths_env.py tests/start/test_launch.py -k 'auth_cookie_name or start_paths_env'`
+    - result: passed (`5 passed`, `30 deselected`, about `0.96s`)
+  - `source activate.sh && pytest tests/start/test_start_auth_api.py -k 'auth_json_emits_payload or api_auto_auth_latest_defaults_to_ide_session_mode'`
+    - result: passed (`2 passed`, `35 deselected`, about `2.34s`)
+  - `source activate.sh && ruff check backend/setta/utils/paths.py tests/start/test_start_paths_env.py tests/start/test_launch.py`
+    - result: passed
+  - `source activate.sh && ruff format --check backend/setta/utils/paths.py tests/start/test_start_paths_env.py tests/start/test_launch.py`
+    - result: passed
+- Runtime notes:
+  - on the current loop session, `resolve_setta_paths(...).auth_cookie_name` still resolved to `None` for both this worktree and read-only `main`, confirming both pre-change runtimes were sharing the same fallback base cookie name
+  - this new namespace only takes effect after the next fresh worktree lifecycle restart, and read-only `main` still runs old code, so no live websocket/CDP claim was made for this slice
+- Lane status:
+  - the worktree-side shared cookie namespace flaw is now fixed in code and covered by tests
+  - the next iteration should verify the fresh restarted worktree no longer hits the websocket `SecurityError: line too long` path before reopening the normalized `groupSectionDefault` parity lane
+- Next frontier: let the next fresh lifecycle pick up the workspace-scoped auth-cookie namespace, then run a fresh-context worktree-vs-main websocket/CDP sanity check with the expectation that worktree should improve even if read-only `main` remains noisy on old code.
+- LOOP_TERMINAL_MARKER: none

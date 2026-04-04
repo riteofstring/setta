@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 19:36 EDT
+Last updated: 2026-04-03 19:44 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,30 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `070` addressed the remaining shared-cookie namespace flaw behind the websocket `SecurityError: line too long` lane instead of resuming parity work on another stale runtime.
+  - Production/test change:
+    - `backend/setta/utils/paths.py` now derives a deterministic workspace-scoped default auth-cookie base name via `build_default_auth_cookie_name(...)` and uses it whenever no explicit profile `authCookieName` override is configured.
+    - `tests/start/test_start_paths_env.py` now proves:
+      - profile overrides still win when present
+      - the workspace fallback cookie name is restored after a profile override is removed
+      - two different workspaces resolve different default auth-cookie base names while one workspace keeps the same default across `local` and `global` files-location modes
+    - `tests/start/test_launch.py` now proves a spawned workspace session replaces an inherited `SETTA_AUTH_COOKIE_NAME` with the workspace-scoped default instead of silently reusing a stale shared cookie namespace.
+  - Automated result:
+    - `source activate.sh && pytest tests/start/test_start_paths_env.py tests/start/test_launch.py -k 'auth_cookie_name or start_paths_env'`
+      - result: passed (`5 passed`, `30 deselected`, about `0.96s`)
+    - `source activate.sh && pytest tests/start/test_start_auth_api.py -k 'auth_json_emits_payload or api_auto_auth_latest_defaults_to_ide_session_mode'`
+      - result: passed (`2 passed`, `35 deselected`, about `2.34s`)
+    - `source activate.sh && ruff check backend/setta/utils/paths.py tests/start/test_start_paths_env.py tests/start/test_launch.py`
+      - result: passed
+    - `source activate.sh && ruff format --check backend/setta/utils/paths.py tests/start/test_start_paths_env.py tests/start/test_launch.py`
+      - result: passed
+  - Runtime interpretation:
+    - on the current pre-change loop session, `resolve_setta_paths(...).auth_cookie_name` returned `None` for both this worktree and read-only `main`, which means both runtimes were previously falling back to the same base cookie name `setta_auth`
+    - the new worktree code will now mint a workspace-scoped base cookie name on the next restarted session, so future worktree auth cookies will stop sharing the same host-wide base namespace as other worktrees on `127.0.0.1`
+    - the currently running worktree lifecycle (`3075` / `8075`) predates this code change, and the read-only `main` reference still runs old code, so this iteration intentionally did not claim a live websocket/CDP resolution yet
+  - conclusion for this slice:
+    - the worktree-side cookie-namespace collision is fixed in code and locked with tests
+    - the next iteration should begin by letting the fresh lifecycle pick up this new default, then verify whether worktree `ws://127.0.0.1:8075/api/frontend` stops hitting the repeated `line too long` handshake failure before reopening the normalized `groupSectionDefault` parity lane
 - Ralph item `069` addressed the repeated “missing main canary / websocket blocker” lane by landing a narrow auth-cookie cleanup fix, then reclassifying the live blocker with fresh-context CDP plus runtime-log evidence instead of doing another centering/oracle-only pass.
   - Production/test change:
     - `backend/setta/auth/cookies.py` now centralizes the secure-flag resolution, exposes `list_stale_auth_cookie_names(...)`, and adds `clear_stale_auth_cookies(...)` so bootstrap can delete stale same-instance auth cookies before setting the current session cookie.
@@ -1515,6 +1539,8 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - item `029` aligned canary `zoomBy(...)` / `zoomTo(...)` with the legacy full-surface center, and the latest normalized compare now matches after `All Settings -> fit view -> zoom in`
   - do not reopen that lane unless the normalized Playwright canary or a fresh normalized CDP compare shows the `x` anchor drifting again
 - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
+  - before reopening the normalized `All Settings` parity lane, use the next fresh worktree lifecycle to verify the new workspace-scoped auth-cookie base name is active and that the worktree websocket no longer fails with the shared `line too long` transport error
+  - if the fresh worktree session is clean but the read-only `main` reference still shows websocket noise, treat that as old-reference debt rather than a reopened worktree renderer regression
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
   - the widened `drawSectionDefault` post-drop frontmost lane now has a production fix plus a passing Playwright guard; the next fresh session should rerun that exact live CDP compare before reopening the lane
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
@@ -1554,6 +1580,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `060`
-- Latest item: `2026-04-03 060`
+- Active history window: items `001` through `070`
+- Latest item: `2026-04-03 070`
 - Older history archives: none yet
