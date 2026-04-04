@@ -6,7 +6,6 @@ import {
 } from "state/definitions";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  route_get_state_machine_run,
   route_reset_state_machine,
   route_start_state_machine_run,
   route_stop_state_machine_run,
@@ -82,6 +81,44 @@ function isStateMachineRunCleared(run: AgentRun): boolean {
   return outputs.machineStateCleared === true;
 }
 
+function markStateMachineRunStoppedForMachineGroup(
+  projectConfigId: string,
+  machineGroupId: string,
+  stoppedRunId?: string | null,
+): void {
+  useAIStore.setState((state) => {
+    const matchingRuns = filterStateMachineRunsByMachineGroup(
+      state.agentRuns,
+      projectConfigId,
+      machineGroupId,
+    );
+    const targetRunId = stoppedRunId?.trim() || matchingRuns[0]?.id || null;
+    if (targetRunId === null) {
+      return state;
+    }
+
+    let didChange = false;
+    const finishedAt = new Date().toISOString();
+    const nextRuns = state.agentRuns.map((run) => {
+      if (run.id !== targetRunId) {
+        return run;
+      }
+      didChange = true;
+      return {
+        ...run,
+        status: AgentRunStatusEnum.cancelled,
+        finishedAt,
+      };
+    });
+    if (!didChange) {
+      return state;
+    }
+    return {
+      agentRuns: nextRuns,
+    };
+  });
+}
+
 function clearStateMachineRunForMachineGroup(
   projectConfigId: string,
   machineGroupId: string,
@@ -141,28 +178,6 @@ export function getLatestStateMachineRun(
     return null;
   }
   return latestRun;
-}
-
-async function refreshStateMachineRunForMachineGroup(
-  projectConfigId: string,
-  machineGroupId: string,
-): Promise<void> {
-  const res = await route_get_state_machine_run({
-    projectConfigId,
-    machineGroupId,
-  });
-  logWorkflowDebug("workflow run direct refresh response", {
-    projectConfigId,
-    machineGroupId,
-    status: res.status,
-    hasResponse: res.hasResponse,
-    ok: res200(res),
-    errorDetail: res200(res) ? null : getErrorDetail(res.data),
-  });
-  if (!res200(res)) {
-    return;
-  }
-  receiveAgentRunUpdate(res.data);
 }
 
 export function loadStateMachineRuns(): void {
@@ -283,6 +298,21 @@ export async function stopStateMachineRun(
         projectConfigId: request.projectConfigId,
         machineGroupId: request.machineGroupId,
       }),
+    onSuccess: (data, context) => {
+      const stoppedRunId =
+        data !== null &&
+        typeof data === "object" &&
+        "stoppedRunId" in data &&
+        typeof data.stoppedRunId === "string"
+          ? data.stoppedRunId
+          : null;
+      markStateMachineRunStoppedForMachineGroup(
+        context.projectConfigId,
+        context.machineGroupId,
+        stoppedRunId,
+      );
+    },
+    skipDirectRefresh: true,
   });
 }
 

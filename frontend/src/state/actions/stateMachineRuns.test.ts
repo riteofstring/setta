@@ -1,6 +1,5 @@
 import { resetProjectStores } from "state/utils";
 import {
-  route_get_state_machine_run,
   route_reset_state_machine,
   route_start_state_machine_run,
   route_stop_state_machine_run,
@@ -24,7 +23,6 @@ vi.mock("utils/generatedEndpoints", async () => {
     route_start_state_machine_run: vi.fn(),
     route_stop_state_machine_run: vi.fn(),
     route_reset_state_machine: vi.fn(),
-    route_get_state_machine_run: vi.fn(),
   };
 });
 
@@ -45,7 +43,6 @@ const mockedRouteStartStateMachineRun = vi.mocked(
 );
 const mockedRouteStopStateMachineRun = vi.mocked(route_stop_state_machine_run);
 const mockedRouteResetStateMachine = vi.mocked(route_reset_state_machine);
-const mockedRouteGetStateMachineRun = vi.mocked(route_get_state_machine_run);
 const mockedLoadAgentRuns = vi.mocked(loadAgentRuns);
 const mockedAddTemporaryNotification = vi.mocked(addTemporaryNotification);
 
@@ -252,7 +249,6 @@ describe("stateMachineRuns", () => {
     loadStateMachineRuns();
 
     expect(mockedLoadAgentRuns).toHaveBeenCalledTimes(1);
-    expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
   });
 
   it("starts a workflow from the mutation response without refetching", async () => {
@@ -293,11 +289,10 @@ describe("stateMachineRuns", () => {
         machineGroupId: "workflow-main",
       },
     });
-    expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
     expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
   });
 
-  it("stops a workflow and refreshes the current workflow run once", async () => {
+  it("stops a workflow locally and skips the redundant refresh fetch", async () => {
     useAIStore.setState({
       agentRuns: [
         createAgentRun({
@@ -320,28 +315,6 @@ describe("stateMachineRuns", () => {
         stoppedRunId: "machine-run-1",
       },
     });
-    mockedRouteGetStateMachineRun.mockResolvedValue({
-      status: 200,
-      hasResponse: true,
-      data: createAgentRun({
-        id: "machine-run-1",
-        status: AgentRunStatusEnum.completed,
-        startedAt: "2024-01-01T00:00:00Z",
-        finishedAt: "2024-01-01T00:00:05Z",
-        inputs: {
-          runType: "state_machine",
-          projectConfigId: "project-1",
-          machineGroupId: "workflow-main",
-        },
-        events: [
-          {
-            timestamp: "2024-01-01T00:00:05Z",
-            type: "run_completed",
-            payload: {},
-          },
-        ],
-      }),
-    });
 
     const stopped = await stopStateMachineRun("workflow-main");
 
@@ -350,16 +323,14 @@ describe("stateMachineRuns", () => {
       projectConfigId: "project-1",
       machineGroupId: "workflow-main",
     });
-    expect(mockedRouteGetStateMachineRun).toHaveBeenCalledWith({
-      projectConfigId: "project-1",
-      machineGroupId: "workflow-main",
-    });
-    expect(
-      useAIStore.getState().agentRuns.find((run) => run.id === "machine-run-1"),
-    ).toMatchObject({
+    const stoppedRun = useAIStore
+      .getState()
+      .agentRuns.find((run) => run.id === "machine-run-1");
+    expect(stoppedRun).toMatchObject({
       id: "machine-run-1",
-      status: AgentRunStatusEnum.completed,
+      status: AgentRunStatusEnum.cancelled,
     });
+    expect(stoppedRun?.finishedAt).toEqual(expect.any(String));
     expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
   });
 
@@ -419,7 +390,6 @@ describe("stateMachineRuns", () => {
         machineStateCleared: true,
       },
     });
-    expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
     expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
   });
 
@@ -438,7 +408,6 @@ describe("stateMachineRuns", () => {
     expect(mockedRouteStartStateMachineRun).not.toHaveBeenCalled();
     expect(mockedRouteStopStateMachineRun).not.toHaveBeenCalled();
     expect(mockedRouteResetStateMachine).not.toHaveBeenCalled();
-    expect(mockedRouteGetStateMachineRun).not.toHaveBeenCalled();
     expect(mockedLoadAgentRuns).not.toHaveBeenCalled();
     expect(mockedAddTemporaryNotification).not.toHaveBeenCalled();
   });
