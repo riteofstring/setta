@@ -2183,6 +2183,39 @@ LOOP_TERMINAL_MARKER: none
 - Read-only `main` normalized to `All Settings` too, but that session did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`); treated as oracle limitation rather than remaining worktree drift.
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 10:12 EDT - Ralph item 113
+
+- Tightened the shared title-edit-after-pan parity probe so it compares the checked section's post-pan geometry directly instead of relying on a loose whole-surface landing readout.
+- Why this slice was necessary:
+  - item `112` had already made the blank-surface pan replay trustworthy, but the remaining blocker was still an imprecise visual claim about which section looked centered after the pan
+  - before changing production code, the next bounded step had to answer whether the exact checked title-edit lane actually diverged on the shared target section itself
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - updated `settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary`
+    - the probe now captures the checked section's post-pan metrics before title editing and asserts cross-worktree parity for `centerOffsetFromRootCenter`, section rect, and viewport transform in addition to the existing title-edit contract
+  - no production renderer files changed in this slice
+- Verification:
+  - refreshed runtime/bootstrap values for the current run:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-032/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-032/main-ai.log`
+  - direct headless diagnostic replay on the exact automated lane:
+    - pinned the shared probe target (`backend`) and measured matching `+120,+80` viewport deltas plus matching target-section rect deltas on live `3075` canary and read-only `3087` legacy
+    - this narrowed the previous `browserSectionDefault` / `sectionSizingPolicy` readout to an oracle problem, not enough by itself to prove a target-section pan-transform bug on the automated lane
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `42.7s`)
+  - fresh-context CDP sub-agent:
+    - rechecked the same lane pinned to shared `backend` on live `3075` canary vs read-only `3087` legacy
+    - still saw a backend placement mismatch after the same manual pan/reset-zoom lane; the backend section did not line up visually between tabs
+    - also did not get an inline title editor to appear on either tab during this CDP pass, so the manual replay remains weaker than the automated Playwright lane for edit-state confirmation
+  - CDP visual check: done (fresh-context backend-pinned compare on live `3075` canary vs read-only `3087` legacy; backend placement still not visually aligned)
+- Lane status:
+  - close the loose whole-surface landing oracle on the automated title-edit-after-pan probe; the exact checked section geometry is now asserted directly and passes
+  - do not treat the lane as visually closed, because fresh CDP still reports a backend-pinned placement mismatch that the new automated metric does not yet explain
+- Next frontier:
+  - investigate why the live backend-pinned CDP placement still diverges when the exact automated title-edit-after-pan probe reports matching post-pan section rects and viewport transforms
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-04 09:31 EDT - Ralph item 111
 
 - Reused the existing shared title-edit-after-pan parity lane as one bounded evidence pass on the fresh run-030 runtimes instead of guessing at a production fix.

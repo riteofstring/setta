@@ -4223,6 +4223,20 @@ test("settings graph parity probe keeps shared title editing working after norma
       })
       .toBeGreaterThan(60);
 
+    const afterPan = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (
+      afterPan.centerOffsetFromRootCenter === null ||
+      !afterPan.rect ||
+      !afterPan.transform
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} title-edit post-pan metrics for ${args.originalTitle}.`,
+      );
+    }
+
     await titleText.dblclick();
     await expect(titleInput).toBeVisible();
     await expect(titleInput).toBeFocused();
@@ -4258,6 +4272,11 @@ test("settings graph parity probe keeps shared title editing working after norma
       });
 
     return {
+      afterPan: {
+        centerOffsetFromRootCenter: afterPan.centerOffsetFromRootCenter,
+        rect: afterPan.rect,
+        transform: afterPan.transform,
+      },
       paneState: await getLocalPaneState(args.targetPage),
     };
   }
@@ -4298,6 +4317,52 @@ test("settings graph parity probe keeps shared title editing working after norma
       SETTINGS_GRAPH_COMPARE_PANE_STATE,
     );
     expect(worktreeResult.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.centerOffsetFromRootCenter -
+          referenceResult.afterPan.centerOffsetFromRootCenter,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.transform.x -
+          referenceResult.afterPan.transform.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.transform.y -
+          referenceResult.afterPan.transform.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.transform.zoom -
+          referenceResult.afterPan.transform.zoom,
+      ),
+    ).toBeLessThan(0.02);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.rect.x - referenceResult.afterPan.rect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.rect.y - referenceResult.afterPan.rect.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.rect.width -
+          referenceResult.afterPan.rect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.rect.height -
+          referenceResult.afterPan.rect.height,
+      ),
+    ).toBeLessThan(8);
   } finally {
     await restoreSectionNameForPage({
       backendOrigin: WORKTREE_BACKEND_ORIGIN,

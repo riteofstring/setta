@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 09:54 EDT
+Last updated: 2026-04-04 10:12 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `113` tightened the shared title-edit-after-pan parity probe so the exact checked section geometry is compared directly instead of inferring the lane from whichever section looks centered in CDP.
+  - Why this slice was needed:
+    - item `112` had already made the blank-surface pan replay trustworthy, but the remaining blocker was still a loose whole-surface landing readout (`browserSectionDefault` vs `sectionSizingPolicy`) that could drift away from the actual shared target section
+    - the next bounded step therefore had to answer whether the exact checked title-edit lane really diverged on the target section itself before guessing at a production fix
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary` now captures the checked section's post-pan metrics before title editing
+      - the probe now asserts cross-worktree parity for that same post-pan section geometry (`centerOffsetFromRootCenter`, section rect, viewport transform) in addition to the existing title-editing contract
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-032/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-032/main-ai.log`
+    - direct headless diagnostic replay on the same automated lane:
+      - pinned the shared section chosen by the probe (`backend`) and measured matching `+120,+80` viewport deltas plus matching target-section rect deltas on live `3075` canary and read-only `3087` legacy
+      - this confirmed the earlier whole-surface landing readout was not enough evidence by itself to prove a target-section pan-transform bug on the exact automated lane
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `42.7s`)
+  - Live verification result:
+    - one fresh-context CDP sub-agent rechecked the same lane pinned to shared `backend` on live `3075` canary vs read-only `3087` legacy
+    - despite the new automated geometry parity, the sub-agent still saw a backend placement mismatch after the same manual pan/reset-zoom lane; the backend section did not line up visually between tabs
+    - the sub-agent also did not get an inline title editor to appear on either tab during this CDP pass, so the manual replay remains weaker than the automated Playwright lane for edit-state confirmation
+    - CDP visual check: done (fresh-context backend-pinned compare on live `3075` canary vs read-only `3087` legacy; visual backend placement still not aligned)
+  - conclusion for this slice:
+    - close the loose whole-surface landing oracle on the automated title-edit-after-pan probe; the checked section geometry is now asserted directly and passes on the live run-032 surfaces
+    - do not treat that passing automated geometry as closure for the whole lane, because fresh CDP still shows a backend-pinned visual placement mismatch that the automated metric does not yet explain
+    - the next bounded step should investigate why the live backend-pinned CDP placement still diverges when the exact automated probe reports matching post-pan section rects and viewport transforms
 - Ralph item `112` tightened the shared title-edit-after-pan parity helper so the next live compare could use one verified blank graph-surface pan path instead of another loose replay.
   - Why this slice was needed:
     - items `110` and `111` were both oracle-only passes, so this iteration had to either land a production fix or spend one bounded normalization/oracle step that directly unblocked the concrete title-edit-after-pan renderer question
