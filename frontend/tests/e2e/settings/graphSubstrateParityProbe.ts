@@ -809,3 +809,235 @@ export async function findSettingsGraphSectionWheelPanPoint(
 
   return point;
 }
+
+export async function getSettingsGraphOverlapDropPlan(
+  page: Page,
+  sectionId: string,
+): Promise<{
+  overlapSectionId: string;
+  delta: { x: number; y: number };
+} | null> {
+  return page.evaluate(
+    ({
+      targetSectionId,
+      canaryRootSelector,
+      canarySectionSelector,
+      legacyRootSelector,
+      legacySectionSelector,
+    }: {
+      targetSectionId: string;
+      canaryRootSelector: string;
+      canarySectionSelector: string;
+      legacyRootSelector: string;
+      legacySectionSelector: string;
+    }) => {
+      const usingCanary = Boolean(document.querySelector(canaryRootSelector));
+      const usingLegacy =
+        !usingCanary && Boolean(document.querySelector(legacyRootSelector));
+      if (!usingCanary && !usingLegacy) {
+        return null;
+      }
+
+      const sectionSelector = usingCanary
+        ? canarySectionSelector
+        : legacySectionSelector;
+      const sectionIdAttribute = usingCanary ? "data-section-id" : "data-id";
+      const sections = Array.from(
+        document.querySelectorAll<HTMLElement>(sectionSelector),
+      );
+      const sourceSection = sections.find(
+        (section) =>
+          section.getAttribute(sectionIdAttribute) === targetSectionId,
+      );
+      if (!sourceSection) {
+        return null;
+      }
+
+      const sourceRect = sourceSection.getBoundingClientRect();
+      let bestPlan: {
+        delta: { x: number; y: number };
+        distance: number;
+        overlapSectionId: string;
+      } | null = null;
+
+      for (const section of sections) {
+        const overlapSectionId = section.getAttribute(sectionIdAttribute);
+        if (!overlapSectionId || overlapSectionId === targetSectionId) {
+          continue;
+        }
+
+        const rect = section.getBoundingClientRect();
+        const desiredLeft =
+          rect.left + Math.min(48, Math.max(24, rect.width * 0.12));
+        const desiredTop =
+          rect.top + Math.min(48, Math.max(24, rect.height * 0.12));
+        const delta = {
+          x: desiredLeft - sourceRect.left,
+          y: desiredTop - sourceRect.top,
+        };
+        const projectedRect = {
+          bottom: sourceRect.bottom + delta.y,
+          left: sourceRect.left + delta.x,
+          right: sourceRect.right + delta.x,
+          top: sourceRect.top + delta.y,
+        };
+        const overlapWidth =
+          Math.min(projectedRect.right, rect.right) -
+          Math.max(projectedRect.left, rect.left);
+        const overlapHeight =
+          Math.min(projectedRect.bottom, rect.bottom) -
+          Math.max(projectedRect.top, rect.top);
+        if (overlapWidth < 60 || overlapHeight < 60) {
+          continue;
+        }
+
+        const distance = Math.hypot(
+          rect.left + rect.width / 2 - (sourceRect.left + sourceRect.width / 2),
+          rect.top + rect.height / 2 - (sourceRect.top + sourceRect.height / 2),
+        );
+        if (bestPlan && bestPlan.distance <= distance) {
+          continue;
+        }
+        bestPlan = {
+          delta,
+          distance,
+          overlapSectionId,
+        };
+      }
+
+      if (!bestPlan) {
+        return null;
+      }
+
+      return {
+        delta: bestPlan.delta,
+        overlapSectionId: bestPlan.overlapSectionId,
+      };
+    },
+    {
+      targetSectionId: sectionId,
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+    },
+  );
+}
+
+export async function getSettingsGraphSectionIntersectionPoint(
+  page: Page,
+  firstSectionId: string,
+  secondSectionId: string,
+): Promise<{ x: number; y: number } | null> {
+  return page.evaluate(
+    ({
+      sourceSectionId,
+      overlapSectionId,
+      canaryRootSelector,
+      canarySectionSelector,
+      legacyRootSelector,
+      legacySectionSelector,
+    }: {
+      sourceSectionId: string;
+      overlapSectionId: string;
+      canaryRootSelector: string;
+      canarySectionSelector: string;
+      legacyRootSelector: string;
+      legacySectionSelector: string;
+    }) => {
+      const usingCanary = Boolean(document.querySelector(canaryRootSelector));
+      const usingLegacy =
+        !usingCanary && Boolean(document.querySelector(legacyRootSelector));
+      if (!usingCanary && !usingLegacy) {
+        return null;
+      }
+
+      const sectionSelector = usingCanary
+        ? canarySectionSelector
+        : legacySectionSelector;
+      const sectionIdAttribute = usingCanary ? "data-section-id" : "data-id";
+      const sourceSection = document.querySelector<HTMLElement>(
+        `${sectionSelector}[${sectionIdAttribute}="${sourceSectionId}"]`,
+      );
+      const overlapSection = document.querySelector<HTMLElement>(
+        `${sectionSelector}[${sectionIdAttribute}="${overlapSectionId}"]`,
+      );
+      if (!sourceSection || !overlapSection) {
+        return null;
+      }
+
+      const sourceRect = sourceSection.getBoundingClientRect();
+      const overlapRect = overlapSection.getBoundingClientRect();
+      const left = Math.max(sourceRect.left, overlapRect.left);
+      const top = Math.max(sourceRect.top, overlapRect.top);
+      const right = Math.min(sourceRect.right, overlapRect.right);
+      const bottom = Math.min(sourceRect.bottom, overlapRect.bottom);
+      if (right - left < 10 || bottom - top < 10) {
+        return null;
+      }
+
+      return {
+        x: left + (right - left) / 2,
+        y: top + (bottom - top) / 2,
+      };
+    },
+    {
+      sourceSectionId: firstSectionId,
+      overlapSectionId: secondSectionId,
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+    },
+  );
+}
+
+export async function getSettingsGraphSectionRenderedZIndex(
+  page: Page,
+  sectionId: string,
+): Promise<number | null> {
+  return page.evaluate(
+    ({
+      targetSectionId,
+      canaryRootSelector,
+      canarySectionSelector,
+      legacyRootSelector,
+      legacySectionSelector,
+    }: {
+      targetSectionId: string;
+      canaryRootSelector: string;
+      canarySectionSelector: string;
+      legacyRootSelector: string;
+      legacySectionSelector: string;
+    }) => {
+      const usingCanary = Boolean(document.querySelector(canaryRootSelector));
+      const usingLegacy =
+        !usingCanary && Boolean(document.querySelector(legacyRootSelector));
+      if (!usingCanary && !usingLegacy) {
+        return null;
+      }
+
+      const sectionSelector = usingCanary
+        ? canarySectionSelector
+        : legacySectionSelector;
+      const sectionIdAttribute = usingCanary ? "data-section-id" : "data-id";
+      const section = document.querySelector<HTMLElement>(
+        `${sectionSelector}[${sectionIdAttribute}="${targetSectionId}"]`,
+      );
+      if (!section) {
+        return null;
+      }
+
+      const rawZIndex = window.getComputedStyle(section).zIndex;
+      const zIndex = Number(rawZIndex);
+      return Number.isFinite(zIndex) ? zIndex : null;
+    },
+    {
+      targetSectionId: sectionId,
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      canarySectionSelector: CANARY_SETTINGS_GRAPH_SECTION_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacySectionSelector: LEGACY_SETTINGS_GRAPH_SECTION_SELECTOR,
+    },
+  );
+}

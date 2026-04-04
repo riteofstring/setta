@@ -10,7 +10,10 @@ import {
   findViewModeId,
   fitGraphViewportToSection,
   getLocalPaneState,
+  getSettingsGraphOverlapDropPlan,
   getSettingsGraphRootRelativePoint,
+  getSettingsGraphSectionIntersectionPoint,
+  getSettingsGraphSectionRenderedZIndex,
   normalizeSettingsGraphComparePaneState,
   setLocalPaneState,
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
@@ -1573,6 +1576,326 @@ test("settings graph parity probe applies the same short top-level drag delta on
     expect(
       Math.abs(worktreeDrag.rectDelta.y - referenceDrag.rectDelta.y),
     ).toBeLessThan(16);
+  } finally {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreInitialViewModeLayout({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
+test("settings graph parity probe keeps draw section frontmost after normalized overlap drag on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const worktreeDrawSectionId = findSectionIdByName(
+    worktreeInitialState,
+    "drawSectionDefault",
+  );
+  const referenceDrawSectionId = findSectionIdByName(
+    referenceInitialState,
+    "drawSectionDefault",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+
+  async function captureFrontmostAfterOverlapDrag(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    initialState: ProjectStateSingleConfigWithCompletedOpIds;
+    projectConfigId: string;
+    sectionId: string;
+    targetPage: Page;
+    tab: Locator;
+  }) {
+    await restoreInitialViewModeLayout({
+      activeViewModeId: args.activeViewModeId,
+      backendOrigin: args.backendOrigin,
+      frontendOrigin: args.frontendOrigin,
+      initialState: args.initialState,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+    });
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.tab).toBeVisible();
+    await args.tab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    expect(
+      await fitGraphViewportToSection(args.targetPage, args.sectionId),
+    ).toBe(true);
+    await clearSettingsGraphFocusedEditableTarget(args.targetPage);
+
+    await expect
+      .poll(async () => {
+        return (
+          await captureSettingsGraphSectionMetrics(
+            args.targetPage,
+            args.sectionId,
+          )
+        ).surfaceKind;
+      })
+      .toBe(args.expectedSurfaceKind);
+
+    const beforeLayout = await getActiveTopLevelSectionLayout(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!beforeLayout) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} drawSectionDefault layout before overlap drag.`,
+      );
+    }
+
+    const overlapPlan = await getSettingsGraphOverlapDropPlan(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (!overlapPlan) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} overlap drag plan for drawSectionDefault.`,
+      );
+    }
+
+    const overlapSectionName =
+      args.initialState.projectState.sections[overlapPlan.overlapSectionId]
+        ?.name ?? overlapPlan.overlapSectionId;
+    if (
+      !(await getActiveTopLevelSectionLayout(
+        args.targetPage,
+        overlapPlan.overlapSectionId,
+      ))
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} overlap target layout before overlap drag.`,
+      );
+    }
+
+    const dragPoint = await findSettingsGraphSectionHeaderDragPoint(
+      args.targetPage,
+      args.sectionId,
+    );
+    await args.targetPage.mouse.move(dragPoint.x, dragPoint.y);
+    await args.targetPage.mouse.down();
+    await args.targetPage.mouse.move(
+      dragPoint.x + overlapPlan.delta.x,
+      dragPoint.y + overlapPlan.delta.y,
+      {
+        steps: 12,
+      },
+    );
+    await args.targetPage.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const movedLayout = await getActiveTopLevelSectionLayout(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!movedLayout) {
+          return 0;
+        }
+        return Math.hypot(
+          movedLayout.x - beforeLayout.x,
+          movedLayout.y - beforeLayout.y,
+        );
+      })
+      .toBeGreaterThan(80);
+
+    await expect
+      .poll(async () => {
+        const movedLayout = await getActiveTopLevelSectionLayout(
+          args.targetPage,
+          args.sectionId,
+        );
+        const overlapLayout = await getActiveTopLevelSectionLayout(
+          args.targetPage,
+          overlapPlan.overlapSectionId,
+        );
+        if (!movedLayout || !overlapLayout) {
+          return Number.NEGATIVE_INFINITY;
+        }
+        return movedLayout.zIndex - overlapLayout.zIndex;
+      })
+      .toBeGreaterThan(0);
+
+    await setDurableActiveSectionIds(args.targetPage, []);
+    const overlapPoint = await getSettingsGraphSectionIntersectionPoint(
+      args.targetPage,
+      args.sectionId,
+      overlapPlan.overlapSectionId,
+    );
+    if (!overlapPoint) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} overlap point after overlap drag.`,
+      );
+    }
+
+    await expect
+      .poll(async () => {
+        const movedZIndex = await getSettingsGraphSectionRenderedZIndex(
+          args.targetPage,
+          args.sectionId,
+        );
+        const overlapZIndex = await getSettingsGraphSectionRenderedZIndex(
+          args.targetPage,
+          overlapPlan.overlapSectionId,
+        );
+        if (movedZIndex === null || overlapZIndex === null) {
+          return Number.NEGATIVE_INFINITY;
+        }
+        return movedZIndex - overlapZIndex;
+      })
+      .toBeGreaterThan(0);
+
+    return {
+      overlapPoint,
+      overlapSectionName,
+      paneState: await getLocalPaneState(args.targetPage),
+    };
+  }
+
+  try {
+    const referenceFrontmost = await captureFrontmostAfterOverlapDrag({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialState: referenceInitialState,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: referenceDrawSectionId,
+      tab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: referencePage,
+    });
+    const worktreeFrontmost = await captureFrontmostAfterOverlapDrag({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialState: worktreeInitialState,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: worktreeDrawSectionId,
+      tab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: page,
+    });
+
+    expect(referenceFrontmost.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeFrontmost.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeFrontmost.overlapSectionName).toBe(
+      referenceFrontmost.overlapSectionName,
+    );
   } finally {
     await restoreInitialViewModeLayout({
       activeViewModeId: worktreeAllSettingsViewModeId,

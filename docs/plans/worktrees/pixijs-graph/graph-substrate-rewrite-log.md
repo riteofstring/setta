@@ -3574,3 +3574,38 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare on the now-stable top-level drag/reorder path, with production-fix work preferred immediately if that compare finally exposes a concrete canary-only defect
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 08:10 EDT - Ralph item 105
+
+- Added a normalized cross-worktree `drawSectionDefault` frontmost-after-overlap-drag parity probe and closed that bounded drag/reorder lane without inventing a production fix.
+- Why this slice was necessary:
+  - items `103` and `104` were both support-only slices, so this iteration had to answer the concrete top-level drag/reorder question instead of extending another helper-only lane
+  - the handoff explicitly named the stabilized top-level drag/reorder path as the next frontier after the header-drag oracle fix
+  - the existing canary-only `drawSectionDefault` frontmost oracle already exposed a stable overlap target path, so porting that exact lane to the read-only `main` parity probe was the narrowest direct question to ask next
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `getSettingsGraphOverlapDropPlan(...)`, `getSettingsGraphSectionIntersectionPoint(...)`, and `getSettingsGraphSectionRenderedZIndex(...)` so cross-worktree probes can verify stacked order on both legacy and canary surfaces
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added opt-in probe `settings graph parity probe keeps draw section frontmost after normalized overlap drag on read-only main legacy and worktree canary`
+    - the probe restores the initial `All Settings` layout on both runtimes, normalizes pane/selection noise, fits `drawSectionDefault`, applies the same overlap drag, and verifies the moved draw card stays frontmost over the shared overlap target in backend layout state plus rendered z-order
+  - no production renderer files changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - refreshed runtime/bootstrap values before the live rerun:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-024/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-024/main-ai.log`
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps draw section frontmost after normalized overlap drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `39.6s`)
+  - chrome-devtools live verification:
+    - normalized the already-running `http://127.0.0.1:3075/settings` canary tab and `http://127.0.0.1:3087/settings` legacy tab to `All Settings`
+    - applied the same derived `drawSectionDefault` overlap landing against `chatSectionDefault` on both surfaces through live state actions, then confirmed positive stacked-order deltas (`zIndexDelta`: legacy `44`, canary `35`)
+    - viewport screenshots showed the draw card still frontmost over the partially covered chat card on both tabs with no obvious canary-only visual drift
+    - restored both tabs back to the normalized baseline after inspection
+  - CDP visual check: done (live `3075` canary vs read-only `3087` legacy; normalized `drawSectionDefault` overlap against `chatSectionDefault` stayed frontmost on both surfaces)
+- Lane status:
+  - close the specific `drawSectionDefault` frontmost drag/reorder lane as covered by the new deterministic main-reference probe
+  - do not reopen this lane unless a later fresh compare shows the canary losing frontmost stacked order after the same normalized overlap-drag path against `chatSectionDefault`
+- Next frontier:
+  - return to one fresh normalized live compare on a materially different dynamic path, with production-fix work preferred if that compare finally exposes a concrete canary-only defect
+- LOOP_TERMINAL_MARKER: none
