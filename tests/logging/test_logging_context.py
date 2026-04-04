@@ -1,12 +1,13 @@
 import logging
 
+from setta.logging.context import (
+    LoggingContextFilter,
+    get_logging_context,
+    logging_context,
+    push_logging_context,
+)
+
 import pytest
-from setta.logging import context as logging_context_module
-from setta.logging.context import LoggingContextFilter, logging_context, push_logging_context
-
-
-def _current_context() -> dict[str, str]:
-    return dict(logging_context_module._LOGGING_CONTEXT_VAR.get().data)
 
 @pytest.fixture(autouse=True)
 def reset_logging_context_fixture() -> None:
@@ -17,13 +18,13 @@ def reset_logging_context_fixture() -> None:
 
 def test_push_logging_context_merges_and_clears() -> None:
     push_logging_context(request_id=4, project_config_id="alpha")
-    assert _current_context() == {
+    assert get_logging_context() == {
         "project_config_id": "alpha",
         "request_id": "4",
     }
 
     push_logging_context(project_config_id=None, websocket_id="ws-7")
-    assert _current_context() == {
+    assert get_logging_context() == {
         "request_id": "4",
         "websocket_id": "ws-7",
     }
@@ -32,11 +33,11 @@ def test_push_logging_context_merges_and_clears() -> None:
 def test_logging_context_manager_restores_previous_values() -> None:
     push_logging_context(project_config_id="alpha")
     with logging_context(request_id="inner"):
-        assert _current_context() == {
+        assert get_logging_context() == {
             "project_config_id": "alpha",
             "request_id": "inner",
         }
-    assert _current_context() == {"project_config_id": "alpha"}
+    assert get_logging_context() == {"project_config_id": "alpha"}
 
 
 def test_logging_context_filter_adds_attributes() -> None:
