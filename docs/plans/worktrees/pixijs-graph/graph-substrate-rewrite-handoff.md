@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 10:12 EDT
+Last updated: 2026-04-04 10:31 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,33 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `114` tightened the shared title-edit-after-pan parity probe one step further so the exact checked section's visible title box is compared directly, then used a fresh normalized CDP replay to decide whether the remaining backend placement mismatch was real.
+  - Why this slice was needed:
+    - items `112` and `113` had already proved the exact checked `backend` section matched on post-pan viewport transform plus outer section rect, but the latest fresh CDP replay still claimed a visible backend placement mismatch
+    - the next bounded step therefore had to answer whether the visible title geometry inside that exact checked section also stayed aligned before spending another iteration on a speculative renderer fix
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+      - `SettingsGraphSectionMetrics` now includes `titleRect`
+      - added `getSettingsGraphSectionTitleBoundingBox(...)` so the shared parity helper can read the checked section title's visible box on canary and legacy surfaces
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary` now requires cross-worktree parity for the checked post-pan title rect in addition to the existing section rect, viewport transform, and title-edit contract
+  - Automated result:
+    - the first targeted rerun failed only because the earlier bootstrap token expired mid-iteration; refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-033/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-033/main-ai.log`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `39.9s`)
+  - Live verification result:
+    - one fresh-context CDP sub-agent normalized both sides to `All Settings`, minimized non-target chrome, fit the shared `backend` section into view, and replayed the same short blank graph-surface pan
+    - no visible backend/title placement mismatch reproduced on that normalized lane; the live backend landing matched at about `x=572.4, y=158.8` on read-only `main` versus `x=572.4, y=159.3` on the worktree canary, which was effectively identical in the screenshot
+    - this now looks like oracle noise or stale viewport state from the earlier manual replay, not a persistent renderer issue on the checked lane
+    - CDP visual check: done (fresh-context graph-surface-only `backend` title-edit-after-pan compare on live `3075` canary vs read-only `3087` legacy; no visible mismatch reproduced)
+  - conclusion for this slice:
+    - close the shared `backend` title-edit-after-pan lane for the current run-033 surfaces
+    - do not reopen this lane unless a fresh normalized compare shows a real visible section/title drift on the same checked path
+    - the next bounded step should move to a different normalized dynamic Gate 1 / Gate 2 lane that CDP can still drive end-to-end, not more `backend` title-edit-after-pan probe churn
 - Ralph item `113` tightened the shared title-edit-after-pan parity probe so the exact checked section geometry is compared directly instead of inferring the lane from whichever section looks centered in CDP.
   - Why this slice was needed:
     - item `112` had already made the blank-surface pan replay trustworthy, but the remaining blocker was still a loose whole-surface landing readout (`browserSectionDefault` vs `sectionSizingPolicy`) that could drift away from the actual shared target section
@@ -2855,6 +2882,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `111`
-- Latest item: `2026-04-04 111`
+- Active history window: items `001` through `114`
+- Latest item: `2026-04-04 114`
 - Older history archives: none yet

@@ -48,6 +48,7 @@ export type SettingsGraphSectionMetrics = {
   paneState: SettingsGraphLocalPaneState;
   rect: { x: number; y: number; width: number; height: number } | null;
   surfaceKind: SettingsGraphSurfaceKind | null;
+  titleRect: { x: number; y: number; width: number; height: number } | null;
   transform: SettingsGraphViewportTransform | null;
 };
 
@@ -270,6 +271,31 @@ export async function getSettingsGraphSectionBoundingBox(
     .boundingBox();
 }
 
+export async function getSettingsGraphSectionTitleBoundingBox(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number; width: number; height: number } | null> {
+  return page.evaluate((targetSectionId) => {
+    const title =
+      document.querySelector<HTMLElement>(
+        `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"] header p`,
+      ) ??
+      document.querySelector<HTMLElement>(
+        `.react-flow__node[data-id="${targetSectionId}"] header p`,
+      );
+    if (!title) {
+      return null;
+    }
+    const rect = title.getBoundingClientRect();
+    return {
+      x: rect.x,
+      y: rect.y,
+      width: rect.width,
+      height: rect.height,
+    };
+  }, sectionId);
+}
+
 export async function getSettingsGraphSectionCenterOffsetFromRootCenter(
   page: Page,
   sectionId: string,
@@ -393,20 +419,28 @@ export async function captureSettingsGraphSectionMetrics(
   page: Page,
   sectionId: string,
 ): Promise<SettingsGraphSectionMetrics> {
-  const [centerOffsetFromRootCenter, paneState, rect, surfaceKind, transform] =
-    await Promise.all([
-      getSettingsGraphSectionCenterOffsetFromRootCenter(page, sectionId),
-      getLocalPaneState(page),
-      getSettingsGraphSectionBoundingBox(page, sectionId),
-      getSettingsGraphSurfaceKind(page),
-      getSettingsGraphViewportTransform(page),
-    ]);
+  const [
+    centerOffsetFromRootCenter,
+    paneState,
+    rect,
+    surfaceKind,
+    titleRect,
+    transform,
+  ] = await Promise.all([
+    getSettingsGraphSectionCenterOffsetFromRootCenter(page, sectionId),
+    getLocalPaneState(page),
+    getSettingsGraphSectionBoundingBox(page, sectionId),
+    getSettingsGraphSurfaceKind(page),
+    getSettingsGraphSectionTitleBoundingBox(page, sectionId),
+    getSettingsGraphViewportTransform(page),
+  ]);
 
   return {
     centerOffsetFromRootCenter,
     paneState,
     rect,
     surfaceKind,
+    titleRect,
     transform,
   };
 }

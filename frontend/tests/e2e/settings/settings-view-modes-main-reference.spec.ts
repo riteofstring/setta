@@ -4230,6 +4230,7 @@ test("settings graph parity probe keeps shared title editing working after norma
     if (
       afterPan.centerOffsetFromRootCenter === null ||
       !afterPan.rect ||
+      !afterPan.titleRect ||
       !afterPan.transform
     ) {
       throw new Error(
@@ -4275,6 +4276,7 @@ test("settings graph parity probe keeps shared title editing working after norma
       afterPan: {
         centerOffsetFromRootCenter: afterPan.centerOffsetFromRootCenter,
         rect: afterPan.rect,
+        titleRect: afterPan.titleRect,
         transform: afterPan.transform,
       },
       paneState: await getLocalPaneState(args.targetPage),
@@ -4361,6 +4363,30 @@ test("settings graph parity probe keeps shared title editing working after norma
       Math.abs(
         worktreeResult.afterPan.rect.height -
           referenceResult.afterPan.rect.height,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.titleRect.x -
+          referenceResult.afterPan.titleRect.x,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.titleRect.y -
+          referenceResult.afterPan.titleRect.y,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.titleRect.width -
+          referenceResult.afterPan.titleRect.width,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeResult.afterPan.titleRect.height -
+          referenceResult.afterPan.titleRect.height,
       ),
     ).toBeLessThan(8);
   } finally {
