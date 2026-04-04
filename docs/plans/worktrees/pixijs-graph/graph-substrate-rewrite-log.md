@@ -75,6 +75,50 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 060
+
+- Item: Persist frontmost z-order on the canary after a widened `drawSectionDefault` top-level drag, then lock that drop-state lane with one targeted guard.
+- Status: `done`
+- Details:
+  - The repeated widened pan lane is already closed, so this slice moved to a different interaction-state question: after a widened top-level drag drops and selection clears, does the custom surface keep the moved draw card frontmost the way the legacy surface does?
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now:
+    - raises the shared temp z-index when a canary drag starts
+    - renders each canary wrapper from the shared `tempZIndex`
+    - resets temp z-order on canceled drags
+    - persists `setZIndices([sectionId], true)` when a moved drag drops instead of only persisting the new position
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now carries `tempZIndex` through the canary selector so the custom surface follows the same node-internals stacking contract as legacy `xyflow`.
+  - Test coverage landed in two places:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened draw section frontmost after top-level drag`
+    - graph-substrate model/bounds/node-sync tests were updated for the new `tempZIndex` field and expectations
+  - The new Playwright lane:
+    - normalizes to `All Settings`
+    - closes overview and UI editor panes
+    - widens `drawSectionDefault`
+    - drags it into a deliberate overlap with a nearby section
+    - clears active selection
+    - asserts the moved section stays frontmost through both stored top-level z-index and rendered wrapper z-index
+- Verification:
+  - Vitest
+    - command: `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts`
+    - result: passed (`3 passed`, `11 tests`, about `0.9s`)
+  - Playwright
+    - command: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'`
+    - result: passed (`1 passed`, about `18.9s`)
+  - Prettier
+    - command: `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - CDP visual check
+    - result: deferred
+    - note:
+      - one fresh-context CDP sub-agent only inspected the current already-loaded worktree/main tabs and did not recreate the exact widened post-drop `drawSectionDefault` overlap state first, so that compare is not a trustworthy oracle for this slice
+      - a second fresh-context CDP sub-agent attempted the exact worktree-only recreation but the mutated live session had `drawSectionDefault` offscreen at `y = -1993.95`, and CDP could not reliably bring it back into the intended widened overlap state without disturbing page state further
+- Conclusion:
+  - the production half of the widened draw post-drop frontmost lane is now landed and automated
+  - do not reopen this with another harness-only pass
+  - the next iteration should use the fresh lifecycle bootstrap to rerun the exact widened `drawSectionDefault` post-drop CDP compare before deciding whether any live-only renderer drift remains on this lane
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 059
 
 - Item: Rerun the normalized widened `drawSectionDefault` short-pan compare across worktree canary and read-only `main`, then decide whether the named wide-card pan lane is actually closed.

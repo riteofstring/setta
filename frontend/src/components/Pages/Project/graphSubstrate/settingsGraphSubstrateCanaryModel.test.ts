@@ -173,6 +173,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-a",
         position: { x: 500, y: 200 },
         zIndex: 2,
+        tempZIndex: 2,
         width: 240,
         height: 160,
         positionAndSizeLocked: false,
@@ -181,6 +182,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-b",
         position: { x: 120, y: 100 },
         zIndex: 1,
+        tempZIndex: 1,
         width: 410,
         height: 260,
         positionAndSizeLocked: false,
@@ -212,6 +214,7 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-a",
         position: { x: 500, y: 200 },
         zIndex: 2,
+        tempZIndex: 8,
         width: 240,
         height: 160,
         positionAndSizeLocked: false,
@@ -220,6 +223,47 @@ describe("settingsGraphSubstrateCanaryModel", () => {
         sectionId: "section-b",
         position: { x: 120, y: 100 },
         zIndex: 1,
+        tempZIndex: 1,
+        width: 320,
+        height: 240,
+        positionAndSizeLocked: false,
+      },
+    ]);
+  });
+
+  it("prefers the shared temp z-index so the active canary drag stays frontmost", () => {
+    const state = createProjectState();
+    const nodeInternals = new Map<string, Node>([
+      [
+        "section-a",
+        {
+          id: "section-a",
+          position: { x: 500, y: 200 },
+          width: 240,
+          height: 160,
+          zIndex: 2,
+          tempZIndex: 1002,
+        },
+      ],
+    ]);
+
+    expect(
+      selectSettingsGraphSubstrateCanarySections(state, nodeInternals),
+    ).toEqual([
+      {
+        sectionId: "section-a",
+        position: { x: 500, y: 200 },
+        zIndex: 2,
+        tempZIndex: 1002,
+        width: 240,
+        height: 160,
+        positionAndSizeLocked: false,
+      },
+      {
+        sectionId: "section-b",
+        position: { x: 120, y: 100 },
+        zIndex: 1,
+        tempZIndex: 1,
         width: 320,
         height: 240,
         positionAndSizeLocked: false,

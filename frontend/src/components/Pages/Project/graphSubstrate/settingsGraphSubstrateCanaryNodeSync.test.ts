@@ -29,6 +29,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           width: 240,
           height: 160,
           zIndex: 4,
+          tempZIndex: 4,
           positionAndSizeLocked: false,
         },
         {
@@ -37,6 +38,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           width: 320,
           height: 220,
           zIndex: 2,
+          tempZIndex: 2,
           positionAndSizeLocked: false,
         },
       ],
@@ -94,6 +96,7 @@ describe("settingsGraphSubstrateCanaryNodeSync", () => {
           width: 240,
           height: 160,
           zIndex: 4,
+          tempZIndex: 4,
           positionAndSizeLocked: false,
         },
       ],

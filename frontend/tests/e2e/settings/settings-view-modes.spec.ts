@@ -1907,6 +1907,185 @@ test("settings graph substrate canary keeps a widened draw section attached duri
   }
 });
 
+test("settings graph substrate canary keeps a widened draw section frontmost after top-level drag", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const drawSectionId = findSectionIdByName(initialState, "drawSectionDefault");
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const targetSection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${drawSectionId}"]`,
+    );
+    await expect(canaryPane).toBeVisible();
+    await expect(targetSection).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitGraphViewportToSection(page, drawSectionId)).toBe(true);
+
+    const initialTargetLayout = await getActiveTopLevelSectionLayout(
+      page,
+      drawSectionId,
+    );
+    if (!initialTargetLayout) {
+      throw new Error("Missing drawSectionDefault layout before drag.");
+    }
+
+    const overlapPlan = await getCanaryOverlapDropPlan(page, drawSectionId);
+    if (!overlapPlan) {
+      throw new Error("Missing overlap drag plan for drawSectionDefault.");
+    }
+
+    if (
+      !(await getActiveTopLevelSectionLayout(
+        page,
+        overlapPlan.overlapSectionId,
+      ))
+    ) {
+      throw new Error("Missing overlap target layout before draw.");
+    }
+
+    const dragTarget = await findDraggableCanarySection(page, drawSectionId);
+    await page.mouse.move(dragTarget.point.x, dragTarget.point.y);
+    await page.mouse.down();
+    await expect(targetSection).toHaveAttribute("data-dragging", "true");
+    await page.mouse.move(
+      dragTarget.point.x + overlapPlan.delta.x,
+      dragTarget.point.y + overlapPlan.delta.y,
+      {
+        steps: 12,
+      },
+    );
+    await page.mouse.up();
+    await expect(targetSection).toHaveAttribute("data-dragging", "false");
+
+    await expect
+      .poll(async () => {
+        const movedLayout = await getActiveTopLevelSectionLayout(
+          page,
+          drawSectionId,
+        );
+        if (!movedLayout) {
+          return 0;
+        }
+        return Math.hypot(
+          movedLayout.x - initialTargetLayout.x,
+          movedLayout.y - initialTargetLayout.y,
+        );
+      })
+      .toBeGreaterThan(80);
+
+    await expect
+      .poll(async () => {
+        const movedLayout = await getActiveTopLevelSectionLayout(
+          page,
+          drawSectionId,
+        );
+        const overlapLayout = await getActiveTopLevelSectionLayout(
+          page,
+          overlapPlan.overlapSectionId,
+        );
+        if (!movedLayout || !overlapLayout) {
+          return Number.NEGATIVE_INFINITY;
+        }
+        return movedLayout.zIndex - overlapLayout.zIndex;
+      })
+      .toBeGreaterThan(0);
+
+    await setDurableActiveSectionIds(page, []);
+    await expect
+      .poll(async () => isCanarySectionActive(page, drawSectionId))
+      .toBe(false);
+
+    const overlapPoint = await getCanarySectionIntersectionPoint(
+      page,
+      drawSectionId,
+      overlapPlan.overlapSectionId,
+    );
+    if (!overlapPoint) {
+      throw new Error("Missing overlap point after draw-section drag.");
+    }
+
+    await expect
+      .poll(async () => {
+        const movedZIndex = await getCanarySectionRenderedZIndex(
+          page,
+          drawSectionId,
+        );
+        const overlapZIndex = await getCanarySectionRenderedZIndex(
+          page,
+          overlapPlan.overlapSectionId,
+        );
+        if (movedZIndex === null || overlapZIndex === null) {
+          return Number.NEGATIVE_INFINITY;
+        }
+        return movedZIndex - overlapZIndex;
+      })
+      .toBeGreaterThan(0);
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary keeps a widened body-heavy section attached during top-level drag", async ({
   page,
 }) => {
@@ -2829,6 +3008,141 @@ async function getCanarySectionBodyAnchorOffset(
   }, sectionId);
 }
 
+async function getCanaryOverlapDropPlan(
+  page: Page,
+  sectionId: string,
+): Promise<{
+  overlapSectionId: string;
+  delta: { x: number; y: number };
+} | null> {
+  return page.evaluate((sourceSectionId) => {
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="graph-substrate-canary-section"]',
+      ),
+    );
+    const sourceSection = sections.find(
+      (section) => section.getAttribute("data-section-id") === sourceSectionId,
+    );
+    if (!sourceSection) {
+      return null;
+    }
+
+    const sourceRect = sourceSection.getBoundingClientRect();
+    let bestPlan: {
+      overlapSectionId: string;
+      delta: { x: number; y: number };
+      distance: number;
+    } | null = null;
+
+    for (const section of sections) {
+      const overlapSectionId = section.getAttribute("data-section-id");
+      if (!overlapSectionId || overlapSectionId === sourceSectionId) {
+        continue;
+      }
+      const rect = section.getBoundingClientRect();
+      const desiredLeft =
+        rect.left + Math.min(48, Math.max(24, rect.width * 0.12));
+      const desiredTop =
+        rect.top + Math.min(48, Math.max(24, rect.height * 0.12));
+      const delta = {
+        x: desiredLeft - sourceRect.left,
+        y: desiredTop - sourceRect.top,
+      };
+      const projectedRect = {
+        left: sourceRect.left + delta.x,
+        top: sourceRect.top + delta.y,
+        right: sourceRect.right + delta.x,
+        bottom: sourceRect.bottom + delta.y,
+      };
+      const overlapWidth =
+        Math.min(projectedRect.right, rect.right) -
+        Math.max(projectedRect.left, rect.left);
+      const overlapHeight =
+        Math.min(projectedRect.bottom, rect.bottom) -
+        Math.max(projectedRect.top, rect.top);
+      if (overlapWidth < 60 || overlapHeight < 60) {
+        continue;
+      }
+
+      const distance = Math.hypot(
+        rect.left + rect.width / 2 - (sourceRect.left + sourceRect.width / 2),
+        rect.top + rect.height / 2 - (sourceRect.top + sourceRect.height / 2),
+      );
+      if (bestPlan && bestPlan.distance <= distance) {
+        continue;
+      }
+      bestPlan = {
+        overlapSectionId,
+        delta,
+        distance,
+      };
+    }
+
+    if (!bestPlan) {
+      return null;
+    }
+    return {
+      overlapSectionId: bestPlan.overlapSectionId,
+      delta: bestPlan.delta,
+    };
+  }, sectionId);
+}
+
+async function getCanarySectionIntersectionPoint(
+  page: Page,
+  firstSectionId: string,
+  secondSectionId: string,
+): Promise<{ x: number; y: number } | null> {
+  return page.evaluate(
+    ({ sourceSectionId, overlapSectionId }) => {
+      const sourceSection = document.querySelector<HTMLElement>(
+        `[data-testid="graph-substrate-canary-section"][data-section-id="${sourceSectionId}"]`,
+      );
+      const overlapSection = document.querySelector<HTMLElement>(
+        `[data-testid="graph-substrate-canary-section"][data-section-id="${overlapSectionId}"]`,
+      );
+      if (!sourceSection || !overlapSection) {
+        return null;
+      }
+      const sourceRect = sourceSection.getBoundingClientRect();
+      const overlapRect = overlapSection.getBoundingClientRect();
+      const left = Math.max(sourceRect.left, overlapRect.left);
+      const top = Math.max(sourceRect.top, overlapRect.top);
+      const right = Math.min(sourceRect.right, overlapRect.right);
+      const bottom = Math.min(sourceRect.bottom, overlapRect.bottom);
+      if (right - left < 10 || bottom - top < 10) {
+        return null;
+      }
+      return {
+        x: left + (right - left) / 2,
+        y: top + (bottom - top) / 2,
+      };
+    },
+    {
+      sourceSectionId: firstSectionId,
+      overlapSectionId: secondSectionId,
+    },
+  );
+}
+
+async function getCanarySectionRenderedZIndex(
+  page: Page,
+  sectionId: string,
+): Promise<number | null> {
+  return page.evaluate((targetSectionId) => {
+    const section = document.querySelector<HTMLElement>(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
+    );
+    if (!section) {
+      return null;
+    }
+    const rawZIndex = window.getComputedStyle(section).zIndex;
+    const zIndex = Number(rawZIndex);
+    return Number.isFinite(zIndex) ? zIndex : null;
+  }, sectionId);
+}
+
 async function fitGraphViewportToSection(
   page: Page,
   sectionId: string,
@@ -2866,6 +3180,29 @@ async function isCanarySectionActive(
       return false;
     }
     return section.getAttribute("data-section-active") === "true";
+  }, sectionId);
+}
+
+async function getActiveTopLevelSectionLayout(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number; zIndex: number } | null> {
+  return page.evaluate(async (targetSectionId) => {
+    const { getActiveViewModeTopLevelSections } = await import(
+      "/src/state/actions/sectionInfos"
+    );
+    const { useProjectState } = await import("/src/state/definitions.ts");
+    const layout = getActiveViewModeTopLevelSections(
+      useProjectState.getState(),
+    )[targetSectionId];
+    if (!layout) {
+      return null;
+    }
+    return {
+      x: layout.x,
+      y: layout.y,
+      zIndex: layout.zIndex,
+    };
   }, sectionId);
 }
 

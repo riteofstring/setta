@@ -21,6 +21,7 @@ export type GraphSubstrateCanaryLayoutSection = {
   sectionId: string;
   position: Position;
   zIndex: number;
+  tempZIndex: number;
   width: number | null;
   height: number | null;
   positionAndSizeLocked: boolean;
@@ -79,6 +80,7 @@ export function selectSettingsGraphSubstrateCanaryLayoutSections(
       sectionId,
       position: { x: layout.x, y: layout.y },
       zIndex: layout.zIndex,
+      tempZIndex: layout.zIndex,
       width: layout.w,
       height: layout.h,
       positionAndSizeLocked: impl.positionAndSizeLocked,
@@ -92,6 +94,7 @@ export type GraphSubstrateCanarySection = {
   sectionId: string;
   position: Position;
   zIndex: number;
+  tempZIndex: number;
   width: number | null;
   height: number | null;
   positionAndSizeLocked: boolean;
@@ -106,6 +109,7 @@ export function selectSettingsGraphSubstrateCanarySections(
       const node = nodeInternals.get(layoutSection.sectionId);
       return {
         ...layoutSection,
+        tempZIndex: node?.tempZIndex ?? layoutSection.tempZIndex,
         width: node?.width ?? layoutSection.width,
         height: node?.height ?? layoutSection.height,
       };

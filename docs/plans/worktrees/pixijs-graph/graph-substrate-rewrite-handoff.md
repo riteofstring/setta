@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 17:16 EDT
+Last updated: 2026-04-03 17:33 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,30 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `060` landed the canary-side post-drop frontmost fix for `drawSectionDefault` and closed the production half of that drag-state lane; the exact live CDP recreation is deferred to the next fresh session.
+  - Production/test change:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now raises the shared temp z-index when a canary top-level drag starts, renders the canary wrapper from the shared `tempZIndex`, resets temp z-order on canceled drags, and persists `setZIndices([sectionId], true)` when a moved drag drops instead of only writing the new position.
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts` now carries `tempZIndex` through the canary section selector so the custom surface follows the same frontmost ordering contract the legacy surface already exposes through node internals.
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened draw section frontmost after top-level drag`, which:
+      - normalizes to active `All Settings`
+      - closes overview and UI editor panes
+      - widens `drawSectionDefault`
+      - drags it into a deliberate overlap with a nearby top-level section
+      - clears active selection
+      - asserts both stored top-level z-index and rendered section z-index keep the moved draw card frontmost after the drop
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`, `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts`, and `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` were updated for the new `tempZIndex` shape/expectations.
+  - Automated result:
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` passed (`3 passed`, `11 tests`, about `0.9s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section frontmost after top-level drag'` passed (`1 passed`, about `18.9s`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts tests/e2e/settings/settings-view-modes.spec.ts` passed
+  - Live verification result:
+    - one fresh-context CDP sub-agent only inspected the current already-loaded worktree/main tabs and did not recreate the widened post-drop draw overlap state first, so that compare is not a trustworthy oracle for this slice
+    - a second fresh-context CDP sub-agent attempted the exact worktree-only recreation, but the live session had already drifted into a mutated state where `drawSectionDefault` was offscreen at `y = -1993.95`; CDP could not reliably bring that card back into the intended widened overlap state without disturbing the page further
+    - treat the exact live visual gate for this slice as deferred rather than failed
+  - conclusion for this slice:
+    - the canary now has explicit production coverage plus automated proof for persistent frontmost z-order after a widened top-level drag
+    - do not reopen this lane with another harness-only pass
+    - the next iteration should use the fresh lifecycle bootstrap to rerun the exact widened `drawSectionDefault` post-drop compare in CDP before deciding whether any live-only renderer drift remains on this lane
 - Ralph item `059` closed the normalized widened `drawSectionDefault` short-pan compare lane, so the current named wide-card pan churn is complete and the next frontier should move to a different interaction lane.
   - Production/test change:
     - none; this iteration intentionally did not change production renderer or test code because the existing shared targeted-fit and canary pan guards were already the right support coverage for the live compare
@@ -1179,6 +1203,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - do not reopen that lane unless the normalized Playwright canary or a fresh normalized CDP compare shows the `x` anchor drifting again
 - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
   - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
+  - the widened `drawSectionDefault` post-drop frontmost lane now has a production fix plus a passing Playwright guard; the next fresh session should rerun that exact live CDP compare before reopening the lane
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
   - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
@@ -1216,6 +1241,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `052`
-- Latest item: `2026-04-03 052`
+- Active history window: items `001` through `060`
+- Latest item: `2026-04-03 060`
 - Older history archives: none yet

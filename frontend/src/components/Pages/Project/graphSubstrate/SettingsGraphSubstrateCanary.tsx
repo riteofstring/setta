@@ -16,8 +16,12 @@ import {
   type RefObject,
 } from "react";
 import { applyActiveSectionChange } from "state/actions/activeSectionController";
-import { addNodes, moveNodes } from "state/actions/nodeInternals";
-import { debounced_route_set_top_level_section_layout } from "state/actions/sectionInfos";
+import {
+  addNodes,
+  moveNodes,
+  raiseTempZIndex,
+} from "state/actions/nodeInternals";
+import { setZIndices } from "state/actions/sections/sectionPositions";
 import {
   useLocalStorage,
   useMisc,
@@ -579,6 +583,11 @@ export function SettingsGraphSubstrateCanary() {
       return;
     }
 
+    ensureCanaryNode(section);
+    const activeNode = useNodeInternals.getState().x.get(section.sectionId);
+    if (activeNode) {
+      raiseTempZIndex([activeNode]);
+    }
     setDraggingSectionId(section.sectionId);
     dragStateRef.current = {
       pointerId: event.pointerId,
@@ -653,7 +662,9 @@ export function SettingsGraphSubstrateCanary() {
           position: sectionPositionOverride.position,
         },
       ]);
-      debounced_route_set_top_level_section_layout();
+      setZIndices([activeDrag.sectionId], true);
+    } else {
+      resetCanarySectionTempZIndex(activeDrag.sectionId);
     }
     setSectionPositionOverride(null);
   }
@@ -888,7 +899,7 @@ export function SettingsGraphSubstrateCanary() {
                   transformOrigin: "0 0",
                   pointerEvents: "all",
                   visibility: "visible",
-                  zIndex: section.zIndex,
+                  zIndex: section.tempZIndex,
                 }}
                 data-id={section.sectionId}
                 data-section-id={section.sectionId}
@@ -979,6 +990,20 @@ function ensureCanaryNode(section: GraphSubstrateCanarySection) {
       tempZIndex: section.zIndex,
     },
   ]);
+}
+
+function resetCanarySectionTempZIndex(sectionId: string) {
+  const nodeInternals = useNodeInternals.getState().x;
+  const node = nodeInternals.get(sectionId);
+  if (!node || node.tempZIndex === node.zIndex) {
+    return;
+  }
+  const nextNodeInternals = new Map(nodeInternals);
+  nextNodeInternals.set(sectionId, {
+    ...node,
+    tempZIndex: node.zIndex,
+  });
+  useNodeInternals.setState({ x: nextNodeInternals });
 }
 
 function isBackgroundTargetBlocked(target: EventTarget | null): boolean {
