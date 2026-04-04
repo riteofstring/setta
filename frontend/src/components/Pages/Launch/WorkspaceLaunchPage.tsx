@@ -28,22 +28,19 @@ import {
   writeWorkspaceSwitcherDraft,
 } from "utils/workspaceSwitcherLaunch";
 
+type LaunchReturnUrlTrust = "same-origin-only" | "backend-validated";
+
+type LaunchReturnTarget = {
+  returnUrlTrust: LaunchReturnUrlTrust;
+  returnUrl: string;
+  workspaceRoot: string;
+  sshTarget: string | null;
+};
+
 type LaunchPhase =
   | { status: "idle" }
-  | {
-      status: "loading";
-      startedAt: number;
-      returnUrl: string;
-      workspaceRoot: string;
-      sshTarget: string | null;
-    }
-  | {
-      status: "error";
-      message: string;
-      returnUrl: string;
-      workspaceRoot: string;
-      sshTarget: string | null;
-    };
+  | ({ status: "loading"; startedAt: number } & LaunchReturnTarget)
+  | ({ status: "error"; message: string } & LaunchReturnTarget);
 
 type RouteLaunchResult = ResponseDataAndStatus<LaunchResponse>;
 type WorkspaceRootResolutionSource = {
@@ -131,6 +128,7 @@ export function WorkspaceLaunchPage() {
       setPhase({
         status: "error",
         message: "Missing pending workspace launch request.",
+        returnUrlTrust: "same-origin-only",
         returnUrl: defaultReturnUrl,
         workspaceRoot: "",
         sshTarget: null,
@@ -142,6 +140,7 @@ export function WorkspaceLaunchPage() {
         ? resolveWorkspaceLaunchReturnUrl(
             pending.returnUrl,
             window.location.href,
+            "same-origin-only",
           )
         : pending.returnUrl;
     const pendingSshTarget =
@@ -153,6 +152,7 @@ export function WorkspaceLaunchPage() {
     setPhase({
       status: "loading",
       startedAt: pending.requestedAt,
+      returnUrlTrust: "same-origin-only",
       returnUrl: pendingReturnUrl,
       workspaceRoot: pending.request.workspaceRoot ?? "",
       sshTarget: pendingSshTarget,
@@ -180,18 +180,26 @@ export function WorkspaceLaunchPage() {
                 ? `Launch failed (HTTP ${res.status}). Please try again.`
                 : "Launch failed. Please try again."),
           }),
+          returnUrlTrust: "same-origin-only",
           returnUrl: pendingReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,
         });
         return;
       }
+      const hasResponseReturnUrl = typeof res.data.returnUrl === "string";
+      const responseReturnUrlTrust: LaunchReturnUrlTrust = hasResponseReturnUrl
+        ? "backend-validated"
+        : "same-origin-only";
       const responseReturnUrl =
         typeof window !== "undefined"
-          ? resolveWorkspaceLaunchReturnUrl(
-              res.data.returnUrl ?? pendingReturnUrl,
-              window.location.href,
-            )
+          ? hasResponseReturnUrl
+            ? resolveWorkspaceLaunchReturnUrl(
+                res.data.returnUrl,
+                window.location.href,
+                responseReturnUrlTrust,
+              )
+            : pendingReturnUrl
           : pendingReturnUrl;
       if (!res.data.ok) {
         setPhase({
@@ -200,6 +208,7 @@ export function WorkspaceLaunchPage() {
             code: res.data.error?.code,
             message: res.data.error?.message ?? "Launch failed.",
           }),
+          returnUrlTrust: responseReturnUrlTrust,
           returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,
@@ -210,6 +219,7 @@ export function WorkspaceLaunchPage() {
         setPhase({
           status: "error",
           message: "Launch succeeded but no bootstrap URL was returned.",
+          returnUrlTrust: responseReturnUrlTrust,
           returnUrl: responseReturnUrl,
           workspaceRoot: pending.request.workspaceRoot ?? "",
           sshTarget: pendingSshTarget,
@@ -299,11 +309,12 @@ export function WorkspaceLaunchPage() {
     return "Launch failed";
   }, [elapsedMs, phase.status]);
 
-  function goBack(returnUrl: string) {
+  function goBack(returnUrl: string, returnUrlTrust: LaunchReturnUrlTrust) {
     clearPendingWorkspaceLaunch();
     const navigation = resolveWorkspaceLaunchBackNavigation(
       returnUrl,
       window.location.href,
+      returnUrlTrust,
     );
     if (navigation.kind === "assign") {
       window.location.assign(navigation.target);
@@ -320,6 +331,10 @@ export function WorkspaceLaunchPage() {
       : typeof window !== "undefined"
         ? new URL(HOME_ROUTER_PATH, window.location.href).toString()
         : HOME_ROUTER_PATH;
+  const returnUrlTrust: LaunchReturnUrlTrust =
+    phase.status === "loading" || phase.status === "error"
+      ? phase.returnUrlTrust
+      : "same-origin-only";
   const workspaceLabel =
     phase.status === "loading" || phase.status === "error"
       ? phase.workspaceRoot
@@ -380,7 +395,7 @@ export function WorkspaceLaunchPage() {
         <div className="flex w-full flex-col gap-3 pt-2 sm:flex-row sm:justify-center">
           <button
             className="cursor-pointer rounded-full border border-setta-300 px-5 py-2 text-sm text-setta-700 transition-colors hover:bg-setta-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-setta-600 dark:text-setta-200 dark:hover:bg-setta-800"
-            onClick={() => goBack(returnUrl)}
+            onClick={() => goBack(returnUrl, returnUrlTrust)}
           >
             Back to Switcher
           </button>

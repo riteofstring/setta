@@ -1,8 +1,9 @@
-import type {
-  PluginBlockedCapability,
-  PluginInstallResponse,
-  PluginListEntry,
-  PluginStatusEntry,
+import {
+  validateGeneratedPluginSourceSpec,
+  type PluginBlockedCapability,
+  type PluginInstallResponse,
+  type PluginListEntry,
+  type PluginStatusEntry,
 } from "utils/generatedTypes";
 
 type PluginCapabilityStatus =
@@ -200,10 +201,7 @@ export function buildCapabilityUnavailableMessage({
 export function validateInstallSourceSpec(
   sourceSpecRaw: string,
 ): string | null {
-  if (!sourceSpecRaw.trim()) {
-    return "Source spec is required.";
-  }
-  return null;
+  return validateGeneratedPluginSourceSpec(sourceSpecRaw);
 }
 
 export function buildInstallTrustSummaryMessage(

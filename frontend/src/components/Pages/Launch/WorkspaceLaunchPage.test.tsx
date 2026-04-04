@@ -27,6 +27,23 @@ describe("WorkspaceLaunchPage return URL helpers", () => {
     expect(resolved).toBe("http://launcher.local/projects/demo");
   });
 
+  it("rejects cross-origin pending return URLs until the backend confirms them", () => {
+    const resolved = resolveWorkspaceLaunchReturnUrl(
+      "https://trusted.example/home?foo=1#top",
+      "http://launcher.local/launching",
+    );
+    expect(resolved).toBe("http://launcher.local/home");
+  });
+
+  it("preserves cross-origin backend-validated return URLs", () => {
+    const resolved = resolveWorkspaceLaunchReturnUrl(
+      "https://trusted.example/home?foo=1#top",
+      "http://launcher.local/launching",
+      "backend-validated",
+    );
+    expect(resolved).toBe("https://trusted.example/home?foo=1#top");
+  });
+
   it("rejects non-http(s) schemes", () => {
     const resolved = resolveWorkspaceLaunchReturnUrl(
       "javascript:alert('xss')",
@@ -50,16 +67,29 @@ describe("WorkspaceLaunchPage back navigation helpers", () => {
     });
   });
 
-  it("preserves cross-origin returns as full redirects", () => {
+  it("preserves backend-validated cross-origin returns as full redirects", () => {
     const resolved = resolveWorkspaceLaunchBackNavigation(
       "https://trusted.example/home?foo=1#top",
       "https://current.example/launching",
+      "backend-validated",
     );
 
     expect(resolved).toEqual({
       kind: "assign",
       target:
         "https://trusted.example/home?foo=1&__setta_open_workspace_switcher=1#top",
+    });
+  });
+
+  it("falls back to local navigation for untrusted cross-origin returns", () => {
+    const resolved = resolveWorkspaceLaunchBackNavigation(
+      "https://trusted.example/home?foo=1#top",
+      "https://current.example/launching",
+    );
+
+    expect(resolved).toEqual({
+      kind: "navigate",
+      target: "/home?__setta_open_workspace_switcher=1",
     });
   });
 

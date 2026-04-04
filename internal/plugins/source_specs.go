@@ -25,7 +25,7 @@ func ParseSourceSpec(sourceSpec string) (ParsedSourceSpec, error) {
 	if !strings.Contains(raw, ":") {
 		return ParsedSourceSpec{}, newServiceError(
 			ServiceErrorCodeSourceSchemeUnsupported,
-			"Unsupported plugin source spec: %s",
+			unsupportedPluginSourceSpecMessageFormat,
 			sourceSpec,
 		)
 	}
@@ -40,7 +40,7 @@ func ParseSourceSpec(sourceSpec string) (ParsedSourceSpec, error) {
 	default:
 		return ParsedSourceSpec{}, newServiceError(
 			ServiceErrorCodeSourceSchemeUnsupported,
-			"Unsupported plugin source scheme: %s",
+			unsupportedPluginSourceSchemeMessageFormat,
 			scheme,
 		)
 	}
@@ -113,7 +113,7 @@ func parseGitHubSourceSpec(raw string, rest string) (ParsedSourceSpec, error) {
 	if strings.TrimSpace(rest) == "" {
 		return ParsedSourceSpec{}, newServiceError(
 			ServiceErrorCodeSourceInvalid,
-			"GitHub source must be github:<owner>/<repo>[#ref] or github:<owner>/<repo>@ref.",
+			gitHubPluginSourceUsageMessage,
 		)
 	}
 	repoSpec := rest
@@ -131,7 +131,7 @@ func parseGitHubSourceSpec(raw string, rest string) (ParsedSourceSpec, error) {
 	if !ok || strings.TrimSpace(owner) == "" || strings.TrimSpace(repo) == "" {
 		return ParsedSourceSpec{}, newServiceError(
 			ServiceErrorCodeSourceInvalid,
-			"GitHub source must be github:<owner>/<repo>[#ref] or github:<owner>/<repo>@ref.",
+			gitHubPluginSourceUsageMessage,
 		)
 	}
 	return ParsedSourceSpec{
@@ -149,7 +149,7 @@ func parsePyPISourceSpec(raw string, rest string) (ParsedSourceSpec, error) {
 	if packageSpec == "" {
 		return ParsedSourceSpec{}, newServiceError(
 			ServiceErrorCodeSourceInvalid,
-			"PyPI source must be pypi:<package>[==version].",
+			pyPIPluginSourceUsageMessage,
 		)
 	}
 	packageName, version, err := splitPyPISpec(packageSpec)
@@ -180,7 +180,7 @@ func splitPyPISpec(packageSpec string) (string, string, error) {
 	}
 	trimmedVersion := strings.TrimSpace(version)
 	if trimmedVersion == "" {
-		return "", "", newServiceError(ServiceErrorCodeSourceInvalid, "Invalid PyPI source spec: %s", packageSpec)
+		return "", "", newServiceError(ServiceErrorCodeSourceInvalid, invalidPyPISourceSpecMessageFormat, packageSpec)
 	}
 	return normalizedPackageName, trimmedVersion, nil
 }
@@ -188,7 +188,7 @@ func splitPyPISpec(packageSpec string) (string, string, error) {
 func normalizePackageName(packageName string) (string, error) {
 	trimmed := strings.ToLower(strings.TrimSpace(packageName))
 	if trimmed == "" {
-		return "", newServiceError(ServiceErrorCodeSourceInvalid, "Invalid package name: %q", packageName)
+		return "", newServiceError(ServiceErrorCodeSourceInvalid, invalidPackageNameMessageFormat, packageName)
 	}
 	normalized := make([]byte, 0, len(trimmed))
 	for index := 0; index < len(trimmed); index++ {
@@ -197,7 +197,7 @@ func normalizePackageName(packageName string) (string, error) {
 			normalized = append(normalized, char)
 			continue
 		}
-		return "", newServiceError(ServiceErrorCodeSourceInvalid, "Invalid package name: %q", packageName)
+		return "", newServiceError(ServiceErrorCodeSourceInvalid, invalidPackageNameMessageFormat, packageName)
 	}
 	return string(normalized), nil
 }

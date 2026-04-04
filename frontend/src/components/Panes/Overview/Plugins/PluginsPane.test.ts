@@ -110,7 +110,7 @@ function buildPluginStatusEntry(
 }
 
 describe("plugins pane helpers", () => {
-  it("only requires a non-empty install source spec before backend validation", () => {
+  it("validates install source specs with generated backend-owned rules", () => {
     expect(pluginsPaneTestApi.validateInstallSourceSpec("")).toBe(
       "Source spec is required.",
     );
@@ -120,11 +120,19 @@ describe("plugins pane helpers", () => {
 
     expect(
       pluginsPaneTestApi.validateInstallSourceSpec("file:/tmp/plugin"),
-    ).toBeNull();
+    ).toBe("Unsupported plugin source scheme: file");
     expect(pluginsPaneTestApi.validateInstallSourceSpec("github:acme")).toBe(
-      null,
+      "GitHub source must be github:<owner>/<repo>[#ref] or github:<owner>/<repo>@ref.",
     );
-    expect(pluginsPaneTestApi.validateInstallSourceSpec("pypi:   ")).toBeNull();
+    expect(pluginsPaneTestApi.validateInstallSourceSpec("pypi:   ")).toBe(
+      "PyPI source must be pypi:<package>[==version].",
+    );
+    expect(
+      pluginsPaneTestApi.validateInstallSourceSpec("pypi:bad/package"),
+    ).toBe('Invalid package name: "bad/package"');
+    expect(
+      pluginsPaneTestApi.validateInstallSourceSpec("pypi:setta-fixture=="),
+    ).toBe("Invalid PyPI source spec: setta-fixture==");
     expect(
       pluginsPaneTestApi.validateInstallSourceSpec("github:acme/plugin#v1"),
     ).toBeNull();
