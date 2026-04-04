@@ -857,89 +857,11 @@ func buildEngineConfigCreateBodyTS() string {
 	return builder.String()
 }
 
-type generatedFactoryDeclarationData struct {
-	Name          string
-	ImplType      string
-	DefaultType   string
-	Fields        []tsLiteralField
-	Prelude       string
-	OverridesExpr string
-}
-
-func combineTSLiteralFields(groups ...[]tsLiteralField) []tsLiteralField {
-	total := 0
-	for _, group := range groups {
-		total += len(group)
-	}
-	fields := make([]tsLiteralField, 0, total)
-	for _, group := range groups {
-		fields = append(fields, group...)
-	}
-	return fields
-}
-
-func sectionImplIdentityFields(typeExpr string) []tsLiteralField {
-	return []tsLiteralField{
-		{Name: "type", Value: typeExpr},
-		{Name: "id", Value: `""`},
-		{Name: "name", Value: `""`},
-	}
-}
-
-func generatedBaseSectionImplFields(defaultsExpr string) []tsLiteralField {
-	return []tsLiteralField{
-		{Name: "isFrozen", Value: defaultsExpr + ".isFrozen"},
-		{Name: "isInOtherProjectConfigs", Value: "false"},
-		{Name: "tagColor", Value: defaultsExpr + ".tagColor"},
-		{Name: "styleColor", Value: defaultsExpr + ".styleColor"},
-		{Name: "size", Value: defaultsExpr + ".size"},
-		{Name: "aspectRatio", Value: defaultsExpr + ".aspectRatio"},
-		{Name: "aspectRatioExtraHeight", Value: "0"},
-		{Name: "aspectRatioExtraWidth", Value: "0"},
-		{Name: "isMinimized", Value: defaultsExpr + ".isMinimized"},
-		{Name: "positionAndSizeLocked", Value: defaultsExpr + ".positionAndSizeLocked"},
-		{Name: "isPreset", Value: "false"},
-	}
-}
-
-func generatedSectionWithParamsImplFields(defaultsExpr string) []tsLiteralField {
-	return combineTSLiteralFields(
-		generatedBaseSectionImplFields(defaultsExpr),
-		[]tsLiteralField{
-			{Name: "codeObjVariantMap", Value: "{}"},
-			{Name: "hideUnpinnedParams", Value: defaultsExpr + ".hideUnpinnedParams"},
-			{Name: "paramFilter", Value: defaultsExpr + ".paramFilter"},
-			{Name: "columnWidth", Value: defaultsExpr + ".columnWidth"},
-			{Name: "configLanguage", Value: defaultsExpr + ".configLanguage"},
-			{Name: "pinnedParams", Value: "[]"},
-			{Name: "selectedParams", Value: "[]"},
-			{Name: "ignoreTypeErrors", Value: `{
-        callable: false,
-        params: {},
-      }`},
-			{Name: "edgeInputParams", Value: defaultsExpr + ".edgeInputParams"},
-			{Name: "edgeOutputPorts", Value: defaultsExpr + ".edgeOutputPorts"},
-		},
-	)
-}
-
-func sectionImplCreateFields(typeExpr string, defaultsExpr string, extras ...[]tsLiteralField) []tsLiteralField {
-	return combineTSLiteralFields(
-		sectionImplIdentityFields(typeExpr),
-		generatedBaseSectionImplFields(defaultsExpr),
-		combineTSLiteralFields(extras...),
-	)
-}
-
-func sectionWithParamsImplCreateFields(typeExpr string, defaultsExpr string, extras ...[]tsLiteralField) []tsLiteralField {
-	return combineTSLiteralFields(
-		sectionImplIdentityFields(typeExpr),
-		generatedSectionWithParamsImplFields(defaultsExpr),
-		combineTSLiteralFields(extras...),
-	)
-}
-
-func buildGeneratedFactoryReturnBodyTS(fields []tsLiteralField, overridesExpr string, prelude string) string {
+func buildGeneratedFactoryReturnBodyTS(
+	objectEntries []string,
+	overridesExpr string,
+	prelude string,
+) string {
 	var builder strings.Builder
 	trimmedPrelude := strings.TrimRight(prelude, "\n")
 	if trimmedPrelude != "" {
@@ -948,7 +870,11 @@ func buildGeneratedFactoryReturnBodyTS(fields []tsLiteralField, overridesExpr st
 	}
 	builder.WriteString("  return mergeGeneratedOptions(\n")
 	builder.WriteString("    {\n")
-	writeTSObjectFields(&builder, "      ", fields)
+	for _, entry := range objectEntries {
+		builder.WriteString("      ")
+		builder.WriteString(entry)
+		builder.WriteString(",\n")
+	}
 	builder.WriteString("    },\n")
 	builder.WriteString("    ")
 	builder.WriteString(overridesExpr)
@@ -960,7 +886,7 @@ func buildGeneratedFactoryReturnBodyTS(fields []tsLiteralField, overridesExpr st
 func buildResolvedGeneratedFactoryBodyTS(
 	defaultType string,
 	implType string,
-	fields []tsLiteralField,
+	objectEntries []string,
 	prelude string,
 	overridesExpr string,
 ) string {
@@ -978,12 +904,16 @@ func buildResolvedGeneratedFactoryBodyTS(
 	builder.WriteString("  >(create")
 	builder.WriteString(defaultType)
 	builder.WriteString("(), defaultsOrOverrides, overrides);\n")
-	builder.WriteString(buildGeneratedFactoryReturnBodyTS(fields, overridesExpr, prelude))
+	builder.WriteString(buildGeneratedFactoryReturnBodyTS(objectEntries, overridesExpr, prelude))
 	return builder.String()
 }
 
-func buildDirectGeneratedFactoryBodyTS(fields []tsLiteralField, overridesExpr string) string {
-	return buildGeneratedFactoryReturnBodyTS(fields, overridesExpr, "")
+func buildDirectGeneratedFactoryBodyTS(
+	objectEntries []string,
+	overridesExpr string,
+	prelude string,
+) string {
+	return buildGeneratedFactoryReturnBodyTS(objectEntries, overridesExpr, prelude)
 }
 
 func objectDeclarationWithGoBackedSectionDefaults(
@@ -1379,37 +1309,6 @@ func settingsBackendTypeProperties() []TypeProperty {
 	}
 }
 
-func exportedResolvedFactoryDeclaration(data generatedFactoryDeclarationData) TypeDeclaration {
-	return exportedFunctionDeclaration(
-		data.Name,
-		data.ImplType,
-		buildResolvedGeneratedFactoryBodyTS(
-			data.DefaultType,
-			data.ImplType,
-			data.Fields,
-			data.Prelude,
-			data.OverridesExpr,
-		),
-		defaultsOrOverridesTypeProperty(data.DefaultType, data.ImplType),
-		optionalOverrideTypeProperty(data.ImplType),
-	)
-}
-
-func exportedDefaultsFactoryDeclaration(
-	name string,
-	implType string,
-	defaultType string,
-	fields []tsLiteralField,
-) TypeDeclaration {
-	return exportedFunctionDeclaration(
-		name,
-		implType,
-		buildDirectGeneratedFactoryBodyTS(fields, "overrides"),
-		defaultsTypeProperty(defaultType),
-		overrideTypeProperty(implType),
-	)
-}
-
 func buildTaskBoardOverridesPreludeTS() string {
 	var builder strings.Builder
 	builder.WriteString("  const normalizedOverrides: Partial<TaskBoardSectionImpl> = {\n")
@@ -1424,9 +1323,176 @@ func buildTaskBoardOverridesPreludeTS() string {
 	return builder.String()
 }
 
-func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
-	return map[reflect.Type][]TypeDeclaration{
-		reflect.TypeOf(ProjectConfig{}): {
+func generatedSectionTypeSetContains(setName string, sectionName string) bool {
+	member := "SectionTypeEnum." + sectionName
+	for _, spec := range projectStateTypeGuardTypeSets {
+		if spec.Name != setName {
+			continue
+		}
+		for _, candidate := range spec.Members {
+			if candidate == member {
+				return true
+			}
+		}
+		return false
+	}
+	return false
+}
+
+func generatedSectionImplName(t reflect.Type) (string, bool) {
+	if t == nil || t.Kind() != reflect.Struct {
+		return "", false
+	}
+	name := t.Name()
+	if name == "" || strings.HasPrefix(name, "Base") || strings.HasPrefix(name, "UserDefault") {
+		return "", false
+	}
+	if !strings.HasSuffix(name, "SectionImpl") {
+		return "", false
+	}
+	sectionName := strings.TrimSuffix(name, "SectionImpl")
+	if _, err := projectstate.FrontendUserDefaultSectionDefaults(sectionName); err != nil {
+		return "", false
+	}
+	return sectionName, true
+}
+
+func generatedSectionImplTypeExpr(sectionName string) string {
+	return "SectionTypeEnum." + sectionName
+}
+
+func generatedSectionImplDefaultTypeName(sectionName string) string {
+	return "UserDefault" + sectionName + "SectionImpl"
+}
+
+func generatedSectionImplFactoryUsesDirectDefaults(sectionName string) bool {
+	return sectionName == "Dict"
+}
+
+func generatedSectionImplFactoryOverridesExpr(sectionName string) string {
+	if sectionName == "TaskBoard" {
+		return "normalizedOverrides"
+	}
+	return "resolved.overrides"
+}
+
+func generatedSectionImplFactoryPreludeTS(sectionName string) string {
+	if sectionName == "TaskBoard" {
+		return buildTaskBoardOverridesPreludeTS()
+	}
+	return ""
+}
+
+func generatedSectionImplFactoryEntries(sectionName string, defaultsExpr string) []string {
+	entries := []string{
+		"..." + defaultsExpr,
+		"type: " + generatedSectionImplTypeExpr(sectionName),
+		`id: ""`,
+		`name: ""`,
+		"isInOtherProjectConfigs: false",
+		"aspectRatioExtraHeight: 0",
+		"aspectRatioExtraWidth: 0",
+		"isPreset: false",
+	}
+	if generatedSectionTypeSetContains("BaseSectionWithParamsImplTypeSet", sectionName) {
+		entries = append(
+			entries,
+			"codeObjVariantMap: {}",
+			"pinnedParams: []",
+			"selectedParams: []",
+			`ignoreTypeErrors: {
+        callable: false,
+        params: {},
+      }`,
+		)
+	}
+	if generatedSectionTypeSetContains("BaseParentSectionImplTypeSet", sectionName) {
+		entries = append(entries, "children: []")
+	}
+	switch sectionName {
+	case "Callable":
+		entries = append(entries, "callable: null")
+	case "Dict":
+		entries = append(entries, "topLevelParamId: null", "jsonSourceMissing: false")
+	case "Prompt":
+		entries = append(entries, "promptTemplateId: null")
+	case "TaskBoard":
+		entries = append(
+			entries,
+			`columns: `+defaultsExpr+`.columns === null || `+defaultsExpr+`.columns === undefined
+        ? []
+        : cloneGeneratedValue(`+defaultsExpr+`.columns)`,
+		)
+	}
+	return entries
+}
+
+func generatedSectionImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bool) {
+	sectionName, ok := generatedSectionImplName(t)
+	if !ok {
+		return TypeDeclaration{}, false
+	}
+	implType := t.Name()
+	defaultType := generatedSectionImplDefaultTypeName(sectionName)
+	name := "create" + implType
+
+	if generatedSectionImplFactoryUsesDirectDefaults(sectionName) {
+		return exportedFunctionDeclaration(
+			name,
+			implType,
+			buildDirectGeneratedFactoryBodyTS(
+				generatedSectionImplFactoryEntries(sectionName, "defaults"),
+				"overrides",
+				"",
+			),
+			defaultsTypeProperty(defaultType),
+			overrideTypeProperty(implType),
+		), true
+	}
+
+	return exportedFunctionDeclaration(
+		name,
+		implType,
+		buildResolvedGeneratedFactoryBodyTS(
+			defaultType,
+			implType,
+			generatedSectionImplFactoryEntries(sectionName, "resolved.defaults"),
+			generatedSectionImplFactoryPreludeTS(sectionName),
+			generatedSectionImplFactoryOverridesExpr(sectionName),
+		),
+		defaultsOrOverridesTypeProperty(defaultType, implType),
+		optionalOverrideTypeProperty(implType),
+	), true
+}
+
+func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
+	return exportedFunctionDeclaration(
+		"createCodeParamCodeObjImpl",
+		"CodeParamCodeObjImpl",
+		buildResolvedGeneratedFactoryBodyTS(
+			"UserDefaultCodeParamCodeObjImpl",
+			"CodeParamCodeObjImpl",
+			[]string{
+				"...resolved.defaults",
+				"type: CodeObjTypeEnum.CodeParam",
+				`id: ""`,
+				`name: ""`,
+				`description: ""`,
+				"isPreset: false",
+				"passingStyle: ParameterPassingStyleEnum.DEFAULT",
+			},
+			"",
+			"",
+		),
+		defaultsOrOverridesTypeProperty("UserDefaultCodeParamCodeObjImpl", "CodeParamCodeObjImpl"),
+		optionalOverrideTypeProperty("CodeParamCodeObjImpl"),
+	)
+}
+
+func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
+	switch t {
+	case reflect.TypeOf(ProjectConfig{}):
+		return []TypeDeclaration{
 			objectDeclarationWithGoBackedCreateExpr(
 				"ProjectRunCapabilities",
 				projectview.ProjectRunCapabilities{},
@@ -1434,8 +1500,9 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 				TypeProperty{Name: "mainRunDisabledReason", TypeExpr: "string | null", Optional: true},
 				TypeProperty{Name: "effectiveEntrySectionId", TypeExpr: "string | null", Optional: true},
 			),
-		},
-		reflect.TypeOf(ProjectStateSingleConfig{}): {
+		}, true
+	case reflect.TypeOf(ProjectStateSingleConfig{}):
+		return []TypeDeclaration{
 			objectDeclarationWithGoBackedCreateExpr(
 				"SectionCapabilities",
 				projectview.SectionCapabilities{},
@@ -1445,277 +1512,11 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
 				TypeProperty{Name: "canSelectAsEntryCodeBlock", TypeExpr: "boolean"},
 				TypeProperty{Name: "entryCodeBlockValue", TypeExpr: "string | null", Optional: true},
 			),
-		},
-		reflect.TypeOf(CallableSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createCallableSectionImpl",
-				ImplType:    "CallableSectionImpl",
-				DefaultType: "UserDefaultCallableSectionImpl",
-				Fields: sectionWithParamsImplCreateFields(
-					"SectionTypeEnum.Callable",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "callable", Value: "null"},
-						{Name: "hideParams", Value: "resolved.defaults.hideParams"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(DictSectionImpl{}): {
-			exportedDefaultsFactoryDeclaration(
-				"createDictSectionImpl",
-				"DictSectionImpl",
-				"UserDefaultDictSectionImpl",
-				sectionWithParamsImplCreateFields(
-					"SectionTypeEnum.Dict",
-					"defaults",
-					[]tsLiteralField{
-						{Name: "topLevelParamId", Value: "null"},
-						{Name: "isJsonSource", Value: "defaults.isJsonSource"},
-						{Name: "jsonSourceKeys", Value: "defaults.jsonSourceKeys"},
-						{Name: "jsonSourceMissing", Value: "false"},
-					},
-				),
-			),
-		},
-		reflect.TypeOf(CodeParamCodeObjImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createCodeParamCodeObjImpl",
-				ImplType:    "CodeParamCodeObjImpl",
-				DefaultType: "UserDefaultCodeParamCodeObjImpl",
-				Fields: []tsLiteralField{
-					{Name: "type", Value: "CodeObjTypeEnum.CodeParam"},
-					{Name: "id", Value: `""`},
-					{Name: "name", Value: `""`},
-					{Name: "description", Value: `""`},
-					{Name: "isPreset", Value: "false"},
-					{Name: "coreNameType", Value: "resolved.defaults.coreNameType"},
-					{Name: "coreNameEditable", Value: "resolved.defaults.coreNameEditable"},
-					{Name: "passingStyle", Value: "ParameterPassingStyleEnum.DEFAULT"},
-					{Name: "typeAnnotation", Value: "resolved.defaults.typeAnnotation"},
-					{Name: "defaultVal", Value: "resolved.defaults.defaultVal"},
-					{Name: "value", Value: "resolved.defaults.value"},
-				},
-			}),
-		},
-		reflect.TypeOf(ListRootSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createListRootSectionImpl",
-				ImplType:    "ListRootSectionImpl",
-				DefaultType: "UserDefaultListRootSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.ListRoot",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "children", Value: "[]"},
-						{Name: "defaultChildSectionType", Value: "resolved.defaults.defaultChildSectionType"},
-						{Name: "viewMode", Value: "resolved.defaults.viewMode"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(GroupSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createGroupSectionImpl",
-				ImplType:    "GroupSectionImpl",
-				DefaultType: "UserDefaultGroupSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.Group",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "children", Value: "[]"},
-						{Name: "isHorizontalOrientation", Value: "resolved.defaults.isHorizontalOrientation"},
-						{Name: "overflowMode", Value: "resolved.defaults.overflowMode"},
-						{Name: "defaultChildSectionType", Value: "resolved.defaults.defaultChildSectionType"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(StateMachineStartSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createStateMachineStartSectionImpl",
-				ImplType:    "StateMachineStartSectionImpl",
-				DefaultType: "UserDefaultStateMachineStartSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.StateMachineStart",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "machineGroupId", Value: "resolved.defaults.machineGroupId"},
-						{Name: "label", Value: "resolved.defaults.label"},
-						{Name: "maxIterations", Value: "resolved.defaults.maxIterations"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(StateMachineGateSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createStateMachineGateSectionImpl",
-				ImplType:    "StateMachineGateSectionImpl",
-				DefaultType: "UserDefaultStateMachineGateSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.StateMachineGate",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "machineGroupId", Value: "resolved.defaults.machineGroupId"},
-						{Name: "gateType", Value: "resolved.defaults.gateType"},
-						{Name: "label", Value: "resolved.defaults.label"},
-						{Name: "ui", Value: "resolved.defaults.ui"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(StateMachineEndSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createStateMachineEndSectionImpl",
-				ImplType:    "StateMachineEndSectionImpl",
-				DefaultType: "UserDefaultStateMachineEndSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.StateMachineEnd",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "machineGroupId", Value: "resolved.defaults.machineGroupId"},
-						{Name: "label", Value: "resolved.defaults.label"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(TextBlockSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createTextBlockSectionImpl",
-				ImplType:    "TextBlockSectionImpl",
-				DefaultType: "UserDefaultTextBlockSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.TextBlock",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "format", Value: "resolved.defaults.format"},
-						{Name: "masterFontSizePx", Value: "resolved.defaults.masterFontSizePx"},
-						{Name: "headingAsSectionName", Value: "resolved.defaults.headingAsSectionName"},
-						{Name: "metaControlStyle", Value: "resolved.defaults.metaControlStyle"},
-						{Name: "textDisplayMode", Value: "resolved.defaults.textDisplayMode"},
-						{Name: "text", Value: "resolved.defaults.text"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(PromptSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createPromptSectionImpl",
-				ImplType:    "PromptSectionImpl",
-				DefaultType: "UserDefaultPromptSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.Prompt",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "promptTemplateId", Value: "null"},
-						{Name: "template", Value: "resolved.defaults.template"},
-						{Name: "format", Value: "resolved.defaults.format"},
-						{Name: "inputs", Value: "resolved.defaults.inputs"},
-						{Name: "renderedText", Value: "resolved.defaults.renderedText"},
-						{Name: "missingVariables", Value: "resolved.defaults.missingVariables"},
-						{Name: "renderError", Value: "resolved.defaults.renderError"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(CodeSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createCodeSectionImpl",
-				ImplType:    "CodeSectionImpl",
-				DefaultType: "UserDefaultCodeSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.Code",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "children", Value: "[]"},
-						{Name: "code", Value: "resolved.defaults.code"},
-						{Name: "codeLanguage", Value: "resolved.defaults.codeLanguage"},
-						{Name: "codeFileBinding", Value: "resolved.defaults.codeFileBinding"},
-						{Name: "attachedTerminalSectionId", Value: "resolved.defaults.attachedTerminalSectionId"},
-						{Name: "diagnosticsIgnoreState", Value: `cloneGeneratedValue(
-        resolved.defaults.diagnosticsIgnoreState,
-      )`},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(TerminalSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createTerminalSectionImpl",
-				ImplType:    "TerminalSectionImpl",
-				DefaultType: "UserDefaultTerminalSectionImpl",
-				Fields:      sectionImplCreateFields("SectionTypeEnum.Terminal", "resolved.defaults"),
-			}),
-		},
-		reflect.TypeOf(ChatSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createChatSectionImpl",
-				ImplType:    "ChatSectionImpl",
-				DefaultType: "UserDefaultChatSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.Chat",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "managed", Value: "resolved.defaults.managed"},
-						{Name: "engineConfigId", Value: "resolved.defaults.engineConfigId"},
-						{Name: "transcriptionProfileId", Value: "resolved.defaults.transcriptionProfileId"},
-						{Name: "agentProfileId", Value: "resolved.defaults.agentProfileId"},
-						{Name: "chatId", Value: "resolved.defaults.chatId"},
-						{Name: "thinking", Value: "resolved.defaults.thinking"},
-						{Name: "permissionMode", Value: "resolved.defaults.permissionMode"},
-						{Name: "searchEnabled", Value: "resolved.defaults.searchEnabled"},
-						{Name: "dictationMode", Value: "resolved.defaults.dictationMode"},
-						{Name: "messages", Value: "resolved.defaults.messages"},
-						{Name: "inputText", Value: "resolved.defaults.inputText"},
-						{Name: "waitingForResponse", Value: "resolved.defaults.waitingForResponse"},
-						{Name: "toolCallArguments", Value: "resolved.defaults.toolCallArguments"},
-						{Name: "activeBranchId", Value: "resolved.defaults.activeBranchId"},
-						{Name: "branches", Value: "resolved.defaults.branches"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(BrowserSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createBrowserSectionImpl",
-				ImplType:    "BrowserSectionImpl",
-				DefaultType: "UserDefaultBrowserSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.Browser",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "folder", Value: "resolved.defaults.folder"},
-						{Name: "hideColumn", Value: "resolved.defaults.hideColumn"},
-						{Name: "columnWidth", Value: "resolved.defaults.columnWidth"},
-						{Name: "typesColumnWidth", Value: "resolved.defaults.typesColumnWidth"},
-						{Name: "viewMode", Value: "resolved.defaults.viewMode"},
-						{Name: "savedSearches", Value: "resolved.defaults.savedSearches"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(TaskBoardSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:          "createTaskBoardSectionImpl",
-				ImplType:      "TaskBoardSectionImpl",
-				DefaultType:   "UserDefaultTaskBoardSectionImpl",
-				Prelude:       buildTaskBoardOverridesPreludeTS(),
-				OverridesExpr: "normalizedOverrides",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.TaskBoard",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "viewMode", Value: "resolved.defaults.viewMode"},
-						{Name: "columns", Value: `resolved.defaults.columns === null ||
-        resolved.defaults.columns === undefined
-          ? []
-          : cloneGeneratedValue(resolved.defaults.columns)`},
-						{Name: "tasks", Value: "resolved.defaults.tasks"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(BaseChartSettingsUnion{}): {
+		}, true
+	case reflect.TypeOf(CodeParamCodeObjImpl{}):
+		return []TypeDeclaration{generatedCodeParamCodeObjFactoryDeclaration()}, true
+	case reflect.TypeOf(BaseChartSettingsUnion{}):
+		return []TypeDeclaration{
 			exportedFunctionDeclaration(
 				"createBaseChartSettingsUnionWithDiscriminator",
 				"BaseChartSettingsUnion",
@@ -1733,50 +1534,19 @@ func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {
     | ({ type: typeof ChartTypeEnum.scatter } & Partial<ScatterChartSettings>)`,
 				},
 			),
-		},
-		reflect.TypeOf(ChartSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createChartSectionImpl",
-				ImplType:    "ChartSectionImpl",
-				DefaultType: "UserDefaultChartSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.Chart",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "dataPath", Value: "resolved.defaults.dataPath"},
-						{Name: "chartSettings", Value: "cloneGeneratedValue(resolved.defaults.chartSettings)"},
-					},
-				),
-			}),
-		},
-		reflect.TypeOf(SpreadsheetSectionImpl{}): {
-			exportedResolvedFactoryDeclaration(generatedFactoryDeclarationData{
-				Name:        "createSpreadsheetSectionImpl",
-				ImplType:    "SpreadsheetSectionImpl",
-				DefaultType: "UserDefaultSpreadsheetSectionImpl",
-				Fields: sectionImplCreateFields(
-					"SectionTypeEnum.Spreadsheet",
-					"resolved.defaults",
-					[]tsLiteralField{
-						{Name: "filePath", Value: "resolved.defaults.filePath"},
-						{Name: "activeSheet", Value: "resolved.defaults.activeSheet"},
-						{Name: "readOnly", Value: "resolved.defaults.readOnly"},
-						{Name: "showRowNumbers", Value: "resolved.defaults.showRowNumbers"},
-						{Name: "density", Value: "resolved.defaults.density"},
-						{Name: "autoReloadOnExternalChange", Value: "resolved.defaults.autoReloadOnExternalChange"},
-					},
-				),
-			}),
-		},
+		}, true
 	}
+	if declaration, ok := generatedSectionImplFactoryDeclaration(t); ok {
+		return []TypeDeclaration{declaration}, true
+	}
+	return nil, false
 }
 
 type typeConverter struct {
-	declarations            []TypeDeclaration
-	seen                    map[reflect.Type]struct{}
-	stringEnums             map[reflect.Type][]EnumValue
-	manualTypes             map[reflect.Type]TypeDeclaration
-	manualExtraDeclarations map[reflect.Type][]TypeDeclaration
+	declarations []TypeDeclaration
+	seen         map[reflect.Type]struct{}
+	stringEnums  map[reflect.Type][]EnumValue
+	manualTypes  map[reflect.Type]TypeDeclaration
 }
 
 func newTypeConverter() *typeConverter {
@@ -4910,7 +4680,6 @@ func newTypeConverter() *typeConverter {
 			),
 		},
 	}
-	converter.manualExtraDeclarations = projectStateAliasFactoryDeclarations()
 	return converter
 }
 
@@ -4924,6 +4693,15 @@ func (c *typeConverter) AddRootType(root reflect.Type) error {
 
 func (c *typeConverter) Declarations() []TypeDeclaration {
 	return c.declarations
+}
+
+func (c *typeConverter) appendAdditionalDeclarationsForType(t reflect.Type) error {
+	extras, ok := additionalDeclarationsForType(t)
+	if !ok {
+		return nil
+	}
+	c.declarations = append(c.declarations, extras...)
+	return nil
 }
 
 func (c *typeConverter) renderTypeExpr(t reflect.Type) (string, error) {
@@ -5006,10 +4784,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 
 	if decl, ok := c.manualTypes[t]; ok {
 		c.declarations = append(c.declarations, decl)
-		if extras, ok := c.manualExtraDeclarations[t]; ok {
-			c.declarations = append(c.declarations, extras...)
-		}
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	}
 
 	if values, ok := c.stringEnums[t]; ok {
@@ -5018,7 +4793,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:       "enum",
 			EnumValues: values,
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	}
 	if values, ok, err := stringenumvalues.Default().Values(t); err != nil {
 		return err
@@ -5035,7 +4810,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:       "enum",
 			EnumValues: enumValues,
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	}
 
 	switch t.Kind() {
@@ -5049,21 +4824,21 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:       "object",
 			Properties: properties,
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.String:
 		c.declarations = append(c.declarations, TypeDeclaration{
 			Name:  t.Name(),
 			Kind:  "alias",
 			Alias: "string",
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.Bool:
 		c.declarations = append(c.declarations, TypeDeclaration{
 			Name:  t.Name(),
 			Kind:  "alias",
 			Alias: "boolean",
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
 		reflect.Float32, reflect.Float64:
@@ -5072,7 +4847,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:  "alias",
 			Alias: "number",
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.Slice, reflect.Array:
 		inner, err := c.renderTypeExpr(t.Elem())
 		if err != nil {
@@ -5083,7 +4858,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:  "alias",
 			Alias: fmt.Sprintf("Array<%s>", inner),
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.Map:
 		keyExpr, err := c.renderMapKeyExpr(t.Key())
 		if err != nil {
@@ -5098,7 +4873,7 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 			Kind:  "alias",
 			Alias: fmt.Sprintf("Record<%s, %s>", keyExpr, valueExpr),
 		})
-		return nil
+		return c.appendAdditionalDeclarationsForType(t)
 	default:
 		return fmt.Errorf("unsupported named Go type for TS declaration: %s", t.String())
 	}
