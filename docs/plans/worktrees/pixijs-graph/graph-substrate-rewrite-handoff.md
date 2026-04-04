@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 14:15 EDT
+Last updated: 2026-04-03 14:22 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,28 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `046` closed the first materially different graph-surface section-level Gate 2 compare beyond the two already-cleared same-column cards.
+  - Process:
+    - a first fresh-context CDP pass in this iteration accidentally compared the `shortcuts` entry in the left overview/list surface instead of a graph-surface section card
+    - that overview hit was rejected as oracle noise for this lane, not counted as progress, and the compare was rerun with a stricter graph-surface-only oracle
+    - a second fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`, non-target sidebar/list ordering differences were ignored, and one shared toolbar `fit view` was applied
+    - the rerun then compared one shared visible `.react-flow__node` section card at normal zoom instead of another same-column core card
+  - Result:
+    - no concrete renderer defect showed up on this materially different graph-surface card either
+    - the checked card was `activeSheet null` in the lower-right graph cluster, just above the bottom tab strip on both sides
+    - the visible card text matched between worktree and `main`, including:
+      - `Auto Reload On External Change`
+      - `Density compact`
+      - `filePath ""`
+      - `Read Only`
+      - `Show Row Numbers`
+      - `Size height 500.0 width 760.0`
+    - no worktree-only text, chrome, or layout drift was isolated on this graph-surface lane
+  - conclusion for this slice:
+    - treat the `activeSheet null` graph-surface compare as clean and close this static wide-card micro-lane
+    - do not treat overview/list ordering or other non-graph-surface sidebar differences as renderer evidence on this lane
+    - the next real frontier should move to one bounded dynamic graph-surface compare on a materially different shared card, preferably a short pan or zoom-time check on a wide body-heavy section, not a fourth static card compare
 - Ralph item `045` closed the neighboring same-column section-level Gate 2 compare that item `044` handed off.
   - Process:
     - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`

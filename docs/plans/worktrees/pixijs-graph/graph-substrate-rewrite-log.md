@@ -70,6 +70,45 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 046
+
+- Item: Run one bounded graph-surface-only Gate 2 compare on a materially different shared visible card instead of repeating another same-column core-card pass.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not add or change product code.
+  - The last two completed slices (`044`, `045`) were both clean same-column section-level compares, so the useful next question was whether a materially different graph-surface card still exposed a real renderer drift.
+  - A first fresh-context CDP pass in this iteration hit the wrong surface:
+    - it compared the `shortcuts` entry in the left overview/list lane instead of a graph-surface `.react-flow__node`
+    - that result was rejected as oracle noise and was not treated as progress for this slice
+  - A second fresh-context CDP sub-agent reran the bounded compare with an explicit graph-surface-only oracle on worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were normalized to active `All Settings`.
+  - One shared toolbar `fit view` was applied before the compare.
+  - The checked shared graph-surface card was `activeSheet null` in the lower-right section cluster above the bottom tab strip.
+  - Visible card text matched between worktree and `main`, including:
+    - `Auto Reload On External Change`
+    - `Density compact`
+    - `filePath ""`
+    - `Read Only`
+    - `Show Row Numbers`
+    - `Size height 500.0 width 760.0`
+  - No worktree-only text, chrome, or layout drift was isolated on that graph-surface lane.
+  - The only remaining differences called out during the rerun were sidebar/list ordering differences, which were ignored as non-target oracle noise per the graph-surface-only compare rules.
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings`
+      - one shared `fit view` was applied before the compare
+      - the checked graph-surface card `activeSheet null` matched between worktree and `main`
+- Conclusion:
+  - this materially different static graph-surface card compare is clean
+  - the earlier overview/list `shortcuts` hit from the same iteration should be treated as rejected oracle noise, not as a closed renderer lane
+  - after three clean static card compares, the next frontier should move to one bounded dynamic graph-surface compare on a wide/body-heavy shared section instead of a fourth static section card compare
+- Next action:
+  - run one normalized short pan or zoom-time compare on a materially different shared wide card to isolate the first remaining motion/text-stability artifact, if any
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 045
 
 - Item: Run one bounded neighboring-card compare on the normalized `All Settings` Gate 2 lane and decide whether the same-column section-compare micro-lane still hides a renderer defect.
