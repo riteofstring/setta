@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 16:37 EDT
+Last updated: 2026-04-03 16:51 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,37 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `057` closed the worktree-side `drawSectionDefault` widened pan lane and corrected item `056`'s blocker from "missing targeted fit" to "reference-side normalization".
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened draw section attached during pane pan`
+    - the new case:
+      - normalizes to active `All Settings`
+      - closes overview and UI editor panes through the production pane-visibility path
+      - resolves `drawSectionDefault` by authoritative project-state section name
+      - widens that section through the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path
+      - performs one real pane pan on the canary surface
+      - asserts the viewport and section both move materially
+      - asserts a body anchor stays locked to the same section shell during the pan
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section attached during pane pan'`
+    - result: passed (`1 passed`, about `24.7s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` also passed after formatting the file
+    - what it proves now: a third named widened card can pan through the real custom-surface path without body/shell detachment
+  - Live verification result:
+    - one fresh-context CDP sub-agent first confirmed the production targeted-fit path is callable directly from the live page context on the worktree:
+      - authoritative runtime `drawSectionDefault` id on the worktree: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+      - `useReactFlow.getState().viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` returned `true`
+      - importing `/src/forks/xyflow/core/store/utils.ts` and calling its `fitView(...)` helper also returned `true`
+    - a second fresh-context CDP sub-agent then checked the live worktree `http://127.0.0.1:3075/settings`
+      - before the shared short pan probe: viewport `matrix(1.13895, 0, 0, 1.13895, 175.651, -2713.43)` and section rect `{ x: 175.651, y: 56.046, width: 628.698, height: 400.909 }`
+      - after the production viewport pan probe: viewport `matrix(1.13895, 0, 0, 1.13895, 355.651, -2593.43)` and section rect `{ x: 355.651, y: 176.046, width: 628.698, height: 400.909 }`
+      - no size drift or obvious body/shell detachment was visible on the worktree lane
+    - the read-only `main` reference at `http://127.0.0.1:3087/settings` did not expose the canary surface or `viewportController` on this pass, only the legacy `react-flow__pane`, so the same targeted-fit widened pan probe was not runnable there yet
+  - conclusion for this slice:
+    - the worktree-side `drawSectionDefault` widened pan lane is clean and item `056`'s targeted-fit blocker is now closed on the canary path
+    - do not reopen `drawSectionDefault` with another worktree-only fit/pan harness slice unless a later compare reintroduces drift
+    - the remaining blocker is reference-side only: establish an equivalent widened `drawSectionDefault` compare state on `main`'s legacy surface before judging cross-surface parity on this lane
+    - the next real frontier is one bounded oracle step on read-only `main` that creates the comparable widened `drawSectionDefault` state on the legacy surface, then reruns the short pan compare against the already-clean worktree lane
 - Ralph item `056` used the allowed bounded normalization/oracle step to probe one different shared non-`group`/non-`spreadsheet` dynamic lane before reopening more motion helpers.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code

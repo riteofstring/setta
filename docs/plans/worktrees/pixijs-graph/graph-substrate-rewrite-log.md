@@ -1974,3 +1974,49 @@ LOOP_TERMINAL_MARKER: none
   - return to one different normalized dynamic motion or interaction-state lane on the graph surface, not more `groupSectionDefault` drag-oracle support work
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 057
+
+- Item: Add one bounded `drawSectionDefault` widened pan guard and resolve whether the worktree live canary can call the authoritative targeted-fit path directly.
+- Status: `done`
+- Details:
+  - The active blocker coming out of item `056` was specifically whether the new non-`group`/non-`spreadsheet` lane was missing a real targeted-fit path or whether the live compare had simply used the wrong normalization route.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened draw section attached during pane pan`.
+  - The new case:
+    - normalizes to active `All Settings`
+    - closes overview and UI editor panes through the production pane-visibility path
+    - resolves `drawSectionDefault` by authoritative project-state section name
+    - widens that section through the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path
+    - performs a real pane pan on the canary surface
+    - asserts both the viewport and section move materially
+    - asserts a body anchor stays locked to the same section shell during the pan
+  - A fresh-context CDP sub-agent confirmed the targeted-fit blocker is resolved on the live worktree page itself:
+    - authoritative runtime `drawSectionDefault` id on the worktree: `a5efa896-d045-4d50-8afc-cd748d2c0fcd`
+    - `useReactFlow.getState().viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` returned `true`
+    - importing `/src/forks/xyflow/core/store/utils.ts` and calling its `fitView(...)` helper also returned `true`
+  - A second fresh-context CDP sub-agent then checked the live worktree widened pan lane:
+    - before pan: viewport `matrix(1.13895, 0, 0, 1.13895, 175.651, -2713.43)` and section rect `{ x: 175.651, y: 56.046, width: 628.698, height: 400.909 }`
+    - after the production viewport pan probe: viewport `matrix(1.13895, 0, 0, 1.13895, 355.651, -2593.43)` and section rect `{ x: 355.651, y: 176.046, width: 628.698, height: 400.909 }`
+    - the section translated with the viewport without size drift or obvious body detachment
+  - The remaining parity blocker is now reference-side only:
+    - read-only `main` at `http://127.0.0.1:3087/settings` did not expose the canary surface or `viewportController` on this pass, only the legacy `react-flow__pane`
+    - the same widened targeted-fit pan probe could therefore not be run there yet
+- Verification:
+  - Playwright
+    - command: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened draw section attached during pane pan'`
+    - result: passed (`1 passed`, about `24.7s`)
+  - Prettier
+    - command: `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed after formatting the file with `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes.spec.ts`
+  - CDP visual check
+    - result: done
+    - note:
+      - a fresh-context CDP sub-agent confirmed direct targeted-fit invocation on the live worktree page
+      - a second fresh-context CDP sub-agent verified the widened `drawSectionDefault` pan lane on the live worktree and found it visually clean on that side
+      - the read-only `main` reference did not expose the canary `viewportController`, so the same targeted-fit widened pan probe remains blocked on the reference side only
+- Conclusion:
+  - the worktree-side `drawSectionDefault` widened pan lane is now locked down and the targeted-fit question from item `056` is answered
+  - do not reopen this lane with another worktree-only fit/pan helper slice unless a later compare reintroduces drift
+  - the next bounded frontier is to normalize an equivalent widened `drawSectionDefault` compare state on the legacy `main` surface before rerunning the cross-surface pan compare
+
+LOOP_TERMINAL_MARKER: none

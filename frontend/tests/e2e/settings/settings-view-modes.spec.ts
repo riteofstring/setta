@@ -1637,6 +1637,173 @@ test("settings graph substrate canary keeps a widened body-heavy section attache
   }
 });
 
+test("settings graph substrate canary keeps a widened draw section attached during pane pan", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const drawSectionId = findSectionIdByName(initialState, "drawSectionDefault");
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const targetSection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${drawSectionId}"]`,
+    );
+    await expect(canaryPane).toBeVisible();
+    await expect(targetSection).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await setCanaryComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitCanaryViewportToSection(page, drawSectionId)).toBe(true);
+
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          drawSectionId,
+        );
+        return targetBox?.width ?? 0;
+      })
+      .toBeGreaterThan(500);
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          drawSectionId,
+        );
+        return targetBox?.height ?? 0;
+      })
+      .toBeGreaterThan(300);
+
+    // Locks down the next non-group/non-spreadsheet motion lane: the widened
+    // draw section must pan with the viewport while its body stays attached to
+    // the same shell.
+    const initialSectionBox = await getCanarySectionBoundingBox(
+      page,
+      drawSectionId,
+    );
+    const initialBodyAnchorOffset = await getCanarySectionBodyAnchorOffset(
+      page,
+      drawSectionId,
+    );
+    const initialViewportTransform = await getCanaryViewportTransform(page);
+    if (
+      !initialSectionBox ||
+      !initialBodyAnchorOffset ||
+      !initialViewportTransform
+    ) {
+      throw new Error(
+        "Missing widened draw-section bounds, body anchor, or viewport before pane pan.",
+      );
+    }
+
+    const panStart = await findCanaryPanePoint(page);
+    await page.mouse.move(panStart.x, panStart.y);
+    await page.mouse.down();
+    await page.mouse.move(panStart.x + 180, panStart.y + 120, { steps: 10 });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const latestViewportTransform = await getCanaryViewportTransform(page);
+        if (!latestViewportTransform) {
+          return 0;
+        }
+        return Math.hypot(
+          latestViewportTransform.x - initialViewportTransform.x,
+          latestViewportTransform.y - initialViewportTransform.y,
+        );
+      })
+      .toBeGreaterThan(120);
+    await expect
+      .poll(async () => {
+        const movedBox = await getCanarySectionBoundingBox(page, drawSectionId);
+        if (!movedBox) {
+          return 0;
+        }
+        return Math.hypot(
+          movedBox.x - initialSectionBox.x,
+          movedBox.y - initialSectionBox.y,
+        );
+      })
+      .toBeGreaterThan(120);
+    await expect
+      .poll(async () => {
+        const latestBodyAnchorOffset = await getCanarySectionBodyAnchorOffset(
+          page,
+          drawSectionId,
+        );
+        if (!latestBodyAnchorOffset) {
+          return Number.POSITIVE_INFINITY;
+        }
+        return Math.max(
+          Math.abs(latestBodyAnchorOffset.x - initialBodyAnchorOffset.x),
+          Math.abs(latestBodyAnchorOffset.y - initialBodyAnchorOffset.y),
+        );
+      })
+      .toBeLessThan(16);
+    await expect(targetSection).toHaveAttribute("data-dragging", "false");
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary keeps a widened body-heavy section attached during top-level drag", async ({
   page,
 }) => {
