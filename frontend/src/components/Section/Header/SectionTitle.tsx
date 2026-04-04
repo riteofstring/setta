@@ -1,32 +1,20 @@
 import { Editable } from "components/Utils/Editable";
 import { getFloatingBoxHandlers } from "components/Utils/FloatingBox";
-import { useEffect, useState } from "react";
+import type { ChangeEvent } from "react";
+import { useState } from "react";
 import {
-  dispatchOptimisticProjectStateUpdate,
+  dispatchOptimisticProjectStateUpdateWithResult,
   getCurrEffectiveSectionImpl,
   getCurrProjectConfigId,
-  getSectionChildren,
   getSectionCore,
 } from "state/actions/sectionInfos";
-import {
-  useNameValidationErrors,
-  useNodeInternals,
-  useProjectState,
-} from "state/definitions";
+import { useNameValidationErrors, useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
 import { useShareCapabilities } from "state/hooks/share";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import { route_set_section_name } from "utils/generatedEndpoints";
 import { SectionType, SectionTypeEnum } from "utils/generatedTypes";
-import {
-  sanitizeNameForPythonIdentifier,
-  sanitizeNameForSlug,
-  validateSectionNameInput,
-} from "utils/nameValidation";
-import {
-  collectDescendantSectionIds,
-  getSectionSlugIndex,
-  resolveSectionFullPathName,
-} from "utils/sectionSlugPaths";
+import { validateSectionNameInput } from "utils/nameValidation";
 
 type SectionTitleClassNames = {
   editing?: string;
@@ -133,51 +121,44 @@ function EditableTitle({
   onMouseEnter,
   onMouseLeave,
 }: EditableTitleProps) {
-  function onTitleInputChange(value: string) {
-    setSectionName(sectionId, value);
+  const [serverError, setServerError] = useState<string | null>(null);
+  const normalizeName = (value: string) => value.trim();
+
+  async function condition(value: string) {
+    const normalized = normalizeName(value);
+    const validationError = validateSectionNameInput(normalized);
+    if (validationError) {
+      setServerError(null);
+      return false;
+    }
+    const response = await renameSection(sectionId, normalized);
+    if (res200(response)) {
+      setServerError(null);
+      return true;
+    }
+    setServerError(getErrorDetail(response.data) ?? "Unable to rename section.");
+    return false;
   }
 
-  function condition(value: string) {
-    const validationError = getSectionNameValidationError(sectionId, value);
-    return validationError === null;
+  const editable = useEditableOnSubmit(
+    sectionName,
+    () => {},
+    condition,
+    false,
+    normalizeName,
+  );
+  function onChange(event: ChangeEvent<HTMLInputElement> | string) {
+    setServerError(null);
+    editable.onChange(event);
   }
-
-  const { inputValue, onChange, onBlur, onKeyDown, blurTriggeredByEscapeKey } =
-    useEditableOnSubmit(
-      sectionName,
-      onTitleInputChange,
-      condition,
-      false,
-      (value) => value.trim(),
-    );
+  const {
+    inputValue,
+    onBlur,
+    onKeyDown,
+    blurTriggeredByEscapeKey,
+  } = editable;
   const formatError = validateSectionNameInput(inputValue);
-  let siblingError: string | null = null;
-  if (!formatError && getSiblingHasName(sectionId, inputValue)) {
-    siblingError = "Duplicate sibling name.";
-  }
-  const identifierError =
-    !formatError && !siblingError
-      ? getTopLevelPythonIdentifierConflictError(sectionId, inputValue)
-      : null;
-  const [slugError, setSlugError] = useState<string | null>(null);
-  useEffect(() => {
-    if (formatError || siblingError || identifierError) {
-      setSlugError(null);
-      return;
-    }
-    if (!inputValue.trim()) {
-      setSlugError(null);
-      return;
-    }
-    const handle = window.setTimeout(() => {
-      setSlugError(getSectionSlugConflictError(sectionId, inputValue));
-    }, 200);
-    return () => {
-      window.clearTimeout(handle);
-    };
-  }, [formatError, identifierError, inputValue, sectionId, siblingError]);
-  const validationError =
-    formatError ?? siblingError ?? identifierError ?? slugError;
+  const validationError = formatError ?? serverError;
   let localErrorClassName = "";
   if (validationError) {
     localErrorClassName = "text-red-500 dark:text-red-300 border-red-400";
@@ -215,11 +196,10 @@ function EditableTitle({
   );
 }
 
-function setSectionName(sectionId: string, name: string) {
-  const normalizedName = name.trim();
+async function renameSection(sectionId: string, normalizedName: string) {
   const previousName =
     useProjectState.getState().sections[sectionId]?.name ?? "";
-  dispatchOptimisticProjectStateUpdate({
+  const { result } = dispatchOptimisticProjectStateUpdateWithResult({
     apply: (state) => {
       const section = state.sections[sectionId];
       if (!section) {
@@ -245,6 +225,7 @@ function setSectionName(sectionId: string, name: string) {
         frontendOpId,
       }),
   });
+  return await result;
 }
 
 function useTitleIsEditable(sectionId: string) {
@@ -265,115 +246,4 @@ function useTitleIsEditable(sectionId: string) {
       titleIsEditable: canEditStructure && !uneditableTypes.includes(impl.type),
     };
   });
-}
-
-function getSectionSlugConflictError(sectionId: string, value: string) {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-  const state = useProjectState.getState();
-  if (!state.sections[sectionId]) {
-    return null;
-  }
-  const nameOverrides = { [sectionId]: normalized };
-  const { slugToIds, childrenByParent } = getSectionSlugIndex(state);
-  const affectedIds = collectDescendantSectionIds(childrenByParent, sectionId);
-  const affectedSlugToIds: Record<string, Array<string>> = {};
-  for (const id of affectedIds) {
-    const fullPathName = resolveSectionFullPathName(state, id, nameOverrides);
-    const slug = sanitizeNameForSlug(fullPathName);
-    if (!slug) {
-      return "Section name is invalid after sanitization.";
-    }
-    if (!affectedSlugToIds[slug]) {
-      affectedSlugToIds[slug] = [];
-    }
-    affectedSlugToIds[slug].push(id);
-  }
-  for (const [slug, ids] of Object.entries(affectedSlugToIds)) {
-    if (ids.length > 1) {
-      return `Section path slug "${slug}" conflicts with another section.`;
-    }
-    const existingIds = slugToIds[slug] ?? [];
-    if (existingIds.some((id) => !affectedIds.has(id))) {
-      return `Section path slug "${slug}" conflicts with another section.`;
-    }
-  }
-  return null;
-}
-
-function getTopLevelPythonIdentifierConflictError(
-  sectionId: string,
-  value: string,
-) {
-  const normalized = value.trim();
-  if (!normalized) {
-    return null;
-  }
-  const state = useProjectState.getState();
-  if (state.parentSectionMap[sectionId]) {
-    return null;
-  }
-  const candidate = sanitizeNameForPythonIdentifier(normalized);
-  for (const [id, parentId] of Object.entries(state.parentSectionMap)) {
-    if (parentId || id === sectionId) {
-      continue;
-    }
-    const siblingName = state.sections[id]?.name?.trim();
-    if (!siblingName) {
-      continue;
-    }
-    if (sanitizeNameForPythonIdentifier(siblingName) === candidate) {
-      return "Section name conflicts with another top-level name after Python identifier sanitization.";
-    }
-  }
-  return null;
-}
-
-function getSiblingHasName(sectionId: string, newName: string) {
-  const state = useProjectState.getState();
-  const parentId = state.parentSectionMap[sectionId];
-  let siblingIds: Iterable<string>;
-  if (parentId) {
-    siblingIds = getSectionChildren(state, parentId);
-  } else {
-    siblingIds = useNodeInternals.getState().x.keys();
-  }
-  const normalized = newName.trim();
-  for (const s of siblingIds) {
-    if (s === sectionId) {
-      continue;
-    }
-    const siblingName = state.sections[s]?.name?.trim();
-    if (siblingName && siblingName === normalized) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function getSectionNameValidationError(
-  sectionId: string,
-  value: string,
-): string | null {
-  const formatError = validateSectionNameInput(value);
-  if (formatError) {
-    return formatError;
-  }
-  if (getSiblingHasName(sectionId, value)) {
-    return "Duplicate sibling name.";
-  }
-  const identifierError = getTopLevelPythonIdentifierConflictError(
-    sectionId,
-    value,
-  );
-  if (identifierError) {
-    return identifierError;
-  }
-  const slugError = getSectionSlugConflictError(sectionId, value);
-  if (slugError) {
-    return slugError;
-  }
-  return null;
 }

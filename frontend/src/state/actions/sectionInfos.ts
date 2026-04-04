@@ -2114,6 +2114,30 @@ export function dispatchOptimisticProjectStateUpdate({
   reapply?: (state: ZustandProjectState) => void;
   projectConfigId?: string;
 }) {
+  const { opId, result } = dispatchOptimisticProjectStateUpdateWithResult({
+    apply,
+    send,
+    rollback,
+    reapply,
+    projectConfigId,
+  });
+  void result.catch(() => {});
+  return opId;
+}
+
+export function dispatchOptimisticProjectStateUpdateWithResult<T>({
+  apply,
+  send,
+  rollback,
+  reapply,
+  projectConfigId,
+}: {
+  apply: (state: ZustandProjectState) => void;
+  send: (frontendOpId: string) => T | Promise<T>;
+  rollback?: (state: ZustandProjectState) => void;
+  reapply?: (state: ZustandProjectState) => void;
+  projectConfigId?: string;
+}) {
   const applyWithProjectGuard = (state: ZustandProjectState) =>
     applyOptimisticProjectStateUpdateIfProjectMatches(
       state,
@@ -2138,29 +2162,29 @@ export function dispatchOptimisticProjectStateUpdate({
 
   useProjectState.setState(applyWithProjectGuard);
   const opId = addPendingOp(reapplyWithProjectGuard);
-  const result = send(opId);
-  if (result instanceof Promise) {
-    void result
-      .then((res) => {
-        // A 200 response means the backend accepted the op; don't keep reapplying it.
-        if (isResponseDataAndStatus(res) && res200(res)) {
-          if (
-            projectConfigId !== undefined &&
-            useProjectState.getState().projectConfig.id !== projectConfigId
-          ) {
-            removePendingOp(opId);
-            return;
-          }
-          acknowledgePendingOp(opId);
-        } else if (isResponseDataAndStatus(res)) {
-          rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
+  const result = Promise.resolve()
+    .then(() => send(opId))
+    .then((res) => {
+      // A 200 response means the backend accepted the op; don't keep reapplying it.
+      if (isResponseDataAndStatus(res) && res200(res)) {
+        if (
+          projectConfigId !== undefined &&
+          useProjectState.getState().projectConfig.id !== projectConfigId
+        ) {
+          removePendingOp(opId);
+          return res;
         }
-      })
-      .catch(() => {
+        acknowledgePendingOp(opId);
+      } else if (isResponseDataAndStatus(res)) {
         rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
-      });
-  }
-  return opId;
+      }
+      return res;
+    })
+    .catch((error) => {
+      rollbackOptimisticProjectStateUpdate(opId, rollbackWithProjectGuard);
+      throw error;
+    });
+  return { opId, result };
 }
 
 export function toggleParamSelected(sectionId: string, paramInfoId: string) {
