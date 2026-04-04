@@ -5,7 +5,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Literal, cast
 
-from setta.utils.env_vars import (
+from setta.types.generated.go_shared_constants import (
+    ALLOWED_SETTA_FILES_ROOT_SEGMENTS,
+    ALLOWED_SETTA_HOME_NAMES,
     FILES_LOCATION_ENV,
     FILES_ROOT_ENV,
     PROFILE_ENV,
@@ -18,7 +20,6 @@ from setta.utils.profile_config import (
     SettaProfileConfig,
     SettaProfileConfigError,
     SettaProfileNotFoundError,
-    clear_setta_profile_config_cache,
     load_setta_profile,
 )
 from setta.utils.setta_home import resolve_setta_home
@@ -26,8 +27,6 @@ from setta.utils.user_config import load_setta_user_config
 
 SettaFilesLocation = Literal["auto", "local", "global"]
 ResolvedSettaFilesLocation = Literal["local", "global"]
-_ALLOWED_SETTA_HOME_NAMES = frozenset({".setta", ".setta-development"})
-_ALLOWED_SETTA_FILES_ROOT_SEGMENTS = frozenset({"setta_files", "setta_files_dev"})
 
 
 class SettaPathsError(ValueError):
@@ -221,102 +220,6 @@ def resolve_setta_paths(
 @lru_cache(maxsize=1)
 def get_setta_paths() -> SettaPaths:
     return resolve_setta_paths()
-
-
-@lru_cache(maxsize=1)
-def get_setta_paths_without_profile_env() -> SettaPaths:
-    return resolve_setta_paths(allow_profile_env_overrides=False)
-
-
-def clear_setta_paths_cache() -> None:
-    get_setta_paths.cache_clear()
-    get_setta_paths_without_profile_env.cache_clear()
-    # clear_setta_paths_cache is the "big hammer" tests use when they change env vars.
-    # Keep dependent caches in sync so overrides behave as expected.
-    from setta.utils.user_config import clear_setta_user_config_cache
-
-    clear_setta_user_config_cache()
-    clear_setta_profile_config_cache()
-
-
-def normalize_workspace_path(
-    path: Path | str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate.expanduser().resolve(strict=False)
-    return (root / candidate).resolve(strict=False)
-
-
-def normalize_state_path(
-    path: Path | str, setta_files_root: Path | None = None
-) -> Path:
-    root = setta_files_root or get_setta_paths().setta_files_root
-    candidate = Path(path)
-    if candidate.is_absolute():
-        return candidate.expanduser().resolve(strict=False)
-    return (root / candidate).resolve(strict=False)
-
-
-def workspace_relative_path(
-    path: Path | str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    resolved = normalize_workspace_path(path, workspace_root=root)
-    try:
-        return resolved.relative_to(root)
-    except ValueError:
-        return resolved
-
-
-def ensure_within_workspace_root(
-    path: Path, *, label: str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    resolved = path.resolve(strict=False)
-    if not resolved.is_relative_to(root):
-        raise ValueError(f"{label} must be within the project root.")
-    return resolved
-
-
-def resolve_workspace_child_path(
-    raw_path: str, *, label: str, workspace_root: Path | None = None
-) -> Path:
-    root = workspace_root or get_setta_paths().workspace_root
-    trimmed = raw_path.strip()
-    if not trimmed:
-        raise ValueError(f"Missing {label}.")
-    resolved = normalize_workspace_path(trimmed, workspace_root=root)
-    if not resolved.is_relative_to(root):
-        raise ValueError(f"{label} must be within the project root.")
-    return resolved
-
-
-def validate_workspace_root(path: Path) -> None:
-    if not path.exists():
-        raise ValueError(f"Workspace root does not exist: {path}")
-    if not path.is_dir():
-        raise ValueError(f"Workspace root is not a directory: {path}")
-
-
-def validate_optional_dir(raw_path: Path | str | None, *, label: str) -> Path | None:
-    if raw_path is None:
-        return None
-    path = resolve_path(raw_path)
-    if path.exists() and not path.is_dir():
-        raise ValueError(f"{label} is not a directory: {path}")
-    return path
-
-
-def get_optional_dir_validation_error(
-    raw_path: Path | str | None, *, label: str
-) -> str | None:
-    try:
-        validate_optional_dir(raw_path, label=label)
-    except ValueError as exc:
-        return str(exc)
-    return None
 
 
 def build_files_root_from_base(base_root: Path, workspace_root: Path) -> Path:
@@ -621,18 +524,18 @@ def _sanitize_leaf(value: str) -> str:
 
 
 def _validate_setta_home_name(path: Path, *, label: str) -> None:
-    if path.name in _ALLOWED_SETTA_HOME_NAMES:
+    if path.name in ALLOWED_SETTA_HOME_NAMES:
         return
-    allowed = ", ".join(sorted(_ALLOWED_SETTA_HOME_NAMES))
+    allowed = ", ".join(sorted(ALLOWED_SETTA_HOME_NAMES))
     raise InvalidSettaHomeError(
         f"{label} must end with one of: {allowed}. Received: {path}"
     )
 
 
 def _validate_setta_files_root_path(path: Path) -> None:
-    if any(part in _ALLOWED_SETTA_FILES_ROOT_SEGMENTS for part in path.parts):
+    if any(part in ALLOWED_SETTA_FILES_ROOT_SEGMENTS for part in path.parts):
         return
-    allowed = ", ".join(sorted(_ALLOWED_SETTA_FILES_ROOT_SEGMENTS))
+    allowed = ", ".join(sorted(ALLOWED_SETTA_FILES_ROOT_SEGMENTS))
     raise InvalidSettaFilesRootError(
         f"Setta files root must include one of these folder names: {allowed}. Received: {path}"
     )
