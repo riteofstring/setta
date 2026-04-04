@@ -1817,6 +1817,37 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			DefaultValue:  projectview.FrontendDefaultCodeObjValueOverride(),
 			HasCreateExpr: true,
 		}, true
+	case reflect.TypeOf(SectionCodegenPolicy{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildSectionCodegenPolicyCreateBodyTS(),
+			PropertyTypeExprOverrides: map[string]string{
+				"allowlist":            "Array<SectionType> | null",
+				"metaControlAllowlist": "Array<CodeObjType> | null",
+				"typePolicies":         "Record<SectionType, SectionTypeCodegenPolicy>",
+				"sectionOverrides":     "Record<string, SectionCodegenOverride>",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"allowlist":            true,
+				"metaControlAllowlist": true,
+			},
+		}, true
+	case reflect.TypeOf(CodeObjValuePolicy{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildCodeObjValuePolicyCreateBodyTS(),
+			PropertyTypeExprOverrides: map[string]string{
+				"typePolicies":     "Record<CodeObjType, CodeObjTypeValuePolicy>",
+				"codeObjOverrides": "Record<string, CodeObjValueOverride>",
+			},
+		}, true
+	case reflect.TypeOf(ProjectCodegenPythonTarget{}):
+		return reflectedObjectDeclarationSpec{
+			CreateBody: buildProjectCodegenPythonTargetCreateBodyTS(),
+			PropertyTypeExprOverrides: map[string]string{
+				"language":           "typeof ProjectCodegenLanguageEnum.python",
+				"sectionPolicy":      "SectionCodegenPolicy",
+				"codeObjValuePolicy": "CodeObjValuePolicy",
+			},
+		}, true
 	case reflect.TypeOf(ProjectCodegenPluginTarget{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectview.FrontendDefaultProjectCodegenPluginTarget(),
