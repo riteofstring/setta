@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 10:31 EDT
+Last updated: 2026-04-04 10:50 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,38 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `115` added the missing main-reference pan-and-zoom title-edit parity probe, then hit a post-recovery CDP access blocker before the required live visual gate could be rerun on the exact new lane.
+  - Why this slice was needed:
+    - items `113` and `114` were both tightening the older shared title-edit-after-pan lane, and item `114` closed that exact `backend` path as oracle noise
+    - the next bounded step therefore had to move to a different dynamic Gate 1 / Gate 2 lane instead of another inch of the same pan-only probe
+    - the narrowest useful support slice was to port the existing canary-only pan-and-zoom title-edit contract into the read-only `main` parity suite so the next live compare could ask one fresh motion/editing question without reopening shortcut or pane-target churn
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added opt-in probe `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary`
+      - the probe normalizes both runtimes to `All Settings`, picks one shared visible top-level section, applies the verified short blank-pane pan plus one `zoom in` click, then verifies title rename success together with post-motion section/title geometry parity on legacy and canary
+  - Automated result:
+    - refreshed runtime/bootstrap values for the pre-recovery run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-034/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-034/main-ai.log`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<run-034 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-034 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `46.2s`)
+  - Live verification result:
+    - first fresh-context CDP sub-agent reached the worktree graph surface, but it never bootstrapped the read-only `main` page into a real settings view and double-clicked the wrong visible element (`All Settings` tab / `Autosaved!`) instead of the section title, so that result was not trustworthy
+    - the loop then used the one allowed local-lifecycle recovery path:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - recovery launched a fresh worktree session `f07499` on backend `8076` with Vite serving at `http://127.0.0.1:3076/` and a fresh bootstrap URL
+      - because the canonical runtime helper still reported stale frontend/debug values after that manual restart, the fallback refresh commands were used:
+        - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+        - `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+    - after recovery, two additional fresh-context CDP sub-agents both reported that chrome-devtools-mcp controls were unavailable in their sessions, so the exact live pan-and-zoom title-edit compare could not be rerun
+    - CDP visual check: not run (post-recovery chrome-devtools-mcp access unavailable; automated Playwright parity passed before recovery, but the required live visual gate could not be completed)
+  - conclusion for this slice:
+    - keep the new pan-and-zoom title-edit parity probe; it passed on the live pre-recovery runtimes and is the current support artifact for this motion/editing lane
+    - do not reopen the older pan-only `backend` title-edit lane or add another probe variant around the same contract
+    - the active blocker is now CDP tool access after the worktree recovery, not a newly confirmed renderer defect on this lane
+    - the next iteration should first restore a trustworthy chrome-devtools-mcp session and rerun the exact new pan-and-zoom title-edit lane on live worktree vs read-only `main` before choosing another renderer investigation
 - Ralph item `114` tightened the shared title-edit-after-pan parity probe one step further so the exact checked section's visible title box is compared directly, then used a fresh normalized CDP replay to decide whether the remaining backend placement mismatch was real.
   - Why this slice was needed:
     - items `112` and `113` had already proved the exact checked `backend` section matched on post-pan viewport transform plus outer section rect, but the latest fresh CDP replay still claimed a visible backend placement mismatch
@@ -2769,14 +2801,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
-- The next bounded slice should be a production investigation/fix of the shared canvas-focus shortcut parity on normalized `All Settings`, not another harness-only focus lane.
-- Item `109` already provides the deterministic main-reference probe for the stored-target focus shortcut path:
-  - keep using the normalized `All Settings` setup, prefer `browserSectionDefault` when it is visible on both surfaces, focus a small header control inside that section, push it offscreen, move focus to `Core`, then trigger `Control+Shift+3`
-  - do not reopen this lane with the older whole-section wrapper focus target or more support-only visibility heuristics unless a production change truly alters the surface contract
-- Known live mismatch on the current exact focus-shortcut lane:
-  - the exact `browserSectionDefault` CDP compare left the canary with the section visibly restored after `Control+Shift+3`, while read-only `main` ended on an effectively blank/offscreen canvas
-  - the raw baseline shortcut path on the canary also surfaced a shortcut-help overlay/modal that did not appear on read-only `main`
-- Treat read-only `main` as the oracle even if the canary currently looks more helpful on this lane; the next product slice needs to explain and resolve why the canary and legacy diverge here.
+- The next bounded slice is to restore trustworthy chrome-devtools-mcp access and rerun the exact new pan-and-zoom title-edit parity lane on normalized `All Settings`, not to invent another motion probe.
+- Item `115` already provides the deterministic main-reference probe for this lane:
+  - keep using the normalized `All Settings` setup, pick one shared visible top-level section, apply the short blank-surface pan plus one `zoom in`, then double-click the actual section title text inside the graph surface
+  - do not reopen the older pan-only `backend` title-edit lane or spend another iteration adding support-only variants of this same test unless the product contract changes
+- Treat the current blocker as tool/lifecycle debt, not renderer evidence:
+  - the pre-recovery Playwright parity probe passed
+  - the required live visual gate is still open only because the post-recovery fresh-context CDP agents could not access chrome-devtools-mcp controls
+- If the next fresh iteration still cannot access chrome-devtools-mcp after bootstrap, stop on that tooling blocker instead of changing product code speculatively.
 - The cleared-viewport `All Settings` landing lane is now closed for the current live runtimes:
   - item `092` shows that after clearing the authoritative viewport on both worktree canary and read-only `main` legacy, one shared named top-level section lands with matching transform/rect/center-offset metrics
   - do not reopen this lane with DOM order or “first visible card” assertions unless a future compare shows an actual shared named section mismatch after clearing viewport
@@ -2882,6 +2914,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `114`
-- Latest item: `2026-04-04 114`
+- Active history window: items `001` through `115`
+- Latest item: `2026-04-04 115`
 - Older history archives: none yet

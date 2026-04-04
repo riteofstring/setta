@@ -3891,3 +3891,42 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - investigate/fix why the canary and legacy land on different visible sections (`browserSectionDefault` vs `sectionSizingPolicy`) after the same verified normalized pane pan on the shared Browser lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 10:50 EDT - Ralph item 115
+
+- Added the missing main-reference pan-and-zoom title-edit parity probe, then hit a post-recovery CDP access blocker before the required live visual gate could be rerun on the exact new lane.
+- Why this slice was necessary:
+  - items `113` and `114` were both tightening the older shared title-edit-after-pan lane, and item `114` closed that exact `backend` path as oracle noise
+  - the next bounded step therefore had to move to a different dynamic Gate 1 / Gate 2 lane instead of another inch of the same pan-only probe
+  - the narrowest useful support slice was to port the existing canary-only pan-and-zoom title-edit contract into the read-only `main` parity suite so the next live compare could ask one fresh motion/editing question without reopening shortcut or pane-target churn
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - added opt-in probe `settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary`
+    - the probe normalizes both runtimes to `All Settings`, picks one shared visible top-level section, applies the verified short blank-pane pan plus one `zoom in` click, then verifies title rename success together with post-motion section/title geometry parity on legacy and canary
+- Verification:
+  - refreshed runtime/bootstrap values for the pre-recovery run:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-034/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-034/main-ai.log`
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<run-034 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<run-034 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pan and zoom on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `46.2s`)
+  - first fresh-context CDP sub-agent:
+    - reached the worktree graph surface, but it never bootstrapped the read-only `main` page into a real settings view and double-clicked the wrong visible element (`All Settings` tab / `Autosaved!`) instead of the section title, so that result was not trustworthy
+  - one allowed local-lifecycle recovery attempt:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - recovery launched a fresh worktree session `f07499` on backend `8076` with Vite serving at `http://127.0.0.1:3076/` and a fresh bootstrap URL
+    - because the canonical runtime helper still reported stale frontend/debug values after that manual restart, the fallback refresh commands were used:
+      - `source activate.sh && env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/.`
+      - `source activate.sh && ./scripts/cdp-port.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --json`
+  - second and third fresh-context CDP sub-agents:
+    - both reported that chrome-devtools-mcp controls were unavailable in their sessions after the recovery attempt, so the exact live pan-and-zoom title-edit compare could not be rerun
+  - CDP visual check: not run (post-recovery chrome-devtools-mcp access unavailable; automated Playwright parity passed before recovery, but the required live visual gate could not be completed)
+- Lane status:
+  - keep the new pan-and-zoom title-edit parity probe; it passed on the live pre-recovery runtimes and is the current support artifact for this motion/editing lane
+  - do not reopen the older pan-only `backend` title-edit lane or add another probe variant around the same contract
+  - the active blocker is now CDP tool access after the worktree recovery, not a newly confirmed renderer defect on this lane
+- Next frontier:
+  - first restore a trustworthy chrome-devtools-mcp session, then rerun the exact new pan-and-zoom title-edit lane on live worktree vs read-only `main`
+  - if CDP is still unavailable on the next fresh iteration, treat that as tooling/lifecycle debt instead of reopening product code on speculation
+- LOOP_TERMINAL_MARKER: none
