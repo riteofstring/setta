@@ -332,6 +332,103 @@ test("settings graph substrate canary fit view reapplies the same All Settings b
   }
 });
 
+test("settings graph substrate canary fit view uses the latest All Settings scene after a fast switch from Core", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const drawSectionId = findSectionIdByName(initialState, "drawSectionDefault");
+  const coreTab = page.getByRole("button", { name: "Core", exact: true });
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(coreTab).toBeVisible();
+    await coreTab.click();
+    await page.waitForSelector(READY_SELECTOR);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await page.getByRole("button", { name: "fit view" }).click();
+
+    const canaryRoot = page.getByTestId("graph-substrate-canary");
+    await expect(canaryRoot).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+    await expect
+      .poll(async () => (await getCanaryAutoFitDrift(page))?.zoom ?? 9999)
+      .toBeLessThan(0.03);
+
+    const [drawMetrics, rootBounds] = await Promise.all([
+      captureSettingsGraphSectionMetrics(page, drawSectionId),
+      canaryRoot.boundingBox(),
+    ]);
+    if (!drawMetrics.rect || !rootBounds) {
+      throw new Error("Missing canary bounds after fast-switch fit view.");
+    }
+
+    expect(drawMetrics.rect.x + drawMetrics.rect.width).toBeGreaterThan(
+      rootBounds.x + 8,
+    );
+    expect(drawMetrics.rect.x).toBeLessThan(
+      rootBounds.x + rootBounds.width - 8,
+    );
+    expect(drawMetrics.rect.y + drawMetrics.rect.height).toBeGreaterThan(
+      rootBounds.y + 8,
+    );
+    expect(drawMetrics.rect.y).toBeLessThan(
+      rootBounds.y + rootBounds.height - 8,
+    );
+  } finally {
+    await allTab.click().catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary applies an explicit shared viewport write after a local targeted fit", async ({
   page,
 }) => {

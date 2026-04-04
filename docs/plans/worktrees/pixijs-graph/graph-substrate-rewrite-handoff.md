@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 04:30 EDT
+Last updated: 2026-04-04 04:48 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,34 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `093` fixed a concrete canary-only fast-switch `fit view` defect on `All Settings` instead of opening another parity-only probe lane.
+  - Why this slice was needed:
+    - the first fresh-context CDP compare on this pass finally exposed a concrete production bug rather than more oracle noise: after switching into `All Settings` and triggering `fit view`, the worktree canary over-zoomed and left `drawSectionDefault` off-canvas while read-only `main` landed the same section on the normal full-graph fit
+    - code inspection showed the canary viewport controller was reading `canaryViewportStateRef` from a post-paint `useEffect`, which left a small stale-state window for fast toolbar clicks immediately after the canary scene changed
+    - this was the narrowest valid production slice because it fixed the first real renderer defect on the current Gate 1 / Gate 2 frontier instead of adding a third straight oracle-only probe
+  - Production/test change:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+      - changed the `canaryViewportStateRef` refresh from `useEffect` to `useLayoutEffect` so the viewport controller sees the latest `All Settings` section set before paint and before a fast `fit view` click can read stale scene data
+    - updated `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+      - added `settings graph substrate canary fit view uses the latest All Settings scene after a fast switch from Core`
+      - the regression clears the authoritative `All Settings` viewport, switches through `Core`, immediately clicks `fit view` after returning to `All Settings`, and then verifies the canary still matches the expected full-scene auto-fit while `drawSectionDefault` stays inside the visible graph surface
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan|settings graph substrate canary fit view uses the latest All Settings scene after a fast switch from Core'`
+      - result: passed (`2 passed`, `36.2s`)
+  - Live verification result:
+    - the first fresh-context CDP sub-agent reproduced the failure on the already-running live pages:
+      - read-only `main` `3087/settings`: `drawSectionDefault` landed at `x=712.4, y=30.8, w=55.2, h=35.2` with viewport `matrix(0.1, 0, 0, 0.1, 712.4, -245.2)`
+      - worktree `3075/settings` before the fix: `drawSectionDefault` was pushed off-canvas at `x=452.7, y=-2604.5, w=654.5, h=417.4` with viewport `matrix(1.18577, 0, 0, 1.18577, 452.727, -5486.4)`
+    - the final fresh-context CDP sub-agent reran the same fast-switch `fit view` lane after the patch and found the worktree aligned with `main`:
+      - both `3075` and `3087` ended on viewport `matrix(0.1, 0, 0, 0.1, 712.4, -245.2)`
+      - both showed `drawSectionDefault` at `x=712.4, y=30.8, w=55.2, h=35.2`
+    - CDP visual check: done (fresh-context fast-switch `All Settings` `fit view` compare on worktree `3075` canary vs read-only `main` `3087` legacy; `drawSectionDefault` geometry matched)
+  - conclusion for this slice:
+    - close the specific fast-switch `fit view` stale-scene lane as fixed
+    - do not reopen it unless a later fresh compare shows the worktree canary over-zooming or sending a shared section off-canvas again on the same path
+    - the next real frontier should return to a fresh normalized live Gate 1 / Gate 2 compare and isolate the next remaining canary-only dynamic artifact, if any, rather than extending fit-view support work again
 - Ralph item `092` added an opt-in cross-worktree cleared-viewport entry parity probe for normalized `All Settings` and closed that bounded viewport-restoration oracle lane without reopening another motion-only compare.
   - Why this slice was needed:
     - a fresh-context CDP compare on this pass did not expose a concrete canary-only dynamic renderer defect on the normalized `All Settings` surface

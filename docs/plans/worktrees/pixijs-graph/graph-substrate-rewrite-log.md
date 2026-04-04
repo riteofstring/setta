@@ -3185,3 +3185,35 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to dynamic Gate 1 / Gate 2 behavior on a different shared action or section, or to a concrete production renderer defect if a fresh live compare actually exposes one
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 04:48 EDT - Ralph item 093
+
+- Fixed a concrete canary-only fast-switch `fit view` defect on normalized `All Settings` instead of extending the parity harness again.
+- Why this slice was necessary:
+  - the first fresh-context CDP compare on this pass finally exposed a real production bug: after switching into `All Settings` and hitting `fit view`, worktree `3075` over-zoomed and pushed `drawSectionDefault` off-canvas while read-only `main` `3087` landed the same section on the expected full-scene fit
+  - code inspection showed the canary viewport controller was reading `canaryViewportStateRef` from a post-paint `useEffect`, leaving a stale-scene window for fast toolbar clicks immediately after the canary section set changed
+  - this satisfied the loop rule that the next slice after recent oracle-only iterations had to land a production fix or a directly unblocking bounded blocker step
+- Production/test changes:
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - changed the `canaryViewportStateRef` sync from `useEffect` to `useLayoutEffect` so the controller sees the latest visible `All Settings` scene before a fast `fit view` click can run
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added `settings graph substrate canary fit view uses the latest All Settings scene after a fast switch from Core`
+    - the regression clears the authoritative `All Settings` viewport, switches through `Core`, immediately clicks `fit view` after returning to `All Settings`, and then asserts the canary still matches the expected auto-fit while `drawSectionDefault` stays on-screen
+- Verification:
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan|settings graph substrate canary fit view uses the latest All Settings scene after a fast switch from Core'`
+    - result: passed (`2 passed`, `36.2s`)
+  - fresh-context CDP sub-agents:
+    - first pass reproduced the bug on live pages:
+      - `main` viewport `matrix(0.1, 0, 0, 0.1, 712.4, -245.2)` with `drawSectionDefault` at `x=712.4, y=30.8, w=55.2, h=35.2`
+      - worktree before fix viewport `matrix(1.18577, 0, 0, 1.18577, 452.727, -5486.4)` with `drawSectionDefault` off-canvas at `x=452.7, y=-2604.5, w=654.5, h=417.4`
+    - second pass after the patch matched the same fast-switch lane on both live pages:
+      - both `3075` and `3087` landed on viewport `matrix(0.1, 0, 0, 0.1, 712.4, -245.2)`
+      - both showed `drawSectionDefault` at `x=712.4, y=30.8, w=55.2, h=35.2`
+  - CDP visual check: done (fresh-context fast-switch `All Settings` `fit view` compare on worktree `3075` canary vs read-only `main` `3087` legacy; `drawSectionDefault` geometry matched)
+- Lane status:
+  - close the fast-switch `fit view` stale-scene lane as fixed
+  - do not reopen it unless a later fresh compare shows the canary over-zooming or sending a shared section off-canvas again on the same path
+- Next frontier:
+  - rerun a fresh normalized live Gate 1 / Gate 2 compare on `All Settings` and isolate the next remaining canary-only dynamic artifact, if any, rather than adding more fit-view or landing-oracle support work
+- LOOP_TERMINAL_MARKER: none

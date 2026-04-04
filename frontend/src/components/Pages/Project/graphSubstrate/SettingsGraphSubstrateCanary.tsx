@@ -390,7 +390,9 @@ export function SettingsGraphSubstrateCanary() {
     );
   }, [fallbackViewport, sharedViewport, viewport]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    // Keep the controller's snapshot current before paint so fast toolbar
+    // actions fit against the latest visible section set.
     canaryViewportStateRef.current = {
       observedElementSizes,
       resolvedViewport,
