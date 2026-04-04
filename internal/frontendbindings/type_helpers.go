@@ -1511,16 +1511,6 @@ func generatedCodeParamCodeObjFactoryDeclaration() TypeDeclaration {
 
 func additionalDeclarationsForType(t reflect.Type) ([]TypeDeclaration, bool) {
 	switch t {
-	case reflect.TypeOf(ProjectConfig{}):
-		return []TypeDeclaration{
-			objectDeclarationWithGoBackedCreateExpr(
-				"ProjectRunCapabilities",
-				projectview.ProjectRunCapabilities{},
-				TypeProperty{Name: "canRunFromMain", TypeExpr: "boolean"},
-				TypeProperty{Name: "mainRunDisabledReason", TypeExpr: "string | null", Optional: true},
-				TypeProperty{Name: "effectiveEntrySectionId", TypeExpr: "string | null", Optional: true},
-			),
-		}, true
 	case reflect.TypeOf(ProjectStateSingleConfig{}):
 		return []TypeDeclaration{
 			objectDeclarationWithGoBackedCreateExpr(
@@ -1795,6 +1785,28 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			PropertyTypeExprOverrides: map[string]string{
 				"inputs":  "Record<string, unknown> | null",
 				"outputs": "Record<string, unknown> | null",
+			},
+		}, true
+	case reflect.TypeOf(projectview.ProjectRunCapabilities{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.ProjectRunCapabilities{},
+			HasCreateExpr: true,
+			PropertyOptionalOverrides: map[string]bool{
+				"mainRunDisabledReason":   true,
+				"effectiveEntrySectionId": true,
+			},
+		}, true
+	case reflect.TypeOf(ProjectConfig{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectview.FrontendDefaultProjectConfig(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"codegenTargets": "Array<ProjectCodegenTarget>",
+			},
+			PropertyOptionalOverrides: map[string]bool{
+				"viewport":         true,
+				"activeViewModeId": true,
+				"entryCodeBlockId": true,
 			},
 		}, true
 	case reflect.TypeOf(SectionTypeCodegenPolicy{}):

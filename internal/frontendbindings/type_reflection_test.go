@@ -3,6 +3,8 @@ package frontendbindings
 import (
 	"reflect"
 	"testing"
+
+	"setta/internal/projectview"
 )
 
 func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *testing.T) {
@@ -72,6 +74,51 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				{Name: "typeFilters", TypeExpr: "BrowserSavedSearchTypeFilters", Optional: false},
 				{Name: "color", TypeExpr: "string", Optional: false},
 				{Name: "quickInfo", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "ProjectRunCapabilities",
+			root: reflect.TypeOf(projectview.ProjectRunCapabilities{}),
+			properties: []TypeProperty{
+				{Name: "canRunFromMain", TypeExpr: "boolean", Optional: false},
+				{Name: "mainRunDisabledReason", TypeExpr: "string | null", Optional: true},
+				{Name: "effectiveEntrySectionId", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "ProjectConfig",
+			root: reflect.TypeOf(ProjectConfig{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "showParamDisplayNames", TypeExpr: "boolean", Optional: false},
+				{Name: "allowJsonSourceKeyEdits", TypeExpr: "boolean", Optional: false},
+				{Name: "previewImgColor", TypeExpr: "string", Optional: true},
+				{Name: "viewport", TypeExpr: "Viewport | null", Optional: true},
+				{Name: "viewportInitialized", TypeExpr: "boolean", Optional: false},
+				{Name: "viewModes", TypeExpr: "Record<string, ViewMode>", Optional: false},
+				{Name: "activeViewModeId", TypeExpr: "string | null", Optional: true},
+				{Name: "isEditingViewMode", TypeExpr: "boolean", Optional: false},
+				{Name: "hasPythonCodegenTarget", TypeExpr: "boolean", Optional: false},
+				{Name: "runCapabilities", TypeExpr: "ProjectRunCapabilities", Optional: false},
+				{Name: "codegenTargets", TypeExpr: "Array<ProjectCodegenTarget>", Optional: false},
+				{Name: "watchCodeEnabled", TypeExpr: "boolean", Optional: false},
+				{Name: "watchCodeFolders", TypeExpr: "Array<WatchCodeFolder>", Optional: false},
+				{Name: "watchCodeFiles", TypeExpr: "Array<string>", Optional: false},
+				{Name: "watchCodeRegistry", TypeExpr: "Record<string, WatchCodeRegistryEntry>", Optional: false},
+				{Name: "watchCodeBaselineByPath", TypeExpr: "Record<string, Array<string>>", Optional: false},
+				{Name: "entryCodeBlockId", TypeExpr: "string | null", Optional: true},
+				{Name: "sectionPathSlugsById", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "sectionIdsByPathSlug", TypeExpr: "Record<string, Array<string>>", Optional: false},
+				{Name: "topLevelSections", TypeExpr: "Record<string, TopLevelSectionLayout>", Optional: false},
+				{Name: "windowSpaceSlugsById", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "windowSpaceIdsBySlug", TypeExpr: "Record<string, Array<string>>", Optional: false},
+				{Name: "windowSpaces", TypeExpr: "Record<string, WindowSpaceConfig>", Optional: false},
+				{Name: "sectionVariantMap", TypeExpr: "Record<string, string>", Optional: false},
+				{Name: "activeIds", TypeExpr: "Array<string>", Optional: false},
+				{Name: "edges", TypeExpr: "Array<Edge>", Optional: false},
+				{Name: "agenticEdges", TypeExpr: "Array<AgenticEdge>", Optional: false},
+				{Name: "stateMachineEdges", TypeExpr: "Array<StateMachineEdge>", Optional: false},
 			},
 		},
 		{
@@ -185,8 +232,8 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			if tt.name == "EngineConfig" && declaration.CreateBody == "" {
 				t.Fatalf("EngineConfig should use a structured create body")
 			}
-			if tt.name == "BrowserSavedSearch" && declaration.CreateExpr == "" {
-				t.Fatalf("BrowserSavedSearch should use a Go-backed create expr")
+			if (tt.name == "BrowserSavedSearch" || tt.name == "ProjectRunCapabilities" || tt.name == "ProjectConfig") && declaration.CreateExpr == "" {
+				t.Fatalf("%s should use a Go-backed create expr", tt.name)
 			}
 		})
 	}

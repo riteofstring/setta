@@ -5008,6 +5008,159 @@ export type ProjectCodegenTarget =
   | ProjectCodegenPythonTarget
   | ProjectCodegenPluginTarget;
 
+export type Viewport = {
+  x: number;
+  y: number;
+  zoom: number;
+};
+
+type ViewMode = {
+  id: string;
+  name: string;
+  sortIndex?: number;
+  isUserFacing?: boolean;
+  isTab?: boolean;
+  visibilityBySectionId?: Record<string, boolean>;
+  viewport?: Viewport | null;
+  viewportInitialized?: boolean;
+  topLevelSections?: Record<string, TopLevelSectionLayout>;
+};
+function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      name: "",
+      sortIndex: 0,
+      isUserFacing: false,
+      isTab: false,
+      visibilityBySectionId: {},
+      viewport: null,
+      viewportInitialized: false,
+      topLevelSections: {},
+    },
+    options,
+  );
+}
+
+type ProjectRunCapabilities = {
+  canRunFromMain: boolean;
+  mainRunDisabledReason?: string | null;
+  effectiveEntrySectionId?: string | null;
+};
+export function createProjectRunCapabilities(
+  options: Partial<ProjectRunCapabilities> = {},
+): ProjectRunCapabilities {
+  return mergeGeneratedOptions(
+    {
+      canRunFromMain: false,
+      mainRunDisabledReason: null,
+      effectiveEntrySectionId: null,
+    },
+    options,
+  );
+}
+
+export type WatchCodeFolder = {
+  path: string;
+  recursive: boolean;
+};
+
+type WatchCodeRegistryEntry = {
+  callableName: string;
+  kind: string;
+  signatureHash: string;
+  bodyHash: string;
+  sourcePath: string;
+  sectionIds?: Array<string>;
+  sectionsCount?: number;
+};
+
+export type TopLevelSectionLayout = {
+  x: number;
+  y: number;
+  zIndex?: number;
+  w?: number | null;
+  h?: number | null;
+};
+export function createTopLevelSectionLayout(
+  options: Partial<TopLevelSectionLayout> = {},
+): TopLevelSectionLayout {
+  return mergeGeneratedOptions(
+    {
+      x: 0,
+      y: 0,
+      zIndex: 0,
+      w: null,
+      h: null,
+    },
+    options,
+  );
+}
+
+export type Edge = {
+  id: string;
+  sourceSectionId: string;
+  sourceVariantId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetVariantId: string;
+  targetPortId: string;
+  type?: string;
+  label?: string | null;
+  style?: Record<string, unknown>;
+  animated?: boolean;
+  hidden?: boolean;
+  zIndex?: number;
+  data?: Record<string, unknown>;
+  selected?: boolean;
+};
+
+export type AgenticEdge = {
+  id: string;
+  sourceSectionId: string;
+  targetSectionId: string;
+  kind: AgenticEdgeKind;
+  contextMode?: AgenticEdgeContextMode | null;
+  style?: Record<string, unknown>;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+export function createAgenticEdge(
+  options: Partial<AgenticEdge> = {},
+): AgenticEdge {
+  return mergeGeneratedOptions(
+    {
+      id: "",
+      sourceSectionId: "",
+      targetSectionId: "",
+      kind: AgenticEdgeKindEnum.section_chat,
+      contextMode: null,
+      style: {},
+      hidden: false,
+      zIndex: 0,
+      selected: false,
+    },
+    options,
+  );
+}
+
+type StateMachineEdge = {
+  id: string;
+  machineGroupId: string;
+  sourceSectionId: string;
+  sourcePortId: string;
+  targetSectionId: string;
+  targetPortId: string;
+  sourceFilter?: StateMachineSourceFilter | null;
+  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
+  targetAction?: StateMachineTargetAction | null;
+  style?: Record<string, unknown> | null;
+  hidden?: boolean;
+  zIndex?: number;
+  selected?: boolean;
+};
+
 export type ProjectConfig = {
   id: string;
   name: string;
@@ -5083,50 +5236,10 @@ export function createProjectConfig(
   );
 }
 
-type ProjectRunCapabilities = {
-  canRunFromMain: boolean;
-  mainRunDisabledReason?: string | null;
-  effectiveEntrySectionId?: string | null;
-};
-export function createProjectRunCapabilities(
-  options: Partial<ProjectRunCapabilities> = {},
-): ProjectRunCapabilities {
-  return mergeGeneratedOptions(
-    {
-      canRunFromMain: false,
-      mainRunDisabledReason: null,
-      effectiveEntrySectionId: null,
-    },
-    options,
-  );
-}
-
 type ClipboardProjectStateCoreWithSectionVariantMap = {
   core: ClipboardProjectStateCore;
   sectionVariantMap: Record<string, string>;
 };
-
-export type TopLevelSectionLayout = {
-  x: number;
-  y: number;
-  zIndex?: number;
-  w?: number | null;
-  h?: number | null;
-};
-export function createTopLevelSectionLayout(
-  options: Partial<TopLevelSectionLayout> = {},
-): TopLevelSectionLayout {
-  return mergeGeneratedOptions(
-    {
-      x: 0,
-      y: 0,
-      zIndex: 0,
-      w: null,
-      h: null,
-    },
-    options,
-  );
-}
 
 type ViewportBoundsInput = {
   x: number;
@@ -5394,11 +5507,6 @@ export type SetWatchCodeEnabledRequestInput = {
   frontendOpId: string | null;
   projectConfigId: string;
   enabled: boolean;
-};
-
-export type WatchCodeFolder = {
-  path: string;
-  recursive: boolean;
 };
 
 export type SetWatchCodeInputsRequestInput = {
@@ -5935,120 +6043,12 @@ export function createTaskBoardTask(
   );
 }
 
-export type Edge = {
-  id: string;
-  sourceSectionId: string;
-  sourceVariantId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetVariantId: string;
-  targetPortId: string;
-  type?: string;
-  label?: string | null;
-  style?: Record<string, unknown>;
-  animated?: boolean;
-  hidden?: boolean;
-  zIndex?: number;
-  data?: Record<string, unknown>;
-  selected?: boolean;
-};
-
-type StateMachineEdge = {
-  id: string;
-  machineGroupId: string;
-  sourceSectionId: string;
-  sourcePortId: string;
-  targetSectionId: string;
-  targetPortId: string;
-  sourceFilter?: StateMachineSourceFilter | null;
-  sourceActivationCountCondition?: StateMachineSourceActivationCountCondition | null;
-  targetAction?: StateMachineTargetAction | null;
-  style?: Record<string, unknown> | null;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-
-export type AgenticEdge = {
-  id: string;
-  sourceSectionId: string;
-  targetSectionId: string;
-  kind: AgenticEdgeKind;
-  contextMode?: AgenticEdgeContextMode | null;
-  style?: Record<string, unknown>;
-  hidden?: boolean;
-  zIndex?: number;
-  selected?: boolean;
-};
-export function createAgenticEdge(
-  options: Partial<AgenticEdge> = {},
-): AgenticEdge {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      sourceSectionId: "",
-      targetSectionId: "",
-      kind: AgenticEdgeKindEnum.section_chat,
-      contextMode: null,
-      style: {},
-      hidden: false,
-      zIndex: 0,
-      selected: false,
-    },
-    options,
-  );
-}
-
-export type Viewport = {
-  x: number;
-  y: number;
-  zoom: number;
-};
-
-type ViewMode = {
-  id: string;
-  name: string;
-  sortIndex?: number;
-  isUserFacing?: boolean;
-  isTab?: boolean;
-  visibilityBySectionId?: Record<string, boolean>;
-  viewport?: Viewport | null;
-  viewportInitialized?: boolean;
-  topLevelSections?: Record<string, TopLevelSectionLayout>;
-};
-function createViewMode(options: Partial<ViewMode> = {}): ViewMode {
-  return mergeGeneratedOptions(
-    {
-      id: "",
-      name: "",
-      sortIndex: 0,
-      isUserFacing: false,
-      isTab: false,
-      visibilityBySectionId: {},
-      viewport: null,
-      viewportInitialized: false,
-      topLevelSections: {},
-    },
-    options,
-  );
-}
-
 export type ViewModeConfig = ViewMode;
 export function createViewModeConfig(
   options: Partial<ViewModeConfig> = {},
 ): ViewModeConfig {
   return createViewMode(options);
 }
-
-type WatchCodeRegistryEntry = {
-  callableName: string;
-  kind: string;
-  signatureHash: string;
-  bodyHash: string;
-  sourcePath: string;
-  sectionIds?: Array<string>;
-  sectionsCount?: number;
-};
 
 export type CodeFileBinding = {
   canonical_path: string;
