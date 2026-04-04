@@ -13,6 +13,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/artifacts"
 	"setta/internal/deployments"
+	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
@@ -2301,6 +2302,21 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 					TypeExpr: "Record<string, unknown>",
 					Optional: true,
 				},
+			},
+		}, true
+	case reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}):
+		return reflectedObjectDeclarationSpec{
+			DeclarationName: "ProjectStateSingleConfigWithCompletedOpIds",
+			DefaultValue: httpapi.ProjectStateSingleConfigWithCompletedOpIDs{
+				ProjectState:   projectview.FrontendDefaultSingleConfig(),
+				CompletedOpIDs: []string{},
+				PendingOpIDs:   []string{},
+			},
+			HasCreateExpr: true,
+			CreateExprOverrides: map[string]string{
+				"projectState":   "createProjectStateSingleConfig()",
+				"completedOpIds": "[]",
+				"pendingOpIds":   "[]",
 			},
 		}, true
 	case reflect.TypeOf(SharePolicy{}):

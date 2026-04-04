@@ -13,7 +13,7 @@ import (
 
 type ProjectStateSingleConfig projectview.SingleConfig
 
-type ProjectStateSingleConfigWithCompletedOpIds struct{}
+type ProjectStateSingleConfigWithCompletedOpIds = httpapi.ProjectStateSingleConfigWithCompletedOpIDs
 
 type ClipboardDataType = projectstate.ClipboardDataType
 

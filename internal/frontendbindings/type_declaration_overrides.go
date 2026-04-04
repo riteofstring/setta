@@ -225,20 +225,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"BaseClipboardDataUnionWithDiscriminator",
 			"SectionsClipboardData",
 		),
-		reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}): objectDeclarationWithCreateExpr(
-			"ProjectStateSingleConfigWithCompletedOpIds",
-			`mergeGeneratedOptions(
-    {
-      projectState: createProjectStateSingleConfig(),
-      completedOpIds: [],
-      pendingOpIds: [],
-    },
-    options,
-  )`,
-			TypeProperty{Name: "projectState", TypeExpr: "ProjectStateSingleConfig"},
-			TypeProperty{Name: "completedOpIds", TypeExpr: "Array<string>"},
-			TypeProperty{Name: "pendingOpIds", TypeExpr: "Array<string>"},
-		),
 		reflect.TypeOf(SectionsClipboardDataResponse{}): aliasDeclaration(
 			"SectionsClipboardDataResponse",
 			"SectionsClipboardData",

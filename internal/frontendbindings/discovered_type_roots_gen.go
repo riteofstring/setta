@@ -354,7 +354,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf((*GetGitCommitFileDiffRequestInput)(nil)).Elem(),
 		reflect.TypeOf((*GetGitCommitFileDiffResponse)(nil)).Elem(),
 		reflect.TypeOf((*ProjectStateSingleConfig)(nil)).Elem(),
-		reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
+		reflect.TypeOf((*ProjectStateSingleConfigWithCompletedOpIds)(nil)).Elem(),
 		reflect.TypeOf((*ClipboardDataType)(nil)).Elem(),
 		reflect.TypeOf((*ClipboardProjectStateCore)(nil)).Elem(),
 		reflect.TypeOf((*Core)(nil)).Elem(),

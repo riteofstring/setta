@@ -272,6 +272,15 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "ProjectStateSingleConfigWithCompletedOpIds",
+			root: reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),
+			properties: []TypeProperty{
+				{Name: "projectState", TypeExpr: "ProjectStateSingleConfig", Optional: false},
+				{Name: "completedOpIds", TypeExpr: "Array<string>", Optional: false},
+				{Name: "pendingOpIds", TypeExpr: "Array<string>", Optional: false},
+			},
+		},
+		{
 			name: "ClipboardProjectStateCore",
 			root: reflect.TypeOf(ClipboardProjectStateCore{}),
 			properties: []TypeProperty{
@@ -926,6 +935,7 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				tt.name == "ProjectConfig" ||
 				tt.name == "SectionCapabilities" ||
 				tt.name == "ProjectStateSingleConfig" ||
+				tt.name == "ProjectStateSingleConfigWithCompletedOpIds" ||
 				tt.name == "ClipboardProjectStateCore" ||
 				tt.name == "ClipboardProjectStateCoreWithSectionVariantMap" ||
 				tt.name == "SectionsClipboardData" ||
