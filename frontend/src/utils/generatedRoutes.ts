@@ -3,312 +3,314 @@ export const GoRoutePrefixes = {
   api: "/api",
 } as const;
 const GoRootRoutes = {
-  bootstrapPage: "/__setta__/bootstrap",
   bootstrapConsume: "/__setta__/bootstrap/consume",
+  bootstrapPage: "/__setta__/bootstrap",
   toolsCall: "/__setta__/tools/call",
 } as const;
 const GoPluginRootRoutes = {
   pluginAssetWildcard: "/plugins/{pluginId}/*",
 } as const;
 export const GoHTTPRoutes = {
-  getBackendInitStatus: "/backendInitStatus",
-  getAuthRefreshStatus: "/authRefreshStatus",
-  getServerMode: "/serverMode",
-  getSettaHomeInfo: "/settaHomeInfo",
-  loadSettings: "/loadSettings",
-  saveSettings: "/saveSettings",
-  loadAllProjectMetadata: "/loadAllProjectMetadata",
-  loadProjectConfig: "/loadProjectConfig",
-  saveProject: "/saveProject",
-  saveAsNewProjectConfig: "/saveAsNewProjectConfig",
-  createProjectConfig: "/createProjectConfig",
-  deleteProjectConfigs: "/deleteProjectConfigs",
-  setAsDefaultProject: "/setAsDefaultProject",
-  setProjectConfigName: "/setProjectConfigName",
-  getNotifications: "/getNotifications",
-  deleteNotification: "/deleteNotification",
-  getLatestProjectState: "/getLatestProjectState",
-  undo: "/undo",
-  redo: "/redo",
-  createNewSectionVariant: "/createNewSectionVariant",
-  setSectionVariant: "/setSectionVariant",
-  setDefaultSectionVariant: "/setDefaultSectionVariant",
-  setSectionVariantSortOrder: "/setSectionVariantSortOrder",
-  toggleVariantFrozen: "/toggleVariantFrozen",
-  toggleVariantJsonSource: "/toggleVariantJsonSource",
-  setVariantJsonSourceKeys: "/setVariantJsonSourceKeys",
-  setSectionVariantName: "/setSectionVariantName",
-  deleteSectionVariantOrAsk: "/deleteSectionVariantOrAsk",
-  deleteJsonSourceFileAndVariant: "/deleteJsonSourceFileAndVariant",
-  createChildSections: "/createChildSections",
-  createChildSectionsViaIncrementer: "/createChildSectionsViaIncrementer",
-  deleteChildSectionsViaDecrementer: "/deleteChildSectionsViaDecrementer",
-  deleteSections: "/deleteSections",
-  deleteSelectedParams: "/deleteSelectedParams",
-  prepareSectionsForCopy: "/prepareSectionsForCopy",
-  pasteSections: "/pasteSections",
-  createEdge: "/createEdge",
-  updateEdge: "/updateEdge",
-  deleteEdges: "/deleteEdges",
-  reconnectEdge: "/reconnectEdge",
-  setEdges: "/setEdges",
-  createStateMachineEdge: "/createStateMachineEdge",
-  updateStateMachineEdge: "/updateStateMachineEdge",
-  deleteStateMachineEdges: "/deleteStateMachineEdges",
-  setStateMachineEdges: "/setStateMachineEdges",
-  createAgenticEdge: "/createAgenticEdge",
-  updateAgenticEdge: "/updateAgenticEdge",
-  deleteAgenticEdges: "/deleteAgenticEdges",
-  setAgenticEdges: "/setAgenticEdges",
-  moveSections: "/moveSections",
-  moveParams: "/moveParams",
-  moveParamGroups: "/moveParamGroups",
-  indentParams: "/indentParams",
-  unindentParams: "/unindentParams",
-  addKwarg: "/addKwarg",
-  deleteKwarg: "/deleteKwarg",
-  createTopLevelSection: "/createTopLevelSection",
-  createViewMode: "/createViewMode",
-  setActiveViewMode: "/setActiveViewMode",
-  toggleIsEditingViewMode: "/toggleIsEditingViewMode",
-  toggleViewModeUserFacing: "/toggleViewModeUserFacing",
-  toggleViewModeTab: "/toggleViewModeTab",
-  setViewModeName: "/setViewModeName",
-  setViewModeSortOrder: "/setViewModeSortOrder",
-  deleteViewMode: "/deleteViewMode",
-  setSectionName: "/setSectionName",
   acceptRenameRefactor: "/acceptRenameRefactor",
-  declineRenameRefactor: "/declineRenameRefactor",
-  createWorkspaceLaunchIntent: "/createWorkspaceLaunchIntent",
-  launch: "/launch",
-  shareDeploymentCurrentSession: "/share/deployments/current/session",
+  addKwarg: "/addKwarg",
+  addLauncherRecentWorkspace: "/addLauncherRecentWorkspace",
   appDeploymentCurrentSession: "/app/deployments/current/session",
-  shareDeploymentState: "/share/deployments/{deploymentName}/{version}/state",
-  shareDeploymentProjectConfig:
-    "/share/deployments/{deploymentName}/{version}/project_config",
-  appDeploymentState: "/app/deployments/{deploymentName}/{version}/state",
+  appDeploymentLatest: "/app/deployments/{deploymentName}/latest",
   appDeploymentProjectConfig:
     "/app/deployments/{deploymentName}/{version}/project_config",
-  shareDeployments: "/share/deployments",
-  shareDeploymentVersions: "/share/deployments/{deploymentName}/versions",
-  shareDeploymentLatest: "/share/deployments/{deploymentName}/latest",
-  appDeployments: "/app/deployments",
+  appDeploymentState: "/app/deployments/{deploymentName}/{version}/state",
   appDeploymentVersions: "/app/deployments/{deploymentName}/versions",
-  appDeploymentLatest: "/app/deployments/{deploymentName}/latest",
-  getLauncherRecentWorkspaces: "/launcherRecentWorkspaces",
-  addLauncherRecentWorkspace: "/addLauncherRecentWorkspace",
-  removeLauncherRecentWorkspace: "/removeLauncherRecentWorkspace",
-  pinLauncherRecentWorkspace: "/pinLauncherRecentWorkspace",
-  getLauncherFilesystemRoots: "/launcherFilesystemRoots",
-  listLauncherDirectory: "/listLauncherDirectory",
-  openLauncherWorkspace: "/openLauncherWorkspace",
-  getLauncherStatus: "/launcherStatus",
-  setupLauncher: "/setupLauncher",
-  repairLauncher: "/repairLauncher",
-  removeLauncher: "/removeLauncher",
-  updateLauncher: "/updateLauncher",
-  revealPathInOsFileExplorer: "/revealPathInOsFileExplorer",
-  getAppGenSkills: "/getAppGenSkills",
-  getAppGenSkillContent: "/getAppGenSkillContent",
-  upsertAppGenCustomSkill: "/upsertAppGenCustomSkill",
-  getMCPServerRuntimeStatus: "/mcpServerRuntimeStatus",
-  getPasswordParamValue: "/getPasswordParamValue",
+  appDeployments: "/app/deployments",
+  appendDrawAreaLayerItem: "/appendDrawAreaLayerItem",
+  appendTranscriptionAudio: "/appendTranscriptionAudio",
+  attachmentDownload: "/api/attachments/{token}",
+  autoLayoutTopLevelSections: "/autoLayoutTopLevelSections",
+  binaryDownload: "/binary/{contentId}",
+  binaryUpload: "/binary/upload",
+  cancelRun: "/cancelRun",
+  cancelTranscriptionSession: "/cancelTranscriptionSession",
   changeParamImpl: "/changeParamImpl",
-  setParamEnteredValue: "/setParamEnteredValue",
-  updateParamImplConfig: "/updateParamImplConfig",
-  setCodeObjName: "/setCodeObjName",
-  setCodeObjDisplayName: "/setCodeObjDisplayName",
-  setCodeSectionAttachedTerminal: "/setCodeSectionAttachedTerminal",
-  setCode: "/setCode",
+  checkIfFileExists: "/checkIfFileExists",
+  checkWorkspaceInitialized: "/checkWorkspaceInitialized",
+  clearTextFieldCompletion: "/clearTextFieldCompletion",
+  codeAreaCompletion: "/codeAreaCompletion",
+  createAgentProfile: "/createAgentProfile",
+  createAgenticEdge: "/createAgenticEdge",
+  createChildSections: "/createChildSections",
+  createChildSectionsViaIncrementer: "/createChildSectionsViaIncrementer",
+  createEdge: "/createEdge",
+  createEngineConfig: "/createEngineConfig",
+  createExternalAgentConfig: "/createExternalAgentConfig",
+  createFile: "/createFile",
+  createNewSectionVariant: "/createNewSectionVariant",
+  createProjectConfig: "/createProjectConfig",
+  createPromptTemplate: "/createPromptTemplate",
+  createStateMachineEdge: "/createStateMachineEdge",
+  createTopLevelSection: "/createTopLevelSection",
+  createTranscriptionProfile: "/createTranscriptionProfile",
+  createViewMode: "/createViewMode",
+  createWindowSpace: "/createWindowSpace",
+  createWorkspaceLaunchIntent: "/createWorkspaceLaunchIntent",
+  declineRenameRefactor: "/declineRenameRefactor",
+  deleteAgentProfile: "/deleteAgentProfile",
+  deleteAgenticEdges: "/deleteAgenticEdges",
+  deleteArtifacts: "/deleteArtifacts",
+  deleteChildSectionsViaDecrementer: "/deleteChildSectionsViaDecrementer",
+  deleteEdges: "/deleteEdges",
+  deleteEngineConfig: "/deleteEngineConfig",
+  deleteExternalAgentConfig: "/deleteExternalAgentConfig",
+  deleteJsonSourceFileAndVariant: "/deleteJsonSourceFileAndVariant",
+  deleteKwarg: "/deleteKwarg",
+  deleteNotification: "/deleteNotification",
+  deleteProjectConfigs: "/deleteProjectConfigs",
+  deletePromptTemplate: "/deletePromptTemplate",
+  deleteSectionVariantOrAsk: "/deleteSectionVariantOrAsk",
+  deleteSections: "/deleteSections",
+  deleteSelectedParams: "/deleteSelectedParams",
+  deleteStateMachineEdges: "/deleteStateMachineEdges",
+  deleteTerminals: "/deleteTerminals",
+  deleteTranscriptionProfile: "/deleteTranscriptionProfile",
+  deleteViewMode: "/deleteViewMode",
+  deleteWindowSpace: "/deleteWindowSpace",
+  docstringToMarkdown: "/docstringToMarkdown",
+  fileBrowserDownload: "/fileBrowser/{token}",
+  forceRefreshListener: "/forceRefreshListener",
   formatCode: "/formatCode",
+  genCodePrefixCompletion: "/genCodePrefixCompletion",
+  genCodeSuffixCompletion: "/genCodeSuffixCompletion",
+  getAIFollowSnapshot: "/getAIFollowSnapshot",
+  getAgentProfile: "/getAgentProfile",
+  getAgentProfiles: "/getAgentProfiles",
+  getAgentRun: "/getAgentRun",
+  getAgentRuns: "/getAgentRuns",
+  getAgenticSummaryCacheStatus: "/getAgenticSummaryCacheStatus",
+  getAppCatalog: "/getAppCatalog",
+  getAppDefinition: "/getAppDefinition",
+  getAppGenSkillContent: "/getAppGenSkillContent",
+  getAppGenSkills: "/getAppGenSkills",
+  getAttachmentDownloadUrl: "/getAttachmentDownloadUrl",
+  getAttachmentDownloadUrls: "/getAttachmentDownloadUrls",
+  getAuthRefreshStatus: "/authRefreshStatus",
+  getBackendInitStatus: "/backendInitStatus",
+  getChatSectionChatId: "/getChatSectionChatId",
+  getEngineConfig: "/getEngineConfig",
+  getEngineConfigs: "/getEngineConfigs",
+  getExternalAgentChat: "/getExternalAgentChat",
+  getExternalAgentConfig: "/getExternalAgentConfig",
+  getExternalAgentConfigs: "/getExternalAgentConfigs",
+  getExternalAgentHealth: "/getExternalAgentHealth",
+  getFileBrowserDownloadUrls: "/getFileBrowserDownloadUrls",
+  getFileBrowserFileContent: "/getFileBrowserFileContent",
+  getFileBrowserFileStat: "/getFileBrowserFileStat",
+  getFileBrowserRoot: "/getFileBrowserRoot",
+  getFolderContents: "/getFolderContents",
+  getGitCommitDetails: "/git/commitDetails",
+  getGitCommitFileDiff: "/git/commitFileDiff",
+  getGitDiff: "/git/diff",
+  getGitLog: "/git/log",
+  getGitStatus: "/git/status",
+  getLLMChat: "/getLLMChat",
+  getLLMResponse: "/getLLMResponse",
+  getLatestLspDiagnostics: "/getLatestLspDiagnostics",
+  getLatestProjectState: "/getLatestProjectState",
+  getLauncherFilesystemRoots: "/launcherFilesystemRoots",
+  getLauncherRecentWorkspaces: "/launcherRecentWorkspaces",
+  getLauncherStatus: "/launcherStatus",
+  getListenerCoverage: "/getListenerCoverage",
+  getNotifications: "/getNotifications",
+  getPasswordParamValue: "/getPasswordParamValue",
+  getPromptTemplate: "/getPromptTemplate",
+  getPromptTemplates: "/getPromptTemplates",
+  getRunStatus: "/getRunStatus",
+  getRunnerSummary: "/getRunnerSummary",
+  getServerMode: "/serverMode",
+  getSettaHomeInfo: "/settaHomeInfo",
+  getStateMachineRun: "/getStateMachineRun",
+  getTranscriptionProfiles: "/getTranscriptionProfiles",
+  getWorkspacePythonSignal: "/getWorkspacePythonSignal",
+  groupSections: "/groupSections",
+  importFilesToArtifacts: "/importFilesToArtifacts",
+  indentParams: "/indentParams",
+  interruptTerminalProcesses: "/interruptTerminalProcesses",
+  getLLMAPIKeys: "/llm/apiKeys",
+  setLLMAPIKeys: "/llm/apiKeys",
+  getLLMConfig: "/llm/config",
+  setLLMConfig: "/llm/config",
+  launch: "/launch",
+  listLauncherDirectory: "/listLauncherDirectory",
+  loadAllProjectMetadata: "/loadAllProjectMetadata",
+  loadCachedBrushStrokes: "/loadCachedBrushStrokes",
+  loadCachedChartData: "/loadCachedChartData",
+  loadCachedDrawAreaLayerItemTransform: "/loadDrawAreaLayerItemTransform",
+  loadCachedImageArtifacts: "/loadCachedImageArtifacts",
+  loadProjectConfig: "/loadProjectConfig",
+  loadSettings: "/loadSettings",
+  getMCPServerRuntimeStatus: "/mcpServerRuntimeStatus",
+  moveParamGroups: "/moveParamGroups",
+  moveParams: "/moveParams",
+  moveSections: "/moveSections",
+  openLauncherWorkspace: "/openLauncherWorkspace",
+  outputAccessorCompletion: "/outputAccessorCompletion",
+  pasteSections: "/pasteSections",
+  pinLauncherRecentWorkspace: "/pinLauncherRecentWorkspace",
+  pluginsConfig: "/plugins/config",
+  pluginsDisable: "/plugins/disable",
+  pluginsEnable: "/plugins/enable",
+  pluginsInstall: "/plugins/install",
+  pluginsLink: "/plugins/link",
+  pluginsLockApply: "/plugins/lock/apply",
+  pluginsLockWrite: "/plugins/lock/write",
+  pluginsRescan: "/plugins/rescan",
+  pluginsRestart: "/plugins/restart",
+  pluginsRollback: "/plugins/rollback",
+  pluginsRuntime: "/plugins/runtime",
+  pluginsUninstall: "/plugins/uninstall",
+  pluginsUpdate: "/plugins/update",
+  prepareSectionsForCopy: "/prepareSectionsForCopy",
+  reconnectEdge: "/reconnectEdge",
+  redo: "/redo",
+  removeLauncher: "/removeLauncher",
+  removeLauncherRecentWorkspace: "/removeLauncherRecentWorkspace",
+  repairLauncher: "/repairLauncher",
+  resetStateMachine: "/resetStateMachine",
+  respondExternalAgentApproval: "/respondExternalAgentApproval",
+  respondExternalAgentQuestion: "/respondExternalAgentQuestion",
+  restartLanguageServer: "/restartLanguageServer",
+  revealPathInOsFileExplorer: "/revealPathInOsFileExplorer",
+  runCode: "/runCode",
+  runDetached: "/runDetached",
+  sdkRuntimeHandshake: "/sdkRuntimeHandshake",
+  saveAsNewProjectConfig: "/saveAsNewProjectConfig",
+  saveProject: "/saveProject",
+  saveSettings: "/saveSettings",
+  setActiveIds: "/setActiveIds",
+  setActiveViewMode: "/setActiveViewMode",
+  setAgenticEdges: "/setAgenticEdges",
+  setAppDefinition: "/setAppDefinition",
+  setAsDefaultProject: "/setAsDefaultProject",
+  setBrowserAreaViewMode: "/setBrowserAreaViewMode",
+  setBrowserColumnWidths: "/setBrowserColumnWidths",
+  setBrowserHideColumn: "/setBrowserHideColumn",
+  setBrowserSavedSearches: "/setBrowserSavedSearches",
   setCallable: "/setCallable",
-  setProjectConfigCodegenTargets: "/setProjectConfigCodegenTargets",
+  setCallableHideParams: "/setCallableHideParams",
+  setChartAreaDataPath: "/setChartAreaDataPath",
+  setChartSettings: "/setChartSettings",
+  setChartType: "/setChartType",
+  setChatSectionChatId: "/setChatSectionChatId",
+  setChatSectionSettings: "/setChatSectionSettings",
+  setChatSectionState: "/setChatSectionState",
+  setCode: "/setCode",
+  setCodeFileBinding: "/setCodeFileBinding",
+  setCodeObjDisplayName: "/setCodeObjDisplayName",
+  setCodeObjName: "/setCodeObjName",
+  setCodeSectionAttachedTerminal: "/setCodeSectionAttachedTerminal",
+  setCodeSectionDiagnosticCodeSuppression:
+    "/setCodeSectionDiagnosticCodeSuppression",
+  setCodeSectionDiagnosticsMute: "/setCodeSectionDiagnosticsMute",
+  setDefaultSectionVariant: "/setDefaultSectionVariant",
+  setEdges: "/setEdges",
   setGenCodePrefix: "/setGenCodePrefix",
   setGenCodeSuffix: "/setGenCodeSuffix",
-  setWatchCodeEnabled: "/setWatchCodeEnabled",
-  setWatchCodeInputs: "/setWatchCodeInputs",
-  setTextBlockText: "/setTextBlockText",
+  setGroupOverflowMode: "/setGroupOverflowMode",
+  setImageAreaImagePath: "/setImageAreaImagePath",
+  setListRootViewMode: "/setListRootViewMode",
+  setMetaControlShowSectionTitle: "/setMetaControlShowSectionTitle",
+  setParamEnteredValue: "/setParamEnteredValue",
+  setParentDefaultChildSectionType: "/setParentDefaultChildSectionType",
+  setProjectChatWindowChatId: "/setProjectChatWindowChatId",
+  setProjectChatWindowingState: "/setProjectChatWindowingState",
+  setProjectConfigCodegenTargets: "/setProjectConfigCodegenTargets",
+  setProjectConfigName: "/setProjectConfigName",
+  setPromptFormat: "/setPromptFormat",
+  setPromptInputs: "/setPromptInputs",
+  setPromptTemplate: "/setPromptTemplate",
+  setPromptTemplateLink: "/setPromptTemplateLink",
+  setSectionColumnWidth: "/setSectionColumnWidth",
+  setSectionEdgeInputs: "/setSectionEdgeInputs",
+  setSectionEdgeOutputs: "/setSectionEdgeOutputs",
+  setSectionHideUnpinnedParams: "/setSectionHideUnpinnedParams",
+  setSectionName: "/setSectionName",
+  setSectionParamFilter: "/setSectionParamFilter",
+  setSectionPinnedParams: "/setSectionPinnedParams",
+  setSectionSizes: "/setSectionSizes",
+  setSectionStyleColor: "/setSectionStyleColor",
+  setSectionTagColor: "/setSectionTagColor",
+  setSectionVariant: "/setSectionVariant",
+  setSectionVariantName: "/setSectionVariantName",
+  setSectionVariantSortOrder: "/setSectionVariantSortOrder",
+  setShowParamDisplayNames: "/setShowParamDisplayNames",
+  setSocialURL: "/setSocialUrl",
+  setSpreadsheetFilePath: "/setSpreadsheetFilePath",
+  setSpreadsheetSectionSettings: "/setSpreadsheetSectionSettings",
+  setStateMachineEdges: "/setStateMachineEdges",
+  setStateMachineSectionSettings: "/setStateMachineSectionSettings",
+  setTaskBoardSectionState: "/setTaskBoardSectionState",
   setTextBlockDisplayMode: "/setTextBlockDisplayMode",
   setTextBlockFormat: "/setTextBlockFormat",
   setTextBlockHeadingAsSectionName: "/setTextBlockHeadingAsSectionName",
-  setTextBlockMetaControlStyle: "/setTextBlockMetaControlStyle",
   setTextBlockMasterFontSize: "/setTextBlockMasterFontSize",
-  docstringToMarkdown: "/docstringToMarkdown",
-  deleteTerminals: "/deleteTerminals",
-  interruptTerminalProcesses: "/interruptTerminalProcesses",
-  runCode: "/runCode",
-  runDetached: "/runDetached",
-  getRunStatus: "/getRunStatus",
-  getRunnerSummary: "/getRunnerSummary",
-  cancelRun: "/cancelRun",
-  getAttachmentDownloadUrl: "/getAttachmentDownloadUrl",
-  getAttachmentDownloadUrls: "/getAttachmentDownloadUrls",
-  createFile: "/createFile",
-  checkIfFileExists: "/checkIfFileExists",
-  checkWorkspaceInitialized: "/checkWorkspaceInitialized",
-  getFileBrowserRoot: "/getFileBrowserRoot",
-  getWorkspacePythonSignal: "/getWorkspacePythonSignal",
-  getFolderContents: "/getFolderContents",
-  getFileBrowserDownloadUrls: "/getFileBrowserDownloadUrls",
-  fileBrowserDownload: "/fileBrowser/{token}",
-  getFileBrowserFileContent: "/getFileBrowserFileContent",
-  getFileBrowserFileStat: "/getFileBrowserFileStat",
-  writeFileBrowserFileContent: "/writeFileBrowserFileContent",
-  transferFileBrowserEntry: "/transferFileBrowserEntry",
-  binaryUpload: "/binary/upload",
-  binaryDownload: "/binary/{contentId}",
-  getGitStatus: "/git/status",
-  getGitDiff: "/git/diff",
-  getGitLog: "/git/log",
-  getGitCommitDetails: "/git/commitDetails",
-  getGitCommitFileDiff: "/git/commitFileDiff",
-  importFilesToArtifacts: "/importFilesToArtifacts",
-  loadCachedImageArtifacts: "/loadCachedImageArtifacts",
-  loadCachedChartData: "/loadCachedChartData",
-  loadCachedBrushStrokes: "/loadCachedBrushStrokes",
-  loadCachedDrawAreaLayerItemTransform: "/loadDrawAreaLayerItemTransform",
-  updateArtifacts: "/updateArtifacts",
-  deleteArtifacts: "/deleteArtifacts",
-  appendDrawAreaLayerItem: "/appendDrawAreaLayerItem",
-  forceRefreshListener: "/forceRefreshListener",
+  setTextBlockMetaControlStyle: "/setTextBlockMetaControlStyle",
+  setTextBlockText: "/setTextBlockText",
   setTopLevelSectionLayout: "/setTopLevelSectionLayout",
-  toggleSectionVisibility: "/toggleSectionVisibility",
-  autoLayoutTopLevelSections: "/autoLayoutTopLevelSections",
-  setShowParamDisplayNames: "/setShowParamDisplayNames",
-  groupSections: "/groupSections",
-  ungroupGroups: "/ungroupGroups",
-  setSectionSizes: "/setSectionSizes",
-  setActiveIds: "/setActiveIds",
-  setSectionParamFilter: "/setSectionParamFilter",
-  setMetaControlShowSectionTitle: "/setMetaControlShowSectionTitle",
-  setSectionColumnWidth: "/setSectionColumnWidth",
-  togglePositionLocks: "/togglePositionLocks",
-  toggleMinimized: "/toggleMinimized",
-  setSectionEdgeInputs: "/setSectionEdgeInputs",
-  setSectionEdgeOutputs: "/setSectionEdgeOutputs",
-  setParentDefaultChildSectionType: "/setParentDefaultChildSectionType",
-  setListRootViewMode: "/setListRootViewMode",
-  toggleGroupOrientation: "/toggleGroupOrientation",
-  setGroupOverflowMode: "/setGroupOverflowMode",
-  setSectionTagColor: "/setSectionTagColor",
-  setSectionStyleColor: "/setSectionStyleColor",
-  setCallableHideParams: "/setCallableHideParams",
-  setSectionHideUnpinnedParams: "/setSectionHideUnpinnedParams",
-  setSectionPinnedParams: "/setSectionPinnedParams",
-  setBrowserColumnWidths: "/setBrowserColumnWidths",
-  setBrowserAreaViewMode: "/setBrowserAreaViewMode",
-  setBrowserHideColumn: "/setBrowserHideColumn",
-  setBrowserSavedSearches: "/setBrowserSavedSearches",
-  setSpreadsheetFilePath: "/setSpreadsheetFilePath",
-  setSpreadsheetSectionSettings: "/setSpreadsheetSectionSettings",
-  setTaskBoardSectionState: "/setTaskBoardSectionState",
-  setImageAreaImagePath: "/setImageAreaImagePath",
-  setSocialURL: "/setSocialUrl",
-  setChartAreaDataPath: "/setChartAreaDataPath",
-  setChartType: "/setChartType",
-  setChartSettings: "/setChartSettings",
-  setCodeFileBinding: "/setCodeFileBinding",
-  toggleParamSelected: "/toggleParamSelected",
-  unselectAllParams: "/unselectAllParams",
+  setTypeErrorIgnore: "/setTypeErrorIgnore",
+  setVariantJsonSourceKeys: "/setVariantJsonSourceKeys",
+  setViewModeName: "/setViewModeName",
+  setViewModeSortOrder: "/setViewModeSortOrder",
   setViewport: "/setViewport",
-  getListenerCoverage: "/getListenerCoverage",
-  getLLMConfig: "/llm/config",
-  setLLMConfig: "/llm/config",
-  getLLMAPIKeys: "/llm/apiKeys",
-  setLLMAPIKeys: "/llm/apiKeys",
-  getAgentProfiles: "/getAgentProfiles",
-  getAgentProfile: "/getAgentProfile",
-  createAgentProfile: "/createAgentProfile",
-  updateAgentProfile: "/updateAgentProfile",
-  deleteAgentProfile: "/deleteAgentProfile",
-  getAgentRuns: "/getAgentRuns",
-  getAgentRun: "/getAgentRun",
-  startAgentRun: "/startAgentRun",
-  stopAgentRun: "/stopAgentRun",
-  startStateMachineRun: "/startStateMachineRun",
-  stopStateMachineRun: "/stopStateMachineRun",
-  resetStateMachine: "/resetStateMachine",
-  getStateMachineRun: "/getStateMachineRun",
-  startRunChain: "/startRunChain",
-  stopRunChain: "/stopRunChain",
-  getEngineConfigs: "/getEngineConfigs",
-  getEngineConfig: "/getEngineConfig",
-  createEngineConfig: "/createEngineConfig",
-  updateEngineConfig: "/updateEngineConfig",
-  deleteEngineConfig: "/deleteEngineConfig",
-  getPromptTemplates: "/getPromptTemplates",
-  getPromptTemplate: "/getPromptTemplate",
-  createPromptTemplate: "/createPromptTemplate",
-  updatePromptTemplate: "/updatePromptTemplate",
-  deletePromptTemplate: "/deletePromptTemplate",
-  getExternalAgentConfigs: "/getExternalAgentConfigs",
-  getExternalAgentConfig: "/getExternalAgentConfig",
-  getExternalAgentHealth: "/getExternalAgentHealth",
-  createExternalAgentConfig: "/createExternalAgentConfig",
-  updateExternalAgentConfig: "/updateExternalAgentConfig",
-  deleteExternalAgentConfig: "/deleteExternalAgentConfig",
-  getTranscriptionProfiles: "/getTranscriptionProfiles",
-  createTranscriptionProfile: "/createTranscriptionProfile",
-  updateTranscriptionProfile: "/updateTranscriptionProfile",
-  deleteTranscriptionProfile: "/deleteTranscriptionProfile",
-  startTranscriptionSession: "/startTranscriptionSession",
-  appendTranscriptionAudio: "/appendTranscriptionAudio",
-  stopTranscriptionSession: "/stopTranscriptionSession",
-  cancelTranscriptionSession: "/cancelTranscriptionSession",
-  getLLMResponse: "/getLLMResponse",
-  getLLMChat: "/getLLMChat",
-  stopLLMChat: "/stopLLMChat",
-  getExternalAgentChat: "/getExternalAgentChat",
-  stopExternalAgentRun: "/stopExternalAgentRun",
-  getAIFollowSnapshot: "/getAIFollowSnapshot",
-  respondExternalAgentApproval: "/respondExternalAgentApproval",
-  respondExternalAgentQuestion: "/respondExternalAgentQuestion",
-  getChatSectionChatId: "/getChatSectionChatId",
-  setChatSectionSettings: "/setChatSectionSettings",
-  setStateMachineSectionSettings: "/setStateMachineSectionSettings",
-  setChatSectionState: "/setChatSectionState",
-  setChatSectionChatId: "/setChatSectionChatId",
-  setPromptTemplate: "/setPromptTemplate",
-  setPromptTemplateLink: "/setPromptTemplateLink",
-  setPromptInputs: "/setPromptInputs",
-  setPromptFormat: "/setPromptFormat",
-  createWindowSpace: "/createWindowSpace",
+  setWatchCodeEnabled: "/setWatchCodeEnabled",
+  setWatchCodeInputs: "/setWatchCodeInputs",
   setWindowSpaceName: "/setWindowSpaceName",
   setWindowSpaceSortOrder: "/setWindowSpaceSortOrder",
-  deleteWindowSpace: "/deleteWindowSpace",
-  setProjectChatWindowingState: "/setProjectChatWindowingState",
-  setProjectChatWindowChatId: "/setProjectChatWindowChatId",
-  getAgenticSummaryCacheStatus: "/getAgenticSummaryCacheStatus",
-  getAppDefinition: "/getAppDefinition",
-  setAppDefinition: "/setAppDefinition",
-  validateAppDefinition: "/validateAppDefinition",
-  getAppCatalog: "/getAppCatalog",
-  restartLanguageServer: "/restartLanguageServer",
-  typeCheck: "/typeCheck",
-  clearTextFieldCompletion: "/clearTextFieldCompletion",
+  setupLauncher: "/setupLauncher",
+  shareDeploymentCurrentSession: "/share/deployments/current/session",
+  shareDeploymentLatest: "/share/deployments/{deploymentName}/latest",
+  shareDeploymentProjectConfig:
+    "/share/deployments/{deploymentName}/{version}/project_config",
+  shareDeploymentState: "/share/deployments/{deploymentName}/{version}/state",
+  shareDeploymentVersions: "/share/deployments/{deploymentName}/versions",
+  shareDeployments: "/share/deployments",
+  startAgentRun: "/startAgentRun",
+  startRunChain: "/startRunChain",
+  startStateMachineRun: "/startStateMachineRun",
+  startTranscriptionSession: "/startTranscriptionSession",
+  stopAgentRun: "/stopAgentRun",
+  stopExternalAgentRun: "/stopExternalAgentRun",
+  stopLLMChat: "/stopLLMChat",
+  stopRunChain: "/stopRunChain",
+  stopStateMachineRun: "/stopStateMachineRun",
+  stopTranscriptionSession: "/stopTranscriptionSession",
   textFieldCompletion: "/textFieldCompletion",
-  outputAccessorCompletion: "/outputAccessorCompletion",
-  codeAreaCompletion: "/codeAreaCompletion",
-  genCodePrefixCompletion: "/genCodePrefixCompletion",
-  genCodeSuffixCompletion: "/genCodeSuffixCompletion",
-  getLatestLspDiagnostics: "/getLatestLspDiagnostics",
-  setTypeErrorIgnore: "/setTypeErrorIgnore",
-  setCodeSectionDiagnosticsMute: "/setCodeSectionDiagnosticsMute",
-  setCodeSectionDiagnosticCodeSuppression:
-    "/setCodeSectionDiagnosticCodeSuppression",
-  pluginsRuntime: "/plugins/runtime",
-  pluginsRescan: "/plugins/rescan",
-  pluginsInstall: "/plugins/install",
-  pluginsLink: "/plugins/link",
-  pluginsUninstall: "/plugins/uninstall",
-  pluginsUpdate: "/plugins/update",
-  pluginsRollback: "/plugins/rollback",
-  pluginsEnable: "/plugins/enable",
-  pluginsDisable: "/plugins/disable",
-  pluginsConfig: "/plugins/config",
-  pluginsLockWrite: "/plugins/lock/write",
-  pluginsLockApply: "/plugins/lock/apply",
-  pluginsRestart: "/plugins/restart",
+  toggleGroupOrientation: "/toggleGroupOrientation",
+  toggleIsEditingViewMode: "/toggleIsEditingViewMode",
+  toggleMinimized: "/toggleMinimized",
+  toggleParamSelected: "/toggleParamSelected",
+  togglePositionLocks: "/togglePositionLocks",
+  toggleSectionVisibility: "/toggleSectionVisibility",
+  toggleVariantFrozen: "/toggleVariantFrozen",
+  toggleVariantJsonSource: "/toggleVariantJsonSource",
+  toggleViewModeTab: "/toggleViewModeTab",
+  toggleViewModeUserFacing: "/toggleViewModeUserFacing",
+  transferFileBrowserEntry: "/transferFileBrowserEntry",
+  typeCheck: "/typeCheck",
+  undo: "/undo",
+  ungroupGroups: "/ungroupGroups",
+  unindentParams: "/unindentParams",
+  unselectAllParams: "/unselectAllParams",
+  updateAgentProfile: "/updateAgentProfile",
+  updateAgenticEdge: "/updateAgenticEdge",
+  updateArtifacts: "/updateArtifacts",
+  updateEdge: "/updateEdge",
+  updateEngineConfig: "/updateEngineConfig",
+  updateExternalAgentConfig: "/updateExternalAgentConfig",
+  updateLauncher: "/updateLauncher",
+  updateParamImplConfig: "/updateParamImplConfig",
+  updatePromptTemplate: "/updatePromptTemplate",
+  updateStateMachineEdge: "/updateStateMachineEdge",
+  updateTranscriptionProfile: "/updateTranscriptionProfile",
+  upsertAppGenCustomSkill: "/upsertAppGenCustomSkill",
+  validateAppDefinition: "/validateAppDefinition",
+  writeFileBrowserFileContent: "/writeFileBrowserFileContent",
 } as const;
 const GoWebsocketRoutes = {
   frontend: "/ws/frontend",
@@ -332,103 +334,102 @@ export const GoRoutePrefixHelpers = {
   },
 } as const;
 export const GoRootRouteHelpers = {
-  bootstrapPage(): string {
-    return GoRootRoutes.bootstrapPage;
-  },
   bootstrapConsume(): string {
     return GoRootRoutes.bootstrapConsume;
+  },
+  bootstrapPage(): string {
+    return GoRootRoutes.bootstrapPage;
   },
   toolsCall(): string {
     return GoRootRoutes.toolsCall;
   },
 } as const;
 export const GoHTTPRouteHelpers = {
-  getBackendInitStatus(): string {
-    return GoHTTPRoutes.getBackendInitStatus;
+  acceptRenameRefactor(): string {
+    return GoHTTPRoutes.acceptRenameRefactor;
   },
-  getAuthRefreshStatus(): string {
-    return GoHTTPRoutes.getAuthRefreshStatus;
+  addKwarg(): string {
+    return GoHTTPRoutes.addKwarg;
   },
-  getServerMode(): string {
-    return GoHTTPRoutes.getServerMode;
+  addLauncherRecentWorkspace(): string {
+    return GoHTTPRoutes.addLauncherRecentWorkspace;
   },
-  getSettaHomeInfo(): string {
-    return GoHTTPRoutes.getSettaHomeInfo;
+  appDeploymentCurrentSession(): string {
+    return GoHTTPRoutes.appDeploymentCurrentSession;
   },
-  loadSettings(): string {
-    return GoHTTPRoutes.loadSettings;
+  appDeploymentLatest(deploymentName: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, {
+      deploymentName,
+    });
   },
-  saveSettings(): string {
-    return GoHTTPRoutes.saveSettings;
+  appDeploymentProjectConfig(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(
+      GoHTTPRoutes.appDeploymentProjectConfig,
+      { deploymentName, version },
+    );
   },
-  loadAllProjectMetadata(): string {
-    return GoHTTPRoutes.loadAllProjectMetadata;
+  appDeploymentState(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentState, {
+      deploymentName,
+      version,
+    });
   },
-  loadProjectConfig(): string {
-    return GoHTTPRoutes.loadProjectConfig;
+  appDeploymentVersions(deploymentName: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, {
+      deploymentName,
+    });
   },
-  saveProject(): string {
-    return GoHTTPRoutes.saveProject;
+  appDeployments(): string {
+    return GoHTTPRoutes.appDeployments;
   },
-  saveAsNewProjectConfig(): string {
-    return GoHTTPRoutes.saveAsNewProjectConfig;
+  appendDrawAreaLayerItem(): string {
+    return GoHTTPRoutes.appendDrawAreaLayerItem;
   },
-  createProjectConfig(): string {
-    return GoHTTPRoutes.createProjectConfig;
+  appendTranscriptionAudio(): string {
+    return GoHTTPRoutes.appendTranscriptionAudio;
   },
-  deleteProjectConfigs(): string {
-    return GoHTTPRoutes.deleteProjectConfigs;
+  attachmentDownload(token: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.attachmentDownload, {
+      token,
+    });
   },
-  setAsDefaultProject(): string {
-    return GoHTTPRoutes.setAsDefaultProject;
+  autoLayoutTopLevelSections(): string {
+    return GoHTTPRoutes.autoLayoutTopLevelSections;
   },
-  setProjectConfigName(): string {
-    return GoHTTPRoutes.setProjectConfigName;
+  binaryDownload(contentId: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, {
+      contentId,
+    });
   },
-  getNotifications(): string {
-    return GoHTTPRoutes.getNotifications;
+  binaryUpload(): string {
+    return GoHTTPRoutes.binaryUpload;
   },
-  deleteNotification(): string {
-    return GoHTTPRoutes.deleteNotification;
+  cancelRun(): string {
+    return GoHTTPRoutes.cancelRun;
   },
-  getLatestProjectState(): string {
-    return GoHTTPRoutes.getLatestProjectState;
+  cancelTranscriptionSession(): string {
+    return GoHTTPRoutes.cancelTranscriptionSession;
   },
-  undo(): string {
-    return GoHTTPRoutes.undo;
+  changeParamImpl(): string {
+    return GoHTTPRoutes.changeParamImpl;
   },
-  redo(): string {
-    return GoHTTPRoutes.redo;
+  checkIfFileExists(): string {
+    return GoHTTPRoutes.checkIfFileExists;
   },
-  createNewSectionVariant(): string {
-    return GoHTTPRoutes.createNewSectionVariant;
+  checkWorkspaceInitialized(): string {
+    return GoHTTPRoutes.checkWorkspaceInitialized;
   },
-  setSectionVariant(): string {
-    return GoHTTPRoutes.setSectionVariant;
+  clearTextFieldCompletion(): string {
+    return GoHTTPRoutes.clearTextFieldCompletion;
   },
-  setDefaultSectionVariant(): string {
-    return GoHTTPRoutes.setDefaultSectionVariant;
+  codeAreaCompletion(): string {
+    return GoHTTPRoutes.codeAreaCompletion;
   },
-  setSectionVariantSortOrder(): string {
-    return GoHTTPRoutes.setSectionVariantSortOrder;
+  createAgentProfile(): string {
+    return GoHTTPRoutes.createAgentProfile;
   },
-  toggleVariantFrozen(): string {
-    return GoHTTPRoutes.toggleVariantFrozen;
-  },
-  toggleVariantJsonSource(): string {
-    return GoHTTPRoutes.toggleVariantJsonSource;
-  },
-  setVariantJsonSourceKeys(): string {
-    return GoHTTPRoutes.setVariantJsonSourceKeys;
-  },
-  setSectionVariantName(): string {
-    return GoHTTPRoutes.setSectionVariantName;
-  },
-  deleteSectionVariantOrAsk(): string {
-    return GoHTTPRoutes.deleteSectionVariantOrAsk;
-  },
-  deleteJsonSourceFileAndVariant(): string {
-    return GoHTTPRoutes.deleteJsonSourceFileAndVariant;
+  createAgenticEdge(): string {
+    return GoHTTPRoutes.createAgenticEdge;
   },
   createChildSections(): string {
     return GoHTTPRoutes.createChildSections;
@@ -436,8 +437,86 @@ export const GoHTTPRouteHelpers = {
   createChildSectionsViaIncrementer(): string {
     return GoHTTPRoutes.createChildSectionsViaIncrementer;
   },
+  createEdge(): string {
+    return GoHTTPRoutes.createEdge;
+  },
+  createEngineConfig(): string {
+    return GoHTTPRoutes.createEngineConfig;
+  },
+  createExternalAgentConfig(): string {
+    return GoHTTPRoutes.createExternalAgentConfig;
+  },
+  createFile(): string {
+    return GoHTTPRoutes.createFile;
+  },
+  createNewSectionVariant(): string {
+    return GoHTTPRoutes.createNewSectionVariant;
+  },
+  createProjectConfig(): string {
+    return GoHTTPRoutes.createProjectConfig;
+  },
+  createPromptTemplate(): string {
+    return GoHTTPRoutes.createPromptTemplate;
+  },
+  createStateMachineEdge(): string {
+    return GoHTTPRoutes.createStateMachineEdge;
+  },
+  createTopLevelSection(): string {
+    return GoHTTPRoutes.createTopLevelSection;
+  },
+  createTranscriptionProfile(): string {
+    return GoHTTPRoutes.createTranscriptionProfile;
+  },
+  createViewMode(): string {
+    return GoHTTPRoutes.createViewMode;
+  },
+  createWindowSpace(): string {
+    return GoHTTPRoutes.createWindowSpace;
+  },
+  createWorkspaceLaunchIntent(): string {
+    return GoHTTPRoutes.createWorkspaceLaunchIntent;
+  },
+  declineRenameRefactor(): string {
+    return GoHTTPRoutes.declineRenameRefactor;
+  },
+  deleteAgentProfile(): string {
+    return GoHTTPRoutes.deleteAgentProfile;
+  },
+  deleteAgenticEdges(): string {
+    return GoHTTPRoutes.deleteAgenticEdges;
+  },
+  deleteArtifacts(): string {
+    return GoHTTPRoutes.deleteArtifacts;
+  },
   deleteChildSectionsViaDecrementer(): string {
     return GoHTTPRoutes.deleteChildSectionsViaDecrementer;
+  },
+  deleteEdges(): string {
+    return GoHTTPRoutes.deleteEdges;
+  },
+  deleteEngineConfig(): string {
+    return GoHTTPRoutes.deleteEngineConfig;
+  },
+  deleteExternalAgentConfig(): string {
+    return GoHTTPRoutes.deleteExternalAgentConfig;
+  },
+  deleteJsonSourceFileAndVariant(): string {
+    return GoHTTPRoutes.deleteJsonSourceFileAndVariant;
+  },
+  deleteKwarg(): string {
+    return GoHTTPRoutes.deleteKwarg;
+  },
+  deleteNotification(): string {
+    return GoHTTPRoutes.deleteNotification;
+  },
+  deleteProjectConfigs(): string {
+    return GoHTTPRoutes.deleteProjectConfigs;
+  },
+  deletePromptTemplate(): string {
+    return GoHTTPRoutes.deletePromptTemplate;
+  },
+  deleteSectionVariantOrAsk(): string {
+    return GoHTTPRoutes.deleteSectionVariantOrAsk;
   },
   deleteSections(): string {
     return GoHTTPRoutes.deleteSections;
@@ -445,89 +524,568 @@ export const GoHTTPRouteHelpers = {
   deleteSelectedParams(): string {
     return GoHTTPRoutes.deleteSelectedParams;
   },
-  prepareSectionsForCopy(): string {
-    return GoHTTPRoutes.prepareSectionsForCopy;
-  },
-  pasteSections(): string {
-    return GoHTTPRoutes.pasteSections;
-  },
-  createEdge(): string {
-    return GoHTTPRoutes.createEdge;
-  },
-  updateEdge(): string {
-    return GoHTTPRoutes.updateEdge;
-  },
-  deleteEdges(): string {
-    return GoHTTPRoutes.deleteEdges;
-  },
-  reconnectEdge(): string {
-    return GoHTTPRoutes.reconnectEdge;
-  },
-  setEdges(): string {
-    return GoHTTPRoutes.setEdges;
-  },
-  createStateMachineEdge(): string {
-    return GoHTTPRoutes.createStateMachineEdge;
-  },
-  updateStateMachineEdge(): string {
-    return GoHTTPRoutes.updateStateMachineEdge;
-  },
   deleteStateMachineEdges(): string {
     return GoHTTPRoutes.deleteStateMachineEdges;
   },
-  setStateMachineEdges(): string {
-    return GoHTTPRoutes.setStateMachineEdges;
+  deleteTerminals(): string {
+    return GoHTTPRoutes.deleteTerminals;
   },
-  createAgenticEdge(): string {
-    return GoHTTPRoutes.createAgenticEdge;
+  deleteTranscriptionProfile(): string {
+    return GoHTTPRoutes.deleteTranscriptionProfile;
   },
-  updateAgenticEdge(): string {
-    return GoHTTPRoutes.updateAgenticEdge;
+  deleteViewMode(): string {
+    return GoHTTPRoutes.deleteViewMode;
   },
-  deleteAgenticEdges(): string {
-    return GoHTTPRoutes.deleteAgenticEdges;
+  deleteWindowSpace(): string {
+    return GoHTTPRoutes.deleteWindowSpace;
   },
-  setAgenticEdges(): string {
-    return GoHTTPRoutes.setAgenticEdges;
+  docstringToMarkdown(): string {
+    return GoHTTPRoutes.docstringToMarkdown;
   },
-  moveSections(): string {
-    return GoHTTPRoutes.moveSections;
+  fileBrowserDownload(token: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, {
+      token,
+    });
   },
-  moveParams(): string {
-    return GoHTTPRoutes.moveParams;
+  forceRefreshListener(): string {
+    return GoHTTPRoutes.forceRefreshListener;
   },
-  moveParamGroups(): string {
-    return GoHTTPRoutes.moveParamGroups;
+  formatCode(): string {
+    return GoHTTPRoutes.formatCode;
+  },
+  genCodePrefixCompletion(): string {
+    return GoHTTPRoutes.genCodePrefixCompletion;
+  },
+  genCodeSuffixCompletion(): string {
+    return GoHTTPRoutes.genCodeSuffixCompletion;
+  },
+  getAIFollowSnapshot(): string {
+    return GoHTTPRoutes.getAIFollowSnapshot;
+  },
+  getAgentProfile(): string {
+    return GoHTTPRoutes.getAgentProfile;
+  },
+  getAgentProfiles(): string {
+    return GoHTTPRoutes.getAgentProfiles;
+  },
+  getAgentRun(): string {
+    return GoHTTPRoutes.getAgentRun;
+  },
+  getAgentRuns(): string {
+    return GoHTTPRoutes.getAgentRuns;
+  },
+  getAgenticSummaryCacheStatus(): string {
+    return GoHTTPRoutes.getAgenticSummaryCacheStatus;
+  },
+  getAppCatalog(): string {
+    return GoHTTPRoutes.getAppCatalog;
+  },
+  getAppDefinition(): string {
+    return GoHTTPRoutes.getAppDefinition;
+  },
+  getAppGenSkillContent(): string {
+    return GoHTTPRoutes.getAppGenSkillContent;
+  },
+  getAppGenSkills(): string {
+    return GoHTTPRoutes.getAppGenSkills;
+  },
+  getAttachmentDownloadUrl(): string {
+    return GoHTTPRoutes.getAttachmentDownloadUrl;
+  },
+  getAttachmentDownloadUrls(): string {
+    return GoHTTPRoutes.getAttachmentDownloadUrls;
+  },
+  getAuthRefreshStatus(): string {
+    return GoHTTPRoutes.getAuthRefreshStatus;
+  },
+  getBackendInitStatus(): string {
+    return GoHTTPRoutes.getBackendInitStatus;
+  },
+  getChatSectionChatId(): string {
+    return GoHTTPRoutes.getChatSectionChatId;
+  },
+  getEngineConfig(): string {
+    return GoHTTPRoutes.getEngineConfig;
+  },
+  getEngineConfigs(): string {
+    return GoHTTPRoutes.getEngineConfigs;
+  },
+  getExternalAgentChat(): string {
+    return GoHTTPRoutes.getExternalAgentChat;
+  },
+  getExternalAgentConfig(): string {
+    return GoHTTPRoutes.getExternalAgentConfig;
+  },
+  getExternalAgentConfigs(): string {
+    return GoHTTPRoutes.getExternalAgentConfigs;
+  },
+  getExternalAgentHealth(): string {
+    return GoHTTPRoutes.getExternalAgentHealth;
+  },
+  getFileBrowserDownloadUrls(): string {
+    return GoHTTPRoutes.getFileBrowserDownloadUrls;
+  },
+  getFileBrowserFileContent(): string {
+    return GoHTTPRoutes.getFileBrowserFileContent;
+  },
+  getFileBrowserFileStat(): string {
+    return GoHTTPRoutes.getFileBrowserFileStat;
+  },
+  getFileBrowserRoot(): string {
+    return GoHTTPRoutes.getFileBrowserRoot;
+  },
+  getFolderContents(): string {
+    return GoHTTPRoutes.getFolderContents;
+  },
+  getGitCommitDetails(): string {
+    return GoHTTPRoutes.getGitCommitDetails;
+  },
+  getGitCommitFileDiff(): string {
+    return GoHTTPRoutes.getGitCommitFileDiff;
+  },
+  getGitDiff(): string {
+    return GoHTTPRoutes.getGitDiff;
+  },
+  getGitLog(): string {
+    return GoHTTPRoutes.getGitLog;
+  },
+  getGitStatus(): string {
+    return GoHTTPRoutes.getGitStatus;
+  },
+  getLLMChat(): string {
+    return GoHTTPRoutes.getLLMChat;
+  },
+  getLLMResponse(): string {
+    return GoHTTPRoutes.getLLMResponse;
+  },
+  getLatestLspDiagnostics(): string {
+    return GoHTTPRoutes.getLatestLspDiagnostics;
+  },
+  getLatestProjectState(): string {
+    return GoHTTPRoutes.getLatestProjectState;
+  },
+  getLauncherFilesystemRoots(): string {
+    return GoHTTPRoutes.getLauncherFilesystemRoots;
+  },
+  getLauncherRecentWorkspaces(): string {
+    return GoHTTPRoutes.getLauncherRecentWorkspaces;
+  },
+  getLauncherStatus(): string {
+    return GoHTTPRoutes.getLauncherStatus;
+  },
+  getListenerCoverage(): string {
+    return GoHTTPRoutes.getListenerCoverage;
+  },
+  getNotifications(): string {
+    return GoHTTPRoutes.getNotifications;
+  },
+  getPasswordParamValue(): string {
+    return GoHTTPRoutes.getPasswordParamValue;
+  },
+  getPromptTemplate(): string {
+    return GoHTTPRoutes.getPromptTemplate;
+  },
+  getPromptTemplates(): string {
+    return GoHTTPRoutes.getPromptTemplates;
+  },
+  getRunStatus(): string {
+    return GoHTTPRoutes.getRunStatus;
+  },
+  getRunnerSummary(): string {
+    return GoHTTPRoutes.getRunnerSummary;
+  },
+  getServerMode(): string {
+    return GoHTTPRoutes.getServerMode;
+  },
+  getSettaHomeInfo(): string {
+    return GoHTTPRoutes.getSettaHomeInfo;
+  },
+  getStateMachineRun(): string {
+    return GoHTTPRoutes.getStateMachineRun;
+  },
+  getTranscriptionProfiles(): string {
+    return GoHTTPRoutes.getTranscriptionProfiles;
+  },
+  getWorkspacePythonSignal(): string {
+    return GoHTTPRoutes.getWorkspacePythonSignal;
+  },
+  groupSections(): string {
+    return GoHTTPRoutes.groupSections;
+  },
+  importFilesToArtifacts(): string {
+    return GoHTTPRoutes.importFilesToArtifacts;
   },
   indentParams(): string {
     return GoHTTPRoutes.indentParams;
   },
-  unindentParams(): string {
-    return GoHTTPRoutes.unindentParams;
+  interruptTerminalProcesses(): string {
+    return GoHTTPRoutes.interruptTerminalProcesses;
   },
-  addKwarg(): string {
-    return GoHTTPRoutes.addKwarg;
+  getLLMAPIKeys(): string {
+    return GoHTTPRoutes.getLLMAPIKeys;
   },
-  deleteKwarg(): string {
-    return GoHTTPRoutes.deleteKwarg;
+  setLLMAPIKeys(): string {
+    return GoHTTPRoutes.setLLMAPIKeys;
   },
-  createTopLevelSection(): string {
-    return GoHTTPRoutes.createTopLevelSection;
+  getLLMConfig(): string {
+    return GoHTTPRoutes.getLLMConfig;
   },
-  createViewMode(): string {
-    return GoHTTPRoutes.createViewMode;
+  setLLMConfig(): string {
+    return GoHTTPRoutes.setLLMConfig;
+  },
+  launch(): string {
+    return GoHTTPRoutes.launch;
+  },
+  listLauncherDirectory(): string {
+    return GoHTTPRoutes.listLauncherDirectory;
+  },
+  loadAllProjectMetadata(): string {
+    return GoHTTPRoutes.loadAllProjectMetadata;
+  },
+  loadCachedBrushStrokes(): string {
+    return GoHTTPRoutes.loadCachedBrushStrokes;
+  },
+  loadCachedChartData(): string {
+    return GoHTTPRoutes.loadCachedChartData;
+  },
+  loadCachedDrawAreaLayerItemTransform(): string {
+    return GoHTTPRoutes.loadCachedDrawAreaLayerItemTransform;
+  },
+  loadCachedImageArtifacts(): string {
+    return GoHTTPRoutes.loadCachedImageArtifacts;
+  },
+  loadProjectConfig(): string {
+    return GoHTTPRoutes.loadProjectConfig;
+  },
+  loadSettings(): string {
+    return GoHTTPRoutes.loadSettings;
+  },
+  getMCPServerRuntimeStatus(): string {
+    return GoHTTPRoutes.getMCPServerRuntimeStatus;
+  },
+  moveParamGroups(): string {
+    return GoHTTPRoutes.moveParamGroups;
+  },
+  moveParams(): string {
+    return GoHTTPRoutes.moveParams;
+  },
+  moveSections(): string {
+    return GoHTTPRoutes.moveSections;
+  },
+  openLauncherWorkspace(): string {
+    return GoHTTPRoutes.openLauncherWorkspace;
+  },
+  outputAccessorCompletion(): string {
+    return GoHTTPRoutes.outputAccessorCompletion;
+  },
+  pasteSections(): string {
+    return GoHTTPRoutes.pasteSections;
+  },
+  pinLauncherRecentWorkspace(): string {
+    return GoHTTPRoutes.pinLauncherRecentWorkspace;
+  },
+  pluginsConfig(): string {
+    return GoHTTPRoutes.pluginsConfig;
+  },
+  pluginsDisable(): string {
+    return GoHTTPRoutes.pluginsDisable;
+  },
+  pluginsEnable(): string {
+    return GoHTTPRoutes.pluginsEnable;
+  },
+  pluginsInstall(): string {
+    return GoHTTPRoutes.pluginsInstall;
+  },
+  pluginsLink(): string {
+    return GoHTTPRoutes.pluginsLink;
+  },
+  pluginsLockApply(): string {
+    return GoHTTPRoutes.pluginsLockApply;
+  },
+  pluginsLockWrite(): string {
+    return GoHTTPRoutes.pluginsLockWrite;
+  },
+  pluginsRescan(): string {
+    return GoHTTPRoutes.pluginsRescan;
+  },
+  pluginsRestart(): string {
+    return GoHTTPRoutes.pluginsRestart;
+  },
+  pluginsRollback(): string {
+    return GoHTTPRoutes.pluginsRollback;
+  },
+  pluginsRuntime(): string {
+    return GoHTTPRoutes.pluginsRuntime;
+  },
+  pluginsUninstall(): string {
+    return GoHTTPRoutes.pluginsUninstall;
+  },
+  pluginsUpdate(): string {
+    return GoHTTPRoutes.pluginsUpdate;
+  },
+  prepareSectionsForCopy(): string {
+    return GoHTTPRoutes.prepareSectionsForCopy;
+  },
+  reconnectEdge(): string {
+    return GoHTTPRoutes.reconnectEdge;
+  },
+  redo(): string {
+    return GoHTTPRoutes.redo;
+  },
+  removeLauncher(): string {
+    return GoHTTPRoutes.removeLauncher;
+  },
+  removeLauncherRecentWorkspace(): string {
+    return GoHTTPRoutes.removeLauncherRecentWorkspace;
+  },
+  repairLauncher(): string {
+    return GoHTTPRoutes.repairLauncher;
+  },
+  resetStateMachine(): string {
+    return GoHTTPRoutes.resetStateMachine;
+  },
+  respondExternalAgentApproval(): string {
+    return GoHTTPRoutes.respondExternalAgentApproval;
+  },
+  respondExternalAgentQuestion(): string {
+    return GoHTTPRoutes.respondExternalAgentQuestion;
+  },
+  restartLanguageServer(): string {
+    return GoHTTPRoutes.restartLanguageServer;
+  },
+  revealPathInOsFileExplorer(): string {
+    return GoHTTPRoutes.revealPathInOsFileExplorer;
+  },
+  runCode(): string {
+    return GoHTTPRoutes.runCode;
+  },
+  runDetached(): string {
+    return GoHTTPRoutes.runDetached;
+  },
+  sdkRuntimeHandshake(): string {
+    return GoHTTPRoutes.sdkRuntimeHandshake;
+  },
+  saveAsNewProjectConfig(): string {
+    return GoHTTPRoutes.saveAsNewProjectConfig;
+  },
+  saveProject(): string {
+    return GoHTTPRoutes.saveProject;
+  },
+  saveSettings(): string {
+    return GoHTTPRoutes.saveSettings;
+  },
+  setActiveIds(): string {
+    return GoHTTPRoutes.setActiveIds;
   },
   setActiveViewMode(): string {
     return GoHTTPRoutes.setActiveViewMode;
   },
-  toggleIsEditingViewMode(): string {
-    return GoHTTPRoutes.toggleIsEditingViewMode;
+  setAgenticEdges(): string {
+    return GoHTTPRoutes.setAgenticEdges;
   },
-  toggleViewModeUserFacing(): string {
-    return GoHTTPRoutes.toggleViewModeUserFacing;
+  setAppDefinition(): string {
+    return GoHTTPRoutes.setAppDefinition;
   },
-  toggleViewModeTab(): string {
-    return GoHTTPRoutes.toggleViewModeTab;
+  setAsDefaultProject(): string {
+    return GoHTTPRoutes.setAsDefaultProject;
+  },
+  setBrowserAreaViewMode(): string {
+    return GoHTTPRoutes.setBrowserAreaViewMode;
+  },
+  setBrowserColumnWidths(): string {
+    return GoHTTPRoutes.setBrowserColumnWidths;
+  },
+  setBrowserHideColumn(): string {
+    return GoHTTPRoutes.setBrowserHideColumn;
+  },
+  setBrowserSavedSearches(): string {
+    return GoHTTPRoutes.setBrowserSavedSearches;
+  },
+  setCallable(): string {
+    return GoHTTPRoutes.setCallable;
+  },
+  setCallableHideParams(): string {
+    return GoHTTPRoutes.setCallableHideParams;
+  },
+  setChartAreaDataPath(): string {
+    return GoHTTPRoutes.setChartAreaDataPath;
+  },
+  setChartSettings(): string {
+    return GoHTTPRoutes.setChartSettings;
+  },
+  setChartType(): string {
+    return GoHTTPRoutes.setChartType;
+  },
+  setChatSectionChatId(): string {
+    return GoHTTPRoutes.setChatSectionChatId;
+  },
+  setChatSectionSettings(): string {
+    return GoHTTPRoutes.setChatSectionSettings;
+  },
+  setChatSectionState(): string {
+    return GoHTTPRoutes.setChatSectionState;
+  },
+  setCode(): string {
+    return GoHTTPRoutes.setCode;
+  },
+  setCodeFileBinding(): string {
+    return GoHTTPRoutes.setCodeFileBinding;
+  },
+  setCodeObjDisplayName(): string {
+    return GoHTTPRoutes.setCodeObjDisplayName;
+  },
+  setCodeObjName(): string {
+    return GoHTTPRoutes.setCodeObjName;
+  },
+  setCodeSectionAttachedTerminal(): string {
+    return GoHTTPRoutes.setCodeSectionAttachedTerminal;
+  },
+  setCodeSectionDiagnosticCodeSuppression(): string {
+    return GoHTTPRoutes.setCodeSectionDiagnosticCodeSuppression;
+  },
+  setCodeSectionDiagnosticsMute(): string {
+    return GoHTTPRoutes.setCodeSectionDiagnosticsMute;
+  },
+  setDefaultSectionVariant(): string {
+    return GoHTTPRoutes.setDefaultSectionVariant;
+  },
+  setEdges(): string {
+    return GoHTTPRoutes.setEdges;
+  },
+  setGenCodePrefix(): string {
+    return GoHTTPRoutes.setGenCodePrefix;
+  },
+  setGenCodeSuffix(): string {
+    return GoHTTPRoutes.setGenCodeSuffix;
+  },
+  setGroupOverflowMode(): string {
+    return GoHTTPRoutes.setGroupOverflowMode;
+  },
+  setImageAreaImagePath(): string {
+    return GoHTTPRoutes.setImageAreaImagePath;
+  },
+  setListRootViewMode(): string {
+    return GoHTTPRoutes.setListRootViewMode;
+  },
+  setMetaControlShowSectionTitle(): string {
+    return GoHTTPRoutes.setMetaControlShowSectionTitle;
+  },
+  setParamEnteredValue(): string {
+    return GoHTTPRoutes.setParamEnteredValue;
+  },
+  setParentDefaultChildSectionType(): string {
+    return GoHTTPRoutes.setParentDefaultChildSectionType;
+  },
+  setProjectChatWindowChatId(): string {
+    return GoHTTPRoutes.setProjectChatWindowChatId;
+  },
+  setProjectChatWindowingState(): string {
+    return GoHTTPRoutes.setProjectChatWindowingState;
+  },
+  setProjectConfigCodegenTargets(): string {
+    return GoHTTPRoutes.setProjectConfigCodegenTargets;
+  },
+  setProjectConfigName(): string {
+    return GoHTTPRoutes.setProjectConfigName;
+  },
+  setPromptFormat(): string {
+    return GoHTTPRoutes.setPromptFormat;
+  },
+  setPromptInputs(): string {
+    return GoHTTPRoutes.setPromptInputs;
+  },
+  setPromptTemplate(): string {
+    return GoHTTPRoutes.setPromptTemplate;
+  },
+  setPromptTemplateLink(): string {
+    return GoHTTPRoutes.setPromptTemplateLink;
+  },
+  setSectionColumnWidth(): string {
+    return GoHTTPRoutes.setSectionColumnWidth;
+  },
+  setSectionEdgeInputs(): string {
+    return GoHTTPRoutes.setSectionEdgeInputs;
+  },
+  setSectionEdgeOutputs(): string {
+    return GoHTTPRoutes.setSectionEdgeOutputs;
+  },
+  setSectionHideUnpinnedParams(): string {
+    return GoHTTPRoutes.setSectionHideUnpinnedParams;
+  },
+  setSectionName(): string {
+    return GoHTTPRoutes.setSectionName;
+  },
+  setSectionParamFilter(): string {
+    return GoHTTPRoutes.setSectionParamFilter;
+  },
+  setSectionPinnedParams(): string {
+    return GoHTTPRoutes.setSectionPinnedParams;
+  },
+  setSectionSizes(): string {
+    return GoHTTPRoutes.setSectionSizes;
+  },
+  setSectionStyleColor(): string {
+    return GoHTTPRoutes.setSectionStyleColor;
+  },
+  setSectionTagColor(): string {
+    return GoHTTPRoutes.setSectionTagColor;
+  },
+  setSectionVariant(): string {
+    return GoHTTPRoutes.setSectionVariant;
+  },
+  setSectionVariantName(): string {
+    return GoHTTPRoutes.setSectionVariantName;
+  },
+  setSectionVariantSortOrder(): string {
+    return GoHTTPRoutes.setSectionVariantSortOrder;
+  },
+  setShowParamDisplayNames(): string {
+    return GoHTTPRoutes.setShowParamDisplayNames;
+  },
+  setSocialURL(): string {
+    return GoHTTPRoutes.setSocialURL;
+  },
+  setSpreadsheetFilePath(): string {
+    return GoHTTPRoutes.setSpreadsheetFilePath;
+  },
+  setSpreadsheetSectionSettings(): string {
+    return GoHTTPRoutes.setSpreadsheetSectionSettings;
+  },
+  setStateMachineEdges(): string {
+    return GoHTTPRoutes.setStateMachineEdges;
+  },
+  setStateMachineSectionSettings(): string {
+    return GoHTTPRoutes.setStateMachineSectionSettings;
+  },
+  setTaskBoardSectionState(): string {
+    return GoHTTPRoutes.setTaskBoardSectionState;
+  },
+  setTextBlockDisplayMode(): string {
+    return GoHTTPRoutes.setTextBlockDisplayMode;
+  },
+  setTextBlockFormat(): string {
+    return GoHTTPRoutes.setTextBlockFormat;
+  },
+  setTextBlockHeadingAsSectionName(): string {
+    return GoHTTPRoutes.setTextBlockHeadingAsSectionName;
+  },
+  setTextBlockMasterFontSize(): string {
+    return GoHTTPRoutes.setTextBlockMasterFontSize;
+  },
+  setTextBlockMetaControlStyle(): string {
+    return GoHTTPRoutes.setTextBlockMetaControlStyle;
+  },
+  setTextBlockText(): string {
+    return GoHTTPRoutes.setTextBlockText;
+  },
+  setTopLevelSectionLayout(): string {
+    return GoHTTPRoutes.setTopLevelSectionLayout;
+  },
+  setTypeErrorIgnore(): string {
+    return GoHTTPRoutes.setTypeErrorIgnore;
+  },
+  setVariantJsonSourceKeys(): string {
+    return GoHTTPRoutes.setVariantJsonSourceKeys;
   },
   setViewModeName(): string {
     return GoHTTPRoutes.setViewModeName;
@@ -535,34 +1093,30 @@ export const GoHTTPRouteHelpers = {
   setViewModeSortOrder(): string {
     return GoHTTPRoutes.setViewModeSortOrder;
   },
-  deleteViewMode(): string {
-    return GoHTTPRoutes.deleteViewMode;
+  setViewport(): string {
+    return GoHTTPRoutes.setViewport;
   },
-  setSectionName(): string {
-    return GoHTTPRoutes.setSectionName;
+  setWatchCodeEnabled(): string {
+    return GoHTTPRoutes.setWatchCodeEnabled;
   },
-  acceptRenameRefactor(): string {
-    return GoHTTPRoutes.acceptRenameRefactor;
+  setWatchCodeInputs(): string {
+    return GoHTTPRoutes.setWatchCodeInputs;
   },
-  declineRenameRefactor(): string {
-    return GoHTTPRoutes.declineRenameRefactor;
+  setWindowSpaceName(): string {
+    return GoHTTPRoutes.setWindowSpaceName;
   },
-  createWorkspaceLaunchIntent(): string {
-    return GoHTTPRoutes.createWorkspaceLaunchIntent;
+  setWindowSpaceSortOrder(): string {
+    return GoHTTPRoutes.setWindowSpaceSortOrder;
   },
-  launch(): string {
-    return GoHTTPRoutes.launch;
+  setupLauncher(): string {
+    return GoHTTPRoutes.setupLauncher;
   },
   shareDeploymentCurrentSession(): string {
     return GoHTTPRoutes.shareDeploymentCurrentSession;
   },
-  appDeploymentCurrentSession(): string {
-    return GoHTTPRoutes.appDeploymentCurrentSession;
-  },
-  shareDeploymentState(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, {
+  shareDeploymentLatest(deploymentName: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, {
       deploymentName,
-      version,
     });
   },
   shareDeploymentProjectConfig(
@@ -574,20 +1128,11 @@ export const GoHTTPRouteHelpers = {
       { deploymentName, version },
     );
   },
-  appDeploymentState(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentState, {
+  shareDeploymentState(deploymentName: string, version: string): string {
+    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentState, {
       deploymentName,
       version,
     });
-  },
-  appDeploymentProjectConfig(deploymentName: string, version: string): string {
-    return replaceGeneratedRoutePathParams(
-      GoHTTPRoutes.appDeploymentProjectConfig,
-      { deploymentName, version },
-    );
-  },
-  shareDeployments(): string {
-    return GoHTTPRoutes.shareDeployments;
   },
   shareDeploymentVersions(deploymentName: string): string {
     return replaceGeneratedRoutePathParams(
@@ -595,666 +1140,131 @@ export const GoHTTPRouteHelpers = {
       { deploymentName },
     );
   },
-  shareDeploymentLatest(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.shareDeploymentLatest, {
-      deploymentName,
-    });
-  },
-  appDeployments(): string {
-    return GoHTTPRoutes.appDeployments;
-  },
-  appDeploymentVersions(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentVersions, {
-      deploymentName,
-    });
-  },
-  appDeploymentLatest(deploymentName: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.appDeploymentLatest, {
-      deploymentName,
-    });
-  },
-  getLauncherRecentWorkspaces(): string {
-    return GoHTTPRoutes.getLauncherRecentWorkspaces;
-  },
-  addLauncherRecentWorkspace(): string {
-    return GoHTTPRoutes.addLauncherRecentWorkspace;
-  },
-  removeLauncherRecentWorkspace(): string {
-    return GoHTTPRoutes.removeLauncherRecentWorkspace;
-  },
-  pinLauncherRecentWorkspace(): string {
-    return GoHTTPRoutes.pinLauncherRecentWorkspace;
-  },
-  getLauncherFilesystemRoots(): string {
-    return GoHTTPRoutes.getLauncherFilesystemRoots;
-  },
-  listLauncherDirectory(): string {
-    return GoHTTPRoutes.listLauncherDirectory;
-  },
-  openLauncherWorkspace(): string {
-    return GoHTTPRoutes.openLauncherWorkspace;
-  },
-  getLauncherStatus(): string {
-    return GoHTTPRoutes.getLauncherStatus;
-  },
-  setupLauncher(): string {
-    return GoHTTPRoutes.setupLauncher;
-  },
-  repairLauncher(): string {
-    return GoHTTPRoutes.repairLauncher;
-  },
-  removeLauncher(): string {
-    return GoHTTPRoutes.removeLauncher;
-  },
-  updateLauncher(): string {
-    return GoHTTPRoutes.updateLauncher;
-  },
-  revealPathInOsFileExplorer(): string {
-    return GoHTTPRoutes.revealPathInOsFileExplorer;
-  },
-  getAppGenSkills(): string {
-    return GoHTTPRoutes.getAppGenSkills;
-  },
-  getAppGenSkillContent(): string {
-    return GoHTTPRoutes.getAppGenSkillContent;
-  },
-  upsertAppGenCustomSkill(): string {
-    return GoHTTPRoutes.upsertAppGenCustomSkill;
-  },
-  getMCPServerRuntimeStatus(): string {
-    return GoHTTPRoutes.getMCPServerRuntimeStatus;
-  },
-  getPasswordParamValue(): string {
-    return GoHTTPRoutes.getPasswordParamValue;
-  },
-  changeParamImpl(): string {
-    return GoHTTPRoutes.changeParamImpl;
-  },
-  setParamEnteredValue(): string {
-    return GoHTTPRoutes.setParamEnteredValue;
-  },
-  updateParamImplConfig(): string {
-    return GoHTTPRoutes.updateParamImplConfig;
-  },
-  setCodeObjName(): string {
-    return GoHTTPRoutes.setCodeObjName;
-  },
-  setCodeObjDisplayName(): string {
-    return GoHTTPRoutes.setCodeObjDisplayName;
-  },
-  setCodeSectionAttachedTerminal(): string {
-    return GoHTTPRoutes.setCodeSectionAttachedTerminal;
-  },
-  setCode(): string {
-    return GoHTTPRoutes.setCode;
-  },
-  formatCode(): string {
-    return GoHTTPRoutes.formatCode;
-  },
-  setCallable(): string {
-    return GoHTTPRoutes.setCallable;
-  },
-  setProjectConfigCodegenTargets(): string {
-    return GoHTTPRoutes.setProjectConfigCodegenTargets;
-  },
-  setGenCodePrefix(): string {
-    return GoHTTPRoutes.setGenCodePrefix;
-  },
-  setGenCodeSuffix(): string {
-    return GoHTTPRoutes.setGenCodeSuffix;
-  },
-  setWatchCodeEnabled(): string {
-    return GoHTTPRoutes.setWatchCodeEnabled;
-  },
-  setWatchCodeInputs(): string {
-    return GoHTTPRoutes.setWatchCodeInputs;
-  },
-  setTextBlockText(): string {
-    return GoHTTPRoutes.setTextBlockText;
-  },
-  setTextBlockDisplayMode(): string {
-    return GoHTTPRoutes.setTextBlockDisplayMode;
-  },
-  setTextBlockFormat(): string {
-    return GoHTTPRoutes.setTextBlockFormat;
-  },
-  setTextBlockHeadingAsSectionName(): string {
-    return GoHTTPRoutes.setTextBlockHeadingAsSectionName;
-  },
-  setTextBlockMetaControlStyle(): string {
-    return GoHTTPRoutes.setTextBlockMetaControlStyle;
-  },
-  setTextBlockMasterFontSize(): string {
-    return GoHTTPRoutes.setTextBlockMasterFontSize;
-  },
-  docstringToMarkdown(): string {
-    return GoHTTPRoutes.docstringToMarkdown;
-  },
-  deleteTerminals(): string {
-    return GoHTTPRoutes.deleteTerminals;
-  },
-  interruptTerminalProcesses(): string {
-    return GoHTTPRoutes.interruptTerminalProcesses;
-  },
-  runCode(): string {
-    return GoHTTPRoutes.runCode;
-  },
-  runDetached(): string {
-    return GoHTTPRoutes.runDetached;
-  },
-  getRunStatus(): string {
-    return GoHTTPRoutes.getRunStatus;
-  },
-  getRunnerSummary(): string {
-    return GoHTTPRoutes.getRunnerSummary;
-  },
-  cancelRun(): string {
-    return GoHTTPRoutes.cancelRun;
-  },
-  getAttachmentDownloadUrl(): string {
-    return GoHTTPRoutes.getAttachmentDownloadUrl;
-  },
-  getAttachmentDownloadUrls(): string {
-    return GoHTTPRoutes.getAttachmentDownloadUrls;
-  },
-  createFile(): string {
-    return GoHTTPRoutes.createFile;
-  },
-  checkIfFileExists(): string {
-    return GoHTTPRoutes.checkIfFileExists;
-  },
-  checkWorkspaceInitialized(): string {
-    return GoHTTPRoutes.checkWorkspaceInitialized;
-  },
-  getFileBrowserRoot(): string {
-    return GoHTTPRoutes.getFileBrowserRoot;
-  },
-  getWorkspacePythonSignal(): string {
-    return GoHTTPRoutes.getWorkspacePythonSignal;
-  },
-  getFolderContents(): string {
-    return GoHTTPRoutes.getFolderContents;
-  },
-  getFileBrowserDownloadUrls(): string {
-    return GoHTTPRoutes.getFileBrowserDownloadUrls;
-  },
-  fileBrowserDownload(token: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.fileBrowserDownload, {
-      token,
-    });
-  },
-  getFileBrowserFileContent(): string {
-    return GoHTTPRoutes.getFileBrowserFileContent;
-  },
-  getFileBrowserFileStat(): string {
-    return GoHTTPRoutes.getFileBrowserFileStat;
-  },
-  writeFileBrowserFileContent(): string {
-    return GoHTTPRoutes.writeFileBrowserFileContent;
-  },
-  transferFileBrowserEntry(): string {
-    return GoHTTPRoutes.transferFileBrowserEntry;
-  },
-  binaryUpload(): string {
-    return GoHTTPRoutes.binaryUpload;
-  },
-  binaryDownload(contentId: string): string {
-    return replaceGeneratedRoutePathParams(GoHTTPRoutes.binaryDownload, {
-      contentId,
-    });
-  },
-  getGitStatus(): string {
-    return GoHTTPRoutes.getGitStatus;
-  },
-  getGitDiff(): string {
-    return GoHTTPRoutes.getGitDiff;
-  },
-  getGitLog(): string {
-    return GoHTTPRoutes.getGitLog;
-  },
-  getGitCommitDetails(): string {
-    return GoHTTPRoutes.getGitCommitDetails;
-  },
-  getGitCommitFileDiff(): string {
-    return GoHTTPRoutes.getGitCommitFileDiff;
-  },
-  importFilesToArtifacts(): string {
-    return GoHTTPRoutes.importFilesToArtifacts;
-  },
-  loadCachedImageArtifacts(): string {
-    return GoHTTPRoutes.loadCachedImageArtifacts;
-  },
-  loadCachedChartData(): string {
-    return GoHTTPRoutes.loadCachedChartData;
-  },
-  loadCachedBrushStrokes(): string {
-    return GoHTTPRoutes.loadCachedBrushStrokes;
-  },
-  loadCachedDrawAreaLayerItemTransform(): string {
-    return GoHTTPRoutes.loadCachedDrawAreaLayerItemTransform;
-  },
-  updateArtifacts(): string {
-    return GoHTTPRoutes.updateArtifacts;
-  },
-  deleteArtifacts(): string {
-    return GoHTTPRoutes.deleteArtifacts;
-  },
-  appendDrawAreaLayerItem(): string {
-    return GoHTTPRoutes.appendDrawAreaLayerItem;
-  },
-  forceRefreshListener(): string {
-    return GoHTTPRoutes.forceRefreshListener;
-  },
-  setTopLevelSectionLayout(): string {
-    return GoHTTPRoutes.setTopLevelSectionLayout;
-  },
-  toggleSectionVisibility(): string {
-    return GoHTTPRoutes.toggleSectionVisibility;
-  },
-  autoLayoutTopLevelSections(): string {
-    return GoHTTPRoutes.autoLayoutTopLevelSections;
-  },
-  setShowParamDisplayNames(): string {
-    return GoHTTPRoutes.setShowParamDisplayNames;
-  },
-  groupSections(): string {
-    return GoHTTPRoutes.groupSections;
-  },
-  ungroupGroups(): string {
-    return GoHTTPRoutes.ungroupGroups;
-  },
-  setSectionSizes(): string {
-    return GoHTTPRoutes.setSectionSizes;
-  },
-  setActiveIds(): string {
-    return GoHTTPRoutes.setActiveIds;
-  },
-  setSectionParamFilter(): string {
-    return GoHTTPRoutes.setSectionParamFilter;
-  },
-  setMetaControlShowSectionTitle(): string {
-    return GoHTTPRoutes.setMetaControlShowSectionTitle;
-  },
-  setSectionColumnWidth(): string {
-    return GoHTTPRoutes.setSectionColumnWidth;
-  },
-  togglePositionLocks(): string {
-    return GoHTTPRoutes.togglePositionLocks;
-  },
-  toggleMinimized(): string {
-    return GoHTTPRoutes.toggleMinimized;
-  },
-  setSectionEdgeInputs(): string {
-    return GoHTTPRoutes.setSectionEdgeInputs;
-  },
-  setSectionEdgeOutputs(): string {
-    return GoHTTPRoutes.setSectionEdgeOutputs;
-  },
-  setParentDefaultChildSectionType(): string {
-    return GoHTTPRoutes.setParentDefaultChildSectionType;
-  },
-  setListRootViewMode(): string {
-    return GoHTTPRoutes.setListRootViewMode;
-  },
-  toggleGroupOrientation(): string {
-    return GoHTTPRoutes.toggleGroupOrientation;
-  },
-  setGroupOverflowMode(): string {
-    return GoHTTPRoutes.setGroupOverflowMode;
-  },
-  setSectionTagColor(): string {
-    return GoHTTPRoutes.setSectionTagColor;
-  },
-  setSectionStyleColor(): string {
-    return GoHTTPRoutes.setSectionStyleColor;
-  },
-  setCallableHideParams(): string {
-    return GoHTTPRoutes.setCallableHideParams;
-  },
-  setSectionHideUnpinnedParams(): string {
-    return GoHTTPRoutes.setSectionHideUnpinnedParams;
-  },
-  setSectionPinnedParams(): string {
-    return GoHTTPRoutes.setSectionPinnedParams;
-  },
-  setBrowserColumnWidths(): string {
-    return GoHTTPRoutes.setBrowserColumnWidths;
-  },
-  setBrowserAreaViewMode(): string {
-    return GoHTTPRoutes.setBrowserAreaViewMode;
-  },
-  setBrowserHideColumn(): string {
-    return GoHTTPRoutes.setBrowserHideColumn;
-  },
-  setBrowserSavedSearches(): string {
-    return GoHTTPRoutes.setBrowserSavedSearches;
-  },
-  setSpreadsheetFilePath(): string {
-    return GoHTTPRoutes.setSpreadsheetFilePath;
-  },
-  setSpreadsheetSectionSettings(): string {
-    return GoHTTPRoutes.setSpreadsheetSectionSettings;
-  },
-  setTaskBoardSectionState(): string {
-    return GoHTTPRoutes.setTaskBoardSectionState;
-  },
-  setImageAreaImagePath(): string {
-    return GoHTTPRoutes.setImageAreaImagePath;
-  },
-  setSocialURL(): string {
-    return GoHTTPRoutes.setSocialURL;
-  },
-  setChartAreaDataPath(): string {
-    return GoHTTPRoutes.setChartAreaDataPath;
-  },
-  setChartType(): string {
-    return GoHTTPRoutes.setChartType;
-  },
-  setChartSettings(): string {
-    return GoHTTPRoutes.setChartSettings;
-  },
-  setCodeFileBinding(): string {
-    return GoHTTPRoutes.setCodeFileBinding;
-  },
-  toggleParamSelected(): string {
-    return GoHTTPRoutes.toggleParamSelected;
-  },
-  unselectAllParams(): string {
-    return GoHTTPRoutes.unselectAllParams;
-  },
-  setViewport(): string {
-    return GoHTTPRoutes.setViewport;
-  },
-  getListenerCoverage(): string {
-    return GoHTTPRoutes.getListenerCoverage;
-  },
-  getLLMConfig(): string {
-    return GoHTTPRoutes.getLLMConfig;
-  },
-  setLLMConfig(): string {
-    return GoHTTPRoutes.setLLMConfig;
-  },
-  getLLMAPIKeys(): string {
-    return GoHTTPRoutes.getLLMAPIKeys;
-  },
-  setLLMAPIKeys(): string {
-    return GoHTTPRoutes.setLLMAPIKeys;
-  },
-  getAgentProfiles(): string {
-    return GoHTTPRoutes.getAgentProfiles;
-  },
-  getAgentProfile(): string {
-    return GoHTTPRoutes.getAgentProfile;
-  },
-  createAgentProfile(): string {
-    return GoHTTPRoutes.createAgentProfile;
-  },
-  updateAgentProfile(): string {
-    return GoHTTPRoutes.updateAgentProfile;
-  },
-  deleteAgentProfile(): string {
-    return GoHTTPRoutes.deleteAgentProfile;
-  },
-  getAgentRuns(): string {
-    return GoHTTPRoutes.getAgentRuns;
-  },
-  getAgentRun(): string {
-    return GoHTTPRoutes.getAgentRun;
+  shareDeployments(): string {
+    return GoHTTPRoutes.shareDeployments;
   },
   startAgentRun(): string {
     return GoHTTPRoutes.startAgentRun;
   },
-  stopAgentRun(): string {
-    return GoHTTPRoutes.stopAgentRun;
+  startRunChain(): string {
+    return GoHTTPRoutes.startRunChain;
   },
   startStateMachineRun(): string {
     return GoHTTPRoutes.startStateMachineRun;
   },
-  stopStateMachineRun(): string {
-    return GoHTTPRoutes.stopStateMachineRun;
-  },
-  resetStateMachine(): string {
-    return GoHTTPRoutes.resetStateMachine;
-  },
-  getStateMachineRun(): string {
-    return GoHTTPRoutes.getStateMachineRun;
-  },
-  startRunChain(): string {
-    return GoHTTPRoutes.startRunChain;
-  },
-  stopRunChain(): string {
-    return GoHTTPRoutes.stopRunChain;
-  },
-  getEngineConfigs(): string {
-    return GoHTTPRoutes.getEngineConfigs;
-  },
-  getEngineConfig(): string {
-    return GoHTTPRoutes.getEngineConfig;
-  },
-  createEngineConfig(): string {
-    return GoHTTPRoutes.createEngineConfig;
-  },
-  updateEngineConfig(): string {
-    return GoHTTPRoutes.updateEngineConfig;
-  },
-  deleteEngineConfig(): string {
-    return GoHTTPRoutes.deleteEngineConfig;
-  },
-  getPromptTemplates(): string {
-    return GoHTTPRoutes.getPromptTemplates;
-  },
-  getPromptTemplate(): string {
-    return GoHTTPRoutes.getPromptTemplate;
-  },
-  createPromptTemplate(): string {
-    return GoHTTPRoutes.createPromptTemplate;
-  },
-  updatePromptTemplate(): string {
-    return GoHTTPRoutes.updatePromptTemplate;
-  },
-  deletePromptTemplate(): string {
-    return GoHTTPRoutes.deletePromptTemplate;
-  },
-  getExternalAgentConfigs(): string {
-    return GoHTTPRoutes.getExternalAgentConfigs;
-  },
-  getExternalAgentConfig(): string {
-    return GoHTTPRoutes.getExternalAgentConfig;
-  },
-  getExternalAgentHealth(): string {
-    return GoHTTPRoutes.getExternalAgentHealth;
-  },
-  createExternalAgentConfig(): string {
-    return GoHTTPRoutes.createExternalAgentConfig;
-  },
-  updateExternalAgentConfig(): string {
-    return GoHTTPRoutes.updateExternalAgentConfig;
-  },
-  deleteExternalAgentConfig(): string {
-    return GoHTTPRoutes.deleteExternalAgentConfig;
-  },
-  getTranscriptionProfiles(): string {
-    return GoHTTPRoutes.getTranscriptionProfiles;
-  },
-  createTranscriptionProfile(): string {
-    return GoHTTPRoutes.createTranscriptionProfile;
-  },
-  updateTranscriptionProfile(): string {
-    return GoHTTPRoutes.updateTranscriptionProfile;
-  },
-  deleteTranscriptionProfile(): string {
-    return GoHTTPRoutes.deleteTranscriptionProfile;
-  },
   startTranscriptionSession(): string {
     return GoHTTPRoutes.startTranscriptionSession;
   },
-  appendTranscriptionAudio(): string {
-    return GoHTTPRoutes.appendTranscriptionAudio;
-  },
-  stopTranscriptionSession(): string {
-    return GoHTTPRoutes.stopTranscriptionSession;
-  },
-  cancelTranscriptionSession(): string {
-    return GoHTTPRoutes.cancelTranscriptionSession;
-  },
-  getLLMResponse(): string {
-    return GoHTTPRoutes.getLLMResponse;
-  },
-  getLLMChat(): string {
-    return GoHTTPRoutes.getLLMChat;
-  },
-  stopLLMChat(): string {
-    return GoHTTPRoutes.stopLLMChat;
-  },
-  getExternalAgentChat(): string {
-    return GoHTTPRoutes.getExternalAgentChat;
+  stopAgentRun(): string {
+    return GoHTTPRoutes.stopAgentRun;
   },
   stopExternalAgentRun(): string {
     return GoHTTPRoutes.stopExternalAgentRun;
   },
-  getAIFollowSnapshot(): string {
-    return GoHTTPRoutes.getAIFollowSnapshot;
+  stopLLMChat(): string {
+    return GoHTTPRoutes.stopLLMChat;
   },
-  respondExternalAgentApproval(): string {
-    return GoHTTPRoutes.respondExternalAgentApproval;
+  stopRunChain(): string {
+    return GoHTTPRoutes.stopRunChain;
   },
-  respondExternalAgentQuestion(): string {
-    return GoHTTPRoutes.respondExternalAgentQuestion;
+  stopStateMachineRun(): string {
+    return GoHTTPRoutes.stopStateMachineRun;
   },
-  getChatSectionChatId(): string {
-    return GoHTTPRoutes.getChatSectionChatId;
-  },
-  setChatSectionSettings(): string {
-    return GoHTTPRoutes.setChatSectionSettings;
-  },
-  setStateMachineSectionSettings(): string {
-    return GoHTTPRoutes.setStateMachineSectionSettings;
-  },
-  setChatSectionState(): string {
-    return GoHTTPRoutes.setChatSectionState;
-  },
-  setChatSectionChatId(): string {
-    return GoHTTPRoutes.setChatSectionChatId;
-  },
-  setPromptTemplate(): string {
-    return GoHTTPRoutes.setPromptTemplate;
-  },
-  setPromptTemplateLink(): string {
-    return GoHTTPRoutes.setPromptTemplateLink;
-  },
-  setPromptInputs(): string {
-    return GoHTTPRoutes.setPromptInputs;
-  },
-  setPromptFormat(): string {
-    return GoHTTPRoutes.setPromptFormat;
-  },
-  createWindowSpace(): string {
-    return GoHTTPRoutes.createWindowSpace;
-  },
-  setWindowSpaceName(): string {
-    return GoHTTPRoutes.setWindowSpaceName;
-  },
-  setWindowSpaceSortOrder(): string {
-    return GoHTTPRoutes.setWindowSpaceSortOrder;
-  },
-  deleteWindowSpace(): string {
-    return GoHTTPRoutes.deleteWindowSpace;
-  },
-  setProjectChatWindowingState(): string {
-    return GoHTTPRoutes.setProjectChatWindowingState;
-  },
-  setProjectChatWindowChatId(): string {
-    return GoHTTPRoutes.setProjectChatWindowChatId;
-  },
-  getAgenticSummaryCacheStatus(): string {
-    return GoHTTPRoutes.getAgenticSummaryCacheStatus;
-  },
-  getAppDefinition(): string {
-    return GoHTTPRoutes.getAppDefinition;
-  },
-  setAppDefinition(): string {
-    return GoHTTPRoutes.setAppDefinition;
-  },
-  validateAppDefinition(): string {
-    return GoHTTPRoutes.validateAppDefinition;
-  },
-  getAppCatalog(): string {
-    return GoHTTPRoutes.getAppCatalog;
-  },
-  restartLanguageServer(): string {
-    return GoHTTPRoutes.restartLanguageServer;
-  },
-  typeCheck(): string {
-    return GoHTTPRoutes.typeCheck;
-  },
-  clearTextFieldCompletion(): string {
-    return GoHTTPRoutes.clearTextFieldCompletion;
+  stopTranscriptionSession(): string {
+    return GoHTTPRoutes.stopTranscriptionSession;
   },
   textFieldCompletion(): string {
     return GoHTTPRoutes.textFieldCompletion;
   },
-  outputAccessorCompletion(): string {
-    return GoHTTPRoutes.outputAccessorCompletion;
+  toggleGroupOrientation(): string {
+    return GoHTTPRoutes.toggleGroupOrientation;
   },
-  codeAreaCompletion(): string {
-    return GoHTTPRoutes.codeAreaCompletion;
+  toggleIsEditingViewMode(): string {
+    return GoHTTPRoutes.toggleIsEditingViewMode;
   },
-  genCodePrefixCompletion(): string {
-    return GoHTTPRoutes.genCodePrefixCompletion;
+  toggleMinimized(): string {
+    return GoHTTPRoutes.toggleMinimized;
   },
-  genCodeSuffixCompletion(): string {
-    return GoHTTPRoutes.genCodeSuffixCompletion;
+  toggleParamSelected(): string {
+    return GoHTTPRoutes.toggleParamSelected;
   },
-  getLatestLspDiagnostics(): string {
-    return GoHTTPRoutes.getLatestLspDiagnostics;
+  togglePositionLocks(): string {
+    return GoHTTPRoutes.togglePositionLocks;
   },
-  setTypeErrorIgnore(): string {
-    return GoHTTPRoutes.setTypeErrorIgnore;
+  toggleSectionVisibility(): string {
+    return GoHTTPRoutes.toggleSectionVisibility;
   },
-  setCodeSectionDiagnosticsMute(): string {
-    return GoHTTPRoutes.setCodeSectionDiagnosticsMute;
+  toggleVariantFrozen(): string {
+    return GoHTTPRoutes.toggleVariantFrozen;
   },
-  setCodeSectionDiagnosticCodeSuppression(): string {
-    return GoHTTPRoutes.setCodeSectionDiagnosticCodeSuppression;
+  toggleVariantJsonSource(): string {
+    return GoHTTPRoutes.toggleVariantJsonSource;
   },
-  pluginsRuntime(): string {
-    return GoHTTPRoutes.pluginsRuntime;
+  toggleViewModeTab(): string {
+    return GoHTTPRoutes.toggleViewModeTab;
   },
-  pluginsRescan(): string {
-    return GoHTTPRoutes.pluginsRescan;
+  toggleViewModeUserFacing(): string {
+    return GoHTTPRoutes.toggleViewModeUserFacing;
   },
-  pluginsInstall(): string {
-    return GoHTTPRoutes.pluginsInstall;
+  transferFileBrowserEntry(): string {
+    return GoHTTPRoutes.transferFileBrowserEntry;
   },
-  pluginsLink(): string {
-    return GoHTTPRoutes.pluginsLink;
+  typeCheck(): string {
+    return GoHTTPRoutes.typeCheck;
   },
-  pluginsUninstall(): string {
-    return GoHTTPRoutes.pluginsUninstall;
+  undo(): string {
+    return GoHTTPRoutes.undo;
   },
-  pluginsUpdate(): string {
-    return GoHTTPRoutes.pluginsUpdate;
+  ungroupGroups(): string {
+    return GoHTTPRoutes.ungroupGroups;
   },
-  pluginsRollback(): string {
-    return GoHTTPRoutes.pluginsRollback;
+  unindentParams(): string {
+    return GoHTTPRoutes.unindentParams;
   },
-  pluginsEnable(): string {
-    return GoHTTPRoutes.pluginsEnable;
+  unselectAllParams(): string {
+    return GoHTTPRoutes.unselectAllParams;
   },
-  pluginsDisable(): string {
-    return GoHTTPRoutes.pluginsDisable;
+  updateAgentProfile(): string {
+    return GoHTTPRoutes.updateAgentProfile;
   },
-  pluginsConfig(): string {
-    return GoHTTPRoutes.pluginsConfig;
+  updateAgenticEdge(): string {
+    return GoHTTPRoutes.updateAgenticEdge;
   },
-  pluginsLockWrite(): string {
-    return GoHTTPRoutes.pluginsLockWrite;
+  updateArtifacts(): string {
+    return GoHTTPRoutes.updateArtifacts;
   },
-  pluginsLockApply(): string {
-    return GoHTTPRoutes.pluginsLockApply;
+  updateEdge(): string {
+    return GoHTTPRoutes.updateEdge;
   },
-  pluginsRestart(): string {
-    return GoHTTPRoutes.pluginsRestart;
+  updateEngineConfig(): string {
+    return GoHTTPRoutes.updateEngineConfig;
+  },
+  updateExternalAgentConfig(): string {
+    return GoHTTPRoutes.updateExternalAgentConfig;
+  },
+  updateLauncher(): string {
+    return GoHTTPRoutes.updateLauncher;
+  },
+  updateParamImplConfig(): string {
+    return GoHTTPRoutes.updateParamImplConfig;
+  },
+  updatePromptTemplate(): string {
+    return GoHTTPRoutes.updatePromptTemplate;
+  },
+  updateStateMachineEdge(): string {
+    return GoHTTPRoutes.updateStateMachineEdge;
+  },
+  updateTranscriptionProfile(): string {
+    return GoHTTPRoutes.updateTranscriptionProfile;
+  },
+  upsertAppGenCustomSkill(): string {
+    return GoHTTPRoutes.upsertAppGenCustomSkill;
+  },
+  validateAppDefinition(): string {
+    return GoHTTPRoutes.validateAppDefinition;
+  },
+  writeFileBrowserFileContent(): string {
+    return GoHTTPRoutes.writeFileBrowserFileContent;
   },
 } as const;
 export const GoWebsocketRouteHelpers = {
@@ -1274,310 +1284,312 @@ export const GoWebsocketRouteHelpers = {
   },
 } as const;
 export const RouteEnum = {
-  PREFIX: "/api",
-  BOOTSTRAP_PAGE: "/__setta__/bootstrap",
+  API: "/api",
   BOOTSTRAP_CONSUME: "/__setta__/bootstrap/consume",
+  BOOTSTRAP_PAGE: "/__setta__/bootstrap",
   TOOLS_CALL: "/__setta__/tools/call",
   PLUGIN_ASSET_WILDCARD: "/plugins/{pluginId}/*",
-  GET_BACKEND_INIT_STATUS: "/backendInitStatus",
-  GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
-  GET_SERVER_MODE: "/serverMode",
-  GET_SETTA_HOME_INFO: "/settaHomeInfo",
-  LOAD_SETTINGS: "/loadSettings",
-  SAVE_SETTINGS: "/saveSettings",
-  LOAD_ALL_PROJECT_METADATA: "/loadAllProjectMetadata",
-  LOAD_PROJECT_CONFIG: "/loadProjectConfig",
-  SAVE_PROJECT: "/saveProject",
-  SAVE_AS_NEW_PROJECT_CONFIG: "/saveAsNewProjectConfig",
-  CREATE_PROJECT_CONFIG: "/createProjectConfig",
-  DELETE_PROJECT_CONFIGS: "/deleteProjectConfigs",
-  SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
-  SET_PROJECT_CONFIG_NAME: "/setProjectConfigName",
-  GET_NOTIFICATIONS: "/getNotifications",
-  DELETE_NOTIFICATION: "/deleteNotification",
-  GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
-  UNDO: "/undo",
-  REDO: "/redo",
-  CREATE_NEW_SECTION_VARIANT: "/createNewSectionVariant",
-  SET_SECTION_VARIANT: "/setSectionVariant",
-  SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
-  SET_SECTION_VARIANT_SORT_ORDER: "/setSectionVariantSortOrder",
-  TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
-  TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
-  SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
-  SET_SECTION_VARIANT_NAME: "/setSectionVariantName",
-  DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
-  DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
-  CREATE_CHILD_SECTIONS: "/createChildSections",
-  CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
-  DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
-  DELETE_SECTIONS: "/deleteSections",
-  DELETE_SELECTED_PARAMS: "/deleteSelectedParams",
-  PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
-  PASTE_SECTIONS: "/pasteSections",
-  CREATE_EDGE: "/createEdge",
-  UPDATE_EDGE: "/updateEdge",
-  DELETE_EDGES: "/deleteEdges",
-  RECONNECT_EDGE: "/reconnectEdge",
-  SET_EDGES: "/setEdges",
-  CREATE_STATE_MACHINE_EDGE: "/createStateMachineEdge",
-  UPDATE_STATE_MACHINE_EDGE: "/updateStateMachineEdge",
-  DELETE_STATE_MACHINE_EDGES: "/deleteStateMachineEdges",
-  SET_STATE_MACHINE_EDGES: "/setStateMachineEdges",
-  CREATE_AGENTIC_EDGE: "/createAgenticEdge",
-  UPDATE_AGENTIC_EDGE: "/updateAgenticEdge",
-  DELETE_AGENTIC_EDGES: "/deleteAgenticEdges",
-  SET_AGENTIC_EDGES: "/setAgenticEdges",
-  MOVE_SECTIONS: "/moveSections",
-  MOVE_PARAMS: "/moveParams",
-  MOVE_PARAM_GROUPS: "/moveParamGroups",
-  INDENT_PARAMS: "/indentParams",
-  UNINDENT_PARAMS: "/unindentParams",
-  ADD_KWARG: "/addKwarg",
-  DELETE_KWARG: "/deleteKwarg",
-  CREATE_TOP_LEVEL_SECTION: "/createTopLevelSection",
-  CREATE_VIEW_MODE: "/createViewMode",
-  SET_ACTIVE_VIEW_MODE: "/setActiveViewMode",
-  TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
-  TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
-  TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
-  SET_VIEW_MODE_NAME: "/setViewModeName",
-  SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
-  DELETE_VIEW_MODE: "/deleteViewMode",
-  SET_SECTION_NAME: "/setSectionName",
   ACCEPT_RENAME_REFACTOR: "/acceptRenameRefactor",
-  DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
-  CREATE_WORKSPACE_LAUNCH_INTENT: "/createWorkspaceLaunchIntent",
-  LAUNCH: "/launch",
-  SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
+  ADD_KWARG: "/addKwarg",
+  ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
   APP_DEPLOYMENT_CURRENT_SESSION: "/app/deployments/current/session",
-  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
-  SHARE_DEPLOYMENT_PROJECT_CONFIG:
-    "/share/deployments/{deploymentName}/{version}/project_config",
-  APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",
+  APP_DEPLOYMENT_LATEST: "/app/deployments/{deploymentName}/latest",
   APP_DEPLOYMENT_PROJECT_CONFIG:
     "/app/deployments/{deploymentName}/{version}/project_config",
-  SHARE_DEPLOYMENTS: "/share/deployments",
-  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{deploymentName}/versions",
-  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{deploymentName}/latest",
-  APP_DEPLOYMENTS: "/app/deployments",
+  APP_DEPLOYMENT_STATE: "/app/deployments/{deploymentName}/{version}/state",
   APP_DEPLOYMENT_VERSIONS: "/app/deployments/{deploymentName}/versions",
-  APP_DEPLOYMENT_LATEST: "/app/deployments/{deploymentName}/latest",
-  GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
-  ADD_LAUNCHER_RECENT_WORKSPACE: "/addLauncherRecentWorkspace",
-  REMOVE_LAUNCHER_RECENT_WORKSPACE: "/removeLauncherRecentWorkspace",
-  PIN_LAUNCHER_RECENT_WORKSPACE: "/pinLauncherRecentWorkspace",
-  GET_LAUNCHER_FILESYSTEM_ROOTS: "/launcherFilesystemRoots",
-  LIST_LAUNCHER_DIRECTORY: "/listLauncherDirectory",
-  OPEN_LAUNCHER_WORKSPACE: "/openLauncherWorkspace",
-  GET_LAUNCHER_STATUS: "/launcherStatus",
-  SETUP_LAUNCHER: "/setupLauncher",
-  REPAIR_LAUNCHER: "/repairLauncher",
-  REMOVE_LAUNCHER: "/removeLauncher",
-  UPDATE_LAUNCHER: "/updateLauncher",
-  REVEAL_PATH_IN_OS_FILE_EXPLORER: "/revealPathInOsFileExplorer",
-  GET_APP_GEN_SKILLS: "/getAppGenSkills",
-  GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
-  UPSERT_APP_GEN_CUSTOM_SKILL: "/upsertAppGenCustomSkill",
-  GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
-  GET_PASSWORD_PARAM_VALUE: "/getPasswordParamValue",
+  APP_DEPLOYMENTS: "/app/deployments",
+  APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
+  APPEND_TRANSCRIPTION_AUDIO: "/appendTranscriptionAudio",
+  ATTACHMENT_DOWNLOAD: "/api/attachments/{token}",
+  AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
+  BINARY_DOWNLOAD: "/binary/{contentId}",
+  BINARY_UPLOAD: "/binary/upload",
+  CANCEL_RUN: "/cancelRun",
+  CANCEL_TRANSCRIPTION_SESSION: "/cancelTranscriptionSession",
   CHANGE_PARAM_IMPL: "/changeParamImpl",
-  SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
-  UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
-  SET_CODE_OBJ_NAME: "/setCodeObjName",
-  SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
-  SET_CODE_SECTION_ATTACHED_TERMINAL: "/setCodeSectionAttachedTerminal",
-  SET_CODE: "/setCode",
+  CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
+  CHECK_WORKSPACE_INITIALIZED: "/checkWorkspaceInitialized",
+  CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
+  CODE_AREA_COMPLETION: "/codeAreaCompletion",
+  CREATE_AGENT_PROFILE: "/createAgentProfile",
+  CREATE_AGENTIC_EDGE: "/createAgenticEdge",
+  CREATE_CHILD_SECTIONS: "/createChildSections",
+  CREATE_CHILD_SECTIONS_VIA_INCREMENTER: "/createChildSectionsViaIncrementer",
+  CREATE_EDGE: "/createEdge",
+  CREATE_ENGINE_CONFIG: "/createEngineConfig",
+  CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
+  CREATE_FILE: "/createFile",
+  CREATE_NEW_SECTION_VARIANT: "/createNewSectionVariant",
+  CREATE_PROJECT_CONFIG: "/createProjectConfig",
+  CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
+  CREATE_STATE_MACHINE_EDGE: "/createStateMachineEdge",
+  CREATE_TOP_LEVEL_SECTION: "/createTopLevelSection",
+  CREATE_TRANSCRIPTION_PROFILE: "/createTranscriptionProfile",
+  CREATE_VIEW_MODE: "/createViewMode",
+  CREATE_WINDOW_SPACE: "/createWindowSpace",
+  CREATE_WORKSPACE_LAUNCH_INTENT: "/createWorkspaceLaunchIntent",
+  DECLINE_RENAME_REFACTOR: "/declineRenameRefactor",
+  DELETE_AGENT_PROFILE: "/deleteAgentProfile",
+  DELETE_AGENTIC_EDGES: "/deleteAgenticEdges",
+  DELETE_ARTIFACTS: "/deleteArtifacts",
+  DELETE_CHILD_SECTIONS_VIA_DECREMENTER: "/deleteChildSectionsViaDecrementer",
+  DELETE_EDGES: "/deleteEdges",
+  DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
+  DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
+  DELETE_JSON_SOURCE_FILE_AND_VARIANT: "/deleteJsonSourceFileAndVariant",
+  DELETE_KWARG: "/deleteKwarg",
+  DELETE_NOTIFICATION: "/deleteNotification",
+  DELETE_PROJECT_CONFIGS: "/deleteProjectConfigs",
+  DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
+  DELETE_SECTION_VARIANT_OR_ASK: "/deleteSectionVariantOrAsk",
+  DELETE_SECTIONS: "/deleteSections",
+  DELETE_SELECTED_PARAMS: "/deleteSelectedParams",
+  DELETE_STATE_MACHINE_EDGES: "/deleteStateMachineEdges",
+  DELETE_TERMINALS: "/deleteTerminals",
+  DELETE_TRANSCRIPTION_PROFILE: "/deleteTranscriptionProfile",
+  DELETE_VIEW_MODE: "/deleteViewMode",
+  DELETE_WINDOW_SPACE: "/deleteWindowSpace",
+  DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
+  FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
+  FORCE_REFRESH_LISTENER: "/forceRefreshListener",
   FORMAT_CODE: "/formatCode",
+  GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
+  GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
+  GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
+  GET_AGENT_PROFILE: "/getAgentProfile",
+  GET_AGENT_PROFILES: "/getAgentProfiles",
+  GET_AGENT_RUN: "/getAgentRun",
+  GET_AGENT_RUNS: "/getAgentRuns",
+  GET_AGENTIC_SUMMARY_CACHE_STATUS: "/getAgenticSummaryCacheStatus",
+  GET_APP_CATALOG: "/getAppCatalog",
+  GET_APP_DEFINITION: "/getAppDefinition",
+  GET_APP_GEN_SKILL_CONTENT: "/getAppGenSkillContent",
+  GET_APP_GEN_SKILLS: "/getAppGenSkills",
+  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
+  GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
+  GET_AUTH_REFRESH_STATUS: "/authRefreshStatus",
+  GET_BACKEND_INIT_STATUS: "/backendInitStatus",
+  GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
+  GET_ENGINE_CONFIG: "/getEngineConfig",
+  GET_ENGINE_CONFIGS: "/getEngineConfigs",
+  GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
+  GET_EXTERNAL_AGENT_CONFIG: "/getExternalAgentConfig",
+  GET_EXTERNAL_AGENT_CONFIGS: "/getExternalAgentConfigs",
+  GET_EXTERNAL_AGENT_HEALTH: "/getExternalAgentHealth",
+  GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
+  GET_FILE_BROWSER_FILE_CONTENT: "/getFileBrowserFileContent",
+  GET_FILE_BROWSER_FILE_STAT: "/getFileBrowserFileStat",
+  GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
+  GET_FOLDER_CONTENTS: "/getFolderContents",
+  GET_GIT_COMMIT_DETAILS: "/git/commitDetails",
+  GET_GIT_COMMIT_FILE_DIFF: "/git/commitFileDiff",
+  GET_GIT_DIFF: "/git/diff",
+  GET_GIT_LOG: "/git/log",
+  GET_GIT_STATUS: "/git/status",
+  GET_LLM_CHAT: "/getLLMChat",
+  GET_LLM_RESPONSE: "/getLLMResponse",
+  GET_LATEST_LSP_DIAGNOSTICS: "/getLatestLspDiagnostics",
+  GET_LATEST_PROJECT_STATE: "/getLatestProjectState",
+  GET_LAUNCHER_FILESYSTEM_ROOTS: "/launcherFilesystemRoots",
+  GET_LAUNCHER_RECENT_WORKSPACES: "/launcherRecentWorkspaces",
+  GET_LAUNCHER_STATUS: "/launcherStatus",
+  GET_LISTENER_COVERAGE: "/getListenerCoverage",
+  GET_NOTIFICATIONS: "/getNotifications",
+  GET_PASSWORD_PARAM_VALUE: "/getPasswordParamValue",
+  GET_PROMPT_TEMPLATE: "/getPromptTemplate",
+  GET_PROMPT_TEMPLATES: "/getPromptTemplates",
+  GET_RUN_STATUS: "/getRunStatus",
+  GET_RUNNER_SUMMARY: "/getRunnerSummary",
+  GET_SERVER_MODE: "/serverMode",
+  GET_SETTA_HOME_INFO: "/settaHomeInfo",
+  GET_STATE_MACHINE_RUN: "/getStateMachineRun",
+  GET_TRANSCRIPTION_PROFILES: "/getTranscriptionProfiles",
+  GET_WORKSPACE_PYTHON_SIGNAL: "/getWorkspacePythonSignal",
+  GROUP_SECTIONS: "/groupSections",
+  IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
+  INDENT_PARAMS: "/indentParams",
+  INTERRUPT_TERMINAL_PROCESSES: "/interruptTerminalProcesses",
+  GET_LLMAPI_KEYS: "/llm/apiKeys",
+  SET_LLMAPI_KEYS: "/llm/apiKeys",
+  GET_LLM_CONFIG: "/llm/config",
+  SET_LLM_CONFIG: "/llm/config",
+  LAUNCH: "/launch",
+  LIST_LAUNCHER_DIRECTORY: "/listLauncherDirectory",
+  LOAD_ALL_PROJECT_METADATA: "/loadAllProjectMetadata",
+  LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
+  LOAD_CACHED_CHART_DATA: "/loadCachedChartData",
+  LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANSFORM: "/loadDrawAreaLayerItemTransform",
+  LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
+  LOAD_PROJECT_CONFIG: "/loadProjectConfig",
+  LOAD_SETTINGS: "/loadSettings",
+  GET_MCP_SERVER_RUNTIME_STATUS: "/mcpServerRuntimeStatus",
+  MOVE_PARAM_GROUPS: "/moveParamGroups",
+  MOVE_PARAMS: "/moveParams",
+  MOVE_SECTIONS: "/moveSections",
+  OPEN_LAUNCHER_WORKSPACE: "/openLauncherWorkspace",
+  OUTPUT_ACCESSOR_COMPLETION: "/outputAccessorCompletion",
+  PASTE_SECTIONS: "/pasteSections",
+  PIN_LAUNCHER_RECENT_WORKSPACE: "/pinLauncherRecentWorkspace",
+  PLUGINS_CONFIG: "/plugins/config",
+  PLUGINS_DISABLE: "/plugins/disable",
+  PLUGINS_ENABLE: "/plugins/enable",
+  PLUGINS_INSTALL: "/plugins/install",
+  PLUGINS_LINK: "/plugins/link",
+  PLUGINS_LOCK_APPLY: "/plugins/lock/apply",
+  PLUGINS_LOCK_WRITE: "/plugins/lock/write",
+  PLUGINS_RESCAN: "/plugins/rescan",
+  PLUGINS_RESTART: "/plugins/restart",
+  PLUGINS_ROLLBACK: "/plugins/rollback",
+  PLUGINS_RUNTIME: "/plugins/runtime",
+  PLUGINS_UNINSTALL: "/plugins/uninstall",
+  PLUGINS_UPDATE: "/plugins/update",
+  PREPARE_SECTIONS_FOR_COPY: "/prepareSectionsForCopy",
+  RECONNECT_EDGE: "/reconnectEdge",
+  REDO: "/redo",
+  REMOVE_LAUNCHER: "/removeLauncher",
+  REMOVE_LAUNCHER_RECENT_WORKSPACE: "/removeLauncherRecentWorkspace",
+  REPAIR_LAUNCHER: "/repairLauncher",
+  RESET_STATE_MACHINE: "/resetStateMachine",
+  RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
+  RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
+  RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
+  REVEAL_PATH_IN_OS_FILE_EXPLORER: "/revealPathInOsFileExplorer",
+  RUN_CODE: "/runCode",
+  RUN_DETACHED: "/runDetached",
+  SDK_RUNTIME_HANDSHAKE: "/sdkRuntimeHandshake",
+  SAVE_AS_NEW_PROJECT_CONFIG: "/saveAsNewProjectConfig",
+  SAVE_PROJECT: "/saveProject",
+  SAVE_SETTINGS: "/saveSettings",
+  SET_ACTIVE_IDS: "/setActiveIds",
+  SET_ACTIVE_VIEW_MODE: "/setActiveViewMode",
+  SET_AGENTIC_EDGES: "/setAgenticEdges",
+  SET_APP_DEFINITION: "/setAppDefinition",
+  SET_AS_DEFAULT_PROJECT: "/setAsDefaultProject",
+  SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
+  SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
+  SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
+  SET_BROWSER_SAVED_SEARCHES: "/setBrowserSavedSearches",
   SET_CALLABLE: "/setCallable",
-  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
+  SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
+  SET_CHART_AREA_DATA_PATH: "/setChartAreaDataPath",
+  SET_CHART_SETTINGS: "/setChartSettings",
+  SET_CHART_TYPE: "/setChartType",
+  SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
+  SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
+  SET_CHAT_SECTION_STATE: "/setChatSectionState",
+  SET_CODE: "/setCode",
+  SET_CODE_FILE_BINDING: "/setCodeFileBinding",
+  SET_CODE_OBJ_DISPLAY_NAME: "/setCodeObjDisplayName",
+  SET_CODE_OBJ_NAME: "/setCodeObjName",
+  SET_CODE_SECTION_ATTACHED_TERMINAL: "/setCodeSectionAttachedTerminal",
+  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
+    "/setCodeSectionDiagnosticCodeSuppression",
+  SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
+  SET_DEFAULT_SECTION_VARIANT: "/setDefaultSectionVariant",
+  SET_EDGES: "/setEdges",
   SET_GEN_CODE_PREFIX: "/setGenCodePrefix",
   SET_GEN_CODE_SUFFIX: "/setGenCodeSuffix",
-  SET_WATCH_CODE_ENABLED: "/setWatchCodeEnabled",
-  SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
-  SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
+  SET_GROUP_OVERFLOW_MODE: "/setGroupOverflowMode",
+  SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
+  SET_LIST_ROOT_VIEW_MODE: "/setListRootViewMode",
+  SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
+  SET_PARAM_ENTERED_VALUE: "/setParamEnteredValue",
+  SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
+  SET_PROJECT_CHAT_WINDOW_CHAT_ID: "/setProjectChatWindowChatId",
+  SET_PROJECT_CHAT_WINDOWING_STATE: "/setProjectChatWindowingState",
+  SET_PROJECT_CONFIG_CODEGEN_TARGETS: "/setProjectConfigCodegenTargets",
+  SET_PROJECT_CONFIG_NAME: "/setProjectConfigName",
+  SET_PROMPT_FORMAT: "/setPromptFormat",
+  SET_PROMPT_INPUTS: "/setPromptInputs",
+  SET_PROMPT_TEMPLATE: "/setPromptTemplate",
+  SET_PROMPT_TEMPLATE_LINK: "/setPromptTemplateLink",
+  SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
+  SET_SECTION_EDGE_INPUTS: "/setSectionEdgeInputs",
+  SET_SECTION_EDGE_OUTPUTS: "/setSectionEdgeOutputs",
+  SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
+  SET_SECTION_NAME: "/setSectionName",
+  SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
+  SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
+  SET_SECTION_SIZES: "/setSectionSizes",
+  SET_SECTION_STYLE_COLOR: "/setSectionStyleColor",
+  SET_SECTION_TAG_COLOR: "/setSectionTagColor",
+  SET_SECTION_VARIANT: "/setSectionVariant",
+  SET_SECTION_VARIANT_NAME: "/setSectionVariantName",
+  SET_SECTION_VARIANT_SORT_ORDER: "/setSectionVariantSortOrder",
+  SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
+  SET_SOCIAL_URL: "/setSocialUrl",
+  SET_SPREADSHEET_FILE_PATH: "/setSpreadsheetFilePath",
+  SET_SPREADSHEET_SECTION_SETTINGS: "/setSpreadsheetSectionSettings",
+  SET_STATE_MACHINE_EDGES: "/setStateMachineEdges",
+  SET_STATE_MACHINE_SECTION_SETTINGS: "/setStateMachineSectionSettings",
+  SET_TASK_BOARD_SECTION_STATE: "/setTaskBoardSectionState",
   SET_TEXT_BLOCK_DISPLAY_MODE: "/setTextBlockDisplayMode",
   SET_TEXT_BLOCK_FORMAT: "/setTextBlockFormat",
   SET_TEXT_BLOCK_HEADING_AS_SECTION_NAME: "/setTextBlockHeadingAsSectionName",
-  SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
   SET_TEXT_BLOCK_MASTER_FONT_SIZE: "/setTextBlockMasterFontSize",
-  DOCSTRING_TO_MARKDOWN: "/docstringToMarkdown",
-  DELETE_TERMINALS: "/deleteTerminals",
-  INTERRUPT_TERMINAL_PROCESSES: "/interruptTerminalProcesses",
-  RUN_CODE: "/runCode",
-  RUN_DETACHED: "/runDetached",
-  GET_RUN_STATUS: "/getRunStatus",
-  GET_RUNNER_SUMMARY: "/getRunnerSummary",
-  CANCEL_RUN: "/cancelRun",
-  GET_ATTACHMENT_DOWNLOAD_URL: "/getAttachmentDownloadUrl",
-  GET_ATTACHMENT_DOWNLOAD_URLS: "/getAttachmentDownloadUrls",
-  CREATE_FILE: "/createFile",
-  CHECK_IF_FILE_EXISTS: "/checkIfFileExists",
-  CHECK_WORKSPACE_INITIALIZED: "/checkWorkspaceInitialized",
-  GET_FILE_BROWSER_ROOT: "/getFileBrowserRoot",
-  GET_WORKSPACE_PYTHON_SIGNAL: "/getWorkspacePythonSignal",
-  GET_FOLDER_CONTENTS: "/getFolderContents",
-  GET_FILE_BROWSER_DOWNLOAD_URLS: "/getFileBrowserDownloadUrls",
-  FILE_BROWSER_DOWNLOAD: "/fileBrowser/{token}",
-  GET_FILE_BROWSER_FILE_CONTENT: "/getFileBrowserFileContent",
-  GET_FILE_BROWSER_FILE_STAT: "/getFileBrowserFileStat",
-  WRITE_FILE_BROWSER_FILE_CONTENT: "/writeFileBrowserFileContent",
-  TRANSFER_FILE_BROWSER_ENTRY: "/transferFileBrowserEntry",
-  BINARY_UPLOAD: "/binary/upload",
-  BINARY_DOWNLOAD: "/binary/{contentId}",
-  GET_GIT_STATUS: "/git/status",
-  GET_GIT_DIFF: "/git/diff",
-  GET_GIT_LOG: "/git/log",
-  GET_GIT_COMMIT_DETAILS: "/git/commitDetails",
-  GET_GIT_COMMIT_FILE_DIFF: "/git/commitFileDiff",
-  IMPORT_FILES_TO_ARTIFACTS: "/importFilesToArtifacts",
-  LOAD_CACHED_IMAGE_ARTIFACTS: "/loadCachedImageArtifacts",
-  LOAD_CACHED_CHART_DATA: "/loadCachedChartData",
-  LOAD_CACHED_BRUSH_STROKES: "/loadCachedBrushStrokes",
-  LOAD_CACHED_DRAW_AREA_LAYER_ITEM_TRANSFORM: "/loadDrawAreaLayerItemTransform",
-  UPDATE_ARTIFACTS: "/updateArtifacts",
-  DELETE_ARTIFACTS: "/deleteArtifacts",
-  APPEND_DRAW_AREA_LAYER_ITEM: "/appendDrawAreaLayerItem",
-  FORCE_REFRESH_LISTENER: "/forceRefreshListener",
+  SET_TEXT_BLOCK_META_CONTROL_STYLE: "/setTextBlockMetaControlStyle",
+  SET_TEXT_BLOCK_TEXT: "/setTextBlockText",
   SET_TOP_LEVEL_SECTION_LAYOUT: "/setTopLevelSectionLayout",
-  TOGGLE_SECTION_VISIBILITY: "/toggleSectionVisibility",
-  AUTO_LAYOUT_TOP_LEVEL_SECTIONS: "/autoLayoutTopLevelSections",
-  SET_SHOW_PARAM_DISPLAY_NAMES: "/setShowParamDisplayNames",
-  GROUP_SECTIONS: "/groupSections",
-  UNGROUP_GROUPS: "/ungroupGroups",
-  SET_SECTION_SIZES: "/setSectionSizes",
-  SET_ACTIVE_IDS: "/setActiveIds",
-  SET_SECTION_PARAM_FILTER: "/setSectionParamFilter",
-  SET_META_CONTROL_SHOW_SECTION_TITLE: "/setMetaControlShowSectionTitle",
-  SET_SECTION_COLUMN_WIDTH: "/setSectionColumnWidth",
-  TOGGLE_POSITION_LOCKS: "/togglePositionLocks",
-  TOGGLE_MINIMIZED: "/toggleMinimized",
-  SET_SECTION_EDGE_INPUTS: "/setSectionEdgeInputs",
-  SET_SECTION_EDGE_OUTPUTS: "/setSectionEdgeOutputs",
-  SET_PARENT_DEFAULT_CHILD_SECTION_TYPE: "/setParentDefaultChildSectionType",
-  SET_LIST_ROOT_VIEW_MODE: "/setListRootViewMode",
-  TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
-  SET_GROUP_OVERFLOW_MODE: "/setGroupOverflowMode",
-  SET_SECTION_TAG_COLOR: "/setSectionTagColor",
-  SET_SECTION_STYLE_COLOR: "/setSectionStyleColor",
-  SET_CALLABLE_HIDE_PARAMS: "/setCallableHideParams",
-  SET_SECTION_HIDE_UNPINNED_PARAMS: "/setSectionHideUnpinnedParams",
-  SET_SECTION_PINNED_PARAMS: "/setSectionPinnedParams",
-  SET_BROWSER_COLUMN_WIDTHS: "/setBrowserColumnWidths",
-  SET_BROWSER_AREA_VIEW_MODE: "/setBrowserAreaViewMode",
-  SET_BROWSER_HIDE_COLUMN: "/setBrowserHideColumn",
-  SET_BROWSER_SAVED_SEARCHES: "/setBrowserSavedSearches",
-  SET_SPREADSHEET_FILE_PATH: "/setSpreadsheetFilePath",
-  SET_SPREADSHEET_SECTION_SETTINGS: "/setSpreadsheetSectionSettings",
-  SET_TASK_BOARD_SECTION_STATE: "/setTaskBoardSectionState",
-  SET_IMAGE_AREA_IMAGE_PATH: "/setImageAreaImagePath",
-  SET_SOCIAL_URL: "/setSocialUrl",
-  SET_CHART_AREA_DATA_PATH: "/setChartAreaDataPath",
-  SET_CHART_TYPE: "/setChartType",
-  SET_CHART_SETTINGS: "/setChartSettings",
-  SET_CODE_FILE_BINDING: "/setCodeFileBinding",
-  TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
-  UNSELECT_ALL_PARAMS: "/unselectAllParams",
+  SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
+  SET_VARIANT_JSON_SOURCE_KEYS: "/setVariantJsonSourceKeys",
+  SET_VIEW_MODE_NAME: "/setViewModeName",
+  SET_VIEW_MODE_SORT_ORDER: "/setViewModeSortOrder",
   SET_VIEWPORT: "/setViewport",
-  GET_LISTENER_COVERAGE: "/getListenerCoverage",
-  GET_LLM_CONFIG: "/llm/config",
-  SET_LLM_CONFIG: "/llm/config",
-  GET_LLM_API_KEYS: "/llm/apiKeys",
-  SET_LLM_API_KEYS: "/llm/apiKeys",
-  GET_AGENT_PROFILES: "/getAgentProfiles",
-  GET_AGENT_PROFILE: "/getAgentProfile",
-  CREATE_AGENT_PROFILE: "/createAgentProfile",
-  UPDATE_AGENT_PROFILE: "/updateAgentProfile",
-  DELETE_AGENT_PROFILE: "/deleteAgentProfile",
-  GET_AGENT_RUNS: "/getAgentRuns",
-  GET_AGENT_RUN: "/getAgentRun",
-  START_AGENT_RUN: "/startAgentRun",
-  STOP_AGENT_RUN: "/stopAgentRun",
-  START_STATE_MACHINE_RUN: "/startStateMachineRun",
-  STOP_STATE_MACHINE_RUN: "/stopStateMachineRun",
-  RESET_STATE_MACHINE: "/resetStateMachine",
-  GET_STATE_MACHINE_RUN: "/getStateMachineRun",
-  START_RUN_CHAIN: "/startRunChain",
-  STOP_RUN_CHAIN: "/stopRunChain",
-  GET_ENGINE_CONFIGS: "/getEngineConfigs",
-  GET_ENGINE_CONFIG: "/getEngineConfig",
-  CREATE_ENGINE_CONFIG: "/createEngineConfig",
-  UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
-  DELETE_ENGINE_CONFIG: "/deleteEngineConfig",
-  GET_PROMPT_TEMPLATES: "/getPromptTemplates",
-  GET_PROMPT_TEMPLATE: "/getPromptTemplate",
-  CREATE_PROMPT_TEMPLATE: "/createPromptTemplate",
-  UPDATE_PROMPT_TEMPLATE: "/updatePromptTemplate",
-  DELETE_PROMPT_TEMPLATE: "/deletePromptTemplate",
-  GET_EXTERNAL_AGENT_CONFIGS: "/getExternalAgentConfigs",
-  GET_EXTERNAL_AGENT_CONFIG: "/getExternalAgentConfig",
-  GET_EXTERNAL_AGENT_HEALTH: "/getExternalAgentHealth",
-  CREATE_EXTERNAL_AGENT_CONFIG: "/createExternalAgentConfig",
-  UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
-  DELETE_EXTERNAL_AGENT_CONFIG: "/deleteExternalAgentConfig",
-  GET_TRANSCRIPTION_PROFILES: "/getTranscriptionProfiles",
-  CREATE_TRANSCRIPTION_PROFILE: "/createTranscriptionProfile",
-  UPDATE_TRANSCRIPTION_PROFILE: "/updateTranscriptionProfile",
-  DELETE_TRANSCRIPTION_PROFILE: "/deleteTranscriptionProfile",
-  START_TRANSCRIPTION_SESSION: "/startTranscriptionSession",
-  APPEND_TRANSCRIPTION_AUDIO: "/appendTranscriptionAudio",
-  STOP_TRANSCRIPTION_SESSION: "/stopTranscriptionSession",
-  CANCEL_TRANSCRIPTION_SESSION: "/cancelTranscriptionSession",
-  GET_LLM_RESPONSE: "/getLLMResponse",
-  GET_LLM_CHAT: "/getLLMChat",
-  STOP_LLM_CHAT: "/stopLLMChat",
-  GET_EXTERNAL_AGENT_CHAT: "/getExternalAgentChat",
-  STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
-  GET_AI_FOLLOW_SNAPSHOT: "/getAIFollowSnapshot",
-  RESPOND_EXTERNAL_AGENT_APPROVAL: "/respondExternalAgentApproval",
-  RESPOND_EXTERNAL_AGENT_QUESTION: "/respondExternalAgentQuestion",
-  GET_CHAT_SECTION_CHAT_ID: "/getChatSectionChatId",
-  SET_CHAT_SECTION_SETTINGS: "/setChatSectionSettings",
-  SET_STATE_MACHINE_SECTION_SETTINGS: "/setStateMachineSectionSettings",
-  SET_CHAT_SECTION_STATE: "/setChatSectionState",
-  SET_CHAT_SECTION_CHAT_ID: "/setChatSectionChatId",
-  SET_PROMPT_TEMPLATE: "/setPromptTemplate",
-  SET_PROMPT_TEMPLATE_LINK: "/setPromptTemplateLink",
-  SET_PROMPT_INPUTS: "/setPromptInputs",
-  SET_PROMPT_FORMAT: "/setPromptFormat",
-  CREATE_WINDOW_SPACE: "/createWindowSpace",
+  SET_WATCH_CODE_ENABLED: "/setWatchCodeEnabled",
+  SET_WATCH_CODE_INPUTS: "/setWatchCodeInputs",
   SET_WINDOW_SPACE_NAME: "/setWindowSpaceName",
   SET_WINDOW_SPACE_SORT_ORDER: "/setWindowSpaceSortOrder",
-  DELETE_WINDOW_SPACE: "/deleteWindowSpace",
-  SET_PROJECT_CHAT_WINDOWING_STATE: "/setProjectChatWindowingState",
-  SET_PROJECT_CHAT_WINDOW_CHAT_ID: "/setProjectChatWindowChatId",
-  GET_AGENTIC_SUMMARY_CACHE_STATUS: "/getAgenticSummaryCacheStatus",
-  GET_APP_DEFINITION: "/getAppDefinition",
-  SET_APP_DEFINITION: "/setAppDefinition",
-  VALIDATE_APP_DEFINITION: "/validateAppDefinition",
-  GET_APP_CATALOG: "/getAppCatalog",
-  RESTART_LANGUAGE_SERVER: "/restartLanguageServer",
-  TYPE_CHECK: "/typeCheck",
-  CLEAR_TEXT_FIELD_COMPLETION: "/clearTextFieldCompletion",
+  SETUP_LAUNCHER: "/setupLauncher",
+  SHARE_DEPLOYMENT_CURRENT_SESSION: "/share/deployments/current/session",
+  SHARE_DEPLOYMENT_LATEST: "/share/deployments/{deploymentName}/latest",
+  SHARE_DEPLOYMENT_PROJECT_CONFIG:
+    "/share/deployments/{deploymentName}/{version}/project_config",
+  SHARE_DEPLOYMENT_STATE: "/share/deployments/{deploymentName}/{version}/state",
+  SHARE_DEPLOYMENT_VERSIONS: "/share/deployments/{deploymentName}/versions",
+  SHARE_DEPLOYMENTS: "/share/deployments",
+  START_AGENT_RUN: "/startAgentRun",
+  START_RUN_CHAIN: "/startRunChain",
+  START_STATE_MACHINE_RUN: "/startStateMachineRun",
+  START_TRANSCRIPTION_SESSION: "/startTranscriptionSession",
+  STOP_AGENT_RUN: "/stopAgentRun",
+  STOP_EXTERNAL_AGENT_RUN: "/stopExternalAgentRun",
+  STOP_LLM_CHAT: "/stopLLMChat",
+  STOP_RUN_CHAIN: "/stopRunChain",
+  STOP_STATE_MACHINE_RUN: "/stopStateMachineRun",
+  STOP_TRANSCRIPTION_SESSION: "/stopTranscriptionSession",
   TEXT_FIELD_COMPLETION: "/textFieldCompletion",
-  OUTPUT_ACCESSOR_COMPLETION: "/outputAccessorCompletion",
-  CODE_AREA_COMPLETION: "/codeAreaCompletion",
-  GEN_CODE_PREFIX_COMPLETION: "/genCodePrefixCompletion",
-  GEN_CODE_SUFFIX_COMPLETION: "/genCodeSuffixCompletion",
-  GET_LATEST_LSP_DIAGNOSTICS: "/getLatestLspDiagnostics",
-  SET_TYPE_ERROR_IGNORE: "/setTypeErrorIgnore",
-  SET_CODE_SECTION_DIAGNOSTICS_MUTE: "/setCodeSectionDiagnosticsMute",
-  SET_CODE_SECTION_DIAGNOSTIC_CODE_SUPPRESSION:
-    "/setCodeSectionDiagnosticCodeSuppression",
-  PLUGINS_RUNTIME: "/plugins/runtime",
-  PLUGINS_RESCAN: "/plugins/rescan",
-  PLUGINS_INSTALL: "/plugins/install",
-  PLUGINS_LINK: "/plugins/link",
-  PLUGINS_UNINSTALL: "/plugins/uninstall",
-  PLUGINS_UPDATE: "/plugins/update",
-  PLUGINS_ROLLBACK: "/plugins/rollback",
-  PLUGINS_ENABLE: "/plugins/enable",
-  PLUGINS_DISABLE: "/plugins/disable",
-  PLUGINS_CONFIG: "/plugins/config",
-  PLUGINS_LOCK_WRITE: "/plugins/lock/write",
-  PLUGINS_LOCK_APPLY: "/plugins/lock/apply",
-  PLUGINS_RESTART: "/plugins/restart",
-  WEBSOCKET_FRONTEND: "/ws/frontend",
-  WEBSOCKET_LISTENER_BY_ID: "/ws/listeners/{listenerID}",
-  WEBSOCKET_TERMINAL_BY_SECTION: "/ws/terminals/{projectID}/{sectionID}",
+  TOGGLE_GROUP_ORIENTATION: "/toggleGroupOrientation",
+  TOGGLE_IS_EDITING_VIEW_MODE: "/toggleIsEditingViewMode",
+  TOGGLE_MINIMIZED: "/toggleMinimized",
+  TOGGLE_PARAM_SELECTED: "/toggleParamSelected",
+  TOGGLE_POSITION_LOCKS: "/togglePositionLocks",
+  TOGGLE_SECTION_VISIBILITY: "/toggleSectionVisibility",
+  TOGGLE_VARIANT_FROZEN: "/toggleVariantFrozen",
+  TOGGLE_VARIANT_JSON_SOURCE: "/toggleVariantJsonSource",
+  TOGGLE_VIEW_MODE_TAB: "/toggleViewModeTab",
+  TOGGLE_VIEW_MODE_USER_FACING: "/toggleViewModeUserFacing",
+  TRANSFER_FILE_BROWSER_ENTRY: "/transferFileBrowserEntry",
+  TYPE_CHECK: "/typeCheck",
+  UNDO: "/undo",
+  UNGROUP_GROUPS: "/ungroupGroups",
+  UNINDENT_PARAMS: "/unindentParams",
+  UNSELECT_ALL_PARAMS: "/unselectAllParams",
+  UPDATE_AGENT_PROFILE: "/updateAgentProfile",
+  UPDATE_AGENTIC_EDGE: "/updateAgenticEdge",
+  UPDATE_ARTIFACTS: "/updateArtifacts",
+  UPDATE_EDGE: "/updateEdge",
+  UPDATE_ENGINE_CONFIG: "/updateEngineConfig",
+  UPDATE_EXTERNAL_AGENT_CONFIG: "/updateExternalAgentConfig",
+  UPDATE_LAUNCHER: "/updateLauncher",
+  UPDATE_PARAM_IMPL_CONFIG: "/updateParamImplConfig",
+  UPDATE_PROMPT_TEMPLATE: "/updatePromptTemplate",
+  UPDATE_STATE_MACHINE_EDGE: "/updateStateMachineEdge",
+  UPDATE_TRANSCRIPTION_PROFILE: "/updateTranscriptionProfile",
+  UPSERT_APP_GEN_CUSTOM_SKILL: "/upsertAppGenCustomSkill",
+  VALIDATE_APP_DEFINITION: "/validateAppDefinition",
+  WRITE_FILE_BROWSER_FILE_CONTENT: "/writeFileBrowserFileContent",
+  FRONTEND: "/ws/frontend",
+  LISTENER_BY_ID: "/ws/listeners/{listenerID}",
+  TERMINAL_BY_SECTION: "/ws/terminals/{projectID}/{sectionID}",
 } as const;

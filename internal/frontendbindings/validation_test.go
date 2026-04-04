@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"setta/internal/httpapi"
+	"setta/internal/wsapi"
 )
 
 type BuildTestRequest struct {
@@ -924,6 +925,42 @@ func TestBuildBindingsRejectsInvalidRouteGroups(t *testing.T) {
 func TestCurrentEndpointsPassValidation(t *testing.T) {
 	if err := validateEndpointSpecs(CurrentRouteGroups(), CurrentEndpoints()); err != nil {
 		t.Fatalf("validateEndpointSpecs(...) error = %v", err)
+	}
+}
+
+func TestCurrentRouteGroupsDiscoverOwnerRouteConstants(t *testing.T) {
+	routeCollections, err := buildRouteCollectionLookup(CurrentRouteGroups())
+	if err != nil {
+		t.Fatalf("buildRouteCollectionLookup(...) error = %v", err)
+	}
+
+	tests := []struct {
+		collection string
+		name       string
+		path       string
+	}{
+		{collection: "GoRoutePrefixes", name: "api", path: httpapi.RouteAPIPrefix},
+		{collection: "GoRootRoutes", name: "toolsCall", path: httpapi.RouteMCPToolCall},
+		{collection: "GoPluginRootRoutes", name: "pluginAssetWildcard", path: httpapi.RoutePluginsAssetWildcard},
+		{collection: "GoHTTPRoutes", name: "sdkRuntimeHandshake", path: httpapi.RouteSDKRuntimeHandshake},
+		{collection: "GoHTTPRoutes", name: "getLLMConfig", path: httpapi.RouteLLMConfig},
+		{collection: "GoHTTPRoutes", name: "setLLMConfig", path: httpapi.RouteLLMConfig},
+		{collection: "GoHTTPRoutes", name: "getFileBrowserDownloadUrls", path: httpapi.RouteGetFileBrowserDownloadURL},
+		{collection: "GoHTTPRoutes", name: "writeFileBrowserFileContent", path: httpapi.RouteWriteFileBrowserContent},
+		{collection: "GoHTTPRoutes", name: "getAIFollowSnapshot", path: httpapi.RouteGetAIFollowSnapshot},
+		{collection: "GoWebsocketRoutes", name: "listenerById", path: wsapi.RouteListenerByID},
+	}
+
+	for _, tt := range tests {
+		routes, ok := routeCollections[tt.collection]
+		if !ok {
+			t.Fatalf("missing route collection %q", tt.collection)
+		}
+		if got, ok := routes[tt.name]; !ok {
+			t.Fatalf("missing route %s.%s", tt.collection, tt.name)
+		} else if got != tt.path {
+			t.Fatalf("route %s.%s = %q, want %q", tt.collection, tt.name, got, tt.path)
+		}
 	}
 }
 
