@@ -1,6 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import _ from "lodash";
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -13,7 +14,12 @@ import {
   getCurrEffectiveCodeObjImplWithTypeGuard,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
-import { useMisc, useProjectState, useTypeErrors } from "state/definitions";
+import {
+  useMisc,
+  useNodeInternals,
+  useProjectState,
+  useTypeErrors,
+} from "state/definitions";
 import { isBaseParamCodeObjImpl } from "utils/generatedTypes";
 import {
   LiveDictAreaMount,
@@ -63,6 +69,19 @@ export function LiveDictAreaPixiOverlayShell({
     Object.is,
   );
   const viewportTransform = useReactFlow((state) => state.transform, _.isEqual);
+  const viewportZoom = viewportTransform[2];
+  const sceneNodePosition = useNodeInternals((state) => {
+    if (sceneSectionId === null) {
+      return null;
+    }
+
+    const sceneNode = state.x.get(sceneSectionId);
+    if (!sceneNode) {
+      return null;
+    }
+
+    return [sceneNode.position.x, sceneNode.position.y] as const;
+  }, _.isEqual);
   const liveDictAreaPixiPageRuntime = useOptionalLiveDictAreaPixiPageRuntime();
   const registerScene = liveDictAreaPixiPageRuntime?.registerScene;
   const reportContextLost = liveDictAreaPixiPageRuntime?.reportContextLost;
@@ -260,38 +279,47 @@ export function LiveDictAreaPixiOverlayShell({
     shouldShowDomContextLossFallback,
   ]);
 
+  const updateRegisteredSceneBounds = useCallback(() => {
+    const sceneShell = sceneShellRef.current;
+    if (!sceneShell) {
+      setRegisteredSceneBounds(null);
+      return;
+    }
+
+    const nextBounds = readRegisteredSceneBounds(sceneShell, viewportZoom);
+    setRegisteredSceneBounds((currentBounds) =>
+      areRegisteredSceneBoundsEqual(currentBounds, nextBounds)
+        ? currentBounds
+        : nextBounds,
+    );
+  }, [viewportZoom]);
+
+  useLayoutEffect(() => {
+    updateRegisteredSceneBounds();
+  }, [sceneNodePosition, updateRegisteredSceneBounds, viewportTransform]);
+
   useLayoutEffect(() => {
     const sceneShell = sceneShellRef.current;
     if (!sceneShell) {
       setRegisteredSceneBounds(null);
       return;
     }
-    const viewportZoom = viewportTransform[2];
 
-    const updateBounds = () => {
-      const nextBounds = readRegisteredSceneBounds(sceneShell, viewportZoom);
-      setRegisteredSceneBounds((currentBounds) =>
-        areRegisteredSceneBoundsEqual(currentBounds, nextBounds)
-          ? currentBounds
-          : nextBounds,
-      );
-    };
-
-    updateBounds();
+    updateRegisteredSceneBounds();
 
     const observer = new ResizeObserver(() => {
-      updateBounds();
+      updateRegisteredSceneBounds();
     });
     observer.observe(sceneShell);
-    window.addEventListener("resize", updateBounds);
-    window.addEventListener("scroll", updateBounds, true);
+    window.addEventListener("resize", updateRegisteredSceneBounds);
+    window.addEventListener("scroll", updateRegisteredSceneBounds, true);
 
     return () => {
       observer.disconnect();
-      window.removeEventListener("resize", updateBounds);
-      window.removeEventListener("scroll", updateBounds, true);
+      window.removeEventListener("resize", updateRegisteredSceneBounds);
+      window.removeEventListener("scroll", updateRegisteredSceneBounds, true);
     };
-  }, [viewportTransform]);
+  }, [updateRegisteredSceneBounds]);
 
   useEffect(() => {
     if (summaryLayout === null) {

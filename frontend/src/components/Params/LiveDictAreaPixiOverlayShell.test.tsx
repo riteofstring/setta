@@ -3,6 +3,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
+import { useNodeInternals } from "state/definitions";
 import "testUtils/reactRefreshPreamble";
 import { SectionTypeEnum } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -340,6 +341,7 @@ function buildTestLiveDictAreaMountBoundary(sectionId: string) {
 
 function RuntimeProbe() {
   const runtime = useOptionalLiveDictAreaPixiPageRuntime();
+  const firstScene = runtime?.registeredScenes[0] ?? null;
 
   return (
     <div
@@ -353,6 +355,11 @@ function RuntimeProbe() {
         runtime?.registeredScenes
           .map((scene) => `${scene.sectionId ?? ""}:${scene.renderMode}`)
           .join(",") ?? ""
+      }
+      data-live-dict-area-pixi-runtime-visible-bounds={
+        firstScene?.bounds
+          ? `${firstScene.bounds.left},${firstScene.bounds.top},${firstScene.bounds.width},${firstScene.bounds.height}`
+          : ""
       }
     />
   );
@@ -376,6 +383,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     activeValueRowBaseStateRequests.length = 0;
     activeValueRowCoreRequests.length = 0;
     toggleParamSelectedRequests.length = 0;
+    useNodeInternals.setState({ x: new Map() });
     useMiscStoreMock.setState.mockClear();
     useReactFlow.setState({
       fitViewOnInit: false,
@@ -395,6 +403,7 @@ describe("LiveDictAreaPixiOverlayShell", () => {
     activeValueRowBaseStateRequests.length = 0;
     activeValueRowCoreRequests.length = 0;
     toggleParamSelectedRequests.length = 0;
+    useNodeInternals.setState({ x: new Map() });
     useReactFlow.setState({
       fitViewOnInit: false,
       fitViewOnInitDone: false,
@@ -744,6 +753,117 @@ describe("LiveDictAreaPixiOverlayShell", () => {
         )
         ?.getAttribute("data-live-dict-area-scene-fallback-section-name"),
     ).toBe("section-1");
+  });
+
+  it("re-registers shared-runtime scene bounds when the owning section moves without resize or scroll", () => {
+    useNodeInternals.setState({
+      x: new Map([
+        [
+          "section-1",
+          {
+            height: 180,
+            id: "section-1",
+            position: { x: 120, y: 80 },
+            tempZIndex: 0,
+            width: 320,
+            zIndex: 0,
+          },
+        ],
+      ]),
+    });
+    const boundary = buildTestLiveDictAreaMountBoundary("section-1");
+
+    act(() => {
+      root.render(
+        <LiveDictAreaPixiPageRuntimeBoundary>
+          <RuntimeProbe />
+          <LiveDictAreaPixiOverlayShell
+            liveDictAreaMountProps={boundary.liveDictAreaMountProps}
+            liveDictAreaSceneBoundary={boundary.liveDictAreaSceneBoundary}
+          />
+        </LiveDictAreaPixiPageRuntimeBoundary>,
+      );
+    });
+
+    const sceneShell = container.querySelector<HTMLDivElement>(
+      "[data-live-dict-area-pixi-clipping-container='true']",
+    );
+    expect(sceneShell).not.toBeNull();
+
+    const shellRect = {
+      height: 180,
+      left: 12,
+      top: 34,
+      width: 320,
+    };
+
+    Object.defineProperty(sceneShell, "clientHeight", {
+      configurable: true,
+      value: shellRect.height,
+    });
+    Object.defineProperty(sceneShell, "clientWidth", {
+      configurable: true,
+      value: shellRect.width,
+    });
+    Object.defineProperty(sceneShell, "offsetHeight", {
+      configurable: true,
+      value: shellRect.height,
+    });
+    Object.defineProperty(sceneShell, "offsetWidth", {
+      configurable: true,
+      value: shellRect.width,
+    });
+    sceneShell.getBoundingClientRect = vi.fn(() => ({
+      bottom: shellRect.top + shellRect.height,
+      height: shellRect.height,
+      left: shellRect.left,
+      right: shellRect.left + shellRect.width,
+      top: shellRect.top,
+      width: shellRect.width,
+      x: shellRect.left,
+      y: shellRect.top,
+      toJSON: () => "",
+    })) as typeof sceneShell.getBoundingClientRect;
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    const runtimeProbe = container.querySelector(
+      "[data-live-dict-area-pixi-runtime-count]",
+    );
+    expect(
+      runtimeProbe?.getAttribute(
+        "data-live-dict-area-pixi-runtime-visible-bounds",
+      ),
+    ).toBe("12,34,320,180");
+
+    shellRect.left = 84;
+    shellRect.top = 116;
+
+    act(() => {
+      useNodeInternals.setState({
+        x: new Map([
+          [
+            "section-1",
+            {
+              height: 180,
+              id: "section-1",
+              position: { x: 420, y: 260 },
+              tempZIndex: 0,
+              width: 320,
+              zIndex: 0,
+            },
+          ],
+        ]),
+      });
+    });
+
+    expect(
+      runtimeProbe?.getAttribute(
+        "data-live-dict-area-pixi-runtime-visible-bounds",
+      ),
+    ).toBe("84,116,320,180");
   });
 
   it("switches the promptSectionDefault canary scene over to the shared page-runtime backend", () => {

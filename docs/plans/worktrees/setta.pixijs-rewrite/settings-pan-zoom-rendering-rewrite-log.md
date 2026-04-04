@@ -70,6 +70,124 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-01 420
+
+- Item: Route low-zoom shared-runtime Pixi cards through the overview renderer so `pixi-node-body` stops using blank-looking tiny detail cards as its fallback surface.
+- Status: `done`
+- Details:
+  - This was a manual follow-up slice after the last autonomous loop stopped at `REPLAN_REQUIRED`; the local source tree now contains uncommitted production/test changes for this narrowed stopgap.
+  - User priority correction for this slice:
+    - stop optimizing tiny-card fidelity as the primary goal
+    - basic Pixi functionality and DOM-equivalent behavior matter more than matching `main` on very small zoomed-out cards
+  - Production/test files changed:
+    - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+      - `LiveDictAreaPixiPageRuntimeHost` now forces `overviewEnabled: true` when it computes presentation mode for the shared page-runtime tiny-card surface
+    - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - scene-shell metadata now treats `renderBackend === "shared-page-runtime"` as overview-enabled too, so `data-live-dict-area-scene-presentation-mode` matches the runtime draw path
+      - overview row bands now use stronger silhouette fills (`palette.bodyText` / `palette.titleText` with explicit alpha) instead of very dark body fills that were still reading as empty/black at tiny sizes
+    - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+      - renamed the focused low-zoom canary to assert that shared-runtime cards switch to `overview` mode by default at minimum zoom instead of staying on `detail`
+  - Why this slice:
+    - the current `pixi-node-body` failure mode on `All Settings` was not just minor fidelity drift; the shared-runtime tiny-card surface was effectively trying to draw the detailed body view at sizes where it often read as blank/header-only
+    - the existing overview renderer already existed behind an explicit opt-in and was a better stopgap surface than continuing to tune detail glyphs that remained visually empty at tiny sizes
+- Verification:
+  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiPageRuntime.tsx src/components/Params/LiveDictAreaPixiScene.tsx tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - result: passed
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh token from setta status> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings canary switches low-zoom shared-runtime Pixi cards into overview mode by default|all settings canary keeps the first visible low-zoom Pixi cards from collapsing to group-only previews'`
+    - result: passed (`2 passed`, about `25-26s`)
+    - note: repeated reruns with stale tokens failed in Playwright global setup with `401 Unauthorized` on `/__setta__/bootstrap`; rerunning with a fresh token from `setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-rewrite/.` fixed bootstrap auth
+  - Live CDP/browser visual check:
+    - result: done
+    - worktree URL checked: `http://127.0.0.1:3043/settings?liveDictAreaRenderer=pixi-node-body`
+    - flow:
+      - opened `All Settings`
+      - zoomed out until the `zoom out` control disabled
+      - confirmed visible scene roots reported `overview` for `data-live-dict-area-scene-presentation-mode`
+    - remaining visual limitation:
+      - the low-zoom cards are still very dark/coarse in screenshots and are not yet a trustworthy DOM-parity visual match; this slice should be treated as a basic-functionality stopgap only
+- Conclusion:
+  - the shared-runtime tiny-card lane now has a simpler low-zoom fallback than the blank-looking detail renderer path
+  - this should lower the priority of tiny-card micro-fidelity work, but it does not close Gate 2 or establish normal-zoom parity/functionality
+  - the next useful slice should return to first-order `pixi-node-body` usability: visible content at normal zoom, stable pan/zoom, and DOM-equivalent active editing / interaction behavior
+- Next action:
+  - reframe the next Ralph iteration around normal-zoom renderer visibility and DOM interaction parity instead of more tiny-card appearance tuning
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-01 421
+
+- Item: Revert the discarded low-zoom stopgap and reframe Ralph around Gate 0 basic viability before any looks-parity work.
+- Status: `done`
+- Details:
+  - User priority correction for the loop:
+    - low-zoom tiny-card appearance is a red herring while the route still fails basic usability
+    - the first order of business is that `pixi-node-body` must work at normal zoom: visible body content, correct pan/zoom/move attachment, retained interaction/editing behavior, and performance that is not obviously worse than DOM
+  - User-visible failures called out directly in this conversation:
+    - `All Settings` at `liveDictAreaRenderer=pixi-node-body` still shows blank dark cards
+    - moving a section exposes the Pixi body detached below the shell/header
+    - the route is blurry/pixelated, non-interactive, and slower than the DOM version
+  - Strongest concrete blocker named for the next lane:
+    - in `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`, the registered scene-bounds refresh path only listens to `ResizeObserver`, window `resize`, window `scroll`, and `viewportTransform`
+    - moving a React Flow node does not necessarily trigger those signals, which matches the detached-body screenshot: the shell moves but the shared-runtime body stays at stale coordinates
+  - Source-tree cleanup performed in this conversation:
+    - reverted the discarded manual low-zoom overview stopgap from:
+      - `frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx`
+      - `frontend/src/components/Params/LiveDictAreaPixiScene.tsx`
+      - `frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts`
+    - updated the durable loop guidance in:
+      - `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-handoff.md`
+      - `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-log.md`
+      - `docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-plan.md`
+      - `RALPH.md`
+      - `scripts/ralph-default-prompt.md`
+  - Sequencing change:
+    - define and prioritize Gate 0 basic viability ahead of Gate 1/2/3 visual parity work
+    - explicitly forbid the next iterations from spending time on tiny-card polish, looks parity, or harness-only work while Gate 0 is still failing
+- Verification:
+  - `pnpm -C frontend exec prettier --check frontend/src/components/Params/LiveDictAreaPixiPageRuntime.tsx frontend/src/components/Params/LiveDictAreaPixiScene.tsx frontend/tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-handoff.md docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-log.md docs/plans/worktrees/setta.pixijs-rewrite/settings-pan-zoom-rendering-rewrite-plan.md RALPH.md scripts/ralph-default-prompt.md`
+    - result: passed
+    - note: the first attempt used repo-root paths while running under `pnpm -C frontend exec` and failed to match files; rerunning the same check with `frontend`-relative paths and `../` prefixes for repo-root docs/config files passed
+  - Live CDP/browser visual check:
+    - result: not run
+    - reason: this was a docs/config reprioritization pass plus a revert of a discarded local stopgap, not a new renderer slice
+- Conclusion:
+  - the worktree is back on the pre-stopgap renderer baseline
+  - the loop guidance now names the actual product failures and pushes Ralph toward one serious normal-zoom viability slice instead of more tiny-card appearance churn
+- Next action:
+  - on the next Ralph iteration, fix shared-runtime scene-bound re-registration on node movement, then lock it with a focused `LiveDictAreaPixiOverlayShell.test.tsx` regression and a move-a-section Playwright/CDP check before doing any more looks work
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 422
+
+- Item: Refresh shared-runtime scene bounds when a normal-zoom Pixi section moves.
+- Status: `done`
+- Details:
+  - Landed a production Gate 0 fix in `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.tsx`.
+  - The overlay shell now derives a movement signal from the authoritative `useNodeInternals` position for its owning section and re-runs `readRegisteredSceneBounds()` in a layout effect after section-position commits.
+  - Resize/scroll observers remain the steady-state bounds update path, but listener churn is now limited to zoom changes instead of every viewport pan tick.
+  - Added a focused regression in `frontend/src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx` proving a moved section updates registered shared-runtime bounds without any resize/scroll/zoom signal.
+  - The regression patches the rendered shell rect, updates only the `useNodeInternals` position for `section-1`, and confirms the runtime-visible bounds move from `12,34,320,180` to `84,116,320,180`.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed (`27 passed`)
+  - `pnpm -C frontend exec prettier --check src/components/Params/LiveDictAreaPixiOverlayShell.tsx src/components/Params/LiveDictAreaPixiOverlayShell.test.tsx`
+    - result: passed
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3043/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8043 SETTA_BOOTSTRAP_TOKEN=<fresh worktree token> pnpm -C frontend exec playwright test --reporter=line tests/e2e/settings/settings-all-settings-live-pixi-canary.spec.ts --grep 'all settings canary keeps browserSectionDefault on the shared page runtime without dom-context-lost'`
+    - result: passed (`1 passed`, about `12.5s`)
+  - Fresh-context CDP visual check via sub-agent on worktree `All Settings`
+    - result: done
+    - checked visible normal-zoom `Default Child Section Type "Callable"` section
+    - dragging the section no longer left the Pixi body detached below the shell/header; the body stayed visually attached during the move and after drop
+- Conclusion:
+  - the stale shared-runtime movement-registration bug is resolved for the checked normal-zoom canary
+  - this closes the movement-attachment lane unless the detached-body symptom reappears
+  - remaining Gate 0 failures still include blank dark bodies on some cards, blur/pixelation, non-equivalent interaction/editing, and worse-than-DOM performance
+- Next action:
+  - target the remaining blank-dark-body / visible-content failure on one normal-zoom `All Settings` Pixi section instead of returning to support work or low-zoom polish
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 419
 
 - Item: Test and reject another shared-runtime tiny-card renderer hypothesis after the trusted same-state compare stayed header-only versus `main`.
@@ -612,6 +730,7 @@ LOOP_TERMINAL_MARKER: none
   - Use the trusted same-state canary/main compare path to pick one concrete low-zoom tiny-card mismatch and land a production renderer fix there instead of reopening `browserSectionDefault` support work.
 
 LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-01 417
 
 - Item: Test and reject a logical-space shared-runtime bounds patch for the low-zoom tiny-card drift.
