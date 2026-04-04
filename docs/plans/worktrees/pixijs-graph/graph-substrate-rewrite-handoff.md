@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 12:35 EDT
+Last updated: 2026-04-03 12:52 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,24 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `038` closed the post-motion title-edit handoff lane with a targeted test-only patch instead of another product change.
+  - Root cause:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` still tried to prove the title-edit lane by zooming with a plain wheel gesture after pan
+    - item `030` intentionally changed the canary wheel contract so plain wheel pans unless the zoom activation path is used, so the old test now failed before it ever reached the DOM editing handoff it meant to verify
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now uses the shared `zoom in` control for the post-motion zoom step, keeping the title-edit handoff probe aligned with the live canary zoom behavior
+  - Verification:
+    - `./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps title editing working after pan and zoom'`
+      - result: failed with the known temp-workspace bootstrap `401`; treat that launcher path as harness noise for this slice, not as a reopened renderer bug
+    - `source activate.sh && ... setta status --connect-info --latest --json ... && PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=<fresh token> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps title editing working after pan and zoom'`
+      - result: passed (`1 passed`, about `14s`)
+    - fresh-context CDP sub-agent normalized fresh worktree and read-only `main` `/settings` tabs to active `All Settings`, applied one shared `fit view`, zoomed, and checked the shared `Core` section title-edit handoff
+      - result: no worktree-only renderer or editing-handoff defect observed on the checked lane
+      - note: the chosen shared section did not expose an inline title editor on either side during the manual probe, so treat that specific observation as parity evidence rather than a new worktree bug
+  - conclusion for this slice:
+    - the post-motion title-edit handoff lane is closed for the current canary path
+    - do not reopen it unless the direct live-runtime Playwright check or a fresh normalized CDP compare fails again
+    - the next bounded frontier should move to a deeper DOM body-editor handoff or another remaining interaction lane, not more title-edit oracle churn
 - Ralph item `037` closed the normalized shared-section `All Settings` pan/drag compare lane without a code patch.
   - Process:
     - the first fresh-context CDP sub-agent in this iteration still could not access `chrome-devtools-mcp`

@@ -889,9 +889,9 @@ test("settings graph substrate canary keeps title editing working after pan and 
     throw new Error("Missing moved canary bounds for title edit test.");
   }
 
-  const zoomStart = await findCanaryPanePoint(page);
-  await page.mouse.move(zoomStart.x, zoomStart.y);
-  await page.mouse.wheel(0, -180);
+  // Plain wheel now pans on this surface; use the shared zoom control to keep
+  // the post-motion editing handoff check aligned with the live zoom contract.
+  await page.getByRole("button", { name: "zoom in" }).click();
 
   await expect
     .poll(() => getCanaryViewportScale(page))

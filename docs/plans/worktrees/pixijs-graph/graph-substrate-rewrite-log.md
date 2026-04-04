@@ -1271,3 +1271,33 @@ LOOP_TERMINAL_MARKER: none
   - run the next fresh controlled worktree-vs-`main` compare on normal-zoom `All Settings` and isolate the next distinct stable Gate 1 / Gate 2 drift; if minimap content under-rendering still appears, confirm it again under that fresh compare before landing code
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 038
+
+- Item: Revalidate the post-motion title-edit handoff lane on `All Settings` and fix any stale automation blocking a trustworthy verdict.
+- Status: `done`
+- Details:
+  - This iteration did not surface a new worktree renderer bug; it found a stale focused Playwright expectation on the checked interaction lane.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` was still using a plain wheel gesture to create the "after zoom" state in `settings graph substrate canary keeps title editing working after pan and zoom`.
+  - After item `030`, plain wheel on the canary intentionally pans instead of zooming unless the zoom activation path is used, so the old check failed before it ever reached the DOM title-edit handoff it was supposed to verify.
+  - The focused E2E now uses the shared `zoom in` control for that post-pan zoom step, which keeps the lane aligned with the current canary zoom contract without touching production code.
+  - A fresh-context CDP sub-agent normalized fresh worktree and read-only `main` tabs to `All Settings`, applied a shared `fit view`, zoomed, and checked the shared `Core` section title-edit handoff.
+  - That CDP compare did not isolate a worktree-only renderer or editing-handoff defect; the chosen shared section simply did not expose an inline title editor on either side during the manual probe.
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps title editing working after pan and zoom'`
+    - result: failed with the known temp-workspace bootstrap `401`
+  - `source activate.sh && CONNECT_JSON_B64=$(env SETTA_FILES_ROOT=/Users/jeff/Documents/_projects/setta.pixijs-graph/setta_files_dev setta status --connect-info --latest --json --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. | sed 's/^__SETTA_JSON_B64__//') && BOOTSTRAP_TOKEN=<fresh token from connect-info> && env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075 SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_BOOTSTRAP_TOKEN=\"$BOOTSTRAP_TOKEN\" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps title editing working after pan and zoom'`
+    - result: passed (`1 passed`, about `14s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent compared fresh worktree and `main` `/settings` tabs on normalized `All Settings`
+      - after shared fit + zoom, the checked shared `Core` section did not show a worktree-only motion/edit defect
+      - remaining differences were oracle noise around preexisting focus/selection state, not renderer drift
+- Conclusion:
+  - the post-motion title-edit handoff lane is closed for the checked canary path
+  - the focused automation now matches the live canary wheel semantics, so this lane should not be reopened unless the direct live Playwright path or a fresh normalized CDP compare fails
+- Next action:
+  - probe a deeper DOM body-editor handoff on a shared named `All Settings` section, or move to the next distinct interaction lane that still lacks normalized worktree-vs-`main` evidence
+
+LOOP_TERMINAL_MARKER: none
