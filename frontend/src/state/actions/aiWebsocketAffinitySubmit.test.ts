@@ -81,12 +81,7 @@ describe("submitMessage websocket affinity", () => {
     route_get_llm_response.mockResolvedValue({
       status: 200,
       hasResponse: true,
-      data: {
-        chatId: returnedChatId,
-        runId: "run-affinity-refresh",
-        engineType: "setta_llm",
-        sectionId: null,
-      },
+      data: returnedChatId,
     });
 
     setActiveFrontendWebsocketAffinityGeneration(1);
