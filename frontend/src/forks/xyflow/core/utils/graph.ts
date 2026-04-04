@@ -1,3 +1,8 @@
+import {
+  fitViewportToWorldRect,
+  screenPointToWorldPoint,
+  worldPointToScreenPoint,
+} from "components/Pages/Project/graphSubstrate/viewportTransform";
 import type { Selection as D3Selection } from "d3";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
@@ -7,7 +12,6 @@ import {
   useSectionRefs,
 } from "state/definitions";
 import { Position } from "utils/generatedTypes";
-import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { useReactFlow } from "../store";
 import type { Node, ReactFlowState, Rect, Transform, Viewport } from "../types";
@@ -25,10 +29,10 @@ export const pointToRendererPoint = (
   [snapX, snapY]: [number, number],
   ignoreGrid?: boolean,
 ): Position => {
-  const position: Position = {
-    x: (x - tx) / tScale,
-    y: (y - ty) / tScale,
-  };
+  const position = screenPointToWorldPoint(
+    { x, y },
+    { x: tx, y: ty, zoom: tScale },
+  );
 
   if (!ignoreGrid && snapToGrid) {
     return {
@@ -44,10 +48,7 @@ export const rendererPointToPoint = (
   { x, y }: Position,
   [tx, ty, tScale]: Transform,
 ): Position => {
-  return {
-    x: x * tScale + tx,
-    y: y * tScale + ty,
-  };
+  return worldPointToScreenPoint({ x, y }, { x: tx, y: ty, zoom: tScale });
 };
 
 export const getNodesBounds = (nodes: Node[]): Rect => {
@@ -134,31 +135,21 @@ export const getViewportForBounds = (
   padding = 0.1,
   keepCurrZoomIfPossible = false,
 ): Viewport => {
-  const xZoom = width / (bounds.width * (1 + padding));
-  const yZoom = height / (bounds.height * (1 + padding));
-  const unclampedZoom = Math.min(xZoom, yZoom);
-  const clampedZoom = clamp(unclampedZoom, minZoom, maxZoom);
-  const boundsCenterX = bounds.x + bounds.width / 2;
-  const boundsCenterY = bounds.y + bounds.height / 2;
-
-  let zoom = clampedZoom;
-  if (keepCurrZoomIfPossible) {
-    const currZoom = useReactFlow.getState().transform[2];
-    // if we have to zoom out to view the whole bounds
-    // or if we have to zoom in to reach a "reasonable" zoom level
-    zoom =
-      unclampedZoom < currZoom || clampedZoom > currZoom
-        ? clampedZoom
-        : currZoom;
-  }
-
-  const x =
-    width / 2 -
-    boundsCenterX * zoom +
-    useLocalStorage.getState().overviewTrueWidth;
-  const y = height / 2 - boundsCenterY * zoom;
-
-  return { x, y, zoom };
+  return fitViewportToWorldRect(
+    bounds,
+    { width, height },
+    {
+      minZoom,
+      maxZoom,
+      padding,
+      keepCurrentZoomIfPossible: keepCurrZoomIfPossible,
+      currentZoom: useReactFlow.getState().transform[2],
+      centerScreenPoint: {
+        x: width / 2 + useLocalStorage.getState().overviewTrueWidth,
+        y: height / 2,
+      },
+    },
+  );
 };
 
 export const getD3Transition = (
