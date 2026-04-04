@@ -4393,3 +4393,37 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to a different normalized dynamic lane on `All Settings` instead of spending another iteration on Browser title-drag oracle churn; prefer a non-Browser shared section with a visibly present body/control anchor or the first concrete renderer defect surfaced by a fresh graph-surface compare
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 15:45 EDT - Ralph item 129
+
+- Reran the normalized modified-wheel zoom delta main-reference lane on the current run-048 surfaces and closed it as clean again, using the planned CDP fallback static sanity check instead of pretending CDP can replay the native modified-wheel gesture.
+- Why this slice was necessary:
+  - the last two completed iterations were both probe-shape fixes on the same drag/edit lane, so the next bounded step had to move to a different dynamic path rather than spend a third pass on the same oracle family
+  - the plan/handoff explicitly named the modified-wheel zoom delta lane as the next different shared motion compare to rerun on normalized `All Settings`
+  - this deterministic lane already had end-to-end Playwright coverage, so it was the narrowest way to answer whether a real canary-only zoom artifact remained on the current live worktree/main runtimes
+- Production/test change:
+  - no production or test files changed in this slice
+- Verification:
+  - refreshed run-048 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-048/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-048/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-048 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-048 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe applies the same modified-wheel zoom delta on read-only main legacy and worktree canary after normalized fit' --reporter=line`
+      - result: passed (`1 passed`, `39.9s`)
+  - fresh-context CDP sub-agent on the exact modified-wheel replay:
+    - reached both live tabs, but the exact modified-wheel replay remained MCP-limited and did not produce a trustworthy shared zoom on read-only `main`
+    - treat that as the known tool boundary for this lane, not as renderer evidence
+  - fallback fresh-context CDP sub-agent:
+    - reused the live `3075/settings` canary tab and `3087/settings` legacy tab
+    - normalized both tabs to `All Settings`, clicked one shared `fit view`, then clicked one shared toolbar `zoom in`
+    - chosen shared section: `genPythonCodeSectionDefault`
+    - after fit on both: transform `matrix(0.1, 0, 0, 0.1, 712.4, -51.7)` and section rect `{ x: 772.5, y: 224.40000915527344, width: 55, height: 35.00001525878906 }`
+    - after zoom on both: transform `matrix(0.12, 0, 0, 0.12, 710.88, -144.84)` and section rect `{ x: 783, y: 179.27999877929688, width: 66, height: 42 }`
+    - no canary-only visual drift, blur, or surrounding-card mismatch was visible on the checked fallback state
+  - CDP visual check: done (fresh-context fallback static sanity check for the modified-wheel lane on live `3075` canary vs read-only `3087` legacy; shared `fit view -> toolbar zoom in` matched on `genPythonCodeSectionDefault` after the exact modified-wheel gesture hit the known MCP tool boundary)
+- Lane status:
+  - close the normalized modified-wheel zoom delta lane again for the current run-048 surfaces
+  - do not reopen the exact live CDP modified-wheel replay path unless MCP gains a trustworthy native wheel input or a future deterministic Playwright rerun starts failing
+  - when this lane needs live visual context, use the same fallback static sanity check shape instead of treating the MCP wheel-input gap as a product defect
+- Next frontier:
+  - pick one different normalized dynamic lane on `All Settings` instead of reopening modified-wheel or the recent drag/edit oracle family; prefer a shared non-Browser section with a visibly present body/control anchor or a fresh normalized compare that isolates the first remaining canary-only renderer defect
+- LOOP_TERMINAL_MARKER: none
