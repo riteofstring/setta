@@ -2,7 +2,6 @@ package frontendbindings
 
 import (
 	_ "embed"
-	"strings"
 
 	"setta/internal/realtime"
 )
@@ -18,6 +17,18 @@ var websocketSupportReadOptionalStringTemplate string
 
 //go:embed templates/websocket_support_read_duration_ms.ts.tmpl
 var websocketSupportReadDurationMsTemplate string
+
+//go:embed templates/websocket_support_read_activation_steps.ts.tmpl
+var websocketSupportReadActivationStepsTemplate string
+
+//go:embed templates/websocket_support_read_reveal_targets.ts.tmpl
+var websocketSupportReadRevealTargetsTemplate string
+
+//go:embed templates/websocket_support_ui_setting_reveal_content_schema.ts.tmpl
+var websocketSupportUISettingRevealContentSchemaTemplate string
+
+//go:embed templates/websocket_support_dependency_event_schema.ts.tmpl
+var websocketSupportDependencyEventSchemaTemplate string
 
 type WebsocketConnectionType string
 
@@ -129,6 +140,22 @@ type websocketStringFieldSpec struct {
 	Optional     bool
 }
 
+type websocketStringFieldRenderData struct {
+	PropertyName  string
+	ValueExpr     string
+	FieldPathExpr string
+	Optional      bool
+}
+
+type websocketUISettingRevealContentSchemaTemplateData struct {
+	LeadingStringFields  []websocketStringFieldRenderData
+	TrailingStringFields []websocketStringFieldRenderData
+}
+
+type websocketDependencyEventSchemaTemplateData struct {
+	FieldNames []string
+}
+
 var uiSettingRevealActivationStepFieldSpecs = []websocketStringFieldSpec{
 	{PropertyName: "type"},
 	{PropertyName: "itemValue"},
@@ -154,33 +181,36 @@ func websocketIndexedFieldPathExpr(baseExpr string, propertyName string) string 
 	return baseExpr + ` + "].` + propertyName + `"`
 }
 
-func writeWebsocketStringFieldReadTS(
-	builder *strings.Builder,
-	indent string,
-	propertyName string,
-	valueExpr string,
-	fieldPathExpr string,
-	optional bool,
-) {
-	builder.WriteString(indent)
-	builder.WriteString(propertyName)
-	builder.WriteString(": ")
-	if optional {
-		builder.WriteString("websocketSupportReadOptionalString(\n")
-	} else {
-		builder.WriteString("websocketSupportReadRequiredString(\n")
+func buildWebsocketStringFieldRenderData(
+	valueExprBase string,
+	fieldPathBase string,
+	specs []websocketStringFieldSpec,
+) []websocketStringFieldRenderData {
+	fields := make([]websocketStringFieldRenderData, 0, len(specs))
+	for _, spec := range specs {
+		fields = append(fields, websocketStringFieldRenderData{
+			PropertyName: spec.PropertyName,
+			ValueExpr:    valueExprBase + "." + spec.PropertyName,
+			FieldPathExpr: websocketIndexedFieldPathExpr(
+				fieldPathBase,
+				spec.PropertyName,
+			),
+			Optional: spec.Optional,
+		})
 	}
-	innerIndent := indent + "  "
-	builder.WriteString(innerIndent)
-	builder.WriteString(valueExpr)
-	builder.WriteString(",\n")
-	builder.WriteString(innerIndent)
-	builder.WriteString(fieldPathExpr)
-	builder.WriteString(",\n")
-	builder.WriteString(innerIndent)
-	builder.WriteString("issues,\n")
-	builder.WriteString(indent)
-	builder.WriteString("),\n")
+	return fields
+}
+
+func buildWebsocketRootStringFieldRenderData(
+	propertyName string,
+	optional bool,
+) websocketStringFieldRenderData {
+	return websocketStringFieldRenderData{
+		PropertyName:  propertyName,
+		ValueExpr:     "value." + propertyName,
+		FieldPathExpr: websocketLiteralStringExpr(propertyName),
+		Optional:      optional,
+	}
 }
 
 func websocketSafeParseDeclarations() []TypeDeclaration {
@@ -228,163 +258,67 @@ func buildWebsocketSupportReadDurationMsBodyTS() string {
 }
 
 func buildWebsocketReadActivationStepsBodyTS() string {
-	var builder strings.Builder
-	builder.WriteString("  if (value === undefined) {\n")
-	builder.WriteString("    return [];\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  if (!Array.isArray(value)) {\n")
-	builder.WriteString("    issues.push(fieldName + \" must be an array.\");\n")
-	builder.WriteString("    return [];\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  const steps: Array<UISettingRevealActivationStep> = [];\n")
-	builder.WriteString("  value.forEach((entry, index) => {\n")
-	builder.WriteString("    if (!websocketSupportIsRecord(entry)) {\n")
-	builder.WriteString("      issues.push(fieldName + \"[\" + index + \"] must be an object.\");\n")
-	builder.WriteString("      return;\n")
-	builder.WriteString("    }\n")
-	builder.WriteString("    steps.push({\n")
-	for _, spec := range uiSettingRevealActivationStepFieldSpecs {
-		writeWebsocketStringFieldReadTS(
-			&builder,
-			"      ",
-			spec.PropertyName,
-			"entry."+spec.PropertyName,
-			websocketIndexedFieldPathExpr(`fieldName + "[" + index`, spec.PropertyName),
-			spec.Optional,
-		)
-	}
-	builder.WriteString("    });\n")
-	builder.WriteString("  });\n")
-	builder.WriteString("  return steps;\n")
-	return builder.String()
+	return mustRenderFrontendBindingTemplate(
+		"websocketSupportReadActivationSteps",
+		websocketSupportReadActivationStepsTemplate,
+		struct {
+			Fields []websocketStringFieldRenderData
+		}{
+			Fields: buildWebsocketStringFieldRenderData(
+				"entry",
+				`fieldName + "[" + index`,
+				uiSettingRevealActivationStepFieldSpecs,
+			),
+		},
+	)
 }
 
 func buildWebsocketReadRevealTargetsBodyTS() string {
-	var builder strings.Builder
-	builder.WriteString("  if (!Array.isArray(value)) {\n")
-	builder.WriteString("    issues.push(\"reveals must be an array.\");\n")
-	builder.WriteString("    return [];\n")
-	builder.WriteString("  }\n")
-	builder.WriteString("  const targets: Array<UISettingRevealTarget> = [];\n")
-	builder.WriteString("  value.forEach((entry, index) => {\n")
-	builder.WriteString("    if (!websocketSupportIsRecord(entry)) {\n")
-	builder.WriteString("      issues.push(\"reveals[\" + index + \"] must be an object.\");\n")
-	builder.WriteString("      return;\n")
-	builder.WriteString("    }\n")
-	builder.WriteString("    targets.push({\n")
-	for _, spec := range uiSettingRevealTargetFieldSpecs {
-		writeWebsocketStringFieldReadTS(
-			&builder,
-			"      ",
-			spec.PropertyName,
-			"entry."+spec.PropertyName,
-			websocketIndexedFieldPathExpr(`"reveals[" + index`, spec.PropertyName),
-			spec.Optional,
-		)
-	}
-	builder.WriteString("      revealActivationSteps: websocketSupportReadActivationSteps(\n")
-	builder.WriteString("        entry.revealActivationSteps,\n")
-	builder.WriteString("        ")
-	builder.WriteString(websocketIndexedFieldPathExpr(`"reveals[" + index`, "revealActivationSteps"))
-	builder.WriteString(",\n")
-	builder.WriteString("        issues,\n")
-	builder.WriteString("      ),\n")
-	builder.WriteString("    });\n")
-	builder.WriteString("  });\n")
-	builder.WriteString("  return targets;\n")
-	return builder.String()
+	return mustRenderFrontendBindingTemplate(
+		"websocketSupportReadRevealTargets",
+		websocketSupportReadRevealTargetsTemplate,
+		struct {
+			Fields                             []websocketStringFieldRenderData
+			RevealActivationStepsFieldPathExpr string
+		}{
+			Fields: buildWebsocketStringFieldRenderData(
+				"entry",
+				`"reveals[" + index`,
+				uiSettingRevealTargetFieldSpecs,
+			),
+			RevealActivationStepsFieldPathExpr: websocketIndexedFieldPathExpr(
+				`"reveals[" + index`,
+				"revealActivationSteps",
+			),
+		},
+	)
 }
 
 func buildUISettingRevealContentSchemaExprTS() string {
-	var builder strings.Builder
-	builder.WriteString("{\n")
-	builder.WriteString("  safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {\n")
-	builder.WriteString("    if (!websocketSupportIsRecord(value)) {\n")
-	builder.WriteString("      return {\n")
-	builder.WriteString("        success: false,\n")
-	builder.WriteString("        error: {\n")
-	builder.WriteString("          issues: [\"Expected UISettingRevealContent object.\"],\n")
-	builder.WriteString("        },\n")
-	builder.WriteString("      };\n")
-	builder.WriteString("    }\n\n")
-	builder.WriteString("    const issues: Array<string> = [];\n")
-	builder.WriteString("    const parsed: UISettingRevealContent = {\n")
-	writeWebsocketStringFieldReadTS(&builder, "      ", "projectConfigId", "value.projectConfigId", websocketLiteralStringExpr("projectConfigId"), false)
-	writeWebsocketStringFieldReadTS(&builder, "      ", "chatId", "value.chatId", websocketLiteralStringExpr("chatId"), true)
-	writeWebsocketStringFieldReadTS(&builder, "      ", "activeSectionId", "value.activeSectionId", websocketLiteralStringExpr("activeSectionId"), true)
-	builder.WriteString("      reveals: websocketSupportReadRevealTargets(value.reveals, issues),\n")
-	builder.WriteString("      durationMs: websocketSupportReadDurationMs(value.durationMs, issues),\n")
-	writeWebsocketStringFieldReadTS(&builder, "      ", "requestId", "value.requestId", websocketLiteralStringExpr("requestId"), false)
-	builder.WriteString("    };\n\n")
-	builder.WriteString("    if (issues.length > 0) {\n")
-	builder.WriteString("      return {\n")
-	builder.WriteString("        success: false,\n")
-	builder.WriteString("        error: {\n")
-	builder.WriteString("          issues,\n")
-	builder.WriteString("        },\n")
-	builder.WriteString("      };\n")
-	builder.WriteString("    }\n\n")
-	builder.WriteString("    return {\n")
-	builder.WriteString("      success: true,\n")
-	builder.WriteString("      data: parsed,\n")
-	builder.WriteString("    };\n")
-	builder.WriteString("  },\n")
-	builder.WriteString("}")
-	return builder.String()
+	return mustRenderFrontendBindingTemplate(
+		"UISettingRevealContentSchema",
+		websocketSupportUISettingRevealContentSchemaTemplate,
+		websocketUISettingRevealContentSchemaTemplateData{
+			LeadingStringFields: []websocketStringFieldRenderData{
+				buildWebsocketRootStringFieldRenderData("projectConfigId", false),
+				buildWebsocketRootStringFieldRenderData("chatId", true),
+				buildWebsocketRootStringFieldRenderData("activeSectionId", true),
+			},
+			TrailingStringFields: []websocketStringFieldRenderData{
+				buildWebsocketRootStringFieldRenderData("requestId", false),
+			},
+		},
+	)
 }
 
 func buildDependencyEventSchemaExprTS() string {
-	var builder strings.Builder
-	builder.WriteString("{\n")
-	builder.WriteString("  shape: {\n")
-	for _, fieldName := range []string{"dependencyKey", "payload", "timestampMs"} {
-		builder.WriteString("    ")
-		builder.WriteString(fieldName)
-		builder.WriteString(": true,\n")
-	}
-	builder.WriteString("  },\n")
-	builder.WriteString("  safeParse(value: unknown): SafeParseResult<DependencyEvent> {\n")
-	builder.WriteString("    if (!websocketSupportIsRecord(value)) {\n")
-	builder.WriteString("      return {\n")
-	builder.WriteString("        success: false,\n")
-	builder.WriteString("        error: {\n")
-	builder.WriteString("          issues: [\"Expected DependencyEvent object.\"],\n")
-	builder.WriteString("        },\n")
-	builder.WriteString("      };\n")
-	builder.WriteString("    }\n\n")
-	builder.WriteString("    const issues: Array<string> = [];\n")
-	builder.WriteString("    if (!(\"dependencyKey\" in value)) {\n")
-	builder.WriteString("      issues.push(\"dependencyKey is required.\");\n")
-	builder.WriteString("    }\n")
-	builder.WriteString("    if (\n")
-	builder.WriteString("      !(\"timestampMs\" in value) ||\n")
-	builder.WriteString("      typeof value.timestampMs !== \"number\" ||\n")
-	builder.WriteString("      !Number.isFinite(value.timestampMs)\n")
-	builder.WriteString("    ) {\n")
-	builder.WriteString("      issues.push(\"timestampMs must be a finite number.\");\n")
-	builder.WriteString("    }\n\n")
-	builder.WriteString("    if (issues.length > 0) {\n")
-	builder.WriteString("      return {\n")
-	builder.WriteString("        success: false,\n")
-	builder.WriteString("        error: {\n")
-	builder.WriteString("          issues,\n")
-	builder.WriteString("        },\n")
-	builder.WriteString("      };\n")
-	builder.WriteString("    }\n\n")
-	builder.WriteString("    return {\n")
-	builder.WriteString("      success: true,\n")
-	builder.WriteString("      data: {\n")
-	builder.WriteString("        dependencyKey: value.dependencyKey as BaseDependencyKeyUnion,\n")
-	builder.WriteString("        payload:\n")
-	builder.WriteString("          value.payload === undefined || value.payload === null\n")
-	builder.WriteString("            ? null\n")
-	builder.WriteString("            : (value.payload as BaseDependencyValueUnion),\n")
-	builder.WriteString("        timestampMs: value.timestampMs as number,\n")
-	builder.WriteString("      },\n")
-	builder.WriteString("    };\n")
-	builder.WriteString("  },\n")
-	builder.WriteString("}")
-	return builder.String()
+	return mustRenderFrontendBindingTemplate(
+		"DependencyEventSchema",
+		websocketSupportDependencyEventSchemaTemplate,
+		websocketDependencyEventSchemaTemplateData{
+			FieldNames: []string{"dependencyKey", "payload", "timestampMs"},
+		},
+	)
 }
 
 func websocketSupportDeclarations() []TypeDeclaration {

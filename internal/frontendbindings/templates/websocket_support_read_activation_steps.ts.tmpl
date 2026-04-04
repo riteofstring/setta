@@ -1,0 +1,24 @@
+  if (value === undefined) {
+    return [];
+  }
+  if (!Array.isArray(value)) {
+    issues.push(fieldName + " must be an array.");
+    return [];
+  }
+  const steps: Array<UISettingRevealActivationStep> = [];
+  value.forEach((entry, index) => {
+    if (!websocketSupportIsRecord(entry)) {
+      issues.push(fieldName + "[" + index + "] must be an object.");
+      return;
+    }
+    steps.push({
+{{- range .Fields }}
+      {{ .PropertyName }}: {{ if .Optional }}websocketSupportReadOptionalString{{ else }}websocketSupportReadRequiredString{{ end }}(
+        {{ .ValueExpr }},
+        {{ .FieldPathExpr }},
+        issues,
+      ),
+{{- end }}
+    });
+  });
+  return steps;
