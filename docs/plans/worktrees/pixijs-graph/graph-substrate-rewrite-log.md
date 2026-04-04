@@ -1364,6 +1364,46 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 043
+
+- Item: Run one bounded normalized graph-surface oracle pass to check whether a concrete worktree-only visible defect still remains after the recent interaction-lane closures.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not add another regression first.
+  - The last two completed slices (`041`, `042`) both ended in "live compare clean, then lock it with a test", so the next useful step had to be either a real product fix or one bounded oracle step that directly exposed the next real renderer question.
+  - A fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`.
+  - Both sides were normalized to active `All Settings`.
+  - Non-target top-right worktree label chrome was closed on both pages.
+  - No clear `viewport: null` control surfaced during this bounded pass, so the shared toolbar `fit view` action was used as the common normalization step.
+  - After that normalization, the checked visible graph surface matched exactly on both sides:
+    - `.react-flow__node`: `46`
+    - `.react-flow__edge`: `0`
+    - viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+  - Sampled visible shared sections also matched by name, position, and size:
+    - `drawSectionDefault` at `(780, 31)` size `55x35`
+    - `pluginSectionDefault` at `(780, 211)` size `55x35`
+    - `dateParamCodeObjDefault` at `(900, 451)` size `55x31`
+  - The full visible 24-node normalized grid matched by geometry and viewport transform.
+  - Remaining observed differences were outside the graph surface:
+    - transient `Autosaved!` status text on the worktree
+    - left-sidebar tag ordering/content differences
+  - Those remaining differences are oracle noise / non-target chrome, not evidence of a graph renderer defect.
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings`
+      - one shared `fit view` brought both sides to `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - the visible graph-surface node geometry matched exactly on the checked lane
+- Conclusion:
+  - no concrete worktree-only graph-surface defect was found in this bounded compare
+  - this closes the immediate question of whether the currently visible normalized `All Settings` surface still has a basic static geometry mismatch versus `main`
+  - the next real frontier should move to one shared-section Gate 2 chrome/text compare at normal zoom instead of reopening already-clean whole-surface motion or fit-view lanes
+- Next action:
+  - run a fresh normalized section-level compare on one shared visible `All Settings` section to isolate the first real text/chrome parity drift, if any
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 040
 
 - Item: Restore legacy blank-pane deselect on the `All Settings` canary and close the selected-card drift lane.

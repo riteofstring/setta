@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 13:56 EDT
+Last updated: 2026-04-03 14:04 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,28 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `043` used the required bounded normalization/oracle step to check whether a concrete graph-surface defect still remained after the recent interaction-lane closures.
+  - Process:
+    - a fresh-context CDP sub-agent opened worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings`
+    - non-target top-right worktree label chrome was closed on both pages
+    - no clear `viewport: null` control surfaced in this bounded pass, so the sub-agent applied one shared toolbar `fit view`
+  - Result:
+    - the normalized graph surface matched exactly on both sides for the checked visible lane
+    - both pages reported the same graph metrics:
+      - `.react-flow__node`: `46`
+      - `.react-flow__edge`: `0`
+      - viewport transform: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - sampled shared visible sections also matched by name, position, and size:
+      - `drawSectionDefault` at `(780, 31)` size `55x35`
+      - `pluginSectionDefault` at `(780, 211)` size `55x35`
+      - `dateParamCodeObjDefault` at `(900, 451)` size `55x31`
+    - the full visible 24-node normalized grid matched by name, geometry, and viewport transform
+    - remaining differences were non-target oracle noise outside the graph surface, including transient `Autosaved!` status text and sidebar tag ordering/content differences
+  - conclusion for this slice:
+    - no concrete worktree-only graph-surface defect was found in this bounded normalized compare
+    - do not reopen the already-closed fit / pan / wheel lanes from this evidence alone
+    - the next real frontier should move to a section-level Gate 2 chrome/text compare on one shared visible section instead of more whole-surface geometry churn
 - Ralph item `042` closed the normalized `All Settings` toolbar `fit view` lane with a targeted regression instead of another production patch.
   - Process:
     - a fresh-context CDP sub-agent normalized worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to `All Settings`, applied one shared off-fit movement, and compared explicit `fit view`
