@@ -11,7 +11,7 @@ async def test_debounce_merges_pending_payloads() -> None:
     invocations: list[dict[str, int]] = []
     event = asyncio.Event()
 
-    async def executor(payload: dict[str, int], events: list[object]):
+    async def executor(payload: dict[str, int], _events: list[object]):
         invocations.append(dict(payload))
         event.set()
 
@@ -45,7 +45,7 @@ async def test_throttle_delays_followup_invocation() -> None:
 
     loop = asyncio.get_running_loop()
 
-    async def executor(payload: dict[str, int], events: list[object]):
+    async def executor(payload: dict[str, int], _events: list[object]):
         call_times.append(loop.time())
         payloads.append(dict(payload))
         if len(call_times) == 1:
