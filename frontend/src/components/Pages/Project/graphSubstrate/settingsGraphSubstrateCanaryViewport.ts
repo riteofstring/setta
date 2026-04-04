@@ -6,18 +6,10 @@ import {
 
 const INITIAL_SCREEN_PADDING_PX = 48;
 
-export function resolveSettingsGraphSubstrateCanaryViewport(
-  currentViewport: GraphViewport | null,
-  sharedViewport: GraphViewport | null,
+export function resolveSettingsGraphSubstrateCanaryFallbackViewport(
   defaultZoomLevel: number,
   sectionPosition: Position | null,
 ): GraphViewport | null {
-  if (currentViewport) {
-    return currentViewport;
-  }
-  if (sharedViewport) {
-    return sharedViewport;
-  }
   if (!sectionPosition) {
     return null;
   }
@@ -32,6 +24,42 @@ export function resolveSettingsGraphSubstrateCanaryViewport(
       zoom: defaultZoomLevel,
     },
   );
+}
+
+export function resolveSettingsGraphSubstrateCanarySharedViewport(
+  sharedProjectViewport: GraphViewport | null,
+  sharedReactFlowViewport: GraphViewport | null,
+  fallbackViewport: GraphViewport | null,
+): GraphViewport | null {
+  if (sharedProjectViewport) {
+    return sharedProjectViewport;
+  }
+  if (!sharedReactFlowViewport) {
+    return null;
+  }
+  if (
+    fallbackViewport &&
+    sharedReactFlowViewport.x === fallbackViewport.x &&
+    sharedReactFlowViewport.y === fallbackViewport.y &&
+    sharedReactFlowViewport.zoom === fallbackViewport.zoom
+  ) {
+    return null;
+  }
+  return sharedReactFlowViewport;
+}
+
+export function resolveSettingsGraphSubstrateCanaryViewport(
+  currentViewport: GraphViewport | null,
+  sharedViewport: GraphViewport | null,
+  fallbackViewport: GraphViewport | null,
+): GraphViewport | null {
+  if (currentViewport) {
+    return currentViewport;
+  }
+  if (sharedViewport) {
+    return sharedViewport;
+  }
+  return fallbackViewport;
 }
 
 export function shouldAutoFitSettingsGraphSubstrateCanaryViewport(

@@ -53,20 +53,50 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
   await ensureAppReady(page);
   await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
   await page.waitForSelector(READY_SELECTOR);
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
 
   const allTab = page.getByRole("button", {
     name: "All Settings",
     exact: true,
   });
   await expect(allTab).toBeVisible();
-  await allTab.click();
+  try {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
 
-  await expect
-    .poll(async () => (await getCanarySectionGridSpread(page)).columnCount)
-    .toBeGreaterThan(1);
+    await allTab.click();
 
-  const spread = await getCanarySectionGridSpread(page);
-  expect(spread.columnCount).toBeGreaterThan(1);
+    await expect
+      .poll(async () => (await getCanarySectionGridSpread(page)).columnCount)
+      .toBeGreaterThan(1);
+
+    const spread = await getCanarySectionGridSpread(page);
+    expect(spread.columnCount).toBeGreaterThan(1);
+    await expect.poll(() => getCanaryViewportScale(page)).toBeLessThan(0.95);
+  } finally {
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialState.projectState.projectConfig.viewport,
+    });
+    const initialActiveViewModeId =
+      initialState.projectState.projectConfig.activeViewModeId;
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
 });
 
 test("settings graph substrate canary restores the persisted shared viewport on All Settings", async ({
@@ -84,9 +114,11 @@ test("settings graph substrate canary restores the persisted shared viewport on 
     exact: true,
   });
   const coreTab = page.getByRole("button", { name: "Core", exact: true });
-  let allSettingsInitialViewport:
-    | { x: number; y: number; zoom: number }
-    | null = null;
+  let allSettingsInitialViewport: {
+    x: number;
+    y: number;
+    zoom: number;
+  } | null = null;
 
   try {
     await expect(allTab).toBeVisible();
@@ -106,7 +138,10 @@ test("settings graph substrate canary restores the persisted shared viewport on 
       projectConfigId,
       viewport: targetViewport,
     });
-    const stateWithViewport = await getLatestProjectState(page, projectConfigId);
+    const stateWithViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
     await applyProjectStateUpdate(page, stateWithViewport);
 
     await expect(coreTab).toBeVisible();
@@ -726,6 +761,7 @@ async function findCanaryPanePoint(
 type ProjectStateSingleConfigWithCompletedOpIds = {
   projectState: {
     projectConfig: {
+      activeViewModeId: string | null;
       topLevelSections: Record<string, { x: number; y: number }>;
       viewModes: Record<string, { id: string; name: string }>;
       viewport: { x: number; y: number; zoom: number } | null;

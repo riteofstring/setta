@@ -70,6 +70,46 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 011
+
+- Item: Stop the `All Settings` canary from treating its own `{48,48,1}` fallback seed as an authoritative shared viewport when no saved camera exists.
+- Status: `blocked`
+- Details:
+  - A controlled worktree-vs-`main` CDP compare with `viewport: null` on both sides exposed the real initial-fit bug:
+    - worktree stayed at `matrix(1, 0, 0, 1, 48, 48)`
+    - `main` fit the same route to `matrix(0.428082, 0, 0, 0.428082, 1458.36, 774.733)`
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now separates:
+    - the fallback top-left seed
+    - the authoritative shared viewport source
+    - the final resolved viewport
+  - The canary now ignores a `useReactFlow` viewport when it only mirrors that fallback seed and no saved project viewport exists, so the later auto-fit is still allowed to run.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now computes fallback/shared/resolved viewport state separately and gates auto-fit against the authoritative shared viewport rather than the fallback echo.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now covers the fallback-echo rejection plus the still-authoritative non-fallback shared viewport case.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now clears the saved viewport before entering `All Settings` and asserts the canary auto-fits (`zoom < 0.95`) instead of sticking at the fallback; the persisted-viewport restore path still passes.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render|settings graph substrate canary restores the persisted shared viewport on All Settings'`
+    - result: passed (`2 passed`, about `46s`)
+  - CDP visual check before the code change
+    - result: passed and exposed the bug
+    - note:
+      - worktree cleared-viewport transform: `matrix(1, 0, 0, 1, 48, 48)`
+      - `main` cleared-viewport transform: `matrix(0.428082, 0, 0, 0.428082, 1458.36, 774.733)`
+  - CDP visual check after the code change
+    - result: blocked
+    - note:
+      - one allowed self-recovery ran: `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+      - the restarted worktree came up on frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077/`
+      - fresh CDP sub-agents still could not invoke browser page actions (`navigate_page` / `evaluate_script` / `take_snapshot`) or reported the browser tools as not invokable, so the post-fix live compare never completed
+- Conclusion:
+  - the fallback-echo ownership bug is fixed in code and covered by automated tests
+  - the remaining blocker for this iteration is the required live CDP compare after the fix, not another code-path hypothesis
+- Next action:
+  - start the next iteration from a fresh lifecycle bootstrap and retry the controlled cleared-viewport worktree-vs-`main` CDP compare before landing more viewport logic changes
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 009
 
 - Item: Stop stale `nodeInternals` from choosing the multi-section canary layout and add seeded coverage for the initial `All Settings` spread.

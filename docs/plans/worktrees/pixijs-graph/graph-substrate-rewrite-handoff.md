@@ -9,6 +9,18 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `011` landed the bounded initial-fit ownership fix inside the custom canary:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now separates three concepts explicitly:
+    - the top-left fallback viewport seed
+    - the authoritative shared viewport source
+    - the final resolved viewport
+  - the same helper now ignores a `useReactFlow` viewport when it only mirrors the canary's own fallback seed and no saved project viewport exists, which prevents the fallback `{48,48,1}` transform from suppressing the later auto-fit
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now computes fallback/shared/resolved viewport state separately and gates auto-fit against the authoritative shared viewport instead of the fallback echo
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now locks down the fallback-echo rejection and the still-authoritative non-fallback shared viewport case
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now clears the saved viewport before entering `All Settings` and proves the canary auto-fits (`zoom < 0.95`) instead of sticking at the raw fallback; the persisted-viewport restore test still passes on the same slice
+- The controlled oracle compare before the fix exposed the real blocker:
+  - after clearing the saved viewport on both sides and re-entering `All Settings`, the worktree stayed at `matrix(1, 0, 0, 1, 48, 48)` while `main` fit the view to `matrix(0.428082, 0, 0, 0.428082, 1458.36, 774.733)`
+  - that proved the canary was treating its own fallback seed as an authoritative shared viewport instead of running a real initial fit
 - Ralph item `010` landed the bounded `All Settings` saved-viewport restore fix inside the custom canary:
   - added `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` plus focused Vitest coverage in `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
   - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now resolves its initial viewport from the shared saved camera state before falling back to a fresh fit seed
@@ -72,6 +84,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - targeted Vitest passed for:
     - `src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
   - targeted Playwright passed for:
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render|settings graph substrate canary restores the persisted shared viewport on All Settings'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary restores the persisted shared viewport on All Settings'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
@@ -82,6 +95,13 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
       - direct live `/settings` inspection on the current worktree session after `Core -> All Settings` showed a restored non-fit camera state with viewport transform `translate(435.661px, 104.839px) scale(0.187602)`
       - the same tab sequence on `main` restored a more zoomed-out camera state with viewport transform `translate(779.9px, -51.7px) scale(0.1)`
       - this closes the old "is the canary always re-fitting?" question for the checked path, but it leaves an explicit Gate 1 blocker: the worktree framing still drifts visibly from `main`
+    - controlled cleared-viewport compare before item `011`: done
+      - after forcing `viewport: null` and re-entering `All Settings`, the worktree stayed at the fallback transform `matrix(1, 0, 0, 1, 48, 48)` while `main` fit to `matrix(0.428082, 0, 0, 0.428082, 1458.36, 774.733)`
+      - this is the evidence that drove the fallback-echo fix
+    - controlled cleared-viewport compare after item `011`: blocked
+      - after one allowed local self-recovery (`BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`), the worktree restarted on frontend `http://127.0.0.1:3077/` and backend `http://127.0.0.1:8077`
+      - fresh CDP sub-agents still could not invoke browser page actions; one run reported canceled `navigate_page` / `evaluate_script` / `take_snapshot` actions, and the retry reported the browser tools were not invokable at all
+      - the post-fix live compare therefore remains unverified and is the current blocker
 
 ## Architectural stance
 
@@ -113,9 +133,12 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - the trusted oracle compare is now restored and it answered the earlier question:
     - the canary is no longer just re-fitting on remount for the checked restore path
     - the remaining blocker is that the worktree’s restored `All Settings` framing is still materially different from `main`
+  - item `011` identified and fixed one more concrete ownership bug underneath that drift:
+    - with no saved viewport, the canary was previously locking itself to the fallback `{48,48,1}` seed instead of auto-fitting
+    - automated coverage now proves the canary no longer does that in the checked browser path
   - next target the real product frontier this compare exposed:
-    - determine why the saved/restored `All Settings` camera state still differs between the worktree canary and `main`
-    - only after that should another viewport-strategy code change land
+    - first retry the post-fix controlled cleared-viewport CDP compare on a fresh outer-loop bootstrap so the new live transform can be observed
+    - if that compare still shows drift versus `main`, inspect the remaining bounds/fit source mismatch rather than adding more saved-viewport plumbing
 
 ## Explicit deferrals
 
@@ -138,6 +161,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `010`
-- Latest item: `2026-04-02 010`
+- Active history window: items `001` through `011`
+- Latest item: `2026-04-02 011`
 - Older history archives: none yet
