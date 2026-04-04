@@ -2614,3 +2614,35 @@ LOOP_TERMINAL_MARKER: none
   - the trustworthy evidence for this lane is still the passing Playwright drag/frontmost guard; direct CDP mouse drag remains unreliable as the drop oracle
 - Next frontier: choose one different dynamic compare that CDP can complete end-to-end, or pair CDP post-state inspection with an existing Playwright drag oracle if another top-level drag lane genuinely needs live visual context.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-03 21:24 EDT - Ralph item 077
+
+- Normalized the `spreadsheetSectionDefault` body-search pan/zoom guard onto the named body-heavy section and removed its dependency on active-section placeholder state.
+- Why this slice was necessary:
+  - after item `076`, the next bounded frontier was one different trustworthy dynamic compare on normalized `All Settings`, and the body-search pan/zoom guard was the narrowest body-heavy motion lane that could be rerun without CDP mouse-drop ambiguity
+  - the first rerun failed immediately because it searched for `getByPlaceholder('⌘ + K')` inside `spreadsheetSectionDefault`, which made the guard depend on whichever section happened to be durably active instead of the real body-input handoff
+  - fresh-context CDP compare against read-only `main` showed this was active-state/session noise, not trustworthy proof that the spreadsheet filter input itself had vanished:
+    - `main` still exposed the spreadsheet body search input with the active-state shortcut placeholder after a short pan + zoom pulse
+    - the worktree kept stale selected-section state anchored to `stateMachineGateSectionDefault`, so the placeholder-specific probe was not a reliable renderer oracle
+- Production/test changes:
+  - updated `settings graph substrate canary keeps a body search input working after pan and zoom` in `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+  - the guard now:
+    - resolves `spreadsheetSectionDefault` by stable section id
+    - hides overview/UI editor panes and fits to that named section before motion
+    - targets the section-scoped args filter input by id instead of placeholder text
+    - restores prior pane state during cleanup
+- Verification:
+  - pre-fix failure:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a body search input working after pan and zoom'`
+      - result: failed because the `⌘ + K` placeholder was not present on the worktree lane
+  - post-fix rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a body search input working after pan and zoom'`
+      - result: passed (`1 passed`, about `20.1s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - fresh-context CDP compare:
+    - result: done on worktree `3076` vs read-only `main` `3087`; the mismatch was tied to stale active-section state and placeholder expectations rather than confirmed loss of the spreadsheet filter input
+- Lane status:
+  - the spreadsheet body-input motion guard is now aligned with the named-section normalization strategy used by the current dynamic compare lane
+  - do not reopen this lane with placeholder-specific assertions unless a future compare shows the actual filter input disappearing or detaching
+- Next frontier: return to the normalized live dynamic compare and pick the first remaining graph-surface artifact that survives cleared selection state, using the real spreadsheet filter/body anchor instead of placeholder text if this body-heavy lane is revisited.
+- LOOP_TERMINAL_MARKER: none

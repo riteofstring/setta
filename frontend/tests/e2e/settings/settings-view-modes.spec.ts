@@ -1251,6 +1251,11 @@ test("settings graph substrate canary keeps a body search input working after pa
   const initialAllSettingsViewport =
     initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
       ?.viewport ?? null;
+  const initialPaneState = await getLocalPaneState(page);
+  const spreadsheetSectionId = findSectionIdByName(
+    initialState,
+    "spreadsheetSectionDefault",
+  );
   const allTab = page.getByRole("button", {
     name: "All Settings",
     exact: true,
@@ -1275,20 +1280,33 @@ test("settings graph substrate canary keeps a body search input working after pa
     await allTab.click();
 
     const canaryPane = page.getByTestId("graph-substrate-canary");
-    const canarySections = page.getByTestId("graph-substrate-canary-section");
+    const targetSection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${spreadsheetSectionId}"]`,
+    );
     await expect(canaryPane).toBeVisible();
-    await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
 
-    const searchableSection = canarySections
-      .filter({ hasText: "spreadsheetSectionDefault" })
-      .first();
-    await expect(searchableSection).toBeVisible();
-    const sectionSearchInput = searchableSection.getByPlaceholder("⌘ + K");
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitGraphViewportToSection(page, spreadsheetSectionId)).toBe(
+      true,
+    );
+
+    await expect(targetSection).toBeVisible();
+    // The filter input placeholder depends on active-section state, so anchor
+    // the motion/editing guard to the stable section-scoped filter id instead.
+    const sectionSearchInput = targetSection.locator(
+      `[id="${spreadsheetSectionId}-args-filter"]`,
+    );
     await expect(sectionSearchInput).toBeVisible();
-    await expect(searchableSection).toHaveAttribute("data-dragging", "false");
+    await expect(targetSection).toHaveAttribute("data-dragging", "false");
 
     const initialScale = await getCanaryViewportScale(page);
-    const initialBox = await searchableSection.boundingBox();
+    const initialBox = await targetSection.boundingBox();
     if (!initialBox) {
       throw new Error("Missing canary bounds for body search test.");
     }
@@ -1301,7 +1319,7 @@ test("settings graph substrate canary keeps a body search input working after pa
 
     await expect
       .poll(async () => {
-        const movedBox = await searchableSection.boundingBox();
+        const movedBox = await targetSection.boundingBox();
         if (!movedBox) {
           return 0;
         }
@@ -1320,10 +1338,11 @@ test("settings graph substrate canary keeps a body search input working after pa
     await expect(sectionSearchInput).toBeFocused();
     await sectionSearchInput.fill("density");
     await expect(sectionSearchInput).toHaveValue("density");
-    await expect(searchableSection).toHaveAttribute("data-dragging", "false");
+    await expect(targetSection).toHaveAttribute("data-dragging", "false");
     await sectionSearchInput.fill("");
     await expect(sectionSearchInput).toHaveValue("");
   } finally {
+    await setLocalPaneState(page, initialPaneState);
     await postBackend(page, "/setActiveViewMode", {
       projectConfigId,
       activeViewModeId: allSettingsViewModeId,

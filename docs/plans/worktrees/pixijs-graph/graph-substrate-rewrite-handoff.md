@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 21:08 EDT
+Last updated: 2026-04-03 21:24 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,36 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `077` normalized the `spreadsheetSectionDefault` body-search pan/zoom guard onto the named body-heavy section and closed the placeholder-driven stale-active-state mismatch that surfaced on the first rerun.
+  - Why this slice was needed:
+    - after item `076`, the next bounded frontier was one different trustworthy dynamic compare on normalized `All Settings`, and the existing body-search pan/zoom guard was the narrowest body-heavy motion lane that could be rerun without CDP mouse-drop ambiguity
+    - that rerun failed immediately because it looked for a `⌘ + K` placeholder inside `spreadsheetSectionDefault`, which made the guard depend on whichever section happened to be durably active instead of the underlying body-input handoff
+    - fresh-context CDP compare against read-only `main` confirmed the mismatch was being driven by active-section/session state, not by a proven loss of the spreadsheet filter input itself:
+      - `main` still exposed `spreadsheetSectionDefault` with an active-state `⌘ + K` placeholder after the short pan + zoom pulse
+      - the worktree kept stale selected-section state anchored to `stateMachineGateSectionDefault`, so the same placeholder probe was not a trustworthy renderer oracle on this lane
+  - Production/test change:
+    - updated `settings graph substrate canary keeps a body search input working after pan and zoom` in `frontend/tests/e2e/settings/settings-view-modes.spec.ts` so it now:
+      - resolves `spreadsheetSectionDefault` by stable section id
+      - hides overview and UI editor panes, then fits to that named section before motion
+      - targets the section-scoped args filter input by id instead of relying on an active-state-dependent placeholder string
+      - restores the prior pane state in cleanup
+  - Automated result:
+    - initial rerun before the fix:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a body search input working after pan and zoom'`
+        - result: failed because `getByPlaceholder('⌘ + K')` found no input inside `spreadsheetSectionDefault`
+    - post-fix rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a body search input working after pan and zoom'`
+        - result: passed (`1 passed`, about `20.1s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+  - Live verification result:
+    - fresh-context CDP sub-agent compared worktree `3076` and read-only `main` `3087` on `/settings` after a short pan + `zoom in`
+    - `main` still showed a live `spreadsheetSectionDefault` body search input with `placeholder="⌘ + K"`
+    - the worktree still rendered the spreadsheet section, but the active-section chrome remained anchored to `stateMachineGateSectionDefault`, so the placeholder-driven probe was not trustworthy product evidence
+    - CDP visual check: done (worktree vs `main` body-search lane compare after short pan + zoom)
+  - conclusion for this slice:
+    - the existing body-search guard had been coupled to durable active-section/session state instead of the real body-input handoff
+    - the spreadsheet body-input motion lane is now normalized onto the named section and should not be reopened with placeholder-specific assumptions unless a future compare shows the input itself disappearing
 - Ralph item `076` reran the live `drawSectionDefault` post-drop frontmost lane with corrected in-page normalization wiring and found the remaining blocker is untrustworthy CDP mouse-drop completion, not a confirmed worktree-only renderer defect.
   - Why this slice was needed:
     - after item `075`, the next bounded frontier was one trustworthy dynamic compare on normalized `All Settings`, and the widened `drawSectionDefault` frontmost lane already had a production fix plus a passing Playwright guard but still lacked fresh live evidence
@@ -1662,6 +1692,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Immediate next frontier
 
 - The next bounded slice should leave the canvas-focus shortcut lane and the blank-pane deselect lane closed and return to the broader normalized dynamic Gate 1 / Gate 2 compare.
+- The `spreadsheetSectionDefault` body-search pan/zoom guard is now normalized and closed for the current stale-active-state question:
+  - it targets the section-scoped args filter by stable id after a named-section fit
+  - do not reopen that lane with `⌘ + K` placeholder assertions unless a future compare proves the actual input disappears
 - Use the same graph-surface-only normalization on worktree and read-only `main`:
   - close or minimize non-target pane/chat chrome
   - normalize to active `All Settings`
@@ -1710,6 +1743,9 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - the widened `drawSectionDefault` post-drop frontmost lane should not be reopened with direct CDP mouse drag unless the tool path itself changes:
     - this pass left `data-dragging` stuck `true` after mouse up and never committed the drop layout on the worktree side
     - reuse the existing Playwright drag/frontmost guard if this lane needs trustworthy evidence again, and pair it with CDP only for post-state inspection or screenshots
+  - the spreadsheet body-input lane should now be treated as a named-section wide-card lane rather than a placeholder-state oracle:
+    - the current deterministic guard widens `spreadsheetSectionDefault`, pans/zooms it, and types through the stable args-filter input id
+    - if live CDP work returns to this lane, judge the presence/position/usability of the real filter input and body anchor, not whether the active-state shortcut placeholder text matches between sessions
   - treat saved live-session cameras as noise unless the compare explicitly clears them first; a worktree reopening at `zoom 0.833333` is not by itself a product defect on this lane
   - treat differing stored active-section chrome as noise unless the lane is explicitly about selection; the worktree and `main` currently persist different `activeIds`, so future compares should clear selection before judging renderer drift
   - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
@@ -1747,6 +1783,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `076`
-- Latest item: `2026-04-03 076`
+- Active history window: items `001` through `077`
+- Latest item: `2026-04-03 077`
 - Older history archives: none yet
