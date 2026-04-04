@@ -3375,3 +3375,36 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - return to one fresh normalized live compare aimed at the next remaining canary-only production artifact on a different dynamic path, not another section-wheel guard
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 06:30 EDT - Ralph item 099
+
+- Added a normalized cross-worktree shared-title edit-after-pan parity probe and closed that bounded post-pan editing lane without inventing a production fix.
+- Why this slice was necessary:
+  - a fresh-context live CDP compare for this iteration normalized `All Settings` on worktree `3075` and read-only `main` `3087`, then checked top-level drag, modified-wheel zoom, and short blank-space pan without exposing a concrete canary-only production artifact
+  - the execution rules say that when no concrete renderer defect is visible, the next valid slice is one bounded normalization/oracle step tied to the next real interaction question rather than another wheel-specific guard or support-only cleanup
+  - shared title editing is a stable DOM handoff already available on both surfaces, so it was the narrowest post-pan interaction lane to lock down next
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - new opt-in probe: `settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary`
+    - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, fits one shared visible top-level section on both surfaces, applies the same short blank-space pan, enters title edit mode on both sides, commits a temporary rename, and verifies the edited title persists through the backend while the section remains visible on the expected surface
+    - added `restoreSectionNameForPage(...)` so the temporary title edits are restored on both runtimes before the usual state cleanup
+  - no production renderer files changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - refreshed runtime/bootstrap values before the live rerun:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-018/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-018/main-ai.log`
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps shared title editing working after normalized pane pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `40.8s`)
+  - fresh-context CDP sub-agent:
+    - normalized the live `All Settings` pages on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`, then checked top-level drag, modified-wheel zoom, and short blank-space pan
+    - no concrete canary-only production artifact was visible on those normalized dynamic paths; the only candidate seen (`Agentic link target/source` labels on the selected top section) appeared on both surfaces
+    - a later lane-specific CDP retry could not access chrome-devtools in that fresh sub-agent session, so the earlier normalized live compare remains the usable visual gate for this test-only slice
+  - CDP visual check: done (fresh-context normalized live compare on `3075` canary vs read-only `3087` legacy found no obvious canary-only drag/zoom/pan drift before the new title-edit probe was added)
+- Lane status:
+  - close the specific shared-title-edit-after-pan lane as covered by the new deterministic main-reference probe
+  - do not reopen this lane unless a later fresh compare shows the canary failing to enter title edit mode, dropping the committed rename, or detaching the edited section after the same normalized pan path
+- Next frontier:
+  - return to one fresh normalized live compare aimed at the next remaining body-editability or interaction-state artifact on a shared `All Settings` section, with production fixes preferred again if that compare finally reveals a concrete canary-only defect
+- LOOP_TERMINAL_MARKER: none
