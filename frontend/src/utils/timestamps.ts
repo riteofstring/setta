@@ -1,4 +1,4 @@
-export function getNowTimestamp() {
+function getNowTimestamp() {
   return new Date().toISOString();
 }
 
