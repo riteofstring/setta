@@ -70,6 +70,38 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 037
+
+- Item: Close the normalized shared-section `All Settings` pan/drag compare lane or isolate the first remaining canary-only motion artifact.
+- Status: `done`
+- Details:
+  - This iteration intentionally did not invent a new production patch before checking the plan's next real frontier.
+  - The first fresh-context CDP sub-agent still could not access `chrome-devtools-mcp`.
+  - Per loop recovery rules, the current non-main worktree lifecycle was restarted once with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`.
+  - After restart, the refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, bootstrap session `e7c93a`, and `pnpm -C frontend cdp-port` reported `9298`.
+  - A second fresh-context CDP sub-agent then succeeded:
+    - it opened fresh worktree and read-only `main` pages on `/settings`
+    - normalized both sides to active `All Settings`
+    - minimized non-target pane/chat chrome where present
+    - applied one shared `fit view`
+    - picked one shared named section and ran the short pan/drag compare requested by the plan
+  - Result:
+    - the checked pan/drag lane looks closed; no canary-only motion or interaction artifact was confirmed on the normalized graph surface
+    - the only page-local difference called out on the checked surface was a minimized `Chat Window 1` chip on the worktree page, treated as oracle-noise / non-target chrome rather than renderer drift
+- Verification:
+  - CDP visual check
+    - result: done
+    - note:
+      - initial fresh-context CDP attempt failed before restart because `chrome-devtools-mcp` was inaccessible
+      - after the single allowed worktree restart, fresh-context CDP succeeded on worktree `http://127.0.0.1:3077/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+      - both pages were normalized to `All Settings` with shared `fit view`; the checked shared-section pan/drag compare found only oracle-noise, not a renderer defect
+- Conclusion:
+  - the short normalized pan/drag parity lane is closed for now; another iteration on the same motion shape would be churn
+- Next action:
+  - move to the next normalized graph-surface-only interaction compare on `All Settings`, preferably post-motion DOM editing handoff on a shared named section, while continuing to ignore minimized chat chrome as oracle-noise unless it contaminates the target surface
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 036
 
 - Item: Fix the canary `Ctrl+Shift+3` focus-restore path so an offscreen stored section comes back into the visible canvas lane.

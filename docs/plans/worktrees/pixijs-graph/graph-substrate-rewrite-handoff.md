@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 12:26 EDT
+Last updated: 2026-04-03 12:35 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,22 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `037` closed the normalized shared-section `All Settings` pan/drag compare lane without a code patch.
+  - Process:
+    - the first fresh-context CDP sub-agent in this iteration still could not access `chrome-devtools-mcp`
+    - per loop recovery rules, the worktree lifecycle was restarted once with `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./aireset.sh`
+    - after restart, the refreshed worktree runtime moved to frontend `http://127.0.0.1:3077/`, backend `http://127.0.0.1:8077`, and `pnpm -C frontend cdp-port` reported `9298`
+  - Fresh-context CDP verification after the restart:
+    - a new sub-agent opened fresh worktree and read-only `main` pages on `/settings`
+    - both pages were normalized to active `All Settings`, non-target pane/chat chrome was minimized where present, and one shared `fit view` pulse was applied
+    - the sub-agent then picked one shared named section and ran the short pan/drag compare requested by the plan
+  - Result:
+    - the checked pan/drag lane looks closed; no canary-only motion or interaction artifact was confirmed on the normalized graph surface
+    - the only remaining page-local difference called out on the checked surface was a minimized `Chat Window 1` chip on the worktree page, treated as oracle-noise / non-target chrome rather than renderer drift
+  - conclusion for this slice:
+    - do not spend another iteration on this short pan/drag lane unless a fresh normalized compare reproduces a real motion defect
+    - keep the next frontier on normalized graph-surface-only parity, but move to the next interaction lane instead of more pan/drag or oracle churn
+    - the next bounded probe should prefer post-motion DOM editing handoff on a shared named section, since the motion lane itself is no longer the earliest failing gate from this evidence
 - Ralph item `036` closed the temp-workspace `Ctrl+Shift+3` canvas-focus mismatch on the canary path.
   - Root cause:
     - `movePaneToIncludeElement(...)` still preferred any populated `d3Zoom` / `d3Selection` pair, even when the live surface had already switched to the custom canary viewport controller and the old React Flow pane selection was stale
