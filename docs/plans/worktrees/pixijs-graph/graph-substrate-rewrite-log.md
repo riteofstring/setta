@@ -605,3 +605,34 @@ LOOP_TERMINAL_MARKER: none
   - rerun the normal Ralph-managed worktree and `main` `ai` lifecycles with the updated launcher, then retry the strict `All Settings` cleared-viewport CDP compare before touching more canary bounds/state code
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-02 018
+
+- Item: Align the `All Settings` canary fit inputs with the selector's section-size contract so the initial normal-zoom framing no longer undercounts the visible field.
+- Status: `done`
+- Details:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` now merges selector-provided section sizes with observed DOM sizes instead of requiring observed sizes alone for every visible section.
+  - The bounds helper now uses the larger available width/height per section, which preserves legacy node-internal fit geometry while still expanding to larger real DOM boxes when fallback sizing lags.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts` now covers:
+    - waiting until each section has some usable size source
+    - preferring larger observed sizes when they exceed fallback values
+    - preserving larger selector sizes when the observed DOM box is smaller
+  - A fresh-context CDP compare then checked worktree `http://127.0.0.1:3075/settings` against read-only `main` `http://127.0.0.1:3087/settings`; after minimizing the worktree chat surface, the normal-zoom `All Settings` framing no longer looked materially tighter than `main`.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`13 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `24s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent inspected worktree and `main` `/settings` directly
+      - worktree chat surface minimized before the compare
+      - no material remaining tightness difference seen at normal zoom
+- Conclusion:
+  - the canary bounds lane is no longer the active blocker for the checked normal-zoom `All Settings` path
+  - the next iteration should move to the next earliest visible parity or interaction defect instead of continuing fit-math churn
+- Next action:
+  - use CDP on the same `All Settings` normal-zoom canary to identify the next Gate 1 / Gate 2 product defect, with priority on text/chrome drift, zoom artifacts, or interaction-state behavior
+
+LOOP_TERMINAL_MARKER: none

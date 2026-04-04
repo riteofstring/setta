@@ -19,6 +19,21 @@ function getRenderedSectionPosition(
   return section.position;
 }
 
+function getRenderedSectionSize(
+  section: GraphSubstrateCanarySection,
+  observedElementSizes: ObservedElementSizes,
+) {
+  const observedSize = observedElementSizes[section.sectionId];
+  const width = Math.max(section.width ?? 0, observedSize?.width ?? 0);
+  const height = Math.max(section.height ?? 0, observedSize?.height ?? 0);
+
+  if (width <= 0 || height <= 0) {
+    return null;
+  }
+
+  return { width, height };
+}
+
 export function getSettingsGraphSubstrateCanarySceneBounds(
   sections: Array<GraphSubstrateCanarySection>,
   observedElementSizes: ObservedElementSizes,
@@ -34,8 +49,8 @@ export function getSettingsGraphSubstrateCanarySceneBounds(
   let maxY = Number.NEGATIVE_INFINITY;
 
   for (const section of sections) {
-    const size = observedElementSizes[section.sectionId];
-    if (!size?.width || !size?.height) {
+    const size = getRenderedSectionSize(section, observedElementSizes);
+    if (!size) {
       return null;
     }
     const position = getRenderedSectionPosition(

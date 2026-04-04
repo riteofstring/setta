@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 15:43 EDT
+Last updated: 2026-04-02 15:56 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,19 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `018` landed a bounded canary fit-input parity fix inside the `All Settings` substrate path:
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.ts` now merges selector-provided section sizes with observed DOM sizes instead of trusting observed sizes alone.
+  - the bounds helper now uses the larger available width/height for each section, which keeps the initial fit aligned with legacy node-internal geometry while still expanding to larger real DOM boxes when fallback sizing lags behind render.
+  - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts` now covers the merged-size contract directly.
+- Targeted verification passed for item `018`:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.test.ts`
+    - result: passed (`13 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary preserves the All Settings multi-column spread on first render'`
+    - result: passed (`1 passed`, about `24s`)
+- Fresh CDP visual verification is trustworthy again for the checked slice:
+  - a fresh-context CDP sub-agent inspected both the worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+  - after minimizing the worktree chat surface, the normal-zoom `All Settings` framing looked effectively matched; the earlier “worktree is still materially tighter than `main`” blocker did not reproduce on this latest compare
+  - treat the older lifecycle/bootstrap compare failures below as historical audit trail rather than the latest state of the bounds lane
 - Ralph item `017` landed the remaining shell-compatibility fix that was still preventing the patched headless launcher from starting in the live Ralph runtime:
   - `scripts/start-browser-mcp.sh` no longer uses the Bash-4-only `local -n` helper to append optional Chrome args; it now appends those arrays explicitly so macOS `/bin/bash` 3.2 can execute the headless devtools path.
   - `tests/start/test_start_browser_mcp_script.py` now invokes the script through `/bin/bash` when it exists, so the direct launcher coverage exercises the same shell Ralph used in the failing lifecycle run.
@@ -228,35 +241,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The `UIPage` seam-lift lane is complete:
   - `UIPage` is now the first real implementation selector between legacy `xyflow` and the new custom substrate canary
   - do not spend another iteration pushing this seam through more pure-forwarding layers
-- The next production frontier is inside the new canary itself:
-  - one normal-zoom section on `All Settings`
-  - existing DOM body
-  - custom drag/pan/zoom ownership plus one representative DOM edit handoff are now in place for the checked slice
-- The next real frontier is no longer seam lifting or single-control handoff proof:
-  - the canary now renders the visible top-level `All Settings` section set on the custom surface instead of a single representative section
-  - keep DOM-backed section bodies/editors attached and interactive while that broader visible set is exercised
-  - treat any new detached-body, wrong-surface, obvious perf regression, or newly visible drag ownership bug during the multi-section canary path as the next blocker
-- Required order from here:
-  - keep the current custom viewport state model and `UIPage` seam
-  - drag and custom pan/zoom ownership are now in place on the canary surface
-  - a representative DOM-backed interaction/editing path is now proven on the same slice after pan/zoom
-  - the multi-section canary expansion is now in place on `All Settings`
-  - the stale-position ownership fix is now landed for the canary selector and seeded E2E coverage
-  - the trusted oracle compare is now restored and it answered the earlier question:
-    - the canary is no longer just re-fitting on remount for the checked restore path
-    - the remaining blocker is that the worktree’s restored `All Settings` framing is still materially different from `main`
-  - item `011` identified and fixed one more concrete ownership bug underneath that drift:
-    - with no saved viewport, the canary was previously locking itself to the fallback `{48,48,1}` seed instead of auto-fitting
-    - automated coverage now proves the canary no longer does that in the checked browser path
-  - item `012` aligned the canary's initial visible-center and initial max-zoom semantics with legacy `ReactFlow`
-  - item `013` then moved the canary fit to measured DOM bounds and aligned the size box model with legacy `fitView`
-- before doing more bounds work, restore a healthy worktree CDP target plus a healthy read-only `main` reference session and re-run the strict cleared-viewport CDP compare on `All Settings`
-- item `016` should make that retry meaningful again:
-  - item `017` also removed the remaining macOS system-Bash crash from the launcher path that showed up in `run-003/worktree-ai.log`
-  - use the normal Ralph-managed worktree/main lifecycles first instead of more ad hoc launcher debugging
-  - if the patched lifecycle still fails to produce a trustworthy worktree or `main` session, inspect the remaining Setta-session/bootstrap wiring next rather than returning to bounds math
-  - only after that compare is valid should the next iteration decide whether the remaining frontier is still the measured-bounds vertical framing mismatch or a different oracle/state issue
-  - if the next fresh lifecycle bootstrap still leaves `json/version` unreachable or `setta status --connect-info` empty, stop debugging canary math and inspect the loop/browser lifecycle wiring instead
+- The initial-fit / bounds-input lane is complete for the current normal-zoom `All Settings` gate:
+  - item `018` reused the selector’s size contract in the bounds helper and the latest CDP compare no longer shows a material “too tight” framing difference versus `main`
+  - do not spend another iteration on pure bounds math unless a new controlled compare reopens that specific defect
+- The next real frontier is the next earliest remaining product drift on the same canary path:
+  - inspect `All Settings` at normal zoom for the next Gate 1 / Gate 2 issue after initial framing, especially text/chrome drift, zoom artifacts, or interaction-state behavior that is still visibly different from `main`
+  - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
+- Lifecycle/bootstrap debugging is no longer the default frontier:
+  - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
+  - do not resume ad hoc bounds hypotheses without fresh visual evidence
 
 ## Explicit deferrals
 

@@ -21,10 +21,19 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
     },
   ];
 
-  it("waits for measured sizes from every visible canary section", () => {
+  it("waits until every visible canary section has either selector or observed size", () => {
+    const sectionsWithMissingSize = [
+      sections[0],
+      {
+        ...sections[1],
+        width: null,
+        height: null,
+      },
+    ];
+
     expect(
       getSettingsGraphSubstrateCanarySceneBounds(
-        sections,
+        sectionsWithMissingSize,
         {
           "section-a": { width: 340, height: 220 },
         },
@@ -33,13 +42,12 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
     ).toBeNull();
   });
 
-  it("computes scene bounds from measured section sizes and drag overrides", () => {
+  it("uses the larger of selector and observed section sizes when fitting bounds", () => {
     expect(
       getSettingsGraphSubstrateCanarySceneBounds(
         sections,
         {
           "section-a": { width: 340, height: 220 },
-          "section-b": { width: 280, height: 180 },
         },
         {
           sectionId: "section-b",
@@ -49,8 +57,26 @@ describe("settingsGraphSubstrateCanaryBounds", () => {
     ).toEqual({
       x: 120,
       y: 80,
-      width: 680,
-      height: 400,
+      width: 580,
+      height: 340,
+    });
+  });
+
+  it("keeps larger selector-provided sizes when observed DOM boxes are smaller", () => {
+    expect(
+      getSettingsGraphSubstrateCanarySceneBounds(
+        sections,
+        {
+          "section-a": { width: 160, height: 100 },
+          "section-b": { width: 120, height: 80 },
+        },
+        null,
+      ),
+    ).toEqual({
+      x: 120,
+      y: 80,
+      width: 520,
+      height: 300,
     });
   });
 });
