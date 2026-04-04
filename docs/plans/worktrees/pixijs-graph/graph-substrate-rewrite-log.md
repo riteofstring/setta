@@ -1015,6 +1015,45 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 034
+
+- Item: Wire the `All Settings` canary into the shared canvas-focus path and lock down the offscreen focus-shortcut lane.
+- Status: `done`
+- Details:
+  - The dynamic focus/drag compare exposed a real shared-runtime gap instead of another wheel/zoom issue:
+    - the canary route had gained shared `zoom` / `fitView` / `setCenter` fallbacks earlier, but shared focus scrolling still hard-called legacy `d3Zoom`
+    - canvas focus order was also still reading raw `projectConfig.topLevelSections`, not the active-view-mode layout that the canary actually renders
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now registers the shared canvas tab scope with `useTabScope(...)` and renders `data-tab-scope="canvas"`, so shared keyboard focus actions can target the canary route.
+  - `frontend/src/forks/xyflow/core/utils/graph.ts` `movePaneToIncludeElement(...)` now falls back to `viewportController.setViewport(...)` when `d3Zoom` is absent, preserving the same pane-include behavior on the custom substrate.
+  - `frontend/src/utils/focusManager.ts` now orders canvas focus targets from `getActiveViewModeTopLevelSections(state)` rather than raw `projectConfig.topLevelSections`, which keeps focus traversal on the same active-view-mode layout source as the canary DOM order.
+  - Focused coverage now locks the slice down:
+    - `frontend/src/forks/xyflow/core/utils/graph.test.ts` covers the non-`d3` focus-pan fallback
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` covers the offscreen-canary `Ctrl+Shift+3` focus-shortcut path
+- Verification:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+    - result: passed (`24 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+    - result: passed (`1 passed`, about `24s`)
+  - `git diff --check`
+    - result: passed
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/forks/xyflow/core/utils/graph.ts src/forks/xyflow/core/utils/graph.test.ts src/utils/focusManager.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - CDP visual check
+    - result: done, but not a trustworthy closure of the seeded shortcut lane
+    - note:
+      - direct fresh-context probe on the current live worktree `/settings` tab found unchanged pre/post shortcut geometry:
+        - viewport `matrix(1, 0, 0, 1, 592.5, 45.5)`
+        - first section transform `matrix(1, 0, 0, 1, 600, 8400)` / rect `y=8481.5`
+        - `Ctrl+Shift+3` produced no observable viewport movement on that stale live tab
+      - the sub-agent could not replay the exact normalized `All Settings` offscreen seeding flow in-browser because the browser-side backend fetch failed with `TypeError: fetch failed`
+- Conclusion:
+  - the production wiring and focused automated guards for the canvas-focus path are landed
+  - the live CDP gate for this lane is still deferred because the exact seeded worktree probe could not be reproduced reliably in-browser
+- Next action:
+  - recover a trustworthy live `All Settings` seeded worktree state in CDP and rerun the focus-shortcut lane; if the viewport still fails to move under that exact seeded flow, fix the remaining live focus recovery bug instead of adding more harness work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 032
 
 - Item: Re-check the next dynamic `All Settings` canary frontier and decide whether there is a trustworthy product bug left to fix.

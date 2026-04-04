@@ -589,6 +589,114 @@ test("settings graph substrate canary drags one section and persists the top-lev
   }
 });
 
+test("settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const canarySections = page.getByTestId("graph-substrate-canary-section");
+    await expect(canaryPane).toHaveAttribute("data-tab-scope", "canvas");
+    await expect.poll(() => canarySections.count()).toBeGreaterThan(1);
+
+    const offscreenViewport = await getCanaryViewportWithSectionMovedOffscreen(
+      page,
+      0,
+    );
+    if (!offscreenViewport) {
+      throw new Error("Missing offscreen canary viewport.");
+    }
+
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: offscreenViewport,
+    });
+    const stateWithOffscreenViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithOffscreenViewport);
+
+    await expect
+      .poll(async () => isCanarySectionCenterInsidePane(page, 0))
+      .toBe(false);
+
+    // The shared canvas-focus shortcut should use the canary viewport
+    // controller and pull the first section back into the visible pane.
+    await page.keyboard.press("Control+Shift+3");
+
+    await expect.poll(() => isCanvasScopeFocused(page)).toBe(true);
+    await expect
+      .poll(async () => {
+        const viewport = await getCanaryViewportTransform(page);
+        if (!viewport) {
+          return 0;
+        }
+        return Math.hypot(
+          viewport.x - offscreenViewport.x,
+          viewport.y - offscreenViewport.y,
+        );
+      })
+      .toBeGreaterThan(20);
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary matches legacy plain-wheel pan behavior on the custom surface", async ({
   page,
 }) => {
@@ -1275,6 +1383,105 @@ async function getCanaryPaneViewportGaps(page: Page): Promise<{
       bottom: window.innerHeight - rect.bottom,
       height: rect.height,
     };
+  });
+}
+
+async function getCanaryViewportWithSectionMovedOffscreen(
+  page: Page,
+  sectionIndex: number,
+): Promise<{
+  x: number;
+  y: number;
+  zoom: number;
+} | null> {
+  return page.evaluate(
+    ({ extraMargin, sectionIndex: targetIndex }) => {
+      const pane = document.querySelector<HTMLElement>(
+        '[data-testid="graph-substrate-canary"]',
+      );
+      const viewport = document.querySelector<HTMLElement>(
+        '[data-testid="graph-substrate-canary-viewport"]',
+      );
+      const sections = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-testid="graph-substrate-canary-section"]',
+        ),
+      );
+      const section = sections[targetIndex];
+      if (!pane || !viewport || !section) {
+        return null;
+      }
+      const paneRect = pane.getBoundingClientRect();
+      const sectionRect = section.getBoundingClientRect();
+      const transform = window.getComputedStyle(viewport).transform;
+      const matrix =
+        !transform || transform === "none"
+          ? new DOMMatrixReadOnly()
+          : new DOMMatrixReadOnly(transform);
+      if (
+        !Number.isFinite(matrix.a) ||
+        !Number.isFinite(matrix.e) ||
+        !Number.isFinite(matrix.f) ||
+        matrix.a <= 0
+      ) {
+        return null;
+      }
+      return {
+        x:
+          matrix.e -
+          (sectionRect.left - paneRect.left + sectionRect.width + extraMargin),
+        y:
+          matrix.f -
+          (sectionRect.top - paneRect.top + sectionRect.height + extraMargin),
+        zoom: matrix.a,
+      };
+    },
+    {
+      extraMargin: 140,
+      sectionIndex,
+    },
+  );
+}
+
+async function isCanarySectionCenterInsidePane(
+  page: Page,
+  sectionIndex: number,
+): Promise<boolean | null> {
+  return page.evaluate((targetIndex) => {
+    const pane = document.querySelector<HTMLElement>(
+      '[data-testid="graph-substrate-canary"]',
+    );
+    const sections = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="graph-substrate-canary-section"]',
+      ),
+    );
+    const section = sections[targetIndex];
+    if (!pane || !section) {
+      return null;
+    }
+    const paneRect = pane.getBoundingClientRect();
+    const sectionRect = section.getBoundingClientRect();
+    const centerX = sectionRect.left + sectionRect.width / 2;
+    const centerY = sectionRect.top + sectionRect.height / 2;
+    return (
+      centerX >= paneRect.left &&
+      centerX <= paneRect.right &&
+      centerY >= paneRect.top &&
+      centerY <= paneRect.bottom
+    );
+  }, sectionIndex);
+}
+
+async function isCanvasScopeFocused(page: Page): Promise<boolean> {
+  return page.evaluate(() => {
+    const activeElement = document.activeElement;
+    if (!(activeElement instanceof HTMLElement)) {
+      return false;
+    }
+    return (
+      activeElement.closest('[data-tab-scope="canvas"]') instanceof HTMLElement
+    );
   });
 }
 

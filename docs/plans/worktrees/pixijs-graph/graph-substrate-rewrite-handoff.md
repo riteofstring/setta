@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 11:02 EDT
+Last updated: 2026-04-03 11:35 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,27 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `034` landed the canary canvas-focus wiring slice, but it did not fully close the live visual gate.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now participates in the shared canvas focus scope via `useTabScope(...)` and `data-tab-scope="canvas"`.
+  - `frontend/src/forks/xyflow/core/utils/graph.ts` `movePaneToIncludeElement(...)` now falls back to the canary `viewportController.setViewport(...)` path when the legacy `d3Zoom` viewport is absent.
+  - `frontend/src/utils/focusManager.ts` now orders canvas focus targets from `getActiveViewModeTopLevelSections(state)` instead of raw `projectConfig.topLevelSections`, which keeps focus traversal on the same active-view-mode layout source as the canary.
+  - focused automation now covers the lane:
+    - `frontend/src/forks/xyflow/core/utils/graph.test.ts` covers the controller fallback for focus panning without `d3`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now covers the offscreen-canary `Ctrl+Shift+3` focus-shortcut path
+  - targeted verification passed in this iteration:
+    - `pnpm -C frontend exec vitest run src/forks/xyflow/core/utils/graph.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts`
+      - result: passed (`24 passed`)
+    - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary focus shortcut restores an offscreen section into the canvas lane'`
+      - result: passed (`1 passed`, about `24s`)
+  - live CDP status is still a deferred gate, not a clean closure:
+    - a direct fresh-context probe on the current live worktree `/settings` tab still found the first canary section (`textAreaParamCodeObjDefault`) far offscreen with unchanged pre/post shortcut geometry:
+      - viewport `matrix(1, 0, 0, 1, 592.5, 45.5)`
+      - first section transform `matrix(1, 0, 0, 1, 600, 8400)` / rect `y=8481.5`
+      - `Ctrl+Shift+3` produced no observable viewport movement on that stale live tab
+    - the sub-agent could not re-run the exact Playwright-style normalized `All Settings` offscreen seeding in-browser because the browser-side backend fetch failed with `TypeError: fetch failed`
+  - conclusion for this slice:
+    - the production wiring and focused automation are in place
+    - the next iteration should recover a trustworthy live `All Settings` seeded state and re-run the exact CDP shortcut lane before taking another product fix on this area
 - Ralph item `033` resolves the item `032` oracle blocker at the process level so the loop can keep moving without another human stop.
   - the chosen strategy is the narrower graph-surface-only oracle path, not product-state mutation and not more overview/order cleanup
   - default dynamic compare normalization is now:

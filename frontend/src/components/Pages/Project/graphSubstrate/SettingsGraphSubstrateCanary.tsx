@@ -22,6 +22,7 @@ import {
   useProjectState,
   useSettings,
 } from "state/definitions";
+import { useTabScope } from "utils/focusManager";
 import type { Position } from "utils/generatedTypes";
 import { isMacOs } from "utils/utils";
 import { getSettingsGraphSubstrateCanarySceneBounds } from "./settingsGraphSubstrateCanaryBounds";
@@ -115,6 +116,12 @@ export function SettingsGraphSubstrateCanary() {
   const [sectionPositionOverride, setSectionPositionOverride] =
     useState<SectionPositionOverride | null>(null);
   const wrapperDimensions = useElementDimensions(rootRef);
+  useTabScope({
+    scopeId: "canvas",
+    order: 20,
+    rootRef,
+    behavior: "canvas",
+  });
   const { getObservedElementRef, observedElementSizes } =
     useObservedElementSizes();
   const nodeInternals = useNodeInternals((state) => state.x);
@@ -809,6 +816,7 @@ export function SettingsGraphSubstrateCanary() {
         cursor: isViewportPanning ? "grabbing" : "grab",
       }}
       className="react-flow setta-light dark:setta-dark"
+      data-tab-scope="canvas"
       data-testid="graph-substrate-canary"
       onPointerDown={handlePanePointerDown}
       onPointerMove={handlePanePointerMove}

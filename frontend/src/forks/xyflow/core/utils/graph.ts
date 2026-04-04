@@ -320,16 +320,29 @@ function hasPositiveRectBounds(
 }
 
 export function movePaneToIncludeElement(element: HTMLElement) {
+  const reactFlowState = useReactFlow.getState();
   const point = screenToFlowPosition(element.getBoundingClientRect());
   const paneRect = getPaneRect(
-    useReactFlow.getState(),
+    reactFlowState,
     useLocalStorage.getState().overviewTrueWidth,
     useLocalStorage.getState().uiEditorTrueWidth,
   );
   const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
   if (!isInside) {
-    const { d3Zoom, d3Selection } = useReactFlow.getState();
-    d3Zoom.translateBy(d3Selection, -x, -y);
+    const {
+      d3Zoom,
+      d3Selection,
+      transform: [viewportX, viewportY, zoom],
+      viewportController,
+    } = reactFlowState;
+    if (d3Zoom && d3Selection) {
+      d3Zoom.translateBy(d3Selection, -x, -y);
+      return;
+    }
+    viewportController?.setViewport({
+      x: viewportX - x * zoom,
+      y: viewportY - y * zoom,
+    });
   }
 }
 
