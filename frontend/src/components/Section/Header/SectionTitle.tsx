@@ -136,7 +136,9 @@ function EditableTitle({
       setServerError(null);
       return true;
     }
-    setServerError(getErrorDetail(response.data) ?? "Unable to rename section.");
+    setServerError(
+      getErrorDetail(response.data) ?? "Unable to rename section.",
+    );
     return false;
   }
 
@@ -151,12 +153,7 @@ function EditableTitle({
     setServerError(null);
     editable.onChange(event);
   }
-  const {
-    inputValue,
-    onBlur,
-    onKeyDown,
-    blurTriggeredByEscapeKey,
-  } = editable;
+  const { inputValue, onBlur, onKeyDown, blurTriggeredByEscapeKey } = editable;
   const formatError = validateSectionNameInput(inputValue);
   const validationError = formatError ?? serverError;
   let localErrorClassName = "";

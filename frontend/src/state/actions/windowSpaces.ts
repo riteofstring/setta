@@ -11,11 +11,11 @@ import {
   syncProjectChatWindowingState,
 } from "state/actions/projectChatWindowing";
 import { getAuthoritativeProjectChatWindowingState } from "state/actions/projectChatWindowingAuthoritative";
+import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
 import {
-  dispatchOptimisticProjectStateUpdate,
+  dispatchOptimisticProjectStateUpdateWithResult,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
-import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
 import {
   useProjectState,
   useShareSession,
@@ -151,15 +151,14 @@ function dispatchOptimisticWindowSpaceMutation({
     | Promise<ProjectConfigMutationRouteResponse>;
 }) {
   if (!canMutateWindowSpaceLayout()) {
-    return;
+    return Promise.resolve(undefined);
   }
   const previousWindowSpaces = cloneWindowSpaces(
     getProjectWindowSpaces(useProjectState.getState().projectConfig),
   );
-  let acknowledgedProjectConfig:
-    | ZustandProjectState["projectConfig"]
-    | null = null;
-  dispatchOptimisticProjectStateUpdate({
+  let acknowledgedProjectConfig: ZustandProjectState["projectConfig"] | null =
+    null;
+  const { result } = dispatchOptimisticProjectStateUpdateWithResult({
     projectConfigId,
     apply,
     reapply: (state) => {
@@ -180,18 +179,22 @@ function dispatchOptimisticWindowSpaceMutation({
       });
       if (res200(response)) {
         acknowledgedProjectConfig = response.data.projectConfig;
-        publishProjectConfigSnapshot(projectConfigId, response.data.projectConfig);
+        publishProjectConfigSnapshot(
+          projectConfigId,
+          response.data.projectConfig,
+        );
       }
       return response;
     },
   });
+  return result;
 }
 
 export function persistWindowSpaceSortOrder(
   projectConfigId: string,
   orderedWindowSpaceIds: Array<string>,
-): void {
-  dispatchOptimisticWindowSpaceMutation({
+): Promise<ProjectConfigMutationRouteResponse | undefined> {
+  return dispatchOptimisticWindowSpaceMutation({
     apply: () => {},
     projectConfigId,
     send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {
@@ -210,8 +213,8 @@ export function setWindowSpaceName(
   projectConfigId: string,
   windowSpaceId: string,
   name: string,
-): void {
-  dispatchOptimisticWindowSpaceMutation({
+): Promise<ProjectConfigMutationRouteResponse | undefined> {
+  return dispatchOptimisticWindowSpaceMutation({
     apply: (state) => {
       const windowSpaces = getProjectWindowSpaces(state.projectConfig);
       if (!(windowSpaceId in windowSpaces)) {
@@ -236,8 +239,8 @@ export function setWindowSpaceName(
 export function deleteWindowSpace(
   projectConfigId: string,
   windowSpaceId: string,
-): void {
-  dispatchOptimisticWindowSpaceMutation({
+): Promise<ProjectConfigMutationRouteResponse | undefined> {
+  return dispatchOptimisticWindowSpaceMutation({
     apply: () => {},
     projectConfigId,
     send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {

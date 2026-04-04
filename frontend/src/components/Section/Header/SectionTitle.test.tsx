@@ -12,13 +12,11 @@ vi.mock("components/Utils/FloatingBox", () => ({
 const routeSetSectionNameMock = vi.fn();
 
 vi.mock("utils/generatedEndpoints", () => ({
-  route_set_section_name: (...args: unknown[]) => routeSetSectionNameMock(...args),
+  route_set_section_name: (...args: unknown[]) =>
+    routeSetSectionNameMock(...args),
 }));
 
-import {
-  useShareSession,
-  useProjectState,
-} from "state/definitions";
+import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
   createCore,
@@ -120,8 +118,12 @@ describe("SectionTitle", () => {
     expect(title?.textContent).toBe("Alpha");
 
     await act(async () => {
-      title?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
-      title?.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 2 }));
+      title?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 1 }),
+      );
+      title?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true, detail: 2 }),
+      );
     });
 
     const input = host.querySelector("input");
@@ -151,7 +153,9 @@ describe("SectionTitle", () => {
       }),
     );
     expect(host.textContent).toContain("Duplicate sibling name.");
-    expect(useProjectState.getState().sections["section-a"]?.name).toBe("Alpha");
+    expect(useProjectState.getState().sections["section-a"]?.name).toBe(
+      "Alpha",
+    );
     expect(useProjectState.getState().projectConfig.id).toBe("project-1");
   });
 });

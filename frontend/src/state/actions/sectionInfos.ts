@@ -2162,8 +2162,7 @@ export function dispatchOptimisticProjectStateUpdateWithResult<T>({
 
   useProjectState.setState(applyWithProjectGuard);
   const opId = addPendingOp(reapplyWithProjectGuard);
-  const result = Promise.resolve()
-    .then(() => send(opId))
+  const result = Promise.resolve(send(opId))
     .then((res) => {
       // A 200 response means the backend accepted the op; don't keep reapplying it.
       if (isResponseDataAndStatus(res) && res200(res)) {

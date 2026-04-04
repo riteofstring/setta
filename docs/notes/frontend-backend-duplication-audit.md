@@ -1,157 +1,259 @@
 # Frontend/Backend Duplication Audit
 
-## Scope and exclusion rule
+## Scope
 
-- Audited handwritten logic under `frontend/src` against Go runtime code under `internal/` and `cmd/`.
-- Excluded generated endpoint/type/route bindings unless they pull in handwritten frontend logic that materially changes behavior.
-- Not listed below when the duplication is explicitly documented as UI-only and backed by a shared contract. The main example is local name validation for instant feedback, which is called out in [`docs/reference/name-validation.md`](../reference/name-validation.md) and mirrored by a shared Go fixture test in `internal/projectstate/name_validation_frontend_fixtures_test.go`.
-- I treated a duplicate as unjustified when the duplicated rule is canonical routing identity, mutation semantics, or normalization behavior, and there is no shared generator/fixture/contract keeping the two sides aligned.
+This note only records duplication that looks unjustified after comparing `frontend/src/` against the Go backend under `internal/`.
 
-## Unjustified findings
+I reviewed the main overlap-prone areas:
 
-### 1. Canonical standalone slug derivation is implemented twice
+- name validation and rename flows
+- section slug/path derivation
+- managed chat stream reduction and hydration
+- view mode and window-space ordering
+- server-mode / launcher boundary policy
 
-Frontend evidence:
+The bar for calling duplication justified was:
 
-- `frontend/src/utils/sectionSlugPaths.ts:91-214` rebuilds the canonical section full-path format, slug index, descendant traversal, and standalone section resolution.
-- `frontend/src/utils/windowSpacePaths.ts:29-90` rebuilds window-space slug indexes, standalone resolution, and standalone route construction.
+- the frontend truly needs the logic locally for immediate UX or browser-only transport behavior
+- the backend still remains the authoritative owner
+- and there is either a shared contract/fixture locking the copies together or the duplicate logic is small and presentation-adjacent
 
-Backend evidence:
+The rename-flow findings from the original pass have now been fixed. I kept the
+details below as a resolved record so the note still explains what was wrong
+and what changed.
 
-- `internal/projectstate/section_names.go:194-279` computes the canonical active section full path and slug map.
-- `internal/projectstate/code_section_bindings.go:222-234` defines the canonical section slug sanitizer.
-- `internal/projectstate/python_codegen.go:241-257` defines the canonical project/window-space slug sanitizer.
-- `docs/reference/urls-and-routes.md:38-42` explicitly documents separate backend and frontend formulas for section slugs.
+## Current Unjustified Duplications
 
-Why this is not justified:
+None found in the overlap areas rechecked during the follow-up fix pass.
 
-- These slugs are route identities, not just presentation helpers.
-- The frontend is reproducing the exact path-shape rules (`["Child"]`, `[idx]`) plus slug sanitization instead of consuming backend-computed slug fields.
-- Unlike name validation, there is no shared fixture file or cross-boundary contract test keeping the routing logic aligned.
+## Resolved Unjustified Duplications
 
-Risk:
+### 1. Section rename validation reimplements backend section-name authority in the component
 
-- Deep-link breakage or ambiguous standalone-route matching when path-shape or sanitization rules change on one side only.
+Status: resolved. `frontend/src/components/Section/Header/SectionTitle.tsx` now
+keeps only local format validation and submits rename conflicts to the backend.
 
-Suggested owner:
+**Frontend**
 
-- Backend should emit canonical section/window-space slug fields in project state, or the repo should generate a shared slug contract/fixture consumed by both sides.
+- `frontend/src/components/Section/Header/SectionTitle.tsx`
+- `frontend/src/utils/sectionSlugPaths.ts`
 
-### 2. View mode ordering and delete-fallback semantics are duplicated in the optimistic UI and the backend
+**Backend owner**
 
-Frontend evidence:
+- `internal/projectstate/section_names.go`
+- `internal/projectstate/name_validation.go`
+- `internal/projectstate/code_section_bindings.go`
 
-- `frontend/src/state/actions/viewModes.ts:5-46` validates a full deduplicated order payload and rewrites `sortIndex`.
-- `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx:47-59` re-sorts and compacts `sortIndex`.
-- `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx:688-718` re-implements delete fallback semantics, including next-active selection and top-level layout/viewport carryover.
+**Duplicated logic**
 
-Backend evidence:
+- sibling-name uniqueness checks (`getSiblingHasName` vs `validateSectionName`)
+- top-level Python identifier collision checks (`getTopLevelPythonIdentifierConflictError` vs `sanitizeSectionPythonIdentifier` callers in backend validation)
+- full-path section name reconstruction for the renamed section and its descendants (`resolveSectionFullPathName` vs `activeSectionPathFullNameWithOverrides`)
+- slug recomputation and conflict detection for descendant paths (`getSectionSlugConflictError` vs `activeSectionSlugMap` / `validateSectionName`)
 
-- `internal/projectstate/view_modes.go:402-429` validates the full order payload and rewrites `SortIndex`.
-- `internal/projectstate/view_modes.go:453-485` re-implements delete fallback semantics, including next-active selection and layout/viewport carryover.
-- `internal/projectstate/view_modes.go:724-739` defines the canonical comparator used for fallback and compaction.
-- `docs/reference/view-modes.md:41-54` documents this as canonical view-mode behavior.
+**Why this is unjustified**
 
-Why this is not justified:
+- The backend already owns the authoritative acceptance rules for section renames, including the descendant slug-conflict behavior.
+- The frontend is not just doing a cheap format precheck. It is duplicating the backend’s correctness-sensitive conflict logic.
+- The shared frontend/backend fixture coverage only locks basic name-format validation. It does not lock these section-conflict rules.
+- A better repo-local pattern already exists in `frontend/src/components/Panes/Overview/ProjectOverview/ProjectName.tsx`, where the frontend calls the backend rename route as the condition and surfaces backend `detail` instead of re-encoding uniqueness logic.
+- Most of the rename-specific helper work in `sectionSlugPaths.ts` exists to support this client-side validation copy.
 
-- This is canonical project-state mutation behavior, not a UI-only preview.
-- The frontend optimistic layer is replaying the backend mutation instead of consuming a backend-produced ordered list or normalized post-mutation snapshot.
-- There is no shared helper or contract test for the comparator, compaction, and next-active fallback rules.
+**Risk**
 
-Risk:
+- false accepts or false rejects when backend conflict semantics change
+- drift in descendant path handling, which is harder to notice than basic format drift
+- more frontend-only code that has to stay in sync with Go-owned slug and identifier rules
 
-- Optimistic state can pick a different next active view mode or compaction order than persisted Go state.
+**Recommended direction**
 
-Suggested owner:
+- keep only the shared format-level validation on the frontend
+- move uniqueness / identifier / descendant-slug checks back behind backend authority
+- either preflight through a backend call before commit or submit the rename and surface backend validation errors directly
 
-- Backend should return the normalized ordered view-mode list or full project snapshot after these mutations, or the ordering rules should be generated/shared from one source.
+### 2. View mode rename validation duplicates backend view-mode naming rules
 
-### 3. Window-space ordering and delete compaction are duplicated in the optimistic UI and the backend
+Status: resolved. `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx`
+now keeps only local format validation and surfaces backend rename errors
+instead of rerunning slug-conflict checks in the browser.
 
-Frontend evidence:
+**Frontend**
 
-- `frontend/src/state/actions/windowSpaces.ts:79-94` defines the comparator used for UI ordering.
-- `frontend/src/state/actions/windowSpaces.ts:177-230` validates a full deduplicated order payload and rewrites `sortIndex`.
-- `frontend/src/state/actions/windowSpaces.ts:208-219` compacts `sortIndex` values.
-- `frontend/src/state/actions/windowSpaces.ts:263-284` re-implements delete-time compaction locally.
+- `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx`
 
-Backend evidence:
+**Backend owner**
 
-- `internal/projectstate/project_chat_windowing_writes.go:321-348` validates the full order payload and rewrites `SortIndex`.
-- `internal/projectstate/project_chat_windowing_writes.go:379-392` re-implements delete-time compaction.
-- `internal/projectstate/project_chat_windowing_writes.go:722-737` defines the canonical comparator.
+- `internal/projectstate/view_modes.go`
+- `internal/httpapi/project_routes.go`
 
-Why this is not justified:
+**Duplicated logic**
 
-- Just like view modes, this is canonical persisted ordering behavior, not merely a transient list sort for rendering.
-- The frontend is simulating backend mutation semantics instead of applying a minimal optimistic reorder and then accepting the backend-normalized result.
-- There is no shared contract test keeping the comparators and compaction rules aligned.
+- `conditionToSetName` repeats the backend acceptance decision after `validateViewModeNameInput`
+- it locally recomputes the sanitized slug and scans all existing view modes for conflicts
 
-Risk:
+**Why this is unjustified**
 
-- Divergent optimistic ordering, especially if comparator or delete-compaction rules change in Go.
+- The backend already owns this rule set in `validateViewModeName`, including reserved-name handling, sanitization, and slug-conflict detection.
+- The route layer already exposes backend validation detail through `writeViewModeMutationError`.
+- Unlike the project-name flow, this widget does not delegate the final rename decision to the backend before accepting the edit.
+- There is no shared fixture or contract test locking the uniqueness/conflict half of this logic to the backend implementation.
 
-Suggested owner:
+**Risk**
 
-- Backend should remain the single owner of ordering/compaction semantics and return normalized state, or the comparator and compaction logic should be generated/shared.
+- rename behavior drifts when backend validation changes
+- the UI can reject or accept a name for stale frontend reasons
+- there is no dedicated backend-backed validation store for view-mode names, so this copy becomes the de facto inline authority
 
-### 4. Window-space automatic name generation is duplicated, and the generators are different
+**Recommended direction**
 
-Frontend evidence:
+- keep the shared format validator
+- remove the local uniqueness scan
+- use the backend mutation result as the authority, following the same pattern already used by `ProjectName.tsx`
 
-- `frontend/src/state/actions/windowSpaces.ts:162-175` generates a candidate window-space name locally and loops until its slug is unique.
-- `frontend/src/state/actions/windowSpaces.ts:1449-1456` sends that explicit generated name to `/api/createWindowSpace`.
-- `frontend/src/utils/idNameCreation.ts:33-40` uses `unique-names-generator` with adjective/color dictionaries.
+### 3. Window-space rename validation duplicates backend window-space naming rules
 
-Backend evidence:
+Status: resolved. `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx`
+now keeps only local format validation and lets the backend own conflict
+acceptance for rename attempts.
 
-- `docs/reference/urls-and-routes.md:170-173` documents `createWindowSpace` as accepting an optional `name`.
-- `internal/projectstate/project_chat_windowing_writes.go:423-433` already owns the "no name supplied" path and generates the default name server-side.
-- `internal/projectstate/memorable_names.go:412-457` uses a different Go-owned memorable-name generator.
+**Frontend**
 
-Why this is not justified:
+- `frontend/src/components/Panes/Overview/WindowSpacesPane.tsx`
 
-- The backend route already supports omitting the name and generating the canonical default itself.
-- The frontend duplicates both candidate generation and uniqueness probing without needing to.
-- The two generators are different, so default names already diverge depending on which side generates them.
+**Backend owner**
 
-Risk:
+- `internal/projectstate/project_chat_windowing_writes.go`
+- `internal/httpapi/project_routes.go`
 
-- Inconsistent default names across entrypoints and unnecessary duplicate uniqueness logic.
+**Duplicated logic**
 
-Suggested owner:
+- `canSetWindowSpaceName` reruns the backend decision after `validateWindowSpaceNameInput`
+- it locally sanitizes the candidate slug and scans existing window spaces for collisions
 
-- Stop sending `name` when the user did not explicitly choose one and use the backend-generated name returned from `createWindowSpace`.
+**Why this is unjustified**
 
-### 5. Project-chat windowing normalization and section-binding arbitration are duplicated even though the docs say backend normalization is authoritative
+- The backend already owns this rule set in `validateWindowSpaceName`.
+- The route layer already returns backend `detail` through `writeWindowSpaceMutationError`.
+- As with view modes, the frontend is hand-maintaining a second copy of the acceptance logic instead of delegating the final answer to the backend.
+- There is no shared fixture or contract test tying this conflict logic to the Go implementation.
 
-Frontend evidence:
+**Risk**
 
-- `frontend/src/state/actions/projectChatWindowing.ts:399-500` normalizes order and z-index layering locally.
-- `frontend/src/state/actions/projectChatWindowing.ts:518-594` selects the authoritative section-bound window using placement, visibility, z-index, focus time, and id tie-breaks.
-- `frontend/src/state/actions/projectChatWindowing.ts:1513-1665` rebuilds pending snapshots by replaying local mutations over `authoritativeWindowing`.
+- drift between frontend acceptance and backend acceptance
+- silent UX breakage when slug rules change in one side only
+- extra rename-specific code that provides no unique browser-only value
 
-Backend evidence:
+**Recommended direction**
 
-- `docs/reference/project-chat-windowing.md:26-59` says backend normalization is authoritative and lists the canonical invariants.
-- `internal/projectstate/project_chat_windowing_writes.go:439-568` enforces thread-binding restrictions and normalizes project-chat windowing state for writes.
-- `internal/projectstate/project_chat_windowing_writes.go:761-790` implements the same section-binding winner selection logic.
+- keep the local format precheck only
+- let the backend own the uniqueness/conflict decision
+- surface backend mutation detail instead of keeping a second slug-conflict implementation in the widget
 
-Related duplicate in saved window-space section binding:
+## Reviewed And Excluded
 
-- `frontend/src/state/actions/windowSpaces.ts:377-430` locally picks the winning saved section binding by `zIndex` and id.
-- `internal/projectstate/project_chat_windowing.go:300-356,643-656` applies the same winner-selection rule when normalizing saved window spaces.
+These overlaps were inspected but not included above because they appear justified.
 
-Why this is not justified:
+### Shared name-format validators
 
-- This is authoritative ownership and validation logic, not just view projection.
-- The frontend is carrying a second handwritten implementation of the same normalization/arbitration rules even though the repo documentation already declares the backend authoritative.
-- There is no shared generated normalizer or cross-boundary fixture ensuring the arbitration rules stay identical.
+**Frontend**
 
-Risk:
+- `frontend/src/utils/nameValidation.ts`
+- `frontend/src/utils/nameValidation.test.ts`
 
-- Section owner mismatches, optimistic states that look valid locally but are rejected remotely, and replay drift when pending local mutations are re-applied over backend state.
+**Backend**
 
-Suggested owner:
+- `internal/projectstate/name_validation_frontend_fixtures_test.go`
+- `internal/projectstate/project_names.go`
+- `internal/projectstate/section_names.go`
+- `internal/projectstate/view_modes.go`
+- `internal/projectstate/project_chat_windowing_writes.go`
+- `internal/projectstate/code_object_names.go`
 
-- Backend should return normalized windowing snapshots for layout mutations, or the normalization/arbitration logic should be generated/shared from one source and used by both sides.
+**Why excluded**
+
+- The frontend copy is limited to immediate caller-visible format validation.
+- The rules are intentionally locked to a shared fixture file: `tests/fixtures/name_validation_cases.json`.
+- This is exactly the kind of duplication that is acceptable when both runtimes need the same basic UX validation and the repo already has parity tests.
+
+### Managed chat stream and hydration reducers
+
+**Frontend**
+
+- `frontend/src/state/actions/chatStreamState.ts`
+- `frontend/src/state/actions/aiChatStreamingContract.test.ts`
+- `frontend/src/state/actions/aiHydrationAuthorityContract.test.ts`
+
+**Backend**
+
+- `internal/managedchat/live_runtime.go`
+- `internal/managedchat/live_runtime_contract_test.go`
+
+**Why excluded**
+
+- Both sides genuinely need local reducer logic: the browser for optimistic streamed UI updates, the backend for authoritative live runtime state.
+- The overlap is locked by shared contract fixtures under `tests/fixtures/llm/`.
+- This looks deliberate and appropriately constrained.
+
+### View-mode and window-space ordering helpers
+
+**Frontend**
+
+- `frontend/src/utils/viewModeOrdering.ts`
+- `frontend/src/state/actions/windowSpaces.ts`
+
+**Backend**
+
+- `internal/projectstate/view_modes.go`
+- `internal/projectstate/project_chat_windowing_writes.go`
+
+**Why excluded**
+
+- The frontend needs stable presentation order from unordered maps.
+- The backend separately needs canonical ordering for persistence, repair, and deterministic state behavior.
+- The logic is small, obvious, and presentation-adjacent enough to be acceptable.
+
+### Param duplicate checking during debounced typing
+
+**Frontend**
+
+- `frontend/src/components/Params/ParamItems/ParamNameInput.tsx`
+
+**Backend**
+
+- `internal/projectstate/code_object_names.go`
+
+**Why excluded**
+
+- This does duplicate same-parent param-name conflict checks.
+- I did not classify it as unjustified because this widget does debounced optimistic writes on each edit keystroke, so immediate local duplicate rejection plausibly avoids churny invalid writes and rollback noise.
+- The backend still remains authoritative for final acceptance.
+
+### Server-mode endpoint/origin policy
+
+**Frontend**
+
+- `frontend/src/utils/serverModeBoundaryPolicy.ts`
+- `frontend/src/utils/transportUrlCore.ts`
+
+**Backend**
+
+- `internal/modes/policy.go`
+- `internal/httpapi/httpapi.go`
+- `internal/httpapi/workspace_launch_routes.go`
+- `internal/httpapi/launcher_home_routes.go`
+- `internal/httpapi/status_routes.go`
+
+**Why excluded**
+
+- There is overlap in mode knowledge, but the frontend still has a browser-owned job the backend cannot directly do: choose which origin a browser request should target.
+- Route paths themselves are generated from backend specs already.
+- This area looks more like transport wiring than duplicated backend business validation.
+
+## Resolved Since Prior Audit
+
+I also rechecked the previously committed version of this audit against the
+current code before replacing it.
+
+- The older view-mode optimistic-mutation finding is no longer current. `frontend/src/state/actions/viewModes.ts` now sends sort/delete mutations and applies the backend-returned `projectConfig` snapshot instead of replaying delete fallback semantics locally.
+- The older window-space automatic-name-generation finding is no longer current. `frontend/src/state/actions/windowSpaces.ts` now calls `route_create_window_space` without a generated `name`, so the backend owns default naming again.
+- The older standalone window-space slug finding is also mostly stale. `frontend/src/utils/windowSpacePaths.ts` now builds routes from backend-owned `windowSpaceSlugsById`, and standalone section/window-space resolution uses backend-owned slug maps on loaded project state.
