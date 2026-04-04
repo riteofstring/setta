@@ -982,6 +982,75 @@ LOOP_TERMINAL_MARKER: none
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 033
+
+- Item: Replan the dynamic `All Settings` oracle so session-state noise no longer terminates the Ralph loop.
+- Status: `done`
+- Details:
+  - This slice changes the execution plan and loop policy, not production renderer code.
+  - Chosen strategy:
+    - use a narrower graph-surface-only oracle for dynamic Gate 1 / Gate 2 compares instead of trying to fully align persisted overview ordering or whole-page scroll state between worktree and read-only `main`
+    - normalize both sides to active `All Settings`, clear viewport to `null`, and trigger one shared `fit view` before judging renderer drift
+    - compare only graph-surface outputs such as viewport transform, target-section rects, neighboring section geometry, and graph-surface screenshots
+    - when the same dynamic target is needed on both sides, pick a shared section by name or id and align that section locally inside the graph surface instead of relying on overview order or page scroll
+  - Explicit policy decision:
+    - persisted session ordering, overview ordering, page scroll, worktree-label chrome, and other non-target workspace chrome are oracle-noise classes by default
+    - those diffs alone are no longer sufficient grounds for `REPLAN_REQUIRED`
+    - future iterations should return `SUBTASK_DONE` with the next bounded normalization or graph-surface probe step unless a real human decision is still required
+  - Updated durable guidance in:
+    - `RALPH.md`
+    - `scripts/ralph-default-prompt.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+- Verification:
+  - `git diff --check`
+    - result: passed
+  - `pnpm -C frontend exec prettier --check ../RALPH.md ../scripts/ralph-default-prompt.md ../docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md ../docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md ../docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+    - result: passed
+- Conclusion:
+  - the loop now has a concrete oracle strategy and should continue the dynamic lane without stopping again over overview/order/scroll-state noise
+  - the next real frontier remains a normalized short pan or drag compare on a shared named section
+- Next action:
+  - run the next dynamic `All Settings` compare with the graph-surface-only oracle and isolate the first remaining canary-only motion or interaction artifact
+
+LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 032
+
+- Item: Re-check the next dynamic `All Settings` canary frontier and decide whether there is a trustworthy product bug left to fix.
+- Status: `replan_required`
+- Details:
+  - A fresh-context CDP sub-agent normalized both live sessions to `All Settings` and checked a shared `fit view` pulse.
+  - That completed CDP pass did not isolate a concrete graph-surface defect on the checked action:
+    - no zoom-blur artifact was called out
+    - no camera snap or pan-drift mismatch was called out
+  - A follow-up fresh-context drag compare did not produce a renderer defect either; it found a session-state normalization problem before the drag:
+    - worktree `All Settings` was much lower in the DOM/scroll state than `main`
+  - Direct repo inspection confirmed the remaining ordering difference is persisted session state, not a new canary-only ordering path:
+    - worktree `setta_files_dev/setta-settings-project.json` active `All Settings` order currently starts with `textAreaParamCodeObjDefault`
+    - read-only `main` `/Users/jeff/Documents/_projects/setta/setta_files_dev/setta-settings-project.json` active `All Settings` order currently starts with `shortcuts`
+    - within each file, `projectConfig.topLevelSections` already matches the active `All Settings` view-mode order, so this is not another instance of the fixed item `031` canary sort bug
+  - A final fresh-context CDP retry was unavailable because `chrome-devtools-mcp` could not be invoked in that sub-agent session.
+- Verification:
+  - CDP visual check
+    - result: partial / blocker confirmed
+    - note:
+      - completed pass: normalized `All Settings` fit-view pulse showed no concrete graph-surface mismatch
+      - follow-up drag compare identified mismatched scroll normalization between worktree and `main`
+      - final retry: not run because browser MCP was unavailable in that sub-agent session
+  - Session-state inspection
+    - `node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("setta_files_dev/setta-settings-project.json","utf8")); const cfg=p.projectConfig; const vm=cfg.viewModes[cfg.activeViewModeId]; console.log(JSON.stringify({activeViewModeName: vm?.name, topLevelFirst: Object.keys(cfg.topLevelSections).slice(0,8).map(id=>p.sections[id]?.name), viewModeFirst: Object.keys(vm.topLevelSections).slice(0,8).map(id=>p.sections[id]?.name)}, null, 2));'`
+      - result: worktree active `All Settings` order starts with `textAreaParamCodeObjDefault`
+    - `node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("/Users/jeff/Documents/_projects/setta/setta_files_dev/setta-settings-project.json","utf8")); const cfg=p.projectConfig; const vm=cfg.viewModes[cfg.activeViewModeId]; console.log(JSON.stringify({activeViewModeName: vm?.name, topLevelFirst: Object.keys(cfg.topLevelSections).slice(0,8).map(id=>p.sections[id]?.name), viewModeFirst: Object.keys(vm.topLevelSections).slice(0,8).map(id=>p.sections[id]?.name)}, null, 2));'`
+      - result: `main` active `All Settings` order starts with `shortcuts`
+- Conclusion:
+  - This iteration did not uncover a trustworthy new renderer bug to patch.
+  - The remaining differences are persisted session-state/order and scroll-state noise, so continuing without a human decision on oracle normalization would be support churn.
+- Next action:
+  - replan the Gate 1 / Gate 2 verification strategy before landing more code: either define a canonical state reset for worktree and `main`, or narrow future compares so overview/order/scroll-state chrome is excluded from the oracle
+
+LOOP_TERMINAL_MARKER: replan_required
+
 ## 2026-04-03 029
 
 - Item: Align the custom-substrate toolbar zoom controls with legacy full-surface zoom anchoring on normalized `All Settings`.

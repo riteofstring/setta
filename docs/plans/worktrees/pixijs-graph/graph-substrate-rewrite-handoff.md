@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 00:44 EDT
+Last updated: 2026-04-03 11:02 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,29 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `033` resolves the item `032` oracle blocker at the process level so the loop can keep moving without another human stop.
+  - the chosen strategy is the narrower graph-surface-only oracle path, not product-state mutation and not more overview/order cleanup
+  - default dynamic compare normalization is now:
+    - close or minimize non-target pane/chat chrome on both sides
+    - normalize both sessions to active `All Settings`
+    - clear viewport to `null`
+    - trigger one shared `fit view`
+  - after that normalization, compare only graph-surface outputs such as viewport transform, target-section rects, neighboring section geometry, and graph-surface screenshots
+  - overview ordering, whole-page scroll position, worktree-label chrome, and other non-target workspace chrome are explicitly excluded as parity signals unless the current slice is about those surfaces
+  - if a dynamic compare needs the same subject on both sides, the next slice should pick a shared section by name or id and align that section locally inside the graph surface before acting instead of relying on overview order or page scroll
+  - oracle-noise classes alone are no longer grounds for `REPLAN_REQUIRED`; the loop should return `SUBTASK_DONE` with the next bounded normalization or graph-surface probe step instead
+- Ralph item `032` did not land a code patch; it closed the question of whether the next dynamic Gate 1 / Gate 2 frontier currently has a trustworthy live oracle.
+  - a fresh-context CDP sub-agent normalized both sessions to `All Settings` and checked a shared `fit view` pulse
+  - that pass did **not** find a concrete graph-surface mismatch: no zoom-blur, camera snap, or pan-drift artifact was called out on the checked pulse
+  - the next fresh-context drag compare did not produce a renderer defect either; it found that the two live sessions were not starting from the same scroll state before the drag (`All Settings` was far lower in the worktree DOM than in `main`)
+  - direct repo inspection confirmed the remaining worktree-vs-`main` ordering mismatch is persisted session state, not fresh canary rendering drift:
+    - worktree `setta_files_dev/setta-settings-project.json` currently stores active `All Settings` `topLevelSections` / view-mode order starting with `textAreaParamCodeObjDefault`
+    - read-only `main` `setta_files_dev/setta-settings-project.json` currently stores active `All Settings` `topLevelSections` / view-mode order starting with `shortcuts`
+    - both files already agree internally between `projectConfig.topLevelSections` and the active view mode, so this is not another canary-only ordering bug like item `031`
+  - a follow-up fresh-context CDP sub-agent could not invoke browser tools in this chat, so the iteration did not recover a cleaner oracle beyond the first completed CDP pass
+  - conclusion for this slice:
+    - the current blocker is oracle normalization, not a newly isolated renderer defect
+    - do not land speculative production fixes against overview ordering or session scroll state from this evidence alone
 - Ralph item `031` closed a canary-only ordering bug on the `All Settings` surface instead of opening another viewport-control lane.
   - the next suspected mismatch after items `029` and `030` looked like section-order drift, but the first fresh-context CDP sub-agent could not invoke browser MCP in this chat and only returned partial evidence
   - repo inspection showed a concrete canary-only divergence from the legacy source of truth:
@@ -484,6 +507,15 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Immediate next frontier
 
+- The dynamic Gate 1 / Gate 2 lane is no longer blocked on a human replan.
+- Use the graph-surface-only oracle strategy for the next live compare:
+  - close or minimize non-target pane/chat chrome
+  - normalize both sides to `All Settings`
+  - clear viewport to `null`
+  - trigger one shared `fit view`
+  - ignore overview ordering, whole-page scroll, and other non-target workspace chrome while judging renderer drift
+- The next bounded slice should run a short pan or drag compare on one shared named section and compare graph-surface metrics only.
+- If that slice still sees only oracle-noise diffs, record them and continue with `SUBTASK_DONE`; do not stop the loop with `REPLAN_REQUIRED` again unless no bounded graph-surface oracle step remains.
 - The `UIPage` seam-lift lane is complete:
   - `UIPage` is now the first real implementation selector between legacy `xyflow` and the new custom substrate canary
   - do not spend another iteration pushing this seam through more pure-forwarding layers

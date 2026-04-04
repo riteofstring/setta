@@ -12,7 +12,7 @@ Execution rules:
 - If the same blocker repeats for two iterations, pivot to resolving that blocker or stop for replan. Do not continue unrelated seam lifting while the blocker remains unchanged.
 - Prefer subtasks that either resolve the active blocker, land the first real Pixi/scene behavior, or move the measured performance hotspot.
 - Treat parity-harness, oracle-alignment, and test-helper work as support work, not the default frontier. Only choose a harness-only subtask when a concrete currently observed visual/parity blocker cannot be trusted or resolved without that exact support change.
-- If the last two completed iterations were harness-only or oracle-only and did not change production renderer or interaction code, the next iteration must either land a production fix or stop for replan. Do not spend a third iteration polishing the harness.
+- If the last two completed iterations were harness-only or oracle-only and did not change production renderer or interaction code, the next iteration must either land a production fix or complete one bounded normalization/oracle step that directly unblocks a concrete renderer question. Do not spend a third iteration polishing the harness without narrowing the product question.
 - Prefer using the existing CDP/manual comparison flow to identify the next renderer defect over extending Playwright or helper coverage. Add or tighten harness checks only after the real product behavior to lock down is known, or when one narrow missing guard is the direct blocker.
 - Do not open new parity lanes for transient notifications, menus, pane toggles, or chat-manager microstates unless they are still visibly contaminating the normalized target graph surface in CDP.
 - Do not install, add, upgrade, or fetch new dependencies without explicit user permission. This includes package-manager commands and repo scripts that install dependencies. If a subtask genuinely requires an install, stop and ask the user plainly instead of proceeding.
@@ -23,6 +23,13 @@ Execution rules:
 - For parity or visual checks that are not explicitly about workspace chrome, minimize or close non-target panes first and close docked/floating/maximized chat surfaces on both the worktree and the read-only `main` reference before comparing them.
 - Keep panes or chat chrome open only when the current slice is specifically verifying those surfaces or genuinely requires them for the target interaction.
 - If you intentionally verify with extra pane or chat chrome visible, say why in the handoff/history so later iterations do not treat uncontrolled workspace state as renderer drift.
+- Treat persisted session ordering, overview ordering, page scroll, worktree-label chrome, and other non-target workspace chrome as oracle noise unless the current slice is explicitly about those surfaces.
+- For dynamic Gate 1 or Gate 2 compares on `All Settings`, default to this normalization before deciding there is a renderer bug:
+  - normalize both sessions to active `All Settings`
+  - clear viewport to `null`
+  - trigger one shared `fit view`
+  - compare graph-surface-only outputs such as viewport transform, target section rects, nearby section geometry, and graph-surface screenshots
+- If a dynamic compare needs the same subject on both sides, choose a shared section by name or id and align that section locally inside the graph surface before acting. Do not use overview ordering or whole-page scroll position as the oracle.
 - For UI work, do not claim visual verification without the required CDP check.
 - Treat `main` as the visual oracle for the renderer. Final acceptance for the macOS `100%` zoom canary states is `1:1` appearance versus `main`, but iteration sequencing should follow the staged visual gates instead of treating final pixel parity as the first blocker on every pass.
 - Use this staged gate ladder when deciding what to do next:
@@ -45,6 +52,7 @@ Execution rules:
 - After any restart, refresh runtime values with `setta status --connect-info --latest --json --workspace .` and `pnpm -C frontend cdp-port`, then retry the blocked verification using the refreshed values instead of stale ports or URLs.
 - Return `BLOCKED` only if that recovery attempt fails or the retried verification still cannot run.
 - If the code subtask is complete but the required visual/CDP gate is temporarily not trustworthy because the rewrite phase has not produced a stable live canary yet, record that state in the handoff/history and return `LOOP_STATUS: SUBTASK_DONE` with `LOOP_VERIFY_RESULT: deferred_visual_gate`.
+- If the only remaining diffs after normalized graph-surface comparison are oracle-noise classes, do not return `REPLAN_REQUIRED`; record the noise and return `SUBTASK_DONE` with the next bounded normalization or graph-surface probe step.
 - Use `LOOP_TERMINAL_MARKER: none` for `SUBTASK_DONE` and `BLOCKED`.
 - Use `LOOP_TERMINAL_MARKER: task_done` only when the overall plan is actually complete, and append the exact line `LOOP_TERMINAL_MARKER: task_done` to the history file in the same iteration.
 - Use `LOOP_TERMINAL_MARKER: replan_required` only when the correct outcome is to stop the loop for a real human replan/review, and append the exact line `LOOP_TERMINAL_MARKER: replan_required` to the history file in the same iteration.
@@ -65,7 +73,8 @@ Handoff rules:
 - If the correct outcome is to stop the loop for a real replan/human decision, return `LOOP_STATUS: REPLAN_REQUIRED` instead of `TASK_DONE`.
 - If the current micro-lane or seam-lift lane is complete but broader rewrite work remains, do not stop the Ralph loop; return `LOOP_STATUS: SUBTASK_DONE` and name the next real frontier in `LOOP_NEXT_ACTION`.
 - If the remaining "next steps" in the current lane are only more pure-forwarding seam lifts, close that lane and move to the next real blocker/frontier instead of manufacturing another slice.
-- If the remaining "next steps" in the current lane are only more harness/oracle hygiene without a concrete production-code target, stop for replan instead of manufacturing another support-only slice.
+- If the remaining "next steps" in the current lane are only more harness/oracle hygiene without a concrete renderer question or bounded normalization payoff, stop for replan instead of manufacturing another support-only slice.
+- Session-state ordering, overview ordering, page scroll, and other oracle-noise classes are not by themselves a real human-replan condition; prefer `SUBTASK_DONE` with the next bounded graph-surface-only oracle step.
 - If progress now depends on fixing a repeated external blocker or writing a new plan, stop and say that plainly instead of continuing the previous sequence.
 - If the blocker is recoverable by a fresh outer-loop bootstrap of the current worktree, return `LOOP_RECOVERY: restart_worktree_lifecycle` with `LOOP_STATUS: BLOCKED` so Ralph can retry automatically.
 - If the blocker should be retried in the next fresh iteration without stopping the loop, return `LOOP_RECOVERY: retry_next_iteration` with `LOOP_STATUS: BLOCKED`.

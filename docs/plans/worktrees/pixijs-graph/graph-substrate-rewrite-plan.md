@@ -1,7 +1,7 @@
 # Graph Substrate Rewrite Plan
 
 Date: 2026-04-02
-Updated: 2026-04-02
+Updated: 2026-04-03
 Worktree: `pixijs-graph`
 Current branch: `pixijs-graph`
 Execution base: `main`
@@ -153,6 +153,35 @@ Priority tests for the first phase:
 - drag updates on the custom substrate
 - a Playwright canary showing one section stays attached while dragging/panning/zooming
 
+## Dynamic oracle strategy
+
+For Gate 1 and Gate 2 live compares on the `All Settings` canary, use a graph-surface-only oracle by default.
+
+Normalize both worktree and read-only `main` before judging renderer drift:
+
+1. close or minimize non-target pane/chat chrome
+2. set active view mode to `All Settings`
+3. clear viewport to `null`
+4. trigger one shared `fit view`
+
+After normalization, compare only graph-surface outputs:
+
+- viewport transform
+- target-section rects
+- neighboring section geometry
+- graph-surface screenshots or cropped metrics
+
+Do not treat these as renderer evidence unless the current slice is explicitly about them:
+
+- overview ordering
+- whole-page scroll position
+- worktree-label chrome
+- other non-target workspace chrome
+
+If a dynamic compare needs the same subject on both sides, pick a shared section by name or id and align that section locally inside the graph surface before acting. Do not rely on overview order or page scroll to choose the compare target.
+
+Oracle-noise classes alone do not justify `REPLAN_REQUIRED`. The next bounded slice should either narrow the oracle further or add one non-product normalization helper that directly unblocks a renderer question.
+
 ## Branching decision
 
 This worktree already starts from `main`, and it should stay there.
@@ -165,8 +194,8 @@ Rules:
 
 ## Immediate next frontier
 
-Implement the first custom graph-runtime canary for `settings` with DOM bodies:
+Continue the dynamic Gate 1 / Gate 2 parity lane on normalized `All Settings`:
 
-- no `xyflow` ownership for camera/drag on the checked slice
-- no Pixi body rendering yet
-- one normal-zoom section must stay visible, attached, and draggable
+- use the graph-surface-only oracle strategy above
+- choose one shared named section and run a short pan or drag compare on that section
+- isolate the first remaining canary-only motion or interaction artifact, or explicitly close the checked pan/drag lane with normalized evidence

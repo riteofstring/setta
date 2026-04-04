@@ -36,6 +36,7 @@ This file is the reusable loop entrypoint for this worktree.
 - Repeated seam-lift ownership hops through pure forwarding layers count as churn, not progress.
 - Iterations default to `until_done`, so the loop keeps going until it reaches `TASK_DONE`, `REPLAN_REQUIRED`, or a non-recoverable `BLOCKED` state unless you override `--iterations`.
 - Reserve `TASK_DONE` for when the overall rewrite effort in this plan is actually complete and the iteration's verification passed. Use `REPLAN_REQUIRED` when the correct outcome is to stop the loop for a real replan/human decision. If one bounded lane is complete but another real frontier remains, use `SUBTASK_DONE`.
+- Persisted session ordering, overview ordering, page scroll, worktree-label chrome, and other non-target workspace chrome are oracle-noise classes by default, not automatic reasons to stop the loop for human replan.
 - Make frequent descriptive commits.
 - Default entrypoint: `./ralph.sh`
 - Yolo mode defaults on for this worktree config.
@@ -85,6 +86,15 @@ This file is the reusable loop entrypoint for this worktree.
 - The loop is not done while the active graph-substrate canary still fails the final visual gate against `main`.
 - However, per-iteration sequencing should target the earliest failing staged gate rather than jumping straight to final pixel-perfect cleanup when Gate 1 or Gate 2 still has obvious failures.
 - If performance improved but text instability, zoom blur/blockiness, wrong surfaces, incorrect interactions, or visible spacing/chrome drift remain, the next frontier is whichever staged visual gate those failures belong to rather than more perf-only churn.
+- When Gate 1 or Gate 2 verification is running on the live `All Settings` canary, default to a graph-surface-only oracle:
+  - close or minimize non-target pane/chat chrome on both sides
+  - normalize both sessions to `All Settings`
+  - clear viewport to `null`
+  - trigger one shared `fit view`
+  - compare only graph-surface metrics such as viewport transform, target-section rects, neighboring section geometry, and graph-surface screenshots
+- If a dynamic compare needs the same subject on both sides, choose a shared section by name or id and align that section locally inside the graph surface before acting; do not use overview ordering or whole-page scroll position as the oracle.
+- If the only remaining diffs are oracle-noise classes after that normalization, do not return `REPLAN_REQUIRED`; record the noise in handoff/history and continue with `SUBTASK_DONE` or a bounded non-terminal blocker plus the next normalization or graph-surface probe step.
+- Use `REPLAN_REQUIRED` only when no bounded normalization step or graph-surface-only probe can produce trustworthy evidence without a real human decision.
 - Terminal statuses must append an explicit marker to the history file:
   - `TASK_DONE` requires `LOOP_TERMINAL_MARKER: task_done`
   - `REPLAN_REQUIRED` requires `LOOP_TERMINAL_MARKER: replan_required`
