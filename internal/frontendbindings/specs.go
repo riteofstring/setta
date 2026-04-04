@@ -2058,6 +2058,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setViewModeSortOrder",
 			RequestType:     reflect.TypeOf(SetViewModeSortOrderRequestInput{}),
+			ResponseType:    reflect.TypeOf(httpapi.ProjectConfigMutationResponse{}),
 		},
 		{
 			FunctionName:    "route_delete_view_mode",
@@ -2065,6 +2066,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "deleteViewMode",
 			RequestType:     reflect.TypeOf(DeleteViewModeRequestInput{}),
+			ResponseType:    reflect.TypeOf(httpapi.ProjectConfigMutationResponse{}),
 		},
 		{
 			FunctionName:    "route_set_section_name",

@@ -4483,7 +4483,14 @@ func setViewModeSortOrderHandler(deps ProjectRouteDependencies) http.HandlerFunc
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		writeJSON(w, http.StatusOK, nil)
+		projectConfig, err := projectConfigViewFromSnapshot(snapshot, projectID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, ProjectConfigMutationResponse{
+			ProjectConfig: projectConfig,
+		})
 	}
 }
 
@@ -4520,7 +4527,14 @@ func deleteViewModeHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
 			return
 		}
-		writeJSON(w, http.StatusOK, nil)
+		projectConfig, err := projectConfigViewFromSnapshot(snapshot, projectID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, ProjectConfigMutationResponse{
+			ProjectConfig: projectConfig,
+		})
 	}
 }
 

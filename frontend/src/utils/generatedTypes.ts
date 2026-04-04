@@ -10428,6 +10428,15 @@ export function createDeleteJSONSourceFileAndVariantRequest(
   return options as DeleteJSONSourceFileAndVariantRequest;
 }
 
+export type ProjectConfigMutationResponse = {
+  projectConfig: ProjectConfig;
+};
+export function createProjectConfigMutationResponse(
+  options: Partial<ProjectConfigMutationResponse> = {},
+): ProjectConfigMutationResponse {
+  return options as ProjectConfigMutationResponse;
+}
+
 export type RevealPathInOSFileExplorerRequest = {
   path: string;
 };
@@ -10760,15 +10769,6 @@ export function createSetWindowSpaceNameRequest(
   options: Partial<SetWindowSpaceNameRequest> = {},
 ): SetWindowSpaceNameRequest {
   return options as SetWindowSpaceNameRequest;
-}
-
-export type ProjectConfigMutationResponse = {
-  projectConfig: ProjectConfig;
-};
-export function createProjectConfigMutationResponse(
-  options: Partial<ProjectConfigMutationResponse> = {},
-): ProjectConfigMutationResponse {
-  return options as ProjectConfigMutationResponse;
 }
 
 export type SetWindowSpaceSortOrderRequest = {

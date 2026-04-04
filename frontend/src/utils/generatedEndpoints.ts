@@ -415,13 +415,13 @@ export async function route_set_view_mode_name(
 
 export async function route_set_view_mode_sort_order(
   x: gt.SetViewModeSortOrderRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectConfigMutationResponse>> {
   return await post(GoHTTPRouteHelpers.setViewModeSortOrder(), x);
 }
 
 export async function route_delete_view_mode(
   x: gt.DeleteViewModeRequestInput,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectConfigMutationResponse>> {
   return await post(GoHTTPRouteHelpers.deleteViewMode(), x);
 }
 
