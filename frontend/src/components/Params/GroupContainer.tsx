@@ -16,7 +16,7 @@ import {
 import {
   getCurrEffectiveSectionImplWithTypeGuard,
   getCurrShownParamIds,
-  getParamDisplayName,
+  getParamDisplayNameIfPresent,
   toggleParamSelected,
 } from "state/actions/sectionInfos";
 import { paramNameFromPathArray } from "state/actions/sections/sectionContents";
@@ -396,7 +396,7 @@ function EdgesStrip({
       const path = requiredParamIdsToPaths[paramId];
       const rawLabel = path
         ? paramNameFromPathArray(state, sectionId, path)
-        : getParamDisplayName(state, sectionId, paramId);
+        : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
       const label = rawLabel.trim().length === 0 ? "(unnamed)" : rawLabel;
       return { id: paramId, label };
     });

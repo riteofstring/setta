@@ -50,12 +50,7 @@ let memoryStorage: Storage;
 const DRAFT_SURFACE_ID = "submit-draft-surface";
 
 function buildGetLLMResponseResponse(chatId: string) {
-  return {
-    chatId,
-    runId: `${chatId}-run`,
-    engineType: "setta_llm" as const,
-    sectionId: null,
-  };
+  return chatId;
 }
 
 describe("submitMessage", () => {
