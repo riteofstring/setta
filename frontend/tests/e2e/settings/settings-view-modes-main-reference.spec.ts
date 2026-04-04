@@ -502,6 +502,314 @@ test("settings graph parity probe applies the same short pan delta on read-only 
   }
 });
 
+test("settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary", async ({
+  context,
+  page,
+}) => {
+  test.skip(
+    !MAIN_REFERENCE_FRONTEND_URL ||
+      !MAIN_REFERENCE_BACKEND_ORIGIN ||
+      !MAIN_REFERENCE_BOOTSTRAP_URL,
+    "Requires SETTA_MAIN_REFERENCE_FRONTEND_URL, SETTA_MAIN_REFERENCE_BACKEND_ORIGIN, and SETTA_MAIN_REFERENCE_BOOTSTRAP_URL.",
+  );
+
+  await page.goto(WORKTREE_SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page
+    .getByRole("button", { exact: true, name: "All Settings" })
+    .waitFor();
+
+  const referencePage = await context.newPage();
+  await bootstrapReferenceSettingsPage(referencePage);
+
+  const worktreeProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+  );
+  const referenceProjectConfigId = await getProjectConfigIdFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+  );
+  const worktreeInitialState = await getLatestProjectStateFromBackendOrigin(
+    page,
+    WORKTREE_BACKEND_ORIGIN,
+    WORKTREE_BASE_URL,
+    worktreeProjectConfigId,
+  );
+  const referenceInitialState = await getLatestProjectStateFromBackendOrigin(
+    referencePage,
+    MAIN_REFERENCE_BACKEND_ORIGIN,
+    MAIN_REFERENCE_FRONTEND_URL,
+    referenceProjectConfigId,
+  );
+  const worktreeAllSettingsViewModeId = findViewModeId(
+    worktreeInitialState,
+    "All Settings",
+  );
+  const referenceAllSettingsViewModeId = findViewModeId(
+    referenceInitialState,
+    "All Settings",
+  );
+  const initialWorktreePaneState = await getLocalPaneState(page);
+  const initialReferencePaneState = await getLocalPaneState(referencePage);
+  const sharedSection = findSharedVisibleTopLevelSectionByName({
+    referenceState: referenceInitialState,
+    viewModeName: "All Settings",
+    worktreeState: worktreeInitialState,
+  });
+  const panDelta = { x: 160, y: 100 };
+
+  async function captureSharedFitViewAfterManualPan(args: {
+    activeViewModeId: string;
+    backendOrigin: string;
+    expectedSurfaceKind: "legacy" | "canary";
+    frontendOrigin: string;
+    projectConfigId: string;
+    sectionId: string;
+    sectionName: string;
+    targetPage: Page;
+    tab: Locator;
+  }) {
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+    await setPageViewModeAndClearViewport(
+      args.targetPage,
+      args.backendOrigin,
+      args.frontendOrigin,
+      args.projectConfigId,
+      args.activeViewModeId,
+      args.expectedSurfaceKind,
+    );
+
+    await expect(args.tab).toBeVisible();
+    await args.tab.click();
+    if (args.expectedSurfaceKind === "legacy") {
+      await args.targetPage.waitForSelector(READY_SELECTOR);
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toHaveCount(0);
+    } else {
+      await expect(
+        args.targetPage.getByTestId("graph-substrate-canary"),
+      ).toBeVisible();
+      await expect
+        .poll(() =>
+          args.targetPage.getByTestId("graph-substrate-canary-section").count(),
+        )
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(args.targetPage);
+    await setDurableActiveSectionIds(args.targetPage, []);
+
+    const fitViewButton = args.targetPage.getByRole("button", {
+      name: "fit view",
+    });
+    await expect(fitViewButton).toBeVisible();
+    await fitViewButton.click();
+
+    await expect
+      .poll(async () => {
+        const metrics = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        return {
+          centerOffsetFromRootCenter: metrics.centerOffsetFromRootCenter,
+          hasRect: metrics.rect !== null,
+          hasTransform: metrics.transform !== null,
+          surfaceKind: metrics.surfaceKind,
+        };
+      })
+      .toEqual({
+        centerOffsetFromRootCenter: expect.any(Number),
+        hasRect: true,
+        hasTransform: true,
+        surfaceKind: args.expectedSurfaceKind,
+      });
+
+    const expectedMetrics = await captureSettingsGraphSectionMetrics(
+      args.targetPage,
+      args.sectionId,
+    );
+    if (
+      expectedMetrics.centerOffsetFromRootCenter === null ||
+      !expectedMetrics.rect ||
+      !expectedMetrics.transform
+    ) {
+      throw new Error(
+        `Missing ${args.expectedSurfaceKind} fit-view baseline metrics for ${args.sectionName}.`,
+      );
+    }
+
+    const panStart = await findSettingsGraphPanePoint(args.targetPage);
+    await args.targetPage.mouse.move(panStart.x, panStart.y);
+    await args.targetPage.mouse.down();
+    await args.targetPage.mouse.move(
+      panStart.x + panDelta.x,
+      panStart.y + panDelta.y,
+      {
+        steps: 10,
+      },
+    );
+    await args.targetPage.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const afterPan = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (!afterPan.transform) {
+          return 0;
+        }
+        return Math.hypot(
+          afterPan.transform.x - expectedMetrics.transform.x,
+          afterPan.transform.y - expectedMetrics.transform.y,
+        );
+      })
+      .toBeGreaterThan(120);
+
+    await fitViewButton.click();
+
+    await expect
+      .poll(async () => {
+        const afterFit = await captureSettingsGraphSectionMetrics(
+          args.targetPage,
+          args.sectionId,
+        );
+        if (
+          afterFit.centerOffsetFromRootCenter === null ||
+          !afterFit.rect ||
+          !afterFit.transform
+        ) {
+          return null;
+        }
+        return {
+          centerOffsetFromRootCenter: afterFit.centerOffsetFromRootCenter,
+          rect: afterFit.rect,
+          transform: afterFit.transform,
+        };
+      })
+      .toEqual({
+        centerOffsetFromRootCenter: expect.closeTo(
+          expectedMetrics.centerOffsetFromRootCenter,
+          0,
+        ),
+        rect: {
+          x: expect.closeTo(expectedMetrics.rect.x, 0),
+          y: expect.closeTo(expectedMetrics.rect.y, 0),
+          width: expect.closeTo(expectedMetrics.rect.width, 0),
+          height: expect.closeTo(expectedMetrics.rect.height, 0),
+        },
+        transform: {
+          x: expect.closeTo(expectedMetrics.transform.x, 0),
+          y: expect.closeTo(expectedMetrics.transform.y, 0),
+          zoom: expect.closeTo(expectedMetrics.transform.zoom, 1),
+        },
+      });
+
+    return captureSettingsGraphSectionMetrics(args.targetPage, args.sectionId);
+  }
+
+  try {
+    const referenceFitView = await captureSharedFitViewAfterManualPan({
+      activeViewModeId: referenceAllSettingsViewModeId,
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "legacy",
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      projectConfigId: referenceProjectConfigId,
+      sectionId: sharedSection.referenceSectionId,
+      sectionName: sharedSection.name,
+      tab: referencePage.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: referencePage,
+    });
+    const worktreeFitView = await captureSharedFitViewAfterManualPan({
+      activeViewModeId: worktreeAllSettingsViewModeId,
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      expectedSurfaceKind: "canary",
+      frontendOrigin: WORKTREE_BASE_URL,
+      projectConfigId: worktreeProjectConfigId,
+      sectionId: sharedSection.worktreeSectionId,
+      sectionName: sharedSection.name,
+      tab: page.getByRole("button", {
+        exact: true,
+        name: "All Settings",
+      }),
+      targetPage: page,
+    });
+
+    if (
+      referenceFitView.centerOffsetFromRootCenter === null ||
+      worktreeFitView.centerOffsetFromRootCenter === null ||
+      !referenceFitView.rect ||
+      !worktreeFitView.rect ||
+      !referenceFitView.transform ||
+      !worktreeFitView.transform
+    ) {
+      throw new Error("Missing cross-worktree fit-view metrics.");
+    }
+
+    expect(referenceFitView.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(worktreeFitView.paneState).toEqual(
+      SETTINGS_GRAPH_COMPARE_PANE_STATE,
+    );
+    expect(
+      Math.abs(
+        worktreeFitView.centerOffsetFromRootCenter -
+          referenceFitView.centerOffsetFromRootCenter,
+      ),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeFitView.transform.x - referenceFitView.transform.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeFitView.transform.y - referenceFitView.transform.y),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(
+        worktreeFitView.transform.zoom - referenceFitView.transform.zoom,
+      ),
+    ).toBeLessThan(0.02);
+    expect(
+      Math.abs(worktreeFitView.rect.x - referenceFitView.rect.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeFitView.rect.y - referenceFitView.rect.y),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeFitView.rect.width - referenceFitView.rect.width),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(worktreeFitView.rect.height - referenceFitView.rect.height),
+    ).toBeLessThan(8);
+  } finally {
+    await restoreCurrentPageState({
+      backendOrigin: WORKTREE_BACKEND_ORIGIN,
+      frontendOrigin: WORKTREE_BASE_URL,
+      initialPaneState: initialWorktreePaneState,
+      initialState: worktreeInitialState,
+      page,
+      projectConfigId: worktreeProjectConfigId,
+    }).catch(() => {});
+    await restoreCurrentPageState({
+      backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
+      frontendOrigin: MAIN_REFERENCE_FRONTEND_URL,
+      initialPaneState: initialReferencePaneState,
+      initialState: referenceInitialState,
+      page: referencePage,
+      projectConfigId: referenceProjectConfigId,
+    }).catch(() => {});
+    await referencePage.close().catch(() => {});
+  }
+});
+
 test("settings graph parity probe applies the same short top-level drag delta on read-only main legacy and worktree canary after normalized fit", async ({
   context,
   page,

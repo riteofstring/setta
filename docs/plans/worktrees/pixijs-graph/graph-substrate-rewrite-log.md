@@ -3277,3 +3277,34 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move to a different shared dynamic action or a concrete production renderer defect instead of adding another `args-filter` top-level drag variant
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 05:41 EDT - Ralph item 096
+
+- Added a normalized cross-worktree shared-section `fit view` restore probe after manual pan and closed that bounded viewport-reset lane without reopening the earlier drag/body-anchor pattern.
+- Why this slice was necessary:
+  - the last two completed iterations were probe-only support slices, so the next bounded step had to answer one concrete renderer question instead of extending the same drag/body-anchor lane again
+  - a fresh-context CDP compare on the live pages still did not expose a trustworthy canary-only production defect; it only showed that worktree and read-only `main` could settle into different viewport states without a deterministic motion oracle
+  - the narrowest valid next step was one normalized main-reference probe that uses the real `fit view` control plus a shared named section to answer the viewport-reset question directly after deliberate manual pan on both surfaces
+- Production/test changes:
+  - `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - new opt-in probe: `settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary`
+    - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, records a shared-section fit-view landing, applies the same short pane pan, and then verifies a second `fit view` click returns both surfaces to the same settled transform and shared-section geometry
+  - no production renderer files changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - result: passed
+  - refreshed runtime/bootstrap values before the live rerun:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-015/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-015/main-ai.log`
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `30.4s`)
+  - fresh-context CDP sub-agent:
+    - the earlier CDP compare on this pass still did not reveal a trustworthy canary-only renderer defect; it only showed state/viewport drift between the raw tabs
+    - final post-state sanity check on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings` found both pages on `All Settings` with the graph surface visible and settled, and no obvious leftover pan/fit-view offset or clipping
+  - CDP visual check: done (fresh-context post-state sanity check on live `3075` canary vs read-only `3087` legacy after the new fit-view restore probe; no obvious residual fit-view drift visible)
+- Lane status:
+  - close the specific cross-worktree fit-view-after-pan lane as covered
+  - do not reopen it unless a later fresh compare shows the canary failing to return to the same shared-section landing after a manual pan on normalized `All Settings`
+- Next frontier:
+  - move to a different shared dynamic action, preferably a normalized modified-wheel zoom compare on a shared named section, or to a concrete production renderer defect if a fresh CDP compare finally exposes one
+- LOOP_TERMINAL_MARKER: none

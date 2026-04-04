@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 05:29 EDT
+Last updated: 2026-04-04 05:41 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,33 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `096` added a normalized cross-worktree shared-section `fit view` restore probe after manual pan and closed that bounded viewport-reset lane without reopening the earlier drag/body-anchor shape.
+  - Why this slice was needed:
+    - the last two completed iterations were probe-only support slices, so the next bounded step had to answer one concrete renderer question instead of extending the same drag/body-anchor lane again
+    - a fresh-context CDP compare on the live pages still did not show a trustworthy canary-only production defect; it only showed that worktree and read-only `main` could settle into different viewport states without a deterministic motion oracle
+    - the narrowest valid next step was one normalized main-reference probe that uses the real `fit view` control plus a shared named section to answer the remaining viewport-reset question directly after deliberate manual pan on both surfaces
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - new opt-in probe: `settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary`
+      - the probe boots both live runtimes with fresh bootstrap values, normalizes pane/selection noise, clears the authoritative viewport on `All Settings`, records a shared-section fit-view landing, applies the same short pane pan, and then verifies a second `fit view` click returns both surfaces to the same settled transform/section geometry
+    - no production renderer files changed in this slice
+  - Automated result:
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - result: passed
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe reapplies the same shared fit view landing after manual pan on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `30.4s`)
+  - Live verification result:
+    - the earlier fresh-context CDP compare for this pass still did not reveal a trustworthy canary-only renderer defect; it only showed a state/viewport difference between the worktree and read-only `main` tabs
+    - a fresh-context CDP sub-agent then ran the required post-state sanity check on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings`
+      - both pages were on `All Settings`
+      - the graph surface was visible and settled on both pages
+      - no obvious leftover pan/fit-view offset or clipping was visible in the post-state
+    - CDP visual check: done (fresh-context post-state sanity check on live `3075` canary vs read-only `3087` legacy after the new fit-view restore probe; no obvious residual fit-view drift visible)
+  - conclusion for this slice:
+    - close the specific cross-worktree fit-view-after-pan lane as covered
+    - do not reopen this lane unless a later fresh compare shows the canary failing to return to the same shared-section landing after a manual pan on normalized `All Settings`
+    - the next real frontier should move to a different shared dynamic action, preferably a normalized modified-wheel zoom compare on a shared named section, or to a concrete production renderer defect if a fresh CDP compare finally exposes one
 - Ralph item `095` added a normalized cross-worktree `groupSectionDefault` body-anchor top-level drag probe and closed that bounded body-heavy drag lane without reopening the spreadsheet path.
   - Why this slice was needed:
     - the handoff already closed the spreadsheet body-anchor drag lane and explicitly asked for the next dynamic compare on a different body-heavy shared section or a concrete production defect
