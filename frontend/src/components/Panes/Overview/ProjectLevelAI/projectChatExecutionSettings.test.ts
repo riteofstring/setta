@@ -27,7 +27,6 @@ import {
   resolveProjectChatProviderDictationTranscribeEnabled,
   resolveProjectChatRuntimeActivityDetails,
   resolveProjectChatRuntimeNativeSlashCommandTokens,
-  resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   trimProjectChatHydrationCache,
 } from "./projectChatCoreUtils";
@@ -394,18 +393,6 @@ describe("getProjectChatBlockedReasonMessage", () => {
     expect(
       getProjectChatBlockedReasonMessage("terminal_hydration_failure"),
     ).toContain("terminal hydration error");
-  });
-});
-
-describe("resolveWorkspaceRootPollDelayMs", () => {
-  it("keeps fast polling before stability threshold", () => {
-    expect(resolveWorkspaceRootPollDelayMs(0)).toBe(5000);
-    expect(resolveWorkspaceRootPollDelayMs(1)).toBe(5000);
-  });
-
-  it("backs off polling once the root is stable", () => {
-    expect(resolveWorkspaceRootPollDelayMs(2)).toBe(30000);
-    expect(resolveWorkspaceRootPollDelayMs(5)).toBe(30000);
   });
 });
 

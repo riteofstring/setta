@@ -87,7 +87,6 @@ import {
   resolveProjectChatRuntimeNativeSlashCommandTokens,
   resolveProjectChatSubmitAppGeneration,
   resolveProjectChatSubmitPreflightResult,
-  resolveWorkspaceRootPollDelayMs,
   shouldSkipProjectChatHydration,
   toSortedProjectHistoryEntries,
   touchProjectChatHydrationRetryEntry,
@@ -132,89 +131,26 @@ function useWorkspaceRootIdentity(
     }
     setWorkspaceRootIdentity(null);
     let cancelled = false;
-    let inFlight = false;
-    let stablePollCount = 0;
-    let lastResolvedRoot: string | null = null;
-    let timeoutId: number | null = null;
-
-    const clearScheduledPoll = () => {
-      if (timeoutId !== null) {
-        window.clearTimeout(timeoutId);
-        timeoutId = null;
-      }
-    };
-
-    const scheduleNextPoll = () => {
-      if (cancelled || document.visibilityState !== "visible") {
-        return;
-      }
-      const delay = resolveWorkspaceRootPollDelayMs(stablePollCount);
-      clearScheduledPoll();
-      timeoutId = window.setTimeout(() => {
-        void refreshRootIdentity();
-      }, delay);
-    };
-
-    const refreshRootIdentity = async () => {
-      if (cancelled || inFlight) {
-        return;
-      }
-      inFlight = true;
+    void (async () => {
       try {
         const rootResponse = await route_get_file_browser_root();
-        if (cancelled) {
-          return;
-        }
         if (
+          cancelled ||
           !rootResponse ||
           rootResponse.status !== 200 ||
           !rootResponse.data
         ) {
-          stablePollCount = 0;
           return;
         }
-        let nextRoot: string | null = null;
         const rootPath = rootResponse.data.rootPath.trim();
-        if (rootPath) {
-          nextRoot = rootPath;
-        }
-        if (nextRoot === lastResolvedRoot) {
-          stablePollCount += 1;
-        } else {
-          lastResolvedRoot = nextRoot;
-          stablePollCount = 0;
-        }
-        setWorkspaceRootIdentity((current) => {
-          if (current === nextRoot) {
-            return current;
-          }
-          return nextRoot;
-        });
+        setWorkspaceRootIdentity(rootPath || null);
       } catch {
-        stablePollCount = 0;
-      } finally {
-        inFlight = false;
-        scheduleNextPoll();
+        // Leave the root unresolved when the one-shot fetch fails.
       }
-    };
+    })();
 
-    const handleVisibilityChange = () => {
-      if (cancelled) {
-        return;
-      }
-      if (document.visibilityState !== "visible") {
-        clearScheduledPoll();
-        return;
-      }
-      void refreshRootIdentity();
-    };
-
-    void refreshRootIdentity();
-    document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => {
       cancelled = true;
-      clearScheduledPoll();
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, [enabled, projectConfigId]);
 

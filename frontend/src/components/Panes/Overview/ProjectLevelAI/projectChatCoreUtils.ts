@@ -60,9 +60,6 @@ import {
   type AgentRunsAuthorityState,
 } from "./projectChatSkillsMcpViewerUtils";
 
-const WORKSPACE_ROOT_FAST_POLL_MS = 5000;
-const WORKSPACE_ROOT_BACKOFF_POLL_MS = 30000;
-const WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF = 2;
 export const CUSTOM_SLASH_COMMAND_AUTHORITY_LOADING_FEEDBACK =
   "Custom slash commands are unavailable until native command authority is loaded for this project.";
 export const NATIVE_SLASH_COMMANDS_RELOAD_FEEDBACK =
@@ -571,15 +568,6 @@ export function resolveProjectChatContextTelemetry(
   contextUsage: ProjectChatContextUsage,
 ): ProjectChatContextTelemetry {
   return resolveAuthoritativeContextTelemetry(contextUsage);
-}
-
-export function resolveWorkspaceRootPollDelayMs(
-  stablePollCount: number,
-): number {
-  if (stablePollCount >= WORKSPACE_ROOT_STABLE_POLLS_BEFORE_BACKOFF) {
-    return WORKSPACE_ROOT_BACKOFF_POLL_MS;
-  }
-  return WORKSPACE_ROOT_FAST_POLL_MS;
 }
 
 type ProjectChatRuntimeActivityEntry =

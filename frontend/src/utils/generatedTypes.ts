@@ -8758,11 +8758,15 @@ export function validateGeneratedWindowSpaceNameInput(
 }
 
 export function validateGeneratedSectionNameInput(name: string): string | null {
-  return validateGeneratedSimpleNameInput(
+  const baseError = validateGeneratedSimpleNameInput(
     name,
     "Section name",
     generatedEmptyNameValidationSet,
   );
+  if (baseError) {
+    return baseError;
+  }
+  return null;
 }
 
 export function validateGeneratedParamNameInput(

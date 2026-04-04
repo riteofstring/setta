@@ -196,6 +196,9 @@ that param hierarchy. The check is exact-match after trimming.
 
 - Local validation runs in the UI for instant feedback using
   `utils/nameValidation.ts` plus section/param-specific checks.
+- That frontend mirror is intentionally limited to pre-submit UX feedback; Go
+  remains authoritative for saved state, route validation, and websocket error
+  broadcasts.
 - Backend-sent name validation errors take precedence in UI displays.
 
 ## Quick References

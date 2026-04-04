@@ -188,7 +188,7 @@ describe("ProjectChatCore workspace root scans", () => {
     });
   });
 
-  it("backs off stable root polling under StrictMode after repeated identical roots", async () => {
+  it("does not schedule repeated workspace root fetches after the initial resolution", async () => {
     vi.mocked(route_get_folder_contents).mockResolvedValue(
       buildFolderContentsResponse("/workspace", []),
     );
@@ -198,19 +198,15 @@ describe("ProjectChatCore workspace root scans", () => {
     await vi.waitFor(() => {
       expect(route_get_file_browser_root).toHaveBeenCalled();
     });
+    const initialRootFetchCount = vi.mocked(route_get_file_browser_root).mock
+      .calls.length;
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(16200);
-    });
-    const postBackoffTransitionCalls = vi.mocked(route_get_file_browser_root)
-      .mock.calls.length;
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(6200);
+      await vi.advanceTimersByTimeAsync(20000);
     });
 
     expect(vi.mocked(route_get_file_browser_root).mock.calls.length).toBe(
-      postBackoffTransitionCalls,
+      initialRootFetchCount,
     );
   });
 });

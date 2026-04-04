@@ -67,6 +67,47 @@ func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 	}
 }
 
+func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
+	t.Helper()
+
+	declarations := nameValidationSupportDeclarations()
+	bodies := map[string]string{}
+	for _, declaration := range declarations {
+		if declaration.Kind != "function" {
+			continue
+		}
+		bodies[declaration.Name] = declaration.FunctionBody
+	}
+
+	if !strings.Contains(
+		bodies["validateGeneratedSimpleNameInput"],
+		`return label + " cannot include control characters.";`,
+	) {
+		t.Fatalf(
+			"validateGeneratedSimpleNameInput body missing template-rendered control-character check:\n%s",
+			bodies["validateGeneratedSimpleNameInput"],
+		)
+	}
+	if !strings.Contains(
+		bodies["validateGeneratedProjectNameInput"],
+		`const allowReserved = options.allowReserved ?? false;`,
+	) {
+		t.Fatalf(
+			"validateGeneratedProjectNameInput body missing template-rendered allowReserved prelude:\n%s",
+			bodies["validateGeneratedProjectNameInput"],
+		)
+	}
+	if !strings.Contains(
+		bodies["validateGeneratedParamNameInput"],
+		`return "Param name must be a valid Python identifier.";`,
+	) {
+		t.Fatalf(
+			"validateGeneratedParamNameInput body missing template-rendered Python identifier check:\n%s",
+			bodies["validateGeneratedParamNameInput"],
+		)
+	}
+}
+
 func TestBuildBindingsRendersPathParamAwareEndpoints(t *testing.T) {
 	t.Helper()
 
