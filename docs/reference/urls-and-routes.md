@@ -35,20 +35,22 @@ The same paths are used in IDE and share modes; the router wraps them with
 The project and view mode names are URL-encoded with `encodeURIComponent` when
 building paths. Matching is exact (case-sensitive) against the stored names.
 
-For standalone section routes, `sectionSlug` is derived from the existing
-canonical full-path slug logic:
+For standalone section routes, `sectionSlug` is backend-owned route identity
+data exposed on loaded project state:
 
-- backend: `sanitize_slug(get_section_path_full_name(...))`
-- frontend: `sanitizeNameForSlug(resolveSectionFullPathName(...))`
+- `projectConfig.sectionPathSlugsById`
+- `projectConfig.sectionIdsByPathSlug`
 
 Standalone project thread routes use the existing thread `chatId` identifier:
 
 - `/:projectConfigName/chat/:chatId`
 
 Standalone window-space routes are namespaced under `/windowspace` and resolve
-against `projectConfig.windowSpaces` by sanitized name slug:
+against backend-owned slug maps on loaded project state:
 
 - `/:projectConfigName/windowspace/:windowSpaceSlug`
+- `projectConfig.windowSpaceSlugsById`
+- `projectConfig.windowSpaceIdsBySlug`
 
 Section routes are namespaced under `/section`, so section slugs no longer need
 to reserve `chat` or `windowspace`.

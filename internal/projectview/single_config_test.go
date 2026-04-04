@@ -381,6 +381,20 @@ func TestSingleConfigByProjectIDIncludesWindowingFields(t *testing.T) {
 	if windowSpace.WindowsByID["window-a"].SectionIDOrNull == nil || *windowSpace.WindowsByID["window-a"].SectionIDOrNull != "draw-section" {
 		t.Fatalf("expected window space section draw-section, got %#v", windowSpace.WindowsByID["window-a"].SectionIDOrNull)
 	}
+	windowSpaceSlug := view.ProjectConfig.WindowSpaceSlugsByID["space-a"]
+	if windowSpaceSlug != "workspace" {
+		t.Fatalf("expected backend-owned window space slug workspace, got %q", windowSpaceSlug)
+	}
+	if got := view.ProjectConfig.WindowSpaceIDsBySlug[windowSpaceSlug]; !reflect.DeepEqual(got, []string{"space-a"}) {
+		t.Fatalf("expected window space slug index [space-a], got %#v", got)
+	}
+	sectionPathSlug := view.ProjectConfig.SectionPathSlugsByID["draw-section"]
+	if sectionPathSlug == "" {
+		t.Fatal("expected backend-owned section path slug for draw-section")
+	}
+	if got := view.ProjectConfig.SectionIDsByPathSlug[sectionPathSlug]; !reflect.DeepEqual(got, []string{"draw-section"}) {
+		t.Fatalf("expected section slug index [draw-section], got %#v", got)
+	}
 	if view.ProjectChatWindowing.NextInstanceNumber != 2 {
 		t.Fatalf("expected next instance number 2, got %d", view.ProjectChatWindowing.NextInstanceNumber)
 	}

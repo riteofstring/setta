@@ -121,7 +121,11 @@ type ProjectConfig struct {
 	WatchCodeRegistry       map[string]projectstate.WatchCodeRegistryEntry `json:"watchCodeRegistry"`
 	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath"`
 	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
+	SectionPathSlugsByID    map[string]string                              `json:"sectionPathSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id"`
+	SectionIDsByPathSlug    map[string][]string                            `json:"sectionIdsByPathSlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id"`
 	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections" py_type:"dict[ID, TopLevelSectionLayout]" py_import:"from setta.types.id import ID, create_new_id"`
+	WindowSpaceSlugsByID    map[string]string                              `json:"windowSpaceSlugsById" py_type:"dict[ID, str]" py_import:"from setta.types.id import ID, create_new_id"`
+	WindowSpaceIDsBySlug    map[string][]string                            `json:"windowSpaceIdsBySlug" py_type:"dict[str, list[ID]]" py_import:"from setta.types.id import ID, create_new_id"`
 	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces" py_type:"dict[ID, WindowSpaceConfig]" py_import:"from setta.types.id import ID, create_new_id"`
 	SectionVariantMap       map[string]string                              `json:"sectionVariantMap" py_type:"dict[ID, ID]" py_import:"from setta.types.id import ID, create_new_id"`
 	ActiveIDs               []string                                       `json:"activeIds" py_type:"list[ID]" py_import:"from setta.types.id import ID, create_new_id"`
@@ -197,7 +201,7 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		CodeObjs:              make(map[string]Core, len(project.CodeObjs)),
 		CodeObjImpls:          make(map[string]json.RawMessage, len(project.CodeObjImpls)),
 		CodeObjVariants:       make(map[string]Variant, len(project.CodeObjVariants)),
-		ProjectConfig:         projectConfigFromProject(project),
+		ProjectConfig:         ProjectConfig{},
 		SingletonSections:     deriveSingletonSections(project),
 		ParentSectionMap:      deriveParentSectionMap(project),
 		ShownParamIDs:         make(map[string]ShownParamIDs),
@@ -205,6 +209,12 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 		GenCodeBinding:        deriveGenCodeBinding(project),
 		ProjectChatWindowing:  projectstate.DefaultProjectChatWindowingState(),
 	}
+
+	projectConfig, err := projectConfigFromProject(project)
+	if err != nil {
+		return SingleConfig{}, err
+	}
+	view.ProjectConfig = projectConfig
 
 	for sectionID, section := range project.Sections {
 		view.Sections[sectionID] = coreFromSection(section)
@@ -245,7 +255,7 @@ func SingleConfigByProjectID(document projectstate.Document, projectID string) (
 	return view, nil
 }
 
-func projectConfigFromProject(project projectstate.Project) ProjectConfig {
+func projectConfigFromProject(project projectstate.Project) (ProjectConfig, error) {
 	topLevelSections := make(map[string]projectstate.TopLevelSectionLayout, len(project.TopLevelSections)+len(project.TopLevelSectionIDs))
 	for sectionID, layout := range project.TopLevelSections {
 		topLevelSections[sectionID] = layout.Clone()
@@ -281,6 +291,12 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 		codegenTargets = append(codegenTargets, codegenTargetPayload(target))
 	}
 
+	sectionPathSlugsByID, sectionIDsByPathSlug, err := projectstate.ActiveSectionSlugMaps(project)
+	if err != nil {
+		return ProjectConfig{}, err
+	}
+	windowSpaceSlugsByID, windowSpaceIDsBySlug := projectstate.WindowSpaceSlugMaps(project.WindowSpaces)
+
 	activeViewModeID := stringPointerOrNil(project.ActiveViewModeID)
 	entryCodeBlockID := stringPointerOrNil(project.EntryCodeBlockID)
 
@@ -315,14 +331,18 @@ func projectConfigFromProject(project projectstate.Project) ProjectConfig {
 		WatchCodeRegistry:       cloneWatchCodeRegistry(project.WatchCodeRegistry),
 		WatchCodeBaselineByPath: cloneStringSlicesMap(project.WatchCodeBaselineByPath),
 		EntryCodeBlockID:        entryCodeBlockID,
+		SectionPathSlugsByID:    cloneStringMap(sectionPathSlugsByID),
+		SectionIDsByPathSlug:    cloneStringSlicesMap(sectionIDsByPathSlug),
 		TopLevelSections:        topLevelSections,
+		WindowSpaceSlugsByID:    cloneStringMap(windowSpaceSlugsByID),
+		WindowSpaceIDsBySlug:    cloneStringSlicesMap(windowSpaceIDsBySlug),
 		WindowSpaces:            projectstate.CloneWindowSpacesOrEmpty(project.WindowSpaces),
 		SectionVariantMap:       cloneStringMap(project.SectionVariantMap),
 		ActiveIDs:               cloneStringSlice(project.ActiveIDs),
 		Edges:                   edges,
 		AgenticEdges:            agenticEdges,
 		StateMachineEdges:       stateMachineEdges,
-	}
+	}, nil
 }
 
 func coreFromSection(section projectstate.Section) Core {

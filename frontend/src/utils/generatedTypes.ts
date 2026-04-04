@@ -6368,7 +6368,11 @@ export type ProjectConfig = {
   watchCodeRegistry: Record<string, WatchCodeRegistryEntry>;
   watchCodeBaselineByPath: Record<string, Array<string>>;
   entryCodeBlockId?: string | null;
+  sectionPathSlugsById: Record<string, string>;
+  sectionIdsByPathSlug: Record<string, Array<string>>;
   topLevelSections: Record<string, TopLevelSectionLayout>;
+  windowSpaceSlugsById: Record<string, string>;
+  windowSpaceIdsBySlug: Record<string, Array<string>>;
   windowSpaces: Record<string, WindowSpaceConfig>;
   sectionVariantMap: Record<string, string>;
   activeIds: Array<string>;
@@ -6398,7 +6402,11 @@ export function createProjectConfig(
       watchCodeRegistry: {},
       watchCodeBaselineByPath: {},
       entryCodeBlockId: null,
+      sectionPathSlugsById: {},
+      sectionIdsByPathSlug: {},
       topLevelSections: {},
+      windowSpaceSlugsById: {},
+      windowSpaceIdsBySlug: {},
       windowSpaces: {},
       sectionVariantMap: {},
       activeIds: [],

@@ -173,7 +173,8 @@ export function resolveStandaloneSectionSlug(
   state: SectionSlugProjectState,
   sectionSlug: string,
 ): StandaloneSectionSlugResolution {
-  const matchingIds = getSectionSlugIndex(state).slugToIds[sectionSlug] ?? [];
+  const matchingIds =
+    state.projectConfig.sectionIdsByPathSlug?.[sectionSlug] ?? [];
 
   if (matchingIds.length === 0) {
     return {
