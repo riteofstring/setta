@@ -893,8 +893,8 @@ describe("project chat windowing reducer helpers", () => {
     expect(next).toBe(initial);
   });
 
-  it("resolves section chat mode from the first section-bound window in normalized order", () => {
-    // Invalid duplicate bindings are backend-owned; the frontend should not invent a local winner.
+  it("resolves section chat mode from the preferred section-bound window", () => {
+    // Canvas/floating bindings should win over docked bindings for section render mode.
     const docked = createProjectChatWindowInstance({
       instanceId: "chat-window-docked",
       placement: ChatWindowPlacementEnum.bottom_docked,
@@ -920,13 +920,13 @@ describe("project chat windowing reducer helpers", () => {
 
     expect(
       getProjectChatWindowModeForSectionInState(initial, "section-1"),
-    ).toBe(ChatWindowModeEnum.project_ai_mode);
+    ).toBe(ChatWindowModeEnum.section_mode);
     expect(getProjectChatWindowModeForSectionInState(initial, "missing")).toBe(
       ChatWindowModeEnum.section_mode,
     );
   });
 
-  it("does not arbitrate exact duplicate section-binding ties locally", () => {
+  it("matches backend normalization for exact duplicate section-binding ties", () => {
     const lowerId = createProjectChatWindowInstance({
       instanceId: "project-chat-window-1",
       placement: ChatWindowPlacementEnum.floating,
@@ -957,7 +957,7 @@ describe("project chat windowing reducer helpers", () => {
     expect(
       getProjectChatWindowBindingForSectionInState(initial, "section-1")
         ?.instanceId,
-    ).toBe(lowerId.instanceId);
+    ).toBe(higherId.instanceId);
   });
 
   it("updates the bound section window mode when switching chat mode", () => {
