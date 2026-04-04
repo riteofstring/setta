@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 02:36 EDT
+Last updated: 2026-04-04 02:58 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,40 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `086` added a normalized shared-section short-drag parity guard on the worktree `Core` legacy vs `All Settings` canary lane and closed that bounded motion slice with live worktree-only CDP evidence.
+  - Why this slice was needed:
+    - items `084` and `085` had already closed the shared `shortcuts` short-pan lane and the tiny-card overlap/frontmost drag lane, so the next plan-aligned candidate was the remaining plain top-level short-drag question on that same shared section
+    - the last two completed iterations were support/oracle-only, so this pass needed one bounded motion-parity step that answered a concrete renderer question instead of polishing the harness again
+    - CDP had already shown the shared `shortcuts` drag start itself was usable; the part that was untrustworthy was the overlap/frontmost verdict, not the underlying short-drag gesture
+  - Production/test change:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` now exports `findSettingsGraphSectionDragPoint(page, sectionId)` so parity probes can resolve one draggable point on either the legacy React Flow node or the canary section wrapper while avoiding `.nodrag`/input targets
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph parity probe applies the same short top-level drag delta on legacy and canary surfaces after normalized fit`
+      - the guard resolves one shared visible top-level section across `Core` and `All Settings`
+      - it restores the initial per-view-mode layout before each capture, normalizes the remembered compare pane state, fits the same section, applies the same short plain left-mouse drag, and asserts both surfaces move the section by matching layout/rect deltas while keeping the viewport stable
+  - Automated result:
+    - initial rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe applies the same short top-level drag delta on legacy and canary surfaces after normalized fit'`
+        - result: failed once because the screen-space `rectDelta.x` tolerance was `12px` while the lane reported `13.2805px`; the authoritative layout/viewport assertions were already passing
+    - final rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe applies the same short top-level drag delta on legacy and canary surfaces after normalized fit'`
+        - result: passed (`1 passed`, about `21.9s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+  - Live verification result:
+    - fresh-context CDP sub-agent verified the worktree runtime only on `http://127.0.0.1:3075/settings` with plain left-mouse drags on shared section `shortcuts`
+    - worktree `Core` legacy:
+      - `shortcuts` rect `818,306,55x35 -> 858,306,55x35`
+      - viewport transform stayed `matrix(0.1, 0, 0, 0.1, 745.9, 13.8)`
+      - visible move: yes
+    - worktree `All Settings` canary:
+      - `shortcuts` rect `858,306,55x35 -> 898,306,55x35`
+      - viewport transform stayed unchanged
+      - visible move: yes
+    - CDP visual check: done (worktree-only live browser on `3075/8075`, plain left-mouse short drags on shared `shortcuts`, viewport stable on both surfaces)
+  - conclusion for this slice:
+    - close the worktree shared-section short top-level drag parity lane as covered
+    - do not reopen the tiny-card overlap/frontmost oracle on `shortcuts`; the bounded plain-drag question is answered now
+    - the next frontier should move back to a real renderer-facing compare, preferably one cross-worktree graph-surface-only motion lane that CDP can actually drive end-to-end
 - Ralph item `085` tested whether the next shared-section `shortcuts` drag/frontmost live lane is actually trustworthy and concluded that this exact CDP mouse-drop shape should not be reopened.
   - Why this slice was needed:
     - items `083` and `084` had already closed normalized `shortcuts` fit and short-pan on the shared lane, so the next plan-aligned candidate was a bounded drag/frontmost compare

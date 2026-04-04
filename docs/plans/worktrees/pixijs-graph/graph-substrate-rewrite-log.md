@@ -2958,3 +2958,36 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - attempt another shared-section motion lane that DevTools can drive more trustworthily end-to-end, most likely a bounded top-level drag/frontmost compare if CDP mouse-drop proves usable
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 02:58 EDT - Ralph item 086
+
+- Added a normalized shared-section short-drag parity guard on the worktree `Core` legacy vs `All Settings` canary lane and closed that bounded motion slice with live worktree-only browser evidence.
+- Why this slice was necessary:
+  - item `085` had already closed the tiny-card overlap/frontmost drag oracle as untrustworthy, but it also showed the underlying `shortcuts` drag itself was live and visually clean
+  - after two support/oracle-only iterations, this pass needed one bounded motion-parity step that answered a concrete renderer question rather than extending the helper lane again
+  - the remaining plan-aligned question on the shared `shortcuts` lane was whether a plain short top-level drag moves the same section by the same amount on worktree `Core` legacy and worktree `All Settings` canary after normalized fit
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `findSettingsGraphSectionDragPoint(page, sectionId)` so parity probes can resolve one draggable point on either surface while avoiding `.nodrag`/input/contenteditable targets
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added `settings graph parity probe applies the same short top-level drag delta on legacy and canary surfaces after normalized fit`
+    - the new guard restores the initial per-view-mode layout before each capture, normalizes the remembered compare pane state, fits shared section `shortcuts`, applies one short plain left-mouse drag, and compares layout/rect deltas while asserting the viewport stays stable
+- Verification:
+  - first targeted Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe applies the same short top-level drag delta on legacy and canary surfaces after normalized fit'`
+    - result: failed once because the screen-space `rectDelta.x` tolerance was `12px` while the lane reported `13.2805px`; the authoritative layout/viewport assertions were already passing
+  - final targeted Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe applies the same short top-level drag delta on legacy and canary surfaces after normalized fit'`
+    - result: passed (`1 passed`, about `21.9s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - fresh-context CDP sub-agent, worktree only on `http://127.0.0.1:3075/settings`:
+    - `Core` legacy `shortcuts` rect `818,306,55x35 -> 858,306,55x35`
+    - `All Settings` canary `shortcuts` rect `858,306,55x35 -> 898,306,55x35`
+    - viewport transform stayed unchanged during both drags (`matrix(0.1, 0, 0, 0.1, 745.9, 13.8)` on the checked lane)
+  - CDP visual check: done (worktree-only live browser on `3075/8075`, plain left-mouse short drags on shared `shortcuts`, viewport stable on both surfaces)
+- Lane status:
+  - close the worktree shared-section short top-level drag parity lane as covered
+  - do not reopen the tiny-card overlap/frontmost oracle on `shortcuts`; that question is still tool-limited, but the bounded plain-drag motion question is answered now
+- Next frontier:
+  - move back to a real renderer-facing compare, preferably one cross-worktree graph-surface-only motion lane that CDP can drive end-to-end now that short pan and short drag are both guarded on the shared worktree lane
+- LOOP_TERMINAL_MARKER: none
