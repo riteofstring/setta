@@ -88,12 +88,16 @@ func TestRegisterProjectRoutesProjectChatWindowingMutationsPersistAndTrackFronte
 		t.Fatalf("expected 200 create response, got %d with body %q", createResponse.Code, createResponse.Body.String())
 	}
 
-	var createdWindowSpace projectstate.WindowSpaceConfig
-	if err := json.Unmarshal(createResponse.Body.Bytes(), &createdWindowSpace); err != nil {
+	var createPayload WindowSpaceMutationResponse
+	if err := json.Unmarshal(createResponse.Body.Bytes(), &createPayload); err != nil {
 		t.Fatalf("decode create window space response: %v", err)
 	}
-	if createdWindowSpace.ID == "" {
+	if createPayload.WindowSpaceID == nil || *createPayload.WindowSpaceID == "" {
 		t.Fatal("expected created window space id")
+	}
+	createdWindowSpace, ok := createPayload.ProjectConfig.WindowSpaces[*createPayload.WindowSpaceID]
+	if !ok {
+		t.Fatalf("expected created window space %q in response project config", *createPayload.WindowSpaceID)
 	}
 	if createdWindowSpace.WindowsByID == nil {
 		t.Fatal("expected created window space windowsById map to be non-nil")

@@ -201,6 +201,15 @@ type ProjectStateSingleConfigWithCompletedOpIDs struct {
 	PendingOpIDs   []string                 `json:"pendingOpIds"`
 }
 
+type ProjectConfigMutationResponse struct {
+	ProjectConfig projectview.ProjectConfig `json:"projectConfig"`
+}
+
+type WindowSpaceMutationResponse struct {
+	ProjectConfig projectview.ProjectConfig `json:"projectConfig"`
+	WindowSpaceID *string                   `json:"windowSpaceId,omitempty"`
+}
+
 type SetProjectConfigCodegenTargetsRequest struct {
 	FrontendOpID   *string           `json:"frontendOpId"`
 	ProjectID      string            `json:"projectConfigId"`
@@ -1967,6 +1976,20 @@ func broadcastProjectRouteStateUpdate(
 		selection,
 	)
 	return err
+}
+
+func projectConfigViewFromSnapshot(
+	snapshot projectstate.Snapshot,
+	projectID string,
+) (projectview.ProjectConfig, error) {
+	projectStateView, err := projectview.SingleConfigByProjectID(
+		snapshot.Document,
+		projectID,
+	)
+	if err != nil {
+		return projectview.ProjectConfig{}, err
+	}
+	return projectStateView.ProjectConfig, nil
 }
 
 func undoHandler(deps ProjectRouteDependencies) http.HandlerFunc {
@@ -6686,7 +6709,7 @@ func createWindowSpaceHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		_, windowSpace, err := runtime.CreateWindowSpace(
+		snapshot, windowSpace, err := runtime.CreateWindowSpace(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.State,
@@ -6696,7 +6719,20 @@ func createWindowSpaceHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			writeWindowSpaceMutationError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, windowSpace)
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		projectConfig, err := projectConfigViewFromSnapshot(snapshot, projectID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		createdWindowSpaceID := windowSpace.ID
+		writeJSON(w, http.StatusOK, WindowSpaceMutationResponse{
+			ProjectConfig: projectConfig,
+			WindowSpaceID: &createdWindowSpaceID,
+		})
 	}
 }
 
@@ -6728,16 +6764,28 @@ func setWindowSpaceNameHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.SetWindowSpaceName(
+		snapshot, err := runtime.SetWindowSpaceName(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			windowSpaceID,
 			payload.Name,
-		); err != nil {
+		)
+		if err != nil {
 			writeWindowSpaceMutationError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, nil)
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		projectConfig, err := projectConfigViewFromSnapshot(snapshot, projectID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, ProjectConfigMutationResponse{
+			ProjectConfig: projectConfig,
+		})
 	}
 }
 
@@ -6764,15 +6812,27 @@ func setWindowSpaceSortOrderHandler(deps ProjectRouteDependencies) http.HandlerF
 			return
 		}
 
-		if _, err := runtime.SetWindowSpaceSortOrder(
+		snapshot, err := runtime.SetWindowSpaceSortOrder(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			payload.OrderedWindowSpaceIDs,
-		); err != nil {
+		)
+		if err != nil {
 			writeWindowSpaceMutationError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, nil)
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		projectConfig, err := projectConfigViewFromSnapshot(snapshot, projectID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, ProjectConfigMutationResponse{
+			ProjectConfig: projectConfig,
+		})
 	}
 }
 
@@ -6804,15 +6864,27 @@ func deleteWindowSpaceHandler(deps ProjectRouteDependencies) http.HandlerFunc {
 			return
 		}
 
-		if _, err := runtime.DeleteWindowSpace(
+		snapshot, err := runtime.DeleteWindowSpace(
 			projectMutationContext(r.Context(), payload.FrontendOpID),
 			projectID,
 			windowSpaceID,
-		); err != nil {
+		)
+		if err != nil {
 			writeWindowSpaceMutationError(w, r, err)
 			return
 		}
-		writeJSON(w, http.StatusOK, nil)
+		if err := broadcastProjectRouteStateUpdate(r, deps, runtime, snapshot, projectID); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		projectConfig, err := projectConfigViewFromSnapshot(snapshot, projectID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error")
+			return
+		}
+		writeJSON(w, http.StatusOK, ProjectConfigMutationResponse{
+			ProjectConfig: projectConfig,
+		})
 	}
 }
 

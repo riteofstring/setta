@@ -1625,25 +1625,25 @@ export async function route_set_prompt_format(
 
 export async function route_create_window_space(
   x: gt.CreateWindowSpaceRequest,
-): Promise<ResponseDataAndStatus<gt.WindowSpaceConfig>> {
+): Promise<ResponseDataAndStatus<gt.WindowSpaceMutationResponse>> {
   return await post(GoHTTPRouteHelpers.createWindowSpace(), x);
 }
 
 export async function route_set_window_space_name(
   x: gt.SetWindowSpaceNameRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectConfigMutationResponse>> {
   return await post(GoHTTPRouteHelpers.setWindowSpaceName(), x);
 }
 
 export async function route_set_window_space_sort_order(
   x: gt.SetWindowSpaceSortOrderRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectConfigMutationResponse>> {
   return await post(GoHTTPRouteHelpers.setWindowSpaceSortOrder(), x);
 }
 
 export async function route_delete_window_space(
   x: gt.DeleteWindowSpaceRequest,
-): Promise<ResponseDataAndStatus<null>> {
+): Promise<ResponseDataAndStatus<gt.ProjectConfigMutationResponse>> {
   return await post(GoHTTPRouteHelpers.deleteWindowSpace(), x);
 }
 

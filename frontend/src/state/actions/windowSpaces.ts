@@ -15,6 +15,7 @@ import {
   dispatchOptimisticProjectStateUpdate,
   getCurrProjectConfigId,
 } from "state/actions/sectionInfos";
+import { publishProjectConfigSnapshot } from "state/actions/projectConfigSnapshots";
 import {
   useProjectState,
   useShareSession,
@@ -45,8 +46,6 @@ import {
   type WindowSpaceConfig,
   type WindowSpaceState,
 } from "utils/generatedTypes";
-import { createRandomName } from "utils/idNameCreation";
-import { sanitizeNameForSlug } from "utils/nameValidation";
 import { addTemporaryNotification } from "./notifications";
 import { isProjectChatGitGraphEmbeddedPaneVisible } from "./projectChatWindowingEphemeral";
 
@@ -70,7 +69,18 @@ type WindowSpaceSnapshotState = Pick<
   | "sectionVariants"
 >;
 
-type CreateWindowSpaceRouteResponse = ResponseDataAndStatus<WindowSpaceConfig>;
+type ProjectConfigMutationPayload = {
+  projectConfig: ZustandProjectState["projectConfig"];
+};
+
+type WindowSpaceMutationPayload = ProjectConfigMutationPayload & {
+  windowSpaceId?: string | null;
+};
+
+type CreateWindowSpaceRouteResponse =
+  ResponseDataAndStatus<WindowSpaceMutationPayload>;
+type ProjectConfigMutationRouteResponse =
+  ResponseDataAndStatus<ProjectConfigMutationPayload>;
 
 function resolveAuthoringFloatingViewport(): AuthoringFloatingViewport {
   return resolveProjectChatFloatingViewport();
@@ -136,7 +146,9 @@ function dispatchOptimisticWindowSpaceMutation({
   send: (args: {
     frontendOpId: string;
     projectConfigId: string;
-  }) => void | Promise<unknown>;
+  }) =>
+    | ProjectConfigMutationRouteResponse
+    | Promise<ProjectConfigMutationRouteResponse>;
 }) {
   if (!canMutateWindowSpaceLayout()) {
     return;
@@ -144,78 +156,35 @@ function dispatchOptimisticWindowSpaceMutation({
   const previousWindowSpaces = cloneWindowSpaces(
     getProjectWindowSpaces(useProjectState.getState().projectConfig),
   );
+  let acknowledgedProjectConfig:
+    | ZustandProjectState["projectConfig"]
+    | null = null;
   dispatchOptimisticProjectStateUpdate({
     projectConfigId,
     apply,
+    reapply: (state) => {
+      if (acknowledgedProjectConfig) {
+        state.projectConfig = acknowledgedProjectConfig;
+        return;
+      }
+      apply(state);
+    },
     rollback: (state) => {
       state.projectConfig.windowSpaces =
         cloneWindowSpaces(previousWindowSpaces);
     },
-    send: (frontendOpId) =>
-      send({
+    send: async (frontendOpId) => {
+      const response = await send({
         frontendOpId,
         projectConfigId,
-      }),
+      });
+      if (res200(response)) {
+        acknowledgedProjectConfig = response.data.projectConfig;
+        publishProjectConfigSnapshot(projectConfigId, response.data.projectConfig);
+      }
+      return response;
+    },
   });
-}
-
-function resolveNextWindowSpaceName(
-  windowSpaces: Record<string, WindowSpaceConfig>,
-): string {
-  const existingSlugs = new Set(
-    Object.values(windowSpaces).map((windowSpace) =>
-      sanitizeNameForSlug(windowSpace.name),
-    ),
-  );
-  let nextName = createRandomName();
-  while (existingSlugs.has(sanitizeNameForSlug(nextName))) {
-    nextName = createRandomName();
-  }
-  return nextName;
-}
-
-export function applyWindowSpaceSortOrder(
-  state: ZustandProjectState,
-  orderedWindowSpaceIds: Array<string>,
-): void {
-  const windowSpaces = state.projectConfig.windowSpaces;
-  if (orderedWindowSpaceIds.length !== Object.keys(windowSpaces).length) {
-    throw new Error(
-      "orderedWindowSpaceIds must include every window space exactly once.",
-    );
-  }
-
-  const seen = new Set<string>();
-  for (const windowSpaceId of orderedWindowSpaceIds) {
-    if (!(windowSpaceId in windowSpaces)) {
-      throw new Error(`Window space ${windowSpaceId} not found.`);
-    }
-    if (seen.has(windowSpaceId)) {
-      throw new Error("orderedWindowSpaceIds contains duplicates.");
-    }
-    seen.add(windowSpaceId);
-  }
-
-  orderedWindowSpaceIds.forEach((windowSpaceId, index) => {
-    const windowSpace = windowSpaces[windowSpaceId];
-    if (!windowSpace) {
-      throw new Error(`Window space ${windowSpaceId} not found.`);
-    }
-    windowSpace.sortIndex = index;
-  });
-}
-
-function compactWindowSpaceSortIndices(
-  windowSpaces: Record<string, WindowSpaceConfig>,
-): void {
-  const sortedWindowSpaces = sortWindowSpaces(Object.values(windowSpaces));
-  for (let index = 0; index < sortedWindowSpaces.length; index += 1) {
-    const sortedWindowSpace = sortedWindowSpaces[index];
-    if (!sortedWindowSpace) {
-      continue;
-    }
-    sortedWindowSpace.sortIndex = index;
-  }
 }
 
 export function persistWindowSpaceSortOrder(
@@ -223,16 +192,17 @@ export function persistWindowSpaceSortOrder(
   orderedWindowSpaceIds: Array<string>,
 ): void {
   dispatchOptimisticWindowSpaceMutation({
-    apply: (state) => {
-      applyWindowSpaceSortOrder(state, orderedWindowSpaceIds);
-    },
+    apply: () => {},
     projectConfigId,
-    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
-      route_set_window_space_sort_order({
-        projectConfigId: nextProjectConfigId,
-        orderedWindowSpaceIds,
-        frontendOpId,
-      }),
+    send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {
+      const response: ProjectConfigMutationRouteResponse =
+        await route_set_window_space_sort_order({
+          projectConfigId: nextProjectConfigId,
+          orderedWindowSpaceIds,
+          frontendOpId,
+        });
+      return response;
+    },
   });
 }
 
@@ -250,13 +220,16 @@ export function setWindowSpaceName(
       windowSpaces[windowSpaceId].name = name;
     },
     projectConfigId,
-    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
-      route_set_window_space_name({
-        projectConfigId: nextProjectConfigId,
-        windowSpaceId,
-        name,
-        frontendOpId,
-      }),
+    send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {
+      const response: ProjectConfigMutationRouteResponse =
+        await route_set_window_space_name({
+          projectConfigId: nextProjectConfigId,
+          windowSpaceId,
+          name,
+          frontendOpId,
+        });
+      return response;
+    },
   });
 }
 
@@ -265,21 +238,17 @@ export function deleteWindowSpace(
   windowSpaceId: string,
 ): void {
   dispatchOptimisticWindowSpaceMutation({
-    apply: (state) => {
-      const windowSpaces = getProjectWindowSpaces(state.projectConfig);
-      if (!(windowSpaceId in windowSpaces)) {
-        throw new Error(`Window space ${windowSpaceId} not found`);
-      }
-      delete windowSpaces[windowSpaceId];
-      compactWindowSpaceSortIndices(windowSpaces);
-    },
+    apply: () => {},
     projectConfigId,
-    send: ({ frontendOpId, projectConfigId: nextProjectConfigId }) =>
-      route_delete_window_space({
-        projectConfigId: nextProjectConfigId,
-        windowSpaceId,
-        frontendOpId,
-      }),
+    send: async ({ frontendOpId, projectConfigId: nextProjectConfigId }) => {
+      const response: ProjectConfigMutationRouteResponse =
+        await route_delete_window_space({
+          projectConfigId: nextProjectConfigId,
+          windowSpaceId,
+          frontendOpId,
+        });
+      return response;
+    },
   });
 }
 
@@ -1446,14 +1415,10 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
   if (Object.keys(authoritativeSnapshot.windowsById).length === 0) {
     return null;
   }
-  const nextWindowSpaceName = resolveNextWindowSpaceName(
-    getProjectWindowSpaces(projectConfigSnapshot),
-  );
   const response: CreateWindowSpaceRouteResponse =
     await route_create_window_space({
       projectConfigId,
       state: authoritativeSnapshot,
-      name: nextWindowSpaceName,
     });
   if (!res200(response)) {
     const detail = getErrorDetail(response.data);
@@ -1463,7 +1428,6 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     console.error("Failed to save window space.", {
       status: response.status,
       detail,
-      name: nextWindowSpaceName,
       projectConfigId,
     });
     addTemporaryNotification(
@@ -1472,15 +1436,6 @@ export async function createWindowSpaceFromCurrentFloatingWindows(): Promise<
     );
     return null;
   }
-  useProjectState.setState((currentState) => {
-    if (currentState.projectConfig.id !== projectConfigId) {
-      return;
-    }
-    const windowSpaces = currentState.projectConfig.windowSpaces;
-    if (windowSpaces[response.data.id]) {
-      return;
-    }
-    windowSpaces[response.data.id] = response.data;
-  });
-  return response.data.id;
+  publishProjectConfigSnapshot(projectConfigId, response.data.projectConfig);
+  return response.data.windowSpaceId ?? null;
 }

@@ -3537,7 +3537,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "createWindowSpace",
 			RequestType:     reflect.TypeOf(httpapi.CreateWindowSpaceRequest{}),
-			ResponseType:    reflect.TypeOf(WindowSpaceConfig{}),
+			ResponseType:    reflect.TypeOf(httpapi.WindowSpaceMutationResponse{}),
 		},
 		{
 			FunctionName:    "route_set_window_space_name",
@@ -3545,6 +3545,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setWindowSpaceName",
 			RequestType:     reflect.TypeOf(httpapi.SetWindowSpaceNameRequest{}),
+			ResponseType:    reflect.TypeOf(httpapi.ProjectConfigMutationResponse{}),
 		},
 		{
 			FunctionName:    "route_set_window_space_sort_order",
@@ -3552,6 +3553,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "setWindowSpaceSortOrder",
 			RequestType:     reflect.TypeOf(httpapi.SetWindowSpaceSortOrderRequest{}),
+			ResponseType:    reflect.TypeOf(httpapi.ProjectConfigMutationResponse{}),
 		},
 		{
 			FunctionName:    "route_delete_window_space",
@@ -3559,6 +3561,7 @@ func CurrentEndpoints() []EndpointSpec {
 			RouteCollection: "GoHTTPRoutes",
 			RouteName:       "deleteWindowSpace",
 			RequestType:     reflect.TypeOf(httpapi.DeleteWindowSpaceRequest{}),
+			ResponseType:    reflect.TypeOf(httpapi.ProjectConfigMutationResponse{}),
 		},
 		{
 			FunctionName:    "route_set_project_chat_windowing_state",
