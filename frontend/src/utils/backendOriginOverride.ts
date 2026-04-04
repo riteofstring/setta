@@ -1,12 +1,10 @@
-import { GENERATED_BOOTSTRAP_PROTOCOL } from "utils/generatedTypes";
 import { isLocalHostname } from "utils/hostnames";
 import { normalizeOrigin } from "utils/origin";
 import { safeSessionStorage } from "utils/storage";
 
 export const BACKEND_ORIGIN_OVERRIDE_STORAGE_KEY =
   "setta.backendOriginOverride";
-const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM =
-  GENERATED_BOOTSTRAP_PROTOCOL.backendOriginOverrideQueryParam;
+const BACKEND_ORIGIN_OVERRIDE_QUERY_PARAM = "__setta_backend_origin";
 
 function allowNonLocalOriginOverride(): boolean {
   const raw = import.meta.env?.VITE_ALLOW_BACKEND_ORIGIN_OVERRIDE;

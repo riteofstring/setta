@@ -1,3 +1,8 @@
+import {
+  fitViewportToWorldRect,
+  screenPointToWorldPoint,
+  worldPointToScreenPoint,
+} from "components/Pages/Project/graphSubstrate/viewportTransform";
 import type { Selection as D3Selection } from "d3";
 import { getActiveSectionUIIds } from "state/activeSectionUI";
 import {
@@ -7,7 +12,6 @@ import {
   useSectionRefs,
 } from "state/definitions";
 import { Position } from "utils/generatedTypes";
-import { clamp } from "utils/utils";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
 import { useReactFlow } from "../store";
 import type { Node, ReactFlowState, Rect, Transform, Viewport } from "../types";
@@ -25,10 +29,10 @@ export const pointToRendererPoint = (
   [snapX, snapY]: [number, number],
   ignoreGrid?: boolean,
 ): Position => {
-  const position: Position = {
-    x: (x - tx) / tScale,
-    y: (y - ty) / tScale,
-  };
+  const position = screenPointToWorldPoint(
+    { x, y },
+    { x: tx, y: ty, zoom: tScale },
+  );
 
   if (!ignoreGrid && snapToGrid) {
     return {
@@ -44,10 +48,7 @@ export const rendererPointToPoint = (
   { x, y }: Position,
   [tx, ty, tScale]: Transform,
 ): Position => {
-  return {
-    x: x * tScale + tx,
-    y: y * tScale + ty,
-  };
+  return worldPointToScreenPoint({ x, y }, { x: tx, y: ty, zoom: tScale });
 };
 
 export const getNodesBounds = (nodes: Node[]): Rect => {
@@ -134,31 +135,21 @@ export const getViewportForBounds = (
   padding = 0.1,
   keepCurrZoomIfPossible = false,
 ): Viewport => {
-  const xZoom = width / (bounds.width * (1 + padding));
-  const yZoom = height / (bounds.height * (1 + padding));
-  const unclampedZoom = Math.min(xZoom, yZoom);
-  const clampedZoom = clamp(unclampedZoom, minZoom, maxZoom);
-  const boundsCenterX = bounds.x + bounds.width / 2;
-  const boundsCenterY = bounds.y + bounds.height / 2;
-
-  let zoom = clampedZoom;
-  if (keepCurrZoomIfPossible) {
-    const currZoom = useReactFlow.getState().transform[2];
-    // if we have to zoom out to view the whole bounds
-    // or if we have to zoom in to reach a "reasonable" zoom level
-    zoom =
-      unclampedZoom < currZoom || clampedZoom > currZoom
-        ? clampedZoom
-        : currZoom;
-  }
-
-  const x =
-    width / 2 -
-    boundsCenterX * zoom +
-    useLocalStorage.getState().overviewTrueWidth;
-  const y = height / 2 - boundsCenterY * zoom;
-
-  return { x, y, zoom };
+  return fitViewportToWorldRect(
+    bounds,
+    { width, height },
+    {
+      minZoom,
+      maxZoom,
+      padding,
+      keepCurrentZoomIfPossible: keepCurrZoomIfPossible,
+      currentZoom: useReactFlow.getState().transform[2],
+      centerScreenPoint: {
+        x: width / 2 + useLocalStorage.getState().overviewTrueWidth,
+        y: height / 2,
+      },
+    },
+  );
 };
 
 export const getD3Transition = (
@@ -329,41 +320,126 @@ function hasPositiveRectBounds(
 }
 
 export function movePaneToIncludeElement(element: HTMLElement) {
-  const point = screenToFlowPosition(element.getBoundingClientRect());
-  const paneRect = getPaneRect(
-    useReactFlow.getState(),
+  const reactFlowState = useReactFlow.getState();
+  const elementRect = element.getBoundingClientRect();
+  const paneRect = getPaneScreenRect(
+    reactFlowState,
     useLocalStorage.getState().overviewTrueWidth,
     useLocalStorage.getState().uiEditorTrueWidth,
   );
-  const { x, y, isInside } = getRectTranslation(point, paneRect, 100);
+  const { x, y, isInside } = getRectTranslation(elementRect, paneRect, 100);
   if (!isInside) {
-    const { d3Zoom, d3Selection } = useReactFlow.getState();
-    d3Zoom.translateBy(d3Selection, -x, -y);
+    const {
+      d3Zoom,
+      d3Selection,
+      transform: [viewportX, viewportY, zoom],
+      viewportController,
+    } = reactFlowState;
+    if (
+      d3Zoom &&
+      d3Selection &&
+      hasActiveD3ViewportTarget(d3Selection, reactFlowState.domNode)
+    ) {
+      d3Zoom.translateBy(d3Selection, -x / zoom, -y / zoom);
+      return;
+    }
+    viewportController?.setViewport({
+      x: viewportX - x,
+      y: viewportY - y,
+    });
   }
 }
 
-function getRectTranslation(point: Position, rect: Rect, padding = 0) {
-  // Calculate the boundaries with padding
-  const minX = rect.x + padding;
-  const maxX = rect.x + rect.width - padding;
-  const minY = rect.y + padding;
-  const maxY = rect.y + rect.height - padding;
+type ScreenRect = {
+  bottom: number;
+  height: number;
+  left: number;
+  right: number;
+  top: number;
+  width: number;
+};
+
+function getPaneScreenRect(
+  s: ReactFlowState,
+  overviewWidth: number,
+  uiEditorWidth: number,
+): ScreenRect {
+  if (s.domNode) {
+    const bounds = s.domNode.getBoundingClientRect();
+    const visibleWidth = Math.max(
+      bounds.width - overviewWidth - uiEditorWidth,
+      0,
+    );
+    const visibleHeight = Math.max(bounds.height, 0);
+
+    return {
+      left: bounds.left + overviewWidth,
+      top: bounds.top,
+      right: bounds.left + overviewWidth + visibleWidth,
+      bottom: bounds.top + visibleHeight,
+      width: visibleWidth,
+      height: visibleHeight,
+    };
+  }
+
+  const visibleWidth = Math.max(s.width, 0);
+  const visibleHeight = Math.max(s.height, 0);
+  return {
+    left: overviewWidth,
+    top: 0,
+    right: overviewWidth + visibleWidth,
+    bottom: visibleHeight,
+    width: visibleWidth,
+    height: visibleHeight,
+  };
+}
+
+function hasActiveD3ViewportTarget(
+  d3Selection: D3Selection<Element, unknown, null, undefined>,
+  domNode: HTMLDivElement | null,
+) {
+  if (typeof Element === "undefined") {
+    return false;
+  }
+  const paneElement = d3Selection.node();
+  if (!(paneElement instanceof Element) || !paneElement.isConnected) {
+    return false;
+  }
+  if (!domNode) {
+    return true;
+  }
+  return domNode.contains(paneElement);
+}
+
+function getRectTranslation(rect: ScreenRect, paneRect: ScreenRect, padding = 0) {
+  const minX = paneRect.left + padding;
+  const maxX = paneRect.right - padding;
+  const minY = paneRect.top + padding;
+  const maxY = paneRect.bottom - padding;
+  const availableWidth = Math.max(maxX - minX, 0);
+  const availableHeight = Math.max(maxY - minY, 0);
 
   let translateX = 0;
   let translateY = 0;
 
-  // Calculate required X translation
-  if (point.x < minX) {
-    translateX = point.x - minX; // negative: move rectangle left
-  } else if (point.x > maxX) {
-    translateX = point.x - maxX; // positive: move rectangle right
+  if (availableWidth > 0 && rect.width > availableWidth) {
+    const paneCenterX = paneRect.left + paneRect.width / 2;
+    const rectCenterX = rect.left + rect.width / 2;
+    translateX = rectCenterX - paneCenterX;
+  } else if (rect.left < minX) {
+    translateX = rect.left - minX;
+  } else if (rect.right > maxX) {
+    translateX = rect.right - maxX;
   }
 
-  // Calculate required Y translation
-  if (point.y < minY) {
-    translateY = point.y - minY; // negative: move rectangle up
-  } else if (point.y > maxY) {
-    translateY = point.y - maxY; // positive: move rectangle down
+  if (availableHeight > 0 && rect.height > availableHeight) {
+    const paneCenterY = paneRect.top + paneRect.height / 2;
+    const rectCenterY = rect.top + rect.height / 2;
+    translateY = rectCenterY - paneCenterY;
+  } else if (rect.top < minY) {
+    translateY = rect.top - minY;
+  } else if (rect.bottom > maxY) {
+    translateY = rect.bottom - maxY;
   }
 
   return {

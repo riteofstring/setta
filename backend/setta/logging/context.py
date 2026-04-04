@@ -33,10 +33,17 @@ __all__ = [
     "LoggingContextInput",
     "LoggingContextPrimitive",
     "LoggingContextToken",
+    "get_logging_context",
     "logging_context",
     "push_logging_context",
     "reset_logging_context",
 ]
+
+
+def get_logging_context() -> LoggingContextData:
+    """Return a copy of the current logging context."""
+
+    return dict(_LOGGING_CONTEXT_VAR.get().data)
 
 
 def push_logging_context(
