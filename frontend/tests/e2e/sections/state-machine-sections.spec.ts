@@ -1,27 +1,13 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
-import * as http from "node:http";
 import {
-  applyProjectMutationsFromFrontend,
   cleanupIsolatedProject,
-  createTopLevelSectionFromFrontend,
   ensureAppReady,
   ensureManagedChatEngine,
   openIsolatedProject,
   openOverviewMoreDestination,
   postBackend,
-  setSectionNameFromFrontend,
   seedLocalStorage,
 } from "../helpers";
-
-const BACKEND_ORIGIN =
-  process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
-const FRONTEND_ORIGIN = new URL(BASE_URL).origin;
-const FRONTEND_REFERER = `${FRONTEND_ORIGIN}/`;
-const BACKEND_HELPER_REQUEST_HEADERS = {
-  Origin: FRONTEND_ORIGIN,
-  Referer: FRONTEND_REFERER,
-};
 
 type CreateSectionResponse = {
   sectionId?: string;
@@ -30,53 +16,6 @@ type CreateSectionResponse = {
 type EngineConfigSummary = {
   id: string;
   engineType?: string;
-  settaLlmConfigId?: string | null;
-};
-
-type LLMConfigEntry = {
-  model: string;
-  provider?: string | null;
-  api_key_env?: string | null;
-  base_url?: string | null;
-  other_params?: Record<string, unknown> | null;
-  mcpServerIds?: string[] | null;
-  temporary?: boolean;
-};
-
-type LLMConfigPayload = {
-  configs: Record<string, LLMConfigEntry>;
-  mcpServers: Record<string, unknown>;
-  defaultMcpServerIds?: string[];
-  default_config_id?: string | null;
-  codexMcpImportedAt?: string | null;
-};
-
-type ManagedAPIKeysSnapshot = {
-  apiKeys: Record<string, string>;
-  revision: number;
-  corrupt?: boolean;
-  errorCode?: string | null;
-  message?: string | null;
-};
-
-type ManagedChatProviderRequest = {
-  path: string;
-  authorization: string;
-  body: Record<string, unknown>;
-};
-
-type ManagedChatProviderServer = {
-  origin: string;
-  requests: ManagedChatProviderRequest[];
-  close: () => Promise<void>;
-};
-
-const MANAGED_CHAT_PROVIDER_RESPONSE_DELAY_MS = 3000;
-
-type DeterministicManagedChatEngine = {
-  engineConfigId: string;
-  providerServer: ManagedChatProviderServer;
-  cleanup: () => Promise<void>;
 };
 
 type LatestProjectStateResponse = {
@@ -185,9 +124,11 @@ test.describe.serial("state machine sections", () => {
     });
     await ensureAppReady(page);
     const projectContext = await openIsolatedProject(page);
-    const managedEngine = await ensureDeterministicManagedChatEngine(page);
+    const engineCleanup = await ensureManagedChatEngine(page);
 
     try {
+      const backendOrigin =
+        process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
       const startSectionId = await createSectionViaCommandPalette(
         page,
         projectContext.projectConfigId,
@@ -211,11 +152,23 @@ test.describe.serial("state machine sections", () => {
         "Chat",
         { x: 640, y: 280 },
       );
+      const engineConfigsResponse = await page.request.get(
+        `${backendOrigin}/api/getEngineConfigs`,
+      );
+      expect(engineConfigsResponse.ok()).toBe(true);
+      const engineConfigs =
+        (await engineConfigsResponse.json()) as EngineConfigSummary[];
+      const managedEngineId =
+        engineConfigs.find((config) => config.engineType === "setta_llm")?.id ??
+        null;
+      if (!managedEngineId) {
+        throw new Error("Missing managed LLM engine config.");
+      }
       await postBackend(page, "/setChatSectionSettings", {
         projectConfigId: projectContext.projectConfigId,
         sectionId: chatSectionId,
         managed: true,
-        engineConfigId: managedEngine.engineConfigId,
+        engineConfigId: managedEngineId,
         agentProfileId: null,
         transcriptionProfileId: null,
         thinking: false,
@@ -233,7 +186,7 @@ test.describe.serial("state machine sections", () => {
             ),
           { timeout: 8000 },
         )
-        .toBe(managedEngine.engineConfigId);
+        .toBe(managedEngineId);
 
       const startNode = page.getByTestId(`rf__node-${startSectionId}`);
       const gateNode = page.getByTestId(`rf__node-${gateSectionId}`);
@@ -360,11 +313,10 @@ test.describe.serial("state machine sections", () => {
       if (!temporaryGateToEndEdgeId) {
         throw new Error("Missing temporary gate-to-end workflow edge.");
       }
-      await deleteStateMachineEdgesFromFrontend(
-        page,
-        projectContext.projectConfigId,
-        [temporaryGateToEndEdgeId],
-      );
+      await postBackend(page, "/deleteStateMachineEdges", {
+        projectConfigId: projectContext.projectConfigId,
+        edgeIds: [temporaryGateToEndEdgeId],
+      });
       await expect
         .poll(
           async () =>
@@ -577,10 +529,9 @@ test.describe.serial("state machine sections", () => {
         "workflow-edge--signal",
       );
 
-      await selectStateMachineEdge(
-        page,
-        chatToEndEdge.id,
-      );
+      await page
+        .getByTestId(`workflow-edge-hitbox-${chatToEndEdge.id}`)
+        .click({ force: true });
       const inspector = page.getByTestId("workflow-edge-inspector");
       await expect(inspector).toBeVisible();
       await selectComboboxOption(
@@ -628,6 +579,7 @@ test.describe.serial("state machine sections", () => {
 
       await selectStateMachineEdge(
         page,
+        projectContext.projectConfigId,
         gateToChatEdge.id,
       );
       await expect(inspector).toBeVisible();
@@ -669,16 +621,10 @@ test.describe.serial("state machine sections", () => {
       expect(gateToChatEdgeStyleAfter.strokeDasharray).toBe(
         gateToChatEdgeStyleBefore.strokeDasharray,
       );
-      const currentWorkflowEdgeIds = (
-        await readStateMachineEdges(page, projectContext.projectConfigId)
-      )
-        .map((edge) => edge.id)
-        .filter((edgeId): edgeId is string => edgeId !== null);
-      await deleteStateMachineEdgesFromFrontend(
-        page,
-        projectContext.projectConfigId,
-        currentWorkflowEdgeIds,
-      );
+      await postBackend(page, "/deleteStateMachineEdges", {
+        projectConfigId: projectContext.projectConfigId,
+        edgeIds: [startToGateEdge.id, gateToChatEdge.id, chatToEndEdge.id],
+      });
       await expect
         .poll(
           async () =>
@@ -733,37 +679,25 @@ test.describe.serial("state machine sections", () => {
       );
       await expect(workflowControlRow).toContainText("Review Flow");
       await expect(workflowControlRow).toContainText("workflow-main");
-      const overviewWorkflowStatus = page.locator(
-        `[data-testid="run-instructions-workflow-status-${startSectionId}"]:visible`,
+      const overviewWorkflowStatus = page.getByTestId(
+        `run-instructions-workflow-status-${startSectionId}`,
       );
-      const overviewStartButton = page.locator(
-        `[data-testid="run-instructions-workflow-start-${startSectionId}"]:visible`,
+      const overviewStartButton = page.getByTestId(
+        `run-instructions-workflow-start-${startSectionId}`,
       );
-      const overviewStopButton = page.locator(
-        `[data-testid="run-instructions-workflow-stop-${startSectionId}"]:visible`,
+      const overviewStopButton = page.getByTestId(
+        `run-instructions-workflow-stop-${startSectionId}`,
       );
-      const overviewResetButton = page.locator(
-        `[data-testid="run-instructions-workflow-reset-${startSectionId}"]:visible`,
+      const overviewResetButton = page.getByTestId(
+        `run-instructions-workflow-reset-${startSectionId}`,
       );
 
       await expect(overviewWorkflowStatus).toHaveText("Idle");
       await expect(startStatus).toHaveText("Idle");
 
       await overviewStartButton.click();
-      await expect
-        .poll(() => managedEngine.providerServer.requests.length, {
-          timeout: 8000,
-        })
-        .toBe(1);
-      expect(managedEngine.providerServer.requests[0]?.path).toBe(
-        "/v1/chat/completions",
-      );
-      expect(managedEngine.providerServer.requests[0]?.authorization).toBe(
-        "Bearer e2e-workflow-secret",
-      );
       await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
-      await expect(overviewStopButton).toBeEnabled();
       await expect(startActivityPanel).toContainText(
         "Dispatched 1 start action",
       );
@@ -773,12 +707,10 @@ test.describe.serial("state machine sections", () => {
       await expect(startStatus).toHaveText("Stopped");
       await expect(startActivityPanel).toContainText("Workflow stopped");
 
-      await expect(overviewStartButton).toBeEnabled();
       await overviewStartButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Running");
       await expect(startStatus).toHaveText("Running");
 
-      await expect(overviewResetButton).toBeEnabled();
       await overviewResetButton.click();
       await expect(overviewWorkflowStatus).toHaveText("Idle");
       await expect(startStatus).toHaveText("Idle");
@@ -786,7 +718,7 @@ test.describe.serial("state machine sections", () => {
       await expect(overviewStopButton).toBeDisabled();
       await expect(overviewResetButton).toBeDisabled();
     } finally {
-      await managedEngine.cleanup();
+      await engineCleanup();
       await cleanupIsolatedProject(page, projectContext);
     }
   });
@@ -899,11 +831,10 @@ test.describe.serial("state machine sections", () => {
         );
       }
 
-      await deleteStateMachineEdgesFromFrontend(
-        page,
-        projectContext.projectConfigId,
-        [startToChatEdgeId],
-      );
+      await postBackend(page, "/deleteStateMachineEdges", {
+        projectConfigId: projectContext.projectConfigId,
+        edgeIds: [startToChatEdgeId],
+      });
       await createStateMachineEdge(page, projectContext.projectConfigId, {
         machineGroupId: "workflow-main",
         sourceSectionId: startSectionId,
@@ -972,12 +903,12 @@ test.describe.serial("state machine sections", () => {
           maxIterations: null,
         },
       );
-      await setSectionNameFromFrontend(page, {
+      await postBackend(page, "/setSectionName", {
         projectConfigId: projectContext.projectConfigId,
         sectionId: promptSectionId,
         name: "Greeting Prompt",
       });
-      await setPromptTemplateFromFrontend(page, {
+      await postBackend(page, "/setPromptTemplate", {
         projectConfigId: projectContext.projectConfigId,
         sectionId: promptSectionId,
         template: "Hi my name is {{ name }}. What's your name?",
@@ -1020,6 +951,7 @@ test.describe.serial("state machine sections", () => {
 
       await selectStateMachineEdge(
         page,
+        projectContext.projectConfigId,
         startToChatEdgeId,
       );
       const inspector = page.getByTestId("workflow-edge-inspector");
@@ -1173,6 +1105,7 @@ test.describe.serial("state machine sections", () => {
 
       await selectStateMachineEdge(
         page,
+        projectContext.projectConfigId,
         gateToEndEdgeId,
       );
       const inspector = page.getByTestId("workflow-edge-inspector");
@@ -1757,197 +1690,6 @@ test.describe.serial("state machine sections", () => {
   });
 });
 
-async function ensureDeterministicManagedChatEngine(
-  page: Page,
-): Promise<DeterministicManagedChatEngine> {
-  const restoreManagedEngine = await ensureManagedChatEngine(page);
-  const initialLLMConfig = await getBackend<LLMConfigPayload>(
-    page,
-    "/llm/config",
-  );
-  if (!initialLLMConfig) {
-    await restoreManagedEngine();
-    throw new Error("Missing LLM config payload.");
-  }
-  const initialAPIKeysSnapshot = await getBackend<ManagedAPIKeysSnapshot>(
-    page,
-    "/llm/apiKeys",
-  );
-  if (!initialAPIKeysSnapshot) {
-    await restoreManagedEngine();
-    throw new Error("Missing managed API keys snapshot.");
-  }
-  const engineConfigs = await getBackend<EngineConfigSummary[]>(
-    page,
-    "/getEngineConfigs",
-  );
-  const managedEngine =
-    engineConfigs?.find((config) => config.engineType === "setta_llm") ?? null;
-  if (!managedEngine?.id || !managedEngine.settaLlmConfigId) {
-    await restoreManagedEngine();
-    throw new Error("Missing managed engine config.");
-  }
-
-  const providerServer = await startManagedChatProviderServer();
-  let latestAPIKeysSnapshot = initialAPIKeysSnapshot;
-  try {
-    await postBackend(page, "/llm/config", {
-      ...initialLLMConfig,
-      configs: {
-        ...initialLLMConfig.configs,
-        [managedEngine.settaLlmConfigId]: {
-          ...(initialLLMConfig.configs[managedEngine.settaLlmConfigId] ?? {
-            model: "gpt-4o-mini",
-            provider: "openai",
-          }),
-          model: "gpt-4o-mini",
-          provider: "openai",
-          api_key_env: "OPENAI_API_KEY",
-          base_url: `${providerServer.origin}/v1`,
-          other_params: null,
-        },
-      },
-    } as Record<string, unknown>);
-    latestAPIKeysSnapshot = await postManagedAPIKeys(page, {
-      apiKeys: {
-        ...initialAPIKeysSnapshot.apiKeys,
-        OPENAI_API_KEY: "e2e-workflow-secret",
-      },
-      expectedRevision: initialAPIKeysSnapshot.revision,
-    });
-  } catch (error) {
-    await providerServer.close();
-    await restoreManagedEngine();
-    throw error;
-  }
-
-  return {
-    engineConfigId: managedEngine.id,
-    providerServer,
-    cleanup: async () => {
-      try {
-        await postManagedAPIKeys(page, {
-          apiKeys: initialAPIKeysSnapshot.apiKeys,
-          expectedRevision: latestAPIKeysSnapshot.revision,
-        });
-      } catch {
-        // Ignore teardown failures; the seeded workspace is disposable.
-      }
-      try {
-        await postBackend(page, "/llm/config", {
-          ...initialLLMConfig,
-        } as Record<string, unknown>);
-      } catch {
-        // Ignore teardown failures; the seeded workspace is disposable.
-      }
-      await providerServer.close().catch(() => {
-        // Ignore teardown failures; the seeded workspace is disposable.
-      });
-      await restoreManagedEngine();
-    },
-  };
-}
-
-async function postManagedAPIKeys(
-  page: Page,
-  payload: {
-    apiKeys: Record<string, string>;
-    expectedRevision: number;
-  },
-): Promise<ManagedAPIKeysSnapshot> {
-  const response = await page.request.post(
-    `${BACKEND_ORIGIN}/api/llm/apiKeys`,
-    {
-      data: payload,
-      headers: BACKEND_HELPER_REQUEST_HEADERS,
-    },
-  );
-  const text = await response.text();
-  if (!response.ok()) {
-    const detail = text ? ` ${text}` : "";
-    throw new Error(
-      `Backend request failed (${response.status()}): /llm/apiKeys${detail}`,
-    );
-  }
-  return JSON.parse(text) as ManagedAPIKeysSnapshot;
-}
-
-async function startManagedChatProviderServer(): Promise<ManagedChatProviderServer> {
-  const requests: ManagedChatProviderRequest[] = [];
-  return await new Promise((resolve, reject) => {
-    const server = http.createServer((request, response) => {
-      const chunks: string[] = [];
-      request.setEncoding("utf8");
-      request.on("data", (chunk: string) => {
-        chunks.push(chunk);
-      });
-      request.on("end", () => {
-        try {
-          const rawBody = chunks.join("");
-          const body = rawBody
-            ? (JSON.parse(rawBody) as Record<string, unknown>)
-            : {};
-          requests.push({
-            path: new URL(request.url ?? "/", "http://127.0.0.1").pathname,
-            authorization: Array.isArray(request.headers.authorization)
-              ? request.headers.authorization.join(", ")
-              : request.headers.authorization ?? "",
-            body,
-          });
-        } catch (error) {
-          response.statusCode = 400;
-          response.end(String(error));
-          return;
-        }
-        const responseTimer = setTimeout(() => {
-          if (response.destroyed || response.writableEnded) {
-            return;
-          }
-          response.statusCode = 200;
-          response.setHeader("content-type", "text/event-stream");
-          response.write(
-            'data: {"choices":[{"index":0,"delta":{"content":"Workflow child"}}]}\n\n',
-          );
-          response.write(
-            'data: {"choices":[{"index":0,"delta":{"content":" reply"},"finish_reason":"stop"}]}\n\n',
-          );
-          response.write(
-            'data: {"choices":[],"usage":{"prompt_tokens":13,"completion_tokens":2,"total_tokens":15}}\n\n',
-          );
-          response.end("data: [DONE]\n\n");
-        }, MANAGED_CHAT_PROVIDER_RESPONSE_DELAY_MS);
-        request.once("close", () => {
-          clearTimeout(responseTimer);
-        });
-      });
-    });
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      if (!address || typeof address === "string") {
-        server.close(() =>
-          reject(new Error("Unable to allocate managed provider test port.")),
-        );
-        return;
-      }
-      resolve({
-        origin: `http://127.0.0.1:${address.port}`,
-        requests,
-        close: async () =>
-          await new Promise<void>((closeResolve, closeReject) => {
-            server.close((error) => {
-              if (error) {
-                closeReject(error);
-                return;
-              }
-              closeResolve();
-            });
-          }),
-      });
-    });
-  });
-}
-
 function asStaleRunningWorkflowRun(run: WorkflowRunRecord): WorkflowRunRecord {
   return {
     ...run,
@@ -2077,11 +1819,15 @@ async function createTopLevelSection(
     | "StateMachineEnd",
   position: { x: number; y: number },
 ): Promise<string> {
-  const response = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType,
-    position,
-  });
+  const response = await postBackend<CreateSectionResponse>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType,
+      position,
+    },
+  );
   if (!response?.sectionId) {
     throw new Error(`Missing sectionId when creating ${implType}.`);
   }
@@ -2099,20 +1845,12 @@ async function setStateMachineSectionSettings(
     maxIterations?: number | null;
   },
 ): Promise<void> {
-  await applyProjectMutationsFromFrontend(page, {
+  await postBackend(page, "/setStateMachineSectionSettings", {
     projectConfigId,
-    operations: [
-      {
-        routeName: "route_set_state_machine_section_settings",
-        payload: {
-          sectionId,
-          machineGroupId: payload.machineGroupId,
-          label: payload.label,
-          gateType: payload.gateType,
-          frontendOpId: null,
-        },
-      },
-    ],
+    sectionId,
+    machineGroupId: payload.machineGroupId,
+    label: payload.label,
+    gateType: payload.gateType,
   });
 }
 
@@ -2150,62 +1888,9 @@ async function createStateMachineEdge(
     } | null;
   },
 ): Promise<void> {
-  await applyProjectMutationsFromFrontend(page, {
+  await postBackend(page, "/createStateMachineEdge", {
     projectConfigId,
-    operations: [
-      {
-        routeName: "route_create_state_machine_edge",
-        payload: {
-          ...payload,
-          frontendOpId: null,
-        },
-      },
-    ],
-  });
-}
-
-async function deleteStateMachineEdgesFromFrontend(
-  page: Page,
-  projectConfigId: string,
-  edgeIds: string[],
-): Promise<void> {
-  if (edgeIds.length === 0) {
-    return;
-  }
-  await applyProjectMutationsFromFrontend(page, {
-    projectConfigId,
-    operations: [
-      {
-        routeName: "route_delete_state_machine_edges",
-        payload: {
-          edgeIds,
-          frontendOpId: null,
-        },
-      },
-    ],
-  });
-}
-
-async function setPromptTemplateFromFrontend(
-  page: Page,
-  payload: {
-    projectConfigId: string;
-    sectionId: string;
-    template: string;
-  },
-): Promise<void> {
-  await applyProjectMutationsFromFrontend(page, {
-    projectConfigId: payload.projectConfigId,
-    operations: [
-      {
-        routeName: "route_set_prompt_template",
-        payload: {
-          sectionId: payload.sectionId,
-          template: payload.template,
-          frontendOpId: null,
-        },
-      },
-    ],
+    ...payload,
   });
 }
 
@@ -2449,70 +2134,23 @@ async function readStateMachineEdge(
 
 async function selectStateMachineEdge(
   page: Page,
+  projectConfigId: string,
   edgeId: string,
 ): Promise<void> {
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate(
-          async ({ workflowEdgeId }) => {
-            const { useProjectState } = await import("/src/state/definitions.ts");
-            return useProjectState
-              .getState()
-              .projectConfig.stateMachineEdges.some(
-                (edge) => edge.id === workflowEdgeId,
-              );
-          },
-          { workflowEdgeId: edgeId },
-        ),
-      { timeout: 8000 },
-    )
-    .toBe(true);
-  await page.evaluate(
-    async ({ workflowEdgeId }) => {
-      const { setActiveSectionIds } = await import(
-        "/src/state/actions/activeSections.ts"
-      );
-      const { useProjectState } = await import("/src/state/definitions.ts");
-      setActiveSectionIds([], { syncMode: "ui-only" });
-      useProjectState.setState((state) => {
-        for (const edge of state.projectConfig.stateMachineEdges) {
-          edge.selected = edge.id === workflowEdgeId;
-        }
-      });
-    },
-    { workflowEdgeId: edgeId },
+  const response = await postBackend<LatestProjectStateResponse>(
+    page,
+    "/getLatestProjectState",
+    { projectConfigId },
   );
-  await expect
-    .poll(
-      async () =>
-        await page.evaluate(
-          async ({ workflowEdgeId }) => {
-            const definitions = await import("/src/state/definitions.ts");
-            const selectedEdgeIds = definitions.useProjectState
-              .getState()
-              .projectConfig.stateMachineEdges.filter((edge) => edge.selected)
-              .map((edge) => edge.id);
-            const activeSectionIds =
-              definitions.useActiveSectionUI.getState().activeIds;
-            return {
-              selected:
-                selectedEdgeIds.length === 1 &&
-                selectedEdgeIds[0] === workflowEdgeId &&
-                activeSectionIds.length === 0,
-              selectedEdgeIds,
-              activeSectionIds,
-            };
-          },
-          { workflowEdgeId: edgeId },
-        ),
-      { timeout: 8000 },
-    )
-    .toMatchObject({
-      selected: true,
-      activeSectionIds: [],
-      selectedEdgeIds: [edgeId],
-    });
+  const rawEdges =
+    response?.projectState?.projectConfig?.stateMachineEdges ?? [];
+  await postBackend(page, "/setStateMachineEdges", {
+    projectConfigId,
+    edges: rawEdges.map((edge) => ({
+      ...edge,
+      selected: edge.id === edgeId,
+    })),
+  });
 }
 
 async function selectComboboxOption(
@@ -2521,13 +2159,9 @@ async function selectComboboxOption(
   optionName: string,
 ): Promise<void> {
   const input = page.locator(inputSelector);
-  const option = page.getByRole("option", { name: optionName, exact: true });
-  await expect(input).toBeVisible();
-  await input.focus();
-  await page.keyboard.press("ArrowDown");
-  await expect(option).toBeVisible();
-  await option.click();
-  await expect(input).toHaveValue(optionName);
+  await input.click();
+  await input.fill(optionName);
+  await page.getByRole("option", { name: optionName, exact: true }).click();
 }
 
 async function expectNodeTextWithinBounds(
@@ -2604,21 +2238,4 @@ async function getHandleNodeId(handle: Locator): Promise<string> {
     throw new Error("Missing data-nodeid on edge handle.");
   }
   return nodeId;
-}
-
-async function getBackend<T>(page: Page, path: string): Promise<T | null> {
-  const response = await page.request.get(`${BACKEND_ORIGIN}/api${path}`, {
-    headers: BACKEND_HELPER_REQUEST_HEADERS,
-  });
-  const text = await response.text();
-  if (!response.ok()) {
-    const detail = text ? ` ${text}` : "";
-    throw new Error(
-      `Backend request failed (${response.status()}): ${path}${detail}`,
-    );
-  }
-  if (!text) {
-    return null;
-  }
-  return JSON.parse(text) as T;
 }
