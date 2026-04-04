@@ -62,15 +62,6 @@ var createSectionCodegenPolicyTemplate string
 //go:embed templates/converter_create_code_obj_value_policy.ts.tmpl
 var createCodeObjValuePolicyTemplate string
 
-//go:embed templates/converter_create_section_sizing_policy.ts.tmpl
-var createSectionSizingPolicyTemplate string
-
-//go:embed templates/converter_create_settings_state.ts.tmpl
-var createSettingsStateTemplate string
-
-//go:embed templates/converter_create_project_codegen_python_target.ts.tmpl
-var createProjectCodegenPythonTargetTemplate string
-
 // setta-go-type-discovery: skip
 type sectionCodegenPolicyCreateTemplateData struct {
 	DefaultSectionCodegenAllowlistMembers     []string
@@ -328,416 +319,391 @@ func EnumValuesForType(t reflect.Type) ([]EnumValue, bool, error) {
 	return enumValues, true, nil
 }
 
-var metaControlSizingPolicyByTypeDefaults = []tsNamedLiteralObject{
-	{
-		Name: "CodeCallable",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "CodeParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "TextParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "DateParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "TimeParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "ButtonParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "SliderParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.auto_only"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "RotaryParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "SwitchParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "ColorPickerParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "DropdownParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.auto_only"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "PasswordParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.auto_only"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "TextAreaParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "80"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "DropzoneParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "120"},
-			{Name: "minWidth", Value: "240"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
-	{
-		Name: "NestedParam",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "32"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "sizeModeHeight", Value: "MetaControlSizeModeEnum.any"},
-			{Name: "sizeModeWidth", Value: "MetaControlSizeModeEnum.any"},
-		},
-	},
+type metaControlSizingPolicyTypeEntryDefault struct {
+	MinHeight      float64 `json:"minHeight"`
+	MinWidth       float64 `json:"minWidth"`
+	SizeModeHeight string  `json:"sizeModeHeight"`
+	SizeModeWidth  string  `json:"sizeModeWidth"`
 }
 
-var sectionSizingPolicyByTypeDefaults = []tsNamedLiteralObject{
-	{
-		Name: "Callable",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "104"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-			{Name: "hideSearchMinHeight", Value: "42"},
-			{Name: "hideParamsMinHeight", Value: "90"},
-		},
-	},
-	{
-		Name: "Dict",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "78"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "ListRoot",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "50"},
-			{Name: "maxHeight", Value: "50"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Group",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "0"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "StateMachineStart",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "96"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "240"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "StateMachineGate",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "120"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "240"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "StateMachineEnd",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "96"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "240"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Image",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "100"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Chart",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "300"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "300"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Draw",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "100"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "402"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Prompt",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "150"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "300"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "TextBlock",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "49"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "100"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "MetaControl",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "10"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "100"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Social",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "50"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "GlobalVariables",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "78"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Code",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "58.2"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "GenPythonCode",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "0"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "GenPythonMetadata",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "0"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Terminal",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "100"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "IFrame",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "0"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Chat",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "200"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "400"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Browser",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "250"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Plugin",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "80"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "200"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "TaskBoard",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "240"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "360"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
-	{
-		Name: "Spreadsheet",
-		Fields: []tsLiteralField{
-			{Name: "minHeight", Value: "260"},
-			{Name: "maxHeight", Value: "100000"},
-			{Name: "minWidth", Value: "420"},
-			{Name: "maxWidth", Value: "100000"},
-		},
-	},
+type sectionSizingPolicyTypeEntryDefault struct {
+	MinHeight float64 `json:"minHeight"`
+	MaxHeight float64 `json:"maxHeight"`
+	MinWidth  float64 `json:"minWidth"`
+	MaxWidth  float64 `json:"maxWidth"`
+}
+
+type sectionSizingPolicyCallableTypeEntryDefault struct {
+	sectionSizingPolicyTypeEntryDefault
+	HideSearchMinHeight float64 `json:"hideSearchMinHeight"`
+	HideParamsMinHeight float64 `json:"hideParamsMinHeight"`
+}
+
+var defaultMetaControlSizingPolicyByType = map[string]metaControlSizingPolicyTypeEntryDefault{
+	"ButtonParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"CodeCallable":     {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"CodeParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"ColorPickerParam": {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"DateParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"DropdownParam":    {MinHeight: 32, MinWidth: 200, SizeModeHeight: "auto_only", SizeModeWidth: "any"},
+	"DropzoneParam":    {MinHeight: 120, MinWidth: 240, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"NestedParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"PasswordParam":    {MinHeight: 32, MinWidth: 200, SizeModeHeight: "auto_only", SizeModeWidth: "any"},
+	"RotaryParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"SliderParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "auto_only", SizeModeWidth: "any"},
+	"SwitchParam":      {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"TextAreaParam":    {MinHeight: 80, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"TextParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+	"TimeParam":        {MinHeight: 32, MinWidth: 200, SizeModeHeight: "any", SizeModeWidth: "any"},
+}
+
+var defaultSectionSizingPolicyByType = map[string]any{
+	"Browser":           sectionSizingPolicyTypeEntryDefault{MinHeight: 250, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"Callable":          sectionSizingPolicyCallableTypeEntryDefault{sectionSizingPolicyTypeEntryDefault: sectionSizingPolicyTypeEntryDefault{MinHeight: 104, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000}, HideSearchMinHeight: 42, HideParamsMinHeight: 90},
+	"Chart":             sectionSizingPolicyTypeEntryDefault{MinHeight: 300, MaxHeight: 100000, MinWidth: 300, MaxWidth: 100000},
+	"Chat":              sectionSizingPolicyTypeEntryDefault{MinHeight: 200, MaxHeight: 100000, MinWidth: 400, MaxWidth: 100000},
+	"Code":              sectionSizingPolicyTypeEntryDefault{MinHeight: 58.2, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"Dict":              sectionSizingPolicyTypeEntryDefault{MinHeight: 78, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"Draw":              sectionSizingPolicyTypeEntryDefault{MinHeight: 100, MaxHeight: 100000, MinWidth: 402, MaxWidth: 100000},
+	"GenPythonCode":     sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"GenPythonMetadata": sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"GlobalVariables":   sectionSizingPolicyTypeEntryDefault{MinHeight: 78, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"Group":             sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"IFrame":            sectionSizingPolicyTypeEntryDefault{MinHeight: 0, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"Image":             sectionSizingPolicyTypeEntryDefault{MinHeight: 100, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"ListRoot":          sectionSizingPolicyTypeEntryDefault{MinHeight: 50, MaxHeight: 50, MinWidth: 200, MaxWidth: 100000},
+	"MetaControl":       sectionSizingPolicyTypeEntryDefault{MinHeight: 10, MaxHeight: 100000, MinWidth: 100, MaxWidth: 100000},
+	"Plugin":            sectionSizingPolicyTypeEntryDefault{MinHeight: 80, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"Prompt":            sectionSizingPolicyTypeEntryDefault{MinHeight: 150, MaxHeight: 100000, MinWidth: 300, MaxWidth: 100000},
+	"Social":            sectionSizingPolicyTypeEntryDefault{MinHeight: 50, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"Spreadsheet":       sectionSizingPolicyTypeEntryDefault{MinHeight: 260, MaxHeight: 100000, MinWidth: 420, MaxWidth: 100000},
+	"StateMachineEnd":   sectionSizingPolicyTypeEntryDefault{MinHeight: 96, MaxHeight: 100000, MinWidth: 240, MaxWidth: 100000},
+	"StateMachineGate":  sectionSizingPolicyTypeEntryDefault{MinHeight: 120, MaxHeight: 100000, MinWidth: 240, MaxWidth: 100000},
+	"StateMachineStart": sectionSizingPolicyTypeEntryDefault{MinHeight: 96, MaxHeight: 100000, MinWidth: 240, MaxWidth: 100000},
+	"TaskBoard":         sectionSizingPolicyTypeEntryDefault{MinHeight: 240, MaxHeight: 100000, MinWidth: 360, MaxWidth: 100000},
+	"Terminal":          sectionSizingPolicyTypeEntryDefault{MinHeight: 100, MaxHeight: 100000, MinWidth: 200, MaxWidth: 100000},
+	"TextBlock":         sectionSizingPolicyTypeEntryDefault{MinHeight: 49, MaxHeight: 100000, MinWidth: 100, MaxWidth: 100000},
+}
+
+func mustTSLiteralValueFromGoValue(context string, value any) any {
+	payload, err := json.Marshal(value)
+	if err != nil {
+		panic(context + ": marshal Go default: " + err.Error())
+	}
+	var normalized any
+	if err := json.Unmarshal(payload, &normalized); err != nil {
+		panic(context + ": decode Go default: " + err.Error())
+	}
+	return normalized
+}
+
+func mustTSLiteralObjectFromGoValue(context string, value any) map[string]any {
+	normalized := mustTSLiteralValueFromGoValue(context, value)
+	object, ok := normalized.(map[string]any)
+	if !ok {
+		panic(context + ": Go default did not decode to an object")
+	}
+	return object
+}
+
+func sortedTSLiteralObjectKeys(object map[string]any) []string {
+	keys := make([]string, 0, len(object))
+	for key := range object {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+func goJSONFieldOrder(value any) []string {
+	valueType := reflect.TypeOf(value)
+	if valueType == nil {
+		return nil
+	}
+	for valueType.Kind() == reflect.Pointer {
+		valueType = valueType.Elem()
+	}
+	if valueType.Kind() != reflect.Struct {
+		return nil
+	}
+	order := make([]string, 0, valueType.NumField())
+	appendGoJSONFieldOrder(valueType, &order)
+	return order
+}
+
+func appendGoJSONFieldOrder(valueType reflect.Type, order *[]string) {
+	for fieldIndex := 0; fieldIndex < valueType.NumField(); fieldIndex++ {
+		field := valueType.Field(fieldIndex)
+		if !field.IsExported() {
+			continue
+		}
+		if field.Anonymous {
+			appendGoJSONFieldOrder(field.Type, order)
+			continue
+		}
+		tag := strings.TrimSpace(field.Tag.Get("json"))
+		if tag == "" || tag == "-" {
+			continue
+		}
+		name := strings.TrimSpace(strings.Split(tag, ",")[0])
+		if name == "" {
+			continue
+		}
+		*order = append(*order, name)
+	}
+}
+
+func goJSONFieldOrderMap[T any](values map[string]T) map[string][]string {
+	orders := make(map[string][]string, len(values))
+	for key, value := range values {
+		orders[key] = goJSONFieldOrder(value)
+	}
+	return orders
+}
+
+func goJSONFieldOrderMapAny(values map[string]any) map[string][]string {
+	orders := make(map[string][]string, len(values))
+	for key, value := range values {
+		orders[key] = goJSONFieldOrder(value)
+	}
+	return orders
+}
+
+func metaControlSizingPolicyByTypeProperties() []TypeProperty {
+	return []TypeProperty{
+		{Name: "CodeCallable", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "CodeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "TextParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "DateParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "TimeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "ButtonParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "SliderParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "RotaryParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "SwitchParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "ColorPickerParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "DropdownParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "PasswordParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "TextAreaParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "DropzoneParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+		{Name: "NestedParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+	}
+}
+
+func sectionSizingPolicyByTypeProperties() []TypeProperty {
+	return []TypeProperty{
+		{Name: "Callable", TypeExpr: "SectionSizingPolicyCallableTypeEntry"},
+		{Name: "Dict", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "ListRoot", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Group", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "StateMachineStart", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "StateMachineGate", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "StateMachineEnd", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Image", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Chart", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Draw", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Prompt", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "TextBlock", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "MetaControl", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Social", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "GlobalVariables", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Code", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "GenPythonCode", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "GenPythonMetadata", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Terminal", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "IFrame", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Chat", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Browser", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Plugin", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "TaskBoard", TypeExpr: "SectionSizingPolicyTypeEntry"},
+		{Name: "Spreadsheet", TypeExpr: "SectionSizingPolicyTypeEntry"},
+	}
+}
+
+func buildTSNestedObjectMergeCreateBodyTS(
+	rootGeneric string,
+	nestedGeneric string,
+	defaults map[string]any,
+	orderedKeys []string,
+	nestedFieldOrders map[string][]string,
+) string {
+	if len(orderedKeys) == 0 {
+		orderedKeys = sortedTSLiteralObjectKeys(defaults)
+	}
+	var builder strings.Builder
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...mergeGeneratedOptions")
+	if rootGeneric != "" {
+		builder.WriteString("<")
+		builder.WriteString(rootGeneric)
+		builder.WriteString(">")
+	}
+	builder.WriteString("(\n")
+	builder.WriteString("      ")
+	writeTSObjectLiteral(&builder, "      ", defaults, orderedKeys)
+	builder.WriteString(",\n")
+	builder.WriteString("      options,\n")
+	builder.WriteString("    ),\n")
+	for _, key := range orderedKeys {
+		rawEntry, ok := defaults[key]
+		if !ok {
+			panic("missing nested TypeScript default entry: " + key)
+		}
+		entryObject, ok := rawEntry.(map[string]any)
+		if !ok {
+			panic("nested TypeScript default entry is not an object: " + key)
+		}
+		builder.WriteString("    ")
+		builder.WriteString(key)
+		builder.WriteString(": mergeGeneratedOptions")
+		if nestedGeneric != "" {
+			builder.WriteString("<")
+			builder.WriteString(nestedGeneric)
+			builder.WriteString(">")
+		}
+		builder.WriteString("(\n")
+		builder.WriteString("      ")
+		writeTSObjectLiteral(&builder, "      ", entryObject, nestedFieldOrders[key])
+		builder.WriteString(",\n")
+		builder.WriteString("      options.")
+		builder.WriteString(key)
+		builder.WriteString(" ?? {},\n")
+		builder.WriteString("    ),\n")
+	}
+	builder.WriteString("  };")
+	return builder.String()
 }
 
 func buildMetaControlSizingPolicyByTypeCreateBodyTS() string {
-	var builder strings.Builder
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions<MetaControlSizingPolicyByType>(\n")
-	builder.WriteString("      {\n")
-	writeTSNamedObjectEntries(&builder, "        ", "          ", metaControlSizingPolicyByTypeDefaults)
-	builder.WriteString("      },\n")
-	builder.WriteString("      options,\n")
-	builder.WriteString("    ),\n")
-	writeTSNamedMergeEntries(&builder, "    ", "      ", "MetaControlSizingPolicyTypeEntry", "options", metaControlSizingPolicyByTypeDefaults)
-	builder.WriteString("  };")
-	return builder.String()
+	return buildTSNestedObjectMergeCreateBodyTS(
+		"MetaControlSizingPolicyByType",
+		"MetaControlSizingPolicyTypeEntry",
+		mustTSLiteralObjectFromGoValue(
+			"meta control sizing policy defaults",
+			defaultMetaControlSizingPolicyByType,
+		),
+		orderedTypePropertyNames(metaControlSizingPolicyByTypeProperties()),
+		goJSONFieldOrderMap(defaultMetaControlSizingPolicyByType),
+	)
 }
 
 func buildSectionSizingPolicyByTypeCreateBodyTS() string {
+	return buildTSNestedObjectMergeCreateBodyTS(
+		"",
+		"",
+		mustTSLiteralObjectFromGoValue(
+			"section sizing policy defaults",
+			defaultSectionSizingPolicyByType,
+		),
+		orderedTypePropertyNames(sectionSizingPolicyByTypeProperties()),
+		goJSONFieldOrderMapAny(defaultSectionSizingPolicyByType),
+	)
+}
+
+func buildSectionSizingPolicyCreateBodyTS() string {
 	var builder strings.Builder
+	builder.WriteString("  const byType = createSectionSizingPolicyByType(options.byType ?? {});\n")
+	builder.WriteString("  const metaControlByType = createMetaControlSizingPolicyByType(\n")
+	builder.WriteString("    options.metaControlByType ?? {},\n")
+	builder.WriteString("  );\n")
+	builder.WriteString("  const globals = createSectionSizingPolicyGlobals(options.globals ?? {});\n")
 	builder.WriteString("  return {\n")
 	builder.WriteString("    ...mergeGeneratedOptions(\n")
 	builder.WriteString("      {\n")
-	writeTSNamedObjectEntries(&builder, "        ", "          ", sectionSizingPolicyByTypeDefaults)
+	builder.WriteString("        byType,\n")
+	builder.WriteString("        metaControlByType,\n")
+	builder.WriteString("        globals,\n")
 	builder.WriteString("      },\n")
 	builder.WriteString("      options,\n")
 	builder.WriteString("    ),\n")
-	writeTSNamedMergeEntries(&builder, "    ", "      ", "", "options", sectionSizingPolicyByTypeDefaults)
+	builder.WriteString("    byType,\n")
+	builder.WriteString("    metaControlByType,\n")
+	builder.WriteString("    globals,\n")
 	builder.WriteString("  };")
 	return builder.String()
 }
 
-func buildSectionSizingPolicyCreateBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"createSectionSizingPolicy",
-		createSectionSizingPolicyTemplate,
-		nil,
-	)
+func buildSettingsStateCreateBodyTS() string {
+	defaults, err := settingsstate.DefaultDocument()
+	if err != nil {
+		panic("load settings defaults: " + err.Error())
+	}
+	rawLanguageServer, ok := defaults["languageServer"]
+	if !ok {
+		panic("settings defaults missing languageServer")
+	}
+	languageServerDefaults, ok := rawLanguageServer.(map[string]any)
+	if !ok {
+		panic("settings defaults languageServer is not an object")
+	}
+
+	var builder strings.Builder
+	builder.WriteString("  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});\n")
+	builder.WriteString("  const gui = createSettingsGUI(options.gui ?? {});\n")
+	builder.WriteString("  const backend = createSettingsBackend(options.backend ?? {});\n")
+	builder.WriteString("  const sectionSizingPolicy = createSectionSizingPolicy(\n")
+	builder.WriteString("    options.sectionSizingPolicy ?? {},\n")
+	builder.WriteString("  );\n")
+	builder.WriteString("  const defaults: SettingsState = {\n")
+	builder.WriteString("    shortcuts,\n")
+	builder.WriteString("    gui,\n")
+	builder.WriteString("    backend,\n")
+	builder.WriteString("    sectionSizingPolicy,\n")
+	builder.WriteString("    languageServer: ")
+	writeTSObjectLiteral(&builder, "    ", languageServerDefaults, nil)
+	builder.WriteString(",\n")
+	builder.WriteString("  };\n")
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
+	builder.WriteString("    shortcuts,\n")
+	builder.WriteString("    gui,\n")
+	builder.WriteString("    backend,\n")
+	builder.WriteString("    sectionSizingPolicy,\n")
+	builder.WriteString("    languageServer: cloneGeneratedValue(\n")
+	builder.WriteString("      options.languageServer ?? defaults.languageServer,\n")
+	builder.WriteString("    ),\n")
+	builder.WriteString("  };")
+	return builder.String()
 }
 
-func buildSettingsStateCreateBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"createSettingsState",
-		createSettingsStateTemplate,
-		nil,
+func buildProjectCodegenPythonTargetCreateBodyTS() string {
+	defaultConfig, err := projectstate.DecodePythonCodegenTarget(projectstate.ProjectCodegenTarget{
+		Language: string(projectstate.CodeLanguagePython),
+	})
+	if err != nil {
+		panic("decode default project codegen python target: " + err.Error())
+	}
+	defaultLiteral := mustTSLiteralObjectFromGoValue(
+		"default project codegen python target",
+		map[string]any{
+			"language":         string(projectstate.CodeLanguagePython),
+			"genCodePrefix":    defaultConfig.GenCodePrefix,
+			"genCodeSuffix":    defaultConfig.GenCodeSuffix,
+			"generateMetadata": defaultConfig.GenerateMetadata,
+		},
 	)
+	var builder strings.Builder
+	builder.WriteString("  const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});\n")
+	builder.WriteString("  const codeObjValuePolicy = createCodeObjValuePolicy(\n")
+	builder.WriteString("    options.codeObjValuePolicy ?? {},\n")
+	builder.WriteString("  );\n")
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...")
+	builder.WriteString(buildTSMergeGeneratedOptionsExprTS([]tsObjectEntry{
+		tsObjectField("language", renderTSLiteralExpr(defaultLiteral["language"])),
+		tsObjectField("genCodePrefix", renderTSLiteralExpr(defaultLiteral["genCodePrefix"])),
+		tsObjectField("genCodeSuffix", renderTSLiteralExpr(defaultLiteral["genCodeSuffix"])),
+		tsObjectField("generateMetadata", renderTSLiteralExpr(defaultLiteral["generateMetadata"])),
+		tsObjectField("sectionPolicy", "sectionPolicy"),
+		tsObjectField("codeObjValuePolicy", "codeObjValuePolicy"),
+	}, "options"))
+	builder.WriteString(",\n")
+	builder.WriteString("    language: ")
+	writeTSLiteralValue(&builder, "    ", defaultLiteral["language"])
+	builder.WriteString(",\n")
+	builder.WriteString("    sectionPolicy,\n")
+	builder.WriteString("    codeObjValuePolicy,\n")
+	builder.WriteString("  };")
+	return builder.String()
 }
 
 var defaultSectionCodegenAllowlistMembers = []string{
@@ -803,14 +769,6 @@ func buildCodeObjValuePolicyCreateBodyTS() string {
 		codeObjValuePolicyCreateTemplateData{
 			StringCodeObjValueRepresentationMembers: stringCodeObjValueRepresentationMembers,
 		},
-	)
-}
-
-func buildProjectCodegenPythonTargetCreateBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"createProjectCodegenPythonTarget",
-		createProjectCodegenPythonTargetTemplate,
-		nil,
 	)
 }
 
@@ -1200,6 +1158,12 @@ func writeTSLiteralValue(builder *strings.Builder, indent string, value any) {
 		}
 		builder.Write(payload)
 	}
+}
+
+func renderTSLiteralExpr(value any) string {
+	var builder strings.Builder
+	writeTSLiteralValue(&builder, "", value)
+	return builder.String()
 }
 
 func writeTSArrayLiteral(builder *strings.Builder, indent string, values []any) {
@@ -2635,21 +2599,7 @@ func newTypeConverter() *typeConverter {
 			reflect.TypeOf(MetaControlSizingPolicyByType{}): objectDeclarationWithCreateBody(
 				"MetaControlSizingPolicyByType",
 				buildMetaControlSizingPolicyByTypeCreateBodyTS(),
-				TypeProperty{Name: "CodeCallable", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "CodeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "TextParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "DateParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "TimeParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "ButtonParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "SliderParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "RotaryParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "SwitchParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "ColorPickerParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "DropdownParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "PasswordParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "TextAreaParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "DropzoneParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
-				TypeProperty{Name: "NestedParam", TypeExpr: "MetaControlSizingPolicyTypeEntry"},
+				metaControlSizingPolicyByTypeProperties()...,
 			),
 			reflect.TypeOf(SectionSizingPolicyGlobals{}): objectDeclarationWithCreateExpr(
 				"SectionSizingPolicyGlobals",
@@ -2674,31 +2624,7 @@ func newTypeConverter() *typeConverter {
 			reflect.TypeOf(SectionSizingPolicyByType{}): objectDeclarationWithCreateBody(
 				"SectionSizingPolicyByType",
 				buildSectionSizingPolicyByTypeCreateBodyTS(),
-				TypeProperty{Name: "Callable", TypeExpr: "SectionSizingPolicyCallableTypeEntry"},
-				TypeProperty{Name: "Dict", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "ListRoot", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Group", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "StateMachineStart", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "StateMachineGate", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "StateMachineEnd", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Image", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Chart", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Draw", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Prompt", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "TextBlock", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "MetaControl", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Social", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "GlobalVariables", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Code", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "GenPythonCode", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "GenPythonMetadata", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Terminal", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "IFrame", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Chat", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Browser", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Plugin", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "TaskBoard", TypeExpr: "SectionSizingPolicyTypeEntry"},
-				TypeProperty{Name: "Spreadsheet", TypeExpr: "SectionSizingPolicyTypeEntry"},
+				sectionSizingPolicyByTypeProperties()...,
 			),
 			reflect.TypeOf(SectionSizingPolicy{}): objectDeclarationWithCreateBody(
 				"SectionSizingPolicy",
