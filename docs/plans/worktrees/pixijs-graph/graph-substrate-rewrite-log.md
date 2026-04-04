@@ -3441,3 +3441,35 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - because items `099` and `100` are both probe-only slices, pivot back to a fresh normalized live compare specifically hunting the next concrete canary-only production defect on a different dynamic path, with production-fix work preferred over opening a third probe-first lane by default
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 07:05 EDT - Ralph item 101
+
+- Tightened the shared normalized graph-surface compare helper so parity probes wait out transient autosave/loading/focus chrome before taking graph-surface measurements.
+- Why this slice was necessary:
+  - because items `099` and `100` were both probe-only, the next iteration first had to pivot back to a fresh normalized live compare instead of opening another speculative parity lane
+  - the fresh-context CDP compare on `http://127.0.0.1:3075/settings` and `http://127.0.0.1:3087/settings` again found no trustworthy canary-only renderer defect on normalized `All Settings`; the shared zoom interaction stayed aligned on the graph surface
+  - the only remaining compare blockers were non-target transient chrome states on the editable worktree side: the autosave header notification plus transient focus/loading state, so the narrowest valid step was one shared normalization change that directly removes that noise from future graph-surface probes
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - `normalizeSettingsGraphComparePaneState(...)` still hides pane chrome first, then now also blurs any active focused element and waits for `useProjectLoading.getState().projectIsLoading === false` plus the header notification overlay (`.header-notification-fade`) to disappear before continuing
+    - this keeps future main-reference parity probes focused on graph-surface-only evidence instead of transient autosave/focus chrome
+  - no production renderer files changed in this slice
+- Verification:
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - result: passed
+  - refreshed runtime/bootstrap values before the live rerun:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-020/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-020/main-ai.log`
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe applies the same modified-wheel zoom delta on read-only main legacy and worktree canary after normalized fit' --reporter=line`
+      - result: passed (`1 passed`, `29.3s`)
+  - fresh-context CDP sub-agent:
+    - normalized both live `/settings` pages to `All Settings`, reduced non-target chrome, and ran a shared `zoom in` compare
+    - no trustworthy canary-only defect was visible; Gate 0 remained passed and Gate 1 interaction stayed aligned on both sides
+    - the remaining differences were oracle-noise classes only: workspace label text (`pixijs-graph` vs `main`), the editable worktree autosave toast, and transient focus/loading state
+  - CDP visual check: done (fresh-context normalized `All Settings` shared zoom compare on live `3075` canary vs read-only `3087` legacy; only transient non-target chrome differences remained)
+- Lane status:
+  - keep the new transient-chrome wait inside the shared compare normalization helper
+  - do not treat autosave header notifications or transient focus/loading state as renderer evidence once this helper has run
+- Next frontier:
+  - return to one fresh normalized live compare on a different dynamic path, with production-fix work preferred immediately if that compare finally exposes a concrete canary-only defect
+- LOOP_TERMINAL_MARKER: none

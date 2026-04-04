@@ -218,6 +218,7 @@ export async function normalizeSettingsGraphComparePaneState(
 ): Promise<void> {
   await setLocalPaneState(page, SETTINGS_GRAPH_COMPARE_PANE_STATE);
   await waitForSettingsGraphComparePaneChrome(page);
+  await waitForSettingsGraphCompareTransientChrome(page);
 }
 
 export async function fitGraphViewportToSection(
@@ -419,6 +420,33 @@ async function waitForSettingsGraphComparePaneChrome(
   await expect(page.getByTestId("uiEditor-pane-fullscreen-button")).toHaveCount(
     0,
   );
+}
+
+async function waitForSettingsGraphCompareTransientChrome(
+  page: Page,
+): Promise<void> {
+  await page.evaluate(() => {
+    const activeElement = document.activeElement;
+    if (activeElement instanceof HTMLElement) {
+      activeElement.blur();
+    }
+  });
+
+  await expect
+    .poll(async () => {
+      return page.evaluate(async () => {
+        const { useProjectLoading } = await import("/src/state/definitions.ts");
+        return {
+          headerNotificationVisible:
+            document.querySelector(".header-notification-fade") !== null,
+          projectIsLoading: useProjectLoading.getState().projectIsLoading,
+        };
+      });
+    })
+    .toEqual({
+      headerNotificationVisible: false,
+      projectIsLoading: false,
+    });
 }
 
 export async function findSettingsGraphPanePoint(
