@@ -115,6 +115,7 @@ GoHTTPRoutes.getServerMode path=/serverMode enum=GET_SERVER_MODE
 GoHTTPRoutes.getSettaHomeInfo path=/settaHomeInfo enum=GET_SETTA_HOME_INFO
 GoHTTPRoutes.getStateMachineRun path=/getStateMachineRun enum=GET_STATE_MACHINE_RUN
 GoHTTPRoutes.getTranscriptionProfiles path=/getTranscriptionProfiles enum=GET_TRANSCRIPTION_PROFILES
+GoHTTPRoutes.getWorkspacePythonSignal path=/getWorkspacePythonSignal enum=GET_WORKSPACE_PYTHON_SIGNAL
 GoHTTPRoutes.groupSections path=/groupSections enum=GROUP_SECTIONS
 GoHTTPRoutes.importFilesToArtifacts path=/importFilesToArtifacts enum=IMPORT_FILES_TO_ARTIFACTS
 GoHTTPRoutes.indentParams path=/indentParams enum=INDENT_PARAMS

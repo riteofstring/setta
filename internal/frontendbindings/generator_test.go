@@ -114,6 +114,23 @@ func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	t.Helper()
 
+	appGenerationBodies := map[string]string{}
+	for _, declaration := range appGenerationSupportDeclarations() {
+		if declaration.Kind != "function" {
+			continue
+		}
+		appGenerationBodies[declaration.Name] = declaration.FunctionBody
+	}
+	if !strings.Contains(
+		appGenerationBodies["parseGeneratedAppGenerationMode"],
+		`case "json_render":`,
+	) {
+		t.Fatalf(
+			"parseGeneratedAppGenerationMode body missing template-rendered mode switch:\n%s",
+			appGenerationBodies["parseGeneratedAppGenerationMode"],
+		)
+	}
+
 	interopBodies := map[string]string{}
 	for _, declaration := range interopSupportDeclarations() {
 		if declaration.Kind != "function" {
@@ -189,6 +206,34 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 		t.Fatalf(
 			"websocketSupportReadDurationMs body missing template-rendered duration validation:\n%s",
 			websocketBodies["websocketSupportReadDurationMs"],
+		)
+	}
+
+	if !strings.Contains(
+		buildSectionSizingPolicyCreateBodyTS(),
+		`const metaControlByType = createMetaControlSizingPolicyByType(`,
+	) {
+		t.Fatalf(
+			"SectionSizingPolicy create body missing template-rendered meta control setup:\n%s",
+			buildSectionSizingPolicyCreateBodyTS(),
+		)
+	}
+	if !strings.Contains(
+		buildSettingsStateCreateBodyTS(),
+		`languageServer: cloneGeneratedValue(`,
+	) {
+		t.Fatalf(
+			"SettingsState create body missing template-rendered language server clone:\n%s",
+			buildSettingsStateCreateBodyTS(),
+		)
+	}
+	if !strings.Contains(
+		buildProjectCodegenPythonTargetCreateBodyTS(),
+		`genCodeSuffix: "state = SettaState()"`,
+	) {
+		t.Fatalf(
+			"ProjectCodegenPythonTarget create body missing template-rendered default suffix:\n%s",
+			buildProjectCodegenPythonTargetCreateBodyTS(),
 		)
 	}
 }

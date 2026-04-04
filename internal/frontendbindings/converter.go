@@ -57,6 +57,15 @@ var createSectionCodegenPolicyTemplate string
 //go:embed templates/converter_create_code_obj_value_policy.ts.tmpl
 var createCodeObjValuePolicyTemplate string
 
+//go:embed templates/converter_create_section_sizing_policy.ts.tmpl
+var createSectionSizingPolicyTemplate string
+
+//go:embed templates/converter_create_settings_state.ts.tmpl
+var createSettingsStateTemplate string
+
+//go:embed templates/converter_create_project_codegen_python_target.ts.tmpl
+var createProjectCodegenPythonTargetTemplate string
+
 // setta-go-type-discovery: skip
 type sectionCodegenPolicyCreateTemplateData struct {
 	DefaultSectionCodegenAllowlistMembers     []string
@@ -650,61 +659,19 @@ func buildSectionSizingPolicyByTypeCreateBodyTS() string {
 }
 
 func buildSectionSizingPolicyCreateBodyTS() string {
-	return `  const byType = createSectionSizingPolicyByType(options.byType ?? {});
-  const metaControlByType = createMetaControlSizingPolicyByType(
-    options.metaControlByType ?? {},
-  );
-  const globals = createSectionSizingPolicyGlobals(options.globals ?? {});
-  return {
-    ...mergeGeneratedOptions(
-      {
-        byType,
-        metaControlByType,
-        globals,
-      },
-      options,
-    ),
-    byType,
-    metaControlByType,
-    globals,
-  };`
+	return mustRenderFrontendBindingTemplate(
+		"createSectionSizingPolicy",
+		createSectionSizingPolicyTemplate,
+		nil,
+	)
 }
 
 func buildSettingsStateCreateBodyTS() string {
-	return `  const shortcuts = createSettingsShortcuts(options.shortcuts ?? {});
-  const gui = createSettingsGUI(options.gui ?? {});
-  const backend = createSettingsBackend(options.backend ?? {});
-  const sectionSizingPolicy = createSectionSizingPolicy(
-    options.sectionSizingPolicy ?? {},
-  );
-  const defaults: SettingsState = {
-    shortcuts,
-    gui,
-    backend,
-    sectionSizingPolicy,
-    languageServer: {
-      basedpyright: {
-        analysis: {
-          diagnosticSeverityOverrides: {
-            reportUnknownVariableType: "none",
-            reportUnknownMemberType: "none",
-            reportUnannotatedClassAttribute: "none",
-            reportSelfClsParameterName: "none",
-          },
-        },
-      },
-    },
-  };
-  return {
-    ...mergeGeneratedOptions(defaults, options),
-    shortcuts,
-    gui,
-    backend,
-    sectionSizingPolicy,
-    languageServer: cloneGeneratedValue(
-      options.languageServer ?? defaults.languageServer,
-    ),
-  };`
+	return mustRenderFrontendBindingTemplate(
+		"createSettingsState",
+		createSettingsStateTemplate,
+		nil,
+	)
 }
 
 var defaultSectionCodegenAllowlistMembers = []string{
@@ -774,26 +741,11 @@ func buildCodeObjValuePolicyCreateBodyTS() string {
 }
 
 func buildProjectCodegenPythonTargetCreateBodyTS() string {
-	return `  const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});
-  const codeObjValuePolicy = createCodeObjValuePolicy(
-    options.codeObjValuePolicy ?? {},
-  );
-  return {
-    ...mergeGeneratedOptions(
-      {
-        language: ProjectCodegenLanguageEnum.python,
-        genCodePrefix: "",
-        genCodeSuffix: "state = SettaState()",
-        generateMetadata: false,
-        sectionPolicy,
-        codeObjValuePolicy,
-      },
-      options,
-    ),
-    language: ProjectCodegenLanguageEnum.python,
-    sectionPolicy,
-    codeObjValuePolicy,
-  };`
+	return mustRenderFrontendBindingTemplate(
+		"createProjectCodegenPythonTarget",
+		createProjectCodegenPythonTargetTemplate,
+		nil,
+	)
 }
 
 func projectStateAliasFactoryDeclarations() map[reflect.Type][]TypeDeclaration {

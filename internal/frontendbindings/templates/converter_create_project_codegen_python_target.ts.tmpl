@@ -1,0 +1,20 @@
+  const sectionPolicy = createSectionCodegenPolicy(options.sectionPolicy ?? {});
+  const codeObjValuePolicy = createCodeObjValuePolicy(
+    options.codeObjValuePolicy ?? {},
+  );
+  return {
+    ...mergeGeneratedOptions(
+      {
+        language: ProjectCodegenLanguageEnum.python,
+        genCodePrefix: "",
+        genCodeSuffix: "state = SettaState()",
+        generateMetadata: false,
+        sectionPolicy,
+        codeObjValuePolicy,
+      },
+      options,
+    ),
+    language: ProjectCodegenLanguageEnum.python,
+    sectionPolicy,
+    codeObjValuePolicy,
+  };
