@@ -1858,6 +1858,26 @@ func ownerBackedReflectedObjectDeclarationSpec(t reflect.Type) (reflectedObjectD
 			DefaultValue:  projectstate.FrontendDefaultBrowserSavedSearchTypeFilters(),
 			HasCreateExpr: true,
 		}, true
+	case reflect.TypeOf(BrowserSavedSearch{}):
+		return reflectedObjectDeclarationSpec{
+			DefaultValue:  projectstate.FrontendDefaultBrowserSavedSearch(),
+			HasCreateExpr: true,
+			PropertyTypeExprOverrides: map[string]string{
+				"typeFilters": "BrowserSavedSearchTypeFilters",
+			},
+		}, true
+	case reflect.TypeOf(WatchCodeRegistryEntry{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"kind": "string",
+			},
+		}, true
+	case reflect.TypeOf(CodeFileBinding{}):
+		return reflectedObjectDeclarationSpec{
+			PropertyTypeExprOverrides: map[string]string{
+				"access_mode": "CodeFileAccessMode",
+			},
+		}, true
 	case reflect.TypeOf(TaskBoardColumn{}):
 		return reflectedObjectDeclarationSpec{
 			DefaultValue:  projectstate.FrontendDefaultTaskBoardColumn(),

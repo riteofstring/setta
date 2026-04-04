@@ -12,6 +12,15 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 		properties []TypeProperty
 	}{
 		{
+			name: "Viewport",
+			root: reflect.TypeOf(Viewport{}),
+			properties: []TypeProperty{
+				{Name: "x", TypeExpr: "number", Optional: false},
+				{Name: "y", TypeExpr: "number", Optional: false},
+				{Name: "zoom", TypeExpr: "number", Optional: false},
+			},
+		},
+		{
 			name: "EngineConfig",
 			root: reflect.TypeOf(EngineConfig{}),
 			properties: []TypeProperty{
@@ -50,6 +59,49 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 				{Name: "chunkMs", TypeExpr: "number", Optional: false},
 				{Name: "supportsRealtimeTranscription", TypeExpr: "boolean", Optional: false},
 				{Name: "language", TypeExpr: "string | null", Optional: true},
+			},
+		},
+		{
+			name: "BrowserSavedSearch",
+			root: reflect.TypeOf(BrowserSavedSearch{}),
+			properties: []TypeProperty{
+				{Name: "id", TypeExpr: "string", Optional: false},
+				{Name: "name", TypeExpr: "string", Optional: false},
+				{Name: "query", TypeExpr: "string", Optional: false},
+				{Name: "searchScope", TypeExpr: "BrowserSearchScope", Optional: false},
+				{Name: "typeFilters", TypeExpr: "BrowserSavedSearchTypeFilters", Optional: false},
+				{Name: "color", TypeExpr: "string", Optional: false},
+				{Name: "quickInfo", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
+			name: "WatchCodeFolder",
+			root: reflect.TypeOf(WatchCodeFolder{}),
+			properties: []TypeProperty{
+				{Name: "path", TypeExpr: "string", Optional: false},
+				{Name: "recursive", TypeExpr: "boolean", Optional: false},
+			},
+		},
+		{
+			name: "WatchCodeRegistryEntry",
+			root: reflect.TypeOf(WatchCodeRegistryEntry{}),
+			properties: []TypeProperty{
+				{Name: "callableName", TypeExpr: "string", Optional: false},
+				{Name: "kind", TypeExpr: "string", Optional: false},
+				{Name: "signatureHash", TypeExpr: "string", Optional: false},
+				{Name: "bodyHash", TypeExpr: "string", Optional: false},
+				{Name: "sourcePath", TypeExpr: "string", Optional: false},
+				{Name: "sectionIds", TypeExpr: "Array<string>", Optional: true},
+				{Name: "sectionsCount", TypeExpr: "number", Optional: true},
+			},
+		},
+		{
+			name: "CodeFileBinding",
+			root: reflect.TypeOf(CodeFileBinding{}),
+			properties: []TypeProperty{
+				{Name: "canonical_path", TypeExpr: "string", Optional: false},
+				{Name: "access_mode", TypeExpr: "CodeFileAccessMode", Optional: false},
+				{Name: "autoBinding", TypeExpr: "boolean", Optional: false},
 			},
 		},
 		{
@@ -132,6 +184,9 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			}
 			if tt.name == "EngineConfig" && declaration.CreateBody == "" {
 				t.Fatalf("EngineConfig should use a structured create body")
+			}
+			if tt.name == "BrowserSavedSearch" && declaration.CreateExpr == "" {
+				t.Fatalf("BrowserSavedSearch should use a Go-backed create expr")
 			}
 		})
 	}

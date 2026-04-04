@@ -227,12 +227,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			"ProjectCodegenTarget",
 			"ProjectCodegenPythonTarget | ProjectCodegenPluginTarget",
 		),
-		reflect.TypeOf(Viewport{}): objectDeclaration(
-			"Viewport",
-			TypeProperty{Name: "x", TypeExpr: "number"},
-			TypeProperty{Name: "y", TypeExpr: "number"},
-			TypeProperty{Name: "zoom", TypeExpr: "number"},
-		),
 		reflect.TypeOf(TopLevelSectionLayout{}): objectDeclarationWithCreateExpr(
 			"TopLevelSectionLayout",
 			`mergeGeneratedOptions(
@@ -427,27 +421,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			TypeProperty{Name: "hidden", TypeExpr: "boolean", Optional: true},
 			TypeProperty{Name: "zIndex", TypeExpr: "number", Optional: true},
 			TypeProperty{Name: "selected", TypeExpr: "boolean", Optional: true},
-		),
-		reflect.TypeOf(WatchCodeFolder{}): objectDeclaration(
-			"WatchCodeFolder",
-			TypeProperty{Name: "path", TypeExpr: "string"},
-			TypeProperty{Name: "recursive", TypeExpr: "boolean"},
-		),
-		reflect.TypeOf(WatchCodeRegistryEntry{}): objectDeclaration(
-			"WatchCodeRegistryEntry",
-			TypeProperty{Name: "callableName", TypeExpr: "string"},
-			TypeProperty{Name: "kind", TypeExpr: "string"},
-			TypeProperty{Name: "signatureHash", TypeExpr: "string"},
-			TypeProperty{Name: "bodyHash", TypeExpr: "string"},
-			TypeProperty{Name: "sourcePath", TypeExpr: "string"},
-			TypeProperty{Name: "sectionIds", TypeExpr: "Array<string>", Optional: true},
-			TypeProperty{Name: "sectionsCount", TypeExpr: "number", Optional: true},
-		),
-		reflect.TypeOf(CodeFileBinding{}): objectDeclaration(
-			"CodeFileBinding",
-			TypeProperty{Name: "canonical_path", TypeExpr: "string"},
-			TypeProperty{Name: "access_mode", TypeExpr: "CodeFileAccessMode"},
-			TypeProperty{Name: "autoBinding", TypeExpr: "boolean"},
 		),
 		reflect.TypeOf(ClipboardProjectStateCore{}): objectDeclarationWithCreateExpr(
 			"ClipboardProjectStateCore",
@@ -1667,17 +1640,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
   searchEnabled: boolean;
   dictationMode: ChatDictationMode;
 }`,
-		),
-		reflect.TypeOf(BrowserSavedSearch{}): objectDeclarationWithGoBackedCreateExpr(
-			"BrowserSavedSearch",
-			projectstate.FrontendDefaultBrowserSavedSearch(),
-			TypeProperty{Name: "id", TypeExpr: "string"},
-			TypeProperty{Name: "name", TypeExpr: "string"},
-			TypeProperty{Name: "query", TypeExpr: "string"},
-			TypeProperty{Name: "searchScope", TypeExpr: "BrowserSearchScope"},
-			TypeProperty{Name: "typeFilters", TypeExpr: "BrowserSavedSearchTypeFilters"},
-			TypeProperty{Name: "color", TypeExpr: "string"},
-			TypeProperty{Name: "quickInfo", TypeExpr: "string"},
 		),
 		reflect.TypeOf(UserDefaultBrowserSectionImpl{}): objectDeclarationWithGoBackedSectionDefaults(
 			"UserDefaultBrowserSectionImpl",
