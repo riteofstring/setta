@@ -23,16 +23,19 @@ import {
   useRunControl,
 } from "state/definitions";
 import { OverviewTabNameEnum } from "utils/constants";
+import { resolveMainRunRequest } from "utils/runCapabilities";
 
 export function RunButton() {
   const runMode = useRunControl((x) => x.runMode);
   const continuousRunStarted = useRunControl((x) => x.continuousRunStarted);
   const projectConfig = useProjectState((x) => x.projectConfig);
-  const runCapabilities = useProjectState(
-    (x) => x.projectConfig.runCapabilities,
+  const canRunFromMain = useProjectState(
+    (state) => resolveMainRunRequest(state).canRun,
+  );
+  const mainRunDisabledReason = useProjectState(
+    (state) => resolveMainRunRequest(state).disabledReason,
   );
   const projectConfigId = projectConfig.id;
-  const canRunFromMain = runCapabilities.canRunFromMain;
   const customRuns = useLocalStorage(
     (x) => x.customRunsByProjectConfigId[projectConfigId] ?? [],
   );
@@ -94,7 +97,7 @@ export function RunButton() {
           {...getFloatingBoxHandlers({
             content: canRunFromMain
               ? "Run your code."
-              : runCapabilities.mainRunDisabledReason ?? "Run is unavailable.",
+              : mainRunDisabledReason ?? "Run is unavailable.",
           })}
         >
           {mainIcon}

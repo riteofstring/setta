@@ -2,7 +2,7 @@ import type { ProjectStateSingleConfig } from "utils/generatedTypes";
 
 type RunCapabilityState = Pick<
   ProjectStateSingleConfig,
-  "projectConfig" | "sectionCapabilities"
+  "projectConfig" | "sectionCapabilities" | "singletonSections"
 >;
 
 type ResolvedRunRequest = {
@@ -13,6 +13,7 @@ type ResolvedRunRequest = {
 };
 
 const DEFAULT_RUN_DISABLED_REASON = "Run is unavailable.";
+const MANUAL_ENTRY_REQUIRED_REASON = "Select a manual entry code block to run.";
 
 export function resolveRunRequest(
   state: RunCapabilityState,
@@ -27,15 +28,13 @@ export function resolveRunRequest(
 export function resolveMainRunRequest(
   state: RunCapabilityState,
 ): ResolvedRunRequest {
-  const runCapabilities = state.projectConfig.runCapabilities;
-  const effectiveSectionId = runCapabilities.effectiveEntrySectionId ?? null;
-  if (!runCapabilities.canRunFromMain || !effectiveSectionId) {
+  const effectiveSectionId = resolveEffectiveMainRunSectionId(state);
+  if (!effectiveSectionId) {
     return {
       canRun: false,
-      disabledReason:
-        runCapabilities.mainRunDisabledReason ?? DEFAULT_RUN_DISABLED_REASON,
+      disabledReason: MANUAL_ENTRY_REQUIRED_REASON,
       executionSectionId: null,
-      effectiveSectionId,
+      effectiveSectionId: null,
     };
   }
 
@@ -44,9 +43,7 @@ export function resolveMainRunRequest(
     return {
       canRun: false,
       disabledReason:
-        sectionCapabilities?.runDisabledReason ??
-        runCapabilities.mainRunDisabledReason ??
-        DEFAULT_RUN_DISABLED_REASON,
+        sectionCapabilities?.runDisabledReason ?? DEFAULT_RUN_DISABLED_REASON,
       executionSectionId: null,
       effectiveSectionId,
     };
@@ -58,6 +55,23 @@ export function resolveMainRunRequest(
     executionSectionId: sectionCapabilities.runRequestSectionId ?? null,
     effectiveSectionId,
   };
+}
+
+function resolveEffectiveMainRunSectionId(
+  state: RunCapabilityState,
+): string | null {
+  const configuredEntrySectionId =
+    state.projectConfig.entryCodeBlockId?.trim() ?? "";
+  if (configuredEntrySectionId) {
+    return configuredEntrySectionId;
+  }
+
+  if (!state.projectConfig.hasPythonCodegenTarget) {
+    return null;
+  }
+
+  const generatedEntrySectionId = state.singletonSections.GenPythonCode?.trim();
+  return generatedEntrySectionId ? generatedEntrySectionId : null;
 }
 
 function resolveSectionRunRequest(

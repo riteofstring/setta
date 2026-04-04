@@ -266,6 +266,41 @@ describe("runCodeBlock", () => {
       latestProjectState,
     );
   });
+
+  it("uses the current local entry code block for main runs even when backend run capabilities are stale", async () => {
+    useProjectState.setState(
+      buildProjectState({
+        attachedTerminalId: null,
+        pythonCodegenEnabled: true,
+      }),
+    );
+    useProjectState.setState((state) => {
+      state.projectConfig.entryCodeBlockId = codeSectionId;
+    });
+    const latestProjectState = createProjectStateSingleConfigWithCompletedOpIds(
+      {
+        projectState: buildProjectState({
+          attachedTerminalId: terminalSectionId,
+          pythonCodegenEnabled: true,
+        }),
+      },
+    );
+    routeGetLatestProjectStateMock.mockResolvedValue({
+      status: 200,
+      data: latestProjectState,
+      hasResponse: true,
+    });
+
+    await runCodeBlock(null);
+
+    expect(routeRunCodeMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        projectConfigId: "project-1",
+        sectionId: codeSectionId,
+        terminalSectionId: null,
+      }),
+    );
+  });
 });
 
 describe("stopCode", () => {
