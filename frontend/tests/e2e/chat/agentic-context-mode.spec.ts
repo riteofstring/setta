@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   cleanupIsolatedProject,
   createChatSection,
@@ -23,6 +23,35 @@ type LatestProjectStateResponse = {
     };
   };
 };
+
+async function waitForBackendAgenticEdgeContextMode(
+  page: Page,
+  projectConfigId: string,
+  sourceSectionId: string,
+  targetSectionId: string,
+  expectedContextMode: string,
+): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const response = await postBackend<LatestProjectStateResponse>(
+          page,
+          "/getLatestProjectState",
+          { projectConfigId },
+        );
+        const edges = response?.projectState?.projectConfig?.agenticEdges ?? [];
+        const match = edges.find(
+          (edge) =>
+            edge.sourceSectionId === sourceSectionId &&
+            edge.targetSectionId === targetSectionId &&
+            edge.kind === "chat_section",
+        );
+        return match?.contextMode ?? null;
+      },
+      { timeout: 15000 },
+    )
+    .toBe(expectedContextMode);
+}
 
 test.describe.serial("agentic context mode", () => {
   test("updates section->chat contextMode and persists", async ({ page }) => {
@@ -50,6 +79,15 @@ test.describe.serial("agentic context mode", () => {
         kind: "chat_section",
         contextMode: "reference_only",
       });
+      await waitForBackendAgenticEdgeContextMode(
+        page,
+        projectContext.projectConfigId,
+        chatSectionId,
+        textSectionId,
+        "reference_only",
+      );
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page.waitForSelector(".react-flow__pane");
 
       const chatNode = page.locator(
         `.react-flow__node[data-id="${chatSectionId}"]`,
@@ -74,26 +112,13 @@ test.describe.serial("agentic context mode", () => {
       await contextModeSelect.selectOption("inline_text");
       await expect(contextModeSelect).toHaveValue("inline_text");
 
-      await expect
-        .poll(
-          async () => {
-            const response = await postBackend<LatestProjectStateResponse>(
-              page,
-              "/getLatestProjectState",
-              { projectConfigId: projectContext.projectConfigId },
-            );
-            const edges = response?.projectState?.projectConfig?.agenticEdges ?? [];
-            const match = edges.find(
-              (edge) =>
-                edge.sourceSectionId === chatSectionId &&
-                edge.targetSectionId === textSectionId &&
-                edge.kind === "chat_section",
-            );
-            return match?.contextMode ?? null;
-          },
-          { timeout: 8000 },
-        )
-        .toBe("inline_text");
+      await waitForBackendAgenticEdgeContextMode(
+        page,
+        projectContext.projectConfigId,
+        chatSectionId,
+        textSectionId,
+        "inline_text",
+      );
 
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForSelector(".react-flow__pane");
@@ -114,7 +139,9 @@ test.describe.serial("agentic context mode", () => {
         .locator("div.flex.items-center", { hasText: textSectionName })
         .first();
       await expect(contextRowAfter).toBeVisible();
-      await expect(contextRowAfter.locator("select")).toHaveValue("inline_text");
+      await expect(contextRowAfter.locator("select")).toHaveValue(
+        "inline_text",
+      );
     } finally {
       await cleanupIsolatedProject(page, projectContext);
     }
