@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 17:46 EDT
+Last updated: 2026-04-04 18:04 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -41,6 +41,48 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `136` landed deterministic `dictSectionDefault` authoritative-viewport parity coverage, anchored on the shared `Config Language` body row, and kept the lane on a trusted motion path instead of reopening ad hoc CDP drag/pan.
+  - Why this slice was needed:
+    - item `135` had closed `dropzoneParamCodeObjDefault` as unsupported for the current tool stack, and the handoff explicitly named `dictSectionDefault` as the next canonical `All Settings` lane
+    - after three support-heavy/oracle-heavy passes, the next bounded step needed to land one trustworthy motion guard on a real renderer-facing lane rather than spending another iteration rediscovering anchors
+    - the repo's trusted-lane matrix explicitly allows named-section authoritative viewport override/restoration, which avoids the untrusted ad hoc CDP drag/pan shapes that stalled the closed dropzone lane
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - added `cancelDebouncedViewportUpdate(...)`
+      - added `applyViewportFromBackendOrigin(...)`
+      - added `settings graph parity probe keeps the dict config language row attached after authoritative viewport shift on read-only main legacy and worktree canary`
+  - What this slice established:
+    - `dictSectionDefault` is present on normalized `All Settings` on both sides with current live ids:
+      - worktree canary: `dbfc70a1-889c-454b-88ef-88fbe9b38c46`
+      - read-only main legacy: `396dc985-0533-4b59-ad70-5e68a6e01c3d`
+    - the shared visible dict-body anchors on both sides are now confirmed:
+      - `Config Language`
+      - `edgeInputParams`
+      - `edgeOutputPorts`
+    - the first targeted rerun showed the local spec path was missing the debounced viewport cancel/apply sequence used by the shared authoritative-viewport helper; mirroring that sequence fixed the lane
+    - one intermediate rerun hit expired bootstrap tokens (`401 Unauthorized`) after the edit/debug loop; refreshing the run-055 runtime info and rerunning with fresh tokens fixed it, so do not treat that miss as renderer evidence
+    - the deterministic authoritative-viewport probe now passes on the current run-055 worktree/main surfaces
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - refreshed run-055 runtime/bootstrap values twice during the slice:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-055/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-055/main-ai.log`
+    - targeted direct live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh run-055 worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh run-055 main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps the dict config language row attached after authoritative viewport shift on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `1.1m`)
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - reached live worktree `3075/settings` and read-only main `3087/settings`
+      - confirmed both tabs were already on `All Settings`
+      - confirmed the shared `dictSectionDefault` ids above and the visible shared body anchors `Config Language`, `edgeInputParams`, and `edgeOutputPorts`
+      - classified the lane as viable for future trusted authoritative-viewport compares
+    - CDP visual check: done (fresh-context normalized baseline check on live `3075` canary vs read-only `3087` legacy; the shared `dictSectionDefault` lane and `Config Language` body anchor are visibly present on both surfaces)
+  - conclusion for this slice:
+    - keep `dictSectionDefault` as the active canonical lane, now with deterministic authoritative-viewport coverage anchored on `Config Language`
+    - do not reopen `dropzoneParamCodeObjDefault`; the dict lane is the new trustworthy frontier
+    - the next iteration should use `dictSectionDefault` for one more trusted motion family beyond authoritative viewport, preferably a toolbar zoom or another bounded post-motion confirmation anchored on `Config Language`, before moving to a different section
 - Ralph item `135` retried the `dropzoneParamCodeObjDefault` -> `Mode` lane with fresh-context CDP sessions and project-state-derived ids, then closed that lane as unsupported for the current tool stack because a third setup-heavy pass still never produced one trustworthy bounded compare.
   - Why this slice was needed:
     - item `134` had classified the previous miss as a tooling/lifecycle blocker rather than renderer drift, so the next valid step was one fresh retry on the same named lane before inventing a new frontier
