@@ -11,12 +11,20 @@ import (
 	"time"
 
 	"setta/internal/projectstate"
+	"setta/internal/projectview"
 )
 
 var timeType = reflect.TypeOf(time.Time{})
 var rawJSONType = reflect.TypeOf(json.RawMessage{})
-var discoveredWrapperTypeOverrides = DiscoveredWrapperTypeOverrides()
+var discoveredWrapperTypeOverrides = mergedWrapperTypeOverrides()
 var discoveredOwnerTypeByWrapper = reverseDiscoveredWrapperTypeOverrides(discoveredWrapperTypeOverrides)
+
+func mergedWrapperTypeOverrides() map[reflect.Type]reflect.Type {
+	overrides := DiscoveredWrapperTypeOverrides()
+	overrides[reflect.TypeOf((*projectview.ProjectConfig)(nil)).Elem()] = reflect.TypeOf((*ProjectConfig)(nil)).Elem()
+	overrides[reflect.TypeOf((*projectview.SingleConfig)(nil)).Elem()] = reflect.TypeOf((*ProjectStateSingleConfig)(nil)).Elem()
+	return overrides
+}
 
 type tsLiteralField struct {
 	Name  string

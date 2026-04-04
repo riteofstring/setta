@@ -7,7 +7,6 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/artifacts"
 	"setta/internal/deployments"
-	"setta/internal/httpapi"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/scriptablechat"
@@ -379,49 +378,15 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	reflect.TypeOf(ProjectConfig{}): {
 		DefaultValue:  projectview.FrontendDefaultProjectConfig(),
 		HasCreateExpr: true,
-		PropertyTypeExprOverrides: map[string]string{
-			"codegenTargets": "Array<ProjectCodegenTarget>",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"viewport":         true,
-			"activeViewModeId": true,
-			"entryCodeBlockId": true,
-		},
 	},
 	reflect.TypeOf(ProjectStateSingleConfig{}): {
-		DefaultValue:  projectview.FrontendDefaultSingleConfig(),
+		DefaultValue:  frontendDefaultProjectStateSingleConfigValue(),
 		HasCreateExpr: true,
-		CreateExprOverrides: map[string]string{
-			"artifactGroups": "{}",
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"sectionImpls": "Record<string, BaseSectionImplUnion>",
-			"codeObjImpls": "Record<string, BaseCodeObjImplUnion>",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"genCodeBinding": true,
-		},
-		ExtraProperties: []TypeProperty{
-			{
-				Name:     "artifactGroups",
-				TypeExpr: "Record<string, unknown>",
-				Optional: true,
-			},
-		},
 	},
 	reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}): {
 		DeclarationName: "ProjectStateSingleConfigWithCompletedOpIds",
-		DefaultValue: httpapi.ProjectStateSingleConfigWithCompletedOpIDs{
-			ProjectState:   projectview.FrontendDefaultSingleConfig(),
-			CompletedOpIDs: []string{},
-			PendingOpIDs:   []string{},
-		},
-		HasCreateExpr: true,
-		CreateExprOverrides: map[string]string{
-			"projectState":   "createProjectStateSingleConfig()",
-			"completedOpIds": "[]",
-			"pendingOpIds":   "[]",
-		},
+		DefaultValue:    frontendDefaultProjectStateSingleConfigWithCompletedOpIdsValue(),
+		HasCreateExpr:   true,
 	},
 	reflect.TypeOf(SharePolicy{}): {
 		DefaultValue:  deployments.DefaultPolicy(),

@@ -2546,6 +2546,25 @@ export function createCore(options: Partial<Core> = {}): Core {
   );
 }
 
+export type BaseSectionImplUnion =
+  | CallableSectionImpl
+  | DictSectionImpl
+  | ListRootSectionImpl
+  | GroupSectionImpl
+  | StateMachineStartSectionImpl
+  | StateMachineGateSectionImpl
+  | StateMachineEndSectionImpl
+  | TextBlockSectionImpl
+  | PromptSectionImpl
+  | CodeSectionImpl
+  | TerminalSectionImpl
+  | ChatSectionImpl
+  | BrowserSectionImpl
+  | ChartSectionImpl
+  | TaskBoardSectionImpl
+  | SpreadsheetSectionImpl
+  | BaseSectionImpl;
+
 export type SectionCapabilities = {
   canRun: boolean;
   runDisabledReason?: string | null;
@@ -2589,6 +2608,24 @@ export function createVariant(options: Partial<Variant> = {}): Variant {
     options,
   );
 }
+
+export type BaseCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
 
 export type Viewport = {
   x: number;
@@ -2663,6 +2700,10 @@ export function createProjectRunCapabilities(
     options,
   );
 }
+
+export type ProjectCodegenTarget =
+  | ProjectCodegenPythonTarget
+  | ProjectCodegenPluginTarget;
 
 export type WatchCodeFolder = {
   path: string;
@@ -3185,7 +3226,65 @@ export function createProjectStateSingleConfigWithCompletedOpIds(
 ): ProjectStateSingleConfigWithCompletedOpIds {
   return mergeGeneratedOptions(
     {
-      projectState: createProjectStateSingleConfig(),
+      projectState: {
+        artifactGroups: {},
+        codeObjImpls: {},
+        codeObjVariants: {},
+        codeObjs: {},
+        genCodeBinding: null,
+        parentSectionMap: {},
+        projectChatWindowing: {
+          instancesById: {},
+          nextInstanceNumber: 1,
+          order: [],
+        },
+        projectConfig: {
+          activeIds: [],
+          activeViewModeId: null,
+          agenticEdges: [],
+          allowJsonSourceKeyEdits: false,
+          codegenTargets: [],
+          edges: [],
+          entryCodeBlockId: null,
+          hasPythonCodegenTarget: false,
+          id: "",
+          isEditingViewMode: false,
+          name: "",
+          runCapabilities: {
+            canRunFromMain: false,
+            effectiveEntrySectionId: null,
+            mainRunDisabledReason: null,
+          },
+          sectionIdsByPathSlug: {},
+          sectionPathSlugsById: {},
+          sectionVariantMap: {},
+          showParamDisplayNames: false,
+          stateMachineEdges: [],
+          topLevelSections: {},
+          viewModes: {},
+          viewport: null,
+          viewportInitialized: false,
+          watchCodeBaselineByPath: {},
+          watchCodeEnabled: false,
+          watchCodeFiles: [],
+          watchCodeFolders: [],
+          watchCodeRegistry: {},
+          windowSpaceIdsBySlug: {},
+          windowSpaceSlugsById: {},
+          windowSpaces: {},
+        },
+        requiredDecodedImages: [],
+        sectionCapabilities: {},
+        sectionImpls: {},
+        sectionVariants: {},
+        sections: {},
+        shownParamIds: {},
+        singletonSections: {
+          GenPythonCode: null,
+          GenPythonMetadata: null,
+          GlobalVariables: null,
+        },
+      },
       completedOpIds: [],
       pendingOpIds: [],
     },
@@ -5209,7 +5308,7 @@ export function createSectionCodegenPolicy(
               defaults.metaControlAllowlist ??
               []),
           ],
-    exclude: [...(options.exclude ?? defaults.exclude)],
+    exclude: [...(options.exclude ?? defaults.exclude ?? [])],
     typePolicies,
     sectionOverrides,
   };
@@ -5373,10 +5472,6 @@ export function createProjectCodegenPluginTarget(
     options,
   );
 }
-
-export type ProjectCodegenTarget =
-  | ProjectCodegenPythonTarget
-  | ProjectCodegenPluginTarget;
 
 type ViewportBoundsInput = {
   x: number;
@@ -6991,25 +7086,6 @@ export function createTerminalSectionImpl(
   );
 }
 
-export type BaseSectionImplUnion =
-  | CallableSectionImpl
-  | DictSectionImpl
-  | ListRootSectionImpl
-  | GroupSectionImpl
-  | StateMachineStartSectionImpl
-  | StateMachineGateSectionImpl
-  | StateMachineEndSectionImpl
-  | TextBlockSectionImpl
-  | PromptSectionImpl
-  | CodeSectionImpl
-  | TerminalSectionImpl
-  | ChatSectionImpl
-  | BrowserSectionImpl
-  | ChartSectionImpl
-  | TaskBoardSectionImpl
-  | SpreadsheetSectionImpl
-  | BaseSectionImpl;
-
 type CallableSectionImpl = BaseSectionImpl & {
   type: typeof SectionTypeEnum.Callable;
   codeObjVariantMap: Record<string, string>;
@@ -7282,24 +7358,6 @@ type NestedParamCodeObjImpl = BaseCodeObjImpl & {
   passingStyle: ParameterPassingStyle;
   typeAnnotation: string;
 };
-
-export type BaseCodeObjImplUnion =
-  | BaseCodeObjImpl
-  | CodeCallableCodeObjImpl
-  | CodeParamCodeObjImpl
-  | TextParamCodeObjImpl
-  | DateParamCodeObjImpl
-  | TimeParamCodeObjImpl
-  | ButtonParamCodeObjImpl
-  | SliderParamCodeObjImpl
-  | RotaryParamCodeObjImpl
-  | SwitchParamCodeObjImpl
-  | ColorPickerParamCodeObjImpl
-  | DropdownParamCodeObjImpl
-  | PasswordParamCodeObjImpl
-  | TextAreaParamCodeObjImpl
-  | DropzoneParamCodeObjImpl
-  | NestedParamCodeObjImpl;
 
 export type BaseChildlessCodeObjImplUnion =
   | BaseCodeObjImpl

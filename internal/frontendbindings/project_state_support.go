@@ -12,9 +12,29 @@ import (
 	"setta/internal/settingsstate"
 )
 
-type ProjectStateSingleConfig projectview.SingleConfig
+type ProjectStateSingleConfig struct {
+	Sections              map[string]Core                            `json:"sections"`
+	SectionImpls          map[string]BaseSectionImplUnion            `json:"sectionImpls"`
+	SectionCapabilities   map[string]projectview.SectionCapabilities `json:"sectionCapabilities"`
+	SectionVariants       map[string]Variant                         `json:"sectionVariants"`
+	CodeObjs              map[string]Core                            `json:"codeObjs"`
+	CodeObjImpls          map[string]BaseCodeObjImplUnion            `json:"codeObjImpls"`
+	CodeObjVariants       map[string]Variant                         `json:"codeObjVariants"`
+	ProjectConfig         ProjectConfig                              `json:"projectConfig"`
+	SingletonSections     SingletonSections                          `json:"singletonSections"`
+	ParentSectionMap      map[string]*string                         `json:"parentSectionMap"`
+	ShownParamIDs         map[string]ShownParamIds                   `json:"shownParamIds"`
+	RequiredDecodedImages []string                                   `json:"requiredDecodedImages"`
+	GenCodeBinding        *CodeFileBinding                           `json:"genCodeBinding,omitempty"`
+	ProjectChatWindowing  projectstate.ProjectChatWindowingState     `json:"projectChatWindowing"`
+	ArtifactGroups        map[string]any                             `json:"artifactGroups,omitempty"`
+}
 
-type ProjectStateSingleConfigWithCompletedOpIds = httpapi.ProjectStateSingleConfigWithCompletedOpIDs
+type ProjectStateSingleConfigWithCompletedOpIds struct {
+	ProjectState   ProjectStateSingleConfig `json:"projectState"`
+	CompletedOpIDs []string                 `json:"completedOpIds"`
+	PendingOpIDs   []string                 `json:"pendingOpIds"`
+}
 
 type ClipboardDataType = projectstate.ClipboardDataType
 
@@ -377,7 +397,55 @@ type ProjectCodegenPluginTarget = projectview.ProjectCodegenPluginTarget
 
 type ProjectCodegenTarget = projectview.ProjectCodegenTarget
 
-type ProjectConfig = projectview.ProjectConfig
+type ProjectConfig struct {
+	ID                      string                                         `json:"id"`
+	Name                    string                                         `json:"name"`
+	ShowParamDisplayNames   bool                                           `json:"showParamDisplayNames"`
+	AllowJSONSourceKeyEdits bool                                           `json:"allowJsonSourceKeyEdits"`
+	PreviewImgColor         string                                         `json:"previewImgColor,omitempty"`
+	Viewport                *projectstate.Viewport                         `json:"viewport,omitempty"`
+	ViewportInitialized     bool                                           `json:"viewportInitialized"`
+	ViewModes               map[string]projectstate.ViewMode               `json:"viewModes"`
+	ActiveViewModeID        *string                                        `json:"activeViewModeId,omitempty"`
+	IsEditingViewMode       bool                                           `json:"isEditingViewMode"`
+	HasPythonCodegenTarget  bool                                           `json:"hasPythonCodegenTarget"`
+	RunCapabilities         projectview.ProjectRunCapabilities             `json:"runCapabilities"`
+	CodegenTargets          []ProjectCodegenTarget                         `json:"codegenTargets"`
+	WatchCodeEnabled        bool                                           `json:"watchCodeEnabled"`
+	WatchCodeFolders        []projectstate.WatchCodeFolder                 `json:"watchCodeFolders"`
+	WatchCodeFiles          []string                                       `json:"watchCodeFiles"`
+	WatchCodeRegistry       map[string]projectstate.WatchCodeRegistryEntry `json:"watchCodeRegistry"`
+	WatchCodeBaselineByPath map[string][]string                            `json:"watchCodeBaselineByPath"`
+	EntryCodeBlockID        *string                                        `json:"entryCodeBlockId,omitempty"`
+	SectionPathSlugsByID    map[string]string                              `json:"sectionPathSlugsById"`
+	SectionIDsByPathSlug    map[string][]string                            `json:"sectionIdsByPathSlug"`
+	TopLevelSections        map[string]projectstate.TopLevelSectionLayout  `json:"topLevelSections"`
+	WindowSpaceSlugsByID    map[string]string                              `json:"windowSpaceSlugsById"`
+	WindowSpaceIDsBySlug    map[string][]string                            `json:"windowSpaceIdsBySlug"`
+	WindowSpaces            map[string]projectstate.WindowSpaceConfig      `json:"windowSpaces"`
+	SectionVariantMap       map[string]string                              `json:"sectionVariantMap"`
+	ActiveIDs               []string                                       `json:"activeIds"`
+	Edges                   []projectstate.Edge                            `json:"edges"`
+	AgenticEdges            []projectstate.AgenticEdge                     `json:"agenticEdges"`
+	StateMachineEdges       []projectstate.StateMachineEdge                `json:"stateMachineEdges"`
+}
+
+func frontendDefaultProjectStateSingleConfigValue() map[string]any {
+	defaults := mustTSLiteralObjectFromGoValue(
+		"frontend default project state single config",
+		projectview.FrontendDefaultSingleConfig(),
+	)
+	defaults["artifactGroups"] = map[string]any{}
+	return defaults
+}
+
+func frontendDefaultProjectStateSingleConfigWithCompletedOpIdsValue() map[string]any {
+	return map[string]any{
+		"projectState":   frontendDefaultProjectStateSingleConfigValue(),
+		"completedOpIds": []string{},
+		"pendingOpIds":   []string{},
+	}
+}
 
 type ClipboardProjectStateCoreWithSectionVariantMap = projectstate.ClipboardProjectStateCoreWithSectionVariantMap
 

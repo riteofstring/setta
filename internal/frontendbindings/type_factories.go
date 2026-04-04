@@ -76,6 +76,19 @@ type generatedCompositeCreateAssignmentSpec struct {
 	Expr string
 }
 
+type generatedCompositeCreateClonedFieldSpec struct {
+	Name     string
+	Nullable bool
+}
+
+type generatedCompositeCreateMapFieldSpec struct {
+	Name       string
+	KeyName    string
+	ValueName  string
+	CreateExpr string
+	ResultType string
+}
+
 func buildGoBackedCompositeCreateBodyTS(
 	context string,
 	defaultValue any,
@@ -146,6 +159,85 @@ func buildGoBackedCompositeCreateBodyTS(
 		builder.WriteString(assignment.Name)
 		builder.WriteString(": ")
 		builder.WriteString(assignment.Expr)
+		builder.WriteString(",\n")
+	}
+	builder.WriteString("  };")
+	return builder.String()
+}
+
+func buildGoBackedPolicyCreateBodyTS(
+	context string,
+	typeName string,
+	defaultValue any,
+	clonedFields []generatedCompositeCreateClonedFieldSpec,
+	mapFields []generatedCompositeCreateMapFieldSpec,
+) string {
+	defaultsLiteral := renderTSObjectLiteralFromGoValue(
+		context,
+		defaultValue,
+		goJSONFieldOrder(defaultValue),
+	)
+	var builder strings.Builder
+	builder.WriteString("  const defaults: ")
+	builder.WriteString(typeName)
+	builder.WriteString(" = ")
+	builder.WriteString(defaultsLiteral)
+	builder.WriteString(";\n")
+	for _, field := range mapFields {
+		builder.WriteString("  const ")
+		builder.WriteString(field.Name)
+		builder.WriteString(" = Object.fromEntries(\n")
+		builder.WriteString("    Object.entries({\n")
+		builder.WriteString("      ...defaults.")
+		builder.WriteString(field.Name)
+		builder.WriteString(",\n")
+		builder.WriteString("      ...(options.")
+		builder.WriteString(field.Name)
+		builder.WriteString(" ?? {}),\n")
+		builder.WriteString("    }).map(([")
+		builder.WriteString(field.KeyName)
+		builder.WriteString(", ")
+		builder.WriteString(field.ValueName)
+		builder.WriteString("]) => [\n")
+		builder.WriteString("      ")
+		builder.WriteString(field.KeyName)
+		builder.WriteString(",\n")
+		builder.WriteString("      ")
+		builder.WriteString(field.CreateExpr)
+		builder.WriteString(",\n")
+		builder.WriteString("    ]),\n")
+		builder.WriteString("  ) as ")
+		builder.WriteString(field.ResultType)
+		builder.WriteString(";\n")
+	}
+	builder.WriteString("  return {\n")
+	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
+	for _, field := range clonedFields {
+		builder.WriteString("    ")
+		builder.WriteString(field.Name)
+		builder.WriteString(":")
+		if field.Nullable {
+			builder.WriteString("\n")
+			builder.WriteString("      options.")
+			builder.WriteString(field.Name)
+			builder.WriteString(" === null\n")
+			builder.WriteString("        ? null\n")
+			builder.WriteString("        : [...(options.")
+			builder.WriteString(field.Name)
+			builder.WriteString(" ?? defaults.")
+			builder.WriteString(field.Name)
+			builder.WriteString(" ?? [])],\n")
+			continue
+		}
+		builder.WriteString(" [...(options.")
+		builder.WriteString(field.Name)
+		builder.WriteString(" ?? defaults.")
+		builder.WriteString(field.Name)
+		builder.WriteString(" ?? [])],\n")
+	}
+	for _, field := range mapFields {
+		builder.WriteString("    ")
+		builder.WriteString(field.Name)
 		builder.WriteString(",\n")
 	}
 	builder.WriteString("  };")
@@ -268,94 +360,57 @@ func buildProjectCodegenPythonTargetCreateBodyTS() string {
 }
 
 func buildSectionCodegenPolicyCreateBodyTS() string {
-	defaultsLiteral := renderTSObjectLiteralFromGoValue(
+	return buildGoBackedPolicyCreateBodyTS(
 		"frontend default python section codegen policy",
+		"SectionCodegenPolicy",
 		projectview.FrontendDefaultPythonSectionCodegenPolicy(),
-		[]string{
-			"allowlist",
-			"metaControlAllowlist",
-			"exclude",
-			"typePolicies",
-			"sectionOverrides",
+		[]generatedCompositeCreateClonedFieldSpec{
+			{Name: "allowlist", Nullable: true},
+			{Name: "metaControlAllowlist", Nullable: true},
+			{Name: "exclude"},
+		},
+		[]generatedCompositeCreateMapFieldSpec{
+			{
+				Name:       "typePolicies",
+				KeyName:    "sectionType",
+				ValueName:  "policy",
+				CreateExpr: "createSectionTypeCodegenPolicy(policy)",
+				ResultType: "Record<SectionType, SectionTypeCodegenPolicy>",
+			},
+			{
+				Name:       "sectionOverrides",
+				KeyName:    "sectionId",
+				ValueName:  "override",
+				CreateExpr: "createSectionCodegenOverride(override)",
+				ResultType: "Record<string, SectionCodegenOverride>",
+			},
 		},
 	)
-	var builder strings.Builder
-	builder.WriteString("  const defaults: SectionCodegenPolicy = ")
-	builder.WriteString(defaultsLiteral)
-	builder.WriteString(";\n")
-	builder.WriteString("  const typePolicies = Object.fromEntries(\n")
-	builder.WriteString("    Object.entries({\n")
-	builder.WriteString("      ...defaults.typePolicies,\n")
-	builder.WriteString("      ...(options.typePolicies ?? {}),\n")
-	builder.WriteString("    }).map(([sectionType, policy]) => [\n")
-	builder.WriteString("      sectionType,\n")
-	builder.WriteString("      createSectionTypeCodegenPolicy(policy),\n")
-	builder.WriteString("    ]),\n")
-	builder.WriteString("  ) as Record<SectionType, SectionTypeCodegenPolicy>;\n")
-	builder.WriteString("  const sectionOverrides = Object.fromEntries(\n")
-	builder.WriteString("    Object.entries({\n")
-	builder.WriteString("      ...defaults.sectionOverrides,\n")
-	builder.WriteString("      ...(options.sectionOverrides ?? {}),\n")
-	builder.WriteString("    }).map(([sectionId, override]) => [\n")
-	builder.WriteString("      sectionId,\n")
-	builder.WriteString("      createSectionCodegenOverride(override),\n")
-	builder.WriteString("    ]),\n")
-	builder.WriteString("  ) as Record<string, SectionCodegenOverride>;\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
-	builder.WriteString("    allowlist:\n")
-	builder.WriteString("      options.allowlist === null\n")
-	builder.WriteString("        ? null\n")
-	builder.WriteString("        : [...(options.allowlist ?? defaults.allowlist ?? [])],\n")
-	builder.WriteString("    metaControlAllowlist:\n")
-	builder.WriteString("      options.metaControlAllowlist === null\n")
-	builder.WriteString("        ? null\n")
-	builder.WriteString("        : [\n")
-	builder.WriteString("            ...(options.metaControlAllowlist ??\n")
-	builder.WriteString("              defaults.metaControlAllowlist ??\n")
-	builder.WriteString("              []),\n")
-	builder.WriteString("          ],\n")
-	builder.WriteString("    exclude: [...(options.exclude ?? defaults.exclude)],\n")
-	builder.WriteString("    typePolicies,\n")
-	builder.WriteString("    sectionOverrides,\n")
-	builder.WriteString("  };")
-	return builder.String()
 }
 
 func buildCodeObjValuePolicyCreateBodyTS() string {
-	defaultsLiteral := renderTSObjectLiteralFromGoValue(
+	return buildGoBackedPolicyCreateBodyTS(
 		"frontend default python code object value policy",
+		"CodeObjValuePolicy",
 		projectview.FrontendDefaultPythonCodeObjValuePolicy(),
-		[]string{"typePolicies", "codeObjOverrides"},
+		nil,
+		[]generatedCompositeCreateMapFieldSpec{
+			{
+				Name:       "typePolicies",
+				KeyName:    "codeObjType",
+				ValueName:  "policy",
+				CreateExpr: "createCodeObjTypeValuePolicy(policy)",
+				ResultType: "Record<CodeObjType, CodeObjTypeValuePolicy>",
+			},
+			{
+				Name:       "codeObjOverrides",
+				KeyName:    "codeObjId",
+				ValueName:  "override",
+				CreateExpr: "createCodeObjValueOverride(override)",
+				ResultType: "Record<string, CodeObjValueOverride>",
+			},
+		},
 	)
-	var builder strings.Builder
-	builder.WriteString("  const defaults: CodeObjValuePolicy = ")
-	builder.WriteString(defaultsLiteral)
-	builder.WriteString(";\n")
-	builder.WriteString("  const typePolicies = Object.fromEntries(\n")
-	builder.WriteString("    Object.entries({\n")
-	builder.WriteString("      ...defaults.typePolicies,\n")
-	builder.WriteString("      ...(options.typePolicies ?? {}),\n")
-	builder.WriteString("    }).map(([codeObjType, policy]) => [\n")
-	builder.WriteString("      codeObjType,\n")
-	builder.WriteString("      createCodeObjTypeValuePolicy(policy),\n")
-	builder.WriteString("    ]),\n")
-	builder.WriteString("  ) as Record<CodeObjType, CodeObjTypeValuePolicy>;\n")
-	builder.WriteString("  const codeObjOverrides = Object.fromEntries(\n")
-	builder.WriteString("    Object.entries({\n")
-	builder.WriteString("      ...defaults.codeObjOverrides,\n")
-	builder.WriteString("      ...(options.codeObjOverrides ?? {}),\n")
-	builder.WriteString("    }).map(([codeObjId, override]) => [\n")
-	builder.WriteString("      codeObjId,\n")
-	builder.WriteString("      createCodeObjValueOverride(override),\n")
-	builder.WriteString("    ]),\n")
-	builder.WriteString("  ) as Record<string, CodeObjValueOverride>;\n")
-	builder.WriteString("  return {\n")
-	builder.WriteString("    ...mergeGeneratedOptions(defaults, options),\n")
-	builder.WriteString("    typePolicies,\n")
-	builder.WriteString("    codeObjOverrides,\n")
-	builder.WriteString("  };")
-	return builder.String()
 }
 
 func buildEngineConfigCreateBodyTS() string {
