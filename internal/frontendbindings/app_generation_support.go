@@ -1,14 +1,10 @@
 package frontendbindings
 
 import (
-	_ "embed"
 	"strings"
 
 	"setta/internal/agentruns"
 )
-
-//go:embed templates/app_generation_parse_generated_app_generation_mode.ts.tmpl
-var parseGeneratedAppGenerationModeTemplate string
 
 func appGenerationSupportDeclarations() []TypeDeclaration {
 	return []TypeDeclaration{
@@ -60,17 +56,23 @@ func buildGeneratedAppGenerationModeEnumExprTS() string {
 }
 
 func buildParseGeneratedAppGenerationModeBody() string {
-	modeLiterals := make([]string, 0, len(agentruns.AppGenerationModes()))
+	var builder strings.Builder
+	builder.WriteString("  if (typeof value !== \"string\") {\n")
+	builder.WriteString("    return null;\n")
+	builder.WriteString("  }\n")
+	builder.WriteString("  const trimmed = value.trim();\n")
+	builder.WriteString("  if (!trimmed) {\n")
+	builder.WriteString("    return null;\n")
+	builder.WriteString("  }\n")
+	builder.WriteString("  switch (trimmed) {\n")
 	for _, mode := range agentruns.AppGenerationModes() {
-		modeLiterals = append(modeLiterals, tsStringLiteralExpr(mode))
+		builder.WriteString("    case ")
+		builder.WriteString(tsStringLiteralExpr(mode))
+		builder.WriteString(":\n")
 	}
-	return mustRenderFrontendBindingTemplate(
-		"parseGeneratedAppGenerationMode",
-		parseGeneratedAppGenerationModeTemplate,
-		struct {
-			ModeLiterals []string
-		}{
-			ModeLiterals: modeLiterals,
-		},
-	)
+	builder.WriteString("      return trimmed;\n")
+	builder.WriteString("    default:\n")
+	builder.WriteString("      return null;\n")
+	builder.WriteString("  }\n")
+	return builder.String()
 }

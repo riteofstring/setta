@@ -1,22 +1,12 @@
 package frontendbindings
 
 import (
-	_ "embed"
+	"fmt"
+	"reflect"
+	"strings"
 
 	"setta/internal/realtime"
 )
-
-//go:embed templates/websocket_support_read_activation_steps.ts.tmpl
-var websocketSupportReadActivationStepsTemplate string
-
-//go:embed templates/websocket_support_read_reveal_targets.ts.tmpl
-var websocketSupportReadRevealTargetsTemplate string
-
-//go:embed templates/websocket_support_ui_setting_reveal_content_schema.ts.tmpl
-var websocketSupportUISettingRevealContentSchemaTemplate string
-
-//go:embed templates/websocket_support_dependency_event_schema.ts.tmpl
-var websocketSupportDependencyEventSchemaTemplate string
 
 type WebsocketConnectionType string
 
@@ -123,82 +113,117 @@ type WebsocketMsg struct{}
 
 type FrontendWebsocketMsgUnion struct{}
 
-type websocketStringFieldSpec struct {
+type websocketJSONFieldSpec struct {
 	PropertyName string
 	Optional     bool
+	Type         reflect.Type
 }
 
-type websocketStringFieldRenderData struct {
-	PropertyName  string
-	ValueExpr     string
-	FieldPathExpr string
-	Optional      bool
-}
-
-type websocketUISettingRevealContentSchemaTemplateData struct {
-	LeadingStringFields  []websocketStringFieldRenderData
-	TrailingStringFields []websocketStringFieldRenderData
-}
-
-type websocketDependencyEventSchemaTemplateData struct {
-	FieldNames []string
-}
-
-var uiSettingRevealActivationStepFieldSpecs = []websocketStringFieldSpec{
-	{PropertyName: "type"},
-	{PropertyName: "itemValue"},
-}
-
-var uiSettingRevealTargetFieldSpecs = []websocketStringFieldSpec{
-	{PropertyName: "settingId"},
-	{PropertyName: "side"},
-	{PropertyName: "overviewTabKey", Optional: true},
-	{PropertyName: "uiEditorTabName", Optional: true},
-	{PropertyName: "pluginId", Optional: true},
-	{PropertyName: "paneId", Optional: true},
-	{PropertyName: "strategy"},
-	{PropertyName: "anchorId", Optional: true},
-	{PropertyName: "pluginRevealKey", Optional: true},
-}
-
-func websocketLiteralStringExpr(value string) string {
-	return `"` + value + `"`
-}
+var (
+	realtimeUISettingRevealActivationStepType = reflect.TypeOf(realtime.UISettingRevealActivationStep{})
+	realtimeUISettingRevealTargetType         = reflect.TypeOf(realtime.UISettingRevealTarget{})
+)
 
 func websocketIndexedFieldPathExpr(baseExpr string, propertyName string) string {
 	return baseExpr + ` + "].` + propertyName + `"`
 }
 
-func buildWebsocketStringFieldRenderData(
-	valueExprBase string,
-	fieldPathBase string,
-	specs []websocketStringFieldSpec,
-) []websocketStringFieldRenderData {
-	fields := make([]websocketStringFieldRenderData, 0, len(specs))
-	for _, spec := range specs {
-		fields = append(fields, websocketStringFieldRenderData{
-			PropertyName: spec.PropertyName,
-			ValueExpr:    valueExprBase + "." + spec.PropertyName,
-			FieldPathExpr: websocketIndexedFieldPathExpr(
-				fieldPathBase,
-				spec.PropertyName,
-			),
-			Optional: spec.Optional,
+func mustWebsocketJSONFieldSpecs(structType reflect.Type) []websocketJSONFieldSpec {
+	if structType.Kind() != reflect.Struct {
+		panic(fmt.Sprintf("websocket schema support requires a struct type, got %s", structType))
+	}
+	fields := make([]websocketJSONFieldSpec, 0, structType.NumField())
+	for index := 0; index < structType.NumField(); index++ {
+		field := structType.Field(index)
+		if !field.IsExported() {
+			continue
+		}
+		propertyName, optional, include := websocketJSONFieldInfo(field)
+		if !include {
+			continue
+		}
+		fields = append(fields, websocketJSONFieldSpec{
+			PropertyName: propertyName,
+			Optional:     optional,
+			Type:         field.Type,
 		})
 	}
 	return fields
 }
 
-func buildWebsocketRootStringFieldRenderData(
-	propertyName string,
-	optional bool,
-) websocketStringFieldRenderData {
-	return websocketStringFieldRenderData{
-		PropertyName:  propertyName,
-		ValueExpr:     "value." + propertyName,
-		FieldPathExpr: websocketLiteralStringExpr(propertyName),
-		Optional:      optional,
+func websocketJSONFieldInfo(field reflect.StructField) (string, bool, bool) {
+	tag := strings.TrimSpace(field.Tag.Get("json"))
+	if tag == "" {
+		panic(fmt.Sprintf("websocket schema support requires json tag on %s", field.Name))
 	}
+	parts := strings.Split(tag, ",")
+	name := strings.TrimSpace(parts[0])
+	if name == "" {
+		panic(fmt.Sprintf("websocket schema support requires a json field name on %s", field.Name))
+	}
+	if name == "-" {
+		return "", false, false
+	}
+	optional := false
+	for _, option := range parts[1:] {
+		if strings.TrimSpace(option) == "omitempty" {
+			optional = true
+		}
+	}
+	return name, optional, true
+}
+
+func websocketFieldSupportsStringReader(field websocketJSONFieldSpec) bool {
+	return field.Type.Kind() == reflect.String ||
+		(field.Type.Kind() == reflect.Pointer && field.Type.Elem().Kind() == reflect.String)
+}
+
+func writeWebsocketStringFieldAssignment(
+	builder *strings.Builder,
+	indent string,
+	valueExpr string,
+	fieldPathExpr string,
+	field websocketJSONFieldSpec,
+) {
+	readerName := "websocketSupportReadRequiredString"
+	if field.Optional {
+		readerName = "websocketSupportReadOptionalString"
+	}
+	builder.WriteString(indent)
+	builder.WriteString(field.PropertyName)
+	builder.WriteString(": ")
+	builder.WriteString(readerName)
+	builder.WriteString("(\n")
+	builder.WriteString(indent)
+	builder.WriteString("  ")
+	builder.WriteString(valueExpr)
+	builder.WriteString(",\n")
+	builder.WriteString(indent)
+	builder.WriteString("  ")
+	builder.WriteString(fieldPathExpr)
+	builder.WriteString(",\n")
+	builder.WriteString(indent)
+	builder.WriteString("  issues,\n")
+	builder.WriteString(indent)
+	builder.WriteString("),\n")
+}
+
+func websocketRootFieldPathExpr(propertyName string) string {
+	return tsStringLiteralExpr(propertyName)
+}
+
+func websocketReadActivationStepsFieldSpecs() []websocketJSONFieldSpec {
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(UISettingRevealActivationStep{}))
+	for _, field := range fields {
+		if !websocketFieldSupportsStringReader(field) {
+			panic(fmt.Sprintf(
+				"websocket schema support: %s.%s must be a string field",
+				reflect.TypeOf(UISettingRevealActivationStep{}).Name(),
+				field.PropertyName,
+			))
+		}
+	}
+	return fields
 }
 
 func websocketSafeParseDeclarations() []TypeDeclaration {
@@ -234,67 +259,252 @@ func buildWebsocketSupportReadDurationMsBodyTS() string {
 }
 
 func buildWebsocketReadActivationStepsBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"websocketSupportReadActivationSteps",
-		websocketSupportReadActivationStepsTemplate,
-		struct {
-			Fields []websocketStringFieldRenderData
-		}{
-			Fields: buildWebsocketStringFieldRenderData(
-				"entry",
-				`fieldName + "[" + index`,
-				uiSettingRevealActivationStepFieldSpecs,
-			),
-		},
-	)
+	fields := websocketReadActivationStepsFieldSpecs()
+	var builder strings.Builder
+	builder.WriteString("  if (value === undefined) {\n")
+	builder.WriteString("    return [];\n")
+	builder.WriteString("  }\n")
+	builder.WriteString("  if (!Array.isArray(value)) {\n")
+	builder.WriteString("    issues.push(fieldName + \" must be an array.\");\n")
+	builder.WriteString("    return [];\n")
+	builder.WriteString("  }\n")
+	builder.WriteString("  const steps: Array<UISettingRevealActivationStep> = [];\n")
+	builder.WriteString("  value.forEach((entry, index) => {\n")
+	builder.WriteString("    if (!websocketSupportIsRecord(entry)) {\n")
+	builder.WriteString("      issues.push(fieldName + \"[\" + index + \"] must be an object.\");\n")
+	builder.WriteString("      return;\n")
+	builder.WriteString("    }\n")
+	builder.WriteString("    steps.push({\n")
+	for _, field := range fields {
+		writeWebsocketStringFieldAssignment(
+			&builder,
+			"      ",
+			"entry."+field.PropertyName,
+			websocketIndexedFieldPathExpr(`fieldName + "[" + index`, field.PropertyName),
+			field,
+		)
+	}
+	builder.WriteString("    });\n")
+	builder.WriteString("  });\n")
+	builder.WriteString("  return steps;\n")
+	return builder.String()
 }
 
 func buildWebsocketReadRevealTargetsBodyTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"websocketSupportReadRevealTargets",
-		websocketSupportReadRevealTargetsTemplate,
-		struct {
-			Fields                             []websocketStringFieldRenderData
-			RevealActivationStepsFieldPathExpr string
-		}{
-			Fields: buildWebsocketStringFieldRenderData(
-				"entry",
-				`"reveals[" + index`,
-				uiSettingRevealTargetFieldSpecs,
-			),
-			RevealActivationStepsFieldPathExpr: websocketIndexedFieldPathExpr(
-				`"reveals[" + index`,
-				"revealActivationSteps",
-			),
-		},
-	)
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(UISettingRevealTarget{}))
+	var builder strings.Builder
+	builder.WriteString("  if (!Array.isArray(value)) {\n")
+	builder.WriteString("    issues.push(\"reveals must be an array.\");\n")
+	builder.WriteString("    return [];\n")
+	builder.WriteString("  }\n")
+	builder.WriteString("  const targets: Array<UISettingRevealTarget> = [];\n")
+	builder.WriteString("  value.forEach((entry, index) => {\n")
+	builder.WriteString("    if (!websocketSupportIsRecord(entry)) {\n")
+	builder.WriteString("      issues.push(\"reveals[\" + index + \"] must be an object.\");\n")
+	builder.WriteString("      return;\n")
+	builder.WriteString("    }\n")
+	builder.WriteString("    targets.push({\n")
+	for _, field := range fields {
+		switch {
+		case websocketFieldSupportsStringReader(field):
+			writeWebsocketStringFieldAssignment(
+				&builder,
+				"      ",
+				"entry."+field.PropertyName,
+				websocketIndexedFieldPathExpr(`"reveals[" + index`, field.PropertyName),
+				field,
+			)
+		case field.Type.Kind() == reflect.Slice && field.Type.Elem() == realtimeUISettingRevealActivationStepType:
+			builder.WriteString("      ")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(": websocketSupportReadActivationSteps(\n")
+			builder.WriteString("        entry.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(",\n")
+			builder.WriteString("        ")
+			builder.WriteString(websocketIndexedFieldPathExpr(`"reveals[" + index`, field.PropertyName))
+			builder.WriteString(",\n")
+			builder.WriteString("        issues,\n")
+			builder.WriteString("      ),\n")
+		default:
+			panic(fmt.Sprintf(
+				"websocket schema support: unsupported %s.%s field type %s",
+				reflect.TypeOf(UISettingRevealTarget{}).Name(),
+				field.PropertyName,
+				field.Type,
+			))
+		}
+	}
+	builder.WriteString("    });\n")
+	builder.WriteString("  });\n")
+	builder.WriteString("  return targets;\n")
+	return builder.String()
 }
 
 func buildUISettingRevealContentSchemaExprTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"UISettingRevealContentSchema",
-		websocketSupportUISettingRevealContentSchemaTemplate,
-		websocketUISettingRevealContentSchemaTemplateData{
-			LeadingStringFields: []websocketStringFieldRenderData{
-				buildWebsocketRootStringFieldRenderData("projectConfigId", false),
-				buildWebsocketRootStringFieldRenderData("chatId", true),
-				buildWebsocketRootStringFieldRenderData("activeSectionId", true),
-			},
-			TrailingStringFields: []websocketStringFieldRenderData{
-				buildWebsocketRootStringFieldRenderData("requestId", false),
-			},
-		},
-	)
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(UISettingRevealContent{}))
+	var builder strings.Builder
+	builder.WriteString("{\n")
+	builder.WriteString("  safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {\n")
+	builder.WriteString("    if (!websocketSupportIsRecord(value)) {\n")
+	builder.WriteString("      return {\n")
+	builder.WriteString("        success: false,\n")
+	builder.WriteString("        error: {\n")
+	builder.WriteString("          issues: [\"Expected UISettingRevealContent object.\"],\n")
+	builder.WriteString("        },\n")
+	builder.WriteString("      };\n")
+	builder.WriteString("    }\n\n")
+	builder.WriteString("    const issues: Array<string> = [];\n")
+	builder.WriteString("    const parsed: UISettingRevealContent = {\n")
+	for _, field := range fields {
+		switch {
+		case websocketFieldSupportsStringReader(field):
+			writeWebsocketStringFieldAssignment(
+				&builder,
+				"      ",
+				"value."+field.PropertyName,
+				websocketRootFieldPathExpr(field.PropertyName),
+				field,
+			)
+		case field.Type.Kind() == reflect.Slice && field.Type.Elem() == realtimeUISettingRevealTargetType:
+			builder.WriteString("      ")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(": websocketSupportReadRevealTargets(value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(", issues),\n")
+		case field.Type.Kind() == reflect.Int && field.PropertyName == "durationMs":
+			builder.WriteString("      durationMs: websocketSupportReadDurationMs(value.durationMs, issues),\n")
+		default:
+			panic(fmt.Sprintf(
+				"websocket schema support: unsupported %s.%s field type %s",
+				reflect.TypeOf(UISettingRevealContent{}).Name(),
+				field.PropertyName,
+				field.Type,
+			))
+		}
+	}
+	builder.WriteString("    };\n\n")
+	builder.WriteString("    if (issues.length > 0) {\n")
+	builder.WriteString("      return {\n")
+	builder.WriteString("        success: false,\n")
+	builder.WriteString("        error: {\n")
+	builder.WriteString("          issues,\n")
+	builder.WriteString("        },\n")
+	builder.WriteString("      };\n")
+	builder.WriteString("    }\n\n")
+	builder.WriteString("    return {\n")
+	builder.WriteString("      success: true,\n")
+	builder.WriteString("      data: parsed,\n")
+	builder.WriteString("    };\n")
+	builder.WriteString("  },\n")
+	builder.WriteString("}")
+	return builder.String()
 }
 
 func buildDependencyEventSchemaExprTS() string {
-	return mustRenderFrontendBindingTemplate(
-		"DependencyEventSchema",
-		websocketSupportDependencyEventSchemaTemplate,
-		websocketDependencyEventSchemaTemplateData{
-			FieldNames: []string{"dependencyKey", "payload", "timestampMs"},
-		},
-	)
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(DependencyEvent{}))
+	var builder strings.Builder
+	builder.WriteString("{\n")
+	builder.WriteString("  shape: {\n")
+	for _, field := range fields {
+		builder.WriteString("    ")
+		builder.WriteString(field.PropertyName)
+		builder.WriteString(": true,\n")
+	}
+	builder.WriteString("  },\n")
+	builder.WriteString("  safeParse(value: unknown): SafeParseResult<DependencyEvent> {\n")
+	builder.WriteString("    if (!websocketSupportIsRecord(value)) {\n")
+	builder.WriteString("      return {\n")
+	builder.WriteString("        success: false,\n")
+	builder.WriteString("        error: {\n")
+	builder.WriteString("          issues: [\"Expected DependencyEvent object.\"],\n")
+	builder.WriteString("        },\n")
+	builder.WriteString("      };\n")
+	builder.WriteString("    }\n\n")
+	builder.WriteString("    const issues: Array<string> = [];\n")
+	for _, field := range fields {
+		switch {
+		case field.Type == reflect.TypeOf(BaseDependencyKeyUnion{}):
+			builder.WriteString("    if (!(\"")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString("\" in value)) {\n")
+			builder.WriteString("      issues.push(\"")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" is required.\");\n")
+			builder.WriteString("    }\n")
+		case field.Type.Kind() == reflect.Pointer && field.Type.Elem() == reflect.TypeOf(BaseDependencyValueUnion{}):
+			continue
+		case field.Type.Kind() == reflect.Int64:
+			builder.WriteString("    if (\n")
+			builder.WriteString("      !(\"")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString("\" in value) ||\n")
+			builder.WriteString("      typeof value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" !== \"number\" ||\n")
+			builder.WriteString("      !Number.isFinite(value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(")\n")
+			builder.WriteString("    ) {\n")
+			builder.WriteString("      issues.push(\"")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" must be a finite number.\");\n")
+			builder.WriteString("    }\n")
+		default:
+			panic(fmt.Sprintf(
+				"websocket schema support: unsupported %s.%s field type %s",
+				reflect.TypeOf(DependencyEvent{}).Name(),
+				field.PropertyName,
+				field.Type,
+			))
+		}
+	}
+	builder.WriteString("\n")
+	builder.WriteString("    if (issues.length > 0) {\n")
+	builder.WriteString("      return {\n")
+	builder.WriteString("        success: false,\n")
+	builder.WriteString("        error: {\n")
+	builder.WriteString("          issues,\n")
+	builder.WriteString("        },\n")
+	builder.WriteString("      };\n")
+	builder.WriteString("    }\n\n")
+	builder.WriteString("    return {\n")
+	builder.WriteString("      success: true,\n")
+	builder.WriteString("      data: {\n")
+	for _, field := range fields {
+		switch {
+		case field.Type == reflect.TypeOf(BaseDependencyKeyUnion{}):
+			builder.WriteString("        ")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(": value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" as BaseDependencyKeyUnion,\n")
+		case field.Type.Kind() == reflect.Pointer && field.Type.Elem() == reflect.TypeOf(BaseDependencyValueUnion{}):
+			builder.WriteString("        ")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(":\n")
+			builder.WriteString("          value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" === undefined || value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" === null\n")
+			builder.WriteString("            ? null\n")
+			builder.WriteString("            : (value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" as BaseDependencyValueUnion),\n")
+		case field.Type.Kind() == reflect.Int64:
+			builder.WriteString("        ")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(": value.")
+			builder.WriteString(field.PropertyName)
+			builder.WriteString(" as number,\n")
+		}
+	}
+	builder.WriteString("      },\n")
+	builder.WriteString("    };\n")
+	builder.WriteString("  },\n")
+	builder.WriteString("}")
+	return builder.String()
 }
 
 func websocketSupportDeclarations() []TypeDeclaration {

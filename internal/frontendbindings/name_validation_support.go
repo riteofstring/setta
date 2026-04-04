@@ -1,16 +1,12 @@
 package frontendbindings
 
 import (
-	_ "embed"
 	"strings"
 
 	"setta/internal/projectstate"
 )
 
-//go:embed templates/name_validation_validate_named_simple_name.ts.tmpl
-var validateNamedSimpleNameTemplate string
-
-type namedSimpleNameValidationTemplateData struct {
+type namedSimpleNameValidationRenderData struct {
 	Prelude                         string
 	Label                           string
 	ReservedNamesSet                string
@@ -99,7 +95,7 @@ func nameValidationSupportDeclarations() []TypeDeclaration {
 		exportedFunctionDeclaration(
 			"validateGeneratedProjectNameInput",
 			"string | null",
-			renderNamedSimpleNameValidationBody(namedSimpleNameValidationTemplateData{
+			renderNamedSimpleNameValidationBody(namedSimpleNameValidationRenderData{
 				Prelude:                         "const allowReserved = options.allowReserved ?? false;",
 				Label:                           "Project name",
 				ReservedNamesSet:                "generatedProjectReservedNames",
@@ -117,7 +113,7 @@ func nameValidationSupportDeclarations() []TypeDeclaration {
 		exportedFunctionDeclaration(
 			"validateGeneratedViewModeNameInput",
 			"string | null",
-			renderNamedSimpleNameValidationBody(namedSimpleNameValidationTemplateData{
+			renderNamedSimpleNameValidationBody(namedSimpleNameValidationRenderData{
 				Label:                           "View mode name",
 				ReservedNamesSet:                "generatedProjectReservedNames",
 				RequireSanitizedSlug:            true,
@@ -128,7 +124,7 @@ func nameValidationSupportDeclarations() []TypeDeclaration {
 		exportedFunctionDeclaration(
 			"validateGeneratedWindowSpaceNameInput",
 			"string | null",
-			renderNamedSimpleNameValidationBody(namedSimpleNameValidationTemplateData{
+			renderNamedSimpleNameValidationBody(namedSimpleNameValidationRenderData{
 				Label:                           "Window space name",
 				ReservedNamesSet:                "generatedEmptyNameValidationSet",
 				RequireSanitizedSlug:            true,
@@ -139,7 +135,7 @@ func nameValidationSupportDeclarations() []TypeDeclaration {
 		exportedFunctionDeclaration(
 			"validateGeneratedSectionNameInput",
 			"string | null",
-			renderNamedSimpleNameValidationBody(namedSimpleNameValidationTemplateData{
+			renderNamedSimpleNameValidationBody(namedSimpleNameValidationRenderData{
 				Label:            "Section name",
 				ReservedNamesSet: "generatedEmptyNameValidationSet",
 			}),
@@ -205,10 +201,37 @@ func buildValidateGeneratedParamNameInputBody() string {
 	}, "\n")
 }
 
-func renderNamedSimpleNameValidationBody(data namedSimpleNameValidationTemplateData) string {
-	return mustRenderNameValidationTemplate(validateNamedSimpleNameTemplate, data)
-}
-
-func mustRenderNameValidationTemplate(source string, data any) string {
-	return mustRenderFrontendBindingTemplate("name validation", source, data)
+func renderNamedSimpleNameValidationBody(data namedSimpleNameValidationRenderData) string {
+	var builder strings.Builder
+	if strings.TrimSpace(data.Prelude) != "" {
+		builder.WriteString("  ")
+		builder.WriteString(data.Prelude)
+		builder.WriteString("\n")
+	}
+	builder.WriteString("  const baseError = validateGeneratedSimpleNameInput(\n")
+	builder.WriteString("    name,\n")
+	builder.WriteString("    ")
+	builder.WriteString(tsStringLiteralExpr(data.Label))
+	builder.WriteString(",\n")
+	builder.WriteString("    ")
+	builder.WriteString(data.ReservedNamesSet)
+	builder.WriteString(",\n")
+	if strings.TrimSpace(data.AllowReservedExpr) != "" {
+		builder.WriteString("    ")
+		builder.WriteString(data.AllowReservedExpr)
+		builder.WriteString(",\n")
+	}
+	builder.WriteString("  );\n")
+	builder.WriteString("  if (baseError) {\n")
+	builder.WriteString("    return baseError;\n")
+	builder.WriteString("  }\n")
+	if data.RequireSanitizedSlug {
+		builder.WriteString("  if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {\n")
+		builder.WriteString("    return ")
+		builder.WriteString(tsStringLiteralExpr(data.InvalidAfterSanitizationMessage))
+		builder.WriteString(";\n")
+		builder.WriteString("  }\n")
+	}
+	builder.WriteString("  return null;\n")
+	return builder.String()
 }

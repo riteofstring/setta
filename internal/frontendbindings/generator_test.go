@@ -70,7 +70,7 @@ func TestBuildBindingsIncludesAdditionalDeclarations(t *testing.T) {
 	}
 }
 
-func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
+func TestNameValidationSupportDeclarationsRenderStructuredBodies(t *testing.T) {
 	t.Helper()
 
 	declarations := nameValidationSupportDeclarations()
@@ -96,7 +96,7 @@ func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 		`const allowReserved = options.allowReserved ?? false;`,
 	) {
 		t.Fatalf(
-			"validateGeneratedProjectNameInput body missing template-rendered allowReserved prelude:\n%s",
+			"validateGeneratedProjectNameInput body missing generated allowReserved prelude:\n%s",
 			bodies["validateGeneratedProjectNameInput"],
 		)
 	}
@@ -120,7 +120,7 @@ func TestNameValidationSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 	}
 }
 
-func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
+func TestSupportDeclarationsRenderStructuredBodies(t *testing.T) {
 	t.Helper()
 
 	appGenerationBodies := map[string]string{}
@@ -135,7 +135,7 @@ func TestSupportDeclarationsRenderTemplateBodies(t *testing.T) {
 		`case "json_render":`,
 	) {
 		t.Fatalf(
-			"parseGeneratedAppGenerationMode body missing template-rendered mode switch:\n%s",
+			"parseGeneratedAppGenerationMode body missing generated mode switch:\n%s",
 			appGenerationBodies["parseGeneratedAppGenerationMode"],
 		)
 	}
