@@ -26,7 +26,10 @@ import websockets
 from pydantic import BaseModel, Field, PrivateAttr, ValidationError
 from websockets.exceptions import ConnectionClosedError
 
-from setta.api.listener_endpoint_client import RouterEndpointAPI
+from setta.api.listener_endpoint_client import (
+    ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE,
+    RouterEndpointAPI,
+)
 from setta.api.runtime_compat import (
     RuntimeCompatibilityError,
     verify_running_backend_compatibility,
@@ -2349,7 +2352,7 @@ class SettaListener:
         future: asyncio.Future[Any] = loop.create_future()
         self._pending_router_endpoint_calls[call_id] = future
         refresh_future: asyncio.Future[None] | None = None
-        if endpoint_name == "route_set_chat_section_state":
+        if endpoint_name == ROUTER_ENDPOINT_SET_CHAT_SECTION_STATE:
             refresh_future = loop.create_future()
             self._pending_router_endpoint_force_refreshes[call_id] = refresh_future
         project_config_id = self._require_project_id()

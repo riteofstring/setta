@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"setta/internal/artifacts"
 	"setta/internal/deployments"
+	"setta/internal/listenerendpoints"
 	"setta/internal/listenersnapshot"
 	"setta/internal/modes"
 	"setta/internal/projectstate"
@@ -1136,7 +1137,7 @@ func sendListenerRouterEndpointResult(
 
 func listenerEndpointRequiresForceRefresh(endpointName string) bool {
 	switch strings.TrimSpace(endpointName) {
-	case "route_set_chat_section_state":
+	case listenerendpoints.EndpointSetChatSectionState:
 		return true
 	default:
 		return false

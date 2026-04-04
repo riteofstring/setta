@@ -15,6 +15,7 @@ import (
 	"setta/internal/auth"
 	"setta/internal/frontendbindings"
 	"setta/internal/httpapi"
+	"setta/internal/listenerendpoints"
 	"setta/internal/modes"
 	"setta/internal/scriptablechat"
 	"setta/internal/wsapi"
@@ -132,55 +133,55 @@ func (i *listenerBuiltInEndpointInvoker) invokeExplicitBuiltInEndpoint(
 	}
 
 	switch strings.TrimSpace(endpointName) {
-	case "route_create_chat":
+	case listenerendpoints.EndpointCreateChat:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.CreateChatRequest](payload)
 		if err != nil {
 			return nil, true, err
 		}
 		result, err := i.scriptableChat.CreateChat(request)
 		return result, true, err
-	case "route_get_chat":
+	case listenerendpoints.EndpointGetChat:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.GetChatRequest](payload)
 		if err != nil {
 			return nil, true, err
 		}
 		result, err := i.scriptableChat.GetChat(request)
 		return result, true, err
-	case "route_append_chat_messages":
+	case listenerendpoints.EndpointAppendChatMessages:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.AppendMessagesRequest](payload)
 		if err != nil {
 			return nil, true, err
 		}
 		result, err := i.scriptableChat.AppendMessages(request)
 		return result, true, err
-	case "route_set_chat_system_prompt":
+	case listenerendpoints.EndpointSetChatSystemPrompt:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.SetSystemPromptRequest](payload)
 		if err != nil {
 			return nil, true, err
 		}
 		result, err := i.scriptableChat.SetSystemPrompt(request)
 		return result, true, err
-	case "route_get_all_chat_metadata":
+	case listenerendpoints.EndpointGetAllChatMetadata:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.GetAllMetadataRequest](payload)
 		if err != nil {
 			return nil, true, err
 		}
 		result, err := i.scriptableChat.GetAllMetadata(request)
 		return result, true, err
-	case "route_delete_chat":
+	case listenerendpoints.EndpointDeleteChat:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.DeleteChatRequest](payload)
 		if err != nil {
 			return nil, true, err
 		}
 		return nil, true, i.scriptableChat.DeleteChat(request)
-	case "route_emit_chat_stream_delta":
+	case listenerendpoints.EndpointEmitChatStreamDelta:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.EmitStreamDeltaRequest](payload)
 		if err != nil {
 			return nil, true, err
 		}
 		request.ShareSessionID = info.Modes.ShareSessionID
 		return nil, true, i.scriptableChat.EmitStreamDelta(ctx, request)
-	case "route_run_mcp_tools":
+	case listenerendpoints.EndpointRunMCPTools:
 		request, err := decodeListenerBuiltInPayload[scriptablechat.RunToolsRequest](payload)
 		if err != nil {
 			return nil, true, err
