@@ -1,0 +1,20 @@
+{{- if .Prelude }}
+{{ .Prelude }}
+{{ end -}}
+const baseError = validateGeneratedSimpleNameInput(
+  name,
+  {{ printf "%q" .Label }},
+  {{ .ReservedNamesSet }},
+{{- if .AllowReservedExpr }}
+  {{ .AllowReservedExpr }},
+{{- end }}
+);
+if (baseError) {
+  return baseError;
+}
+{{- if .RequireSanitizedSlug }}
+if (!sanitizeGeneratedSimpleNameSlug(name.trim())) {
+  return {{ printf "%q" .InvalidAfterSanitizationMessage }};
+}
+{{- end }}
+return null;

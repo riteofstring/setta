@@ -1,0 +1,50 @@
+{
+  shape: {
+{{- range .FieldNames }}
+    {{ . }}: true,
+{{- end }}
+  },
+  safeParse(value: unknown): SafeParseResult<DependencyEvent> {
+    if (!websocketSupportIsRecord(value)) {
+      return {
+        success: false,
+        error: {
+          issues: ["Expected DependencyEvent object."],
+        },
+      };
+    }
+
+    const issues: Array<string> = [];
+    if (!("dependencyKey" in value)) {
+      issues.push("dependencyKey is required.");
+    }
+    if (
+      !("timestampMs" in value) ||
+      typeof value.timestampMs !== "number" ||
+      !Number.isFinite(value.timestampMs)
+    ) {
+      issues.push("timestampMs must be a finite number.");
+    }
+
+    if (issues.length > 0) {
+      return {
+        success: false,
+        error: {
+          issues,
+        },
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        dependencyKey: value.dependencyKey as BaseDependencyKeyUnion,
+        payload:
+          value.payload === undefined || value.payload === null
+            ? null
+            : (value.payload as BaseDependencyValueUnion),
+        timestampMs: value.timestampMs as number,
+      },
+    };
+  },
+}
