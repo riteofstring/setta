@@ -215,6 +215,105 @@ test("settings graph substrate canary zoom in control respects the normalized Al
   }
 });
 
+test("settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await expect
+      .poll(async () => (await getCanaryAutoFitDrift(page))?.zoom ?? 9999)
+      .toBeLessThan(0.03);
+
+    await page.getByRole("button", { name: "fit view" }).click();
+
+    const expectedFitViewTransform = await getCanaryViewportTransform(page);
+    if (!expectedFitViewTransform) {
+      throw new Error("Missing explicit canary fit-view transform.");
+    }
+
+    const panStart = await findCanaryPanePoint(page);
+    await page.mouse.move(panStart.x, panStart.y);
+    await page.mouse.down();
+    await page.mouse.move(panStart.x + 160, panStart.y + 100, { steps: 10 });
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const viewport = await getCanaryViewportTransform(page);
+        if (!viewport) {
+          return 0;
+        }
+        return Math.hypot(
+          viewport.x - expectedFitViewTransform.x,
+          viewport.y - expectedFitViewTransform.y,
+        );
+      })
+      .toBeGreaterThan(120);
+
+    await page.getByRole("button", { name: "fit view" }).click();
+
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.x ?? null)
+      .toBeCloseTo(expectedFitViewTransform.x, 1);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.y ?? null)
+      .toBeCloseTo(expectedFitViewTransform.y, 1);
+    await expect
+      .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? null)
+      .toBeCloseTo(expectedFitViewTransform.zoom, 2);
+  } finally {
+    await allTab.click().catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings graph substrate canary restores the persisted shared viewport on All Settings", async ({
   page,
 }) => {

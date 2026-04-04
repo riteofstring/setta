@@ -70,6 +70,36 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 042
+
+- Item: Lock the normalized `All Settings` toolbar `fit view` lane with a live regression now that the shared graph-surface compare is clean.
+- Status: `done`
+- Details:
+  - A fresh-context CDP sub-agent normalized worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to `All Settings`, applied one off-fit movement, and compared explicit `fit view`.
+  - That live compare did not isolate a worktree-only graph-surface defect:
+    - worktree and `main` converged to the same post-`fit view` transform `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+    - the only remaining differences were non-target chrome/status noise, not renderer drift
+  - Because the lane was already clean live, the useful slice here was to lock the toolbar behavior down with a targeted E2E instead of forcing a speculative product patch.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan`.
+  - The new case normalizes `All Settings`, captures the first explicit `fit view` transform, pans the canary off that baseline, and asserts that a second `fit view` returns to the same transform.
+  - The first draft incorrectly compared explicit `fit view` against the initial auto-fit helper and failed; that mismatch was a test-oracle issue rather than a product bug, so the final check uses the first explicit `fit view` result itself as the stable oracle.
+- Verification:
+  - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan'`
+    - result: passed (`1 passed`, about `23.0s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context sub-agent normalized both `/settings` pages to active `All Settings`
+      - after one off-fit step, `fit view` returned both sides to `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)`
+      - no worktree-only graph-surface drift remained on the checked lane
+- Conclusion:
+  - the toolbar `fit view` interaction lane is closed for the checked normalized `All Settings` path
+  - do not reopen it unless the new targeted E2E or a fresh normalized CDP compare starts showing worktree-vs-`main` drift again
+- Next action:
+  - move to the next remaining normalized `All Settings` dynamic Gate 1 / Gate 2 parity lane, with priority on the first true zoom-time blur/snap or other graph-surface artifact that still reproduces in fresh CDP
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-03 039
 
 - Item: Close the deeper post-motion DOM body-editor lane on normalized `All Settings` and lock it down with one focused canary regression.

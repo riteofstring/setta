@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 13:43 EDT
+Last updated: 2026-04-03 13:56 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,23 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `042` closed the normalized `All Settings` toolbar `fit view` lane with a targeted regression instead of another production patch.
+  - Process:
+    - a fresh-context CDP sub-agent normalized worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings` to `All Settings`, applied one shared off-fit movement, and compared explicit `fit view`
+    - that live compare did not isolate a worktree-only graph-surface defect; both sides converged to the same post-`fit view` transform and the only remaining diffs were non-target chrome/status noise
+    - because the lane was already clean live, the useful slice here was to lock the explicit toolbar contract down with a focused E2E instead of forcing a speculative renderer change
+  - Test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan`
+    - the case normalizes `All Settings`, captures the first explicit `fit view` transform, pans the canary off that baseline, and asserts that a second `fit view` returns to the same transform
+    - the first draft incorrectly compared explicit `fit view` against the initial auto-fit helper; that mismatch was test-oracle error rather than a product bug, so the final test uses the first explicit `fit view` result itself as the stable oracle
+  - Verification:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary fit view reapplies the same All Settings bounds fit after manual pan'`
+      - result: passed (`1 passed`, about `23.0s`)
+    - fresh-context CDP sub-agent reran the normalized live lane
+      - result: done; after an off-fit step, worktree and `main` both converged back to `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` on the checked graph surface
+  - conclusion for this slice:
+    - the toolbar `fit view` lane is closed for the checked normalized `All Settings` path
+    - do not reopen it unless the new targeted E2E or a fresh normalized CDP compare starts showing worktree-vs-`main` drift again
 - Ralph item `041` closed the modified-wheel zoom interaction lane with a targeted regression instead of another production patch.
   - Process:
     - a fresh-context CDP sub-agent first reran the normalized `All Settings` graph-surface compare and did not isolate a new canary-only renderer defect on the checked surface; visible differences were non-target chrome only
@@ -750,6 +767,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `040`
-- Latest item: `2026-04-03 040`
+- Active history window: items `001` through `042`
+- Latest item: `2026-04-03 042`
 - Older history archives: none yet
