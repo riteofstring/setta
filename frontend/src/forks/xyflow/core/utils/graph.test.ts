@@ -1,21 +1,29 @@
 import { setActiveSectionUIIds } from "state/activeSectionUI";
 import {
+  useLocalStorage,
   useNodeInternals,
   useProjectState,
   useSectionRefs,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import { createCore } from "utils/generatedTypes";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { screenToFlowPosition } from "../hooks/useViewportHelper";
+import { useReactFlow } from "../store";
 import type { ReactFlowState } from "../types";
-import { getActiveSectionsBounds, getNodesInside, getPaneRect } from "./graph";
+import {
+  getActiveSectionsBounds,
+  getNodesInside,
+  getPaneRect,
+  movePaneToIncludeElement,
+} from "./graph";
 
 vi.mock("../hooks/useViewportHelper", () => ({
   screenToFlowPosition: vi.fn((point) => point),
 }));
 
 const mockedScreenToFlowPosition = vi.mocked(screenToFlowPosition);
+const initialReactFlowState = useReactFlow.getState();
 
 function createSectionElement(rect: {
   x: number;
@@ -44,6 +52,10 @@ describe("getPaneRect", () => {
   beforeEach(() => {
     mockedScreenToFlowPosition.mockClear();
     resetProjectStores();
+  });
+
+  afterEach(() => {
+    useReactFlow.setState({ ...initialReactFlowState });
   });
 
   it("uses transform math when the dom node is missing", () => {
@@ -88,6 +100,110 @@ describe("getPaneRect", () => {
       { x: 500, y: 600 },
       true,
     );
+  });
+});
+
+describe("movePaneToIncludeElement", () => {
+  beforeEach(() => {
+    mockedScreenToFlowPosition.mockClear();
+    resetProjectStores();
+    useLocalStorage.setState({
+      overviewTrueWidth: 0,
+      uiEditorTrueWidth: 0,
+    });
+  });
+
+  afterEach(() => {
+    useReactFlow.setState({ ...initialReactFlowState });
+  });
+
+  it("delegates focus panning to the custom viewport controller when d3 is absent", () => {
+    const setViewportSpy = vi.fn();
+    const domNode = {
+      getBoundingClientRect: () => ({
+        x: 0,
+        y: 0,
+        left: 0,
+        top: 0,
+        right: 1000,
+        bottom: 800,
+        width: 1000,
+        height: 800,
+        toJSON: () => "",
+      }),
+    } as HTMLDivElement;
+
+    useReactFlow.setState({
+      ...initialReactFlowState,
+      d3Selection: null,
+      d3Zoom: null,
+      domNode,
+      height: 800,
+      transform: [0, 0, 0.1],
+      viewportController: {
+        zoomBy: vi.fn(),
+        zoomTo: vi.fn(),
+        setViewport: setViewportSpy,
+        setCenter: vi.fn(),
+        fitView: vi.fn(() => true),
+      },
+      width: 1000,
+    });
+
+    movePaneToIncludeElement(
+      createSectionElement({
+        x: -340,
+        y: -260,
+        width: 200,
+        height: 160,
+      }),
+    );
+
+    expect(setViewportSpy).toHaveBeenCalledWith({
+      x: 440,
+      y: 360,
+    });
+  });
+
+  it("ignores stale d3 viewport state when the pane is no longer inside the live dom node", () => {
+    const setViewportSpy = vi.fn();
+    const translateBySpy = vi.fn();
+
+    useReactFlow.setState({
+      ...initialReactFlowState,
+      d3Selection: {
+        node: () => null,
+      } as never,
+      d3Zoom: {
+        translateBy: translateBySpy,
+      } as never,
+      domNode: null,
+      height: 800,
+      transform: [0, 0, 0.1],
+      viewportController: {
+        zoomBy: vi.fn(),
+        zoomTo: vi.fn(),
+        setViewport: setViewportSpy,
+        setCenter: vi.fn(),
+        fitView: vi.fn(() => true),
+      },
+      width: 1000,
+    });
+
+    movePaneToIncludeElement(
+      createSectionElement({
+        x: -340,
+        y: -260,
+        width: 200,
+        height: 160,
+      }),
+    );
+
+    expect(translateBySpy).not.toHaveBeenCalled();
+    expect(setViewportSpy).toHaveBeenCalledWith({
+      x: 440,
+      y: 360,
+    });
   });
 });
 
