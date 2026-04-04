@@ -28,6 +28,31 @@ export type Viewport = {
   zoom: number;
 };
 
+export type ViewportTransitionOptions = {
+  duration?: number;
+};
+
+export type ViewportZoomOptions = ViewportTransitionOptions & {
+  zoom?: number;
+};
+
+export type CustomViewportController = {
+  zoomBy: (factor: number, options?: ViewportTransitionOptions) => void;
+  zoomTo: (zoomLevel: number, options?: ViewportTransitionOptions) => void;
+  setViewport: (
+    transform: Partial<Viewport>,
+    options?: ViewportTransitionOptions,
+  ) => void;
+  setCenter: (
+    x: number,
+    y: number,
+    options?: ViewportZoomOptions,
+  ) => void;
+  fitView: (
+    options?: ({ initial?: boolean } & FitViewOptions),
+  ) => boolean;
+};
+
 export type ReactFlowStore = {
   width: number;
   height: number;
@@ -35,6 +60,7 @@ export type ReactFlowStore = {
   domNode: HTMLDivElement | null;
   paneDragging: boolean;
   viewportInteractionActive: boolean;
+  viewportController: CustomViewportController | null;
 
   d3Zoom: ZoomBehavior<Element, unknown> | null;
   d3Selection: D3Selection<Element, unknown, null, undefined> | null;

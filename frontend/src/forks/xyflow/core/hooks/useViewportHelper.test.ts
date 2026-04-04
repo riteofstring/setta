@@ -1,7 +1,7 @@
 import { useReactFlow } from "forks/xyflow/core/store";
 import { useSettings } from "state/definitions";
 import { createSettingsState } from "utils/generatedTypes";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetZoom, setCenter, updateMapPosition } from "./useViewportHelper";
 
 describe("useViewportHelper", () => {
@@ -36,5 +36,33 @@ describe("useViewportHelper", () => {
       setCenter(320, 180, { zoom: 2 });
     }).not.toThrow();
     expect(useReactFlow.getState().transform).toEqual([10, 20, 1.5]);
+  });
+
+  it("delegates zoom and viewport commands to the custom substrate controller", () => {
+    // Validates shared toolbar actions stay wired up on non-d3 graph surfaces.
+    const zoomTo = vi.fn();
+    const setCenterSpy = vi.fn();
+    const setViewportSpy = vi.fn();
+
+    useReactFlow.setState({
+      viewportController: {
+        zoomBy: vi.fn(),
+        zoomTo,
+        setViewport: setViewportSpy,
+        setCenter: setCenterSpy,
+        fitView: vi.fn(() => true),
+      },
+    });
+
+    resetZoom();
+    setCenter(320, 180, { zoom: 2 });
+    updateMapPosition(120);
+
+    expect(zoomTo).toHaveBeenCalledWith(1, { duration: 100 });
+    expect(setCenterSpy).toHaveBeenCalledWith(320, 180, { zoom: 2 });
+    expect(setViewportSpy).toHaveBeenCalledWith(
+      { x: 130, y: 20, zoom: 1.5 },
+      { duration: 100 },
+    );
   });
 });

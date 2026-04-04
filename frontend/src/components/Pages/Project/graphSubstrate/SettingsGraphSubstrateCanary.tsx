@@ -1,5 +1,6 @@
 import { SectionContainer } from "components/Section/Container/SectionContainer";
 import { useReactFlow } from "forks/xyflow/core/store";
+import type { CustomViewportController } from "forks/xyflow/core/types";
 import { getWheelDelta } from "forks/xyflow/core/utils";
 import _ from "lodash";
 import {
@@ -36,9 +37,12 @@ import {
   shouldAutoFitSettingsGraphSubstrateCanaryViewport,
 } from "./settingsGraphSubstrateCanaryViewport";
 import {
+  centerViewportOnWorldPoint,
+  fitViewportToWorldRect,
   screenDeltaToWorldDelta,
   translateViewport,
   zoomViewportAroundScreenPoint,
+  type GraphRect,
   type GraphViewport,
 } from "./viewportTransform";
 
@@ -76,6 +80,15 @@ type SectionPositionOverride = {
 };
 
 type ViewportOwnership = "auto-fit" | "local" | "shared";
+
+type CanaryViewportState = {
+  observedElementSizes: Record<string, { width: number; height: number }>;
+  resolvedViewport: GraphViewport | null;
+  sceneBounds: GraphRect | null;
+  sectionPositionOverride: SectionPositionOverride | null;
+  sections: Array<GraphSubstrateCanarySection>;
+  wrapperDimensions: { width: number; height: number };
+};
 
 export function SettingsGraphSubstrateCanary() {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -128,6 +141,14 @@ export function SettingsGraphSubstrateCanary() {
     _.isEqual,
   );
   const overviewTrueWidth = useLocalStorage((state) => state.overviewTrueWidth);
+  const canaryViewportStateRef = useRef<CanaryViewportState>({
+    observedElementSizes: {},
+    resolvedViewport: null,
+    sceneBounds: null,
+    sectionPositionOverride: null,
+    sections: [],
+    wrapperDimensions: { width: 0, height: 0 },
+  });
 
   useEffect(() => {
     return () => {
@@ -265,6 +286,175 @@ export function SettingsGraphSubstrateCanary() {
       fallbackViewport,
     );
   }, [fallbackViewport, sharedViewport, viewport]);
+
+  useEffect(() => {
+    canaryViewportStateRef.current = {
+      observedElementSizes,
+      resolvedViewport,
+      sceneBounds,
+      sectionPositionOverride,
+      sections,
+      wrapperDimensions,
+    };
+  }, [
+    observedElementSizes,
+    resolvedViewport,
+    sceneBounds,
+    sectionPositionOverride,
+    sections,
+    wrapperDimensions,
+  ]);
+
+  function applyControlledViewportChange(
+    buildNextViewport: (currentViewport: GraphViewport) => GraphViewport | null,
+  ) {
+    setViewport((currentViewport) => {
+      const baseViewport =
+        currentViewport ?? canaryViewportStateRef.current.resolvedViewport;
+      if (!baseViewport) {
+        return currentViewport;
+      }
+      const nextViewport = buildNextViewport(baseViewport);
+      if (!nextViewport) {
+        return currentViewport;
+      }
+      if (
+        nextViewport.x === baseViewport.x &&
+        nextViewport.y === baseViewport.y &&
+        nextViewport.zoom === baseViewport.zoom
+      ) {
+        return baseViewport;
+      }
+      viewportOwnershipRef.current = "local";
+      return nextViewport;
+    });
+  }
+
+  useEffect(() => {
+    const viewportController: CustomViewportController = {
+      zoomBy: (factor: number) => {
+        const { resolvedViewport, wrapperDimensions } =
+          canaryViewportStateRef.current;
+        const centerScreenPoint =
+          getCanaryViewportCenterScreenPoint(wrapperDimensions);
+        if (!resolvedViewport || !centerScreenPoint || factor === 1) {
+          return;
+        }
+        const { minZoom, maxZoom } = useSettings.getState().gui;
+        const nextZoom = Math.min(
+          maxZoom,
+          Math.max(minZoom, resolvedViewport.zoom * factor),
+        );
+        applyControlledViewportChange((currentViewport) =>
+          zoomViewportAroundScreenPoint(
+            currentViewport,
+            centerScreenPoint,
+            nextZoom,
+          ),
+        );
+      },
+      zoomTo: (zoomLevel: number) => {
+        const centerScreenPoint = getCanaryViewportCenterScreenPoint(
+          canaryViewportStateRef.current.wrapperDimensions,
+        );
+        if (!centerScreenPoint) {
+          return;
+        }
+        const { minZoom, maxZoom } = useSettings.getState().gui;
+        const nextZoom = Math.min(maxZoom, Math.max(minZoom, zoomLevel));
+        applyControlledViewportChange((currentViewport) =>
+          zoomViewportAroundScreenPoint(
+            currentViewport,
+            centerScreenPoint,
+            nextZoom,
+          ),
+        );
+      },
+      setViewport: (transform) => {
+        applyControlledViewportChange((currentViewport) => ({
+          x: transform.x ?? currentViewport.x,
+          y: transform.y ?? currentViewport.y,
+          zoom: transform.zoom ?? currentViewport.zoom,
+        }));
+      },
+      setCenter: (x: number, y: number, options) => {
+        const centerScreenPoint = getCanaryViewportCenterScreenPoint(
+          canaryViewportStateRef.current.wrapperDimensions,
+        );
+        if (!centerScreenPoint) {
+          return;
+        }
+        const { maxZoom } = useSettings.getState().gui;
+        const nextZoom =
+          typeof options?.zoom === "number" ? options.zoom : maxZoom;
+        applyControlledViewportChange((currentViewport) =>
+          centerViewportOnWorldPoint(currentViewport, {
+            worldPoint: { x, y },
+            screenPoint: centerScreenPoint,
+            zoom: nextZoom,
+          }),
+        );
+      },
+      fitView: (options) => {
+        const { observedElementSizes, sectionPositionOverride, sections } =
+          canaryViewportStateRef.current;
+        const targetSections = getCanaryFitViewSections(
+          sections,
+          options?.nodes,
+        );
+        if (targetSections.length === 0) {
+          return false;
+        }
+        const bounds = getSettingsGraphSubstrateCanarySceneBounds(
+          targetSections,
+          observedElementSizes,
+          sectionPositionOverride,
+        );
+        if (!bounds) {
+          return false;
+        }
+        const centerScreenPoint = getCanaryViewportCenterScreenPoint(
+          canaryViewportStateRef.current.wrapperDimensions,
+        );
+        if (!centerScreenPoint) {
+          return false;
+        }
+        const {
+          minZoom: settingsMinZoom,
+          maxZoom: settingsMaxZoom,
+          defaultZoomLevel: settingsDefaultZoomLevel,
+        } = useSettings.getState().gui;
+        const resolvedMinZoom = options?.minZoom ?? settingsMinZoom;
+        let resolvedMaxZoom = options?.maxZoom ?? settingsMaxZoom;
+        if (options?.initial) {
+          resolvedMaxZoom = Math.min(resolvedMaxZoom, settingsDefaultZoomLevel);
+        }
+        if (resolvedMaxZoom < resolvedMinZoom) {
+          resolvedMaxZoom = resolvedMinZoom;
+        }
+        applyControlledViewportChange(() =>
+          fitViewportToWorldRect(
+            bounds,
+            canaryViewportStateRef.current.wrapperDimensions,
+            {
+              minZoom: resolvedMinZoom,
+              maxZoom: resolvedMaxZoom,
+              padding: options?.padding ?? 0.1,
+              centerScreenPoint,
+            },
+          ),
+        );
+        return true;
+      },
+    };
+
+    useReactFlow.setState({ viewportController });
+    return () => {
+      if (useReactFlow.getState().viewportController === viewportController) {
+        useReactFlow.setState({ viewportController: null });
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!rootRef.current || !resolvedViewport) {
@@ -579,6 +769,32 @@ export function SettingsGraphSubstrateCanary() {
       </div>
     </div>
   );
+}
+
+function getCanaryViewportCenterScreenPoint(wrapperDimensions: {
+  width: number;
+  height: number;
+}) {
+  if (wrapperDimensions.width <= 0 || wrapperDimensions.height <= 0) {
+    return null;
+  }
+  return {
+    x:
+      wrapperDimensions.width / 2 +
+      useLocalStorage.getState().overviewTrueWidth,
+    y: wrapperDimensions.height / 2,
+  };
+}
+
+function getCanaryFitViewSections(
+  sections: Array<GraphSubstrateCanarySection>,
+  nodes: Array<{ id: string }> | undefined,
+) {
+  if (!nodes?.length) {
+    return sections;
+  }
+  const targetSectionIds = new Set(nodes.map((node) => node.id));
+  return sections.filter((section) => targetSectionIds.has(section.sectionId));
 }
 
 function shouldIgnoreSectionDragTarget(target: EventTarget | null): boolean {

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 16:31 EDT
+Last updated: 2026-04-02 17:22 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,30 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `020` landed the bounded viewport-controls fix for the `All Settings` custom substrate path:
+  - `frontend/src/forks/xyflow/core/types/general.ts` and `frontend/src/forks/xyflow/core/store/initialState.ts` now expose a typed `viewportController` slot on the shared ReactFlow store.
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now registers a canary-local controller that maps shared zoom/reset/fit/set-center/set-viewport commands onto the canary viewport state and current scene bounds instead of dead-ending when `d3Zoom` is absent.
+  - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts` now delegates zoom/reset/set-center/map-position commands to that controller on non-d3 routes, and `frontend/src/forks/xyflow/core/store/utils.ts` now lets `fitView(...)` and `onFitViewHandler()` do the same.
+  - focused unit coverage now lives in `frontend/src/forks/xyflow/core/hooks/useViewportHelper.test.ts` and `frontend/src/forks/xyflow/core/store/utils.test.ts`.
+- Targeted verification passed for item `020`:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/forks/xyflow/core/store/utils.test.ts`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface'`
+    - result: passed (`1 passed`, about `16s`)
+- Fresh CDP verification for item `020`:
+  - a fresh-context CDP sub-agent reran the original worktree-vs-`main` viewport-control sequence on `/settings` after clearing `localStorage` and `sessionStorage`
+  - worktree behavior is fixed for the targeted defect:
+    - initial worktree `All Settings` transform was still bad (`translate(1592.67px, 88.9545px) scale(0.191013)`) with `visibleNodeCount = 0`
+    - `reset zoom` changed the worktree transform to `translate(3869.86px, -1414.75px) scale(1)` but still left the center blank
+    - `fit view` then changed the worktree transform again to `translate(967.4px, -21.7px) scale(0.1)` and recovered `visibleNodeCount = 46`, bringing the settings grid back into view instead of staying inert
+  - `main` still behaves as the oracle for this control path:
+    - initial `All Settings` transform `translate(779.9px, -21.7px) scale(0.1)`
+    - `reset zoom` moved to `translate(1319px, -4213px) scale(1)`
+    - `fit view` returned to `translate(779.9px, -21.7px) scale(0.1)` with `visibleNodeCount = 46`
+  - high-level result: the worktree now matches the legacy control behavior that mattered for this defect because `fit view` is no longer a no-op and restores the off-screen grid; the remaining drift is initial framing and a fitted `x` offset (`967.4px` vs `779.9px`)
+- A dedicated seeded Playwright regression for the viewport-control buttons was explored during this iteration but not landed:
+  - the seeded workspace path was not trustworthy enough for a new control-specific assertion, so that experimental E2E test was removed rather than committing a flaky guard
+  - keep the stable pan/zoom E2E plus the new unit coverage as the automation record for item `020`; revisit a control-specific Playwright check only after the initial fresh-state framing bug below is fixed
 - Ralph item `019` landed a bounded viewport-persistence fix for fast `All Settings` mode switches on the custom substrate path:
   - `frontend/src/state/actions/sectionInfos.ts` now exports `persistCurrentViewportImmediately()`, which cancels the debounced viewport sender and awaits an immediate `/setViewport` write for the current camera before a mode change proceeds.
   - `frontend/src/components/Pages/Project/ViewModeTabs.tsx` and `frontend/src/components/Panes/Overview/ViewingEditingMode.tsx` now await that helper before `route_set_active_view_mode(...)`, so the backend saves the current mode's latest viewport before switching away.
@@ -261,8 +285,11 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - item `019` closed the race where a recent canary pan/zoom could be lost if the user switched modes before the debounced viewport write reached the backend
   - do not spend another iteration on more view-mode switch plumbing unless a new controlled repro shows the current canary camera still gets dropped
 - The next real frontier is the next earliest stable product drift on the same canary path:
-  - rerun a controlled, settled normal-zoom compare on `All Settings` against `main` using a trustworthy sequence such as a cleared viewport or a deliberate stable round-trip, not the rushed multi-click switch that `main` itself mishandles
-  - once the oracle sequence is stable, inspect the next Gate 1 / Gate 2 issue after initial framing and switch-persistence, especially text/chrome drift, zoom artifacts, or remaining stable camera/framing mismatch
+  - fix the fresh-state initial `All Settings` framing defect on the worktree canary before doing more control or harness work:
+    - after clearing browser storage, worktree still opens `All Settings` at `translate(1592.67px, 88.9545px) scale(0.191013)` with `visibleNodeCount = 0`
+    - `main` opens the same fresh-state path at `translate(779.9px, -21.7px) scale(0.1)` with `visibleNodeCount = 46`
+    - this is now the earliest real gate failure because the user still lands on a blank/off-screen canvas until they manually hit `fit view`
+  - once that initial framing bug is fixed, rerun the same fresh-state compare and then inspect the next stable Gate 1 / Gate 2 issue after it, especially the remaining fitted `x` offset, text/chrome drift, or zoom artifacts
   - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
 - Lifecycle/bootstrap debugging is no longer the default frontier:
   - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
@@ -289,6 +316,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `019`
-- Latest item: `2026-04-02 019`
+- Active history window: items `001` through `020`
+- Latest item: `2026-04-02 020`
 - Older history archives: none yet

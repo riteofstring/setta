@@ -70,6 +70,39 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 020
+
+- Item: Wire the shared viewport controls into the `All Settings` custom substrate so `fit view` is no longer a no-op on the canary path.
+- Status: `done`
+- Details:
+  - Added a typed `viewportController` slot to the shared ReactFlow store (`frontend/src/forks/xyflow/core/types/general.ts`, `frontend/src/forks/xyflow/core/store/initialState.ts`).
+  - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx` now registers a canary-local controller that translates shared zoom/reset/fit/set-center/set-viewport commands into local viewport updates using the current canary scene bounds and wrapper dimensions.
+  - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.ts` now delegates zoom/reset/set-center/update-map-position calls to that controller when `d3Zoom` is absent, instead of silently no-oping on the custom substrate path.
+  - `frontend/src/forks/xyflow/core/store/utils.ts` now delegates `fitView(...)` to the controller on non-d3 routes, and `onFitViewHandler()` only keeps the old `fitViewOnInit` early-return guard for legacy d3 routes. It also only flips `fitViewOnInit` back on when a fit actually ran.
+  - Added focused unit coverage in:
+    - `frontend/src/forks/xyflow/core/hooks/useViewportHelper.test.ts`
+    - `frontend/src/forks/xyflow/core/store/utils.test.ts`
+  - I explored a control-specific seeded Playwright regression during this slice, but the seeded workspace path was not trustworthy enough to keep as a committed guard, so that experimental E2E test was removed before finishing the iteration.
+- Verification:
+  - `pnpm -C frontend exec vitest run src/forks/xyflow/core/hooks/useViewportHelper.test.ts src/forks/xyflow/core/store/utils.test.ts`
+    - result: passed (`5 passed`)
+  - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface'`
+    - result: passed (`1 passed`, about `16s`)
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context worktree `/settings` after storage clear still started badly on `All Settings` (`translate(1592.67px, 88.9545px) scale(0.191013)`, `visibleNodeCount = 0`)
+      - `reset zoom` changed the worktree transform to `translate(3869.86px, -1414.75px) scale(1)` but still left the center blank
+      - `fit view` then changed the worktree transform to `translate(967.4px, -21.7px) scale(0.1)` and recovered `visibleNodeCount = 46`, so the settings grid came back into view instead of staying inert
+      - fresh-context `main` still provided the oracle sequence (`0.1` fit, `1` reset, then back to `0.1` fit)
+- Conclusion:
+  - the targeted control-path defect is closed: on the custom substrate, `fit view` now mutates the viewport and restores the off-screen `All Settings` grid instead of doing nothing
+  - the next blocker is no longer viewport-control plumbing; it is the fresh-state initial framing bug that still opens the worktree canary off-screen before the user touches any controls
+- Next action:
+  - fix the fresh-storage initial `All Settings` framing drift so the worktree opens in-view like `main`, then rerun the same fresh-context CDP compare before touching more control or harness work
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 016
 
 - Item: Fix Ralph's headless lifecycle/browser launcher path so CDP can stay up long enough to retry the blocked `All Settings` oracle compare.
