@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-02 22:42 EDT
+Last updated: 2026-04-02 23:03 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -9,6 +9,19 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 ## Current status
 
 - This is a fresh worktree from `main`.
+- Ralph item `027` closed the remaining stationary normal-zoom `All Settings` parity lane without another production patch.
+  - the blocked question for this slice was whether a real graph-surface drift still remained after items `025` and `026`, or whether recent compares were still being confounded by workspace chrome / stale live-tab state
+  - a saved normalized compare from the already-authenticated live worktree / `main` sessions reset both sides to active `All Settings` with `viewport: null`, then captured fresh-page screenshots plus metrics from those same sessions
+  - the saved stationary graph-surface metrics matched on both sides:
+    - viewport transform `matrix(0.1, 0, 0, 0.1, 779.9, -51.7)`
+    - graph rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`
+    - minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`
+    - `46` visible nodes, `46` minimap nodes, background count `1`
+  - saved cropped graph screenshots from that compare were visually indistinguishable; the remaining screenshot deltas were outside the target graph-surface lane:
+    - worktree-only worktree label chrome in the top bar
+    - different overview-list ordering / scroll state
+    - transient top-bar status text
+  - this means the next real frontier is no longer another stationary transform / bounds / minimap / background / surface-height fix on `All Settings`
 - Ralph item `026` fixed the next stable `All Settings` minimap-content drift after the graph-surface-height lane: the canary surface was rendering `46` sections, but the shared minimap only had geometry for `5` of them, so the panel collapsed into a shallow strip instead of showing the full settings stack.
   - the first fresh CDP compare that chose this slice showed the worktree canary active with `46` `[data-testid="graph-substrate-canary-section"]` nodes but only `5` `.react-flow__minimap-node` rects, while the live worktree minimap viewBox coverage was only `1.75%`
   - the root cause was shared geometry ownership, not another minimap-panel bug:
@@ -344,15 +357,18 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary drags one section and persists the top-level layout'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary pans and zooms one section on the custom surface|settings graph substrate canary keeps title editing working after pan and zoom'`
     - `BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings view tabs filter sections and minimap'`
+  - saved normalized live-session compare after item `026`: done
+    - a fresh-page compare against the already-authenticated live worktree / `main` sessions captured matching stationary `All Settings` metrics in `/tmp/setta-compare-results.json`
+    - both sides matched on transform `matrix(0.1, 0, 0, 0.1, 779.9, -51.7)`, graph rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`, minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`, background count `1`, and `46` visible / minimap nodes
+    - the saved cropped graph screenshots `/tmp/setta-worktree-graph-crop.png` and `/tmp/setta-main-graph-crop.png` are visually indistinguishable; remaining full-screenshot differences are workspace chrome only, not graph-surface drift
   - CDP visual check:
     - fresh-storage initial-entry compare after item `021`: done
       - worktree and `main` matched before any viewport controls: `matrix(0.1, 0, 0, 0.1, 779.9, -245.2)` with the same visible graph bounds
       - the old initial off-screen / blank-entry Gate 1 defect no longer reproduced
       - the next visible delta from that compare was minimap parity: `main` showed a visible minimap panel while the worktree did not
-    - worktree vs `main`: done
-      - direct live `/settings` inspection on the current worktree session after `Core -> All Settings` showed a restored non-fit camera state with viewport transform `translate(435.661px, 104.839px) scale(0.187602)`
-      - the same tab sequence on `main` restored a more zoomed-out camera state with viewport transform `translate(779.9px, -51.7px) scale(0.1)`
-      - this closes the old "is the canary always re-fitting?" question for the checked path, but it leaves an explicit Gate 1 blocker: the worktree framing still drifts visibly from `main`
+    - worktree vs `main` stationary `All Settings`: superseded
+      - older live-tab compares that still showed framing drift are now stale for the current stationary lane
+      - the saved normalized live-session compare above is the latest trustworthy stationary oracle, and it no longer shows a graph-surface drift on the checked normal-zoom state
     - minimap parity compare after item `022`: done
       - fresh-context `chrome-devtools-mcp` compare on live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
       - both sides showed the minimap on `All Settings`
@@ -413,12 +429,14 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 - The graph-surface height / bottom-anchor lane is also complete:
   - item `025` pins the canary root to the full `UIPage` bounds, and the latest fresh CDP compare now shows the same `828px` graph height plus matching minimap / controls anchoring on worktree and `main`
   - do not reopen that lane unless a later controlled compare shows the canary shrinking back to a content-height lane
-- The next real frontier is the next earliest stable product drift on the same canary path:
-  - start from the same controlled normal-zoom worktree-vs-`main` compare on `All Settings` with both sides' active `All Settings` viewports explicitly reset to `null`, then isolate the next earliest stable Gate 1 / Gate 2 drift after the now-closed background lane
-  - the latest compare successfully normalized both sides again, so do not treat the current `main` runtime as contaminated by the old single-card state unless a fresh compare reproduces it
-  - prioritize a concrete renderer or interaction defect on the checked canary path, especially text/chrome drift, interaction-state mismatch, or zoom artifacts, over more support-lane churn
-  - one older existing-session CDP pass hinted that the worktree minimap content might still under-render (`5` minimap node rects vs `46` on `main`), but that observation was not the fresh final oracle for item `025`; re-check that on a fresh normalized compare before landing any minimap-content code
-  - prefer a concrete renderer or interaction fix inside the canary over more launcher/oracle support work
+- The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path:
+  - keep using the same controlled `All Settings` normalization (`setActiveViewMode(All Settings)` plus `setViewport(null)`) because the stationary graph surface is now matched again
+  - minimize or ignore overview / top-bar / worktree-label chrome before judging the next mismatch so workspace state does not masquerade as renderer drift
+  - focus the next compare on one shared dynamic action across worktree and `main`, preferably a short pan/zoom or drag path, and isolate the first visible canary-only artifact:
+    - text/chrome snap or blur during zoom
+    - interaction-state drift during pan/drag
+    - any dynamic body/chrome detachment that only appears once the camera moves
+  - do not spend another iteration on stationary transform / bounds / minimap / background / surface-height churn unless a fresh normalized compare actually reopens one of those defects
 - Lifecycle/bootstrap debugging is no longer the default frontier:
   - only reopen the loop/browser wiring lane if it directly blocks verification of the next concrete product defect
   - do not resume ad hoc bounds hypotheses without fresh visual evidence
@@ -444,6 +462,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `025`
-- Latest item: `2026-04-02 025`
+- Active history window: items `001` through `027`
+- Latest item: `2026-04-02 027`
 - Older history archives: none yet

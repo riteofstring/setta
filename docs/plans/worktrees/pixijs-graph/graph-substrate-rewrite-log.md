@@ -70,6 +70,37 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-02 027
+
+- Item: Close the stationary normal-zoom `All Settings` parity lane after the minimap-content fix and move the frontier to dynamic canary behavior.
+- Status: `done`
+- Details:
+  - No production code changed in this slice; the goal was to determine whether a real stationary graph-surface defect still remained before continuing more renderer churn.
+  - A saved normalized compare reused the already-authenticated live worktree / `main` settings sessions and captured fresh-page metrics plus screenshots after forcing `All Settings` + `viewport: null` on both sides.
+  - The saved stationary graph-surface metrics matched on both sides:
+    - transform `matrix(0.1, 0, 0, 0.1, 779.9, -51.7)`
+    - graph rect `{ x: 0, y: 36, width: 1440, height: 828, bottom: 864 }`
+    - minimap rect `{ x: 350, y: 697, width: 202, height: 152, bottom: 849 }`
+    - background count `1`
+    - `46` visible nodes and `46` minimap nodes
+  - The saved cropped graph screenshots `/tmp/setta-worktree-graph-crop.png` and `/tmp/setta-main-graph-crop.png` are visually indistinguishable.
+  - The remaining full-screenshot deltas are non-target workspace chrome, not canary-surface drift:
+    - worktree label chrome in the top bar
+    - transient top-bar status text
+    - overview-list ordering / scroll state
+- Verification:
+  - saved normalized live-session compare
+    - result: matched stationary `All Settings` graph-surface metrics in `/tmp/setta-compare-results.json`
+  - `compare -metric AE /tmp/setta-worktree-graph-crop.png /tmp/setta-main-graph-crop.png /tmp/setta-graph-diff.png`
+    - result: no gross stationary surface drift in the cropped graph region; remaining diff is small localized pixel noise plus non-target chrome outside the crop
+- Conclusion:
+  - The next frontier is no longer another stationary transform / bounds / minimap / background / surface-height fix on `All Settings`.
+  - The next real frontier is dynamic Gate 1 / Gate 2 behavior on the same canary path: short pan/zoom or drag comparisons that can reveal blur, text-width snap, or interaction-state drift that only appears once the camera moves.
+- Next action:
+  - run the same controlled worktree-vs-`main` `All Settings` normalization, hide/ignore workspace chrome, then isolate the first dynamic pan/zoom/drag artifact on the graph surface.
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 026
 
 - Item: Restore full `All Settings` minimap node coverage on the settings graph-substrate canary.
