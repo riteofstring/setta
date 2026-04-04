@@ -141,6 +141,28 @@ func TestBuildProjectStateSummaryTrimsWindowSpacesToAllowedSections(t *testing.T
 	summary := BuildProjectStateSummary(view, map[string]struct{}{
 		"callable-section": {},
 	})
+	if !summary.ProjectConfig.HasPythonCodegenTarget {
+		t.Fatal("expected python codegen target flag to survive summary filtering")
+	}
+	if summary.ProjectConfig.RunCapabilities.CanRunFromMain {
+		t.Fatalf("expected main run to be disabled when the effective entry section is out of scope, got %#v", summary.ProjectConfig.RunCapabilities)
+	}
+	if got := summary.ProjectConfig.RunCapabilities.MainRunDisabledReason; got == nil || *got != runDisabledReasonManualEntryRequired {
+		t.Fatalf("expected manual-entry main run reason %q, got %#v", runDisabledReasonManualEntryRequired, got)
+	}
+	if summary.ProjectConfig.RunCapabilities.EffectiveEntrySectionID != nil {
+		t.Fatalf("expected effective entry section id to be cleared, got %#v", summary.ProjectConfig.RunCapabilities.EffectiveEntrySectionID)
+	}
+	callableSlug := view.ProjectConfig.SectionPathSlugsByID["callable-section"]
+	if callableSlug == "" {
+		t.Fatal("expected callable-section slug to be populated")
+	}
+	if got := summary.ProjectConfig.SectionPathSlugsByID; !reflect.DeepEqual(got, map[string]string{"callable-section": callableSlug}) {
+		t.Fatalf("expected filtered section path slugs %#v, got %#v", map[string]string{"callable-section": callableSlug}, got)
+	}
+	if got := summary.ProjectConfig.SectionIDsByPathSlug; !reflect.DeepEqual(got, map[string][]string{callableSlug: {"callable-section"}}) {
+		t.Fatalf("expected filtered section slug index %#v, got %#v", map[string][]string{callableSlug: {"callable-section"}}, got)
+	}
 	if _, ok := summary.ProjectConfig.WindowSpaces["space-2"]; ok {
 		t.Fatalf("expected blocked-only window space to be dropped, got %#v", summary.ProjectConfig.WindowSpaces)
 	}
@@ -159,6 +181,16 @@ func TestBuildProjectStateSummaryTrimsWindowSpacesToAllowedSections(t *testing.T
 	}
 	if !reflect.DeepEqual(filteredSpace.Order, []string{"project-window", "allowed-window"}) {
 		t.Fatalf("expected filtered order [project-window allowed-window], got %#v", filteredSpace.Order)
+	}
+	scopedLayoutSlug := view.ProjectConfig.WindowSpaceSlugsByID["space-1"]
+	if scopedLayoutSlug == "" {
+		t.Fatal("expected scoped window space slug to be populated")
+	}
+	if got := summary.ProjectConfig.WindowSpaceSlugsByID; !reflect.DeepEqual(got, map[string]string{"space-1": scopedLayoutSlug}) {
+		t.Fatalf("expected filtered window space slugs %#v, got %#v", map[string]string{"space-1": scopedLayoutSlug}, got)
+	}
+	if got := summary.ProjectConfig.WindowSpaceIDsBySlug; !reflect.DeepEqual(got, map[string][]string{scopedLayoutSlug: {"space-1"}}) {
+		t.Fatalf("expected filtered window space slug index %#v, got %#v", map[string][]string{scopedLayoutSlug: {"space-1"}}, got)
 	}
 	if _, ok := view.ProjectConfig.WindowSpaces["space-1"].WindowsByID["blocked-window"]; !ok {
 		t.Fatalf("expected source window space to remain unchanged after summary filtering, got %#v", view.ProjectConfig.WindowSpaces["space-1"].WindowsByID)

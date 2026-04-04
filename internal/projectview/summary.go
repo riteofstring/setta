@@ -116,8 +116,13 @@ func buildChildSectionIDs(parentSectionMap map[string]*string) map[string][]stri
 func filterProjectConfigForSummary(config ProjectConfig, allowedSectionIDs map[string]struct{}) ProjectConfig {
 	filtered := cloneProjectConfig(config)
 	filtered.SectionVariantMap = filterStringMapByAllowedKeys(filtered.SectionVariantMap, allowedSectionIDs)
+	filtered.SectionPathSlugsByID = filterStringMapByAllowedKeys(filtered.SectionPathSlugsByID, allowedSectionIDs)
+	filtered.SectionIDsByPathSlug = filterStringSliceMapByAllowedSet(filtered.SectionIDsByPathSlug, allowedSectionIDs)
 	filtered.TopLevelSections = filterTopLevelSectionLayouts(filtered.TopLevelSections, allowedSectionIDs)
 	filtered.WindowSpaces = filterWindowSpacesForSummary(filtered.WindowSpaces, allowedSectionIDs)
+	allowedWindowSpaceIDs := stringSetFromWindowSpaceIDs(filtered.WindowSpaces)
+	filtered.WindowSpaceSlugsByID = filterStringMapByAllowedKeys(filtered.WindowSpaceSlugsByID, allowedWindowSpaceIDs)
+	filtered.WindowSpaceIDsBySlug = filterStringSliceMapByAllowedSet(filtered.WindowSpaceIDsBySlug, allowedWindowSpaceIDs)
 	filtered.ActiveIDs = filterStringSliceByAllowedSet(filtered.ActiveIDs, allowedSectionIDs)
 	filtered.Edges = filterEdges(filtered.Edges, allowedSectionIDs)
 	filtered.AgenticEdges = filterAgenticEdges(filtered.AgenticEdges, allowedSectionIDs)
@@ -126,6 +131,7 @@ func filterProjectConfigForSummary(config ProjectConfig, allowedSectionIDs map[s
 			filtered.EntryCodeBlockID = nil
 		}
 	}
+	filtered.RunCapabilities = filterProjectRunCapabilitiesForSummary(filtered.RunCapabilities, allowedSectionIDs)
 	for viewModeID, viewMode := range filtered.ViewModes {
 		viewMode.TopLevelSections = filterTopLevelSectionLayouts(viewMode.TopLevelSections, allowedSectionIDs)
 		viewMode.VisibilityBySectionID = filterBoolMapByAllowedKeys(viewMode.VisibilityBySectionID, allowedSectionIDs)
@@ -154,6 +160,7 @@ func filterSingletonPointer(value *string, allowedSectionIDs map[string]struct{}
 
 func cloneProjectConfig(config ProjectConfig) ProjectConfig {
 	cloned := config
+	cloned.RunCapabilities = cloneSummaryProjectRunCapabilities(config.RunCapabilities)
 	cloned.Viewport = cloneSummaryViewport(config.Viewport)
 	cloned.ViewModes = cloneSummaryViewModes(config.ViewModes)
 	cloned.CodegenTargets = cloneSummaryRawJSONList(config.CodegenTargets)
@@ -162,7 +169,11 @@ func cloneProjectConfig(config ProjectConfig) ProjectConfig {
 	cloned.WatchCodeRegistry = cloneSummaryWatchCodeRegistry(config.WatchCodeRegistry)
 	cloned.WatchCodeBaselineByPath = cloneSummaryStringSliceMap(config.WatchCodeBaselineByPath)
 	cloned.EntryCodeBlockID = cloneSummaryStringPointer(config.EntryCodeBlockID)
+	cloned.SectionPathSlugsByID = cloneSummaryStringMap(config.SectionPathSlugsByID)
+	cloned.SectionIDsByPathSlug = cloneSummaryStringSliceMap(config.SectionIDsByPathSlug)
 	cloned.TopLevelSections = cloneSummaryTopLevelSectionLayouts(config.TopLevelSections)
+	cloned.WindowSpaceSlugsByID = cloneSummaryStringMap(config.WindowSpaceSlugsByID)
+	cloned.WindowSpaceIDsBySlug = cloneSummaryStringSliceMap(config.WindowSpaceIDsBySlug)
 	cloned.WindowSpaces = cloneSummaryWindowSpaces(config.WindowSpaces)
 	cloned.SectionVariantMap = cloneSummaryStringMap(config.SectionVariantMap)
 	cloned.ActiveIDs = append([]string(nil), config.ActiveIDs...)
@@ -303,6 +314,14 @@ func cloneSummaryCodeFileBinding(value *CodeFileBinding) *CodeFileBinding {
 	return &cloned
 }
 
+func cloneSummaryProjectRunCapabilities(value ProjectRunCapabilities) ProjectRunCapabilities {
+	return ProjectRunCapabilities{
+		CanRunFromMain:          value.CanRunFromMain,
+		MainRunDisabledReason:   cloneSummaryStringPointer(value.MainRunDisabledReason),
+		EffectiveEntrySectionID: cloneSummaryStringPointer(value.EffectiveEntrySectionID),
+	}
+}
+
 func filterStringMapByAllowedKeys(values map[string]string, allowedSectionIDs map[string]struct{}) map[string]string {
 	filtered := map[string]string{}
 	for key, value := range values {
@@ -310,6 +329,18 @@ func filterStringMapByAllowedKeys(values map[string]string, allowedSectionIDs ma
 			continue
 		}
 		filtered[key] = value
+	}
+	return filtered
+}
+
+func filterStringSliceMapByAllowedSet(values map[string][]string, allowedIDs map[string]struct{}) map[string][]string {
+	filtered := map[string][]string{}
+	for key, entries := range values {
+		nextEntries := filterStringSliceByAllowedSet(entries, allowedIDs)
+		if len(nextEntries) == 0 {
+			continue
+		}
+		filtered[key] = nextEntries
 	}
 	return filtered
 }
@@ -351,6 +382,14 @@ func filterWindowSpacesForSummary(values map[string]projectstate.WindowSpaceConf
 	return filtered
 }
 
+func stringSetFromWindowSpaceIDs(values map[string]projectstate.WindowSpaceConfig) map[string]struct{} {
+	output := make(map[string]struct{}, len(values))
+	for windowSpaceID := range values {
+		output[windowSpaceID] = struct{}{}
+	}
+	return output
+}
+
 func filterWindowOrderForSummary(order []string, windowsByID map[string]projectstate.WindowSpaceWindow) []string {
 	filtered := make([]string, 0, len(windowsByID))
 	seen := make(map[string]struct{}, len(windowsByID))
@@ -373,6 +412,20 @@ func filterWindowOrderForSummary(order []string, windowsByID map[string]projects
 	}
 	sort.Strings(extraWindowIDs)
 	filtered = append(filtered, extraWindowIDs...)
+	return filtered
+}
+
+func filterProjectRunCapabilitiesForSummary(value ProjectRunCapabilities, allowedSectionIDs map[string]struct{}) ProjectRunCapabilities {
+	filtered := cloneSummaryProjectRunCapabilities(value)
+	if filtered.EffectiveEntrySectionID == nil {
+		return filtered
+	}
+	if _, ok := allowedSectionIDs[*filtered.EffectiveEntrySectionID]; ok {
+		return filtered
+	}
+	filtered.CanRunFromMain = false
+	filtered.MainRunDisabledReason = stringPointer(runDisabledReasonManualEntryRequired)
+	filtered.EffectiveEntrySectionID = nil
 	return filtered
 }
 

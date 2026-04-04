@@ -181,7 +181,25 @@ func TestTranslateProjectStateSummaryToTemporaryTranslatesWindowSpaces(t *testin
 
 	translated, err := translateProjectStateSummaryToTemporary(projectStateSummary{
 		ProjectConfig: projectview.ProjectConfig{
-			ID: "project-alpha",
+			ID:                     "project-alpha",
+			HasPythonCodegenTarget: true,
+			RunCapabilities: projectview.ProjectRunCapabilities{
+				CanRunFromMain:          false,
+				MainRunDisabledReason:   summaryTestStringPointer("select an entry section"),
+				EffectiveEntrySectionID: summaryTestStringPointer("allowed-section"),
+			},
+			SectionPathSlugsByID: map[string]string{
+				"allowed-section": "allowed",
+			},
+			SectionIDsByPathSlug: map[string][]string{
+				"allowed": {"allowed-section"},
+			},
+			WindowSpaceSlugsByID: map[string]string{
+				"space-1": "scoped-layout",
+			},
+			WindowSpaceIDsBySlug: map[string][]string{
+				"scoped-layout": {"space-1"},
+			},
 			WindowSpaces: map[string]projectstate.WindowSpaceConfig{
 				"space-1": {
 					ID:   "space-1",
@@ -236,6 +254,28 @@ func TestTranslateProjectStateSummaryToTemporaryTranslatesWindowSpaces(t *testin
 	if translatedWindow.ChatID == nil || *translatedWindow.ChatID != "12" {
 		t.Fatalf("expected translated chat binding 12, got %#v", translatedWindow.ChatID)
 	}
+	if !translated.ProjectConfig.HasPythonCodegenTarget {
+		t.Fatal("expected python codegen target flag to be preserved")
+	}
+	if !summaryTestRunCapabilitiesMatch(translated.ProjectConfig.RunCapabilities, projectview.ProjectRunCapabilities{
+		CanRunFromMain:          false,
+		MainRunDisabledReason:   summaryTestStringPointer("select an entry section"),
+		EffectiveEntrySectionID: summaryTestStringPointer("14"),
+	}) {
+		t.Fatalf("expected translated run capabilities to preserve reason and translate entry section id, got %#v", translated.ProjectConfig.RunCapabilities)
+	}
+	if got := translated.ProjectConfig.SectionPathSlugsByID["14"]; got != "allowed" {
+		t.Fatalf("expected translated section path slug for 14, got %#v", translated.ProjectConfig.SectionPathSlugsByID)
+	}
+	if got := translated.ProjectConfig.SectionIDsByPathSlug["allowed"]; len(got) != 1 || got[0] != "14" {
+		t.Fatalf("expected translated section slug index [14], got %#v", translated.ProjectConfig.SectionIDsByPathSlug)
+	}
+	if got := translated.ProjectConfig.WindowSpaceSlugsByID["31"]; got != "scoped-layout" {
+		t.Fatalf("expected translated window space slug for 31, got %#v", translated.ProjectConfig.WindowSpaceSlugsByID)
+	}
+	if got := translated.ProjectConfig.WindowSpaceIDsBySlug["scoped-layout"]; len(got) != 1 || got[0] != "31" {
+		t.Fatalf("expected translated window space slug index [31], got %#v", translated.ProjectConfig.WindowSpaceIDsBySlug)
+	}
 	if len(translated.RequiredDecodedImages) != 1 || translated.RequiredDecodedImages[0] != "images/a.png" {
 		t.Fatalf("expected required decoded images to remain unchanged, got %#v", translated.RequiredDecodedImages)
 	}
@@ -243,4 +283,17 @@ func TestTranslateProjectStateSummaryToTemporaryTranslatesWindowSpaces(t *testin
 
 func summaryTestStringPointer(value string) *string {
 	return &value
+}
+
+func summaryTestRunCapabilitiesMatch(got, expected projectview.ProjectRunCapabilities) bool {
+	return got.CanRunFromMain == expected.CanRunFromMain &&
+		summaryTestDerefString(got.MainRunDisabledReason) == summaryTestDerefString(expected.MainRunDisabledReason) &&
+		summaryTestDerefString(got.EffectiveEntrySectionID) == summaryTestDerefString(expected.EffectiveEntrySectionID)
+}
+
+func summaryTestDerefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }

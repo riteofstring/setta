@@ -331,6 +331,36 @@ func translateStringMapKeysToTemporary(values map[string]projectstate.TopLevelSe
 	return translated, nil
 }
 
+func translateStringMapKeysToTemporaryStringValues(values map[string]string, store *TemporaryIDStore) (map[string]string, error) {
+	if values == nil {
+		return map[string]string{}, nil
+	}
+	translated := make(map[string]string, len(values))
+	for canonicalID, value := range values {
+		temporaryID, err := translateStringValueToTemporary(canonicalID, store)
+		if err != nil {
+			return nil, err
+		}
+		translated[temporaryID] = value
+	}
+	return translated, nil
+}
+
+func translateStringSliceMapValuesToTemporary(values map[string][]string, store *TemporaryIDStore) (map[string][]string, error) {
+	if values == nil {
+		return map[string][]string{}, nil
+	}
+	translated := make(map[string][]string, len(values))
+	for key, entries := range values {
+		translatedEntries, err := translateStringSliceToTemporary(entries, store)
+		if err != nil {
+			return nil, err
+		}
+		translated[key] = translatedEntries
+	}
+	return translated, nil
+}
+
 func translateBoolMapKeysToTemporary(values map[string]bool, store *TemporaryIDStore) (map[string]bool, error) {
 	if values == nil {
 		return map[string]bool{}, nil
@@ -411,7 +441,27 @@ func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *
 	if err != nil {
 		return projectview.ProjectConfig{}, err
 	}
+	runCapabilities, err := translateProjectRunCapabilitiesToTemporary(config.RunCapabilities, store)
+	if err != nil {
+		return projectview.ProjectConfig{}, err
+	}
+	sectionPathSlugsByID, err := translateStringMapKeysToTemporaryStringValues(config.SectionPathSlugsByID, store)
+	if err != nil {
+		return projectview.ProjectConfig{}, err
+	}
+	sectionIDsByPathSlug, err := translateStringSliceMapValuesToTemporary(config.SectionIDsByPathSlug, store)
+	if err != nil {
+		return projectview.ProjectConfig{}, err
+	}
 	topLevelSections, err := translateStringMapKeysToTemporary(config.TopLevelSections, store)
+	if err != nil {
+		return projectview.ProjectConfig{}, err
+	}
+	windowSpaceSlugsByID, err := translateStringMapKeysToTemporaryStringValues(config.WindowSpaceSlugsByID, store)
+	if err != nil {
+		return projectview.ProjectConfig{}, err
+	}
+	windowSpaceIDsBySlug, err := translateStringSliceMapValuesToTemporary(config.WindowSpaceIDsBySlug, store)
 	if err != nil {
 		return projectview.ProjectConfig{}, err
 	}
@@ -451,6 +501,8 @@ func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *
 		ViewModes:               viewModes,
 		ActiveViewModeID:        activeViewModeID,
 		IsEditingViewMode:       config.IsEditingViewMode,
+		HasPythonCodegenTarget:  config.HasPythonCodegenTarget,
+		RunCapabilities:         runCapabilities,
 		CodegenTargets:          cloneRawJSONList(config.CodegenTargets),
 		WatchCodeEnabled:        config.WatchCodeEnabled,
 		WatchCodeFolders:        cloneWatchCodeFolders(config.WatchCodeFolders),
@@ -458,7 +510,11 @@ func translateProjectConfigToTemporary(config projectview.ProjectConfig, store *
 		WatchCodeRegistry:       cloneWatchCodeRegistry(config.WatchCodeRegistry),
 		WatchCodeBaselineByPath: cloneStringSliceMap(config.WatchCodeBaselineByPath),
 		EntryCodeBlockID:        entryCodeBlockID,
+		SectionPathSlugsByID:    sectionPathSlugsByID,
+		SectionIDsByPathSlug:    sectionIDsByPathSlug,
 		TopLevelSections:        topLevelSections,
+		WindowSpaceSlugsByID:    windowSpaceSlugsByID,
+		WindowSpaceIDsBySlug:    windowSpaceIDsBySlug,
 		WindowSpaces:            windowSpaces,
 		SectionVariantMap:       sectionVariantMap,
 		ActiveIDs:               activeIDs,
@@ -567,6 +623,18 @@ func translateSectionVariantMapToTemporary(values map[string]string, store *Temp
 		translated[temporarySectionID] = temporaryVariantID
 	}
 	return translated, nil
+}
+
+func translateProjectRunCapabilitiesToTemporary(value projectview.ProjectRunCapabilities, store *TemporaryIDStore) (projectview.ProjectRunCapabilities, error) {
+	effectiveEntrySectionID, err := translateOptionalStringPointerToTemporary(value.EffectiveEntrySectionID, store)
+	if err != nil {
+		return projectview.ProjectRunCapabilities{}, err
+	}
+	return projectview.ProjectRunCapabilities{
+		CanRunFromMain:          value.CanRunFromMain,
+		MainRunDisabledReason:   cloneStringPtr(value.MainRunDisabledReason),
+		EffectiveEntrySectionID: effectiveEntrySectionID,
+	}, nil
 }
 
 func translateEdgesToTemporary(values []projectstate.Edge, store *TemporaryIDStore) ([]projectstate.Edge, error) {
