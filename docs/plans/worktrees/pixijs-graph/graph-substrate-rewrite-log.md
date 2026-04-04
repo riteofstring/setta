@@ -3736,3 +3736,31 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - investigate/fix the shared canvas-focus shortcut parity on normalized `All Settings`, starting with why the canary visibly restores `browserSectionDefault` while read-only `main` ends blank/offscreen under the exact stored-target shortcut lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 09:56 EDT - Ralph item 110
+
+- Spent the one allowed post-support oracle step on the shared canvas-focus shortcut lane and closed it as non-reproducible on the current runtimes instead of landing a speculative production fix.
+- Why this slice was necessary:
+  - items `108` and `109` were both oracle/probe-heavy, so this iteration had to either land a real product fix or use one bounded evidence pass to decide whether the reported shortcut mismatch still existed
+  - the prior handoff claimed a canary-only shortcut overlay plus a visible `browserSectionDefault` restore mismatch, but changing production code without a fresh live repro would have been guesswork
+  - this iteration therefore reused the existing exact probe and one fresh-context CDP compare before deciding whether the lane still needed a product change
+- Production/test changes:
+  - no production or test files changed in this slice
+  - this iteration intentionally reused the existing main-reference shortcut probe and fresh CDP verification only
+- Verification:
+  - refreshed runtime/bootstrap values for the current run:
+    - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-029/worktree-ai.log`
+    - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-029/main-ai.log`
+  - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe restores the same shared offscreen section target with the canvas focus shortcut on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `31.5s`)
+  - fresh-context CDP sub-agent:
+    - rechecked the raw baseline shortcut lane from outside the canvas on live `http://127.0.0.1:3075/settings` and read-only `http://127.0.0.1:3087/settings`
+    - found no canary-only overlay or help chrome; `Control+Shift+3` focused the same blank `menuitem` button in the first visible section on both surfaces
+    - also checked a practical `browserSectionDefault` lane and still found no meaningful visual difference; focus landed on the same blank `menuitem` button and `browserSectionDefault` was not visibly restored on either side
+  - CDP visual check: done (fresh-context normalized shortcut compare on live `3075` canary vs read-only `3087` legacy; no meaningful shortcut-lane difference reproduced)
+- Lane status:
+  - close the current shared canvas-focus shortcut lane as non-reproducible on the current runtimes
+  - do not spend another iteration trying to fix the previously reported shortcut mismatch unless a fresh exact stored-target compare reproduces a visible canary-only defect again
+- Next frontier:
+  - return to one different normalized dynamic Gate 1 / Gate 2 lane, with production-fix work preferred immediately if that next compare exposes a concrete renderer defect
+- LOOP_TERMINAL_MARKER: none

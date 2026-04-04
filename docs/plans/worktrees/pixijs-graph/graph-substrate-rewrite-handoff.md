@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 09:11 EDT
+Last updated: 2026-04-04 09:56 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,31 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `110` used the one allowed post-support oracle step on the shared canvas-focus shortcut lane and closed it as non-reproducible on the current runtimes instead of forcing a speculative production fix.
+  - Why this slice was needed:
+    - items `108` and `109` were both oracle/probe-heavy, so the next valid step was either a real production fix or one bounded evidence pass that determined whether the reported shortcut mismatch still existed on the current run
+    - the prior handoff claimed a canary-only shortcut overlay plus a visible `browserSectionDefault` restore mismatch, but that evidence was stale enough that landing a production change without a fresh live repro would have been guesswork
+    - this iteration therefore spent its single bounded oracle step on the exact lane before changing product code
+  - Production/test change:
+    - no production or test files changed in this slice
+    - this iteration intentionally reused the existing main-reference shortcut probe and fresh CDP verification only
+  - Automated result:
+    - refreshed runtime/bootstrap values for the current run:
+      - worktree runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-029/worktree-ai.log`
+      - main runtime info: `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.lacQD0/run-029/main-ai.log`
+    - targeted direct live-runtime Playwright rerun with refreshed runtime/bootstrap values inline:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3075/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8075 SETTA_PROJECT_URL=http://127.0.0.1:3075/home SETTA_BOOTSTRAP_TOKEN='<fresh worktree token>' SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL='<fresh main bootstrap url>' pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe restores the same shared offscreen section target with the canvas focus shortcut on read-only main legacy and worktree canary' --reporter=line`
+      - result: passed (`1 passed`, `31.5s`)
+  - Live verification result:
+    - one fresh-context CDP sub-agent rechecked the raw baseline lane from outside the canvas on live `http://127.0.0.1:3075/settings` and read-only `http://127.0.0.1:3087/settings`
+    - that baseline no longer showed a canary-only overlay or help chrome; `Control+Shift+3` focused the same blank `menuitem` button in the first visible section on both surfaces
+    - the same fresh-context CDP pass also checked a practical `browserSectionDefault` lane and still found no meaningful visual difference: focus landed on the same blank `menuitem` button and `browserSectionDefault` was not visibly restored on either side
+    - this means the previously logged canary-only shortcut mismatch is not currently reproducible on the live run-029 surfaces
+    - CDP visual check: done (fresh-context normalized shortcut compare on live `3075` canary vs read-only `3087` legacy; no meaningful shortcut-lane difference reproduced)
+  - conclusion for this slice:
+    - close the current shared canvas-focus shortcut lane as non-reproducible on the current runtimes
+    - do not spend another iteration trying to fix the previously reported shortcut mismatch unless a fresh exact stored-target compare reproduces a visible canary-only defect again
+    - return the loop to one different normalized dynamic Gate 1 / Gate 2 lane, with production-fix work preferred immediately if that next compare finally exposes a concrete renderer defect
 - Ralph item `109` added a deterministic main-reference probe for the shared canvas-focus shortcut lane and turned that lane into the next concrete production blocker instead of another speculative compare.
   - Why this slice was needed:
     - item `108` closed the blank-pane deselect lane, and the handoff explicitly named the shared focus-shortcut restore path as the next good dynamic candidate
@@ -2747,6 +2772,6 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## History pointers
 
-- Active history window: items `001` through `109`
-- Latest item: `2026-04-04 109`
+- Active history window: items `001` through `110`
+- Latest item: `2026-04-04 110`
 - Older history archives: none yet
