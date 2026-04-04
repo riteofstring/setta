@@ -20,8 +20,8 @@ const (
 )
 
 type PluginRuntimeService interface {
-	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
-	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
+	Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error)
+	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error)
 	GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error)
 	ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error)
 	WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error
@@ -162,7 +162,7 @@ func NewScopedRegistry(options ScopedRegistryOptions) (*Registry, error) {
 	return newRegistry(entries, metadata)
 }
 
-func buildPluginRegistryMetadata(runtime plugins.RuntimeResponse) registryPluginMetadata {
+func buildPluginRegistryMetadata(runtime plugins.PluginRuntimeResponse) registryPluginMetadata {
 	metadata := registryPluginMetadata{
 		knownPluginIDs:         map[string]struct{}{},
 		knownPluginSettingIDs:  map[string]struct{}{},
@@ -420,14 +420,14 @@ func buildPluginBackendRuntimeEntry(pluginService PluginRuntimeService, registra
 	return entry
 }
 
-func requireActivePluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string) (plugins.ListEntry, error) {
+func requireActivePluginRuntimeEntry(pluginService PluginRuntimeService, pluginID string) (plugins.PluginListEntry, error) {
 	if pluginService == nil {
-		return plugins.ListEntry{}, newSettingError(ErrorCodePluginUnavailable, "Plugin runtime is unavailable for plugin UI setting access.")
+		return plugins.PluginListEntry{}, newSettingError(ErrorCodePluginUnavailable, "Plugin runtime is unavailable for plugin UI setting access.")
 	}
 
 	runtimeResponse, err := pluginService.Runtime(plugins.RuntimeOptions{})
 	if err != nil {
-		return plugins.ListEntry{}, err
+		return plugins.PluginListEntry{}, err
 	}
 
 	trimmedPluginID := strings.TrimSpace(pluginID)
@@ -439,7 +439,7 @@ func requireActivePluginRuntimeEntry(pluginService PluginRuntimeService, pluginI
 		observedStates = append(observedStates, string(statusEntry.State))
 	}
 
-	var pluginEntry plugins.ListEntry
+	var pluginEntry plugins.PluginListEntry
 	hasRuntimeEntry := false
 	for _, candidate := range runtimeResponse.List.Plugins {
 		if strings.TrimSpace(candidate.PluginID) != trimmedPluginID {
@@ -460,9 +460,9 @@ func requireActivePluginRuntimeEntry(pluginService PluginRuntimeService, pluginI
 	if !operational {
 		observedState := describeObservedPluginStates(observedStates)
 		if observedState == "" {
-			return plugins.ListEntry{}, newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable.", trimmedPluginID)
+			return plugins.PluginListEntry{}, newSettingError(ErrorCodePluginUnavailable, "Plugin %s is unavailable.", trimmedPluginID)
 		}
-		return plugins.ListEntry{}, newSettingError(
+		return plugins.PluginListEntry{}, newSettingError(
 			ErrorCodePluginUnavailable,
 			"Plugin %s is unavailable (state=%s).",
 			trimmedPluginID,
@@ -474,7 +474,7 @@ func requireActivePluginRuntimeEntry(pluginService PluginRuntimeService, pluginI
 		if observedState == "" {
 			observedState = "unknown"
 		}
-		return plugins.ListEntry{}, newSettingError(
+		return plugins.PluginListEntry{}, newSettingError(
 			ErrorCodePluginUnavailable,
 			"Plugin %s is unavailable (state=%s, runtime entry missing).",
 			trimmedPluginID,
@@ -482,7 +482,7 @@ func requireActivePluginRuntimeEntry(pluginService PluginRuntimeService, pluginI
 		)
 	}
 	if !pluginHasRegisterPaneCapability(pluginEntry.EffectiveCapabilities) {
-		return plugins.ListEntry{}, newSettingError(
+		return plugins.PluginListEntry{}, newSettingError(
 			ErrorCodePluginUnavailable,
 			"Plugin %s is unavailable for UI setting access (registerPane capability not effective).",
 			trimmedPluginID,

@@ -26,12 +26,12 @@ type PluginsLockFile struct {
 	Plugins       []PluginLockEntry `json:"plugins"`
 }
 
-type PluginLockWriteResult struct {
+type PluginLockWriteResponse struct {
 	LockfilePath string `json:"lockfilePath"`
 	PluginCount  int    `json:"pluginCount"`
 }
 
-type PluginLockApplyResult struct {
+type PluginLockApplyResponse struct {
 	LockfilePath   string   `json:"lockfilePath"`
 	PlannedChanges []string `json:"plannedChanges"`
 	Applied        bool     `json:"applied"`
@@ -42,9 +42,9 @@ type pluginScopeKey struct {
 	PluginID string
 }
 
-func (s *Service) WriteLockfile() (PluginLockWriteResult, error) {
+func (s *Service) WriteLockfile() (PluginLockWriteResponse, error) {
 	if s == nil {
-		return PluginLockWriteResult{}, ErrWorkspaceRootRequired
+		return PluginLockWriteResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -52,11 +52,11 @@ func (s *Service) WriteLockfile() (PluginLockWriteResult, error) {
 
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return PluginLockWriteResult{}, err
+		return PluginLockWriteResponse{}, err
 	}
 	installMetadata, err := s.store.LoadInstallMetadata()
 	if err != nil {
-		return PluginLockWriteResult{}, err
+		return PluginLockWriteResponse{}, err
 	}
 
 	candidates := make([]DiscoveredPlugin, 0, len(snapshot.Plugins))
@@ -84,18 +84,18 @@ func (s *Service) WriteLockfile() (PluginLockWriteResult, error) {
 		SchemaVersion: pluginLockSchemaVersion,
 		Plugins:       lockEntries,
 	}); err != nil {
-		return PluginLockWriteResult{}, err
+		return PluginLockWriteResponse{}, err
 	}
 
-	return PluginLockWriteResult{
+	return PluginLockWriteResponse{
 		LockfilePath: lockfilePath,
 		PluginCount:  len(lockEntries),
 	}, nil
 }
 
-func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockApplyResult, error) {
+func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockApplyResponse, error) {
 	if s == nil {
-		return PluginLockApplyResult{}, ErrWorkspaceRootRequired
+		return PluginLockApplyResponse{}, ErrWorkspaceRootRequired
 	}
 	if ctx == nil {
 		ctx = context.Background()
@@ -104,25 +104,25 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 	lockfilePath := s.store.LockfilePath()
 	lockfile, err := loadPluginsLockfile(lockfilePath)
 	if err != nil {
-		return PluginLockApplyResult{}, err
+		return PluginLockApplyResponse{}, err
 	}
 
 	s.mu.Lock()
 	snapshot, err := s.rescanLocked()
 	if err != nil {
 		s.mu.Unlock()
-		return PluginLockApplyResult{}, err
+		return PluginLockApplyResponse{}, err
 	}
 	installMetadata, err := s.store.LoadInstallMetadata()
 	if err != nil {
 		s.mu.Unlock()
-		return PluginLockApplyResult{}, err
+		return PluginLockApplyResponse{}, err
 	}
 	s.mu.Unlock()
 
 	desiredEntries, desiredByScopePlugin, err := normalizeLockfileEntries(lockfile)
 	if err != nil {
-		return PluginLockApplyResult{}, err
+		return PluginLockApplyResponse{}, err
 	}
 
 	currentExternalByScopePlugin := map[pluginScopeKey]DiscoveredPlugin{}
@@ -147,7 +147,7 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 		installMetadata,
 	)
 	if check {
-		return PluginLockApplyResult{
+		return PluginLockApplyResponse{
 			LockfilePath:   lockfilePath,
 			PlannedChanges: plannedChanges,
 			Applied:        false,
@@ -167,7 +167,7 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 			continue
 		}
 		if desired.SourceSpec == nil {
-			return PluginLockApplyResult{}, newServiceError(ServiceErrorCodeLockfileEntryMissing, "Lockfile entry missing source spec for plugin: %s", desired.PluginID)
+			return PluginLockApplyResponse{}, newServiceError(ServiceErrorCodeLockfileEntryMissing, "Lockfile entry missing source spec for plugin: %s", desired.PluginID)
 		}
 
 		enableForInstall := true
@@ -195,7 +195,7 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 			options.existingEntry = &currentEntry
 		}
 		if _, err := s.Install(ctx, options); err != nil {
-			return PluginLockApplyResult{}, err
+			return PluginLockApplyResponse{}, err
 		}
 	}
 
@@ -217,16 +217,16 @@ func (s *Service) ApplyLockfile(ctx context.Context, check bool) (PluginLockAppl
 			skipLookupRescan: true,
 			skipFinalRescan:  true,
 		}); err != nil {
-			return PluginLockApplyResult{}, err
+			return PluginLockApplyResponse{}, err
 		}
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, err := s.rescanLocked(); err != nil {
-		return PluginLockApplyResult{}, err
+		return PluginLockApplyResponse{}, err
 	}
-	return PluginLockApplyResult{
+	return PluginLockApplyResponse{
 		LockfilePath:   lockfilePath,
 		PlannedChanges: plannedChanges,
 		Applied:        true,

@@ -430,7 +430,7 @@ func TestServiceApplyLockfileReinstallsPluginFromPyPISource(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load plugin status: %v", err)
 	}
-	entries := make([]StatusEntry, 0)
+	entries := make([]PluginStatusEntry, 0)
 	for _, entry := range status.Plugins {
 		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
 			entries = append(entries, entry)
@@ -518,7 +518,7 @@ func TestServiceApplyLockfilePreservesDisabledStateWhenReconcilingSource(t *test
 	if err != nil {
 		t.Fatalf("load plugin status: %v", err)
 	}
-	entries := make([]StatusEntry, 0)
+	entries := make([]PluginStatusEntry, 0)
 	for _, entry := range status.Plugins {
 		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
 			entries = append(entries, entry)
@@ -684,7 +684,7 @@ func TestServiceApplyLockfileReconcilesSourceSpecChangesForExistingPlugins(t *te
 	if err != nil {
 		t.Fatalf("load plugin status: %v", err)
 	}
-	entries := make([]StatusEntry, 0)
+	entries := make([]PluginStatusEntry, 0)
 	for _, entry := range status.Plugins {
 		if entry.PluginID == "setta-fixture-frontend" && entry.SourceScope == PluginScopeWorkspace && entry.ShadowedBySourcePath == nil {
 			entries = append(entries, entry)

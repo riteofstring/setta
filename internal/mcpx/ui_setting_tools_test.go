@@ -43,12 +43,12 @@ type concurrentWritePluginMutationService struct {
 	beforeWriteConfig func(context.Context, plugins.ConfigWriteOptions) error
 }
 
-func (s *concurrentWritePluginMutationService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
+func (s *concurrentWritePluginMutationService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
 	if s.beforeWriteConfig != nil {
 		hook := s.beforeWriteConfig
 		s.beforeWriteConfig = nil
 		if err := hook(ctx, options); err != nil {
-			return plugins.PluginConfigWriteResult{}, err
+			return plugins.PluginConfigWriteResponse{}, err
 		}
 	}
 	return s.Service.WriteConfig(ctx, options)
@@ -56,13 +56,13 @@ func (s *concurrentWritePluginMutationService) WriteConfig(ctx context.Context, 
 
 type runtimeOverridePluginMutationService struct {
 	*plugins.Service
-	mutateRuntime func(plugins.RuntimeResponse) plugins.RuntimeResponse
+	mutateRuntime func(plugins.PluginRuntimeResponse) plugins.PluginRuntimeResponse
 }
 
-func (s *runtimeOverridePluginMutationService) Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
+func (s *runtimeOverridePluginMutationService) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
 	response, err := s.Service.Runtime(options)
 	if err != nil {
-		return plugins.RuntimeResponse{}, err
+		return plugins.PluginRuntimeResponse{}, err
 	}
 	if s.mutateRuntime != nil {
 		response = s.mutateRuntime(response)
@@ -3154,7 +3154,7 @@ func TestServerUISettingToolsReturnDefaultForMissingPluginConfigLeafFromRuntime(
 	// The Go runtime keeps currentConfig typed as an object, but a runtime view can still omit a leaf.
 	service := &runtimeOverridePluginMutationService{
 		Service: baseService,
-		mutateRuntime: func(response plugins.RuntimeResponse) plugins.RuntimeResponse {
+		mutateRuntime: func(response plugins.PluginRuntimeResponse) plugins.PluginRuntimeResponse {
 			for index := range response.List.Plugins {
 				if response.List.Plugins[index].PluginID != "setta-fixture-full" {
 					continue
@@ -5157,7 +5157,7 @@ func TestServerUISettingToolsReturnPluginUnavailableForReadWriteWhenRegisterPane
 	}
 }
 
-func mustFindPluginListEntry(t *testing.T, entries []plugins.ListEntry, pluginID string) plugins.ListEntry {
+func mustFindPluginListEntry(t *testing.T, entries []plugins.PluginListEntry, pluginID string) plugins.PluginListEntry {
 	t.Helper()
 
 	for _, entry := range entries {
@@ -5166,15 +5166,15 @@ func mustFindPluginListEntry(t *testing.T, entries []plugins.ListEntry, pluginID
 		}
 	}
 	t.Fatalf("expected plugin list entry for %s, got %#v", pluginID, entries)
-	return plugins.ListEntry{}
+	return plugins.PluginListEntry{}
 }
 
 func mustFindPluginStatusEntry(
 	t *testing.T,
-	entries []plugins.StatusEntry,
+	entries []plugins.PluginStatusEntry,
 	pluginID string,
 	state plugins.PluginRuntimeState,
-) plugins.StatusEntry {
+) plugins.PluginStatusEntry {
 	t.Helper()
 
 	for _, entry := range entries {
@@ -5183,7 +5183,7 @@ func mustFindPluginStatusEntry(
 		}
 	}
 	t.Fatalf("expected plugin status entry for %s in state %s, got %#v", pluginID, state, entries)
-	return plugins.StatusEntry{}
+	return plugins.PluginStatusEntry{}
 }
 
 func testStringPointer(value string) *string {

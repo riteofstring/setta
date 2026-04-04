@@ -153,7 +153,7 @@ func TestAppShareModePluginRuntimeIgnoresHostGlobalPluginHome(t *testing.T) {
 		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.StatusCode, string(body))
 	}
 
-	var payload plugins.RuntimeResponse
+	var payload plugins.PluginRuntimeResponse
 	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
 		t.Fatalf("decode plugin runtime payload: %v", err)
 	}

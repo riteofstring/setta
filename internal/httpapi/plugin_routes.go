@@ -57,22 +57,22 @@ type PluginRootRouteService interface {
 type PluginRouteService interface {
 	PluginRootRouteService
 	InvokeRegisteredListenerEndpoint(ctx context.Context, request plugins.BackendListenerEndpointRequest) (any, bool, error)
-	Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
+	Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error)
 	GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error)
 	ReadBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingReadOptions) (any, error)
 	WriteBackendUISettingValue(ctx context.Context, options plugins.BackendUISettingWriteOptions) error
 	Rescan() (plugins.DiscoverySnapshot, error)
-	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error)
-	Link(options plugins.LinkOptions) (plugins.PluginInstallResult, error)
-	Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResult, error)
-	Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error)
-	Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
-	Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
-	Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
-	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
-	WriteLockfile() (plugins.PluginLockWriteResult, error)
-	ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResult, error)
-	Restart(ctx context.Context) (plugins.PluginRestartResult, error)
+	Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error)
+	Link(options plugins.LinkOptions) (plugins.PluginInstallResponse, error)
+	Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResponse, error)
+	Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResponse, error)
+	Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResponse, error)
+	Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error)
+	Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error)
+	WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error)
+	WriteLockfile() (plugins.PluginLockWriteResponse, error)
+	ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResponse, error)
+	Restart(ctx context.Context) (plugins.PluginRestartResponse, error)
 }
 
 type PluginsRescanResponse struct {
@@ -192,7 +192,7 @@ func pluginRescanHandler(deps PluginRouteDependencies) http.HandlerFunc {
 	}
 }
 
-func pluginEnableDisableHandler(operation func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)) http.HandlerFunc {
+func pluginEnableDisableHandler(operation func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error)) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		payload, err := decodeJSONBody[PluginEnableDisableRequest](r)
 		if err != nil {

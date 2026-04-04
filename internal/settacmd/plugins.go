@@ -329,19 +329,19 @@ func runPluginsPin(args []string, global globalFlags, stdout io.Writer, stderr i
 	return nil
 }
 
-func runPluginsUpdateLike(parsed pluginsUpdateFlags, pluginID string, global globalFlags, envLookup func(string) (string, bool), cwd string) (plugins.PluginUpdateResult, error) {
+func runPluginsUpdateLike(parsed pluginsUpdateFlags, pluginID string, global globalFlags, envLookup func(string) (string, bool), cwd string) (plugins.PluginUpdateResponse, error) {
 	resolvedScope, err := resolvePluginsScopeFlag(pluginsScopedMutationFlags{
 		scope:           parsed.scope,
 		globalScope:     parsed.globalScope,
 		settaFilesScope: parsed.settaFilesScope,
 	})
 	if err != nil {
-		return plugins.PluginUpdateResult{}, err
+		return plugins.PluginUpdateResponse{}, err
 	}
 
 	service, err := resolvePluginsService(global, envLookup, cwd)
 	if err != nil {
-		return plugins.PluginUpdateResult{}, &ExitError{Code: 2, Err: err}
+		return plugins.PluginUpdateResponse{}, &ExitError{Code: 2, Err: err}
 	}
 	result, err := service.Update(context.Background(), plugins.UpdateOptions{
 		PluginID: pluginID,
@@ -349,7 +349,7 @@ func runPluginsUpdateLike(parsed pluginsUpdateFlags, pluginID string, global glo
 		To:       parsed.to,
 	})
 	if err != nil {
-		return plugins.PluginUpdateResult{}, asPluginsCommandError(err)
+		return plugins.PluginUpdateResponse{}, asPluginsCommandError(err)
 	}
 	return result, nil
 }
@@ -463,7 +463,7 @@ func runPluginsRestartRequired(args []string, global globalFlags, stdout io.Writ
 		}
 	}
 
-	if summary.RestartCapability.Mode == plugins.RestartCapabilityModeProgrammatic {
+	if summary.RestartCapability.Mode == plugins.PluginRestartCapabilityModeProgrammatic {
 		_, err := fmt.Fprintln(stdout, "Programmatic restart available: setta plugins restart")
 		return err
 	}
@@ -1079,7 +1079,7 @@ func asPluginsCommandError(err error) error {
 	return err
 }
 
-func buildPluginsInstallCommandJSON(result plugins.PluginInstallResult) map[string]any {
+func buildPluginsInstallCommandJSON(result plugins.PluginInstallResponse) map[string]any {
 	return map[string]any{
 		"pluginId":              result.PluginID,
 		"version":               result.Version,

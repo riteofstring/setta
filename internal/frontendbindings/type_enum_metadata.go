@@ -8,6 +8,7 @@ import (
 	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/launcher"
+	"setta/internal/plugins"
 	"setta/internal/stringenumvalues"
 )
 
@@ -66,7 +67,7 @@ var frontendBindingEnumNamingModes = map[reflect.Type]frontendEnumNamingMode{
 	reflect.TypeOf(PluginInstallerBackend("")):                   frontendEnumNamingPascalValue,
 	reflect.TypeOf(PluginSourceTrustStatus("")):                  frontendEnumNamingPascalValue,
 	reflect.TypeOf(PluginBlockedCapabilityReason("")):            frontendEnumNamingPascalValue,
-	reflect.TypeOf(PluginRestartCapabilityMode("")):              frontendEnumNamingPascalValue,
+	reflect.TypeOf(plugins.PluginRestartCapabilityMode("")):      frontendEnumNamingPascalValue,
 	reflect.TypeOf(StreamingEventType("")):                       frontendEnumNamingUpperSnakeValue,
 }
 

@@ -94,6 +94,269 @@ function resolveGeneratedFactoryInputs<
   };
 }
 
+const ModeEnum = {
+  IDE: "ide",
+  Share: "share",
+  App: "app",
+  Launcher: "launcher",
+} as const;
+type Mode = ObjectValues<typeof ModeEnum>;
+
+type PluginConfigValidationResult = {
+  ok: boolean;
+};
+
+export type PluginConfigWriteResponse = {
+  pluginId: string;
+  config: Record<string, unknown>;
+  validation: PluginConfigValidationResult;
+};
+
+const PluginScopeEnum = {
+  workspace: "workspace",
+  setta_files: "setta_files",
+  global: "global",
+} as const;
+type PluginScope = ObjectValues<typeof PluginScopeEnum>;
+
+const PluginInstallerBackendEnum = {
+  auto: "auto",
+  pip: "pip",
+  uv: "uv",
+} as const;
+type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
+
+export type PluginLockWriteResponse = {
+  lockfilePath: string;
+  pluginCount: number;
+};
+
+export type PluginLockApplyResponse = {
+  lockfilePath: string;
+  plannedChanges: Array<string>;
+  applied: boolean;
+};
+
+const PluginSourceTrustStatusEnum = {
+  unverified: "unverified",
+} as const;
+type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
+
+export const PluginRuntimeStateEnum = {
+  active: "active",
+  disabled: "disabled",
+  invalid: "invalid",
+  shadowed: "shadowed",
+  pending_restart: "pending_restart",
+} as const;
+type PluginRuntimeState = ObjectValues<typeof PluginRuntimeStateEnum>;
+
+export type PluginInstallResponse = {
+  pluginId: string;
+  version: string;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourcePath: string;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  requestedCapabilities: Array<string>;
+  trustStatus: PluginSourceTrustStatus;
+  trustWarning: string;
+  components: Array<string>;
+  state: PluginRuntimeState;
+  restartRequired: boolean;
+};
+
+export type PluginUninstallResponse = {
+  pluginId: string;
+  removedFromScope: PluginScope;
+  restartRequired: boolean;
+};
+
+export type PluginUpdateResponse = {
+  pluginId: string;
+  fromVersion: string;
+  toVersion: string;
+  sourceDigestSha256: string | null;
+  restartRequired: boolean;
+};
+
+export type PluginRollbackResponse = {
+  pluginId: string;
+  restoredVersion: string;
+  sourceDigestSha256: string | null;
+  restartRequired: boolean;
+};
+
+type PluginFrontendDescriptor = {
+  entrypointUrl: string | null;
+  styleUrl: string | null;
+};
+
+type PluginContentDescriptor = {
+  hasBlueprints: boolean;
+  hasProjectTemplates: boolean;
+  hasPrompts: boolean;
+};
+
+type PluginConfigDescriptor = {
+  hasSchema: boolean;
+  schemaJson: Record<string, unknown>;
+  schemaJsonDigestSha256: string | null;
+  currentConfig: Record<string, unknown>;
+  currentConfigDigestSha256: string | null;
+};
+
+const PluginSourceManagerEnum = {
+  setta: "setta",
+  package_manager: "package_manager",
+} as const;
+type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
+
+const PluginEnablementSourceEnum = {
+  workspace_disabled: "workspace_disabled",
+  workspace_enabled: "workspace_enabled",
+  global_auto_enabled: "global_auto_enabled",
+  manifest_default: "manifest_default",
+} as const;
+type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
+
+export type PluginListEntry = {
+  pluginId: string;
+  name: string;
+  version: string;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourceManager: PluginSourceManager;
+  sourceManagerHint: string | null;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  frontend: PluginFrontendDescriptor;
+  content: PluginContentDescriptor;
+  config: PluginConfigDescriptor;
+  effectiveCapabilities: Array<string>;
+  enablementSource: PluginEnablementSource | null;
+  restartRequired: boolean;
+};
+export function createPluginListEntry(
+  options: Partial<PluginListEntry> = {},
+): PluginListEntry {
+  return options as PluginListEntry;
+}
+
+const PluginRestartCapabilityModeEnum = {
+  Manual: "manual",
+  Programmatic: "programmatic",
+} as const;
+type PluginRestartCapabilityMode = ObjectValues<
+  typeof PluginRestartCapabilityModeEnum
+>;
+
+export type PluginRestartCapability = {
+  mode: PluginRestartCapabilityMode;
+  command: string | null;
+  reason: string | null;
+};
+
+export type PluginListResponse = {
+  schemaVersion: number;
+  serverMode: Mode;
+  restartCapability: PluginRestartCapability;
+  plugins: Array<PluginListEntry>;
+};
+
+const PluginBlockedCapabilityReasonEnum = {
+  mode_policy: "mode_policy",
+  host_policy: "host_policy",
+  manifest_invalid: "manifest_invalid",
+} as const;
+type PluginBlockedCapabilityReason = ObjectValues<
+  typeof PluginBlockedCapabilityReasonEnum
+>;
+
+export type PluginBlockedCapability = {
+  capability: string;
+  reason: PluginBlockedCapabilityReason;
+};
+
+type PluginRegisteredCodegenTarget = {
+  targetId: string;
+  pluginId: string;
+  language: string;
+  name: string;
+  defaultFileName: string;
+};
+
+type PluginRegisteredBackendRoute = {
+  path: string;
+  methods: Array<string>;
+};
+
+type PluginRegisteredStaticDir = {
+  routePrefix: string;
+  dir: string;
+};
+
+type PluginRegisteredListenerEndpoint = {
+  name: string;
+};
+
+type PluginErrorInfo = {
+  code: string;
+  message: string;
+};
+
+export type PluginStatusEntry = {
+  pluginId: string;
+  name: string;
+  version: string;
+  state: PluginRuntimeState;
+  sourceScope: PluginScope;
+  sourceScopeLabel: string;
+  sourceManager: PluginSourceManager;
+  sourceManagerHint: string | null;
+  sourcePath: string;
+  canonicalSourceKey: string;
+  sourceDigestSha256: string | null;
+  shadowedBySourcePath: string | null;
+  requestedCapabilities: Array<string>;
+  effectiveCapabilities: Array<string>;
+  blockedCapabilities: Array<PluginBlockedCapability>;
+  registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
+  registeredBackendRoutes: Array<PluginRegisteredBackendRoute>;
+  registeredStaticDirs: Array<PluginRegisteredStaticDir>;
+  registeredListenerEndpoints: Array<PluginRegisteredListenerEndpoint>;
+  enablementSource: PluginEnablementSource | null;
+  restartRequired: boolean;
+  runtimePayloadDigestSha256: string;
+  errors: Array<PluginErrorInfo>;
+};
+export function createPluginStatusEntry(
+  options: Partial<PluginStatusEntry> = {},
+): PluginStatusEntry {
+  return options as PluginStatusEntry;
+}
+
+export type PluginStatusResponse = {
+  schemaVersion: number;
+  serverMode: Mode;
+  restartCapability: PluginRestartCapability;
+  plugins: Array<PluginStatusEntry>;
+};
+
+export type PluginRuntimeResponse = {
+  schemaVersion: number;
+  list: PluginListResponse;
+  status: PluginStatusResponse;
+};
+
+export type PluginRestartResponse = {
+  accepted: boolean;
+  mode: PluginRestartCapabilityMode;
+  command: string | null;
+  reason: string | null;
+};
+
 export const SettaNotificationTypeEnum = {
   error: "error",
   warning: "warning",
@@ -1427,204 +1690,6 @@ export type ListenerCoverageRequestInput = {
   projectConfigId: string;
 };
 
-const PluginScopeEnum = {
-  Workspace: "workspace",
-  SettaFiles: "setta_files",
-  Global: "global",
-} as const;
-type PluginScope = ObjectValues<typeof PluginScopeEnum>;
-
-export const PluginRuntimeStateEnum = {
-  active: "active",
-  disabled: "disabled",
-  invalid: "invalid",
-  shadowed: "shadowed",
-  pending_restart: "pending_restart",
-} as const;
-type PluginRuntimeState = ObjectValues<typeof PluginRuntimeStateEnum>;
-
-const PluginEnablementSourceEnum = {
-  WorkspaceDisabled: "workspace_disabled",
-  WorkspaceEnabled: "workspace_enabled",
-  GlobalAutoEnabled: "global_auto_enabled",
-  ManifestDefault: "manifest_default",
-} as const;
-type PluginEnablementSource = ObjectValues<typeof PluginEnablementSourceEnum>;
-
-const PluginSourceManagerEnum = {
-  Setta: "setta",
-  PackageManager: "package_manager",
-} as const;
-type PluginSourceManager = ObjectValues<typeof PluginSourceManagerEnum>;
-
-const PluginInstallerBackendEnum = {
-  Auto: "auto",
-  Pip: "pip",
-  UV: "uv",
-} as const;
-type PluginInstallerBackend = ObjectValues<typeof PluginInstallerBackendEnum>;
-
-const PluginSourceTrustStatusEnum = {
-  Unverified: "unverified",
-} as const;
-type PluginSourceTrustStatus = ObjectValues<typeof PluginSourceTrustStatusEnum>;
-
-const PluginBlockedCapabilityReasonEnum = {
-  ModePolicy: "mode_policy",
-  HostPolicy: "host_policy",
-  ManifestInvalid: "manifest_invalid",
-} as const;
-type PluginBlockedCapabilityReason = ObjectValues<
-  typeof PluginBlockedCapabilityReasonEnum
->;
-
-const PluginRestartCapabilityModeEnum = {
-  Manual: "manual",
-  Programmatic: "programmatic",
-} as const;
-type PluginRestartCapabilityMode = ObjectValues<
-  typeof PluginRestartCapabilityModeEnum
->;
-
-type PluginErrorInfo = {
-  code: string;
-  message: string;
-};
-
-export type PluginBlockedCapability = {
-  capability: string;
-  reason: PluginBlockedCapabilityReason;
-};
-
-type PluginFrontendDescriptor = {
-  entrypointUrl: string | null;
-  styleUrl: string | null;
-};
-
-type PluginContentDescriptor = {
-  hasBlueprints: boolean;
-  hasProjectTemplates: boolean;
-  hasPrompts: boolean;
-};
-
-type PluginConfigDescriptor = {
-  hasSchema: boolean;
-  schemaJson: Record<string, unknown>;
-  schemaJsonDigestSha256: string | null;
-  currentConfig: Record<string, unknown>;
-  currentConfigDigestSha256: string | null;
-};
-
-type PluginRegisteredCodegenTarget = {
-  targetId: string;
-  pluginId: string;
-  language: string;
-  name: string;
-  defaultFileName: string;
-};
-
-type PluginRegisteredBackendRoute = {
-  path: string;
-  methods: Array<string>;
-};
-
-type PluginRegisteredStaticDir = {
-  routePrefix: string;
-  dir: string;
-};
-
-type PluginRegisteredListenerEndpoint = {
-  name: string;
-};
-
-export type PluginRestartCapability = {
-  mode: PluginRestartCapabilityMode;
-  command: string | null;
-  reason: string | null;
-};
-
-export type PluginListEntry = {
-  pluginId: string;
-  name: string;
-  version: string;
-  sourceScope: PluginScope;
-  sourceScopeLabel: string;
-  sourceManager: PluginSourceManager;
-  sourceManagerHint: string | null;
-  canonicalSourceKey: string;
-  sourceDigestSha256: string | null;
-  frontend: PluginFrontendDescriptor;
-  content: PluginContentDescriptor;
-  config: PluginConfigDescriptor;
-  effectiveCapabilities: Array<string>;
-  enablementSource: PluginEnablementSource | null;
-  restartRequired: boolean;
-};
-export function createPluginListEntry(
-  options: Partial<PluginListEntry> = {},
-): PluginListEntry {
-  return options as PluginListEntry;
-}
-
-const ModeEnum = {
-  IDE: "ide",
-  Share: "share",
-  App: "app",
-  Launcher: "launcher",
-} as const;
-type Mode = ObjectValues<typeof ModeEnum>;
-
-export type PluginListResponse = {
-  schemaVersion: number;
-  serverMode: Mode;
-  restartCapability: PluginRestartCapability;
-  plugins: Array<PluginListEntry>;
-};
-
-export type PluginStatusEntry = {
-  pluginId: string;
-  name: string;
-  version: string;
-  state: PluginRuntimeState;
-  sourceScope: PluginScope;
-  sourceScopeLabel: string;
-  sourceManager: PluginSourceManager;
-  sourceManagerHint: string | null;
-  sourcePath: string;
-  canonicalSourceKey: string;
-  sourceDigestSha256: string | null;
-  shadowedBySourcePath: string | null;
-  requestedCapabilities: Array<string>;
-  effectiveCapabilities: Array<string>;
-  blockedCapabilities: Array<PluginBlockedCapability>;
-  registeredCodegenTargets: Array<PluginRegisteredCodegenTarget>;
-  registeredBackendRoutes: Array<PluginRegisteredBackendRoute>;
-  registeredStaticDirs: Array<PluginRegisteredStaticDir>;
-  registeredListenerEndpoints: Array<PluginRegisteredListenerEndpoint>;
-  enablementSource: PluginEnablementSource | null;
-  restartRequired: boolean;
-  runtimePayloadDigestSha256: string;
-  errors: Array<PluginErrorInfo>;
-};
-export function createPluginStatusEntry(
-  options: Partial<PluginStatusEntry> = {},
-): PluginStatusEntry {
-  return options as PluginStatusEntry;
-}
-
-export type PluginStatusResponse = {
-  schemaVersion: number;
-  serverMode: Mode;
-  restartCapability: PluginRestartCapability;
-  plugins: Array<PluginStatusEntry>;
-};
-
-export type PluginRuntimeResponse = {
-  schemaVersion: number;
-  list: PluginListResponse;
-  status: PluginStatusResponse;
-};
-
 export type PluginRescanResponse = {
   schemaVersion: number;
   serverMode: Mode;
@@ -1651,31 +1716,9 @@ export type PluginLinkRequestInput = {
   force: boolean | null;
 };
 
-export type PluginInstallResponse = {
-  pluginId: string;
-  version: string;
-  sourceScope: PluginScope;
-  sourceScopeLabel: string;
-  sourcePath: string;
-  canonicalSourceKey: string;
-  sourceDigestSha256: string | null;
-  requestedCapabilities: Array<string>;
-  trustStatus: PluginSourceTrustStatus;
-  trustWarning: string;
-  components: Array<string>;
-  state: PluginRuntimeState;
-  restartRequired: boolean;
-};
-
 export type PluginUninstallRequestInput = {
   pluginId: string;
   scope: PluginScope | null;
-};
-
-export type PluginUninstallResponse = {
-  pluginId: string;
-  removedFromScope: PluginScope;
-  restartRequired: boolean;
 };
 
 export type PluginUpdateRequestInput = {
@@ -1684,28 +1727,9 @@ export type PluginUpdateRequestInput = {
   to: string | null;
 };
 
-export type PluginUpdateResponse = {
-  pluginId: string;
-  fromVersion: string;
-  toVersion: string;
-  sourceDigestSha256: string | null;
-  restartRequired: boolean;
-};
-
 export type PluginRollbackRequestInput = {
   pluginId: string;
   scope: PluginScope | null;
-};
-
-export type PluginRollbackResponse = {
-  pluginId: string;
-  restoredVersion: string;
-  sourceDigestSha256: string | null;
-  restartRequired: boolean;
-};
-
-type PluginConfigValidationResult = {
-  ok: boolean;
 };
 
 export type PluginConfigWriteRequestInput = {
@@ -1713,32 +1737,8 @@ export type PluginConfigWriteRequestInput = {
   config: Record<string, unknown>;
 };
 
-export type PluginConfigWriteResponse = {
-  pluginId: string;
-  config: Record<string, unknown>;
-  validation: PluginConfigValidationResult;
-};
-
-export type PluginLockWriteResponse = {
-  lockfilePath: string;
-  pluginCount: number;
-};
-
 export type PluginLockApplyRequestInput = {
   check: boolean;
-};
-
-export type PluginLockApplyResponse = {
-  lockfilePath: string;
-  plannedChanges: Array<string>;
-  applied: boolean;
-};
-
-export type PluginRestartResponse = {
-  accepted: boolean;
-  mode: PluginRestartCapabilityMode;
-  command: string | null;
-  reason: string | null;
 };
 
 export type CreateFileRequestInput = {

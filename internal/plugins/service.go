@@ -163,9 +163,9 @@ func (s *Service) CommitBackendRuntimeRefresh() (DiscoverySnapshot, error) {
 	return s.rescanLocked()
 }
 
-func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResult, error) {
+func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResponse, error) {
 	if s == nil {
-		return PluginEnableDisableResult{}, ErrWorkspaceRootRequired
+		return PluginEnableDisableResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -173,16 +173,16 @@ func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (Plugi
 
 	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 	globalState, err := s.store.LoadPluginsGlobalState()
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 
 	wasEnabled := resolveEnablementBeforeMutation(entry, state, globalState)
@@ -206,29 +206,29 @@ func (s *Service) Enable(_ context.Context, options EnableDisableOptions) (Plugi
 	}
 	if stateChanged {
 		if err := s.store.SavePluginsState(state); err != nil {
-			return PluginEnableDisableResult{}, err
+			return PluginEnableDisableResponse{}, err
 		}
 	}
 
 	restartRequired := entry.HasBackend() && containsString(state.PendingRestartBackendPluginIDs, options.PluginID)
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, options.PluginID)
 	if latestEntry.PluginID == "" {
-		return PluginEnableDisableResult{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", options.PluginID)
+		return PluginEnableDisableResponse{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", options.PluginID)
 	}
-	return PluginEnableDisableResult{
+	return PluginEnableDisableResponse{
 		PluginID:        options.PluginID,
 		State:           latestEntry.State,
 		RestartRequired: restartRequired,
 	}, nil
 }
 
-func (s *Service) Disable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResult, error) {
+func (s *Service) Disable(_ context.Context, options EnableDisableOptions) (PluginEnableDisableResponse, error) {
 	if s == nil {
-		return PluginEnableDisableResult{}, ErrWorkspaceRootRequired
+		return PluginEnableDisableResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -236,16 +236,16 @@ func (s *Service) Disable(_ context.Context, options EnableDisableOptions) (Plug
 
 	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 	globalState, err := s.store.LoadPluginsGlobalState()
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 
 	wasEnabled := resolveEnablementBeforeMutation(entry, state, globalState)
@@ -269,43 +269,43 @@ func (s *Service) Disable(_ context.Context, options EnableDisableOptions) (Plug
 	}
 	if stateChanged {
 		if err := s.store.SavePluginsState(state); err != nil {
-			return PluginEnableDisableResult{}, err
+			return PluginEnableDisableResponse{}, err
 		}
 	}
 
 	restartRequired := entry.HasBackend() && containsString(state.PendingRestartBackendPluginIDs, options.PluginID)
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return PluginEnableDisableResult{}, err
+		return PluginEnableDisableResponse{}, err
 	}
 	latestEntry := findHighestPrecedenceDiscoveredPlugin(snapshot.Plugins, options.PluginID)
 	if latestEntry.PluginID == "" {
-		return PluginEnableDisableResult{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", options.PluginID)
+		return PluginEnableDisableResponse{}, newServiceError(ServiceErrorCodeNotFound, "Plugin not found: %s", options.PluginID)
 	}
-	return PluginEnableDisableResult{
+	return PluginEnableDisableResponse{
 		PluginID:        options.PluginID,
 		State:           latestEntry.State,
 		RestartRequired: restartRequired,
 	}, nil
 }
 
-func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginInstallResult, error) {
+func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginInstallResponse, error) {
 	if s == nil {
-		return PluginInstallResult{}, ErrWorkspaceRootRequired
+		return PluginInstallResponse{}, ErrWorkspaceRootRequired
 	}
 
 	scope, err := NormalizeScope(options.Scope)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	parsedSpec, err := ParseSourceSpec(options.SourceSpec)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	installer := resolvedInstaller(options.Installer)
 	candidate, err := s.resolveCandidate(ctx, parsedSpec, installer)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	if candidate.cleanup != nil {
 		defer func() {
@@ -313,19 +313,19 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 		}()
 	}
 	if err := normalizeCandidate(&candidate, parsedSpec); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 
 	targetPath, err := s.store.PluginRoot(scope, candidate.Manifest.ID)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if err := s.reserveInstallTargetPathLocked(targetPath, options.Force); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	defer s.releaseInstallTargetPathReservationLocked(targetPath)
 
@@ -335,25 +335,25 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 	} else if !options.skipLookupRescan {
 		currentSnapshot, err := s.rescanLocked()
 		if err != nil {
-			return PluginInstallResult{}, err
+			return PluginInstallResponse{}, err
 		}
 		existingEntry := findDiscoveredPlugin(currentSnapshot.Plugins, candidate.Manifest.ID, scope)
 		hadBackendBefore = existingEntry.PluginID != "" && existingEntry.HasBackend()
 	}
 
 	if err := s.installCandidateLocked(candidate, targetPath, scope, options.SourceSpec, installer, options.Enable, options.Force); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 
 	restartRequired := candidate.Manifest.Backend != nil || hadBackendBefore
 	delete(s.pendingRestartRemovedPlugin, candidate.Manifest.ID)
 	if restartRequired {
 		if err := s.addPendingRestartBackendIDLocked(candidate.Manifest.ID); err != nil {
-			return PluginInstallResult{}, err
+			return PluginInstallResponse{}, err
 		}
 	} else {
 		if err := s.discardPendingRestartBackendIDLocked(candidate.Manifest.ID); err != nil {
-			return PluginInstallResult{}, err
+			return PluginInstallResponse{}, err
 		}
 	}
 
@@ -364,7 +364,7 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 		} else if restartRequired {
 			state = PluginRuntimeStatePendingRestart
 		}
-		return PluginInstallResult{
+		return PluginInstallResponse{
 			PluginID:              candidate.Manifest.ID,
 			Version:               candidate.Manifest.Version,
 			SourceScope:           scope,
@@ -383,14 +383,14 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	activeEntry := findDiscoveredPlugin(snapshot.Plugins, candidate.Manifest.ID, scope)
 	if activeEntry.PluginID == "" {
-		return PluginInstallResult{}, newServiceError(ServiceErrorCodeInstallFailed, "Installed plugin was not discovered: %s", candidate.Manifest.ID)
+		return PluginInstallResponse{}, newServiceError(ServiceErrorCodeInstallFailed, "Installed plugin was not discovered: %s", candidate.Manifest.ID)
 	}
 
-	return PluginInstallResult{
+	return PluginInstallResponse{
 		PluginID:              activeEntry.PluginID,
 		Version:               activeEntry.Version,
 		SourceScope:           scope,
@@ -407,9 +407,9 @@ func (s *Service) Install(ctx context.Context, options InstallOptions) (PluginIn
 	}, nil
 }
 
-func (s *Service) Uninstall(_ context.Context, options UninstallOptions) (PluginUninstallResult, error) {
+func (s *Service) Uninstall(_ context.Context, options UninstallOptions) (PluginUninstallResponse, error) {
 	if s == nil {
-		return PluginUninstallResult{}, ErrWorkspaceRootRequired
+		return PluginUninstallResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -424,30 +424,30 @@ func (s *Service) Uninstall(_ context.Context, options UninstallOptions) (Plugin
 	} else {
 		scope, entry, err = s.resolveScopeAndEntryLocked(options.PluginID, options.Scope)
 		if err != nil {
-			return PluginUninstallResult{}, err
+			return PluginUninstallResponse{}, err
 		}
 	}
 	if err := ensureSettaManagedForWrite(entry, "uninstall"); err != nil {
-		return PluginUninstallResult{}, err
+		return PluginUninstallResponse{}, err
 	}
 
 	targetPath, err := s.store.PluginRoot(scope, options.PluginID)
 	if err != nil {
-		return PluginUninstallResult{}, err
+		return PluginUninstallResponse{}, err
 	}
 	restartRequired := entry.HasBackend()
 	if err := removePluginTarget(targetPath); err != nil {
-		return PluginUninstallResult{}, err
+		return PluginUninstallResponse{}, err
 	}
 	if err := s.store.RemoveInstallMetadata(options.PluginID, scope); err != nil {
-		return PluginUninstallResult{}, err
+		return PluginUninstallResponse{}, err
 	}
 	if err := s.removePluginFromEnablementLocked(options.PluginID, scope); err != nil {
-		return PluginUninstallResult{}, err
+		return PluginUninstallResponse{}, err
 	}
 	if restartRequired {
 		if err := s.addPendingRestartBackendIDLocked(options.PluginID); err != nil {
-			return PluginUninstallResult{}, err
+			return PluginUninstallResponse{}, err
 		}
 		s.pendingRestartRemovedPlugin[entry.PluginID] = PendingRestartRemovedBackendPlugin{
 			PluginID:              entry.PluginID,
@@ -463,49 +463,49 @@ func (s *Service) Uninstall(_ context.Context, options UninstallOptions) (Plugin
 		}
 	} else {
 		if err := s.discardPendingRestartBackendIDLocked(options.PluginID); err != nil {
-			return PluginUninstallResult{}, err
+			return PluginUninstallResponse{}, err
 		}
 		delete(s.pendingRestartRemovedPlugin, entry.PluginID)
 	}
 	if !options.skipFinalRescan {
 		if _, err := s.rescanLocked(); err != nil {
-			return PluginUninstallResult{}, err
+			return PluginUninstallResponse{}, err
 		}
 	}
-	return PluginUninstallResult{
+	return PluginUninstallResponse{
 		PluginID:         entry.PluginID,
 		RemovedFromScope: scope,
 		RestartRequired:  restartRequired,
 	}, nil
 }
 
-func (s *Service) Update(ctx context.Context, options UpdateOptions) (PluginUpdateResult, error) {
+func (s *Service) Update(ctx context.Context, options UpdateOptions) (PluginUpdateResponse, error) {
 	if s == nil {
-		return PluginUpdateResult{}, ErrWorkspaceRootRequired
+		return PluginUpdateResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
 	scope, entry, err := s.resolveScopeAndEntryLocked(options.PluginID, options.Scope)
 	if err != nil {
 		s.mu.Unlock()
-		return PluginUpdateResult{}, err
+		return PluginUpdateResponse{}, err
 	}
 	if err := ensureSettaManagedForWrite(entry, "update"); err != nil {
 		s.mu.Unlock()
-		return PluginUpdateResult{}, err
+		return PluginUpdateResponse{}, err
 	}
 	metadataEntry, ok, err := s.store.GetInstallMetadata(options.PluginID, scope)
 	if err != nil {
 		s.mu.Unlock()
-		return PluginUpdateResult{}, err
+		return PluginUpdateResponse{}, err
 	}
 	if !ok {
 		s.mu.Unlock()
-		return PluginUpdateResult{}, newServiceError(ServiceErrorCodeUpdateUnavailable, "No source metadata stored for plugin: %s", options.PluginID)
+		return PluginUpdateResponse{}, newServiceError(ServiceErrorCodeUpdateUnavailable, "No source metadata stored for plugin: %s", options.PluginID)
 	}
 	if SourceSpecIsLocal(metadataEntry.SourceSpec) {
 		s.mu.Unlock()
-		return PluginUpdateResult{}, newServiceError(
+		return PluginUpdateResponse{}, newServiceError(
 			ServiceErrorCodeUpdateUnavailable,
 			"Update is unavailable for linked local plugins. Unlink and relink the desired local source for %s.",
 			options.PluginID,
@@ -528,9 +528,9 @@ func (s *Service) Update(ctx context.Context, options UpdateOptions) (PluginUpda
 		Force:      true,
 	})
 	if err != nil {
-		return PluginUpdateResult{}, err
+		return PluginUpdateResponse{}, err
 	}
-	return PluginUpdateResult{
+	return PluginUpdateResponse{
 		PluginID:           options.PluginID,
 		FromVersion:        existingVersion,
 		ToVersion:          installResult.Version,
@@ -539,9 +539,9 @@ func (s *Service) Update(ctx context.Context, options UpdateOptions) (PluginUpda
 	}, nil
 }
 
-func (s *Service) Rollback(_ context.Context, options RollbackOptions) (PluginRollbackResult, error) {
+func (s *Service) Rollback(_ context.Context, options RollbackOptions) (PluginRollbackResponse, error) {
 	if s == nil {
-		return PluginRollbackResult{}, ErrWorkspaceRootRequired
+		return PluginRollbackResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -549,63 +549,63 @@ func (s *Service) Rollback(_ context.Context, options RollbackOptions) (PluginRo
 
 	scope, entry, err := s.resolveScopeAndEntryLocked(options.PluginID, options.Scope)
 	if err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 	currentEntryHadBackend := entry.HasBackend()
 	if entry.PluginID != "" {
 		if err := ensureSettaManagedForWrite(entry, "rollback"); err != nil {
-			return PluginRollbackResult{}, err
+			return PluginRollbackResponse{}, err
 		}
 	}
 
 	metadata, err := s.store.LoadInstallMetadata()
 	if err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 	metadataEntry, ok := metadata.Entries[metadataKey(scope, options.PluginID)]
 	if ok && SourceSpecIsLocal(metadataEntry.SourceSpec) {
-		return PluginRollbackResult{}, newServiceError(
+		return PluginRollbackResponse{}, newServiceError(
 			ServiceErrorCodeRollbackUnavailable,
 			"Rollback is unavailable for linked local plugins. Unlink and relink the desired local source for %s.",
 			options.PluginID,
 		)
 	}
 	if !ok || len(metadataEntry.History) == 0 {
-		return PluginRollbackResult{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "No rollback history exists for plugin: %s", options.PluginID)
+		return PluginRollbackResponse{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "No rollback history exists for plugin: %s", options.PluginID)
 	}
 	previous := metadataEntry.History[len(metadataEntry.History)-1]
 	if strings.TrimSpace(previous.SnapshotPath) == "" {
-		return PluginRollbackResult{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "Rollback snapshot missing for plugin: %s", options.PluginID)
+		return PluginRollbackResponse{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "Rollback snapshot missing for plugin: %s", options.PluginID)
 	}
 	snapshotPath := previous.SnapshotPath
 	if _, err := os.Stat(snapshotPath); err != nil {
 		if os.IsNotExist(err) {
-			return PluginRollbackResult{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "Rollback snapshot missing for plugin: %s", options.PluginID)
+			return PluginRollbackResponse{}, newServiceError(ServiceErrorCodeRollbackUnavailable, "Rollback snapshot missing for plugin: %s", options.PluginID)
 		}
-		return PluginRollbackResult{}, fmt.Errorf("stat rollback snapshot %s: %w", snapshotPath, err)
+		return PluginRollbackResponse{}, fmt.Errorf("stat rollback snapshot %s: %w", snapshotPath, err)
 	}
 	snapshotManifest, err := LoadPluginManifest(snapshotPath, options.PluginID)
 	if err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 	snapshotDigest, err := computeDirectoryDigest(snapshotPath)
 	if err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 	targetPath, err := s.store.PluginRoot(scope, options.PluginID)
 	if err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 	if err := s.reserveInstallTargetPathLocked(targetPath, true); err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 	defer s.releaseInstallTargetPathReservationLocked(targetPath)
 
 	if err := removePluginTarget(targetPath); err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 	if err := copyDirectoryTree(snapshotPath, targetPath); err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 
 	metadataEntry.History = append([]PluginInstallHistoryEntry(nil), metadataEntry.History[:len(metadataEntry.History)-1]...)
@@ -613,20 +613,20 @@ func (s *Service) Rollback(_ context.Context, options RollbackOptions) (PluginRo
 	metadataEntry.SourceDigestSHA256 = stringPtr(snapshotDigest)
 	metadata.Entries[metadataKey(scope, options.PluginID)] = metadataEntry
 	if err := s.store.SaveInstallMetadata(metadata); err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
 
 	restartRequired := snapshotManifest.Backend != nil || currentEntryHadBackend
 	if restartRequired {
 		if err := s.addPendingRestartBackendIDLocked(options.PluginID); err != nil {
-			return PluginRollbackResult{}, err
+			return PluginRollbackResponse{}, err
 		}
 		delete(s.pendingRestartRemovedPlugin, options.PluginID)
 	}
 	if _, err := s.rescanLocked(); err != nil {
-		return PluginRollbackResult{}, err
+		return PluginRollbackResponse{}, err
 	}
-	return PluginRollbackResult{
+	return PluginRollbackResponse{
 		PluginID:           options.PluginID,
 		RestoredVersion:    snapshotManifest.Version,
 		SourceDigestSHA256: stringPtr(snapshotDigest),

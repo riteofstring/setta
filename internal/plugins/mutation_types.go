@@ -57,7 +57,7 @@ type RollbackOptions struct {
 	Scope    *PluginScope
 }
 
-type PluginInstallResult struct {
+type PluginInstallResponse struct {
 	PluginID              string                  `json:"pluginId"`
 	Version               string                  `json:"version"`
 	SourceScope           PluginScope             `json:"sourceScope"`
@@ -73,19 +73,19 @@ type PluginInstallResult struct {
 	RestartRequired       bool                    `json:"restartRequired"`
 }
 
-type PluginEnableDisableResult struct {
+type PluginEnableDisableResponse struct {
 	PluginID        string             `json:"pluginId"`
 	State           PluginRuntimeState `json:"state"`
 	RestartRequired bool               `json:"restartRequired"`
 }
 
-type PluginUninstallResult struct {
+type PluginUninstallResponse struct {
 	PluginID         string      `json:"pluginId"`
 	RemovedFromScope PluginScope `json:"removedFromScope"`
 	RestartRequired  bool        `json:"restartRequired"`
 }
 
-type PluginUpdateResult struct {
+type PluginUpdateResponse struct {
 	PluginID           string  `json:"pluginId"`
 	FromVersion        string  `json:"fromVersion"`
 	ToVersion          string  `json:"toVersion"`
@@ -93,7 +93,7 @@ type PluginUpdateResult struct {
 	RestartRequired    bool    `json:"restartRequired"`
 }
 
-type PluginRollbackResult struct {
+type PluginRollbackResponse struct {
 	PluginID           string  `json:"pluginId"`
 	RestoredVersion    string  `json:"restoredVersion"`
 	SourceDigestSHA256 *string `json:"sourceDigestSha256"`

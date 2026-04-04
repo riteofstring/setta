@@ -24,18 +24,18 @@ type PluginConfigValidationResult struct {
 	OK bool `json:"ok"`
 }
 
-type PluginConfigWriteResult struct {
+type PluginConfigWriteResponse struct {
 	PluginID   string                       `json:"pluginId"`
 	Config     map[string]any               `json:"config"`
 	Validation PluginConfigValidationResult `json:"validation"`
 }
 
-func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (PluginConfigWriteResult, error) {
+func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (PluginConfigWriteResponse, error) {
 	if s == nil {
-		return PluginConfigWriteResult{}, ErrWorkspaceRootRequired
+		return PluginConfigWriteResponse{}, ErrWorkspaceRootRequired
 	}
 	if options.Config == nil {
-		return PluginConfigWriteResult{}, newServiceError(ServiceErrorCodeConfigInvalid, "Plugin config must be a JSON object.")
+		return PluginConfigWriteResponse{}, newServiceError(ServiceErrorCodeConfigInvalid, "Plugin config must be a JSON object.")
 	}
 
 	s.mu.Lock()
@@ -43,29 +43,29 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 
 	entry, err := s.resolveHighestPrecedenceEntryLocked(options.PluginID)
 	if err != nil {
-		return PluginConfigWriteResult{}, err
+		return PluginConfigWriteResponse{}, err
 	}
 	if entry.Manifest == nil {
-		return PluginConfigWriteResult{}, newServiceError(ServiceErrorCodeConfigInvalid, "Plugin manifest missing for plugin: %s", options.PluginID)
+		return PluginConfigWriteResponse{}, newServiceError(ServiceErrorCodeConfigInvalid, "Plugin manifest missing for plugin: %s", options.PluginID)
 	}
 	if err := validatePluginConfig(entry, options.Config); err != nil {
-		return PluginConfigWriteResult{}, err
+		return PluginConfigWriteResponse{}, err
 	}
 	state, err := s.store.LoadPluginsState()
 	if err != nil {
-		return PluginConfigWriteResult{}, err
+		return PluginConfigWriteResponse{}, err
 	}
 	currentConfig := runtimeCurrentConfig(entry, &state)
 	expectedCurrentConfig := cloneStringAnyMap(options.ExpectedCurrentConfig)
 	if expectedCurrentConfig != nil && !reflect.DeepEqual(currentConfig, expectedCurrentConfig) {
-		return PluginConfigWriteResult{}, newServiceError(
+		return PluginConfigWriteResponse{}, newServiceError(
 			ServiceErrorCodeConfigChanged,
 			"Plugin %s config changed since pre-write validation.",
 			entry.PluginID,
 		)
 	}
 	if options.SkipWriteIfCurrentMatchesExpected {
-		return PluginConfigWriteResult{
+		return PluginConfigWriteResponse{
 			PluginID: entry.PluginID,
 			Config:   cloneStringAnyMap(currentConfig),
 			Validation: PluginConfigValidationResult{
@@ -74,7 +74,7 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 		}, nil
 	}
 	if reflect.DeepEqual(currentConfig, cloneStringAnyMap(options.Config)) {
-		return PluginConfigWriteResult{
+		return PluginConfigWriteResponse{
 			PluginID: entry.PluginID,
 			Config:   cloneStringAnyMap(currentConfig),
 			Validation: PluginConfigValidationResult{
@@ -88,13 +88,13 @@ func (s *Service) WriteConfig(_ context.Context, options ConfigWriteOptions) (Pl
 	savedConfig := cloneStringAnyMap(options.Config)
 	state.PluginConfigByID[pluginConfigKey(entry.PluginID, entry.Scope)] = savedConfig
 	if err := s.store.SavePluginsState(state); err != nil {
-		return PluginConfigWriteResult{}, err
+		return PluginConfigWriteResponse{}, err
 	}
 	if _, err := s.rescanLocked(); err != nil {
-		return PluginConfigWriteResult{}, err
+		return PluginConfigWriteResponse{}, err
 	}
 
-	return PluginConfigWriteResult{
+	return PluginConfigWriteResponse{
 		PluginID: entry.PluginID,
 		Config:   cloneStringAnyMap(savedConfig),
 		Validation: PluginConfigValidationResult{

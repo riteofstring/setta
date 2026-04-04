@@ -10,22 +10,22 @@ import (
 )
 
 type testPluginRuntimeService struct {
-	runtimeResponse   plugins.RuntimeResponse
+	runtimeResponse   plugins.PluginRuntimeResponse
 	writeConfigCalls  int
 	backendReadValue  any
 	backendWriteCalls int
 }
 
-func (s *testPluginRuntimeService) Runtime(plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
+func (s *testPluginRuntimeService) Runtime(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
 	return s.runtimeResponse, nil
 }
 
-func (s *testPluginRuntimeService) WriteConfig(_ context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
+func (s *testPluginRuntimeService) WriteConfig(_ context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
 	s.writeConfigCalls++
 	if len(s.runtimeResponse.List.Plugins) > 0 {
 		s.runtimeResponse.List.Plugins[0].Config.CurrentConfig = cloneStringAnyMap(options.Config)
 	}
-	return plugins.PluginConfigWriteResult{
+	return plugins.PluginConfigWriteResponse{
 		PluginID: options.PluginID,
 		Config:   cloneStringAnyMap(options.Config),
 		Validation: plugins.PluginConfigValidationResult{
@@ -48,21 +48,21 @@ func (s *testPluginRuntimeService) WriteBackendUISettingValue(_ context.Context,
 	return nil
 }
 
-func newActivePluginRuntimeResponse(config map[string]any) plugins.RuntimeResponse {
-	return plugins.RuntimeResponse{
-		List: plugins.ListResponse{
-			Plugins: []plugins.ListEntry{
+func newActivePluginRuntimeResponse(config map[string]any) plugins.PluginRuntimeResponse {
+	return plugins.PluginRuntimeResponse{
+		List: plugins.PluginListResponse{
+			Plugins: []plugins.PluginListEntry{
 				{
 					PluginID: "plugin-a",
-					Config: plugins.ConfigDescriptor{
+					Config: plugins.PluginConfigDescriptor{
 						CurrentConfig: cloneStringAnyMap(config),
 					},
 					EffectiveCapabilities: []string{pluginRegisterPaneCapability},
 				},
 			},
 		},
-		Status: plugins.StatusResponse{
-			Plugins: []plugins.StatusEntry{
+		Status: plugins.PluginStatusResponse{
+			Plugins: []plugins.PluginStatusEntry{
 				{
 					PluginID:              "plugin-a",
 					State:                 plugins.PluginRuntimeStateActive,

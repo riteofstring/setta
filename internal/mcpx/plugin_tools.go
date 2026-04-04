@@ -268,7 +268,7 @@ func readPluginBoolArgumentWithDefault(arguments map[string]any, key string, def
 	return value, nil
 }
 
-func buildPluginInstallResponse(result plugins.PluginInstallResult) pluginInstallResponse {
+func buildPluginInstallResponse(result plugins.PluginInstallResponse) pluginInstallResponse {
 	return pluginInstallResponse{
 		PluginID:              result.PluginID,
 		Version:               result.Version,

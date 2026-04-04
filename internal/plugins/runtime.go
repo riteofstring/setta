@@ -27,18 +27,18 @@ type RuntimeOptions struct {
 	AssetURLBuilder AssetURLBuilder
 }
 
-type FrontendDescriptor struct {
+type PluginFrontendDescriptor struct {
 	EntrypointURL *string `json:"entrypointUrl"`
 	StyleURL      *string `json:"styleUrl"`
 }
 
-type ContentDescriptor struct {
+type PluginContentDescriptor struct {
 	HasBlueprints       bool `json:"hasBlueprints"`
 	HasProjectTemplates bool `json:"hasProjectTemplates"`
 	HasPrompts          bool `json:"hasPrompts"`
 }
 
-type ConfigDescriptor struct {
+type PluginConfigDescriptor struct {
 	HasSchema                 bool           `json:"hasSchema"`
 	SchemaJSON                map[string]any `json:"schemaJson"`
 	SchemaJSONDigestSHA256    *string        `json:"schemaJsonDigestSha256"`
@@ -46,41 +46,41 @@ type ConfigDescriptor struct {
 	CurrentConfigDigestSHA256 *string        `json:"currentConfigDigestSha256"`
 }
 
-type ListEntry struct {
-	PluginID              string                  `json:"pluginId"`
-	Name                  string                  `json:"name"`
-	Version               string                  `json:"version"`
-	SourceScope           PluginScope             `json:"sourceScope"`
-	SourceScopeLabel      string                  `json:"sourceScopeLabel"`
-	SourceManager         PluginSourceManager     `json:"sourceManager"`
-	SourceManagerHint     *string                 `json:"sourceManagerHint"`
-	CanonicalSourceKey    string                  `json:"canonicalSourceKey"`
-	SourceDigestSHA256    *string                 `json:"sourceDigestSha256"`
-	Frontend              FrontendDescriptor      `json:"frontend"`
-	Content               ContentDescriptor       `json:"content"`
-	Config                ConfigDescriptor        `json:"config"`
-	Components            []string                `json:"components"`
-	EffectiveCapabilities []string                `json:"effectiveCapabilities"`
-	EnablementSource      *PluginEnablementSource `json:"enablementSource"`
-	RestartRequired       bool                    `json:"restartRequired"`
+type PluginListEntry struct {
+	PluginID              string                   `json:"pluginId"`
+	Name                  string                   `json:"name"`
+	Version               string                   `json:"version"`
+	SourceScope           PluginScope              `json:"sourceScope"`
+	SourceScopeLabel      string                   `json:"sourceScopeLabel"`
+	SourceManager         PluginSourceManager      `json:"sourceManager"`
+	SourceManagerHint     *string                  `json:"sourceManagerHint"`
+	CanonicalSourceKey    string                   `json:"canonicalSourceKey"`
+	SourceDigestSHA256    *string                  `json:"sourceDigestSha256"`
+	Frontend              PluginFrontendDescriptor `json:"frontend"`
+	Content               PluginContentDescriptor  `json:"content"`
+	Config                PluginConfigDescriptor   `json:"config"`
+	Components            []string                 `json:"components"`
+	EffectiveCapabilities []string                 `json:"effectiveCapabilities"`
+	EnablementSource      *PluginEnablementSource  `json:"enablementSource"`
+	RestartRequired       bool                     `json:"restartRequired"`
 }
 
-type ListResponse struct {
-	SchemaVersion     int               `json:"schemaVersion"`
-	ServerMode        config.Mode       `json:"serverMode"`
-	RestartCapability RestartCapability `json:"restartCapability"`
-	Plugins           []ListEntry       `json:"plugins"`
+type PluginListResponse struct {
+	SchemaVersion     int                     `json:"schemaVersion"`
+	ServerMode        config.Mode             `json:"serverMode"`
+	RestartCapability PluginRestartCapability `json:"restartCapability"`
+	Plugins           []PluginListEntry       `json:"plugins"`
 }
 
-type RuntimeResponse struct {
-	SchemaVersion int            `json:"schemaVersion"`
-	List          ListResponse   `json:"list"`
-	Status        StatusResponse `json:"status"`
+type PluginRuntimeResponse struct {
+	SchemaVersion int                  `json:"schemaVersion"`
+	List          PluginListResponse   `json:"list"`
+	Status        PluginStatusResponse `json:"status"`
 }
 
-func (s *Service) Runtime(options RuntimeOptions) (RuntimeResponse, error) {
+func (s *Service) Runtime(options RuntimeOptions) (PluginRuntimeResponse, error) {
 	if s == nil {
-		return RuntimeResponse{}, ErrWorkspaceRootRequired
+		return PluginRuntimeResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -88,7 +88,7 @@ func (s *Service) Runtime(options RuntimeOptions) (RuntimeResponse, error) {
 
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return RuntimeResponse{}, err
+		return PluginRuntimeResponse{}, err
 	}
 
 	redactSourceDetails := shouldRedactRuntimeSourceDetails(snapshot.ServerMode)
@@ -102,15 +102,15 @@ func (s *Service) Runtime(options RuntimeOptions) (RuntimeResponse, error) {
 	if !redactConfigDetails {
 		state, err := s.store.LoadPluginsState()
 		if err != nil {
-			return RuntimeResponse{}, err
+			return PluginRuntimeResponse{}, err
 		}
 		pluginsState = &state
 	}
 
 	restartCapability := s.restartCapability()
-	return RuntimeResponse{
+	return PluginRuntimeResponse{
 		SchemaVersion: pluginRuntimeSchemaVersion,
-		List: ListResponse{
+		List: PluginListResponse{
 			SchemaVersion:     pluginListSchemaVersion,
 			ServerMode:        snapshot.ServerMode,
 			RestartCapability: restartCapability,
@@ -194,8 +194,8 @@ func (s *Service) buildRuntimeListEntries(
 	assetURLBuilder AssetURLBuilder,
 	redactSourceDetails bool,
 	redactConfigDetails bool,
-) []ListEntry {
-	listEntries := make([]ListEntry, 0, len(entries))
+) []PluginListEntry {
+	listEntries := make([]PluginListEntry, 0, len(entries))
 	for _, entry := range entries {
 		if entry.Manifest == nil {
 			continue
@@ -204,7 +204,7 @@ func (s *Service) buildRuntimeListEntries(
 			continue
 		}
 
-		listEntries = append(listEntries, ListEntry{
+		listEntries = append(listEntries, PluginListEntry{
 			PluginID:           entry.PluginID,
 			Name:               entry.Name,
 			Version:            entry.Version,
@@ -230,11 +230,11 @@ func (s *Service) buildRuntimeListEntries(
 	return listEntries
 }
 
-func buildRuntimeFrontendDescriptor(entry DiscoveredPlugin, assetURLBuilder AssetURLBuilder) FrontendDescriptor {
+func buildRuntimeFrontendDescriptor(entry DiscoveredPlugin, assetURLBuilder AssetURLBuilder) PluginFrontendDescriptor {
 	if entry.Manifest == nil || entry.Manifest.Frontend == nil {
-		return FrontendDescriptor{}
+		return PluginFrontendDescriptor{}
 	}
-	return FrontendDescriptor{
+	return PluginFrontendDescriptor{
 		EntrypointURL: buildRuntimeAssetURL(entry, entry.Manifest.Frontend.Entrypoint, assetURLBuilder),
 		StyleURL:      buildRuntimeAssetURL(entry, entry.Manifest.Frontend.Style, assetURLBuilder),
 	}
@@ -267,21 +267,21 @@ func buildRuntimeAssetURL(entry DiscoveredPlugin, relativePath string, assetURLB
 	return &urlValue
 }
 
-func buildRuntimeContentDescriptor(entry DiscoveredPlugin) ContentDescriptor {
+func buildRuntimeContentDescriptor(entry DiscoveredPlugin) PluginContentDescriptor {
 	if entry.Manifest == nil || entry.Manifest.Content == nil {
-		return ContentDescriptor{}
+		return PluginContentDescriptor{}
 	}
-	return ContentDescriptor{
+	return PluginContentDescriptor{
 		HasBlueprints:       runtimeDirectoryHasFiles(entry.SourcePath, entry.Manifest.Content.BlueprintsDir),
 		HasProjectTemplates: runtimeDirectoryHasFiles(entry.SourcePath, entry.Manifest.Content.ProjectTemplatesDir),
 		HasPrompts:          runtimeDirectoryHasFiles(entry.SourcePath, entry.Manifest.Content.PromptsDir),
 	}
 }
 
-func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsStateFile, redactConfigDetails bool) ConfigDescriptor {
+func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsStateFile, redactConfigDetails bool) PluginConfigDescriptor {
 	hasSchema, schemaJSON, schemaDigest := buildRuntimeConfigSchemaDescriptor(entry)
 	if redactConfigDetails {
-		return ConfigDescriptor{
+		return PluginConfigDescriptor{
 			HasSchema:                 hasSchema,
 			SchemaJSON:                nil,
 			SchemaJSONDigestSHA256:    nil,
@@ -291,7 +291,7 @@ func buildRuntimeConfigDescriptor(entry DiscoveredPlugin, pluginsState *PluginsS
 	}
 
 	currentConfig := runtimeCurrentConfig(entry, pluginsState)
-	return ConfigDescriptor{
+	return PluginConfigDescriptor{
 		HasSchema:                 hasSchema,
 		SchemaJSON:                schemaJSON,
 		SchemaJSONDigestSHA256:    schemaDigest,
@@ -387,15 +387,15 @@ func runtimeDigestJSONValue(value any) *string {
 
 func buildRuntimeStatusResponse(
 	snapshot DiscoverySnapshot,
-	capability RestartCapability,
+	capability PluginRestartCapability,
 	redactSourceDetails bool,
 	redactedSourcePathByPath map[string]string,
-) StatusResponse {
-	entries := make([]StatusEntry, 0, len(snapshot.Plugins))
+) PluginStatusResponse {
+	entries := make([]PluginStatusEntry, 0, len(snapshot.Plugins))
 	for _, entry := range snapshot.Plugins {
 		entries = append(entries, buildRuntimeStatusEntry(entry, redactSourceDetails, redactedSourcePathByPath))
 	}
-	return StatusResponse{
+	return PluginStatusResponse{
 		SchemaVersion:     pluginStatusSchemaVersion,
 		ServerMode:        snapshot.ServerMode,
 		RestartCapability: capability,
@@ -403,7 +403,7 @@ func buildRuntimeStatusResponse(
 	}
 }
 
-func buildRuntimeStatusEntry(entry DiscoveredPlugin, redactSourceDetails bool, redactedSourcePathByPath map[string]string) StatusEntry {
+func buildRuntimeStatusEntry(entry DiscoveredPlugin, redactSourceDetails bool, redactedSourcePathByPath map[string]string) PluginStatusEntry {
 	statusEntry := statusEntryFromDiscoveredPlugin(entry)
 	if !redactSourceDetails {
 		return statusEntry

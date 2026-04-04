@@ -12,20 +12,20 @@ import (
 
 const pluginStatusSchemaVersion = 1
 
-type RestartCapabilityMode string
+type PluginRestartCapabilityMode string
 
 const (
-	RestartCapabilityModeManual       RestartCapabilityMode = "manual"
-	RestartCapabilityModeProgrammatic RestartCapabilityMode = "programmatic"
+	PluginRestartCapabilityModeManual       PluginRestartCapabilityMode = "manual"
+	PluginRestartCapabilityModeProgrammatic PluginRestartCapabilityMode = "programmatic"
 )
 
-type RestartCapability struct {
-	Mode    RestartCapabilityMode `json:"mode"`
-	Command *string               `json:"command"`
-	Reason  *string               `json:"reason"`
+type PluginRestartCapability struct {
+	Mode    PluginRestartCapabilityMode `json:"mode"`
+	Command *string                     `json:"command"`
+	Reason  *string                     `json:"reason"`
 }
 
-type StatusEntry struct {
+type PluginStatusEntry struct {
 	PluginID                    string                             `json:"pluginId"`
 	Name                        string                             `json:"name"`
 	Version                     string                             `json:"version"`
@@ -52,25 +52,25 @@ type StatusEntry struct {
 	Errors                      []PluginErrorInfo                  `json:"errors"`
 }
 
-type StatusResponse struct {
-	SchemaVersion     int               `json:"schemaVersion"`
-	ServerMode        config.Mode       `json:"serverMode"`
-	RestartCapability RestartCapability `json:"restartCapability"`
-	Plugins           []StatusEntry     `json:"plugins"`
+type PluginStatusResponse struct {
+	SchemaVersion     int                     `json:"schemaVersion"`
+	ServerMode        config.Mode             `json:"serverMode"`
+	RestartCapability PluginRestartCapability `json:"restartCapability"`
+	Plugins           []PluginStatusEntry     `json:"plugins"`
 }
 
 type RestartRequiredResponse struct {
-	PendingPlugins                []StatusEntry     `json:"pendingPlugins"`
-	PendingPluginIDs              []string          `json:"pendingPluginIds"`
-	PendingPluginIDsWithoutStatus []string          `json:"pendingPluginIdsWithoutStatus"`
-	RestartCapability             RestartCapability `json:"restartCapability"`
+	PendingPlugins                []PluginStatusEntry     `json:"pendingPlugins"`
+	PendingPluginIDs              []string                `json:"pendingPluginIds"`
+	PendingPluginIDsWithoutStatus []string                `json:"pendingPluginIdsWithoutStatus"`
+	RestartCapability             PluginRestartCapability `json:"restartCapability"`
 }
 
-type PluginRestartResult struct {
-	Accepted bool                  `json:"accepted"`
-	Mode     RestartCapabilityMode `json:"mode"`
-	Command  *string               `json:"command"`
-	Reason   *string               `json:"reason"`
+type PluginRestartResponse struct {
+	Accepted bool                        `json:"accepted"`
+	Mode     PluginRestartCapabilityMode `json:"mode"`
+	Command  *string                     `json:"command"`
+	Reason   *string                     `json:"reason"`
 }
 
 type statusEntryRuntimeDigestPayload struct {
@@ -85,9 +85,9 @@ type statusEntryRuntimeDigestPayload struct {
 	Errors                      []PluginErrorInfo                  `json:"errors"`
 }
 
-func (s *Service) Status() (StatusResponse, error) {
+func (s *Service) Status() (PluginStatusResponse, error) {
 	if s == nil {
-		return StatusResponse{}, ErrWorkspaceRootRequired
+		return PluginStatusResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -95,7 +95,7 @@ func (s *Service) Status() (StatusResponse, error) {
 
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return StatusResponse{}, err
+		return PluginStatusResponse{}, err
 	}
 	return statusResponseFromSnapshot(snapshot, s.restartCapability()), nil
 }
@@ -117,7 +117,7 @@ func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
 		return RestartRequiredResponse{}, err
 	}
 
-	pendingPlugins := make([]StatusEntry, 0)
+	pendingPlugins := make([]PluginStatusEntry, 0)
 	pendingIDsFromStatus := map[string]struct{}{}
 	for _, entry := range snapshot.Plugins {
 		if entry.State != PluginRuntimeStatePendingRestart {
@@ -144,9 +144,9 @@ func (s *Service) RestartRequiredSummary() (RestartRequiredResponse, error) {
 	}, nil
 }
 
-func (s *Service) Restart(ctx context.Context) (PluginRestartResult, error) {
+func (s *Service) Restart(ctx context.Context) (PluginRestartResponse, error) {
 	if s == nil {
-		return PluginRestartResult{}, ErrWorkspaceRootRequired
+		return PluginRestartResponse{}, ErrWorkspaceRootRequired
 	}
 
 	s.mu.Lock()
@@ -155,23 +155,23 @@ func (s *Service) Restart(ctx context.Context) (PluginRestartResult, error) {
 	restartCommand := defaultRestartCommand(s.restartCommand)
 	s.mu.Unlock()
 
-	if capability.Mode == RestartCapabilityModeProgrammatic {
+	if capability.Mode == PluginRestartCapabilityModeProgrammatic {
 		if callback == nil {
-			return PluginRestartResult{}, newServiceError(ServiceErrorCodeRestartFailed, "Programmatic restart callback missing.")
+			return PluginRestartResponse{}, newServiceError(ServiceErrorCodeRestartFailed, "Programmatic restart callback missing.")
 		}
 		accepted, err := callback(ctx)
 		if err != nil {
-			return PluginRestartResult{}, newServiceError(ServiceErrorCodeRestartFailed, "Programmatic restart callback failed: %s", err.Error())
+			return PluginRestartResponse{}, newServiceError(ServiceErrorCodeRestartFailed, "Programmatic restart callback failed: %s", err.Error())
 		}
 		if accepted {
-			return PluginRestartResult{
+			return PluginRestartResponse{
 				Accepted: true,
 				Mode:     capability.Mode,
 				Command:  nil,
 				Reason:   nil,
 			}, nil
 		}
-		return PluginRestartResult{
+		return PluginRestartResponse{
 			Accepted: false,
 			Mode:     capability.Mode,
 			Command:  stringPointer(restartCommand),
@@ -179,7 +179,7 @@ func (s *Service) Restart(ctx context.Context) (PluginRestartResult, error) {
 		}, nil
 	}
 
-	return PluginRestartResult{
+	return PluginRestartResponse{
 		Accepted: false,
 		Mode:     capability.Mode,
 		Command:  cloneOptionalString(capability.Command),
@@ -187,12 +187,12 @@ func (s *Service) Restart(ctx context.Context) (PluginRestartResult, error) {
 	}, nil
 }
 
-func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCapability) StatusResponse {
-	entries := make([]StatusEntry, 0, len(snapshot.Plugins))
+func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability PluginRestartCapability) PluginStatusResponse {
+	entries := make([]PluginStatusEntry, 0, len(snapshot.Plugins))
 	for _, entry := range snapshot.Plugins {
 		entries = append(entries, statusEntryFromDiscoveredPlugin(entry))
 	}
-	return StatusResponse{
+	return PluginStatusResponse{
 		SchemaVersion:     pluginStatusSchemaVersion,
 		ServerMode:        snapshot.ServerMode,
 		RestartCapability: capability,
@@ -200,9 +200,9 @@ func statusResponseFromSnapshot(snapshot DiscoverySnapshot, capability RestartCa
 	}
 }
 
-func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) StatusEntry {
+func statusEntryFromDiscoveredPlugin(entry DiscoveredPlugin) PluginStatusEntry {
 	runtimeDigest := computeStatusEntryRuntimePayloadDigest(entry)
-	return StatusEntry{
+	return PluginStatusEntry{
 		PluginID:                    entry.PluginID,
 		Name:                        entry.Name,
 		Version:                     entry.Version,
@@ -314,25 +314,25 @@ func mergePluginErrorSlices(primary []PluginErrorInfo, secondary []PluginErrorIn
 	return append(merged, secondary...)
 }
 
-func (s *Service) restartCapability() RestartCapability {
+func (s *Service) restartCapability() PluginRestartCapability {
 	command := optionalStringPointer(defaultRestartCommand(s.restartCommand))
 	switch s.serverMode() {
 	case config.ModeShare, config.ModeApp:
-		return RestartCapability{
-			Mode:    RestartCapabilityModeManual,
+		return PluginRestartCapability{
+			Mode:    PluginRestartCapabilityModeManual,
 			Command: command,
 			Reason:  stringPointer("Plugin runtime restart is available only in IDE mode."),
 		}
 	default:
 		if s.restartCallback != nil {
-			return RestartCapability{
-				Mode:    RestartCapabilityModeProgrammatic,
+			return PluginRestartCapability{
+				Mode:    PluginRestartCapabilityModeProgrammatic,
 				Command: nil,
 				Reason:  nil,
 			}
 		}
-		return RestartCapability{
-			Mode:    RestartCapabilityModeManual,
+		return PluginRestartCapability{
+			Mode:    PluginRestartCapabilityModeManual,
 			Command: command,
 			Reason:  stringPointer("Programmatic restart is not available in this runtime."),
 		}

@@ -7,6 +7,7 @@ import (
 	"setta/internal/agentruns"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
+	"setta/internal/plugins"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
@@ -592,10 +593,10 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"typeFilters": "BrowserSavedSearchTypeFilters",
 		},
 	},
-	reflect.TypeOf(PluginListEntry{}): {
+	reflect.TypeOf(plugins.PluginListEntry{}): {
 		IgnoredProperties: reflectedIgnoredProperties("components"),
 	},
-	reflect.TypeOf(PluginStatusEntry{}): {
+	reflect.TypeOf(plugins.PluginStatusEntry{}): {
 		IgnoredProperties: reflectedIgnoredProperties("components"),
 	},
 	reflect.TypeOf(WatchCodeRegistryEntry{}): {

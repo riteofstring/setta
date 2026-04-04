@@ -161,59 +161,59 @@ func (s *Service) ValidateFolder(options ValidateFolderOptions) (string, error) 
 	return root, nil
 }
 
-func (s *Service) Link(options LinkOptions) (PluginInstallResult, error) {
+func (s *Service) Link(options LinkOptions) (PluginInstallResponse, error) {
 	if s == nil {
-		return PluginInstallResult{}, ErrWorkspaceRootRequired
+		return PluginInstallResponse{}, ErrWorkspaceRootRequired
 	}
 
 	sourceRoot, manifest, err := s.validateLocalPluginSource(options.LocalPluginRoot)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	sourceDigest, err := computeDirectoryDigest(sourceRoot)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	scope, err := NormalizeScope(options.Scope)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	targetPath, err := s.store.PluginRoot(scope, manifest.ID)
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	if err := s.reserveInstallTargetPathLocked(targetPath, options.Force); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	defer s.releaseInstallTargetPathReservationLocked(targetPath)
 
 	snapshot, err := s.rescanLocked()
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	existingEntry := findDiscoveredPlugin(snapshot.Plugins, manifest.ID, scope)
 	hadBackendBefore := existingEntry.PluginID != "" && existingEntry.HasBackend()
 
 	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
-		return PluginInstallResult{}, fmt.Errorf("create plugin target parent %s: %w", targetPath, err)
+		return PluginInstallResponse{}, fmt.Errorf("create plugin target parent %s: %w", targetPath, err)
 	}
 	if err := s.ensureTargetPathAvailableLocked(targetPath, options.Force); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	if targetExists(targetPath) {
 		if err := s.backupExistingPluginLocked(manifest.ID, scope, targetPath); err != nil {
-			return PluginInstallResult{}, err
+			return PluginInstallResponse{}, err
 		}
 		if err := removePluginTarget(targetPath); err != nil {
-			return PluginInstallResult{}, err
+			return PluginInstallResponse{}, err
 		}
 	}
 	if err := os.Symlink(sourceRoot, targetPath); err != nil {
-		return PluginInstallResult{}, fmt.Errorf("activate linked plugin %s: %w", targetPath, err)
+		return PluginInstallResponse{}, fmt.Errorf("activate linked plugin %s: %w", targetPath, err)
 	}
 
 	canonicalSourceKey := "local:" + sourceRoot
@@ -225,32 +225,32 @@ func (s *Service) Link(options LinkOptions) (PluginInstallResult, error) {
 		SourceDigestSHA256: stringPtr(sourceDigest),
 		Version:            manifest.Version,
 	}); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	if err := s.applyEnablementAfterInstallLocked(manifest.ID, scope, options.Enable); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	delete(s.pendingRestartRemovedPlugin, manifest.ID)
 
 	restartRequired := manifest.Backend != nil || hadBackendBefore
 	if restartRequired {
 		if err := s.addPendingRestartBackendIDLocked(manifest.ID); err != nil {
-			return PluginInstallResult{}, err
+			return PluginInstallResponse{}, err
 		}
 	} else if err := s.discardPendingRestartBackendIDLocked(manifest.ID); err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 
 	snapshot, err = s.rescanLocked()
 	if err != nil {
-		return PluginInstallResult{}, err
+		return PluginInstallResponse{}, err
 	}
 	entry := findDiscoveredPlugin(snapshot.Plugins, manifest.ID, scope)
 	if entry.PluginID == "" {
-		return PluginInstallResult{}, newServiceError(ServiceErrorCodeLinkFailed, "Linked plugin was not discovered: %s", manifest.ID)
+		return PluginInstallResponse{}, newServiceError(ServiceErrorCodeLinkFailed, "Linked plugin was not discovered: %s", manifest.ID)
 	}
 
-	return PluginInstallResult{
+	return PluginInstallResponse{
 		PluginID:              entry.PluginID,
 		Version:               entry.Version,
 		SourceScope:           scope,

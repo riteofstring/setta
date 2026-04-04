@@ -816,7 +816,7 @@ func TestServiceRuntimeShadowedEntriesDoNotReportPrimaryBackendRegistrations(t *
 		t.Fatalf("load runtime payload: %v", err)
 	}
 
-	entries := make([]StatusEntry, 0, 2)
+	entries := make([]PluginStatusEntry, 0, 2)
 	for _, entry := range runtimeResponse.Status.Plugins {
 		if entry.PluginID == "setta-fixture-backend" {
 			entries = append(entries, entry)
@@ -1165,7 +1165,7 @@ func testRuntimeAssetURLBuilder(pluginID string, relativePath string, sourceDige
 	return baseURL + "?v=" + url.QueryEscape(*sourceDigestSHA256)
 }
 
-func mustFindRuntimeListEntry(t *testing.T, entries []ListEntry, pluginID string) ListEntry {
+func mustFindRuntimeListEntry(t *testing.T, entries []PluginListEntry, pluginID string) PluginListEntry {
 	t.Helper()
 
 	for _, entry := range entries {
@@ -1174,5 +1174,5 @@ func mustFindRuntimeListEntry(t *testing.T, entries []ListEntry, pluginID string
 		}
 	}
 	t.Fatalf("expected runtime list entry %q", pluginID)
-	return ListEntry{}
+	return PluginListEntry{}
 }

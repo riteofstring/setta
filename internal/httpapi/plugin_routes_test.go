@@ -43,7 +43,7 @@ func TestRegisterPluginRoutesReturnsRuntimePayload(t *testing.T) {
 		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload plugins.RuntimeResponse
+	var payload plugins.PluginRuntimeResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode plugin runtime response: %v", err)
 	}
@@ -276,8 +276,8 @@ func TestRegisterPluginRoutesPreserveCustomStatusesForRuntimeAndRescanFailures(t
 			method: http.MethodGet,
 			path:   RoutePluginsRuntime,
 			service: pluginRouteServiceStub{
-				runtimeFunc: func(plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
-					return plugins.RuntimeResponse{}, injectedError
+				runtimeFunc: func(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
+					return plugins.PluginRuntimeResponse{}, injectedError
 				},
 			},
 		},
@@ -343,8 +343,8 @@ func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(
 			path:   RoutePluginsLink,
 			body:   `{"localPluginRoot":"/tmp/plugin","scope":"workspace","enable":true,"force":false}`,
 			service: pluginRouteServiceStub{
-				linkFunc: func(plugins.LinkOptions) (plugins.PluginInstallResult, error) {
-					return plugins.PluginInstallResult{}, injectedError
+				linkFunc: func(plugins.LinkOptions) (plugins.PluginInstallResponse, error) {
+					return plugins.PluginInstallResponse{}, injectedError
 				},
 			},
 		},
@@ -354,8 +354,8 @@ func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(
 			path:   RoutePluginsEnable,
 			body:   `{"pluginId":"setta-fixture-frontend"}`,
 			service: pluginRouteServiceStub{
-				enableFunc: func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
-					return plugins.PluginEnableDisableResult{}, injectedError
+				enableFunc: func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
+					return plugins.PluginEnableDisableResponse{}, injectedError
 				},
 			},
 		},
@@ -365,8 +365,8 @@ func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(
 			path:   RoutePluginsDisable,
 			body:   `{"pluginId":"setta-fixture-frontend"}`,
 			service: pluginRouteServiceStub{
-				disableFunc: func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
-					return plugins.PluginEnableDisableResult{}, injectedError
+				disableFunc: func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
+					return plugins.PluginEnableDisableResponse{}, injectedError
 				},
 			},
 		},
@@ -376,8 +376,8 @@ func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(
 			path:   RoutePluginsConfig,
 			body:   `{"pluginId":"setta-fixture-frontend","config":{"enabled":true}}`,
 			service: pluginRouteServiceStub{
-				writeConfigFunc: func(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
-					return plugins.PluginConfigWriteResult{}, injectedError
+				writeConfigFunc: func(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
+					return plugins.PluginConfigWriteResponse{}, injectedError
 				},
 			},
 		},
@@ -386,8 +386,8 @@ func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(
 			method: http.MethodPost,
 			path:   RoutePluginsLockWrite,
 			service: pluginRouteServiceStub{
-				writeLockfileFunc: func() (plugins.PluginLockWriteResult, error) {
-					return plugins.PluginLockWriteResult{}, injectedError
+				writeLockfileFunc: func() (plugins.PluginLockWriteResponse, error) {
+					return plugins.PluginLockWriteResponse{}, injectedError
 				},
 			},
 		},
@@ -397,8 +397,8 @@ func TestRegisterPluginRoutesPreserveCustomStatusesForRemainingMutationFailures(
 			path:   RoutePluginsLockApply,
 			body:   `{"check":false}`,
 			service: pluginRouteServiceStub{
-				applyLockfileFunc: func(context.Context, bool) (plugins.PluginLockApplyResult, error) {
-					return plugins.PluginLockApplyResult{}, injectedError
+				applyLockfileFunc: func(context.Context, bool) (plugins.PluginLockApplyResponse, error) {
+					return plugins.PluginLockApplyResponse{}, injectedError
 				},
 			},
 		},
@@ -448,7 +448,7 @@ func TestRegisterPluginRoutesInstallAndUninstallPlugin(t *testing.T) {
 		t.Fatalf("expected plugin install 200, got %d with body %q", installResponse.Code, installResponse.Body.String())
 	}
 
-	var installPayload plugins.PluginInstallResult
+	var installPayload plugins.PluginInstallResponse
 	if err := json.Unmarshal(installResponse.Body.Bytes(), &installPayload); err != nil {
 		t.Fatalf("decode plugin install response: %v", err)
 	}
@@ -475,7 +475,7 @@ func TestRegisterPluginRoutesInstallAndUninstallPlugin(t *testing.T) {
 		t.Fatalf("expected plugin uninstall 200, got %d with body %q", uninstallResponse.Code, uninstallResponse.Body.String())
 	}
 
-	var uninstallPayload plugins.PluginUninstallResult
+	var uninstallPayload plugins.PluginUninstallResponse
 	if err := json.Unmarshal(uninstallResponse.Body.Bytes(), &uninstallPayload); err != nil {
 		t.Fatalf("decode plugin uninstall response: %v", err)
 	}
@@ -547,7 +547,7 @@ func TestRegisterPluginRoutesLinksLocalPlugin(t *testing.T) {
 		t.Fatalf("expected plugin link 200, got %d with body %q", linkResponse.Code, linkResponse.Body.String())
 	}
 
-	var linkPayload plugins.PluginInstallResult
+	var linkPayload plugins.PluginInstallResponse
 	if err := json.Unmarshal(linkResponse.Body.Bytes(), &linkPayload); err != nil {
 		t.Fatalf("decode plugin link response: %v", err)
 	}
@@ -574,7 +574,7 @@ func TestRegisterPluginRoutesLinksLocalPlugin(t *testing.T) {
 		t.Fatalf("expected plugin runtime 200 after link, got %d with body %q", runtimeResponse.Code, runtimeResponse.Body.String())
 	}
 
-	var runtimePayload plugins.RuntimeResponse
+	var runtimePayload plugins.PluginRuntimeResponse
 	if err := json.Unmarshal(runtimeResponse.Body.Bytes(), &runtimePayload); err != nil {
 		t.Fatalf("decode plugin runtime response after link: %v", err)
 	}
@@ -656,7 +656,7 @@ func TestRegisterPluginRoutesUpdateAndRollbackPlugin(t *testing.T) {
 		t.Fatalf("expected plugin update 200, got %d with body %q", updateResponse.Code, updateResponse.Body.String())
 	}
 
-	var updatePayload plugins.PluginUpdateResult
+	var updatePayload plugins.PluginUpdateResponse
 	if err := json.Unmarshal(updateResponse.Body.Bytes(), &updatePayload); err != nil {
 		t.Fatalf("decode plugin update response: %v", err)
 	}
@@ -671,7 +671,7 @@ func TestRegisterPluginRoutesUpdateAndRollbackPlugin(t *testing.T) {
 		t.Fatalf("expected plugin rollback 200, got %d with body %q", rollbackResponse.Code, rollbackResponse.Body.String())
 	}
 
-	var rollbackPayload plugins.PluginRollbackResult
+	var rollbackPayload plugins.PluginRollbackResponse
 	if err := json.Unmarshal(rollbackResponse.Body.Bytes(), &rollbackPayload); err != nil {
 		t.Fatalf("decode plugin rollback response: %v", err)
 	}
@@ -795,7 +795,7 @@ func TestRegisterPluginRoutesEnableAndDisablePlugin(t *testing.T) {
 		t.Fatalf("expected plugin disable 200, got %d with body %q", disableResponse.Code, disableResponse.Body.String())
 	}
 
-	var disabledPayload plugins.PluginEnableDisableResult
+	var disabledPayload plugins.PluginEnableDisableResponse
 	if err := json.Unmarshal(disableResponse.Body.Bytes(), &disabledPayload); err != nil {
 		t.Fatalf("decode plugin disable response: %v", err)
 	}
@@ -810,7 +810,7 @@ func TestRegisterPluginRoutesEnableAndDisablePlugin(t *testing.T) {
 		t.Fatalf("expected plugin enable 200, got %d with body %q", enableResponse.Code, enableResponse.Body.String())
 	}
 
-	var enabledPayload plugins.PluginEnableDisableResult
+	var enabledPayload plugins.PluginEnableDisableResponse
 	if err := json.Unmarshal(enableResponse.Body.Bytes(), &enabledPayload); err != nil {
 		t.Fatalf("decode plugin enable response: %v", err)
 	}
@@ -833,7 +833,7 @@ func TestRegisterPluginRoutesWritesPluginConfigAndRuntimeReadback(t *testing.T) 
 		t.Fatalf("expected plugin config 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload plugins.PluginConfigWriteResult
+	var payload plugins.PluginConfigWriteResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode plugin config response: %v", err)
 	}
@@ -851,7 +851,7 @@ func TestRegisterPluginRoutesWritesPluginConfigAndRuntimeReadback(t *testing.T) 
 		t.Fatalf("expected plugin runtime 200, got %d with body %q", runtimeResponse.Code, runtimeResponse.Body.String())
 	}
 
-	var runtimePayload plugins.RuntimeResponse
+	var runtimePayload plugins.PluginRuntimeResponse
 	if err := json.Unmarshal(runtimeResponse.Body.Bytes(), &runtimePayload); err != nil {
 		t.Fatalf("decode plugin runtime response: %v", err)
 	}
@@ -885,7 +885,7 @@ func TestRegisterPluginRoutesWritesAndAppliesLockfile(t *testing.T) {
 		t.Fatalf("expected lock write 200, got %d with body %q", writeResponse.Code, writeResponse.Body.String())
 	}
 
-	var writePayload plugins.PluginLockWriteResult
+	var writePayload plugins.PluginLockWriteResponse
 	if err := json.Unmarshal(writeResponse.Body.Bytes(), &writePayload); err != nil {
 		t.Fatalf("decode lock write response: %v", err)
 	}
@@ -907,7 +907,7 @@ func TestRegisterPluginRoutesWritesAndAppliesLockfile(t *testing.T) {
 		t.Fatalf("expected lock apply 200, got %d with body %q", applyResponse.Code, applyResponse.Body.String())
 	}
 
-	var applyPayload plugins.PluginLockApplyResult
+	var applyPayload plugins.PluginLockApplyResponse
 	if err := json.Unmarshal(applyResponse.Body.Bytes(), &applyPayload); err != nil {
 		t.Fatalf("decode lock apply response: %v", err)
 	}
@@ -1175,14 +1175,14 @@ func TestRegisterPluginRoutesReturnsManualRestartPayload(t *testing.T) {
 		t.Fatalf("expected plugin restart 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload plugins.PluginRestartResult
+	var payload plugins.PluginRestartResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode plugin restart response: %v", err)
 	}
 	if payload.Accepted {
 		t.Fatalf("expected manual restart payload, got %#v", payload)
 	}
-	if payload.Mode != plugins.RestartCapabilityModeManual {
+	if payload.Mode != plugins.PluginRestartCapabilityModeManual {
 		t.Fatalf("expected manual restart mode, got %#v", payload.Mode)
 	}
 	if payload.Command == nil || *payload.Command != "setta" {
@@ -1210,14 +1210,14 @@ func TestRegisterPluginRoutesAcceptsProgrammaticRestart(t *testing.T) {
 		t.Fatalf("expected accepted plugin restart 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload plugins.PluginRestartResult
+	var payload plugins.PluginRestartResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode accepted plugin restart response: %v", err)
 	}
 	if !payload.Accepted {
 		t.Fatalf("expected accepted restart payload, got %#v", payload)
 	}
-	if payload.Mode != plugins.RestartCapabilityModeProgrammatic {
+	if payload.Mode != plugins.PluginRestartCapabilityModeProgrammatic {
 		t.Fatalf("expected programmatic restart mode, got %#v", payload.Mode)
 	}
 	if restartCalls != 1 {
@@ -1240,14 +1240,14 @@ func TestRegisterPluginRoutesHandlesProgrammaticRestartRejection(t *testing.T) {
 		t.Fatalf("expected rejected plugin restart 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload plugins.PluginRestartResult
+	var payload plugins.PluginRestartResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode rejected plugin restart response: %v", err)
 	}
 	if payload.Accepted {
 		t.Fatalf("expected rejected restart payload, got %#v", payload)
 	}
-	if payload.Mode != plugins.RestartCapabilityModeProgrammatic {
+	if payload.Mode != plugins.PluginRestartCapabilityModeProgrammatic {
 		t.Fatalf("expected programmatic restart mode, got %#v", payload.Mode)
 	}
 	if payload.Command == nil || *payload.Command != "setta" {
@@ -1399,7 +1399,7 @@ func TestRegisterPluginRoutesRedactsRuntimePayloadOutsideIDE(t *testing.T) {
 		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload plugins.RuntimeResponse
+	var payload plugins.PluginRuntimeResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode redacted plugin runtime response: %v", err)
 	}
@@ -1433,11 +1433,11 @@ func TestRegisterPluginRoutesRuntimeReportsManualRestartCapabilityOutsideIDEWith
 		t.Fatalf("expected plugin runtime 200, got %d with body %q", response.Code, response.Body.String())
 	}
 
-	var payload plugins.RuntimeResponse
+	var payload plugins.PluginRuntimeResponse
 	if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil {
 		t.Fatalf("decode share-mode plugin runtime response: %v", err)
 	}
-	if payload.Status.RestartCapability.Mode != plugins.RestartCapabilityModeManual {
+	if payload.Status.RestartCapability.Mode != plugins.PluginRestartCapabilityModeManual {
 		t.Fatalf("expected manual restart capability, got %#v", payload.Status.RestartCapability)
 	}
 	if payload.Status.RestartCapability.Command == nil || *payload.Status.RestartCapability.Command != "setta" {
@@ -2230,22 +2230,22 @@ func newPluginRouteTestHandlerWithAuth(t *testing.T, mode config.Mode, service P
 }
 
 type pluginRouteServiceStub struct {
-	runtimeFunc                          func(plugins.RuntimeOptions) (plugins.RuntimeResponse, error)
+	runtimeFunc                          func(plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error)
 	getBackendUISettingsFunc             func(string) ([]plugins.PluginRegisteredUISetting, error)
 	readBackendUISettingValueFunc        func(context.Context, plugins.BackendUISettingReadOptions) (any, error)
 	writeBackendUISettingValueFunc       func(context.Context, plugins.BackendUISettingWriteOptions) error
 	rescanFunc                           func() (plugins.DiscoverySnapshot, error)
-	installFunc                          func(context.Context, plugins.InstallOptions) (plugins.PluginInstallResult, error)
-	linkFunc                             func(plugins.LinkOptions) (plugins.PluginInstallResult, error)
-	uninstallFunc                        func(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResult, error)
-	updateFunc                           func(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResult, error)
-	rollbackFunc                         func(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResult, error)
-	enableFunc                           func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
-	disableFunc                          func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error)
-	writeConfigFunc                      func(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error)
-	writeLockfileFunc                    func() (plugins.PluginLockWriteResult, error)
-	applyLockfileFunc                    func(context.Context, bool) (plugins.PluginLockApplyResult, error)
-	restartFunc                          func(context.Context) (plugins.PluginRestartResult, error)
+	installFunc                          func(context.Context, plugins.InstallOptions) (plugins.PluginInstallResponse, error)
+	linkFunc                             func(plugins.LinkOptions) (plugins.PluginInstallResponse, error)
+	uninstallFunc                        func(context.Context, plugins.UninstallOptions) (plugins.PluginUninstallResponse, error)
+	updateFunc                           func(context.Context, plugins.UpdateOptions) (plugins.PluginUpdateResponse, error)
+	rollbackFunc                         func(context.Context, plugins.RollbackOptions) (plugins.PluginRollbackResponse, error)
+	enableFunc                           func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error)
+	disableFunc                          func(context.Context, plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error)
+	writeConfigFunc                      func(context.Context, plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error)
+	writeLockfileFunc                    func() (plugins.PluginLockWriteResponse, error)
+	applyLockfileFunc                    func(context.Context, bool) (plugins.PluginLockApplyResponse, error)
+	restartFunc                          func(context.Context) (plugins.PluginRestartResponse, error)
 	resolveAssetPathFunc                 func(string, string) (string, error)
 	resolveRegisteredStaticAssetPathFunc func(string) (string, bool, error)
 	lookupRegisteredBackendRouteFunc     func(string, string) (plugins.BackendRouteLookup, error)
@@ -2253,11 +2253,11 @@ type pluginRouteServiceStub struct {
 	invokeRegisteredListenerEndpointFunc func(context.Context, plugins.BackendListenerEndpointRequest) (any, bool, error)
 }
 
-func (s pluginRouteServiceStub) Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
+func (s pluginRouteServiceStub) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
 	if s.runtimeFunc != nil {
 		return s.runtimeFunc(options)
 	}
-	return plugins.RuntimeResponse{}, nil
+	return plugins.PluginRuntimeResponse{}, nil
 }
 
 func (s pluginRouteServiceStub) GetBackendUISettings(pluginID string) ([]plugins.PluginRegisteredUISetting, error) {
@@ -2288,81 +2288,81 @@ func (s pluginRouteServiceStub) Rescan() (plugins.DiscoverySnapshot, error) {
 	return plugins.DiscoverySnapshot{}, nil
 }
 
-func (s pluginRouteServiceStub) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error) {
+func (s pluginRouteServiceStub) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
 	if s.installFunc != nil {
 		return s.installFunc(ctx, options)
 	}
-	return plugins.PluginInstallResult{}, nil
+	return plugins.PluginInstallResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) Link(options plugins.LinkOptions) (plugins.PluginInstallResult, error) {
+func (s pluginRouteServiceStub) Link(options plugins.LinkOptions) (plugins.PluginInstallResponse, error) {
 	if s.linkFunc != nil {
 		return s.linkFunc(options)
 	}
-	return plugins.PluginInstallResult{}, nil
+	return plugins.PluginInstallResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResult, error) {
+func (s pluginRouteServiceStub) Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
 	if s.uninstallFunc != nil {
 		return s.uninstallFunc(ctx, options)
 	}
-	return plugins.PluginUninstallResult{}, nil
+	return plugins.PluginUninstallResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error) {
+func (s pluginRouteServiceStub) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
 	if s.updateFunc != nil {
 		return s.updateFunc(ctx, options)
 	}
-	return plugins.PluginUpdateResult{}, nil
+	return plugins.PluginUpdateResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error) {
+func (s pluginRouteServiceStub) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
 	if s.rollbackFunc != nil {
 		return s.rollbackFunc(ctx, options)
 	}
-	return plugins.PluginRollbackResult{}, nil
+	return plugins.PluginRollbackResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+func (s pluginRouteServiceStub) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
 	if s.enableFunc != nil {
 		return s.enableFunc(ctx, options)
 	}
-	return plugins.PluginEnableDisableResult{}, nil
+	return plugins.PluginEnableDisableResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+func (s pluginRouteServiceStub) Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
 	if s.disableFunc != nil {
 		return s.disableFunc(ctx, options)
 	}
-	return plugins.PluginEnableDisableResult{}, nil
+	return plugins.PluginEnableDisableResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
+func (s pluginRouteServiceStub) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
 	if s.writeConfigFunc != nil {
 		return s.writeConfigFunc(ctx, options)
 	}
-	return plugins.PluginConfigWriteResult{}, nil
+	return plugins.PluginConfigWriteResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) WriteLockfile() (plugins.PluginLockWriteResult, error) {
+func (s pluginRouteServiceStub) WriteLockfile() (plugins.PluginLockWriteResponse, error) {
 	if s.writeLockfileFunc != nil {
 		return s.writeLockfileFunc()
 	}
-	return plugins.PluginLockWriteResult{}, nil
+	return plugins.PluginLockWriteResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResult, error) {
+func (s pluginRouteServiceStub) ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResponse, error) {
 	if s.applyLockfileFunc != nil {
 		return s.applyLockfileFunc(ctx, check)
 	}
-	return plugins.PluginLockApplyResult{}, nil
+	return plugins.PluginLockApplyResponse{}, nil
 }
 
-func (s pluginRouteServiceStub) Restart(ctx context.Context) (plugins.PluginRestartResult, error) {
+func (s pluginRouteServiceStub) Restart(ctx context.Context) (plugins.PluginRestartResponse, error) {
 	if s.restartFunc != nil {
 		return s.restartFunc(ctx)
 	}
-	return plugins.PluginRestartResult{}, nil
+	return plugins.PluginRestartResponse{}, nil
 }
 
 func (s pluginRouteServiceStub) ResolveAssetPath(pluginID string, assetPath string) (string, error) {

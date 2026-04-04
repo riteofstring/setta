@@ -190,43 +190,6 @@ const (
 	PluginBlockedCapabilityReasonManifestInvalid PluginBlockedCapabilityReason = PluginBlockedCapabilityReason(plugins.PluginBlockedCapabilityReasonManifestInvalid)
 )
 
-type PluginRestartCapabilityMode plugins.RestartCapabilityMode
-
-const (
-	PluginRestartCapabilityModeManual       PluginRestartCapabilityMode = PluginRestartCapabilityMode(plugins.RestartCapabilityModeManual)
-	PluginRestartCapabilityModeProgrammatic PluginRestartCapabilityMode = PluginRestartCapabilityMode(plugins.RestartCapabilityModeProgrammatic)
-)
-
-type PluginErrorInfo plugins.PluginErrorInfo
-
-type PluginBlockedCapability plugins.PluginBlockedCapability
-
-type PluginFrontendDescriptor plugins.FrontendDescriptor
-
-type PluginContentDescriptor plugins.ContentDescriptor
-
-type PluginConfigDescriptor plugins.ConfigDescriptor
-
-type PluginRegisteredCodegenTarget plugins.PluginRegisteredCodegenTarget
-
-type PluginRegisteredBackendRoute plugins.PluginRegisteredBackendRoute
-
-type PluginRegisteredStaticDir plugins.PluginRegisteredStaticDir
-
-type PluginRegisteredListenerEndpoint plugins.PluginRegisteredListenerEndpoint
-
-type PluginRestartCapability plugins.RestartCapability
-
-type PluginListEntry plugins.ListEntry
-
-type PluginListResponse plugins.ListResponse
-
-type PluginStatusEntry plugins.StatusEntry
-
-type PluginStatusResponse plugins.StatusResponse
-
-type PluginRuntimeResponse plugins.RuntimeResponse
-
 type PluginRescanResponse httpapi.PluginsRescanResponse
 
 type PluginEnableDisableRequestInput httpapi.PluginEnableDisableRequest
@@ -235,32 +198,12 @@ type PluginInstallRequestInput httpapi.PluginInstallRequest
 
 type PluginLinkRequestInput httpapi.PluginLinkRequest
 
-type PluginInstallResponse plugins.PluginInstallResult
-
-type PluginEnableDisableResponse plugins.PluginEnableDisableResult
-
 type PluginUninstallRequestInput httpapi.PluginUninstallRequest
-
-type PluginUninstallResponse plugins.PluginUninstallResult
 
 type PluginUpdateRequestInput httpapi.PluginUpdateRequest
 
-type PluginUpdateResponse plugins.PluginUpdateResult
-
 type PluginRollbackRequestInput httpapi.PluginRollbackRequest
-
-type PluginRollbackResponse plugins.PluginRollbackResult
-
-type PluginConfigValidationResult plugins.PluginConfigValidationResult
 
 type PluginConfigWriteRequestInput httpapi.PluginConfigWriteRequest
 
-type PluginConfigWriteResponse plugins.PluginConfigWriteResult
-
-type PluginLockWriteResponse plugins.PluginLockWriteResult
-
 type PluginLockApplyRequestInput httpapi.PluginLockApplyRequest
-
-type PluginLockApplyResponse plugins.PluginLockApplyResult
-
-type PluginRestartResponse plugins.PluginRestartResult

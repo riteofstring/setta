@@ -48,7 +48,7 @@ func TestServiceStatusIncludesOrderedEntriesAndManualRestartCapability(t *testin
 	if status.ServerMode != config.ModeIDE {
 		t.Fatalf("expected ide mode, got %q", status.ServerMode)
 	}
-	if status.RestartCapability.Mode != RestartCapabilityModeManual {
+	if status.RestartCapability.Mode != PluginRestartCapabilityModeManual {
 		t.Fatalf("expected manual restart capability, got %#v", status.RestartCapability)
 	}
 	if status.RestartCapability.Command == nil || *status.RestartCapability.Command != "setta" {
@@ -145,7 +145,7 @@ func TestServiceRestartRequiredSummaryIncludesPendingIDsWithoutStatus(t *testing
 	if len(summary.PendingPluginIDsWithoutStatus) != 1 || summary.PendingPluginIDsWithoutStatus[0] != "setta-fixture-backend" {
 		t.Fatalf("unexpected pending ids without status %#v", summary.PendingPluginIDsWithoutStatus)
 	}
-	if summary.RestartCapability.Mode != RestartCapabilityModeManual {
+	if summary.RestartCapability.Mode != PluginRestartCapabilityModeManual {
 		t.Fatalf("expected manual restart capability, got %#v", summary.RestartCapability)
 	}
 }
@@ -177,7 +177,7 @@ func TestServiceRestartRequiredSummaryUsesProgrammaticCapabilityWithoutFallbackF
 	if len(summary.PendingPluginIDsWithoutStatus) != 0 {
 		t.Fatalf("expected no pending ids without status, got %#v", summary.PendingPluginIDsWithoutStatus)
 	}
-	if summary.RestartCapability.Mode != RestartCapabilityModeProgrammatic {
+	if summary.RestartCapability.Mode != PluginRestartCapabilityModeProgrammatic {
 		t.Fatalf("expected programmatic restart capability, got %#v", summary.RestartCapability)
 	}
 	if summary.RestartCapability.Command != nil || summary.RestartCapability.Reason != nil {
@@ -197,7 +197,7 @@ func TestServiceRestartReturnsManualCapabilityPayload(t *testing.T) {
 	if result.Accepted {
 		t.Fatalf("expected manual restart payload to be rejected")
 	}
-	if result.Mode != RestartCapabilityModeManual {
+	if result.Mode != PluginRestartCapabilityModeManual {
 		t.Fatalf("expected manual restart mode, got %#v", result.Mode)
 	}
 	if result.Command == nil || *result.Command != "setta" {
@@ -227,7 +227,7 @@ func TestServiceRestartAcceptsProgrammaticCallback(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load status: %v", err)
 	}
-	if status.RestartCapability.Mode != RestartCapabilityModeProgrammatic {
+	if status.RestartCapability.Mode != PluginRestartCapabilityModeProgrammatic {
 		t.Fatalf("expected programmatic restart capability, got %#v", status.RestartCapability)
 	}
 	if status.RestartCapability.Command != nil || status.RestartCapability.Reason != nil {
@@ -241,7 +241,7 @@ func TestServiceRestartAcceptsProgrammaticCallback(t *testing.T) {
 	if !result.Accepted {
 		t.Fatalf("expected restart request to be accepted, got %#v", result)
 	}
-	if result.Mode != RestartCapabilityModeProgrammatic {
+	if result.Mode != PluginRestartCapabilityModeProgrammatic {
 		t.Fatalf("expected programmatic restart mode, got %#v", result.Mode)
 	}
 	if result.Command != nil || result.Reason != nil {
@@ -272,7 +272,7 @@ func TestServiceRestartProgrammaticRejectionFallsBackToManualCommand(t *testing.
 	if result.Accepted {
 		t.Fatalf("expected rejected restart request, got %#v", result)
 	}
-	if result.Mode != RestartCapabilityModeProgrammatic {
+	if result.Mode != PluginRestartCapabilityModeProgrammatic {
 		t.Fatalf("expected programmatic restart mode, got %#v", result.Mode)
 	}
 	if result.Command == nil || *result.Command != "setta" {
@@ -317,7 +317,7 @@ func writePluginFile(root string, relativePath string, content string) error {
 	return os.WriteFile(path, []byte(content), 0o644)
 }
 
-func mustFindStatusEntry(t *testing.T, entries []StatusEntry, pluginID string, state PluginRuntimeState) StatusEntry {
+func mustFindStatusEntry(t *testing.T, entries []PluginStatusEntry, pluginID string, state PluginRuntimeState) PluginStatusEntry {
 	t.Helper()
 
 	for _, entry := range entries {
@@ -326,5 +326,5 @@ func mustFindStatusEntry(t *testing.T, entries []StatusEntry, pluginID string, s
 		}
 	}
 	t.Fatalf("expected status entry %q in state %q", pluginID, state)
-	return StatusEntry{}
+	return PluginStatusEntry{}
 }

@@ -36,7 +36,7 @@ func newPluginMutationRuntimeService(base *plugins.Service, refresher *pluginBac
 	}
 }
 
-func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (plugins.RuntimeResponse, error) {
+func (s *pluginMutationRuntimeService) Runtime(options plugins.RuntimeOptions) (plugins.PluginRuntimeResponse, error) {
 	return s.base.Runtime(options)
 }
 
@@ -74,7 +74,7 @@ func (s *pluginMutationRuntimeService) Rescan() (plugins.DiscoverySnapshot, erro
 	return s.refresher.Refresh(context.Background())
 }
 
-func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResult, error) {
+func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plugins.InstallOptions) (plugins.PluginInstallResponse, error) {
 	result, err := s.base.Install(ctx, options)
 	if err != nil || s.refresher == nil || !result.RestartRequired {
 		return result, err
@@ -93,7 +93,7 @@ func (s *pluginMutationRuntimeService) Install(ctx context.Context, options plug
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) Link(options plugins.LinkOptions) (plugins.PluginInstallResult, error) {
+func (s *pluginMutationRuntimeService) Link(options plugins.LinkOptions) (plugins.PluginInstallResponse, error) {
 	result, err := s.base.Link(options)
 	if err != nil || s.refresher == nil || !result.RestartRequired {
 		return result, err
@@ -112,7 +112,7 @@ func (s *pluginMutationRuntimeService) Link(options plugins.LinkOptions) (plugin
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResult, error) {
+func (s *pluginMutationRuntimeService) Uninstall(ctx context.Context, options plugins.UninstallOptions) (plugins.PluginUninstallResponse, error) {
 	result, err := s.base.Uninstall(ctx, options)
 	if err != nil || s.refresher == nil || !result.RestartRequired {
 		return result, err
@@ -124,7 +124,7 @@ func (s *pluginMutationRuntimeService) Uninstall(ctx context.Context, options pl
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResult, error) {
+func (s *pluginMutationRuntimeService) Update(ctx context.Context, options plugins.UpdateOptions) (plugins.PluginUpdateResponse, error) {
 	result, err := s.base.Update(ctx, options)
 	if err != nil || s.refresher == nil || !result.RestartRequired {
 		return result, err
@@ -136,7 +136,7 @@ func (s *pluginMutationRuntimeService) Update(ctx context.Context, options plugi
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResult, error) {
+func (s *pluginMutationRuntimeService) Rollback(ctx context.Context, options plugins.RollbackOptions) (plugins.PluginRollbackResponse, error) {
 	result, err := s.base.Rollback(ctx, options)
 	if err != nil || s.refresher == nil || !result.RestartRequired {
 		return result, err
@@ -148,7 +148,7 @@ func (s *pluginMutationRuntimeService) Rollback(ctx context.Context, options plu
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
 	result, err := s.base.Enable(ctx, options)
 	if err != nil || s.refresher == nil || !result.RestartRequired {
 		return result, err
@@ -164,7 +164,7 @@ func (s *pluginMutationRuntimeService) Enable(ctx context.Context, options plugi
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResult, error) {
+func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plugins.EnableDisableOptions) (plugins.PluginEnableDisableResponse, error) {
 	result, err := s.base.Disable(ctx, options)
 	if err != nil || s.refresher == nil || !result.RestartRequired {
 		return result, err
@@ -180,7 +180,7 @@ func (s *pluginMutationRuntimeService) Disable(ctx context.Context, options plug
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResult, error) {
+func (s *pluginMutationRuntimeService) WriteConfig(ctx context.Context, options plugins.ConfigWriteOptions) (plugins.PluginConfigWriteResponse, error) {
 	return s.base.WriteConfig(ctx, options)
 }
 
@@ -196,11 +196,11 @@ func (s *pluginMutationRuntimeService) WriteBackendUISettingValue(ctx context.Co
 	return s.base.WriteBackendUISettingValue(ctx, options)
 }
 
-func (s *pluginMutationRuntimeService) WriteLockfile() (plugins.PluginLockWriteResult, error) {
+func (s *pluginMutationRuntimeService) WriteLockfile() (plugins.PluginLockWriteResponse, error) {
 	return s.base.WriteLockfile()
 }
 
-func (s *pluginMutationRuntimeService) ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResult, error) {
+func (s *pluginMutationRuntimeService) ApplyLockfile(ctx context.Context, check bool) (plugins.PluginLockApplyResponse, error) {
 	result, err := s.base.ApplyLockfile(ctx, check)
 	if err != nil || s.refresher == nil || !result.Applied || check {
 		return result, err
@@ -211,7 +211,7 @@ func (s *pluginMutationRuntimeService) ApplyLockfile(ctx context.Context, check 
 	return result, nil
 }
 
-func (s *pluginMutationRuntimeService) Restart(ctx context.Context) (plugins.PluginRestartResult, error) {
+func (s *pluginMutationRuntimeService) Restart(ctx context.Context) (plugins.PluginRestartResponse, error) {
 	return s.base.Restart(ctx)
 }
 
