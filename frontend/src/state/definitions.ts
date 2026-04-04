@@ -6,7 +6,6 @@ import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
-import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -40,7 +39,6 @@ import {
   ChartDataMapping,
   createProjectChatWindowingState,
   createProjectConfig,
-  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
@@ -55,6 +53,7 @@ import {
   SettaBackendLogEvent,
   SettaLspDiagnostic,
   SettaNotification,
+  SettaProjectNameValidationErrors,
   SettingsState,
   SharePolicy,
   TranscriptionProfile,
@@ -158,7 +157,6 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
-          sectionCapabilities: {},
           sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},
@@ -688,6 +686,12 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
+const useArtifacts = withProjectState(
+  createWithEqualityFn(
+    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
+  ),
+);
+
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -760,9 +764,7 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() =>
-  createSettingsState(),
-);
+export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
 
 type ZustandTypeErrors = {
   userRequested: boolean;
