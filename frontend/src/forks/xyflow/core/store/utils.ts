@@ -8,6 +8,7 @@ import {
   getD3Transition,
   getNodesBounds,
   getViewportForBounds,
+  hasActiveD3ViewportTarget,
 } from "../utils/graph";
 
 type InternalFitViewOptions = {
@@ -36,7 +37,10 @@ export function fitView(options: InternalFitViewOptions = {}) {
 
   const isInitialFitView =
     options.initial && !fitViewOnInitDone && fitViewOnInit;
-  const d3initialized = d3Zoom && d3Selection;
+  const d3initialized =
+    d3Zoom &&
+    d3Selection &&
+    hasActiveD3ViewportTarget(d3Selection, useReactFlow.getState().domNode);
 
   if (!d3initialized) {
     return (

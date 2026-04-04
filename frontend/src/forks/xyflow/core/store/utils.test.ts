@@ -42,6 +42,26 @@ describe("store utils", () => {
     expect(fitViewSpy).toHaveBeenCalledWith({ duration: 100 });
   });
 
+  it("delegates to the custom viewport controller when legacy d3 state has no active viewport target", () => {
+    // Validates custom-surface fit view ignores stale d3 viewport state.
+    const fitViewSpy = vi.fn(() => true);
+
+    useReactFlow.setState({
+      d3Zoom: { transform: vi.fn() } as never,
+      d3Selection: { node: () => null } as never,
+      viewportController: {
+        zoomBy: vi.fn(),
+        zoomTo: vi.fn(),
+        setViewport: vi.fn(),
+        setCenter: vi.fn(),
+        fitView: fitViewSpy,
+      },
+    });
+
+    expect(fitView({ duration: 100 })).toBe(true);
+    expect(fitViewSpy).toHaveBeenCalledWith({ duration: 100 });
+  });
+
   it("lets explicit fit-view clicks run on the custom substrate even when fitViewOnInit is still true", () => {
     // Validates the canary toolbar is not blocked by the legacy init guard.
     vi.useFakeTimers();

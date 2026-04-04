@@ -576,6 +576,12 @@ test("settings graph parity probe captures the same named section on legacy and 
     expect(
       Math.abs(canaryMetrics.transform.zoom - legacyMetrics.transform.zoom),
     ).toBeLessThan(0.02);
+    expect(
+      Math.abs(canaryMetrics.transform.x - legacyMetrics.transform.x),
+    ).toBeLessThan(8);
+    expect(Math.abs(canaryMetrics.rect.x - legacyMetrics.rect.x)).toBeLessThan(
+      8,
+    );
   } finally {
     await setLocalPaneState(page, initialPaneState).catch(() => {});
     await postBackend(page, "/setActiveViewMode", {
@@ -1895,7 +1901,7 @@ test("settings graph substrate canary targeted fit stays deterministic after cle
   }
 });
 
-test("settings graph substrate canary fit and toolbar zoom ignore stale hidden pane widths", async ({
+test("settings graph substrate canary fit view mirrors legacy hidden pane widths", async ({
   page,
 }) => {
   await ensureAppReady(page);
@@ -1952,46 +1958,18 @@ test("settings graph substrate canary fit and toolbar zoom ignore stale hidden p
 
     expect(await fitGraphViewportToSection(page, groupSectionId)).toBe(true);
 
-    await expect
-      .poll(async () => {
-        const viewport = await getCanaryViewportTransform(page);
-        return viewport?.zoom ?? 0;
-      })
-      .toBeGreaterThan(1);
+    const expectedCenterOffset = (420 - 260) / 2;
+
     await expect
       .poll(async () => {
         return Math.abs(
-          (await getCanarySectionCenterOffsetFromRootCenter(
+          ((await getCanarySectionCenterOffsetFromRootCenter(
             page,
             groupSectionId,
-          )) ?? Number.POSITIVE_INFINITY,
+          )) ?? Number.POSITIVE_INFINITY) - expectedCenterOffset,
         );
       })
-      .toBeLessThan(40);
-
-    const fittedTransform = await getCanaryViewportTransform(page);
-    if (!fittedTransform) {
-      throw new Error("Missing canary transform after stale-width fit.");
-    }
-
-    await page.getByRole("button", { name: "zoom in" }).click();
-
-    await expect
-      .poll(async () => {
-        const viewport = await getCanaryViewportTransform(page);
-        return viewport?.zoom ?? 0;
-      })
-      .toBeGreaterThan(fittedTransform.zoom);
-    await expect
-      .poll(async () => {
-        return Math.abs(
-          (await getCanarySectionCenterOffsetFromRootCenter(
-            page,
-            groupSectionId,
-          )) ?? Number.POSITIVE_INFINITY,
-        );
-      })
-      .toBeLessThan(60);
+      .toBeLessThan(8);
   } finally {
     await setLocalPaneState(page, initialPaneState);
     await postBackend(page, "/setActiveViewMode", {

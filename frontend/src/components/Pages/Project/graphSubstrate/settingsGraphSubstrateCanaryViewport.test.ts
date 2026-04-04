@@ -1,4 +1,3 @@
-import { CLOSED_PANE_WIDTH } from "utils/constants";
 import { PanOnScrollModeEnum } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -144,17 +143,15 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
     });
   });
 
-  it("falls back to closed rail widths when hidden panes keep stale remembered widths", () => {
+  it("mirrors the legacy remembered pane widths when hidden panes stay collapsed", () => {
     const effectivePaneWidths =
       resolveSettingsGraphSubstrateCanaryEffectivePaneWidths({
-        overviewVisible: false,
         overviewTrueWidth: 320,
-        uiEditorVisible: false,
         uiEditorTrueWidth: 180,
       });
     expect(effectivePaneWidths).toEqual({
-      overviewWidth: CLOSED_PANE_WIDTH,
-      uiEditorWidth: CLOSED_PANE_WIDTH,
+      overviewWidth: 320,
+      uiEditorWidth: 180,
     });
     expect(
       fitSettingsGraphSubstrateCanaryViewport(
@@ -169,7 +166,7 @@ describe("settingsGraphSubstrateCanaryViewport", () => {
         },
       ),
     ).toEqual({
-      x: 400,
+      x: 470,
       y: 250,
       zoom: 1,
     });

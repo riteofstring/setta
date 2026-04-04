@@ -394,7 +394,7 @@ function getPaneScreenRect(
   };
 }
 
-function hasActiveD3ViewportTarget(
+export function hasActiveD3ViewportTarget(
   d3Selection: D3Selection<Element, unknown, null, undefined>,
   domNode: HTMLDivElement | null,
 ) {
@@ -411,7 +411,11 @@ function hasActiveD3ViewportTarget(
   return domNode.contains(paneElement);
 }
 
-function getRectTranslation(rect: ScreenRect, paneRect: ScreenRect, padding = 0) {
+function getRectTranslation(
+  rect: ScreenRect,
+  paneRect: ScreenRect,
+  padding = 0,
+) {
   const minX = paneRect.left + padding;
   const maxX = paneRect.right - padding;
   const minY = paneRect.top + padding;

@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 01:18 EDT
+Last updated: 2026-04-04 01:50 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,41 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `082` closed the live worktree canary-vs-legacy `fitView` centering blocker on the shared `shortcuts` lane and reduced the remaining `main` mismatch to remembered-pane normalization noise across sessions.
+  - Why this slice was needed:
+    - item `081` had already proven the compare lane was trustworthy by logical section name, so the next valid step was a production/debug slice on the `~80px` left offset rather than another harness-only pass
+    - the first narrow local verification on the in-progress stale-D3 guard showed that fix alone was not enough to explain the live compare, so this pass needed to separate the worktree canary-vs-legacy bug from cross-session oracle noise
+    - direct code inspection showed the canary fit path was still collapsing hidden panes to the `40px` rails while legacy React Flow kept using remembered pane widths, which was exactly the fit-centering difference item `081` had isolated
+  - Production/test change:
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts` now mirrors legacy remembered pane widths for fit/center calculations even when overview and UI editor panes are visually hidden
+    - `frontend/src/forks/xyflow/core/store/utils.ts` now verifies the legacy D3 selection still targets the active mounted viewport before using the D3 `fitView` path; otherwise it delegates to the canary viewport controller
+    - `frontend/src/forks/xyflow/core/utils/graph.ts` now exports `hasActiveD3ViewportTarget(...)` so shared viewport helpers can reuse the same active-target check
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts` now locks the remembered-pane-width fit behavior
+    - `frontend/src/forks/xyflow/core/store/utils.test.ts` now locks the stale-D3 `fitView` fallback onto the custom viewport controller
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now:
+      - tightens `settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit` to assert `rect.x` and `transform.x` parity, not just size/zoom parity
+      - replaces the previous hidden-pane-width root-center expectation with `settings graph substrate canary fit view mirrors legacy hidden pane widths`
+  - Automated result:
+    - `source activate.sh && pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts src/forks/xyflow/core/store/utils.test.ts src/forks/xyflow/core/utils/graph.test.ts`
+      - result: passed (`3 files`, `29 tests`, about `1.5s`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe captures the same named section on legacy and canary surfaces after normalized fit|settings graph substrate canary fit view mirrors legacy hidden pane widths'`
+      - result: passed (`2 passed`, about `46.3s`)
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewport.test.ts tests/e2e/settings/settings-view-modes.spec.ts src/forks/xyflow/core/store/utils.ts src/forks/xyflow/core/store/utils.test.ts src/forks/xyflow/core/utils/graph.ts`
+      - result: passed
+  - Live verification result:
+    - fresh-context CDP sub-agent compare against read-only `main` after hard reload still showed:
+      - worktree `All Settings` canary `shortcuts` rect `x=405.6508`, transform `x=405.651`
+      - read-only `main` `All Settings` legacy `shortcuts` rect `x=485.6508`, transform `x=485.651`
+      - the cross-session `~80px` gap remained
+    - the same live CDP sub-agent then compared the worktree against itself and found the product blocker was closed on the worktree side:
+      - worktree `Core` legacy `shortcuts`: rect `x=405.6508`, transform `x=405.651`, center offset `~0px`
+      - worktree `All Settings` canary `shortcuts`: rect `x=405.6508`, transform `x=405.651`, center offset `~0px`
+      - the worktree canary no longer sits left of the worktree legacy surface after normalized `fitView`
+    - CDP visual check: done (live worktree `Core` legacy vs `All Settings` canary match on `shortcuts`; read-only `main` still differs by `~80px` after the same fit)
+  - conclusion for this slice:
+    - close the specific "worktree `All Settings` canary fit lands `shortcuts` about `80px` left of the worktree legacy surface" blocker
+    - the remaining `worktree` vs `main` gap is no longer evidence of a canary-only fit bug inside the worktree; it is consistent with cross-session remembered pane-width state still differing between the live worktree and the read-only `main` oracle
+    - do not reopen canary fit math until the next pass explicitly normalizes remembered `overviewTrueWidth` / `uiEditorTrueWidth` across both sessions before the cross-worktree compare
 - Ralph item `081` added a shared legacy/canary section-geometry probe for normalized `settings` compares and used it to prove the next live compare lane is trustworthy by logical section name, not by raw section id.
   - Why this slice was needed:
     - after item `080`, the next useful step was not another canary-only compare or more pane-pan churn; it was one bounded support slice that could finally measure the same logical section on worktree legacy, worktree canary, and read-only `main` legacy
