@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 15:58 EDT
+Last updated: 2026-04-03 16:10 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,30 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `054` closed the wide-card top-level drag oracle blocker for `groupSectionDefault` without reopening production renderer work.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened body-heavy section attached during top-level drag`
+    - the spec extends `findDraggableCanarySection(...)` so the drag probe can target one named section by resolved runtime id
+    - new local helper in the same spec:
+      - `getCanarySectionBodyAnchorOffset(...)`
+    - the new case widens `groupSectionDefault`, drags it through the real Playwright mouse path, and asserts both:
+      - a body anchor stays locked to the same section shell during motion
+      - the top-level layout persists after drop
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened body-heavy section attached during top-level drag'`
+    - result: passed (`1 passed`, about `20.9s`)
+    - what it proves now: the widened body-heavy card can use the true top-level drag path in the isolated canary runtime without body/shell detachment
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the live worktree `http://127.0.0.1:3075/settings`
+    - the first sub-agent attempt failed only because the prompt used the section name where the runtime section id was required; the retry resolved the actual `groupSectionDefault` section id as `09be53dc-f764-42da-b355-de56de647ee1`
+    - after normalizing to active `All Settings` with `overviewVis=false` and `uiEditorVis=false`, the production targeted-fit path widened the live card cleanly and no obvious blank/detached/body-loss artifact was visible
+    - screenshot evidence for the widened live card was captured to:
+      - `/tmp/setta-groupSectionDefault-fit.png`
+  - conclusion for this slice:
+    - the helper/oracle blocker is now closed for the `groupSectionDefault` wide-card drag question
+    - do not spend another iteration on helper-only drag instrumentation for this lane
+    - CDP mouse drag itself is still not the trustworthy oracle here, but future wide-card drag questions can now reuse this Playwright coverage plus a live fit screenshot check instead of inventing another support slice
+    - the next real frontier should return to one different normalized dynamic motion or interaction-state lane, not more `groupSectionDefault` drag-oracle churn
 - Ralph item `053` closed the normalized `groupSectionDefault` wide-card pan lane with one bounded graph-surface compare instead of reopening the drag-workaround lane.
   - Production/test change:
     - none; this iteration intentionally did not change production or test code
@@ -981,6 +1005,7 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
   - the exact `groupSectionDefault` targeted-fit plus shared `zoom in` lane is now closed; do not reopen it unless a fresh compare reintroduces drift
   - the exact `groupSectionDefault` shared wide-card pan pulse is also now closed; do not reopen it unless a fresh compare reintroduces drift
   - the keyboard-accessible `groupSectionDefault` motion probe is also clean; do not spend another iteration repeating that exact workaround just because true CDP mouse drag was untrustworthy
+  - the targeted wide-card `groupSectionDefault` Playwright drag oracle is now available; reuse it if a future compare needs trustworthy top-level drag evidence, but do not spend another iteration extending that support lane by itself
   - focus the next compare on one different trustworthy dynamic action across worktree and `main`, not more `groupSectionDefault` pan/zoom repetition:
     - a true top-level section drag on a shared wide/body-heavy card if a trustworthy motion oracle is available
     - or a different shared body-heavy dynamic pulse if physical drag is still not trustworthy in CDP

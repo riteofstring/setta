@@ -1462,6 +1462,193 @@ test("settings graph substrate canary can fit a named body-heavy section into a 
   }
 });
 
+test("settings graph substrate canary keeps a widened body-heavy section attached during top-level drag", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const groupSectionId = findSectionIdByName(
+    initialState,
+    "groupSectionDefault",
+  );
+  const groupSectionLayout =
+    initialState.projectState.projectConfig.topLevelSections[groupSectionId];
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  if (!groupSectionLayout) {
+    throw new Error("Missing groupSectionDefault top-level layout.");
+  }
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+
+    const canaryPane = page.getByTestId("graph-substrate-canary");
+    const targetSection = page.locator(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${groupSectionId}"]`,
+    );
+    await expect(canaryPane).toBeVisible();
+    await expect(targetSection).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    await setCanaryComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+    expect(await fitCanaryViewportToSection(page, groupSectionId)).toBe(true);
+
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          groupSectionId,
+        );
+        return targetBox?.width ?? 0;
+      })
+      .toBeGreaterThan(500);
+    await expect
+      .poll(async () => {
+        const targetBox = await getCanarySectionBoundingBox(
+          page,
+          groupSectionId,
+        );
+        return targetBox?.height ?? 0;
+      })
+      .toBeGreaterThan(300);
+
+    // Locks down the live parity blocker that CDP mouse drag could not prove:
+    // the widened body content must stay attached to the same section shell
+    // while the real top-level drag path is active.
+    const initialSectionBox = await getCanarySectionBoundingBox(
+      page,
+      groupSectionId,
+    );
+    const initialBodyAnchorOffset = await getCanarySectionBodyAnchorOffset(
+      page,
+      groupSectionId,
+    );
+    if (!initialSectionBox || !initialBodyAnchorOffset) {
+      throw new Error(
+        "Missing wide-card section bounds or body anchor before drag.",
+      );
+    }
+
+    const dragTarget = await findDraggableCanarySection(page, groupSectionId);
+    await page.mouse.move(dragTarget.point.x, dragTarget.point.y);
+    await page.mouse.down();
+    await expect(targetSection).toHaveAttribute("data-dragging", "true");
+    await page.mouse.move(dragTarget.point.x + 180, dragTarget.point.y + 110, {
+      steps: 10,
+    });
+
+    await expect
+      .poll(async () => {
+        const movedBox = await getCanarySectionBoundingBox(
+          page,
+          groupSectionId,
+        );
+        if (!movedBox) {
+          return 0;
+        }
+        return Math.hypot(
+          movedBox.x - initialSectionBox.x,
+          movedBox.y - initialSectionBox.y,
+        );
+      })
+      .toBeGreaterThan(80);
+    await expect
+      .poll(async () => {
+        const latestBodyAnchorOffset = await getCanarySectionBodyAnchorOffset(
+          page,
+          groupSectionId,
+        );
+        if (!latestBodyAnchorOffset) {
+          return Number.POSITIVE_INFINITY;
+        }
+        return Math.max(
+          Math.abs(latestBodyAnchorOffset.x - initialBodyAnchorOffset.x),
+          Math.abs(latestBodyAnchorOffset.y - initialBodyAnchorOffset.y),
+        );
+      })
+      .toBeLessThan(16);
+
+    await page.mouse.up();
+
+    await expect
+      .poll(async () => {
+        const latestState = await getLatestProjectState(page, projectConfigId);
+        const latestLayout =
+          latestState.projectState.projectConfig.topLevelSections[
+            groupSectionId
+          ];
+        if (!latestLayout) {
+          return false;
+        }
+        return (
+          latestLayout.x !== groupSectionLayout.x ||
+          latestLayout.y !== groupSectionLayout.y
+        );
+      })
+      .toBe(true);
+  } finally {
+    await postBackend(page, "/setTopLevelSectionLayout", {
+      projectConfigId,
+      topLevelSections:
+        initialState.projectState.projectConfig.topLevelSections,
+    });
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
 test("settings view modes keep visible sections when layout payload is partial", async ({
   page,
 }) => {
@@ -1797,11 +1984,15 @@ async function getCanaryAutoFitDrift(page: Page): Promise<{
   };
 }
 
-async function findDraggableCanarySection(page: Page): Promise<{
+async function findDraggableCanarySection(
+  page: Page,
+  targetSectionId?: string,
+): Promise<{
   index: number;
   point: { x: number; y: number };
+  sectionId: string;
 }> {
-  const draggable = await page.evaluate(() => {
+  const draggable = await page.evaluate((requestedSectionId) => {
     const blockingSelector =
       ".nodrag,input,textarea,select,option,a,[contenteditable='true']";
     const xs = [0.2, 0.35, 0.5, 0.65, 0.8];
@@ -1812,6 +2003,12 @@ async function findDraggableCanarySection(page: Page): Promise<{
       ),
     );
     for (const [index, section] of sections.entries()) {
+      if (
+        requestedSectionId &&
+        section.getAttribute("data-section-id") !== requestedSectionId
+      ) {
+        continue;
+      }
       const bounds = section.getBoundingClientRect();
       for (const yPct of ys) {
         for (const xPct of xs) {
@@ -1830,14 +2027,23 @@ async function findDraggableCanarySection(page: Page): Promise<{
           if (!resolvedSection || resolvedSection !== section) {
             continue;
           }
-          return { index, point: { x, y } };
+          return {
+            index,
+            point: { x, y },
+            sectionId: section.getAttribute("data-section-id") ?? "",
+          };
         }
       }
     }
     return null;
-  });
+  }, targetSectionId);
 
   if (!draggable) {
+    if (targetSectionId) {
+      throw new Error(
+        `Unable to find a draggable canary point for section ${targetSectionId}.`,
+      );
+    }
     throw new Error("Unable to find a draggable canary section.");
   }
   return draggable;
@@ -2106,6 +2312,76 @@ async function getCanarySectionBoundingBox(
     )
     .first();
   return await section.boundingBox();
+}
+
+async function getCanarySectionBodyAnchorOffset(
+  page: Page,
+  sectionId: string,
+): Promise<{ x: number; y: number } | null> {
+  return page.evaluate((targetSectionId) => {
+    const section = document.querySelector<HTMLElement>(
+      `[data-testid="graph-substrate-canary-section"][data-section-id="${targetSectionId}"]`,
+    );
+    if (!section) {
+      return null;
+    }
+
+    const sectionRect = section.getBoundingClientRect();
+    const minBodyTop =
+      sectionRect.top + Math.min(44, Math.max(24, sectionRect.height * 0.2));
+    const preferredSelectors = [
+      "input",
+      "textarea",
+      "select",
+      "button",
+      "[role='combobox']",
+      "[role='textbox']",
+      "[contenteditable='true']",
+      "label",
+    ];
+    const candidates: HTMLElement[] = [];
+
+    for (const selector of preferredSelectors) {
+      candidates.push(
+        ...Array.from(section.querySelectorAll<HTMLElement>(selector)),
+      );
+    }
+    candidates.push(...Array.from(section.querySelectorAll<HTMLElement>("*")));
+
+    for (const candidate of candidates) {
+      if (candidate === section) {
+        continue;
+      }
+      const rect = candidate.getBoundingClientRect();
+      const style = window.getComputedStyle(candidate);
+      if (
+        style.display === "none" ||
+        style.visibility === "hidden" ||
+        style.opacity === "0"
+      ) {
+        continue;
+      }
+      if (rect.width < 16 || rect.height < 10 || rect.top < minBodyTop) {
+        continue;
+      }
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      if (
+        centerX < sectionRect.left ||
+        centerX > sectionRect.right ||
+        centerY < minBodyTop ||
+        centerY > sectionRect.bottom
+      ) {
+        continue;
+      }
+      return {
+        x: centerX - sectionRect.left,
+        y: centerY - sectionRect.top,
+      };
+    }
+
+    return null;
+  }, sectionId);
 }
 
 async function fitCanaryViewportToSection(

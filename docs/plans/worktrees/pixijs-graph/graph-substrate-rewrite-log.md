@@ -1844,3 +1844,45 @@ LOOP_TERMINAL_MARKER: none
   - inspect and fix or normalize the worktree section-selection / body-expansion path so the same wide/body-heavy section can be surfaced on both worktree and `main` before the next dynamic compare
 
 LOOP_TERMINAL_MARKER: none
+
+## 2026-04-03 054
+
+- Item: Add one trustworthy wide-card top-level drag oracle for `groupSectionDefault` instead of reopening another compare-only helper lane.
+- Status: `done`
+- Details:
+  - The last three completed iterations were compare-only closures, and the active blocker here was specifically that CDP mouse drag was not a trustworthy oracle for the widened `groupSectionDefault` card.
+  - This slice therefore took the allowed one bounded support step that directly unblocks the renderer question: add a real Playwright mouse-drag oracle for the same wide/body-heavy section the live parity lane has been using.
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened body-heavy section attached during top-level drag`.
+  - The new case:
+    - normalizes to active `All Settings`
+    - closes overview and UI editor panes through the production pane-visibility path
+    - resolves `groupSectionDefault` by authoritative project-state section name
+    - widens that section through the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path
+    - drags it through the real Playwright mouse path
+    - asserts a body anchor stays locked to the same section shell during motion
+    - asserts the top-level layout persists after the drop
+  - Local helper changes in the same spec:
+    - `findDraggableCanarySection(...)` can now target one resolved section id
+    - `getCanarySectionBodyAnchorOffset(...)` provides the body/shell attachment check during drag
+- Verification:
+  - Playwright
+    - command: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened body-heavy section attached during top-level drag'`
+    - result: passed twice (`1 passed`, about `24.6s` then `20.9s`)
+  - Prettier
+    - command: `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed after formatting the file with `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes.spec.ts`
+  - CDP visual check
+    - result: done
+    - note:
+      - a fresh-context CDP sub-agent checked the live worktree `http://127.0.0.1:3075/settings`
+      - the first attempt failed only because the prompt used the section name where the runtime id was required; the retry resolved the real section id as `09be53dc-f764-42da-b355-de56de647ee1`
+      - after normalizing to active `All Settings` with `overviewVis=false` and `uiEditorVis=false`, the production targeted-fit path widened the live card cleanly with no obvious blank/detached/body-loss artifact
+      - screenshot saved to `/tmp/setta-groupSectionDefault-fit.png`
+- Conclusion:
+  - the wide-card drag oracle support lane is now closed for `groupSectionDefault`
+  - do not spend another iteration extending this helper lane unless a future compare or regression specifically reopens the same top-level drag/body-attachment question
+  - CDP mouse drag itself is still not the trustworthy oracle on this canvas, but future wide-card drag questions can now use this Playwright coverage plus a live fit screenshot check instead of inventing another support slice
+- Next action:
+  - return to one different normalized dynamic motion or interaction-state lane on the graph surface, not more `groupSectionDefault` drag-oracle support work
+
+LOOP_TERMINAL_MARKER: none
