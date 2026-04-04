@@ -7329,7 +7329,7 @@ export function createUserDefaultCodeParamCodeObjImpl(
 ): UserDefaultCodeParamCodeObjImpl {
   return mergeGeneratedOptions(
     {
-      coreNameType: ParamNameTypeEnum.TEXT,
+      coreNameType: "TEXT",
       coreNameEditable: false,
       typeAnnotation: "",
       defaultVal: "",

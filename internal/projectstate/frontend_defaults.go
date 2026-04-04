@@ -146,3 +146,7 @@ func FrontendDefaultWindowSpaceConfig() WindowSpaceConfig {
 		Name:        "",
 	}
 }
+
+func FrontendDefaultCodeParamCodeObjImpl() map[string]any {
+	return childlessParamImplBasePayload()
+}

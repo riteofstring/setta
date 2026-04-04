@@ -679,24 +679,6 @@ func frontendBindingDeclarationOverrides() map[reflect.Type]TypeDeclaration {
 			`CodeCallableCodeObjImpl
   | NestedParamCodeObjImpl`,
 		),
-		reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}): objectDeclarationWithCreateExpr(
-			"UserDefaultCodeParamCodeObjImpl",
-			`mergeGeneratedOptions(
-    {
-      coreNameType: ParamNameTypeEnum.TEXT,
-      coreNameEditable: false,
-      typeAnnotation: "",
-      defaultVal: "",
-      value: "",
-    },
-    options,
-  )`,
-			TypeProperty{Name: "coreNameType", TypeExpr: "ParamNameType"},
-			TypeProperty{Name: "coreNameEditable", TypeExpr: "boolean"},
-			TypeProperty{Name: "typeAnnotation", TypeExpr: "string"},
-			TypeProperty{Name: "defaultVal", TypeExpr: "string"},
-			TypeProperty{Name: "value", TypeExpr: "string"},
-		),
 		reflect.TypeOf(ColorPickerChoice{}): objectDeclaration(
 			"ColorPickerChoice",
 			TypeProperty{Name: "color", TypeExpr: "string"},

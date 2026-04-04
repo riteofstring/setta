@@ -1590,6 +1590,9 @@ func specialTypeDeclaration(
 	converter *typeConverter,
 	t reflect.Type,
 ) (TypeDeclaration, bool, error) {
+	if declaration, ok, err := generatedUserDefaultCodeParamCodeObjDeclaration(t); ok || err != nil {
+		return declaration, ok, err
+	}
 	if declaration, ok, err := generatedUserDefaultSectionDeclaration(t); ok || err != nil {
 		return declaration, ok, err
 	}
@@ -1597,6 +1600,23 @@ func specialTypeDeclaration(
 		return declaration, ok, err
 	}
 	return TypeDeclaration{}, false, nil
+}
+
+func generatedUserDefaultCodeParamCodeObjDeclaration(
+	t reflect.Type,
+) (TypeDeclaration, bool, error) {
+	if t != reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}) {
+		return TypeDeclaration{}, false, nil
+	}
+	properties, err := generatedUserDefaultCodeParamCodeObjProperties()
+	if err != nil {
+		return TypeDeclaration{}, false, err
+	}
+	return objectDeclarationWithGoBackedCreateExpr(
+		"UserDefaultCodeParamCodeObjImpl",
+		projectstate.FrontendDefaultCodeParamCodeObjImpl(),
+		properties...,
+	), true, nil
 }
 
 type generatedUserDefaultSectionSpec struct {
@@ -1980,6 +2000,16 @@ func generatedUserDefaultSectionPropertyRegistry() (map[string]TypeProperty, err
 		registry[property.Name] = property
 	}
 	return registry, nil
+}
+
+func generatedUserDefaultCodeParamCodeObjProperties() ([]TypeProperty, error) {
+	return []TypeProperty{
+		{Name: "coreNameType", TypeExpr: "ParamNameType"},
+		{Name: "coreNameEditable", TypeExpr: "boolean"},
+		{Name: "typeAnnotation", TypeExpr: "string"},
+		{Name: "defaultVal", TypeExpr: "string"},
+		{Name: "value", TypeExpr: "string"},
+	}, nil
 }
 
 func generatedUserDefaultSectionProperty(

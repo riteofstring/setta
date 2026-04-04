@@ -386,6 +386,17 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			},
 		},
 		{
+			name: "UserDefaultCodeParamCodeObjImpl",
+			root: reflect.TypeOf(UserDefaultCodeParamCodeObjImpl{}),
+			properties: []TypeProperty{
+				{Name: "coreNameType", TypeExpr: "ParamNameType", Optional: false},
+				{Name: "coreNameEditable", TypeExpr: "boolean", Optional: false},
+				{Name: "typeAnnotation", TypeExpr: "string", Optional: false},
+				{Name: "defaultVal", TypeExpr: "string", Optional: false},
+				{Name: "value", TypeExpr: "string", Optional: false},
+			},
+		},
+		{
 			name: "UserDefaultCallableSectionImpl",
 			root: reflect.TypeOf(UserDefaultCallableSectionImpl{}),
 			properties: []TypeProperty{
@@ -759,6 +770,7 @@ func TestTypeConverterReflectsSelectedContractsWithoutManualDeclarations(t *test
 			if (tt.name == "BrowserSavedSearch" ||
 				tt.name == "TaskBoardColumn" ||
 				tt.name == "TaskBoardTask" ||
+				tt.name == "UserDefaultCodeParamCodeObjImpl" ||
 				tt.name == "UserDefaultCallableSectionImpl" ||
 				tt.name == "UserDefaultDictSectionImpl" ||
 				tt.name == "UserDefaultChatSectionImpl" ||
