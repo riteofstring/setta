@@ -1395,7 +1395,7 @@ test("settings graph substrate canary can fit a named body-heavy section into a 
     await expect
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
-    await setCanaryComparePaneVisibility(page, {
+    await setComparePaneVisibility(page, {
       overviewVisible: false,
       uiEditorVisible: false,
     });
@@ -1410,10 +1410,10 @@ test("settings graph substrate canary can fit a named body-heavy section into a 
       );
     }
 
-    // Future parity probes can use the production viewport controller to
-    // normalize one named wide/body-heavy card into a stable compare state
-    // instead of relying on click ordering or viewport carry-over.
-    expect(await fitCanaryViewportToSection(page, groupSectionId)).toBe(true);
+    // Future parity probes can use the shared fitView path to normalize one
+    // named wide/body-heavy card into a stable compare state instead of
+    // relying on click ordering or viewport carry-over.
+    expect(await fitGraphViewportToSection(page, groupSectionId)).toBe(true);
 
     await expect
       .poll(async () => (await getCanaryViewportTransform(page))?.zoom ?? 0)
@@ -1451,6 +1451,109 @@ test("settings graph substrate canary can fit a named body-heavy section into a 
         activeViewModeId: initialActiveViewModeId,
       });
       if (initialActiveViewModeId !== allSettingsViewModeId) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
+test("settings legacy graph surface can fit a named param-default section into a wide-card compare state", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const paramDefaultsViewModeId = findViewModeId(
+    initialState,
+    "Param Defaults",
+  );
+  const initialParamDefaultsViewport =
+    initialState.projectState.projectConfig.viewModes[paramDefaultsViewModeId]
+      ?.viewport ?? null;
+  const textAreaParamSectionId = findSectionIdByName(
+    initialState,
+    "textAreaParamCodeObjDefault",
+  );
+  const paramTab = page.getByRole("button", {
+    name: "Param Defaults",
+    exact: true,
+  });
+
+  try {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: paramDefaultsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(paramTab).toBeVisible();
+    await paramTab.click();
+    await page.waitForSelector(READY_SELECTOR);
+    await waitForNodeCount(page, 13);
+    await setComparePaneVisibility(page, {
+      overviewVisible: false,
+      uiEditorVisible: false,
+    });
+
+    const targetSection = page.locator(
+      `[id="${textAreaParamSectionId}-CustomResizable"]`,
+    );
+    const initialTargetBox = await targetSection.boundingBox();
+    if (!initialTargetBox) {
+      throw new Error(
+        "Missing textAreaParamCodeObjDefault bounds before targeted fit.",
+      );
+    }
+    const initialViewportScale = await getViewportScale(page);
+
+    // Locks down the legacy reference-side normalizer used by the live
+    // drawSectionDefault compare lane on main.
+    expect(await fitGraphViewportToSection(page, textAreaParamSectionId)).toBe(
+      true,
+    );
+
+    await expect
+      .poll(async () => await getViewportScale(page))
+      .toBeGreaterThan(initialViewportScale * 1.5);
+    await expect
+      .poll(async () => (await targetSection.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(Math.max(initialTargetBox.width * 4, 500));
+    await expect
+      .poll(async () => (await targetSection.boundingBox())?.height ?? 0)
+      .toBeGreaterThan(Math.max(initialTargetBox.height * 4, 300));
+  } finally {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: paramDefaultsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialParamDefaultsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== paramDefaultsViewModeId) {
         await postBackend(page, "/setViewport", {
           projectConfigId,
           viewport: initialState.projectState.projectConfig.viewport,
@@ -1513,11 +1616,11 @@ test("settings graph substrate canary keeps a widened body-heavy section attache
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
 
-    await setCanaryComparePaneVisibility(page, {
+    await setComparePaneVisibility(page, {
       overviewVisible: false,
       uiEditorVisible: false,
     });
-    expect(await fitCanaryViewportToSection(page, spreadsheetSectionId)).toBe(
+    expect(await fitGraphViewportToSection(page, spreadsheetSectionId)).toBe(
       true,
     );
 
@@ -1685,11 +1788,11 @@ test("settings graph substrate canary keeps a widened draw section attached duri
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
 
-    await setCanaryComparePaneVisibility(page, {
+    await setComparePaneVisibility(page, {
       overviewVisible: false,
       uiEditorVisible: false,
     });
-    expect(await fitCanaryViewportToSection(page, drawSectionId)).toBe(true);
+    expect(await fitGraphViewportToSection(page, drawSectionId)).toBe(true);
 
     await expect
       .poll(async () => {
@@ -1861,11 +1964,11 @@ test("settings graph substrate canary keeps a widened body-heavy section attache
       .poll(() => page.getByTestId("graph-substrate-canary-section").count())
       .toBeGreaterThan(1);
 
-    await setCanaryComparePaneVisibility(page, {
+    await setComparePaneVisibility(page, {
       overviewVisible: false,
       uiEditorVisible: false,
     });
-    expect(await fitCanaryViewportToSection(page, groupSectionId)).toBe(true);
+    expect(await fitGraphViewportToSection(page, groupSectionId)).toBe(true);
 
     await expect
       .poll(async () => {
@@ -2726,19 +2829,13 @@ async function getCanarySectionBodyAnchorOffset(
   }, sectionId);
 }
 
-async function fitCanaryViewportToSection(
+async function fitGraphViewportToSection(
   page: Page,
   sectionId: string,
 ): Promise<boolean> {
   return page.evaluate(async (targetSectionId) => {
-    const { useReactFlow } = await import(
-      "/src/forks/xyflow/core/store/index.ts"
-    );
-    const viewportController = useReactFlow.getState().viewportController;
-    if (!viewportController) {
-      return false;
-    }
-    return viewportController.fitView({
+    const { fitView } = await import("/src/forks/xyflow/core/store/utils.ts");
+    return fitView({
       nodes: [{ id: targetSectionId }],
       padding: 0.1,
     });
@@ -2940,7 +3037,7 @@ async function setOverviewTab(page: Page, tabName: string): Promise<void> {
   }, tabName);
 }
 
-async function setCanaryComparePaneVisibility(
+async function setComparePaneVisibility(
   page: Page,
   {
     overviewVisible,

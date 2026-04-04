@@ -75,6 +75,49 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+## 2026-04-03 058
+
+- Item: Close the reference-side targeted-fit blocker for the normalized `drawSectionDefault` lane by proving the shared `fitView(...)` path works on legacy `main`, not just on the canary surface.
+- Status: `done`
+- Details:
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now replaces the canary-only `fitCanaryViewportToSection(...)` helper with shared `fitGraphViewportToSection(...)`, which imports `/src/forks/xyflow/core/store/utils.ts` and calls `fitView({ nodes: [{ id }], padding: 0.1 })`.
+  - The same spec also renames `setCanaryComparePaneVisibility(...)` to `setComparePaneVisibility(...)` because the normalization helper now serves both canary and legacy graph surfaces.
+  - The spec now adds `settings legacy graph surface can fit a named param-default section into a wide-card compare state`.
+  - The new legacy case:
+    - normalizes to active `Param Defaults`
+    - closes overview and UI editor panes through the production pane-visibility path
+    - resolves `textAreaParamCodeObjDefault` by authoritative project-state section name
+    - drives the shared `fitView({ nodes: [{ id }], padding: 0.1 })` path on the legacy `react-flow__pane`
+    - asserts the viewport scale increases materially
+    - asserts the targeted section expands into a wide-card compare state
+  - A fresh-context CDP sub-agent then checked read-only `main` at `http://127.0.0.1:3087/settings` and confirmed the exact blocker is closed on the real reference session:
+    - authoritative runtime `drawSectionDefault` id on `main`: `3b30fc00-c471-4376-ac50-f3643a240183`
+    - `fitView({ nodes: [{ id }], padding: 0.1 })` returned `true`
+    - viewport before fit: `translate(779.9px, -245.2px) scale(0.1)`
+    - viewport after fit: `translate(553.151px, -2713.43px) scale(1.13895)`
+    - store transform after fit: `[553.150826446281, -2713.4256198347107, 1.1389462809917354]`
+    - target rect after fit: `{ x: 553.1508, y: 56.0457, width: 628.6983, height: 400.9089 }`
+  - Useful CDP note:
+    - page-context evals must use absolute Vite import paths such as `/src/state/actions/nodeInternals.ts`; bare aliases are not reliable there
+    - `onFitViewHandler()` is not a targeted section-fit oracle because it widens the whole view, not one named section
+- Verification:
+  - Playwright
+    - command: `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings legacy graph surface can fit a named param-default section into a wide-card compare state|settings graph substrate canary can fit a named body-heavy section into a wide-card compare state'`
+    - result: passed (`2 passed`, about `34.7s`)
+  - Prettier
+    - command: `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed after formatting the file with `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes.spec.ts`
+  - CDP visual check
+    - result: done
+    - note:
+      - fresh-context CDP verification confirmed that the shared `fitView(...)` path widens `drawSectionDefault` on the live legacy `main` surface
+      - this closes the reference-side targeted-fit blocker from item `057`
+- Conclusion:
+  - do not spend another iteration on proving whether legacy `main` can reach the widened one-card state; that blocker is now closed
+  - the next real frontier is to rerun the normalized widened `drawSectionDefault` short pan compare across worktree canary and read-only `main`, using the now-proven shared targeted-fit path on both sides
+
+LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-02 001
 
 - Item: Initialize the `pixijs-graph` worktree with the latest Ralph loop files and a fresh graph-substrate rewrite plan.
