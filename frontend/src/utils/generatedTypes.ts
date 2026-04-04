@@ -4632,8 +4632,8 @@ function createSectionTypeCodegenPolicy(
 ): SectionTypeCodegenPolicy {
   return mergeGeneratedOptions(
     {
-      mode: SectionCodegenModeEnum.inherit,
-      representation: SectionRepresentationModeEnum.expression,
+      mode: "inherit",
+      representation: "expression",
     },
     options,
   );
@@ -4648,8 +4648,8 @@ function createSectionCodegenOverride(
 ): SectionCodegenOverride {
   return mergeGeneratedOptions(
     {
-      mode: SectionCodegenModeEnum.inherit,
-      representation: SectionRepresentationModeEnum.expression,
+      mode: "inherit",
+      representation: "expression",
     },
     options,
   );
@@ -4844,7 +4844,7 @@ function createCodeObjTypeValuePolicy(
 ): CodeObjTypeValuePolicy {
   return mergeGeneratedOptions(
     {
-      representation: CodeObjValueRepresentationModeEnum.expression,
+      representation: "expression",
     },
     options,
   );
@@ -4858,7 +4858,7 @@ function createCodeObjValueOverride(
 ): CodeObjValueOverride {
   return mergeGeneratedOptions(
     {
-      representation: CodeObjValueRepresentationModeEnum.expression,
+      representation: "expression",
     },
     options,
   );

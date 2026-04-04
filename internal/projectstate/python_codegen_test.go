@@ -25,6 +25,36 @@ func TestDecodePythonCodegenTargetUsesDefaults(t *testing.T) {
 	}
 }
 
+func TestDefaultPythonCodegenEntryValues(t *testing.T) {
+	t.Parallel()
+
+	sectionTypePolicy := DefaultPythonSectionTypeCodegenPolicy()
+	if sectionTypePolicy.Mode != PythonSectionCodegenModeInherit {
+		t.Fatalf("expected section type policy mode %q, got %q", PythonSectionCodegenModeInherit, sectionTypePolicy.Mode)
+	}
+	if sectionTypePolicy.Representation != PythonSectionRepresentationExpression {
+		t.Fatalf("expected section type policy representation %q, got %q", PythonSectionRepresentationExpression, sectionTypePolicy.Representation)
+	}
+
+	sectionOverride := DefaultPythonSectionCodegenOverride()
+	if sectionOverride.Mode != PythonSectionCodegenModeInherit {
+		t.Fatalf("expected section override mode %q, got %q", PythonSectionCodegenModeInherit, sectionOverride.Mode)
+	}
+	if sectionOverride.Representation != PythonSectionRepresentationExpression {
+		t.Fatalf("expected section override representation %q, got %q", PythonSectionRepresentationExpression, sectionOverride.Representation)
+	}
+
+	codeObjTypePolicy := DefaultPythonCodeObjTypeValuePolicy()
+	if codeObjTypePolicy.Representation != PythonCodeObjValueRepresentationExpression {
+		t.Fatalf("expected code object type policy representation %q, got %q", PythonCodeObjValueRepresentationExpression, codeObjTypePolicy.Representation)
+	}
+
+	codeObjOverride := DefaultPythonCodeObjValueOverride()
+	if codeObjOverride.Representation != PythonCodeObjValueRepresentationExpression {
+		t.Fatalf("expected code object override representation %q, got %q", PythonCodeObjValueRepresentationExpression, codeObjOverride.Representation)
+	}
+}
+
 func TestDecodePythonCodegenTargetDecodesExplicitFields(t *testing.T) {
 	t.Parallel()
 

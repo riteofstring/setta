@@ -31,6 +31,70 @@ func PythonSharedDefaultProjectConfig() ProjectConfig {
 	return defaults
 }
 
+func frontendSectionTypeCodegenPolicyValue(
+	policy projectstate.PythonSectionTypeCodegenPolicy,
+) SectionTypeCodegenPolicy {
+	return SectionTypeCodegenPolicy{
+		Mode:           SectionCodegenMode(policy.Mode),
+		Representation: SectionRepresentationMode(policy.Representation),
+	}
+}
+
+func frontendSectionCodegenOverrideValue(
+	override projectstate.PythonSectionCodegenOverride,
+) SectionCodegenOverride {
+	return SectionCodegenOverride{
+		Mode:           SectionCodegenMode(override.Mode),
+		Representation: SectionRepresentationMode(override.Representation),
+	}
+}
+
+func frontendCodeObjTypeValuePolicyValue(
+	policy projectstate.PythonCodeObjTypeValuePolicy,
+) CodeObjTypeValuePolicy {
+	return CodeObjTypeValuePolicy{
+		Representation: CodeObjValueRepresentationMode(policy.Representation),
+	}
+}
+
+func frontendCodeObjValueOverrideValue(
+	override projectstate.PythonCodeObjValueOverride,
+) CodeObjValueOverride {
+	return CodeObjValueOverride{
+		Representation: CodeObjValueRepresentationMode(override.Representation),
+	}
+}
+
+func FrontendDefaultSectionTypeCodegenPolicy() SectionTypeCodegenPolicy {
+	return frontendSectionTypeCodegenPolicyValue(
+		projectstate.DefaultPythonSectionTypeCodegenPolicy(),
+	)
+}
+
+func FrontendDefaultSectionCodegenOverride() SectionCodegenOverride {
+	return frontendSectionCodegenOverrideValue(
+		projectstate.DefaultPythonSectionCodegenOverride(),
+	)
+}
+
+func FrontendDefaultCodeObjTypeValuePolicy() CodeObjTypeValuePolicy {
+	return frontendCodeObjTypeValuePolicyValue(
+		projectstate.DefaultPythonCodeObjTypeValuePolicy(),
+	)
+}
+
+func FrontendDefaultCodeObjValueOverride() CodeObjValueOverride {
+	return frontendCodeObjValueOverrideValue(
+		projectstate.DefaultPythonCodeObjValueOverride(),
+	)
+}
+
+func FrontendDefaultProjectCodegenPluginTarget() ProjectCodegenPluginTarget {
+	defaults := ProjectCodegenPluginTarget{}
+	initializeNilCollections(&defaults)
+	return defaults
+}
+
 func FrontendDefaultSingleConfig() SingleConfig {
 	defaults := SingleConfig{
 		ProjectConfig:        FrontendDefaultProjectConfig(),

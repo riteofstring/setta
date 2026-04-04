@@ -188,6 +188,32 @@ func DefaultPythonCodeObjValuePolicy() PythonCodeObjValuePolicy {
 	}
 }
 
+func DefaultPythonSectionTypeCodegenPolicy() PythonSectionTypeCodegenPolicy {
+	return PythonSectionTypeCodegenPolicy{
+		Mode:           PythonSectionCodegenModeInherit,
+		Representation: PythonSectionRepresentationExpression,
+	}
+}
+
+func DefaultPythonSectionCodegenOverride() PythonSectionCodegenOverride {
+	return PythonSectionCodegenOverride{
+		Mode:           PythonSectionCodegenModeInherit,
+		Representation: PythonSectionRepresentationExpression,
+	}
+}
+
+func DefaultPythonCodeObjTypeValuePolicy() PythonCodeObjTypeValuePolicy {
+	return PythonCodeObjTypeValuePolicy{
+		Representation: PythonCodeObjValueRepresentationExpression,
+	}
+}
+
+func DefaultPythonCodeObjValueOverride() PythonCodeObjValueOverride {
+	return PythonCodeObjValueOverride{
+		Representation: PythonCodeObjValueRepresentationExpression,
+	}
+}
+
 func DecodePythonSectionCodegenPolicy(raw RawJSON) (PythonSectionCodegenPolicy, error) {
 	policy := DefaultPythonSectionCodegenPolicy()
 	if len(raw) == 0 {
@@ -403,10 +429,9 @@ func pythonCodeObjValuePoliciesEqual(left PythonCodeObjValuePolicy, right Python
 func defaultPythonSectionTypePolicies() map[string]PythonSectionTypeCodegenPolicy {
 	policies := make(map[string]PythonSectionTypeCodegenPolicy, len(allPythonSectionTypes))
 	for _, sectionType := range allPythonSectionTypes {
-		policies[sectionType] = PythonSectionTypeCodegenPolicy{
-			Mode:           PythonSectionCodegenModeInherit,
-			Representation: defaultPythonSectionRepresentation(sectionType),
-		}
+		policy := DefaultPythonSectionTypeCodegenPolicy()
+		policy.Representation = defaultPythonSectionRepresentation(sectionType)
+		policies[sectionType] = policy
 	}
 	return policies
 }
@@ -414,9 +439,9 @@ func defaultPythonSectionTypePolicies() map[string]PythonSectionTypeCodegenPolic
 func defaultPythonCodeObjTypePolicies() map[string]PythonCodeObjTypeValuePolicy {
 	policies := make(map[string]PythonCodeObjTypeValuePolicy, len(allPythonCodeObjTypes))
 	for _, codeObjType := range allPythonCodeObjTypes {
-		policies[codeObjType] = PythonCodeObjTypeValuePolicy{
-			Representation: defaultPythonCodeObjValueRepresentation(codeObjType),
-		}
+		policy := DefaultPythonCodeObjTypeValuePolicy()
+		policy.Representation = defaultPythonCodeObjValueRepresentation(codeObjType)
+		policies[codeObjType] = policy
 	}
 	return policies
 }
@@ -522,10 +547,7 @@ func decodePythonSectionTypePolicyValue(raw json.RawMessage) (PythonSectionTypeC
 	if err != nil {
 		return PythonSectionTypeCodegenPolicy{}, err
 	}
-	policy := PythonSectionTypeCodegenPolicy{
-		Mode:           PythonSectionCodegenModeInherit,
-		Representation: PythonSectionRepresentationExpression,
-	}
+	policy := DefaultPythonSectionTypeCodegenPolicy()
 	for key, value := range fields {
 		switch key {
 		case "mode":
@@ -552,10 +574,7 @@ func decodePythonSectionOverrideValue(raw json.RawMessage) (PythonSectionCodegen
 	if err != nil {
 		return PythonSectionCodegenOverride{}, err
 	}
-	override := PythonSectionCodegenOverride{
-		Mode:           PythonSectionCodegenModeInherit,
-		Representation: PythonSectionRepresentationExpression,
-	}
+	override := DefaultPythonSectionCodegenOverride()
 	for key, value := range fields {
 		switch key {
 		case "mode":
@@ -582,9 +601,7 @@ func decodePythonCodeObjTypePolicyValue(raw json.RawMessage) (PythonCodeObjTypeV
 	if err != nil {
 		return PythonCodeObjTypeValuePolicy{}, err
 	}
-	policy := PythonCodeObjTypeValuePolicy{
-		Representation: PythonCodeObjValueRepresentationExpression,
-	}
+	policy := DefaultPythonCodeObjTypeValuePolicy()
 	for key, value := range fields {
 		switch key {
 		case "representation":
@@ -605,9 +622,7 @@ func decodePythonCodeObjOverrideValue(raw json.RawMessage) (PythonCodeObjValueOv
 	if err != nil {
 		return PythonCodeObjValueOverride{}, err
 	}
-	override := PythonCodeObjValueOverride{
-		Representation: PythonCodeObjValueRepresentationExpression,
-	}
+	override := DefaultPythonCodeObjValueOverride()
 	for key, value := range fields {
 		switch key {
 		case "representation":

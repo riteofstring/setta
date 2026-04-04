@@ -303,6 +303,104 @@ func TestBuildCodegenPolicyCreateBodiesUseGoBackedDefaults(t *testing.T) {
 	}
 }
 
+func TestCodegenEntryDeclarationsUseGoBackedDefaults(t *testing.T) {
+	t.Helper()
+
+	converter := newTypeConverter()
+	for _, root := range []reflect.Type{
+		reflect.TypeOf(SectionTypeCodegenPolicy{}),
+		reflect.TypeOf(SectionCodegenOverride{}),
+		reflect.TypeOf(CodeObjTypeValuePolicy{}),
+		reflect.TypeOf(CodeObjValueOverride{}),
+		reflect.TypeOf(ProjectCodegenPluginTarget{}),
+	} {
+		if err := converter.AddRootType(root); err != nil {
+			t.Fatalf("AddRootType(%v) error = %v", root, err)
+		}
+	}
+
+	sectionTypePolicy := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"SectionTypeCodegenPolicy",
+	)
+	if sectionTypePolicy.CreateBody != "" {
+		t.Fatalf("SectionTypeCodegenPolicy should use a Go-backed create expr, got create body:\n%s", sectionTypePolicy.CreateBody)
+	}
+	if !strings.Contains(sectionTypePolicy.CreateExpr, `mode: "inherit",`) {
+		t.Fatalf("SectionTypeCodegenPolicy create expr missing Go-backed mode default:\n%s", sectionTypePolicy.CreateExpr)
+	}
+	if !strings.Contains(sectionTypePolicy.CreateExpr, `representation: "expression",`) {
+		t.Fatalf("SectionTypeCodegenPolicy create expr missing Go-backed representation default:\n%s", sectionTypePolicy.CreateExpr)
+	}
+	if strings.Contains(sectionTypePolicy.CreateExpr, "SectionCodegenModeEnum.") {
+		t.Fatalf("SectionTypeCodegenPolicy create expr still embeds handwritten enum refs:\n%s", sectionTypePolicy.CreateExpr)
+	}
+
+	sectionOverride := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"SectionCodegenOverride",
+	)
+	if sectionOverride.CreateBody != "" {
+		t.Fatalf("SectionCodegenOverride should use a Go-backed create expr, got create body:\n%s", sectionOverride.CreateBody)
+	}
+	if !strings.Contains(sectionOverride.CreateExpr, `mode: "inherit",`) {
+		t.Fatalf("SectionCodegenOverride create expr missing Go-backed mode default:\n%s", sectionOverride.CreateExpr)
+	}
+	if !strings.Contains(sectionOverride.CreateExpr, `representation: "expression",`) {
+		t.Fatalf("SectionCodegenOverride create expr missing Go-backed representation default:\n%s", sectionOverride.CreateExpr)
+	}
+	if strings.Contains(sectionOverride.CreateExpr, "SectionRepresentationModeEnum.") {
+		t.Fatalf("SectionCodegenOverride create expr still embeds handwritten enum refs:\n%s", sectionOverride.CreateExpr)
+	}
+
+	codeObjTypePolicy := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"CodeObjTypeValuePolicy",
+	)
+	if codeObjTypePolicy.CreateBody != "" {
+		t.Fatalf("CodeObjTypeValuePolicy should use a Go-backed create expr, got create body:\n%s", codeObjTypePolicy.CreateBody)
+	}
+	if !strings.Contains(codeObjTypePolicy.CreateExpr, `representation: "expression",`) {
+		t.Fatalf("CodeObjTypeValuePolicy create expr missing Go-backed representation default:\n%s", codeObjTypePolicy.CreateExpr)
+	}
+	if strings.Contains(codeObjTypePolicy.CreateExpr, "CodeObjValueRepresentationModeEnum.") {
+		t.Fatalf("CodeObjTypeValuePolicy create expr still embeds handwritten enum refs:\n%s", codeObjTypePolicy.CreateExpr)
+	}
+
+	codeObjOverride := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"CodeObjValueOverride",
+	)
+	if codeObjOverride.CreateBody != "" {
+		t.Fatalf("CodeObjValueOverride should use a Go-backed create expr, got create body:\n%s", codeObjOverride.CreateBody)
+	}
+	if !strings.Contains(codeObjOverride.CreateExpr, `representation: "expression",`) {
+		t.Fatalf("CodeObjValueOverride create expr missing Go-backed representation default:\n%s", codeObjOverride.CreateExpr)
+	}
+	if strings.Contains(codeObjOverride.CreateExpr, "CodeObjValueRepresentationModeEnum.") {
+		t.Fatalf("CodeObjValueOverride create expr still embeds handwritten enum refs:\n%s", codeObjOverride.CreateExpr)
+	}
+
+	pluginTarget := mustFindDeclarationByName(
+		t,
+		converter.Declarations(),
+		"ProjectCodegenPluginTarget",
+	)
+	if pluginTarget.CreateBody != "" {
+		t.Fatalf("ProjectCodegenPluginTarget should use a Go-backed create expr, got create body:\n%s", pluginTarget.CreateBody)
+	}
+	if !strings.Contains(pluginTarget.CreateExpr, `language: "",`) {
+		t.Fatalf("ProjectCodegenPluginTarget create expr missing Go-backed language default:\n%s", pluginTarget.CreateExpr)
+	}
+	if !strings.Contains(pluginTarget.CreateExpr, "options: {") {
+		t.Fatalf("ProjectCodegenPluginTarget create expr missing Go-backed options default:\n%s", pluginTarget.CreateExpr)
+	}
+}
+
 func TestEngineAndRunDeclarationsUseGoBackedDefaults(t *testing.T) {
 	t.Helper()
 

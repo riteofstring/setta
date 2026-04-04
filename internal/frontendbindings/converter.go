@@ -2646,27 +2646,15 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "sectionSizingPolicy", TypeExpr: "SectionSizingPolicy"},
 				TypeProperty{Name: "languageServer", TypeExpr: "Record<string, unknown>"},
 			),
-			reflect.TypeOf(SectionTypeCodegenPolicy{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(SectionTypeCodegenPolicy{}): objectDeclarationWithGoBackedCreateExpr(
 				"SectionTypeCodegenPolicy",
-				`mergeGeneratedOptions(
-    {
-      mode: SectionCodegenModeEnum.inherit,
-      representation: SectionRepresentationModeEnum.expression,
-    },
-    options,
-  )`,
+				projectview.FrontendDefaultSectionTypeCodegenPolicy(),
 				TypeProperty{Name: "mode", TypeExpr: "SectionCodegenMode"},
 				TypeProperty{Name: "representation", TypeExpr: "SectionRepresentationMode"},
 			),
-			reflect.TypeOf(SectionCodegenOverride{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(SectionCodegenOverride{}): objectDeclarationWithGoBackedCreateExpr(
 				"SectionCodegenOverride",
-				`mergeGeneratedOptions(
-    {
-      mode: SectionCodegenModeEnum.inherit,
-      representation: SectionRepresentationModeEnum.expression,
-    },
-    options,
-  )`,
+				projectview.FrontendDefaultSectionCodegenOverride(),
 				TypeProperty{Name: "mode", TypeExpr: "SectionCodegenMode"},
 				TypeProperty{Name: "representation", TypeExpr: "SectionRepresentationMode"},
 			),
@@ -2679,24 +2667,14 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "typePolicies", TypeExpr: "Record<SectionType, SectionTypeCodegenPolicy>"},
 				TypeProperty{Name: "sectionOverrides", TypeExpr: "Record<string, SectionCodegenOverride>"},
 			),
-			reflect.TypeOf(CodeObjTypeValuePolicy{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(CodeObjTypeValuePolicy{}): objectDeclarationWithGoBackedCreateExpr(
 				"CodeObjTypeValuePolicy",
-				`mergeGeneratedOptions(
-    {
-      representation: CodeObjValueRepresentationModeEnum.expression,
-    },
-    options,
-  )`,
+				projectview.FrontendDefaultCodeObjTypeValuePolicy(),
 				TypeProperty{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode"},
 			),
-			reflect.TypeOf(CodeObjValueOverride{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(CodeObjValueOverride{}): objectDeclarationWithGoBackedCreateExpr(
 				"CodeObjValueOverride",
-				`mergeGeneratedOptions(
-    {
-      representation: CodeObjValueRepresentationModeEnum.expression,
-    },
-    options,
-  )`,
+				projectview.FrontendDefaultCodeObjValueOverride(),
 				TypeProperty{Name: "representation", TypeExpr: "CodeObjValueRepresentationMode"},
 			),
 			reflect.TypeOf(CodeObjValuePolicy{}): objectDeclarationWithCreateBody(
@@ -2715,15 +2693,9 @@ func newTypeConverter() *typeConverter {
 				TypeProperty{Name: "sectionPolicy", TypeExpr: "SectionCodegenPolicy"},
 				TypeProperty{Name: "codeObjValuePolicy", TypeExpr: "CodeObjValuePolicy"},
 			),
-			reflect.TypeOf(ProjectCodegenPluginTarget{}): objectDeclarationWithCreateExpr(
+			reflect.TypeOf(ProjectCodegenPluginTarget{}): objectDeclarationWithGoBackedCreateExpr(
 				"ProjectCodegenPluginTarget",
-				`mergeGeneratedOptions(
-    {
-      language: "",
-      options: {},
-    },
-    options,
-  )`,
+				projectview.FrontendDefaultProjectCodegenPluginTarget(),
 				TypeProperty{Name: "language", TypeExpr: "string"},
 				TypeProperty{Name: "options", TypeExpr: "Record<string, unknown>"},
 			),

@@ -1149,11 +1149,7 @@ func frontendPythonSectionTypePolicies(
 ) map[string]SectionTypeCodegenPolicy {
 	result := make(map[string]SectionTypeCodegenPolicy, len(policies))
 	for _, key := range orderedPolicyKeys(policies, pythonSectionTypeOrder) {
-		policy := policies[key]
-		result[key] = SectionTypeCodegenPolicy{
-			Mode:           SectionCodegenMode(policy.Mode),
-			Representation: SectionRepresentationMode(policy.Representation),
-		}
+		result[key] = frontendSectionTypeCodegenPolicyValue(policies[key])
 	}
 	return result
 }
@@ -1163,11 +1159,7 @@ func frontendPythonSectionOverrides(
 ) map[string]SectionCodegenOverride {
 	result := make(map[string]SectionCodegenOverride, len(overrides))
 	for _, key := range orderedMapKeys(overrides) {
-		override := overrides[key]
-		result[key] = SectionCodegenOverride{
-			Mode:           SectionCodegenMode(override.Mode),
-			Representation: SectionRepresentationMode(override.Representation),
-		}
+		result[key] = frontendSectionCodegenOverrideValue(overrides[key])
 	}
 	return result
 }
@@ -1182,11 +1174,7 @@ func frontendPythonSectionTypePoliciesFromRaw(
 	}
 	result := make(map[string]SectionTypeCodegenPolicy, len(fields))
 	for _, key := range orderedPolicyKeys(fields, pythonSectionTypeOrder) {
-		policy := policies[key]
-		result[key] = SectionTypeCodegenPolicy{
-			Mode:           SectionCodegenMode(policy.Mode),
-			Representation: SectionRepresentationMode(policy.Representation),
-		}
+		result[key] = frontendSectionTypeCodegenPolicyValue(policies[key])
 	}
 	return result
 }
@@ -1201,11 +1189,7 @@ func frontendPythonSectionOverridesFromRaw(
 	}
 	result := make(map[string]SectionCodegenOverride, len(fields))
 	for _, key := range orderedPolicyKeys(fields, nil) {
-		override := overrides[key]
-		result[key] = SectionCodegenOverride{
-			Mode:           SectionCodegenMode(override.Mode),
-			Representation: SectionRepresentationMode(override.Representation),
-		}
+		result[key] = frontendSectionCodegenOverrideValue(overrides[key])
 	}
 	return result
 }
@@ -1215,10 +1199,7 @@ func frontendPythonCodeObjTypePolicies(
 ) map[string]CodeObjTypeValuePolicy {
 	result := make(map[string]CodeObjTypeValuePolicy, len(policies))
 	for _, key := range orderedPolicyKeys(policies, pythonCodeObjTypeOrder) {
-		policy := policies[key]
-		result[key] = CodeObjTypeValuePolicy{
-			Representation: CodeObjValueRepresentationMode(policy.Representation),
-		}
+		result[key] = frontendCodeObjTypeValuePolicyValue(policies[key])
 	}
 	return result
 }
@@ -1233,10 +1214,7 @@ func frontendPythonCodeObjTypePoliciesFromRaw(
 	}
 	result := make(map[string]CodeObjTypeValuePolicy, len(fields))
 	for _, key := range orderedPolicyKeys(fields, pythonCodeObjTypeOrder) {
-		policy := policies[key]
-		result[key] = CodeObjTypeValuePolicy{
-			Representation: CodeObjValueRepresentationMode(policy.Representation),
-		}
+		result[key] = frontendCodeObjTypeValuePolicyValue(policies[key])
 	}
 	return result
 }
@@ -1246,10 +1224,7 @@ func frontendPythonCodeObjOverrides(
 ) map[string]CodeObjValueOverride {
 	result := make(map[string]CodeObjValueOverride, len(overrides))
 	for _, key := range orderedMapKeys(overrides) {
-		override := overrides[key]
-		result[key] = CodeObjValueOverride{
-			Representation: CodeObjValueRepresentationMode(override.Representation),
-		}
+		result[key] = frontendCodeObjValueOverrideValue(overrides[key])
 	}
 	return result
 }
@@ -1264,10 +1239,7 @@ func frontendPythonCodeObjOverridesFromRaw(
 	}
 	result := make(map[string]CodeObjValueOverride, len(fields))
 	for _, key := range orderedPolicyKeys(fields, nil) {
-		override := overrides[key]
-		result[key] = CodeObjValueOverride{
-			Representation: CodeObjValueRepresentationMode(override.Representation),
-		}
+		result[key] = frontendCodeObjValueOverrideValue(overrides[key])
 	}
 	return result
 }

@@ -194,6 +194,42 @@ func TestFrontendDefaultPythonCodeObjValuePolicyUsesCanonicalDefaults(t *testing
 	}
 }
 
+func TestFrontendDefaultCodegenEntryFactoriesUseCanonicalDefaults(t *testing.T) {
+	sectionTypePolicy := FrontendDefaultSectionTypeCodegenPolicy()
+	if got := sectionTypePolicy.Mode; got != SectionCodegenMode(projectstate.PythonSectionCodegenModeInherit) {
+		t.Fatalf("expected section type mode inherit, got %q", got)
+	}
+	if got := sectionTypePolicy.Representation; got != SectionRepresentationMode(projectstate.PythonSectionRepresentationExpression) {
+		t.Fatalf("expected section type representation expression, got %q", got)
+	}
+
+	sectionOverride := FrontendDefaultSectionCodegenOverride()
+	if got := sectionOverride.Mode; got != SectionCodegenMode(projectstate.PythonSectionCodegenModeInherit) {
+		t.Fatalf("expected section override mode inherit, got %q", got)
+	}
+	if got := sectionOverride.Representation; got != SectionRepresentationMode(projectstate.PythonSectionRepresentationExpression) {
+		t.Fatalf("expected section override representation expression, got %q", got)
+	}
+
+	codeObjTypePolicy := FrontendDefaultCodeObjTypeValuePolicy()
+	if got := codeObjTypePolicy.Representation; got != CodeObjValueRepresentationMode(projectstate.PythonCodeObjValueRepresentationExpression) {
+		t.Fatalf("expected code object type representation expression, got %q", got)
+	}
+
+	codeObjOverride := FrontendDefaultCodeObjValueOverride()
+	if got := codeObjOverride.Representation; got != CodeObjValueRepresentationMode(projectstate.PythonCodeObjValueRepresentationExpression) {
+		t.Fatalf("expected code object override representation expression, got %q", got)
+	}
+
+	pluginTarget := FrontendDefaultProjectCodegenPluginTarget()
+	if pluginTarget.Language != "" {
+		t.Fatalf("expected empty plugin target language, got %q", pluginTarget.Language)
+	}
+	if pluginTarget.Options == nil || len(pluginTarget.Options) != 0 {
+		t.Fatalf("expected initialized empty plugin target options, got %#v", pluginTarget.Options)
+	}
+}
+
 func TestFrontendDefaultProjectCodegenPythonTargetUsesCanonicalDefaults(t *testing.T) {
 	target := FrontendDefaultProjectCodegenPythonTarget()
 	config, err := projectstate.DecodePythonCodegenTarget(projectstate.ProjectCodegenTarget{
