@@ -1,38 +1,42 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
-  createTopLevelSectionFromFrontend,
-  ensureAppReady,
-  getCurrentProjectConfigId,
-  setSectionSizesFromFrontend,
-} from "../helpers";
+import { ensureAppReady } from "../helpers";
 
 const BACKEND_ORIGIN =
   process.env.SETTA_BACKEND_ORIGIN ?? "http://127.0.0.1:8000";
+const TARGET_CALLABLE = "str";
 const MOD_KEY = process.platform === "darwin" ? "Meta" : "Control";
-const SELECT_ALL_SHORTCUT = MOD_KEY === "Meta" ? "Meta+A" : "Control+A";
-const COMPLETION_INPUT = "str.";
+const SELECT_ALL_SHORTCUT =
+  MOD_KEY === "Meta" ? "Meta+A" : "Control+A";
+const COMPLETION_INPUT = `${TARGET_CALLABLE}.`;
 
 const TARGET_SECTION_WIDTH = 320;
 const TOOLTIP_SELECTOR = ".cm-tooltip-autocomplete";
 const TOOLTIP_PARENT_ID = "setta-codemirror-tooltips";
-const REQUEST_TIMEOUT_MS = 15000;
+const REQUEST_TIMEOUT_MS = 5000;
 const COMPLETION_WAIT_TIMEOUT_MS = 10000;
 
-type CodeMirrorCompletion = { label: string; type: string };
+type ProjectMetadataEntry = { id: string; name: string };
+type ProjectMetadataResponse = {
+  defaultProjectConfigId: string | null;
+  projectMetadata: ProjectMetadataEntry[];
+};
 
-test("code autocomplete tooltip escapes section bounds", async ({ page }) => {
+test("callable autocomplete tooltip escapes section bounds", async ({ page }) => {
   test.setTimeout(60000);
   await ensureAppReady(page);
 
   const projectConfigId = await getCurrentProjectConfigId(page);
-  const sectionId = await createCodeSection(page, projectConfigId);
+  const sectionId = await createCallableSection(page, projectConfigId);
 
   try {
-    const resizable = page.locator(`[id="${sectionId}-CustomResizable"]`);
+    const resizable = page.locator(
+      `[id="${sectionId}-CustomResizable"]`,
+    );
     await expect(resizable).toBeVisible();
+    await setCallable(page, projectConfigId, sectionId, TARGET_CALLABLE);
     await setSectionSize(page, projectConfigId, sectionId, {
       width: TARGET_SECTION_WIDTH,
-      height: 110,
+      height: "auto",
     });
 
     const heightBefore = await getSectionHeight(resizable);
@@ -42,25 +46,27 @@ test("code autocomplete tooltip escapes section bounds", async ({ page }) => {
       );
     }
 
+    const searchInput = page.locator(`[id="${sectionId}-search"]`);
+    await expect(searchInput).toBeVisible();
+    await searchInput.click();
+
     const codeMirror = page.locator(
-      `.react-flow__node[data-id="${sectionId}"] [data-section-main-editor] .cm-content`,
+      `[id="CodeMirror-${sectionId}-null"]`,
     );
     await expect(codeMirror).toBeVisible();
     await codeMirror.click();
 
     await page.keyboard.press(SELECT_ALL_SHORTCUT);
-    await page.keyboard.type(COMPLETION_INPUT);
     const completionResponsePromise = page.waitForResponse(
-      (response) => response.url().includes("/api/codeAreaCompletion"),
+      (response) => response.url().includes("/api/textFieldCompletion"),
       { timeout: COMPLETION_WAIT_TIMEOUT_MS },
     );
-    await page.keyboard.press("Control+Space");
-    const completionResponse = await completionResponsePromise;
-    const completions =
-      (await completionResponse.json()) as CodeMirrorCompletion[];
-    expect(completions.length).toBeGreaterThan(0);
+    await page.keyboard.type(COMPLETION_INPUT);
+    await completionResponsePromise;
 
-    const tooltip = page.locator(`#${TOOLTIP_PARENT_ID} ${TOOLTIP_SELECTOR}`);
+    const tooltip = page.locator(
+      `#${TOOLTIP_PARENT_ID} ${TOOLTIP_SELECTOR}`,
+    );
     await expect(tooltip).toBeVisible({ timeout: 15000 });
 
     const overflowCheck = await page.evaluate(
@@ -68,7 +74,8 @@ test("code autocomplete tooltip escapes section bounds", async ({ page }) => {
         const container = document.getElementById(containerId);
         const tooltipParent =
           document.getElementById(tooltipParentId) ?? document;
-        const tooltipEl = tooltipParent.querySelector(tooltipSelector) ?? null;
+        const tooltipEl =
+          tooltipParent.querySelector(tooltipSelector) ?? null;
         if (!tooltipEl || !container) {
           return { ok: false, reason: "missing-elements" } as const;
         }
@@ -136,18 +143,37 @@ async function getSectionHeight(
   });
 }
 
-async function createCodeSection(
+
+async function createCallableSection(
   page: Page,
   projectConfigId: string,
 ): Promise<string> {
-  const response = await createTopLevelSectionFromFrontend(page, {
-    projectConfigId,
-    implType: "Code",
-  });
+  const response = await postBackend<{ sectionId?: string }>(
+    page,
+    "/createTopLevelSection",
+    {
+      projectConfigId,
+      implType: "Callable",
+    },
+  );
   if (!response?.sectionId) {
-    throw new Error("Missing code section id.");
+    throw new Error("Missing sectionId when creating callable section.");
   }
   return response.sectionId;
+}
+
+async function setCallable(
+  page: Page,
+  projectConfigId: string,
+  sectionId: string,
+  callableName: string,
+): Promise<void> {
+  await postBackendWithRetries(page, "/setCallable", {
+    projectConfigId,
+    sectionId,
+    callableName,
+    refetchParams: false,
+  });
 }
 
 async function setSectionSize(
@@ -156,7 +182,7 @@ async function setSectionSize(
   sectionId: string,
   size: { width: number; height: number | "auto" },
 ): Promise<void> {
-  await setSectionSizesFromFrontend(page, {
+  await postBackend(page, "/setSectionSizes", {
     projectConfigId,
     sectionSizes: {
       [sectionId]: size,
@@ -184,4 +210,60 @@ async function postBackend<T>(
     return null;
   }
   return JSON.parse(text) as T;
+}
+
+async function postBackendWithRetries<T>(
+  page: Page,
+  path: string,
+  payload: Record<string, unknown> | null,
+  attempts = 8,
+  delayMs = 500,
+): Promise<T | null> {
+  let lastStatus = 0;
+  let lastText = "";
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const response = await page.request.post(`${BACKEND_ORIGIN}/api${path}`, {
+      data: payload,
+      timeout: REQUEST_TIMEOUT_MS,
+    });
+    lastStatus = response.status();
+    lastText = await response.text();
+    if (response.ok()) {
+      if (!lastText) {
+        return null;
+      }
+      return JSON.parse(lastText) as T;
+    }
+    if (attempt < attempts - 1) {
+      await page.waitForTimeout(delayMs);
+    }
+  }
+  const detail = lastText ? ` ${lastText}` : "";
+  throw new Error(`Backend request failed (${lastStatus}): ${path}${detail}`);
+}
+
+async function getCurrentProjectConfigId(page: Page): Promise<string> {
+  const metadata = await postBackend<ProjectMetadataResponse>(
+    page,
+    "/loadAllProjectMetadata",
+    {},
+  );
+  if (!metadata) {
+    throw new Error("Missing project metadata response.");
+  }
+
+  const currentPath = new URL(page.url()).pathname;
+  const projectName = currentPath.split("/").filter(Boolean)[0];
+  if (projectName) {
+    const match = metadata.projectMetadata.find((p) => p.name === projectName);
+    if (match?.id) {
+      return match.id;
+    }
+  }
+
+  if (metadata.defaultProjectConfigId) {
+    return metadata.defaultProjectConfigId;
+  }
+
+  throw new Error("Unable to resolve projectConfigId for test.");
 }
