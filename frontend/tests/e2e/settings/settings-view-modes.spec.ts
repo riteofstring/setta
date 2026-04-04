@@ -12,6 +12,7 @@ import {
   getCanarySectionCenterOffsetFromRootCenter,
   getLatestProjectState,
   getLocalPaneState,
+  getSettingsGraphRootRelativePoint,
   normalizeSettingsGraphComparePaneState,
   setLocalPaneState,
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
@@ -1006,6 +1007,202 @@ test("settings graph parity probe applies the same short top-level drag delta on
         initialActiveViewModeId !== coreViewModeId &&
         initialActiveViewModeId !== allSettingsViewModeId
       ) {
+        await postBackend(page, "/setViewport", {
+          projectConfigId,
+          viewport: initialState.projectState.projectConfig.viewport,
+        });
+      }
+    }
+    const restoredState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
+test("settings graph parity probe applies the same modified-wheel zoom delta on legacy and canary surfaces after normalized fit", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const coreViewModeId = findViewModeId(initialState, "Core");
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const initialAllSettingsViewport =
+    initialState.projectState.projectConfig.viewModes[allSettingsViewModeId]
+      ?.viewport ?? null;
+  const initialPaneState = await getLocalPaneState(page);
+  const sharedSection = findSharedVisibleSettingsGraphSection(initialState, [
+    "Core",
+    "All Settings",
+  ]);
+  const sectionId = sharedSection.sectionId;
+  const sectionName = sharedSection.name;
+  const coreTab = page.getByRole("button", { name: "Core", exact: true });
+  const allTab = page.getByRole("button", {
+    name: "All Settings",
+    exact: true,
+  });
+
+  async function captureNamedSectionModifiedWheelZoom({
+    tab,
+    viewModeId,
+    expectedSurfaceKind,
+  }: {
+    tab: ReturnType<Page["getByRole"]>;
+    viewModeId: string;
+    expectedSurfaceKind: "legacy" | "canary";
+  }) {
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: viewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const stateWithoutViewport = await getLatestProjectState(
+      page,
+      projectConfigId,
+    );
+    await applyProjectStateUpdate(page, stateWithoutViewport);
+
+    await expect(tab).toBeVisible();
+    await tab.click();
+    if (expectedSurfaceKind === "legacy") {
+      await page.waitForSelector(READY_SELECTOR);
+    } else {
+      await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+      await expect
+        .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+        .toBeGreaterThan(1);
+    }
+
+    await normalizeSettingsGraphComparePaneState(page);
+    expect(await fitGraphViewportToSection(page, sectionId)).toBe(true);
+    await expect
+      .poll(async () => {
+        return (await captureSettingsGraphSectionMetrics(page, sectionId))
+          .surfaceKind;
+      })
+      .toBe(expectedSurfaceKind);
+
+    const before = await captureSettingsGraphSectionMetrics(page, sectionId);
+    if (!before.rect || !before.transform) {
+      throw new Error(
+        `Missing ${expectedSurfaceKind} zoom baseline metrics for ${sectionName}.`,
+      );
+    }
+
+    const zoomPoint = await findSettingsGraphPanePoint(page);
+    const rootRelativeZoomPoint = await getSettingsGraphRootRelativePoint(
+      page,
+      zoomPoint,
+    );
+    await page.mouse.move(zoomPoint.x, zoomPoint.y);
+    await page.keyboard.down(MOD_KEY);
+    await page.mouse.wheel(0, -240);
+    await page.keyboard.up(MOD_KEY);
+
+    await expect
+      .poll(async () => {
+        const after = await captureSettingsGraphSectionMetrics(page, sectionId);
+        return after.transform?.zoom ?? 0;
+      })
+      .toBeGreaterThan(before.transform.zoom);
+
+    const after = await captureSettingsGraphSectionMetrics(page, sectionId);
+    if (!after.rect || !after.transform) {
+      throw new Error(
+        `Missing ${expectedSurfaceKind} zoom result metrics for ${sectionName}.`,
+      );
+    }
+
+    const expectedAnchoredTransform = resolveScreenPointAnchoredViewport(
+      before.transform,
+      rootRelativeZoomPoint,
+      after.transform.zoom,
+    );
+
+    return {
+      paneState: after.paneState,
+      rectDelta: {
+        x: after.rect.x - before.rect.x,
+        y: after.rect.y - before.rect.y,
+        width: after.rect.width - before.rect.width,
+        height: after.rect.height - before.rect.height,
+      },
+      transformDelta: {
+        x: after.transform.x - before.transform.x,
+        y: after.transform.y - before.transform.y,
+        zoom: after.transform.zoom - before.transform.zoom,
+      },
+      anchorDrift: {
+        x: Math.abs(after.transform.x - expectedAnchoredTransform.x),
+        y: Math.abs(after.transform.y - expectedAnchoredTransform.y),
+      },
+    };
+  }
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+
+    const legacyZoom = await captureNamedSectionModifiedWheelZoom({
+      tab: coreTab,
+      viewModeId: coreViewModeId,
+      expectedSurfaceKind: "legacy",
+    });
+    const canaryZoom = await captureNamedSectionModifiedWheelZoom({
+      tab: allTab,
+      viewModeId: allSettingsViewModeId,
+      expectedSurfaceKind: "canary",
+    });
+
+    expect(legacyZoom.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(canaryZoom.paneState).toEqual(SETTINGS_GRAPH_COMPARE_PANE_STATE);
+    expect(legacyZoom.anchorDrift.x).toBeLessThan(1);
+    expect(legacyZoom.anchorDrift.y).toBeLessThan(1);
+    expect(canaryZoom.anchorDrift.x).toBeLessThan(1);
+    expect(canaryZoom.anchorDrift.y).toBeLessThan(1);
+    expect(
+      Math.abs(canaryZoom.transformDelta.zoom - legacyZoom.transformDelta.zoom),
+    ).toBeLessThan(0.02);
+    expect(
+      Math.abs(canaryZoom.transformDelta.x - legacyZoom.transformDelta.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(canaryZoom.transformDelta.y - legacyZoom.transformDelta.y),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(canaryZoom.rectDelta.x - legacyZoom.rectDelta.x),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(canaryZoom.rectDelta.y - legacyZoom.rectDelta.y),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(canaryZoom.rectDelta.width - legacyZoom.rectDelta.width),
+    ).toBeLessThan(8);
+    expect(
+      Math.abs(canaryZoom.rectDelta.height - legacyZoom.rectDelta.height),
+    ).toBeLessThan(8);
+  } finally {
+    await setLocalPaneState(page, initialPaneState).catch(() => {});
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialAllSettingsViewport,
+    });
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      });
+      if (initialActiveViewModeId !== allSettingsViewModeId) {
         await postBackend(page, "/setViewport", {
           projectConfigId,
           viewport: initialState.projectState.projectConfig.viewport,

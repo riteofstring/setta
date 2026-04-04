@@ -486,6 +486,46 @@ export async function findSettingsGraphPanePoint(
   return point;
 }
 
+export async function getSettingsGraphRootRelativePoint(
+  page: Page,
+  point: { x: number; y: number },
+): Promise<{ x: number; y: number }> {
+  const rootRelativePoint = await page.evaluate(
+    ({
+      screenPoint,
+      canaryRootSelector,
+      legacyRootSelector,
+    }: {
+      screenPoint: { x: number; y: number };
+      canaryRootSelector: string;
+      legacyRootSelector: string;
+    }) => {
+      const root =
+        document.querySelector<HTMLElement>(canaryRootSelector) ??
+        document.querySelector<HTMLElement>(legacyRootSelector);
+      if (!root) {
+        return null;
+      }
+      const rect = root.getBoundingClientRect();
+      return {
+        x: screenPoint.x - rect.left,
+        y: screenPoint.y - rect.top,
+      };
+    },
+    {
+      screenPoint: point,
+      canaryRootSelector: CANARY_SETTINGS_GRAPH_ROOT_SELECTOR,
+      legacyRootSelector: LEGACY_SETTINGS_GRAPH_ROOT_SELECTOR,
+    },
+  );
+
+  if (!rootRelativePoint) {
+    throw new Error("Unable to resolve a root-relative settings graph point.");
+  }
+
+  return rootRelativePoint;
+}
+
 export async function findSettingsGraphSectionDragPoint(
   page: Page,
   sectionId: string,

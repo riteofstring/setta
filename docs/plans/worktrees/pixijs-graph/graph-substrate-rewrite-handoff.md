@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-04 02:58 EDT
+Last updated: 2026-04-04 03:09 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,29 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `087` added a normalized shared-section modified-wheel zoom parity guard on the worktree `Core` legacy vs `All Settings` canary lane and recorded the remaining live CDP driver limit explicitly instead of reopening another untrustworthy motion compare.
+  - Why this slice was needed:
+    - item `086` had already closed the shared-section short-drag lane, so the next bounded support step had to answer a concrete remaining motion question rather than repeat the same drag/pan refactor shape
+    - the existing suite already covered canary-only modified-wheel zoom behavior, but there was no shared legacy-vs-canary parity guard on that normalized `shortcuts` lane
+    - the first fresh-context CDP compare on this pass showed the real tool boundary clearly: both worktree and read-only `main` pages were reachable and normalized, but this MCP workflow still does not expose a native modified-wheel input path
+  - Production/test change:
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts` now exports `getSettingsGraphRootRelativePoint(page, point)` so shared parity probes can resolve the same graph-surface anchor point on either the legacy or canary root
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now includes `settings graph parity probe applies the same modified-wheel zoom delta on legacy and canary surfaces after normalized fit`
+      - the guard resolves one shared visible top-level section across `Core` and `All Settings`
+      - it normalizes the remembered compare pane state, fits that same section, applies one modified-wheel zoom gesture on each surface, and asserts both surfaces keep the zoom anchor fixed while matching zoom/rect deltas
+  - Automated result:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe applies the same modified-wheel zoom delta on legacy and canary surfaces after normalized fit'`
+      - result: passed twice in the final file state (`1 passed`, about `19.9s` then `19.2s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+  - Live verification result:
+    - fresh-context CDP sub-agent reached both headless pages (`3075` worktree and `3087` read-only `main`), switched them to `All Settings`, normalized pane widths to hidden `overview=420` / hidden `uiEditor=260`, and confirmed shared section `shortcuts` was present on both surfaces
+    - exact blocker: `chrome-devtools-mcp` in this workflow does not expose a native modified-wheel input path, so the sub-agent could not drive the real wheel gesture honestly end-to-end
+    - CDP visual check: done (fresh-context CDP confirmed the normalized shared `shortcuts` lane is present and comparable on live pages; native modified-wheel motion itself remained MCP-limited and stayed covered by Playwright)
+  - conclusion for this slice:
+    - close the worktree shared-section modified-wheel zoom parity lane as covered by the new Playwright guard
+    - do not reopen the strict live CDP modified-wheel lane unless MCP gains native wheel input; treat that as a tool boundary, not a renderer defect
+    - the next frontier should move back to a real renderer-facing compare that CDP can physically drive end-to-end, or pair Playwright-driven motion with CDP post-state inspection instead of trying to synthesize more wheel-only lanes
 - Ralph item `086` added a normalized shared-section short-drag parity guard on the worktree `Core` legacy vs `All Settings` canary lane and closed that bounded motion slice with live worktree-only CDP evidence.
   - Why this slice was needed:
     - items `084` and `085` had already closed the shared `shortcuts` short-pan lane and the tiny-card overlap/frontmost drag lane, so the next plan-aligned candidate was the remaining plain top-level short-drag question on that same shared section

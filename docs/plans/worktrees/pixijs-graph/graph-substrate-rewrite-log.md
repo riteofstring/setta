@@ -2991,3 +2991,38 @@ LOOP_TERMINAL_MARKER: none
 - Next frontier:
   - move back to a real renderer-facing compare, preferably one cross-worktree graph-surface-only motion lane that CDP can drive end-to-end now that short pan and short drag are both guarded on the shared worktree lane
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-04 03:09 EDT - Ralph item 087
+
+- Added a normalized shared-section modified-wheel zoom parity guard on the worktree `Core` legacy vs `All Settings` canary lane and recorded the remaining live CDP driver boundary explicitly instead of reopening another untrustworthy wheel compare.
+- Why this slice was necessary:
+  - item `086` had already closed the shared-section short-drag lane, so the next bounded support step needed to answer one concrete remaining motion question rather than repeat the same drag/pan refactor shape
+  - the suite already covered canary-only modified-wheel zoom behavior, but there was still no shared legacy-vs-canary parity guard on the normalized `shortcuts` lane
+  - the first fresh-context CDP compare on this pass showed the real boundary clearly: both the worktree and read-only `main` pages were reachable and normalized, but this MCP workflow still does not expose a native modified-wheel input path
+- Production/test changes:
+  - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - added `getSettingsGraphRootRelativePoint(page, point)` so parity probes can resolve one graph-surface anchor point on either the legacy or canary root
+  - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - added `settings graph parity probe applies the same modified-wheel zoom delta on legacy and canary surfaces after normalized fit`
+    - the new guard resolves one shared visible top-level section across `Core` and `All Settings`, normalizes the remembered compare pane state, fits shared section `shortcuts`, applies one modified-wheel zoom gesture on each surface, and compares zoom-anchor drift plus transform/rect deltas
+- Verification:
+  - first targeted Playwright rerun:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe applies the same modified-wheel zoom delta on legacy and canary surfaces after normalized fit'`
+    - result: passed (`1 passed`, about `19.9s`)
+  - final targeted Playwright rerun after formatting:
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph parity probe applies the same modified-wheel zoom delta on legacy and canary surfaces after normalized fit'`
+    - result: passed (`1 passed`, about `19.2s`)
+  - `pnpm -C frontend exec prettier --check tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+    - result: passed
+  - fresh-context CDP sub-agent:
+    - reached both headless pages (`3075` worktree and `3087` read-only `main`)
+    - switched both to `All Settings`
+    - normalized pane widths to hidden `overview=420` / hidden `uiEditor=260`
+    - confirmed shared section `shortcuts` was present on both surfaces
+    - exact blocker: `chrome-devtools-mcp` in this workflow does not expose a native modified-wheel input path, so the real wheel gesture could not be driven honestly end-to-end there
+  - CDP visual check: done (fresh-context CDP confirmed the normalized shared `shortcuts` lane exists on live pages; native modified-wheel motion itself remained MCP-limited and stayed covered by Playwright)
+- Lane status:
+  - close the worktree shared-section modified-wheel zoom parity lane as covered by the new Playwright guard
+  - do not reopen the strict live CDP modified-wheel lane unless MCP gains native wheel input; treat that as a tool boundary, not a renderer defect
+- Next frontier:
+  - move back to a renderer-facing cross-worktree compare that CDP can physically drive end-to-end, or pair Playwright-driven motion with CDP post-state inspection instead of forcing another wheel-only lane
+- LOOP_TERMINAL_MARKER: none
