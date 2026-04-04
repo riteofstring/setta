@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-03 16:10 EDT
+Last updated: 2026-04-03 16:29 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -8,6 +8,44 @@ Completed summary: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-co
 
 ## Current status
 
+- Ralph item `055` closed one different normalized wide-card pan lane on `spreadsheetSectionDefault` instead of reopening the recent `groupSectionDefault` support work.
+  - Production/test change:
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened body-heavy section attached during pane pan`
+    - the new case:
+      - normalizes to active `All Settings`
+      - closes overview and UI editor panes through the production pane-visibility path
+      - resolves `spreadsheetSectionDefault` by authoritative project-state section name
+      - widens that section through the production `viewportController.fitView({ nodes: [{ id }], padding: 0.1 })` path
+      - performs a real pane pan on the canary surface
+      - asserts the viewport and section both move materially
+      - asserts a body anchor stays locked to the same section shell during the pan
+  - Automated result:
+    - targeted Playwright passed via `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g 'settings graph substrate canary keeps a widened body-heavy section attached during pane pan'`
+    - result: passed (`1 passed`, about `20.0s`)
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes.spec.ts` also passed
+    - what it proves now: a second named widened body-heavy card can pan through the real custom-surface path without body/shell detachment
+  - Live verification result:
+    - a fresh-context CDP sub-agent checked the live worktree `http://127.0.0.1:3075/settings` and read-only `main` `http://127.0.0.1:3087/settings`
+    - both sides were normalized to active `All Settings` with `overviewVis=false` and `uiEditorVis=false`
+    - the named section ids were resolved from live app state, not from label text:
+      - worktree `spreadsheetSectionDefault`: `f0b83a4a-1148-4075-8073-8ae99eac54f4`
+      - `main` `spreadsheetSectionDefault`: `9dc72e71-3bdb-4272-b27a-3b2ad63db792`
+    - both sides were widened through the targeted production `fitView` path, then one shared short pan pulse `(+60, +40)` was applied
+    - before pan:
+      - worktree viewport `matrix(1.13895, 0, 0, 1.13895, 235.651, -5406.9)` and section rect `x=235.6508 y=96.0459 w=628.6984 h=400.9087`
+      - `main` viewport `matrix(1.13895, 0, 0, 1.13895, 553.151, -5446.9)` and section rect `x=553.1508 y=56.0459 w=628.6983 h=400.9087`
+    - after pan:
+      - worktree viewport `matrix(1.13895, 0, 0, 1.13895, 295.651, -5366.9)` and section rect `x=295.6508 y=136.0459 w=628.6984 h=400.9087`
+      - `main` viewport `matrix(1.13895, 0, 0, 1.13895, 613.151, -5406.9)` and section rect `x=613.1508 y=96.0459 w=628.6983 h=400.9087`
+    - screenshot evidence for the checked widened post-pan state was captured to:
+      - `/tmp/worktree-spreadsheetSectionDefault-post-pan-final.png`
+      - `/tmp/main-spreadsheetSectionDefault-post-pan-final.png`
+    - ignored oracle nuance:
+      - `main` did not expose the canary test id on this pass, so the sub-agent used the equivalent legacy `react-flow__viewport` graph surface there instead
+  - conclusion for this slice:
+    - the normalized `spreadsheetSectionDefault` wide-card pan lane is clean
+    - do not reopen this exact widened pan pulse unless a later fresh compare reintroduces drift
+    - the next real frontier should move to one different normalized dynamic interaction-state or drag lane, not more `groupSectionDefault` or `spreadsheetSectionDefault` pan churn
 - Ralph item `054` closed the wide-card top-level drag oracle blocker for `groupSectionDefault` without reopening production renderer work.
   - Production/test change:
     - `frontend/tests/e2e/settings/settings-view-modes.spec.ts` now adds `settings graph substrate canary keeps a widened body-heavy section attached during top-level drag`
