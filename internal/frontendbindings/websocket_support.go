@@ -81,9 +81,9 @@ type UISettingRevealResultStatus realtime.UISettingRevealResultStatus
 type UISettingRevealResultContent realtime.UISettingRevealResultContent
 
 type WebsocketMsgRealtimeUIChangeContent struct {
-	ProjectConfigID string                   `json:"projectConfigId"`
-	DependencyKey   BaseDependencyKeyUnion   `json:"dependencyKey"`
-	Value           BaseDependencyValueUnion `json:"value"`
+	ProjectConfigID string                            `json:"projectConfigId"`
+	DependencyKey   realtime.BaseDependencyKeyUnion   `json:"dependencyKey"`
+	Value           realtime.BaseDependencyValueUnion `json:"value"`
 }
 
 type WebsocketMsgRealtimeUIChange struct {
@@ -93,8 +93,8 @@ type WebsocketMsgRealtimeUIChange struct {
 }
 
 type WebsocketMsgRealtimeDependencyEventContent struct {
-	ProjectConfigID string          `json:"projectConfigId"`
-	DependencyEvent DependencyEvent `json:"dependencyEvent"`
+	ProjectConfigID string                   `json:"projectConfigId"`
+	DependencyEvent realtime.DependencyEvent `json:"dependencyEvent"`
 }
 
 type WebsocketMsgRealtimeDependencyEvent struct {
@@ -402,7 +402,7 @@ func buildUISettingRevealContentSchemaExprTS() string {
 }
 
 func buildDependencyEventSchemaExprTS() string {
-	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(DependencyEvent{}))
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(realtime.DependencyEvent{}))
 	var builder strings.Builder
 	builder.WriteString("{\n")
 	builder.WriteString("  shape: {\n")
@@ -424,7 +424,7 @@ func buildDependencyEventSchemaExprTS() string {
 	builder.WriteString("    const issues: Array<string> = [];\n")
 	for _, field := range fields {
 		switch {
-		case field.Type == reflect.TypeOf(BaseDependencyKeyUnion{}):
+		case field.Type == reflect.TypeOf(realtime.BaseDependencyKeyUnion{}):
 			builder.WriteString("    if (!(\"")
 			builder.WriteString(field.PropertyName)
 			builder.WriteString("\" in value)) {\n")
@@ -432,7 +432,7 @@ func buildDependencyEventSchemaExprTS() string {
 			builder.WriteString(field.PropertyName)
 			builder.WriteString(" is required.\");\n")
 			builder.WriteString("    }\n")
-		case field.Type.Kind() == reflect.Pointer && field.Type.Elem() == reflect.TypeOf(BaseDependencyValueUnion{}):
+		case field.Type.Kind() == reflect.Pointer && field.Type.Elem() == reflect.TypeOf(realtime.BaseDependencyValueUnion{}):
 			continue
 		case field.Type.Kind() == reflect.Int64:
 			builder.WriteString("    if (\n")
@@ -453,7 +453,7 @@ func buildDependencyEventSchemaExprTS() string {
 		default:
 			panic(fmt.Sprintf(
 				"websocket schema support: unsupported %s.%s field type %s",
-				reflect.TypeOf(DependencyEvent{}).Name(),
+				reflect.TypeOf(realtime.DependencyEvent{}).Name(),
 				field.PropertyName,
 				field.Type,
 			))
@@ -473,13 +473,13 @@ func buildDependencyEventSchemaExprTS() string {
 	builder.WriteString("      data: {\n")
 	for _, field := range fields {
 		switch {
-		case field.Type == reflect.TypeOf(BaseDependencyKeyUnion{}):
+		case field.Type == reflect.TypeOf(realtime.BaseDependencyKeyUnion{}):
 			builder.WriteString("        ")
 			builder.WriteString(field.PropertyName)
 			builder.WriteString(": value.")
 			builder.WriteString(field.PropertyName)
 			builder.WriteString(" as BaseDependencyKeyUnion,\n")
-		case field.Type.Kind() == reflect.Pointer && field.Type.Elem() == reflect.TypeOf(BaseDependencyValueUnion{}):
+		case field.Type.Kind() == reflect.Pointer && field.Type.Elem() == reflect.TypeOf(realtime.BaseDependencyValueUnion{}):
 			builder.WriteString("        ")
 			builder.WriteString(field.PropertyName)
 			builder.WriteString(":\n")

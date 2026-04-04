@@ -705,7 +705,7 @@ export async function route_get_runner_summary(
 }
 
 export async function route_get_server_mode(): Promise<
-  ResponseDataAndStatus<null>
+  ResponseDataAndStatus<gt.ServerModeResponse>
 > {
   return await get(GoHTTPRouteHelpers.getServerMode());
 }

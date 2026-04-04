@@ -50,6 +50,10 @@ type AuthRefreshStatusResponse struct {
 	AuthCookieRefreshWindowSeconds int `json:"authCookieRefreshWindowSeconds"`
 }
 
+type ServerModeResponse struct {
+	Mode string `json:"mode"`
+}
+
 type SettaHomeInfoResponse struct {
 	SettaHome                string  `json:"settaHome"`
 	GlobalSettaFilesBase     string  `json:"globalSettaFilesBase"`

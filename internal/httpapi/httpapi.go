@@ -141,8 +141,8 @@ func NewHandler(deps Dependencies) (http.Handler, error) {
 			r.Use(authMiddleware(deps.Auth, deps.TrustedOrigins))
 		}
 		r.Get(RouteGetServerMode, func(w http.ResponseWriter, r *http.Request) {
-			writeJSON(w, http.StatusOK, map[string]string{
-				"mode": deps.Info.ServerMode(r.Context()),
+			writeJSON(w, http.StatusOK, ServerModeResponse{
+				Mode: deps.Info.ServerMode(r.Context()),
 			})
 		})
 		r.Get("/runtimeInfo", func(w http.ResponseWriter, r *http.Request) {

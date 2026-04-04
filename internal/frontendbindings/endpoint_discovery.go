@@ -12,7 +12,9 @@ import (
 	"slices"
 	"strings"
 
+	binarypayload "setta/internal/binary"
 	"setta/internal/httpapi"
+	"setta/internal/realtime"
 )
 
 const (
@@ -102,6 +104,9 @@ var endpointRequestTypeOverrides = map[string]reflect.Type{
 }
 
 var endpointResponseTypeOverrides = map[string]reflect.Type{
+	"POST RouteBinaryUpload":                  reflect.TypeOf(binarypayload.ContentRef{}),
+	"POST RouteGetListenerCoverage":           reflect.TypeOf(realtime.ListenerCoverageSnapshot{}),
+	"GET RouteGetServerMode":                  reflect.TypeOf(httpapi.ServerModeResponse{}),
 	"POST RouteShareDeploymentCurrentSession": reflect.TypeOf(ShareDeploymentSessionResponse{}),
 	"POST RouteAppDeploymentCurrentSession":   reflect.TypeOf(AppDeploymentSessionResponse{}),
 	"GET RouteShareDeploymentState":           reflect.TypeOf(ProjectStateSingleConfigWithCompletedOpIds{}),

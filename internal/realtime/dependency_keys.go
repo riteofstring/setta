@@ -49,6 +49,18 @@ type BinaryDependencyValue struct {
 	Payload binarypayload.ContentRef `json:"payload"`
 }
 
+// setta-go-type-discovery: skip
+type BaseDependencyKeyUnion struct{}
+
+// setta-go-type-discovery: skip
+type BaseDependencyValueUnion struct{}
+
+type DependencyEvent struct {
+	DependencyKey BaseDependencyKeyUnion    `json:"dependencyKey"`
+	Payload       *BaseDependencyValueUnion `json:"payload"`
+	TimestampMs   int64                     `json:"timestampMs"`
+}
+
 var (
 	ErrDependencyKeyTypeRequired      = errors.New("realtime: dependency key type is required")
 	ErrDependencyKeySectionIDRequired = errors.New("realtime: dependency key section id is required")

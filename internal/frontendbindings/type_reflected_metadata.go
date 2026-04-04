@@ -8,6 +8,7 @@ import (
 	"setta/internal/deployments"
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
+	"setta/internal/realtime"
 )
 
 type reflectedObjectDeclarationSpec struct {
@@ -170,30 +171,35 @@ func artifactTypeDeclaration(
 }
 
 var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDeclarationSpec{
-	reflect.TypeOf(SectionDependencyKey{}): {
+	reflect.TypeOf(realtime.SectionDependencyKey{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof DependencyKeyTypeEnum.Section",
 		},
 	},
-	reflect.TypeOf(SectionParamDependencyKey{}): {
+	reflect.TypeOf(realtime.SectionParamDependencyKey{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof DependencyKeyTypeEnum.SectionParam",
 		},
 	},
-	reflect.TypeOf(LiteralDependencyValue{}): {
+	reflect.TypeOf(realtime.LiteralDependencyValue{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof DependencyValueTypeEnum.Literal",
 		},
 	},
-	reflect.TypeOf(FileReadDependencyValue{}): {
+	reflect.TypeOf(realtime.FileReadDependencyValue{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof DependencyValueTypeEnum.FileRead",
 		},
 	},
-	reflect.TypeOf(BinaryDependencyValue{}): {
+	reflect.TypeOf(realtime.BinaryDependencyValue{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"payload": "BinaryContentRef",
 			"type":    "typeof DependencyValueTypeEnum.Binary",
+		},
+	},
+	reflect.TypeOf(realtime.ListenerCoverageSnapshot{}): {
+		PropertyTypeExprOverrides: map[string]string{
+			"dependencies": "Array<BaseDependencyKeyUnion>",
 		},
 	},
 	reflect.TypeOf(EngineRuntimeSupport{}): {

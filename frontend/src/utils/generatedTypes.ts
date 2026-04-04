@@ -1124,18 +1124,6 @@ export type UpdateArtifactMsgContent = {
   updateType: "update" | "delete";
 };
 
-const ModeEnum = {
-  IDE: "ide",
-  Share: "share",
-  App: "app",
-  Launcher: "launcher",
-} as const;
-type Mode = ObjectValues<typeof ModeEnum>;
-
-export type ServerModeResponse = {
-  mode: Mode;
-};
-
 const LauncherInstallSourceEnum = {
   UVTool: "uv_tool",
   InstallerManaged: "installer_managed",
@@ -1439,69 +1427,6 @@ export type ListenerCoverageRequestInput = {
   projectConfigId: string;
 };
 
-export const DependencyKeyTypeEnum = {
-  Section: "Section",
-  SectionParam: "SectionParam",
-} as const;
-
-export type SectionDependencyKey = {
-  type: typeof DependencyKeyTypeEnum.Section;
-  sectionId: string;
-};
-
-export type SectionParamDependencyKey = {
-  type: typeof DependencyKeyTypeEnum.SectionParam;
-  sectionId: string;
-  codeObjId: string;
-};
-
-export type BaseDependencyKeyUnion =
-  | SectionDependencyKey
-  | SectionParamDependencyKey;
-
-export const DependencyValueTypeEnum = {
-  Literal: "Literal",
-  Binary: "Binary",
-  FileRead: "FileRead",
-} as const;
-
-export type LiteralDependencyValue = {
-  type: typeof DependencyValueTypeEnum.Literal;
-  payload: string;
-};
-
-type FileReadDependencyValue = {
-  type: typeof DependencyValueTypeEnum.FileRead;
-  payload: string;
-};
-
-export type BinaryDependencyValue = {
-  type: typeof DependencyValueTypeEnum.Binary;
-  payload: BinaryContentRef;
-};
-
-export type BaseDependencyValueUnion =
-  | LiteralDependencyValue
-  | FileReadDependencyValue
-  | BinaryDependencyValue;
-
-export type DependencyEvent = {
-  dependencyKey: BaseDependencyKeyUnion;
-  payload: BaseDependencyValueUnion | null;
-  timestampMs: number;
-};
-
-export type ListenerCoverageSnapshot = {
-  projectConfigId: string;
-  dependencies: Array<BaseDependencyKeyUnion>;
-  hasRealtimeWildcard: boolean;
-};
-export function createListenerCoverageSnapshot(
-  options: Partial<ListenerCoverageSnapshot> = {},
-): ListenerCoverageSnapshot {
-  return options as ListenerCoverageSnapshot;
-}
-
 const PluginScopeEnum = {
   Workspace: "workspace",
   SettaFiles: "setta_files",
@@ -1640,6 +1565,14 @@ export function createPluginListEntry(
 ): PluginListEntry {
   return options as PluginListEntry;
 }
+
+const ModeEnum = {
+  IDE: "ide",
+  Share: "share",
+  App: "app",
+  Launcher: "launcher",
+} as const;
+type Mode = ObjectValues<typeof ModeEnum>;
 
 export type PluginListResponse = {
   schemaVersion: number;
@@ -8331,6 +8264,15 @@ type UISettingRevealResultContent = {
   statuses: Array<UISettingRevealResultStatus>;
 };
 
+export type BaseDependencyKeyUnion =
+  | SectionDependencyKey
+  | SectionParamDependencyKey;
+
+export type BaseDependencyValueUnion =
+  | LiteralDependencyValue
+  | FileReadDependencyValue
+  | BinaryDependencyValue;
+
 type WebsocketMsgRealtimeUIChangeContent = {
   projectConfigId: string;
   dependencyKey: BaseDependencyKeyUnion;
@@ -8341,6 +8283,12 @@ export type WebsocketMsgRealtimeUIChange = {
   id?: string | null;
   messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange;
   content: WebsocketMsgRealtimeUIChangeContent;
+};
+
+export type DependencyEvent = {
+  dependencyKey: BaseDependencyKeyUnion;
+  payload: BaseDependencyValueUnion | null;
+  timestampMs: number;
 };
 
 type WebsocketMsgRealtimeDependencyEventContent = {
@@ -8655,6 +8603,17 @@ export function createLauncherStatusResponse(
   return options as LauncherStatusResponse;
 }
 
+export type ListenerCoverageSnapshot = {
+  projectConfigId: string;
+  dependencies: Array<BaseDependencyKeyUnion>;
+  hasRealtimeWildcard: boolean;
+};
+export function createListenerCoverageSnapshot(
+  options: Partial<ListenerCoverageSnapshot> = {},
+): ListenerCoverageSnapshot {
+  return options as ListenerCoverageSnapshot;
+}
+
 export type GetLLMResponseRequest = {
   chatId: string | null;
   continueFromChatId: string | null;
@@ -8700,6 +8659,10 @@ type RunnerSummarySection = {
 export type RunnerSummarySnapshot = {
   projectConfigId: string;
   sections: Array<RunnerSummarySection>;
+};
+
+export type ServerModeResponse = {
+  mode: string;
 };
 
 export type SettaHomeInfoResponse = {

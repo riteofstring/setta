@@ -4,18 +4,12 @@ import (
 	"setta/internal/appgenskills"
 	"setta/internal/appspec"
 	binarypayload "setta/internal/binary"
-	"setta/internal/config"
 	"setta/internal/httpapi"
 	"setta/internal/launcher"
 	"setta/internal/mcpx"
 	"setta/internal/plugins"
 	"setta/internal/projectstate"
-	"setta/internal/realtime"
 )
-
-type ServerModeResponse struct {
-	Mode config.Mode `json:"mode"`
-}
 
 type GetLauncherRecentWorkspacesRequestInput struct {
 	SettaHome *string `json:"setta_home,omitempty"`
@@ -138,48 +132,7 @@ type ForceRefreshListenerRequestInput httpapi.ForceRefreshProjectRequest
 
 type ListenerCoverageRequestInput httpapi.ListenerCoverageRequest
 
-type DependencyKeyType = realtime.DependencyKeyType
-
-const (
-	DependencyKeyTypeSection      = realtime.DependencyKeyTypeSection
-	DependencyKeyTypeSectionParam = realtime.DependencyKeyTypeSectionParam
-)
-
-type SectionDependencyKey = realtime.SectionDependencyKey
-
-type SectionParamDependencyKey = realtime.SectionParamDependencyKey
-
-type BaseDependencyKeyUnion struct{}
-
-type DependencyValueType = realtime.DependencyValueType
-
-const (
-	DependencyValueTypeLiteral  = realtime.DependencyValueTypeLiteral
-	DependencyValueTypeBinary   = realtime.DependencyValueTypeBinary
-	DependencyValueTypeFileRead = realtime.DependencyValueTypeFileRead
-)
-
 type BinaryContentRef binarypayload.ContentRef
-
-type LiteralDependencyValue = realtime.LiteralDependencyValue
-
-type FileReadDependencyValue = realtime.FileReadDependencyValue
-
-type BinaryDependencyValue = realtime.BinaryDependencyValue
-
-type BaseDependencyValueUnion struct{}
-
-type DependencyEvent struct {
-	DependencyKey BaseDependencyKeyUnion    `json:"dependencyKey"`
-	Payload       *BaseDependencyValueUnion `json:"payload"`
-	TimestampMs   int64                     `json:"timestampMs"`
-}
-
-type ListenerCoverageSnapshot struct {
-	ProjectConfigID     string                   `json:"projectConfigId"`
-	Dependencies        []BaseDependencyKeyUnion `json:"dependencies"`
-	HasRealtimeWildcard bool                     `json:"hasRealtimeWildcard"`
-}
 
 type PluginScope plugins.PluginScope
 

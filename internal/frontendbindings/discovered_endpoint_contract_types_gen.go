@@ -332,6 +332,7 @@ func DiscoveredEndpointContractTypes() []reflect.Type {
 		reflect.TypeOf(httpapi.BackendInitEvent{}),
 		reflect.TypeOf(httpapi.BackendInitStatusResponse{}),
 		reflect.TypeOf(httpapi.AuthRefreshStatusResponse{}),
+		reflect.TypeOf(httpapi.ServerModeResponse{}),
 		reflect.TypeOf(httpapi.SettaHomeInfoResponse{}),
 		reflect.TypeOf(httpapi.RevealPathInOSFileExplorerRequest{}),
 		reflect.TypeOf(httpapi.TerminalRouteDependencies{}),

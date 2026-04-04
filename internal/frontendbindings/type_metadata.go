@@ -3,14 +3,16 @@ package frontendbindings
 import (
 	"reflect"
 	"strings"
+
+	"setta/internal/realtime"
 )
 
 var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
-	reflect.TypeOf(BaseDependencyKeyUnion{}): aliasDeclaration(
+	reflect.TypeOf(realtime.BaseDependencyKeyUnion{}): aliasDeclaration(
 		"BaseDependencyKeyUnion",
 		"SectionDependencyKey | SectionParamDependencyKey",
 	),
-	reflect.TypeOf(BaseDependencyValueUnion{}): aliasDeclaration(
+	reflect.TypeOf(realtime.BaseDependencyValueUnion{}): aliasDeclaration(
 		"BaseDependencyValueUnion",
 		"LiteralDependencyValue | FileReadDependencyValue | BinaryDependencyValue",
 	),

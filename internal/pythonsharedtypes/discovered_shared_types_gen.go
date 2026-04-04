@@ -209,6 +209,7 @@ func discoveredSharedTypes() []reflect.Type {
 		reflect.TypeOf(realtime.LiteralDependencyValue{}),
 		reflect.TypeOf(realtime.FileReadDependencyValue{}),
 		reflect.TypeOf(realtime.BinaryDependencyValue{}),
+		reflect.TypeOf(realtime.DependencyEvent{}),
 		reflect.TypeOf(realtime.ListenerCoverageDependency{}),
 		reflect.TypeOf(realtime.ListenerCoverageSnapshot{}),
 		reflect.TypeOf(realtime.ListenerMessageType("")),
