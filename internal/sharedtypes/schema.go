@@ -7,7 +7,9 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 
+	"setta/internal/artifacts"
 	"setta/internal/frontendbindingmeta"
+	"setta/internal/projectstate"
 	"setta/internal/stringenumvalues"
 )
 
@@ -37,6 +39,9 @@ func BuildSchemaDocument() (*jsonschema.Schema, error) {
 		defs[name] = schema
 		seenNames[name] = t
 	}
+	if err := appendSyntheticDiscriminatedFamilyUnionDefs(defs); err != nil {
+		return nil, err
+	}
 
 	return &jsonschema.Schema{
 		Schema: JSONSchemaDraft202012,
@@ -58,6 +63,11 @@ func schemaForType(t reflect.Type) (*jsonschema.Schema, error) {
 		return nil, err
 	} else if ok {
 		return unionSchema, nil
+	}
+	if specialSchema, ok, err := specialSchemaForType(t); err != nil {
+		return nil, err
+	} else if ok {
+		return specialSchema, nil
 	}
 
 	schema, err := jsonschema.ForType(t, &jsonschema.ForOptions{
@@ -98,10 +108,22 @@ func normalizeSchemaForType(t reflect.Type, schema *jsonschema.Schema) error {
 	switch t.Kind() {
 	case reflect.Slice, reflect.Array:
 		if schema.Items != nil {
+			if refSchema, ok, err := specialSchemaRefForType(t.Elem(), schemaAllowsNull(schema.Items)); err != nil {
+				return err
+			} else if ok {
+				schema.Items = refSchema
+				return nil
+			}
 			return normalizeSchemaForType(t.Elem(), schema.Items)
 		}
 	case reflect.Map:
 		if schema.AdditionalProperties != nil {
+			if refSchema, ok, err := specialSchemaRefForType(t.Elem(), schemaAllowsNull(schema.AdditionalProperties)); err != nil {
+				return err
+			} else if ok {
+				schema.AdditionalProperties = refSchema
+				return nil
+			}
 			return normalizeSchemaForType(t.Elem(), schema.AdditionalProperties)
 		}
 	case reflect.Struct:
@@ -122,6 +144,12 @@ func normalizeSchemaForType(t reflect.Type, schema *jsonschema.Schema) error {
 				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
 			} else if overridden {
 				schema.Properties[propertyName] = overriddenSchema
+				continue
+			}
+			if refSchema, ok, err := specialSchemaRefForType(field.Type, schemaAllowsNull(propertySchema)); err != nil {
+				return fmt.Errorf("%s.%s: %w", t, field.Name, err)
+			} else if ok {
+				schema.Properties[propertyName] = refSchema
 				continue
 			}
 			if err := normalizeSchemaForType(field.Type, propertySchema); err != nil {
@@ -175,6 +203,162 @@ func unionSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {
 		return nil, false, fmt.Errorf("%s returned no renderable shared schema union members", t)
 	}
 	return &jsonschema.Schema{AnyOf: refs}, true, nil
+}
+
+func specialSchemaForType(t reflect.Type) (*jsonschema.Schema, bool, error) {
+	t = canonicalType(t)
+	switch t {
+	case sharedSchemaRawJSONType:
+		return rawJSONSchema(), true, nil
+	case reflect.TypeOf(projectstate.SectionSizeValue{}):
+		modeName := strings.TrimSpace(ContractNameForType(reflect.TypeOf(projectstate.SectionSizeMode(""))))
+		if modeName == "" {
+			return nil, false, fmt.Errorf("SectionSizeValue is missing SectionSizeMode contract")
+		}
+		return &jsonschema.Schema{
+			AnyOf: []*jsonschema.Schema{
+				{Type: "number"},
+				{Ref: "#/$defs/" + modeName},
+			},
+		}, true, nil
+	case reflect.TypeOf(artifacts.ChartDataValue{}):
+		return &jsonschema.Schema{
+			Type: "object",
+			AdditionalProperties: &jsonschema.Schema{
+				Type: "array",
+				Items: &jsonschema.Schema{
+					AnyOf: []*jsonschema.Schema{
+						{Type: "string"},
+						{Type: "number"},
+					},
+				},
+			},
+		}, true, nil
+	default:
+		return nil, false, nil
+	}
+}
+
+func specialSchemaRefForType(t reflect.Type, nullable bool) (*jsonschema.Schema, bool, error) {
+	baseType, isNullable := dereferenceSchemaType(t)
+	if baseType == nil {
+		return nil, false, nil
+	}
+	if _, ok, err := specialSchemaForType(baseType); err != nil {
+		return nil, false, err
+	} else if !ok {
+		return nil, false, nil
+	}
+	contractName := strings.TrimSpace(ContractNameForType(baseType))
+	if contractName == "" {
+		return nil, false, fmt.Errorf("%s has no shared schema contract name", baseType)
+	}
+	refSchema := &jsonschema.Schema{Ref: "#/$defs/" + contractName}
+	if nullable || isNullable {
+		return &jsonschema.Schema{
+			AnyOf: []*jsonschema.Schema{
+				refSchema,
+				{Type: "null"},
+			},
+		}, true, nil
+	}
+	return refSchema, true, nil
+}
+
+func rawJSONSchema() *jsonschema.Schema {
+	contractName := strings.TrimSpace(ContractNameForType(sharedSchemaRawJSONType))
+	ref := "#/$defs/" + contractName
+	return &jsonschema.Schema{
+		AnyOf: []*jsonschema.Schema{
+			{Type: "null"},
+			{Type: "boolean"},
+			{Type: "number"},
+			{Type: "string"},
+			{
+				Type:  "array",
+				Items: &jsonschema.Schema{Ref: ref},
+			},
+			{
+				Type:                 "object",
+				AdditionalProperties: &jsonschema.Schema{Ref: ref},
+			},
+		},
+	}
+}
+
+func appendSyntheticDiscriminatedFamilyUnionDefs(defs map[string]*jsonschema.Schema) error {
+	families, err := buildDiscriminatedFamilyEntries()
+	if err != nil {
+		return err
+	}
+	for _, family := range families {
+		baseUnionName := strings.TrimSpace(family.BaseType) + "Union"
+		if strings.TrimSpace(baseUnionName) == "Union" {
+			continue
+		}
+		if _, exists := defs[baseUnionName]; !exists {
+			defs[baseUnionName] = unionSchemaFromContractNames(
+				append([]string{family.BaseType}, discriminatedFamilyMemberNames(family.Members)...)...,
+			)
+		}
+		for _, trait := range family.Traits {
+			if trait.LocalUnion {
+				continue
+			}
+			unionName := strings.TrimSpace(trait.UnionName)
+			if unionName == "" {
+				continue
+			}
+			if _, exists := defs[unionName]; exists {
+				continue
+			}
+			memberNames := append([]string(nil), trait.MemberTypes...)
+			if trait.IncludeBase {
+				memberNames = append([]string{family.BaseType}, memberNames...)
+			}
+			defs[unionName] = unionSchemaFromContractNames(memberNames...)
+		}
+	}
+	return nil
+}
+
+func discriminatedFamilyMemberNames(members []DiscriminatedFamilyMemberEntry) []string {
+	names := make([]string, 0, len(members))
+	for _, member := range members {
+		name := strings.TrimSpace(member.Name)
+		if name == "" {
+			continue
+		}
+		names = append(names, name)
+	}
+	return names
+}
+
+func unionSchemaFromContractNames(names ...string) *jsonschema.Schema {
+	refs := make([]*jsonschema.Schema, 0, len(names))
+	seenRefs := map[string]struct{}{}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		ref := "#/$defs/" + name
+		if _, exists := seenRefs[ref]; exists {
+			continue
+		}
+		seenRefs[ref] = struct{}{}
+		refs = append(refs, &jsonschema.Schema{Ref: ref})
+	}
+	return &jsonschema.Schema{AnyOf: refs}
+}
+
+func dereferenceSchemaType(t reflect.Type) (reflect.Type, bool) {
+	nullable := false
+	for t != nil && t.Kind() == reflect.Pointer {
+		nullable = true
+		t = t.Elem()
+	}
+	return canonicalType(t), nullable
 }
 
 func jsonFieldName(field reflect.StructField) (string, bool) {

@@ -1,10 +1,6 @@
 package frontendbindingmeta
 
-import (
-	"reflect"
-)
-
-type TypeScriptExprProvider interface{ FrontendBindingTypeScriptExpr() string }
+import "reflect"
 
 type UnionTypesProvider interface{ FrontendBindingUnionTypes() []reflect.Type }
 

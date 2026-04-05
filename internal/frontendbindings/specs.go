@@ -6,7 +6,7 @@ func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
 	declarations := []TypeDeclaration{
 		aliasDeclaration(
 			"JSONValue",
-			"null | boolean | number | string | Array<JSONValue> | { [key: string]: JSONValue | undefined }",
+			"gt.RawMessage",
 		),
 	}
 	declarations = append(declarations, discoveredValueDeclarations(converter)...)

@@ -195,6 +195,81 @@ func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *test
 	}
 }
 
+func TestBuildSchemaDocumentUsesSpecialSchemasForRecursiveJSONAndSyntheticUnions(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+
+	rawMessageSchema := document.Defs["RawMessage"]
+	if rawMessageSchema == nil {
+		t.Fatalf("expected RawMessage schema in $defs")
+	}
+	if got := len(rawMessageSchema.AnyOf); got != 6 {
+		t.Fatalf("RawMessage anyOf count = %d, want 6", got)
+	}
+	if got := rawMessageSchema.AnyOf[4].Items.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("RawMessage array items ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+	if got := rawMessageSchema.AnyOf[5].AdditionalProperties.Ref; got != "#/$defs/RawMessage" {
+		t.Fatalf("RawMessage additionalProperties ref = %q, want %q", got, "#/$defs/RawMessage")
+	}
+
+	sectionSizeValueSchema := document.Defs["SectionSizeValue"]
+	if sectionSizeValueSchema == nil {
+		t.Fatalf("expected SectionSizeValue schema in $defs")
+	}
+	if got := len(sectionSizeValueSchema.AnyOf); got != 2 {
+		t.Fatalf("SectionSizeValue anyOf count = %d, want 2", got)
+	}
+	if got := sectionSizeValueSchema.AnyOf[1].Ref; got != "#/$defs/SectionSizeMode" {
+		t.Fatalf("SectionSizeValue enum ref = %q, want %q", got, "#/$defs/SectionSizeMode")
+	}
+
+	chartDataValueSchema := document.Defs["ChartDataValue"]
+	if chartDataValueSchema == nil {
+		t.Fatalf("expected ChartDataValue schema in $defs")
+	}
+	if chartDataValueSchema.AdditionalProperties == nil || chartDataValueSchema.AdditionalProperties.Items == nil {
+		t.Fatalf("expected ChartDataValue additionalProperties array schema")
+	}
+	if got := len(chartDataValueSchema.AdditionalProperties.Items.AnyOf); got != 2 {
+		t.Fatalf("ChartDataValue item anyOf count = %d, want 2", got)
+	}
+
+	baseSectionImplUnion := document.Defs["BaseSectionImplUnion"]
+	if baseSectionImplUnion == nil {
+		t.Fatalf("expected BaseSectionImplUnion schema in $defs")
+	}
+	if got := len(baseSectionImplUnion.AnyOf); got < 2 {
+		t.Fatalf("BaseSectionImplUnion anyOf count = %d, want at least 2", got)
+	}
+	if got := baseSectionImplUnion.AnyOf[0].Ref; got != "#/$defs/BaseSectionImpl" {
+		t.Fatalf("BaseSectionImplUnion first ref = %q, want %q", got, "#/$defs/BaseSectionImpl")
+	}
+
+	baseCodeObjImplUnion := document.Defs["BaseCodeObjImplUnion"]
+	if baseCodeObjImplUnion == nil {
+		t.Fatalf("expected BaseCodeObjImplUnion schema in $defs")
+	}
+	if got := len(baseCodeObjImplUnion.AnyOf); got < 2 {
+		t.Fatalf("BaseCodeObjImplUnion anyOf count = %d, want at least 2", got)
+	}
+	if got := baseCodeObjImplUnion.AnyOf[0].Ref; got != "#/$defs/BaseCodeObjImpl" {
+		t.Fatalf("BaseCodeObjImplUnion first ref = %q, want %q", got, "#/$defs/BaseCodeObjImpl")
+	}
+
+	baseChildlessCodeObjImplUnion := document.Defs["BaseChildlessCodeObjImplUnion"]
+	if baseChildlessCodeObjImplUnion == nil {
+		t.Fatalf("expected BaseChildlessCodeObjImplUnion schema in $defs")
+	}
+	if got := len(baseChildlessCodeObjImplUnion.AnyOf); got < 2 {
+		t.Fatalf("BaseChildlessCodeObjImplUnion anyOf count = %d, want at least 2", got)
+	}
+}
+
 func TestBuildOpenAPIProjectionDocumentRewritesSharedSchemaRefs(t *testing.T) {
 	t.Parallel()
 

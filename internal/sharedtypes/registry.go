@@ -1,39 +1,80 @@
 package sharedtypes
 
 import (
+	"encoding/json"
 	"reflect"
 	"sort"
 	"strings"
+	"time"
 
 	"setta/internal/frontendbindings"
 	"setta/internal/sharedvalueexports"
 )
 
+var sharedSchemaTimeType = reflect.TypeOf(time.Time{})
+var sharedSchemaRawJSONType = reflect.TypeOf(json.RawMessage{})
+
 func DiscoveredTypes() []reflect.Type {
-	seen := map[reflect.Type]struct{}{}
+	visited := map[reflect.Type]struct{}{}
+	discovered := map[reflect.Type]struct{}{}
 	types := []reflect.Type{}
 
-	add := func(t reflect.Type) {
+	var visit func(reflect.Type)
+	visit = func(t reflect.Type) {
 		t = canonicalType(t)
 		if t == nil {
 			return
 		}
-		if _, ok := seen[t]; ok {
+		if _, ok := visited[t]; ok {
 			return
 		}
-		seen[t] = struct{}{}
-		types = append(types, t)
+		visited[t] = struct{}{}
+
+		if t != sharedSchemaTimeType && strings.TrimSpace(t.Name()) != "" && strings.TrimSpace(t.PkgPath()) != "" {
+			if _, ok := discovered[t]; !ok {
+				discovered[t] = struct{}{}
+				types = append(types, t)
+			}
+		}
+
+		switch t.Kind() {
+		case reflect.Pointer, reflect.Slice, reflect.Array, reflect.Chan:
+			visit(t.Elem())
+		case reflect.Map:
+			visit(t.Key())
+			visit(t.Elem())
+		case reflect.Struct:
+			for index := 0; index < t.NumField(); index++ {
+				visit(t.Field(index).Type)
+			}
+		case reflect.Func:
+			for index := 0; index < t.NumIn(); index++ {
+				visit(t.In(index))
+			}
+			for index := 0; index < t.NumOut(); index++ {
+				visit(t.Out(index))
+			}
+		case reflect.Interface:
+			for index := 0; index < t.NumMethod(); index++ {
+				visit(t.Method(index).Type)
+			}
+		}
 	}
 
 	for _, t := range frontendbindings.DiscoveredConvertibleTypes() {
-		add(t)
+		visit(t)
 	}
 	for _, export := range sharedvalueexports.DiscoveredValueExports() {
-		add(export.Type)
+		visit(export.Type)
 	}
 	for _, t := range discoveredAdditionalTypes() {
-		add(t)
+		visit(t)
 	}
+	if _, ok := discovered[sharedSchemaRawJSONType]; !ok {
+		discovered[sharedSchemaRawJSONType] = struct{}{}
+		types = append(types, sharedSchemaRawJSONType)
+	}
+	types = preferredSharedSchemaTypes(types)
 
 	sort.Slice(types, func(i int, j int) bool {
 		nameI := strings.TrimSpace(ContractNameForType(types[i]))
@@ -47,6 +88,35 @@ func DiscoveredTypes() []reflect.Type {
 		return nameI < nameJ
 	})
 	return types
+}
+
+func preferredSharedSchemaTypes(types []reflect.Type) []reflect.Type {
+	if len(types) == 0 {
+		return nil
+	}
+
+	frontendByGroup := map[string]struct{}{}
+	for _, t := range types {
+		name := strings.TrimSpace(t.Name())
+		if !strings.HasPrefix(name, "Frontend") || len(name) <= len("Frontend") {
+			continue
+		}
+		frontendByGroup[sharedSchemaTypeGroupKey(t)] = struct{}{}
+	}
+
+	filtered := make([]reflect.Type, 0, len(types))
+	for _, t := range types {
+		if _, ok := frontendByGroup[sharedSchemaTypeGroupKey(t)]; ok &&
+			!strings.HasPrefix(strings.TrimSpace(t.Name()), "Frontend") {
+			continue
+		}
+		filtered = append(filtered, t)
+	}
+	return filtered
+}
+
+func sharedSchemaTypeGroupKey(t reflect.Type) string {
+	return t.PkgPath() + ":" + strings.TrimSpace(ContractNameForType(t))
 }
 
 func ContractNameForType(t reflect.Type) string {

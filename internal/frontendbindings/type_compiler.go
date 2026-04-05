@@ -225,15 +225,6 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		return nil
 	}
 
-	if provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.TypeScriptExprProvider](t); ok {
-		expr := provider.FrontendBindingTypeScriptExpr()
-		if strings.TrimSpace(expr) == "" {
-			return fmt.Errorf("%s returned an empty frontend TS alias expression", t.String())
-		}
-		c.declarations = append(c.declarations, aliasDeclaration(frontendBindingTypeName(t), expr))
-		return nil
-	}
-
 	if provider, ok := frontendbindingmeta.LookupProvider[frontendbindingmeta.UnionTypesProvider](t); ok {
 		memberTypes := append([]reflect.Type(nil), provider.FrontendBindingUnionTypes()...)
 		if len(memberTypes) == 0 {

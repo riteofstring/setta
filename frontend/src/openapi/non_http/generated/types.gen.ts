@@ -14,7 +14,7 @@ export type AIFollowToolArgumentsUpdateContent = {
 /**
  * AIFollowToolArgumentsUpdateMessage
  */
-export type AIFollowToolArgumentsUpdateMessage = {
+type AIFollowToolArgumentsUpdateMessage = {
   content: {
     chatId: string;
     idsByType: {
@@ -63,7 +63,7 @@ export type AIFollowToolResultUpdateContent = {
 /**
  * AIFollowToolResultUpdateMessage
  */
-export type AIFollowToolResultUpdateMessage = {
+type AIFollowToolResultUpdateMessage = {
   content: {
     chatId: string;
     idsByType: {
@@ -101,7 +101,7 @@ export type AIFollowToolResultUpdateMessage = {
 /**
  * AddKwargResult
  */
-export type AddKwargResult = {
+type AddKwargResult = {
   codeObjId: string;
 };
 
@@ -123,7 +123,7 @@ export type AgentProfile = {
 /**
  * AgentProfilesUpdatedContent
  */
-export type AgentProfilesUpdatedContent = {
+type AgentProfilesUpdatedContent = {
   profiles: null | Array<{
     description: string;
     enableBackgroundSummaryFill: boolean;
@@ -140,7 +140,7 @@ export type AgentProfilesUpdatedContent = {
 /**
  * AgentProfilesUpdatedMessage
  */
-export type AgentProfilesUpdatedMessage = {
+type AgentProfilesUpdatedMessage = {
   content: {
     profiles: null | Array<{
       description: string;
@@ -213,7 +213,7 @@ export type AgentRun = {
 /**
  * AgentRunUpdatedMessage
  */
-export type AgentRunUpdatedMessage = {
+type AgentRunUpdatedMessage = {
   content: {
     cost?: null | number;
     events: null | Array<{
@@ -277,7 +277,7 @@ export type AgenticEdge = {
   kind: "chat_chat" | "section_chat" | "chat_section";
   selected?: boolean;
   sourceSectionId: string;
-  style?: null | Array<number>;
+  style?: RawMessage | null;
   targetSectionId: string;
   zIndex?: number;
 };
@@ -285,15 +285,12 @@ export type AgenticEdge = {
 /**
  * AgenticEdgeContextMode
  */
-export type AgenticEdgeContextMode =
-  | "reference_only"
-  | "inline_text"
-  | "summary";
+type AgenticEdgeContextMode = "reference_only" | "inline_text" | "summary";
 
 /**
  * AgenticEdgeKind
  */
-export type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
+type AgenticEdgeKind = "chat_chat" | "section_chat" | "chat_section";
 
 /**
  * AgenticSummaryCacheStatus
@@ -351,7 +348,7 @@ export type AllConfigs = {
 /**
  * AllConnectionsMessage
  */
-export type AllConnectionsMessage = {
+type AllConnectionsMessage = {
   content: null | Array<{
     connectionType: "frontend" | "listener" | "SERVER" | "terminal";
     currentAddress?: string;
@@ -399,7 +396,7 @@ export type AllProjectMetadata = {
 /**
  * AllProjectMetadataContent
  */
-export type AllProjectMetadataContent = {
+type AllProjectMetadataContent = {
   defaultProjectConfigId: null | string;
   projectMetadata: null | Array<{
     id: string;
@@ -410,7 +407,7 @@ export type AllProjectMetadataContent = {
 /**
  * AllProjectMetadataMessage
  */
-export type AllProjectMetadataMessage = {
+type AllProjectMetadataMessage = {
   content: {
     defaultProjectConfigId: null | string;
     projectMetadata: null | Array<{
@@ -449,74 +446,87 @@ export type AllProjectMetadataMessage = {
 /**
  * Allocation
  */
-export type Allocation = {
+type Allocation = {
   deploymentName: string;
   deploymentRoot: string;
   deploymentVersion: string;
 };
 
 /**
+ * AppCapabilities
+ */
+type AppCapabilities = {
+  appSpecVersion: string;
+  catalogId: string;
+  catalogVersion: string;
+  features: {
+    [key: string]: boolean;
+  };
+  themeSchemaVersion: string;
+};
+
+/**
  * AppDefinition
  */
 export type AppDefinition = {
-  actions?: null | Array<number>;
+  actions?: RawMessage | null;
   appSpecPath?: string;
   appSpecVersion?: string;
-  assets?: null | Array<number>;
+  assets?: RawMessage | null;
   catalogId?: string;
-  dataBindings?: null | Array<number>;
+  dataBindings?: RawMessage | null;
   routes?: null | Array<{
     name?: string;
     path: string;
     rootKey?: string;
   }>;
-  theme?: null | Array<number>;
+  theme?: RawMessage | null;
 };
 
 /**
  * AppDefinitionMutationResult
  */
-export type AppDefinitionMutationResult = {
+type AppDefinitionMutationResult = {
   appDefinition?: null | {
-    actions?: null | Array<number>;
+    actions?: RawMessage | null;
     appSpecPath?: string;
     appSpecVersion?: string;
-    assets?: null | Array<number>;
+    assets?: RawMessage | null;
     catalogId?: string;
-    dataBindings?: null | Array<number>;
+    dataBindings?: RawMessage | null;
     routes?: null | Array<{
       name?: string;
       path: string;
       rootKey?: string;
     }>;
-    theme?: null | Array<number>;
+    theme?: RawMessage | null;
   };
 };
 
 /**
  * AppDefinitionReadResult
  */
-export type AppDefinitionReadResult = {
+type AppDefinitionReadResult = {
   appDefinition?: null | {
-    actions?: null | Array<number>;
+    actions?: RawMessage | null;
     appSpecPath?: string;
     appSpecVersion?: string;
-    assets?: null | Array<number>;
+    assets?: RawMessage | null;
     catalogId?: string;
-    dataBindings?: null | Array<number>;
+    dataBindings?: RawMessage | null;
     routes?: null | Array<{
       name?: string;
       path: string;
       rootKey?: string;
     }>;
-    theme?: null | Array<number>;
+    theme?: RawMessage | null;
   };
 };
 
 /**
  * AppDefinitionValidationResult
  */
-export type AppDefinitionValidationResult = {
+type AppDefinitionValidationResult = {
   capabilities: {
     appSpecVersion: string;
     catalogId: string;
@@ -557,9 +567,18 @@ export type AppRoute = {
 };
 
 /**
+ * AppValidationIssue
+ */
+type AppValidationIssue = {
+  elementKey?: string;
+  elementType?: string;
+  message: string;
+};
+
+/**
  * AppendMessagesRequest
  */
-export type AppendMessagesRequest = {
+type AppendMessagesRequest = {
   chatId: string;
   messages: null | Array<{
     [key: string]: unknown;
@@ -570,7 +589,7 @@ export type AppendMessagesRequest = {
 /**
  * ArtifactSaveResult
  */
-export type ArtifactSaveResult = {
+type ArtifactSaveResult = {
   backupPath?: null | string;
   id: string;
   message?: null | string;
@@ -624,7 +643,7 @@ export type AssistantChatMessage = {
 /**
  * BackendCodegenTargetRequest
  */
-export type BackendCodegenTargetRequest = {
+type BackendCodegenTargetRequest = {
   language: string;
   projectState: {
     [key: string]: unknown;
@@ -638,7 +657,7 @@ export type BackendCodegenTargetRequest = {
 /**
  * BackendHTTPRequest
  */
-export type BackendHTTPRequest = {
+type BackendHTTPRequest = {
   context: {
     hasAuth: boolean;
     projectConfigId?: string;
@@ -657,7 +676,7 @@ export type BackendHTTPRequest = {
 /**
  * BackendHTTPResponse
  */
-export type BackendHTTPResponse = {
+type BackendHTTPResponse = {
   headers: {
     [key: string]: null | Array<string>;
   };
@@ -667,7 +686,7 @@ export type BackendHTTPResponse = {
 /**
  * BackendListenerEndpointRequest
  */
-export type BackendListenerEndpointRequest = {
+type BackendListenerEndpointRequest = {
   context: {
     hasAuth: boolean;
     projectConfigId?: string;
@@ -684,7 +703,7 @@ export type BackendListenerEndpointRequest = {
 /**
  * BackendRequestContext
  */
-export type BackendRequestContext = {
+type BackendRequestContext = {
   hasAuth: boolean;
   projectConfigId?: string;
   serverMode: "ide" | "share" | "app" | "launcher";
@@ -695,12 +714,12 @@ export type BackendRequestContext = {
 /**
  * BackgroundVariant
  */
-export type BackgroundVariant = "lines" | "dots" | "cross";
+type BackgroundVariant = "lines" | "dots" | "cross";
 
 /**
  * BaseArtifactUnion
  */
-export type BaseArtifactUnion =
+type BaseArtifactUnion =
   | ImageArtifact
   | BrushStrokeArtifact
   | DrawAreaLayerItemTransformArtifact
@@ -720,6 +739,21 @@ export type BaseChatMessageUnion =
   | AssistantChatMessage
   | UserChatMessage
   | ToolChatMessage;
+
+export type BaseChildlessCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | TimeParamCodeObjImpl;
 
 /**
  * BaseCodeObjImpl
@@ -747,6 +781,24 @@ export type BaseCodeObjImpl = {
     | "NestedParam";
 };
 
+export type BaseCodeObjImplUnion =
+  | BaseCodeObjImpl
+  | CodeCallableCodeObjImpl
+  | CodeParamCodeObjImpl
+  | TextParamCodeObjImpl
+  | DateParamCodeObjImpl
+  | TimeParamCodeObjImpl
+  | ButtonParamCodeObjImpl
+  | SliderParamCodeObjImpl
+  | RotaryParamCodeObjImpl
+  | SwitchParamCodeObjImpl
+  | ColorPickerParamCodeObjImpl
+  | DropdownParamCodeObjImpl
+  | PasswordParamCodeObjImpl
+  | TextAreaParamCodeObjImpl
+  | DropzoneParamCodeObjImpl
+  | NestedParamCodeObjImpl;
+
 /**
  * BaseDependencyKeyUnion
  */
@@ -765,7 +817,7 @@ export type BaseDependencyValueUnion =
 /**
  * BaseParamCodeObjImpl
  */
-export type BaseParamCodeObjImpl = {
+type BaseParamCodeObjImpl = {
   coreNameEditable: boolean;
   coreNameType: string;
   description: string;
@@ -780,7 +832,7 @@ export type BaseParamCodeObjImpl = {
 /**
  * BaseSectionImpl
  */
-export type BaseSectionImpl = {
+type BaseSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   id: string;
@@ -791,14 +843,8 @@ export type BaseSectionImpl = {
   name: string;
   positionAndSizeLocked: boolean;
   size: {
-    height: {
-      Auto: boolean;
-      Value: number;
-    };
-    width: {
-      Auto: boolean;
-      Value: number;
-    };
+    height: SectionSizeValue;
+    width: SectionSizeValue;
   };
   styleColor: null | string;
   tagColor: null | string;
@@ -830,10 +876,32 @@ export type BaseSectionImpl = {
     | "Spreadsheet";
 };
 
+export type BaseSectionImplUnion =
+  | BaseSectionImpl
+  | CallableSectionImpl
+  | DictSectionImpl
+  | ListRootSectionImpl
+  | GroupSectionImpl
+  | StateMachineStartSectionImpl
+  | StateMachineGateSectionImpl
+  | StateMachineEndSectionImpl
+  | ChartSectionImpl
+  | TextBlockSectionImpl
+  | PromptSectionImpl
+  | GlobalVariablesSectionImpl
+  | CodeSectionImpl
+  | GenPythonCodeSectionImpl
+  | GenPythonMetadataSectionImpl
+  | TerminalSectionImpl
+  | ChatSectionImpl
+  | BrowserSectionImpl
+  | TaskBoardSectionImpl
+  | SpreadsheetSectionImpl;
+
 /**
  * BaseValueParamCodeObjImpl
  */
-export type BaseValueParamCodeObjImpl = {
+type BaseValueParamCodeObjImpl = {
   coreNameEditable: boolean;
   coreNameType: string;
   defaultVal: string;
@@ -858,6 +926,14 @@ export type BinaryDependencyValue = {
     sha256?: string;
   };
   type: "Literal" | "Binary" | "FileRead";
+};
+
+/**
+ * BinaryTransportRoutes
+ */
+type BinaryTransportRoutes = {
+  download: string;
+  upload: string;
 };
 
 /**
@@ -914,12 +990,12 @@ export type BrowserSavedSearchTypeFilters = {
 /**
  * BrowserSearchScope
  */
-export type BrowserSearchScope = "recursive" | "local";
+type BrowserSearchScope = "recursive" | "local";
 
 /**
  * BrowserSectionImpl
  */
-export type BrowserSectionImpl = {
+type BrowserSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   columnWidth?: null | number;
@@ -1110,16 +1186,14 @@ export type ChartDataArtifact = {
     | "DrawAreaLayerItemTransform"
     | "ChartData"
     | "File";
-  value: {
-    [key: string]: null | Array<unknown>;
-  };
+  value: ChartDataValue;
 };
 
 /**
  * ChartDataValue
  */
-export type ChartDataValue = {
-  [key: string]: null | Array<unknown>;
+type ChartDataValue = {
+  [key: string]: Array<string | number>;
 };
 
 /**
@@ -1154,7 +1228,7 @@ export type ChartSectionImpl = {
 /**
  * ChartSettingsUpdate
  */
-export type ChartSettingsUpdate = {
+type ChartSettingsUpdate = {
   categoryColumn?: null | string;
   secondYAxisColumns?: null | Array<string>;
   type: "line" | "scatter";
@@ -1173,7 +1247,7 @@ export type ChartType = "line" | "scatter";
 /**
  * Chat
  */
-export type Chat = {
+type Chat = {
   id: string;
   lastUpdated: string;
   llmConfig: {
@@ -1199,7 +1273,7 @@ export type Chat = {
 /**
  * ChatAppGenerationMessageMode
  */
-export type ChatAppGenerationMessageMode =
+type ChatAppGenerationMessageMode =
   | "plain_chat"
   | "json_render"
   | "json_render_with_image"
@@ -1209,7 +1283,7 @@ export type ChatAppGenerationMessageMode =
 /**
  * ChatDictationMode
  */
-export type ChatDictationMode = "auto" | "browser" | "provider";
+type ChatDictationMode = "auto" | "browser" | "provider";
 
 /**
  * ChatFileAttachment
@@ -1224,7 +1298,7 @@ export type ChatFileAttachment = {
 /**
  * ChatMetadata
  */
-export type ChatMetadata = {
+type ChatMetadata = {
   id: string;
   lastUpdated: string;
   llmConfig: {
@@ -1251,7 +1325,7 @@ export type ChatPermissionMode = "minimal" | "yolo" | "config_toml_custom";
 /**
  * ChatRole
  */
-export type ChatRole = "system" | "user" | "assistant" | "tool";
+type ChatRole = "system" | "user" | "assistant" | "tool";
 
 /**
  * ChatSectionBranch
@@ -1322,7 +1396,7 @@ export type ChatSectionImpl = {
 /**
  * ChatSectionSettings
  */
-export type ChatSectionSettings = {
+type ChatSectionSettings = {
   agentProfileId: null | string;
   dictationMode: "auto" | "browser" | "provider";
   engineConfigId: null | string;
@@ -1357,7 +1431,7 @@ export type ChatSectionState = {
 /**
  * ChatSendAction
  */
-export type ChatSendAction = "send";
+type ChatSendAction = "send";
 
 /**
  * ChatSendEvent
@@ -1381,7 +1455,7 @@ export type ChatSendEvent = {
 /**
  * ChatStopAction
  */
-export type ChatStopAction = "stop";
+type ChatStopAction = "stop";
 
 /**
  * ChatStopEvent
@@ -1429,9 +1503,23 @@ export type ChatWindowPlacement =
   | "canvas_section";
 
 /**
+ * ChildCodeObjFields
+ */
+type ChildCodeObjFields = {
+  children: null | Array<string>;
+};
+
+/**
+ * ChildSectionFields
+ */
+type ChildSectionFields = {
+  children: null | Array<string>;
+};
+
+/**
  * ClaudeSettingsManaged
  */
-export type ClaudeSettingsManaged = {
+type ClaudeSettingsManaged = {
   defaultMode?: null | string;
   mcp?: {
     [key: string]: unknown;
@@ -1446,7 +1534,7 @@ export type ClaudeSettingsManaged = {
 /**
  * ClaudeSettingsPermissions
  */
-export type ClaudeSettingsPermissions = {
+type ClaudeSettingsPermissions = {
   allow: null | Array<string>;
   ask: null | Array<string>;
   deny: null | Array<string>;
@@ -1455,17 +1543,17 @@ export type ClaudeSettingsPermissions = {
 /**
  * ClaudeSettingsSource
  */
-export type ClaudeSettingsSource = "user" | "project" | "local";
+type ClaudeSettingsSource = "user" | "project" | "local";
 
 /**
  * ClipboardDataType
  */
-export type ClipboardDataType = "Sections";
+type ClipboardDataType = "Sections";
 
 /**
  * ClipboardProjectStateCore
  */
-export type ClipboardProjectStateCore = {
+type ClipboardProjectStateCore = {
   codeObjImpls?: {
     [key: string]:
       | BaseCodeObjImpl
@@ -1490,7 +1578,7 @@ export type ClipboardProjectStateCore = {
       id: string;
       implId: string;
       isFrozen?: boolean;
-      modifier?: null | Array<number>;
+      modifier?: RawMessage | null;
       name?: string;
       nonPresetImplIds?: null | Array<string>;
     };
@@ -1501,7 +1589,7 @@ export type ClipboardProjectStateCore = {
       displayName?: string;
       id: string;
       name: string;
-      sharedModifier?: null | Array<number>;
+      sharedModifier?: RawMessage | null;
       unsharedKeys?: null | Array<string>;
       variantIds?: null | Array<string>;
     };
@@ -1534,7 +1622,7 @@ export type ClipboardProjectStateCore = {
       id: string;
       implId: string;
       isFrozen?: boolean;
-      modifier?: null | Array<number>;
+      modifier?: RawMessage | null;
       name?: string;
       nonPresetImplIds?: null | Array<string>;
     };
@@ -1546,7 +1634,7 @@ export type ClipboardProjectStateCore = {
       id: string;
       name: string;
       parentSectionId?: string;
-      sharedModifier?: null | Array<number>;
+      sharedModifier?: RawMessage | null;
       unsharedKeys?: null | Array<string>;
       variantIds?: null | Array<string>;
     };
@@ -1556,7 +1644,7 @@ export type ClipboardProjectStateCore = {
 /**
  * ClipboardProjectStateCoreWithSectionVariantMap
  */
-export type ClipboardProjectStateCoreWithSectionVariantMap = {
+type ClipboardProjectStateCoreWithSectionVariantMap = {
   core: {
     codeObjImpls?: {
       [key: string]:
@@ -1582,7 +1670,7 @@ export type ClipboardProjectStateCoreWithSectionVariantMap = {
         id: string;
         implId: string;
         isFrozen?: boolean;
-        modifier?: null | Array<number>;
+        modifier?: RawMessage | null;
         name?: string;
         nonPresetImplIds?: null | Array<string>;
       };
@@ -1593,7 +1681,7 @@ export type ClipboardProjectStateCoreWithSectionVariantMap = {
         displayName?: string;
         id: string;
         name: string;
-        sharedModifier?: null | Array<number>;
+        sharedModifier?: RawMessage | null;
         unsharedKeys?: null | Array<string>;
         variantIds?: null | Array<string>;
       };
@@ -1626,7 +1714,7 @@ export type ClipboardProjectStateCoreWithSectionVariantMap = {
         id: string;
         implId: string;
         isFrozen?: boolean;
-        modifier?: null | Array<number>;
+        modifier?: RawMessage | null;
         name?: string;
         nonPresetImplIds?: null | Array<string>;
       };
@@ -1638,7 +1726,7 @@ export type ClipboardProjectStateCoreWithSectionVariantMap = {
         id: string;
         name: string;
         parentSectionId?: string;
-        sharedModifier?: null | Array<number>;
+        sharedModifier?: RawMessage | null;
         unsharedKeys?: null | Array<string>;
         variantIds?: null | Array<string>;
       };
@@ -1678,7 +1766,7 @@ export type CodeFileBinding = {
 /**
  * CodeLanguage
  */
-export type CodeLanguage =
+type CodeLanguage =
   | "python"
   | "bash"
   | "javascript"
@@ -1692,7 +1780,7 @@ export type CodeLanguage =
 /**
  * CodeMirrorCompletion
  */
-export type CodeMirrorCompletion = {
+type CodeMirrorCompletion = {
   label: string;
   type: string;
 };
@@ -1780,12 +1868,12 @@ export type CodeObjValueRepresentationMode =
 /**
  * CodeObject
  */
-export type CodeObject = {
+type CodeObject = {
   defaultVariantId?: string;
   displayName?: string;
   id: string;
   name: string;
-  sharedModifier?: null | Array<number>;
+  sharedModifier?: RawMessage | null;
   unsharedKeys?: null | Array<string>;
   variantIds?: null | Array<string>;
 };
@@ -1793,20 +1881,20 @@ export type CodeObject = {
 /**
  * CodeObjectImpl
  */
-export type CodeObjectImpl = {
+type CodeObjectImpl = {
   id: string;
-  payload?: null | Array<number>;
+  payload?: RawMessage | null;
   type: string;
 };
 
 /**
  * CodeObjectVariant
  */
-export type CodeObjectVariant = {
+type CodeObjectVariant = {
   id: string;
   implId: string;
   isFrozen?: boolean;
-  modifier?: null | Array<number>;
+  modifier?: RawMessage | null;
   name?: string;
   nonPresetImplIds?: null | Array<string>;
 };
@@ -1908,7 +1996,7 @@ export type ColorPickerParamCodeObjImpl = {
 /**
  * ConfigLanguage
  */
-export type ConfigLanguage = "python" | "json";
+type ConfigLanguage = "python" | "json";
 
 /**
  * Connection
@@ -1923,7 +2011,7 @@ export type Connection = {
 /**
  * ConnectionType
  */
-export type ConnectionType = "frontend" | "listener" | "SERVER" | "terminal";
+type ConnectionType = "frontend" | "listener" | "SERVER" | "terminal";
 
 /**
  * Constants
@@ -1972,7 +2060,7 @@ export type Core = {
   displayName: string;
   id: string;
   name: string;
-  sharedModifier: null | Array<number>;
+  sharedModifier: RawMessage | null;
   unsharedKeys: null | Array<string>;
   variants: null | Array<string>;
 };
@@ -1980,7 +2068,7 @@ export type Core = {
 /**
  * CreateChatRequest
  */
-export type CreateChatRequest = {
+type CreateChatRequest = {
   engineConfigId?: null | string;
   firstMessage: {
     [key: string]: unknown;
@@ -1991,7 +2079,7 @@ export type CreateChatRequest = {
 /**
  * CreateChildSectionsInput
  */
-export type CreateChildSectionsInput = {
+type CreateChildSectionsInput = {
   implType: string;
   numChildren: number;
   parentId: string;
@@ -2008,7 +2096,7 @@ export type CreateChildSectionsResult = {
 /**
  * CreateChildSectionsViaIncrementerInput
  */
-export type CreateChildSectionsViaIncrementerInput = {
+type CreateChildSectionsViaIncrementerInput = {
   calledBy: string;
   implType: string;
   numChildren: number;
@@ -2017,21 +2105,21 @@ export type CreateChildSectionsViaIncrementerInput = {
 /**
  * CreateNewSectionVariantInput
  */
-export type CreateNewSectionVariantInput = {
+type CreateNewSectionVariantInput = {
   sectionId: string;
 };
 
 /**
  * CreateNewSectionVariantResult
  */
-export type CreateNewSectionVariantResult = {
+type CreateNewSectionVariantResult = {
   variantId: string;
 };
 
 /**
  * CreateTopLevelSectionInput
  */
-export type CreateTopLevelSectionInput = {
+type CreateTopLevelSectionInput = {
   controlCodeObjType?: null | string;
   implOverrides?: {
     [key: string]: unknown;
@@ -2129,7 +2217,7 @@ export type DateSelectionMode = "single" | "multiple";
 /**
  * DeleteChatRequest
  */
-export type DeleteChatRequest = {
+type DeleteChatRequest = {
   chatId: string;
   projectConfigId?: null | string;
 };
@@ -2137,7 +2225,7 @@ export type DeleteChatRequest = {
 /**
  * DeleteChildSectionsViaDecrementerInput
  */
-export type DeleteChildSectionsViaDecrementerInput = {
+type DeleteChildSectionsViaDecrementerInput = {
   calledBy: string;
   numChildren: number;
 };
@@ -2145,14 +2233,14 @@ export type DeleteChildSectionsViaDecrementerInput = {
 /**
  * DeleteKwargResult
  */
-export type DeleteKwargResult = {
+type DeleteKwargResult = {
   codeObjId: string;
 };
 
 /**
  * DeleteRequest
  */
-export type DeleteRequest = {
+type DeleteRequest = {
   artifacts: null | Array<{
     id: string;
     type:
@@ -2167,7 +2255,7 @@ export type DeleteRequest = {
 /**
  * DeleteRequestItem
  */
-export type DeleteRequestItem = {
+type DeleteRequestItem = {
   id: string;
   type:
     | "Image"
@@ -2180,21 +2268,21 @@ export type DeleteRequestItem = {
 /**
  * DeleteSectionsInput
  */
-export type DeleteSectionsInput = {
+type DeleteSectionsInput = {
   sectionIds: null | Array<string>;
 };
 
 /**
  * DeleteSectionsResult
  */
-export type DeleteSectionsResult = {
+type DeleteSectionsResult = {
   sectionIds: null | Array<string>;
 };
 
 /**
  * DeleteSelectedParamsInput
  */
-export type DeleteSelectedParamsInput = {
+type DeleteSelectedParamsInput = {
   paramInfoIds: null | Array<string>;
   sectionId: string;
 };
@@ -2202,7 +2290,7 @@ export type DeleteSelectedParamsInput = {
 /**
  * DeleteSelectedParamsResult
  */
-export type DeleteSelectedParamsResult = {
+type DeleteSelectedParamsResult = {
   paramInfoIds: null | Array<string>;
 };
 
@@ -2221,17 +2309,17 @@ export type DependencyEvent = {
 /**
  * DependencyKeyType
  */
-export type DependencyKeyType = "Section" | "SectionParam";
+type DependencyKeyType = "Section" | "SectionParam";
 
 /**
  * DependencyValueType
  */
-export type DependencyValueType = "Literal" | "Binary" | "FileRead";
+type DependencyValueType = "Literal" | "Binary" | "FileRead";
 
 /**
  * DetachedRun
  */
-export type DetachedRun = {
+type DetachedRun = {
   command: string;
   createdAtMs: number;
   entrySectionId: null | string;
@@ -2251,7 +2339,7 @@ export type DetachedRun = {
 /**
  * DetachedStatus
  */
-export type DetachedStatus =
+type DetachedStatus =
   | "queued"
   | "running"
   | "exited"
@@ -2314,7 +2402,7 @@ export type DictSectionImpl = {
 /**
  * Document
  */
-export type Document = {
+type Document = {
   [key: string]: unknown;
 };
 
@@ -2388,7 +2476,7 @@ export type DrawAreaLayerItemTransformArtifact = {
 /**
  * DrawAreaLayerItemType
  */
-export type DrawAreaLayerItemType = "Image" | "BrushStroke";
+type DrawAreaLayerItemType = "Image" | "BrushStroke";
 
 /**
  * DrawAreaMode
@@ -2406,6 +2494,13 @@ export type DrawAreaTransform = [
   number,
   number,
 ];
+
+/**
+ * DrawSectionImpl
+ */
+type DrawSectionImpl = {
+  renderedImagePath?: string;
+};
 
 /**
  * DropdownParamCodeObjImpl
@@ -2428,7 +2523,7 @@ export type DropdownParamCodeObjImpl = {
 /**
  * DropzoneMode
  */
-export type DropzoneMode = "STATEFUL" | "STATELESS";
+type DropzoneMode = "STATEFUL" | "STATELESS";
 
 /**
  * DropzoneParamCodeObjImpl
@@ -2455,7 +2550,7 @@ export type DropzoneParamCodeObjImpl = {
  */
 export type Edge = {
   animated?: boolean;
-  data?: null | Array<number>;
+  data?: RawMessage | null;
   hidden?: boolean;
   id: string;
   label?: null | string;
@@ -2463,7 +2558,7 @@ export type Edge = {
   sourcePortId: string;
   sourceSectionId: string;
   sourceVariantId: string;
-  style?: null | Array<number>;
+  style?: RawMessage | null;
   targetPortId: string;
   targetSectionId: string;
   targetVariantId: string;
@@ -2474,7 +2569,7 @@ export type Edge = {
 /**
  * EdgePort
  */
-export type EdgePort = {
+type EdgePort = {
   accessor: string;
   id: string;
 };
@@ -2482,11 +2577,16 @@ export type EdgePort = {
 /**
  * EmitStreamDeltaRequest
  */
-export type EmitStreamDeltaRequest = {
+type EmitStreamDeltaRequest = {
   chatId: string;
   projectConfigId: string;
   sectionId: string;
 };
+
+/**
+ * EndpointOrigin
+ */
+export type EndpointOrigin = "backend" | "launcher" | "backend-origin";
 
 /**
  * EndpointOriginPolicy
@@ -2522,7 +2622,7 @@ export type EngineConfigDefaults = {
 /**
  * EngineConfigsUpdatedContent
  */
-export type EngineConfigsUpdatedContent = {
+type EngineConfigsUpdatedContent = {
   configs: null | Array<{
     defaults?: {
       thinking?: null | boolean;
@@ -2541,7 +2641,7 @@ export type EngineConfigsUpdatedContent = {
 /**
  * EngineConfigsUpdatedMessage
  */
-export type EngineConfigsUpdatedMessage = {
+type EngineConfigsUpdatedMessage = {
   content: {
     configs: null | Array<{
       defaults?: {
@@ -2594,12 +2694,12 @@ export type EngineRuntimeSupport = {
 /**
  * EngineType
  */
-export type EngineType = "setta_llm" | "external_agent";
+type EngineType = "setta_llm" | "external_agent";
 
 /**
  * EnvVarStatus
  */
-export type EnvVarStatus = {
+type EnvVarStatus = {
   missing: null | Array<string>;
   present: null | Array<string>;
 };
@@ -2607,7 +2707,7 @@ export type EnvVarStatus = {
 /**
  * ErrorKind
  */
-export type ErrorKind =
+type ErrorKind =
   | "invalid_request"
   | "path_forbidden"
   | "path_not_found"
@@ -2666,7 +2766,7 @@ export type ExternalAgentConfig = {
 /**
  * ExternalAgentConfigsUpdatedContent
  */
-export type ExternalAgentConfigsUpdatedContent = {
+type ExternalAgentConfigsUpdatedContent = {
   configs: null | Array<{
     approvalPolicy?: null | string;
     baseUrl?: null | string;
@@ -2712,7 +2812,7 @@ export type ExternalAgentConfigsUpdatedContent = {
 /**
  * ExternalAgentConfigsUpdatedMessage
  */
-export type ExternalAgentConfigsUpdatedMessage = {
+type ExternalAgentConfigsUpdatedMessage = {
   content: {
     configs: null | Array<{
       approvalPolicy?: null | string;
@@ -2785,7 +2885,7 @@ export type ExternalAgentConfigsUpdatedMessage = {
 /**
  * ExternalAgentStatus
  */
-export type ExternalAgentStatus = {
+type ExternalAgentStatus = {
   available: boolean;
   baseUrl?: null | string;
   cliVersion?: null | string;
@@ -2824,9 +2924,18 @@ export type FileArtifact = {
 };
 
 /**
+ * FileBrowserTransportRoutes
+ */
+type FileBrowserTransportRoutes = {
+  getFileBrowserRoot: string;
+  getFolderContents: string;
+  writeFileBrowserContent: string;
+};
+
+/**
  * FileReadDependencyValue
  */
-export type FileReadDependencyValue = {
+type FileReadDependencyValue = {
   payload: string;
   type: "Literal" | "Binary" | "FileRead";
 };
@@ -2919,21 +3028,28 @@ export type GenPythonMetadataSectionImpl = {
 };
 
 /**
+ * GeneratedSectionImpl
+ */
+type GeneratedSectionImpl = {
+  kind: "python_code" | "python_metadata" | "plugin";
+};
+
+/**
  * GeneratedSectionKind
  */
-export type GeneratedSectionKind = "python_code" | "python_metadata" | "plugin";
+type GeneratedSectionKind = "python_code" | "python_metadata" | "plugin";
 
 /**
  * GetAllMetadataRequest
  */
-export type GetAllMetadataRequest = {
+type GetAllMetadataRequest = {
   projectConfigId?: null | string;
 };
 
 /**
  * GetChatRequest
  */
-export type GetChatRequest = {
+type GetChatRequest = {
   chatId: string;
   projectConfigId?: null | string;
 };
@@ -3050,7 +3166,7 @@ export type GroupSectionImpl = {
 /**
  * GroupSectionsInput
  */
-export type GroupSectionsInput = {
+type GroupSectionsInput = {
   sectionIds: null | Array<string>;
 };
 
@@ -3069,14 +3185,14 @@ export type HTTPRequestMethod =
 /**
  * IdentityContent
  */
-export type IdentityContent = {
+type IdentityContent = {
   frontendAffinityToken: string;
 };
 
 /**
  * IdentityMessage
  */
-export type IdentityMessage = {
+type IdentityMessage = {
   content: {
     frontendAffinityToken: string;
   };
@@ -3129,7 +3245,7 @@ export type ImageArtifact = {
 /**
  * ImportFilesRequest
  */
-export type ImportFilesRequest = {
+type ImportFilesRequest = {
   paths: null | Array<string>;
   uploadScope: "chat" | "generic";
 };
@@ -3137,7 +3253,7 @@ export type ImportFilesRequest = {
 /**
  * ImportFilesResponseItem
  */
-export type ImportFilesResponseItem = {
+type ImportFilesResponseItem = {
   id: string;
   kind: string;
   mimeType: string;
@@ -3148,7 +3264,7 @@ export type ImportFilesResponseItem = {
 /**
  * IndentParamsInput
  */
-export type IndentParamsInput = {
+type IndentParamsInput = {
   paramIds: null | Array<string>;
   sectionId: string;
 };
@@ -3164,13 +3280,13 @@ export type JSONArtifact = {
     | "DrawAreaLayerItemTransform"
     | "ChartData"
     | "File";
-  value: null | Array<number>;
+  value: RawMessage | null;
 };
 
 /**
  * LLMAPIKeysUpdatedMessage
  */
-export type LLMAPIKeysUpdatedMessage = {
+type LLMAPIKeysUpdatedMessage = {
   content: {
     apiKeys: {
       [key: string]: string;
@@ -3226,7 +3342,7 @@ export type LLMConfig = {
 /**
  * LLMConfigUpdatedMessage
  */
-export type LLMConfigUpdatedMessage = {
+type LLMConfigUpdatedMessage = {
   content: {
     codexMcpImportedAt?: string;
     configs: {
@@ -3293,7 +3409,7 @@ export type LLMConfigUpdatedMessage = {
 /**
  * LLMStreamingResponseChunk
  */
-export type LLMStreamingResponseChunk =
+type LLMStreamingResponseChunk =
   | MessageStartEvent
   | MessageDeltaEvent
   | ToolCallDeltaEvent
@@ -3315,7 +3431,7 @@ export type LLMStreamingResponseContent = {
 /**
  * LLMStreamingResponseMessage
  */
-export type LLMStreamingResponseMessage = {
+type LLMStreamingResponseMessage = {
   content: {
     chatId: string;
     chunk: LLMStreamingResponseChunk;
@@ -3373,7 +3489,7 @@ export type LSPDiagnostic = {
 /**
  * LSPDiagnosticPosition
  */
-export type LSPDiagnosticPosition = {
+type LSPDiagnosticPosition = {
   character: number;
   line: number;
 };
@@ -3381,7 +3497,7 @@ export type LSPDiagnosticPosition = {
 /**
  * LSPDiagnosticRange
  */
-export type LSPDiagnosticRange = {
+type LSPDiagnosticRange = {
   end: {
     character: number;
     line: number;
@@ -3395,7 +3511,7 @@ export type LSPDiagnosticRange = {
 /**
  * LSPDiagnosticsMessage
  */
-export type LSPDiagnosticsMessage = {
+type LSPDiagnosticsMessage = {
   content: {
     codeSections: {
       [key: string]: null | Array<{
@@ -3526,6 +3642,16 @@ export type LSPDiagnosticsPayload = {
 };
 
 /**
+ * LauncherManagementTransportRoutes
+ */
+type LauncherManagementTransportRoutes = {
+  getLauncherStatus: string;
+  removeLauncher: string;
+  repairLauncher: string;
+  updateLauncher: string;
+};
+
+/**
  * LineChartSettings
  */
 export type LineChartSettings = {
@@ -3601,7 +3727,7 @@ export type ListRootViewMode = "default" | "task_list" | "kanban";
 /**
  * ListenerConfig
  */
-export type ListenerConfig = {
+type ListenerConfig = {
   enabled: boolean;
   entrypoint: string;
 };
@@ -3609,7 +3735,7 @@ export type ListenerConfig = {
 /**
  * ListenerCoverageDependency
  */
-export type ListenerCoverageDependency = {
+type ListenerCoverageDependency = {
   codeObjId?: string;
   sectionId: string;
   type: "Section" | "SectionParam";
@@ -3627,7 +3753,7 @@ export type ListenerCoverageSnapshot = {
 /**
  * ListenerCoverageSnapshotMessage
  */
-export type ListenerCoverageSnapshotMessage = {
+type ListenerCoverageSnapshotMessage = {
   content: {
     dependencies: null | Array<BaseDependencyKeyUnion>;
     hasRealtimeWildcard: boolean;
@@ -3663,7 +3789,7 @@ export type ListenerCoverageSnapshotMessage = {
 /**
  * ListenerDependencyCatalog
  */
-export type ListenerDependencyCatalog = {
+type ListenerDependencyCatalog = {
   entries: null | Array<{
     codeObjType?: string;
     controlCodeObjId?: string;
@@ -3684,7 +3810,7 @@ export type ListenerDependencyCatalog = {
 /**
  * ListenerDependencyCatalogEntry
  */
-export type ListenerDependencyCatalogEntry = {
+type ListenerDependencyCatalogEntry = {
   codeObjType?: string;
   controlCodeObjId?: string;
   controlCodeObjType?: string;
@@ -3703,19 +3829,19 @@ export type ListenerDependencyCatalogEntry = {
 /**
  * ListenerDependencyEvent
  */
-export type ListenerDependencyEvent = {
+type ListenerDependencyEvent = {
   dependencyKey: string;
-  payload?: null | Array<number>;
+  payload?: RawMessage | null;
   timestampMs: number;
 };
 
 /**
  * ListenerDependencyEventContent
  */
-export type ListenerDependencyEventContent = {
+type ListenerDependencyEventContent = {
   dependencyEvents: null | Array<{
     dependencyKey: string;
-    payload?: null | Array<number>;
+    payload?: RawMessage | null;
     timestampMs: number;
   }>;
   projectConfigId: string;
@@ -3726,20 +3852,20 @@ export type ListenerDependencyEventContent = {
 /**
  * ListenerDependencyEventEntry
  */
-export type ListenerDependencyEventEntry = {
+type ListenerDependencyEventEntry = {
   dependencyKey: string;
-  payload?: null | Array<number>;
+  payload?: RawMessage | null;
   timestampMs: number;
 };
 
 /**
  * ListenerDependencyEventMessage
  */
-export type ListenerDependencyEventMessage = {
+type ListenerDependencyEventMessage = {
   content: {
     dependencyEvents: null | Array<{
       dependencyKey: string;
-      payload?: null | Array<number>;
+      payload?: RawMessage | null;
       timestampMs: number;
     }>;
     projectConfigId: string;
@@ -3762,15 +3888,12 @@ export type ListenerDependencyEventMessage = {
 /**
  * ListenerDependencyMode
  */
-export type ListenerDependencyMode =
-  | "always"
-  | "realtime_only"
-  | "refresh_only";
+type ListenerDependencyMode = "always" | "realtime_only" | "refresh_only";
 
 /**
  * ListenerErrorContent
  */
-export type ListenerErrorContent = {
+type ListenerErrorContent = {
   details?: {
     [key: string]: unknown;
   };
@@ -3780,7 +3903,7 @@ export type ListenerErrorContent = {
 /**
  * ListenerErrorEvent
  */
-export type ListenerErrorEvent = {
+type ListenerErrorEvent = {
   details?: {
     [key: string]: unknown;
   };
@@ -3790,7 +3913,7 @@ export type ListenerErrorEvent = {
 /**
  * ListenerErrorMessage
  */
-export type ListenerErrorMessage = {
+type ListenerErrorMessage = {
   content: {
     details?: {
       [key: string]: unknown;
@@ -3813,7 +3936,7 @@ export type ListenerErrorMessage = {
 /**
  * ListenerForceRefreshContent
  */
-export type ListenerForceRefreshContent = {
+type ListenerForceRefreshContent = {
   callId?: string;
   refreshKind?: string;
   sequence?: null | number;
@@ -3849,7 +3972,7 @@ export type ListenerForceRefreshContent = {
 /**
  * ListenerForceRefreshEvent
  */
-export type ListenerForceRefreshEvent = {
+type ListenerForceRefreshEvent = {
   callId?: null | string;
   refreshKind?: null | string;
   sequence?: null | number;
@@ -3885,7 +4008,7 @@ export type ListenerForceRefreshEvent = {
 /**
  * ListenerForceRefreshMessage
  */
-export type ListenerForceRefreshMessage = {
+type ListenerForceRefreshMessage = {
   content: {
     callId?: string;
     refreshKind?: string;
@@ -3934,7 +4057,7 @@ export type ListenerForceRefreshMessage = {
 /**
  * ListenerFrontendEmitContent
  */
-export type ListenerFrontendEmitContent = {
+type ListenerFrontendEmitContent = {
   artifactUpdates?: null | Array<{
     id: string;
     type:
@@ -3943,10 +4066,10 @@ export type ListenerFrontendEmitContent = {
       | "DrawAreaLayerItemTransform"
       | "ChartData"
       | "File";
-    value: null | Array<number>;
+    value: RawMessage | null;
   }>;
   dependencyValues?: {
-    [key: string]: null | Array<number>;
+    [key: string]: RawMessage | null;
   };
   projectConfigId: string;
 };
@@ -3954,7 +4077,7 @@ export type ListenerFrontendEmitContent = {
 /**
  * ListenerFrontendEmitMessage
  */
-export type ListenerFrontendEmitMessage = {
+type ListenerFrontendEmitMessage = {
   content: {
     artifactUpdates?: null | Array<{
       id: string;
@@ -3964,10 +4087,10 @@ export type ListenerFrontendEmitMessage = {
         | "DrawAreaLayerItemTransform"
         | "ChartData"
         | "File";
-      value: null | Array<number>;
+      value: RawMessage | null;
     }>;
     dependencyValues?: {
-      [key: string]: null | Array<number>;
+      [key: string]: RawMessage | null;
     };
     projectConfigId: string;
   };
@@ -3987,8 +4110,8 @@ export type ListenerFrontendEmitMessage = {
 /**
  * ListenerFrontendEmitRequest
  */
-export type ListenerFrontendEmitRequest = {
-  artifactUpdates?: null | Array<null | Array<number>>;
+type ListenerFrontendEmitRequest = {
+  artifactUpdates?: null | Array<RawMessage | null>;
   dependencyValues?: {
     [key: string]: unknown;
   };
@@ -3998,7 +4121,7 @@ export type ListenerFrontendEmitRequest = {
 /**
  * ListenerInitContent
  */
-export type ListenerInitContent = {
+type ListenerInitContent = {
   projectConfigId?: string;
   projectName?: string;
   useTemporaryIds?: boolean;
@@ -4007,7 +4130,7 @@ export type ListenerInitContent = {
 /**
  * ListenerInitMessage
  */
-export type ListenerInitMessage = {
+type ListenerInitMessage = {
   content: {
     projectConfigId?: string;
     projectName?: string;
@@ -4029,7 +4152,7 @@ export type ListenerInitMessage = {
 /**
  * ListenerInitRequest
  */
-export type ListenerInitRequest = {
+type ListenerInitRequest = {
   projectConfigId?: null | string;
   projectName?: null | string;
   useTemporaryIds: boolean;
@@ -4038,7 +4161,7 @@ export type ListenerInitRequest = {
 /**
  * ListenerMessageType
  */
-export type ListenerMessageType =
+type ListenerMessageType =
   | "ListenerInit"
   | "ListenerRegister"
   | "ListenerRegisterAck"
@@ -4053,18 +4176,18 @@ export type ListenerMessageType =
 /**
  * ListenerRealtimeDelta
  */
-export type ListenerRealtimeDelta = {
+type ListenerRealtimeDelta = {
   dependency: string;
-  value: null | Array<number>;
+  value: RawMessage | null;
 };
 
 /**
  * ListenerRealtimeEvent
  */
-export type ListenerRealtimeEvent = {
+type ListenerRealtimeEvent = {
   deltas: null | Array<{
     dependency: string;
-    value: null | Array<number>;
+    value: RawMessage | null;
   }>;
   dependencyValues?: null | {
     entries: null | Array<{
@@ -4080,10 +4203,10 @@ export type ListenerRealtimeEvent = {
 /**
  * ListenerRealtimeEventContent
  */
-export type ListenerRealtimeEventContent = {
+type ListenerRealtimeEventContent = {
   deltas: null | Array<{
     dependency: string;
-    value: null | Array<number>;
+    value: RawMessage | null;
   }>;
   dependencyValues?: null | {
     entries: null | Array<{
@@ -4099,11 +4222,11 @@ export type ListenerRealtimeEventContent = {
 /**
  * ListenerRealtimeEventMessage
  */
-export type ListenerRealtimeEventMessage = {
+type ListenerRealtimeEventMessage = {
   content: {
     deltas: null | Array<{
       dependency: string;
-      value: null | Array<number>;
+      value: RawMessage | null;
     }>;
     dependencyValues?: null | {
       entries: null | Array<{
@@ -4131,7 +4254,7 @@ export type ListenerRealtimeEventMessage = {
 /**
  * ListenerRegisterAckContent
  */
-export type ListenerRegisterAckContent = {
+type ListenerRegisterAckContent = {
   callbacks: {
     [key: string]: {
       message?: string;
@@ -4145,7 +4268,7 @@ export type ListenerRegisterAckContent = {
 /**
  * ListenerRegisterAckEvent
  */
-export type ListenerRegisterAckEvent = {
+type ListenerRegisterAckEvent = {
   callbacks: {
     [key: string]: {
       message?: null | string;
@@ -4159,7 +4282,7 @@ export type ListenerRegisterAckEvent = {
 /**
  * ListenerRegisterAckMessage
  */
-export type ListenerRegisterAckMessage = {
+type ListenerRegisterAckMessage = {
   content: {
     callbacks: {
       [key: string]: {
@@ -4186,7 +4309,7 @@ export type ListenerRegisterAckMessage = {
 /**
  * ListenerRegisterAckStatus
  */
-export type ListenerRegisterAckStatus = {
+type ListenerRegisterAckStatus = {
   message?: string;
   status: string;
 };
@@ -4194,7 +4317,7 @@ export type ListenerRegisterAckStatus = {
 /**
  * ListenerRegisterCallbackSpec
  */
-export type ListenerRegisterCallbackSpec = {
+type ListenerRegisterCallbackSpec = {
   dependencies: null | Array<string>;
   dependencyMode: "always" | "realtime_only" | "refresh_only";
 };
@@ -4202,7 +4325,7 @@ export type ListenerRegisterCallbackSpec = {
 /**
  * ListenerRegisterContent
  */
-export type ListenerRegisterContent = {
+type ListenerRegisterContent = {
   callbacks: {
     [key: string]: {
       dependencies: null | Array<string>;
@@ -4215,7 +4338,7 @@ export type ListenerRegisterContent = {
 /**
  * ListenerRegisterMessage
  */
-export type ListenerRegisterMessage = {
+type ListenerRegisterMessage = {
   content: {
     callbacks: {
       [key: string]: {
@@ -4241,7 +4364,7 @@ export type ListenerRegisterMessage = {
 /**
  * ListenerRegisterRequest
  */
-export type ListenerRegisterRequest = {
+type ListenerRegisterRequest = {
   callbacks: {
     [key: string]: {
       debounceMs?: null | number;
@@ -4257,7 +4380,7 @@ export type ListenerRegisterRequest = {
 /**
  * ListenerRenderedDependencyValue
  */
-export type ListenerRenderedDependencyValue = {
+type ListenerRenderedDependencyValue = {
   dependencyKey: string;
   renderedValue: string;
 };
@@ -4265,7 +4388,7 @@ export type ListenerRenderedDependencyValue = {
 /**
  * ListenerRenderedDependencyValues
  */
-export type ListenerRenderedDependencyValues = {
+type ListenerRenderedDependencyValues = {
   entries: null | Array<{
     dependencyKey: string;
     renderedValue: string;
@@ -4275,7 +4398,7 @@ export type ListenerRenderedDependencyValues = {
 /**
  * ListenerRouterEndpointCall
  */
-export type ListenerRouterEndpointCall = {
+type ListenerRouterEndpointCall = {
   callId: string;
   endpointName: string;
   payload: {
@@ -4287,7 +4410,7 @@ export type ListenerRouterEndpointCall = {
 /**
  * ListenerRouterEndpointCallContent
  */
-export type ListenerRouterEndpointCallContent = {
+type ListenerRouterEndpointCallContent = {
   callId: string;
   endpointName: string;
   payload: {
@@ -4299,7 +4422,7 @@ export type ListenerRouterEndpointCallContent = {
 /**
  * ListenerRouterEndpointCallMessage
  */
-export type ListenerRouterEndpointCallMessage = {
+type ListenerRouterEndpointCallMessage = {
   content: {
     callId: string;
     endpointName: string;
@@ -4324,7 +4447,7 @@ export type ListenerRouterEndpointCallMessage = {
 /**
  * ListenerRouterEndpointResult
  */
-export type ListenerRouterEndpointResult = {
+type ListenerRouterEndpointResult = {
   callId: string;
   details?: {
     [key: string]: unknown;
@@ -4337,7 +4460,7 @@ export type ListenerRouterEndpointResult = {
 /**
  * ListenerRouterEndpointResultContent
  */
-export type ListenerRouterEndpointResultContent = {
+type ListenerRouterEndpointResultContent = {
   callId: string;
   details?: {
     [key: string]: unknown;
@@ -4350,7 +4473,7 @@ export type ListenerRouterEndpointResultContent = {
 /**
  * ListenerRouterEndpointResultMessage
  */
-export type ListenerRouterEndpointResultMessage = {
+type ListenerRouterEndpointResultMessage = {
   content: {
     callId: string;
     details?: {
@@ -4376,7 +4499,7 @@ export type ListenerRouterEndpointResultMessage = {
 /**
  * ListenerSnapshot
  */
-export type ListenerSnapshot = {
+type ListenerSnapshot = {
   dependencyCatalog: {
     entries: null | Array<{
       codeObjType?: null | string;
@@ -4415,14 +4538,14 @@ export type LiteralDependencyValue = {
 /**
  * LoadCachedPathsRequest
  */
-export type LoadCachedPathsRequest = {
+type LoadCachedPathsRequest = {
   paths: null | Array<string>;
 };
 
 /**
  * LocalCoreCommandEnvelope
  */
-export type LocalCoreCommandEnvelope = {
+type LocalCoreCommandEnvelope = {
   callId: string;
   commandName: string;
   payload: {
@@ -4433,16 +4556,16 @@ export type LocalCoreCommandEnvelope = {
 /**
  * LocalCoreListenerRealtimeDelta
  */
-export type LocalCoreListenerRealtimeDelta = {
+type LocalCoreListenerRealtimeDelta = {
   binaryPayloadBase64?: null | string;
   dependency: string;
-  value: null | Array<number>;
+  value: RawMessage | null;
 };
 
 /**
  * LocalCoreRenderRealtimeDependencyValuesRequest
  */
-export type LocalCoreRenderRealtimeDependencyValuesRequest = {
+type LocalCoreRenderRealtimeDependencyValuesRequest = {
   currentDependencyValues: {
     entries: null | Array<{
       dependencyKey: string;
@@ -4452,7 +4575,7 @@ export type LocalCoreRenderRealtimeDependencyValuesRequest = {
   deltas: null | Array<{
     binaryPayloadBase64?: null | string;
     dependency: string;
-    value: null | Array<number>;
+    value: RawMessage | null;
   }>;
   dependencyCatalog: {
     entries: null | Array<{
@@ -4476,7 +4599,7 @@ export type LocalCoreRenderRealtimeDependencyValuesRequest = {
 /**
  * LocalCoreRenderRealtimeDependencyValuesResult
  */
-export type LocalCoreRenderRealtimeDependencyValuesResult = {
+type LocalCoreRenderRealtimeDependencyValuesResult = {
   dependencyValues: {
     entries: null | Array<{
       dependencyKey: string;
@@ -4488,7 +4611,7 @@ export type LocalCoreRenderRealtimeDependencyValuesResult = {
 /**
  * LocalCoreResultEnvelope
  */
-export type LocalCoreResultEnvelope = {
+type LocalCoreResultEnvelope = {
   callId: string;
   details?: {
     [key: string]: unknown;
@@ -4500,7 +4623,7 @@ export type LocalCoreResultEnvelope = {
 /**
  * LocalCoreVersionHandshake
  */
-export type LocalCoreVersionHandshake = {
+type LocalCoreVersionHandshake = {
   coreVersion?: null | string;
   protocolVersion: number;
   sdkContractVersion: number;
@@ -4508,9 +4631,16 @@ export type LocalCoreVersionHandshake = {
 };
 
 /**
+ * Location
+ */
+type Location = {
+  [key: string]: never;
+};
+
+/**
  * ManagedAPIKeysSnapshot
  */
-export type ManagedAPIKeysSnapshot = {
+type ManagedAPIKeysSnapshot = {
   apiKeys: {
     [key: string]: string;
   };
@@ -4523,7 +4653,7 @@ export type ManagedAPIKeysSnapshot = {
 /**
  * ManagedAPIKeysWriteStatus
  */
-export type ManagedAPIKeysWriteStatus =
+type ManagedAPIKeysWriteStatus =
   | "success"
   | "revision_conflict"
   | "corrupt_store"
@@ -4532,7 +4662,7 @@ export type ManagedAPIKeysWriteStatus =
 /**
  * Manifest
  */
-export type Manifest = {
+type Manifest = {
   createdAt?: string;
   defaultProjectConfigId: string;
   deploymentName: string;
@@ -4548,7 +4678,7 @@ export type Manifest = {
 /**
  * MessageContent
  */
-export type MessageContent =
+type MessageContent =
   | MessageTextContent
   | MessageImageURLContent
   | MessageThinkingContent;
@@ -4556,7 +4686,7 @@ export type MessageContent =
 /**
  * MessageContentDelta
  */
-export type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
+type MessageContentDelta = MessageTextDelta | MessageThinkingDelta;
 
 /**
  * MessageDeltaEvent
@@ -4592,7 +4722,7 @@ export type MessageFinalizedEvent = {
 /**
  * MessageImageURL
  */
-export type MessageImageURL = {
+type MessageImageURL = {
   detail?: null | string;
   url: string;
 };
@@ -4626,7 +4756,7 @@ export type MessageStartEvent = {
 /**
  * MessageStopEvent
  */
-export type MessageStopEvent = {
+type MessageStopEvent = {
   message_id: string;
   type:
     | "message_start"
@@ -4649,7 +4779,7 @@ export type MessageTextContent = {
 /**
  * MessageTextDelta
  */
-export type MessageTextDelta = {
+type MessageTextDelta = {
   index: number;
   text: string;
   type: string;
@@ -4668,7 +4798,7 @@ export type MessageThinkingContent = {
 /**
  * MessageThinkingDelta
  */
-export type MessageThinkingDelta = {
+type MessageThinkingDelta = {
   index: number;
   signature: null | string;
   summary: null | string;
@@ -4679,7 +4809,7 @@ export type MessageThinkingDelta = {
 /**
  * MessageType
  */
-export type MessageType =
+type MessageType =
   | "CurrentAddressUpdate"
   | "UISettingRevealResult"
   | "RealtimeUIChange"
@@ -4688,7 +4818,7 @@ export type MessageType =
 /**
  * MetaControlSizeMode
  */
-export type MetaControlSizeMode = "any" | "auto_only" | "manual_only";
+type MetaControlSizeMode = "any" | "auto_only" | "manual_only";
 
 /**
  * MetaControlSizingPolicyByType
@@ -4799,7 +4929,7 @@ export type MetaControlSizingPolicyTypeEntry = {
 /**
  * Metadata
  */
-export type Metadata = {
+type Metadata = {
   createdAt: string;
   defaultProjectConfigId: string;
   defaultProjectConfigName: string;
@@ -4811,6 +4941,11 @@ export type Metadata = {
 };
 
 /**
+ * Mode
+ */
+type Mode = "ide" | "share" | "app" | "launcher";
+
+/**
  * ModeScopedLauncherRoutes
  */
 export type ModeScopedLauncherRoutes = null | Array<string>;
@@ -4818,7 +4953,7 @@ export type ModeScopedLauncherRoutes = null | Array<string>;
 /**
  * MoveParamGroupInput
  */
-export type MoveParamGroupInput = {
+type MoveParamGroupInput = {
   newIndex: number;
   newParentId: string;
   paramIds: null | Array<string>;
@@ -4827,7 +4962,7 @@ export type MoveParamGroupInput = {
 /**
  * MoveParamGroupsInput
  */
-export type MoveParamGroupsInput = {
+type MoveParamGroupsInput = {
   moves: null | Array<{
     newIndex: number;
     newParentId: string;
@@ -4839,7 +4974,7 @@ export type MoveParamGroupsInput = {
 /**
  * MoveParamsInput
  */
-export type MoveParamsInput = {
+type MoveParamsInput = {
   newIndex: number;
   newParentId: string;
   paramIds: null | Array<string>;
@@ -4849,7 +4984,7 @@ export type MoveParamsInput = {
 /**
  * MoveSectionsInput
  */
-export type MoveSectionsInput = {
+type MoveSectionsInput = {
   newIndex?: null | number;
   newParentId?: null | string;
   positionsById?: {
@@ -4876,7 +5011,7 @@ export type NameValidationContract = {
 /**
  * NameValidationErrors
  */
-export type NameValidationErrors = {
+type NameValidationErrors = {
   paramErrors: {
     [key: string]: null | Array<string>;
   };
@@ -4890,7 +5025,7 @@ export type NameValidationErrors = {
 /**
  * NameValidationErrorsMessage
  */
-export type NameValidationErrorsMessage = {
+type NameValidationErrorsMessage = {
   content: {
     paramErrors: {
       [key: string]: null | Array<string>;
@@ -4957,7 +5092,7 @@ export type NormalizedFloatingWindowBounds = {
 /**
  * NotificationContent
  */
-export type NotificationContent = {
+type NotificationContent = {
   id: string;
   message: string;
   metadata: {
@@ -4973,7 +5108,7 @@ export type NotificationContent = {
 /**
  * NotificationMessage
  */
-export type NotificationMessage = {
+type NotificationMessage = {
   content: {
     id: string;
     message: string;
@@ -5022,17 +5157,17 @@ export type NotificationType = "error" | "warning" | "info" | "save";
 /**
  * OpenAIRealtimeTranscriptionStreamMode
  */
-export type OpenAIRealtimeTranscriptionStreamMode = number;
+type OpenAIRealtimeTranscriptionStreamMode = number;
 
 /**
  * PanOnScrollMode
  */
-export type PanOnScrollMode = "free" | "vertical" | "horizontal";
+type PanOnScrollMode = "free" | "vertical" | "horizontal";
 
 /**
  * ParamCodeObjFields
  */
-export type ParamCodeObjFields = {
+type ParamCodeObjFields = {
   coreNameEditable: boolean;
   coreNameType: "CODE" | "TEXT";
   passingStyle:
@@ -5047,12 +5182,12 @@ export type ParamCodeObjFields = {
 /**
  * ParamNameType
  */
-export type ParamNameType = "CODE" | "TEXT";
+type ParamNameType = "CODE" | "TEXT";
 
 /**
  * ParameterPassingStyle
  */
-export type ParameterPassingStyle =
+type ParameterPassingStyle =
   | "DEFAULT"
   | "ARGS"
   | "KWARGS"
@@ -5080,7 +5215,7 @@ export type PasswordParamCodeObjImpl = {
 /**
  * PasteSectionsInput
  */
-export type PasteSectionsInput = {
+type PasteSectionsInput = {
   asRef: boolean;
   data: {
     core: {
@@ -5108,7 +5243,7 @@ export type PasteSectionsInput = {
           id: string;
           implId: string;
           isFrozen?: boolean;
-          modifier?: null | Array<number>;
+          modifier?: RawMessage | null;
           name?: string;
           nonPresetImplIds?: null | Array<string>;
         };
@@ -5119,7 +5254,7 @@ export type PasteSectionsInput = {
           displayName?: string;
           id: string;
           name: string;
-          sharedModifier?: null | Array<number>;
+          sharedModifier?: RawMessage | null;
           unsharedKeys?: null | Array<string>;
           variantIds?: null | Array<string>;
         };
@@ -5152,7 +5287,7 @@ export type PasteSectionsInput = {
           id: string;
           implId: string;
           isFrozen?: boolean;
-          modifier?: null | Array<number>;
+          modifier?: RawMessage | null;
           name?: string;
           nonPresetImplIds?: null | Array<string>;
         };
@@ -5164,7 +5299,7 @@ export type PasteSectionsInput = {
           id: string;
           name: string;
           parentSectionId?: string;
-          sharedModifier?: null | Array<number>;
+          sharedModifier?: RawMessage | null;
           unsharedKeys?: null | Array<string>;
           variantIds?: null | Array<string>;
         };
@@ -5183,7 +5318,7 @@ export type PasteSectionsInput = {
 /**
  * PluginBackendManifest
  */
-export type PluginBackendManifest = {
+type PluginBackendManifest = {
   entrypoint: string;
 };
 
@@ -5198,7 +5333,7 @@ export type PluginBlockedCapability = {
 /**
  * PluginBlockedCapabilityReason
  */
-export type PluginBlockedCapabilityReason =
+type PluginBlockedCapabilityReason =
   | "mode_policy"
   | "host_policy"
   | "manifest_invalid";
@@ -5206,7 +5341,7 @@ export type PluginBlockedCapabilityReason =
 /**
  * PluginConfigDescriptor
  */
-export type PluginConfigDescriptor = {
+type PluginConfigDescriptor = {
   currentConfig: {
     [key: string]: unknown;
   };
@@ -5221,14 +5356,14 @@ export type PluginConfigDescriptor = {
 /**
  * PluginConfigValidationResult
  */
-export type PluginConfigValidationResult = {
+type PluginConfigValidationResult = {
   ok: boolean;
 };
 
 /**
  * PluginConfigWriteResponse
  */
-export type PluginConfigWriteResponse = {
+type PluginConfigWriteResponse = {
   config: {
     [key: string]: unknown;
   };
@@ -5241,7 +5376,7 @@ export type PluginConfigWriteResponse = {
 /**
  * PluginContentDescriptor
  */
-export type PluginContentDescriptor = {
+type PluginContentDescriptor = {
   hasBlueprints: boolean;
   hasProjectTemplates: boolean;
   hasPrompts: boolean;
@@ -5250,7 +5385,7 @@ export type PluginContentDescriptor = {
 /**
  * PluginContentManifest
  */
-export type PluginContentManifest = {
+type PluginContentManifest = {
   blueprintsDir?: string;
   projectTemplatesDir?: string;
   promptsDir?: string;
@@ -5259,7 +5394,7 @@ export type PluginContentManifest = {
 /**
  * PluginEnableDisableResponse
  */
-export type PluginEnableDisableResponse = {
+type PluginEnableDisableResponse = {
   pluginId: string;
   restartRequired: boolean;
   state: "active" | "disabled" | "invalid" | "shadowed" | "pending_restart";
@@ -5268,7 +5403,7 @@ export type PluginEnableDisableResponse = {
 /**
  * PluginEnablementSource
  */
-export type PluginEnablementSource =
+type PluginEnablementSource =
   | "workspace_disabled"
   | "workspace_enabled"
   | "global_auto_enabled"
@@ -5277,7 +5412,7 @@ export type PluginEnablementSource =
 /**
  * PluginErrorInfo
  */
-export type PluginErrorInfo = {
+type PluginErrorInfo = {
   code: string;
   message: string;
 };
@@ -5285,7 +5420,7 @@ export type PluginErrorInfo = {
 /**
  * PluginFrontendDescriptor
  */
-export type PluginFrontendDescriptor = {
+type PluginFrontendDescriptor = {
   entrypointUrl: null | string;
   styleUrl: null | string;
 };
@@ -5293,7 +5428,7 @@ export type PluginFrontendDescriptor = {
 /**
  * PluginFrontendManifest
  */
-export type PluginFrontendManifest = {
+type PluginFrontendManifest = {
   entrypoint: string;
   style?: string;
 };
@@ -5301,7 +5436,7 @@ export type PluginFrontendManifest = {
 /**
  * PluginInstallHistoryEntry
  */
-export type PluginInstallHistoryEntry = {
+type PluginInstallHistoryEntry = {
   snapshotPath: string;
   sourceDigestSha256: null | string;
   timestampIso: string;
@@ -5311,7 +5446,7 @@ export type PluginInstallHistoryEntry = {
 /**
  * PluginInstallMetadataEntry
  */
-export type PluginInstallMetadataEntry = {
+type PluginInstallMetadataEntry = {
   canonicalSourceKey: string;
   history: null | Array<{
     snapshotPath: string;
@@ -5330,7 +5465,7 @@ export type PluginInstallMetadataEntry = {
 /**
  * PluginInstallMetadataFile
  */
-export type PluginInstallMetadataFile = {
+type PluginInstallMetadataFile = {
   entries: {
     [key: string]: {
       canonicalSourceKey: string;
@@ -5372,7 +5507,7 @@ export type PluginInstallResponse = {
 /**
  * PluginInstallerBackend
  */
-export type PluginInstallerBackend = "auto" | "pip" | "uv";
+type PluginInstallerBackend = "auto" | "pip" | "uv";
 
 /**
  * PluginListEntry
@@ -5472,7 +5607,7 @@ export type PluginListResponse = {
 /**
  * PluginLockApplyResponse
  */
-export type PluginLockApplyResponse = {
+type PluginLockApplyResponse = {
   applied: boolean;
   lockfilePath: string;
   plannedChanges: null | Array<string>;
@@ -5481,7 +5616,7 @@ export type PluginLockApplyResponse = {
 /**
  * PluginLockEntry
  */
-export type PluginLockEntry = {
+type PluginLockEntry = {
   canonicalSourceKey: string;
   installerBackend: "auto" | "pip" | "uv";
   pluginId: string;
@@ -5494,7 +5629,7 @@ export type PluginLockEntry = {
 /**
  * PluginLockWriteResponse
  */
-export type PluginLockWriteResponse = {
+type PluginLockWriteResponse = {
   lockfilePath: string;
   pluginCount: number;
 };
@@ -5502,7 +5637,7 @@ export type PluginLockWriteResponse = {
 /**
  * PluginManifest
  */
-export type PluginManifest = {
+type PluginManifest = {
   backend?: null | {
     entrypoint: string;
   };
@@ -5528,7 +5663,7 @@ export type PluginManifest = {
 /**
  * PluginRegisteredBackendRoute
  */
-export type PluginRegisteredBackendRoute = {
+type PluginRegisteredBackendRoute = {
   methods: null | Array<string>;
   path: string;
 };
@@ -5536,7 +5671,7 @@ export type PluginRegisteredBackendRoute = {
 /**
  * PluginRegisteredCodegenTarget
  */
-export type PluginRegisteredCodegenTarget = {
+type PluginRegisteredCodegenTarget = {
   defaultFileName: string;
   language: string;
   name: string;
@@ -5547,7 +5682,7 @@ export type PluginRegisteredCodegenTarget = {
 /**
  * PluginRegisteredLanguageServer
  */
-export type PluginRegisteredLanguageServer = {
+type PluginRegisteredLanguageServer = {
   args: null | Array<string>;
   command: string;
   language: string;
@@ -5559,14 +5694,14 @@ export type PluginRegisteredLanguageServer = {
 /**
  * PluginRegisteredListenerEndpoint
  */
-export type PluginRegisteredListenerEndpoint = {
+type PluginRegisteredListenerEndpoint = {
   name: string;
 };
 
 /**
  * PluginRegisteredStaticDir
  */
-export type PluginRegisteredStaticDir = {
+type PluginRegisteredStaticDir = {
   dir: string;
   routePrefix: string;
 };
@@ -5574,7 +5709,7 @@ export type PluginRegisteredStaticDir = {
 /**
  * PluginRegisteredUISetting
  */
-export type PluginRegisteredUISetting = {
+type PluginRegisteredUISetting = {
   description: string;
   localSettingId: string;
   mutability: string;
@@ -5602,7 +5737,7 @@ export type PluginRestartCapability = {
 /**
  * PluginRestartCapabilityMode
  */
-export type PluginRestartCapabilityMode = "manual" | "programmatic";
+type PluginRestartCapabilityMode = "manual" | "programmatic";
 
 /**
  * PluginRestartResponse
@@ -5617,7 +5752,7 @@ export type PluginRestartResponse = {
 /**
  * PluginRollbackResponse
  */
-export type PluginRollbackResponse = {
+type PluginRollbackResponse = {
   pluginId: string;
   restartRequired: boolean;
   restoredVersion: string;
@@ -5741,7 +5876,7 @@ export type PluginRuntimeResponse = {
 /**
  * PluginRuntimeState
  */
-export type PluginRuntimeState =
+type PluginRuntimeState =
   | "active"
   | "disabled"
   | "invalid"
@@ -5751,22 +5886,22 @@ export type PluginRuntimeState =
 /**
  * PluginScope
  */
-export type PluginScope = "workspace" | "setta_files" | "global";
+type PluginScope = "workspace" | "setta_files" | "global";
 
 /**
  * PluginSourceManager
  */
-export type PluginSourceManager = "setta" | "package_manager";
+type PluginSourceManager = "setta" | "package_manager";
 
 /**
  * PluginSourceScheme
  */
-export type PluginSourceScheme = "github" | "pypi";
+type PluginSourceScheme = "github" | "pypi";
 
 /**
  * PluginSourceTrustStatus
  */
-export type PluginSourceTrustStatus = "unverified";
+type PluginSourceTrustStatus = "unverified";
 
 /**
  * PluginStatusEntry
@@ -5888,7 +6023,7 @@ export type PluginStatusResponse = {
 /**
  * PluginUninstallResponse
  */
-export type PluginUninstallResponse = {
+type PluginUninstallResponse = {
   pluginId: string;
   removedFromScope: "workspace" | "setta_files" | "global";
   restartRequired: boolean;
@@ -5897,7 +6032,7 @@ export type PluginUninstallResponse = {
 /**
  * PluginUpdateResponse
  */
-export type PluginUpdateResponse = {
+type PluginUpdateResponse = {
   fromVersion: string;
   pluginId: string;
   restartRequired: boolean;
@@ -5908,14 +6043,14 @@ export type PluginUpdateResponse = {
 /**
  * PluginsGlobalStateFile
  */
-export type PluginsGlobalStateFile = {
+type PluginsGlobalStateFile = {
   autoEnabledPluginIds: null | Array<string>;
 };
 
 /**
  * PluginsLockFile
  */
-export type PluginsLockFile = {
+type PluginsLockFile = {
   plugins: null | Array<{
     canonicalSourceKey: string;
     installerBackend: "auto" | "pip" | "uv";
@@ -5931,7 +6066,7 @@ export type PluginsLockFile = {
 /**
  * PluginsStateFile
  */
-export type PluginsStateFile = {
+type PluginsStateFile = {
   disabledPluginIds: null | Array<string>;
   enabledPluginIds: null | Array<string>;
   pendingRestartBackendPluginIds: null | Array<string>;
@@ -6036,7 +6171,7 @@ export type ProjectChatWindowingState = {
 /**
  * ProjectCodegenLanguage
  */
-export type ProjectCodegenLanguage = "python";
+type ProjectCodegenLanguage = "python";
 
 /**
  * ProjectCodegenPluginTarget
@@ -6159,7 +6294,7 @@ export type ProjectConfig = {
     kind: "chat_chat" | "section_chat" | "chat_section";
     selected?: boolean;
     sourceSectionId: string;
-    style?: null | Array<number>;
+    style?: RawMessage | null;
     targetSectionId: string;
     zIndex?: number;
   }>;
@@ -6169,7 +6304,7 @@ export type ProjectConfig = {
   >;
   edges: null | Array<{
     animated?: boolean;
-    data?: null | Array<number>;
+    data?: RawMessage | null;
     hidden?: boolean;
     id: string;
     label?: null | string;
@@ -6177,7 +6312,7 @@ export type ProjectConfig = {
     sourcePortId: string;
     sourceSectionId: string;
     sourceVariantId: string;
-    style?: null | Array<number>;
+    style?: RawMessage | null;
     targetPortId: string;
     targetSectionId: string;
     targetVariantId: string;
@@ -6222,7 +6357,7 @@ export type ProjectConfig = {
     };
     sourcePortId: string;
     sourceSectionId: string;
-    style?: null | Array<number>;
+    style?: RawMessage | null;
     targetAction?: null | {
       agentProfileId?: null | string;
       engineConfigId?: null | string;
@@ -6373,7 +6508,7 @@ export type ProjectRunCapabilities = {
 /**
  * ProjectStateItem
  */
-export type ProjectStateItem = {
+type ProjectStateItem = {
   childSectionIds: null | Array<string>;
   coreName: string;
   parentSectionId?: null | string;
@@ -6392,7 +6527,7 @@ export type ProjectStateItem = {
 /**
  * ProjectStateSummary
  */
-export type ProjectStateSummary = {
+type ProjectStateSummary = {
   genCodeBinding?: null | {
     access_mode: "read_write" | "read_only" | "write_only";
     autoBinding: boolean;
@@ -6411,7 +6546,7 @@ export type ProjectStateSummary = {
       kind: "chat_chat" | "section_chat" | "chat_section";
       selected?: boolean;
       sourceSectionId: string;
-      style?: null | Array<number>;
+      style?: RawMessage | null;
       targetSectionId: string;
       zIndex?: number;
     }>;
@@ -6421,7 +6556,7 @@ export type ProjectStateSummary = {
     >;
     edges: null | Array<{
       animated?: boolean;
-      data?: null | Array<number>;
+      data?: RawMessage | null;
       hidden?: boolean;
       id: string;
       label?: null | string;
@@ -6429,7 +6564,7 @@ export type ProjectStateSummary = {
       sourcePortId: string;
       sourceSectionId: string;
       sourceVariantId: string;
-      style?: null | Array<number>;
+      style?: RawMessage | null;
       targetPortId: string;
       targetSectionId: string;
       targetVariantId: string;
@@ -6474,7 +6609,7 @@ export type ProjectStateSummary = {
       };
       sourcePortId: string;
       sourceSectionId: string;
-      style?: null | Array<number>;
+      style?: RawMessage | null;
       targetAction?: null | {
         agentProfileId?: null | string;
         engineConfigId?: null | string;
@@ -6614,7 +6749,7 @@ export type ProjectStateSummary = {
 /**
  * ProjectStateUpdateContent
  */
-export type ProjectStateUpdateContent = {
+type ProjectStateUpdateContent = {
   completedOpIds: null | Array<string>;
   pendingOpIds: null | Array<string>;
   projectState: {
@@ -6645,7 +6780,7 @@ export type ProjectStateUpdateContent = {
         id: string;
         impl: string;
         isFrozen: boolean;
-        modifier: null | Array<number>;
+        modifier: RawMessage | null;
         name: string;
         nonPresetImpls: null | Array<string>;
       };
@@ -6656,7 +6791,7 @@ export type ProjectStateUpdateContent = {
         displayName: string;
         id: string;
         name: string;
-        sharedModifier: null | Array<number>;
+        sharedModifier: RawMessage | null;
         unsharedKeys: null | Array<string>;
         variants: null | Array<string>;
       };
@@ -6717,7 +6852,7 @@ export type ProjectStateUpdateContent = {
         kind: "chat_chat" | "section_chat" | "chat_section";
         selected?: boolean;
         sourceSectionId: string;
-        style?: null | Array<number>;
+        style?: RawMessage | null;
         targetSectionId: string;
         zIndex?: number;
       }>;
@@ -6727,7 +6862,7 @@ export type ProjectStateUpdateContent = {
       >;
       edges: null | Array<{
         animated?: boolean;
-        data?: null | Array<number>;
+        data?: RawMessage | null;
         hidden?: boolean;
         id: string;
         label?: null | string;
@@ -6735,7 +6870,7 @@ export type ProjectStateUpdateContent = {
         sourcePortId: string;
         sourceSectionId: string;
         sourceVariantId: string;
-        style?: null | Array<number>;
+        style?: RawMessage | null;
         targetPortId: string;
         targetSectionId: string;
         targetVariantId: string;
@@ -6780,7 +6915,7 @@ export type ProjectStateUpdateContent = {
         };
         sourcePortId: string;
         sourceSectionId: string;
-        style?: null | Array<number>;
+        style?: RawMessage | null;
         targetAction?: null | {
           agentProfileId?: null | string;
           engineConfigId?: null | string;
@@ -6932,7 +7067,7 @@ export type ProjectStateUpdateContent = {
         id: string;
         impl: string;
         isFrozen: boolean;
-        modifier: null | Array<number>;
+        modifier: RawMessage | null;
         name: string;
         nonPresetImpls: null | Array<string>;
       };
@@ -6943,7 +7078,7 @@ export type ProjectStateUpdateContent = {
         displayName: string;
         id: string;
         name: string;
-        sharedModifier: null | Array<number>;
+        sharedModifier: RawMessage | null;
         unsharedKeys: null | Array<string>;
         variants: null | Array<string>;
       };
@@ -6975,7 +7110,7 @@ export type ProjectStateUpdateContent = {
 /**
  * ProjectStateUpdateMessage
  */
-export type ProjectStateUpdateMessage = {
+type ProjectStateUpdateMessage = {
   content: {
     completedOpIds: null | Array<string>;
     pendingOpIds: null | Array<string>;
@@ -7007,7 +7142,7 @@ export type ProjectStateUpdateMessage = {
           id: string;
           impl: string;
           isFrozen: boolean;
-          modifier: null | Array<number>;
+          modifier: RawMessage | null;
           name: string;
           nonPresetImpls: null | Array<string>;
         };
@@ -7018,7 +7153,7 @@ export type ProjectStateUpdateMessage = {
           displayName: string;
           id: string;
           name: string;
-          sharedModifier: null | Array<number>;
+          sharedModifier: RawMessage | null;
           unsharedKeys: null | Array<string>;
           variants: null | Array<string>;
         };
@@ -7079,7 +7214,7 @@ export type ProjectStateUpdateMessage = {
           kind: "chat_chat" | "section_chat" | "chat_section";
           selected?: boolean;
           sourceSectionId: string;
-          style?: null | Array<number>;
+          style?: RawMessage | null;
           targetSectionId: string;
           zIndex?: number;
         }>;
@@ -7089,7 +7224,7 @@ export type ProjectStateUpdateMessage = {
         >;
         edges: null | Array<{
           animated?: boolean;
-          data?: null | Array<number>;
+          data?: RawMessage | null;
           hidden?: boolean;
           id: string;
           label?: null | string;
@@ -7097,7 +7232,7 @@ export type ProjectStateUpdateMessage = {
           sourcePortId: string;
           sourceSectionId: string;
           sourceVariantId: string;
-          style?: null | Array<number>;
+          style?: RawMessage | null;
           targetPortId: string;
           targetSectionId: string;
           targetVariantId: string;
@@ -7142,7 +7277,7 @@ export type ProjectStateUpdateMessage = {
           };
           sourcePortId: string;
           sourceSectionId: string;
-          style?: null | Array<number>;
+          style?: RawMessage | null;
           targetAction?: null | {
             agentProfileId?: null | string;
             engineConfigId?: null | string;
@@ -7296,7 +7431,7 @@ export type ProjectStateUpdateMessage = {
           id: string;
           impl: string;
           isFrozen: boolean;
-          modifier: null | Array<number>;
+          modifier: RawMessage | null;
           name: string;
           nonPresetImpls: null | Array<string>;
         };
@@ -7307,7 +7442,7 @@ export type ProjectStateUpdateMessage = {
           displayName: string;
           id: string;
           name: string;
-          sharedModifier: null | Array<number>;
+          sharedModifier: RawMessage | null;
           unsharedKeys: null | Array<string>;
           variants: null | Array<string>;
         };
@@ -7403,7 +7538,7 @@ export type PromptSectionImpl = {
 /**
  * PromptTemplatesUpdatedContent
  */
-export type PromptTemplatesUpdatedContent = {
+type PromptTemplatesUpdatedContent = {
   templates: null | Array<{
     description: string;
     format: "Jinja";
@@ -7422,7 +7557,7 @@ export type PromptTemplatesUpdatedContent = {
 /**
  * PromptTemplatesUpdatedMessage
  */
-export type PromptTemplatesUpdatedMessage = {
+type PromptTemplatesUpdatedMessage = {
   content: {
     templates: null | Array<{
       description: string;
@@ -7468,7 +7603,7 @@ export type PromptTemplatesUpdatedMessage = {
 /**
  * PythonCodeObjValueRepresentationMode
  */
-export type PythonCodeObjValueRepresentationMode =
+type PythonCodeObjValueRepresentationMode =
   | "expression"
   | "json_parsed"
   | "string"
@@ -7478,20 +7613,17 @@ export type PythonCodeObjValueRepresentationMode =
 /**
  * PythonSectionCodegenMode
  */
-export type PythonSectionCodegenMode = "inherit" | "include" | "exclude";
+type PythonSectionCodegenMode = "inherit" | "include" | "exclude";
 
 /**
  * PythonSectionRepresentationMode
  */
-export type PythonSectionRepresentationMode =
-  | "expression"
-  | "file_path"
-  | "file_read";
+type PythonSectionRepresentationMode = "expression" | "file_path" | "file_read";
 
 /**
  * RawArtifact
  */
-export type RawArtifact = {
+type RawArtifact = {
   id: string;
   type:
     | "Image"
@@ -7499,18 +7631,26 @@ export type RawArtifact = {
     | "DrawAreaLayerItemTransform"
     | "ChartData"
     | "File";
-  value: null | Array<number>;
+  value: RawMessage | null;
 };
 
 /**
  * RawMessage
  */
-export type RawMessage = null | Array<number>;
+type RawMessage =
+  | null
+  | boolean
+  | number
+  | string
+  | Array<RawMessage>
+  | {
+      [key: string]: RawMessage;
+    };
 
 /**
  * RealtimeDependencyEventContent
  */
-export type RealtimeDependencyEventContent = {
+type RealtimeDependencyEventContent = {
   dependencyEvent: DependencyEvent;
   projectConfigId: string;
 };
@@ -7532,9 +7672,18 @@ export type RealtimeDependencyEventMessage = {
 };
 
 /**
+ * RealtimeDependencyEventPayload
+ */
+type RealtimeDependencyEventPayload = {
+  dependencyKey: RawMessage | null;
+  payload: RawMessage | null;
+  timestampMs: number;
+};
+
+/**
  * RealtimeUIChangeContent
  */
-export type RealtimeUIChangeContent = {
+type RealtimeUIChangeContent = {
   dependencyKey: BaseDependencyKeyUnion | null;
   projectConfigId: string;
   value: BaseDependencyValueUnion | null;
@@ -7585,7 +7734,7 @@ export type RenameRefactorMode =
 /**
  * RenameRefactorResultsMessage
  */
-export type RenameRefactorResultsMessage = {
+type RenameRefactorResultsMessage = {
   content: {
     changedNodeValues: null | Array<{
       depKey: {
@@ -7642,7 +7791,7 @@ export type RenameReferenceChangedValue = {
 /**
  * RenameReferenceDependencyKey
  */
-export type RenameReferenceDependencyKey = {
+type RenameReferenceDependencyKey = {
   codeObjId?: string;
   sectionId: string;
   type: string;
@@ -7658,7 +7807,7 @@ export type RequiredUIEditorTabMap = {
 /**
  * RestartRequiredResponse
  */
-export type RestartRequiredResponse = {
+type RestartRequiredResponse = {
   pendingPluginIds: null | Array<string>;
   pendingPluginIdsWithoutStatus: null | Array<string>;
   pendingPlugins: null | Array<{
@@ -7719,6 +7868,14 @@ export type RestartRequiredResponse = {
 };
 
 /**
+ * RootTransportRoutes
+ */
+type RootTransportRoutes = {
+  bootstrapPage: string;
+  toolsCall: string;
+};
+
+/**
  * RotaryParamCodeObjImpl
  */
 export type RotaryParamCodeObjImpl = {
@@ -7741,7 +7898,7 @@ export type RotaryParamCodeObjImpl = {
 /**
  * RunEvent
  */
-export type RunEvent = {
+type RunEvent = {
   id: string;
   payload?: {
     [key: string]: unknown;
@@ -7753,7 +7910,7 @@ export type RunEvent = {
 /**
  * RunIndex
  */
-export type RunIndex = {
+type RunIndex = {
   runs?: {
     [key: string]: {
       chatId?: null | string;
@@ -7767,7 +7924,7 @@ export type RunIndex = {
 /**
  * RunIndexEntry
  */
-export type RunIndexEntry = {
+type RunIndexEntry = {
   chatId?: null | string;
   projectConfigId?: null | string;
   runType?: null | string;
@@ -7776,7 +7933,7 @@ export type RunIndexEntry = {
 /**
  * RunMode
  */
-export type RunMode = "mcp" | "server" | "sdk" | "app_server";
+type RunMode = "mcp" | "server" | "sdk" | "app_server";
 
 /**
  * RunSnapshotMode
@@ -7786,22 +7943,17 @@ export type RunSnapshotMode = "ephemeral" | "always" | "never";
 /**
  * RunStatus
  */
-export type RunStatus =
-  | "queued"
-  | "running"
-  | "completed"
-  | "failed"
-  | "cancelled";
+type RunStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 /**
  * RunTargetKind
  */
-export type RunTargetKind = "manual_code" | "generated_entry";
+type RunTargetKind = "manual_code" | "generated_entry";
 
 /**
  * RunToolsRequest
  */
-export type RunToolsRequest = {
+type RunToolsRequest = {
   chatId: string;
   frontendAffinityToken?: null | string;
   projectConfigId?: null | string;
@@ -7814,7 +7966,7 @@ export type RunToolsRequest = {
 /**
  * RunnerSummaryParam
  */
-export type RunnerSummaryParam = {
+type RunnerSummaryParam = {
   displayName?: null | string;
   id: string;
   name: string;
@@ -7823,7 +7975,7 @@ export type RunnerSummaryParam = {
 /**
  * RunnerSummarySection
  */
-export type RunnerSummarySection = {
+type RunnerSummarySection = {
   displayName?: null | string;
   id: string;
   name: string;
@@ -7842,7 +7994,7 @@ export type RunnerSummarySection = {
 /**
  * RunnerSummarySnapshot
  */
-export type RunnerSummarySnapshot = {
+type RunnerSummarySnapshot = {
   projectConfigId: string;
   sections: null | Array<{
     displayName?: null | string;
@@ -7864,7 +8016,7 @@ export type RunnerSummarySnapshot = {
 /**
  * RunnerSummaryVariant
  */
-export type RunnerSummaryVariant = {
+type RunnerSummaryVariant = {
   id: string;
   name: string;
 };
@@ -7872,7 +8024,7 @@ export type RunnerSummaryVariant = {
 /**
  * RunningBackendVersionHandshake
  */
-export type RunningBackendVersionHandshake = {
+type RunningBackendVersionHandshake = {
   coreVersion: string;
   sdkContractVersion: number;
   sdkVersion: string;
@@ -7881,17 +8033,17 @@ export type RunningBackendVersionHandshake = {
 /**
  * SaveConflictStrategy
  */
-export type SaveConflictStrategy = "skip" | "backup" | "overwrite";
+type SaveConflictStrategy = "skip" | "backup" | "overwrite";
 
 /**
  * SavePolicy
  */
-export type SavePolicy = "persist" | "in_memory";
+type SavePolicy = "persist" | "in_memory";
 
 /**
  * SaveStatus
  */
-export type SaveStatus = "saved" | "unchanged" | "skipped" | "conflict";
+type SaveStatus = "saved" | "unchanged" | "skipped" | "conflict";
 
 /**
  * ScatterChartSettings
@@ -7902,6 +8054,20 @@ export type ScatterChartSettings = {
   xAxisColumn?: null | string;
   xAxisLog: boolean;
   yAxisLog: boolean;
+};
+
+/**
+ * Section
+ */
+type Section = {
+  defaultVariantId?: string;
+  displayName?: string;
+  id: string;
+  name: string;
+  parentSectionId?: string;
+  sharedModifier?: RawMessage | null;
+  unsharedKeys?: null | Array<string>;
+  variantIds?: null | Array<string>;
 };
 
 /**
@@ -7918,7 +8084,7 @@ export type SectionCapabilities = {
 /**
  * SectionCodegenMode
  */
-export type SectionCodegenMode = "inherit" | "include" | "exclude";
+type SectionCodegenMode = "inherit" | "include" | "exclude";
 
 /**
  * SectionCodegenOverride
@@ -8000,9 +8166,46 @@ export type SectionDependencyKey = {
 };
 
 /**
+ * SectionImpl
+ */
+type SectionImpl = {
+  code?: null | {
+    attachedTerminalSectionId?: string;
+    binding?: null | {
+      accessMode?: "read_write" | "read_only" | "write_only";
+      autoBinding?: boolean;
+      path: string;
+    };
+    children?: null | Array<string>;
+    language:
+      | "python"
+      | "bash"
+      | "javascript"
+      | "typescript"
+      | "json"
+      | "yaml"
+      | "toml"
+      | "markdown"
+      | "plaintext";
+  };
+  draw?: null | {
+    renderedImagePath?: string;
+  };
+  generated?: null | {
+    kind: "python_code" | "python_metadata" | "plugin";
+  };
+  id: string;
+  kind: "code" | "terminal" | "draw" | "generated";
+  payload?: RawMessage | null;
+  terminal?: null | {
+    sessionMode?: "" | "managed_console";
+  };
+};
+
+/**
  * SectionKind
  */
-export type SectionKind = "code" | "terminal" | "draw" | "generated";
+type SectionKind = "code" | "terminal" | "draw" | "generated";
 
 /**
  * SectionParamDependencyKey
@@ -8016,29 +8219,25 @@ export type SectionParamDependencyKey = {
 /**
  * SectionRepresentationMode
  */
-export type SectionRepresentationMode =
-  | "expression"
-  | "file_path"
-  | "file_read";
+type SectionRepresentationMode = "expression" | "file_path" | "file_read";
 
 /**
  * SectionSize
  */
 export type SectionSize = {
-  height: {
-    Auto: boolean;
-    Value: number;
-  };
-  width: {
-    Auto: boolean;
-    Value: number;
-  };
+  height: SectionSizeValue;
+  width: SectionSizeValue;
 };
 
 /**
  * SectionSizeMode
  */
-export type SectionSizeMode = "auto";
+type SectionSizeMode = "auto";
+
+/**
+ * SectionSizeValue
+ */
+type SectionSizeValue = number | SectionSizeMode;
 
 /**
  * SectionSizingPolicy
@@ -8533,7 +8732,7 @@ export type SectionTypeCodegenPolicy = {
 /**
  * SectionTypeErrors
  */
-export type SectionTypeErrors = {
+type SectionTypeErrors = {
   callable: null | Array<string>;
   params: {
     [key: string]: null | Array<string>;
@@ -8541,9 +8740,21 @@ export type SectionTypeErrors = {
 };
 
 /**
+ * SectionVariant
+ */
+type SectionVariant = {
+  id: string;
+  implId: string;
+  isFrozen?: boolean;
+  modifier?: RawMessage | null;
+  name?: string;
+  nonPresetImplIds?: null | Array<string>;
+};
+
+/**
  * SectionWithParamsCommon
  */
-export type SectionWithParamsCommon = {
+type SectionWithParamsCommon = {
   codeObjVariantMap: {
     [key: string]: string;
   };
@@ -8568,7 +8779,7 @@ export type SectionWithParamsCommon = {
 /**
  * SectionWithParamsLeadingFields
  */
-export type SectionWithParamsLeadingFields = {
+type SectionWithParamsLeadingFields = {
   codeObjVariantMap: {
     [key: string]: string;
   };
@@ -8580,7 +8791,7 @@ export type SectionWithParamsLeadingFields = {
 /**
  * SectionWithParamsTrailingFields
  */
-export type SectionWithParamsTrailingFields = {
+type SectionWithParamsTrailingFields = {
   edgeInputParams: null | Array<string>;
   edgeOutputPorts: null | Array<{
     accessor: string;
@@ -8626,7 +8837,7 @@ export type SectionsClipboardData = {
           id: string;
           implId: string;
           isFrozen?: boolean;
-          modifier?: null | Array<number>;
+          modifier?: RawMessage | null;
           name?: string;
           nonPresetImplIds?: null | Array<string>;
         };
@@ -8637,7 +8848,7 @@ export type SectionsClipboardData = {
           displayName?: string;
           id: string;
           name: string;
-          sharedModifier?: null | Array<number>;
+          sharedModifier?: RawMessage | null;
           unsharedKeys?: null | Array<string>;
           variantIds?: null | Array<string>;
         };
@@ -8670,7 +8881,7 @@ export type SectionsClipboardData = {
           id: string;
           implId: string;
           isFrozen?: boolean;
-          modifier?: null | Array<number>;
+          modifier?: RawMessage | null;
           name?: string;
           nonPresetImplIds?: null | Array<string>;
         };
@@ -8682,7 +8893,7 @@ export type SectionsClipboardData = {
           id: string;
           name: string;
           parentSectionId?: string;
-          sharedModifier?: null | Array<number>;
+          sharedModifier?: RawMessage | null;
           unsharedKeys?: null | Array<string>;
           variantIds?: null | Array<string>;
         };
@@ -8698,12 +8909,12 @@ export type SectionsClipboardData = {
 /**
  * SelectionMode
  */
-export type SelectionMode = "partial" | "full";
+type SelectionMode = "partial" | "full";
 
 /**
  * ServerConfig
  */
-export type ServerConfig = {
+type ServerConfig = {
   args?: null | Array<string>;
   command?: string;
   cwd?: string;
@@ -8720,6 +8931,16 @@ export type ServerConfig = {
 };
 
 /**
+ * ServerModeBoundary
+ */
+type ServerModeBoundary = {
+  capabilities: {
+    canManageDesktopLauncher: boolean;
+  };
+  workspaceLaunchRouteKind: "ide" | "launcher" | "blocked";
+};
+
+/**
  * ServerModeBoundaryPolicy
  */
 export type ServerModeBoundaryPolicy = {
@@ -8732,9 +8953,32 @@ export type ServerModeBoundaryPolicy = {
 };
 
 /**
+ * ServerModeBoundaryRoutes
+ */
+type ServerModeBoundaryRoutes = {
+  addLauncherRecentWorkspace: string;
+  createWorkspaceLaunchIntent: string;
+  getLauncherFilesystemRoots: string;
+  getLauncherRecentWorkspaces: string;
+  getSettaHomeInfo: string;
+  launch: string;
+  listLauncherDirectory: string;
+  openLauncherWorkspace: string;
+  pinLauncherRecentWorkspace: string;
+  removeLauncherRecentWorkspace: string;
+};
+
+/**
+ * ServerModeCapabilities
+ */
+export type ServerModeCapabilities = {
+  canManageDesktopLauncher: boolean;
+};
+
+/**
  * ServiceErrorCode
  */
-export type ServiceErrorCode =
+type ServiceErrorCode =
   | "PLUGIN_BACKEND_BUILD_FAILED"
   | "PLUGIN_BACKEND_RUNTIME_INVALID"
   | "PLUGIN_ASSET_INVALID_PATH"
@@ -8782,7 +9026,7 @@ export type ServiceErrorCode =
 /**
  * Session
  */
-export type Session = {
+type Session = {
   createdAt: string;
   id: string;
   lastSeenAt: string;
@@ -8792,10 +9036,19 @@ export type Session = {
 /**
  * SetSystemPromptRequest
  */
-export type SetSystemPromptRequest = {
+type SetSystemPromptRequest = {
   chatId: string;
   projectConfigId?: null | string;
   systemPrompt: string;
+};
+
+/**
+ * SettaAPIPresetRoutes
+ */
+type SettaAPIPresetRoutes = {
+  createTopLevelSection: string;
+  getLatestProjectState: string;
+  saveProject: string;
 };
 
 /**
@@ -8852,7 +9105,7 @@ export type SettingsGUI = {
 /**
  * SettingsManagedBlock
  */
-export type SettingsManagedBlock = {
+type SettingsManagedBlock = {
   claude?: null | {
     defaultMode?: null | string;
     mcp?: {
@@ -8872,7 +9125,7 @@ export type SettingsManagedBlock = {
 /**
  * SettingsMode
  */
-export type SettingsMode =
+type SettingsMode =
   | "read_only"
   | "managed_local"
   | "managed_project"
@@ -9321,7 +9574,7 @@ export type SettingsState = {
 /**
  * SettingsUpdateMessage
  */
-export type SettingsUpdateMessage = {
+type SettingsUpdateMessage = {
   content: {
     [key: string]: unknown;
   };
@@ -9355,7 +9608,7 @@ export type SettingsUpdateMessage = {
 /**
  * SharePolicyOverrides
  */
-export type SharePolicyOverrides = {
+type SharePolicyOverrides = {
   allowExternalLinks?: null | boolean;
   allowFileDownloads?: null | boolean;
   allowLLM?: null | boolean;
@@ -9370,7 +9623,7 @@ export type SharePolicyOverrides = {
 /**
  * ShownParamIDDetails
  */
-export type ShownParamIDDetails = {
+type ShownParamIDDetails = {
   requiredParamIdsToPaths: {
     [key: string]: null | Array<string>;
   };
@@ -9398,7 +9651,7 @@ export type ShownParamIDs = {
 /**
  * SignatureHelpStatus
  */
-export type SignatureHelpStatus = "matched" | "no_match" | "skipped";
+type SignatureHelpStatus = "matched" | "no_match" | "skipped";
 
 /**
  * SingleConfig
@@ -9431,7 +9684,7 @@ export type SingleConfig = {
       id: string;
       impl: string;
       isFrozen: boolean;
-      modifier: null | Array<number>;
+      modifier: RawMessage | null;
       name: string;
       nonPresetImpls: null | Array<string>;
     };
@@ -9442,7 +9695,7 @@ export type SingleConfig = {
       displayName: string;
       id: string;
       name: string;
-      sharedModifier: null | Array<number>;
+      sharedModifier: RawMessage | null;
       unsharedKeys: null | Array<string>;
       variants: null | Array<string>;
     };
@@ -9503,7 +9756,7 @@ export type SingleConfig = {
       kind: "chat_chat" | "section_chat" | "chat_section";
       selected?: boolean;
       sourceSectionId: string;
-      style?: null | Array<number>;
+      style?: RawMessage | null;
       targetSectionId: string;
       zIndex?: number;
     }>;
@@ -9513,7 +9766,7 @@ export type SingleConfig = {
     >;
     edges: null | Array<{
       animated?: boolean;
-      data?: null | Array<number>;
+      data?: RawMessage | null;
       hidden?: boolean;
       id: string;
       label?: null | string;
@@ -9521,7 +9774,7 @@ export type SingleConfig = {
       sourcePortId: string;
       sourceSectionId: string;
       sourceVariantId: string;
-      style?: null | Array<number>;
+      style?: RawMessage | null;
       targetPortId: string;
       targetSectionId: string;
       targetVariantId: string;
@@ -9566,7 +9819,7 @@ export type SingleConfig = {
       };
       sourcePortId: string;
       sourceSectionId: string;
-      style?: null | Array<number>;
+      style?: RawMessage | null;
       targetAction?: null | {
         agentProfileId?: null | string;
         engineConfigId?: null | string;
@@ -9718,7 +9971,7 @@ export type SingleConfig = {
       id: string;
       impl: string;
       isFrozen: boolean;
-      modifier: null | Array<number>;
+      modifier: RawMessage | null;
       name: string;
       nonPresetImpls: null | Array<string>;
     };
@@ -9729,7 +9982,7 @@ export type SingleConfig = {
       displayName: string;
       id: string;
       name: string;
-      sharedModifier: null | Array<number>;
+      sharedModifier: RawMessage | null;
       unsharedKeys: null | Array<string>;
       variants: null | Array<string>;
     };
@@ -9833,7 +10086,7 @@ export type StateMachineCountOperator = "lt" | "lte" | "eq" | "gte" | "gt";
 /**
  * StateMachineEdge
  */
-export type StateMachineEdge = {
+type StateMachineEdge = {
   hidden?: boolean;
   id: string;
   machineGroupId: string;
@@ -9850,7 +10103,7 @@ export type StateMachineEdge = {
   };
   sourcePortId: string;
   sourceSectionId: string;
-  style?: null | Array<number>;
+  style?: RawMessage | null;
   targetAction?: null | {
     agentProfileId?: null | string;
     engineConfigId?: null | string;
@@ -9874,7 +10127,7 @@ export type StateMachineEdge = {
 /**
  * StateMachineEndSectionImpl
  */
-export type StateMachineEndSectionImpl = {
+type StateMachineEndSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   id: string;
@@ -9904,7 +10157,7 @@ export type StateMachineEndSectionImpl = {
 /**
  * StateMachineGateSectionImpl
  */
-export type StateMachineGateSectionImpl = {
+type StateMachineGateSectionImpl = {
   aspectRatioExtraHeight: number;
   aspectRatioExtraWidth: number;
   gateType: "AND" | "OR" | "XOR";
@@ -9943,14 +10196,14 @@ export type StateMachineGateType = "AND" | "OR" | "XOR";
 /**
  * StateMachineGateUIState
  */
-export type StateMachineGateUIState = {
+type StateMachineGateUIState = {
   showDetails: boolean;
 };
 
 /**
  * StateMachineSectionSettings
  */
-export type StateMachineSectionSettings = {
+type StateMachineSectionSettings = {
   gateType?: "AND" | "OR" | "XOR";
   label: string;
   machineGroupId: string;
@@ -9959,7 +10212,7 @@ export type StateMachineSectionSettings = {
 /**
  * StateMachineSourceActivationCountCondition
  */
-export type StateMachineSourceActivationCountCondition = {
+type StateMachineSourceActivationCountCondition = {
   operator: "lt" | "lte" | "eq" | "gte" | "gt";
   value: number;
 };
@@ -9967,7 +10220,7 @@ export type StateMachineSourceActivationCountCondition = {
 /**
  * StateMachineSourceFilter
  */
-export type StateMachineSourceFilter = {
+type StateMachineSourceFilter = {
   equals?: null | string;
   payloadField?: null | string;
   signalName?: null | string;
@@ -9977,10 +10230,7 @@ export type StateMachineSourceFilter = {
 /**
  * StateMachineSourceFilterType
  */
-export type StateMachineSourceFilterType =
-  | "run_completed"
-  | "run_failed"
-  | "signal";
+type StateMachineSourceFilterType = "run_completed" | "run_failed" | "signal";
 
 /**
  * StateMachineStartSectionImpl
@@ -10016,7 +10266,7 @@ export type StateMachineStartSectionImpl = {
 /**
  * StateMachineTargetAction
  */
-export type StateMachineTargetAction = {
+type StateMachineTargetAction = {
   agentProfileId?: null | string;
   engineConfigId?: null | string;
   inlinePrompt?: null | string;
@@ -10035,19 +10285,27 @@ export type StateMachineTargetAction = {
 /**
  * StateMachineTargetActionType
  */
-export type StateMachineTargetActionType = "send_prompt" | "reset_thread";
+type StateMachineTargetActionType = "send_prompt" | "reset_thread";
 
 /**
  * StateMachineThreadStrategy
  */
-export type StateMachineThreadStrategy =
+type StateMachineThreadStrategy =
   | "continue_current_thread"
   | "new_thread_before_send";
 
 /**
+ * StatusTransportRoutes
+ */
+type StatusTransportRoutes = {
+  getSettaHomeInfo: string;
+  revealPathInOsFileExplorer: string;
+};
+
+/**
  * StreamingEventType
  */
-export type StreamingEventType =
+type StreamingEventType =
   | "message_start"
   | "delta"
   | "tool_call_delta"
@@ -10076,7 +10334,7 @@ export type SwitchParamCodeObjImpl = {
 /**
  * SystemChatMessage
  */
-export type SystemChatMessage = {
+type SystemChatMessage = {
   attachments: null | Array<{
     id: string;
     mimeType?: null | string;
@@ -10094,7 +10352,7 @@ export type SystemChatMessage = {
 /**
  * Target
  */
-export type Target = "main" | "settings";
+type Target = "main" | "settings";
 
 /**
  * TaskBoardColumn
@@ -10264,7 +10522,7 @@ export type TerminalSectionImpl = {
 /**
  * TerminalSessionMode
  */
-export type TerminalSessionMode = "" | "managed_console";
+type TerminalSessionMode = "" | "managed_console";
 
 /**
  * TextAreaParamCodeObjImpl
@@ -10286,12 +10544,12 @@ export type TextAreaParamCodeObjImpl = {
 /**
  * TextBlockDisplayMode
  */
-export type TextBlockDisplayMode = "Render" | "Edit";
+type TextBlockDisplayMode = "Render" | "Edit";
 
 /**
  * TextBlockFormat
  */
-export type TextBlockFormat = "Plaintext" | "Markdown";
+type TextBlockFormat = "Plaintext" | "Markdown";
 
 /**
  * TextBlockSectionImpl
@@ -10390,7 +10648,7 @@ export type TimeParamCodeObjImpl = {
 /**
  * ToggleParamSelectedInput
  */
-export type ToggleParamSelectedInput = {
+type ToggleParamSelectedInput = {
   paramInfoId: string;
   sectionId: string;
 };
@@ -10489,7 +10747,7 @@ export type ToolNameNormalization = {
 /**
  * ToolReferenceContent
  */
-export type ToolReferenceContent = {
+type ToolReferenceContent = {
   tool_name: string;
   type: string;
 };
@@ -10512,7 +10770,7 @@ export type ToolResultEvent = {
 /**
  * ToolType
  */
-export type ToolType = "claude_code" | "codex";
+type ToolType = "claude_code" | "codex";
 
 /**
  * TopLevelSectionLayout
@@ -10541,7 +10799,7 @@ export type TranscriptionProfile = {
 /**
  * TranscriptionProfilesUpdatedContent
  */
-export type TranscriptionProfilesUpdatedContent = {
+type TranscriptionProfilesUpdatedContent = {
   profiles: null | Array<{
     chunkMs: number;
     id: string;
@@ -10556,7 +10814,7 @@ export type TranscriptionProfilesUpdatedContent = {
 /**
  * TranscriptionProfilesUpdatedMessage
  */
-export type TranscriptionProfilesUpdatedMessage = {
+type TranscriptionProfilesUpdatedMessage = {
   content: {
     profiles: null | Array<{
       chunkMs: number;
@@ -10598,12 +10856,12 @@ export type TranscriptionProfilesUpdatedMessage = {
 /**
  * Transport
  */
-export type Transport = "sse" | "streamable_http" | "stdio";
+type Transport = "sse" | "streamable_http" | "stdio";
 
 /**
  * TransportMode
  */
-export type TransportMode = "auto" | "file" | "realtime";
+type TransportMode = "auto" | "file" | "realtime";
 
 /**
  * TransportRoutes
@@ -10660,7 +10918,7 @@ export type TransportRoutes = {
 /**
  * Type
  */
-export type Type = "share" | "app";
+type Type = "share" | "app";
 
 /**
  * TypeErrorIgnoreState
@@ -10675,7 +10933,7 @@ export type TypeErrorIgnoreState = {
 /**
  * UISettingRevealActivationStep
  */
-export type UISettingRevealActivationStep = {
+type UISettingRevealActivationStep = {
   itemValue: string;
   type: string;
 };
@@ -10709,7 +10967,7 @@ export type UISettingRevealContent = {
 /**
  * UISettingRevealMessage
  */
-export type UISettingRevealMessage = {
+type UISettingRevealMessage = {
   content: {
     activeSectionId?: null | string;
     chatId?: null | string;
@@ -10763,7 +11021,7 @@ export type UISettingRevealMessage = {
 /**
  * UISettingRevealResultContent
  */
-export type UISettingRevealResultContent = {
+type UISettingRevealResultContent = {
   projectConfigId: string;
   requestId: string;
   statuses: null | Array<{
@@ -10824,14 +11082,14 @@ export type UISettingRevealTarget = {
 /**
  * UngroupGroupsInput
  */
-export type UngroupGroupsInput = {
+type UngroupGroupsInput = {
   groupIds: null | Array<string>;
 };
 
 /**
  * UnindentParamsInput
  */
-export type UnindentParamsInput = {
+type UnindentParamsInput = {
   paramIds: null | Array<string>;
   sectionId: string;
 };
@@ -10839,7 +11097,7 @@ export type UnindentParamsInput = {
 /**
  * UpdateArtifactsContent
  */
-export type UpdateArtifactsContent = {
+type UpdateArtifactsContent = {
   artifacts: null | Array<BaseArtifactUnion>;
   updateType: string;
 };
@@ -10847,7 +11105,7 @@ export type UpdateArtifactsContent = {
 /**
  * UpdateArtifactsMessage
  */
-export type UpdateArtifactsMessage = {
+type UpdateArtifactsMessage = {
   content: {
     artifacts: null | Array<BaseArtifactUnion>;
     updateType: string;
@@ -10883,7 +11141,7 @@ export type UpdateArtifactsMessage = {
 /**
  * UpdateRequest
  */
-export type UpdateRequest = {
+type UpdateRequest = {
   artifacts: null | Array<BaseArtifactUnion>;
   conflictStrategy: "skip" | "backup" | "overwrite";
   uploadScope: "chat" | "generic";
@@ -10892,7 +11150,7 @@ export type UpdateRequest = {
 /**
  * UploadScope
  */
-export type UploadScope = "chat" | "generic";
+type UploadScope = "chat" | "generic";
 
 /**
  * UserChatMessage
@@ -10919,7 +11177,7 @@ export type Variant = {
   id: string;
   impl: string;
   isFrozen: boolean;
-  modifier: null | Array<number>;
+  modifier: RawMessage | null;
   name: string;
   nonPresetImpls: null | Array<string>;
 };
@@ -10975,10 +11233,7 @@ export type ViewportBounds = {
 /**
  * WatchCodeCallableKind
  */
-export type WatchCodeCallableKind =
-  | "function"
-  | "async_function"
-  | "class_init";
+type WatchCodeCallableKind = "function" | "async_function" | "class_init";
 
 /**
  * WatchCodeFolder
@@ -10991,7 +11246,7 @@ export type WatchCodeFolder = {
 /**
  * WatchCodeRegistryEntry
  */
-export type WatchCodeRegistryEntry = {
+type WatchCodeRegistryEntry = {
   bodyHash: string;
   callableName: string;
   kind: "function" | "async_function" | "class_init";
@@ -11029,6 +11284,15 @@ export type WebsocketMessageType =
   | "UpdateSettings"
   | "ReturnRenameRefactorResults"
   | "BackendLogEvent";
+
+/**
+ * WebsocketTransportRoutes
+ */
+type WebsocketTransportRoutes = {
+  frontend: string;
+  listenerById: string;
+  terminalBySection: string;
+};
 
 /**
  * WindowSpaceConfig
@@ -11084,7 +11348,7 @@ export type WindowSpaceState = {
 /**
  * WindowSpaceSurfaceKind
  */
-export type WindowSpaceSurfaceKind = "project_chat" | "section";
+type WindowSpaceSurfaceKind = "project_chat" | "section";
 
 /**
  * WindowSpaceWindow
@@ -11108,8 +11372,27 @@ export type WindowSpaceWindow = {
 /**
  * WorkingDirStrategy
  */
-export type WorkingDirStrategy = "project_root" | "temp_dir" | "custom";
+type WorkingDirStrategy = "project_root" | "temp_dir" | "custom";
 
-export type ClientOptions = {
+/**
+ * WorkspaceLaunchRouteKind
+ */
+export type WorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
+
+/**
+ * zone
+ */
+type zone = {
+  [key: string]: never;
+};
+
+/**
+ * zoneTrans
+ */
+type zoneTrans = {
+  [key: string]: never;
+};
+
+type ClientOptions = {
   baseUrl: `${string}://generation` | (string & {});
 };

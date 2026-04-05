@@ -575,12 +575,14 @@
             "type": "string"
           },
           "style": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "targetSectionId": {
             "type": "string"
@@ -960,16 +962,50 @@
         "title": "Allocation",
         "type": "object"
       },
+      "AppCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "appSpecVersion": {
+            "type": "string"
+          },
+          "catalogId": {
+            "type": "string"
+          },
+          "catalogVersion": {
+            "type": "string"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object"
+          },
+          "themeSchemaVersion": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "catalogId",
+          "catalogVersion",
+          "appSpecVersion",
+          "themeSchemaVersion",
+          "features"
+        ],
+        "title": "AppCapabilities",
+        "type": "object"
+      },
       "AppDefinition": {
         "additionalProperties": false,
         "properties": {
           "actions": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "appSpecPath": {
             "type": "string"
@@ -978,23 +1014,27 @@
             "type": "string"
           },
           "assets": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "catalogId": {
             "type": "string"
           },
           "dataBindings": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "routes": {
             "items": {
@@ -1016,12 +1056,14 @@
             "type": ["null", "array"]
           },
           "theme": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "title": "AppDefinition",
@@ -1034,12 +1076,14 @@
             "additionalProperties": false,
             "properties": {
               "actions": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "appSpecPath": {
                 "type": "string"
@@ -1048,23 +1092,27 @@
                 "type": "string"
               },
               "assets": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "catalogId": {
                 "type": "string"
               },
               "dataBindings": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "routes": {
                 "items": {
@@ -1086,12 +1134,14 @@
                 "type": ["null", "array"]
               },
               "theme": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "type": ["null", "object"]
@@ -1109,12 +1159,14 @@
             "additionalProperties": false,
             "properties": {
               "actions": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "appSpecPath": {
                 "type": "string"
@@ -1123,23 +1175,27 @@
                 "type": "string"
               },
               "assets": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "catalogId": {
                 "type": "string"
               },
               "dataBindings": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               },
               "routes": {
                 "items": {
@@ -1161,12 +1217,14 @@
                 "type": ["null", "array"]
               },
               "theme": {
-                "items": {
-                  "maximum": 255,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                "type": ["null", "array"]
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RawMessage"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             },
             "type": ["null", "object"]
@@ -1279,6 +1337,23 @@
         },
         "required": ["path"],
         "title": "AppRoute",
+        "type": "object"
+      },
+      "AppValidationIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "elementKey": {
+            "type": "string"
+          },
+          "elementType": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": ["message"],
+        "title": "AppValidationIssue",
         "type": "object"
       },
       "AppendMessagesRequest": {
@@ -1627,6 +1702,49 @@
         ],
         "title": "BaseChatMessageUnion"
       },
+      "BaseChildlessCodeObjImplUnion": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/BaseCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/CodeParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/ColorPickerParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/DateParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/DropdownParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/DropzoneParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/PasswordParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/RotaryParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/SliderParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/SwitchParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TextAreaParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TextParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TimeParamCodeObjImpl"
+          }
+        ]
+      },
       "BaseCodeObjImpl": {
         "additionalProperties": false,
         "properties": {
@@ -1666,6 +1784,58 @@
         "required": ["type", "id", "name", "description", "isPreset"],
         "title": "BaseCodeObjImpl",
         "type": "object"
+      },
+      "BaseCodeObjImplUnion": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/BaseCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/CodeCallableCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/CodeParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TextParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/DateParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TimeParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/ButtonParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/SliderParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/RotaryParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/SwitchParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/ColorPickerParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/DropdownParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/PasswordParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TextAreaParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/DropzoneParamCodeObjImpl"
+          },
+          {
+            "$ref": "#/components/schemas/NestedParamCodeObjImpl"
+          }
+        ]
       },
       "BaseDependencyKeyUnion": {
         "anyOf": [
@@ -1772,30 +1942,10 @@
             "additionalProperties": false,
             "properties": {
               "height": {
-                "additionalProperties": false,
-                "properties": {
-                  "Auto": {
-                    "type": "boolean"
-                  },
-                  "Value": {
-                    "type": "number"
-                  }
-                },
-                "required": ["Auto", "Value"],
-                "type": "object"
+                "$ref": "#/components/schemas/SectionSizeValue"
               },
               "width": {
-                "additionalProperties": false,
-                "properties": {
-                  "Auto": {
-                    "type": "boolean"
-                  },
-                  "Value": {
-                    "type": "number"
-                  }
-                },
-                "required": ["Auto", "Value"],
-                "type": "object"
+                "$ref": "#/components/schemas/SectionSizeValue"
               }
             },
             "required": ["width", "height"],
@@ -1856,6 +2006,70 @@
         ],
         "title": "BaseSectionImpl",
         "type": "object"
+      },
+      "BaseSectionImplUnion": {
+        "anyOf": [
+          {
+            "$ref": "#/components/schemas/BaseSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/CallableSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/DictSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/ListRootSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/GroupSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/StateMachineStartSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/StateMachineGateSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/StateMachineEndSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/ChartSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TextBlockSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/PromptSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/GlobalVariablesSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/CodeSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/GenPythonCodeSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/GenPythonMetadataSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TerminalSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/ChatSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/BrowserSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/TaskBoardSectionImpl"
+          },
+          {
+            "$ref": "#/components/schemas/SpreadsheetSectionImpl"
+          }
+        ]
       },
       "BaseValueParamCodeObjImpl": {
         "additionalProperties": false,
@@ -1939,6 +2153,20 @@
         },
         "required": ["type", "payload"],
         "title": "BinaryDependencyValue",
+        "type": "object"
+      },
+      "BinaryTransportRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "download": {
+            "type": "string"
+          },
+          "upload": {
+            "type": "string"
+          }
+        },
+        "required": ["upload", "download"],
+        "title": "BinaryTransportRoutes",
         "type": "object"
       },
       "BootstrapHandoffProtocol": {
@@ -2667,11 +2895,7 @@
             "type": "string"
           },
           "value": {
-            "additionalProperties": {
-              "items": true,
-              "type": ["null", "array"]
-            },
-            "type": "object"
+            "$ref": "#/components/schemas/ChartDataValue"
           }
         },
         "required": ["type", "id", "value"],
@@ -2680,8 +2904,17 @@
       },
       "ChartDataValue": {
         "additionalProperties": {
-          "items": true,
-          "type": ["null", "array"]
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "type": "array"
         },
         "title": "ChartDataValue",
         "type": "object"
@@ -3458,6 +3691,34 @@
         "title": "ChatWindowPlacement",
         "type": "string"
       },
+      "ChildCodeObjFields": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["children"],
+        "title": "ChildCodeObjFields",
+        "type": "object"
+      },
+      "ChildSectionFields": {
+        "additionalProperties": false,
+        "properties": {
+          "children": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["children"],
+        "title": "ChildSectionFields",
+        "type": "object"
+      },
       "ClaudeSettingsManaged": {
         "additionalProperties": false,
         "properties": {
@@ -3605,12 +3866,14 @@
                   "type": "boolean"
                 },
                 "modifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -3644,12 +3907,14 @@
                   "type": "string"
                 },
                 "sharedModifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "unsharedKeys": {
                   "items": {
@@ -3750,12 +4015,14 @@
                   "type": "boolean"
                 },
                 "modifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -3792,12 +4059,14 @@
                   "type": "string"
                 },
                 "sharedModifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "unsharedKeys": {
                   "items": {
@@ -3896,12 +4165,14 @@
                       "type": "boolean"
                     },
                     "modifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "name": {
                       "type": "string"
@@ -3935,12 +4206,14 @@
                       "type": "string"
                     },
                     "sharedModifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "unsharedKeys": {
                       "items": {
@@ -4041,12 +4314,14 @@
                       "type": "boolean"
                     },
                     "modifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "name": {
                       "type": "string"
@@ -4083,12 +4358,14 @@
                       "type": "string"
                     },
                     "sharedModifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "unsharedKeys": {
                       "items": {
@@ -4342,12 +4619,14 @@
             "type": "string"
           },
           "sharedModifier": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "unsharedKeys": {
             "items": {
@@ -4373,12 +4652,14 @@
             "type": "string"
           },
           "payload": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "type": {
             "type": "string"
@@ -4401,12 +4682,14 @@
             "type": "boolean"
           },
           "modifier": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "type": "string"
@@ -4884,12 +5167,14 @@
             "type": "string"
           },
           "sharedModifier": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "unsharedKeys": {
             "items": {
@@ -5909,6 +6194,16 @@
         "title": "DrawAreaTransform",
         "type": "array"
       },
+      "DrawSectionImpl": {
+        "additionalProperties": false,
+        "properties": {
+          "renderedImagePath": {
+            "type": "string"
+          }
+        },
+        "title": "DrawSectionImpl",
+        "type": "object"
+      },
       "DropdownParamCodeObjImpl": {
         "additionalProperties": false,
         "properties": {
@@ -6046,12 +6341,14 @@
             "type": "boolean"
           },
           "data": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "hidden": {
             "type": "boolean"
@@ -6075,12 +6372,14 @@
             "type": "string"
           },
           "style": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "targetPortId": {
             "type": "string"
@@ -6141,6 +6440,11 @@
         "required": ["projectConfigId", "sectionId", "chatId", "chunk"],
         "title": "EmitStreamDeltaRequest",
         "type": "object"
+      },
+      "EndpointOrigin": {
+        "enum": ["backend", "launcher", "backend-origin"],
+        "title": "EndpointOrigin",
+        "type": "string"
       },
       "EndpointOriginPolicy": {
         "additionalProperties": {
@@ -6978,6 +7282,27 @@
         "title": "FileArtifact",
         "type": "object"
       },
+      "FileBrowserTransportRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "getFileBrowserRoot": {
+            "type": "string"
+          },
+          "getFolderContents": {
+            "type": "string"
+          },
+          "writeFileBrowserContent": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "getFileBrowserRoot",
+          "getFolderContents",
+          "writeFileBrowserContent"
+        ],
+        "title": "FileBrowserTransportRoutes",
+        "type": "object"
+      },
       "FileReadDependencyValue": {
         "additionalProperties": false,
         "properties": {
@@ -7282,6 +7607,18 @@
           "diagnosticsIgnoreState"
         ],
         "title": "GenPythonMetadataSectionImpl",
+        "type": "object"
+      },
+      "GeneratedSectionImpl": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "enum": ["python_code", "python_metadata", "plugin"],
+            "type": "string"
+          }
+        },
+        "required": ["kind"],
+        "title": "GeneratedSectionImpl",
         "type": "object"
       },
       "GeneratedSectionKind": {
@@ -7834,12 +8171,14 @@
             "type": "string"
           },
           "value": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["type", "id", "value"],
@@ -8700,6 +9039,31 @@
         "title": "LSPDiagnosticsPayload",
         "type": "object"
       },
+      "LauncherManagementTransportRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "getLauncherStatus": {
+            "type": "string"
+          },
+          "removeLauncher": {
+            "type": "string"
+          },
+          "repairLauncher": {
+            "type": "string"
+          },
+          "updateLauncher": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "getLauncherStatus",
+          "repairLauncher",
+          "updateLauncher",
+          "removeLauncher"
+        ],
+        "title": "LauncherManagementTransportRoutes",
+        "type": "object"
+      },
       "LineChartSettings": {
         "additionalProperties": false,
         "properties": {
@@ -9116,12 +9480,14 @@
             "type": "string"
           },
           "payload": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "timestampMs": {
             "type": "integer"
@@ -9142,12 +9508,14 @@
                   "type": "string"
                 },
                 "payload": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "timestampMs": {
                   "type": "integer"
@@ -9180,12 +9548,14 @@
             "type": "string"
           },
           "payload": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "timestampMs": {
             "type": "integer"
@@ -9209,12 +9579,14 @@
                       "type": "string"
                     },
                     "payload": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "timestampMs": {
                       "type": "integer"
@@ -9743,12 +10115,14 @@
                   "type": "string"
                 },
                 "value": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": ["type", "id", "value"],
@@ -9758,12 +10132,14 @@
           },
           "dependencyValues": {
             "additionalProperties": {
-              "items": {
-                "maximum": 255,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "type": ["null", "array"]
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RawMessage"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "type": "object"
           },
@@ -9799,12 +10175,14 @@
                       "type": "string"
                     },
                     "value": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": ["type", "id", "value"],
@@ -9814,12 +10192,14 @@
               },
               "dependencyValues": {
                 "additionalProperties": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "type": "object"
               },
@@ -9855,12 +10235,14 @@
         "properties": {
           "artifactUpdates": {
             "items": {
-              "items": {
-                "maximum": 255,
-                "minimum": 0,
-                "type": "integer"
-              },
-              "type": ["null", "array"]
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RawMessage"
+                },
+                {
+                  "type": "null"
+                }
+              ]
             },
             "type": ["null", "array"]
           },
@@ -9970,12 +10352,14 @@
             "type": "string"
           },
           "value": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["dependency", "value"],
@@ -9993,12 +10377,14 @@
                   "type": "string"
                 },
                 "value": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": ["dependency", "value"],
@@ -10055,12 +10441,14 @@
                   "type": "string"
                 },
                 "value": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": ["dependency", "value"],
@@ -10120,12 +10508,14 @@
                       "type": "string"
                     },
                     "value": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     }
                   },
                   "required": ["dependency", "value"],
@@ -10845,12 +11235,14 @@
             "type": "string"
           },
           "value": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["dependency", "value"],
@@ -10894,12 +11286,14 @@
                   "type": "string"
                 },
                 "value": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 }
               },
               "required": ["dependency", "value"],
@@ -11048,6 +11442,12 @@
         },
         "required": ["protocolVersion", "sdkContractVersion"],
         "title": "LocalCoreVersionHandshake",
+        "type": "object"
+      },
+      "Location": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "Location",
         "type": "object"
       },
       "ManagedAPIKeysSnapshot": {
@@ -11865,6 +12265,11 @@
         "title": "Metadata",
         "type": "object"
       },
+      "Mode": {
+        "enum": ["ide", "share", "app", "launcher"],
+        "title": "Mode",
+        "type": "string"
+      },
       "ModeScopedLauncherRoutes": {
         "items": {
           "type": "string"
@@ -12549,12 +12954,14 @@
                           "type": "boolean"
                         },
                         "modifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "name": {
                           "type": "string"
@@ -12588,12 +12995,14 @@
                           "type": "string"
                         },
                         "sharedModifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "unsharedKeys": {
                           "items": {
@@ -12694,12 +13103,14 @@
                           "type": "boolean"
                         },
                         "modifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "name": {
                           "type": "string"
@@ -12736,12 +13147,14 @@
                           "type": "string"
                         },
                         "sharedModifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "unsharedKeys": {
                           "items": {
@@ -15577,12 +15990,14 @@
                   "type": "string"
                 },
                 "style": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "targetSectionId": {
                   "type": "string"
@@ -15620,12 +16035,14 @@
                   "type": "boolean"
                 },
                 "data": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "hidden": {
                   "type": "boolean"
@@ -15649,12 +16066,14 @@
                   "type": "string"
                 },
                 "style": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "targetPortId": {
                   "type": "string"
@@ -15804,12 +16223,14 @@
                   "type": "string"
                 },
                 "style": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "targetAction": {
                   "additionalProperties": false,
@@ -16399,12 +16820,14 @@
                       "type": "string"
                     },
                     "style": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "targetSectionId": {
                       "type": "string"
@@ -16447,12 +16870,14 @@
                       "type": "boolean"
                     },
                     "data": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "hidden": {
                       "type": "boolean"
@@ -16476,12 +16901,14 @@
                       "type": "string"
                     },
                     "style": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "targetPortId": {
                       "type": "string"
@@ -16631,12 +17058,14 @@
                       "type": "string"
                     },
                     "style": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "targetAction": {
                       "additionalProperties": false,
@@ -17218,12 +17647,14 @@
                       "type": "boolean"
                     },
                     "modifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "name": {
                       "type": "string"
@@ -17264,12 +17695,14 @@
                       "type": "string"
                     },
                     "sharedModifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "unsharedKeys": {
                       "items": {
@@ -17467,12 +17900,14 @@
                           "type": "string"
                         },
                         "style": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "targetSectionId": {
                           "type": "string"
@@ -17515,12 +17950,14 @@
                           "type": "boolean"
                         },
                         "data": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "hidden": {
                           "type": "boolean"
@@ -17544,12 +17981,14 @@
                           "type": "string"
                         },
                         "style": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "targetPortId": {
                           "type": "string"
@@ -17699,12 +18138,14 @@
                           "type": "string"
                         },
                         "style": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "targetAction": {
                           "additionalProperties": false,
@@ -18217,12 +18658,14 @@
                       "type": "boolean"
                     },
                     "modifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "name": {
                       "type": "string"
@@ -18263,12 +18706,14 @@
                       "type": "string"
                     },
                     "sharedModifier": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "unsharedKeys": {
                       "items": {
@@ -18494,12 +18939,14 @@
                           "type": "boolean"
                         },
                         "modifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "name": {
                           "type": "string"
@@ -18540,12 +18987,14 @@
                           "type": "string"
                         },
                         "sharedModifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "unsharedKeys": {
                           "items": {
@@ -18759,12 +19208,14 @@
                               "type": "string"
                             },
                             "style": {
-                              "items": {
-                                "maximum": 255,
-                                "minimum": 0,
-                                "type": "integer"
-                              },
-                              "type": ["null", "array"]
+                              "anyOf": [
+                                {
+                                  "$ref": "#/components/schemas/RawMessage"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "targetSectionId": {
                               "type": "string"
@@ -18807,12 +19258,14 @@
                               "type": "boolean"
                             },
                             "data": {
-                              "items": {
-                                "maximum": 255,
-                                "minimum": 0,
-                                "type": "integer"
-                              },
-                              "type": ["null", "array"]
+                              "anyOf": [
+                                {
+                                  "$ref": "#/components/schemas/RawMessage"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "hidden": {
                               "type": "boolean"
@@ -18836,12 +19289,14 @@
                               "type": "string"
                             },
                             "style": {
-                              "items": {
-                                "maximum": 255,
-                                "minimum": 0,
-                                "type": "integer"
-                              },
-                              "type": ["null", "array"]
+                              "anyOf": [
+                                {
+                                  "$ref": "#/components/schemas/RawMessage"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "targetPortId": {
                               "type": "string"
@@ -18995,12 +19450,14 @@
                               "type": "string"
                             },
                             "style": {
-                              "items": {
-                                "maximum": 255,
-                                "minimum": 0,
-                                "type": "integer"
-                              },
-                              "type": ["null", "array"]
+                              "anyOf": [
+                                {
+                                  "$ref": "#/components/schemas/RawMessage"
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
                             },
                             "targetAction": {
                               "additionalProperties": false,
@@ -19517,12 +19974,14 @@
                           "type": "boolean"
                         },
                         "modifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "name": {
                           "type": "string"
@@ -19563,12 +20022,14 @@
                           "type": "string"
                         },
                         "sharedModifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "unsharedKeys": {
                           "items": {
@@ -20036,12 +20497,14 @@
             "type": "string"
           },
           "value": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": ["type", "id", "value"],
@@ -20049,13 +20512,33 @@
         "type": "object"
       },
       "RawMessage": {
-        "items": {
-          "maximum": 255,
-          "minimum": 0,
-          "type": "integer"
-        },
-        "title": "RawMessage",
-        "type": ["null", "array"]
+        "anyOf": [
+          {
+            "type": "null"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "string"
+          },
+          {
+            "items": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": "array"
+          },
+          {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RawMessage"
+            },
+            "type": "object"
+          }
+        ],
+        "title": "RawMessage"
       },
       "RealtimeDependencyEventContent": {
         "additionalProperties": false,
@@ -20102,6 +20585,37 @@
         },
         "required": ["messageType", "content"],
         "title": "RealtimeDependencyEventMessage",
+        "type": "object"
+      },
+      "RealtimeDependencyEventPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "dependencyKey": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "timestampMs": {
+            "type": "integer"
+          }
+        },
+        "required": ["dependencyKey", "payload", "timestampMs"],
+        "title": "RealtimeDependencyEventPayload",
         "type": "object"
       },
       "RealtimeUIChangeContent": {
@@ -20658,6 +21172,20 @@
         "title": "RestartRequiredResponse",
         "type": "object"
       },
+      "RootTransportRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "bootstrapPage": {
+            "type": "string"
+          },
+          "toolsCall": {
+            "type": "string"
+          }
+        },
+        "required": ["bootstrapPage", "toolsCall"],
+        "title": "RootTransportRoutes",
+        "type": "object"
+      },
       "RotaryParamCodeObjImpl": {
         "additionalProperties": false,
         "properties": {
@@ -21052,6 +21580,51 @@
         "title": "ScatterChartSettings",
         "type": "object"
       },
+      "Section": {
+        "additionalProperties": false,
+        "properties": {
+          "defaultVariantId": {
+            "type": "string"
+          },
+          "displayName": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "parentSectionId": {
+            "type": "string"
+          },
+          "sharedModifier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unsharedKeys": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          },
+          "variantIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["id", "name"],
+        "title": "Section",
+        "type": "object"
+      },
       "SectionCapabilities": {
         "additionalProperties": false,
         "properties": {
@@ -21229,6 +21802,108 @@
         "title": "SectionDependencyKey",
         "type": "object"
       },
+      "SectionImpl": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "additionalProperties": false,
+            "properties": {
+              "attachedTerminalSectionId": {
+                "type": "string"
+              },
+              "binding": {
+                "additionalProperties": false,
+                "properties": {
+                  "accessMode": {
+                    "enum": ["read_write", "read_only", "write_only"],
+                    "type": "string"
+                  },
+                  "autoBinding": {
+                    "type": "boolean"
+                  },
+                  "path": {
+                    "type": "string"
+                  }
+                },
+                "required": ["path"],
+                "type": ["null", "object"]
+              },
+              "children": {
+                "items": {
+                  "type": "string"
+                },
+                "type": ["null", "array"]
+              },
+              "language": {
+                "enum": [
+                  "python",
+                  "bash",
+                  "javascript",
+                  "typescript",
+                  "json",
+                  "yaml",
+                  "toml",
+                  "markdown",
+                  "plaintext"
+                ],
+                "type": "string"
+              }
+            },
+            "required": ["language"],
+            "type": ["null", "object"]
+          },
+          "draw": {
+            "additionalProperties": false,
+            "properties": {
+              "renderedImagePath": {
+                "type": "string"
+              }
+            },
+            "type": ["null", "object"]
+          },
+          "generated": {
+            "additionalProperties": false,
+            "properties": {
+              "kind": {
+                "enum": ["python_code", "python_metadata", "plugin"],
+                "type": "string"
+              }
+            },
+            "required": ["kind"],
+            "type": ["null", "object"]
+          },
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": ["code", "terminal", "draw", "generated"],
+            "type": "string"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "terminal": {
+            "additionalProperties": false,
+            "properties": {
+              "sessionMode": {
+                "enum": ["", "managed_console"],
+                "type": "string"
+              }
+            },
+            "type": ["null", "object"]
+          }
+        },
+        "required": ["id", "kind"],
+        "title": "SectionImpl",
+        "type": "object"
+      },
       "SectionKind": {
         "enum": ["code", "terminal", "draw", "generated"],
         "title": "SectionKind",
@@ -21261,30 +21936,10 @@
         "additionalProperties": false,
         "properties": {
           "height": {
-            "additionalProperties": false,
-            "properties": {
-              "Auto": {
-                "type": "boolean"
-              },
-              "Value": {
-                "type": "number"
-              }
-            },
-            "required": ["Auto", "Value"],
-            "type": "object"
+            "$ref": "#/components/schemas/SectionSizeValue"
           },
           "width": {
-            "additionalProperties": false,
-            "properties": {
-              "Auto": {
-                "type": "boolean"
-              },
-              "Value": {
-                "type": "number"
-              }
-            },
-            "required": ["Auto", "Value"],
-            "type": "object"
+            "$ref": "#/components/schemas/SectionSizeValue"
           }
         },
         "required": ["width", "height"],
@@ -21295,6 +21950,17 @@
         "enum": ["auto"],
         "title": "SectionSizeMode",
         "type": "string"
+      },
+      "SectionSizeValue": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "$ref": "#/components/schemas/SectionSizeMode"
+          }
+        ],
+        "title": "SectionSizeValue"
       },
       "SectionSizingPolicy": {
         "additionalProperties": false,
@@ -22948,6 +23614,42 @@
         "title": "SectionTypeErrors",
         "type": "object"
       },
+      "SectionVariant": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "implId": {
+            "type": "string"
+          },
+          "isFrozen": {
+            "type": "boolean"
+          },
+          "modifier": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "nonPresetImplIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": ["null", "array"]
+          }
+        },
+        "required": ["id", "implId"],
+        "title": "SectionVariant",
+        "type": "object"
+      },
       "SectionWithParamsCommon": {
         "additionalProperties": false,
         "properties": {
@@ -23201,12 +23903,14 @@
                           "type": "boolean"
                         },
                         "modifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "name": {
                           "type": "string"
@@ -23240,12 +23944,14 @@
                           "type": "string"
                         },
                         "sharedModifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "unsharedKeys": {
                           "items": {
@@ -23346,12 +24052,14 @@
                           "type": "boolean"
                         },
                         "modifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "name": {
                           "type": "string"
@@ -23388,12 +24096,14 @@
                           "type": "string"
                         },
                         "sharedModifier": {
-                          "items": {
-                            "maximum": 255,
-                            "minimum": 0,
-                            "type": "integer"
-                          },
-                          "type": ["null", "array"]
+                          "anyOf": [
+                            {
+                              "$ref": "#/components/schemas/RawMessage"
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
                         },
                         "unsharedKeys": {
                           "items": {
@@ -23485,6 +24195,28 @@
         "title": "ServerConfig",
         "type": "object"
       },
+      "ServerModeBoundary": {
+        "additionalProperties": false,
+        "properties": {
+          "capabilities": {
+            "additionalProperties": false,
+            "properties": {
+              "canManageDesktopLauncher": {
+                "type": "boolean"
+              }
+            },
+            "required": ["canManageDesktopLauncher"],
+            "type": "object"
+          },
+          "workspaceLaunchRouteKind": {
+            "enum": ["ide", "launcher", "blocked"],
+            "type": "string"
+          }
+        },
+        "required": ["capabilities", "workspaceLaunchRouteKind"],
+        "title": "ServerModeBoundary",
+        "type": "object"
+      },
       "ServerModeBoundaryPolicy": {
         "additionalProperties": {
           "additionalProperties": false,
@@ -23508,6 +24240,66 @@
           "type": "object"
         },
         "title": "ServerModeBoundaryPolicy",
+        "type": "object"
+      },
+      "ServerModeBoundaryRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "addLauncherRecentWorkspace": {
+            "type": "string"
+          },
+          "createWorkspaceLaunchIntent": {
+            "type": "string"
+          },
+          "getLauncherFilesystemRoots": {
+            "type": "string"
+          },
+          "getLauncherRecentWorkspaces": {
+            "type": "string"
+          },
+          "getSettaHomeInfo": {
+            "type": "string"
+          },
+          "launch": {
+            "type": "string"
+          },
+          "listLauncherDirectory": {
+            "type": "string"
+          },
+          "openLauncherWorkspace": {
+            "type": "string"
+          },
+          "pinLauncherRecentWorkspace": {
+            "type": "string"
+          },
+          "removeLauncherRecentWorkspace": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "launch",
+          "createWorkspaceLaunchIntent",
+          "getSettaHomeInfo",
+          "getLauncherRecentWorkspaces",
+          "addLauncherRecentWorkspace",
+          "removeLauncherRecentWorkspace",
+          "pinLauncherRecentWorkspace",
+          "getLauncherFilesystemRoots",
+          "listLauncherDirectory",
+          "openLauncherWorkspace"
+        ],
+        "title": "ServerModeBoundaryRoutes",
+        "type": "object"
+      },
+      "ServerModeCapabilities": {
+        "additionalProperties": false,
+        "properties": {
+          "canManageDesktopLauncher": {
+            "type": "boolean"
+          }
+        },
+        "required": ["canManageDesktopLauncher"],
+        "title": "ServerModeCapabilities",
         "type": "object"
       },
       "ServiceErrorCode": {
@@ -23594,6 +24386,27 @@
         },
         "required": ["chatId", "systemPrompt"],
         "title": "SetSystemPromptRequest",
+        "type": "object"
+      },
+      "SettaAPIPresetRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "createTopLevelSection": {
+            "type": "string"
+          },
+          "getLatestProjectState": {
+            "type": "string"
+          },
+          "saveProject": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "createTopLevelSection",
+          "getLatestProjectState",
+          "saveProject"
+        ],
+        "title": "SettaAPIPresetRoutes",
         "type": "object"
       },
       "SettingsBackend": {
@@ -25877,12 +26690,14 @@
                   "type": "boolean"
                 },
                 "modifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -25923,12 +26738,14 @@
                   "type": "string"
                 },
                 "sharedModifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "unsharedKeys": {
                   "items": {
@@ -26126,12 +26943,14 @@
                       "type": "string"
                     },
                     "style": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "targetSectionId": {
                       "type": "string"
@@ -26174,12 +26993,14 @@
                       "type": "boolean"
                     },
                     "data": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "hidden": {
                       "type": "boolean"
@@ -26203,12 +27024,14 @@
                       "type": "string"
                     },
                     "style": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "targetPortId": {
                       "type": "string"
@@ -26358,12 +27181,14 @@
                       "type": "string"
                     },
                     "style": {
-                      "items": {
-                        "maximum": 255,
-                        "minimum": 0,
-                        "type": "integer"
-                      },
-                      "type": ["null", "array"]
+                      "anyOf": [
+                        {
+                          "$ref": "#/components/schemas/RawMessage"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
                     },
                     "targetAction": {
                       "additionalProperties": false,
@@ -26876,12 +27701,14 @@
                   "type": "boolean"
                 },
                 "modifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -26922,12 +27749,14 @@
                   "type": "string"
                 },
                 "sharedModifier": {
-                  "items": {
-                    "maximum": 255,
-                    "minimum": 0,
-                    "type": "integer"
-                  },
-                  "type": ["null", "array"]
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/RawMessage"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
                 },
                 "unsharedKeys": {
                   "items": {
@@ -27314,12 +28143,14 @@
             "type": "string"
           },
           "style": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "targetAction": {
             "additionalProperties": false,
@@ -27839,6 +28670,20 @@
         "enum": ["continue_current_thread", "new_thread_before_send"],
         "title": "StateMachineThreadStrategy",
         "type": "string"
+      },
+      "StatusTransportRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "getSettaHomeInfo": {
+            "type": "string"
+          },
+          "revealPathInOsFileExplorer": {
+            "type": "string"
+          }
+        },
+        "required": ["getSettaHomeInfo", "revealPathInOsFileExplorer"],
+        "title": "StatusTransportRoutes",
+        "type": "object"
       },
       "StreamingEventType": {
         "enum": [
@@ -29982,12 +30827,14 @@
             "type": "boolean"
           },
           "modifier": {
-            "items": {
-              "maximum": 255,
-              "minimum": 0,
-              "type": "integer"
-            },
-            "type": ["null", "array"]
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RawMessage"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "name": {
             "type": "string"
@@ -30208,6 +31055,23 @@
         "title": "WebsocketMessageType",
         "type": "string"
       },
+      "WebsocketTransportRoutes": {
+        "additionalProperties": false,
+        "properties": {
+          "frontend": {
+            "type": "string"
+          },
+          "listenerById": {
+            "type": "string"
+          },
+          "terminalBySection": {
+            "type": "string"
+          }
+        },
+        "required": ["frontend", "listenerById", "terminalBySection"],
+        "title": "WebsocketTransportRoutes",
+        "type": "object"
+      },
       "WindowSpaceConfig": {
         "additionalProperties": false,
         "properties": {
@@ -30405,6 +31269,23 @@
         "enum": ["project_root", "temp_dir", "custom"],
         "title": "WorkingDirStrategy",
         "type": "string"
+      },
+      "WorkspaceLaunchRouteKind": {
+        "enum": ["ide", "launcher", "blocked"],
+        "title": "WorkspaceLaunchRouteKind",
+        "type": "string"
+      },
+      "zone": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "zone",
+        "type": "object"
+      },
+      "zoneTrans": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "zoneTrans",
+        "type": "object"
       }
     }
   },

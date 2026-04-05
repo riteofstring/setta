@@ -13,10 +13,6 @@ type SectionSizeValue struct {
 	Value float64
 }
 
-func (SectionSizeValue) FrontendBindingTypeScriptExpr() string {
-	return "number | SectionSizeMode"
-}
-
 type SectionSize struct {
 	Width  SectionSizeValue `json:"width" ts_create_expr:"SectionSizeModeEnum.auto"`
 	Height SectionSizeValue `json:"height" ts_create_expr:"SectionSizeModeEnum.auto"`
