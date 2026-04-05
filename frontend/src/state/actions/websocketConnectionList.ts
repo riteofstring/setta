@@ -1,18 +1,11 @@
 import { useWebsocketConnectionList } from "state/definitions";
-import {
-  WebsocketConnectionInfo,
-  WebsocketConnectionTypeEnum,
-} from "utils/generatedTypes";
+import { Connection, ConnectionTypeEnum } from "utils/generatedTypes";
 
-export function setWebsocketConnections(
-  connections: Array<WebsocketConnectionInfo>,
-) {
+export function setWebsocketConnections(connections: Array<Connection>) {
   useWebsocketConnectionList.setState((state) => {
     const mergedConnections = [...connections];
     for (const existingConnection of state.connections) {
-      if (
-        existingConnection.connectionType !== WebsocketConnectionTypeEnum.SERVER
-      ) {
+      if (existingConnection.connectionType !== ConnectionTypeEnum.SERVER) {
         continue;
       }
       let alreadyIncluded = false;
@@ -30,7 +23,7 @@ export function setWebsocketConnections(
   });
 }
 
-export function addWebsocketConnection(connection: WebsocketConnectionInfo) {
+export function addWebsocketConnection(connection: Connection) {
   useWebsocketConnectionList.setState((state) => {
     for (const c of state.connections) {
       if (c.id === connection.id) {

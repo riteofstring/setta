@@ -14,6 +14,7 @@ import (
 	"setta/internal/realtime"
 	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
+	"setta/internal/wsapi"
 )
 
 type reflectedObjectDeclarationSpec struct {
@@ -797,12 +798,12 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"updateType": `"update" | "delete"`,
 		},
 	},
-	reflect.TypeOf(UISettingRevealTarget{}): {
+	reflect.TypeOf(realtime.UISettingRevealTarget{}): {
 		PropertyOptionalOverrides: map[string]bool{
 			"revealActivationSteps": false,
 		},
 	},
-	reflect.TypeOf(UISettingRevealResultStatus{}): {
+	reflect.TypeOf(realtime.UISettingRevealResultStatus{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"status": `"revealed" | "failed"`,
 		},
@@ -821,30 +822,45 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"type": "typeof ChartTypeEnum.scatter",
 		},
 	},
-	reflect.TypeOf(WebsocketConnectionInfo{}): {
-		DefaultValue:  frontendDefaultWebsocketConnectionInfo(),
+	reflect.TypeOf(realtime.Connection{}): {
+		DefaultValue: realtime.Connection{
+			Type: realtime.ConnectionTypeServer,
+		},
 		HasCreateExpr: true,
 	},
-	reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}): {
-		DefaultValue:  frontendDefaultWebsocketMsgCurrentAddressUpdate(),
+	reflect.TypeOf(wsapi.CurrentAddressUpdateMessage{}): {
+		DefaultValue: wsapi.CurrentAddressUpdateMessage{
+			MessageType: wsapi.FrontendMessageTypeCurrentAddressUpdate,
+		},
 		HasCreateExpr: true,
 		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate",
+			"messageType": "typeof MessageTypeEnum.CurrentAddressUpdate",
 		},
 	},
-	reflect.TypeOf(WebsocketMsgRealtimeUIChange{}): {
+	reflect.TypeOf(wsapi.RealtimeUIChangeContent{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange",
+			"dependencyKey": "BaseDependencyKeyUnion",
+			"value":         "BaseDependencyValueUnion",
 		},
 	},
-	reflect.TypeOf(WebsocketMsgRealtimeDependencyEvent{}): {
+	reflect.TypeOf(wsapi.RealtimeUIChangeMessage{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent",
+			"messageType": "typeof MessageTypeEnum.RealtimeUIChange",
 		},
 	},
-	reflect.TypeOf(WebsocketMsgUISettingRevealResult{}): {
+	reflect.TypeOf(wsapi.RealtimeDependencyEventContent{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult",
+			"dependencyEvent": "DependencyEvent",
+		},
+	},
+	reflect.TypeOf(wsapi.RealtimeDependencyEventMessage{}): {
+		PropertyTypeExprOverrides: map[string]string{
+			"messageType": "typeof MessageTypeEnum.RealtimeDependencyEvent",
+		},
+	},
+	reflect.TypeOf(realtime.UISettingRevealResultMessage{}): {
+		PropertyTypeExprOverrides: map[string]string{
+			"messageType": "typeof MessageTypeEnum.UISettingRevealResult",
 		},
 	},
 }

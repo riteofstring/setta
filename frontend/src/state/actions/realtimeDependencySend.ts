@@ -5,11 +5,10 @@ import {
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
+  MessageTypeEnum,
+  RealtimeDependencyEventMessage,
+  RealtimeUIChangeMessage,
   SectionDependencyKey,
-  WebsocketMsg,
-  WebsocketMsgRealtimeDependencyEvent,
-  WebsocketMsgRealtimeUIChange,
-  WebsocketMsgTypeForBackendEnum,
 } from "utils/generatedTypes";
 import {
   dependencyKeyCovered,
@@ -17,9 +16,16 @@ import {
 } from "./listenerCoverage";
 import { getCurrProjectConfigId } from "./sectionInfos";
 
+type FrontendOutboundMessage =
+  | RealtimeUIChangeMessage
+  | RealtimeDependencyEventMessage;
+
 type RealtimeDependencySenders = {
-  sendBinaryMessage: (message: WebsocketMsg, payload: ArrayBuffer) => void;
-  sendMessage: (message: WebsocketMsg) => void;
+  sendBinaryMessage: (
+    message: FrontendOutboundMessage,
+    payload: ArrayBuffer,
+  ) => void;
+  sendMessage: (message: FrontendOutboundMessage) => void;
 };
 
 const NOOP_SENDERS: RealtimeDependencySenders = {
@@ -50,9 +56,9 @@ function emitRealtimeDependencyValue(
     return;
   }
 
-  const message: WebsocketMsgRealtimeUIChange = {
+  const message: RealtimeUIChangeMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
+    messageType: MessageTypeEnum.RealtimeUIChange,
     content: {
       projectConfigId,
       dependencyKey,
@@ -91,9 +97,9 @@ export function sendRealtimeDependencyEvent(
     payload: event.payload ?? null,
     timestampMs: event.timestampMs ?? Date.now(),
   };
-  const message: WebsocketMsgRealtimeDependencyEvent = {
+  const message: RealtimeDependencyEventMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent,
+    messageType: MessageTypeEnum.RealtimeDependencyEvent,
     content: {
       projectConfigId,
       dependencyEvent,

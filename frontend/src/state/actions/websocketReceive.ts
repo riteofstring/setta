@@ -42,30 +42,30 @@ import {
   BaseDependencyKeyUnion,
   BaseDependencyValueUnion,
   BinaryDependencyValue,
+  ConnectionTypeEnum,
+  createConnection,
+  createCurrentAddressUpdateMessage,
+  CurrentAddressUpdateMessage,
   DependencyEvent,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
-  FrontendWebsocketMsgUnion,
   LiteralDependencyValue,
+  MessageTypeEnum,
   NotificationTypeEnum,
+  RealtimeDependencyEventMessage,
+  RealtimeUIChangeMessage,
   SectionDependencyKey,
   SectionParamDependencyKey,
   UISettingRevealContent,
   UISettingRevealContentSchema,
+  UISettingRevealResultMessage,
   UISettingRevealResultStatus,
-  WebsocketConnectionTypeEnum,
-  WebsocketMsg,
-  WebsocketMsgRealtimeDependencyEvent,
-  WebsocketMsgRealtimeUIChange,
-  WebsocketMsgTypeForBackendEnum,
   WebsocketMsgTypeForFrontendEnum,
-  WebsocketMsgUISettingRevealResult,
-  createWebsocketConnectionInfo,
-  createWebsocketMsgCurrentAddressUpdate,
   type AuthRefreshStatusResponse,
   type ContentRef,
   type LSPDiagnosticsPayload,
   type ProjectStateSingleConfigWithCompletedOpIDs,
+  type WebsocketMsgTypeForFrontend,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import {
@@ -155,6 +155,16 @@ type LatestProjectStateRouteResponse =
   ResponseDataAndStatus<ProjectStateSingleConfigWithCompletedOpIDs>;
 type LatestLSPDiagnosticsRouteResponse =
   ResponseDataAndStatus<LSPDiagnosticsPayload>;
+type FrontendWebsocketEnvelope = {
+  id?: string | null;
+  messageType: WebsocketMsgTypeForFrontend;
+  content: any;
+};
+type FrontendOutboundMessage =
+  | CurrentAddressUpdateMessage
+  | RealtimeUIChangeMessage
+  | RealtimeDependencyEventMessage
+  | UISettingRevealResultMessage;
 
 function beginWebsocketGeneration(): number {
   activeWebsocketGeneration += 1;
@@ -204,11 +214,11 @@ export const openWebSocket = _.debounce(
         sendCurrentAddress(buildFrontendAffinityCurrentAddress(pathname));
         addTemporaryNotification("Connected to server");
         addWebsocketConnection(
-          createWebsocketConnectionInfo({
+          createConnection({
             id: "main",
-            connectionType: WebsocketConnectionTypeEnum.SERVER,
+            connectionType: ConnectionTypeEnum.SERVER,
             currentAddress: pathname,
-            shareSessionId,
+            ...(shareSessionId ? { shareSessionId } : {}),
           }),
         );
         wasOpen = true;
@@ -518,7 +528,7 @@ async function handleShareSessionRecovery() {
 }
 
 function receiveMessage(message: string, socketGeneration: number) {
-  const m = JSON.parse(message) as FrontendWebsocketMsgUnion;
+  const m = JSON.parse(message) as FrontendWebsocketEnvelope;
   switch (m.messageType) {
     case WebsocketMsgTypeForFrontendEnum.FrontendIdentity:
       setFrontendAffinityToken(
@@ -672,9 +682,9 @@ function sendUISettingRevealResult({
   statuses: UISettingRevealResultStatus[];
   socketGeneration: number;
 }): void {
-  const revealResultMessage: WebsocketMsgUISettingRevealResult = {
+  const revealResultMessage: UISettingRevealResultMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.UISettingRevealResult,
+    messageType: MessageTypeEnum.UISettingRevealResult,
     content: {
       projectConfigId,
       requestId,
@@ -798,9 +808,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function sendCurrentAddress(currentAddress: string) {
-  sendMessage(
-    createWebsocketMsgCurrentAddressUpdate({ content: currentAddress }),
-  );
+  sendMessage(createCurrentAddressUpdateMessage({ content: currentAddress }));
 }
 
 function emitRealtimeDependencyValue(
@@ -818,9 +826,9 @@ function emitRealtimeDependencyValue(
     return;
   }
 
-  const message: WebsocketMsgRealtimeUIChange = {
+  const message: RealtimeUIChangeMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeUIChange,
+    messageType: MessageTypeEnum.RealtimeUIChange,
     content: {
       projectConfigId,
       dependencyKey,
@@ -859,9 +867,9 @@ export function sendRealtimeDependencyEvent(
     payload: event.payload ?? null,
     timestampMs: event.timestampMs ?? Date.now(),
   };
-  const message: WebsocketMsgRealtimeDependencyEvent = {
+  const message: RealtimeDependencyEventMessage = {
     id: null,
-    messageType: WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent,
+    messageType: MessageTypeEnum.RealtimeDependencyEvent,
     content: {
       projectConfigId,
       dependencyEvent,
@@ -954,14 +962,14 @@ export function sendRealtimeSectionBinary(
   );
 }
 
-function sendMessage(message: WebsocketMsg) {
+function sendMessage(message: FrontendOutboundMessage) {
   if (wssReady(wss)) {
     wss.send(JSON.stringify(message));
   }
 }
 
 function sendMessageForGeneration(
-  message: WebsocketMsg,
+  message: FrontendOutboundMessage,
   socketGeneration: number,
 ): void {
   if (!isSocketGenerationCurrent(socketGeneration)) {
@@ -974,7 +982,10 @@ function isSocketGenerationCurrent(socketGeneration: number): boolean {
   return activeWebsocketGeneration === socketGeneration;
 }
 
-function sendBinaryMessage(message: WebsocketMsg, payload: ArrayBuffer) {
+function sendBinaryMessage(
+  message: FrontendOutboundMessage,
+  payload: ArrayBuffer,
+) {
   if (wssReady(wss)) {
     const frame = encodeBinaryFrame(message, payload);
     wss.send(frame);

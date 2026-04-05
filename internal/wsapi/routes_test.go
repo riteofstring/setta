@@ -131,8 +131,8 @@ func TestDecodeFrontendBinaryMessageParsesDependencyEvent(t *testing.T) {
 	if message.RealtimeDependencyEvent == nil {
 		t.Fatal("expected dependency event payload")
 	}
-	if message.RealtimeDependencyEvent.ProjectID != "project-a" {
-		t.Fatalf("expected project-a project id, got %q", message.RealtimeDependencyEvent.ProjectID)
+	if message.RealtimeDependencyEvent.ProjectConfigID != "project-a" {
+		t.Fatalf("expected project-a project id, got %q", message.RealtimeDependencyEvent.ProjectConfigID)
 	}
 	if message.RealtimeDependencyEvent.DependencyEvent.TimestampMS != 123 {
 		t.Fatalf("expected timestamp 123, got %d", message.RealtimeDependencyEvent.DependencyEvent.TimestampMS)

@@ -11,9 +11,9 @@ import {
   GoWebsocketRouteHelpers,
 } from "utils/generatedRoutes";
 import {
+  ConnectionTypeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
-  WebsocketConnectionTypeEnum,
   WebsocketMsgTypeForFrontendEnum,
   createAgentRun,
   createContentRef,
@@ -716,9 +716,8 @@ describe("openWebSocket", () => {
         content: [
           {
             id: "frontend-origin",
-            connectionType: WebsocketConnectionTypeEnum.FRONTEND,
+            connectionType: ConnectionTypeEnum.frontend,
             currentAddress: buildFrontendAffinityCurrentAddress("/project"),
-            shareSessionId: null,
           },
         ],
       }),

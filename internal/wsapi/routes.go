@@ -31,9 +31,8 @@ const (
 )
 
 const (
-	FrontendMessageTypeCurrentAddressUpdate = "CurrentAddressUpdate"
-	TerminalReadyMessage                    = "SETTA_TERMINAL_READY"
-	TerminalMessageTypeResize               = "terminalResize"
+	TerminalReadyMessage      = "SETTA_TERMINAL_READY"
+	TerminalMessageTypeResize = "terminalResize"
 )
 
 type RouteDependencies struct {
@@ -84,34 +83,12 @@ type listenerInboundMessage struct {
 	RouterCall   *realtime.ListenerRouterEndpointCallContent
 }
 
-type frontendCurrentAddressUpdate struct {
-	MessageType string `json:"messageType"`
-	Content     string `json:"content"`
-}
-
-type frontendRealtimeUIChangeContent struct {
-	ProjectID     string          `json:"projectConfigId"`
-	DependencyKey json.RawMessage `json:"dependencyKey"`
-	Value         json.RawMessage `json:"value"`
-}
-
-type frontendRealtimeDependencyEventContent struct {
-	ProjectID       string                                 `json:"projectConfigId"`
-	DependencyEvent frontendRealtimeDependencyEventPayload `json:"dependencyEvent"`
-}
-
-type frontendRealtimeDependencyEventPayload struct {
-	DependencyKey json.RawMessage `json:"dependencyKey"`
-	Payload       json.RawMessage `json:"payload"`
-	TimestampMS   int64           `json:"timestampMs"`
-}
-
 type frontendInboundMessage struct {
-	MessageType             string
-	CurrentAddress          *frontendCurrentAddressUpdate
+	MessageType             FrontendMessageType
+	CurrentAddress          *CurrentAddressUpdateMessage
 	UISettingRevealResult   *realtime.UISettingRevealResultContent
-	RealtimeUIChange        *frontendRealtimeUIChangeContent
-	RealtimeDependencyEvent *frontendRealtimeDependencyEventContent
+	RealtimeUIChange        *RealtimeUIChangeContent
+	RealtimeDependencyEvent *RealtimeDependencyEventContent
 	BinaryPayload           []byte
 }
 
@@ -242,19 +219,19 @@ func serveFrontendConnection(
 			if err := deps.WebsocketHub.UpdateCurrentAddress(ctx, connection.ID, message.CurrentAddress.Content, broadcastConnections); err != nil {
 				return err
 			}
-		case realtime.MessageTypeUISettingRevealResult:
+		case FrontendMessageTypeUISettingRevealResult:
 			if message.UISettingRevealResult == nil {
 				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
 			}
 			if deps.UISettingRevealResults != nil {
 				deps.UISettingRevealResults.Resolve(*message.UISettingRevealResult, connection.ID)
 			}
-		case realtime.MessageTypeRealtimeUIChange:
+		case FrontendMessageTypeRealtimeUIChange:
 			if message.RealtimeUIChange == nil {
 				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
 			}
 			if _, _, err := deps.ListenerProducer.EmitUIChange(ctx, realtime.EmitUIChangeParams{
-				ProjectID:      message.RealtimeUIChange.ProjectID,
+				ProjectID:      message.RealtimeUIChange.ProjectConfigID,
 				ShareSessionID: info.Modes.ShareSessionID,
 				DependencyKey:  message.RealtimeUIChange.DependencyKey,
 				Value:          message.RealtimeUIChange.Value,
@@ -262,12 +239,12 @@ func serveFrontendConnection(
 			}); err != nil {
 				return mapListenerProducerError(err)
 			}
-		case realtime.MessageTypeRealtimeDependencyEvent:
+		case FrontendMessageTypeRealtimeDependencyEvent:
 			if message.RealtimeDependencyEvent == nil {
 				return &CloseError{Code: CloseCodeBadRequest, Reason: "Invalid websocket message."}
 			}
 			if _, _, err := deps.ListenerProducer.EmitDependencyEvent(ctx, realtime.EmitDependencyEventParams{
-				ProjectID:      message.RealtimeDependencyEvent.ProjectID,
+				ProjectID:      message.RealtimeDependencyEvent.ProjectConfigID,
 				ShareSessionID: info.Modes.ShareSessionID,
 				DependencyKey:  message.RealtimeDependencyEvent.DependencyEvent.DependencyKey,
 				Payload:        message.RealtimeDependencyEvent.DependencyEvent.Payload,
@@ -315,7 +292,7 @@ func decodeFrontendBinaryMessage(payload []byte) (frontendInboundMessage, error)
 }
 
 func parseFrontendEnvelope(envelope frontendEnvelope, binaryPayload []byte) (frontendInboundMessage, error) {
-	switch envelope.MessageType {
+	switch FrontendMessageType(envelope.MessageType) {
 	case FrontendMessageTypeCurrentAddressUpdate:
 		if binaryPayload != nil {
 			return frontendInboundMessage{}, fmt.Errorf("current address updates do not support binary payloads")
@@ -327,12 +304,12 @@ func parseFrontendEnvelope(envelope frontendEnvelope, binaryPayload []byte) (fro
 		}
 		return frontendInboundMessage{
 			MessageType: FrontendMessageTypeCurrentAddressUpdate,
-			CurrentAddress: &frontendCurrentAddressUpdate{
-				MessageType: envelope.MessageType,
+			CurrentAddress: &CurrentAddressUpdateMessage{
+				MessageType: FrontendMessageTypeCurrentAddressUpdate,
 				Content:     content,
 			},
 		}, nil
-	case realtime.MessageTypeUISettingRevealResult:
+	case FrontendMessageTypeUISettingRevealResult:
 		if binaryPayload != nil {
 			return frontendInboundMessage{}, fmt.Errorf("UI setting reveal results do not support binary payloads")
 		}
@@ -342,11 +319,11 @@ func parseFrontendEnvelope(envelope frontendEnvelope, binaryPayload []byte) (fro
 			return frontendInboundMessage{}, err
 		}
 		return frontendInboundMessage{
-			MessageType:           realtime.MessageTypeUISettingRevealResult,
+			MessageType:           FrontendMessageTypeUISettingRevealResult,
 			UISettingRevealResult: &content,
 		}, nil
-	case realtime.MessageTypeRealtimeUIChange:
-		var content frontendRealtimeUIChangeContent
+	case FrontendMessageTypeRealtimeUIChange:
+		var content RealtimeUIChangeContent
 		if err := json.Unmarshal(envelope.Content, &content); err != nil {
 			return frontendInboundMessage{}, err
 		}
@@ -360,12 +337,12 @@ func parseFrontendEnvelope(envelope frontendEnvelope, binaryPayload []byte) (fro
 			}
 		}
 		return frontendInboundMessage{
-			MessageType:      realtime.MessageTypeRealtimeUIChange,
+			MessageType:      FrontendMessageTypeRealtimeUIChange,
 			RealtimeUIChange: &content,
 			BinaryPayload:    cloneBinaryPayload(binaryPayload),
 		}, nil
-	case realtime.MessageTypeRealtimeDependencyEvent:
-		var content frontendRealtimeDependencyEventContent
+	case FrontendMessageTypeRealtimeDependencyEvent:
+		var content RealtimeDependencyEventContent
 		if err := json.Unmarshal(envelope.Content, &content); err != nil {
 			return frontendInboundMessage{}, err
 		}
@@ -379,13 +356,13 @@ func parseFrontendEnvelope(envelope frontendEnvelope, binaryPayload []byte) (fro
 			}
 		}
 		return frontendInboundMessage{
-			MessageType:             realtime.MessageTypeRealtimeDependencyEvent,
+			MessageType:             FrontendMessageTypeRealtimeDependencyEvent,
 			RealtimeDependencyEvent: &content,
 			BinaryPayload:           cloneBinaryPayload(binaryPayload),
 		}, nil
 	default:
 		return frontendInboundMessage{
-			MessageType: envelope.MessageType,
+			MessageType: FrontendMessageType(envelope.MessageType),
 		}, nil
 	}
 }

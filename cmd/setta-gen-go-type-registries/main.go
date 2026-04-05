@@ -134,6 +134,12 @@ func main() {
 					IncludeNonStringScalars:  true,
 				},
 				{
+					PkgPath:                  "setta/internal/wsapi",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
 					PkgPath:                  "setta/internal/lspcompletion",
 					RequireJSONTaggedStructs: true,
 					IncludeCollectionAliases: true,

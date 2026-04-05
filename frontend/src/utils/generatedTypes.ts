@@ -1521,15 +1521,6 @@ export function createUserDefaultSpreadsheetSectionImpl(
   );
 }
 
-export const WebsocketConnectionTypeEnum = {
-  CLI: "CLI",
-  SERVER: "SERVER",
-  PYTHON_LOGGER: "PYTHON_LOGGER",
-  PYTHON_SCRIPT: "PYTHON_SCRIPT",
-  FRONTEND: "FRONTEND",
-} as const;
-type WebsocketConnectionType = ObjectValues<typeof WebsocketConnectionTypeEnum>;
-
 export const WebsocketMsgTypeForFrontendEnum = {
   AllConnections: "AllConnections",
   FrontendIdentity: "FrontendIdentity",
@@ -1557,187 +1548,9 @@ export const WebsocketMsgTypeForFrontendEnum = {
   EngineConfigsUpdated: "EngineConfigsUpdated",
   TranscriptionProfilesUpdated: "TranscriptionProfilesUpdated",
 } as const;
-type WebsocketMsgTypeForFrontend = ObjectValues<
+export type WebsocketMsgTypeForFrontend = ObjectValues<
   typeof WebsocketMsgTypeForFrontendEnum
 >;
-
-export const WebsocketMsgTypeForBackendEnum = {
-  CurrentAddressUpdate: "CurrentAddressUpdate",
-  UISettingRevealResult: "UISettingRevealResult",
-  RealtimeUIChange: "RealtimeUIChange",
-  RealtimeDependencyEvent: "RealtimeDependencyEvent",
-} as const;
-
-export type WebsocketConnectionInfo = {
-  id: string;
-  connectionType: WebsocketConnectionType;
-  currentAddress: string | null;
-  shareSessionId: string | null;
-};
-export function createWebsocketConnectionInfo(
-  options: Partial<WebsocketConnectionInfo> = {},
-): WebsocketConnectionInfo {
-  return mergeGeneratedOptions<WebsocketConnectionInfo>(
-    {
-      id: "",
-      connectionType: "SERVER",
-      currentAddress: null,
-      shareSessionId: null,
-    },
-    options,
-  );
-}
-
-type WebsocketMsgCurrentAddressUpdate = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.CurrentAddressUpdate;
-  content: string;
-};
-export function createWebsocketMsgCurrentAddressUpdate(
-  options: Partial<WebsocketMsgCurrentAddressUpdate> = {},
-): WebsocketMsgCurrentAddressUpdate {
-  return mergeGeneratedOptions<WebsocketMsgCurrentAddressUpdate>(
-    {
-      id: null,
-      messageType: "CurrentAddressUpdate",
-      content: "",
-    },
-    options,
-  );
-}
-
-type UISettingRevealActivationStep = {
-  type: string;
-  itemValue: string;
-};
-
-export type UISettingRevealTarget = {
-  settingId: string;
-  side: string;
-  overviewTabKey?: string | null;
-  uiEditorTabName?: string | null;
-  pluginId?: string | null;
-  paneId?: string | null;
-  strategy: string;
-  anchorId?: string | null;
-  pluginRevealKey?: string | null;
-  revealActivationSteps?: Array<UISettingRevealActivationStep>;
-};
-
-export type UISettingRevealContent = {
-  projectConfigId: string;
-  chatId?: string | null;
-  activeSectionId?: string | null;
-  reveals: Array<UISettingRevealTarget>;
-  durationMs: number;
-  requestId: string;
-};
-
-export type UISettingRevealResultStatus = {
-  settingId: string;
-  status: string;
-  errorCode: string | null;
-  errorMessage: string | null;
-};
-
-type UISettingRevealResultContent = {
-  projectConfigId: string;
-  requestId: string;
-  statuses: Array<UISettingRevealResultStatus>;
-};
-
-export const DependencyKeyTypeEnum = {
-  Section: "Section",
-  SectionParam: "SectionParam",
-} as const;
-
-export type SectionDependencyKey = {
-  type: typeof DependencyKeyTypeEnum.Section;
-  sectionId: string;
-};
-
-export type SectionParamDependencyKey = {
-  type: typeof DependencyKeyTypeEnum.SectionParam;
-  sectionId: string;
-  codeObjId: string;
-};
-
-export type BaseDependencyKeyUnion =
-  | SectionDependencyKey
-  | SectionParamDependencyKey;
-
-export const DependencyValueTypeEnum = {
-  Literal: "Literal",
-  Binary: "Binary",
-  FileRead: "FileRead",
-} as const;
-
-export type LiteralDependencyValue = {
-  type: typeof DependencyValueTypeEnum.Literal;
-  payload: string;
-};
-
-type FileReadDependencyValue = {
-  type: typeof DependencyValueTypeEnum.FileRead;
-  payload: string;
-};
-
-export type BinaryDependencyValue = {
-  type: typeof DependencyValueTypeEnum.Binary;
-  payload: ContentRef;
-};
-
-export type BaseDependencyValueUnion =
-  | LiteralDependencyValue
-  | FileReadDependencyValue
-  | BinaryDependencyValue;
-
-type WebsocketMsgRealtimeUIChangeContent = {
-  projectConfigId: string;
-  dependencyKey: BaseDependencyKeyUnion;
-  value: BaseDependencyValueUnion;
-};
-
-export type WebsocketMsgRealtimeUIChange = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeUIChange;
-  content: WebsocketMsgRealtimeUIChangeContent;
-};
-
-export type DependencyEvent = {
-  dependencyKey: BaseDependencyKeyUnion;
-  payload: BaseDependencyValueUnion | null;
-  timestampMs: number;
-};
-
-type WebsocketMsgRealtimeDependencyEventContent = {
-  projectConfigId: string;
-  dependencyEvent: DependencyEvent;
-};
-
-export type WebsocketMsgRealtimeDependencyEvent = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.RealtimeDependencyEvent;
-  content: WebsocketMsgRealtimeDependencyEventContent;
-};
-
-export type WebsocketMsgUISettingRevealResult = {
-  id?: string | null;
-  messageType: typeof WebsocketMsgTypeForBackendEnum.UISettingRevealResult;
-  content: UISettingRevealResultContent;
-};
-
-export type WebsocketMsg =
-  | WebsocketMsgCurrentAddressUpdate
-  | WebsocketMsgRealtimeUIChange
-  | WebsocketMsgRealtimeDependencyEvent
-  | WebsocketMsgUISettingRevealResult;
-
-export type FrontendWebsocketMsgUnion = {
-  id?: string | null;
-  messageType: WebsocketMsgTypeForFrontend;
-  content: any;
-};
 
 export type AppRoute = {
   path: string;
@@ -6315,6 +6128,58 @@ export function createToolChatMessage(
   );
 }
 
+export const DependencyKeyTypeEnum = {
+  Section: "Section",
+  SectionParam: "SectionParam",
+} as const;
+
+export type SectionDependencyKey = {
+  type: typeof DependencyKeyTypeEnum.Section;
+  sectionId: string;
+};
+
+export type SectionParamDependencyKey = {
+  type: typeof DependencyKeyTypeEnum.SectionParam;
+  sectionId: string;
+  codeObjId: string;
+};
+
+export const DependencyValueTypeEnum = {
+  Literal: "Literal",
+  Binary: "Binary",
+  FileRead: "FileRead",
+} as const;
+
+export type LiteralDependencyValue = {
+  type: typeof DependencyValueTypeEnum.Literal;
+  payload: string;
+};
+
+type FileReadDependencyValue = {
+  type: typeof DependencyValueTypeEnum.FileRead;
+  payload: string;
+};
+
+export type BinaryDependencyValue = {
+  type: typeof DependencyValueTypeEnum.Binary;
+  payload: ContentRef;
+};
+
+export type BaseDependencyKeyUnion =
+  | SectionDependencyKey
+  | SectionParamDependencyKey;
+
+export type BaseDependencyValueUnion =
+  | LiteralDependencyValue
+  | FileReadDependencyValue
+  | BinaryDependencyValue;
+
+export type DependencyEvent = {
+  dependencyKey: BaseDependencyKeyUnion;
+  payload: BaseDependencyValueUnion | null;
+  timestampMs: number;
+};
+
 export type ListenerCoverageSnapshot = {
   projectConfigId: string;
   dependencies: Array<BaseDependencyKeyUnion>;
@@ -6351,6 +6216,78 @@ export type AIFollowToolResultUpdateContent = {
   idsByType: Record<string, Array<string>>;
 };
 
+type UISettingRevealActivationStep = {
+  type: string;
+  itemValue: string;
+};
+
+export type UISettingRevealTarget = {
+  settingId: string;
+  side: string;
+  overviewTabKey?: string | null;
+  uiEditorTabName?: string | null;
+  pluginId?: string | null;
+  paneId?: string | null;
+  strategy: string;
+  anchorId?: string | null;
+  pluginRevealKey?: string | null;
+  revealActivationSteps: Array<UISettingRevealActivationStep>;
+};
+
+export type UISettingRevealContent = {
+  projectConfigId: string;
+  chatId?: string | null;
+  activeSectionId?: string | null;
+  reveals: Array<UISettingRevealTarget>;
+  durationMs: number;
+  requestId: string;
+};
+
+export type UISettingRevealResultStatus = {
+  settingId: string;
+  status: "revealed" | "failed";
+  errorCode?: string | null;
+  errorMessage?: string | null;
+};
+
+type UISettingRevealResultContent = {
+  projectConfigId: string;
+  requestId: string;
+  statuses: Array<UISettingRevealResultStatus>;
+};
+
+export type UISettingRevealResultMessage = {
+  id: string | null;
+  messageType: typeof MessageTypeEnum.UISettingRevealResult;
+  content: UISettingRevealResultContent;
+};
+
+export const ConnectionTypeEnum = {
+  frontend: "frontend",
+  listener: "listener",
+  SERVER: "SERVER",
+  terminal: "terminal",
+} as const;
+type ConnectionType = ObjectValues<typeof ConnectionTypeEnum>;
+
+export type Connection = {
+  id: string;
+  connectionType: ConnectionType;
+  shareSessionId?: string;
+  currentAddress?: string;
+};
+export function createConnection(
+  options: Partial<Connection> = {},
+): Connection {
+  return mergeGeneratedOptions<Connection>(
+    {
+      id: "",
+      connectionType: "SERVER",
+    },
+    options,
+  );
+}
+
 type RenameReferenceDependencyKey = {
   type: string;
   sectionId: string;
@@ -6367,6 +6304,53 @@ export type RenameRefactorBroadcastContent = {
   frontendOpId: string;
   renameMode: RenameRefactorMode;
   changedNodeValues: Array<RenameReferenceChangedValue>;
+};
+
+export const MessageTypeEnum = {
+  CurrentAddressUpdate: "CurrentAddressUpdate",
+  UISettingRevealResult: "UISettingRevealResult",
+  RealtimeUIChange: "RealtimeUIChange",
+  RealtimeDependencyEvent: "RealtimeDependencyEvent",
+} as const;
+
+export type CurrentAddressUpdateMessage = {
+  id?: string | null;
+  messageType: typeof MessageTypeEnum.CurrentAddressUpdate;
+  content: string;
+};
+export function createCurrentAddressUpdateMessage(
+  options: Partial<CurrentAddressUpdateMessage> = {},
+): CurrentAddressUpdateMessage {
+  return mergeGeneratedOptions<CurrentAddressUpdateMessage>(
+    {
+      messageType: "CurrentAddressUpdate",
+      content: "",
+    },
+    options,
+  );
+}
+
+type RealtimeUIChangeContent = {
+  projectConfigId: string;
+  dependencyKey: BaseDependencyKeyUnion;
+  value: BaseDependencyValueUnion;
+};
+
+export type RealtimeUIChangeMessage = {
+  id?: string | null;
+  messageType: typeof MessageTypeEnum.RealtimeUIChange;
+  content: RealtimeUIChangeContent;
+};
+
+type RealtimeDependencyEventContent = {
+  projectConfigId: string;
+  dependencyEvent: DependencyEvent;
+};
+
+export type RealtimeDependencyEventMessage = {
+  id?: string | null;
+  messageType: typeof MessageTypeEnum.RealtimeDependencyEvent;
+  content: RealtimeDependencyEventContent;
 };
 
 export type AllProjectMetadata = {

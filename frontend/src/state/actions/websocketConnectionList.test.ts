@@ -1,9 +1,6 @@
 import { useWebsocketConnectionList } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import {
-  WebsocketConnectionTypeEnum,
-  createWebsocketConnectionInfo,
-} from "utils/generatedTypes";
+import { ConnectionTypeEnum, createConnection } from "utils/generatedTypes";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   addWebsocketConnection,
@@ -18,30 +15,30 @@ describe("websocketConnectionList", () => {
   it("preserves active local server connections when backend snapshots arrive", () => {
     // The header uses a local SERVER marker to reflect websocket transport health.
     addWebsocketConnection(
-      createWebsocketConnectionInfo({
+      createConnection({
         id: "main",
-        connectionType: WebsocketConnectionTypeEnum.SERVER,
+        connectionType: ConnectionTypeEnum.SERVER,
         currentAddress: "/project",
       }),
     );
 
     setWebsocketConnections([
-      createWebsocketConnectionInfo({
+      createConnection({
         id: "frontend-1",
-        connectionType: WebsocketConnectionTypeEnum.FRONTEND,
+        connectionType: ConnectionTypeEnum.frontend,
         currentAddress: "/project",
       }),
     ]);
 
     expect(useWebsocketConnectionList.getState().connections).toEqual([
-      createWebsocketConnectionInfo({
+      createConnection({
         id: "main",
-        connectionType: WebsocketConnectionTypeEnum.SERVER,
+        connectionType: ConnectionTypeEnum.SERVER,
         currentAddress: "/project",
       }),
-      createWebsocketConnectionInfo({
+      createConnection({
         id: "frontend-1",
-        connectionType: WebsocketConnectionTypeEnum.FRONTEND,
+        connectionType: ConnectionTypeEnum.frontend,
         currentAddress: "/project",
       }),
     ]);

@@ -38,6 +38,7 @@ import {
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  Connection,
   createProjectChatWindowingState,
   createProjectConfig,
   createSettingsState,
@@ -58,7 +59,6 @@ import {
   SharePolicy,
   SingleConfig,
   TranscriptionProfile,
-  WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -823,7 +823,7 @@ export const useNameValidationErrors = withProjectState(
 );
 
 type ZustandWebsocketConnectionList = {
-  connections: Array<WebsocketConnectionInfo>;
+  connections: Array<Connection>;
 };
 
 export const useWebsocketConnectionList = createWithEqualityFn(

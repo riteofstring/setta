@@ -8,16 +8,6 @@ import (
 	"setta/internal/realtime"
 )
 
-type WebsocketConnectionType string
-
-const (
-	WebsocketConnectionTypeCLI          WebsocketConnectionType = "CLI"
-	WebsocketConnectionTypeServer       WebsocketConnectionType = "SERVER"
-	WebsocketConnectionTypePythonLogger WebsocketConnectionType = "PYTHON_LOGGER"
-	WebsocketConnectionTypePythonScript WebsocketConnectionType = "PYTHON_SCRIPT"
-	WebsocketConnectionTypeFrontend     WebsocketConnectionType = "FRONTEND"
-)
-
 type WebsocketMsgTypeForFrontend string
 
 const (
@@ -47,71 +37,6 @@ const (
 	WebsocketMsgTypeForFrontendEngineConfigsUpdated         WebsocketMsgTypeForFrontend = "EngineConfigsUpdated"
 	WebsocketMsgTypeForFrontendTranscriptionProfilesUpdated WebsocketMsgTypeForFrontend = "TranscriptionProfilesUpdated"
 )
-
-type WebsocketMsgTypeForBackend string
-
-const (
-	WebsocketMsgTypeForBackendCurrentAddressUpdate    WebsocketMsgTypeForBackend = "CurrentAddressUpdate"
-	WebsocketMsgTypeForBackendUISettingRevealResult   WebsocketMsgTypeForBackend = "UISettingRevealResult"
-	WebsocketMsgTypeForBackendRealtimeUIChange        WebsocketMsgTypeForBackend = "RealtimeUIChange"
-	WebsocketMsgTypeForBackendRealtimeDependencyEvent WebsocketMsgTypeForBackend = "RealtimeDependencyEvent"
-)
-
-type WebsocketConnectionInfo struct {
-	ID             string                  `json:"id"`
-	ConnectionType WebsocketConnectionType `json:"connectionType"`
-	CurrentAddress *string                 `json:"currentAddress"`
-	ShareSessionID *string                 `json:"shareSessionId"`
-}
-
-type WebsocketMsgCurrentAddressUpdate struct {
-	ID          *string                    `json:"id,omitempty"`
-	MessageType WebsocketMsgTypeForBackend `json:"messageType"`
-	Content     string                     `json:"content"`
-}
-
-type UISettingRevealActivationStep realtime.UISettingRevealActivationStep
-
-type UISettingRevealTarget realtime.UISettingRevealTarget
-
-type UISettingRevealContent realtime.UISettingRevealContent
-
-type UISettingRevealResultStatus realtime.UISettingRevealResultStatus
-
-type UISettingRevealResultContent realtime.UISettingRevealResultContent
-
-type WebsocketMsgRealtimeUIChangeContent struct {
-	ProjectConfigID string                            `json:"projectConfigId"`
-	DependencyKey   realtime.BaseDependencyKeyUnion   `json:"dependencyKey"`
-	Value           realtime.BaseDependencyValueUnion `json:"value"`
-}
-
-type WebsocketMsgRealtimeUIChange struct {
-	ID          *string                             `json:"id,omitempty"`
-	MessageType WebsocketMsgTypeForBackend          `json:"messageType"`
-	Content     WebsocketMsgRealtimeUIChangeContent `json:"content"`
-}
-
-type WebsocketMsgRealtimeDependencyEventContent struct {
-	ProjectConfigID string                   `json:"projectConfigId"`
-	DependencyEvent realtime.DependencyEvent `json:"dependencyEvent"`
-}
-
-type WebsocketMsgRealtimeDependencyEvent struct {
-	ID          *string                                    `json:"id,omitempty"`
-	MessageType WebsocketMsgTypeForBackend                 `json:"messageType"`
-	Content     WebsocketMsgRealtimeDependencyEventContent `json:"content"`
-}
-
-type WebsocketMsgUISettingRevealResult struct {
-	ID          *string                      `json:"id,omitempty"`
-	MessageType WebsocketMsgTypeForBackend   `json:"messageType"`
-	Content     UISettingRevealResultContent `json:"content"`
-}
-
-type WebsocketMsg struct{}
-
-type FrontendWebsocketMsgUnion struct{}
 
 type websocketJSONFieldSpec struct {
 	PropertyName string
@@ -213,12 +138,12 @@ func websocketRootFieldPathExpr(propertyName string) string {
 }
 
 func websocketReadActivationStepsFieldSpecs() []websocketJSONFieldSpec {
-	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(UISettingRevealActivationStep{}))
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(realtime.UISettingRevealActivationStep{}))
 	for _, field := range fields {
 		if !websocketFieldSupportsStringReader(field) {
 			panic(fmt.Sprintf(
 				"websocket schema support: %s.%s must be a string field",
-				reflect.TypeOf(UISettingRevealActivationStep{}).Name(),
+				reflect.TypeOf(realtime.UISettingRevealActivationStep{}).Name(),
 				field.PropertyName,
 			))
 		}
@@ -291,7 +216,7 @@ func buildWebsocketReadActivationStepsBodyTS() string {
 }
 
 func buildWebsocketReadRevealTargetsBodyTS() string {
-	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(UISettingRevealTarget{}))
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(realtime.UISettingRevealTarget{}))
 	var builder strings.Builder
 	builder.WriteString("  if (!Array.isArray(value)) {\n")
 	builder.WriteString("    issues.push(\"reveals must be an array.\");\n")
@@ -329,7 +254,7 @@ func buildWebsocketReadRevealTargetsBodyTS() string {
 		default:
 			panic(fmt.Sprintf(
 				"websocket schema support: unsupported %s.%s field type %s",
-				reflect.TypeOf(UISettingRevealTarget{}).Name(),
+				reflect.TypeOf(realtime.UISettingRevealTarget{}).Name(),
 				field.PropertyName,
 				field.Type,
 			))
@@ -342,7 +267,7 @@ func buildWebsocketReadRevealTargetsBodyTS() string {
 }
 
 func buildUISettingRevealContentSchemaExprTS() string {
-	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(UISettingRevealContent{}))
+	fields := mustWebsocketJSONFieldSpecs(reflect.TypeOf(realtime.UISettingRevealContent{}))
 	var builder strings.Builder
 	builder.WriteString("{\n")
 	builder.WriteString("  safeParse(value: unknown): SafeParseResult<UISettingRevealContent> {\n")
@@ -377,7 +302,7 @@ func buildUISettingRevealContentSchemaExprTS() string {
 		default:
 			panic(fmt.Sprintf(
 				"websocket schema support: unsupported %s.%s field type %s",
-				reflect.TypeOf(UISettingRevealContent{}).Name(),
+				reflect.TypeOf(realtime.UISettingRevealContent{}).Name(),
 				field.PropertyName,
 				field.Type,
 			))

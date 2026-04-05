@@ -22,6 +22,7 @@ import (
 	scriptablechat "setta/internal/scriptablechat"
 	settingsstate "setta/internal/settingsstate"
 	transcriptionprofiles "setta/internal/transcriptionprofiles"
+	wsapi "setta/internal/wsapi"
 )
 
 func DiscoveredConvertibleTypes() []reflect.Type {
@@ -167,23 +168,7 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(UserDefaultTaskBoardSectionImpl{}),
 		reflect.TypeOf(UserDefaultChartSectionImpl{}),
 		reflect.TypeOf(UserDefaultSpreadsheetSectionImpl{}),
-		reflect.TypeOf(WebsocketConnectionType("")),
 		reflect.TypeOf(WebsocketMsgTypeForFrontend("")),
-		reflect.TypeOf(WebsocketMsgTypeForBackend("")),
-		reflect.TypeOf(WebsocketConnectionInfo{}),
-		reflect.TypeOf(WebsocketMsgCurrentAddressUpdate{}),
-		reflect.TypeOf((*UISettingRevealActivationStep)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealTarget)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealContent)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealResultStatus)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealResultContent)(nil)).Elem(),
-		reflect.TypeOf(WebsocketMsgRealtimeUIChangeContent{}),
-		reflect.TypeOf(WebsocketMsgRealtimeUIChange{}),
-		reflect.TypeOf(WebsocketMsgRealtimeDependencyEventContent{}),
-		reflect.TypeOf(WebsocketMsgRealtimeDependencyEvent{}),
-		reflect.TypeOf(WebsocketMsgUISettingRevealResult{}),
-		reflect.TypeOf(WebsocketMsg{}),
-		reflect.TypeOf(FrontendWebsocketMsgUnion{}),
 		reflect.TypeOf(projectstate.AddKwargResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionReadResult{}),
 		reflect.TypeOf(projectstate.AppDefinitionValidationResult{}),
@@ -492,7 +477,12 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(realtime.AIFollowToolResultUpdateContent{}),
 		reflect.TypeOf(realtime.LLMStreamingResponseContent{}),
 		reflect.TypeOf(realtime.LLMStreamingResponseMessage{}),
+		reflect.TypeOf(realtime.UISettingRevealActivationStep{}),
+		reflect.TypeOf(realtime.UISettingRevealTarget{}),
+		reflect.TypeOf(realtime.UISettingRevealContent{}),
 		reflect.TypeOf(realtime.UISettingRevealMessage{}),
+		reflect.TypeOf(realtime.UISettingRevealResultStatus{}),
+		reflect.TypeOf(realtime.UISettingRevealResultContent{}),
 		reflect.TypeOf(realtime.NotificationContent{}),
 		reflect.TypeOf(realtime.NotificationMessage{}),
 		reflect.TypeOf(realtime.AllProjectMetadataContent{}),
@@ -529,6 +519,12 @@ func DiscoveredConvertibleTypes() []reflect.Type {
 		reflect.TypeOf(realtime.RenameRefactorResultsMessage{}),
 		reflect.TypeOf(realtime.ConnectionType("")),
 		reflect.TypeOf(realtime.Connection{}),
+		reflect.TypeOf(wsapi.FrontendMessageType("")),
+		reflect.TypeOf(wsapi.CurrentAddressUpdateMessage{}),
+		reflect.TypeOf(wsapi.RealtimeUIChangeContent{}),
+		reflect.TypeOf(wsapi.RealtimeUIChangeMessage{}),
+		reflect.TypeOf(wsapi.RealtimeDependencyEventContent{}),
+		reflect.TypeOf(wsapi.RealtimeDependencyEventMessage{}),
 		reflect.TypeOf(lspcompletion.CodeMirrorCompletion{}),
 		reflect.TypeOf(projectshell.AllProjectMetadata{}),
 		reflect.TypeOf(gitread.Commit{}),
@@ -595,10 +591,5 @@ func DiscoveredTypeOverrides() map[reflect.Type]reflect.Type {
 		reflect.TypeOf((*ExternalAgentPreflightStatus)(nil)).Elem():      reflect.TypeOf((*httpapi.ExternalAgentPreflightStatus)(nil)).Elem(),
 		reflect.TypeOf((*CodeFileBindingUpdate)(nil)).Elem():             reflect.TypeOf((*httpapi.CodeFileBindingUpdate)(nil)).Elem(),
 		reflect.TypeOf((*ViewModeConfig)(nil)).Elem():                    reflect.TypeOf((*projectstate.ViewMode)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealActivationStep)(nil)).Elem():     reflect.TypeOf((*realtime.UISettingRevealActivationStep)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealTarget)(nil)).Elem():             reflect.TypeOf((*realtime.UISettingRevealTarget)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealContent)(nil)).Elem():            reflect.TypeOf((*realtime.UISettingRevealContent)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealResultStatus)(nil)).Elem():       reflect.TypeOf((*realtime.UISettingRevealResultStatus)(nil)).Elem(),
-		reflect.TypeOf((*UISettingRevealResultContent)(nil)).Elem():      reflect.TypeOf((*realtime.UISettingRevealResultContent)(nil)).Elem(),
 	}
 }

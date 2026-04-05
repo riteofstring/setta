@@ -68,16 +68,6 @@ var specialMetadataDeclarations = map[reflect.Type]TypeDeclaration{
 		"BinaryDownloadResponse",
 		"Uint8Array",
 	),
-	reflect.TypeOf(WebsocketMsg{}): aliasDeclaration(
-		"WebsocketMsg",
-		"WebsocketMsgCurrentAddressUpdate | WebsocketMsgRealtimeUIChange | WebsocketMsgRealtimeDependencyEvent | WebsocketMsgUISettingRevealResult",
-	),
-	reflect.TypeOf(FrontendWebsocketMsgUnion{}): objectDeclaration(
-		"FrontendWebsocketMsgUnion",
-		TypeProperty{Name: "id", TypeExpr: "string | null", Optional: true},
-		TypeProperty{Name: "messageType", TypeExpr: "WebsocketMsgTypeForFrontend"},
-		TypeProperty{Name: "content", TypeExpr: "any"},
-	),
 }
 
 func specialMetadataTypeDeclaration(t reflect.Type) (TypeDeclaration, bool) {
