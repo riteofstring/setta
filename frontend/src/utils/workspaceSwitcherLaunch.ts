@@ -1,10 +1,9 @@
 import { HOME_ROUTER_PATH } from "utils/constants";
-import type { LaunchRequest } from "utils/generatedTypes";
-import { BootstrapProtocol } from "utils/generatedTypes";
+import type { LaunchRequestInput } from "utils/generatedTypes";
 import { safeSessionStorage } from "utils/storage";
 
 export type PendingWorkspaceLaunch = {
-  request: LaunchRequest;
+  request: LaunchRequestInput;
   returnUrl: string;
   requestedAt: number;
   sshTarget?: string | null;
@@ -14,8 +13,7 @@ export type PendingWorkspaceLaunch = {
 const PENDING_LAUNCH_STORAGE_KEY = "setta.pendingWorkspaceLaunch";
 const SWITCHER_DRAFT_STORAGE_KEY = "setta.workspaceSwitcherDraft";
 const OPEN_SWITCHER_ON_LOAD_KEY = "setta.openWorkspaceSwitcherOnLoad";
-const OPEN_SWITCHER_QUERY_PARAM =
-  BootstrapProtocol.openWorkspaceSwitcherQueryParam;
+const OPEN_SWITCHER_QUERY_PARAM = "__setta_open_workspace_switcher";
 const LEGACY_PENDING_LAUNCH_PAYLOAD_HASH_KEY = "pl";
 const LEGACY_PENDING_LAUNCH_RETURN_URL_HASH_KEY = "plr";
 const PENDING_LAUNCH_INTENT_HASH_KEY = "plt";
@@ -58,7 +56,7 @@ function parsePendingWorkspaceLaunch(
     return null;
   }
   return {
-    request: record.request as LaunchRequest,
+    request: record.request as LaunchRequestInput,
     returnUrl: record.returnUrl,
     requestedAt: record.requestedAt,
     sshTarget:
@@ -173,7 +171,7 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
     return {
       request: {
         launchIntentToken,
-      } as LaunchRequest,
+      } as LaunchRequestInput,
       returnUrl: getDefaultLaunchReturnUrl(),
       requestedAt,
     };
@@ -183,7 +181,7 @@ function consumePendingWorkspaceLaunchFromUrlHash(): PendingWorkspaceLaunch | nu
   }
 }
 
-export function writeWorkspaceSwitcherDraft(request: LaunchRequest): void {
+export function writeWorkspaceSwitcherDraft(request: LaunchRequestInput): void {
   const storage = safeSessionStorage();
   if (!storage) {
     return;
@@ -195,7 +193,7 @@ export function writeWorkspaceSwitcherDraft(request: LaunchRequest): void {
   }
 }
 
-export function readWorkspaceSwitcherDraft(): LaunchRequest | null {
+export function readWorkspaceSwitcherDraft(): LaunchRequestInput | null {
   const storage = safeSessionStorage();
   if (!storage) {
     return null;
@@ -209,7 +207,7 @@ export function readWorkspaceSwitcherDraft(): LaunchRequest | null {
     if (!parsed || typeof parsed !== "object") {
       return null;
     }
-    return parsed as LaunchRequest;
+    return parsed as LaunchRequestInput;
   } catch (error) {
     console.warn("Failed to read workspace switcher draft", error);
     return null;

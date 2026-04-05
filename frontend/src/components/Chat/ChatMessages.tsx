@@ -58,6 +58,7 @@ import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import type { ChatMessageBranchInfo } from "state/actions/aiBranches";
 import { addTemporaryNotification } from "state/actions/notifications";
+import { getCurrProjectConfigId } from "state/actions/sectionInfos";
 import { useAIStore } from "state/definitions";
 import { useShareCapabilities } from "state/hooks/share";
 import {
@@ -82,9 +83,20 @@ import {
   resolveToolCallArguments,
 } from "utils/claudeTools";
 import {
+  type CodeLanguage,
+  resolveCodeLanguageFromPath,
+} from "utils/codeLanguage";
+import {
+  type ConversationSearchTextRange,
+  findConversationSearchTextRanges,
+} from "utils/conversationSearch";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
+import { route_get_attachment_download_urls } from "utils/generatedEndpoints";
+import {
   BaseChatMessageUnion,
   ChatFileAttachment,
   ChatRoleEnum,
+  CodeLanguageEnum,
   ToolCall,
   ToolChatMessage,
 } from "utils/generatedTypes";
@@ -93,42 +105,10 @@ import { ChatMessageEditor } from "./ChatMessageEditor";
 import { QuestionCard } from "./QuestionCard";
 import { TodoListCard } from "./TodoListCard";
 import {
-  getConversationSearchRehypePlugins,
-  renderConversationSearchHighlightedText,
-} from "./chatSearchHighlight";
-import {
-  type StructuredOutputPart,
-  type StructuredOutputPayload,
-  resolveStructuredOutputFallbackPayload,
-  resolveStructuredOutputPayload,
-} from "./chatStructuredOutput";
-import {
-  resolveCollapsedThinkingActivityLabel,
-  resolveLatestThinkingSummary,
-  resolveStreamingThinkingHeadline,
-  resolveThinkingSummaryHeadline,
-  resolveThinkingSummaryMeta,
-  useScrambledLabel,
-} from "./chatThinkingSummary";
-import {
-  ChatMessageTimestampFooter,
-  ChatTimestamp,
-  parseIsoTimestampMs,
-  resolveActivityTimestampMs,
-  resolveDurationLabel,
-  resolveMessageCreatedAtMs,
-  useRunElapsedDuration,
-} from "./chatTiming";
-import {
   type AnimatedStreamingCharacter,
   reconcileAnimatedStreamingCharacters,
   splitStreamingMarkdownText,
 } from "./streamingMarkdown";
-import {
-  type AttachmentUrlEntry,
-  isAttachmentUrlStale,
-  useChatMessageAttachmentUrls,
-} from "./useChatMessageAttachmentUrls";
 import { useTypewriterEffect } from "./useTypewriterEffect";
 
 type AssistantChatMessage = Extract<
@@ -220,6 +200,7 @@ type ToolCallContext = {
 
 const EMPTY_ASSISTANT_CONTENT: ChatContentItem[] = [];
 const IDLE_SPINNER_DELAY_MS = 1000;
+const ATTACHMENT_URL_REFRESH_BUFFER_MS = 30_000;
 const CHAT_BUBBLE_MAX_WIDTH_CLASS = "max-w-[min(90%,820px)]";
 const ASSISTANT_BUBBLE_MAX_WIDTH_CLASS = CHAT_BUBBLE_MAX_WIDTH_CLASS;
 const CHAT_MARKDOWN_BASE_CLASS =
@@ -269,6 +250,16 @@ const ACTIVITY_ITEM_LABEL_CLASS =
   "min-w-0 flex-1 pr-5 transition-[padding-right] group-hover/chat-activity-row:pr-[8.5rem] group-focus-within/chat-activity-row:pr-[8.5rem]";
 const ACTIVITY_THOUGHT_TOP_ONLY_MASK =
   "linear-gradient(to bottom, transparent 0%, black 18%, black 100%)";
+const CHAT_TIMESTAMP_CLASS =
+  "shrink-0 text-[10px] font-medium tabular-nums text-setta-400 dark:text-setta-500";
+const CHAT_TIMESTAMP_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  hour: "numeric",
+  minute: "2-digit",
+});
+const CHAT_TIMESTAMP_TOOLTIP_FORMATTER = new Intl.DateTimeFormat(undefined, {
+  dateStyle: "full",
+  timeStyle: "long",
+});
 const COUNT_BADGE_STEP_ANIMATION_MS = 120;
 const COUNT_BADGE_STEP_PAUSE_MS = 24;
 const CONTEXT_COMPACTION_TOOL_NAME = "compacted";
@@ -291,6 +282,15 @@ const ACTIVE_RUNTIME_SUBAGENT_TOOL_NAMES = new Set<string>([
 ]);
 const ACTIVITY_ROW_DETAILS_VALUE = "details";
 
+type AttachmentUrlEntry = {
+  url: string;
+  expiresAt: number;
+};
+type AttachmentUrlResponseEntry = {
+  artifactId: string;
+  url: string;
+  expiresAt: number;
+};
 type AttachmentTextPreview = {
   text: string;
   truncated: boolean;
@@ -339,6 +339,154 @@ type MarkdownContentProps = {
   isStreaming: boolean;
   highlightTerms?: Array<string>;
 };
+
+type HastNode = {
+  type: string;
+  value?: string;
+  tagName?: string;
+  properties?: Record<string, unknown>;
+  children?: Array<HastNode>;
+};
+
+const CHAT_SEARCH_HIGHLIGHT_CLASS_NAME =
+  "rounded-sm bg-amber-200/80 px-[0.06rem] text-inherit dark:bg-amber-500/20";
+const CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS = new Set([
+  "code",
+  "pre",
+  "script",
+  "style",
+]);
+
+function buildConversationSearchHighlightNodes(
+  value: string,
+  ranges: Array<ConversationSearchTextRange>,
+): Array<HastNode> {
+  if (ranges.length === 0) {
+    return [{ type: "text", value }];
+  }
+  const nodes: Array<HastNode> = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      nodes.push({
+        type: "text",
+        value: value.slice(cursor, range.start),
+      });
+    }
+    nodes.push({
+      type: "element",
+      tagName: "mark",
+      properties: {
+        className: [CHAT_SEARCH_HIGHLIGHT_CLASS_NAME],
+        "data-chat-search-highlight": "true",
+      },
+      children: [
+        {
+          type: "text",
+          value: value.slice(range.start, range.end),
+        },
+      ],
+    });
+    cursor = range.end;
+  }
+  if (cursor < value.length) {
+    nodes.push({
+      type: "text",
+      value: value.slice(cursor),
+    });
+  }
+  return nodes;
+}
+
+function highlightConversationSearchTextNodes(
+  node: HastNode,
+  normalizedSearchTerms: Array<string>,
+): void {
+  const children = node.children;
+  if (!children || children.length === 0) {
+    return;
+  }
+  for (let index = 0; index < children.length; index += 1) {
+    const child = children[index];
+    if (!child) {
+      continue;
+    }
+    if (child.type === "text" && typeof child.value === "string") {
+      const ranges = findConversationSearchTextRanges(
+        child.value,
+        normalizedSearchTerms,
+      );
+      if (ranges.length === 0) {
+        continue;
+      }
+      const replacementNodes = buildConversationSearchHighlightNodes(
+        child.value,
+        ranges,
+      );
+      children.splice(index, 1, ...replacementNodes);
+      index += replacementNodes.length - 1;
+      continue;
+    }
+    if (
+      child.type === "element" &&
+      typeof child.tagName === "string" &&
+      CHAT_SEARCH_HIGHLIGHT_SKIP_TAGS.has(child.tagName)
+    ) {
+      continue;
+    }
+    highlightConversationSearchTextNodes(child, normalizedSearchTerms);
+  }
+}
+
+function buildConversationSearchHighlightPlugin(
+  normalizedSearchTerms: Array<string>,
+) {
+  return () => {
+    return (tree: HastNode) => {
+      highlightConversationSearchTextNodes(tree, normalizedSearchTerms);
+    };
+  };
+}
+
+function getConversationSearchRehypePlugins(
+  normalizedSearchTerms: Array<string>,
+): Array<() => (tree: HastNode) => void> | undefined {
+  if (normalizedSearchTerms.length === 0) {
+    return undefined;
+  }
+  return [buildConversationSearchHighlightPlugin(normalizedSearchTerms)];
+}
+
+function renderConversationSearchHighlightedText(
+  text: string,
+  normalizedSearchTerms: Array<string>,
+): ReactNode {
+  const ranges = findConversationSearchTextRanges(text, normalizedSearchTerms);
+  if (ranges.length === 0) {
+    return text;
+  }
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  for (const range of ranges) {
+    if (range.start > cursor) {
+      nodes.push(text.slice(cursor, range.start));
+    }
+    nodes.push(
+      <mark
+        key={`${range.start}-${range.end}`}
+        className={CHAT_SEARCH_HIGHLIGHT_CLASS_NAME}
+        data-chat-search-highlight="true"
+      >
+        {text.slice(range.start, range.end)}
+      </mark>,
+    );
+    cursor = range.end;
+  }
+  if (cursor < text.length) {
+    nodes.push(text.slice(cursor));
+  }
+  return nodes;
+}
 
 const CHAT_MARKDOWN_COMPONENTS: Components = {
   code: (props) => <CodeBlock {...props} wrapLines />,
@@ -1025,21 +1173,6 @@ function diffRepresentsDeletion(diffText: string): boolean {
   );
 }
 
-function resolveDiffTextFromUnknown(value: unknown): string | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  const diff = value.diff;
-  if (typeof diff !== "string") {
-    return null;
-  }
-  const trimmed = diff.trim();
-  if (trimmed.length === 0) {
-    return null;
-  }
-  return diff;
-}
-
 function resolveActionRailIcon({
   name,
   args,
@@ -1110,6 +1243,385 @@ function resolveToolResultDisplay(
   }
   if (result && typeof result === "object") {
     return formatToolArgs(result);
+  }
+  return null;
+}
+
+type StructuredOutputKind = "plain" | "code" | "diff";
+type StructuredOutputPayload = {
+  text: string;
+  kind: StructuredOutputKind;
+  language: CodeLanguage | null;
+  useJsx: boolean;
+  pathHint: string | null;
+};
+
+type StructuredOutputPart = "input" | "output";
+
+function resolveCodeLanguageFromMimeType(mimeType: string | null): {
+  language: CodeLanguage | null;
+  useJsx: boolean;
+} {
+  if (!mimeType) {
+    return { language: null, useJsx: false };
+  }
+  const normalized = mimeType.trim().toLowerCase();
+  if (
+    normalized === "application/json" ||
+    normalized.endsWith("+json") ||
+    normalized === "text/json"
+  ) {
+    return { language: CodeLanguageEnum.json, useJsx: false };
+  }
+  if (
+    normalized === "application/yaml" ||
+    normalized === "text/yaml" ||
+    normalized === "application/x-yaml" ||
+    normalized === "text/x-yaml"
+  ) {
+    return { language: CodeLanguageEnum.yaml, useJsx: false };
+  }
+  if (normalized === "text/markdown") {
+    return { language: CodeLanguageEnum.markdown, useJsx: false };
+  }
+  if (
+    normalized === "application/toml" ||
+    normalized === "text/x-toml" ||
+    normalized === "application/x-toml"
+  ) {
+    return { language: CodeLanguageEnum.toml, useJsx: false };
+  }
+  if (
+    normalized === "application/javascript" ||
+    normalized === "text/javascript" ||
+    normalized === "application/x-javascript"
+  ) {
+    return { language: CodeLanguageEnum.javascript, useJsx: false };
+  }
+  if (
+    normalized === "application/typescript" ||
+    normalized === "text/typescript"
+  ) {
+    return { language: CodeLanguageEnum.typescript, useJsx: false };
+  }
+  return { language: null, useJsx: false };
+}
+
+function resolveLanguageFromPathHint(pathHint: string | null): {
+  language: CodeLanguage | null;
+  useJsx: boolean;
+} {
+  if (!pathHint) {
+    return { language: null, useJsx: false };
+  }
+  const normalized = pathHint.toLowerCase();
+  if (normalized.endsWith(".tsx")) {
+    return { language: CodeLanguageEnum.typescript, useJsx: true };
+  }
+  if (normalized.endsWith(".jsx")) {
+    return { language: CodeLanguageEnum.javascript, useJsx: true };
+  }
+  const language = resolveCodeLanguageFromPath(pathHint);
+  if (language === CodeLanguageEnum.plaintext) {
+    return { language: null, useJsx: false };
+  }
+  return { language, useJsx: false };
+}
+
+function resolvePathHintFromUnknown(value: unknown): string | null {
+  const pathKeys = [
+    "path",
+    "filePath",
+    "filepath",
+    "targetPath",
+    "target",
+    "file",
+    "filename",
+    "fileName",
+    "uri",
+  ];
+  for (const key of pathKeys) {
+    const resolved = extractNonEmptyStringArg(value, key);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+function resolveMimeTypeHintFromUnknown(value: unknown): string | null {
+  const mimeKeys = ["mimeType", "mimetype", "contentType", "content_type"];
+  for (const key of mimeKeys) {
+    const resolved = extractNonEmptyStringArg(value, key);
+    if (resolved) {
+      return resolved;
+    }
+  }
+  return null;
+}
+
+function resolveCommandInputText(value: unknown): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const command = value.command;
+  if (typeof command !== "string") {
+    return null;
+  }
+  const trimmed = command.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  return command;
+}
+
+function resolveDiffTextFromUnknown(value: unknown): string | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const diff = value.diff;
+  if (typeof diff !== "string") {
+    return null;
+  }
+  const trimmed = diff.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  return diff;
+}
+
+export function classifyDiffLineForChat(
+  line: string,
+): "add" | "del" | "hunk" | "file" | "meta" | "context" {
+  if (line.startsWith("@@")) {
+    return "hunk";
+  }
+  if (line.startsWith("diff --git")) {
+    return "meta";
+  }
+  if (
+    line.startsWith("index ") ||
+    line.startsWith("new file mode ") ||
+    line.startsWith("deleted file mode ") ||
+    line.startsWith("similarity index ") ||
+    line.startsWith("rename from ") ||
+    line.startsWith("rename to ") ||
+    line.startsWith("\\ No newline at end of file")
+  ) {
+    return "meta";
+  }
+  if (line.startsWith("+++ ") || line.startsWith("--- ")) {
+    return "file";
+  }
+  if (line.startsWith("+") && !line.startsWith("+++")) {
+    return "add";
+  }
+  if (line.startsWith("-") && !line.startsWith("---")) {
+    return "del";
+  }
+  return "context";
+}
+
+export function isUnifiedDiffText(text: string): boolean {
+  const lines = text.split(/\r?\n/u);
+  let hasFileHeader = false;
+  let hasHunk = false;
+  let hasDiffHeader = false;
+  let hasBinaryHeader = false;
+  for (const line of lines) {
+    if (line.startsWith("diff --git ")) {
+      hasDiffHeader = true;
+    } else if (line.startsWith("--- ") || line.startsWith("+++ ")) {
+      hasFileHeader = true;
+    } else if (line.startsWith("@@")) {
+      hasHunk = true;
+    } else if (line.startsWith("Binary files ")) {
+      hasBinaryHeader = true;
+    }
+  }
+  if (hasDiffHeader && (hasFileHeader || hasHunk || hasBinaryHeader)) {
+    return true;
+  }
+  if (hasFileHeader && hasHunk) {
+    return true;
+  }
+  return false;
+}
+
+function tryParseObjectOrArrayJson(text: string): unknown | null {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    if (Array.isArray(parsed) || isRecord(parsed)) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+export function resolveStructuredOutputPayload({
+  value,
+  toolName,
+  part,
+  contextValue,
+}: {
+  value: unknown;
+  toolName: string;
+  part: StructuredOutputPart;
+  contextValue?: unknown;
+}): StructuredOutputPayload | null {
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const normalizedToolName = normalizeToolName(toolName) ?? toolName;
+  const pathHint =
+    resolvePathHintFromUnknown(value) ??
+    resolvePathHintFromUnknown(contextValue) ??
+    null;
+  const mimeTypeHint =
+    resolveMimeTypeHintFromUnknown(value) ??
+    resolveMimeTypeHintFromUnknown(contextValue) ??
+    null;
+  const pathLanguage = resolveLanguageFromPathHint(pathHint);
+  const mimeLanguage = resolveCodeLanguageFromMimeType(mimeTypeHint);
+  const resolvedLanguage =
+    pathLanguage.language !== null ? pathLanguage : mimeLanguage;
+
+  if (normalizedToolName === "file_change") {
+    const diffFromObject = resolveDiffTextFromUnknown(value);
+    if (diffFromObject && isUnifiedDiffText(diffFromObject)) {
+      return {
+        text: diffFromObject,
+        kind: "diff",
+        language: null,
+        useJsx: false,
+        pathHint,
+      };
+    }
+  }
+
+  if (part === "input" && normalizedToolName === "command_execution") {
+    const commandText = resolveCommandInputText(value);
+    if (commandText) {
+      return {
+        text: commandText,
+        kind: "code",
+        language: CodeLanguageEnum.bash,
+        useJsx: false,
+        pathHint,
+      };
+    }
+  }
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed.length === 0) {
+      return null;
+    }
+    if (isUnifiedDiffText(value)) {
+      return {
+        text: value,
+        kind: "diff",
+        language: null,
+        useJsx: false,
+        pathHint,
+      };
+    }
+    const parsedJson = tryParseObjectOrArrayJson(value);
+    if (parsedJson !== null) {
+      return {
+        text: JSON.stringify(parsedJson, null, 2),
+        kind: "code",
+        language: CodeLanguageEnum.json,
+        useJsx: false,
+        pathHint,
+      };
+    }
+    if (resolvedLanguage.language !== null) {
+      return {
+        text: value,
+        kind: "code",
+        language: resolvedLanguage.language,
+        useJsx: resolvedLanguage.useJsx,
+        pathHint,
+      };
+    }
+    return {
+      text: value,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint,
+    };
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return {
+      text: String(value),
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint,
+    };
+  }
+
+  if (Array.isArray(value) || isRecord(value)) {
+    return {
+      text: formatToolArgs(value),
+      kind: "code",
+      language: CodeLanguageEnum.json,
+      useJsx: false,
+      pathHint,
+    };
+  }
+
+  return {
+    text: String(value),
+    kind: "plain",
+    language: null,
+    useJsx: false,
+    pathHint,
+  };
+}
+
+function resolveStructuredOutputFallbackPayload({
+  runState,
+  failedLabel,
+  successLabel,
+  stoppedLabel,
+}: {
+  runState: ToolCallRunState;
+  failedLabel: string;
+  successLabel: string;
+  stoppedLabel: string;
+}): StructuredOutputPayload | null {
+  if (runState === "failed") {
+    return {
+      text: failedLabel,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint: null,
+    };
+  }
+  if (runState === "success") {
+    return {
+      text: successLabel,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint: null,
+    };
+  }
+  if (runState === "stopped") {
+    return {
+      text: stoppedLabel,
+      kind: "plain",
+      language: null,
+      useJsx: false,
+      pathHint: null,
+    };
   }
   return null;
 }
@@ -1209,10 +1721,15 @@ function resolveDisplayArgsForToolCallEntry({
   toolCallArguments: Record<string, string>;
 }): unknown {
   const argsFromResult = toolResult?.arguments;
+  const argsFromAssistant = toolCall.function?.arguments;
+  const pendingArgs = toolCallArguments?.[toolCall.id];
   if (argsFromResult && Object.keys(argsFromResult).length > 0) {
     return argsFromResult;
   }
-  return resolveToolCallArguments(toolCall, toolCallArguments);
+  if (argsFromAssistant && Object.keys(argsFromAssistant).length > 0) {
+    return argsFromAssistant;
+  }
+  return pendingArgs;
 }
 
 function resolveCompactionEntryLabel({
@@ -1599,6 +2116,414 @@ function useIdleStreamSpinner(
   return showSpinner;
 }
 
+function formatElapsedDuration(totalSeconds: number): string {
+  const normalized = Math.max(0, Math.floor(totalSeconds));
+  const minutes = Math.floor(normalized / 60);
+  const seconds = normalized % 60;
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+function resolveDurationLabel({
+  elapsedMs,
+  elapsedSeconds,
+  hasKnownDuration,
+  isRunning,
+}: {
+  elapsedMs: number;
+  elapsedSeconds: number;
+  hasKnownDuration: boolean;
+  isRunning: boolean;
+}): string | null {
+  if (!hasKnownDuration) {
+    return null;
+  }
+  if (!isRunning && elapsedSeconds === 0) {
+    return "<1s";
+  }
+  return formatElapsedDuration(elapsedSeconds);
+}
+
+function resolveTimestampMs(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+function resolveMessageCreatedAtMs(
+  message: BaseChatMessageUnion,
+): number | null {
+  return resolveTimestampMs((message as { createdAt?: unknown }).createdAt);
+}
+
+function resolveActivityTimestampMs(
+  startedAtMs: number | null,
+  completedAtMs: number | null,
+): number | null {
+  return resolveTimestampMs(startedAtMs) ?? resolveTimestampMs(completedAtMs);
+}
+
+function formatChatTimestamp(timestampMs: number | null): string | null {
+  const resolvedTimestampMs = resolveTimestampMs(timestampMs);
+  if (resolvedTimestampMs === null) {
+    return null;
+  }
+  return CHAT_TIMESTAMP_FORMATTER.format(resolvedTimestampMs);
+}
+
+function formatChatTimestampTitle(timestampMs: number | null): string | null {
+  const resolvedTimestampMs = resolveTimestampMs(timestampMs);
+  if (resolvedTimestampMs === null) {
+    return null;
+  }
+  return CHAT_TIMESTAMP_TOOLTIP_FORMATTER.format(resolvedTimestampMs);
+}
+
+function ChatTimestamp({
+  timestampMs,
+  kind,
+}: {
+  timestampMs: number | null;
+  kind: "message" | "activity-item";
+}) {
+  const label = formatChatTimestamp(timestampMs);
+  if (!label) {
+    return null;
+  }
+  const title = formatChatTimestampTitle(timestampMs) ?? undefined;
+  if (kind === "activity-item") {
+    return (
+      <span
+        data-chat-activity-item-timestamp="true"
+        className={CHAT_TIMESTAMP_CLASS}
+        title={title}
+      >
+        {label}
+      </span>
+    );
+  }
+  return (
+    <span
+      data-chat-message-timestamp="true"
+      className={CHAT_TIMESTAMP_CLASS}
+      title={title}
+    >
+      {label}
+    </span>
+  );
+}
+
+function ChatMessageTimestampFooter({
+  timestampMs,
+}: {
+  timestampMs: number | null;
+}) {
+  if (timestampMs === null) {
+    return null;
+  }
+  return (
+    <div className="mt-0.5 flex justify-end">
+      <ChatTimestamp timestampMs={timestampMs} kind="message" />
+    </div>
+  );
+}
+
+function deriveThinkingHeadlineFromContent(content: string): string | null {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) {
+    return null;
+  }
+  const normalizedLines = trimmed
+    .split(/\r?\n/u)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .map((line) =>
+      line
+        .replace(/^#+\s+/u, "")
+        .replace(/^(?:>+|\*|-)\s*/u, "")
+        .replace(/^\d+\.\s*/u, "")
+        .replace(/\s+/gu, " ")
+        .trim(),
+    )
+    .filter((line) => line.length > 0);
+  const collapsed =
+    normalizedLines[0] ??
+    trimmed
+      .replace(/\s+/gu, " ")
+      .replace(/^#+\s+/u, "")
+      .replace(/^(?:>+|\*|-)\s*/u, "")
+      .replace(/^\d+\.\s*/u, "")
+      .trim();
+  if (collapsed.length === 0) {
+    return null;
+  }
+  const maxLength = 96;
+  if (collapsed.length <= maxLength) {
+    return collapsed;
+  }
+  return `${collapsed.slice(0, maxLength).trimEnd()}...`;
+}
+
+function resolveThinkingSummaryMeta({
+  content,
+  summary,
+  isStreaming,
+}: {
+  content: string;
+  summary: string | null | undefined;
+  isStreaming: boolean;
+}): { headline: string; hasTitle: boolean } {
+  if (isStreaming) {
+    return { headline: "Thinking...", hasTitle: false };
+  }
+  const summaryText = summary?.trim() ?? "";
+  const hasThinkingText = content.trim().length > 0;
+  const summaryHeadlineSourceText = (
+    summaryText.split(/\r?\n/u)[0] ?? ""
+  ).trim();
+  const normalizedSummaryText = summaryText.replace(/\s+/gu, " ").trim();
+  const normalizedThinkingText = content.replace(/\s+/gu, " ").trim();
+  const summaryLooksLikeThinking =
+    normalizedSummaryText.length > 0 &&
+    normalizedThinkingText.length > 0 &&
+    normalizedSummaryText === normalizedThinkingText;
+  const collapsedSummaryText =
+    summaryLooksLikeThinking || summaryHeadlineSourceText.length === 0
+      ? ""
+      : summaryHeadlineSourceText;
+  if (collapsedSummaryText) {
+    return { headline: collapsedSummaryText, hasTitle: true };
+  }
+  if (hasThinkingText) {
+    const derivedHeadline = deriveThinkingHeadlineFromContent(content);
+    if (derivedHeadline) {
+      return { headline: derivedHeadline, hasTitle: true };
+    }
+    return {
+      headline: "Summary unavailable. Expand to view full reasoning.",
+      hasTitle: false,
+    };
+  }
+  return {
+    headline: isStreaming ? "Thinking..." : "Reasoning complete.",
+    hasTitle: false,
+  };
+}
+
+function resolveStreamingThinkingHeadline({
+  content,
+  summary,
+}: {
+  content: string;
+  summary: string | null | undefined;
+}): string | null {
+  const summaryText = summary?.trim() ?? "";
+  const summaryHeadlineSourceText = (
+    summaryText.split(/\r?\n/u)[0] ?? ""
+  ).trim();
+  const normalizedSummaryText = summaryText.replace(/\s+/gu, " ").trim();
+  const normalizedThinkingText = content.replace(/\s+/gu, " ").trim();
+  const summaryLooksLikeThinking =
+    normalizedSummaryText.length > 0 &&
+    normalizedThinkingText.length > 0 &&
+    normalizedSummaryText === normalizedThinkingText;
+  if (summaryHeadlineSourceText.length > 0 && !summaryLooksLikeThinking) {
+    return summaryHeadlineSourceText;
+  }
+  return deriveThinkingHeadlineFromContent(content);
+}
+
+function resolveThinkingSummaryHeadline({
+  content,
+  summary,
+  isStreaming,
+}: {
+  content: string;
+  summary: string | null | undefined;
+  isStreaming: boolean;
+}): string {
+  if (isStreaming) {
+    return (
+      resolveStreamingThinkingHeadline({ content, summary }) ?? "Thinking..."
+    );
+  }
+  return resolveThinkingSummaryMeta({ content, summary, isStreaming }).headline;
+}
+
+function resolveCollapsedThinkingActivityLabel({
+  isStreaming,
+}: {
+  isStreaming: boolean;
+}): string {
+  return isStreaming ? "Thinking" : "Reasoning";
+}
+
+function resolveLatestThinkingSummary(
+  thinkingItems: ThinkingContentItem[],
+  isStreaming: boolean,
+): string {
+  const latestItem = thinkingItems[thinkingItems.length - 1];
+  if (!latestItem) {
+    return "No thoughts yet.";
+  }
+  return resolveThinkingSummaryHeadline({
+    content: latestItem.thinking,
+    summary: latestItem.summary,
+    isStreaming,
+  });
+}
+
+const SCRAMBLE_CHARSET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const SCRAMBLE_UPDATE_INTERVAL_MS = 120;
+const SCRAMBLE_REVEAL_DURATION_MS = 220;
+const SCRAMBLE_MAX_HOLD_MS = 240;
+
+function sampleScrambleChar(): string {
+  const index = Math.floor(Math.random() * SCRAMBLE_CHARSET.length);
+  return SCRAMBLE_CHARSET[index] ?? "X";
+}
+
+function buildScramblePlaceholder(length: number): string {
+  const chars: string[] = [];
+  for (let index = 0; index < length; index += 1) {
+    chars.push(sampleScrambleChar());
+  }
+  return chars.join("");
+}
+
+function buildScrambleRevealText({
+  targetText,
+  length,
+  revealCount,
+}: {
+  targetText: string;
+  length: number;
+  revealCount: number;
+}): string {
+  if (length <= 0) {
+    return "";
+  }
+  const chars: string[] = [];
+  for (let index = 0; index < length; index += 1) {
+    const targetChar = targetText[index];
+    if (index < revealCount && targetChar !== undefined) {
+      chars.push(targetChar);
+      continue;
+    }
+    if (targetChar === " ") {
+      chars.push(" ");
+      continue;
+    }
+    chars.push(sampleScrambleChar());
+  }
+  return chars.join("");
+}
+
+function useScrambledLabel({
+  label,
+  scramble,
+}: {
+  label: string;
+  scramble: boolean;
+}): string {
+  const [displayText, setDisplayText] = useState(label);
+  const displayRef = useRef(label);
+  const scrambleSeedRef = useRef(label.length > 0 ? label.length : 24);
+  const previousScrambleRef = useRef(scramble);
+
+  useEffect(() => {
+    displayRef.current = displayText;
+  }, [displayText]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      setDisplayText(label);
+      return;
+    }
+    let intervalId: number | null = null;
+    let frameId: number | null = null;
+    let holdTimeoutId: number | null = null;
+    if (scramble) {
+      scrambleSeedRef.current = Math.max(
+        18,
+        Math.min(64, displayRef.current.length || label.length || 24),
+      );
+      const updateScramble = () => {
+        setDisplayText(buildScramblePlaceholder(scrambleSeedRef.current));
+      };
+      updateScramble();
+      intervalId = window.setInterval(
+        updateScramble,
+        SCRAMBLE_UPDATE_INTERVAL_MS,
+      );
+      holdTimeoutId = window.setTimeout(() => {
+        if (!previousScrambleRef.current) {
+          return;
+        }
+        if (intervalId !== null) {
+          window.clearInterval(intervalId);
+          intervalId = null;
+        }
+        setDisplayText(label);
+      }, SCRAMBLE_MAX_HOLD_MS);
+      previousScrambleRef.current = true;
+      return () => {
+        if (intervalId !== null) {
+          window.clearInterval(intervalId);
+        }
+        if (holdTimeoutId !== null) {
+          window.clearTimeout(holdTimeoutId);
+        }
+      };
+    }
+    const wasScrambling = previousScrambleRef.current;
+    previousScrambleRef.current = false;
+    if (!wasScrambling) {
+      setDisplayText(label);
+      return undefined;
+    }
+    const startText = displayRef.current;
+    const startLength = startText.length;
+    const targetLength = label.length;
+    const durationMs = SCRAMBLE_REVEAL_DURATION_MS;
+    const startTs = window.performance.now();
+    const animate = (timestamp: number) => {
+      const progress = Math.min(1, (timestamp - startTs) / durationMs);
+      const nextLength = Math.max(
+        1,
+        Math.round(startLength + (targetLength - startLength) * progress),
+      );
+      const revealCount = Math.floor(targetLength * progress);
+      if (progress >= 1) {
+        setDisplayText(label);
+        return;
+      }
+      setDisplayText(
+        buildScrambleRevealText({
+          targetText: label,
+          length: nextLength,
+          revealCount,
+        }),
+      );
+      frameId = window.requestAnimationFrame(animate);
+    };
+    frameId = window.requestAnimationFrame(animate);
+    return () => {
+      if (frameId !== null) {
+        window.cancelAnimationFrame(frameId);
+      }
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+      if (holdTimeoutId !== null) {
+        window.clearTimeout(holdTimeoutId);
+      }
+    };
+  }, [label, scramble]);
+
+  return displayText;
+}
+
 function normalizeCountBadgeValue(value: number): number {
   if (!Number.isFinite(value)) {
     return 0;
@@ -1778,6 +2703,264 @@ const AnimatedCountBadgeValue = memo(function AnimatedCountBadgeValue({
   );
 });
 
+function parseIsoTimestampMs(value: string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+  return parsed;
+}
+
+type RunTimerStorageAdapter = {
+  getItem: (key: string) => string | null;
+  setItem: (key: string, value: string) => void;
+};
+
+type RunTimerSnapshot = {
+  startMs: number | null;
+  endMs: number | null;
+  hasBeenActive: boolean;
+};
+
+const RUN_TIMER_STORAGE_KEY_PREFIX = "setta.chat.runTimer.v1";
+const RUN_TIMER_MEMORY_FALLBACK = new Map<string, string>();
+const RUN_TIMER_STORAGE_PROBE_KEY = `${RUN_TIMER_STORAGE_KEY_PREFIX}.__probe__`;
+let cachedRunTimerStorageAdapter: RunTimerStorageAdapter | null | undefined;
+
+function getRunTimerStorageAdapter(): RunTimerStorageAdapter | null {
+  if (cachedRunTimerStorageAdapter !== undefined) {
+    return cachedRunTimerStorageAdapter;
+  }
+  if (typeof window === "undefined") {
+    cachedRunTimerStorageAdapter = {
+      getItem: (key) => RUN_TIMER_MEMORY_FALLBACK.get(key) ?? null,
+      setItem: (key, value) => {
+        RUN_TIMER_MEMORY_FALLBACK.set(key, value);
+      },
+    };
+    return cachedRunTimerStorageAdapter;
+  }
+  try {
+    const storage = window.localStorage;
+    storage.setItem(RUN_TIMER_STORAGE_PROBE_KEY, "1");
+    storage.removeItem(RUN_TIMER_STORAGE_PROBE_KEY);
+    cachedRunTimerStorageAdapter = {
+      getItem: (key) => storage.getItem(key),
+      setItem: (key, value) => {
+        storage.setItem(key, value);
+      },
+    };
+    return cachedRunTimerStorageAdapter;
+  } catch {
+    cachedRunTimerStorageAdapter = {
+      getItem: (key) => RUN_TIMER_MEMORY_FALLBACK.get(key) ?? null,
+      setItem: (key, value) => {
+        RUN_TIMER_MEMORY_FALLBACK.set(key, value);
+      },
+    };
+    return cachedRunTimerStorageAdapter;
+  }
+}
+
+function getRunTimerStorageKey(runKey: string): string {
+  return `${RUN_TIMER_STORAGE_KEY_PREFIX}.${runKey}`;
+}
+
+function readRunTimerSnapshot(runKey: string): RunTimerSnapshot | null {
+  const adapter = getRunTimerStorageAdapter();
+  if (!adapter) {
+    return null;
+  }
+  let raw: string | null = null;
+  try {
+    raw = adapter.getItem(getRunTimerStorageKey(runKey));
+  } catch {
+    return null;
+  }
+  if (!raw) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<RunTimerSnapshot>;
+    const startMs =
+      typeof parsed.startMs === "number" && Number.isFinite(parsed.startMs)
+        ? parsed.startMs
+        : null;
+    const endMs =
+      typeof parsed.endMs === "number" && Number.isFinite(parsed.endMs)
+        ? parsed.endMs
+        : null;
+    const hasBeenActive = parsed.hasBeenActive === true;
+    return { startMs, endMs, hasBeenActive };
+  } catch {
+    return null;
+  }
+}
+
+function writeRunTimerSnapshot(
+  runKey: string,
+  snapshot: RunTimerSnapshot,
+): void {
+  const adapter = getRunTimerStorageAdapter();
+  if (!adapter) {
+    return;
+  }
+  try {
+    adapter.setItem(getRunTimerStorageKey(runKey), JSON.stringify(snapshot));
+  } catch {
+    // Intentionally ignored: timer writes should never block UI updates.
+  }
+}
+
+function useRunElapsedDuration({
+  active,
+  startedAtMs,
+  completedAtMs,
+  runKey,
+}: {
+  active: boolean;
+  startedAtMs?: number | null;
+  completedAtMs?: number | null;
+  runKey?: string;
+}): { elapsedSeconds: number; elapsedMs: number; hasKnownDuration: boolean } {
+  const [, setTick] = useState(0);
+  const localStartMsRef = useRef<number | null>(null);
+  const finalizedEndMsRef = useRef<number | null>(null);
+  const hasBeenActiveRef = useRef(false);
+  const storageAvailableRef = useRef<boolean>(
+    getRunTimerStorageAdapter() !== null,
+  );
+
+  const persistSnapshot = useCallback(() => {
+    if (!storageAvailableRef.current || !runKey) {
+      return;
+    }
+    writeRunTimerSnapshot(runKey, {
+      startMs: localStartMsRef.current,
+      endMs: finalizedEndMsRef.current,
+      hasBeenActive: hasBeenActiveRef.current,
+    });
+  }, [runKey]);
+
+  useEffect(() => {
+    const nextRunKey = runKey ?? null;
+    localStartMsRef.current = null;
+    finalizedEndMsRef.current = null;
+    hasBeenActiveRef.current = false;
+    storageAvailableRef.current = getRunTimerStorageAdapter() !== null;
+    if (storageAvailableRef.current && nextRunKey) {
+      const persisted = readRunTimerSnapshot(nextRunKey);
+      if (persisted) {
+        localStartMsRef.current = persisted.startMs;
+        finalizedEndMsRef.current = persisted.endMs;
+        hasBeenActiveRef.current = persisted.hasBeenActive;
+      }
+    }
+    setTick((current) => current + 1);
+  }, [runKey]);
+
+  useEffect(() => {
+    if (typeof startedAtMs !== "number" || !Number.isFinite(startedAtMs)) {
+      return;
+    }
+    if (
+      localStartMsRef.current === null ||
+      startedAtMs < localStartMsRef.current
+    ) {
+      localStartMsRef.current = startedAtMs;
+      persistSnapshot();
+      setTick((current) => current + 1);
+    }
+  }, [persistSnapshot, startedAtMs]);
+
+  useEffect(() => {
+    if (!active) {
+      return undefined;
+    }
+    hasBeenActiveRef.current = true;
+    if (localStartMsRef.current === null) {
+      localStartMsRef.current =
+        typeof startedAtMs === "number" && Number.isFinite(startedAtMs)
+          ? startedAtMs
+          : Date.now();
+    }
+    finalizedEndMsRef.current = null;
+    persistSnapshot();
+    setTick((current) => current + 1);
+    const timer = window.setInterval(() => {
+      setTick((current) => current + 1);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [active, persistSnapshot, startedAtMs]);
+
+  useEffect(() => {
+    if (active) {
+      return;
+    }
+    const normalizedCompletedAtMs =
+      typeof completedAtMs === "number" && Number.isFinite(completedAtMs)
+        ? completedAtMs
+        : null;
+    if (normalizedCompletedAtMs !== null) {
+      finalizedEndMsRef.current = normalizedCompletedAtMs;
+      persistSnapshot();
+      setTick((current) => current + 1);
+      return;
+    }
+    if (hasBeenActiveRef.current && finalizedEndMsRef.current === null) {
+      finalizedEndMsRef.current = Date.now();
+      persistSnapshot();
+      setTick((current) => current + 1);
+    }
+  }, [active, completedAtMs, persistSnapshot]);
+
+  if (!runKey) {
+    return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: false };
+  }
+
+  const normalizedStartedAtMs =
+    typeof startedAtMs === "number" && Number.isFinite(startedAtMs)
+      ? startedAtMs
+      : null;
+  const startMs =
+    normalizedStartedAtMs ??
+    localStartMsRef.current ??
+    (active ? Date.now() : null);
+  if (startMs === null) {
+    return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: false };
+  }
+  if (active) {
+    const elapsedMs = Math.max(0, Date.now() - startMs);
+    const elapsedSeconds = Math.floor(elapsedMs / 1000);
+    return {
+      elapsedSeconds: Math.max(0, elapsedSeconds),
+      elapsedMs,
+      hasKnownDuration: true,
+    };
+  }
+  const normalizedCompletedAtMs =
+    typeof completedAtMs === "number" && Number.isFinite(completedAtMs)
+      ? completedAtMs
+      : null;
+  const endMs = normalizedCompletedAtMs ?? finalizedEndMsRef.current;
+  if (endMs === null) {
+    if (!hasBeenActiveRef.current) {
+      return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: false };
+    }
+    return { elapsedSeconds: 0, elapsedMs: 0, hasKnownDuration: true };
+  }
+  const elapsedMs = Math.max(0, endMs - startMs);
+  const elapsedSeconds = Math.floor(elapsedMs / 1000);
+  return {
+    elapsedSeconds: Math.max(0, elapsedSeconds),
+    elapsedMs,
+    hasKnownDuration: true,
+  };
+}
+
 function ChatImage({
   url,
   className,
@@ -1806,6 +2989,28 @@ function ChatImage({
 const TEXT_PREVIEW_MAX_BYTES = 256 * 1024;
 const TEXT_PREVIEW_CHAR_LIMIT = 4_000;
 const PDF_PREVIEW_MAX_BYTES = 10 * 1024 * 1024;
+
+function isAttachmentUrlStale(entry: AttachmentUrlEntry, now: number): boolean {
+  return entry.expiresAt <= now + ATTACHMENT_URL_REFRESH_BUFFER_MS;
+}
+
+function collectAttachments(
+  messages: Array<BaseChatMessageUnion>,
+): ChatFileAttachment[] {
+  const map = new Map<string, ChatFileAttachment>();
+  for (const message of messages) {
+    const attachments =
+      "attachments" in message && Array.isArray(message.attachments)
+        ? message.attachments
+        : [];
+    for (const attachment of attachments) {
+      if (!map.has(attachment.id)) {
+        map.set(attachment.id, attachment);
+      }
+    }
+  }
+  return Array.from(map.values());
+}
 
 function getAttachmentSizeLabel(attachment: ChatFileAttachment): string | null {
   if (attachment.size === null || attachment.size === undefined) {
@@ -4595,74 +5800,6 @@ const AssistantActionSection = memo(function AssistantActionSection({
       toolResult,
       toolCallArguments,
     });
-    const normalizedToolName = normalizeToolName(toolCall.function?.name);
-
-    if (normalizedToolName === APPROVAL_TOOL_NAME) {
-      const approvalPayload = parseApprovalPayload(argsToDisplay);
-      if (approvalPayload) {
-        const approvalToolName = normalizeToolName(approvalPayload.toolName);
-        if (approvalToolName === QUESTION_TOOL_NAME) {
-          const questionPayload = parseAskUserQuestionPayload(
-            approvalPayload.input,
-          );
-          if (questionPayload) {
-            const resolvedAnswers = resolveQuestionAnswers(
-              questionPayload,
-              toolResult,
-            );
-            return (
-              <div
-                key={entry.key}
-                className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-              >
-                <QuestionCard
-                  toolCallId={toolCall.id}
-                  payload={questionPayload}
-                  resolvedAnswers={resolvedAnswers}
-                />
-              </div>
-            );
-          }
-        }
-        return (
-          <div
-            key={entry.key}
-            className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-          >
-            <ApprovalCard
-              toolCallId={toolCall.id}
-              toolName={approvalPayload.toolName ?? null}
-              toolType={approvalPayload.toolType ?? null}
-              input={approvalPayload.input}
-              toolResult={toolResult}
-              isStreaming={toolEntry.isStreaming}
-            />
-          </div>
-        );
-      }
-    }
-
-    if (normalizedToolName === QUESTION_TOOL_NAME) {
-      const questionPayload = parseAskUserQuestionPayload(argsToDisplay);
-      if (questionPayload) {
-        const resolvedAnswers = resolveQuestionAnswers(
-          questionPayload,
-          toolResult,
-        );
-        return (
-          <div
-            key={entry.key}
-            className="border-b border-setta-200/60 last:border-b-0 dark:border-setta-700/60"
-          >
-            <QuestionCard
-              toolCallId={toolCall.id}
-              payload={questionPayload}
-              resolvedAnswers={resolvedAnswers}
-            />
-          </div>
-        );
-      }
-    }
 
     if (entry.kind === "action") {
       return (
@@ -4814,34 +5951,6 @@ function resolveToolCallSectionState(
     return "running";
   }
   return "complete";
-}
-
-function hasPendingInteractiveToolCall(
-  toolCalls: ToolCall[] | null | undefined,
-  toolResultsById: Record<string, ToolChatMessage>,
-): boolean {
-  if (!toolCalls || toolCalls.length === 0) {
-    return false;
-  }
-  return toolCalls.some((toolCall) => {
-    const normalizedName = normalizeToolName(toolCall.function?.name);
-    if (
-      normalizedName !== APPROVAL_TOOL_NAME &&
-      normalizedName !== QUESTION_TOOL_NAME
-    ) {
-      return false;
-    }
-    return !toolResultsById[toolCall.id];
-  });
-}
-
-function hasPendingInteractiveToolCallsInMessages(
-  messages: AssistantChatMessage[],
-  toolResultsById: Record<string, ToolChatMessage>,
-): boolean {
-  return messages.some((message) =>
-    hasPendingInteractiveToolCall(message.tool_calls ?? null, toolResultsById),
-  );
 }
 
 type ToolSectionTimingAnchors = {
@@ -5054,7 +6163,6 @@ const ToolCallSection = memo(function ToolCallSection({
   toolCount,
   latestToolLabel,
   sectionState,
-  defaultExpanded,
   startedAtMs,
   completedAtMs,
   runKey,
@@ -5063,7 +6171,6 @@ const ToolCallSection = memo(function ToolCallSection({
   toolCount: number;
   latestToolLabel: string;
   sectionState: ToolCallSectionState;
-  defaultExpanded?: boolean;
   startedAtMs: number | null;
   completedAtMs: number | null;
   runKey: string;
@@ -5078,12 +6185,7 @@ const ToolCallSection = memo(function ToolCallSection({
   );
   const title = "Tool calls";
   return (
-    <Accordion.Root
-      type="single"
-      collapsible
-      className="w-full"
-      defaultValue={defaultExpanded ? "tool-call-details" : undefined}
-    >
+    <Accordion.Root type="single" collapsible className="w-full">
       <Accordion.Item
         value="tool-call-details"
         className={TOOL_SECTION_CARD_CLASS}
@@ -5226,15 +6328,6 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
   });
 
   const sectionState = resolveToolCallSectionState(toolCallStates);
-  const defaultExpanded = entries.some(({ toolCall }) => {
-    if (toolResultsById[toolCall.id]) {
-      return false;
-    }
-    return Boolean(
-      toolCallContext.approvalPayloadById[toolCall.id] ||
-        toolCallContext.questionPayloadById[toolCall.id],
-    );
-  });
   const latestToolLabel =
     toolLabels.length > 0 ? toolLabels[toolLabels.length - 1] : "Tool activity";
   const { startedAtMs, completedAtMs } = resolveToolSectionTimingAnchors(
@@ -5248,7 +6341,6 @@ const AssistantToolCallSection = memo(function AssistantToolCallSection({
       toolCount={entries.length}
       latestToolLabel={latestToolLabel}
       sectionState={sectionState}
-      defaultExpanded={defaultExpanded}
       startedAtMs={startedAtMs}
       completedAtMs={completedAtMs}
       runKey={runKey}
@@ -5969,10 +7061,6 @@ const ChatMessage = memo(function ChatMessage({
       toolResultsById,
       toolCallArguments,
     });
-    const autoExpandPendingInteraction = hasPendingInteractiveToolCall(
-      message.tool_calls ?? null,
-      toolResultsById,
-    );
     const hasThinkingActivity = activityTimelineEntries.some(
       (entry) => entry.kind === "thinking",
     );
@@ -5996,9 +7084,7 @@ const ChatMessage = memo(function ChatMessage({
                   suppressActivityThoughtScroll ||
                   (isStreaming && hasMeaningfulDisplayItems)
                 }
-                defaultOpen={
-                  activityAccordionOpenByDefault || autoExpandPendingInteraction
-                }
+                defaultOpen={activityAccordionOpenByDefault}
                 defaultChildrenOpen={activityChildrenOpenByDefault}
                 conversationSearchTerms={conversationSearchTerms}
               >
@@ -6234,11 +7320,91 @@ function ChatMessages({
   const [editingBubbleWidthPx, setEditingBubbleWidthPx] = useState<
     number | null
   >(null);
-  const { attachmentUrlMap, requestAttachmentUrls } =
-    useChatMessageAttachmentUrls(messages);
+  const [attachmentUrlMap, setAttachmentUrlMap] = useState<
+    Record<string, AttachmentUrlEntry>
+  >({});
+  const attachmentUrlRequests = useRef<Set<string>>(new Set());
+  const allAttachments = useMemo(
+    () => collectAttachments(messages),
+    [messages],
+  );
   const toolResultsById = useMemo(
     () => buildToolResultMap(allMessages),
     [allMessages],
+  );
+  const requestAttachmentUrls = useCallback(
+    async (
+      targets: ChatFileAttachment[],
+      options: { force?: boolean } = {},
+    ) => {
+      if (targets.length === 0) {
+        return {};
+      }
+      const now = Date.now();
+      const pending = targets.filter((attachment) => {
+        const entry = attachmentUrlMap[attachment.id];
+        if (!options.force && entry && !isAttachmentUrlStale(entry, now)) {
+          return false;
+        }
+        if (
+          attachmentUrlRequests.current.has(attachment.id) &&
+          !options.force
+        ) {
+          return false;
+        }
+        return true;
+      });
+      if (pending.length === 0) {
+        return {};
+      }
+      for (const attachment of pending) {
+        attachmentUrlRequests.current.add(attachment.id);
+      }
+      const projectConfigId = getCurrProjectConfigId();
+      let entries: AttachmentUrlResponseEntry[] = [];
+      try {
+        const res = await route_get_attachment_download_urls({
+          artifactIds: pending.map((attachment) => attachment.id),
+          projectConfigId,
+        });
+        if (!res200(res)) {
+          const detail = getErrorDetail(res.data);
+          console.warn(
+            "Failed to load attachment URLs",
+            detail ?? pending.map((attachment) => attachment.id),
+          );
+          return {};
+        }
+        entries = res.data;
+      } catch (error) {
+        console.warn("Failed to load attachment URLs", error);
+        return {};
+      } finally {
+        for (const attachment of pending) {
+          attachmentUrlRequests.current.delete(attachment.id);
+        }
+      }
+      const nextEntries: Record<string, AttachmentUrlEntry> = {};
+      for (const entry of entries) {
+        if (
+          typeof entry.expiresAt !== "number" ||
+          !Number.isFinite(entry.expiresAt)
+        ) {
+          console.error("Attachment URL missing expiresAt", entry);
+          continue;
+        }
+        const expiresAt = entry.expiresAt * 1000;
+        nextEntries[entry.artifactId] = {
+          url: entry.url,
+          expiresAt,
+        };
+      }
+      if (Object.keys(nextEntries).length > 0) {
+        setAttachmentUrlMap((prev) => ({ ...prev, ...nextEntries }));
+      }
+      return nextEntries;
+    },
+    [attachmentUrlMap],
   );
 
   useEffect(() => {
@@ -6247,6 +7413,13 @@ function ChatMessages({
       setEditingBubbleWidthPx(null);
     }
   }, [waitingForResponse]);
+
+  useEffect(() => {
+    if (allAttachments.length === 0) {
+      return;
+    }
+    void requestAttachmentUrls(allAttachments);
+  }, [allAttachments, requestAttachmentUrls]);
   const output: ReactNode[] = [];
   const lastMessage = messages[messages.length - 1];
   let streamingMessageId: string | null = null;
@@ -6324,11 +7497,6 @@ function ChatMessages({
         toolResultsById,
         toolCallArguments,
       });
-      const autoExpandPendingInteraction =
-        hasPendingInteractiveToolCallsInMessages(
-          activityMessageContexts.map((context) => context.message),
-          toolResultsById,
-        );
       const activitySectionTiming = resolveActivitySectionTiming({
         timelineEntries,
         toolResultsById,
@@ -6393,10 +7561,7 @@ function ChatMessages({
                   suppressThoughtScrollAnimation={
                     suppressActivityThoughtScrollAnimation
                   }
-                  defaultOpen={
-                    activityAccordionOpenByDefault ||
-                    autoExpandPendingInteraction
-                  }
+                  defaultOpen={activityAccordionOpenByDefault}
                   defaultChildrenOpen={activityChildrenOpenByDefault}
                   conversationSearchTerms={conversationSearchTerms}
                 >
