@@ -153,22 +153,25 @@ def collect_definitions(
     return definitions, module_local_refs
 
 
+def should_traverse_python_subdir(base_dir: Path, dirname: str) -> bool:
+    if dirname in SKIP_DIR_NAMES:
+        return False
+    # Built/install helpers can create additional venvs with custom names
+    # (for example .venv_for_built_setta). Avoid scanning any virtualenv.
+    return not (base_dir / dirname / "pyvenv.cfg").is_file()
+
+
 def iter_python_files(root: Path) -> Iterator[Path]:
     for dirpath, dirnames, filenames in os.walk(root):
         base_dir = Path(dirpath)
-        filtered_dirnames: list[str] = []
-        for dirname in dirnames:
-            if dirname in SKIP_DIR_NAMES:
-                continue
-            # Built/install helpers can create additional venvs with custom names
-            # (for example .venv_for_built_setta). Avoid scanning any virtualenv.
-            if (base_dir / dirname / "pyvenv.cfg").is_file():
-                continue
-            filtered_dirnames.append(dirname)
-        dirnames[:] = filtered_dirnames
-        for filename in filenames:
-            if filename.endswith(".py"):
-                yield Path(dirpath, filename)
+        dirnames[:] = [
+            dirname
+            for dirname in dirnames
+            if should_traverse_python_subdir(base_dir, dirname)
+        ]
+        yield from (
+            base_dir / filename for filename in filenames if filename.endswith(".py")
+        )
 
 
 class UsageCollector(ast.NodeVisitor):
@@ -261,33 +264,45 @@ def collect_used_keys(
     return used_keys
 
 
+def print_removal_preview(removals: dict[Path, list[Definition]]) -> None:
+    for path, defs in sorted(removals.items()):
+        print(f"[dry-run] {path}: would remove {len(defs)} definitions")
+        for definition in sorted(defs, key=lambda d: d.start_line):
+            print(
+                f"    - {definition.name} "
+                f"(lines {definition.start_line}-{definition.end_line})"
+            )
+
+
+def definition_removal_span(
+    lines: list[str], definition: Definition
+) -> tuple[int, int]:
+    start_idx = max(definition.start_line - 1, 0)
+    end_idx = min(definition.end_line, len(lines))
+
+    # Remove trailing blank lines that immediately follow the block.
+    while end_idx < len(lines) and not lines[end_idx].strip():
+        end_idx += 1
+
+    return start_idx, end_idx
+
+
+def render_pruned_source(source: str, definitions: Iterable[Definition]) -> str:
+    lines = source.splitlines(keepends=True)
+    for definition in sorted(definitions, key=lambda d: d.start_line, reverse=True):
+        start_idx, end_idx = definition_removal_span(lines, definition)
+        del lines[start_idx:end_idx]
+    return "".join(lines).rstrip() + "\n"
+
+
 def apply_removals(removals: dict[Path, list[Definition]], *, dry_run: bool) -> None:
     if dry_run:
-        for path, defs in sorted(removals.items()):
-            print(f"[dry-run] {path}: would remove {len(defs)} definitions")
-            for definition in sorted(defs, key=lambda d: d.start_line):
-                print(
-                    f"    - {definition.name} "
-                    f"(lines {definition.start_line}-{definition.end_line})"
-                )
+        print_removal_preview(removals)
         return
 
     for path, defs in sorted(removals.items()):
-        lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
-        for definition in sorted(defs, key=lambda d: d.start_line, reverse=True):
-            start_idx = max(definition.start_line - 1, 0)
-            end_idx = min(definition.end_line, len(lines))
-
-            # Remove trailing blank lines that immediately follow the block.
-            temp_idx = end_idx
-            while temp_idx < len(lines) and not lines[temp_idx].strip():
-                temp_idx += 1
-            end_idx = temp_idx
-
-            del lines[start_idx:end_idx]
-
-        new_content = "".join(lines).rstrip() + "\n"
-        path.write_text(new_content, encoding="utf-8")
+        source = path.read_text(encoding="utf-8")
+        path.write_text(render_pruned_source(source, defs), encoding="utf-8")
         print(f"[prune-generated] Updated {path} ({len(defs)} definitions removed)")
 
 
