@@ -43,10 +43,6 @@ var (
 	pythonSharedSchemaModuleOnce sync.Once
 	pythonSharedSchemaModuleData datamodelModule
 	pythonSharedSchemaModuleErr  error
-
-	pythonSharedSchemaAliasExprsOnce sync.Once
-	pythonSharedSchemaAliasExprsMap  map[string]string
-	pythonSharedSchemaAliasExprsErr  error
 )
 
 func pythonSharedSchemaModule() (datamodelModule, error) {
@@ -144,38 +140,6 @@ func repoRootFromCaller() (string, error) {
 		return "", fmt.Errorf("python shared types: runtime caller lookup failed")
 	}
 	return filepath.Clean(filepath.Join(filepath.Dir(currentFile), "..", "..")), nil
-}
-
-func pythonSharedSchemaAliasExprs() (map[string]string, error) {
-	pythonSharedSchemaAliasExprsOnce.Do(func() {
-		pythonSharedSchemaAliasExprsMap, pythonSharedSchemaAliasExprsErr = buildPythonSharedSchemaAliasExprs()
-	})
-	if pythonSharedSchemaAliasExprsErr != nil {
-		return nil, pythonSharedSchemaAliasExprsErr
-	}
-	return pythonSharedSchemaAliasExprsMap, nil
-}
-
-func buildPythonSharedSchemaAliasExprs() (map[string]string, error) {
-	module, err := pythonSharedSchemaModule()
-	if err != nil {
-		return nil, err
-	}
-	aliases := map[string]string{}
-	for _, declaration := range module.Declarations {
-		if declaration.Kind != datamodelDeclarationKindType {
-			continue
-		}
-		name, expr, err := parseDatamodelTypeAliasBlock(strings.Split(declaration.Block, "\n"))
-		if err != nil {
-			return nil, err
-		}
-		if name == "" || datamodelAliasExprReferencesName(name, expr) {
-			continue
-		}
-		aliases[name] = expr
-	}
-	return aliases, nil
 }
 
 func pythonSharedSchemaDeclarations(
@@ -336,11 +300,6 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 		return "", nil, false, err
 	}
 
-	spec := contractSpec{
-		Name: contractName,
-		Kind: contractKindModel,
-		Type: ownerType,
-	}
 	imports := map[string]struct{}{}
 	changed := false
 	for index, line := range lines {
@@ -355,7 +314,8 @@ func applyPythonFieldMetadataToDatamodelClassBlock(
 			continue
 		}
 		renderedField, fieldImports, err := buildModelFieldSpec(
-			spec,
+			contractName,
+			ownerType,
 			field,
 			knownContractNames,
 			defaultSourcesByType,

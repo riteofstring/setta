@@ -16,17 +16,6 @@ type GeneratedTypes struct {
 	PythonModule string
 }
 
-type modelSpec struct {
-	Name            string
-	Fields          []fieldSpec
-	ExternalImports map[string]struct{}
-}
-
-type aliasSpec struct {
-	Name     string
-	TypeExpr string
-}
-
 type fieldSpec struct {
 	Name        string
 	TypeExpr    string
@@ -61,110 +50,22 @@ func Build() (GeneratedTypes, error) {
 		return GeneratedTypes{}, err
 	}
 
-	manualSpecs := manualContractSpecs(ctx.ContractSpecs, standardDeclarationNames)
-	manualAliases := missingStandardAliasSpecs(ctx.AliasSpecs, standardDeclarationNames)
-	knownContractNames := knownContractNameSetFromSidecar(ctx.Sidecar)
-	models, enums, externalImports, typingImports, needsDatetime, needsEnum, needsPydanticField, err := collectRenderedContractSpecs(
-		manualSpecs,
-		knownContractNames,
-		ctx.DefaultSourcesByType,
+	standardImports = appendUniqueImportLines(
+		standardImports,
+		pythonBlockImportLines(standardBlocks)...,
 	)
-	if err != nil {
-		return GeneratedTypes{}, err
-	}
-	models = sortModelSpecsByDependencies(models)
-	applyAliasRenderNeeds(manualAliases, typingImports, &needsDatetime)
-	if standardBlocksNeedPydanticField(standardBlocks) {
-		needsPydanticField = true
-	}
-	if standardBlocksNeedDatetime(standardBlocks) {
-		needsDatetime = true
-	}
+	standardImports = appendUniqueImportLines(
+		standardImports,
+		pythonRouteEnumImportLines(ctx.Sidecar, standardDeclarationNames)...,
+	)
+	standardBlocks = append(
+		standardBlocks,
+		pythonRouteEnumBlocks(ctx.Sidecar, standardDeclarationNames)...,
+	)
 
 	return GeneratedTypes{
-		PythonModule: renderGeneratedTypesModule(
-			standardImports,
-			standardBlocks,
-			enums,
-			models,
-			manualAliases,
-			externalImports,
-			typingImports,
-			needsEnum,
-			needsDatetime,
-			needsPydanticField,
-		),
+		PythonModule: renderGeneratedTypesModule(standardImports, standardBlocks),
 	}, nil
-}
-
-func buildModelSpec(
-	spec contractSpec,
-	knownContractNames map[string]struct{},
-) (modelSpec, error) {
-	ctx, err := buildGenerationContext()
-	if err != nil {
-		return modelSpec{}, err
-	}
-	return buildModelSpecWithDefaultSources(spec, knownContractNames, ctx.DefaultSourcesByType)
-}
-
-func knownContractNameSet(specs []contractSpec, aliases []aliasSpec) map[string]struct{} {
-	known := map[string]struct{}{}
-	for _, spec := range specs {
-		if strings.TrimSpace(spec.Name) == "" {
-			continue
-		}
-		known[spec.Name] = struct{}{}
-	}
-	for _, alias := range aliases {
-		if strings.TrimSpace(alias.Name) == "" {
-			continue
-		}
-		known[alias.Name] = struct{}{}
-	}
-	return known
-}
-
-func knownContractNameSetFromSidecar(sidecar sharedtypes.SemanticSidecar) map[string]struct{} {
-	known := map[string]struct{}{}
-	for _, entry := range sidecar.Contracts {
-		name := strings.TrimSpace(entry.Name)
-		if name == "" {
-			continue
-		}
-		known[name] = struct{}{}
-	}
-	return known
-}
-
-func contractSpecNameSet(specs []contractSpec) map[string]struct{} {
-	names := map[string]struct{}{}
-	for _, spec := range specs {
-		name := strings.TrimSpace(spec.Name)
-		if name == "" {
-			continue
-		}
-		names[name] = struct{}{}
-	}
-	return names
-}
-
-func manualContractSpecs(
-	specs []contractSpec,
-	standardDeclarationNames map[string]struct{},
-) []contractSpec {
-	manual := make([]contractSpec, 0, len(specs))
-	for _, spec := range specs {
-		name := strings.TrimSpace(spec.Name)
-		if name == "" {
-			continue
-		}
-		if _, present := standardDeclarationNames[name]; present {
-			continue
-		}
-		manual = append(manual, spec)
-	}
-	return manual
 }
 
 func pythonModelRequiresStandardFieldPatch(t reflect.Type) bool {
@@ -189,249 +90,18 @@ func pythonFieldRequiresStandardFieldPatch(field reflect.StructField) bool {
 	return false
 }
 
-func missingStandardAliasSpecs(
-	aliases []aliasSpec,
-	standardDeclarationNames map[string]struct{},
-) []aliasSpec {
-	missing := make([]aliasSpec, 0, len(aliases))
-	for _, alias := range aliases {
-		name := strings.TrimSpace(alias.Name)
-		if name == "" {
-			continue
-		}
-		if _, present := standardDeclarationNames[name]; present {
-			continue
-		}
-		missing = append(missing, alias)
-	}
-	return missing
-}
-
-func collectRenderedContractSpecs(
-	specs []contractSpec,
-	knownContractNames map[string]struct{},
-	defaultSourcesByType map[reflect.Type]reflect.Value,
-) ([]modelSpec, []contractSpec, map[string]struct{}, map[string]struct{}, bool, bool, bool, error) {
-	models := make([]modelSpec, 0, len(specs))
-	enums := make([]contractSpec, 0, len(specs))
-	externalImports := map[string]struct{}{}
-	typingImports := map[string]struct{}{}
-	needsDatetime := false
-	needsEnum := false
-	needsPydanticField := false
-
-	for _, spec := range specs {
-		model, isModel, err := renderedModelSpec(spec, knownContractNames, defaultSourcesByType)
-		if err != nil {
-			return nil, nil, nil, nil, false, false, false, err
-		}
-		if isModel {
-			models = append(models, model)
-			mergeImportSet(externalImports, model.ExternalImports)
-			recordFieldRenderNeeds(model.Fields, typingImports, &needsDatetime, &needsPydanticField)
-			continue
-		}
-		enumSpec, isEnum, err := renderedEnumSpec(spec)
-		if err != nil {
-			return nil, nil, nil, nil, false, false, false, err
-		}
-		if isEnum {
-			needsEnum = true
-			enums = append(enums, enumSpec)
-			continue
-		}
-		return nil, nil, nil, nil, false, false, false, fmt.Errorf(
-			"python shared types: unsupported contract kind %q",
-			spec.Kind,
-		)
-	}
-	return models, enums, externalImports, typingImports, needsDatetime, needsEnum, needsPydanticField, nil
-}
-
-func renderedEnumSpec(spec contractSpec) (contractSpec, bool, error) {
-	if spec.Kind != contractKindEnum {
-		return contractSpec{}, false, nil
-	}
-	if len(spec.EnumValues) == 0 {
-		return contractSpec{}, false, fmt.Errorf("python shared types: enum %s has no values", spec.Name)
-	}
-	return spec, true, nil
-}
-
-func renderedModelSpec(
-	spec contractSpec,
-	knownContractNames map[string]struct{},
-	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (modelSpec, bool, error) {
-	if spec.Kind != contractKindModel {
-		return modelSpec{}, false, nil
-	}
-	model, err := buildModelSpecWithDefaultSources(spec, knownContractNames, defaultSourcesByType)
-	if err != nil {
-		return modelSpec{}, false, err
-	}
-	return model, true, nil
-}
-
-func applyAliasRenderNeeds(
-	aliases []aliasSpec,
-	typingImports map[string]struct{},
-	needsDatetime *bool,
-) {
-	for _, alias := range aliases {
-		recordTypeExprRenderNeeds(alias.TypeExpr, typingImports, needsDatetime)
-	}
-}
-
-func recordFieldRenderNeeds(
-	fields []fieldSpec,
-	typingImports map[string]struct{},
-	needsDatetime *bool,
-	needsPydanticField *bool,
-) {
-	for _, field := range fields {
-		recordTypeExprRenderNeeds(field.TypeExpr, typingImports, needsDatetime)
-		if strings.Contains(field.DefaultExpr, "Field(") {
-			*needsPydanticField = true
-		}
-	}
-}
-
-func recordTypeExprRenderNeeds(
-	typeExpr string,
-	typingImports map[string]struct{},
-	needsDatetime *bool,
-) {
-	if strings.Contains(typeExpr, "Any") {
-		typingImports["Any"] = struct{}{}
-	}
-	if strings.Contains(typeExpr, "datetime") {
-		*needsDatetime = true
-	}
-}
-
 func renderGeneratedTypesModule(
-	standardImportLines []string,
-	standardBlocks []string,
-	enums []contractSpec,
-	models []modelSpec,
-	aliases []aliasSpec,
-	externalImports map[string]struct{},
-	typingImports map[string]struct{},
-	needsEnum bool,
-	needsDatetime bool,
-	needsPydanticField bool,
+	importLines []string,
+	blocks []string,
 ) string {
 	var builder strings.Builder
 	builder.WriteString("# Code generated by ./scripts/go.sh run ./cmd/setta-gen-python-shared-types -out backend/setta/types/generated/go_shared_types.py; DO NOT EDIT.\n")
 	builder.WriteString("\n")
 	builder.WriteString("from __future__ import annotations\n")
 	builder.WriteString("\n")
-	writeRawImportLines(&builder, standardImportLines)
-	writeStandardImports(&builder, typingImports, needsEnum, needsDatetime, needsPydanticField)
-	writeExternalImports(&builder, externalImports)
-	writePydanticBaseModel(&builder, len(models) > 0)
-	writeStandardSchemaBlocks(&builder, standardBlocks)
-	writeEnumSpecs(&builder, enums)
-	writeModelSpecs(&builder, models)
-	writeAliasSpecs(&builder, aliases)
+	writeRawImportLines(&builder, importLines)
+	writeStandardSchemaBlocks(&builder, blocks)
 	return builder.String()
-}
-
-func standardBlocksNeedPydanticField(blocks []string) bool {
-	for _, block := range blocks {
-		if strings.Contains(block, "Field(") {
-			return true
-		}
-	}
-	return false
-}
-
-func standardBlocksNeedDatetime(blocks []string) bool {
-	for _, block := range blocks {
-		if strings.Contains(block, "datetime") {
-			return true
-		}
-	}
-	return false
-}
-
-func writeStandardImports(
-	builder *strings.Builder,
-	typingImports map[string]struct{},
-	needsEnum bool,
-	needsDatetime bool,
-	needsPydanticField bool,
-) {
-	if needsEnum {
-		builder.WriteString("from enum import Enum\n")
-	}
-	if needsDatetime {
-		builder.WriteString("from datetime import datetime\n")
-	}
-	if len(typingImports) > 0 {
-		builder.WriteString("from typing import ")
-		builder.WriteString(strings.Join(sortedImportNames(typingImports), ", "))
-		builder.WriteString("\n")
-	}
-	builder.WriteString("from pydantic import BaseModel, ConfigDict")
-	if needsPydanticField {
-		builder.WriteString(", Field")
-	}
-	builder.WriteString("\n")
-	builder.WriteString("\n")
-}
-
-func writeExternalImports(builder *strings.Builder, externalImports map[string]struct{}) {
-	if len(externalImports) == 0 {
-		return
-	}
-	for _, line := range sortedImportNames(externalImports) {
-		builder.WriteString(line)
-		builder.WriteString("\n")
-	}
-	builder.WriteString("\n")
-}
-
-func writePydanticBaseModel(builder *strings.Builder, needed bool) {
-	if !needed {
-		return
-	}
-	builder.WriteString("class SettaSharedTypeModel(BaseModel):\n")
-	builder.WriteString("    model_config = ConfigDict(extra=\"forbid\")\n")
-	builder.WriteString("\n")
-}
-
-func writeEnumSpecs(builder *strings.Builder, enums []contractSpec) {
-	for _, enumSpec := range enums {
-		builder.WriteString("\n\n")
-		builder.WriteString("class ")
-		builder.WriteString(enumSpec.Name)
-		builder.WriteString("(str, Enum):\n")
-		for _, value := range enumSpec.EnumValues {
-			builder.WriteString("    ")
-			builder.WriteString(pythonEnumMemberName(value.Name))
-			builder.WriteString(" = ")
-			builder.WriteString(fmt.Sprintf("%q", value.Value))
-			builder.WriteString("\n")
-		}
-	}
-}
-
-func writeModelSpecs(builder *strings.Builder, models []modelSpec) {
-	for _, model := range models {
-		builder.WriteString("\n")
-		builder.WriteString("class ")
-		builder.WriteString(model.Name)
-		builder.WriteString("(SettaSharedTypeModel):\n")
-		if len(model.Fields) == 0 {
-			builder.WriteString("    pass\n")
-			continue
-		}
-		for _, field := range model.Fields {
-			builder.WriteString(renderFieldLine(field))
-		}
-	}
 }
 
 func writeRawImportLines(builder *strings.Builder, importLines []string) {
@@ -460,48 +130,81 @@ func writeStandardSchemaBlocks(builder *strings.Builder, blocks []string) {
 	}
 }
 
-func writeAliasSpecs(builder *strings.Builder, aliases []aliasSpec) {
-	for _, alias := range aliases {
-		builder.WriteString("\n\n")
-		builder.WriteString(alias.Name)
-		builder.WriteString(" = ")
-		builder.WriteString(alias.TypeExpr)
-		builder.WriteString("\n")
+func appendUniqueImportLines(base []string, extras ...string) []string {
+	out := append([]string(nil), base...)
+	seen := map[string]struct{}{}
+	for _, line := range out {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		seen[trimmed] = struct{}{}
 	}
+	for _, line := range extras {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		out = append(out, trimmed)
+	}
+	return out
 }
 
-func buildModelSpecWithDefaultSources(
-	spec contractSpec,
-	knownContractNames map[string]struct{},
-	defaultSourcesByType map[reflect.Type]reflect.Value,
-) (modelSpec, error) {
-	modelType := spec.Type
-	if modelType.Kind() != reflect.Struct {
-		return modelSpec{}, fmt.Errorf("python shared types: %s must be a struct", modelType)
-	}
-	model := modelSpec{
-		Name:            spec.Name,
-		Fields:          make([]fieldSpec, 0, modelType.NumField()),
-		ExternalImports: map[string]struct{}{},
-	}
-	for _, field := range visibleFields(modelType) {
-		resolvedField, fieldImports, err := buildModelFieldSpec(
-			spec,
-			field,
-			knownContractNames,
-			defaultSourcesByType,
-		)
-		if err != nil {
-			return modelSpec{}, err
+func pythonBlockImportLines(blocks []string) []string {
+	for _, block := range blocks {
+		for _, name := range referencedTypeNames(block) {
+			if name == "datetime" {
+				return []string{"from datetime import datetime"}
+			}
 		}
-		mergeImportSet(model.ExternalImports, fieldImports)
-		model.Fields = append(model.Fields, resolvedField)
 	}
-	return model, nil
+	return nil
+}
+
+func pythonRouteEnumImportLines(
+	sidecar sharedtypes.SemanticSidecar,
+	standardDeclarationNames map[string]struct{},
+) []string {
+	if len(pythonRouteEnumBlocks(sidecar, standardDeclarationNames)) == 0 {
+		return nil
+	}
+	return []string{"from enum import Enum"}
+}
+
+func pythonRouteEnumBlocks(
+	sidecar sharedtypes.SemanticSidecar,
+	standardDeclarationNames map[string]struct{},
+) []string {
+	if len(sidecar.Routes) == 0 {
+		return nil
+	}
+	if _, present := standardDeclarationNames["Route"]; present {
+		return nil
+	}
+
+	var builder strings.Builder
+	builder.WriteString("class Route(str, Enum):\n")
+	for _, route := range sidecar.Routes {
+		name := strings.TrimSpace(route.Name)
+		if name == "" {
+			continue
+		}
+		builder.WriteString("    ")
+		builder.WriteString(name)
+		builder.WriteString(" = ")
+		builder.WriteString(fmt.Sprintf("%q", route.Path))
+		builder.WriteString("\n")
+	}
+	return []string{builder.String()}
 }
 
 func buildModelFieldSpec(
-	spec contractSpec,
+	contractName string,
+	ownerType reflect.Type,
 	field reflect.StructField,
 	knownContractNames map[string]struct{},
 	defaultSourcesByType map[reflect.Type]reflect.Value,
@@ -510,7 +213,7 @@ func buildModelFieldSpec(
 	if err != nil {
 		return fieldSpec{}, nil, fmt.Errorf(
 			"python shared types: %s.%s: %w",
-			spec.Name,
+			contractName,
 			field.Name,
 			err,
 		)
@@ -519,7 +222,7 @@ func buildModelFieldSpec(
 	if err != nil {
 		return fieldSpec{}, nil, fmt.Errorf(
 			"python shared types: %s.%s: %w",
-			spec.Name,
+			contractName,
 			field.Name,
 			err,
 		)
@@ -529,17 +232,11 @@ func buildModelFieldSpec(
 	mergeImportSet(fieldImports, typeSpec.Imports)
 	importTag := strings.TrimSpace(field.Tag.Get("py_import"))
 	if importTag != "" {
-		for _, line := range strings.Split(importTag, "\n") {
-			trimmed := strings.TrimSpace(line)
-			if trimmed == "" {
-				continue
-			}
-			fieldImports[trimmed] = struct{}{}
-		}
+		mergePythonImportTagLines(fieldImports, importTag, knownContractNames)
 	}
 
 	defaultExpr, err := pythonDefaultExpr(
-		spec.Type,
+		ownerType,
 		field,
 		typeSpec.TypeExpr,
 		defaultSourcesByType,
@@ -547,7 +244,7 @@ func buildModelFieldSpec(
 	if err != nil {
 		return fieldSpec{}, nil, fmt.Errorf(
 			"python shared types: %s.%s: %w",
-			spec.Name,
+			contractName,
 			field.Name,
 			err,
 		)
@@ -583,168 +280,94 @@ func mergeImportSet(dst map[string]struct{}, src map[string]struct{}) {
 	}
 }
 
-func sortModelSpecsByDependencies(models []modelSpec) []modelSpec {
-	if len(models) < 2 {
-		return models
-	}
-
-	modelNames, originalOrder := indexedModelNames(models)
-	dependentsByName, inDegree := modelDependencyGraph(models, modelNames)
-	ready := readyModelNames(models, inDegree)
-
-	sorted := make([]modelSpec, 0, len(models))
-	seen := make(map[string]struct{}, len(models))
-	for len(ready) > 0 {
-		name := ready[0]
-		ready = ready[1:]
-		if _, alreadySeen := seen[name]; alreadySeen {
+func mergePythonImportTagLines(
+	dst map[string]struct{},
+	importTag string,
+	knownContractNames map[string]struct{},
+) {
+	for _, line := range strings.Split(importTag, "\n") {
+		filtered := filteredPythonImportLine(line, knownContractNames)
+		if filtered == "" {
 			continue
 		}
-		seen[name] = struct{}{}
-		sorted = append(sorted, models[originalOrder[name]])
-		ready = advanceReadyModelNames(ready, name, dependentsByName, inDegree, originalOrder)
+		dst[filtered] = struct{}{}
+	}
+}
+
+func filteredPythonImportLine(
+	line string,
+	knownContractNames map[string]struct{},
+) string {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return ""
+	}
+	if !strings.HasPrefix(trimmed, "from ") {
+		return trimmed
+	}
+	moduleAndNames := strings.TrimPrefix(trimmed, "from ")
+	module, imported, ok := strings.Cut(moduleAndNames, " import ")
+	if !ok {
+		return trimmed
+	}
+	if strings.TrimSpace(module) == "setta.types.generated.go_shared_types" {
+		return ""
 	}
 
-	if len(sorted) == len(models) {
-		return sorted
-	}
-
-	for _, model := range models {
-		if _, alreadySeen := seen[model.Name]; alreadySeen {
+	kept := make([]string, 0)
+	for _, part := range strings.Split(imported, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
 			continue
 		}
-		sorted = append(sorted, model)
-	}
-	return sorted
-}
-
-func indexedModelNames(models []modelSpec) (map[string]struct{}, map[string]int) {
-	modelNames := make(map[string]struct{}, len(models))
-	originalOrder := make(map[string]int, len(models))
-	for index, model := range models {
-		modelNames[model.Name] = struct{}{}
-		originalOrder[model.Name] = index
-	}
-	return modelNames, originalOrder
-}
-
-func modelDependencyGraph(
-	models []modelSpec,
-	modelNames map[string]struct{},
-) (map[string][]string, map[string]int) {
-	dependentsByName := make(map[string][]string, len(models))
-	inDegree := make(map[string]int, len(models))
-	for _, model := range models {
-		dependencies := referencedModelNames(model, modelNames)
-		inDegree[model.Name] = len(dependencies)
-		for dependency := range dependencies {
-			dependentsByName[dependency] = append(dependentsByName[dependency], model.Name)
+		name := part
+		if before, _, ok := strings.Cut(part, " as "); ok {
+			name = strings.TrimSpace(before)
 		}
-	}
-	return dependentsByName, inDegree
-}
-
-func readyModelNames(models []modelSpec, inDegree map[string]int) []string {
-	ready := make([]string, 0, len(models))
-	for _, model := range models {
-		if inDegree[model.Name] == 0 {
-			ready = append(ready, model.Name)
+		if _, local := knownContractNames[name]; local {
+			continue
 		}
+		if replacement := localPythonContractReplacement(name, knownContractNames); replacement != "" {
+			continue
+		}
+		kept = append(kept, part)
 	}
-	return ready
+	if len(kept) == 0 {
+		return ""
+	}
+	return fmt.Sprintf("from %s import %s", strings.TrimSpace(module), strings.Join(kept, ", "))
 }
 
-func advanceReadyModelNames(
-	ready []string,
+func normalizedPythonTypeOverride(
+	override string,
+	knownContractNames map[string]struct{},
+) string {
+	override = strings.TrimSpace(override)
+	if override == "" {
+		return ""
+	}
+	for _, name := range referencedTypeNames(override) {
+		replacement := localPythonContractReplacement(name, knownContractNames)
+		if replacement == "" {
+			continue
+		}
+		override = strings.ReplaceAll(override, name, replacement)
+	}
+	return override
+}
+
+func localPythonContractReplacement(
 	name string,
-	dependentsByName map[string][]string,
-	inDegree map[string]int,
-	originalOrder map[string]int,
-) []string {
-	for _, dependent := range dependentsByName[name] {
-		inDegree[dependent]--
-		if inDegree[dependent] == 0 {
-			ready = append(ready, dependent)
-		}
+	knownContractNames map[string]struct{},
+) string {
+	if !strings.HasSuffix(name, "WithDiscriminator") {
+		return ""
 	}
-	sort.SliceStable(ready, func(i int, j int) bool {
-		return originalOrder[ready[i]] < originalOrder[ready[j]]
-	})
-	return ready
-}
-
-func pruneModelSpecsWithResolvedReferences(
-	models []modelSpec,
-	enums []contractSpec,
-	aliases []aliasSpec,
-) []modelSpec {
-	if len(models) == 0 {
-		return nil
+	baseName := strings.TrimSuffix(name, "WithDiscriminator")
+	if _, ok := knownContractNames[baseName]; !ok {
+		return ""
 	}
-
-	current := append([]modelSpec(nil), models...)
-	for {
-		definedNames := map[string]struct{}{}
-		for _, enumSpec := range enums {
-			if strings.TrimSpace(enumSpec.Name) == "" {
-				continue
-			}
-			definedNames[enumSpec.Name] = struct{}{}
-		}
-		for _, alias := range aliases {
-			if strings.TrimSpace(alias.Name) == "" {
-				continue
-			}
-			definedNames[alias.Name] = struct{}{}
-		}
-		for _, model := range current {
-			if strings.TrimSpace(model.Name) == "" {
-				continue
-			}
-			definedNames[model.Name] = struct{}{}
-		}
-
-		next := make([]modelSpec, 0, len(current))
-		changed := false
-		for _, model := range current {
-			if modelHasUnresolvedTypeRefs(model, definedNames) {
-				changed = true
-				continue
-			}
-			next = append(next, model)
-		}
-		if !changed {
-			return current
-		}
-		current = next
-	}
-}
-
-func modelHasUnresolvedTypeRefs(
-	model modelSpec,
-	definedNames map[string]struct{},
-) bool {
-	externalNames := map[string]struct{}{}
-	for line := range model.ExternalImports {
-		for _, name := range pythonImportedNames(line) {
-			externalNames[name] = struct{}{}
-		}
-	}
-	for _, field := range model.Fields {
-		for _, name := range referencedTypeNames(field.TypeExpr) {
-			if pythonTypeNameIsBuiltin(name) {
-				continue
-			}
-			if _, ok := definedNames[name]; ok {
-				continue
-			}
-			if _, ok := externalNames[name]; ok {
-				continue
-			}
-			return true
-		}
-	}
-	return false
+	return baseName
 }
 
 func pythonTypeNameIsBuiltin(name string) bool {
@@ -754,24 +377,6 @@ func pythonTypeNameIsBuiltin(name string) bool {
 	default:
 		return false
 	}
-}
-
-func referencedModelNames(
-	model modelSpec,
-	knownModelNames map[string]struct{},
-) map[string]struct{} {
-	dependencies := make(map[string]struct{})
-	for _, field := range model.Fields {
-		for _, name := range referencedTypeNames(field.TypeExpr) {
-			if name == model.Name {
-				continue
-			}
-			if _, ok := knownModelNames[name]; ok {
-				dependencies[name] = struct{}{}
-			}
-		}
-	}
-	return dependencies
 }
 
 func referencedTypeNames(typeExpr string) []string {
@@ -918,6 +523,7 @@ func pythonTypeExprWithImports(
 	override string,
 	knownContractNames map[string]struct{},
 ) (pythonTypeSpec, error) {
+	override = normalizedPythonTypeOverride(override, knownContractNames)
 	if spec, ok := overridePythonTypeSpec(override); ok {
 		return spec, nil
 	}
@@ -1199,41 +805,4 @@ func pythonEnumMemberName(name string) string {
 		return name + "_"
 	}
 	return name
-}
-
-func aliasSpecsFromSharedSchema(sidecar sharedtypes.SemanticSidecar) ([]aliasSpec, error) {
-	aliasExprs, err := pythonSharedSchemaAliasExprs()
-	if err != nil {
-		return nil, err
-	}
-	aliases := make([]aliasSpec, 0, len(sidecar.Contracts))
-	seenNames := map[string]struct{}{}
-	for _, entry := range sidecar.Contracts {
-		name := strings.TrimSpace(entry.Name)
-		if name == "" {
-			continue
-		}
-		if _, duplicate := seenNames[name]; duplicate {
-			continue
-		}
-		typeExpr, ok := aliasExprs[name]
-		if !ok {
-			continue
-		}
-		aliases = append(aliases, aliasSpec{
-			Name:     name,
-			TypeExpr: typeExpr,
-		})
-		seenNames[name] = struct{}{}
-	}
-	return aliases, nil
-}
-
-func pythonSharedTypeHasSchemaAlias(t reflect.Type) (bool, error) {
-	aliasExprs, err := pythonSharedSchemaAliasExprs()
-	if err != nil {
-		return false, err
-	}
-	typeExpr, ok := aliasExprs[pythonSharedContractNameForType(t)]
-	return ok && strings.TrimSpace(typeExpr) != "", nil
 }

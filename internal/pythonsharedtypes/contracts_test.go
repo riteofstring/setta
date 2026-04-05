@@ -98,16 +98,7 @@ func TestPythonValueExprFromGoValueRendersRawProjectCodegenTargetSemantically(t 
 }
 
 func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
-	spec := contractSpec{
-		Name: reflect.TypeOf(projectview.ProjectConfig{}).Name(),
-		Kind: contractKindModel,
-		Type: reflect.TypeOf(projectview.ProjectConfig{}),
-	}
-
-	model, err := buildModelSpec(spec, map[string]struct{}{spec.Name: {}})
-	if err != nil {
-		t.Fatalf("buildModelSpec(...) error = %v", err)
-	}
+	ownerType := reflect.TypeOf(projectview.ProjectConfig{})
 
 	expectedCodegenTargets := "Field(default_factory=lambda: " + mustPythonValueExprFromGoValue(
 		"default project codegen targets",
@@ -115,23 +106,23 @@ func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
 			projectview.FrontendDefaultProjectCodegenPythonTarget(),
 		},
 	) + ")"
-	if got := defaultExprForField(t, model, "codegenTargets"); got != expectedCodegenTargets {
+	if got := defaultExprForTypeField(t, ownerType, "codegenTargets"); got != expectedCodegenTargets {
 		t.Fatalf("codegenTargets default = %q, want %q", got, expectedCodegenTargets)
 	}
 
-	if got := defaultExprForField(t, model, "allowJsonSourceKeyEdits"); got != "True" {
+	if got := defaultExprForTypeField(t, ownerType, "allowJsonSourceKeyEdits"); got != "True" {
 		t.Fatalf("allowJsonSourceKeyEdits default = %q, want %q", got, "True")
 	}
-	if got := defaultExprForField(t, model, "hasPythonCodegenTarget"); got != "False" {
+	if got := defaultExprForTypeField(t, ownerType, "hasPythonCodegenTarget"); got != "False" {
 		t.Fatalf("hasPythonCodegenTarget default = %q, want %q", got, "False")
 	}
-	if got := defaultExprForField(t, model, "previewImgColor"); got != `"bg-blue-500/60 dark:bg-blue-600/30"` {
+	if got := defaultExprForTypeField(t, ownerType, "previewImgColor"); got != `"bg-blue-500/60 dark:bg-blue-600/30"` {
 		t.Fatalf("previewImgColor default = %q, want canonical preview color", got)
 	}
-	if got := defaultExprForField(t, model, "viewport"); got != "Field(default_factory=lambda: Viewport(x=0.0, y=0.0, zoom=1.0))" {
+	if got := defaultExprForTypeField(t, ownerType, "viewport"); got != "Field(default_factory=lambda: Viewport(x=0.0, y=0.0, zoom=1.0))" {
 		t.Fatalf("viewport default = %q, want canonical go-backed viewport", got)
 	}
-	if got := defaultExprForField(t, model, "runCapabilities"); got != "Field(default_factory=lambda: ProjectRunCapabilities(canRunFromMain=False, mainRunDisabledReason=None, effectiveEntrySectionId=None))" {
+	if got := defaultExprForTypeField(t, ownerType, "runCapabilities"); got != "Field(default_factory=lambda: ProjectRunCapabilities(canRunFromMain=False, mainRunDisabledReason=None, effectiveEntrySectionId=None))" {
 		t.Fatalf("runCapabilities default = %q, want canonical go-backed run capabilities", got)
 	}
 	for _, fieldName := range []string{
@@ -140,7 +131,7 @@ func TestBuildModelSpecUsesGoValueDefaultsForProjectConfig(t *testing.T) {
 		"windowSpaceSlugsById",
 		"windowSpaceIdsBySlug",
 	} {
-		if got := defaultExprForField(t, model, fieldName); got != "Field(default_factory=dict)" {
+		if got := defaultExprForTypeField(t, ownerType, fieldName); got != "Field(default_factory=dict)" {
 			t.Fatalf("%s default = %q, want %q", fieldName, got, "Field(default_factory=dict)")
 		}
 	}
@@ -177,44 +168,22 @@ func TestDefaultSourcesFromSidecarPrefersPythonSharedProfile(t *testing.T) {
 }
 
 func TestBuildModelSpecUsesGoValueDefaultsForOwnerTypes(t *testing.T) {
-	typeErrorModel, err := buildModelSpec(contractSpec{
-		Name: pythonSharedContractNameForType(reflect.TypeOf(projectstate.TypeErrorIgnoreState{})),
-		Kind: contractKindModel,
-		Type: reflect.TypeOf(projectstate.TypeErrorIgnoreState{}),
-	}, map[string]struct{}{"TypeErrorIgnoreState": {}})
-	if err != nil {
-		t.Fatalf("buildModelSpec(TypeErrorIgnoreState) error = %v", err)
-	}
-	if got := defaultExprForField(t, typeErrorModel, "callable"); got != "False" {
+	typeErrorType := reflect.TypeOf(projectstate.TypeErrorIgnoreState{})
+	if got := defaultExprForTypeField(t, typeErrorType, "callable"); got != "False" {
 		t.Fatalf("callable default = %q, want %q", got, "False")
 	}
-	if got := defaultExprForField(t, typeErrorModel, "params"); got != "Field(default_factory=dict)" {
+	if got := defaultExprForTypeField(t, typeErrorType, "params"); got != "Field(default_factory=dict)" {
 		t.Fatalf("params default = %q, want %q", got, "Field(default_factory=dict)")
 	}
 
-	searchFiltersModel, err := buildModelSpec(contractSpec{
-		Name: pythonSharedContractNameForType(reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{})),
-		Kind: contractKindModel,
-		Type: reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}),
-	}, map[string]struct{}{"BrowserSavedSearchTypeFilters": {}})
-	if err != nil {
-		t.Fatalf("buildModelSpec(BrowserSavedSearchTypeFilters) error = %v", err)
-	}
+	searchFiltersType := reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{})
 	for _, fieldName := range []string{"image", "video", "audio", "text", "data"} {
-		if got := defaultExprForField(t, searchFiltersModel, fieldName); got != "True" {
+		if got := defaultExprForTypeField(t, searchFiltersType, fieldName); got != "True" {
 			t.Fatalf("%s default = %q, want %q", fieldName, got, "True")
 		}
 	}
 
-	llmConfigModel, err := buildModelSpec(contractSpec{
-		Name: pythonSharedContractNameForType(reflect.TypeOf(llmconfig.Config{})),
-		Kind: contractKindModel,
-		Type: reflect.TypeOf(llmconfig.Config{}),
-	}, map[string]struct{}{"LLMConfig": {}})
-	if err != nil {
-		t.Fatalf("buildModelSpec(LLMConfig) error = %v", err)
-	}
-	if got := defaultExprForField(t, llmConfigModel, "temporary"); got != "False" {
+	if got := defaultExprForTypeField(t, reflect.TypeOf(llmconfig.Config{}), "temporary"); got != "False" {
 		t.Fatalf("temporary default = %q, want %q", got, "False")
 	}
 }
@@ -233,15 +202,48 @@ func TestBuildUsesAuthoritativeSharedRouteInventory(t *testing.T) {
 	}
 }
 
-func defaultExprForField(t *testing.T, model modelSpec, fieldName string) string {
+func defaultExprForTypeField(t *testing.T, ownerType reflect.Type, fieldName string) string {
 	t.Helper()
-	for _, field := range model.Fields {
-		if field.Name == fieldName {
-			return field.DefaultExpr
-		}
+	field := fieldSpecForTypeField(t, ownerType, fieldName)
+	return field.DefaultExpr
+}
+
+func fieldSpecForTypeField(t *testing.T, ownerType reflect.Type, fieldName string) fieldSpec {
+	t.Helper()
+	ctx, err := buildGenerationContext()
+	if err != nil {
+		t.Fatalf("buildGenerationContext() error = %v", err)
 	}
-	t.Fatalf("field %q not found", fieldName)
-	return ""
+	knownContractNames := map[string]struct{}{}
+	for _, entry := range ctx.Sidecar.Contracts {
+		name := strings.TrimSpace(entry.Name)
+		if name == "" {
+			continue
+		}
+		knownContractNames[name] = struct{}{}
+	}
+	for _, candidate := range visibleFields(ownerType) {
+		jsonName, err := fieldJSONName(candidate)
+		if err != nil {
+			t.Fatalf("fieldJSONName(%s.%s) error = %v", ownerType, candidate.Name, err)
+		}
+		if jsonName != fieldName {
+			continue
+		}
+		resolvedField, _, err := buildModelFieldSpec(
+			pythonSharedContractNameForType(ownerType),
+			ownerType,
+			candidate,
+			knownContractNames,
+			ctx.DefaultSourcesByType,
+		)
+		if err != nil {
+			t.Fatalf("buildModelFieldSpec(%s.%s) error = %v", ownerType, candidate.Name, err)
+		}
+		return resolvedField
+	}
+	t.Fatalf("field %q not found on %s", fieldName, ownerType)
+	return fieldSpec{}
 }
 
 func pythonEnumValueIndex(values []enumValueSpec, target string) int {

@@ -18,66 +18,30 @@ func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
 		MimeType string `json:"mimeType,omitempty"`
 	}
 
-	model, err := buildModelSpec(contractSpec{
-		Name: "omitEmptyExample",
-		Kind: contractKindModel,
-		Type: reflect.TypeOf(omitEmptyExample{}),
-	}, map[string]struct{}{"omitEmptyExample": {}})
+	ownerType := reflect.TypeOf(omitEmptyExample{})
+	field, ok := ownerType.FieldByName("MimeType")
+	if !ok {
+		t.Fatalf("expected MimeType field")
+	}
+	resolvedField, _, err := buildModelFieldSpec(
+		"omitEmptyExample",
+		ownerType,
+		field,
+		map[string]struct{}{"omitEmptyExample": {}},
+		map[reflect.Type]reflect.Value{},
+	)
 	if err != nil {
-		t.Fatalf("buildModelSpec(...) error = %v", err)
+		t.Fatalf("buildModelFieldSpec(...) error = %v", err)
 	}
 
-	if len(model.Fields) != 2 {
-		t.Fatalf("field count = %d, want 2", len(model.Fields))
+	if resolvedField.Name != "mimeType" {
+		t.Fatalf("field.Name = %q, want %q", resolvedField.Name, "mimeType")
 	}
-	if model.Fields[1].Name != "mimeType" {
-		t.Fatalf("field[1].Name = %q, want %q", model.Fields[1].Name, "mimeType")
+	if resolvedField.TypeExpr != "str | None" {
+		t.Fatalf("field.TypeExpr = %q, want %q", resolvedField.TypeExpr, "str | None")
 	}
-	if model.Fields[1].TypeExpr != "str | None" {
-		t.Fatalf("field[1].TypeExpr = %q, want %q", model.Fields[1].TypeExpr, "str | None")
-	}
-	if model.Fields[1].DefaultExpr != "None" {
-		t.Fatalf("field[1].DefaultExpr = %q, want %q", model.Fields[1].DefaultExpr, "None")
-	}
-}
-
-func TestSortModelSpecsByDependencies(t *testing.T) {
-	t.Helper()
-
-	models := []modelSpec{
-		{
-			Name: "Chat",
-			Fields: []fieldSpec{
-				{Name: "llmConfig", TypeExpr: "LLMConfig"},
-				{Name: "branches", TypeExpr: "dict[str, ChatSectionBranch]"},
-			},
-		},
-		{
-			Name: "ChatSectionBranch",
-			Fields: []fieldSpec{
-				{Name: "messages", TypeExpr: "list[dict[str, Any]]"},
-			},
-		},
-		{
-			Name: "LLMConfig",
-			Fields: []fieldSpec{
-				{Name: "id", TypeExpr: "str"},
-			},
-		},
-	}
-
-	sorted := sortModelSpecsByDependencies(models)
-	if len(sorted) != 3 {
-		t.Fatalf("sorted len = %d, want 3", len(sorted))
-	}
-	if sorted[0].Name != "ChatSectionBranch" {
-		t.Fatalf("sorted[0].Name = %q, want %q", sorted[0].Name, "ChatSectionBranch")
-	}
-	if sorted[1].Name != "LLMConfig" {
-		t.Fatalf("sorted[1].Name = %q, want %q", sorted[1].Name, "LLMConfig")
-	}
-	if sorted[2].Name != "Chat" {
-		t.Fatalf("sorted[2].Name = %q, want %q", sorted[2].Name, "Chat")
+	if resolvedField.DefaultExpr != "None" {
+		t.Fatalf("field.DefaultExpr = %q, want %q", resolvedField.DefaultExpr, "None")
 	}
 }
 
@@ -154,6 +118,7 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 
 	output := generated.PythonModule
 	for _, snippet := range []string{
+		"from datetime import datetime",
 		"from mcp.types import EmbeddedResource, ImageContent, TextContent",
 		"from setta.types.id import ID, create_new_id",
 		"from setta.utils.generate_memorable_string import generate_memorable_string",
@@ -226,6 +191,10 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"class SystemChatMessage(SettaSharedTypeModel):",
 		"class ToolChatMessage(SettaSharedTypeModel):",
 		"class UserChatMessage(SettaSharedTypeModel):",
+		"from setta.types.artifact import BaseArtifactUnion",
+		"from setta.types.protocol import BaseDependencyKeyUnionWithDiscriminator",
+		"from setta.types.protocol import BaseDependencyValueUnion",
+		"from setta.types.generated.go_shared_types import BaseChatMessageUnion",
 	} {
 		if strings.Contains(output, snippet) {
 			t.Fatalf("generated output should not contain snippet %q", snippet)
