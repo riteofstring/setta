@@ -6,39 +6,26 @@ import { closeModal } from "state/actions/modal";
 import { addTemporaryNotification } from "state/actions/notifications";
 import { NULL_PROJECT_CONFIG_ID, useProjectState } from "state/definitions";
 import { buildSharePath } from "utils/constants";
-import { res200 } from "utils/endpointUtils";
+import { createDefaultSharePolicy } from "utils/deploymentPolicies";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import {
   route_check_if_file_exists,
   route_list_share_deployments,
   route_publish_share_deployment,
 } from "utils/generatedEndpoints";
 import type {
-  PublishShareDeploymentRequestInput,
-  ShareDeploymentMetadata,
-  SharePolicy,
+  CheckIfFileExistsResponse,
+  DeploymentMetadata,
+  PublishShareDeploymentRequest,
+  RunSnapshotMode,
 } from "utils/generatedTypes";
 import { createRandomName } from "utils/idNameCreation";
 
 type SharePolicyOverridesInput = NonNullable<
-  PublishShareDeploymentRequestInput["sharePolicyOverrides"]
+  PublishShareDeploymentRequest["sharePolicyOverrides"]
 >;
-type RunSnapshotMode = SharePolicy["runSnapshotMode"];
-
-const DEFAULT_RUN_SNAPSHOT_MODE: RunSnapshotMode = "ephemeral";
-
-function createDefaultPolicyOverrides(): SharePolicyOverridesInput {
-  return {
-    allowParamChanges: true,
-    allowVariantChanges: true,
-    allowLayoutChanges: true,
-    allowRun: false,
-    allowLLM: false,
-    allowExternalLinks: false,
-    allowFileDownloads: false,
-    allowMultipleRuns: true,
-    runSnapshotMode: DEFAULT_RUN_SNAPSHOT_MODE,
-  };
-}
+type CheckIfFileExistsRouteResponse =
+  ResponseDataAndStatus<CheckIfFileExistsResponse>;
 
 function createDefaultDeploymentName(): string {
   const baseName = createRandomName();
@@ -66,7 +53,7 @@ function storeListenerEntrypoint(value: string): void {
 export function PublishShareDeploymentModal({ open }: { open: boolean }) {
   const projectConfig = useProjectState((x) => x.projectConfig);
   const [policyOverrides, setPolicyOverrides] =
-    useState<SharePolicyOverridesInput>(createDefaultPolicyOverrides);
+    useState<SharePolicyOverridesInput>(createDefaultSharePolicy);
   const [listenerEntrypoint, setListenerEntrypoint] = useState(
     loadStoredListenerEntrypoint,
   );
@@ -75,9 +62,9 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     createDefaultDeploymentName,
   );
   const [publishedDeployment, setPublishedDeployment] =
-    useState<ShareDeploymentMetadata | null>(null);
+    useState<DeploymentMetadata | null>(null);
   const [recentDeployments, setRecentDeployments] = useState<
-    Array<ShareDeploymentMetadata>
+    Array<DeploymentMetadata>
   >([]);
   const [isPublishing, setIsPublishing] = useState(false);
   const [isLoadingRecent, setIsLoadingRecent] = useState(false);
@@ -103,9 +90,10 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     if (loadStoredListenerEntrypoint().trim().length > 0) {
       return;
     }
-    const res = await route_check_if_file_exists({
-      filepath: DEFAULT_LISTENER_ENTRYPOINT,
-    });
+    const res: CheckIfFileExistsRouteResponse =
+      await route_check_if_file_exists({
+        filepath: DEFAULT_LISTENER_ENTRYPOINT,
+      });
     if (res200(res) && res.data) {
       setListenerEntrypoint((current) => {
         if (current.trim().length > 0) {
@@ -129,7 +117,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
   }
 
   function resetForm(): void {
-    setPolicyOverrides(createDefaultPolicyOverrides());
+    setPolicyOverrides(createDefaultSharePolicy());
     setListenerEntrypoint(loadStoredListenerEntrypoint());
     setListenerEnabled(true);
     setDeploymentName(createDefaultDeploymentName());
@@ -160,14 +148,12 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
     setIsPublishing(true);
     setErrorMessage(null);
     const trimmedEntrypoint = listenerEntrypoint.trim();
-    const entrypointValue =
-      trimmedEntrypoint.length > 0 ? trimmedEntrypoint : null;
-    const payload: PublishShareDeploymentRequestInput = {
+    const payload: PublishShareDeploymentRequest = {
       deploymentName: resolvedDeploymentName,
       projectConfigId: projectConfig.id,
       sharePolicyOverrides: policyOverrides,
-      listenerEntrypoint: entrypointValue,
-      listenerEnabled: entrypointValue ? listenerEnabled : false,
+      listenerEntrypoint: trimmedEntrypoint,
+      listenerEnabled: trimmedEntrypoint.length > 0 ? listenerEnabled : false,
     };
 
     const res = await route_publish_share_deployment(payload);
@@ -283,7 +269,7 @@ export function PublishShareDeploymentModal({ open }: { open: boolean }) {
           <SelectRow
             label="Run snapshot mode"
             description="How run output should be stored."
-            value={policyOverrides.runSnapshotMode ?? DEFAULT_RUN_SNAPSHOT_MODE}
+            value={policyOverrides.runSnapshotMode}
             options={[
               { value: "ephemeral", label: "ephemeral" },
               { value: "always", label: "always" },
@@ -569,7 +555,7 @@ function RecentDeploymentList({
   onCopy,
   onOpen,
 }: {
-  deployments: Array<ShareDeploymentMetadata>;
+  deployments: Array<DeploymentMetadata>;
   isLoading: boolean;
   onCopy: (value: string) => void;
   onOpen: (value: string) => void;
@@ -652,7 +638,7 @@ function buildShareUrl(): string {
 
 function extractErrorMessage(
   status: number | undefined,
-  data: ShareDeploymentMetadata | undefined,
+  data: DeploymentMetadata | undefined,
 ): string {
   const payload = data as unknown;
   if (payload && typeof payload === "object") {
