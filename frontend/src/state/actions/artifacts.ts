@@ -22,8 +22,8 @@ import {
   DrawAreaLayerItemTransformArtifact,
   FileArtifact,
   ImageArtifact,
-  SettaNotificationTypeEnum,
-  UpdateArtifactMsgContent,
+  NotificationTypeEnum,
+  UpdateArtifactsRequest,
 } from "utils/generatedTypes";
 
 type ArtifactByType =
@@ -32,6 +32,11 @@ type ArtifactByType =
   | DrawAreaLayerItemTransformArtifact
   | ChartDataArtifact
   | FileArtifact;
+
+type UpdateArtifactsContent = {
+  artifacts: UpdateArtifactsRequest["artifacts"];
+  updateType: "update" | "delete";
+};
 
 type StoreUpdate<T extends ArtifactByType> = {
   next: Record<string, T>;
@@ -96,7 +101,7 @@ function createStoreUpdate<T extends ArtifactByType>(
 function applyUpdate<T extends ArtifactByType>(
   storeUpdate: StoreUpdate<T>,
   artifact: T,
-  updateType: UpdateArtifactMsgContent["updateType"],
+  updateType: UpdateArtifactsContent["updateType"],
 ) {
   if (updateType === "delete") {
     if (artifact.id in storeUpdate.next) {
@@ -113,7 +118,7 @@ function applyUpdate<T extends ArtifactByType>(
   }
 }
 
-export function updateArtifacts(artifactUpdate: UpdateArtifactMsgContent) {
+export function updateArtifacts(artifactUpdate: UpdateArtifactsContent) {
   if (!artifactUpdate.artifacts || artifactUpdate.artifacts.length === 0) {
     return;
   }
@@ -283,10 +288,7 @@ async function flushPendingArtifacts(force = false) {
           if (result.status === "conflict" || result.status === "skipped") {
             const message =
               result.message || `Conflict detected while saving ${result.id}.`;
-            addTemporaryNotification(
-              message,
-              SettaNotificationTypeEnum.warning,
-            );
+            addTemporaryNotification(message, NotificationTypeEnum.warning);
           }
         }
       }

@@ -17,7 +17,6 @@ import {
 import {
   clearChatStreamActive,
   isChatStreamActive,
-  isSectionStreamActive,
   markChatStreamActive,
   recordFinalizedMessage,
   shouldPersistOnMessageStop,
@@ -36,12 +35,9 @@ import {
   useAppPreview,
   useProjectState,
   useToolArgumentPreview,
-  type ZustandProjectState,
 } from "state/definitions";
 import {
-  buildChatAppGenerationDetails,
   collectChatAppGenerationDetailsByChatId,
-  deserializeChatAppGenerationByMessageId,
   getDefaultChatAppGenerationDetails,
   mergeChatAppGenerationDetails,
   mergeChatAppGenerationDetailsByChatId,
@@ -71,18 +67,17 @@ import {
   route_get_external_agent_chat,
   route_get_external_agent_configs,
   route_get_external_agent_health,
-  route_get_llm_api_keys,
   route_get_llm_chat,
   route_get_llm_config,
   route_get_llm_response,
+  route_get_llmapi_keys,
   route_get_prompt_templates,
   route_get_transcription_profiles,
   route_respond_external_agent_approval,
   route_respond_external_agent_question,
   route_set_chat_section_chat_id,
-  route_set_chat_section_state,
-  route_set_llm_api_keys,
   route_set_llm_config,
+  route_set_llmapi_keys,
   route_start_transcription_session,
   route_stop_external_agent_run,
   route_stop_llm_chat,
@@ -96,9 +91,7 @@ import {
 import {
   AgentProfile,
   AgentRun,
-  AgentRunStatusEnum,
-  AllLLMConfigs,
-  APIKeys,
+  AllConfigs,
   AppDefinition,
   AssistantChatMessage,
   BaseChatMessageUnion,
@@ -106,55 +99,69 @@ import {
   ChatPermissionMode,
   ChatPermissionModeEnum,
   ChatRoleEnum,
-  ChatSectionBranch,
   ChatSectionState,
-  CreateAgentProfileRequestInput,
-  CreateExternalAgentConfigRequestInput,
+  CreateAgentProfileRequest,
+  CreateExternalAgentConfigRequest,
   createMessageTextContent,
-  createMessageThinkingContent,
-  CreatePromptTemplateRequestInput,
-  CreateTranscriptionProfileRequestInput,
-  DeleteAgentProfileRequestInput,
-  DeleteExternalAgentConfigRequestInput,
-  DeletePromptTemplateRequestInput,
-  DeleteTranscriptionProfileRequestInput,
+  CreatePromptTemplateRequest,
+  CreateTranscriptionProfileRequest,
+  DeleteAgentProfileRequest,
+  DeleteExternalAgentConfigRequest,
+  DeletePromptTemplateRequest,
+  DeleteTranscriptionProfileRequest,
   EngineConfig,
+  ExternalAgentChatResponse,
   ExternalAgentConfig,
   ExternalAgentPreflightStatus,
-  LLMStreamingResponse,
+  LLMAPIKeysSnapshot,
+  LLMChatResponse,
+  LLMStreamingResponseContent,
   MessageDeltaEvent,
   MessageFinalizedEvent,
-  MessageImageUrlContent,
   MessageStartEvent,
-  MessageTextContent,
-  MessageThinkingContent,
-  PromptTemplate,
-  SectionTypeEnum,
-  SettaNotificationTypeEnum,
+  NotificationTypeEnum,
+  RunStatusEnum,
   StartTranscriptionSessionResponse,
+  StopLLMChatResponse,
   StreamingEventTypeEnum,
+  Template,
   ToolArgumentPreviewDeltaEvent,
-  ToolCall,
   ToolCallDeltaEvent,
   ToolChatMessage,
   ToolResultEvent,
   TranscriptionProfile,
   TranscriptionSessionDeltaResponse,
-  UpdateAgentProfileRequestInput,
-  UpdateEngineConfigRequestInput,
-  UpdateExternalAgentConfigRequestInput,
-  UpdatePromptTemplateRequestInput,
-  UpdateTranscriptionProfileRequestInput,
+  UpdateAgentProfileRequest,
+  UpdateEngineConfigRequest,
+  UpdateExternalAgentConfigRequest,
+  UpdatePromptTemplateRequest,
+  UpdateTranscriptionProfileRequest,
 } from "utils/generatedTypes";
 import { createNewId } from "utils/idNameCreation";
 import { ProviderTranscriptionError } from "utils/transcriptionErrors";
 import { getRunInputString, getRunLastUpdatedMs } from "./agentRunUtils";
 import { extractAgenticScopeViolation } from "./agenticScopeViolation";
 import { buildEditedMessageHistory } from "./chatBranches";
+import { applyHydratedChatDetailsToStore } from "./chatDetailsAuthority";
 import {
-  mergeChatMessages,
-  reconcileHydratedChatMessages,
-} from "./chatMergeUtils";
+  applyHydratedChatDetailsToSectionState,
+  persistChatSectionState,
+} from "./chatSectionAuthority";
+import {
+  applyChatSectionStreamDelta,
+  resolveSectionIdForChatId,
+} from "./chatSectionStreaming";
+import {
+  applyStreamDeltaToChatDetails,
+  createToolCallPlaceholder,
+  resolveFinalizedAssistantMessageUpdate,
+  shouldIgnoreResponsePlaceholderChunk,
+  updateMessageById,
+} from "./chatStreamState";
+
+type APIKeys = LLMAPIKeysSnapshot["apiKeys"];
+
+export { persistChatSectionState };
 
 const scopeViolationToastTimeouts = new Map<
   string,
@@ -175,13 +182,6 @@ const MANAGED_API_KEYS_UNAVAILABLE_ERROR_CODE =
 const AGENT_RUNS_RETRY_DELAYS_MS = [300, 1000, 2500] as const;
 
 type APIKeysMutation = (currentApiKeys: APIKeys) => APIKeys;
-type ManagedAPIKeysSnapshotPayload = {
-  apiKeys: APIKeys;
-  revision: number;
-  corrupt?: boolean;
-  errorCode?: string | null;
-  message?: string | null;
-};
 
 type ChatExecutionSettings = {
   permissionMode: ChatPermissionMode;
@@ -251,7 +251,7 @@ export async function appendTranscriptionAudio(
   return res.data;
 }
 
-export async function stopTranscriptionSession(
+async function stopTranscriptionSession(
   sessionId: string,
   options: TranscriptionRequestOptions = {},
 ): Promise<TranscriptionSessionDeltaResponse | null> {
@@ -265,9 +265,7 @@ export async function stopTranscriptionSession(
   return res.data;
 }
 
-export async function cancelTranscriptionSession(
-  sessionId: string,
-): Promise<boolean> {
+async function cancelTranscriptionSession(sessionId: string): Promise<boolean> {
   if (!sessionId) {
     return true;
   }
@@ -316,7 +314,7 @@ function handleTranscriptionEndpointError(
     status: responseStatus,
   });
   if (!options.suppressNotification) {
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(detail, NotificationTypeEnum.warning);
   }
   if (options.throwOnError) {
     throw error;
@@ -648,8 +646,8 @@ export async function loadLLMConfig() {
 }
 
 export async function saveLLMConfig(
-  config: AllLLMConfigs,
-): Promise<AllLLMConfigs | null> {
+  config: AllConfigs,
+): Promise<AllConfigs | null> {
   const res = await route_set_llm_config(config);
   if (!res200(res)) {
     useAIStore.setState({
@@ -748,7 +746,7 @@ export async function loadLLMApiKeys() {
     return;
   }
   llmApiKeysLoadPromise = (async () => {
-    const res = await route_get_llm_api_keys();
+    const res = await route_get_llmapi_keys();
     if (res200(res)) {
       receiveLLMApiKeysSnapshotUpdate(res.data);
       return;
@@ -762,7 +760,7 @@ export async function loadLLMApiKeys() {
   }
 }
 
-export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
+export function receiveLLMConfigUpdate(payload: AllConfigs) {
   useAIStore.setState({
     allLLMConfigs: payload,
     allLLMConfigsInitialLoadComplete: true,
@@ -770,9 +768,7 @@ export function receiveLLMConfigUpdate(payload: AllLLMConfigs) {
   });
 }
 
-export function receiveLLMApiKeysSnapshotUpdate(
-  payload: ManagedAPIKeysSnapshotPayload,
-) {
+export function receiveLLMApiKeysSnapshotUpdate(payload: LLMAPIKeysSnapshot) {
   const isCorrupt =
     payload.corrupt === true ||
     payload.errorCode === MANAGED_API_KEYS_CORRUPT_ERROR_CODE;
@@ -810,7 +806,7 @@ function extractApiKeysRevisionFromErrorPayload(value: unknown): number | null {
 }
 
 async function refreshLLMApiKeysSnapshotFromServer(): Promise<boolean> {
-  const res = await route_get_llm_api_keys();
+  const res = await route_get_llmapi_keys();
   if (res200(res)) {
     receiveLLMApiKeysSnapshotUpdate(res.data);
     return true;
@@ -826,7 +822,7 @@ async function persistLLMApiKeysMutation(
   for (let retryCount = 0; retryCount < MAX_RETRIES; retryCount += 1) {
     const state = useAIStore.getState();
     const nextApiKeys = mutation(state.apiKeys);
-    const res = await route_set_llm_api_keys({
+    const res = await route_set_llmapi_keys({
       apiKeys: nextApiKeys,
       expectedRevision: state.apiKeysRevision,
     });
@@ -1059,7 +1055,7 @@ export async function loadPromptTemplates(force: boolean = false) {
   }
 }
 
-export function receivePromptTemplatesUpdate(payload: Array<PromptTemplate>) {
+export function receivePromptTemplatesUpdate(payload: Array<Template>) {
   useAIStore.setState({
     promptTemplates: payload,
     promptTemplatesInitialLoadComplete: true,
@@ -1212,7 +1208,7 @@ function removeById<T extends HasId>(items: Array<T>, id: string): Array<T> {
 }
 
 export async function createAgentProfile(
-  payload: CreateAgentProfileRequestInput,
+  payload: CreateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
   const res = await route_create_agent_profile(payload);
   if (!res200(res)) {
@@ -1231,7 +1227,7 @@ export async function createAgentProfile(
 }
 
 export async function updateAgentProfile(
-  payload: UpdateAgentProfileRequestInput,
+  payload: UpdateAgentProfileRequest,
 ): Promise<AgentProfile | null> {
   const res = await route_update_agent_profile(payload);
   if (!res200(res)) {
@@ -1250,7 +1246,7 @@ export async function updateAgentProfile(
 }
 
 export async function deleteAgentProfile(
-  payload: DeleteAgentProfileRequestInput,
+  payload: DeleteAgentProfileRequest,
 ): Promise<boolean> {
   const res = await route_delete_agent_profile(payload);
   if (!res200(res)) {
@@ -1268,7 +1264,7 @@ export async function deleteAgentProfile(
 }
 
 export async function updateEngineConfig(
-  payload: UpdateEngineConfigRequestInput,
+  payload: UpdateEngineConfigRequest,
 ): Promise<EngineConfig | null> {
   const res = await route_update_engine_config(payload);
   if (!res200(res)) {
@@ -1287,7 +1283,7 @@ export async function updateEngineConfig(
 }
 
 export async function createTranscriptionProfile(
-  payload: CreateTranscriptionProfileRequestInput,
+  payload: CreateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
   const res = await route_create_transcription_profile(payload);
   if (!res200(res)) {
@@ -1306,7 +1302,7 @@ export async function createTranscriptionProfile(
 }
 
 export async function updateTranscriptionProfile(
-  payload: UpdateTranscriptionProfileRequestInput,
+  payload: UpdateTranscriptionProfileRequest,
 ): Promise<TranscriptionProfile | null> {
   const res = await route_update_transcription_profile(payload);
   if (!res200(res)) {
@@ -1325,7 +1321,7 @@ export async function updateTranscriptionProfile(
 }
 
 export async function deleteTranscriptionProfile(
-  payload: DeleteTranscriptionProfileRequestInput,
+  payload: DeleteTranscriptionProfileRequest,
 ): Promise<boolean> {
   const res = await route_delete_transcription_profile(payload);
   if (!res200(res)) {
@@ -1350,8 +1346,8 @@ export async function deleteTranscriptionProfile(
 }
 
 export async function createPromptTemplate(
-  payload: CreatePromptTemplateRequestInput,
-): Promise<PromptTemplate | null> {
+  payload: CreatePromptTemplateRequest,
+): Promise<Template | null> {
   const res = await route_create_prompt_template(payload);
   if (!res200(res)) {
     useAIStore.setState({
@@ -1369,8 +1365,8 @@ export async function createPromptTemplate(
 }
 
 export async function updatePromptTemplate(
-  payload: UpdatePromptTemplateRequestInput,
-): Promise<PromptTemplate | null> {
+  payload: UpdatePromptTemplateRequest,
+): Promise<Template | null> {
   const res = await route_update_prompt_template(payload);
   if (!res200(res)) {
     useAIStore.setState({
@@ -1388,7 +1384,7 @@ export async function updatePromptTemplate(
 }
 
 export async function deletePromptTemplate(
-  payload: DeletePromptTemplateRequestInput,
+  payload: DeletePromptTemplateRequest,
 ): Promise<boolean> {
   const res = await route_delete_prompt_template(payload);
   if (!res200(res)) {
@@ -1406,7 +1402,7 @@ export async function deletePromptTemplate(
 }
 
 export async function createExternalAgentConfig(
-  payload: CreateExternalAgentConfigRequestInput,
+  payload: CreateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
   const res = await route_create_external_agent_config(payload);
   if (!res200(res)) {
@@ -1425,7 +1421,7 @@ export async function createExternalAgentConfig(
 }
 
 export async function updateExternalAgentConfig(
-  payload: UpdateExternalAgentConfigRequestInput,
+  payload: UpdateExternalAgentConfigRequest,
 ): Promise<ExternalAgentConfig | null> {
   const res = await route_update_external_agent_config(payload);
   if (!res200(res)) {
@@ -1444,7 +1440,7 @@ export async function updateExternalAgentConfig(
 }
 
 export async function deleteExternalAgentConfig(
-  payload: DeleteExternalAgentConfigRequestInput,
+  payload: DeleteExternalAgentConfigRequest,
 ): Promise<boolean> {
   const res = await route_delete_external_agent_config(payload);
   if (!res200(res)) {
@@ -1895,13 +1891,13 @@ async function stopExternalChatResponse({
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
-    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
     return false;
   }
   const response = await route_stop_external_agent_run({ runId });
   if (res200(response)) {
     void loadAgentRuns();
-    if (response.data?.status === AgentRunStatusEnum.cancelled) {
+    if (response.data?.status === RunStatusEnum.cancelled) {
       applyConfirmedExternalStopInterruption(chatId, localSnapshot);
       return true;
     }
@@ -1914,7 +1910,7 @@ async function stopExternalChatResponse({
     if (!refreshState.hydrated) {
       restoreStoppedChatResponseLocally(chatId, localSnapshot);
     }
-    addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
     return false;
   }
   const refreshState = await refreshChatAndResolveWaiting();
@@ -1927,7 +1923,7 @@ async function stopExternalChatResponse({
   if (!refreshState.hydrated) {
     restoreStoppedChatResponseLocally(chatId, localSnapshot);
   }
-  addTemporaryNotification(failureMessage, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(failureMessage, NotificationTypeEnum.warning);
   return false;
 }
 
@@ -1938,13 +1934,7 @@ function reconcileStoppedLLMChatOutcome({
 }: {
   chatId: string;
   localSnapshot: StopChatResponseSnapshot;
-  stopOutcome:
-    | {
-        alreadyStopped: boolean;
-        stoppedMessageId: string | null;
-      }
-    | null
-    | undefined;
+  stopOutcome: StopLLMChatResponse | null | undefined;
 }): void {
   if (!stopOutcome) {
     return;
@@ -2020,7 +2010,7 @@ export async function stopProjectChatResponse(
   }
   addTemporaryNotification(
     "Failed to stop project chat.",
-    SettaNotificationTypeEnum.warning,
+    NotificationTypeEnum.warning,
   );
   return false;
 }
@@ -2073,83 +2063,9 @@ export async function stopManagedSectionChatResponse(
   }
   addTemporaryNotification(
     "Failed to stop section chat.",
-    SettaNotificationTypeEnum.warning,
+    NotificationTypeEnum.warning,
   );
   return false;
-}
-
-function mergeChatSectionState(
-  currentState: ChatSectionState,
-  incoming: {
-    messages: Array<BaseChatMessageUnion>;
-    waitingForResponse: boolean;
-    toolCallArguments: Record<string, string>;
-  },
-  preserveWaitingForResponse: boolean,
-): ChatSectionState {
-  const mergedMessages = reconcileHydratedChatMessages({
-    backendMessages: incoming.messages ?? [],
-    localMessages: currentState.messages ?? [],
-    // Preserve local-only activity rows so thought/tool sequencing is not
-    // flattened by a hydration refresh while the local stream is still active.
-    preserveLocalOnlyMessages: preserveWaitingForResponse,
-  });
-  const nextWaitingForResponse = preserveWaitingForResponse
-    ? Boolean(incoming.waitingForResponse || currentState.waitingForResponse)
-    : Boolean(incoming.waitingForResponse);
-  const nextToolCallArguments = preserveWaitingForResponse
-    ? {
-        ...(currentState.toolCallArguments ?? {}),
-        ...(incoming.toolCallArguments ?? {}),
-      }
-    : { ...(incoming.toolCallArguments ?? {}) };
-  return {
-    messages: mergedMessages,
-    inputText: currentState.inputText ?? "",
-    waitingForResponse: nextWaitingForResponse,
-    toolCallArguments: nextToolCallArguments,
-    activeBranchId: currentState.activeBranchId ?? null,
-    branches: { ...(currentState.branches ?? {}) },
-  };
-}
-
-function applyChatDetailsToSectionState({
-  sectionId,
-  messages,
-  waitingForResponse,
-  toolCallArguments,
-}: {
-  sectionId: string;
-  messages: Array<BaseChatMessageUnion>;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-}): ChatSectionState | null {
-  let nextState: ChatSectionState | null = null;
-  useProjectState.setState((state) => {
-    const currentState = getChatSectionStateFromStore(state, sectionId);
-    if (!currentState) {
-      return;
-    }
-    const preserveWaitingForResponse = isSectionStreamActive(sectionId);
-    nextState = mergeChatSectionState(
-      currentState,
-      {
-        messages,
-        waitingForResponse,
-        toolCallArguments,
-      },
-      preserveWaitingForResponse,
-    );
-    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-      messages: nextState.messages,
-      waitingForResponse: nextState.waitingForResponse,
-      toolCallArguments: nextState.toolCallArguments,
-      inputText: nextState.inputText,
-      activeBranchId: nextState.activeBranchId,
-      branches: nextState.branches,
-    });
-  });
-  return nextState;
 }
 
 export function initializePendingChatDetails(surfaceId: string) {
@@ -2282,11 +2198,7 @@ type ChatHydrationProbeResult<TPayload> =
 async function probeLLMChatHydration(
   chatId: string,
   projectConfigId: string,
-): Promise<
-  ChatHydrationProbeResult<
-    NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>
-  >
-> {
+): Promise<ChatHydrationProbeResult<LLMChatResponse>> {
   const response = await route_get_llm_chat({ chatId, projectConfigId });
   if (!res200(response)) {
     return {
@@ -2305,13 +2217,7 @@ async function probeLLMChatHydration(
 async function probeExternalAgentChatHydration(
   chatId: string,
   projectConfigId: string | null,
-): Promise<
-  ChatHydrationProbeResult<
-    NonNullable<
-      Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
-    >
-  >
-> {
+): Promise<ChatHydrationProbeResult<ExternalAgentChatResponse>> {
   const response = await route_get_external_agent_chat({
     chatId,
     projectConfigId,
@@ -2339,55 +2245,35 @@ function applyLLMChatHydrationSuccess({
   chatId: string;
   sectionId?: string;
   projectConfigId: string;
-  payload: NonNullable<Awaited<ReturnType<typeof route_get_llm_chat>>["data"]>;
+  payload: LLMChatResponse;
 }): void {
+  const managedHydrationPayload = payload as LLMChatResponse & {
+    toolCallArguments?: Record<string, string>;
+    appGenerationByMessageId?: Record<string, string>;
+  };
   const {
     messages,
     waitingForResponse,
     llmConfig,
     contextUsage,
     appGenerationByMessageId,
-  } = payload;
-  let nextWaitingForResponse = Boolean(waitingForResponse);
-  useAIStore.setState((state) => {
-    const existingDetails = state.chatDetails[chatId];
-    const preserveWaitingForResponse = isChatStreamActive(chatId);
-    nextWaitingForResponse = preserveWaitingForResponse
-      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
-      : Boolean(waitingForResponse);
-    const nextMessages = reconcileHydratedChatMessages({
-      backendMessages: messages,
-      localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: preserveWaitingForResponse,
-    });
-    const nextAppGenerationDetails = buildChatAppGenerationDetails(
-      nextMessages,
-      deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
-    );
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(existingDetails ?? {}),
-          messages: nextMessages,
-          waitingForResponse: nextWaitingForResponse,
-          llmConfig: llmConfig,
-          contextUsage: contextUsage ?? null,
-        },
-      },
-      chatAppGenerationDetailsByChatId: {
-        ...state.chatAppGenerationDetailsByChatId,
-        [chatId]: nextAppGenerationDetails,
-      },
-    };
+  } = managedHydrationPayload;
+  const toolCallArguments = managedHydrationPayload.toolCallArguments ?? {};
+  const nextWaitingForResponse = applyHydratedChatDetailsToStore({
+    chatId,
+    messages,
+    waitingForResponse,
+    backendToolCallArguments: toolCallArguments,
+    llmConfig,
+    contextUsage: contextUsage ?? null,
+    serializedAppGenerationByMessageId: appGenerationByMessageId,
   });
   if (sectionId) {
-    const nextState = applyChatDetailsToSectionState({
+    const nextState = applyHydratedChatDetailsToSectionState({
       sectionId,
       messages,
       waitingForResponse,
-      toolCallArguments: {},
+      toolCallArguments,
     });
     persistChatSectionState({
       projectConfigId,
@@ -2411,9 +2297,7 @@ function applyExternalChatHydrationSuccess({
   chatId: string;
   projectConfigId: string | null;
   sectionId?: string;
-  payload: NonNullable<
-    Awaited<ReturnType<typeof route_get_external_agent_chat>>["data"]
-  >;
+  payload: ExternalAgentChatResponse;
 }): void {
   const {
     messages,
@@ -2422,43 +2306,17 @@ function applyExternalChatHydrationSuccess({
     contextUsage,
     appGenerationByMessageId,
   } = payload;
-  let nextWaitingForResponse = Boolean(waitingForResponse);
-  useAIStore.setState((state) => {
-    const existingDetails = state.chatDetails[chatId];
-    const preserveWaitingForResponse = isChatStreamActive(chatId);
-    nextWaitingForResponse = preserveWaitingForResponse
-      ? Boolean(waitingForResponse || existingDetails?.waitingForResponse)
-      : Boolean(waitingForResponse);
-    const nextMessages = reconcileHydratedChatMessages({
-      backendMessages: messages,
-      localMessages: existingDetails?.messages ?? [],
-      preserveLocalOnlyMessages: preserveWaitingForResponse,
-    });
-    const nextAppGenerationDetails = buildChatAppGenerationDetails(
-      nextMessages,
-      deserializeChatAppGenerationByMessageId(appGenerationByMessageId),
-    );
-    return {
-      chatDetails: {
-        ...state.chatDetails,
-        [chatId]: {
-          ...getDefaultChatDetails(),
-          ...(existingDetails ?? {}),
-          messages: nextMessages,
-          waitingForResponse: nextWaitingForResponse,
-          toolCallArguments,
-          llmConfig: null,
-          contextUsage: contextUsage ?? null,
-        },
-      },
-      chatAppGenerationDetailsByChatId: {
-        ...state.chatAppGenerationDetailsByChatId,
-        [chatId]: nextAppGenerationDetails,
-      },
-    };
+  const nextWaitingForResponse = applyHydratedChatDetailsToStore({
+    chatId,
+    messages,
+    waitingForResponse,
+    backendToolCallArguments: toolCallArguments,
+    llmConfig: null,
+    contextUsage: contextUsage ?? null,
+    serializedAppGenerationByMessageId: appGenerationByMessageId,
   });
   if (sectionId) {
-    const nextState = applyChatDetailsToSectionState({
+    const nextState = applyHydratedChatDetailsToSectionState({
       sectionId,
       messages,
       waitingForResponse,
@@ -2655,7 +2513,7 @@ export async function submitMessage(
       searchEnabled: resolvedExecutionSettings.searchEnabled,
     });
     if (res200(res)) {
-      const returnedChatId = res.data.chatId;
+      const returnedChatId = res.data;
       if (returnedChatId) {
         refreshAgentRunsAfterSubmit();
         if (isExternalEngine) {
@@ -2681,7 +2539,7 @@ export async function submitMessage(
       err instanceof Error && err.message.trim()
         ? err.message
         : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(detail, NotificationTypeEnum.warning);
     rollbackOptimisticUserMessage(
       chatId,
       userMessageId,
@@ -2827,14 +2685,14 @@ export async function submitEditedMessage({
         (res.status
           ? `AI request failed (status ${res.status}).`
           : "AI request failed.");
-      addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+      addTemporaryNotification(detail, NotificationTypeEnum.warning);
       clearPendingChatDetails(resolvedPendingSurfaceId);
       if (sectionId) {
         await setSectionChatId(parentChatId);
       }
       return null;
     }
-    const returnedChatId = res.data.chatId;
+    const returnedChatId = res.data;
     if (returnedChatId) {
       refreshAgentRunsAfterSubmit();
       if (isExternalEngine) {
@@ -2861,7 +2719,7 @@ export async function submitEditedMessage({
       err instanceof Error && err.message.trim()
         ? err.message
         : "AI request failed.";
-    addTemporaryNotification(detail, SettaNotificationTypeEnum.warning);
+    addTemporaryNotification(detail, NotificationTypeEnum.warning);
     clearPendingChatDetails(resolvedPendingSurfaceId);
     if (sectionId) {
       await setSectionChatId(parentChatId);
@@ -2905,7 +2763,7 @@ async function findLatestRunningExternalRunId(
     return null;
   }
   const runs = agentRuns.filter((run) => {
-    if (run.status !== AgentRunStatusEnum.running) {
+    if (run.status !== RunStatusEnum.running) {
       return false;
     }
     const inputs = run.inputs ?? {};
@@ -2935,7 +2793,7 @@ async function findLatestRunningExternalRunId(
 
 function applyStreamingChunkToSection(
   sectionId: string,
-  chunk: LLMStreamingResponse["chunk"],
+  chunk: LLMStreamingResponseContent["chunk"],
   projectConfigId: string,
 ) {
   const nextState = applyChatSectionStreamDelta(sectionId, chunk);
@@ -2986,7 +2844,7 @@ function applyStreamingChunkToSection(
   }
 }
 
-export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
+export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
   const { chatId, chunk } = msg;
   const projectConfigId = msg.projectConfigId ?? getCurrProjectConfigId();
   let sectionId = msg.sectionId;
@@ -3031,21 +2889,14 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
         return;
       case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA:
         if (sectionId) {
-          updateChatDetails(chatId, (details) =>
-            applyToolCallDelta(details, chunk),
-          );
+          applyStreamingChunkToChatDetails(chatId, chunk);
           return;
         }
         handleToolArgumentPreviewDelta(chatId, chunk, projectConfigId);
         return;
       case StreamingEventTypeEnum.TOOL_RESULT:
         if (sectionId) {
-          updateChatDetails(chatId, (details) => {
-            return {
-              ...details,
-              messages: upsertMessage(details.messages, chunk.result),
-            };
-          });
+          applyStreamingChunkToChatDetails(chatId, chunk);
           clearToolArgumentPreviewByToolCallId(
             projectConfigId,
             chunk.result.tool_call_id,
@@ -3065,30 +2916,6 @@ export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
     }
   }
 }
-
-function isResponsePlaceholderId(
-  messageId: string | null | undefined,
-): boolean {
-  if (!messageId) {
-    return false;
-  }
-  return messageId.startsWith("rs_") || messageId.startsWith("resp_");
-}
-
-function shouldIgnoreResponsePlaceholderChunk(
-  chunk: LLMStreamingResponse["chunk"],
-): boolean {
-  if (chunk.type === StreamingEventTypeEnum.MESSAGE_START) {
-    return isResponsePlaceholderId(chunk.message.id);
-  }
-  if (chunk.type === StreamingEventTypeEnum.MESSAGE_FINALIZED) {
-    return isResponsePlaceholderId(chunk.message.id);
-  }
-  return false;
-}
-
-type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
-
 type RunPayload = Record<string, unknown>;
 
 function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
@@ -3096,14 +2923,14 @@ function buildChatStateFromAgentRun(run: AgentRun): ChatSectionState {
   if (outputMessages) {
     return buildChatSectionState(
       outputMessages,
-      run.status === AgentRunStatusEnum.running,
+      run.status === RunStatusEnum.running,
     );
   }
 
   const inputMessages = extractRunMessages(run.inputs) ?? [];
   return buildChatSectionState(
     inputMessages,
-    run.status === AgentRunStatusEnum.running,
+    run.status === RunStatusEnum.running,
   );
 }
 
@@ -3183,91 +3010,20 @@ async function resolveEngineConfigIdForChat(
   return matchingEngine?.id ?? null;
 }
 
-function applyChatSectionStreamDelta(
-  sectionId: string,
-  chunk: ChatSectionStreamChunk,
-): ChatSectionState | null {
-  let nextState: ChatSectionState | null = null;
-  useProjectState.setState((state) => {
-    const currentState = getChatSectionStateFromStore(state, sectionId);
-    if (!currentState) {
-      return;
-    }
-    nextState = applyStreamDeltaToChatSectionState(currentState, chunk);
-    setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-      messages: nextState.messages,
-      inputText: nextState.inputText,
-      waitingForResponse: nextState.waitingForResponse,
-      toolCallArguments: nextState.toolCallArguments,
-      activeBranchId: nextState.activeBranchId,
-      branches: nextState.branches,
-    });
-  });
-  return nextState;
-}
-
-export function persistChatSectionState({
-  projectConfigId,
-  sectionId,
-  nextState,
-  reason,
-}: {
-  projectConfigId: string;
-  sectionId: string;
-  nextState: ChatSectionState | null;
-  reason: string;
-}): void {
-  if (!nextState) {
-    return;
-  }
-  dispatchOptimisticProjectStateUpdate({
-    apply: (state) => {
-      setCurrEffectiveSectionImplValue<"ChatSection">(state, sectionId, {
-        messages: nextState.messages,
-        inputText: nextState.inputText,
-        waitingForResponse: nextState.waitingForResponse,
-        toolCallArguments: nextState.toolCallArguments,
-        activeBranchId: nextState.activeBranchId,
-        branches: nextState.branches,
-      });
-    },
-    send: (frontendOpId) =>
-      route_set_chat_section_state({
-        projectConfigId,
-        sectionId,
-        state: nextState,
-        frontendOpId,
-      }),
-  });
-}
-
 function handleMessageStart(chatId: string, chunk: MessageStartEvent) {
   if (chunk.message.role === ChatRoleEnum.assistant) {
     setStopEligibleAssistantMessageId(chatId, chunk.message.id);
     clearInterruptedAssistantMessages(chatId, [chunk.message.id]);
   }
-  updateChatDetails(chatId, (details) => ({
-    ...details,
-    messages: upsertMessage(details.messages, chunk.message),
-    waitingForResponse: true,
-  }));
+  applyStreamingChunkToChatDetails(chatId, chunk);
 }
 
 function handleMessageDelta(chatId: string, chunk: MessageDeltaEvent) {
-  if (!chunk.content || chunk.content.length === 0) {
-    return;
-  }
-  updateChatDetails(chatId, (details) => {
-    return {
-      ...details,
-      messages: applyMessageDeltaToChatMessages(details.messages, chunk),
-      waitingForResponse: true,
-    };
-  });
+  applyStreamingChunkToChatDetails(chatId, chunk);
 }
 
 function handleToolCallDelta(chatId: string, chunk: ToolCallDeltaEvent) {
-  updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
+  applyStreamingChunkToChatDetails(chatId, chunk);
 }
 
 function handleAgenticScopeViolation(
@@ -3292,7 +3048,7 @@ function handleAgenticScopeViolation(
     return;
   }
   const notice = `${violation.message} Add the missing agentic edge(s) shown on the canvas. Use Project Chat for full access.`;
-  addTemporaryNotification(notice, SettaNotificationTypeEnum.warning);
+  addTemporaryNotification(notice, NotificationTypeEnum.warning);
   const timeoutId = globalThis.setTimeout(() => {
     scopeViolationToastTimeouts.delete(projectConfigId);
   }, SCOPE_VIOLATION_TIMEOUT_MS);
@@ -3381,12 +3137,7 @@ function handleToolResult(
   chunk: ToolResultEvent,
   projectConfigId: string,
 ) {
-  updateChatDetails(chatId, (details) => {
-    return {
-      ...details,
-      messages: upsertMessage(details.messages, chunk.result),
-    };
-  });
+  applyStreamingChunkToChatDetails(chatId, chunk);
   clearToolArgumentPreviewByToolCallId(
     projectConfigId,
     chunk.result.tool_call_id,
@@ -3397,10 +3148,10 @@ function handleToolResult(
 
 function handleMessageStop(chatId: string, projectConfigId: string) {
   clearStopEligibleAssistantMessageId(chatId);
-  updateChatDetails(chatId, (details) => ({
-    ...details,
-    waitingForResponse: false,
-  }));
+  applyStreamingChunkToChatDetails(chatId, {
+    type: StreamingEventTypeEnum.MESSAGE_STOP,
+    message_id: "",
+  });
   clearAIFollowToolArgumentsForChat(projectConfigId, chatId);
   clearAllAppSpecPatchStreams();
 }
@@ -3412,23 +3163,13 @@ function handleMessageFinalized(
 ) {
   let resolvedTargetId: string | null = chunk.message.id;
   updateChatDetails(chatId, (details) => {
-    const { message: messageToUpsert, targetId } =
-      chunk.message.role === ChatRoleEnum.assistant
-        ? resolveFinalizedAssistantMessageUpdate(
-            details.messages,
-            chunk.message as AssistantChatMessage,
-          )
-        : {
-            message: chunk.message,
-            targetId: chunk.message.id,
-          };
-    resolvedTargetId = targetId;
-    return {
-      ...details,
-      messages: upsertMessage(details.messages, messageToUpsert, targetId),
-      waitingForResponse: false,
-      toolCallArguments: {},
-    };
+    if (chunk.message.role === ChatRoleEnum.assistant) {
+      resolvedTargetId = resolveFinalizedAssistantMessageUpdate(
+        details.messages,
+        chunk.message as AssistantChatMessage,
+      ).targetId;
+    }
+    return applyStreamDeltaToChatDetails(details, chunk);
   });
   if (chunk.message.role === ChatRoleEnum.assistant) {
     clearStopEligibleAssistantMessageId(chatId);
@@ -3443,42 +3184,6 @@ function handleMessageFinalized(
       ? chunk.message.tool_calls?.map((toolCall) => toolCall.id) ?? []
       : [];
   clearToolArgumentPreviewByToolCallIds(projectConfigId, toolCallIds);
-}
-
-function resolveFinalizedAssistantMessageUpdate(
-  messages: Array<BaseChatMessageUnion>,
-  message: AssistantChatMessage,
-): { message: AssistantChatMessage; targetId: string } {
-  const existingAssistant = findAssistantMessageForFinalizedUpdate(
-    messages,
-    message,
-  );
-  const targetId = existingAssistant?.id ?? message.id;
-  return {
-    message: mergeFinalizedAssistantMessage(message, existingAssistant),
-    targetId,
-  };
-}
-
-function findAssistantMessageForFinalizedUpdate(
-  messages: Array<BaseChatMessageUnion>,
-  message: AssistantChatMessage,
-): AssistantChatMessage | null {
-  const sameId = messages.find((entry) => entry.id === message.id);
-  if (sameId?.role === ChatRoleEnum.assistant) {
-    return sameId;
-  }
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    const candidate = messages[index];
-    if (candidate.role !== ChatRoleEnum.assistant) {
-      continue;
-    }
-    if (!isResponsePlaceholderId(candidate.id)) {
-      continue;
-    }
-    return candidate;
-  }
-  return null;
 }
 
 function handleToolArgumentPreviewDelta(
@@ -3496,8 +3201,17 @@ function handleToolArgumentPreviewDelta(
     return;
   }
 
-  updateChatDetails(chatId, (details) => applyToolCallDelta(details, chunk));
+  applyStreamingChunkToChatDetails(chatId, chunk);
   applyToolArgumentPreviewDeltaToPreviewStore(chunk, projectConfigId);
+}
+
+function applyStreamingChunkToChatDetails(
+  chatId: string,
+  chunk: LLMStreamingResponseContent["chunk"],
+) {
+  updateChatDetails(chatId, (details) =>
+    applyStreamDeltaToChatDetails(details, chunk),
+  );
 }
 
 function ensureToolCallPlaceholder(
@@ -3629,57 +3343,6 @@ function applyToolArgumentPreviewDeltaToPreviewStore(
   });
 }
 
-function applyToolCallDelta(
-  details: ChatDetails,
-  chunk: {
-    message_id: string;
-    tool_call_id: string;
-    tool_name: string | null;
-    arguments_delta: string;
-  },
-): ChatDetails {
-  const toolCallArguments = {
-    ...details.toolCallArguments,
-    [chunk.tool_call_id]:
-      (details.toolCallArguments?.[chunk.tool_call_id] ?? "") +
-      chunk.arguments_delta,
-  };
-  const { messages, changed } = updateMessageById(
-    details.messages,
-    chunk.message_id,
-    (message) => {
-      const toolCalls = [...(message.tool_calls ?? [])];
-      const existingIndex = toolCalls.findIndex(
-        (entry) => entry.id === chunk.tool_call_id,
-      );
-      if (existingIndex !== -1) {
-        if (!chunk.tool_name) {
-          return null;
-        }
-        const existingCall = toolCalls[existingIndex];
-        if (existingCall.function.name === chunk.tool_name) {
-          return null;
-        }
-        toolCalls[existingIndex] = {
-          ...existingCall,
-          function: {
-            ...existingCall.function,
-            name: chunk.tool_name,
-          },
-        };
-        return { ...message, tool_calls: toolCalls };
-      }
-      toolCalls.push(createToolCallPlaceholder(chunk));
-      return { ...message, tool_calls: toolCalls };
-    },
-  );
-  return {
-    ...details,
-    toolCallArguments,
-    ...(changed ? { messages } : {}),
-  };
-}
-
 function createToolArgumentPreviewProjectState(): ToolArgumentPreviewProjectState {
   return {
     previewCodeBySectionId: {},
@@ -3759,56 +3422,6 @@ function clearToolArgumentPreviewByToolCallIds(
   });
 }
 
-function ensureTextContentBlock(
-  content: Array<
-    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
-  >,
-  index: number,
-): MessageTextContent {
-  while (content.length <= index) {
-    content.push(createMessageTextContent({ text: "" }));
-  }
-  const block = content[index];
-  if (!block || block.type !== "text") {
-    const nextBlock = createMessageTextContent({ text: "" });
-    content[index] = nextBlock;
-    return nextBlock;
-  }
-  return block;
-}
-
-function ensureThinkingContentBlock(
-  content: Array<
-    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
-  >,
-  index: number,
-): MessageThinkingContent {
-  while (content.length <= index) {
-    content.push(createMessageThinkingContent({ thinking: "" }));
-  }
-  const block = content[index];
-  if (!block || block.type !== "thinking") {
-    const nextBlock = createMessageThinkingContent({ thinking: "" });
-    content[index] = nextBlock;
-    return nextBlock;
-  }
-  return block as MessageThinkingContent;
-}
-
-function createToolCallPlaceholder(chunk: {
-  tool_call_id: string;
-  tool_name: string | null;
-}): ToolCall {
-  return {
-    id: chunk.tool_call_id,
-    type: "function",
-    function: {
-      name: chunk.tool_name ?? "",
-      arguments: {},
-    },
-  };
-}
-
 function updateChatDetails(
   chatId: string,
   updater: (details: ChatDetails) => ChatDetails | null,
@@ -3852,19 +3465,24 @@ function mergeChatDetails(
   pendingDetails: ChatDetails,
   preserveWaitingForResponse: boolean,
 ): ChatDetails {
+  const existingMessageIds = new Set(
+    existingDetails.messages.map((message) => message.id),
+  );
+  const promotedPendingMessages = pendingDetails.messages.filter(
+    (message) => !existingMessageIds.has(message.id),
+  );
   const nextWaitingForResponse = preserveWaitingForResponse
     ? pendingDetails.waitingForResponse || existingDetails.waitingForResponse
     : pendingDetails.waitingForResponse;
   return {
     ...existingDetails,
-    ...pendingDetails,
-    messages: mergeChatMessages(
-      existingDetails.messages,
-      pendingDetails.messages,
-    ),
+    messages:
+      promotedPendingMessages.length === 0
+        ? [...existingDetails.messages]
+        : [...promotedPendingMessages, ...existingDetails.messages],
     toolCallArguments: {
-      ...existingDetails.toolCallArguments,
       ...pendingDetails.toolCallArguments,
+      ...existingDetails.toolCallArguments,
     },
     waitingForResponse: nextWaitingForResponse,
   };
@@ -4064,537 +3682,4 @@ function rollbackOptimisticUserMessage(
       },
     };
   });
-}
-
-function updateMessageById(
-  messages: Array<BaseChatMessageUnion>,
-  messageId: string | null,
-  updater: (message: BaseChatMessageUnion) => BaseChatMessageUnion | null,
-): { messages: Array<BaseChatMessageUnion>; changed: boolean } {
-  if (!messageId) {
-    return { messages, changed: false };
-  }
-  const index = messages.findIndex((message) => message.id === messageId);
-  if (index === -1) {
-    return { messages, changed: false };
-  }
-  const updatedMessage = updater(messages[index]);
-  if (!updatedMessage) {
-    return { messages, changed: false };
-  }
-  const nextMessages = [...messages];
-  nextMessages[index] = updatedMessage;
-  return { messages: nextMessages, changed: true };
-}
-
-function upsertMessage(
-  messages: Array<BaseChatMessageUnion>,
-  message: BaseChatMessageUnion,
-  targetId: string | null = null,
-) {
-  const idToUse = targetId ?? message.id;
-  const existingIndex = messages.findIndex((entry) => entry.id === idToUse);
-  if (existingIndex === -1) {
-    return [...messages, stampMessageCreatedAtIfMissing(message)];
-  }
-  const existingMessage = messages[existingIndex];
-  const nextMessages = [...messages];
-  nextMessages[existingIndex] = mergeMessageCreatedAt(message, existingMessage);
-  return nextMessages;
-}
-
-function resolveMessageCreatedAtMs(message: BaseChatMessageUnion): number {
-  const createdAt = (message as { createdAt?: unknown }).createdAt;
-  if (
-    typeof createdAt !== "number" ||
-    !Number.isFinite(createdAt) ||
-    createdAt <= 0
-  ) {
-    return 0;
-  }
-  return createdAt;
-}
-
-function mergeMessageCreatedAt(
-  message: BaseChatMessageUnion,
-  existingMessage: BaseChatMessageUnion | null,
-): BaseChatMessageUnion {
-  const nextCreatedAt = resolveMessageCreatedAtMs(message);
-  if (nextCreatedAt > 0 || existingMessage === null) {
-    return message;
-  }
-  const existingCreatedAt = resolveMessageCreatedAtMs(existingMessage);
-  if (existingCreatedAt <= 0) {
-    return message;
-  }
-  return {
-    ...message,
-    createdAt: existingCreatedAt,
-  };
-}
-
-function stampMessageCreatedAtIfMissing(
-  message: BaseChatMessageUnion,
-): BaseChatMessageUnion {
-  if (
-    message.role === ChatRoleEnum.tool ||
-    resolveMessageCreatedAtMs(message) > 0
-  ) {
-    return message;
-  }
-  return {
-    ...message,
-    createdAt: Date.now(),
-  };
-}
-
-function getChatSectionStateFromStore(
-  state: ZustandProjectState,
-  sectionId: string,
-): ChatSectionState | null {
-  const variantId = state.projectConfig.sectionVariantMap[sectionId];
-  if (!variantId) {
-    return null;
-  }
-  const variant = state.sectionVariants[variantId];
-  if (!variant) {
-    return null;
-  }
-  const impl = state.sectionImpls[variant.impl];
-  if (!impl) {
-    return null;
-  }
-  const core = state.sections[sectionId];
-  if (!core) {
-    return null;
-  }
-  const effective = {
-    ...impl,
-    ...core.sharedModifier,
-    ...variant.modifier,
-  };
-  if (effective.type !== SectionTypeEnum.Chat) {
-    return null;
-  }
-  const chatImpl = effective as {
-    type: SectionTypeEnum.Chat;
-    messages: BaseChatMessageUnion[];
-    inputText: string;
-    waitingForResponse: boolean;
-    toolCallArguments: Record<string, string>;
-    activeBranchId?: string | null;
-    branches?: Record<string, ChatSectionBranch>;
-  };
-  return {
-    messages: [...(chatImpl.messages ?? [])],
-    inputText: chatImpl.inputText ?? "",
-    waitingForResponse: Boolean(chatImpl.waitingForResponse),
-    toolCallArguments: { ...(chatImpl.toolCallArguments ?? {}) },
-    activeBranchId: chatImpl.activeBranchId ?? null,
-    branches: { ...(chatImpl.branches ?? {}) },
-  };
-}
-
-type ChatIdLookupCache = {
-  projectConfigId: string;
-  sectionVariantMap: ZustandProjectState["projectConfig"]["sectionVariantMap"];
-  sectionVariants: ZustandProjectState["sectionVariants"];
-  sectionImpls: ZustandProjectState["sectionImpls"];
-  sections: ZustandProjectState["sections"];
-  map: Map<string, string>;
-};
-
-let chatIdLookupCache: ChatIdLookupCache | null = null;
-
-function buildChatIdLookup(state: ZustandProjectState): Map<string, string> {
-  const lookup = new Map<string, string>();
-  for (const [sectionId, variantId] of Object.entries(
-    state.projectConfig.sectionVariantMap,
-  )) {
-    const variant = state.sectionVariants[variantId];
-    if (!variant) {
-      continue;
-    }
-    const impl = state.sectionImpls[variant.impl];
-    if (!impl) {
-      continue;
-    }
-    const core = state.sections[sectionId];
-    if (!core) {
-      continue;
-    }
-    const effective = {
-      ...impl,
-      ...core.sharedModifier,
-      ...variant.modifier,
-    };
-    if (effective.type !== SectionTypeEnum.Chat) {
-      continue;
-    }
-    const candidate =
-      typeof effective.chatId === "string" && effective.chatId.trim()
-        ? effective.chatId
-        : null;
-    if (!candidate) {
-      continue;
-    }
-    lookup.set(candidate, sectionId);
-  }
-  return lookup;
-}
-
-function resolveSectionIdForChatId(chatId: string): string | null {
-  const state = useProjectState.getState();
-  const shouldRebuild =
-    !chatIdLookupCache ||
-    chatIdLookupCache.projectConfigId !== state.projectConfig.id ||
-    chatIdLookupCache.sectionVariantMap !==
-      state.projectConfig.sectionVariantMap ||
-    chatIdLookupCache.sectionVariants !== state.sectionVariants ||
-    chatIdLookupCache.sectionImpls !== state.sectionImpls ||
-    chatIdLookupCache.sections !== state.sections;
-  if (shouldRebuild) {
-    chatIdLookupCache = {
-      projectConfigId: state.projectConfig.id,
-      sectionVariantMap: state.projectConfig.sectionVariantMap,
-      sectionVariants: state.sectionVariants,
-      sectionImpls: state.sectionImpls,
-      sections: state.sections,
-      map: buildChatIdLookup(state),
-    };
-  }
-  return chatIdLookupCache.map.get(chatId) ?? null;
-}
-
-function applyStreamDeltaToChatSectionState(
-  state: ChatSectionState,
-  chunk: ChatSectionStreamChunk,
-): ChatSectionState {
-  let messages = [...state.messages];
-  let toolCallArguments = { ...state.toolCallArguments };
-  let waitingForResponse = state.waitingForResponse;
-  const inputText = state.inputText;
-  const activeBranchId = state.activeBranchId ?? null;
-  const branches = { ...(state.branches ?? {}) };
-
-  const syncActiveBranchMessages = (
-    nextMessages: Array<BaseChatMessageUnion>,
-  ) => {
-    if (!activeBranchId) {
-      return branches;
-    }
-    const activeBranch = branches[activeBranchId];
-    if (!activeBranch) {
-      return branches;
-    }
-    return {
-      ...branches,
-      [activeBranchId]: {
-        ...activeBranch,
-        messages: nextMessages,
-      },
-    };
-  };
-
-  switch (chunk.type) {
-    case StreamingEventTypeEnum.MESSAGE_START: {
-      messages = upsertMessage(messages, chunk.message);
-      waitingForResponse = true;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    case StreamingEventTypeEnum.DELTA: {
-      messages = applyMessageDeltaToChatMessages(messages, chunk);
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    case StreamingEventTypeEnum.TOOL_CALL_DELTA: {
-      const result = applyToolCallDeltaToChatMessages(
-        messages,
-        toolCallArguments,
-        chunk,
-      );
-      messages = result.messages;
-      toolCallArguments = result.toolCallArguments;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    case StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA: {
-      const result = applyToolCallDeltaToChatMessages(
-        messages,
-        toolCallArguments,
-        chunk,
-      );
-      messages = result.messages;
-      toolCallArguments = result.toolCallArguments;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    case StreamingEventTypeEnum.TOOL_RESULT: {
-      messages = upsertMessage(messages, chunk.result);
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    case StreamingEventTypeEnum.MESSAGE_STOP: {
-      waitingForResponse = false;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    case StreamingEventTypeEnum.MESSAGE_FINALIZED: {
-      const { message: messageToUpsert, targetId } =
-        chunk.message.role === ChatRoleEnum.assistant
-          ? resolveFinalizedAssistantMessageUpdate(
-              messages,
-              chunk.message as AssistantChatMessage,
-            )
-          : {
-              message: chunk.message,
-              targetId: chunk.message.id,
-            };
-      messages = upsertMessage(messages, messageToUpsert, targetId);
-      waitingForResponse = false;
-      toolCallArguments = {};
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-    default: {
-      chunk satisfies never;
-      const nextBranches = syncActiveBranchMessages(messages);
-      return {
-        messages,
-        inputText,
-        waitingForResponse,
-        toolCallArguments,
-        activeBranchId,
-        branches: nextBranches,
-      };
-    }
-  }
-}
-
-function mergeFinalizedAssistantMessage(
-  message: AssistantChatMessage,
-  existingAssistant: AssistantChatMessage | null,
-): AssistantChatMessage {
-  if (!existingAssistant) {
-    return message;
-  }
-  const hasFinalizedContent = message.content.length > 0;
-  const mergedContent = hasFinalizedContent
-    ? message.content
-    : existingAssistant.content;
-  const finalizedToolCalls = message.tool_calls ?? [];
-  const existingToolCalls = existingAssistant.tool_calls ?? [];
-  const mergedToolCalls =
-    finalizedToolCalls.length > 0 ? finalizedToolCalls : existingToolCalls;
-  const finalizedAttachments = message.attachments ?? [];
-  const existingAttachments = existingAssistant.attachments ?? [];
-  const mergedAttachments =
-    finalizedAttachments.length > 0
-      ? finalizedAttachments
-      : existingAttachments;
-  if (
-    mergedContent === message.content &&
-    mergedToolCalls === message.tool_calls &&
-    mergedAttachments === message.attachments
-  ) {
-    return message;
-  }
-  return {
-    ...message,
-    content: mergedContent,
-    tool_calls: mergedToolCalls,
-    attachments: mergedAttachments,
-  };
-}
-
-function applyMessageDeltaToChatMessages(
-  messages: Array<BaseChatMessageUnion>,
-  chunk: MessageDeltaEvent,
-): Array<BaseChatMessageUnion> {
-  if (!chunk.content || chunk.content.length === 0) {
-    return messages;
-  }
-  const { messages: updatedMessages, assistant } = ensureAssistantMessage(
-    messages,
-    chunk.message_id,
-  );
-  let mutated = false;
-  const content = [...assistant.content];
-  for (const delta of chunk.content ?? []) {
-    if (delta.type === "text_delta") {
-      const index = normalizeChatContentIndex(delta.index, content.length);
-      const block = ensureTextContentBlock(content, index);
-      if (delta.text) {
-        block.text += delta.text;
-        mutated = true;
-      }
-      continue;
-    }
-    if (delta.type === "thinking_delta") {
-      const index = normalizeChatContentIndex(delta.index, content.length);
-      const block = ensureThinkingContentBlock(content, index);
-      const thinkingUpdate = delta.thinking ?? "";
-      const summaryUpdate = delta.summary;
-      const signatureUpdate = delta.signature;
-      let blockMutated = false;
-      if (thinkingUpdate) {
-        block.thinking += thinkingUpdate;
-        blockMutated = true;
-      }
-      if (summaryUpdate !== undefined && summaryUpdate !== null) {
-        block.summary = summaryUpdate;
-        blockMutated = true;
-      }
-      if (signatureUpdate !== undefined) {
-        block.signature = signatureUpdate ?? "";
-        blockMutated = true;
-      }
-      if (blockMutated) {
-        mutated = true;
-      }
-      continue;
-    }
-    delta satisfies never;
-  }
-  if (!mutated) {
-    return updatedMessages;
-  }
-  assistant.content = content;
-  return updatedMessages;
-}
-
-function applyToolCallDeltaToChatMessages(
-  messages: Array<BaseChatMessageUnion>,
-  toolCallArguments: Record<string, string>,
-  chunk: ToolCallDeltaEvent | ToolArgumentPreviewDeltaEvent,
-): {
-  messages: Array<BaseChatMessageUnion>;
-  toolCallArguments: Record<string, string>;
-} {
-  const nextToolCallArguments = {
-    ...toolCallArguments,
-    [chunk.tool_call_id]:
-      (toolCallArguments[chunk.tool_call_id] ?? "") + chunk.arguments_delta,
-  };
-  const { messages: updatedMessages, assistant } = ensureAssistantMessage(
-    messages,
-    chunk.message_id,
-  );
-  const toolCalls = [...(assistant.tool_calls ?? [])];
-  const existingIndex = toolCalls.findIndex(
-    (entry) => entry.id === chunk.tool_call_id,
-  );
-  if (existingIndex === -1) {
-    toolCalls.push(createToolCallPlaceholder(chunk));
-  } else if (chunk.tool_name) {
-    const existingCall = toolCalls[existingIndex];
-    if (existingCall.function.name !== chunk.tool_name) {
-      toolCalls[existingIndex] = {
-        ...existingCall,
-        function: {
-          ...existingCall.function,
-          name: chunk.tool_name,
-        },
-      };
-    }
-  }
-  assistant.tool_calls = toolCalls.length > 0 ? toolCalls : null;
-  return {
-    messages: updatedMessages,
-    toolCallArguments: nextToolCallArguments,
-  };
-}
-
-function ensureAssistantMessage(
-  messages: Array<BaseChatMessageUnion>,
-  messageId: string,
-): {
-  messages: Array<BaseChatMessageUnion>;
-  assistant: AssistantChatMessage;
-} {
-  const existingIndex = messages.findIndex((entry) => entry.id === messageId);
-  if (existingIndex !== -1) {
-    const existing = messages[existingIndex];
-    if (existing.role === ChatRoleEnum.assistant) {
-      const assistant: AssistantChatMessage = {
-        ...existing,
-        content: [...existing.content],
-        tool_calls: existing.tool_calls ? [...existing.tool_calls] : null,
-      };
-      const nextMessages = [...messages];
-      nextMessages[existingIndex] = assistant;
-      return { messages: nextMessages, assistant };
-    }
-  }
-  const assistant: AssistantChatMessage = {
-    id: messageId,
-    role: ChatRoleEnum.assistant,
-    content: [],
-    tool_calls: null,
-    createdAt: Date.now(),
-  };
-  return { messages: [...messages, assistant], assistant };
-}
-
-function normalizeChatContentIndex(
-  index: number | null | undefined,
-  currentLength: number,
-): number {
-  if (index === null || index === undefined) {
-    return Math.max(currentLength - 1, 0);
-  }
-  if (index < 0) {
-    return 0;
-  }
-  return index;
 }

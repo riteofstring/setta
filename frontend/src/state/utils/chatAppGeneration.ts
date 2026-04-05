@@ -4,6 +4,7 @@ import {
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
 import {
+  ChatAppGenerationMessageModeEnum,
   ChatRoleEnum,
   type AgentRun,
   type BaseChatMessageUnion,
@@ -13,7 +14,8 @@ export type ChatAppGenerationContext = {
   mode: AppGenerationMode;
 };
 
-export const PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE = "plain_chat";
+export const PLAIN_CHAT_APP_GENERATION_MESSAGE_MODE =
+  ChatAppGenerationMessageModeEnum.PlainChat;
 
 type SerializedChatAppGenerationMessageMode =
   | AppGenerationMode
