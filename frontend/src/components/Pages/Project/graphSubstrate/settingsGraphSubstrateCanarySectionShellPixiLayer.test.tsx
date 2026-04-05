@@ -41,6 +41,7 @@ type MockApplicationInstance = {
 const hoisted = vi.hoisted(() => ({
   appInstances: [] as Array<MockApplicationInstance>,
   graphicsInstances: [] as Array<MockGraphicsInstance>,
+  measureMotionAttribution: vi.fn((_owner: string, fn: () => unknown) => fn()),
   updateInstrumentationSnapshot: vi.fn(),
 }));
 
@@ -71,6 +72,8 @@ vi.mock("./settingsGraphSubstrateCanarySceneStore", () => ({
 }));
 
 vi.mock("./settingsGraphSubstrateCanaryInstrumentation", () => ({
+  measureSettingsGraphSubstrateCanaryMotionAttribution:
+    hoisted.measureMotionAttribution,
   updateSettingsGraphSubstrateCanaryInstrumentationSnapshot:
     hoisted.updateInstrumentationSnapshot,
 }));
@@ -130,6 +133,7 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
   beforeEach(() => {
     hoisted.appInstances.length = 0;
     hoisted.graphicsInstances.length = 0;
+    hoisted.measureMotionAttribution.mockClear();
     hoisted.updateInstrumentationSnapshot.mockReset();
     host = document.createElement("div");
     Object.defineProperty(host, "clientWidth", {
@@ -207,6 +211,10 @@ describe("SettingsGraphSubstrateCanarySectionShellPixiLayer", () => {
       ).toHaveBeenLastCalledWith(24, -20);
       expect(hoisted.appInstances[0]?.stage.scale.set).toHaveBeenLastCalledWith(
         1.2,
+      );
+      expect(hoisted.measureMotionAttribution).toHaveBeenCalledWith(
+        "pixiViewportPresent",
+        expect.any(Function),
       );
     });
   });

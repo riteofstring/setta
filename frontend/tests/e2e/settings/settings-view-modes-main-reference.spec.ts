@@ -12615,6 +12615,8 @@ test("settings graph performance probe measures the normalized rotaryParamCodeOb
     const allowedResidualCanaryMotionOwners = [
       "interactionMiscStateSync",
       "interactionReactFlowStateSync",
+      "pixiViewportPresent",
+      "presentedSceneSectionsResolve",
     ] as const;
     const unexpectedCanaryMotionOwners = Object.entries(
       worktreeResult.perf.motionAttribution ?? {},

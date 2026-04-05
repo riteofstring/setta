@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-08 07:36 EDT
+Last updated: 2026-04-08 07:57 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -62,6 +62,47 @@ Unless a live regression forces otherwise, the next pass should begin with instr
 This section overrides older "next frontier" notes below when choosing the next iteration.
 
   - Current live verification state:
+  - item `301` completed one bounded attribution slice on the canary-owned
+    viewport presentation path after item `300`:
+    - landed new motion-attribution owners in
+      [`settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts):
+      - `presentedSceneSectionsResolve`
+      - `pixiViewportPresent`
+    - instrumented the two product call sites:
+      - shared presented-section subset resolve in
+        [`SettingsGraphSubstrateCanary.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx)
+      - Pixi viewport-present path in
+        [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+    - updated focused coverage:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx` -> passed (`3 files`, `13 tests`)
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts` -> passed
+    - widened the canonical probe allowlist in
+      [`settings-view-modes-main-reference.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts)
+      so the new non-React-Flow owners are treated as expected attribution
+      candidates while the old closed owners (`reactFlowViewportPublish`,
+      `reactFlowTransformSubscriptionCallback`,
+      `reactFlowTransformFollowerCallback`) still must remain `0`
+    - verifier/runtime state on the live lane regressed again:
+      - the canonical cross-worktree probe launched with fresh runtime-info
+        tokens and reached the test banner, then re-entered the known
+        post-banner stall shape without yielding a pass/fail verdict
+      - a narrower worktree-only canary E2E with a freshly minted worktree
+        token passed global setup but timed out at `120000ms` and then reported
+        `page.evaluate: Target page, context or browser has been closed` while
+        `normalizeSettingsGraphComparePaneState(...)` was running
+      - treat both failures as verifier/runtime debt for this lane, not as
+        evidence that the new attribution owners broke the renderer
+    - perf note:
+      - `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-viewport-presentation-attribution.md`
+    - required CDP visual check completed via a fresh-context sub-agent:
+      - direct `/settings` comparisons on worktree `3076` and read-only `main`
+        `3087` both rendered the full All Settings graph surface rather than a
+        spinner or blank shell
+      - no gross worktree-vs-main visual regression was seen at this smoke
+        level
+      - the worktree bootstrap token was rejected immediately in-browser, so
+        the smoke check used the route render directly instead of a fresh
+        bootstrap page
   - item `300` restored one trustworthy automated verdict on the canonical
     `rotaryParamCodeObjDefault` perf lane after item `299`:
     - the remaining verifier issue was not a product regression on the landed
@@ -201,46 +242,65 @@ This section overrides older "next frontier" notes below when choosing the next 
   - Pixi owns shared static shell/chrome where batching helps
   - DOM still owns section bodies/editors/interactions until profiling proves a better split
 - Current likely remaining cost:
-  - the repeated wheel interaction-state sync lane landed and improved the focused motion sample, item `299` removed the previously named per-step React Flow publish owner from the measured burst, and item `300` restored a trustworthy rerun on that new contract:
+  - item `301` landed the next product attribution seam, but the live
+    `rotaryParamCodeObjDefault` verifier regressed before it could print a
+    fresh numeric verdict for the new owners
+  - the last trustworthy numeric state is still item `300`:
     - visible section count stayed `1`
     - root DOM stayed `135`
     - average frame duration is now `18.17ms` on the worktree canary versus `17.05ms` on legacy `main`
     - the old `reactFlowViewportPublish` / transform-subscription path remains `0` on the passing rerun
-    - the only non-zero measured owners are the residual one-off interaction sync entries:
+    - the only non-zero measured owners on that last passing rerun were the residual one-off interaction sync entries:
       - `interactionMiscStateSync`
       - `interactionReactFlowStateSync`
-  - this means the previous dominant owner is removed from the measured burst and the canonical probe is trustworthy again; the next product frontier is to decide whether the remaining interaction-sync pair is the next real cost owner or merely the last visible residue before a different owner needs attribution
+  - the next candidate owners now instrumented in product code are:
+    - `presentedSceneSectionsResolve`
+    - `pixiViewportPresent`
+  - until one trustworthy automated measurement window returns on item `301`,
+    do not assume the residual interaction-sync pair is still the dominant
+    remaining cost
 - Working hypothesis:
   - the wheel interaction-state dedupe lane is complete and should not be reopened unless repeated wheel bursts start spamming interaction-state writes again
   - the viewport-persistence deferral hypothesis is now closed unless a future trace shows the debounce scheduling path dominating the lane
   - the Pixi host-size read hypothesis is now closed unless a future trace shows repeated layout bursts from that path
   - the viewport-interaction pointer-suppression hypothesis is now closed unless a future trace explicitly shows hover/focus pointer churn dominating the lane
   - the `reactFlowViewportPublish` lane is complete and should not be reopened by default; the measured motion burst no longer publishes through that path
-  - the canonical Playwright verdict is trustworthy again after item `300`; do not reopen verifier-only work on this lane unless the broad perf probe regresses again
-  - the next product frontier is now to add the next attribution seam for the still-remaining frame cost rather than reopening already-closed host-size, persistence, pointer-suppression, or React Flow publish hypotheses
+  - the next likely non-React-Flow motion owners to measure are now
+    `presentedSceneSectionsResolve` and `pixiViewportPresent`
+  - the canonical Playwright verifier is not currently trustworthy on this
+    slice because the post-banner stall / page-close failure family reappeared
+    on fresh tokens; the next pass should restore one trustworthy automated
+    measurement before another product reduction
   - the CDP visual gate for this slice is satisfied; do not reopen a browser-only pass on the same lane unless the canary starts failing to render again
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- use the restored canonical `rotaryParamCodeObjDefault` perf lane to name the next real non-React-Flow cost owner after item `299`
+- restore one trustworthy automated measurement window on
+  `rotaryParamCodeObjDefault` for the new item-`301` presentation-path owners
 
 Recommended next target:
 
-- keep the current product change in place; do not reopen the removed `reactFlowViewportPublish` path unless a future measurement proves it regressed
-- pick one bounded attribution or reduction slice around the residual
-  `interactionMiscStateSync` / `interactionReactFlowStateSync` pair, or prove
-  via one new attribution seam that the remaining frame cost now lives
-  elsewhere
-- use the same canonical perf probe to judge that next slice instead of opening
-  a different product hypothesis blindly
+- keep the current product change in place; do not reopen the removed
+  `reactFlowViewportPublish` path unless a future measurement proves it
+  regressed
+- first fix or narrowly route around the recurring verifier/runtime blocker so
+  the lane can print counts for `presentedSceneSectionsResolve` and
+  `pixiViewportPresent`
+- prefer the same canonical cross-worktree perf probe if it can be made
+  trustworthy quickly; otherwise land one bounded verifier fix or a narrower
+  motion-capture check on the same named lane that still prints those new owner
+  counts
 
 Recommended deliverables for the next iteration:
 
-- one bounded product or attribution slice on the same canonical lane
-- a clean rerun of the existing normalized cross-worktree motion probe on the same lane
-- reuse the already-satisfied CDP visual signal unless the new slice changes the rendered surface or shows a new render failure
+- one bounded verifier-unblock step on the same canonical lane
+- one fresh automated motion-attribution verdict that names whether
+  `presentedSceneSectionsResolve`, `pixiViewportPresent`, or neither dominates
+  the lane
+- reuse the already-satisfied CDP visual signal unless the next slice changes
+  the rendered surface or shows a new render failure
 
 Recommended canonical target:
 
@@ -252,7 +312,8 @@ Do not use the next iteration for:
 - more `tldraw` investigation
 - another blind transform-consumer / shared-store mirror toggle without fresh attribution that names the next consumer
 - another standalone smoke-only retry unless the deterministic Playwright lane also becomes unhealthy
-- another motion-only verification pass on `rotaryParamCodeObjDefault` unless the canonical Playwright lane regresses again
+- another product reduction on a closed React Flow / persistence / host-size /
+  pointer-suppression lane before the item-`301` verifier blocker is resolved
 - another Pixi host-size cache experiment unless a new trace shows that path dominating the lane
 - more presentation-boundary lifting or another shared-subset ownership hop unless the focused section counts regress again
 - more body-viability or DOM shell-presentation tuning unless a live regression reopens wide-view blanking, focused-body continuity, or visible-section-count fan-out
@@ -267,6 +328,8 @@ Do not use the next iteration for:
 - Ralph item `298` completed the attribution-led pass on `rotaryParamCodeObjDefault`, landed the motion-attribution seam plus one perf baseline report, and named `reactFlowViewportPublish` as the dominant remaining owner on the normalized motion burst.
 
 - Ralph item `299` completed the next bounded product reduction on the same `rotaryParamCodeObjDefault` lane and removed the measured `reactFlowViewportPublish` / transform-subscription activity from the motion-attribution window.
+
+- Ralph item `301` completed the next bounded product attribution slice on the same lane, instrumented `presentedSceneSectionsResolve` and `pixiViewportPresent`, and then re-hit verifier/runtime debt before a fresh live numeric verdict could be recorded.
 
 - Ralph item `300` completed the verifier-recovery follow-up on the same `rotaryParamCodeObjDefault` lane and restored a clean canonical Playwright verdict without reopening the landed product change.
 

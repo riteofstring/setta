@@ -11402,6 +11402,61 @@ LOOP_TERMINAL_MARKER: none
   - keep the CDP blocker explicit and retry it only inside that next product slice instead of spending a standalone browser-only pass
 - LOOP_TERMINAL_MARKER: none
 
+## 2026-04-08 07:57 EDT - Ralph item 301
+
+- Canonical target section: `rotaryParamCodeObjDefault`
+- Picked one bounded attribution slice from the handoff: instrument the
+  canary-owned viewport presentation path after the `reactFlowViewportPublish`
+  removal instead of reopening another closed React Flow / persistence /
+  host-size / pointer-suppression hypothesis.
+- Landed:
+  - new motion-attribution owners in
+    `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`:
+    - `presentedSceneSectionsResolve`
+    - `pixiViewportPresent`
+  - product call-site instrumentation in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+  - focused coverage updates in:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+  - canonical probe allowlist update in
+    `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - perf note
+    `perf/reports/frontend/2026-04-08_settings-graph-substrate-canary-viewport-presentation-attribution.md`
+- Focused verification passed:
+  - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx`
+  - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.test.tsx tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+- Automated verifier blocker:
+  - canonical cross-worktree perf probe on fresh runtime-info-derived tokens
+    reached the test banner and then re-entered the known post-banner stall
+    shape without yielding a pass/fail verdict
+  - narrower worktree-only canary E2E with a freshly minted worktree token
+    passed global setup but timed out at `120000ms` and then reported
+    `page.evaluate: Target page, context or browser has been closed` while
+    `normalizeSettingsGraphComparePaneState(...)` was running
+  - treat both failures as verifier/runtime debt on this lane, not as evidence
+    that the new presentation-path instrumentation regressed the renderer
+- CDP visual gate:
+  - fresh-context sub-agent completed the required smoke check directly on
+    worktree `3076/settings` and read-only `main` `3087/settings`
+  - both rendered the full All Settings graph surface rather than a spinner or
+    blank shell
+  - no gross worktree-vs-main visual regression was seen at this smoke level
+  - note: the worktree bootstrap token was rejected immediately in-browser, so
+    the sub-agent verified the route render directly instead of opening a fresh
+    bootstrap page first
+- Result:
+  - the next likely non-React-Flow motion owners are now instrumented in
+    product code:
+    - `presentedSceneSectionsResolve`
+    - `pixiViewportPresent`
+  - there is still no fresh live numeric verdict naming whether either owner
+    dominates the canonical lane after item `300`
+  - the next iteration should restore one trustworthy automated measurement on
+    the same `rotaryParamCodeObjDefault` lane before another product reduction
+- LOOP_TERMINAL_MARKER: none
+
 ## 2026-04-08 07:19 EDT - Ralph item 299
 
 - Canonical target section: `rotaryParamCodeObjDefault`

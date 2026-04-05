@@ -10,7 +10,10 @@ import {
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
-import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
+import {
+  measureSettingsGraphSubstrateCanaryMotionAttribution,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
 import {
@@ -440,18 +443,23 @@ function presentSettingsGraphSubstrateCanarySectionShellPixiViewport({
   hostRef: RefObject<HTMLCanvasElement | null>;
   viewport: GraphViewport | null;
 }): boolean {
-  if (
-    !prepareSettingsGraphSubstrateCanarySectionShellPixiViewport({
-      app,
-      hostRef,
-      viewport,
-    })
-  ) {
-    return false;
-  }
+  return measureSettingsGraphSubstrateCanaryMotionAttribution(
+    "pixiViewportPresent",
+    () => {
+      if (
+        !prepareSettingsGraphSubstrateCanarySectionShellPixiViewport({
+          app,
+          hostRef,
+          viewport,
+        })
+      ) {
+        return false;
+      }
 
-  app.render();
-  return true;
+      app.render();
+      return true;
+    },
+  );
 }
 
 function prepareSettingsGraphSubstrateCanarySectionShellPixiViewport({

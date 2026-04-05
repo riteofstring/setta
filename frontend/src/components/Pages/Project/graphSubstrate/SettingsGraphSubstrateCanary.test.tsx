@@ -5,6 +5,11 @@ import { createRoot, type Root } from "react-dom/client";
 import "testUtils/reactRefreshPreamble";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SettingsGraphSubstrateCanary } from "./SettingsGraphSubstrateCanary";
+import {
+  readSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  resetSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "./settingsGraphSubstrateCanaryInstrumentation";
 
 const hoisted = vi.hoisted(() => ({
   controller: {
@@ -111,6 +116,7 @@ describe("SettingsGraphSubstrateCanary", () => {
     });
     host.remove();
     document.body.innerHTML = "";
+    resetSettingsGraphSubstrateCanaryInstrumentationSnapshot();
   });
 
   it("renders the substrate-owned background and sections layer from the controller state", async () => {
@@ -209,5 +215,24 @@ describe("SettingsGraphSubstrateCanary", () => {
         )
         ?.getAttribute("data-count"),
     ).toBe("1");
+  });
+
+  it("records the shared presented-scene-section resolve work during active motion capture", async () => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      motionAttributionActive: true,
+    });
+
+    await act(async () => {
+      root.render(<SettingsGraphSubstrateCanary />);
+    });
+
+    const presentedSceneSectionsResolveEntry =
+      readSettingsGraphSubstrateCanaryInstrumentationSnapshot()
+        .motionAttribution.presentedSceneSectionsResolve;
+    expect(presentedSceneSectionsResolveEntry.count).toBe(1);
+    expect(presentedSceneSectionsResolveEntry.maxDurationMs).toBeGreaterThan(0);
+    expect(presentedSceneSectionsResolveEntry.totalDurationMs).toBeGreaterThan(
+      0,
+    );
   });
 });

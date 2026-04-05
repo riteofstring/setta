@@ -1,6 +1,8 @@
 export const SETTINGS_GRAPH_SUBSTRATE_CANARY_MOTION_ATTRIBUTION_OWNERS = [
   "interactionMiscStateSync",
   "interactionReactFlowStateSync",
+  "pixiViewportPresent",
+  "presentedSceneSectionsResolve",
   "reactFlowTransformFollowerCallback",
   "reactFlowTransformSubscriptionCallback",
   "reactFlowViewportPublish",
