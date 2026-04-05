@@ -29,17 +29,16 @@ func buildGoBackedCreateBodyTS(
 	if defaultValue == nil {
 		return "", fmt.Errorf("%s has no Go default value", declarationName)
 	}
+	defaultsObject := filteredCreateDefaultsObject(context, defaultValue, properties)
 	fieldSpecs, err := buildGenericCreateFieldSpecs(
-		context,
 		structType,
-		defaultValue,
 		properties,
 		fieldSpecsByName,
+		defaultsObject,
 	)
 	if err != nil {
 		return "", err
 	}
-	defaultsObject := filteredCreateDefaultsObject(context, defaultValue, properties)
 	var builder strings.Builder
 	builder.WriteString("  const defaults: ")
 	builder.WriteString(declarationName)
@@ -82,25 +81,24 @@ func filteredCreateDefaultsObject(
 }
 
 func buildGenericCreateFieldSpecs(
-	context string,
 	structType reflect.Type,
-	defaultValue any,
 	properties []TypeProperty,
 	fieldSpecsByName map[string]reflectedFieldCreateSpec,
+	defaults map[string]any,
 ) ([]genericCreateFieldSpec, error) {
-	defaults := mustTSLiteralObjectFromGoValue(context, defaultValue)
 	specs := []genericCreateFieldSpec{}
 	for _, property := range properties {
 		fieldSpec, ok := fieldSpecsByName[property.Name]
 		if !ok {
 			return nil, fmt.Errorf("%s is missing field metadata for %q", structType.Name(), property.Name)
 		}
+		_, hasDefault := defaults[property.Name]
 		createFieldSpec, ok, err := buildGenericCreateFieldSpec(
 			fieldSpec,
 			property,
 			renderTSPropertyAccessExpr("defaults", property.Name),
 			renderTSPropertyAccessExpr("options", property.Name),
-			defaults,
+			hasDefault,
 		)
 		if err != nil {
 			return nil, err
@@ -117,11 +115,10 @@ func buildGenericCreateFieldSpec(
 	property TypeProperty,
 	defaultExpr string,
 	optionsExpr string,
-	defaults map[string]any,
+	hasDefault bool,
 ) (genericCreateFieldSpec, bool, error) {
 	defaultExpr = strings.TrimSpace(defaultExpr)
 	optionsExpr = strings.TrimSpace(optionsExpr)
-	_, hasDefault := defaults[property.Name]
 	explicitDefaultExpr := strings.TrimSpace(fieldSpec.CreateExpr)
 	if explicitDefaultExpr != "" {
 		return genericCreateFieldSpec{
@@ -335,13 +332,21 @@ func buildGeneratedImplFactoryBodyTS(
 	implType string,
 	defaultValue any,
 ) string {
-	return "  return " + buildTSMergeGeneratedOptionsExprFromGoValueTS(
-		context,
-		defaultValue,
-		goJSONFieldOrder(defaultValue),
-		"options",
-		implType,
-	) + ";"
+	defaultsObject := mustTSLiteralObjectFromGoValue(context, defaultValue)
+	orderedKeys := goJSONFieldOrder(defaultValue)
+	if len(orderedKeys) > 0 {
+		validateTSLiteralObjectKeys(context, defaultsObject, orderedKeys)
+	}
+	var builder strings.Builder
+	builder.WriteString("  return mergeGeneratedOptions<")
+	builder.WriteString(implType)
+	builder.WriteString(">(\n")
+	builder.WriteString("    ")
+	writeTSObjectLiteral(&builder, "    ", defaultsObject, orderedKeys)
+	builder.WriteString(",\n")
+	builder.WriteString("    options,\n")
+	builder.WriteString("  );")
+	return builder.String()
 }
 
 func additionalDeclarationsForType(_ *typeConverter, t reflect.Type) ([]TypeDeclaration, bool) {

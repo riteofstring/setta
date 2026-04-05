@@ -20,61 +20,6 @@ type tsRawExpr struct {
 	Expr string
 }
 
-func buildTSMergeGeneratedOptionsExprFromTSObject(
-	defaults map[string]any,
-	orderedKeys []string,
-	overridesExpr string,
-	resultType string,
-) string {
-	if strings.TrimSpace(overridesExpr) == "" {
-		overridesExpr = "options"
-	}
-	var builder strings.Builder
-	builder.WriteString("mergeGeneratedOptions")
-	if resultType = strings.TrimSpace(resultType); resultType != "" {
-		builder.WriteString("<")
-		builder.WriteString(resultType)
-		builder.WriteString(">")
-	}
-	builder.WriteString("(\n")
-	writeTSObjectLiteral(&builder, "    ", defaults, orderedKeys)
-	builder.WriteString(",\n")
-	builder.WriteString("    ")
-	builder.WriteString(overridesExpr)
-	builder.WriteString(",\n")
-	builder.WriteString("  )")
-	return builder.String()
-}
-
-func buildTSMergeGeneratedOptionsExprFromGoValueTS(
-	context string,
-	value any,
-	orderedKeys []string,
-	overridesExpr string,
-	resultType string,
-) string {
-	if strings.TrimSpace(overridesExpr) == "" {
-		overridesExpr = "options"
-	}
-	if len(orderedKeys) == 0 {
-		orderedKeys = goJSONFieldOrder(value)
-	}
-	defaults := mustTSLiteralObjectFromGoValue(context, value)
-	if len(orderedKeys) > 0 {
-		validateTSLiteralObjectKeys(context, defaults, orderedKeys)
-	}
-	return buildTSMergeGeneratedOptionsExprFromTSObject(defaults, orderedKeys, overridesExpr, resultType)
-}
-
-func fillMissingTSLiteralObjectKeysWithNil(object map[string]any, orderedKeys []string) {
-	for _, key := range orderedKeys {
-		if _, ok := object[key]; ok {
-			continue
-		}
-		object[key] = nil
-	}
-}
-
 func validateTSLiteralObjectKeys(context string, object map[string]any, orderedKeys []string) {
 	expected := make(map[string]struct{}, len(orderedKeys))
 	for _, key := range orderedKeys {
@@ -178,15 +123,6 @@ func mergeTSLiteralObjectFromStructValue(
 		object[name] = mergeTSLiteralValueFromReflectValue(fieldContext, fieldValue, normalizedField)
 	}
 	return object
-}
-
-func sortedTSLiteralObjectKeys(object map[string]any) []string {
-	keys := make([]string, 0, len(object))
-	for key := range object {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	return keys
 }
 
 func goJSONFieldOrder(value any) []string {
