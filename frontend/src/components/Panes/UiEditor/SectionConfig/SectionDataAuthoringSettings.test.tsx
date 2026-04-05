@@ -8,10 +8,6 @@ import {
   createSpreadsheetSectionImpl,
   createTaskBoardSectionImpl,
   createTextBlockSectionImpl,
-  createUserDefaultListRootSectionImpl,
-  createUserDefaultSpreadsheetSectionImpl,
-  createUserDefaultTaskBoardSectionImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
   ListRootViewModeEnum,
   SectionTypeEnum,
@@ -110,13 +106,10 @@ describe("Section data-authoring settings", () => {
       sectionName: "TextBlock",
       variantId: "textblock-variant",
       implId,
-      impl: createTextBlockSectionImpl(
-        createUserDefaultTextBlockSectionImpl(),
-        {
-          id: implId,
-          masterFontSizePx: 19,
-        },
-      ),
+      impl: createTextBlockSectionImpl({
+        id: implId,
+        masterFontSizePx: 19,
+      }),
     });
 
     const markup = renderToStaticMarkup(
@@ -135,7 +128,7 @@ describe("Section data-authoring settings", () => {
       sectionName: "ListRoot",
       variantId: "listroot-variant",
       implId,
-      impl: createListRootSectionImpl(createUserDefaultListRootSectionImpl(), {
+      impl: createListRootSectionImpl({
         id: implId,
         defaultChildSectionType: SectionTypeEnum.Dict,
         viewMode: ListRootViewModeEnum.task_list,
@@ -167,14 +160,10 @@ describe("Section data-authoring settings", () => {
       sectionName: "TaskBoard",
       variantId: "task-board-variant",
       implId,
-      impl: createTaskBoardSectionImpl(
-        createUserDefaultTaskBoardSectionImpl(),
-        {
-          id: implId,
-          viewMode: TaskBoardViewModeEnum.task_list,
-          columns: undefined,
-        },
-      ),
+      impl: createTaskBoardSectionImpl({
+        id: implId,
+        viewMode: TaskBoardViewModeEnum.task_list,
+      }),
     });
 
     const markup = renderToStaticMarkup(
@@ -193,13 +182,10 @@ describe("Section data-authoring settings", () => {
       sectionName: "Spreadsheet",
       variantId: "spreadsheet-variant",
       implId,
-      impl: createSpreadsheetSectionImpl(
-        createUserDefaultSpreadsheetSectionImpl(),
-        {
-          id: implId,
-          readOnly: true,
-        },
-      ),
+      impl: createSpreadsheetSectionImpl({
+        id: implId,
+        readOnly: true,
+      }),
     });
 
     const markup = renderToStaticMarkup(
