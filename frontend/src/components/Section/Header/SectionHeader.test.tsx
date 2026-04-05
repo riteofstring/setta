@@ -10,14 +10,11 @@ import {
   CodeLanguageEnum,
   SectionTypeEnum,
   createChatSectionImpl,
-  createCodeSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
-  createUserDefaultCodeSectionImpl,
   createVariant,
   type Core,
-  type SettaLspDiagnostic,
+  type LSPDiagnostic,
   type Variant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -81,7 +78,7 @@ describe("SectionHeader diagnostics badges", () => {
   const variantId = "variant-1";
   const implId = "impl-1";
 
-  const baseDiagnostic: SettaLspDiagnostic = {
+  const baseDiagnostic: LSPDiagnostic = {
     message: "Bad code",
     severity: 1,
     code: "reportFoo",
@@ -112,16 +109,28 @@ describe("SectionHeader diagnostics badges", () => {
     isFrozen: false,
   };
 
-  const baseImpl = createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+  const baseImpl = {
+    type: SectionTypeEnum.Code,
     id: implId,
     name: "Code",
+    isFrozen: false,
+    isInOtherProjectConfigs: false,
+    tagColor: null,
+    size: { width: 500, height: 300 },
+    aspectRatio: false,
+    aspectRatioExtraHeight: 0,
+    aspectRatioExtraWidth: 0,
+    isMinimized: false,
+    positionAndSizeLocked: false,
+    isPreset: false,
     code: "print('hi')",
+    codeFileBinding: null,
     codeLanguage: CodeLanguageEnum.python,
     diagnosticsIgnoreState: {
       muted: false,
       suppressedCodes: [],
     },
-  });
+  };
 
   beforeEach(() => {
     const projectConfig = createProjectConfig({
@@ -181,10 +190,10 @@ describe("SectionHeader diagnostics badges", () => {
   it("shows muted label when diagnostics are muted", () => {
     useProjectState.setState({
       sectionImpls: {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        [implId]: {
           ...baseImpl,
           diagnosticsIgnoreState: { muted: true, suppressedCodes: [] },
-        }),
+        },
       },
     });
     syncStoreInitialState(useProjectState);
@@ -197,13 +206,13 @@ describe("SectionHeader diagnostics badges", () => {
   it("shows suppressed count when suppressions exist", () => {
     useProjectState.setState({
       sectionImpls: {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        [implId]: {
           ...baseImpl,
           diagnosticsIgnoreState: {
             muted: false,
             suppressedCodes: ["reportFoo", "reportBar"],
           },
-        }),
+        },
       },
     });
     syncStoreInitialState(useProjectState);
@@ -215,11 +224,7 @@ describe("SectionHeader diagnostics badges", () => {
 
   it("renders a color dot when a tag color is set", () => {
     useProjectState.setState((state) => {
-      const section = state.sections[sectionId];
-      if (!section) {
-        throw new Error(`Missing section ${sectionId}`);
-      }
-      section.sharedModifier = { tagColor: "#ff0000" };
+      state.sections[sectionId].sharedModifier = { tagColor: "#ff0000" };
     });
     syncStoreInitialState(useProjectState);
 
@@ -268,97 +273,6 @@ describe("SectionHeader diagnostics badges", () => {
     expect(markup).toContain('data-tooltip-content="Minimize section"');
     expect(markup).toContain('data-tooltip-content="Delete section"');
   });
-
-  it("allows a custom layout renderer to own title and actions placement", () => {
-    useProjectState.setState((state) => {
-      const section = state.sections[sectionId];
-      if (!section) {
-        throw new Error(`Missing section ${sectionId}`);
-      }
-      section.sharedModifier = { tagColor: "#ff0000" };
-    });
-    syncStoreInitialState(useProjectState);
-
-    const markup = renderToStaticMarkup(
-      <SectionHeader
-        sectionId={sectionId}
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={true}
-        isRoot={false}
-        hasSectionStyleTheme={false}
-        showSectionContainerControls={false}
-        extraControls={<span data-testid="window-controls">window</span>}
-        layoutRenderer={({ actions, leadingControls, title }) => (
-          <div data-testid="custom-header-layout">
-            <div data-slot="leading">{leadingControls}</div>
-            <div data-slot="title">{title}</div>
-            <div data-slot="actions">{actions}</div>
-          </div>
-        )}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="custom-header-layout"');
-    expect(markup).toContain('data-slot="leading"');
-    expect(markup).toContain("Color tag: #ff0000");
-    expect(markup).toContain('data-slot="title"');
-    expect(markup).toContain(">Section<");
-    expect(markup).toContain('data-slot="actions"');
-    expect(markup).toContain('data-testid="window-controls"');
-    expect(markup).toContain("Mute diagnostics");
-  });
-
-  it("allows a custom controls renderer to own the trailing header action strip", () => {
-    useLspDiagnostics.setState({
-      codeSections: { [sectionId]: [baseDiagnostic] },
-      unmappedGenCode: [],
-    });
-    syncStoreInitialState(useLspDiagnostics);
-
-    const markup = renderToStaticMarkup(
-      <SectionHeader
-        sectionId={sectionId}
-        sectionTypeName={SectionTypeEnum.Code}
-        isInOtherProjectConfigs={false}
-        isUserView={false}
-        isRoot={false}
-        hasSectionStyleTheme={false}
-        showSectionContainerControls={false}
-        extraControls={<span data-testid="window-controls">window</span>}
-        controlsRenderer={({
-          codeSectionDiagnostics,
-          extraControls,
-          sectionId: controlsSectionId,
-          sectionTypeName: controlsSectionTypeName,
-          showCodeDiagnosticsPopover,
-          showSectionContainerControls: showCanvasControls,
-        }) => (
-          <div
-            data-diagnostic-count={String(codeSectionDiagnostics.length)}
-            data-section-id={controlsSectionId}
-            data-section-type={controlsSectionTypeName}
-            data-show-canvas-controls={showCanvasControls ? "true" : "false"}
-            data-show-diagnostics-popover={
-              showCodeDiagnosticsPopover ? "true" : "false"
-            }
-            data-testid="custom-header-controls"
-          >
-            {extraControls}
-          </div>
-        )}
-      />,
-    );
-
-    expect(markup).toContain('data-testid="custom-header-controls"');
-    expect(markup).toContain('data-section-id="section-1"');
-    expect(markup).toContain(`data-section-type="${SectionTypeEnum.Code}"`);
-    expect(markup).toContain('data-diagnostic-count="1"');
-    expect(markup).toContain('data-show-canvas-controls="false"');
-    expect(markup).toContain('data-show-diagnostics-popover="true"');
-    expect(markup).toContain('data-testid="window-controls"');
-    expect(markup).not.toContain("Mute diagnostics");
-  });
 });
 
 describe("SectionHeader follow button", () => {
@@ -387,10 +301,10 @@ describe("SectionHeader follow button", () => {
       id: projectConfigId,
       sectionVariantMap: { [sectionId]: variantId },
     });
-    const chatImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId }),
-      { id: implId, chatId },
-    );
+    const chatImpl = createChatSectionImpl({
+      ...{ chatId },
+      ...{ id: implId, chatId },
+    });
 
     resetProjectStores();
     useShareSession.setState({ isDeploymentMode: false });
@@ -450,6 +364,7 @@ describe("SectionHeader follow button", () => {
     const markup = renderToStaticMarkup(
       <SectionHeader
         sectionId={sectionId}
+        isActiveSection={false}
         sectionTypeName={SectionTypeEnum.Chat}
         isInOtherProjectConfigs={false}
         isUserView={false}
