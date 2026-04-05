@@ -53,17 +53,15 @@ func Build() (GeneratedTypes, error) {
 		return GeneratedTypes{}, err
 	}
 
-	manualOverrideNames := contractSpecNameSet(manualOverrideContractSpecs(ctx.ContractSpecs))
 	standardBlocks, standardImports, standardDeclarationNames, err := pythonSharedSchemaDeclarations(
 		ctx.Sidecar,
 		ctx.DefaultSourcesByType,
-		manualOverrideNames,
 	)
 	if err != nil {
 		return GeneratedTypes{}, err
 	}
 
-	manualSpecs := manualContractSpecs(ctx.ContractSpecs, standardDeclarationNames, manualOverrideNames)
+	manualSpecs := manualContractSpecs(ctx.ContractSpecs, standardDeclarationNames)
 	manualAliases := missingStandardAliasSpecs(ctx.AliasSpecs, standardDeclarationNames)
 	knownContractNames := knownContractNameSetFromSidecar(ctx.Sidecar)
 	models, enums, externalImports, typingImports, needsDatetime, needsEnum, needsPydanticField, err := collectRenderedContractSpecs(
@@ -78,6 +76,9 @@ func Build() (GeneratedTypes, error) {
 	applyAliasRenderNeeds(manualAliases, typingImports, &needsDatetime)
 	if standardBlocksNeedPydanticField(standardBlocks) {
 		needsPydanticField = true
+	}
+	if standardBlocksNeedDatetime(standardBlocks) {
+		needsDatetime = true
 	}
 
 	return GeneratedTypes{
@@ -151,16 +152,11 @@ func contractSpecNameSet(specs []contractSpec) map[string]struct{} {
 func manualContractSpecs(
 	specs []contractSpec,
 	standardDeclarationNames map[string]struct{},
-	manualOverrideNames map[string]struct{},
 ) []contractSpec {
 	manual := make([]contractSpec, 0, len(specs))
 	for _, spec := range specs {
 		name := strings.TrimSpace(spec.Name)
 		if name == "" {
-			continue
-		}
-		if _, overridden := manualOverrideNames[name]; overridden {
-			manual = append(manual, spec)
 			continue
 		}
 		if _, present := standardDeclarationNames[name]; present {
@@ -171,33 +167,19 @@ func manualContractSpecs(
 	return manual
 }
 
-func manualOverrideContractSpecs(specs []contractSpec) []contractSpec {
-	overrides := make([]contractSpec, 0, len(specs))
-	for _, spec := range specs {
-		if spec.Kind != contractKindModel {
-			continue
-		}
-		if !pythonModelRequiresManualOverride(spec.Type) {
-			continue
-		}
-		overrides = append(overrides, spec)
-	}
-	return overrides
-}
-
-func pythonModelRequiresManualOverride(t reflect.Type) bool {
+func pythonModelRequiresStandardFieldPatch(t reflect.Type) bool {
 	if t == nil || t.Kind() != reflect.Struct {
 		return false
 	}
 	for _, field := range visibleFields(t) {
-		if pythonFieldRequiresManualOverride(field) {
+		if pythonFieldRequiresStandardFieldPatch(field) {
 			return true
 		}
 	}
 	return false
 }
 
-func pythonFieldRequiresManualOverride(field reflect.StructField) bool {
+func pythonFieldRequiresStandardFieldPatch(field reflect.StructField) bool {
 	if strings.TrimSpace(field.Tag.Get("py_type")) != "" {
 		return true
 	}
@@ -359,6 +341,15 @@ func renderGeneratedTypesModule(
 func standardBlocksNeedPydanticField(blocks []string) bool {
 	for _, block := range blocks {
 		if strings.Contains(block, "Field(") {
+			return true
+		}
+	}
+	return false
+}
+
+func standardBlocksNeedDatetime(blocks []string) bool {
+	for _, block := range blocks {
+		if strings.Contains(block, "datetime") {
 			return true
 		}
 	}

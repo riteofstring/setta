@@ -128,6 +128,28 @@ func TestBuildSemanticSidecarUsesAuthoritativeRoutesAndDefaults(t *testing.T) {
 	}
 }
 
+func TestSharedArtifactsSkipUnexportedRuntimeTypes(t *testing.T) {
+	t.Parallel()
+
+	document, err := BuildSchemaDocument()
+	if err != nil {
+		t.Fatalf("BuildSchemaDocument() error = %v", err)
+	}
+	if document.Defs["zone"] != nil || document.Defs["zoneTrans"] != nil {
+		t.Fatalf("shared schema should not expose unexported time internals")
+	}
+
+	sidecar, err := BuildSemanticSidecar()
+	if err != nil {
+		t.Fatalf("BuildSemanticSidecar() error = %v", err)
+	}
+	for _, contract := range sidecar.Contracts {
+		if contract.Name == "zone" || contract.Name == "zoneTrans" {
+			t.Fatalf("shared sidecar should not expose unexported contract %q", contract.Name)
+		}
+	}
+}
+
 func TestBuildSchemaDocumentUsesSharedSchemaOverridesForRawCarrierFields(t *testing.T) {
 	t.Parallel()
 

@@ -14938,18 +14938,6 @@
         "enum": ["ide", "launcher", "blocked"],
         "title": "WorkspaceLaunchRouteKind",
         "type": "string"
-      },
-      "zone": {
-        "additionalProperties": false,
-        "properties": {},
-        "title": "zone",
-        "type": "object"
-      },
-      "zoneTrans": {
-        "additionalProperties": false,
-        "properties": {},
-        "title": "zoneTrans",
-        "type": "object"
       }
     }
   },

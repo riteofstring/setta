@@ -6,12 +6,8 @@ import (
 	"testing"
 
 	binarypayload "setta/internal/binary"
-	"setta/internal/llmconfig"
-	"setta/internal/projectstate"
-	"setta/internal/projectview"
 	"setta/internal/pythonsdkcontracts"
 	"setta/internal/realtime"
-	"setta/internal/scriptablechat"
 )
 
 func TestBuildModelSpecTreatsOmitEmptyFieldsAsOptional(t *testing.T) {
@@ -148,29 +144,6 @@ func TestPythonTypeExprWithImportsSkipsExternalImportWhenTypeIsGeneratedLocally(
 	}
 }
 
-func TestPythonModelRequiresManualOverrideOnlyForPythonSpecificOverrides(t *testing.T) {
-	t.Helper()
-
-	if pythonModelRequiresManualOverride(reflect.TypeOf(scriptablechat.ChatFileAttachment{})) {
-		t.Fatalf("ChatFileAttachment should use the standard schema-generated path")
-	}
-	if pythonModelRequiresManualOverride(reflect.TypeOf(llmconfig.Config{})) {
-		t.Fatalf("LLMConfig should use the standard schema-generated path")
-	}
-	if pythonModelRequiresManualOverride(reflect.TypeOf(projectstate.LineChartSettings{})) {
-		t.Fatalf("LineChartSettings should use the standard schema-generated path")
-	}
-	if pythonModelRequiresManualOverride(reflect.TypeOf(projectstate.Viewport{})) {
-		t.Fatalf("Viewport should use the standard schema-generated path")
-	}
-	if pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectRunCapabilities{})) {
-		t.Fatalf("ProjectRunCapabilities should use the standard schema-generated path")
-	}
-	if !pythonModelRequiresManualOverride(reflect.TypeOf(projectview.ProjectConfig{})) {
-		t.Fatalf("ProjectConfig should remain on the manual override path")
-	}
-}
-
 func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 	t.Helper()
 
@@ -181,11 +154,25 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 
 	output := generated.PythonModule
 	for _, snippet := range []string{
+		"from mcp.types import EmbeddedResource, ImageContent, TextContent",
+		"from setta.types.id import ID, create_new_id",
+		"from setta.utils.generate_memorable_string import generate_memorable_string",
+		"from setta.utils.timestamps import get_now_timestamp",
 		"type BaseChatMessageUnion = Annotated[",
 		"type BaseArtifactUnion = Annotated[",
 		"type SectionSizeValue = Annotated[",
 		"class SectionSize(BaseModel):",
-		"class Chat(SettaSharedTypeModel):",
+		"class AssistantChatMessage(BaseModel):",
+		"id: ID = Field(default_factory=create_new_id)",
+		"content: list[MessageTextContent | MessageImageURLContent | MessageThinkingContent] = Field(default_factory=list)",
+		"class Chat(BaseModel):",
+		"lastUpdated: datetime = Field(default_factory=get_now_timestamp)",
+		"messages: list[BaseChatMessageUnion]",
+		"projectConfigId: ID | None = None",
+		"class ChatSectionBranch(BaseModel):",
+		"parentBranchId: ID | None = None",
+		"class ChatSectionState(BaseModel):",
+		"branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)",
 		"class ChatFileAttachment(BaseModel):",
 		"class DependencyEvent(BaseModel):",
 		"class LLMConfig(BaseModel):",
@@ -200,6 +187,9 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"class RawArtifact(BaseModel):",
 		"class StateMachineEdge(BaseModel):",
 		"class ToolCallDeltaEvent(BaseModel):",
+		"class ToolChatMessage(BaseModel):",
+		"content: list[TextContent | ImageContent | EmbeddedResource | ToolReferenceContent] = Field(default_factory=list)",
+		"started_at: datetime = Field(default_factory=get_now_timestamp)",
 		"messages: list[BaseChatMessageUnion]",
 		"dependencyKey: BaseDependencyKeyUnion",
 		"payload: BaseDependencyValueUnion | None",
@@ -207,6 +197,14 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		"message: BaseChatMessageUnion",
 		"class MessageDeltaEvent(BaseModel):",
 		"content: list[MessageContentDelta] | None",
+		"class ProjectConfig(BaseModel):",
+		"name: str = Field(default_factory=generate_memorable_string)",
+		"viewModes: dict[ID, ViewMode] = Field(default_factory=dict)",
+		"codegenTargets: list[ProjectCodegenPythonTarget | ProjectCodegenPluginTarget] = Field(default_factory=",
+		"class SectionDependencyKey(BaseModel):",
+		"sectionId: ID",
+		"class SectionParamDependencyKey(BaseModel):",
+		"codeObjId: ID",
 		"class Viewport(BaseModel):",
 		"x: float = 0.0",
 		"zoom: float = 1.0",
@@ -216,17 +214,18 @@ func TestBuildEmitsSharedSchemaAliasesAndDependentModels(t *testing.T) {
 		}
 	}
 	for _, snippet := range []string{
-		"class ChatFileAttachment(SettaSharedTypeModel):",
-		"class DependencyEvent(SettaSharedTypeModel):",
-		"class LLMConfig(SettaSharedTypeModel):",
-		"class LineChartSettings(SettaSharedTypeModel):",
-		"class MessageThinkingDelta(SettaSharedTypeModel):",
-		"class ProjectRunCapabilities(SettaSharedTypeModel):",
-		"class RawArtifact(SettaSharedTypeModel):",
-		"class ScatterChartSettings(SettaSharedTypeModel):",
-		"class StateMachineEdge(SettaSharedTypeModel):",
-		"class ToolCallDeltaEvent(SettaSharedTypeModel):",
-		"class Viewport(SettaSharedTypeModel):",
+		"class SettaSharedTypeModel(",
+		"class AssistantChatMessage(SettaSharedTypeModel):",
+		"class Chat(SettaSharedTypeModel):",
+		"class ChatMetadata(SettaSharedTypeModel):",
+		"class ChatSectionBranch(SettaSharedTypeModel):",
+		"class ChatSectionState(SettaSharedTypeModel):",
+		"class ProjectConfig(SettaSharedTypeModel):",
+		"class SectionDependencyKey(SettaSharedTypeModel):",
+		"class SectionParamDependencyKey(SettaSharedTypeModel):",
+		"class SystemChatMessage(SettaSharedTypeModel):",
+		"class ToolChatMessage(SettaSharedTypeModel):",
+		"class UserChatMessage(SettaSharedTypeModel):",
 	} {
 		if strings.Contains(output, snippet) {
 			t.Fatalf("generated output should not contain snippet %q", snippet)

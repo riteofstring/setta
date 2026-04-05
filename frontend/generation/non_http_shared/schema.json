@@ -17809,18 +17809,6 @@
         "launcher",
         "blocked"
       ]
-    },
-    "zone": {
-      "type": "object",
-      "properties": {},
-      "title": "zone",
-      "additionalProperties": false
-    },
-    "zoneTrans": {
-      "type": "object",
-      "properties": {},
-      "title": "zoneTrans",
-      "additionalProperties": false
     }
   },
   "x-setta-schema-kind": "non-http-shared-types"

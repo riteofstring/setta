@@ -6,6 +6,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"setta/internal/frontendbindings"
 	"setta/internal/sharedvalueexports"
@@ -30,7 +32,9 @@ func DiscoveredTypes() []reflect.Type {
 		}
 		visited[t] = struct{}{}
 
-		if t != sharedSchemaTimeType && strings.TrimSpace(t.Name()) != "" && strings.TrimSpace(t.PkgPath()) != "" {
+		if t != sharedSchemaTimeType &&
+			sharedSchemaTypeNameIsExported(t) &&
+			strings.TrimSpace(t.PkgPath()) != "" {
 			if _, ok := discovered[t]; !ok {
 				discovered[t] = struct{}{}
 				types = append(types, t)
@@ -117,6 +121,15 @@ func preferredSharedSchemaTypes(types []reflect.Type) []reflect.Type {
 
 func sharedSchemaTypeGroupKey(t reflect.Type) string {
 	return t.PkgPath() + ":" + strings.TrimSpace(ContractNameForType(t))
+}
+
+func sharedSchemaTypeNameIsExported(t reflect.Type) bool {
+	name := strings.TrimSpace(t.Name())
+	if name == "" {
+		return false
+	}
+	firstRune, _ := utf8.DecodeRuneInString(name)
+	return unicode.IsUpper(firstRune)
 }
 
 func ContractNameForType(t reflect.Type) string {

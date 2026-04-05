@@ -6248,20 +6248,6 @@ type WorkingDirStrategy = "project_root" | "temp_dir" | "custom";
  */
 export type WorkspaceLaunchRouteKind = "ide" | "launcher" | "blocked";
 
-/**
- * zone
- */
-type zone = {
-  [key: string]: never;
-};
-
-/**
- * zoneTrans
- */
-type zoneTrans = {
-  [key: string]: never;
-};
-
 type ClientOptions = {
   baseUrl: `${string}://generation` | (string & {});
 };

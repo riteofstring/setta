@@ -6039,16 +6039,6 @@
           "value": "blocked"
         }
       ]
-    },
-    {
-      "name": "zone",
-      "kind": "model",
-      "schemaRef": "#/$defs/zone"
-    },
-    {
-      "name": "zoneTrans",
-      "kind": "model",
-      "schemaRef": "#/$defs/zoneTrans"
     }
   ],
   "routes": [
