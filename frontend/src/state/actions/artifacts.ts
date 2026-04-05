@@ -22,7 +22,7 @@ import {
   DrawAreaLayerItemTransformArtifact,
   FileArtifact,
   ImageArtifact,
-  NotificationTypeEnum,
+  SettaNotificationTypeEnum,
   UpdateArtifactMsgContent,
 } from "utils/generatedTypes";
 
@@ -283,7 +283,10 @@ async function flushPendingArtifacts(force = false) {
           if (result.status === "conflict" || result.status === "skipped") {
             const message =
               result.message || `Conflict detected while saving ${result.id}.`;
-            addTemporaryNotification(message, NotificationTypeEnum.warning);
+            addTemporaryNotification(
+              message,
+              SettaNotificationTypeEnum.warning,
+            );
           }
         }
       }

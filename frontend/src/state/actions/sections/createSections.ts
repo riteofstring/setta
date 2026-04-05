@@ -8,7 +8,7 @@ import {
   useShareSession,
 } from "state/definitions";
 import { CodeLanguage, resolveCodeLanguageFromPath } from "utils/codeLanguage";
-import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
+import { res200 } from "utils/endpointUtils";
 import { resolveFileDropSectionKind } from "utils/fileDropSectionKind";
 import {
   route_create_top_level_section,
@@ -16,7 +16,7 @@ import {
 } from "utils/generatedEndpoints";
 import {
   CodeFileAccessModeEnum,
-  CreateTopLevelSectionRequest,
+  CreateTopLevelSectionRequestInput,
   Position,
   SectionType,
   SectionTypeEnum,
@@ -24,7 +24,6 @@ import {
   TextBlockFormatEnum,
   TopLevelSectionLayout,
   ViewportBounds,
-  type CreateTopLevelSectionResponse,
 } from "utils/generatedTypes";
 import { validateSectionNameInput } from "utils/nameValidation";
 import {
@@ -40,9 +39,9 @@ import {
 import { goToSection } from "./sectionPositions";
 
 type CreateTopLevelSectionArgs = {
-  implType: CreateTopLevelSectionRequest["implType"];
-  implOverrides: CreateTopLevelSectionRequest["implOverrides"];
-  controlCodeObjType?: CreateTopLevelSectionRequest["controlCodeObjType"];
+  implType: CreateTopLevelSectionRequestInput["implType"];
+  implOverrides: CreateTopLevelSectionRequestInput["implOverrides"];
+  controlCodeObjType?: CreateTopLevelSectionRequestInput["controlCodeObjType"];
   position?: Position | null;
   name?: string | null;
 };
@@ -57,9 +56,6 @@ type SmartPlacementContext = {
   viewportBounds: ViewportBounds | null;
 };
 
-type CreateTopLevelSectionRouteResponse =
-  ResponseDataAndStatus<CreateTopLevelSectionResponse>;
-
 export async function createTopLevelSectionWithResult({
   implType,
   implOverrides,
@@ -71,27 +67,20 @@ export async function createTopLevelSectionWithResult({
     return null;
   }
   const placement = getSmartPlacementContext();
-  const fallbackPosition =
-    position ??
-    (placement.viewportBounds === null &&
-    Object.keys(placement.topLevelSections).length === 0
-      ? getEmptySpacePosition()
-      : null);
   const resolvedImplOverrides = resolveTextBlockImplOverrides(
     implType,
     implOverrides,
   );
-  const res: CreateTopLevelSectionRouteResponse =
-    await route_create_top_level_section({
-      projectConfigId: getCurrProjectConfigId(),
-      implType,
-      controlCodeObjType,
-      implOverrides: resolvedImplOverrides,
-      position: fallbackPosition,
-      name,
-      topLevelSections: placement.topLevelSections,
-      viewportBounds: placement.viewportBounds,
-    });
+  const res = await route_create_top_level_section({
+    projectConfigId: getCurrProjectConfigId(),
+    implType,
+    controlCodeObjType,
+    implOverrides: resolvedImplOverrides,
+    position,
+    name,
+    topLevelSections: placement.topLevelSections,
+    viewportBounds: placement.viewportBounds,
+  });
 
   if (!res200(res)) {
     return null;
@@ -251,7 +240,7 @@ function normalizeSectionNameCandidate(value: string): string {
     .trim();
 }
 
-function getValidSectionNameForOpenedFile(fileName: string): string {
+export function getValidSectionNameForOpenedFile(fileName: string): string {
   const trimmedName = fileName.trim();
   const extensionIndex = trimmedName.lastIndexOf(".");
   const baseName =
@@ -529,9 +518,9 @@ export async function openFileAsSectionForDrop({
 }
 
 function resolveTextBlockImplOverrides(
-  implType: CreateTopLevelSectionRequest["implType"],
-  implOverrides: CreateTopLevelSectionRequest["implOverrides"],
-): CreateTopLevelSectionRequest["implOverrides"] {
+  implType: CreateTopLevelSectionRequestInput["implType"],
+  implOverrides: CreateTopLevelSectionRequestInput["implOverrides"],
+): CreateTopLevelSectionRequestInput["implOverrides"] {
   if (implType !== SectionTypeEnum.TextBlock) {
     return implOverrides;
   }
