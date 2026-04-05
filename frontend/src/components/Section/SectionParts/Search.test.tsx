@@ -15,8 +15,6 @@ import {
   createCore,
   createProjectConfig,
   createSingletonSections,
-  createUserDefaultCallableSectionImpl,
-  createUserDefaultCodeParamCodeObjImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -99,16 +97,13 @@ describe("SectionSearch", () => {
         }),
       },
       sectionImpls: {
-        [sectionImplId]: createCallableSectionImpl(
-          createUserDefaultCallableSectionImpl(),
-          {
-            id: sectionImplId,
-            callable: staleCallableId,
-            codeObjVariantMap: {
-              [currentCallableId]: currentCallableVariantId,
-            },
+        [sectionImplId]: createCallableSectionImpl({
+          id: sectionImplId,
+          callable: staleCallableId,
+          codeObjVariantMap: {
+            [currentCallableId]: currentCallableVariantId,
           },
-        ),
+        }),
       },
       sectionVariants: {
         [sectionVariantId]: createVariant({
@@ -133,22 +128,16 @@ describe("SectionSearch", () => {
         }),
       },
       codeObjImpls: {
-        [currentCallableImplId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: currentCallableImplId,
-            description: "current callable impl",
-            value: "1",
-          },
-        ),
-        [staleCallableImplId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: staleCallableImplId,
-            description: "stale callable impl",
-            value: "2",
-          },
-        ),
+        [currentCallableImplId]: createCodeParamCodeObjImpl({
+          id: currentCallableImplId,
+          description: "current callable impl",
+          value: "1",
+        }),
+        [staleCallableImplId]: createCodeParamCodeObjImpl({
+          id: staleCallableImplId,
+          description: "stale callable impl",
+          value: "2",
+        }),
       },
       codeObjVariants: {
         [currentCallableVariantId]: createVariant({
@@ -203,16 +192,13 @@ describe("SectionSearch", () => {
       ];
       state.sectionImpls[sectionImplId].callable = null;
       state.sectionImpls[sectionImplId].codeObjVariantMap = {};
-      state.sectionImpls[previewSectionImplId] = createCallableSectionImpl(
-        createUserDefaultCallableSectionImpl(),
-        {
-          id: previewSectionImplId,
-          callable: currentCallableId,
-          codeObjVariantMap: {
-            [currentCallableId]: currentCallableVariantId,
-          },
+      state.sectionImpls[previewSectionImplId] = createCallableSectionImpl({
+        id: previewSectionImplId,
+        callable: currentCallableId,
+        codeObjVariantMap: {
+          [currentCallableId]: currentCallableVariantId,
         },
-      );
+      });
       state.sectionVariants[previewSectionVariantId] = createVariant({
         id: previewSectionVariantId,
         name: "Preview",

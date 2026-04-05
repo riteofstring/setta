@@ -21,7 +21,6 @@ import {
   createProjectChatWindowingState,
   createProjectConfig,
   createSingleConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
@@ -233,7 +232,7 @@ function buildChatSectionState(
       }),
     },
     sectionImpls: {
-      [implId]: createChatSectionImpl(createUserDefaultChatSectionImpl(), {
+      [implId]: createChatSectionImpl({
         id: implId,
         type: SectionTypeEnum.Chat,
         chatId,

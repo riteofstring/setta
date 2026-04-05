@@ -559,15 +559,12 @@ func validateEndpointPathParams(spec EndpointSpec, routePath string) error {
 func validateTypeDeclarations(declarations []TypeDeclaration) error {
 	seenNames := make(map[string]string, len(declarations))
 	typeSymbols := map[string]string{
-		"ObjectValues":               "shared helper type alias",
-		"GeneratedMutableValue":      "shared helper type alias",
-		"GeneratedFactoryResolution": "shared helper type alias",
+		"ObjectValues":          "shared helper type alias",
+		"GeneratedMutableValue": "shared helper type alias",
 	}
 	valueSymbols := map[string]string{
-		"cloneGeneratedValue":              "shared helper function",
-		"mergeGeneratedOptions":            "shared helper function",
-		"isGeneratedImplOverrideCandidate": "shared helper function",
-		"resolveGeneratedFactoryInputs":    "shared helper function",
+		"cloneGeneratedValue":   "shared helper function",
+		"mergeGeneratedOptions": "shared helper function",
 	}
 	for index, declaration := range declarations {
 		if declaration.Name == "" {

@@ -373,18 +373,6 @@ func renderTSPropertyAccessExpr(baseExpr string, propertyName string) string {
 	return baseExpr + "[" + strconv.Quote(propertyName) + "]"
 }
 
-func objectDeclarationWithGoBackedSectionDefaults(
-	name string,
-	implType string,
-	properties ...TypeProperty,
-) TypeDeclaration {
-	return objectDeclarationWithCreateExpr(
-		name,
-		buildGoBackedSectionDefaultsCreateExprTS(implType, properties),
-		properties...,
-	)
-}
-
 func objectDeclarationWithGoBackedCreateExpr(
 	name string,
 	defaultValue any,
@@ -394,19 +382,6 @@ func objectDeclarationWithGoBackedCreateExpr(
 		name,
 		buildGoBackedCreateExprTS("frontend create defaults "+name, name, defaultValue, properties),
 		properties...,
-	)
-}
-
-func buildGoBackedSectionDefaultsCreateExprTS(implType string, properties []TypeProperty) string {
-	defaults, err := projectstate.FrontendSectionImplDefaultValue(implType)
-	if err != nil {
-		panic("load frontend user default section defaults: " + err.Error())
-	}
-	return buildGoBackedCreateExprTS(
-		"frontend user default section defaults "+implType,
-		"UserDefault"+implType+"SectionImpl",
-		defaults,
-		properties,
 	)
 }
 
@@ -483,18 +458,6 @@ func filterObjectByTypePropertiesWithExprOverrides(
 		filtered[property.Name] = value
 	}
 	return filtered
-}
-
-func defaultsOrOverridesTypeProperty(defaultType string, implType string) TypeProperty {
-	return TypeProperty{
-		Name:         "defaultsOrOverrides",
-		TypeExpr:     "Partial<" + defaultType + "> | Partial<" + implType + ">",
-		DefaultValue: "{}",
-	}
-}
-
-func optionalOverrideTypeProperty(implType string) TypeProperty {
-	return TypeProperty{Name: "overrides", TypeExpr: "Partial<" + implType + ">", Optional: true}
 }
 
 func orderedTypePropertyNames(properties []TypeProperty) []string {
@@ -585,12 +548,7 @@ func generatedSectionImplTypeExpr(sectionName string) string {
 	return "SectionTypeEnum." + sectionName
 }
 
-func generatedSectionImplDefaultTypeName(sectionName string) string {
-	return "UserDefault" + sectionName + "SectionImpl"
-}
-
 type generatedImplFactorySpec struct {
-	DefaultType  string
 	DefaultValue any
 }
 
@@ -605,12 +563,14 @@ func generatedImplFactoryDeclaration(t reflect.Type) (TypeDeclaration, bool) {
 		implType,
 		buildGeneratedImplFactoryBodyTS(
 			"frontend generated impl defaults "+implType,
-			spec.DefaultType,
 			implType,
 			spec.DefaultValue,
 		),
-		defaultsOrOverridesTypeProperty(spec.DefaultType, implType),
-		optionalOverrideTypeProperty(implType),
+		TypeProperty{
+			Name:         "options",
+			TypeExpr:     "Partial<" + implType + ">",
+			DefaultValue: "{}",
+		},
 	), true
 }
 
@@ -621,13 +581,11 @@ func generatedImplFactorySpecForType(t reflect.Type) (generatedImplFactorySpec, 
 			panic("load generated section impl defaults: " + err.Error())
 		}
 		return generatedImplFactorySpec{
-			DefaultType:  generatedSectionImplDefaultTypeName(sectionName),
 			DefaultValue: defaultValue,
 		}, true
 	}
 	if t == reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}) {
 		return generatedImplFactorySpec{
-			DefaultType:  "UserDefaultCodeParamCodeObjImpl",
 			DefaultValue: projectstate.FrontendDefaultCodeParamCodeObjImpl(),
 		}, true
 	}
@@ -636,36 +594,16 @@ func generatedImplFactorySpecForType(t reflect.Type) (generatedImplFactorySpec, 
 
 func buildGeneratedImplFactoryBodyTS(
 	context string,
-	defaultType string,
 	implType string,
 	defaultValue any,
 ) string {
-	var builder strings.Builder
-	builder.WriteString("  const resolved = resolveGeneratedFactoryInputs<\n")
-	builder.WriteString("    ")
-	builder.WriteString(defaultType)
-	builder.WriteString(",\n")
-	builder.WriteString("    ")
-	builder.WriteString(implType)
-	builder.WriteString("\n")
-	builder.WriteString("  >(create")
-	builder.WriteString(defaultType)
-	builder.WriteString("(), defaultsOrOverrides, overrides);\n")
-	builder.WriteString("  const defaults = ")
-	builder.WriteString(
-		buildTSMergeGeneratedOptionsExprFromGoValueTS(
-			context,
-			defaultValue,
-			goJSONFieldOrder(defaultValue),
-			"resolved.defaults as Partial<"+implType+">",
-			implType,
-		),
-	)
-	builder.WriteString(";\n")
-	builder.WriteString("  return mergeGeneratedOptions<")
-	builder.WriteString(implType)
-	builder.WriteString(">(defaults, resolved.overrides);")
-	return builder.String()
+	return "  return " + buildTSMergeGeneratedOptionsExprFromGoValueTS(
+		context,
+		defaultValue,
+		goJSONFieldOrder(defaultValue),
+		"options",
+		implType,
+	) + ";"
 }
 
 func baseChartSettingsUnionFactoryDeclaration() TypeDeclaration {

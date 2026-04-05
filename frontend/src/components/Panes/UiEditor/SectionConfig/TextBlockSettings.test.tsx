@@ -10,7 +10,6 @@ import {
   createCore,
   createProjectConfig,
   createTextBlockSectionImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
   SectionTypeEnum,
   TextBlockFormatEnum,
@@ -103,15 +102,15 @@ function seedTextBlockSection({
       }),
     };
     state.sectionImpls = {
-      [implId]: createTextBlockSectionImpl(
-        createUserDefaultTextBlockSectionImpl({
+      [implId]: createTextBlockSectionImpl({
+        ...{
           text,
           format: TextBlockFormatEnum.Plaintext,
-        }),
-        {
+        },
+        ...{
           id: implId,
         },
-      ),
+      }),
     };
     state.previewSectionVariantMap = {};
   });

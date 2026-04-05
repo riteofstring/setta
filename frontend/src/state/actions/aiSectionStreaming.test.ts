@@ -15,7 +15,6 @@ import {
   createMessageTextContent,
   createMessageThinkingContent,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import {
@@ -88,16 +87,16 @@ function seedChatSection({ chatId: initialChatId }: { chatId: string | null }) {
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: initialChatId }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId: initialChatId },
+    ...{
       id: implId,
       chatId: initialChatId,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = { [sectionId]: sectionCore };

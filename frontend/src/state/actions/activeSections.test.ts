@@ -15,7 +15,6 @@ import {
   createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
-  createUserDefaultCodeSectionImpl,
   createVariant,
   type ProjectStateSingleConfigWithCompletedOpIDs,
   type SingleConfig,
@@ -768,12 +767,9 @@ function buildProjectStateData(
       nonPresetImpls: [implId],
       name: `variant-${sectionId}`,
     });
-    sectionImpls[implId] = createCodeSectionImpl(
-      createUserDefaultCodeSectionImpl(),
-      {
-        id: implId,
-      },
-    );
+    sectionImpls[implId] = createCodeSectionImpl({
+      id: implId,
+    });
   }
   return {
     projectConfig: createProjectConfig({

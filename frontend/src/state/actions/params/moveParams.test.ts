@@ -14,8 +14,6 @@ import {
   createDictSectionImpl,
   createProjectConfig,
   createSingletonSections,
-  createUserDefaultCodeParamCodeObjImpl,
-  createUserDefaultDictSectionImpl,
   createVariant,
   ParameterPassingStyleEnum,
   ParamNameTypeEnum,
@@ -147,7 +145,7 @@ function seedDictParamState({
     const nestedChildren = nestedChildrenByParent[id];
     codeObjImpls[implId] = nestedChildren
       ? createNestedParamImpl(implId, nestedChildren)
-      : createCodeParamCodeObjImpl(createUserDefaultCodeParamCodeObjImpl(), {
+      : createCodeParamCodeObjImpl({
           id: implId,
           value: id,
         });
@@ -188,18 +186,15 @@ function seedDictParamState({
       }),
     };
     state.sectionImpls = {
-      [sectionImplId]: createDictSectionImpl(
-        createUserDefaultDictSectionImpl(),
-        {
-          id: sectionImplId,
-          topLevelParamId: rootParamId,
-          selectedParams,
-          edgeInputParams: [],
-          pinnedParams: [],
-          paramFilter: "",
-          codeObjVariantMap,
-        },
-      ),
+      [sectionImplId]: createDictSectionImpl({
+        id: sectionImplId,
+        topLevelParamId: rootParamId,
+        selectedParams,
+        edgeInputParams: [],
+        pinnedParams: [],
+        paramFilter: "",
+        codeObjVariantMap,
+      }),
     };
     state.codeObjs = codeObjs;
     state.codeObjVariants = codeObjVariants;

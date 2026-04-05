@@ -4,8 +4,6 @@ import {
   createGroupSectionImpl,
   createProjectConfig,
   createSingleConfig,
-  createUserDefaultCodeSectionImpl,
-  createUserDefaultGroupSectionImpl,
   createVariant,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -36,11 +34,11 @@ function createSectionState(input: {
     });
     const groupChildren = input.groupChildrenById?.[sectionId];
     sectionImpls[implId] = groupChildren
-      ? createGroupSectionImpl(createUserDefaultGroupSectionImpl(), {
+      ? createGroupSectionImpl({
           id: implId,
           children: groupChildren,
         })
-      : createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+      : createCodeSectionImpl({
           id: implId,
         });
     sectionVariants[variantId] = createVariant({
@@ -234,20 +232,14 @@ describe("sectionSlugPaths", () => {
     });
 
     state.parentSectionMap.child = "parentB";
-    state.sectionImpls["impl-parentA"] = createGroupSectionImpl(
-      createUserDefaultGroupSectionImpl(),
-      {
-        id: "impl-parentA",
-        children: [],
-      },
-    );
-    state.sectionImpls["impl-parentB"] = createGroupSectionImpl(
-      createUserDefaultGroupSectionImpl(),
-      {
-        id: "impl-parentB",
-        children: ["child"],
-      },
-    );
+    state.sectionImpls["impl-parentA"] = createGroupSectionImpl({
+      id: "impl-parentA",
+      children: [],
+    });
+    state.sectionImpls["impl-parentB"] = createGroupSectionImpl({
+      id: "impl-parentB",
+      children: ["child"],
+    });
 
     expect(resolveStandaloneSectionSlug(state, "parent_a_blue_star")).toEqual({
       kind: "found",

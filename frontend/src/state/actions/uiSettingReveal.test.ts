@@ -12,7 +12,6 @@ import {
   createCore,
   createProjectStateSingleConfigWithCompletedOpIDs,
   createSingleConfig,
-  createUserDefaultCodeSectionImpl,
   createVariant,
   SectionTypeEnum,
 } from "utils/generatedTypes";
@@ -147,12 +146,9 @@ function setActiveSectionType(sectionType: SectionType): void {
       name: "active-variant",
     });
     if (sectionType === SectionTypeEnum.Code) {
-      state.sectionImpls[implId] = createCodeSectionImpl(
-        createUserDefaultCodeSectionImpl(),
-        {
-          id: implId,
-        },
-      );
+      state.sectionImpls[implId] = createCodeSectionImpl({
+        id: implId,
+      });
       return;
     }
     throw new Error(`Unsupported section type in test helper: ${sectionType}`);
@@ -182,12 +178,9 @@ function configureCodeSections({
         nonPresetImpls: [implId],
         name: `variant-${sectionId}`,
       });
-      state.sectionImpls[implId] = createCodeSectionImpl(
-        createUserDefaultCodeSectionImpl(),
-        {
-          id: implId,
-        },
-      );
+      state.sectionImpls[implId] = createCodeSectionImpl({
+        id: implId,
+      });
     }
   });
   useActiveSectionUI.setState({ activeIds: [...activeIds] });

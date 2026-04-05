@@ -28,40 +28,6 @@ class Route(str, Enum):
     GET_LATEST_PROJECT_STATE = "/getLatestProjectState"
 
 
-class BrowserAreaViewMode(str, Enum):
-    list = "list"
-    thumbnail = "thumbnail"
-    carousel = "carousel"
-
-
-class BrowserSearchScope(str, Enum):
-    recursive = "recursive"
-    local = "local"
-
-
-class ChatPermissionMode(str, Enum):
-    minimal = "minimal"
-    yolo = "yolo"
-    config_toml_custom = "config_toml_custom"
-
-
-class ChatDictationMode(str, Enum):
-    auto = "auto"
-    browser = "browser"
-    provider = "provider"
-
-
-class ListRootViewMode(str, Enum):
-    default = "default"
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class DrawAreaLayerItemType(str, Enum):
-    Image = "Image"
-    BrushStroke = "BrushStroke"
-
-
 class AgenticEdgeKind(str, Enum):
     chat_chat = "chat_chat"
     section_chat = "section_chat"
@@ -128,66 +94,6 @@ class ParameterPassingStyle(str, Enum):
     KEYWORD_ONLY = "KEYWORD_ONLY"
 
 
-class ParamNameType(str, Enum):
-    CODE = "CODE"
-    TEXT = "TEXT"
-
-
-class ButtonActionMode(str, Enum):
-    WEBSOCKET_LISTENER = "WEBSOCKET_LISTENER"
-    HTTP_REQUEST = "HTTP_REQUEST"
-    SETTA_API = "SETTA_API"
-
-
-class DropzoneMode(str, Enum):
-    STATEFUL = "STATEFUL"
-    STATELESS = "STATELESS"
-
-
-class TextParamInputUIType(str, Enum):
-    plain = "plain"
-    time = "time"
-    date = "date"
-
-
-class TimeDisplayFormat(str, Enum):
-    twenty_four_hour = "twenty_four_hour"
-    twelve_hour = "twelve_hour"
-
-
-class TimeControlMode(str, Enum):
-    input = "input"
-    display = "display"
-
-
-class TimeDisplayFont(str, Enum):
-    clock = "clock"
-    monospace = "monospace"
-    system = "system"
-
-
-class DateDisplayFormat(str, Enum):
-    iso = "iso"
-    us = "us"
-    eu = "eu"
-    long = "long"
-
-
-class DateControlMode(str, Enum):
-    input = "input"
-    calendar = "calendar"
-
-
-class DateSelectionMode(str, Enum):
-    single = "single"
-    multiple = "multiple"
-
-
-class DateCalendarWeekStart(str, Enum):
-    sunday = "sunday"
-    monday = "monday"
-
-
 class ChatWindowMode(str, Enum):
     project_ai_mode = "project_ai_mode"
     section_mode = "section_mode"
@@ -197,33 +103,6 @@ class ChatWindowMode(str, Enum):
 class WindowSpaceSurfaceKind(str, Enum):
     project_chat = "project_chat"
     section = "section"
-
-
-class CodeLanguage(str, Enum):
-    python = "python"
-    bash = "bash"
-
-
-class CodeFileAccessMode(str, Enum):
-    read_write = "read_write"
-    read_only = "read_only"
-    write_only = "write_only"
-
-
-class SpreadsheetGridDensity(str, Enum):
-    compact = "compact"
-    comfortable = "comfortable"
-
-
-class TaskBoardViewMode(str, Enum):
-    task_list = "task_list"
-    kanban = "kanban"
-
-
-class StateMachineGateType(str, Enum):
-    AND = "AND"
-    OR = "OR"
-    XOR = "XOR"
 
 
 class StateMachineTargetActionType(str, Enum):
@@ -248,16 +127,6 @@ class StateMachineCountOperator(str, Enum):
     eq = "eq"
     gte = "gte"
     gt = "gt"
-
-
-class TextBlockDisplayMode(str, Enum):
-    Render = "Render"
-    Edit = "Edit"
-
-
-class TextBlockFormat(str, Enum):
-    Plaintext = "Plaintext"
-    Markdown = "Markdown"
 
 
 class WatchCodeCallableKind(str, Enum):
@@ -310,12 +179,6 @@ class DrawAreaBrushShape(str, Enum):
     butt = "butt"
     round = "round"
     square = "square"
-
-
-class DrawAreaMode(str, Enum):
-    draw = "draw"
-    erase = "erase"
-    edit = "edit"
 
 
 class ArtifactType(str, Enum):
@@ -371,23 +234,11 @@ class RunSnapshotMode(str, Enum):
     never = "never"
 
 
-class Format(str, Enum):
-    Jinja = "Jinja"
-
-
 class ContentRef(SettaSharedTypeModel):
     contentId: str
     byteLength: int
     mimeType: str | None = None
     sha256: str | None = None
-
-
-class BrowserSavedSearchTypeFilters(SettaSharedTypeModel):
-    image: bool = True
-    video: bool = True
-    audio: bool = True
-    text: bool = True
-    data: bool = True
 
 
 class ChatSectionBranch(SettaSharedTypeModel):
@@ -406,12 +257,6 @@ class ChatSectionState(SettaSharedTypeModel):
     branches: dict[ID, ChatSectionBranch] = Field(default_factory=dict)
 
 
-class DrawAreaLayerItem(SettaSharedTypeModel):
-    type: DrawAreaLayerItemType
-    dataPath: str
-    transformId: str
-
-
 class Viewport(SettaSharedTypeModel):
     x: float = 0.0
     y: float = 0.0
@@ -424,11 +269,6 @@ class TopLevelSectionLayout(SettaSharedTypeModel):
     zIndex: int | None = None
     w: float | None = None
     h: float | None = None
-
-
-class EdgePort(SettaSharedTypeModel):
-    id: str
-    accessor: str
 
 
 class ViewMode(SettaSharedTypeModel):
@@ -726,13 +566,6 @@ class BrushStrokeWithTransform(SettaSharedTypeModel):
 class DrawAreaLayerItemTransform(SettaSharedTypeModel):
     transform: list[float]
     eraserStrokes: list[BrushStrokeWithTransform]
-
-
-class DrawAreaLayer(SettaSharedTypeModel):
-    name: str
-    elements: list[DrawAreaLayerItem]
-    visible: bool
-    layerOpacity: float
 
 
 class BrushStrokeArtifact(SettaSharedTypeModel):

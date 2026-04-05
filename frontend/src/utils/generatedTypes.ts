@@ -43,56 +43,6 @@ function mergeGeneratedOptions<T extends object>(
   } as T;
 }
 
-type GeneratedFactoryResolution<
-  TDefaults extends object,
-  TImpl extends object,
-> = {
-  defaults: TDefaults;
-  overrides: Partial<TImpl>;
-};
-
-function isGeneratedImplOverrideCandidate(
-  value: unknown,
-): value is { id?: unknown; type?: unknown } {
-  return (
-    typeof value === "object" &&
-    value !== null &&
-    ("id" in value || "type" in value)
-  );
-}
-
-function resolveGeneratedFactoryInputs<
-  TDefaults extends object,
-  TImpl extends object,
->(
-  baseDefaults: TDefaults,
-  defaultsOrOverrides?: Partial<TDefaults> | Partial<TImpl>,
-  overrides?: Partial<TImpl>,
-): GeneratedFactoryResolution<TDefaults, TImpl> {
-  if (overrides !== undefined) {
-    return {
-      defaults: mergeGeneratedOptions(
-        baseDefaults,
-        (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-      ),
-      overrides,
-    };
-  }
-  if (isGeneratedImplOverrideCandidate(defaultsOrOverrides)) {
-    return {
-      defaults: cloneGeneratedValue(baseDefaults),
-      overrides: defaultsOrOverrides as Partial<TImpl>,
-    };
-  }
-  return {
-    defaults: mergeGeneratedOptions(
-      baseDefaults,
-      (defaultsOrOverrides ?? {}) as Partial<TDefaults>,
-    ),
-    overrides: {},
-  };
-}
-
 export type CreateAgentProfileRequest = {
   name: string | null;
   description: string | null;
@@ -4006,6 +3956,11 @@ export type AllConfigs = {
   default_config_id?: string;
   codexMcpImportedAt?: string;
 };
+export function createAllConfigs(
+  options: Partial<AllConfigs> = {},
+): AllConfigs {
+  return options as AllConfigs;
+}
 
 export type AppDefinitionReadResult = {
   appSpec: unknown;
@@ -4470,16 +4425,9 @@ export type ChatSectionImpl = BaseSectionImpl & {
 };
 
 export function createChatSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChatSectionImpl>
-    | Partial<ChatSectionImpl> = {},
-  overrides?: Partial<ChatSectionImpl>,
+  options: Partial<ChatSectionImpl> = {},
 ): ChatSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChatSectionImpl,
-    ChatSectionImpl
-  >(createUserDefaultChatSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<ChatSectionImpl>(
+  return mergeGeneratedOptions<ChatSectionImpl>(
     {
       type: "Chat",
       id: "",
@@ -4514,9 +4462,8 @@ export function createChatSectionImpl(
       activeBranchId: null,
       branches: {},
     },
-    resolved.defaults as Partial<ChatSectionImpl>,
+    options,
   );
-  return mergeGeneratedOptions<ChatSectionImpl>(defaults, resolved.overrides);
 }
 
 type BrowserSectionImpl = BaseSectionImpl & {
@@ -4535,16 +4482,9 @@ type ListRootSectionImpl = BaseSectionImpl & {
 };
 
 export function createListRootSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultListRootSectionImpl>
-    | Partial<ListRootSectionImpl> = {},
-  overrides?: Partial<ListRootSectionImpl>,
+  options: Partial<ListRootSectionImpl> = {},
 ): ListRootSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultListRootSectionImpl,
-    ListRootSectionImpl
-  >(createUserDefaultListRootSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<ListRootSectionImpl>(
+  return mergeGeneratedOptions<ListRootSectionImpl>(
     {
       type: "ListRoot",
       id: "",
@@ -4567,11 +4507,7 @@ export function createListRootSectionImpl(
       defaultChildSectionType: "Callable",
       viewMode: "default",
     },
-    resolved.defaults as Partial<ListRootSectionImpl>,
-  );
-  return mergeGeneratedOptions<ListRootSectionImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -4584,16 +4520,9 @@ type GroupSectionImpl = BaseSectionImpl & {
 };
 
 export function createGroupSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultGroupSectionImpl>
-    | Partial<GroupSectionImpl> = {},
-  overrides?: Partial<GroupSectionImpl>,
+  options: Partial<GroupSectionImpl> = {},
 ): GroupSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultGroupSectionImpl,
-    GroupSectionImpl
-  >(createUserDefaultGroupSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<GroupSectionImpl>(
+  return mergeGeneratedOptions<GroupSectionImpl>(
     {
       type: "Group",
       id: "",
@@ -4617,9 +4546,8 @@ export function createGroupSectionImpl(
       overflowMode: false,
       defaultChildSectionType: "Callable",
     },
-    resolved.defaults as Partial<GroupSectionImpl>,
+    options,
   );
-  return mergeGeneratedOptions<GroupSectionImpl>(defaults, resolved.overrides);
 }
 
 type StateMachineStartSectionImpl = BaseSectionImpl & {
@@ -4629,20 +4557,9 @@ type StateMachineStartSectionImpl = BaseSectionImpl & {
 };
 
 export function createStateMachineStartSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultStateMachineStartSectionImpl>
-    | Partial<StateMachineStartSectionImpl> = {},
-  overrides?: Partial<StateMachineStartSectionImpl>,
+  options: Partial<StateMachineStartSectionImpl> = {},
 ): StateMachineStartSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultStateMachineStartSectionImpl,
-    StateMachineStartSectionImpl
-  >(
-    createUserDefaultStateMachineStartSectionImpl(),
-    defaultsOrOverrides,
-    overrides,
-  );
-  const defaults = mergeGeneratedOptions<StateMachineStartSectionImpl>(
+  return mergeGeneratedOptions<StateMachineStartSectionImpl>(
     {
       type: "StateMachineStart",
       id: "",
@@ -4665,11 +4582,7 @@ export function createStateMachineStartSectionImpl(
       label: "Start",
       maxIterations: null,
     },
-    resolved.defaults as Partial<StateMachineStartSectionImpl>,
-  );
-  return mergeGeneratedOptions<StateMachineStartSectionImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -4698,16 +4611,9 @@ type TextBlockSectionImpl = BaseSectionImpl & {
 };
 
 export function createTextBlockSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTextBlockSectionImpl>
-    | Partial<TextBlockSectionImpl> = {},
-  overrides?: Partial<TextBlockSectionImpl>,
+  options: Partial<TextBlockSectionImpl> = {},
 ): TextBlockSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTextBlockSectionImpl,
-    TextBlockSectionImpl
-  >(createUserDefaultTextBlockSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<TextBlockSectionImpl>(
+  return mergeGeneratedOptions<TextBlockSectionImpl>(
     {
       type: "TextBlock",
       id: "",
@@ -4733,11 +4639,7 @@ export function createTextBlockSectionImpl(
       textDisplayMode: "Render",
       text: "",
     },
-    resolved.defaults as Partial<TextBlockSectionImpl>,
-  );
-  return mergeGeneratedOptions<TextBlockSectionImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -4751,16 +4653,9 @@ export type PromptSectionImpl = BaseSectionImpl & {
 };
 
 export function createPromptSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultPromptSectionImpl>
-    | Partial<PromptSectionImpl> = {},
-  overrides?: Partial<PromptSectionImpl>,
+  options: Partial<PromptSectionImpl> = {},
 ): PromptSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultPromptSectionImpl,
-    PromptSectionImpl
-  >(createUserDefaultPromptSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<PromptSectionImpl>(
+  return mergeGeneratedOptions<PromptSectionImpl>(
     {
       type: "Prompt",
       id: "",
@@ -4787,9 +4682,8 @@ export function createPromptSectionImpl(
       missingVariables: [],
       renderError: null,
     },
-    resolved.defaults as Partial<PromptSectionImpl>,
+    options,
   );
-  return mergeGeneratedOptions<PromptSectionImpl>(defaults, resolved.overrides);
 }
 
 type CodeSectionImpl = BaseSectionImpl & {
@@ -4801,16 +4695,9 @@ type CodeSectionImpl = BaseSectionImpl & {
 };
 
 export function createCodeSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeSectionImpl>
-    | Partial<CodeSectionImpl> = {},
-  overrides?: Partial<CodeSectionImpl>,
+  options: Partial<CodeSectionImpl> = {},
 ): CodeSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeSectionImpl,
-    CodeSectionImpl
-  >(createUserDefaultCodeSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<CodeSectionImpl>(
+  return mergeGeneratedOptions<CodeSectionImpl>(
     {
       type: "Code",
       id: "",
@@ -4839,9 +4726,8 @@ export function createCodeSectionImpl(
         suppressedCodes: [],
       },
     },
-    resolved.defaults as Partial<CodeSectionImpl>,
+    options,
   );
-  return mergeGeneratedOptions<CodeSectionImpl>(defaults, resolved.overrides);
 }
 
 type TerminalSectionImpl = BaseSectionImpl & {
@@ -4849,16 +4735,9 @@ type TerminalSectionImpl = BaseSectionImpl & {
 };
 
 export function createTerminalSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTerminalSectionImpl>
-    | Partial<TerminalSectionImpl> = {},
-  overrides?: Partial<TerminalSectionImpl>,
+  options: Partial<TerminalSectionImpl> = {},
 ): TerminalSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTerminalSectionImpl,
-    TerminalSectionImpl
-  >(createUserDefaultTerminalSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<TerminalSectionImpl>(
+  return mergeGeneratedOptions<TerminalSectionImpl>(
     {
       type: "Terminal",
       id: "",
@@ -4878,11 +4757,7 @@ export function createTerminalSectionImpl(
       positionAndSizeLocked: false,
       isPreset: false,
     },
-    resolved.defaults as Partial<TerminalSectionImpl>,
-  );
-  return mergeGeneratedOptions<TerminalSectionImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -4902,16 +4777,9 @@ type CallableSectionImpl = BaseSectionImpl & {
 };
 
 export function createCallableSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCallableSectionImpl>
-    | Partial<CallableSectionImpl> = {},
-  overrides?: Partial<CallableSectionImpl>,
+  options: Partial<CallableSectionImpl> = {},
 ): CallableSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCallableSectionImpl,
-    CallableSectionImpl
-  >(createUserDefaultCallableSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<CallableSectionImpl>(
+  return mergeGeneratedOptions<CallableSectionImpl>(
     {
       type: "Callable",
       id: "",
@@ -4946,11 +4814,7 @@ export function createCallableSectionImpl(
       callable: null,
       hideParams: false,
     },
-    resolved.defaults as Partial<CallableSectionImpl>,
-  );
-  return mergeGeneratedOptions<CallableSectionImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -4973,16 +4837,9 @@ type DictSectionImpl = BaseSectionImpl & {
 };
 
 export function createDictSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultDictSectionImpl>
-    | Partial<DictSectionImpl> = {},
-  overrides?: Partial<DictSectionImpl>,
+  options: Partial<DictSectionImpl> = {},
 ): DictSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultDictSectionImpl,
-    DictSectionImpl
-  >(createUserDefaultDictSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<DictSectionImpl>(
+  return mergeGeneratedOptions<DictSectionImpl>(
     {
       type: "Dict",
       id: "",
@@ -5019,9 +4876,8 @@ export function createDictSectionImpl(
       jsonSourceKeys: [],
       jsonSourceMissing: false,
     },
-    resolved.defaults as Partial<DictSectionImpl>,
+    options,
   );
-  return mergeGeneratedOptions<DictSectionImpl>(defaults, resolved.overrides);
 }
 
 type TaskBoardSectionImpl = BaseSectionImpl & {
@@ -5032,16 +4888,9 @@ type TaskBoardSectionImpl = BaseSectionImpl & {
 };
 
 export function createTaskBoardSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultTaskBoardSectionImpl>
-    | Partial<TaskBoardSectionImpl> = {},
-  overrides?: Partial<TaskBoardSectionImpl>,
+  options: Partial<TaskBoardSectionImpl> = {},
 ): TaskBoardSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultTaskBoardSectionImpl,
-    TaskBoardSectionImpl
-  >(createUserDefaultTaskBoardSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<TaskBoardSectionImpl>(
+  return mergeGeneratedOptions<TaskBoardSectionImpl>(
     {
       type: "TaskBoard",
       id: "",
@@ -5061,14 +4910,10 @@ export function createTaskBoardSectionImpl(
       positionAndSizeLocked: false,
       isPreset: false,
       viewMode: "kanban",
-      columns: null,
+      columns: [],
       tasks: [],
     },
-    resolved.defaults as Partial<TaskBoardSectionImpl>,
-  );
-  return mergeGeneratedOptions<TaskBoardSectionImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -5079,16 +4924,9 @@ type ChartSectionImpl = BaseSectionImpl & {
 };
 
 export function createChartSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultChartSectionImpl>
-    | Partial<ChartSectionImpl> = {},
-  overrides?: Partial<ChartSectionImpl>,
+  options: Partial<ChartSectionImpl> = {},
 ): ChartSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultChartSectionImpl,
-    ChartSectionImpl
-  >(createUserDefaultChartSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<ChartSectionImpl>(
+  return mergeGeneratedOptions<ChartSectionImpl>(
     {
       type: "Chart",
       id: "",
@@ -5116,9 +4954,8 @@ export function createChartSectionImpl(
         y2AxisLog: false,
       },
     },
-    resolved.defaults as Partial<ChartSectionImpl>,
+    options,
   );
-  return mergeGeneratedOptions<ChartSectionImpl>(defaults, resolved.overrides);
 }
 
 type SpreadsheetSectionImpl = BaseSectionImpl & {
@@ -5131,16 +4968,9 @@ type SpreadsheetSectionImpl = BaseSectionImpl & {
 };
 
 export function createSpreadsheetSectionImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultSpreadsheetSectionImpl>
-    | Partial<SpreadsheetSectionImpl> = {},
-  overrides?: Partial<SpreadsheetSectionImpl>,
+  options: Partial<SpreadsheetSectionImpl> = {},
 ): SpreadsheetSectionImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultSpreadsheetSectionImpl,
-    SpreadsheetSectionImpl
-  >(createUserDefaultSpreadsheetSectionImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<SpreadsheetSectionImpl>(
+  return mergeGeneratedOptions<SpreadsheetSectionImpl>(
     {
       type: "Spreadsheet",
       id: "",
@@ -5166,11 +4996,7 @@ export function createSpreadsheetSectionImpl(
       density: "compact",
       autoReloadOnExternalChange: false,
     },
-    resolved.defaults as Partial<SpreadsheetSectionImpl>,
-  );
-  return mergeGeneratedOptions<SpreadsheetSectionImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -5232,16 +5058,9 @@ type CodeParamCodeObjImpl = BaseCodeObjImpl & {
 };
 
 export function createCodeParamCodeObjImpl(
-  defaultsOrOverrides:
-    | Partial<UserDefaultCodeParamCodeObjImpl>
-    | Partial<CodeParamCodeObjImpl> = {},
-  overrides?: Partial<CodeParamCodeObjImpl>,
+  options: Partial<CodeParamCodeObjImpl> = {},
 ): CodeParamCodeObjImpl {
-  const resolved = resolveGeneratedFactoryInputs<
-    UserDefaultCodeParamCodeObjImpl,
-    CodeParamCodeObjImpl
-  >(createUserDefaultCodeParamCodeObjImpl(), defaultsOrOverrides, overrides);
-  const defaults = mergeGeneratedOptions<CodeParamCodeObjImpl>(
+  return mergeGeneratedOptions<CodeParamCodeObjImpl>(
     {
       type: "CodeParam",
       id: "",
@@ -5255,11 +5074,7 @@ export function createCodeParamCodeObjImpl(
       defaultVal: "",
       value: "",
     },
-    resolved.defaults as Partial<CodeParamCodeObjImpl>,
-  );
-  return mergeGeneratedOptions<CodeParamCodeObjImpl>(
-    defaults,
-    resolved.overrides,
+    options,
   );
 }
 
@@ -9016,546 +8831,6 @@ export const SectionParamCodeObjTypeSet = new Set<CodeObjType>([
   CodeObjTypeEnum.DropzoneParam,
   CodeObjTypeEnum.NestedParam,
 ]);
-
-type UserDefaultCallableSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: ConfigLanguage;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  hideParams: boolean;
-};
-export function createUserDefaultCallableSectionImpl(
-  options: Partial<UserDefaultCallableSectionImpl> = {},
-): UserDefaultCallableSectionImpl {
-  return mergeGeneratedOptions<UserDefaultCallableSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: "python",
-      edgeInputParams: [],
-      edgeOutputPorts: [],
-      hideParams: false,
-    },
-    options,
-  );
-}
-
-type UserDefaultDictSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  hideUnpinnedParams: boolean;
-  paramFilter: string;
-  columnWidth: number | null;
-  configLanguage: string;
-  edgeInputParams: Array<string>;
-  edgeOutputPorts: Array<EdgePort>;
-  isJsonSource: boolean;
-  jsonSourceKeys: Array<string>;
-};
-export function createUserDefaultDictSectionImpl(
-  options: Partial<UserDefaultDictSectionImpl> = {},
-): UserDefaultDictSectionImpl {
-  return mergeGeneratedOptions<UserDefaultDictSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      hideUnpinnedParams: false,
-      paramFilter: "",
-      columnWidth: null,
-      configLanguage: "python",
-      edgeInputParams: [],
-      edgeOutputPorts: [],
-      isJsonSource: false,
-      jsonSourceKeys: [],
-    },
-    options,
-  );
-}
-
-type UserDefaultListRootSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  defaultChildSectionType: SectionType;
-  viewMode: ListRootViewMode;
-};
-export function createUserDefaultListRootSectionImpl(
-  options: Partial<UserDefaultListRootSectionImpl> = {},
-): UserDefaultListRootSectionImpl {
-  return mergeGeneratedOptions<UserDefaultListRootSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      defaultChildSectionType: "Callable",
-      viewMode: "default",
-    },
-    options,
-  );
-}
-
-type UserDefaultGroupSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  isHorizontalOrientation: boolean;
-  overflowMode: boolean;
-  defaultChildSectionType: SectionType;
-};
-export function createUserDefaultGroupSectionImpl(
-  options: Partial<UserDefaultGroupSectionImpl> = {},
-): UserDefaultGroupSectionImpl {
-  return mergeGeneratedOptions<UserDefaultGroupSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      isHorizontalOrientation: false,
-      overflowMode: false,
-      defaultChildSectionType: "Callable",
-    },
-    options,
-  );
-}
-
-type UserDefaultStateMachineStartSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  machineGroupId: string;
-  label: string;
-  maxIterations: number | null;
-};
-function createUserDefaultStateMachineStartSectionImpl(
-  options: Partial<UserDefaultStateMachineStartSectionImpl> = {},
-): UserDefaultStateMachineStartSectionImpl {
-  return mergeGeneratedOptions<UserDefaultStateMachineStartSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 96,
-        width: 240,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      machineGroupId: "",
-      label: "Start",
-      maxIterations: null,
-    },
-    options,
-  );
-}
-
-type UserDefaultChartSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  dataPath: string;
-  chartSettings: BaseChartSettingsUnion;
-};
-export function createUserDefaultChartSectionImpl(
-  options: Partial<UserDefaultChartSectionImpl> = {},
-): UserDefaultChartSectionImpl {
-  return mergeGeneratedOptions<UserDefaultChartSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 300,
-        width: 300,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      dataPath: "",
-      chartSettings: {
-        secondYAxisColumns: [],
-        type: "line",
-        xAxisLog: false,
-        y1AxisLog: false,
-        y2AxisLog: false,
-      },
-    },
-    options,
-  );
-}
-
-type UserDefaultTextBlockSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  format: TextBlockFormat;
-  masterFontSizePx: number;
-  headingAsSectionName: boolean;
-  metaControlStyle: boolean;
-  textDisplayMode: TextBlockDisplayMode;
-  text: string;
-};
-export function createUserDefaultTextBlockSectionImpl(
-  options: Partial<UserDefaultTextBlockSectionImpl> = {},
-): UserDefaultTextBlockSectionImpl {
-  return mergeGeneratedOptions<UserDefaultTextBlockSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 500,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      format: "Plaintext",
-      masterFontSizePx: 14,
-      headingAsSectionName: false,
-      metaControlStyle: false,
-      textDisplayMode: "Render",
-      text: "",
-    },
-    options,
-  );
-}
-
-type UserDefaultPromptSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  template: string;
-  format: Format;
-  inputs: Record<string, string>;
-  renderedText: string;
-  missingVariables: Array<string>;
-  renderError: string | null;
-};
-export function createUserDefaultPromptSectionImpl(
-  options: Partial<UserDefaultPromptSectionImpl> = {},
-): UserDefaultPromptSectionImpl {
-  return mergeGeneratedOptions<UserDefaultPromptSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 300,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      template: "",
-      format: "Jinja",
-      inputs: {},
-      renderedText: "",
-      missingVariables: [],
-      renderError: null,
-    },
-    options,
-  );
-}
-
-type UserDefaultCodeSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  code: string;
-  codeFileBinding: CodeFileBinding | null;
-  attachedTerminalSectionId: string | null;
-  codeLanguage: string;
-  diagnosticsIgnoreState: CodeSectionDiagnosticsIgnoreState;
-};
-export function createUserDefaultCodeSectionImpl(
-  options: Partial<UserDefaultCodeSectionImpl> = {},
-): UserDefaultCodeSectionImpl {
-  return mergeGeneratedOptions<UserDefaultCodeSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 500,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      code: "",
-      codeFileBinding: null,
-      attachedTerminalSectionId: null,
-      codeLanguage: "python",
-      diagnosticsIgnoreState: {
-        muted: false,
-        suppressedCodes: [],
-      },
-    },
-    options,
-  );
-}
-
-type UserDefaultTerminalSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-};
-function createUserDefaultTerminalSectionImpl(
-  options: Partial<UserDefaultTerminalSectionImpl> = {},
-): UserDefaultTerminalSectionImpl {
-  return mergeGeneratedOptions<UserDefaultTerminalSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 150,
-        width: 250,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-    },
-    options,
-  );
-}
-
-type UserDefaultChatSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  managed: boolean;
-  engineConfigId: string | null;
-  transcriptionProfileId: string | null;
-  agentProfileId: string | null;
-  chatId: string | null;
-  thinking: boolean;
-  permissionMode: ChatPermissionMode;
-  searchEnabled: boolean;
-  dictationMode: ChatDictationMode;
-  messages: Array<BaseChatMessageUnion>;
-  inputText: string;
-  waitingForResponse: boolean;
-  toolCallArguments: Record<string, string>;
-  activeBranchId: string | null;
-  branches: Record<string, ChatSectionBranch>;
-};
-export function createUserDefaultChatSectionImpl(
-  options: Partial<UserDefaultChatSectionImpl> = {},
-): UserDefaultChatSectionImpl {
-  return mergeGeneratedOptions<UserDefaultChatSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 200,
-        width: 400,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      managed: false,
-      engineConfigId: null,
-      transcriptionProfileId: null,
-      agentProfileId: null,
-      chatId: null,
-      thinking: true,
-      permissionMode: "minimal",
-      searchEnabled: true,
-      dictationMode: "auto",
-      messages: [],
-      inputText: "",
-      waitingForResponse: false,
-      toolCallArguments: {},
-      activeBranchId: null,
-      branches: {},
-    },
-    options,
-  );
-}
-
-type UserDefaultTaskBoardSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  viewMode: TaskBoardViewMode;
-  columns: Array<TaskBoardColumn> | null;
-  tasks: Array<TaskBoardTask>;
-};
-export function createUserDefaultTaskBoardSectionImpl(
-  options: Partial<UserDefaultTaskBoardSectionImpl> = {},
-): UserDefaultTaskBoardSectionImpl {
-  return mergeGeneratedOptions<UserDefaultTaskBoardSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 430,
-        width: 720,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      viewMode: "kanban",
-      columns: null,
-      tasks: [],
-    },
-    options,
-  );
-}
-
-type UserDefaultSpreadsheetSectionImpl = {
-  isFrozen: boolean;
-  tagColor: string | null;
-  styleColor: string | null;
-  size: SectionSize;
-  aspectRatio: boolean | number;
-  isMinimized: boolean;
-  positionAndSizeLocked: boolean;
-  filePath: string;
-  activeSheet: string | null;
-  readOnly: boolean;
-  showRowNumbers: boolean;
-  density: SpreadsheetGridDensity;
-  autoReloadOnExternalChange: boolean;
-};
-export function createUserDefaultSpreadsheetSectionImpl(
-  options: Partial<UserDefaultSpreadsheetSectionImpl> = {},
-): UserDefaultSpreadsheetSectionImpl {
-  return mergeGeneratedOptions<UserDefaultSpreadsheetSectionImpl>(
-    {
-      isFrozen: false,
-      tagColor: null,
-      styleColor: null,
-      size: {
-        height: 500,
-        width: 760,
-      },
-      aspectRatio: false,
-      isMinimized: false,
-      positionAndSizeLocked: false,
-      filePath: "",
-      activeSheet: null,
-      readOnly: false,
-      showRowNumbers: true,
-      density: "compact",
-      autoReloadOnExternalChange: false,
-    },
-    options,
-  );
-}
-
-type UserDefaultCodeParamCodeObjImpl = {
-  coreNameType: ParamNameType;
-  coreNameEditable: boolean;
-  typeAnnotation: string;
-  defaultVal: string;
-  value: string;
-};
-export function createUserDefaultCodeParamCodeObjImpl(
-  options: Partial<UserDefaultCodeParamCodeObjImpl> = {},
-): UserDefaultCodeParamCodeObjImpl {
-  return mergeGeneratedOptions<UserDefaultCodeParamCodeObjImpl>(
-    {
-      coreNameType: "TEXT",
-      coreNameEditable: false,
-      typeAnnotation: "",
-      defaultVal: "",
-      value: "",
-    },
-    options,
-  );
-}
 
 export function createBaseChartSettingsUnionWithDiscriminator(
   options:

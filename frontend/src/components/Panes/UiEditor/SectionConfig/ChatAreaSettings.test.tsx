@@ -15,12 +15,11 @@ import {
   AgenticEdgeKindEnum,
   createAgenticEdge,
   createAgenticSummaryCacheStatus,
-  createAllLLMConfigs,
+  createAllConfigs,
   createChatSectionImpl,
   createCore,
   createEngineConfig,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
   EngineTypeEnum,
   SectionTypeEnum,
@@ -203,22 +202,16 @@ function seedChatSections(
         : {}),
     };
     state.sectionImpls = {
-      [sourceImplId]: createChatSectionImpl(
-        createUserDefaultChatSectionImpl(),
-        {
-          id: sourceImplId,
-          managed: true,
-          engineConfigId: "engine-source",
-        },
-      ),
-      [targetImplId]: createChatSectionImpl(
-        createUserDefaultChatSectionImpl(),
-        {
-          id: targetImplId,
-          managed: true,
-          engineConfigId: "engine-target",
-        },
-      ),
+      [sourceImplId]: createChatSectionImpl({
+        id: sourceImplId,
+        managed: true,
+        engineConfigId: "engine-source",
+      }),
+      [targetImplId]: createChatSectionImpl({
+        id: targetImplId,
+        managed: true,
+        engineConfigId: "engine-target",
+      }),
       ...(includeSummaryContextEdge
         ? {
             [contextImplId]: {
@@ -232,7 +225,7 @@ function seedChatSections(
   syncStoreInitialState(useProjectState);
 
   useAIStore.setState({
-    allLLMConfigs: createAllLLMConfigs({
+    allLLMConfigs: createAllConfigs({
       configs: {
         primary: {
           id: "primary",
@@ -347,7 +340,7 @@ describe("ChatAreaSettings", () => {
         },
       ],
       externalAgentConfigs: [],
-      allLLMConfigs: createAllLLMConfigs({
+      allLLMConfigs: createAllConfigs({
         configs: {
           primary: {
             id: "primary",

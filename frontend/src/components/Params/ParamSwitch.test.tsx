@@ -11,8 +11,6 @@ import {
   createCore,
   createProjectConfig,
   createSingletonSections,
-  createUserDefaultCallableSectionImpl,
-  createUserDefaultCodeParamCodeObjImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -86,15 +84,12 @@ describe("ParamSwitch", () => {
         }),
       },
       sectionImpls: {
-        [sectionImplId]: createCallableSectionImpl(
-          createUserDefaultCallableSectionImpl(),
-          {
-            id: sectionImplId,
-            codeObjVariantMap: {
-              [currentParamId]: currentParamVariantId,
-            },
+        [sectionImplId]: createCallableSectionImpl({
+          id: sectionImplId,
+          codeObjVariantMap: {
+            [currentParamId]: currentParamVariantId,
           },
-        ),
+        }),
       },
       sectionVariants: {
         [sectionVariantId]: createVariant({
@@ -119,20 +114,14 @@ describe("ParamSwitch", () => {
         }),
       },
       codeObjImpls: {
-        [currentParamImplId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: currentParamImplId,
-            value: "1",
-          },
-        ),
-        [staleParamImplId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: staleParamImplId,
-            value: "2",
-          },
-        ),
+        [currentParamImplId]: createCodeParamCodeObjImpl({
+          id: currentParamImplId,
+          value: "1",
+        }),
+        [staleParamImplId]: createCodeParamCodeObjImpl({
+          id: staleParamImplId,
+          value: "2",
+        }),
       },
       codeObjVariants: {
         [currentParamVariantId]: createVariant({

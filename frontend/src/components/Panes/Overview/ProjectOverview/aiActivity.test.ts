@@ -4,7 +4,6 @@ import {
   createAgentRun,
   createChatSectionImpl,
   createTextBlockSectionImpl,
-  createUserDefaultChatSectionImpl,
 } from "utils/generatedTypes";
 import { describe, expect, it } from "vitest";
 import {
@@ -63,12 +62,8 @@ describe("aiActivity", () => {
 
   it("maps chat waiting state to overview activity", () => {
     // Chat sections with a pending response should show active work immediately.
-    const waitingChat = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ waitingForResponse: true }),
-    );
-    const idleChat = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ waitingForResponse: false }),
-    );
+    const waitingChat = createChatSectionImpl({ waitingForResponse: true });
+    const idleChat = createChatSectionImpl({ waitingForResponse: false });
     const textSection = createTextBlockSectionImpl({
       type: SectionTypeEnum.TextBlock,
     });

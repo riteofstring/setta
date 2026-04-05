@@ -19,7 +19,6 @@ import {
   createCore,
   createProjectConfig,
   createSectionSize,
-  createUserDefaultChatSectionImpl,
   createVariant,
   SectionTypeEnum,
   StateMachineGateTypeEnum,
@@ -102,36 +101,36 @@ function seedChatSections() {
     impl: implGate,
     nonPresetImpls: [],
   });
-  const implEntryA = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: "chat-a" }),
-    {
+  const implEntryA = createChatSectionImpl({
+    ...{ chatId: "chat-a" },
+    ...{
       id: implA,
       chatId: "chat-a",
       managed: true,
       engineConfigId: "engine-a",
       thinking: false,
     },
-  );
-  const implEntryB = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: "chat-b" }),
-    {
+  });
+  const implEntryB = createChatSectionImpl({
+    ...{ chatId: "chat-b" },
+    ...{
       id: implB,
       chatId: "chat-b",
       managed: true,
       engineConfigId: "engine-b",
       thinking: false,
     },
-  );
-  const implEntryCode = createCodeSectionImpl(
-    {
+  });
+  const implEntryCode = createCodeSectionImpl({
+    ...{
       id: implCode,
       type: SectionTypeEnum.Code,
     },
-    {
+    ...{
       id: implCode,
       type: SectionTypeEnum.Code,
     },
-  );
+  });
   const implEntryGate = {
     id: implGate,
     type: SectionTypeEnum.StateMachineGate,

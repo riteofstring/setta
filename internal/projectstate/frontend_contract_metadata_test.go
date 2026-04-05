@@ -68,13 +68,6 @@ func TestFrontendBindingTagsLiveOnOwnerTypes(t *testing.T) {
 	expectations := []tagExpectation{
 		{typ: reflect.TypeOf(ViewMode{}), field: "SortIndex", tagName: "ts_optional", tagValue: "true"},
 		{typ: reflect.TypeOf(AgenticEdge{}), field: "Style", tagName: "ts_type", tagValue: "Record<string, unknown>"},
-		{typ: reflect.TypeOf(FrontendBaseSectionImpl{}), field: "Type", tagName: "ts_user_default_skip", tagValue: "true"},
-		{typ: reflect.TypeOf(FrontendSectionWithParamsLeadingFields{}), field: "CodeObjVariantMap", tagName: "ts_user_default_skip", tagValue: "true"},
-		{typ: reflect.TypeOf(FrontendSectionWithParamsTrailingFields{}), field: "PinnedParams", tagName: "ts_user_default_skip", tagValue: "true"},
-		{typ: reflect.TypeOf(FrontendCallableSectionImpl{}), field: "Callable", tagName: "ts_user_default_skip", tagValue: "true"},
-		{typ: reflect.TypeOf(FrontendDictSectionImpl{}), field: "TopLevelParamID", tagName: "ts_user_default_skip", tagValue: "true"},
-		{typ: reflect.TypeOf(FrontendBaseCodeObjImpl{}), field: "Type", tagName: "ts_user_default_skip", tagValue: "true"},
-		{typ: reflect.TypeOf(FrontendParamCodeObjFields{}), field: "PassingStyle", tagName: "ts_user_default_skip", tagValue: "true"},
 		{typ: reflect.TypeOf(ClipboardProjectStateCore{}), field: "Sections", tagName: "ts_type", tagValue: "Record<string, Core>"},
 		{typ: reflect.TypeOf(ClipboardProjectStateCore{}), field: "Sections", tagName: "ts_optional", tagValue: "false"},
 		{typ: reflect.TypeOf(ClipboardProjectStateCoreWithSectionVariantMap{}), field: "SectionVariantMap", tagName: "ts_optional", tagValue: "false"},

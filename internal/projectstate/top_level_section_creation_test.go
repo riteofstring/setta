@@ -1083,6 +1083,31 @@ func TestFrontendSectionImplDefaultValueProjectChartUnionDefaults(t *testing.T) 
 	}
 }
 
+func TestFrontendSectionImplDefaultValueTaskBoardInitializesSlices(t *testing.T) {
+	t.Parallel()
+
+	defaultValue, err := FrontendSectionImplDefaultValue("TaskBoard")
+	if err != nil {
+		t.Fatalf("FrontendSectionImplDefaultValue(TaskBoard) error = %v", err)
+	}
+	defaults, ok := defaultValue.(FrontendTaskBoardSectionImpl)
+	if !ok {
+		t.Fatalf("expected FrontendTaskBoardSectionImpl, got %T", defaultValue)
+	}
+	if defaults.Columns == nil {
+		t.Fatal("expected task board columns default to initialize to an empty slice")
+	}
+	if len(defaults.Columns) != 0 {
+		t.Fatalf("expected empty task board columns default, got %#v", defaults.Columns)
+	}
+	if defaults.Tasks == nil {
+		t.Fatal("expected task board tasks default to initialize to an empty slice")
+	}
+	if len(defaults.Tasks) != 0 {
+		t.Fatalf("expected empty task board tasks default, got %#v", defaults.Tasks)
+	}
+}
+
 func TestProjectCreateTopLevelSectionAcceptsPluginCodeLanguage(t *testing.T) {
 	t.Parallel()
 

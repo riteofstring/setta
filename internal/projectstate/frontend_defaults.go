@@ -282,10 +282,20 @@ func FrontendSectionImplDefaultValue(implType string) (any, error) {
 			createdStateMachineStartSectionDefaults(""),
 		)
 	case "TaskBoard":
-		return frontendSectionImplDefaultValue[FrontendTaskBoardSectionImpl](
+		value, err := frontendSectionImplDefaultValue[FrontendTaskBoardSectionImpl](
 			FrontendSectionTypeTaskBoard,
 			createdTaskBoardSectionDefaults(),
 		)
+		if err != nil {
+			return value, err
+		}
+		if value.Columns == nil {
+			value.Columns = []TaskBoardColumn{}
+		}
+		if value.Tasks == nil {
+			value.Tasks = []TaskBoardTask{}
+		}
+		return value, nil
 	case "Terminal":
 		return frontendSectionImplDefaultValue[FrontendTerminalSectionImpl](
 			FrontendSectionTypeTerminal,

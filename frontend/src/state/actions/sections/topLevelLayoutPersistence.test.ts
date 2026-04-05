@@ -12,7 +12,6 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -49,16 +48,16 @@ function seedProjectState() {
     impl: implId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: null }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId: null },
+    ...{
       id: implId,
       chatId: null,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   useProjectState.setState((state) => {
     state.projectConfig = createProjectConfig({ id: projectConfigId });
     state.sections = { [sectionId]: sectionCore };
@@ -100,16 +99,16 @@ function buildSubAgentEntries() {
     impl: subImplId,
     nonPresetImpls: [],
   });
-  const sectionImpl = createChatSectionImpl(
-    createUserDefaultChatSectionImpl({ chatId: null }),
-    {
+  const sectionImpl = createChatSectionImpl({
+    ...{ chatId: null },
+    ...{
       id: subImplId,
       chatId: null,
       managed: true,
       engineConfigId: "engine-1",
       thinking: true,
     },
-  );
+  });
   return { sectionCore, sectionVariant, sectionImpl };
 }
 

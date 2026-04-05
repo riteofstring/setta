@@ -8,7 +8,6 @@ import "testUtils/reactRefreshPreamble";
 import {
   createListRootSectionImpl,
   createProjectConfig,
-  createUserDefaultListRootSectionImpl,
   SectionTypeEnum,
   type Core,
   type Variant,
@@ -111,13 +110,10 @@ describe("Incrementer", () => {
       state.sections = { [sectionId]: sectionCore };
       state.sectionVariants = { [variantId]: sectionVariant };
       state.sectionImpls = {
-        [implId]: createListRootSectionImpl(
-          createUserDefaultListRootSectionImpl(),
-          {
-            id: implId,
-            defaultChildSectionType: SectionTypeEnum.Dict,
-          },
-        ),
+        [implId]: createListRootSectionImpl({
+          id: implId,
+          defaultChildSectionType: SectionTypeEnum.Dict,
+        }),
       };
       state.parentSectionMap = { [sectionId]: null };
       state.previewSectionVariantMap = {};

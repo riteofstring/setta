@@ -19,9 +19,9 @@ vi.mock("utils/generatedEndpoints", () => ({
 import { useProjectState, useShareSession } from "state/definitions";
 import { resetProjectStores } from "state/utils";
 import {
+  createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { SectionTitle } from "./SectionTitle";
@@ -71,10 +71,10 @@ describe("SectionTitle", () => {
         }),
       };
       state.sectionImpls = {
-        "impl-a": createUserDefaultChatSectionImpl({
+        "impl-a": createChatSectionImpl({
           id: "impl-a",
         }),
-        "impl-b": createUserDefaultChatSectionImpl({
+        "impl-b": createChatSectionImpl({
           id: "impl-b",
         }),
       };

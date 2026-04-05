@@ -7,7 +7,6 @@ import {
   createChartSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChartSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -64,11 +63,11 @@ describe("ChartArea", () => {
         }),
       };
       state.sectionImpls = {
-        [implId]: createChartSectionImpl(
-          createUserDefaultChartSectionImpl({
+        [implId]: createChartSectionImpl({
+          ...{
             dataPath,
-          }),
-          {
+          },
+          ...{
             id: implId,
             chartSettings: {
               type: ChartTypeEnum.scatter,
@@ -78,7 +77,7 @@ describe("ChartArea", () => {
               yAxisLog: false,
             },
           },
-        ),
+        }),
       };
       state.parentSectionMap = { [sectionId]: null };
       state.previewSectionVariantMap = {};

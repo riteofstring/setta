@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   createAgentRun,
-  createAllLLMConfigs,
+  createAllConfigs,
   createEngineConfig,
   createExternalAgentPreflightStatus,
   createLLMConfig,
@@ -597,7 +597,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         externalAgentConfigId: "external-codex",
       }),
     ];
-    const allLLMConfigs = createAllLLMConfigs({
+    const allLLMConfigs = createAllConfigs({
       configs: {
         "cfg-openai": createLLMConfig({
           id: "cfg-openai",
@@ -667,7 +667,7 @@ describe("projectChatSkillsMcpViewerUtils", () => {
         externalAgentConfigId: "external-codex",
       }),
     ];
-    const allLLMConfigs = createAllLLMConfigs({
+    const allLLMConfigs = createAllConfigs({
       configs: {
         "cfg-anthropic": createLLMConfig({
           id: "cfg-anthropic",

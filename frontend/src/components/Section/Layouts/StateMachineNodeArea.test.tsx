@@ -10,7 +10,6 @@ import {
   createCore,
   createProjectConfig,
   createSectionSize,
-  createUserDefaultChatSectionImpl,
   createVariant,
   type BaseSectionImplUnion,
 } from "utils/generatedTypes";
@@ -372,7 +371,7 @@ describe("StateMachineNodeArea", () => {
         {
           sectionId: "section-chat-warning",
           variantId: "variant-chat-warning",
-          impl: createChatSectionImpl(createUserDefaultChatSectionImpl(), {
+          impl: createChatSectionImpl({
             id: "impl-chat-warning",
             name: "Review Chat",
           }),

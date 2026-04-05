@@ -11,9 +11,6 @@ import {
   createProjectConfig,
   createSingletonSections,
   createTextBlockSectionImpl,
-  createUserDefaultCallableSectionImpl,
-  createUserDefaultCodeParamCodeObjImpl,
-  createUserDefaultTextBlockSectionImpl,
   createVariant,
 } from "utils/generatedTypes";
 
@@ -67,13 +64,10 @@ describe("AppRenderer policy enforcement", () => {
       impl: sectionImplId,
       nonPresetImpls: [],
     });
-    const sectionImpl = createCallableSectionImpl(
-      createUserDefaultCallableSectionImpl(),
-      {
-        id: sectionImplId,
-        codeObjVariantMap: { [paramId]: paramVariantId },
-      },
-    );
+    const sectionImpl = createCallableSectionImpl({
+      id: sectionImplId,
+      codeObjVariantMap: { [paramId]: paramVariantId },
+    });
     const paramCore = createCore({
       id: paramId,
       name: "Param",
@@ -87,14 +81,11 @@ describe("AppRenderer policy enforcement", () => {
       impl: paramImplId,
       nonPresetImpls: [],
     });
-    const paramImpl = createCodeParamCodeObjImpl(
-      createUserDefaultCodeParamCodeObjImpl(),
-      {
-        id: paramImplId,
-        name: "Param",
-        coreNameEditable: true,
-      },
-    );
+    const paramImpl = createCodeParamCodeObjImpl({
+      id: paramImplId,
+      name: "Param",
+      coreNameEditable: true,
+    });
 
     useAppConfigs.setState({
       configs: {
@@ -291,14 +282,8 @@ describe("AppRenderer policy enforcement", () => {
       impl: implBId,
       nonPresetImpls: [],
     });
-    const implA = createTextBlockSectionImpl(
-      createUserDefaultTextBlockSectionImpl(),
-      { id: implAId, text: "Alpha" },
-    );
-    const implB = createTextBlockSectionImpl(
-      createUserDefaultTextBlockSectionImpl(),
-      { id: implBId, text: "Beta" },
-    );
+    const implA = createTextBlockSectionImpl({ id: implAId, text: "Alpha" });
+    const implB = createTextBlockSectionImpl({ id: implBId, text: "Beta" });
 
     useAppConfigs.setState({
       configs: {
@@ -386,10 +371,10 @@ describe("AppRenderer policy enforcement", () => {
       impl: sectionImplId,
       nonPresetImpls: [],
     });
-    const sectionImpl = createTextBlockSectionImpl(
-      createUserDefaultTextBlockSectionImpl(),
-      { id: sectionImplId, text: "From impl" },
-    );
+    const sectionImpl = createTextBlockSectionImpl({
+      id: sectionImplId,
+      text: "From impl",
+    });
 
     useAppConfigs.setState({
       configs: {

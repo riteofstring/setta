@@ -25,7 +25,7 @@ import {
   EngineTypeEnum,
   RunStatusEnum,
   createAgentRun,
-  createAllLLMConfigs,
+  createAllConfigs,
   createAssistantChatMessage,
   createEngineConfig,
   createMessageTextContent,
@@ -449,7 +449,7 @@ describe("ProjectChat multi-surface state ownership", () => {
       apiKeys: { openai: "token" },
       apiKeysAuthoritative: true,
       apiKeysInitialLoadComplete: true,
-      allLLMConfigs: createAllLLMConfigs({
+      allLLMConfigs: createAllConfigs({
         default_config_id: "llm-a",
         configs: {
           "llm-a": {

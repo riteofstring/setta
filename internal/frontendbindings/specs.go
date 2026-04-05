@@ -38,7 +38,6 @@ func CurrentRouteGroups() []RouteGroup {
 func CurrentAdditionalDeclarations(converter *typeConverter) []TypeDeclaration {
 	declarations := []TypeDeclaration{}
 	declarations = append(declarations, typeMetadataDeclarations(converter)...)
-	declarations = append(declarations, mustGeneratedUserDefaultDeclarations(converter)...)
 	declarations = append(declarations, additionalFactoryDeclarations()...)
 	declarations = append(declarations, discoveredValueDeclarations(converter)...)
 	return declarations

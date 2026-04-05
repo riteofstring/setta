@@ -9,7 +9,6 @@ import {
   createCodeSectionImpl,
   createProjectConfig,
   createProjectStateSingleConfigWithCompletedOpIDs,
-  createUserDefaultCodeSectionImpl,
   SectionTypeEnum,
   type Core,
   type Variant,
@@ -129,7 +128,7 @@ describe("AttachedTerminalControls", () => {
       state.sections = { [sectionId]: sectionCore };
       state.sectionVariants = { [variantId]: sectionVariant };
       state.sectionImpls = {
-        [implId]: createCodeSectionImpl(createUserDefaultCodeSectionImpl(), {
+        [implId]: createCodeSectionImpl({
           id: implId,
           attachedTerminalSectionId: null,
           children: [],

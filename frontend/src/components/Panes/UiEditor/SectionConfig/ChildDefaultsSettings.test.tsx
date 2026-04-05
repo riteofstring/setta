@@ -9,7 +9,6 @@ import "testUtils/reactRefreshPreamble";
 import {
   createListRootSectionImpl,
   createProjectConfig,
-  createUserDefaultListRootSectionImpl,
   ListRootViewModeEnum,
   SectionTypeEnum,
   type Core,
@@ -107,14 +106,11 @@ describe("ChildDefaultsSettings", () => {
       state.sections = { [sectionId]: sectionCore };
       state.sectionVariants = { [variantId]: sectionVariant };
       state.sectionImpls = {
-        [implId]: createListRootSectionImpl(
-          createUserDefaultListRootSectionImpl(),
-          {
-            id: implId,
-            defaultChildSectionType: SectionTypeEnum.Callable,
-            viewMode: ListRootViewModeEnum.default,
-          },
-        ),
+        [implId]: createListRootSectionImpl({
+          id: implId,
+          defaultChildSectionType: SectionTypeEnum.Callable,
+          viewMode: ListRootViewModeEnum.default,
+        }),
       };
       state.parentSectionMap = { [sectionId]: null };
       state.previewSectionVariantMap = {};

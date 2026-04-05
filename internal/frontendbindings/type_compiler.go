@@ -582,7 +582,6 @@ type tsFieldMetadataSpec struct {
 	Optional        *bool
 	CreateExpr      string
 	CreateMapValues bool
-	UserDefaultSkip bool
 	Skip            bool
 }
 
@@ -611,14 +610,6 @@ func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
 			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_create_map_values value %q", tag)
 		}
 		spec.CreateMapValues = createMapValues
-	}
-
-	if tag := strings.TrimSpace(field.Tag.Get("ts_user_default_skip")); tag != "" {
-		skip, err := strconv.ParseBool(tag)
-		if err != nil {
-			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_user_default_skip value %q", tag)
-		}
-		spec.UserDefaultSkip = skip
 	}
 
 	if tag := strings.TrimSpace(field.Tag.Get("ts_skip")); tag != "" {

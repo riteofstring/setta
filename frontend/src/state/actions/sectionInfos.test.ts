@@ -42,10 +42,6 @@ import {
   createSingleConfig,
   createSingletonSections,
   createTerminalSectionImpl,
-  createUserDefaultCallableSectionImpl,
-  createUserDefaultCodeParamCodeObjImpl,
-  createUserDefaultDictSectionImpl,
-  createUserDefaultListRootSectionImpl,
   createVariant,
   ListRootViewModeEnum,
   SectionTypeEnum,
@@ -68,13 +64,10 @@ describe("getSectionIsHorizontalOrientation", () => {
       }),
       sections: {},
       sectionImpls: {
-        [implId]: createListRootSectionImpl(
-          createUserDefaultListRootSectionImpl(),
-          {
-            id: implId,
-            viewMode: ListRootViewModeEnum.kanban,
-          },
-        ),
+        [implId]: createListRootSectionImpl({
+          id: implId,
+          viewMode: ListRootViewModeEnum.kanban,
+        }),
       },
       sectionVariants: {
         [variantId]: createVariant({
@@ -214,15 +207,12 @@ describe("current code object helpers", () => {
         }),
       },
       sectionImpls: {
-        [sectionImplId]: createCallableSectionImpl(
-          createUserDefaultCallableSectionImpl(),
-          {
-            id: sectionImplId,
-            codeObjVariantMap: {
-              [currentParamId]: currentParamVariantId,
-            },
+        [sectionImplId]: createCallableSectionImpl({
+          id: sectionImplId,
+          codeObjVariantMap: {
+            [currentParamId]: currentParamVariantId,
           },
-        ),
+        }),
       },
       sectionVariants: {
         [sectionVariantId]: createVariant({
@@ -246,20 +236,14 @@ describe("current code object helpers", () => {
         }),
       },
       codeObjImpls: {
-        [currentParamImplId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: currentParamImplId,
-            value: "1",
-          },
-        ),
-        [staleParamImplId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: staleParamImplId,
-            value: "2",
-          },
-        ),
+        [currentParamImplId]: createCodeParamCodeObjImpl({
+          id: currentParamImplId,
+          value: "1",
+        }),
+        [staleParamImplId]: createCodeParamCodeObjImpl({
+          id: staleParamImplId,
+          value: "2",
+        }),
       },
       codeObjVariants: {
         [currentParamVariantId]: createVariant({
@@ -292,9 +276,7 @@ describe("current code object helpers", () => {
         state,
         sectionId,
         staleParamId,
-        (
-          impl,
-        ): impl is ReturnType<typeof createUserDefaultCodeParamCodeObjImpl> =>
+        (impl): impl is ReturnType<typeof createCodeParamCodeObjImpl> =>
           impl.type === CodeObjTypeEnum.CodeParam,
       ),
     ).toBeNull();
@@ -442,13 +424,10 @@ describe("getCurrEffectiveSectionImpl", () => {
         }),
       },
       sectionImpls: {
-        [implId]: createCallableSectionImpl(
-          createUserDefaultCallableSectionImpl(),
-          {
-            id: implId,
-            type: SectionTypeEnum.Callable,
-          },
-        ),
+        [implId]: createCallableSectionImpl({
+          id: implId,
+          type: SectionTypeEnum.Callable,
+        }),
       },
       sectionVariants: {
         [variantId]: createVariant({
@@ -510,7 +489,7 @@ describe("getCurrEffectiveSectionImpl", () => {
         }),
       },
       sectionImpls: {
-        [implId]: createDictSectionImpl(createUserDefaultDictSectionImpl(), {
+        [implId]: createDictSectionImpl({
           id: implId,
           type: SectionTypeEnum.Dict,
         }),
@@ -2010,20 +1989,14 @@ describe("processProjectStateUpdateFromBackend", () => {
       }),
       sections: { [sectionId]: sectionCore },
       sectionImpls: {
-        [sectionImplAId]: createCallableSectionImpl(
-          createUserDefaultCallableSectionImpl(),
-          {
-            id: sectionImplAId,
-            codeObjVariantMap: { [paramId]: paramVariantAId },
-          },
-        ),
-        [sectionImplBId]: createCallableSectionImpl(
-          createUserDefaultCallableSectionImpl(),
-          {
-            id: sectionImplBId,
-            codeObjVariantMap: { [paramId]: paramVariantBId },
-          },
-        ),
+        [sectionImplAId]: createCallableSectionImpl({
+          id: sectionImplAId,
+          codeObjVariantMap: { [paramId]: paramVariantAId },
+        }),
+        [sectionImplBId]: createCallableSectionImpl({
+          id: sectionImplBId,
+          codeObjVariantMap: { [paramId]: paramVariantBId },
+        }),
       },
       sectionVariants: {
         [sectionVariantAId]: sectionVariantA,
@@ -2031,20 +2004,14 @@ describe("processProjectStateUpdateFromBackend", () => {
       },
       codeObjs: { [paramId]: paramCore },
       codeObjImpls: {
-        [paramImplAId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: paramImplAId,
-            value: "1",
-          },
-        ),
-        [paramImplBId]: createCodeParamCodeObjImpl(
-          createUserDefaultCodeParamCodeObjImpl(),
-          {
-            id: paramImplBId,
-            value: "2",
-          },
-        ),
+        [paramImplAId]: createCodeParamCodeObjImpl({
+          id: paramImplAId,
+          value: "1",
+        }),
+        [paramImplBId]: createCodeParamCodeObjImpl({
+          id: paramImplBId,
+          value: "2",
+        }),
       },
       codeObjVariants: {
         [paramVariantAId]: paramVariantA,
@@ -2094,20 +2061,14 @@ describe("processProjectStateUpdateFromBackend", () => {
         }),
         sections: { [sectionId]: sectionCore },
         sectionImpls: {
-          [sectionImplAId]: createCallableSectionImpl(
-            createUserDefaultCallableSectionImpl(),
-            {
-              id: sectionImplAId,
-              codeObjVariantMap: { [paramId]: paramVariantAId },
-            },
-          ),
-          [sectionImplBId]: createCallableSectionImpl(
-            createUserDefaultCallableSectionImpl(),
-            {
-              id: sectionImplBId,
-              codeObjVariantMap: { [paramId]: paramVariantBId },
-            },
-          ),
+          [sectionImplAId]: createCallableSectionImpl({
+            id: sectionImplAId,
+            codeObjVariantMap: { [paramId]: paramVariantAId },
+          }),
+          [sectionImplBId]: createCallableSectionImpl({
+            id: sectionImplBId,
+            codeObjVariantMap: { [paramId]: paramVariantBId },
+          }),
         },
         sectionVariants: {
           [sectionVariantAId]: sectionVariantA,
@@ -2115,20 +2076,14 @@ describe("processProjectStateUpdateFromBackend", () => {
         },
         codeObjs: { [paramId]: paramCore },
         codeObjImpls: {
-          [paramImplAId]: createCodeParamCodeObjImpl(
-            createUserDefaultCodeParamCodeObjImpl(),
-            {
-              id: paramImplAId,
-              value: "1",
-            },
-          ),
-          [paramImplBId]: createCodeParamCodeObjImpl(
-            createUserDefaultCodeParamCodeObjImpl(),
-            {
-              id: paramImplBId,
-              value: "2",
-            },
-          ),
+          [paramImplAId]: createCodeParamCodeObjImpl({
+            id: paramImplAId,
+            value: "1",
+          }),
+          [paramImplBId]: createCodeParamCodeObjImpl({
+            id: paramImplBId,
+            value: "2",
+          }),
         },
         codeObjVariants: {
           [paramVariantAId]: paramVariantA,

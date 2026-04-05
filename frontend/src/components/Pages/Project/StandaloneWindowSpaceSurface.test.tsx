@@ -10,7 +10,6 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
   createWindowSpaceConfig,
 } from "utils/generatedTypes";
@@ -93,20 +92,14 @@ function createManagedChatAuthorityState() {
         }),
       },
       sectionImpls: {
-        [managedImplId]: createChatSectionImpl(
-          createUserDefaultChatSectionImpl(),
-          {
-            id: managedImplId,
-            managed: true,
-          },
-        ),
-        [scriptableImplId]: createChatSectionImpl(
-          createUserDefaultChatSectionImpl(),
-          {
-            id: scriptableImplId,
-            managed: false,
-          },
-        ),
+        [managedImplId]: createChatSectionImpl({
+          id: managedImplId,
+          managed: true,
+        }),
+        [scriptableImplId]: createChatSectionImpl({
+          id: scriptableImplId,
+          managed: false,
+        }),
       },
     },
     managedSectionId,

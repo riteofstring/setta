@@ -37,7 +37,6 @@ import {
   createProjectConfig,
   createProjectStateSingleConfigWithCompletedOpIDs,
   createSingletonSections,
-  createUserDefaultDictSectionImpl,
   createVariant,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
@@ -294,13 +293,10 @@ function seedRuntimeSectionState(sectionId: string): void {
       [sectionId]: variantId,
     };
     state.sections[sectionId] = createCore({ id: sectionId });
-    state.sectionImpls[implId] = createDictSectionImpl(
-      createUserDefaultDictSectionImpl(),
-      {
-        id: implId,
-        name: "Runtime Dict Section",
-      },
-    );
+    state.sectionImpls[implId] = createDictSectionImpl({
+      id: implId,
+      name: "Runtime Dict Section",
+    });
     state.sectionVariants[variantId] = createVariant({
       id: variantId,
       impl: implId,
@@ -474,13 +470,10 @@ function buildPluginRuntimeProjectState(
     const variantId = `variant-${sectionId}`;
     sectionVariantMap[sectionId] = variantId;
     sections[sectionId] = createCore({ id: sectionId });
-    sectionImpls[implId] = createDictSectionImpl(
-      createUserDefaultDictSectionImpl(),
-      {
-        id: implId,
-        name: `Section ${sectionId}`,
-      },
-    );
+    sectionImpls[implId] = createDictSectionImpl({
+      id: implId,
+      name: `Section ${sectionId}`,
+    });
     sectionVariants[variantId] = createVariant({
       id: variantId,
       impl: implId,

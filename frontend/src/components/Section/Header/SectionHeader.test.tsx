@@ -12,7 +12,6 @@ import {
   createChatSectionImpl,
   createCore,
   createProjectConfig,
-  createUserDefaultChatSectionImpl,
   createVariant,
   type Core,
   type LSPDiagnostic,
@@ -302,10 +301,10 @@ describe("SectionHeader follow button", () => {
       id: projectConfigId,
       sectionVariantMap: { [sectionId]: variantId },
     });
-    const chatImpl = createChatSectionImpl(
-      createUserDefaultChatSectionImpl({ chatId }),
-      { id: implId, chatId },
-    );
+    const chatImpl = createChatSectionImpl({
+      ...{ chatId },
+      ...{ id: implId, chatId },
+    });
 
     resetProjectStores();
     useShareSession.setState({ isDeploymentMode: false });
