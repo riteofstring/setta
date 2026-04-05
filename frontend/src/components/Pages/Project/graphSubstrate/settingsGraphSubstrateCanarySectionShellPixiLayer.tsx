@@ -10,6 +10,7 @@ import {
 import { useActiveSectionUI } from "state/activeSectionUI";
 import { useLocalStorage, useTemporaryMiscState } from "state/definitions";
 import { getSectionStylePreviewColorKey } from "utils/constants";
+import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import { useSettingsGraphSubstrateCanarySceneStore } from "./settingsGraphSubstrateCanarySceneStore";
 import {
@@ -37,6 +38,7 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   const drawablesRef = useRef<
     Array<SettingsGraphSubstrateCanarySectionShellPixiDrawable>
   >([]);
+  const pixiSyncCountRef = useRef(0);
   const darkMode = useLocalStorage((state) => state.darkMode);
   const activeSectionIds = useActiveSectionUI(
     (state) => state.activeIds,
@@ -78,6 +80,12 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
   ]);
 
   drawablesRef.current = drawables;
+
+  useLayoutEffect(() => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      pixiDrawableCount: drawables.length,
+    });
+  }, [drawables.length]);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,11 +139,16 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
       graphicsRef.current = graphics;
 
       const syncCanvas = () => {
+        pixiSyncCountRef.current += 1;
         syncSettingsGraphSubstrateCanarySectionShellPixiCanvas({
           app,
           drawables: drawablesRef.current,
           graphics,
           hostRef: canvasRef,
+        });
+        updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+          pixiDrawableCount: drawablesRef.current.length,
+          pixiSyncCount: pixiSyncCountRef.current,
         });
       };
 
@@ -147,6 +160,11 @@ export function SettingsGraphSubstrateCanarySectionShellPixiLayer({
     return () => {
       cancelled = true;
       resizeObserver?.disconnect();
+      pixiSyncCountRef.current = 0;
+      updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+        pixiDrawableCount: 0,
+        pixiSyncCount: 0,
+      });
       if (initCompleted) {
         destroyPixi();
         return;

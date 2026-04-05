@@ -10585,3 +10585,35 @@ LOOP_TERMINAL_MARKER: none
     - add one read-only canary instrumentation seam that reports the live cost model during `All Settings` pan/zoom/drag, including mounted scene section count, section-body count, Pixi drawable count, Pixi redraw count, viewport shape, and unresolved seed fallback count if still relevant
     - keep using `rotaryParamCodeObjDefault` as the broad regression anchor and capture one baseline report under `perf/reports/frontend/`
   - LOOP_TERMINAL_MARKER: none
+
+- 2026-04-07 15:40 EDT, Ralph item `277`
+  - Summary: landed a canary-only instrumentation snapshot and normalized `All Settings` baseline report, so the live canary now reports mounted scene/body counts, Pixi drawables/syncs, viewport shape, and unresolved seed fallback through a narrow debug seam.
+  - Files:
+    - `frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`
+    - `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`
+    - `frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`
+    - `frontend/tests/e2e/settings/settings-view-modes.spec.ts`
+    - `perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-instrumentation-baseline.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-handoff.md`
+    - `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
+  - Canonical target section:
+    - broad regression anchor remains `rotaryParamCodeObjDefault`
+    - this pass measured the whole normalized `All Settings` canary and did not open a new section-specific parity lane
+  - Verification:
+    - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx` -> passed (`3 files`, `19 tests`)
+    - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"` -> passed (`1 passed`, `28.8s`)
+    - Playwright snapshot from the passing probe: mounted scene sections `46`, mounted section bodies `46`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved seed fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+    - fresh-context CDP sub-agent -> pass; read `docs/guides/browser-mcp-quickstart.md`, the provided bootstrap token was rejected during the bounded check, then verified `http://127.0.0.1:3075/settings` directly and confirmed mounted `Settings`, active `All Settings`, and a populated graph surface with real cards/canvas instead of a blank shell or spinner
+  - Result:
+    - the requested instrumentation/baseline lane is now complete; the canary exposes the current cost model without adding visible UI or reopening the measured-authority cleanup lane
+    - the normalized baseline shows zero unresolved seed-fallback pressure but still mounts all `46` section bodies, which points the next product slice toward DOM body ownership/mount count rather than more seed-cache cleanup
+  - Next:
+    - use the new snapshot to land one bounded body-narrowing slice on normalized `All Settings`, and prove `mountedSectionBodyCount` drops while the Pixi shell/canvas stays visually healthy
+    - avoid another instrumentation-only pass unless a concrete motion question blocks that product slice
+  - LOOP_TERMINAL_MARKER: none

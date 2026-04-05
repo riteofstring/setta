@@ -1,6 +1,10 @@
-import { useCallback, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useState, type CSSProperties } from "react";
 import { SettingsGraphSubstrateCanaryBackground } from "./settingsGraphSubstrateCanaryBackground";
 import { useSettingsGraphSubstrateCanaryController } from "./settingsGraphSubstrateCanaryController";
+import {
+  createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot,
+  updateSettingsGraphSubstrateCanaryInstrumentationSnapshot,
+} from "./settingsGraphSubstrateCanaryInstrumentation";
 import { SettingsGraphSubstrateCanarySectionShellPixiLayer } from "./settingsGraphSubstrateCanarySectionShellPixiLayer";
 import { SettingsGraphSubstrateCanarySectionsLayer } from "./settingsGraphSubstrateCanarySectionsLayer";
 
@@ -19,6 +23,17 @@ export function SettingsGraphSubstrateCanary() {
     setHoveredSectionId((currentSectionId) => {
       return currentSectionId === sectionId ? currentSectionId : sectionId;
     });
+  }, []);
+
+  useEffect(() => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      mounted: true,
+    });
+    return () => {
+      updateSettingsGraphSubstrateCanaryInstrumentationSnapshot(
+        createEmptySettingsGraphSubstrateCanaryInstrumentationSnapshot(),
+      );
+    };
   }, []);
 
   return (

@@ -1,5 +1,9 @@
-import React, { type PointerEvent as ReactPointerEvent } from "react";
+import React, {
+  useEffect,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import { SectionTypeEnum } from "utils/generatedTypes";
+import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { SettingsGraphSubstrateCanarySceneSection } from "./settingsGraphSubstrateCanarySceneSnapshot";
 import {
   resolveSettingsGraphSubstrateCanarySectionBody,
@@ -21,6 +25,12 @@ function _SettingsGraphSubstrateCanarySectionsLayer({
   sceneSections,
   sectionDragController,
 }: SettingsGraphSubstrateCanarySectionsLayerProps) {
+  useEffect(() => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      mountedSectionBodyCount: sceneSections.length,
+    });
+  }, [sceneSections.length]);
+
   function handleSectionPointerDown(
     section: SettingsGraphSubstrateCanarySceneSection,
     event: ReactPointerEvent<HTMLDivElement>,

@@ -15,6 +15,8 @@ import {
   getLocalPaneState,
   getSettingsGraphRootRelativePoint,
   normalizeSettingsGraphComparePaneState,
+  readSettingsGraphCanaryInstrumentationSnapshot,
+  runSettingsGraphComparePreflight,
   setLocalPaneState,
   SETTINGS_GRAPH_COMPARE_PANE_STATE,
   type ProjectStateSingleConfigWithCompletedOpIds,
@@ -144,6 +146,124 @@ test("settings graph substrate canary preserves the All Settings multi-column sp
     }
     const restoredState = await getLatestProjectState(page, projectConfigId);
     await applyProjectStateUpdate(page, restoredState);
+  }
+});
+
+test("settings graph substrate canary exposes live instrumentation on normalized All Settings", async ({
+  page,
+}) => {
+  await ensureAppReady(page);
+  await page.goto(SETTINGS_URL, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector(READY_SELECTOR);
+
+  const projectConfigId = await getProjectConfigIdFromBackend(page);
+  const initialState = await getLatestProjectState(page, projectConfigId);
+  const initialActiveViewModeId =
+    initialState.projectState.projectConfig.activeViewModeId;
+  const initialViewport = initialState.projectState.projectConfig.viewport;
+  const initialPaneState = await getLocalPaneState(page);
+  const allSettingsViewModeId = findViewModeId(initialState, "All Settings");
+  const targetSectionName = "rotaryParamCodeObjDefault";
+  const targetSectionId = findSectionIdByName(initialState, targetSectionName);
+
+  try {
+    await normalizeSettingsGraphComparePaneState(page);
+    await postBackend(page, "/setActiveViewMode", {
+      projectConfigId,
+      activeViewModeId: allSettingsViewModeId,
+    });
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: null,
+    });
+    const normalizedState = await getLatestProjectState(page, projectConfigId);
+    await applyProjectStateUpdate(page, normalizedState);
+
+    const allTab = page.getByRole("button", {
+      name: "All Settings",
+      exact: true,
+    });
+    await expect(allTab).toBeVisible();
+    await allTab.click();
+    await expect(page.getByTestId("graph-substrate-canary")).toBeVisible();
+    await expect
+      .poll(() => page.getByTestId("graph-substrate-canary-section").count())
+      .toBeGreaterThan(1);
+
+    const preflight = await runSettingsGraphComparePreflight({
+      expectedSurfaceKind: "canary",
+      expectedViewModeName: "All Settings",
+      page,
+      projectConfigId,
+      requireFitView: true,
+      side: "worktree",
+      targetSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(targetSectionId);
+
+    await expect
+      .poll(async () => {
+        const snapshot =
+          await readSettingsGraphCanaryInstrumentationSnapshot(page);
+        return snapshot?.mounted === true ? snapshot : null;
+      })
+      .not.toBeNull();
+
+    const beforeSnapshot =
+      await readSettingsGraphCanaryInstrumentationSnapshot(page);
+    expect(beforeSnapshot).not.toBeNull();
+    if (!beforeSnapshot) {
+      throw new Error("Missing canary instrumentation snapshot.");
+    }
+
+    expect(beforeSnapshot.mounted).toBe(true);
+    expect(beforeSnapshot.mountedSceneSectionCount).toBeGreaterThan(1);
+    expect(beforeSnapshot.mountedSectionBodyCount).toBe(
+      beforeSnapshot.mountedSceneSectionCount,
+    );
+    expect(beforeSnapshot.pixiDrawableCount).toBeGreaterThan(1);
+    expect(beforeSnapshot.pixiSyncCount).toBeGreaterThan(0);
+    expect(beforeSnapshot.sceneSyncCount).toBeGreaterThan(0);
+    expect(
+      beforeSnapshot.unresolvedSectionSeedFallbackCount,
+    ).toBeGreaterThanOrEqual(0);
+    expect(beforeSnapshot.viewportZoom ?? 0).toBeGreaterThan(0);
+    expect(beforeSnapshot.visibleViewportSize?.width ?? 0).toBeGreaterThan(0);
+    expect(beforeSnapshot.visibleViewportSize?.height ?? 0).toBeGreaterThan(0);
+
+    console.info(
+      "settings-graph-canary-instrumentation",
+      JSON.stringify(
+        {
+          snapshot: beforeSnapshot,
+          targetSectionId,
+          targetSectionName,
+        },
+        null,
+        2,
+      ),
+    );
+  } finally {
+    await setLocalPaneState(page, initialPaneState).catch(() => {});
+    await postBackend(page, "/setViewport", {
+      projectConfigId,
+      viewport: initialViewport,
+    }).catch(() => {});
+    if (initialActiveViewModeId) {
+      await postBackend(page, "/setActiveViewMode", {
+        projectConfigId,
+        activeViewModeId: initialActiveViewModeId,
+      }).catch(() => {});
+    }
+    const restoredState = await getLatestProjectState(
+      page,
+      projectConfigId,
+    ).catch(() => null);
+    if (restoredState) {
+      await applyProjectStateUpdate(page, restoredState).catch(() => {});
+    }
   }
 });
 

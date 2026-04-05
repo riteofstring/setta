@@ -1,6 +1,6 @@
 # Graph Substrate Rewrite Handoff
 
-Last updated: 2026-04-07 15:16 EDT
+Last updated: 2026-04-07 15:40 EDT
 Plan: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-plan.md`
 Active history: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log.md`
 History index: `docs/plans/worktrees/pixijs-graph/graph-substrate-rewrite-log-index.md`
@@ -70,31 +70,37 @@ This section overrides older "next frontier" notes below when choosing the next 
   - the canary still selects all renderable `All Settings` sections in [`settingsGraphSubstrateCanaryModel.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryModel.ts)
   - the scene runtime still snapshots/syncs the whole active section set in [`settingsGraphSubstrateCanarySceneRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts)
   - the Pixi shell layer still clears and redraws the full drawable list per sync in [`settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx)
+- New baseline evidence from item `277` on normalized `All Settings` fit-view:
+  - mounted scene section count: `46`
+  - mounted section-body count: `46`
+  - Pixi drawable count: `46`
+  - Pixi sync count: `2`
+  - scene sync count: `3`
+  - unresolved seed-cache fallback count: `0`
+  - viewport zoom / visible viewport size: `1.1900826446280992` at `720 x 828`
 - Working hypothesis:
   - the current win is "one batched shell surface" rather than "Pixi solved the whole graph"
-  - the next useful evidence should show whether the remaining bottleneck is DOM body count, full-scene redraw count, or legacy ownership churn
+  - the normalized baseline no longer points at seed-fallback churn on the visible canary path
+  - the next real product slice should attack DOM body ownership / mount count before reopening more measured-authority cleanup by default
 
 ## Next iteration target
 
 Pick one bounded subtask:
 
-- add one read-only canary instrumentation seam that reports the cost model during live pan/zoom/drag
+- use the new instrumentation baseline to land the first bounded DOM body narrowing slice on normalized `All Settings`
 
-Recommended instrumentation surface:
+Recommended product target:
 
-- mounted scene section count
-- mounted section-body count
-- Pixi drawable count
-- Pixi sync/redraw count
-- current viewport zoom and visible viewport size
-- unresolved seed-cache fallback count if that still affects visible geometry
+- keep Pixi shells/chrome visible across the whole `All Settings` canary
+- reduce DOM body ownership for non-target sections, offscreen sections, or both through one bounded substrate-owned gate
+- use the new instrumentation snapshot to prove `mountedSectionBodyCount` drops without regressing canary health
 
 Recommended deliverables for the next iteration:
 
-- production instrumentation code kept behind a narrow canary-facing helper or debug snapshot seam
-- focused Vitest coverage for the instrumentation payload
-- one targeted Playwright probe that reads the instrumentation on the checked `All Settings` canary
-- one baseline report under `perf/reports/frontend/`
+- one production code slice that measurably lowers mounted body count on the canary
+- focused Vitest coverage for the new body-ownership gate
+- one targeted Playwright probe that reads the instrumentation snapshot before/after the change
+- one append-only perf report update under `perf/reports/frontend/`
 
 Recommended canonical target:
 
@@ -104,11 +110,47 @@ Recommended canonical target:
 Do not use the next iteration for:
 
 - more `tldraw` investigation
+- another instrumentation-only pass unless a concrete motion question blocks the body-narrowing slice
 - another shell-only visual contract slice
 - another standalone lifecycle recovery pass unless the runtime is actually unhealthy
 - another section-specific parity lane unless the new instrumentation directly shows a renderer bug on that lane
 
 ## Current status
+
+- Ralph item `277` landed a canary-only instrumentation snapshot plus a normalized `All Settings` baseline report, so the live canary now exposes scene/body/drawable/sync/viewport/fallback counters through a narrow debug seam.
+
+  - Why this pass completed:
+    - items `273` through `276` were all measured-authority cleanup in the same lane, and the handoff explicitly said the next pass should pivot to instrumentation/baseline instead of another ownership hop
+    - the bounded seam was a read-only canary-facing helper plus minimal runtime hooks, not another section-specific parity lane or shell-only cleanup
+    - the resulting baseline gives the first direct evidence for where the next product slice should move: body ownership/mount count rather than visible seed-fallback churn
+  - Canonical target section:
+    - keep `rotaryParamCodeObjDefault` as the broad `All Settings` regression anchor and fit-view target
+    - this pass measured the whole `All Settings` canary; it did not open a new section-specific parity lane
+  - Product/test change:
+    - added [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts) as the narrow canary-facing debug snapshot seam for mounted scene/body counts, Pixi drawables/syncs, viewport zoom/size, and unresolved seed fallback count
+    - updated [`frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx), [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx), and [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts) so the mounted canary publishes those counters without affecting visible UI
+    - added focused payload coverage in [`frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts) and a targeted canary probe in [`frontend/tests/e2e/settings/settings-view-modes.spec.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/settings-view-modes.spec.ts), with the read helper in [`frontend/tests/e2e/settings/graphSubstrateParityProbe.ts`](/Users/jeff/Documents/_projects/setta.pixijs-graph/frontend/tests/e2e/settings/graphSubstrateParityProbe.ts)
+    - recorded the first append-only baseline report in [`perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-instrumentation-baseline.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/perf/reports/frontend/2026-04-07_settings-graph-substrate-canary-instrumentation-baseline.md)
+  - Verification:
+    - formatting:
+      - `pnpm -C frontend exec prettier --check src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionShellPixiLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionsLayer.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportRuntime.ts tests/e2e/settings/graphSubstrateParityProbe.ts tests/e2e/settings/settings-view-modes.spec.ts`
+      - result: passed
+    - focused Vitest:
+      - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation.test.ts src/components/Pages/Project/graphSubstrate/SettingsGraphSubstrateCanary.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - result: passed (`3 files`, `19 tests`)
+    - targeted Playwright:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 ./scripts/run-playwright-e2e.sh frontend/tests/e2e/settings/settings-view-modes.spec.ts -g "settings graph substrate canary exposes live instrumentation on normalized All Settings"`
+      - result: passed (`1 passed`, `28.8s`)
+      - captured snapshot: mounted scene sections `46`, mounted section bodies `46`, Pixi drawables `46`, Pixi syncs `2`, scene syncs `3`, unresolved fallback `0`, viewport `720 x 828` at zoom `1.1900826446280992`
+    - CDP visual gate:
+      - fresh-context CDP sub-agent read [`docs/guides/browser-mcp-quickstart.md`](/Users/jeff/Documents/_projects/setta.pixijs-graph/docs/guides/browser-mcp-quickstart.md)
+      - the provided bootstrap URL rejected its token during the bounded check, so the sub-agent verified the live worktree directly at `http://127.0.0.1:3075/settings`
+      - observed mounted `Settings`, active `All Settings`, and a populated graph substrate with real cards/canvas instead of a blank shell or spinner
+      - final classification: pass for bounded canary health
+  - Lane status:
+    - the instrumentation/baseline lane requested by the handoff is now complete and should not be repeated by default next pass
+    - the new snapshot shows zero unresolved seed-fallback pressure on the normalized baseline while the canary still mounts all `46` visible section bodies, so the likely next hotspot is DOM body ownership/mount count rather than the just-completed measured-authority lane
+  - LOOP_TERMINAL_MARKER: none
 
 - Ralph item `276` stopped the canary scene store from carrying canary-local `sectionSeedNodes` across runtime unmount, so measured shared-node seed fallback now dies with the mounted canary lifecycle instead of surviving into the next mount.
 

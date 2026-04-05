@@ -1,4 +1,5 @@
 import { expect, type Page } from "@playwright/test";
+import type { SettingsGraphSubstrateCanaryInstrumentationSnapshot } from "components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryInstrumentation";
 import { postBackend } from "../helpers";
 
 export type SettingsGraphLocalPaneState = {
@@ -106,6 +107,9 @@ export type SettingsGraphMotionPerfCapture = {
   visibleSectionCount: number;
 };
 
+export type SettingsGraphCanaryInstrumentationSnapshot =
+  SettingsGraphSubstrateCanaryInstrumentationSnapshot;
+
 export type SharedVisibleSettingsGraphSection = {
   name: string;
   sectionId: string;
@@ -142,6 +146,29 @@ type SettingsGraphMotionPerfCaptureState = {
   rafHandle: number;
   startTimestamp: number;
 };
+
+export async function readSettingsGraphCanaryInstrumentationSnapshot(
+  page: Page,
+): Promise<SettingsGraphCanaryInstrumentationSnapshot | null> {
+  return page.evaluate(() => {
+    type SettingsGraphCanaryInstrumentationWindow = Window & {
+      __settaSettingsGraphSubstrateCanaryInstrumentation?: SettingsGraphCanaryInstrumentationSnapshot;
+    };
+
+    const windowRef = window as SettingsGraphCanaryInstrumentationWindow;
+    const snapshot =
+      windowRef.__settaSettingsGraphSubstrateCanaryInstrumentation;
+    if (!snapshot) {
+      return null;
+    }
+    return {
+      ...snapshot,
+      visibleViewportSize: snapshot.visibleViewportSize
+        ? { ...snapshot.visibleViewportSize }
+        : null,
+    };
+  });
+}
 
 async function postSettingsGraphBackend<T>(
   page: Page,

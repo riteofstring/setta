@@ -8,6 +8,7 @@ import {
   type RefObject,
 } from "react";
 import { useLocalStorage, useMisc, useSettings } from "state/definitions";
+import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
 import {
   createEmptySettingsGraphSubstrateCanarySceneSnapshot,
   type SettingsGraphSubstrateCanarySceneSnapshot,
@@ -390,6 +391,20 @@ export function useSettingsGraphSubstrateCanaryViewportRuntime({
     shouldPersistResolvedViewport,
     visibleViewportSize.width,
     wrapperDimensions.height,
+  ]);
+
+  useEffect(() => {
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      viewportZoom: resolvedViewport?.zoom ?? null,
+      visibleViewportSize:
+        visibleViewportSize.width > 0 && visibleViewportSize.height > 0
+          ? visibleViewportSize
+          : null,
+    });
+  }, [
+    resolvedViewport?.zoom,
+    visibleViewportSize.height,
+    visibleViewportSize.width,
   ]);
 
   return {

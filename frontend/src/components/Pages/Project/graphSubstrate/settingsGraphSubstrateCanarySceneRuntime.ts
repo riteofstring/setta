@@ -1,6 +1,7 @@
-import { useEffect, useLayoutEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import { useNodeInternals } from "state/definitions";
 import { useSectionElementSizes } from "state/hooks/sectionElementSizes";
+import { updateSettingsGraphSubstrateCanaryInstrumentationSnapshot } from "./settingsGraphSubstrateCanaryInstrumentation";
 import type { GraphSubstrateCanarySection } from "./settingsGraphSubstrateCanaryModel";
 import { syncSettingsGraphSubstrateCanaryNodes } from "./settingsGraphSubstrateCanaryNodeSync";
 import {
@@ -29,6 +30,7 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   sectionPositionOverride,
   sections,
 }: SettingsGraphSubstrateCanarySceneRuntimeArgs): SettingsGraphSubstrateCanarySceneSnapshot {
+  const sceneSyncCountRef = useRef(0);
   const measuredSectionIds = useMemo(
     () =>
       sections
@@ -61,7 +63,18 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
       sceneSnapshot,
       nextSectionSeedNodes,
     );
-  }, [measuredSectionElementSizes, sceneSnapshot, sections]);
+    sceneSyncCountRef.current += 1;
+    updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+      mountedSceneSectionCount: sceneSnapshot.sections.length,
+      sceneSyncCount: sceneSyncCountRef.current,
+      unresolvedSectionSeedFallbackCount: measuredSectionIds.length,
+    });
+  }, [
+    measuredSectionElementSizes,
+    measuredSectionIds.length,
+    sceneSnapshot,
+    sections,
+  ]);
 
   useEffect(() => {
     const currentNodeInternals = useNodeInternals.getState().x;
@@ -78,6 +91,11 @@ export function useSettingsGraphSubstrateCanarySceneRuntime({
   useEffect(() => {
     return () => {
       resetSettingsGraphSubstrateCanarySceneSnapshot();
+      updateSettingsGraphSubstrateCanaryInstrumentationSnapshot({
+        mountedSceneSectionCount: 0,
+        sceneSyncCount: 0,
+        unresolvedSectionSeedFallbackCount: 0,
+      });
     };
   }, []);
 
