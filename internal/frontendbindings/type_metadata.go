@@ -29,7 +29,7 @@ func typeMetadataDeclarations(converter *typeConverter) []TypeDeclaration {
 		),
 		aliasDeclaration(
 			"MessageContent",
-			"MessageTextContent | MessageImageUrlContent | MessageThinkingContent",
+			"MessageTextContent | MessageImageURLContent | MessageThinkingContent",
 		),
 		aliasDeclaration(
 			"BaseChatMessageUnion",

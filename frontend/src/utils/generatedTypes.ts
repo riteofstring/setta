@@ -5224,14 +5224,14 @@ export function createMessageTextContent(
   );
 }
 
-type MessageImageUrl = {
+type MessageImageURL = {
   url: string;
   detail?: "auto" | "low" | "high" | null;
 };
 
-export type MessageImageUrlContent = {
+export type MessageImageURLContent = {
   type: "image_url";
-  image_url: MessageImageUrl;
+  image_url: MessageImageURL;
 };
 
 export type MessageThinkingContent = {
@@ -5296,17 +5296,19 @@ export function createToolCall(options: Partial<ToolCall> = {}): ToolCall {
 
 type SystemChatMessage = {
   id: string;
+  role: typeof ChatRoleEnum.system;
+  createdAt: number;
   content: Array<MessageContent>;
   attachments: Array<ChatFileAttachment>;
-  role: typeof ChatRoleEnum.system;
 };
 
 export type AssistantChatMessage = {
   id: string;
+  role: typeof ChatRoleEnum.assistant;
+  createdAt: number;
   content: Array<MessageContent>;
   attachments: Array<ChatFileAttachment>;
-  role: typeof ChatRoleEnum.assistant;
-  tool_calls?: Array<ToolCall> | null;
+  tool_calls?: Array<ToolCall>;
 };
 export function createAssistantChatMessage(
   options: Partial<AssistantChatMessage> = {},
@@ -5314,9 +5316,10 @@ export function createAssistantChatMessage(
   return mergeGeneratedOptions<AssistantChatMessage>(
     {
       id: "",
+      role: "assistant",
+      createdAt: 0,
       content: [],
       attachments: [],
-      role: "assistant",
       tool_calls: null,
     },
     options,
@@ -5325,9 +5328,10 @@ export function createAssistantChatMessage(
 
 type UserChatMessage = {
   id: string;
+  role: typeof ChatRoleEnum.user;
+  createdAt: number;
   content: Array<MessageContent>;
   attachments: Array<ChatFileAttachment>;
-  role: typeof ChatRoleEnum.user;
 };
 export function createUserChatMessage(
   options: Partial<UserChatMessage> = {},
@@ -5335,9 +5339,10 @@ export function createUserChatMessage(
   return mergeGeneratedOptions<UserChatMessage>(
     {
       id: "",
+      role: "user",
+      createdAt: 0,
       content: [],
       attachments: [],
-      role: "user",
     },
     options,
   );
@@ -5346,6 +5351,7 @@ export function createUserChatMessage(
 export type ToolChatMessage = {
   id: string;
   role: typeof ChatRoleEnum.tool;
+  createdAt: number;
   tool_call_id: string;
   tool_name?: string | null;
   arguments: JSONValue;
@@ -5362,6 +5368,7 @@ export function createToolChatMessage(
     {
       id: "",
       role: "tool",
+      createdAt: 0,
       tool_call_id: "",
       tool_name: null,
       arguments: {},
@@ -5562,7 +5569,7 @@ export type MessageFinalizedEvent = {
   message: BaseChatMessageUnion;
 };
 
-export type LLMStreamingResponse = {
+export type LLMStreamingResponseContent = {
   chatId: string;
   chunk: LLMStreamingResponseChunk;
   sectionId?: string | null;
@@ -8430,7 +8437,7 @@ type JSONValue =
 
 type MessageContent =
   | MessageTextContent
-  | MessageImageUrlContent
+  | MessageImageURLContent
   | MessageThinkingContent;
 
 export type BaseChatMessageUnion =

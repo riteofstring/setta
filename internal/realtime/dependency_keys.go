@@ -16,12 +16,12 @@ const (
 )
 
 type SectionDependencyKey struct {
-	Type      DependencyKeyType `json:"type"`
+	Type      DependencyKeyType `json:"type" ts_type:"typeof DependencyKeyTypeEnum.Section"`
 	SectionID string            `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
 
 type SectionParamDependencyKey struct {
-	Type      DependencyKeyType `json:"type"`
+	Type      DependencyKeyType `json:"type" ts_type:"typeof DependencyKeyTypeEnum.SectionParam"`
 	SectionID string            `json:"sectionId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 	CodeObjID string            `json:"codeObjId" py_type:"ID" py_import:"from setta.types.id import ID, create_new_id"`
 }
@@ -35,17 +35,17 @@ const (
 )
 
 type LiteralDependencyValue struct {
-	Type    DependencyValueType `json:"type"`
+	Type    DependencyValueType `json:"type" ts_type:"typeof DependencyValueTypeEnum.Literal"`
 	Payload string              `json:"payload"`
 }
 
 type FileReadDependencyValue struct {
-	Type    DependencyValueType `json:"type"`
+	Type    DependencyValueType `json:"type" ts_type:"typeof DependencyValueTypeEnum.FileRead"`
 	Payload string              `json:"payload"`
 }
 
 type BinaryDependencyValue struct {
-	Type    DependencyValueType      `json:"type"`
+	Type    DependencyValueType      `json:"type" ts_type:"typeof DependencyValueTypeEnum.Binary"`
 	Payload binarypayload.ContentRef `json:"payload"`
 }
 

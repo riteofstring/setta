@@ -13,10 +13,8 @@ import (
 	"setta/internal/projectstate"
 	"setta/internal/projectview"
 	"setta/internal/realtime"
-	"setta/internal/scriptablechat"
 	"setta/internal/settingsstate"
 	"setta/internal/transcriptionprofiles"
-	"setta/internal/wsapi"
 )
 
 type reflectedObjectDeclarationSpec struct {
@@ -59,14 +57,6 @@ func reflectedSpecWithDiscoveredDefault(
 }
 
 var artifactAliasDeclarations = map[reflect.Type]TypeDeclaration{
-	reflect.TypeOf(artifacts.CanvasPoint{}): aliasDeclaration(
-		"CanvasPoint",
-		"[number, number]",
-	),
-	reflect.TypeOf(artifacts.DrawAreaTransform{}): aliasDeclaration(
-		"DrawAreaTransform",
-		"[number, number, number, number, number, number]",
-	),
 	reflect.TypeOf(artifacts.ChartDataValue{}): aliasDeclaration(
 		"ChartDataValue",
 		"Record<string, Array<string | number>>",
@@ -81,13 +71,7 @@ var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDe
 	},
 	reflect.TypeOf(artifacts.BrushStrokeWithTransform{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"points":    `Array<CanvasPoint | "BREAK">`,
-			"transform": "DrawAreaTransform",
-		},
-	},
-	reflect.TypeOf(artifacts.DrawAreaLayerItemTransform{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"transform": "DrawAreaTransform",
+			"points": `Array<CanvasPoint | "BREAK">`,
 		},
 	},
 	reflect.TypeOf(projectstate.DrawAreaLayerItem{}): {
@@ -163,32 +147,6 @@ func artifactTypeDeclaration(
 }
 
 var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDeclarationSpec{
-	reflect.TypeOf(realtime.SectionDependencyKey{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof DependencyKeyTypeEnum.Section",
-		},
-	},
-	reflect.TypeOf(realtime.SectionParamDependencyKey{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof DependencyKeyTypeEnum.SectionParam",
-		},
-	},
-	reflect.TypeOf(realtime.LiteralDependencyValue{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof DependencyValueTypeEnum.Literal",
-		},
-	},
-	reflect.TypeOf(realtime.FileReadDependencyValue{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof DependencyValueTypeEnum.FileRead",
-		},
-	},
-	reflect.TypeOf(realtime.BinaryDependencyValue{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"payload": "ContentRef",
-			"type":    "typeof DependencyValueTypeEnum.Binary",
-		},
-	},
 	reflect.TypeOf(realtime.ListenerCoverageSnapshot{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"dependencies": "Array<BaseDependencyKeyUnion>",
@@ -220,80 +178,10 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"language": true,
 		},
 	},
-	reflect.TypeOf(agentruns.RunEvent{}): {},
 	reflect.TypeOf(agentruns.Run{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"inputs":  "Record<string, unknown> | null",
 			"outputs": "Record<string, unknown> | null",
-		},
-	},
-	reflect.TypeOf(realtime.MessageTextDelta{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": `"text_delta"`,
-		},
-	},
-	reflect.TypeOf(realtime.MessageThinkingDelta{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": `"thinking_delta"`,
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"summary":   true,
-			"signature": true,
-		},
-	},
-	reflect.TypeOf(realtime.MessageStartEvent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type":    "typeof StreamingEventTypeEnum.MESSAGE_START",
-			"message": "BaseChatMessageUnion",
-		},
-	},
-	reflect.TypeOf(realtime.MessageDeltaEvent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type":    "typeof StreamingEventTypeEnum.DELTA",
-			"content": "Array<MessageContentDelta> | null",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"content": true,
-		},
-	},
-	reflect.TypeOf(realtime.ToolCallDeltaEvent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof StreamingEventTypeEnum.TOOL_CALL_DELTA",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"tool_name": true,
-		},
-	},
-	reflect.TypeOf(realtime.ToolResultEvent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type":   "typeof StreamingEventTypeEnum.TOOL_RESULT",
-			"result": "ToolChatMessage",
-		},
-	},
-	reflect.TypeOf(realtime.ToolArgumentPreviewDeltaEvent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA",
-		},
-	},
-	reflect.TypeOf(realtime.MessageStopEvent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": "typeof StreamingEventTypeEnum.MESSAGE_STOP",
-		},
-	},
-	reflect.TypeOf(realtime.MessageFinalizedEvent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type":    "typeof StreamingEventTypeEnum.MESSAGE_FINALIZED",
-			"message": "BaseChatMessageUnion",
-		},
-	},
-	reflect.TypeOf(realtime.LLMStreamingResponseContent{}): {
-		DeclarationName: "LLMStreamingResponse",
-		PropertyTypeExprOverrides: map[string]string{
-			"chunk": "LLMStreamingResponseChunk",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"sectionId":       true,
-			"projectConfigId": true,
 		},
 	},
 	reflect.TypeOf(httpapi.RunCodeRequest{}): {
@@ -603,98 +491,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 			"suppressedCodes": "Array<string | number>",
 		},
 	},
-	reflect.TypeOf(scriptablechat.MessageTextContent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": `"text"`,
-		},
-	},
-	reflect.TypeOf(scriptablechat.MessageImageURL{}): {
-		DeclarationName: "MessageImageUrl",
-		PropertyTypeExprOverrides: map[string]string{
-			"detail": `"auto" | "low" | "high" | null`,
-		},
-	},
-	reflect.TypeOf(scriptablechat.MessageImageURLContent{}): {
-		DeclarationName: "MessageImageUrlContent",
-		PropertyTypeExprOverrides: map[string]string{
-			"type": `"image_url"`,
-		},
-	},
-	reflect.TypeOf(scriptablechat.MessageThinkingContent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": `"thinking"`,
-		},
-	},
-	reflect.TypeOf(scriptablechat.ToolReferenceContent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": `"tool_reference"`,
-		},
-	},
-	reflect.TypeOf(scriptablechat.ToolCallFunction{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"arguments": "{ [key: string]: JSONValue | undefined }",
-		},
-	},
-	reflect.TypeOf(scriptablechat.ToolCall{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"type": `"function"`,
-		},
-	},
-	reflect.TypeOf(scriptablechat.SystemChatMessage{}): {
-		IgnoredProperties: reflectedIgnoredProperties("role", "createdAt"),
-		ExtraProperties: []TypeProperty{
-			{Name: "role", TypeExpr: "typeof ChatRoleEnum.system"},
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"content": "Array<MessageContent>",
-		},
-	},
-	reflect.TypeOf(scriptablechat.AssistantChatMessage{}): {
-		IgnoredProperties: reflectedIgnoredProperties("role", "createdAt", "tool_calls"),
-		ExtraProperties: []TypeProperty{
-			{Name: "role", TypeExpr: "typeof ChatRoleEnum.assistant"},
-			{Name: "tool_calls", TypeExpr: "Array<ToolCall> | null", Optional: true},
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"content": "Array<MessageContent>",
-		},
-	},
-	reflect.TypeOf(scriptablechat.UserChatMessage{}): {
-		IgnoredProperties: reflectedIgnoredProperties("role", "createdAt"),
-		ExtraProperties: []TypeProperty{
-			{Name: "role", TypeExpr: "typeof ChatRoleEnum.user"},
-		},
-		PropertyTypeExprOverrides: map[string]string{
-			"content": "Array<MessageContent>",
-		},
-	},
-	reflect.TypeOf(scriptablechat.ToolChatMessage{}): {
-		IgnoredProperties: reflectedIgnoredProperties("createdAt"),
-		PropertyTypeExprOverrides: map[string]string{
-			"role":       "typeof ChatRoleEnum.tool",
-			"arguments":  "JSONValue",
-			"result":     "JSONValue",
-			"content":    "Array<ToolReferenceContent | Record<string, unknown>>",
-			"started_at": "string",
-		},
-	},
-	reflect.TypeOf(projectstate.ChatSectionBranch{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"messages": "Array<BaseChatMessageUnion>",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"parentBranchId":      true,
-			"branchFromMessageId": true,
-		},
-	},
-	reflect.TypeOf(projectstate.ChatSectionState{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"messages": "Array<BaseChatMessageUnion>",
-		},
-		PropertyOptionalOverrides: map[string]bool{
-			"activeBranchId": true,
-		},
-	},
 	reflect.TypeOf(httpapi.CreateEdgeRequest{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type":     "string",
@@ -758,47 +554,6 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	reflect.TypeOf(projectstate.ScatterChartSettings{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof ChartTypeEnum.scatter",
-		},
-	},
-	reflect.TypeOf(realtime.Connection{}): {
-		DefaultValue: realtime.Connection{
-			Type: realtime.ConnectionTypeServer,
-		},
-		HasCreateExpr: true,
-	},
-	reflect.TypeOf(wsapi.CurrentAddressUpdateMessage{}): {
-		DefaultValue: wsapi.CurrentAddressUpdateMessage{
-			MessageType: wsapi.FrontendMessageTypeCurrentAddressUpdate,
-		},
-		HasCreateExpr: true,
-		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof MessageTypeEnum.CurrentAddressUpdate",
-		},
-	},
-	reflect.TypeOf(wsapi.RealtimeUIChangeContent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"dependencyKey": "BaseDependencyKeyUnion",
-			"value":         "BaseDependencyValueUnion",
-		},
-	},
-	reflect.TypeOf(wsapi.RealtimeUIChangeMessage{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof MessageTypeEnum.RealtimeUIChange",
-		},
-	},
-	reflect.TypeOf(wsapi.RealtimeDependencyEventContent{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"dependencyEvent": "DependencyEvent",
-		},
-	},
-	reflect.TypeOf(wsapi.RealtimeDependencyEventMessage{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof MessageTypeEnum.RealtimeDependencyEvent",
-		},
-	},
-	reflect.TypeOf(realtime.UISettingRevealResultMessage{}): {
-		PropertyTypeExprOverrides: map[string]string{
-			"messageType": "typeof MessageTypeEnum.UISettingRevealResult",
 		},
 	},
 }

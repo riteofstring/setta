@@ -6,9 +6,9 @@ import {
   ChatSectionState,
   createMessageTextContent,
   createMessageThinkingContent,
-  LLMStreamingResponse,
+  LLMStreamingResponseContent,
   MessageDeltaEvent,
-  MessageImageUrlContent,
+  MessageImageURLContent,
   MessageTextContent,
   MessageThinkingContent,
   StreamingEventTypeEnum,
@@ -17,10 +17,10 @@ import {
   ToolCallDeltaEvent,
 } from "utils/generatedTypes";
 
-export type ChatSectionStreamChunk = LLMStreamingResponse["chunk"];
+export type ChatSectionStreamChunk = LLMStreamingResponseContent["chunk"];
 
 export function shouldIgnoreResponsePlaceholderChunk(
-  chunk: LLMStreamingResponse["chunk"],
+  chunk: LLMStreamingResponseContent["chunk"],
 ): boolean {
   if (chunk.type === StreamingEventTypeEnum.MESSAGE_START) {
     return shouldIgnoreResponsePlaceholderMessage(chunk.message);
@@ -473,7 +473,7 @@ function stampMessageCreatedAtIfMissing(
 
 function ensureTextContentBlock(
   content: Array<
-    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
+    MessageTextContent | MessageImageURLContent | MessageThinkingContent
   >,
   index: number,
 ): MessageTextContent {
@@ -491,7 +491,7 @@ function ensureTextContentBlock(
 
 function ensureThinkingContentBlock(
   content: Array<
-    MessageTextContent | MessageImageUrlContent | MessageThinkingContent
+    MessageTextContent | MessageImageURLContent | MessageThinkingContent
   >,
   index: number,
 ): MessageThinkingContent {

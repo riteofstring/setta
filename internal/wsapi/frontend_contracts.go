@@ -17,19 +17,19 @@ const (
 
 type CurrentAddressUpdateMessage struct {
 	ID          *string             `json:"id,omitempty"`
-	MessageType FrontendMessageType `json:"messageType"`
+	MessageType FrontendMessageType `json:"messageType" ts_type:"typeof MessageTypeEnum.CurrentAddressUpdate"`
 	Content     string              `json:"content"`
 }
 
 type RealtimeUIChangeContent struct {
 	ProjectConfigID string          `json:"projectConfigId"`
-	DependencyKey   json.RawMessage `json:"dependencyKey"`
-	Value           json.RawMessage `json:"value"`
+	DependencyKey   json.RawMessage `json:"dependencyKey" ts_type:"BaseDependencyKeyUnion"`
+	Value           json.RawMessage `json:"value" ts_type:"BaseDependencyValueUnion"`
 }
 
 type RealtimeUIChangeMessage struct {
 	ID          *string                 `json:"id,omitempty"`
-	MessageType FrontendMessageType     `json:"messageType"`
+	MessageType FrontendMessageType     `json:"messageType" ts_type:"typeof MessageTypeEnum.RealtimeUIChange"`
 	Content     RealtimeUIChangeContent `json:"content"`
 }
 
@@ -42,11 +42,11 @@ type RealtimeDependencyEventPayload struct {
 
 type RealtimeDependencyEventContent struct {
 	ProjectConfigID string                         `json:"projectConfigId"`
-	DependencyEvent RealtimeDependencyEventPayload `json:"dependencyEvent"`
+	DependencyEvent RealtimeDependencyEventPayload `json:"dependencyEvent" ts_type:"DependencyEvent"`
 }
 
 type RealtimeDependencyEventMessage struct {
 	ID          *string                        `json:"id,omitempty"`
-	MessageType FrontendMessageType            `json:"messageType"`
+	MessageType FrontendMessageType            `json:"messageType" ts_type:"typeof MessageTypeEnum.RealtimeDependencyEvent"`
 	Content     RealtimeDependencyEventContent `json:"content"`
 }

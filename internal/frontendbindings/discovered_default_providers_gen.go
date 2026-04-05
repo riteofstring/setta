@@ -8,8 +8,10 @@ import (
 	artifacts "setta/internal/artifacts"
 	projectstate "setta/internal/projectstate"
 	projectview "setta/internal/projectview"
+	realtime "setta/internal/realtime"
 	scriptablechat "setta/internal/scriptablechat"
 	settingsstate "setta/internal/settingsstate"
+	wsapi "setta/internal/wsapi"
 )
 
 func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
@@ -50,8 +52,14 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectview.CodeObjValueOverride{}): func() any {
 			return projectview.FrontendDefaultCodeObjValueOverride()
 		},
+		reflect.TypeOf(realtime.Connection{}): func() any {
+			return realtime.FrontendDefaultConnection()
+		},
 		reflect.TypeOf(projectview.Core{}): func() any {
 			return projectview.FrontendDefaultCore()
+		},
+		reflect.TypeOf(wsapi.CurrentAddressUpdateMessage{}): func() any {
+			return wsapi.FrontendDefaultCurrentAddressUpdateMessage()
 		},
 		reflect.TypeOf(artifacts.DrawAreaLayer{}): func() any {
 			return artifacts.FrontendDefaultDrawAreaLayer()

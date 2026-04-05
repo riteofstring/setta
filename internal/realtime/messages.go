@@ -115,45 +115,45 @@ type AIFollowToolResultUpdateContent struct {
 }
 
 type MessageTextDelta struct {
-	Type  string `json:"type"`
+	Type  string `json:"type" ts_type:"\"text_delta\""`
 	Index int    `json:"index"`
 	Text  string `json:"text"`
 }
 
 type MessageThinkingDelta struct {
-	Type      string  `json:"type"`
+	Type      string  `json:"type" ts_type:"\"thinking_delta\""`
 	Index     int     `json:"index"`
 	Thinking  string  `json:"thinking"`
-	Summary   *string `json:"summary"`
-	Signature *string `json:"signature"`
+	Summary   *string `json:"summary" ts_optional:"true"`
+	Signature *string `json:"signature" ts_optional:"true"`
 }
 
 type MessageStartEvent struct {
-	Type    StreamingEventType `json:"type"`
-	Message map[string]any     `json:"message"`
+	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.MESSAGE_START"`
+	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion"`
 }
 
 type MessageDeltaEvent struct {
-	Type      StreamingEventType `json:"type"`
+	Type      StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.DELTA"`
 	MessageID string             `json:"message_id"`
-	Content   []any              `json:"content"`
+	Content   []any              `json:"content" ts_type:"Array<MessageContentDelta> | null" ts_optional:"true"`
 }
 
 type ToolCallDeltaEvent struct {
-	Type           StreamingEventType `json:"type"`
+	Type           StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.TOOL_CALL_DELTA"`
 	MessageID      string             `json:"message_id"`
 	ToolCallID     string             `json:"tool_call_id"`
 	ArgumentsDelta string             `json:"arguments_delta"`
-	ToolName       *string            `json:"tool_name"`
+	ToolName       *string            `json:"tool_name" ts_optional:"true"`
 }
 
 type ToolResultEvent struct {
-	Type   StreamingEventType `json:"type"`
-	Result map[string]any     `json:"result"`
+	Type   StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.TOOL_RESULT"`
+	Result map[string]any     `json:"result" ts_type:"ToolChatMessage"`
 }
 
 type ToolArgumentPreviewDeltaEvent struct {
-	Type              StreamingEventType  `json:"type"`
+	Type              StreamingEventType  `json:"type" ts_type:"typeof StreamingEventTypeEnum.TOOL_ARGUMENT_PREVIEW_DELTA"`
 	MessageID         string              `json:"message_id"`
 	ToolCallID        string              `json:"tool_call_id"`
 	ToolName          string              `json:"tool_name"`
@@ -164,20 +164,20 @@ type ToolArgumentPreviewDeltaEvent struct {
 }
 
 type MessageStopEvent struct {
-	Type      StreamingEventType `json:"type"`
+	Type      StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.MESSAGE_STOP"`
 	MessageID string             `json:"message_id"`
 }
 
 type MessageFinalizedEvent struct {
-	Type    StreamingEventType `json:"type"`
-	Message map[string]any     `json:"message"`
+	Type    StreamingEventType `json:"type" ts_type:"typeof StreamingEventTypeEnum.MESSAGE_FINALIZED"`
+	Message map[string]any     `json:"message" ts_type:"BaseChatMessageUnion"`
 }
 
 type LLMStreamingResponseContent struct {
 	ChatID          string  `json:"chatId"`
-	Chunk           any     `json:"chunk"`
-	SectionID       *string `json:"sectionId"`
-	ProjectConfigID *string `json:"projectConfigId"`
+	Chunk           any     `json:"chunk" ts_type:"LLMStreamingResponseChunk"`
+	SectionID       *string `json:"sectionId" ts_optional:"true"`
+	ProjectConfigID *string `json:"projectConfigId" ts_optional:"true"`
 }
 
 type LLMStreamingResponseMessage struct {
@@ -284,7 +284,7 @@ type AIFollowToolResultUpdateMessage struct {
 
 type UISettingRevealResultMessage struct {
 	ID          *string                      `json:"id"`
-	MessageType string                       `json:"messageType"`
+	MessageType string                       `json:"messageType" ts_type:"typeof MessageTypeEnum.UISettingRevealResult"`
 	Content     UISettingRevealResultContent `json:"content"`
 }
 

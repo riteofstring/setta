@@ -64,6 +64,7 @@ func FrontendDefaultToolChatMessage() map[string]any {
 	return map[string]any{
 		"id":           "",
 		"role":         ChatRoleTool,
+		"createdAt":    0,
 		"tool_call_id": "",
 		"tool_name":    nil,
 		"arguments":    map[string]any{},

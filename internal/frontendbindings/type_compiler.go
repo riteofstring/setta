@@ -3,6 +3,7 @@ package frontendbindings
 import (
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
 )
 
@@ -95,6 +96,15 @@ func (c *typeConverter) renderTypeExprWithQualifier(
 		reflect.Float32, reflect.Float64:
 		return "number", nil
 	case reflect.Slice, reflect.Array:
+		if t.Kind() == reflect.Array {
+			tuple, ok, err := c.renderTupleTypeExprWithQualifier(t, qualifier)
+			if err != nil {
+				return "", err
+			}
+			if ok {
+				return tuple, nil
+			}
+		}
 		inner, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
 		if err != nil {
 			return "", err
@@ -202,14 +212,27 @@ func (c *typeConverter) ensureDeclaration(t reflect.Type) error {
 		})
 		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.Slice, reflect.Array:
-		inner, err := c.renderTypeExpr(t.Elem())
-		if err != nil {
-			return err
+		aliasExpr := ""
+		if t.Kind() == reflect.Array {
+			tuple, ok, err := c.renderTupleTypeExpr(t)
+			if err != nil {
+				return err
+			}
+			if ok {
+				aliasExpr = tuple
+			}
+		}
+		if aliasExpr == "" {
+			inner, err := c.renderTypeExpr(t.Elem())
+			if err != nil {
+				return err
+			}
+			aliasExpr = fmt.Sprintf("Array<%s>", inner)
 		}
 		c.declarations = append(c.declarations, TypeDeclaration{
 			Name:  frontendBindingTypeName(t),
 			Kind:  "alias",
-			Alias: fmt.Sprintf("Array<%s>", inner),
+			Alias: aliasExpr,
 		})
 		return c.appendAdditionalDeclarationsForType(t)
 	case reflect.Map:
@@ -376,6 +399,13 @@ func (c *typeConverter) structProperties(
 		if skip {
 			continue
 		}
+		tsMetadata, err := tsFieldMetadata(field)
+		if err != nil {
+			return nil, fmt.Errorf("%s.%s: %w", t.Name(), field.Name, err)
+		}
+		if tsMetadata.Skip {
+			continue
+		}
 		if ignoredProperties != nil {
 			if _, ignored := ignoredProperties[name]; ignored {
 				continue
@@ -387,6 +417,9 @@ func (c *typeConverter) structProperties(
 		}
 		typeExpr := typeExprOverride
 		if typeExpr == "" {
+			typeExpr = tsMetadata.TypeExpr
+		}
+		if typeExpr == "" {
 			var err error
 			typeExpr, err = c.renderTypeExpr(field.Type)
 			if err != nil {
@@ -397,6 +430,9 @@ func (c *typeConverter) structProperties(
 			if override, ok := optionalOverrides[name]; ok {
 				optional = override
 			}
+		}
+		if tsMetadata.Optional != nil {
+			optional = *tsMetadata.Optional
 		}
 		properties = append(properties, TypeProperty{
 			Name:     name,
@@ -451,6 +487,63 @@ func lowerCamelCase(value string) string {
 		return value
 	}
 	return strings.ToLower(value[:1]) + value[1:]
+}
+
+func (c *typeConverter) renderTupleTypeExpr(t reflect.Type) (string, bool, error) {
+	return c.renderTupleTypeExprWithQualifier(t, "")
+}
+
+func (c *typeConverter) renderTupleTypeExprWithQualifier(
+	t reflect.Type,
+	qualifier string,
+) (string, bool, error) {
+	if t.Kind() != reflect.Array {
+		return "", false, nil
+	}
+	if t.Len() == 0 {
+		return "[]", true, nil
+	}
+	inner, err := c.renderTypeExprWithQualifier(t.Elem(), qualifier)
+	if err != nil {
+		return "", false, err
+	}
+	members := make([]string, 0, t.Len())
+	for range t.Len() {
+		members = append(members, inner)
+	}
+	return "[" + strings.Join(members, ", ") + "]", true, nil
+}
+
+type tsFieldMetadataSpec struct {
+	TypeExpr string
+	Optional *bool
+	Skip     bool
+}
+
+func tsFieldMetadata(field reflect.StructField) (tsFieldMetadataSpec, error) {
+	spec := tsFieldMetadataSpec{}
+
+	if tag := strings.TrimSpace(field.Tag.Get("ts_type")); tag != "" {
+		spec.TypeExpr = tag
+	}
+
+	if tag := strings.TrimSpace(field.Tag.Get("ts_optional")); tag != "" {
+		optional, err := strconv.ParseBool(tag)
+		if err != nil {
+			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_optional value %q", tag)
+		}
+		spec.Optional = &optional
+	}
+
+	if tag := strings.TrimSpace(field.Tag.Get("ts_skip")); tag != "" {
+		skip, err := strconv.ParseBool(tag)
+		if err != nil {
+			return tsFieldMetadataSpec{}, fmt.Errorf("invalid ts_skip value %q", tag)
+		}
+		spec.Skip = skip
+	}
+
+	return spec, nil
 }
 
 func renderInlineObject(properties []TypeProperty) string {

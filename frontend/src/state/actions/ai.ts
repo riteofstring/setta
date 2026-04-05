@@ -116,7 +116,7 @@ import {
   ExternalAgentPreflightStatus,
   LLMAPIKeysSnapshot,
   LLMChatResponse,
-  LLMStreamingResponse,
+  LLMStreamingResponseContent,
   MessageDeltaEvent,
   MessageFinalizedEvent,
   MessageStartEvent,
@@ -2793,7 +2793,7 @@ async function findLatestRunningExternalRunId(
 
 function applyStreamingChunkToSection(
   sectionId: string,
-  chunk: LLMStreamingResponse["chunk"],
+  chunk: LLMStreamingResponseContent["chunk"],
   projectConfigId: string,
 ) {
   const nextState = applyChatSectionStreamDelta(sectionId, chunk);
@@ -2844,7 +2844,7 @@ function applyStreamingChunkToSection(
   }
 }
 
-export function receiveLLMResponseChunk(msg: LLMStreamingResponse) {
+export function receiveLLMResponseChunk(msg: LLMStreamingResponseContent) {
   const { chatId, chunk } = msg;
   const projectConfigId = msg.projectConfigId ?? getCurrProjectConfigId();
   let sectionId = msg.sectionId;
@@ -3207,7 +3207,7 @@ function handleToolArgumentPreviewDelta(
 
 function applyStreamingChunkToChatDetails(
   chatId: string,
-  chunk: LLMStreamingResponse["chunk"],
+  chunk: LLMStreamingResponseContent["chunk"],
 ) {
   updateChatDetails(chatId, (details) =>
     applyStreamDeltaToChatDetails(details, chunk),
