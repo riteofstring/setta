@@ -1,7 +1,10 @@
-import { getWorkspacePythonSignal } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
+import { route_get_folder_contents } from "utils/generatedEndpoints";
 import { dedupeInFlightJson } from "utils/dedupeInFlight";
-import { res200 } from "utils/endpointUtils";
+
+type WorkspaceRootEntry = {
+  name: string;
+  type: string;
+};
 
 type WorkspacePythonSignalCacheEntry = {
   hasPython: boolean;
@@ -19,6 +22,34 @@ const inFlightWorkspacePythonSignalLoads = new Map<
   string,
   Promise<boolean | null>
 >();
+
+const PYTHON_ROOT_MARKER_FILES = new Set<string>([
+  "pyproject.toml",
+  "requirements.txt",
+  "requirements-dev.txt",
+  "setup.py",
+  "setup.cfg",
+  "pipfile",
+  "tox.ini",
+  "poetry.lock",
+  "uv.lock",
+]);
+
+export function hasPythonSignalsInRoot(entries: WorkspaceRootEntry[]): boolean {
+  for (const entry of entries) {
+    if (entry.type !== "file") {
+      continue;
+    }
+    const lowerName = entry.name.toLowerCase();
+    if (lowerName.endsWith(".py")) {
+      return true;
+    }
+    if (PYTHON_ROOT_MARKER_FILES.has(lowerName)) {
+      return true;
+    }
+  }
+  return false;
+}
 
 export function getCachedWorkspacePythonSignal(
   cache: WorkspacePythonSignalCache,
@@ -90,26 +121,29 @@ export function loadWorkspacePythonSignal({
     inFlightWorkspacePythonSignalLoads,
     { rootPath: normalizedRootPath },
     async ({ rootPath: nextRootPath }) => {
-      const response = await callOpenAPI(
-        getWorkspacePythonSignal({
-          body: {
-            folderPath: nextRootPath,
-          },
-        }),
-      );
-      if (!res200(response) || !response.data) {
+      try {
+        const contentsResponse = await route_get_folder_contents({
+          folderPath: nextRootPath,
+          includeMtime: false,
+          includeSize: false,
+          maxEntries: 5000,
+        });
+        if (
+          !contentsResponse ||
+          contentsResponse.status !== 200 ||
+          !Array.isArray(contentsResponse.data)
+        ) {
+          return null;
+        }
+        return hasPythonSignalsInRoot(contentsResponse.data);
+      } catch {
         return null;
       }
-      return response.data.hasPython;
     },
     ({ rootPath: nextRootPath }) => nextRootPath,
   ).then((hasPythonSignals) => {
     if (hasPythonSignals !== null) {
-      setCachedWorkspacePythonSignal(
-        cache,
-        normalizedRootPath,
-        hasPythonSignals,
-      );
+      setCachedWorkspacePythonSignal(cache, normalizedRootPath, hasPythonSignals);
     }
     return hasPythonSignals;
   });

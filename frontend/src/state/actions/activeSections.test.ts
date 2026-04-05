@@ -15,9 +15,10 @@ import {
   createProjectChatWindowingState,
   createProjectConfig,
   createSingletonSections,
+  createUserDefaultCodeSectionImpl,
   createVariant,
-  type ProjectStateSingleConfigWithCompletedOpIDs,
-  type SingleConfig,
+  type ProjectStateSingleConfig,
+  type ProjectStateSingleConfigWithCompletedOpIds,
 } from "utils/generatedTypes";
 
 import {
@@ -727,7 +728,7 @@ function buildProjectState(
   projectConfigId: string,
   activeIds: Array<string>,
   sectionIds: Array<string> = [],
-): ProjectStateSingleConfigWithCompletedOpIDs {
+): ProjectStateSingleConfigWithCompletedOpIds {
   return {
     projectState: buildProjectStateData(projectConfigId, activeIds, sectionIds),
     completedOpIds: [],
@@ -739,13 +740,13 @@ function buildProjectStateData(
   projectConfigId: string,
   activeIds: Array<string>,
   sectionIds: Array<string> = [],
-): SingleConfig {
+): ProjectStateSingleConfig {
   const sectionVariantMap: Record<string, string> = {};
-  const sections: SingleConfig["sections"] = {};
-  const sectionImpls: SingleConfig["sectionImpls"] = {};
-  const sectionVariants: SingleConfig["sectionVariants"] = {};
-  const parentSectionMap: SingleConfig["parentSectionMap"] = {};
-  const topLevelSections: SingleConfig["projectConfig"]["topLevelSections"] =
+  const sections: ProjectStateSingleConfig["sections"] = {};
+  const sectionImpls: ProjectStateSingleConfig["sectionImpls"] = {};
+  const sectionVariants: ProjectStateSingleConfig["sectionVariants"] = {};
+  const parentSectionMap: ProjectStateSingleConfig["parentSectionMap"] = {};
+  const topLevelSections: ProjectStateSingleConfig["projectConfig"]["topLevelSections"] =
     {};
   const uniqueSectionIds = [...new Set([...sectionIds, ...activeIds])];
   for (const [index, sectionId] of uniqueSectionIds.entries()) {
@@ -767,9 +768,12 @@ function buildProjectStateData(
       nonPresetImpls: [implId],
       name: `variant-${sectionId}`,
     });
-    sectionImpls[implId] = createCodeSectionImpl({
-      id: implId,
-    });
+    sectionImpls[implId] = createCodeSectionImpl(
+      createUserDefaultCodeSectionImpl(),
+      {
+        id: implId,
+      },
+    );
   }
   return {
     projectConfig: createProjectConfig({

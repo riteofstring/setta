@@ -25,7 +25,6 @@ import {
   DateControlModeEnum,
   DateDisplayFormat,
   DateDisplayFormatEnum,
-  DateParamCodeObjImpl,
   DateSelectionMode,
   DateSelectionModeEnum,
   TextParamInputUIType,
@@ -36,7 +35,6 @@ import {
   TimeDisplayFontEnum,
   TimeDisplayFormat,
   TimeDisplayFormatEnum,
-  TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
   combineIsoDateAndTimeParts,
@@ -253,7 +251,7 @@ export function TimeParamInputConfigForParam({
     };
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<TimeParamCodeObjImpl>(
+        setCurrEffectiveCodeObjImplValue<"TimeParamCodeObj">(
           state,
           sectionId,
           paramInfoId,
@@ -404,7 +402,7 @@ export function DateParamInputConfigForParam({
     }
     dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setCurrEffectiveCodeObjImplValue<DateParamCodeObjImpl>(
+        setCurrEffectiveCodeObjImplValue<"DateParamCodeObj">(
           state,
           sectionId,
           paramInfoId,

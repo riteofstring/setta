@@ -2,7 +2,7 @@ import os
 import sys
 from pathlib import Path
 
-from setta.types.generated.go_shared_constants import SETTA_HOME_ENV
+from setta.utils.env_vars import SETTA_HOME_ENV
 
 
 def resolve_setta_home(*, allow_env_override: bool = True) -> Path:
