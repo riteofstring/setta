@@ -1,11 +1,16 @@
 import { ModalInfoType } from "components/Modals/types";
 import { HandlePosition, HandleType, Node } from "forks/xyflow/core/types";
+import type {
+  HttpapiExternalAgentPreflightStatus,
+  HttpapiLlmapiKeysSnapshot,
+} from "openapi/http";
 import type { ChatSharedEdgeMode } from "state/actions/chatSharedHandleIds";
 import type { AIFollowMode } from "state/types/aiFollow";
 import {
   parseAppGenerationMode,
   type AppGenerationMode,
 } from "state/types/appGenerationMode";
+import type { SettaProjectNameValidationErrors } from "state/types/nameValidation";
 import type { ChatAppGenerationDetails } from "state/utils/chatAppGeneration";
 import {
   CLOSED_PANE_WIDTH,
@@ -29,35 +34,33 @@ import {
   AgenticEdgeKindEnum,
   AgentProfile,
   AgentRun,
-  AllLLMConfigs,
+  AllConfigs,
   AllProjectMetadata,
-  APIKeys,
   AppDefinition,
   BaseChatMessageUnion,
   BaseDependencyKeyUnion,
   BrushStrokeMapping,
   ChartDataMapping,
+  Connection,
   createProjectChatWindowingState,
   createProjectConfig,
+  createSettingsState,
   createSingletonSections,
   DrawAreaLayerItemTransformMapping,
   EngineConfig,
   ExternalAgentConfig,
-  ExternalAgentPreflightStatus,
   ImageMapping,
   ListenerCoverageSnapshot,
   LLMConfig,
-  ProjectStateSingleConfig,
-  PromptTemplate,
+  LSPDiagnostic,
+  Notification,
+  Policy,
   RenameRefactorBroadcastContent,
   SettaBackendLogEvent,
-  SettaLspDiagnostic,
-  SettaNotification,
-  SettaProjectNameValidationErrors,
   SettingsState,
-  SharePolicy,
+  SingleConfig,
+  Template,
   TranscriptionProfile,
-  WebsocketConnectionInfo,
 } from "utils/generatedTypes";
 import {
   DEFAULT_GIT_GRAPH_AUTHOR_WIDTH_PX,
@@ -103,6 +106,9 @@ const getPersistStorage = <S>() =>
     return localStorage;
   });
 
+type APIKeys = HttpapiLlmapiKeysSnapshot["apiKeys"];
+type ExternalAgentHealthStatus = HttpapiExternalAgentPreflightStatus;
+
 export const useResizeEvent = withProjectState(
   createWithEqualityFn(
     immer(
@@ -143,7 +149,7 @@ export const useContextMenus = withProjectState(
 
 // useContextMenus.getState().
 
-export type ZustandProjectState = ProjectStateSingleConfig & {
+export type ZustandProjectState = SingleConfig & {
   previewSectionVariantMap: Record<string, string>;
 };
 
@@ -157,6 +163,7 @@ export const useProjectState = withProjectState(
           projectConfig: createProjectConfig({ id: NULL_PROJECT_CONFIG_ID }),
           sections: {},
           sectionImpls: {},
+          sectionCapabilities: {},
           sectionVariants: {},
           codeObjs: {},
           codeObjImpls: {},
@@ -206,7 +213,7 @@ type ShareSessionState = {
   isDeploymentMode: boolean;
   shareSessionId: string | null;
   sessionRunCount: number;
-  sharePolicy: SharePolicy | null;
+  sharePolicy: Policy | null;
   shareDeploymentName: string | null;
   shareDeploymentVersion: string | null;
   deploymentMode: "share" | "app" | null;
@@ -474,7 +481,7 @@ export function runWithAtomicallyPublishedProjectStores(
   }
 }
 
-type ZustandNotificationState = { notifications: Array<SettaNotification> };
+type ZustandNotificationState = { notifications: Array<Notification> };
 
 export const useNotifications = createWithEqualityFn(
   withResetFn<ZustandNotificationState>(() => ({
@@ -686,12 +693,6 @@ export const useBackendLogEvents = withProjectState(
   ),
 );
 
-const useArtifacts = withProjectState(
-  createWithEqualityFn(
-    subscribeWithSelector(withResetFn(() => ({ x: {}, namePathTypeToId: {} }))),
-  ),
-);
-
 export type ZustandProjectSearch = {
   codeInfo: Array<{
     sectionId: string;
@@ -764,7 +765,9 @@ export const useEdgeHandleRegistry = withProjectState(
   ),
 );
 
-export const useSettings = createWithEqualityFn<SettingsState>(() => ({}));
+export const useSettings = createWithEqualityFn<SettingsState>(() =>
+  createSettingsState(),
+);
 
 type ZustandTypeErrors = {
   userRequested: boolean;
@@ -789,8 +792,8 @@ export const useTypeErrors = withProjectState(
 );
 
 type ZustandLspDiagnostics = {
-  codeSections: Record<string, Array<SettaLspDiagnostic>>;
-  unmappedGenCode: Array<SettaLspDiagnostic>;
+  codeSections: Record<string, Array<LSPDiagnostic>>;
+  unmappedGenCode: Array<LSPDiagnostic>;
 };
 
 export const useLspDiagnostics = withProjectState(
@@ -825,7 +828,7 @@ export const useNameValidationErrors = withProjectState(
 );
 
 type ZustandWebsocketConnectionList = {
-  connections: Array<WebsocketConnectionInfo>;
+  connections: Array<Connection>;
 };
 
 export const useWebsocketConnectionList = createWithEqualityFn(
@@ -909,7 +912,7 @@ type ZustandAIStore = {
   projectChatThreadsExplicitlyClosedAtLargeWidth: boolean;
   projectChatActivityAccordionOpenByDefault: boolean;
   projectChatActivityChildrenOpenByDefault: boolean;
-  allLLMConfigs: AllLLMConfigs | null;
+  allLLMConfigs: AllConfigs | null;
   allLLMConfigsInitialLoadComplete: boolean;
   allLLMConfigsLoadError: string | null;
   agentProfiles: Array<AgentProfile>;
@@ -924,7 +927,7 @@ type ZustandAIStore = {
     | "terminal_error";
   agentRunsInitialLoadComplete: boolean;
   agentRunsLoadError: string | null;
-  promptTemplates: Array<PromptTemplate>;
+  promptTemplates: Array<Template>;
   promptTemplatesInitialLoadComplete: boolean;
   promptTemplatesLoadError: string | null;
   promptTemplatesLoading: boolean;
@@ -932,7 +935,7 @@ type ZustandAIStore = {
   externalAgentConfigsInitialLoadComplete: boolean;
   externalAgentConfigsLoadError: string | null;
   externalAgentConfigsLoading: boolean;
-  externalAgentHealth: Array<ExternalAgentPreflightStatus>;
+  externalAgentHealth: Array<ExternalAgentHealthStatus>;
   externalAgentHealthInitialLoadComplete: boolean;
   externalAgentHealthLoadError: string | null;
   externalAgentHealthLoading: boolean;
