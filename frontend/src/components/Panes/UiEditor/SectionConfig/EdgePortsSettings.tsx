@@ -1,8 +1,6 @@
 import { TextInputCodeMirror } from "components/Utils/CodeMirror/TextInputCodeMirror";
 import { wrappedCompletionsFn } from "components/Utils/CodeMirror/getOnCreateEditor";
 import _ from "lodash";
-import { outputAccessorCompletion } from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import {
   useEffect,
   useMemo,
@@ -17,7 +15,7 @@ import {
   getCurrProjectConfigId,
   getCurrSectionVariantId,
   getCurrShownParamIds,
-  getParamDisplayNameIfPresent,
+  getParamDisplayName,
   getVariantBaseAndEffectiveSectionImpl,
   setCurrEffectiveSectionImplValue,
   setSectionVariantImplValue,
@@ -32,12 +30,12 @@ import { useShareCapabilities } from "state/hooks/share";
 import { C } from "utils/c";
 import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
+  route_output_accessor_completion,
   route_set_section_edge_inputs,
   route_set_section_edge_outputs,
   route_set_variant_json_source_keys,
 } from "utils/generatedEndpoints";
 import {
-  BaseDictSectionImplUnion,
   isBaseDictSectionImpl,
   isBaseSectionWithParamsImpl,
 } from "utils/generatedTypes";
@@ -106,7 +104,7 @@ function buildParamLabels(
     const path = requiredParamIdsToPaths[paramId];
     const label = path
       ? paramNameFromPathArray(state, sectionId, path)
-      : getParamDisplayNameIfPresent(state, sectionId, paramId) ?? paramId;
+      : getParamDisplayName(state, sectionId, paramId);
     return { id: paramId, label };
   });
 }
@@ -301,7 +299,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
     setJsonSourcePath(formatJsonSourcePath(nextKeys));
     const opId = dispatchOptimisticProjectStateUpdate({
       apply: (state) => {
-        setSectionVariantImplValue<BaseDictSectionImplUnion>(
+        setSectionVariantImplValue<"BaseDictSection">(
           state,
           sectionId,
           targetVariantId,
@@ -329,7 +327,7 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
           );
           if (shouldRollback) {
             useProjectState.setState((state) => {
-              setSectionVariantImplValue<BaseDictSectionImplUnion>(
+              setSectionVariantImplValue<"BaseDictSection">(
                 state,
                 sectionId,
                 targetVariantId,
@@ -412,16 +410,12 @@ export function EdgePortsSettings({ sectionId }: EdgePortsSettingsProps) {
   const completionsFn = useMemo(
     () =>
       wrappedCompletionsFn(async (fullText: string, position: number) => {
-        const res = await callOpenAPI(
-          outputAccessorCompletion({
-            body: {
-              projectConfigId: getCurrProjectConfigId(),
-              sectionId,
-              fullText,
-              position,
-            },
-          }),
-        );
+        const res = await route_output_accessor_completion({
+          projectConfigId: getCurrProjectConfigId(),
+          sectionId,
+          fullText,
+          position,
+        });
         if (res200(res)) {
           return res.data;
         }

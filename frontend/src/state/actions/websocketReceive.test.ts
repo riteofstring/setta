@@ -4,52 +4,25 @@ import {
   useProjectState,
 } from "state/definitions";
 import { resetProjectStores } from "state/utils";
-import { C } from "utils/c";
-import { C_ADDRESSES } from "utils/c_addresses";
 import {
-  GoRootRouteHelpers,
-  GoWebsocketRouteHelpers,
-} from "utils/generatedRoutes";
-import {
-  ConnectionTypeEnum,
   DependencyKeyTypeEnum,
   DependencyValueTypeEnum,
-  WebsocketMessageTypeEnum,
+  WebsocketConnectionTypeEnum,
+  WebsocketMsgTypeForFrontendEnum,
   createAgentRun,
-  createContentRef,
-  createLSPDiagnosticsPayload,
-  createListenerCoverageSnapshot,
   createProjectConfig,
-  createProjectConfigDiagnostics,
+  createSettaLspDiagnosticsPayload,
+  createSettaProjectConfigDiagnostics,
 } from "utils/generatedTypes";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  routeGetAuthRefreshStatusMock,
-  getLatestLspDiagnosticsMock,
-  uploadBinaryMock,
-} = vi.hoisted(() => ({
-  routeGetAuthRefreshStatusMock: vi.fn(),
-  getLatestLspDiagnosticsMock: vi.fn(),
-  uploadBinaryMock: vi.fn(),
-}));
-
-vi.mock("openapi/http", () => ({
-  getAuthRefreshStatus: routeGetAuthRefreshStatusMock,
-  getLatestLspDiagnostics: getLatestLspDiagnosticsMock,
-  uploadBinary: uploadBinaryMock,
-}));
-
-vi.mock("openapi/http/result", () => ({
-  callOpenAPI: function <T>(promise: Promise<T>) {
-    return promise;
-  },
-}));
-
 vi.mock("utils/generatedEndpoints", () => ({
+  route_binary_upload: vi.fn(),
+  route_get_auth_refresh_status: vi.fn(),
   route_get_agent_runs: vi.fn(),
   route_get_listener_coverage: vi.fn(),
   route_get_latest_project_state: vi.fn(),
+  route_get_latest_lsp_diagnostics: vi.fn(),
 }));
 
 vi.mock("state/actions/lspDiagnostics", () => ({
@@ -67,15 +40,9 @@ vi.mock("state/actions/notifications", () => ({
   addTemporaryNotification: vi.fn(),
 }));
 
-vi.mock("state/actions/uiSettingReveal", async () => {
-  const actual = await vi.importActual<
-    typeof import("state/actions/uiSettingReveal")
-  >("state/actions/uiSettingReveal");
-  return {
-    ...actual,
-    receiveUISettingReveal: vi.fn(),
-  };
-});
+vi.mock("state/actions/uiSettingReveal", () => ({
+  receiveUISettingReveal: vi.fn(),
+}));
 
 vi.mock("state/actions/websocketConnectionList", () => ({
   addWebsocketConnection: vi.fn(),
@@ -141,7 +108,7 @@ function buildUISettingRevealMessage({
 }) {
   return {
     id,
-    messageType: WebsocketMessageTypeEnum.UISettingReveal,
+    messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
     content: {
       projectConfigId: "project-1",
       chatId: null,
@@ -199,8 +166,6 @@ function findRevealResultPayload(
 }
 
 describe("openWebSocket", () => {
-  const expectedFrontendWebsocketPath = GoWebsocketRouteHelpers.frontend();
-
   beforeEach(async () => {
     resetProjectStores();
     MockWebSocket.instances = [];
@@ -208,12 +173,14 @@ describe("openWebSocket", () => {
     (globalThis as unknown as { window?: typeof globalThis }).window =
       globalThis;
     globalThis.WebSocket = MockWebSocket as unknown as typeof WebSocket;
-    const { getAuthRefreshStatus } = await import("openapi/http");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
     const { route_get_agent_runs } = await import("utils/generatedEndpoints");
     const { route_get_listener_coverage } = await import(
       "utils/generatedEndpoints"
     );
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -256,19 +223,17 @@ describe("openWebSocket", () => {
       state.previewSectionVariantMap = {};
     });
 
-    const { getLatestLspDiagnostics } = await import("openapi/http");
-    const { route_get_latest_project_state } = await import(
-      "utils/generatedEndpoints"
-    );
+    const { route_get_latest_project_state, route_get_latest_lsp_diagnostics } =
+      await import("utils/generatedEndpoints");
     const { processLspDiagnostics } = await import(
       "state/actions/lspDiagnostics"
     );
     const { requestAIFollowSnapshot } = await import("state/actions/aiFollow");
     const { openWebSocket } = await import("state/actions/websocketReceive");
 
-    const diagnosticsPayload = createLSPDiagnosticsPayload({
+    const diagnosticsPayload = createSettaLspDiagnosticsPayload({
       projectConfigId: "project-1",
-      genCode: createProjectConfigDiagnostics({
+      genCode: createSettaProjectConfigDiagnostics({
         projectConfigId: "project-1",
         errors: {},
         isGenCode: true,
@@ -286,7 +251,7 @@ describe("openWebSocket", () => {
       },
       hasResponse: true,
     });
-    vi.mocked(getLatestLspDiagnostics).mockResolvedValue({
+    vi.mocked(route_get_latest_lsp_diagnostics).mockResolvedValue({
       status: 200,
       data: diagnosticsPayload,
       hasResponse: true,
@@ -302,40 +267,10 @@ describe("openWebSocket", () => {
       projectConfigId: "project-1",
     });
     expect(requestAIFollowSnapshot).toHaveBeenCalledWith("project-1");
-    expect(getLatestLspDiagnostics).toHaveBeenCalledWith({
-      body: {
-        projectConfigId: "project-1",
-      },
+    expect(route_get_latest_lsp_diagnostics).toHaveBeenCalledWith({
+      projectConfigId: "project-1",
     });
     expect(processLspDiagnostics).toHaveBeenCalledWith(diagnosticsPayload);
-  });
-
-  it("connects IDE mode through the Go frontend websocket route", async () => {
-    const { openWebSocket } = await import("state/actions/websocketReceive");
-
-    openWebSocket("/project");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    expect(new URL(socket?.url ?? "http://invalid").pathname).toBe(
-      expectedFrontendWebsocketPath,
-    );
-    expect(socket?.url).not.toContain("/share/frontend");
-  });
-
-  it("connects deployment mode through the Go frontend websocket route with a share session query", async () => {
-    const { openWebSocket } = await import("state/actions/websocketReceive");
-
-    openWebSocket("/project", "share-session-route");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    const socketUrl = new URL(socket?.url ?? "http://invalid");
-    expect(socketUrl.pathname).toBe(expectedFrontendWebsocketPath);
-    expect(socketUrl.searchParams.get("shareSessionId")).toBe(
-      "share-session-route",
-    );
-    expect(socket?.url).not.toContain("/share/frontend");
   });
 
   it("merges workflow run websocket updates into the agent run store", async () => {
@@ -362,7 +297,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-agent-run",
-        messageType: WebsocketMessageTypeEnum.AgentRunUpdated,
+        messageType: WebsocketMsgTypeForFrontendEnum.AgentRunUpdated,
         content: createAgentRun({
           id: "workflow-run-1",
           status: "completed",
@@ -387,147 +322,6 @@ describe("openWebSocket", () => {
       useAIStore.getState().agentRuns.find((run) => run.id === "workflow-run-1")
         ?.status,
     ).toBe("completed");
-  });
-
-  it("applies listener coverage snapshots from websocket messages", async () => {
-    const { openWebSocket } = await import("state/actions/websocketReceive");
-
-    openWebSocket("/project");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    await socket.emit("message", {
-      data: JSON.stringify({
-        messageType: WebsocketMessageTypeEnum.ListenerCoverageSnapshot,
-        content: createListenerCoverageSnapshot({
-          projectConfigId: "project-1",
-          hasRealtimeWildcard: false,
-          dependencies: [
-            {
-              type: DependencyKeyTypeEnum.SectionParam,
-              sectionId: "section-a",
-              codeObjId: "param-a",
-            },
-          ],
-        }),
-      }),
-    });
-
-    expect(useListenerCoverage.getState().byProjectId["project-1"]).toEqual({
-      hasRealtimeWildcard: false,
-      dependenciesByKey: {
-        "section-a::param-a": {
-          type: DependencyKeyTypeEnum.SectionParam,
-          sectionId: "section-a",
-          codeObjId: "param-a",
-        },
-      },
-    });
-  });
-
-  it("does not send realtime ui changes when listener coverage is unknown", async () => {
-    const { openWebSocket, sendRealtimeSectionLiteral } = await import(
-      "state/actions/websocketReceive"
-    );
-    openWebSocket("/project", "share-session-ui-coverage-unknown");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    const sendCallCountBefore = socket.send.mock.calls.length;
-
-    sendRealtimeSectionLiteral(
-      "section-unknown-coverage",
-      "hello",
-      "project-ui-coverage-unknown",
-    );
-
-    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
-  });
-
-  it("sends realtime ui changes when listener coverage includes the dependency", async () => {
-    const { openWebSocket, sendRealtimeSectionLiteral } = await import(
-      "state/actions/websocketReceive"
-    );
-    openWebSocket("/project", "share-session-ui-coverage-known");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    useListenerCoverage.setState((state) => {
-      state.byProjectId["project-ui-covered"] = {
-        hasRealtimeWildcard: false,
-        dependenciesByKey: {
-          "section-covered::": {
-            type: DependencyKeyTypeEnum.Section,
-            sectionId: "section-covered",
-          },
-        },
-      };
-    });
-    const sendCallCountBefore = socket.send.mock.calls.length;
-
-    sendRealtimeSectionLiteral(
-      "section-covered",
-      "hello",
-      "project-ui-covered",
-    );
-
-    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore + 1);
-    const laterMessages = socket.send.mock.calls
-      .slice(sendCallCountBefore)
-      .map((call) => call[0])
-      .filter((payload): payload is string => typeof payload === "string")
-      .map((payload) => JSON.parse(payload) as Record<string, unknown>);
-    const realtimeMessage = laterMessages.find(
-      (payload) => payload.messageType === "RealtimeUIChange",
-    ) as
-      | {
-          content?: {
-            dependencyKey?: { sectionId?: string };
-            projectConfigId?: string;
-          };
-        }
-      | undefined;
-
-    expect(realtimeMessage?.content?.projectConfigId).toBe(
-      "project-ui-covered",
-    );
-    expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
-      "section-covered",
-    );
-  });
-
-  it("does not send realtime ui changes excluded by known coverage", async () => {
-    const { openWebSocket, sendRealtimeSectionLiteral } = await import(
-      "state/actions/websocketReceive"
-    );
-    openWebSocket("/project", "share-session-ui-coverage-excluded");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    useListenerCoverage.setState((state) => {
-      state.byProjectId["project-ui-excluded"] = {
-        hasRealtimeWildcard: false,
-        dependenciesByKey: {
-          "different-section::": {
-            type: DependencyKeyTypeEnum.Section,
-            sectionId: "different-section",
-          },
-        },
-      };
-    });
-    const sendCallCountBefore = socket.send.mock.calls.length;
-
-    sendRealtimeSectionLiteral(
-      "section-not-covered",
-      "hello",
-      "project-ui-excluded",
-    );
-
-    expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
 
   it("sends realtime dependency events when listener coverage is unknown", async () => {
@@ -597,82 +391,6 @@ describe("openWebSocket", () => {
     expect(socket.send).toHaveBeenCalledTimes(sendCallCountBefore);
   });
 
-  it("uploads oversized realtime section binaries and sends the uploaded ref", async () => {
-    useProjectState.setState((state) => {
-      state.projectConfig.id = "project-1";
-    });
-    useListenerCoverage.setState((state) => {
-      state.byProjectId["project-1"] = {
-        hasRealtimeWildcard: false,
-        dependenciesByKey: {
-          "section-binary::": {
-            type: DependencyKeyTypeEnum.Section,
-            sectionId: "section-binary",
-          },
-        },
-      };
-    });
-    const { openWebSocket, sendRealtimeSectionBinary } = await import(
-      "state/actions/websocketReceive"
-    );
-    const { uploadBinary } = await import("openapi/http");
-    vi.mocked(uploadBinary).mockResolvedValue({
-      data: createContentRef({
-        contentId: "uploaded-realtime-ref",
-        byteLength: C.REALTIME_BINARY_MAX_BYTES + 1,
-        mimeType: "image/png",
-        sha256: null,
-      }),
-      status: 200,
-      hasResponse: true,
-    });
-
-    openWebSocket("/project", "share-session-realtime-binary-upload");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    const sendCountBefore = socket.send.mock.calls.length;
-
-    // Oversized section snapshots should fail over from websocket binary frames
-    // to the Go binary upload route, then emit a JSON realtime update that
-    // references the uploaded binary payload.
-    sendRealtimeSectionBinary(
-      "section-binary",
-      new ArrayBuffer(C.REALTIME_BINARY_MAX_BYTES + 1),
-      "image/png",
-    );
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(uploadBinary).toHaveBeenCalledTimes(1);
-    const laterMessages = socket.send.mock.calls
-      .slice(sendCountBefore)
-      .map((call) => call[0])
-      .filter((payload): payload is string => typeof payload === "string")
-      .map((payload) => JSON.parse(payload) as Record<string, unknown>);
-    const realtimeMessage = laterMessages.find(
-      (payload) => payload.messageType === "RealtimeUIChange",
-    ) as
-      | {
-          content?: {
-            dependencyKey?: { sectionId?: string };
-            value?: { type?: string; payload?: { contentId?: string } };
-          };
-        }
-      | undefined;
-
-    expect(realtimeMessage?.content?.dependencyKey?.sectionId).toBe(
-      "section-binary",
-    );
-    expect(realtimeMessage?.content?.value?.type).toBe(
-      DependencyValueTypeEnum.Binary,
-    );
-    expect(realtimeMessage?.content?.value?.payload?.contentId).toBe(
-      "uploaded-realtime-ref",
-    );
-  });
-
   it("applies revisioned llm api-key websocket snapshots", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
     openWebSocket("/project", "share-session-api-keys");
@@ -716,10 +434,12 @@ describe("openWebSocket", () => {
 
   it("does not set frontend websocket affinity from AllConnections payloads", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
     const { buildFrontendAffinityCurrentAddress, getFrontendAffinityToken } =
       await import("state/actions/frontendWebsocketAffinity");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -733,12 +453,13 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-affinity",
-        messageType: WebsocketMessageTypeEnum.AllConnections,
+        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
         content: [
           {
             id: "frontend-origin",
-            connectionType: ConnectionTypeEnum.frontend,
+            connectionType: WebsocketConnectionTypeEnum.FRONTEND,
             currentAddress: buildFrontendAffinityCurrentAddress("/project"),
+            shareSessionId: null,
           },
         ],
       }),
@@ -749,11 +470,13 @@ describe("openWebSocket", () => {
 
   it("updates frontend websocket affinity from FrontendIdentity and keeps it stable", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
     const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
     );
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -767,7 +490,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-affinity-identity",
-        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-handshake" },
       }),
     });
@@ -776,7 +499,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-affinity-stale-snapshot",
-        messageType: WebsocketMessageTypeEnum.AllConnections,
+        messageType: WebsocketMsgTypeForFrontendEnum.AllConnections,
         content: [],
       }),
     });
@@ -785,11 +508,13 @@ describe("openWebSocket", () => {
 
   it("clears affinity immediately on socket replacement and ignores stale socket identity events", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
     const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
     );
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -803,7 +528,7 @@ describe("openWebSocket", () => {
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-first-identity",
-        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-first" },
       }),
     });
@@ -819,7 +544,7 @@ describe("openWebSocket", () => {
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-stale-identity",
-        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-stale" },
       }),
     });
@@ -831,11 +556,13 @@ describe("openWebSocket", () => {
 
   it("repopulates affinity from active-socket FrontendIdentity after replacement clear", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
     const { getFrontendAffinityToken } = await import(
       "state/actions/frontendWebsocketAffinity"
     );
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -849,7 +576,7 @@ describe("openWebSocket", () => {
     await firstSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-first-identity",
-        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-first" },
       }),
     });
@@ -864,7 +591,7 @@ describe("openWebSocket", () => {
     await secondSocket.emit("message", {
       data: JSON.stringify({
         id: "msg-second-identity",
-        messageType: WebsocketMessageTypeEnum.FrontendIdentity,
+        messageType: WebsocketMsgTypeForFrontendEnum.FrontendIdentity,
         content: { frontendAffinityToken: "frontend-second-token" },
       }),
     });
@@ -873,8 +600,10 @@ describe("openWebSocket", () => {
 
   it("reconnects once after an active-socket transport error followed by close", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -902,8 +631,10 @@ describe("openWebSocket", () => {
 
   it("ignores stale-socket transport errors after socket replacement", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -929,8 +660,10 @@ describe("openWebSocket", () => {
 
   it("does not schedule reconnect from stale close events during socket replacement", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -954,11 +687,13 @@ describe("openWebSocket", () => {
 
   it("sends current address updates when pathname changes on an open socket", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
     const { buildFrontendAffinityCurrentAddress } = await import(
       "state/actions/frontendWebsocketAffinity"
     );
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -1011,8 +746,10 @@ describe("openWebSocket", () => {
     const { receiveUISettingReveal } = await import(
       "state/actions/uiSettingReveal"
     );
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -1034,7 +771,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-1",
-        messageType: WebsocketMessageTypeEnum.UISettingReveal,
+        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,
@@ -1122,8 +859,10 @@ describe("openWebSocket", () => {
     const { receiveUISettingReveal } = await import(
       "state/actions/uiSettingReveal"
     );
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -1227,8 +966,10 @@ describe("openWebSocket", () => {
     const { receiveUISettingReveal } = await import(
       "state/actions/uiSettingReveal"
     );
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -1305,8 +1046,10 @@ describe("openWebSocket", () => {
     const { receiveUISettingReveal } = await import(
       "state/actions/uiSettingReveal"
     );
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -1323,7 +1066,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-2",
-        messageType: WebsocketMessageTypeEnum.UISettingReveal,
+        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,
@@ -1381,8 +1124,10 @@ describe("openWebSocket", () => {
     const { receiveUISettingReveal } = await import(
       "state/actions/uiSettingReveal"
     );
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -1396,7 +1141,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-3",
-        messageType: WebsocketMessageTypeEnum.UISettingReveal,
+        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,
@@ -1433,8 +1178,10 @@ describe("openWebSocket", () => {
 
   it("returns structured failure statuses for malformed reveal targets when ids are available", async () => {
     const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { getAuthRefreshStatus } = await import("openapi/http");
-    vi.mocked(getAuthRefreshStatus).mockResolvedValue({
+    const { route_get_auth_refresh_status } = await import(
+      "utils/generatedEndpoints"
+    );
+    vi.mocked(route_get_auth_refresh_status).mockResolvedValue({
       status: 200,
       data: { authCookieRefreshWindowSeconds: 120 },
       hasResponse: true,
@@ -1448,7 +1195,7 @@ describe("openWebSocket", () => {
     await socket.emit("message", {
       data: JSON.stringify({
         id: "msg-4",
-        messageType: WebsocketMessageTypeEnum.UISettingReveal,
+        messageType: WebsocketMsgTypeForFrontendEnum.UISettingReveal,
         content: {
           projectConfigId: "project-1",
           chatId: null,
@@ -1499,25 +1246,5 @@ describe("openWebSocket", () => {
         errorMessage: "Invalid UISettingReveal payload.",
       },
     ]);
-  });
-
-  it("uses the Go bootstrap root route in auth recovery notifications", async () => {
-    const { openWebSocket } = await import("state/actions/websocketReceive");
-    const { addTemporaryNotification } = await import(
-      "state/actions/notifications"
-    );
-
-    openWebSocket("/project");
-    vi.runAllTimers();
-
-    const socket = MockWebSocket.instances[0];
-    await socket.emit("open");
-    vi.mocked(addTemporaryNotification).mockClear();
-
-    await socket.emit("close", { code: 4401 });
-
-    expect(addTemporaryNotification).toHaveBeenCalledWith(
-      `Authentication required. Open ${C_ADDRESSES.BACKEND_ORIGIN}${GoRootRouteHelpers.bootstrapPage()} to continue.`,
-    );
   });
 });

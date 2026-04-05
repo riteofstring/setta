@@ -1,23 +1,19 @@
 import * as Dialog from "@radix-ui/react-dialog";
 import { DesktopLauncherSettingsSection } from "components/Launcher/DesktopLauncherSettingsSection";
-import {
-  createWorkspaceLaunchIntent,
-  getSettaHomeInfo,
-  type HttpapiCreateWorkspaceLaunchIntentResponse as CreateWorkspaceLaunchIntentResponse,
-  type HttpapiLaunchRequest as LaunchRequest,
-  type HttpapiSettaHomeInfoResponse as SettaHomeInfoResponse,
-} from "openapi/http";
-import { callOpenAPI } from "openapi/http/result";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { closeModal } from "state/actions/modal";
 import { useServerMode } from "state/definitions";
 import { WORKSPACE_LAUNCH_ROUTER_PATH } from "utils/constants";
+import { getErrorDetail, res200 } from "utils/endpointUtils";
 import {
-  getErrorDetail,
-  res200,
-  type ResponseDataAndStatus,
-} from "utils/endpointUtils";
+  route_create_workspace_launch_intent,
+  route_get_setta_home_info,
+} from "utils/generatedEndpoints";
+import {
+  type LaunchRequestInput,
+  type SettaHomeInfoResponse,
+} from "utils/generatedTypes";
 import { resolveServerModeCapabilities } from "utils/serverModeCapabilities";
 import {
   normalizeSettaFilesLocation,
@@ -40,25 +36,17 @@ type CreatePendingWorkspaceLaunchResult =
   | { ok: true; pendingLaunch: PendingWorkspaceLaunch }
   | { ok: false; message: string };
 
-type CreateWorkspaceLaunchIntentRouteResponse =
-  ResponseDataAndStatus<CreateWorkspaceLaunchIntentResponse>;
-type SettaHomeInfoRouteResponse = ResponseDataAndStatus<SettaHomeInfoResponse>;
-
 export async function createPendingWorkspaceLaunchFromIntent({
   launchRequest,
   returnUrl,
 }: {
-  launchRequest: LaunchRequest;
+  launchRequest: LaunchRequestInput;
   returnUrl: string;
 }): Promise<CreatePendingWorkspaceLaunchResult> {
-  const response: CreateWorkspaceLaunchIntentRouteResponse = await callOpenAPI(
-    createWorkspaceLaunchIntent({
-      body: {
-        launchRequest,
-        returnUrl,
-      },
-    }),
-  );
+  const response = await route_create_workspace_launch_intent({
+    launchRequest,
+    returnUrl,
+  });
   if (!res200(response) || !response.data) {
     const detail = getErrorDetail(response.data);
     return {
@@ -145,8 +133,7 @@ export function WorkspaceSwitcherModal() {
         return;
       }
 
-      const response: SettaHomeInfoRouteResponse =
-        await callOpenAPI(getSettaHomeInfo());
+      const response = await route_get_setta_home_info();
       if (!isMounted) {
         return;
       }
@@ -220,13 +207,13 @@ export function WorkspaceSwitcherModal() {
     }
     setIsLaunching(true);
 
-    const request: LaunchRequest = {
+    const request: LaunchRequestInput = {
       workspaceRoot: trimmedWorkspace,
       settaFilesLocation,
-      ...(trimmedSshTarget ? { sshTarget: trimmedSshTarget } : {}),
-      ...(trimmedSshArgs ? { sshArgs: trimmedSshArgs } : {}),
-      ...(trimmedRemoteCmd ? { remoteCmd: trimmedRemoteCmd } : {}),
-      ...(parsedLocalPort !== undefined ? { localPort: parsedLocalPort } : {}),
+      sshTarget: trimmedSshTarget || null,
+      sshArgs: trimmedSshArgs || null,
+      remoteCmd: trimmedRemoteCmd || null,
+      localPort: parsedLocalPort ?? null,
     };
 
     writeWorkspaceSwitcherDraft(request);

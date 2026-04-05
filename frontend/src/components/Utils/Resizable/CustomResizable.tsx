@@ -1,6 +1,12 @@
 import { useDndMode } from "forks/dnd-kit/dndState";
 import _ from "lodash";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import {
   dispatchOptimisticProjectStateUpdate,
   getAttachedTerminalParentIdForTerminalSection,
@@ -31,7 +37,11 @@ import {
 } from "utils/constants";
 import { route_set_section_sizes } from "utils/generatedEndpoints";
 import { SectionSize } from "utils/generatedTypes";
-import { getSectionSurfaceClassName } from "../../Section/Container/sectionChrome";
+import {
+  getSectionChromeSurfaceDomAdapter,
+  getSectionSurfaceClassName,
+  type SectionChromeSurfaceDecorations,
+} from "../../Section/Container/sectionChrome";
 import { ResizableWithScale } from "./ResizableWithScale";
 import {
   getChangedSize,
@@ -42,19 +52,29 @@ import {
 
 const AUTO_CLAMP_TOLERANCE = 2;
 
+type CustomResizableProps = {
+  sectionId: string;
+  bgColor: string;
+  isYouTube: boolean;
+  surfaceDecorations: SectionChromeSurfaceDecorations;
+  positionAndSizeLocked: boolean;
+  hasSectionStyleTheme?: boolean;
+  allowPointerEventsDuringDnd?: boolean;
+  children: ReactNode;
+  as?: string;
+};
+
 export function CustomResizable({
   sectionId,
   bgColor,
   isYouTube,
-  isMetaControl,
+  surfaceDecorations,
   positionAndSizeLocked,
   hasSectionStyleTheme = false,
   allowPointerEventsDuringDnd = false,
-  frameClassName = "before:border-white dark:before:border-setta-700",
-  layoutClassName,
   children,
   as,
-}) {
+}: CustomResizableProps) {
   const { minHeight, maxHeight, minWidth, maxWidth, sizeMode } =
     useSectionMinMaxDims(sectionId);
   return (
@@ -62,12 +82,10 @@ export function CustomResizable({
       sectionId={sectionId}
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isMetaControl={isMetaControl}
+      surfaceDecorations={surfaceDecorations}
       positionAndSizeLocked={positionAndSizeLocked}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
-      frameClassName={frameClassName}
-      layoutClassName={layoutClassName}
       minHeight={minHeight}
       maxHeight={maxHeight}
       minWidth={minWidth}
@@ -84,12 +102,10 @@ function CustomResizableCore({
   sectionId,
   bgColor,
   isYouTube,
-  isMetaControl,
+  surfaceDecorations,
   positionAndSizeLocked,
   hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
-  frameClassName = "before:border-white dark:before:border-setta-700",
-  layoutClassName,
   minHeight,
   maxHeight,
   minWidth,
@@ -388,7 +404,7 @@ function CustomResizableCore({
       as={as}
       bgColor={bgColor}
       isYouTube={isYouTube}
-      isMetaControl={isMetaControl}
+      surfaceDecorations={surfaceDecorations}
       hasSectionStyleTheme={hasSectionStyleTheme}
       allowPointerEventsDuringDnd={allowPointerEventsDuringDnd}
       size={size}
@@ -399,8 +415,6 @@ function CustomResizableCore({
       heightResizable={heightResizable}
       widthResizable={widthResizable}
       positionAndSizeLocked={positionAndSizeLocked}
-      frameClassName={frameClassName}
-      layoutClassName={layoutClassName}
       onResizeStart={onResizeStart}
       onResize={onResize}
       onResizeStop={onResizeStop}
@@ -421,11 +435,9 @@ function CustomResizableSuperCore({
   as,
   bgColor,
   isYouTube,
-  isMetaControl,
+  surfaceDecorations,
   hasSectionStyleTheme,
   allowPointerEventsDuringDnd,
-  frameClassName = "before:border-white dark:before:border-setta-700",
-  layoutClassName,
   size,
   minHeight,
   maxHeight,
@@ -471,24 +483,21 @@ function CustomResizableSuperCore({
           bottomLeft: false,
         };
 
-  const layoutClassNameToUse =
-    layoutClassName ?? "section-grid-cols section-grid-rows section-grid-areas";
-
-  // MetaControl sections render outboard controls near the agentic handles.
-  // On hover, raise the resizable stacking context above the handles so menus
-  // remain clickable.
-  const metaHoverZIndexClass = isMetaControl
-    ? "group-hover/card-section:z-[170]"
-    : "";
+  const surfaceDomAdapter =
+    getSectionChromeSurfaceDomAdapter(surfaceDecorations);
   const inputClasses = getSectionSurfaceClassName({
     bgColor,
     hasSectionStyleTheme,
     positionAndSizeLocked,
     shouldDisablePointerEvents,
     isYouTube,
-    frameClassName,
-    layoutClassName: layoutClassNameToUse,
-    metaHoverZIndexClassName: metaHoverZIndexClass,
+    metaHoverZIndexClassName: surfaceDomAdapter.metaHoverZIndexClassName,
+    ...(surfaceDomAdapter.frameClassName !== undefined
+      ? { frameClassName: surfaceDomAdapter.frameClassName }
+      : {}),
+    ...(surfaceDomAdapter.layoutClassName !== undefined
+      ? { layoutClassName: surfaceDomAdapter.layoutClassName }
+      : {}),
   });
 
   const handleBaseClassName = `${SETTA_PREVENT_SECTION_ON_CLICK_TRIGGER} ${SETTA_PREVENT_SECTION_ACTIVE_CSS} ${NO_PAN_CLASS_NAME}`;
@@ -497,11 +506,13 @@ function CustomResizableSuperCore({
     bottom: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom`,
     bottomRight: `${handleBaseClassName} section-resize-handle section-resize-handle-bottom-right`,
   };
-  const metaControlHandleBaseClassName =
+  const minimalHandleBaseClassName =
     "relative flex items-center justify-center opacity-0 transition-opacity hover:opacity-100 after:absolute after:rounded after:bg-transparent hover:after:bg-blue-500/80 dark:hover:after:bg-blue-400/80";
+  const usesMinimalResizeHandles =
+    surfaceDecorations.resizeHandleTone === "minimal";
 
-  function getMetaControlHandleActiveClassName(direction: string) {
-    if (!isMetaControl) {
+  function getMinimalResizeHandleActiveClassName(direction: string) {
+    if (!usesMinimalResizeHandles) {
       return "";
     }
     if (activeResizeHandle !== direction) {
@@ -510,9 +521,9 @@ function CustomResizableSuperCore({
     return "opacity-100 after:bg-blue-500/80 dark:after:bg-blue-400/80";
   }
 
-  const metaControlHandleRightClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("right")} cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2`;
-  const metaControlHandleBottomClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottom")} cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2`;
-  const metaControlHandleCornerClassName = `${metaControlHandleBaseClassName} ${getMetaControlHandleActiveClassName("bottomRight")} cursor-nwse-resize after:inset-1`;
+  const minimalHandleRightClassName = `${minimalHandleBaseClassName} ${getMinimalResizeHandleActiveClassName("right")} cursor-col-resize after:inset-y-1 after:left-1/2 after:w-[3px] after:-translate-x-1/2`;
+  const minimalHandleBottomClassName = `${minimalHandleBaseClassName} ${getMinimalResizeHandleActiveClassName("bottom")} cursor-row-resize after:inset-x-1 after:top-1/2 after:h-[3px] after:-translate-y-1/2`;
+  const minimalHandleCornerClassName = `${minimalHandleBaseClassName} ${getMinimalResizeHandleActiveClassName("bottomRight")} cursor-nwse-resize after:inset-1`;
 
   let handleStyles = { right: { right: "-8px" }, bottom: { bottom: "-8px" } };
   let handleClasses = handleBaseClasses;
@@ -589,7 +600,7 @@ function CustomResizableSuperCore({
     }
   }
 
-  if (isMetaControl) {
+  if (usesMinimalResizeHandles) {
     handleStyles = {
       right: { right: "-8px", width: 16, top: 0, bottom: 0, height: "100%" },
       bottom: {
@@ -602,9 +613,9 @@ function CustomResizableSuperCore({
       bottomRight: { right: "-8px", bottom: "-8px", width: 16, height: 16 },
     };
     handleClasses = {
-      right: `${handleBaseClassName} ${metaControlHandleRightClassName}`,
-      bottom: `${handleBaseClassName} ${metaControlHandleBottomClassName}`,
-      bottomRight: `${handleBaseClassName} ${metaControlHandleCornerClassName}`,
+      right: `${handleBaseClassName} ${minimalHandleRightClassName}`,
+      bottom: `${handleBaseClassName} ${minimalHandleBottomClassName}`,
+      bottomRight: `${handleBaseClassName} ${minimalHandleCornerClassName}`,
     };
   }
 

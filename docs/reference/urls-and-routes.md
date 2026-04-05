@@ -35,22 +35,20 @@ The same paths are used in IDE and share modes; the router wraps them with
 The project and view mode names are URL-encoded with `encodeURIComponent` when
 building paths. Matching is exact (case-sensitive) against the stored names.
 
-For standalone section routes, `sectionSlug` is backend-owned route identity
-data exposed on loaded project state:
+For standalone section routes, `sectionSlug` is derived from the existing
+canonical full-path slug logic:
 
-- `projectConfig.sectionPathSlugsById`
-- `projectConfig.sectionIdsByPathSlug`
+- backend: `sanitize_slug(get_section_path_full_name(...))`
+- frontend: `sanitizeNameForSlug(resolveSectionFullPathName(...))`
 
 Standalone project thread routes use the existing thread `chatId` identifier:
 
 - `/:projectConfigName/chat/:chatId`
 
 Standalone window-space routes are namespaced under `/windowspace` and resolve
-against backend-owned slug maps on loaded project state:
+against `projectConfig.windowSpaces` by sanitized name slug:
 
 - `/:projectConfigName/windowspace/:windowSpaceSlug`
-- `projectConfig.windowSpaceSlugsById`
-- `projectConfig.windowSpaceIdsBySlug`
 
 Section routes are namespaced under `/section`, so section slugs no longer need
 to reserve `chat` or `windowspace`.
@@ -80,9 +78,9 @@ and hash are not preserved during the replace (current behavior).
 ## Backend API Routes
 
 Frontend routes above are **not** the same as backend API routes. Backend routes
-are defined in `internal/httpapi/*.go` and exposed to the frontend through the
-generated endpoint helpers in `frontend/src/utils/generatedEndpoints.ts`
-(generated from `internal/frontendbindings/specs.go`).
+use the `Route` enum (`backend/setta/types/routes.py`) and are called via
+`/api/<route>` using the generated endpoint helpers in
+`frontend/src/utils/generatedEndpoints.ts`.
 
 ### Chat dictation session routes
 
@@ -133,7 +131,7 @@ Transcription profile CRUD is separate from chat engine config:
 ### LLM config + API key routes
 
 - `/api/llm/config`
-  - `GET` returns the full LLM config payload.
+  - `GET` returns the full LLM config (`AllLLMConfigs`).
   - `POST` replaces the full LLM config payload.
 - `/api/llm/apiKeys`
   - `GET` returns `{ apiKeys, revision }`.
@@ -222,12 +220,8 @@ The app-generation/skills viewer flow adds these backend routes:
     - `skillId`, `created`, `rootPath`, `skillDocPath`
     - refreshed `skill` metadata
     - refreshed `skillContent`
-- Legacy `/api/streamAppSpec`
-  - This older standalone streaming helper is not part of the current
-    caller-backed flow on this branch.
-  - The current app-config pane generation path uses `/api/getLLMResponse` plus
-    `/ws/frontend` tool-preview updates and Go-owned `stream_app_definition`
-    persistence.
+- `/api/streamAppSpec`
+  - Streams JSONL patch ops for tool-driven or API-driven app-spec generation.
 - `/api/getLLMResponse` (extended payload)
   - Accepts `appGenerationMode` and `appGenerationByMessageId` for Project Chat
     app-generation turns.

@@ -8,7 +8,7 @@ import {
   DateCalendarWeekStartEnum,
   DateControlModeEnum,
   DateSelectionModeEnum,
-  NotificationTypeEnum,
+  SettaNotificationTypeEnum,
 } from "utils/generatedTypes";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CALENDAR_PRESET_ID } from "./UITypeCombobox";
@@ -97,7 +97,7 @@ describe("applyUiTypeComboboxSelection", () => {
 
     expect(addTemporaryNotification).toHaveBeenCalledWith(
       "preset failed",
-      NotificationTypeEnum.error,
+      SettaNotificationTypeEnum.error,
     );
   });
 
@@ -115,7 +115,7 @@ describe("applyUiTypeComboboxSelection", () => {
 
     expect(addTemporaryNotification).toHaveBeenCalledWith(
       "change failed",
-      NotificationTypeEnum.error,
+      SettaNotificationTypeEnum.error,
     );
     expect(route_update_param_impl_config).not.toHaveBeenCalled();
   });
