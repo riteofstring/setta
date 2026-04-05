@@ -17,10 +17,7 @@ import { RxDragHandleDots2 } from "react-icons/rx";
 import { TbUser } from "react-icons/tb";
 import { pruneActiveSectionIdsForViewMode } from "state/actions/activeSections";
 import { useCreateAndGoToProjectConfig } from "state/actions/project/loadProject";
-import {
-  dispatchOptimisticProjectStateUpdate,
-  persistCurrentViewportImmediately,
-} from "state/actions/sectionInfos";
+import { dispatchOptimisticProjectStateUpdate } from "state/actions/sectionInfos";
 import { persistViewModeSortOrder } from "state/actions/viewModes";
 import { useProjectState } from "state/definitions";
 import { useEditableOnSubmit } from "state/hooks/editableText";
@@ -119,12 +116,11 @@ export function ViewingEditingMode() {
     pruneActiveSectionIdsForViewMode(activeViewModeId, isEditingViewMode);
   }, [activeViewModeId, isEditingViewMode]);
 
-  const handleModeChange = async (modeId: string) => {
+  const handleModeChange = (modeId: string) => {
     if (!canEditVariants) {
       return;
     }
-    await persistCurrentViewportImmediately();
-    await route_set_active_view_mode({
+    void route_set_active_view_mode({
       projectConfigId,
       activeViewModeId: modeId,
     });

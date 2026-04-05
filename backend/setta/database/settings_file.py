@@ -1,27 +1,23 @@
 import copy
 import logging
 import os
-from datetime import UTC, datetime
 from pathlib import Path
-
-from pydantic import ValidationError
 
 from setta.database.db_objs import DBE
 from setta.project_state.settings_project import (
-    MissingSettingsSectionError,
     create_settings_project_state,
     ensure_settings_code_objs,
     ensure_settings_view_modes,
 )
 from setta.types.generated.settings_state import SettingsState
 from setta.types.helpers_lvl1 import (
-    get_curr_effective_section_impl,
+    get_curr_effective_section_impl_with_type_guard,
     get_curr_section_variant,
 )
 from setta.types.project_state import (
     ProjectStateSingleConfig,
 )
-from setta.types.section_impls import BaseDictSectionImpl
+from setta.types.section_impls import DictSectionImpl
 from setta.websockets.msg_handlers.frontend_sender import WMHFrontendSender
 
 logger = logging.getLogger(__name__)
@@ -62,34 +58,6 @@ class SettingsFile:
         self.websocket_msg_handler = websocket_msg_handler
         self._allow_write = allow_write
         self.settings = self.load_settings()
-
-    def _backup_invalid_settings_project(self) -> None:
-        if not self.dbe.settings_project.exists():
-            return
-        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
-        backup_path = self.dbe.settings_project.with_name(
-            f"{self.dbe.settings_project.stem}.invalid-{timestamp}{self.dbe.settings_project.suffix}"
-        )
-        self.dbe.copy(self.dbe.settings_project, backup_path)
-        logger.warning(
-            "Backed up invalid settings project %s to %s.",
-            self.dbe.settings_project,
-            backup_path,
-        )
-
-    def _reset_settings_project(self, exc: Exception) -> ProjectStateSingleConfig:
-        if not self._allow_write:
-            raise exc
-        self._backup_invalid_settings_project()
-        logger.warning(
-            "Resetting invalid settings project %s after %s: %s",
-            self.dbe.settings_project,
-            type(exc).__name__,
-            exc,
-        )
-        project_state = create_settings_project_state(self.dbe.settings)
-        self.dbe.write_settings_project(project_state)
-        return project_state
 
     async def save_settings(self, settings: SettingsState):
         if not self._allow_write:
@@ -178,10 +146,10 @@ class SettingsFile:
 
     def find_path_for_settings_slice(self, p: ProjectStateSingleConfig, slice: str):
         for sectionId in p.sections.keys():
-            impl = get_curr_effective_section_impl(p, sectionId)
-            if not isinstance(impl, BaseDictSectionImpl):
-                continue
-            if impl.isJsonSource and impl.jsonSourceKeys == [slice]:
+            impl = get_curr_effective_section_impl_with_type_guard(
+                p, sectionId, DictSectionImpl
+            )
+            if impl.jsonSourceKeys == [slice]:
                 variant = get_curr_section_variant(p, sectionId)
                 return Path(variant.name)
         return self.dbe.settings
@@ -192,17 +160,12 @@ class SettingsFile:
             if self._allow_write:
                 self.dbe.write_settings_project(project_state)
             return project_state
-        try:
-            project_state = self.dbe.read_settings_project()
-            needs_write = False
-            if ensure_settings_code_objs(project_state):
-                needs_write = True
-            if ensure_settings_view_modes(project_state):
-                needs_write = True
-        except MissingSettingsSectionError:
-            raise
-        except (KeyError, OSError, TypeError, ValidationError, ValueError) as exc:
-            return self._reset_settings_project(exc)
+        project_state = self.dbe.read_settings_project()
+        needs_write = False
+        if ensure_settings_code_objs(project_state):
+            needs_write = True
+        if ensure_settings_view_modes(project_state):
+            needs_write = True
         if needs_write and self._allow_write:
             self.dbe.write_settings_project(project_state)
         return project_state

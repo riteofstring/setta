@@ -597,7 +597,7 @@ discover_main_worktree_root() {
 }
 
 repo_looks_like_setta() {
-  [[ -d "${ROOT_DIR}/backend/setta" ]] && [[ -x "${ROOT_DIR}/scripts/dev-runtime-info.sh" ]]
+  [[ -d "${ROOT_DIR}/backend/setta" ]] && [[ -f "${ROOT_DIR}/ai.sh" ]] && [[ -f "${ROOT_DIR}/kill.sh" ]]
 }
 
 resolve_repo_adapter() {
@@ -1254,10 +1254,12 @@ connect_info_command_for_root() {
 runtime_info_command_for_root() {
   local target_root="$1"
   local runtime_log_path="${2:-}"
+  local helper_path="${ROOT_DIR}/scripts/dev-runtime-info.sh"
 
   if ! repo_uses_setta_adapter; then
     return 1
   fi
+  [[ -x "${helper_path}" ]] || return 1
 
   if [[ -n "${runtime_log_path}" ]]; then
     printf './scripts/dev-runtime-info.sh --workspace %s --runtime-log %s\n' "${target_root}" "${runtime_log_path}"

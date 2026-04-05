@@ -69,15 +69,6 @@ def test_playwright_runner_uses_temp_cache_root_by_default() -> None:
     assert 'PLUGIN_FIXTURE_CACHE_DIR="${ROOT_DIR}/setta_files/.cache"' not in script
 
 
-def test_playwright_runner_does_not_force_legacy_auth_cookie_namespace() -> None:
-    root = repo_root()
-    script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
-        encoding="utf-8"
-    )
-    assert 'SETTA_AUTH_COOKIE_NAME="${SETTA_AUTH_COOKIE_NAME:-setta_auth_${INSTANCE_NAME}}"' not in script
-    assert "export SETTA_AUTH_COOKIE_NAME" not in script
-
-
 def test_playwright_runner_writes_non_empty_record_manifest_for_seeded_wheels() -> None:
     root = repo_root()
     script = (root / "scripts" / "run-playwright-e2e.sh").read_text(
