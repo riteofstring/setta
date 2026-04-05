@@ -136,11 +136,8 @@ func appendUniqueImportLines(base []string, extras ...string) []string {
 func pythonBlockImportLines(blocks []string) []string {
 	imports := map[string]struct{}{}
 	for _, block := range blocks {
-		for _, name := range referencedTypeNames(block) {
-			if name == "datetime" {
-				imports["from datetime import datetime"] = struct{}{}
-				break
-			}
+		if strings.Contains(block, "datetime") {
+			imports["from datetime import datetime"] = struct{}{}
 		}
 		if strings.Contains(block, "TypeAdapter(") {
 			imports["from pydantic import TypeAdapter"] = struct{}{}
@@ -271,7 +268,7 @@ func filteredPythonImportLine(
 		if _, local := knownContractNames[name]; local {
 			continue
 		}
-		if replacement := localPythonContractReplacement(name, knownContractNames); replacement != "" {
+		if normalizeLocalPythonContractAlias(name, knownContractNames) != name {
 			continue
 		}
 		kept = append(kept, part)
@@ -282,66 +279,36 @@ func filteredPythonImportLine(
 	return fmt.Sprintf("from %s import %s", strings.TrimSpace(module), strings.Join(kept, ", "))
 }
 
-func normalizedPythonTypeOverride(
-	override string,
+func normalizeLocalPythonContractAlias(
+	value string,
 	knownContractNames map[string]struct{},
 ) string {
-	override = strings.TrimSpace(override)
-	if override == "" {
+	value = strings.TrimSpace(value)
+	if value == "" {
 		return ""
 	}
-	for _, name := range referencedTypeNames(override) {
-		replacement := localPythonContractReplacement(name, knownContractNames)
-		if replacement == "" {
-			continue
-		}
-		override = strings.ReplaceAll(override, name, replacement)
-	}
-	return override
-}
 
-func localPythonContractReplacement(
-	name string,
-	knownContractNames map[string]struct{},
-) string {
-	if !strings.HasSuffix(name, "WithDiscriminator") {
-		return ""
-	}
-	baseName := strings.TrimSuffix(name, "WithDiscriminator")
-	if _, ok := knownContractNames[baseName]; !ok {
-		return ""
-	}
-	return baseName
-}
-
-func referencedTypeNames(typeExpr string) []string {
-	names := make([]string, 0)
 	seen := map[string]struct{}{}
-	var token strings.Builder
-	flush := func() {
-		if token.Len() == 0 {
-			return
-		}
-		name := token.String()
-		token.Reset()
-		if name == "" {
-			return
-		}
-		if _, ok := seen[name]; ok {
-			return
-		}
-		seen[name] = struct{}{}
-		names = append(names, name)
-	}
-	for _, char := range typeExpr {
-		if char == '_' || unicode.IsLetter(char) || unicode.IsDigit(char) {
-			token.WriteRune(char)
+	for _, token := range strings.FieldsFunc(value, func(char rune) bool {
+		return char != '_' && !unicode.IsLetter(char) && !unicode.IsDigit(char)
+	}) {
+		if token == "" {
 			continue
 		}
-		flush()
+		if _, duplicate := seen[token]; duplicate {
+			continue
+		}
+		seen[token] = struct{}{}
+		if !strings.HasSuffix(token, "WithDiscriminator") {
+			continue
+		}
+		baseName := strings.TrimSuffix(token, "WithDiscriminator")
+		if _, ok := knownContractNames[baseName]; !ok {
+			continue
+		}
+		value = strings.ReplaceAll(value, token, baseName)
 	}
-	flush()
-	return names
+	return value
 }
 
 func visibleFields(modelType reflect.Type) []reflect.StructField {
@@ -395,8 +362,7 @@ func pythonPatchedFieldTypeExpr(
 	if importTag != "" {
 		mergePythonImportTagLines(imports, importTag, knownContractNames)
 	}
-	override := strings.TrimSpace(field.Tag.Get("py_type"))
-	override = normalizedPythonTypeOverride(override, knownContractNames)
+	override := normalizeLocalPythonContractAlias(field.Tag.Get("py_type"), knownContractNames)
 	if override != "" {
 		return override, imports, nil
 	}
