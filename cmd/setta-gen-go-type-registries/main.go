@@ -104,6 +104,12 @@ func main() {
 					IncludeNonStringScalars:  true,
 				},
 				{
+					PkgPath:                  "setta/internal/artifacts",
+					RequireJSONTaggedStructs: true,
+					IncludeCollectionAliases: true,
+					IncludeNonStringScalars:  true,
+				},
+				{
 					PkgPath:                  "setta/internal/projectview",
 					RequireJSONTaggedStructs: true,
 					IncludeCollectionAliases: true,

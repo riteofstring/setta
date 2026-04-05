@@ -328,10 +328,6 @@ type AgenticEdgeKind string
 
 type AgenticEdgeContextMode string
 
-type ChartData struct{}
-
-type ChartDataType struct{}
-
 type CodeFileBindingUpdate httpapi.CodeFileBindingUpdate
 
 type ViewModeConfig projectstate.ViewMode

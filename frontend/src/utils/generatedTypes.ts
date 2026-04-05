@@ -728,299 +728,6 @@ export function createExternalAgentPreflightStatus(
   return options as ExternalAgentPreflightStatus;
 }
 
-const UploadScopeEnum = {
-  chat: "chat",
-  generic: "generic",
-} as const;
-type UploadScope = ObjectValues<typeof UploadScopeEnum>;
-
-export type ImportFilesRequest = {
-  paths: Array<string>;
-  uploadScope: UploadScope;
-};
-
-export type ImportFilesResponseItem = {
-  kind: string;
-  id: string;
-  name: string;
-  mimeType: string;
-  size: number;
-};
-
-export type LoadCachedPathsRequest = {
-  paths: Array<string>;
-};
-
-export const ArtifactTypeEnum = {
-  Image: "Image",
-  BrushStroke: "BrushStroke",
-  DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
-  ChartData: "ChartData",
-  File: "File",
-} as const;
-export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
-
-export const DrawAreaBrushShapeEnum = {
-  butt: "butt",
-  round: "round",
-  square: "square",
-} as const;
-export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
-
-export const DrawAreaModeEnum = {
-  draw: "draw",
-  erase: "erase",
-  edit: "edit",
-} as const;
-export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
-
-export type CanvasPoint = [number, number];
-
-export type DrawAreaTransform = [
-  number,
-  number,
-  number,
-  number,
-  number,
-  number,
-];
-
-export type BrushStroke = {
-  strokeStyle: string;
-  lineWidth: number;
-  lineCap: DrawAreaBrushShape;
-  points: Array<CanvasPoint | "BREAK">;
-  globalCompositeOperation: string;
-};
-export function createBrushStroke(
-  options: Partial<BrushStroke> = {},
-): BrushStroke {
-  return mergeGeneratedOptions<BrushStroke>(
-    {
-      strokeStyle: "",
-      lineWidth: 1,
-      lineCap: "round",
-      points: [],
-      globalCompositeOperation: "source-over",
-    },
-    options,
-  );
-}
-
-export type BrushStrokeWithTransform = {
-  strokeStyle: string;
-  lineWidth: number;
-  lineCap: DrawAreaBrushShape;
-  points: Array<CanvasPoint | "BREAK">;
-  globalCompositeOperation: string;
-  transform: DrawAreaTransform;
-};
-
-type DrawAreaLayerItemTransform = {
-  transform: DrawAreaTransform;
-  eraserStrokes: Array<BrushStrokeWithTransform>;
-};
-export function createDrawAreaLayerItemTransform(
-  options: Partial<DrawAreaLayerItemTransform> = {},
-): DrawAreaLayerItemTransform {
-  return mergeGeneratedOptions<DrawAreaLayerItemTransform>(
-    {
-      transform: [1, 0, 0, 1, 0, 0],
-      eraserStrokes: [],
-    },
-    options,
-  );
-}
-
-export type DrawAreaLayerItem = {
-  type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
-  dataPath: string;
-  transformId: string;
-};
-export function createDrawAreaLayerItem(
-  options: Partial<DrawAreaLayerItem> = {},
-): DrawAreaLayerItem {
-  return mergeGeneratedOptions<DrawAreaLayerItem>(
-    {
-      type: "BrushStroke",
-      dataPath: "",
-      transformId: "",
-    },
-    options,
-  );
-}
-
-export type DrawAreaLayer = {
-  name: string;
-  elements: Array<DrawAreaLayerItem>;
-  visible: boolean;
-  layerOpacity: number;
-};
-export function createDrawAreaLayer(
-  options: Partial<DrawAreaLayer> = {},
-): DrawAreaLayer {
-  return mergeGeneratedOptions<DrawAreaLayer>(
-    {
-      name: createRandomName(),
-      elements: [],
-      visible: true,
-      layerOpacity: 1,
-    },
-    options,
-  );
-}
-
-export type ContentRef = {
-  contentId: string;
-  byteLength: number;
-  mimeType?: string;
-  sha256?: string;
-};
-export function createContentRef(
-  options: Partial<ContentRef> = {},
-): ContentRef {
-  return options as ContentRef;
-}
-
-export type ImageArtifact = {
-  type: typeof ArtifactTypeEnum.Image;
-  id: string;
-  value: ContentRef;
-};
-export function createImageArtifact(
-  options: Partial<ImageArtifact> = {},
-): ImageArtifact {
-  return mergeGeneratedOptions<ImageArtifact>(
-    {
-      type: "Image",
-      id: createPngArtifactId(),
-      value: createContentRef(),
-    },
-    options,
-  );
-}
-
-export type BrushStrokeArtifact = {
-  type: typeof ArtifactTypeEnum.BrushStroke;
-  id: string;
-  value: BrushStroke;
-};
-export function createBrushStrokeArtifact(
-  options: Partial<BrushStrokeArtifact> = {},
-): BrushStrokeArtifact {
-  return mergeGeneratedOptions<BrushStrokeArtifact>(
-    {
-      type: "BrushStroke",
-      id: createJsonArtifactId(),
-      value: createBrushStroke(),
-    },
-    options,
-  );
-}
-
-export type DrawAreaLayerItemTransformArtifact = {
-  type: typeof ArtifactTypeEnum.DrawAreaLayerItemTransform;
-  id: string;
-  value: DrawAreaLayerItemTransform;
-};
-export function createDrawAreaLayerItemTransformArtifact(
-  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
-): DrawAreaLayerItemTransformArtifact {
-  return mergeGeneratedOptions<DrawAreaLayerItemTransformArtifact>(
-    {
-      type: "DrawAreaLayerItemTransform",
-      id: createJsonArtifactId(),
-      value: createDrawAreaLayerItemTransform(),
-    },
-    options,
-  );
-}
-
-type ChartDataValue = Record<string, Array<string | number>>;
-
-export type ChartDataArtifact = {
-  type: typeof ArtifactTypeEnum.ChartData;
-  id: string;
-  value: ChartDataValue;
-};
-export function createChartDataArtifact(
-  options: Partial<ChartDataArtifact> = {},
-): ChartDataArtifact {
-  return mergeGeneratedOptions<ChartDataArtifact>(
-    {
-      type: "ChartData",
-      id: createCsvArtifactId(),
-      value: {},
-    },
-    options,
-  );
-}
-
-export type FileArtifact = {
-  type: typeof ArtifactTypeEnum.File;
-  id: string;
-  value: ContentRef;
-};
-
-type ArtifactUnion =
-  | ImageArtifact
-  | BrushStrokeArtifact
-  | DrawAreaLayerItemTransformArtifact
-  | ChartDataArtifact
-  | FileArtifact;
-
-export type ImageMapping = Record<string, ImageArtifact>;
-
-export type BrushStrokeMapping = Record<string, BrushStrokeArtifact>;
-
-export type DrawAreaLayerItemTransformMapping = Record<
-  string,
-  DrawAreaLayerItemTransformArtifact
->;
-
-export type ChartDataMapping = Record<string, ChartDataArtifact>;
-
-const SaveConflictStrategyEnum = {
-  skip: "skip",
-  backup: "backup",
-  overwrite: "overwrite",
-} as const;
-type SaveConflictStrategy = ObjectValues<typeof SaveConflictStrategyEnum>;
-
-const SaveStatusEnum = {
-  saved: "saved",
-  unchanged: "unchanged",
-  skipped: "skipped",
-  conflict: "conflict",
-} as const;
-type SaveStatus = ObjectValues<typeof SaveStatusEnum>;
-
-export type ArtifactSaveResult = {
-  id: string;
-  type: ArtifactType;
-  status: SaveStatus;
-  backupPath?: string | null;
-  message?: string | null;
-};
-
-type DeleteRequestItem = {
-  id: string;
-  type: ArtifactType;
-};
-
-export type DeleteRequest = {
-  artifacts: Array<DeleteRequestItem>;
-};
-
-export type LoadCachedImageArtifactsResponse = Array<ImageArtifact | null>;
-
-export type LoadCachedChartDataResponse = Array<ChartDataArtifact | null>;
-
-export type LoadCachedBrushStrokesResponse = Array<BrushStrokeArtifact | null>;
-
-export type LoadCachedDrawAreaLayerItemTransformResponse =
-  Array<DrawAreaLayerItemTransformArtifact | null>;
-
 type ShownParamIDDetails = {
   requiredParamIdsToPaths: Record<string, Array<string>>;
   topLevelParamIds: Array<string>;
@@ -3948,10 +3655,6 @@ export function createBaseChartSettingsUnionWithDiscriminator(
   }
 }
 
-export type ChartData = ChartDataValue;
-
-export type ChartDataType = ChartDataValue;
-
 export const CodeFileAccessModeEnum = {
   read_write: "read_write",
   read_only: "read_only",
@@ -4843,6 +4546,24 @@ export type SetSocialURLRequest = {
   sectionId: string;
   url: string;
 };
+
+export type DrawAreaLayerItem = {
+  type: typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke;
+  dataPath: string;
+  transformId: string;
+};
+export function createDrawAreaLayerItem(
+  options: Partial<DrawAreaLayerItem> = {},
+): DrawAreaLayerItem {
+  return mergeGeneratedOptions<DrawAreaLayerItem>(
+    {
+      type: "BrushStroke",
+      dataPath: "",
+      transformId: "",
+    },
+    options,
+  );
+}
 
 export type AppendDrawAreaLayerItemRequest = {
   frontendOpId: string | null;
@@ -6414,6 +6135,260 @@ export type CreateTopLevelSectionResult = {
   sectionId: string;
   metaControlParamId?: string | null;
   panTo?: Position | null;
+};
+
+export type CanvasPoint = [number, number];
+
+export type DrawAreaTransform = [
+  number,
+  number,
+  number,
+  number,
+  number,
+  number,
+];
+
+export const DrawAreaBrushShapeEnum = {
+  butt: "butt",
+  round: "round",
+  square: "square",
+} as const;
+export type DrawAreaBrushShape = ObjectValues<typeof DrawAreaBrushShapeEnum>;
+
+export const DrawAreaModeEnum = {
+  draw: "draw",
+  erase: "erase",
+  edit: "edit",
+} as const;
+export type DrawAreaMode = ObjectValues<typeof DrawAreaModeEnum>;
+
+export type BrushStroke = {
+  strokeStyle: string;
+  lineWidth: number;
+  lineCap: DrawAreaBrushShape;
+  points: Array<CanvasPoint | "BREAK">;
+  globalCompositeOperation: string;
+};
+export function createBrushStroke(
+  options: Partial<BrushStroke> = {},
+): BrushStroke {
+  return mergeGeneratedOptions<BrushStroke>(
+    {
+      strokeStyle: "",
+      lineWidth: 1,
+      lineCap: "round",
+      points: [],
+      globalCompositeOperation: "source-over",
+    },
+    options,
+  );
+}
+
+export type BrushStrokeWithTransform = {
+  strokeStyle: string;
+  lineWidth: number;
+  lineCap: DrawAreaBrushShape;
+  points: Array<CanvasPoint | "BREAK">;
+  globalCompositeOperation: string;
+  transform: DrawAreaTransform;
+};
+
+type DrawAreaLayerItemTransform = {
+  transform: DrawAreaTransform;
+  eraserStrokes: Array<BrushStrokeWithTransform>;
+};
+export function createDrawAreaLayerItemTransform(
+  options: Partial<DrawAreaLayerItemTransform> = {},
+): DrawAreaLayerItemTransform {
+  return mergeGeneratedOptions<DrawAreaLayerItemTransform>(
+    {
+      transform: [1, 0, 0, 1, 0, 0],
+      eraserStrokes: [],
+    },
+    options,
+  );
+}
+
+export type DrawAreaLayer = {
+  name: string;
+  elements: Array<DrawAreaLayerItem>;
+  visible: boolean;
+  layerOpacity: number;
+};
+export function createDrawAreaLayer(
+  options: Partial<DrawAreaLayer> = {},
+): DrawAreaLayer {
+  return mergeGeneratedOptions<DrawAreaLayer>(
+    {
+      name: createRandomName(),
+      elements: [],
+      visible: true,
+      layerOpacity: 1,
+    },
+    options,
+  );
+}
+
+export type BrushStrokeArtifact = {
+  type: typeof ArtifactTypeEnum.BrushStroke;
+  id: string;
+  value: BrushStroke;
+};
+export function createBrushStrokeArtifact(
+  options: Partial<BrushStrokeArtifact> = {},
+): BrushStrokeArtifact {
+  return mergeGeneratedOptions<BrushStrokeArtifact>(
+    {
+      type: "BrushStroke",
+      id: createJsonArtifactId(),
+      value: createBrushStroke(),
+    },
+    options,
+  );
+}
+
+export type DrawAreaLayerItemTransformArtifact = {
+  type: typeof ArtifactTypeEnum.DrawAreaLayerItemTransform;
+  id: string;
+  value: DrawAreaLayerItemTransform;
+};
+export function createDrawAreaLayerItemTransformArtifact(
+  options: Partial<DrawAreaLayerItemTransformArtifact> = {},
+): DrawAreaLayerItemTransformArtifact {
+  return mergeGeneratedOptions<DrawAreaLayerItemTransformArtifact>(
+    {
+      type: "DrawAreaLayerItemTransform",
+      id: createJsonArtifactId(),
+      value: createDrawAreaLayerItemTransform(),
+    },
+    options,
+  );
+}
+
+export const ArtifactTypeEnum = {
+  Image: "Image",
+  BrushStroke: "BrushStroke",
+  DrawAreaLayerItemTransform: "DrawAreaLayerItemTransform",
+  ChartData: "ChartData",
+  File: "File",
+} as const;
+export type ArtifactType = ObjectValues<typeof ArtifactTypeEnum>;
+
+const UploadScopeEnum = {
+  chat: "chat",
+  generic: "generic",
+} as const;
+type UploadScope = ObjectValues<typeof UploadScopeEnum>;
+
+const SaveConflictStrategyEnum = {
+  skip: "skip",
+  backup: "backup",
+  overwrite: "overwrite",
+} as const;
+type SaveConflictStrategy = ObjectValues<typeof SaveConflictStrategyEnum>;
+
+const SaveStatusEnum = {
+  saved: "saved",
+  unchanged: "unchanged",
+  skipped: "skipped",
+  conflict: "conflict",
+} as const;
+type SaveStatus = ObjectValues<typeof SaveStatusEnum>;
+
+export type ImportFilesRequest = {
+  paths: Array<string>;
+  uploadScope: UploadScope;
+};
+
+export type ImportFilesResponseItem = {
+  kind: string;
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+};
+
+export type LoadCachedPathsRequest = {
+  paths: Array<string>;
+};
+
+type DeleteRequestItem = {
+  id: string;
+  type: ArtifactType;
+};
+
+export type DeleteRequest = {
+  artifacts: Array<DeleteRequestItem>;
+};
+
+export type ArtifactSaveResult = {
+  id: string;
+  type: ArtifactType;
+  status: SaveStatus;
+  backupPath?: string | null;
+  message?: string | null;
+};
+
+export type ContentRef = {
+  contentId: string;
+  byteLength: number;
+  mimeType?: string;
+  sha256?: string;
+};
+export function createContentRef(
+  options: Partial<ContentRef> = {},
+): ContentRef {
+  return options as ContentRef;
+}
+
+export type ImageArtifact = {
+  type: typeof ArtifactTypeEnum.Image;
+  id: string;
+  value: ContentRef;
+};
+export function createImageArtifact(
+  options: Partial<ImageArtifact> = {},
+): ImageArtifact {
+  return mergeGeneratedOptions<ImageArtifact>(
+    {
+      type: "Image",
+      id: createPngArtifactId(),
+      value: createContentRef(),
+    },
+    options,
+  );
+}
+
+type ChartDataValue = Record<string, Array<string | number>>;
+
+export type ChartDataArtifact = {
+  type: typeof ArtifactTypeEnum.ChartData;
+  id: string;
+  value: ChartDataValue;
+};
+export function createChartDataArtifact(
+  options: Partial<ChartDataArtifact> = {},
+): ChartDataArtifact {
+  return mergeGeneratedOptions<ChartDataArtifact>(
+    {
+      type: "ChartData",
+      id: createCsvArtifactId(),
+      value: {},
+    },
+    options,
+  );
+}
+
+export type JSONArtifact = {
+  type: ArtifactType;
+  id: string;
+  value: JSONValue;
+};
+
+export type FileArtifact = {
+  type: typeof ArtifactTypeEnum.File;
+  id: string;
+  value: ContentRef;
 };
 
 export const ProjectCodegenLanguageEnum = {
@@ -8448,12 +8423,6 @@ export type LoadDeploymentProjectConfigRequest = {
   projectConfigId: string;
 };
 
-export type JSONArtifact = {
-  type: ArtifactType;
-  id: string;
-  value: JSONValue;
-};
-
 const FilesLocationEnum = {
   auto: "auto",
   local: "local",
@@ -8922,7 +8891,13 @@ export type UpdateAgentProfileRequest = {
 };
 
 export type UpdateArtifactsRequest = {
-  artifacts: Array<ArtifactUnion>;
+  artifacts: Array<
+    | ImageArtifact
+    | BrushStrokeArtifact
+    | DrawAreaLayerItemTransformArtifact
+    | ChartDataArtifact
+    | FileArtifact
+  >;
   conflictStrategy?: SaveConflictStrategy | null;
   uploadScope: UploadScope;
 };

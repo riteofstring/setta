@@ -2,6 +2,10 @@ package artifacts
 
 import "setta/internal/projectstate"
 
+type CanvasPoint [2]float64
+
+type DrawAreaTransform [6]float64
+
 type DrawAreaBrushShape string
 
 const (
@@ -32,11 +36,11 @@ type BrushStrokeWithTransform struct {
 	LineCap                  DrawAreaBrushShape `json:"lineCap"`
 	Points                   []any              `json:"points"`
 	GlobalCompositeOperation string             `json:"globalCompositeOperation"`
-	Transform                [6]float64         `json:"transform"`
+	Transform                DrawAreaTransform  `json:"transform"`
 }
 
 type DrawAreaLayerItemTransform struct {
-	Transform     [6]float64                 `json:"transform"`
+	Transform     DrawAreaTransform          `json:"transform"`
 	EraserStrokes []BrushStrokeWithTransform `json:"eraserStrokes"`
 }
 

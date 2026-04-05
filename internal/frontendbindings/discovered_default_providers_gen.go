@@ -29,13 +29,13 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectstate.BrowserSavedSearchTypeFilters{}): func() any {
 			return projectstate.FrontendDefaultBrowserSavedSearchTypeFilters()
 		},
-		reflect.TypeOf((*BrushStroke)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.BrushStroke{}): func() any {
 			return artifacts.FrontendDefaultBrushStroke()
 		},
-		reflect.TypeOf((*BrushStrokeArtifact)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.BrushStrokeArtifact{}): func() any {
 			return artifacts.FrontendDefaultBrushStrokeArtifact()
 		},
-		reflect.TypeOf((*ChartDataArtifact)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.ChartDataArtifact{}): func() any {
 			return artifacts.FrontendDefaultChartDataArtifact()
 		},
 		reflect.TypeOf(projectstate.ChatWindowDockMetrics{}): func() any {
@@ -56,22 +56,22 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(projectview.Core{}): func() any {
 			return projectview.FrontendDefaultCore()
 		},
-		reflect.TypeOf((*DrawAreaLayer)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.DrawAreaLayer{}): func() any {
 			return artifacts.FrontendDefaultDrawAreaLayer()
 		},
-		reflect.TypeOf((*DrawAreaLayerItem)(nil)).Elem(): func() any {
+		reflect.TypeOf(projectstate.DrawAreaLayerItem{}): func() any {
 			return projectstate.FrontendDefaultDrawAreaLayerItem()
 		},
-		reflect.TypeOf((*DrawAreaLayerItemTransform)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.DrawAreaLayerItemTransform{}): func() any {
 			return artifacts.FrontendDefaultDrawAreaLayerItemTransform()
 		},
-		reflect.TypeOf((*DrawAreaLayerItemTransformArtifact)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.DrawAreaLayerItemTransformArtifact{}): func() any {
 			return artifacts.FrontendDefaultDrawAreaLayerItemTransformArtifact()
 		},
 		reflect.TypeOf((*EngineConfigDefaults)(nil)).Elem(): func() any {
 			return agentruns.FrontendDefaultEngineConfigDefaults()
 		},
-		reflect.TypeOf((*FileArtifact)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.FileArtifact{}): func() any {
 			return artifacts.FrontendDefaultFileArtifact()
 		},
 		reflect.TypeOf(projectstate.FrontendCodeParamCodeObjImpl{}): func() any {
@@ -101,7 +101,7 @@ func discoveredFrontendDefaultValueProviders() map[reflect.Type]func() any {
 		reflect.TypeOf(settingsstate.FrontendSettingsState{}): func() any {
 			return settingsstate.FrontendDefaultSettingsState()
 		},
-		reflect.TypeOf((*ImageArtifact)(nil)).Elem(): func() any {
+		reflect.TypeOf(artifacts.ImageArtifact{}): func() any {
 			return artifacts.FrontendDefaultImageArtifact()
 		},
 		reflect.TypeOf(projectstate.LineChartSettings{}): func() any {

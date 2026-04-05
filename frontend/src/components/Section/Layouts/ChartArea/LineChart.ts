@@ -6,7 +6,7 @@ import {
   Plugin,
   Tooltip,
 } from "chart.js";
-import { ChartDataType, LineChartSettings } from "utils/generatedTypes";
+import { ChartDataArtifact, LineChartSettings } from "utils/generatedTypes";
 import {
   getAxisType,
   getOnLegendClickSetDatasetHidden,
@@ -84,7 +84,7 @@ type LineChartData = ChartData<
 
 export function updateLineChartWithNewData(
   chart: Chart,
-  data: ChartDataType,
+  data: ChartDataArtifact["value"],
   datasetHidden: Record<string, boolean>,
   darkMode: boolean,
   chartSettings: LineChartSettings,

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"setta/internal/agentruns"
+	"setta/internal/artifacts"
 	"setta/internal/deployments"
 	"setta/internal/httpapi"
 	"setta/internal/plugins"
@@ -65,54 +66,48 @@ func reflectedSpecWithDiscoveredDefault(
 }
 
 var artifactAliasDeclarations = map[reflect.Type]TypeDeclaration{
-	reflect.TypeOf(CanvasPoint{}): aliasDeclaration(
+	reflect.TypeOf(artifacts.CanvasPoint{}): aliasDeclaration(
 		"CanvasPoint",
 		"[number, number]",
 	),
-	reflect.TypeOf(DrawAreaTransform{}): aliasDeclaration(
+	reflect.TypeOf(artifacts.DrawAreaTransform{}): aliasDeclaration(
 		"DrawAreaTransform",
 		"[number, number, number, number, number, number]",
 	),
-	reflect.TypeOf(ChartDataValue{}): aliasDeclaration(
+	reflect.TypeOf(artifacts.ChartDataValue{}): aliasDeclaration(
 		"ChartDataValue",
 		"Record<string, Array<string | number>>",
-	),
-	reflect.TypeOf(ChartData{}):     aliasDeclaration("ChartData", "ChartDataValue"),
-	reflect.TypeOf(ChartDataType{}): aliasDeclaration("ChartDataType", "ChartDataValue"),
-	reflect.TypeOf(ArtifactUnion{}): aliasDeclaration(
-		"ArtifactUnion",
-		"ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact",
 	),
 }
 
 var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDeclarationSpec{
-	reflect.TypeOf(BrushStroke{}): {
+	reflect.TypeOf(artifacts.BrushStroke{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"points": `Array<CanvasPoint | "BREAK">`,
 		},
 	},
-	reflect.TypeOf(BrushStrokeWithTransform{}): {
+	reflect.TypeOf(artifacts.BrushStrokeWithTransform{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"points":    `Array<CanvasPoint | "BREAK">`,
 			"transform": "DrawAreaTransform",
 		},
 	},
-	reflect.TypeOf(DrawAreaLayerItemTransform{}): {
+	reflect.TypeOf(artifacts.DrawAreaLayerItemTransform{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"transform": "DrawAreaTransform",
 		},
 	},
-	reflect.TypeOf(DrawAreaLayerItem{}): {
+	reflect.TypeOf(projectstate.DrawAreaLayerItem{}): {
 		PropertyTypeExprOverrides: map[string]string{
 			"type": "typeof ArtifactTypeEnum.Image | typeof ArtifactTypeEnum.BrushStroke",
 		},
 	},
-	reflect.TypeOf(DrawAreaLayer{}): {
+	reflect.TypeOf(artifacts.DrawAreaLayer{}): {
 		CreateExprOverrides: map[string]string{
 			"name": "createRandomName()",
 		},
 	},
-	reflect.TypeOf(ImageArtifact{}): {
+	reflect.TypeOf(artifacts.ImageArtifact{}): {
 		CreateExprOverrides: map[string]string{
 			"id":    "createPngArtifactId()",
 			"value": "createContentRef()",
@@ -121,7 +116,7 @@ var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDe
 			"type": "typeof ArtifactTypeEnum.Image",
 		},
 	},
-	reflect.TypeOf(BrushStrokeArtifact{}): {
+	reflect.TypeOf(artifacts.BrushStrokeArtifact{}): {
 		CreateExprOverrides: map[string]string{
 			"id":    "createJsonArtifactId()",
 			"value": "createBrushStroke()",
@@ -130,7 +125,7 @@ var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDe
 			"type": "typeof ArtifactTypeEnum.BrushStroke",
 		},
 	},
-	reflect.TypeOf(DrawAreaLayerItemTransformArtifact{}): {
+	reflect.TypeOf(artifacts.DrawAreaLayerItemTransformArtifact{}): {
 		CreateExprOverrides: map[string]string{
 			"id":    "createJsonArtifactId()",
 			"value": "createDrawAreaLayerItemTransform()",
@@ -139,7 +134,7 @@ var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDe
 			"type": "typeof ArtifactTypeEnum.DrawAreaLayerItemTransform",
 		},
 	},
-	reflect.TypeOf(ChartDataArtifact{}): {
+	reflect.TypeOf(artifacts.ChartDataArtifact{}): {
 		CreateExprOverrides: map[string]string{
 			"id": "createCsvArtifactId()",
 		},
@@ -147,7 +142,7 @@ var artifactReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjectDe
 			"type": "typeof ArtifactTypeEnum.ChartData",
 		},
 	},
-	reflect.TypeOf(FileArtifact{}): {
+	reflect.TypeOf(artifacts.FileArtifact{}): {
 		CreateExprOverrides: map[string]string{
 			"id":    "createFileArtifactId()",
 			"value": "createContentRef()",
@@ -793,12 +788,12 @@ var ownerBackedReflectedObjectDeclarationSpecs = map[reflect.Type]reflectedObjec
 	reflect.TypeOf(SetCodeFileBindingRequestInput{}):            reflectedOptionalPropertiesSpec("frontendOpId"),
 	reflect.TypeOf(httpapi.UpdateArtifactsRequest{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"artifacts": "Array<ArtifactUnion>",
+			"artifacts": "Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>",
 		},
 	},
 	reflect.TypeOf(realtime.UpdateArtifactsContent{}): {
 		PropertyTypeExprOverrides: map[string]string{
-			"artifacts":  "Array<ArtifactUnion>",
+			"artifacts":  "Array<ImageArtifact | BrushStrokeArtifact | DrawAreaLayerItemTransformArtifact | ChartDataArtifact | FileArtifact>",
 			"updateType": `"update" | "delete"`,
 		},
 	},

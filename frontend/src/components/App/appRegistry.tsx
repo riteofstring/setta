@@ -54,7 +54,7 @@ import {
 } from "utils/generatedEndpoints";
 import type {
   DateParamCodeObjImpl,
-  LoadCachedImageArtifactsResponse,
+  ImageArtifact,
   TimeParamCodeObjImpl,
 } from "utils/generatedTypes";
 import {
@@ -144,8 +144,9 @@ const BOX_BACKGROUND_BY_ROLE: Record<string, string> = {
   card: "var(--app-card-bg)",
 };
 
-type LoadCachedImageArtifactsRouteResponse =
-  ResponseDataAndStatus<LoadCachedImageArtifactsResponse>;
+type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
+  Array<ImageArtifact>
+>;
 
 function resolveConfigId(
   bindingConfigId: string | null,

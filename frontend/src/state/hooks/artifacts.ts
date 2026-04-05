@@ -23,22 +23,25 @@ import {
 } from "utils/generatedEndpoints";
 import {
   ArtifactTypeEnum,
-  type LoadCachedBrushStrokesResponse,
-  type LoadCachedChartDataResponse,
-  type LoadCachedDrawAreaLayerItemTransformResponse,
-  type LoadCachedImageArtifactsResponse,
+  type ChartDataArtifact,
+  type ImageArtifact,
+  type JSONArtifact,
   SectionTypeEnum,
 } from "utils/generatedTypes";
 
 type BinaryDownloadRouteResponse = ResponseDataAndStatus<Uint8Array>;
-type LoadCachedImageArtifactsRouteResponse =
-  ResponseDataAndStatus<LoadCachedImageArtifactsResponse>;
-type LoadCachedChartDataRouteResponse =
-  ResponseDataAndStatus<LoadCachedChartDataResponse>;
-type LoadCachedBrushStrokesRouteResponse =
-  ResponseDataAndStatus<LoadCachedBrushStrokesResponse>;
-type LoadCachedDrawAreaLayerItemTransformRouteResponse =
-  ResponseDataAndStatus<LoadCachedDrawAreaLayerItemTransformResponse>;
+type LoadCachedImageArtifactsRouteResponse = ResponseDataAndStatus<
+  Array<ImageArtifact>
+>;
+type LoadCachedChartDataRouteResponse = ResponseDataAndStatus<
+  Array<ChartDataArtifact>
+>;
+type LoadCachedBrushStrokesRouteResponse = ResponseDataAndStatus<
+  Array<JSONArtifact>
+>;
+type LoadCachedDrawAreaLayerItemTransformRouteResponse = ResponseDataAndStatus<
+  Array<JSONArtifact>
+>;
 
 async function loadCachedImages(paths: Array<string>) {
   if (paths.length === 0) {
