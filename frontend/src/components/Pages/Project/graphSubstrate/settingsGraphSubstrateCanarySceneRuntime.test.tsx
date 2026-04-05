@@ -357,7 +357,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     });
   });
 
-  it("keeps scene bounds on the last live size even after node sync clears stale shared dimensions", async () => {
+  it("clears scene bounds once the current section geometry disappears", async () => {
     await act(async () => {
       root.render(
         <SceneRuntimeProbe
@@ -393,12 +393,7 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
 
     await vi.waitFor(() => {
       expect(readSceneSnapshot(host)).toEqual({
-        sceneBounds: {
-          x: 120,
-          y: 80,
-          width: 280,
-          height: 190,
-        },
+        sceneBounds: null,
         sections: [
           {
             height: null,
@@ -662,7 +657,6 @@ describe("useSettingsGraphSubstrateCanarySceneRuntime", () => {
     expect(
       useSettingsGraphSubstrateCanarySceneStore.getState().sceneSnapshot,
     ).toEqual({
-      boundsSizeBySectionId: {},
       sceneBounds: null,
       sections: [],
       sectionsById: new Map(),

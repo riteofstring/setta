@@ -191,9 +191,9 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
     );
   });
 
-  it("fits against the last live bounds size when current scene measurement is temporarily missing", () => {
-    // Validates fit-view can keep using the shared scene-bounds fallback without
-    // reviving stale node size authority in node sync.
+  it("refuses fit view when the current snapshot no longer has authoritative geometry", () => {
+    // Validates fit-view now follows the same current-geometry contract as the
+    // rest of the canary scene runtime instead of reviving stale bounds.
     const section = createSceneSection({
       height: null,
       resolvedSize: null,
@@ -201,10 +201,7 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
     });
     const state = createState({
       sceneSnapshot: {
-        boundsSizeBySectionId: {
-          [section.sectionId]: { width: 280, height: 190 },
-        },
-        sceneBounds: { x: 0, y: 0, width: 280, height: 190 },
+        sceneBounds: null,
         sections: [section],
         sectionsById: new Map([[section.sectionId, section]]),
       },
@@ -222,18 +219,7 @@ describe("settingsGraphSubstrateCanaryViewportController", () => {
       getToolbarZoomViewportBase: () => null,
     });
 
-    expect(controller.fitView()).toBe(true);
-    expect(harness.resolveNextViewport(state.resolvedViewport!)).toEqual(
-      fitViewportToWorldRect(
-        { x: 0, y: 0, width: 280, height: 190 },
-        { width: 680, height: 600 },
-        {
-          minZoom: 0.1,
-          maxZoom: 4,
-          padding: 0.1,
-          centerScreenPoint: { x: 660, y: 300 },
-        },
-      ),
-    );
+    expect(controller.fitView()).toBe(false);
+    expect(harness.applyControlledViewportChange).not.toHaveBeenCalled();
   });
 });

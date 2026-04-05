@@ -75,6 +75,56 @@ Record:
 
 LOOP_TERMINAL_MARKER: none
 
+- Ralph item `212` | 2026-04-05 21:05 EDT
+  - Subtask: remove the canary's carried-forward scene-bounds size cache so scene bounds and `fitView(...)` only use current authoritative geometry.
+  - Why:
+    - item `211` restored unlocked layout fallback size at the model boundary, but the scene runtime still carried `sceneBoundsSizeFallbacksRef` and `boundsSizeBySectionId`
+    - that meant the current canary could keep using last-frame measured DOM size for scene bounds and `fitView(...)` even after the current snapshot and node sync had already dropped size authority
+    - this slice closes the remaining stale measured-size carry-forward in the scene path instead of reopening parity or chrome extraction
+  - Production:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts`
+      - removed `boundsSizeBySectionId` and the stale fallback parameter from `resolveSettingsGraphSubstrateCanarySceneSnapshot(...)`
+      - scene bounds now derive only from each section's current `resolvedSize`
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts`
+      - removed `sceneBoundsSizeFallbacksRef` so the runtime publishes only the current authoritative snapshot
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.ts`
+      - `fitView(...)` now returns `false` when the current target sections have no authoritative geometry instead of reviving stale bounds
+  - Tests:
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts`
+      - now asserts scene bounds drop to `null` when current geometry disappears
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx`
+      - now asserts the runtime clears `sceneBounds` instead of preserving the last measured size after the registry resets
+    - updated `frontend/src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts`
+      - now asserts `fitView(...)` refuses stale geometry instead of applying a viewport from an old measured size
+    - `pnpm -C frontend exec prettier --write src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts` -> passed
+    - `pnpm -C frontend exec vitest run src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneSnapshot.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySceneRuntime.test.tsx src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryViewportController.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanarySectionGeometry.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryBounds.test.ts src/components/Pages/Project/graphSubstrate/settingsGraphSubstrateCanaryNodeSync.test.ts` -> passed (`6 files`, `28 tests`)
+    - `pnpm -C frontend exec tsc --noEmit --pretty false 2>&1 | rg "settingsGraphSubstrateCanarySceneSnapshot(\\.test)?\\.ts|settingsGraphSubstrateCanarySceneRuntime(\\.test)?\\.tsx|settingsGraphSubstrateCanaryViewportController(\\.test)?\\.ts" || true` -> no matches
+  - Runtime verification:
+    - refreshed run-043 runtime info with:
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-043/worktree-ai.log`
+      - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.RNxh3g/run-043/main-ai.log`
+      - result: worktree healthy on `3076/8076` with refreshed bootstrap url and `debugPort: 9297`; read-only `main` healthy on `3087/8087` with refreshed bootstrap url and `debugPort: 9309`
+    - targeted live-runtime Playwright rerun:
+      - `env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_BOOTSTRAP_TOKEN=<fresh run-043 worktree token> SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL=<fresh run-043 main bootstrap url> pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts --grep 'settings graph performance probe measures the normalized rotaryParamCodeObjDefault pan and zoom lane on read-only main legacy and worktree canary' --reporter=line` -> passed (`1 passed`, `39.1s`)
+      - both sides again ended on `x -258.735`, `y -8992.72`, `zoom 1.18577`
+      - reference average frame duration was `16.63968ms`; worktree average frame duration was `16.62600ms`
+      - visible section count stayed `46` on both sides; both sides recorded `0` long tasks
+    - fresh-context CDP sub-agent:
+      - read `docs/guides/browser-mcp-quickstart.md`
+      - result: done
+    - CDP visual check:
+      - result: done
+      - fresh bootstrap tabs rejected the token again, so the compare used the mounted `/settings` sessions
+      - normalized `All Settings` graph surface around `rotaryParamCodeObjDefault` still matched between worktree `3076` and read-only `main` `3087`; remaining differences were surrounding chrome, worktree/main labels, and other non-target section lists outside the target lane
+  - Result:
+    - scene bounds, stored scene snapshot state, and `fitView(...)` now match node sync's current-geometry-only authority rule
+    - unlocked sections still start from project-layout fallback size and can still switch to fresher live measured size
+    - when both layout and current measured size are unavailable, the canary now drops `sceneBounds` to `null` instead of preserving last-frame measured DOM geometry
+  - Next:
+    - if dependency approval remains unavailable, keep the next bounded product slice on remaining canary-local DOM measurement authority or scene-surface ownership preparation rather than another oracle/chrome pass
+    - do not reopen parity-only work unless the broad normalized `rotaryParamCodeObjDefault` lane fails
+LOOP_TERMINAL_MARKER: none
+
 - Ralph item `211` | 2026-04-05 20:54 EDT
   - Subtask: preserve unlocked top-level layout `w/h` as canary fallback geometry so the scene runtime can start from project layout size before measured DOM size arrives.
   - Why:

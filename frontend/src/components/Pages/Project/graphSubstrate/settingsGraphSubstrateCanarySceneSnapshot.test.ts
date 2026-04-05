@@ -111,7 +111,7 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
     });
   });
 
-  it("keeps scene bounds on the last live section size when current fallback measurement drops out", () => {
+  it("drops scene bounds when the current section geometry is no longer available", () => {
     const snapshot = resolveSettingsGraphSubstrateCanarySceneSnapshot(
       [
         {
@@ -127,20 +127,9 @@ describe("settingsGraphSubstrateCanarySceneSnapshot", () => {
       {},
       null,
       null,
-      {
-        "section-a": { width: 280, height: 190 },
-      },
     );
 
     expect(snapshot.sections[0]?.resolvedSize).toBeNull();
-    expect(snapshot.sceneBounds).toEqual({
-      x: 120,
-      y: 80,
-      width: 280,
-      height: 190,
-    });
-    expect(snapshot.boundsSizeBySectionId).toEqual({
-      "section-a": { width: 280, height: 190 },
-    });
+    expect(snapshot.sceneBounds).toBeNull();
   });
 });
