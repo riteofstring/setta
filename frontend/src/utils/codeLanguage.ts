@@ -12,20 +12,11 @@ const BUILTIN_CODE_LANGUAGES = new Set<BuiltinCodeLanguage>(
   Object.values(CodeLanguageEnum),
 );
 
-const RUNNABLE_CODE_LANGUAGES = new Set<BuiltinCodeLanguage>([
-  CodeLanguageEnum.python,
-  CodeLanguageEnum.bash,
-]);
-
 export function toCodeLanguage(language: string): CodeLanguage {
   if (isBuiltinCodeLanguage(language)) {
     return language;
   }
   return language as PluginCodeLanguage;
-}
-
-export function isRunnableCodeLanguage(language: string): boolean {
-  return RUNNABLE_CODE_LANGUAGES.has(language as BuiltinCodeLanguage);
 }
 
 export function isBuiltinCodeLanguage(

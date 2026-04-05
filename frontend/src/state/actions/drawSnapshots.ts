@@ -1,8 +1,9 @@
-import { res200 } from "utils/endpointUtils";
+import { res200, type ResponseDataAndStatus } from "utils/endpointUtils";
 import { route_binary_upload } from "utils/generatedEndpoints";
-import { BinaryContentRef } from "utils/generatedTypes";
+import { ContentRef } from "utils/generatedTypes";
 
 type DrawSnapshotProvider = () => Promise<Blob | null> | Blob | null;
+type BinaryUploadRouteResponse = ResponseDataAndStatus<ContentRef>;
 
 const drawSnapshotProviders = new Map<string, DrawSnapshotProvider>();
 
@@ -19,8 +20,8 @@ export function unregisterDrawSnapshotProvider(sectionId: string): void {
 
 export async function collectDrawSnapshotPayloads(
   sectionIds: string[],
-): Promise<Record<string, BinaryContentRef> | null> {
-  const payloads: Record<string, BinaryContentRef> = {};
+): Promise<Record<string, ContentRef> | null> {
+  const payloads: Record<string, ContentRef> = {};
   const entries = await Promise.all(
     sectionIds.map(async (sectionId) => {
       const provider = drawSnapshotProviders.get(sectionId);
@@ -45,7 +46,7 @@ export async function collectDrawSnapshotPayloads(
       const form = new FormData();
       form.append("file", blob, "snapshot.png");
       form.append("durable", "false");
-      const res = await route_binary_upload(form);
+      const res: BinaryUploadRouteResponse = await route_binary_upload(form);
       if (!res200(res)) {
         return null;
       }
