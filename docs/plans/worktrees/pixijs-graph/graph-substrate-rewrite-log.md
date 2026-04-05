@@ -2183,6 +2183,50 @@ LOOP_TERMINAL_MARKER: none
 - Read-only `main` normalized to `All Settings` too, but that session did not expose the canary surface (`canaryVisible=false`, `viewportVisible=false`); treated as oracle limitation rather than remaining worktree drift.
 - Lane status: widened `drawSectionDefault` post-drop frontmost check is closed; next frontier should move to a different normalized Gate 1 / Gate 2 interaction or motion lane instead of more overlap churn on this section.
 - LOOP_TERMINAL_MARKER: none
+## 2026-04-05 01:06 EDT - Ralph item 144
+
+- Item: Split the shared Browser/task-board top-level drag title-edit probe into one explicit `browserSectionDefault` lane with origin-aware preflight, then verify that named Browser lane on the live run-004 worktree/main surfaces with Playwright plus CDP.
+- Status: `done`
+- Details:
+  - Why this slice was necessary:
+    - the last three completed items were the same parity-hardening shape on different named lanes, so another shared/fallback probe would have been churn instead of a real question-narrowing step
+    - item `143` explicitly pointed at the still-ambiguous shared `browserSectionDefault` / `taskBoardSectionDefault` title-edit drag probe, and that probe could not answer a Browser-specific renderer question while it still selected between sections at runtime
+  - Production/test change:
+    - updated `frontend/tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+      - renamed the lane to explicit Browser coverage
+      - marked the live two-runtime Browser drag lane `test.slow()`
+      - resolved `browserSectionDefault` ids with `findSectionIdByName(...)` on both runtimes instead of `findSharedVisibleTopLevelSectionByName(...)`
+      - replaced the ad hoc `fitGraphViewportToSection(...)` assumption with `runSettingsGraphComparePreflight(...)`
+      - threaded explicit `side: "reference" | "worktree"` through the Browser lane helper so preflight asserts the named Browser target on both runtimes
+  - What this slice established:
+    - the current live Browser ids on run-004 are worktree `e5dace67-ee47-4b47-bec0-6de26a3d3bcc` and reference `55ca0452-65e7-4965-bdb1-33a376855b6d`
+    - rerunning the explicit Browser lane with `SETTA_PROJECT_URL=http://127.0.0.1:3076/crisp_falling` passed on run-004 (`1 passed`, `46.0s`)
+    - a fresh-context CDP sub-agent then opened fresh run-004 pages, normalized both sides to `/settings` + `All Settings`, target-fit `browserSectionDefault`, and found the central Browser section/title layout aligned with no obvious title-edit regression
+    - the only visible drift left on the checked lane was oracle noise: the top-right workspace label differs (`pixijs-graph` vs `main`) and the settings-list ordering is not identical
+- Verification:
+  - formatting:
+    - `pnpm -C frontend exec prettier --write tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+    - `pnpm -C frontend exec prettier --check tests/e2e/settings/settings-view-modes-main-reference.spec.ts`
+  - refreshed run-004 runtime/bootstrap values:
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-004/worktree-ai.log`
+    - `./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-004/main-ai.log`
+  - targeted direct live-runtime Playwright rerun:
+    - `worktree_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta.pixijs-graph/. --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-004/worktree-ai.log)"; main_json="$(./scripts/dev-runtime-info.sh --workspace /Users/jeff/Documents/_projects/setta --runtime-log /var/folders/h8/yx9s_2gs37d50mktlw56975m0000gn/T//codex-loop.bEjb7T/run-004/main-ai.log)"; worktree_token="$(node -e 'const obj=JSON.parse(process.argv[1]); const url=new URL(obj.bootstrapUrl); console.log(url.hash.replace(/^#token=/, \"\"));' "$worktree_json")"; main_bootstrap_url="$(node -e 'const obj=JSON.parse(process.argv[1]); console.log(obj.bootstrapUrl);' "$main_json")"; env BOOTSTRAP_ENABLED=0 DEVTOOLS_OPEN_WITH_CHROME=0 DEVTOOLS_HEADLESS=1 PLAYWRIGHT_HEADLESS=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3076/ SETTA_BACKEND_ORIGIN=http://127.0.0.1:8076 SETTA_PROJECT_URL=http://127.0.0.1:3076/crisp_falling SETTA_BOOTSTRAP_TOKEN="$worktree_token" SETTA_MAIN_REFERENCE_FRONTEND_URL=http://127.0.0.1:3087/ SETTA_MAIN_REFERENCE_BACKEND_ORIGIN=http://127.0.0.1:8087 SETTA_MAIN_REFERENCE_BOOTSTRAP_URL="$main_bootstrap_url" pnpm -C frontend exec playwright test tests/e2e/settings/settings-view-modes-main-reference.spec.ts -g 'settings graph parity probe keeps browser title editing working after normalized top-level drag on read-only main legacy and worktree canary' --reporter=line`
+    - result: passed (`1 passed`, `46.0s`)
+  - live Browser-id cross-check:
+    - `node -e 'const postJson=async(url,origin,body)=>{const resp=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json",Origin:origin,Referer:origin+"/"},body:JSON.stringify(body)});const text=await resp.text();return text?JSON.parse(text):null;}; const getSection=async(baseUrl,origin,sectionName)=>{const load=await postJson(baseUrl+"/api/loadProjectConfig",origin,{projectConfigName:"settings"}); const projectConfigId=load&&load.projectConfig?load.projectConfig.id:null; const state=await postJson(baseUrl+"/api/getLatestProjectState",origin,{projectConfigId}); const entries=Object.entries((state&&state.projectState&&state.projectState.sections)||{}); const match=entries.find(([,section])=>section&&section.name===sectionName); return {projectConfigId, sectionId: match?match[0]:null};}; (async()=>{const result={worktree:await getSection("http://127.0.0.1:8076","http://127.0.0.1:3076","browserSectionDefault"), reference:await getSection("http://127.0.0.1:8087","http://127.0.0.1:3087","browserSectionDefault")}; console.log(JSON.stringify(result,null,2));})().catch((error)=>{console.error(error); process.exit(1);});'`
+    - result: worktree `e5dace67-ee47-4b47-bec0-6de26a3d3bcc`, reference `55ca0452-65e7-4965-bdb1-33a376855b6d`
+  - fresh-context CDP sub-agent:
+    - read `docs/guides/browser-mcp-quickstart.md`
+    - opened fresh run-004 bootstrap pages for live worktree `3076` and read-only main `3087`
+    - moved both to `/settings`, normalized to `All Settings`, target-fit `browserSectionDefault`, and compared the named lane visually without replaying the drag path in CDP
+  - CDP visual check: done (fresh-context run-004 compare on `browserSectionDefault`; after shared normalization, the Browser section/title layout looked aligned and only workspace-label/list-order differences remained as oracle noise)
+- Lane status:
+  - close the checked `browserSectionDefault` top-level drag title-edit lane as clean on the current run-004 surfaces
+  - treat the workspace-label and settings-list ordering differences as oracle noise, not renderer drift
+- Next action:
+  - do not open another shared-section harness lane; revisit the older concrete `browserSectionDefault` authoritative top-level move + targeted fit question on the current live surfaces and either reproduce the compression drift or close that report as stale
+- LOOP_TERMINAL_MARKER: none
 ## 2026-04-04 10:31 EDT - Ralph item 114
 
 - Tightened the shared title-edit-after-pan parity probe to compare the checked section's visible title box, then used a fresh normalized CDP replay to close the remaining backend-placement mismatch as oracle noise instead of landing a speculative renderer fix.

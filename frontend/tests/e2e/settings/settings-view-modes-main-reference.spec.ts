@@ -2187,10 +2187,11 @@ test("settings graph parity probe applies the same short top-level drag delta on
   }
 });
 
-test("settings graph parity probe keeps shared title editing working after normalized top-level drag on read-only main legacy and worktree canary", async ({
+test("settings graph parity probe keeps browser title editing working after normalized top-level drag on read-only main legacy and worktree canary", async ({
   context,
   page,
 }) => {
+  test.slow();
   test.skip(
     !MAIN_REFERENCE_FRONTEND_URL ||
       !MAIN_REFERENCE_BACKEND_ORIGIN ||
@@ -2232,26 +2233,28 @@ test("settings graph parity probe keeps shared title editing working after norma
     worktreeInitialState,
     "All Settings",
   );
+  const browserSectionName = "browserSectionDefault";
   const referenceAllSettingsViewModeId = findViewModeId(
     referenceInitialState,
     "All Settings",
   );
+  const worktreeBrowserSectionId = findSectionIdByName(
+    worktreeInitialState,
+    browserSectionName,
+  );
+  const referenceBrowserSectionId = findSectionIdByName(
+    referenceInitialState,
+    browserSectionName,
+  );
   const initialWorktreePaneState = await getLocalPaneState(page);
   const initialReferencePaneState = await getLocalPaneState(referencePage);
-  const sharedSection = findSharedVisibleTopLevelSectionByName({
-    preferredNames: ["browserSectionDefault", "taskBoardSectionDefault"],
-    referenceState: referenceInitialState,
-    viewModeName: "All Settings",
-    worktreeState: worktreeInitialState,
-  });
   const dragDelta = { x: 120, y: 80 };
   const referenceOriginalTitle =
-    referenceInitialState.projectState.sections[
-      sharedSection.referenceSectionId
-    ]?.name ?? sharedSection.name;
+    referenceInitialState.projectState.sections[referenceBrowserSectionId]
+      ?.name ?? browserSectionName;
   const worktreeOriginalTitle =
-    worktreeInitialState.projectState.sections[sharedSection.worktreeSectionId]
-      ?.name ?? sharedSection.name;
+    worktreeInitialState.projectState.sections[worktreeBrowserSectionId]
+      ?.name ?? browserSectionName;
 
   async function captureTitleEditAfterDrag(args: {
     activeViewModeId: string;
@@ -2264,6 +2267,7 @@ test("settings graph parity probe keeps shared title editing working after norma
     pageTab: Locator;
     projectConfigId: string;
     sectionId: string;
+    side: "reference" | "worktree";
     targetPage: Page;
   }) {
     await restoreInitialViewModeLayout({
@@ -2305,9 +2309,20 @@ test("settings graph parity probe keeps shared title editing working after norma
 
     await normalizeSettingsGraphComparePaneState(args.targetPage);
     await setDurableActiveSectionIds(args.targetPage, []);
-    expect(
-      await fitGraphViewportToSection(args.targetPage, args.sectionId),
-    ).toBe(true);
+    const preflight = await runSettingsGraphComparePreflight({
+      backendOrigin: args.backendOrigin,
+      expectedSurfaceKind: args.expectedSurfaceKind,
+      expectedViewModeName: "All Settings",
+      frontendOrigin: args.frontendOrigin,
+      page: args.targetPage,
+      projectConfigId: args.projectConfigId,
+      requireFitView: true,
+      side: args.side,
+      targetSectionName: browserSectionName,
+    });
+    expect(preflight.status).toBe("ok");
+    expect(preflight.issues).toEqual([]);
+    expect(preflight.targetSectionId).toBe(args.sectionId);
     await clearSettingsGraphFocusedEditableTarget(args.targetPage);
 
     await expect
@@ -2477,7 +2492,8 @@ test("settings graph parity probe keeps shared title editing working after norma
         name: "All Settings",
       }),
       projectConfigId: referenceProjectConfigId,
-      sectionId: sharedSection.referenceSectionId,
+      sectionId: referenceBrowserSectionId,
+      side: "reference",
       targetPage: referencePage,
     });
     const worktreeResult = await captureTitleEditAfterDrag({
@@ -2493,7 +2509,8 @@ test("settings graph parity probe keeps shared title editing working after norma
         name: "All Settings",
       }),
       projectConfigId: worktreeProjectConfigId,
-      sectionId: sharedSection.worktreeSectionId,
+      sectionId: worktreeBrowserSectionId,
+      side: "worktree",
       targetPage: page,
     });
 
@@ -2560,7 +2577,7 @@ test("settings graph parity probe keeps shared title editing working after norma
       name: worktreeOriginalTitle,
       page,
       projectConfigId: worktreeProjectConfigId,
-      sectionId: sharedSection.worktreeSectionId,
+      sectionId: worktreeBrowserSectionId,
     }).catch(() => {});
     await restoreSectionNameForPage({
       backendOrigin: MAIN_REFERENCE_BACKEND_ORIGIN,
@@ -2568,7 +2585,7 @@ test("settings graph parity probe keeps shared title editing working after norma
       name: referenceOriginalTitle,
       page: referencePage,
       projectConfigId: referenceProjectConfigId,
-      sectionId: sharedSection.referenceSectionId,
+      sectionId: referenceBrowserSectionId,
     }).catch(() => {});
     await restoreInitialViewModeLayout({
       activeViewModeId: worktreeAllSettingsViewModeId,
